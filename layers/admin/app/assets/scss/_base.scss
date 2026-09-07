@@ -1,0 +1,21 @@
+body {
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  color: var(--color-text);
+  background: var(--color-bg);
+}
+
+a {
+  color: var(--color-primary);
+}
+
+.u-measure {
+  max-width: var(--content-measure);
+  margin-inline: auto;
+}
+
+.u-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}

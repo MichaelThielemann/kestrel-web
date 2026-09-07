@@ -1,0 +1,11 @@
+allowBuilds:
+  esbuild: true
+  "@parcel/watcher": true
+  unrs-resolver: true
+  vue-demi: false
+  sharp: true
+minimumReleaseAgeExclude:
+  - '@michaelthielemann/*'
+packages:
+  - playground
+  - packages/*

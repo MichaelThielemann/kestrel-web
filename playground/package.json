@@ -1,0 +1,6 @@
+{
+  "name": "kestrel-web-playground",
+  "private": true,
+  "type": "module",
+  "scripts": { "dev": "nuxt dev", "build": "nuxt build", "preview": "nuxt preview" }
+}

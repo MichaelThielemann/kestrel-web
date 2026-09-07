@@ -1,0 +1,393 @@
+[
+  {
+    "name": "settings",
+    "mode": "single",
+    "translatable": true,
+    "pageLike": false,
+    "seo": false,
+    "status": false,
+    "layoutField": false,
+    "blocks": {
+      "enabled": false
+    },
+    "editor": "fields",
+    "nav": true,
+    "placement": "system",
+    "label": {
+      "singular": {
+        "en": "Settings",
+        "de": "Einstellungen"
+      },
+      "plural": {
+        "en": "Settings",
+        "de": "Einstellungen"
+      }
+    },
+    "icon": "settings",
+    "fields": {
+      "title": {
+        "required": true,
+        "unique": false,
+        "localized": true,
+        "type": "text"
+      },
+      "navigation": {
+        "required": false,
+        "unique": false,
+        "localized": true,
+        "type": "json"
+      }
+    },
+    "fieldLayout": [
+      {
+        "kind": "row",
+        "fields": [
+          "title"
+        ],
+        "tracks": [
+          1
+        ]
+      },
+      {
+        "kind": "row",
+        "fields": [
+          "navigation"
+        ],
+        "tracks": [
+          1
+        ]
+      }
+    ],
+    "actions": []
+  },
+  {
+    "name": "redirects",
+    "mode": "single",
+    "translatable": false,
+    "pageLike": false,
+    "seo": false,
+    "status": false,
+    "layoutField": false,
+    "blocks": {
+      "enabled": false
+    },
+    "editor": "fields",
+    "nav": true,
+    "placement": "system",
+    "label": {
+      "singular": {
+        "en": "Redirects",
+        "de": "Weiterleitungen"
+      },
+      "plural": {
+        "en": "Redirects",
+        "de": "Weiterleitungen"
+      }
+    },
+    "icon": "link-2",
+    "fields": {
+      "rules": {
+        "required": false,
+        "unique": false,
+        "localized": false,
+        "type": "json"
+      }
+    },
+    "fieldLayout": [
+      {
+        "kind": "row",
+        "fields": [
+          "rules"
+        ],
+        "tracks": [
+          1
+        ]
+      }
+    ],
+    "actions": []
+  },
+  {
+    "name": "pages",
+    "mode": "multi",
+    "translatable": true,
+    "pageLike": true,
+    "seo": false,
+    "status": true,
+    "layoutField": false,
+    "blocks": {
+      "enabled": true
+    },
+    "editor": "blocks",
+    "nav": true,
+    "placement": "rail",
+    "label": {
+      "singular": {
+        "en": "Page",
+        "de": "Seite"
+      },
+      "plural": {
+        "en": "Pages",
+        "de": "Seiten"
+      }
+    },
+    "icon": "file-text",
+    "fields": {
+      "slug": {
+        "required": true,
+        "unique": true,
+        "localized": true,
+        "type": "slug"
+      },
+      "title": {
+        "required": true,
+        "unique": false,
+        "localized": true,
+        "type": "text"
+      },
+      "body": {
+        "required": false,
+        "unique": false,
+        "localized": true,
+        "type": "json"
+      },
+      "status": {
+        "required": true,
+        "unique": false,
+        "localized": true,
+        "type": "choice",
+        "options": {
+          "choices": [
+            {
+              "value": "draft",
+              "label": "draft"
+            },
+            {
+              "value": "finished",
+              "label": "finished"
+            },
+            {
+              "value": "published",
+              "label": "published"
+            }
+          ],
+          "display": "select"
+        }
+      }
+    },
+    "fieldLayout": [
+      {
+        "kind": "row",
+        "fields": [
+          "slug"
+        ],
+        "tracks": [
+          1
+        ]
+      },
+      {
+        "kind": "row",
+        "fields": [
+          "title"
+        ],
+        "tracks": [
+          1
+        ]
+      },
+      {
+        "kind": "row",
+        "fields": [
+          "status"
+        ],
+        "tracks": [
+          1
+        ]
+      }
+    ],
+    "actions": []
+  },
+  {
+    "name": "news",
+    "mode": "multi",
+    "translatable": true,
+    "pageLike": false,
+    "seo": false,
+    "status": true,
+    "layoutField": false,
+    "blocks": {
+      "enabled": false
+    },
+    "editor": "fields",
+    "nav": true,
+    "placement": "rail",
+    "label": {
+      "singular": {
+        "en": "News item",
+        "de": "Meldung"
+      },
+      "plural": {
+        "en": "News",
+        "de": "Meldungen"
+      }
+    },
+    "icon": "newspaper",
+    "fields": {
+      "title": {
+        "required": true,
+        "unique": false,
+        "localized": true,
+        "type": "text"
+      },
+      "body": {
+        "required": false,
+        "unique": false,
+        "localized": true,
+        "type": "json"
+      },
+      "status": {
+        "required": true,
+        "unique": false,
+        "localized": true,
+        "type": "choice",
+        "options": {
+          "choices": [
+            {
+              "value": "draft",
+              "label": "draft"
+            },
+            {
+              "value": "finished",
+              "label": "finished"
+            },
+            {
+              "value": "published",
+              "label": "published"
+            }
+          ],
+          "display": "select"
+        }
+      }
+    },
+    "fieldLayout": [
+      {
+        "kind": "row",
+        "fields": [
+          "title"
+        ],
+        "tracks": [
+          1
+        ]
+      },
+      {
+        "kind": "row",
+        "fields": [
+          "body"
+        ],
+        "tracks": [
+          1
+        ]
+      },
+      {
+        "kind": "row",
+        "fields": [
+          "status"
+        ],
+        "tracks": [
+          1
+        ]
+      }
+    ],
+    "actions": []
+  },
+  {
+    "name": "profile",
+    "mode": "single",
+    "translatable": true,
+    "pageLike": false,
+    "seo": false,
+    "status": false,
+    "layoutField": false,
+    "blocks": {
+      "enabled": false
+    },
+    "editor": "fields",
+    "nav": true,
+    "placement": "system",
+    "label": {
+      "singular": {
+        "en": "Profile",
+        "de": "Profil"
+      },
+      "plural": {
+        "en": "Profile",
+        "de": "Profil"
+      }
+    },
+    "icon": "user",
+    "fields": {
+      "bio": {
+        "required": false,
+        "unique": false,
+        "localized": true,
+        "type": "text"
+      }
+    },
+    "fieldLayout": [
+      {
+        "kind": "row",
+        "fields": [
+          "bio"
+        ],
+        "tracks": [
+          1
+        ]
+      }
+    ],
+    "actions": []
+  },
+  {
+    "name": "notifications",
+    "mode": "single",
+    "translatable": false,
+    "pageLike": false,
+    "seo": false,
+    "status": false,
+    "layoutField": false,
+    "blocks": {
+      "enabled": false
+    },
+    "editor": "fields",
+    "nav": true,
+    "placement": "account",
+    "label": {
+      "singular": {
+        "en": "Notifications",
+        "de": "Benachrichtigungen"
+      },
+      "plural": {
+        "en": "Notifications",
+        "de": "Benachrichtigungen"
+      }
+    },
+    "icon": "bell",
+    "fields": {
+      "emailDigest": {
+        "required": false,
+        "unique": false,
+        "localized": false,
+        "type": "boolean"
+      }
+    },
+    "fieldLayout": [
+      {
+        "kind": "row",
+        "fields": [
+          "emailDigest"
+        ],
+        "tracks": [
+          1
+        ]
+      }
+    ],
+    "actions": []
+  }
+]

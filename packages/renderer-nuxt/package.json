@@ -1,0 +1,20 @@
+{
+  "name": "@michaelthielemann/kestrel-renderer-nuxt",
+  "version": "0.1.0",
+  "description": "renderer@1 backed by the running Nuxt app: renders a page through Nitro's localFetch and ships the build assets it references.",
+  "type": "module",
+  "license": "MIT",
+  "engines": { "node": ">=22" },
+  "exports": { ".": "./index.ts", "./impl": "./impl.ts", "./registry": "./registry.ts" },
+  "files": ["index.ts", "module.ts", "impl.ts", "registry.ts", "README.md"],
+  "peerDependencies": {
+    "@michaelthielemann/kestrel": "*",
+    "@michaelthielemann/kestrel-contracts": "*"
+  },
+  "dependencies": { "zod": "^3.23.8" },
+  "devDependencies": {
+    "@michaelthielemann/kestrel": "^5.0.3",
+    "@michaelthielemann/kestrel-contracts": "^5.0.3",
+    "vitest": "^3.2.0"
+  }
+}
