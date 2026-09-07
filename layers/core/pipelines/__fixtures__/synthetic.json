@@ -1,0 +1,507 @@
+{
+  "pipelines": {
+    "activateUser": [
+      "authn.requireUser",
+      "authz.require:users.manage",
+      "authn.activateUser"
+    ],
+    "applyMigrations": [
+      "authn.requireUser",
+      "authz.require:migrations.manage",
+      "migrations.apply"
+    ],
+    "changePassword": [
+      "authn.requireUser",
+      "authn.changePassword"
+    ],
+    "cleanupSessions": [
+      "authn.cleanupSessions"
+    ],
+    "createMediaFolder": [
+      "authn.requireUser",
+      "authz.require:media.write",
+      "media.createFolder"
+    ],
+    "createNews": [
+      "authn.requireUser",
+      "authz.require:news.write",
+      "validate.check:news.body",
+      "validate.sanitize:news.body",
+      "validate.check:news.body",
+      "content.create:news",
+      "events.emit:news.created"
+    ],
+    "createPage": [
+      "authn.requireUser",
+      "authz.require:pages.write",
+      "validate.check:pages.body",
+      "validate.sanitize:pages.body",
+      "validate.check:pages.body",
+      "content.create:pages",
+      "events.emit:page.created"
+    ],
+    "createUser": [
+      "authn.requireUser",
+      "authz.require:users.manage",
+      "authn.createUser",
+      "events.emit:user.created"
+    ],
+    "deactivateUser": [
+      "authn.requireUser",
+      "authz.require:users.manage",
+      "authn.deactivateUser",
+      "events.emit:user.deactivated"
+    ],
+    "deleteMedia": [
+      "authn.requireUser",
+      "authz.require:media.delete",
+      "media.remove",
+      "events.emit:media.deleted"
+    ],
+    "deleteMediaFolder": [
+      "authn.requireUser",
+      "authz.require:media.delete",
+      "media.folderItems",
+      "media.removeFolder"
+    ],
+    "deleteNews": [
+      "authn.requireUser",
+      "authz.require:news.delete",
+      "content.remove:news",
+      "events.emit:news.deleted"
+    ],
+    "deleteNewsTranslation": [
+      "authn.requireUser",
+      "authz.require:news.write",
+      "content.removeTranslation:news",
+      "events.emit:news.translationRemoved"
+    ],
+    "deletePage": [
+      "authn.requireUser",
+      "authz.require:pages.delete",
+      "content.remove:pages",
+      "events.emit:page.deleted"
+    ],
+    "deletePageTranslation": [
+      "authn.requireUser",
+      "authz.require:pages.write",
+      "content.removeTranslation:pages",
+      "events.emit:page.translationRemoved"
+    ],
+    "downloadMedia": [
+      "authn.identifyUser",
+      "authz.require:media.read",
+      "media.download"
+    ],
+    "exportMedia": [
+      "authn.requireUser",
+      "authz.require:media.manage",
+      "media.export:<exportDir>"
+    ],
+    "getMedia": [
+      "authn.identifyUser",
+      "authz.require:media.read",
+      "media.get"
+    ],
+    "getNotifications": [
+      "authn.identifyUser",
+      "authz.require:notifications.read",
+      "content.get:notifications"
+    ],
+    "getProfile": [
+      "authn.identifyUser",
+      "authz.require:profile.read",
+      "content.get:profile"
+    ],
+    "getRedirects": [
+      "authn.identifyUser",
+      "authz.require:redirects.read",
+      "content.get:redirects"
+    ],
+    "getSettings": [
+      "authn.identifyUser",
+      "authz.require:settings.read",
+      "content.get:settings",
+      "site.resolveLinks:settings?home=home&status=published&fallback=true"
+    ],
+    "getUser": [
+      "authn.requireUser",
+      "authz.require:users.manage",
+      "authn.getUser"
+    ],
+    "listAllNews": [
+      "authn.requireUser",
+      "authz.require:news.manage",
+      "content.list:news"
+    ],
+    "listAllPages": [
+      "authn.requireUser",
+      "authz.require:pages.manage",
+      "content.list:pages"
+    ],
+    "listMedia": [
+      "authn.identifyUser",
+      "authz.require:media.read",
+      "media.list"
+    ],
+    "listMediaFolders": [
+      "authn.identifyUser",
+      "authz.require:media.read",
+      "media.listFolders"
+    ],
+    "listMigrations": [
+      "authn.requireUser",
+      "authz.require:migrations.manage",
+      "migrations.list"
+    ],
+    "listNews": [
+      "authn.identifyUser",
+      "authz.require:news.read",
+      "content.list:news?status=published"
+    ],
+    "listPages": [
+      "authn.identifyUser",
+      "authz.require:pages.read",
+      "content.list:pages?status=published"
+    ],
+    "listUsers": [
+      "authn.requireUser",
+      "authz.require:users.manage",
+      "authn.listUsers"
+    ],
+    "login": [
+      "authn.login",
+      "events.emit:auth.loggedIn"
+    ],
+    "logout": [
+      "authn.requireUser",
+      "authn.logout",
+      "events.emit:auth.loggedOut"
+    ],
+    "me": [
+      "authn.requireUser",
+      "authn.loadIdentity"
+    ],
+    "readAnyNews": [
+      "authn.requireUser",
+      "authz.require:news.manage",
+      "content.get:news"
+    ],
+    "readAnyPage": [
+      "authn.requireUser",
+      "authz.require:pages.manage",
+      "content.get:pages"
+    ],
+    "readNews": [
+      "authn.identifyUser",
+      "authz.require:news.read",
+      "content.get:news?status=published"
+    ],
+    "readPage": [
+      "authn.identifyUser",
+      "authz.require:pages.read",
+      "content.get:pages?status=published"
+    ],
+    "reconcileMedia": [
+      "media.reconcile"
+    ],
+    "reconcileMediaDelete": [
+      "authn.requireUser",
+      "authz.require:media.manage",
+      "media.reconcileDelete"
+    ],
+    "reconcileMediaReport": [
+      "authn.requireUser",
+      "authz.require:media.manage",
+      "media.reconcile"
+    ],
+    "renameMediaFolder": [
+      "authn.requireUser",
+      "authz.require:media.write",
+      "media.renameFolder"
+    ],
+    "renderRedirects": [
+      "redirects.render"
+    ],
+    "resolvePage": [
+      "authn.identifyUser",
+      "authz.require:pages.read",
+      "redirects.lookup",
+      "site.resolve:pages?home=home&status=published&fallback=true",
+      "site.resolveLinks:pages?home=home&status=published&fallback=true"
+    ],
+    "setNotifications": [
+      "authn.requireUser",
+      "authz.require:notifications.write",
+      "content.set:notifications"
+    ],
+    "setPassword": [
+      "authn.requireUser",
+      "authz.require:users.manage",
+      "authn.setPassword"
+    ],
+    "setProfile": [
+      "authn.requireUser",
+      "authz.require:profile.write",
+      "content.set:profile"
+    ],
+    "setRedirects": [
+      "authn.requireUser",
+      "authz.require:redirects.write",
+      "validate.check:redirects.rules",
+      "redirects.validate",
+      "content.set:redirects",
+      "redirects.export"
+    ],
+    "setSettings": [
+      "authn.requireUser",
+      "authz.require:settings.write",
+      "validate.check:settings.navigation",
+      "content.set:settings"
+    ],
+    "updateMedia": [
+      "authn.requireUser",
+      "authz.require:media.write",
+      "media.update",
+      "events.emit:media.updated"
+    ],
+    "updateNews": [
+      "authn.requireUser",
+      "authz.require:news.write",
+      "validate.check:news.body",
+      "validate.sanitize:news.body",
+      "validate.check:news.body",
+      "content.update:news",
+      "events.emit:news.updated"
+    ],
+    "updatePage": [
+      "authn.requireUser",
+      "authz.require:pages.write",
+      "validate.check:pages.body",
+      "validate.sanitize:pages.body",
+      "validate.check:pages.body",
+      "content.update:pages",
+      "events.emit:page.updated"
+    ],
+    "uploadMedia": [
+      "authn.requireUser",
+      "authz.require:media.write",
+      "media.upload",
+      "events.emit:media.uploaded"
+    ]
+  },
+  "triggers": [
+    {
+      "http": "POST /login",
+      "pipeline": "login"
+    },
+    {
+      "http": "POST /logout",
+      "pipeline": "logout"
+    },
+    {
+      "http": "GET /me",
+      "pipeline": "me"
+    },
+    {
+      "http": "POST /me/password",
+      "pipeline": "changePassword"
+    },
+    {
+      "http": "GET /users",
+      "pipeline": "listUsers"
+    },
+    {
+      "http": "POST /users",
+      "pipeline": "createUser"
+    },
+    {
+      "http": "GET /users/:id",
+      "pipeline": "getUser"
+    },
+    {
+      "http": "PUT /users/:id/password",
+      "pipeline": "setPassword"
+    },
+    {
+      "http": "DELETE /users/:id",
+      "pipeline": "deactivateUser"
+    },
+    {
+      "http": "POST /users/:id/activate",
+      "pipeline": "activateUser"
+    },
+    {
+      "http": "GET /settings",
+      "pipeline": "getSettings"
+    },
+    {
+      "http": "PUT /settings",
+      "pipeline": "setSettings"
+    },
+    {
+      "http": "GET /redirects",
+      "pipeline": "getRedirects"
+    },
+    {
+      "http": "PUT /redirects",
+      "pipeline": "setRedirects"
+    },
+    {
+      "http": "GET /redirects.json",
+      "pipeline": "renderRedirects"
+    },
+    {
+      "http": "GET /site/*path",
+      "pipeline": "resolvePage"
+    },
+    {
+      "http": "GET /pages",
+      "pipeline": "listPages"
+    },
+    {
+      "http": "GET /admin/pages",
+      "pipeline": "listAllPages"
+    },
+    {
+      "http": "GET /admin/pages/:id",
+      "pipeline": "readAnyPage"
+    },
+    {
+      "http": "GET /pages/:id",
+      "pipeline": "readPage"
+    },
+    {
+      "http": "POST /pages",
+      "pipeline": "createPage"
+    },
+    {
+      "http": "PATCH /pages/:id",
+      "pipeline": "updatePage"
+    },
+    {
+      "http": "DELETE /pages/:id",
+      "pipeline": "deletePage"
+    },
+    {
+      "http": "DELETE /pages/:id/translations/:locale",
+      "pipeline": "deletePageTranslation"
+    },
+    {
+      "http": "POST /media",
+      "pipeline": "uploadMedia"
+    },
+    {
+      "http": "POST /admin/media/export",
+      "pipeline": "exportMedia"
+    },
+    {
+      "http": "POST /admin/media/reconcile",
+      "pipeline": "reconcileMediaReport"
+    },
+    {
+      "http": "POST /admin/media/reconcile/delete",
+      "pipeline": "reconcileMediaDelete"
+    },
+    {
+      "http": "GET /media/folders",
+      "pipeline": "listMediaFolders"
+    },
+    {
+      "http": "POST /media/folders",
+      "pipeline": "createMediaFolder"
+    },
+    {
+      "http": "PATCH /media/folders/*path",
+      "pipeline": "renameMediaFolder"
+    },
+    {
+      "http": "DELETE /media/folders/*path",
+      "pipeline": "deleteMediaFolder"
+    },
+    {
+      "http": "GET /media",
+      "pipeline": "listMedia"
+    },
+    {
+      "http": "GET /media/:id",
+      "pipeline": "getMedia"
+    },
+    {
+      "http": "GET /media/:id/file",
+      "pipeline": "downloadMedia"
+    },
+    {
+      "http": "PATCH /media/:id",
+      "pipeline": "updateMedia"
+    },
+    {
+      "http": "DELETE /media/:id",
+      "pipeline": "deleteMedia"
+    },
+    {
+      "http": "GET /admin/migrations",
+      "pipeline": "listMigrations"
+    },
+    {
+      "http": "POST /admin/migrations/apply",
+      "pipeline": "applyMigrations"
+    },
+    {
+      "cron": "0 * * * *",
+      "pipeline": "cleanupSessions"
+    },
+    {
+      "cron": "30 3 * * *",
+      "pipeline": "reconcileMedia"
+    },
+    {
+      "http": "GET /news",
+      "pipeline": "listNews"
+    },
+    {
+      "http": "GET /admin/news",
+      "pipeline": "listAllNews"
+    },
+    {
+      "http": "GET /admin/news/:id",
+      "pipeline": "readAnyNews"
+    },
+    {
+      "http": "GET /news/:id",
+      "pipeline": "readNews"
+    },
+    {
+      "http": "POST /news",
+      "pipeline": "createNews"
+    },
+    {
+      "http": "PATCH /news/:id",
+      "pipeline": "updateNews"
+    },
+    {
+      "http": "DELETE /news/:id",
+      "pipeline": "deleteNews"
+    },
+    {
+      "http": "DELETE /news/:id/translations/:locale",
+      "pipeline": "deleteNewsTranslation"
+    },
+    {
+      "http": "GET /profile",
+      "pipeline": "getProfile"
+    },
+    {
+      "http": "PUT /profile",
+      "pipeline": "setProfile"
+    },
+    {
+      "http": "GET /notifications",
+      "pipeline": "getNotifications"
+    },
+    {
+      "http": "PUT /notifications",
+      "pipeline": "setNotifications"
+    }
+  ]
+}

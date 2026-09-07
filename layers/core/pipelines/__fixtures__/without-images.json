@@ -1,0 +1,562 @@
+{
+  "pipelines": {
+    "activateUser": [
+      "authn.requireUser",
+      "authz.require:users.manage",
+      "authn.activateUser"
+    ],
+    "auditAuth": [
+      "audit.record"
+    ],
+    "brokenLinks": [
+      "authn.requireUser",
+      "authz.require:pages.manage",
+      "links.report"
+    ],
+    "brokenReferences": [
+      "authn.requireUser",
+      "authz.require:pages.manage",
+      "references.report"
+    ],
+    "changePassword": [
+      "authn.requireUser",
+      "authn.changePassword"
+    ],
+    "checkLinks": [
+      "links.check"
+    ],
+    "cleanupSessions": [
+      "authn.cleanupSessions"
+    ],
+    "createMediaFolder": [
+      "authn.requireUser",
+      "authz.require:media.write",
+      "media.createFolder"
+    ],
+    "createPage": [
+      "authn.requireUser",
+      "authz.require:pages.write",
+      "validate.check:pages.body",
+      "validate.sanitize:pages.body",
+      "validate.check:pages.body",
+      "references.check:pages",
+      "content.create:pages",
+      "references.index:pages",
+      "links.extract:pages",
+      "delivery.publish:pages",
+      "delivery.exportLlms",
+      "events.emit:page.created"
+    ],
+    "createUser": [
+      "authn.requireUser",
+      "authz.require:users.manage",
+      "authn.createUser",
+      "events.emit:user.created"
+    ],
+    "deactivateUser": [
+      "authn.requireUser",
+      "authz.require:users.manage",
+      "authn.deactivateUser",
+      "events.emit:user.deactivated"
+    ],
+    "deleteMedia": [
+      "authn.requireUser",
+      "authz.require:media.delete",
+      "references.guard:media",
+      "media.remove",
+      "events.emit:media.deleted"
+    ],
+    "deleteMediaFolder": [
+      "authn.requireUser",
+      "authz.require:media.delete",
+      "media.folderItems",
+      "references.guardAll:media",
+      "media.removeFolder"
+    ],
+    "deletePage": [
+      "authn.requireUser",
+      "authz.require:pages.delete",
+      "references.guard:pages",
+      "content.remove:pages",
+      "references.unindex:pages",
+      "links.unextract:pages",
+      "delivery.unpublish:pages",
+      "delivery.exportLlms",
+      "events.emit:page.deleted"
+    ],
+    "deletePageTranslation": [
+      "authn.requireUser",
+      "authz.require:pages.write",
+      "content.removeTranslation:pages",
+      "references.index:pages",
+      "links.extract:pages",
+      "delivery.publish:pages",
+      "delivery.exportLlms",
+      "events.emit:page.translationRemoved"
+    ],
+    "downloadMedia": [
+      "authn.identifyUser",
+      "authz.require:media.read",
+      "media.download"
+    ],
+    "exportMedia": [
+      "authn.requireUser",
+      "authz.require:media.manage",
+      "media.export:<exportDir>"
+    ],
+    "getMedia": [
+      "authn.identifyUser",
+      "authz.require:media.read",
+      "media.get"
+    ],
+    "getRedirects": [
+      "authn.identifyUser",
+      "authz.require:redirects.read",
+      "content.get:redirects"
+    ],
+    "getSettings": [
+      "authn.identifyUser",
+      "authz.require:settings.read",
+      "content.get:settings",
+      "site.resolveLinks:settings?home=home&status=published&fallback=true"
+    ],
+    "getUser": [
+      "authn.requireUser",
+      "authz.require:users.manage",
+      "authn.getUser"
+    ],
+    "listAllPages": [
+      "authn.requireUser",
+      "authz.require:pages.manage",
+      "content.list:pages"
+    ],
+    "listMedia": [
+      "authn.identifyUser",
+      "authz.require:media.read",
+      "media.list"
+    ],
+    "listMediaFolders": [
+      "authn.identifyUser",
+      "authz.require:media.read",
+      "media.listFolders"
+    ],
+    "listPages": [
+      "authn.identifyUser",
+      "authz.require:pages.read",
+      "content.list:pages?status=published"
+    ],
+    "listUsers": [
+      "authn.requireUser",
+      "authz.require:users.manage",
+      "authn.listUsers"
+    ],
+    "login": [
+      "ratelimit.check:login",
+      "authn.login",
+      "events.emit:auth.loggedIn"
+    ],
+    "logout": [
+      "authn.requireUser",
+      "authn.logout",
+      "events.emit:auth.loggedOut"
+    ],
+    "me": [
+      "authn.requireUser",
+      "authn.loadIdentity"
+    ],
+    "mediaReferrers": [
+      "authn.requireUser",
+      "authz.require:pages.manage",
+      "references.referrers:media"
+    ],
+    "mediaReferrersMany": [
+      "authn.requireUser",
+      "authz.require:pages.manage",
+      "references.referrersMany:media"
+    ],
+    "pagePublishStatus": [
+      "authn.requireUser",
+      "authz.require:pages.manage",
+      "delivery.readStatus:pages"
+    ],
+    "pageReferrers": [
+      "authn.requireUser",
+      "authz.require:pages.manage",
+      "references.referrers:pages"
+    ],
+    "pageReferrersMany": [
+      "authn.requireUser",
+      "authz.require:pages.manage",
+      "references.referrersMany:pages"
+    ],
+    "publishAllPages": [
+      "authn.requireUser",
+      "authz.require:pages.manage",
+      "delivery.publishAll:pages",
+      "delivery.exportLlms",
+      "redirects.export"
+    ],
+    "readAnyPage": [
+      "authn.requireUser",
+      "authz.require:pages.manage",
+      "content.get:pages"
+    ],
+    "readPage": [
+      "authn.identifyUser",
+      "authz.require:pages.read",
+      "content.get:pages?status=published"
+    ],
+    "rebuildLinks": [
+      "authn.requireUser",
+      "authz.require:pages.manage",
+      "links.rebuild"
+    ],
+    "rebuildReferences": [
+      "authn.requireUser",
+      "authz.require:pages.manage",
+      "references.rebuild"
+    ],
+    "reconcileMedia": [
+      "media.reconcile"
+    ],
+    "reconcileMediaDelete": [
+      "authn.requireUser",
+      "authz.require:media.manage",
+      "media.reconcileDelete"
+    ],
+    "reconcileMediaReport": [
+      "authn.requireUser",
+      "authz.require:media.manage",
+      "media.reconcile"
+    ],
+    "renameMediaFolder": [
+      "authn.requireUser",
+      "authz.require:media.write",
+      "media.renameFolder"
+    ],
+    "renderRedirects": [
+      "redirects.render"
+    ],
+    "replicate": [
+      "replication.sync"
+    ],
+    "replicationPoints": [
+      "authn.requireUser",
+      "authz.require:system.manage",
+      "replication.listPoints"
+    ],
+    "replicationRestore": [
+      "authn.requireUser",
+      "authz.require:system.manage",
+      "replication.prepareRestore"
+    ],
+    "replicationSnapshot": [
+      "authn.requireUser",
+      "authz.require:system.manage",
+      "replication.snapshot"
+    ],
+    "replicationStatus": [
+      "authn.requireUser",
+      "authz.require:system.manage",
+      "replication.readStatus"
+    ],
+    "resolvePage": [
+      "authn.identifyUser",
+      "authz.require:pages.read",
+      "redirects.lookup",
+      "site.resolve:pages?home=home&status=published&fallback=true",
+      "site.resolveLinks:pages?home=home&status=published&fallback=true"
+    ],
+    "scanReferences": [
+      "references.scan"
+    ],
+    "setPassword": [
+      "authn.requireUser",
+      "authz.require:users.manage",
+      "authn.setPassword"
+    ],
+    "setRedirects": [
+      "authn.requireUser",
+      "authz.require:redirects.write",
+      "validate.check:redirects.rules",
+      "redirects.validate",
+      "content.set:redirects",
+      "redirects.export"
+    ],
+    "setSettings": [
+      "authn.requireUser",
+      "authz.require:settings.write",
+      "validate.check:settings.navigation",
+      "content.set:settings",
+      "delivery.exportLlms"
+    ],
+    "sweepRateLimits": [
+      "ratelimit.sweep"
+    ],
+    "updateMedia": [
+      "authn.requireUser",
+      "authz.require:media.write",
+      "media.update",
+      "events.emit:media.updated"
+    ],
+    "updatePage": [
+      "authn.requireUser",
+      "authz.require:pages.write",
+      "validate.check:pages.body",
+      "validate.sanitize:pages.body",
+      "validate.check:pages.body",
+      "references.check:pages",
+      "content.update:pages",
+      "references.index:pages",
+      "links.extract:pages",
+      "delivery.publish:pages",
+      "delivery.exportLlms",
+      "events.emit:page.updated"
+    ],
+    "uploadMedia": [
+      "authn.requireUser",
+      "authz.require:media.write",
+      "sanitize.svg",
+      "media.upload",
+      "events.emit:media.uploaded"
+    ]
+  },
+  "triggers": [
+    {
+      "http": "POST /login",
+      "pipeline": "login"
+    },
+    {
+      "http": "POST /logout",
+      "pipeline": "logout"
+    },
+    {
+      "http": "GET /me",
+      "pipeline": "me"
+    },
+    {
+      "http": "POST /me/password",
+      "pipeline": "changePassword"
+    },
+    {
+      "http": "GET /users",
+      "pipeline": "listUsers"
+    },
+    {
+      "http": "POST /users",
+      "pipeline": "createUser"
+    },
+    {
+      "http": "GET /users/:id",
+      "pipeline": "getUser"
+    },
+    {
+      "http": "PUT /users/:id/password",
+      "pipeline": "setPassword"
+    },
+    {
+      "http": "DELETE /users/:id",
+      "pipeline": "deactivateUser"
+    },
+    {
+      "http": "POST /users/:id/activate",
+      "pipeline": "activateUser"
+    },
+    {
+      "http": "GET /admin/publish-status/pages/:id",
+      "pipeline": "pagePublishStatus"
+    },
+    {
+      "http": "POST /admin/publish-all/pages",
+      "pipeline": "publishAllPages"
+    },
+    {
+      "http": "GET /admin/references/broken",
+      "pipeline": "brokenReferences"
+    },
+    {
+      "http": "GET /admin/references/to/pages",
+      "pipeline": "pageReferrersMany"
+    },
+    {
+      "http": "GET /admin/references/to/pages/:id",
+      "pipeline": "pageReferrers"
+    },
+    {
+      "http": "GET /admin/references/to/media",
+      "pipeline": "mediaReferrersMany"
+    },
+    {
+      "http": "GET /admin/references/to/media/:id",
+      "pipeline": "mediaReferrers"
+    },
+    {
+      "http": "POST /admin/references/rebuild",
+      "pipeline": "rebuildReferences"
+    },
+    {
+      "http": "GET /admin/links/broken",
+      "pipeline": "brokenLinks"
+    },
+    {
+      "http": "POST /admin/links/rebuild",
+      "pipeline": "rebuildLinks"
+    },
+    {
+      "http": "GET /settings",
+      "pipeline": "getSettings"
+    },
+    {
+      "http": "PUT /settings",
+      "pipeline": "setSettings"
+    },
+    {
+      "http": "GET /redirects",
+      "pipeline": "getRedirects"
+    },
+    {
+      "http": "PUT /redirects",
+      "pipeline": "setRedirects"
+    },
+    {
+      "http": "GET /redirects.json",
+      "pipeline": "renderRedirects"
+    },
+    {
+      "http": "GET /site/*path",
+      "pipeline": "resolvePage"
+    },
+    {
+      "http": "GET /pages",
+      "pipeline": "listPages"
+    },
+    {
+      "http": "GET /admin/pages",
+      "pipeline": "listAllPages"
+    },
+    {
+      "http": "GET /admin/pages/:id",
+      "pipeline": "readAnyPage"
+    },
+    {
+      "http": "GET /pages/:id",
+      "pipeline": "readPage"
+    },
+    {
+      "http": "POST /pages",
+      "pipeline": "createPage"
+    },
+    {
+      "http": "PATCH /pages/:id",
+      "pipeline": "updatePage"
+    },
+    {
+      "http": "DELETE /pages/:id",
+      "pipeline": "deletePage"
+    },
+    {
+      "http": "DELETE /pages/:id/translations/:locale",
+      "pipeline": "deletePageTranslation"
+    },
+    {
+      "http": "POST /media",
+      "pipeline": "uploadMedia"
+    },
+    {
+      "http": "POST /admin/media/export",
+      "pipeline": "exportMedia"
+    },
+    {
+      "http": "POST /admin/media/reconcile",
+      "pipeline": "reconcileMediaReport"
+    },
+    {
+      "http": "POST /admin/media/reconcile/delete",
+      "pipeline": "reconcileMediaDelete"
+    },
+    {
+      "http": "GET /media/folders",
+      "pipeline": "listMediaFolders"
+    },
+    {
+      "http": "POST /media/folders",
+      "pipeline": "createMediaFolder"
+    },
+    {
+      "http": "PATCH /media/folders/*path",
+      "pipeline": "renameMediaFolder"
+    },
+    {
+      "http": "DELETE /media/folders/*path",
+      "pipeline": "deleteMediaFolder"
+    },
+    {
+      "http": "GET /media",
+      "pipeline": "listMedia"
+    },
+    {
+      "http": "GET /media/:id",
+      "pipeline": "getMedia"
+    },
+    {
+      "http": "GET /media/:id/file",
+      "pipeline": "downloadMedia"
+    },
+    {
+      "http": "PATCH /media/:id",
+      "pipeline": "updateMedia"
+    },
+    {
+      "http": "DELETE /media/:id",
+      "pipeline": "deleteMedia"
+    },
+    {
+      "http": "GET /admin/replication/status",
+      "pipeline": "replicationStatus"
+    },
+    {
+      "http": "GET /admin/replication/points",
+      "pipeline": "replicationPoints"
+    },
+    {
+      "http": "POST /admin/replication/snapshot",
+      "pipeline": "replicationSnapshot"
+    },
+    {
+      "http": "POST /admin/replication/restore",
+      "pipeline": "replicationRestore"
+    },
+    {
+      "cron": "30 2 * * *",
+      "pipeline": "scanReferences"
+    },
+    {
+      "cron": "0 3 * * *",
+      "pipeline": "checkLinks"
+    },
+    {
+      "cron": "0 * * * *",
+      "pipeline": "cleanupSessions"
+    },
+    {
+      "cron": "*/5 * * * *",
+      "pipeline": "sweepRateLimits"
+    },
+    {
+      "cron": "30 3 * * *",
+      "pipeline": "reconcileMedia"
+    },
+    {
+      "cron": "* * * * *",
+      "pipeline": "replicate"
+    },
+    {
+      "event": "auth.loggedIn",
+      "pipeline": "auditAuth"
+    },
+    {
+      "event": "auth.loggedOut",
+      "pipeline": "auditAuth"
+    }
+  ]
+}

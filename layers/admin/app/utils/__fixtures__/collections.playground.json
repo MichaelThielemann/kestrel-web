@@ -1,0 +1,549 @@
+[
+  {
+    "name": "settings",
+    "mode": "single",
+    "translatable": true,
+    "pageLike": false,
+    "seo": false,
+    "status": false,
+    "layoutField": false,
+    "blocks": {
+      "enabled": false
+    },
+    "editor": "fields",
+    "nav": true,
+    "placement": "system",
+    "label": {
+      "singular": {
+        "en": "Settings",
+        "de": "Einstellungen"
+      },
+      "plural": {
+        "en": "Settings",
+        "de": "Einstellungen"
+      }
+    },
+    "icon": "settings",
+    "fields": {
+      "title": {
+        "required": true,
+        "unique": false,
+        "localized": true,
+        "label": {
+          "en": "Site title",
+          "de": "Website-Titel"
+        },
+        "type": "text"
+      },
+      "titlePosition": {
+        "required": false,
+        "unique": false,
+        "localized": false,
+        "label": {
+          "en": "Site title position",
+          "de": "Position des Website-Titels"
+        },
+        "type": "choice",
+        "options": {
+          "choices": [
+            {
+              "value": "suffix",
+              "label": {
+                "en": "After the page title",
+                "de": "Nach dem Seitentitel"
+              }
+            },
+            {
+              "value": "prefix",
+              "label": {
+                "en": "Before the page title",
+                "de": "Vor dem Seitentitel"
+              }
+            }
+          ],
+          "display": "select"
+        }
+      },
+      "titleSeparator": {
+        "required": false,
+        "unique": false,
+        "localized": false,
+        "label": {
+          "en": "Separator",
+          "de": "Trenner"
+        },
+        "type": "text"
+      },
+      "description": {
+        "required": false,
+        "unique": false,
+        "localized": true,
+        "label": {
+          "en": "Site description",
+          "de": "Website-Beschreibung"
+        },
+        "type": "text"
+      },
+      "navigation": {
+        "required": false,
+        "unique": false,
+        "localized": true,
+        "label": {
+          "en": "Navigation",
+          "de": "Navigation"
+        },
+        "type": "repeater",
+        "options": {
+          "fields": {
+            "label": {
+              "type": "text",
+              "required": true,
+              "label": {
+                "en": "Label",
+                "de": "Label"
+              }
+            },
+            "link": {
+              "type": "link",
+              "required": true,
+              "label": {
+                "en": "Link",
+                "de": "Link"
+              },
+              "options": {
+                "types": [
+                  "internal",
+                  "external"
+                ]
+              }
+            },
+            "target": {
+              "type": "choice",
+              "default": "_self",
+              "label": {
+                "en": "Target",
+                "de": "Ziel"
+              },
+              "options": {
+                "choices": [
+                  {
+                    "value": "_self",
+                    "label": {
+                      "en": "Same window",
+                      "de": "Gleiches Fenster"
+                    }
+                  },
+                  {
+                    "value": "_blank",
+                    "label": {
+                      "en": "New window",
+                      "de": "Neues Fenster"
+                    }
+                  }
+                ],
+                "display": "select"
+              }
+            },
+            "children": {
+              "type": "repeater",
+              "default": [],
+              "label": {
+                "en": "Sub items",
+                "de": "Untereinträge"
+              },
+              "options": {
+                "fields": {
+                  "label": {
+                    "type": "text",
+                    "required": true,
+                    "label": {
+                      "en": "Label",
+                      "de": "Label"
+                    }
+                  },
+                  "link": {
+                    "type": "link",
+                    "required": true,
+                    "label": {
+                      "en": "Link",
+                      "de": "Link"
+                    },
+                    "options": {
+                      "types": [
+                        "internal",
+                        "external"
+                      ]
+                    }
+                  },
+                  "target": {
+                    "type": "choice",
+                    "default": "_self",
+                    "label": {
+                      "en": "Target",
+                      "de": "Ziel"
+                    },
+                    "options": {
+                      "choices": [
+                        {
+                          "value": "_self",
+                          "label": {
+                            "en": "Same window",
+                            "de": "Gleiches Fenster"
+                          }
+                        },
+                        {
+                          "value": "_blank",
+                          "label": {
+                            "en": "New window",
+                            "de": "Neues Fenster"
+                          }
+                        }
+                      ],
+                      "display": "select"
+                    }
+                  }
+                },
+                "fieldLayout": [
+                  {
+                    "kind": "row",
+                    "fields": [
+                      "label",
+                      "link",
+                      "target"
+                    ],
+                    "tracks": [
+                      2,
+                      4,
+                      1
+                    ]
+                  }
+                ]
+              }
+            }
+          },
+          "fieldLayout": [
+            {
+              "kind": "row",
+              "fields": [
+                "label",
+                "link",
+                "target"
+              ],
+              "tracks": [
+                2,
+                4,
+                1
+              ]
+            },
+            {
+              "kind": "row",
+              "fields": [
+                "children"
+              ],
+              "tracks": [
+                1
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "fieldLayout": [
+      {
+        "kind": "row",
+        "fields": [
+          "titlePosition",
+          "titleSeparator",
+          "title"
+        ],
+        "tracks": [
+          1,
+          1,
+          2
+        ]
+      },
+      {
+        "kind": "row",
+        "fields": [
+          "description"
+        ],
+        "tracks": [
+          1
+        ]
+      },
+      {
+        "kind": "row",
+        "fields": [
+          "navigation"
+        ],
+        "tracks": [
+          1
+        ]
+      }
+    ],
+    "actions": []
+  },
+  {
+    "name": "redirects",
+    "mode": "single",
+    "translatable": false,
+    "pageLike": false,
+    "seo": false,
+    "status": false,
+    "layoutField": false,
+    "blocks": {
+      "enabled": false
+    },
+    "editor": "fields",
+    "nav": true,
+    "placement": "system",
+    "label": {
+      "singular": {
+        "en": "Redirects",
+        "de": "Weiterleitungen"
+      },
+      "plural": {
+        "en": "Redirects",
+        "de": "Weiterleitungen"
+      }
+    },
+    "icon": "link-2",
+    "fields": {
+      "rules": {
+        "required": false,
+        "unique": false,
+        "localized": false,
+        "label": {
+          "en": "Rules",
+          "de": "Regeln"
+        },
+        "type": "repeater",
+        "options": {
+          "fields": {
+            "from": {
+              "type": "text",
+              "required": true,
+              "label": {
+                "en": "From",
+                "de": "Von"
+              }
+            },
+            "to": {
+              "type": "text",
+              "required": true,
+              "label": {
+                "en": "To",
+                "de": "Nach"
+              }
+            },
+            "status": {
+              "type": "choice",
+              "required": true,
+              "default": "301",
+              "label": {
+                "en": "Status",
+                "de": "Status"
+              },
+              "options": {
+                "choices": [
+                  {
+                    "value": "301",
+                    "label": "301"
+                  },
+                  {
+                    "value": "302",
+                    "label": "302"
+                  },
+                  {
+                    "value": "307",
+                    "label": "307"
+                  },
+                  {
+                    "value": "308",
+                    "label": "308"
+                  }
+                ],
+                "display": "select"
+              }
+            }
+          },
+          "fieldLayout": [
+            {
+              "kind": "row",
+              "fields": [
+                "from",
+                "to",
+                "status"
+              ],
+              "tracks": [
+                2,
+                2,
+                1
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "fieldLayout": [
+      {
+        "kind": "row",
+        "fields": [
+          "rules"
+        ],
+        "tracks": [
+          1
+        ]
+      }
+    ],
+    "actions": []
+  },
+  {
+    "name": "pages",
+    "mode": "multi",
+    "translatable": true,
+    "pageLike": true,
+    "seo": true,
+    "status": true,
+    "layoutField": true,
+    "blocks": {
+      "enabled": true
+    },
+    "editor": "blocks",
+    "nav": true,
+    "placement": "rail",
+    "label": {
+      "singular": {
+        "en": "Page",
+        "de": "Seite"
+      },
+      "plural": {
+        "en": "Pages",
+        "de": "Seiten"
+      },
+      "new": {
+        "en": "New page",
+        "de": "Neue Seite"
+      }
+    },
+    "icon": "file-text",
+    "fields": {
+      "slug": {
+        "required": false,
+        "unique": true,
+        "localized": true,
+        "label": "Slug",
+        "type": "slug",
+        "options": {
+          "from": "title"
+        }
+      },
+      "title": {
+        "required": true,
+        "unique": false,
+        "localized": true,
+        "label": {
+          "en": "Title",
+          "de": "Titel"
+        },
+        "type": "text"
+      },
+      "body": {
+        "required": false,
+        "unique": false,
+        "localized": true,
+        "label": {
+          "en": "Content",
+          "de": "Inhalt"
+        },
+        "type": "json"
+      },
+      "seo": {
+        "required": false,
+        "unique": false,
+        "localized": true,
+        "label": "SEO",
+        "type": "json"
+      },
+      "status": {
+        "required": true,
+        "unique": false,
+        "localized": true,
+        "label": "Status",
+        "type": "choice",
+        "options": {
+          "choices": [
+            {
+              "value": "draft",
+              "label": {
+                "en": "Draft",
+                "de": "Entwurf"
+              }
+            },
+            {
+              "value": "finished",
+              "label": {
+                "en": "Finished",
+                "de": "Fertig"
+              }
+            },
+            {
+              "value": "published",
+              "label": {
+                "en": "Published",
+                "de": "Veröffentlicht"
+              }
+            }
+          ],
+          "display": "select"
+        }
+      },
+      "shareImage": {
+        "required": false,
+        "unique": false,
+        "localized": false,
+        "label": {
+          "en": "Share image",
+          "de": "Share-Bild"
+        },
+        "type": "media",
+        "single": true,
+        "options": {
+          "accept": "image"
+        }
+      },
+      "layout": {
+        "required": false,
+        "unique": false,
+        "localized": false,
+        "type": "text"
+      }
+    },
+    "fieldLayout": [
+      {
+        "kind": "row",
+        "fields": [
+          "title"
+        ],
+        "tracks": [
+          1
+        ]
+      },
+      {
+        "kind": "row",
+        "fields": [
+          "slug",
+          "status"
+        ],
+        "tracks": [
+          2,
+          1
+        ]
+      }
+    ],
+    "seoFields": [
+      "shareImage"
+    ],
+    "actions": []
+  }
+]
