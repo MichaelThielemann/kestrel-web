@@ -13,8 +13,8 @@
   },
   "dependencies": { "zod": "^3.23.8" },
   "devDependencies": {
-    "@michaelthielemann/kestrel": "^5.0.3",
-    "@michaelthielemann/kestrel-contracts": "^5.0.3",
+    "@michaelthielemann/kestrel": "^5.1.0",
+    "@michaelthielemann/kestrel-contracts": "^5.1.0",
     "vitest": "^3.2.0"
   }
 }
