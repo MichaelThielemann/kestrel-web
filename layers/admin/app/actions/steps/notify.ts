@@ -1,5 +1,5 @@
-import type { ApiErrorDetails } from '#kestrel/types/api'
-import { defineStep, type ActionContext, type ActionStep } from '../../../../core/app/utils/actions'
+import type { ApiErrorDetails } from '#kestrel-admin/types/api'
+import { defineStep, type ActionContext, type ActionStep } from '#kestrel-core/app/utils/actions'
 import { retryableMessage, withRunId } from '../../composables/useApi'
 import type { BusyPort, EachReport, WithDeps } from '../types'
 

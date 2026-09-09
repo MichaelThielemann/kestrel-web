@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { exportMedia, publishAll } from '#kestrel/actions/system'
-import type { ActionDeps } from '#kestrel/actions/types'
+import { exportMedia, publishAll } from '#kestrel-admin/actions/system'
+import type { ActionDeps } from '#kestrel-admin/actions/types'
 
 const { t } = useT()
 const api = useApi()

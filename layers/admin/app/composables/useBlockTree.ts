@@ -1,8 +1,8 @@
 import { ref, computed } from 'vue'
 import type { Ref } from 'vue'
 import { randomId } from '../utils/random-id'
-import { useEchoGuard } from '#kestrel/composables/useEchoGuard'
-import type { SerializedBlock } from '#kestrel/types/kestrel'
+import { useEchoGuard } from '#kestrel-admin/composables/useEchoGuard'
+import type { SerializedBlock } from '#kestrel-admin/types/kestrel'
 import {
   type BlockRow,
   findInTree,

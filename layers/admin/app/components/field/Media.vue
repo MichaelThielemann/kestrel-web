@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import type { ListPage, MediaItem } from '#kestrel/types/api'
+import type { ListPage, MediaItem } from '#kestrel-admin/types/api'
 import type { FieldComponentProps } from '../../utils/field-component'
-import type { FieldOf } from '#kestrel/types/kestrel'
-import { commonFolder } from '#kestrel/utils/library'
-import { isDisclosed, provenanceLabelKey, provenanceOrigin } from '#kestrel/utils/provenance'
+import type { FieldOf } from '#kestrel-admin/types/kestrel'
+import { commonFolder } from '#kestrel-admin/utils/library'
+import { isDisclosed, provenanceLabelKey, provenanceOrigin } from '#kestrel-admin/utils/provenance'
 
 const props = defineProps<FieldComponentProps>()
 const model = defineModel<string | string[] | null>()

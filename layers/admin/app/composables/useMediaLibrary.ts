@@ -1,7 +1,7 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from '#imports'
-import type { ListPage, MediaFolder, MediaItem } from '#kestrel/types/api'
-import { DEFAULT_PER_PAGE, clampPerPage } from '#kestrel/utils/kestrel'
+import type { ListPage, MediaFolder, MediaItem } from '#kestrel-admin/types/api'
+import { DEFAULT_PER_PAGE, clampPerPage } from '#kestrel-admin/utils/kestrel'
 import { itemKey, computeRange, parentFolder, folderCounts, childFolders, type LibraryItem } from '../utils/library'
 
 const VIEW_KEY = 'kestrel-media-view'

@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import type { ImageSizeRow, ImagesJob, ImagesStatus, MediaReconcileReport } from '#kestrel/types/api'
+import type { ImageSizeRow, ImagesJob, ImagesStatus, MediaReconcileReport } from '#kestrel-admin/types/api'
 import { imageSizes } from '#kestrel/blocks'
-import { humanizeRelativeTime } from '#kestrel/utils/humanize'
-import { imagesRegisterAndSync, mediaReconcile, mediaReconcileDelete, previewPrune, prune, type PrunePreview } from '#kestrel/actions/system'
-import type { ActionDeps } from '#kestrel/actions/types'
+import { humanizeRelativeTime } from '#kestrel-admin/utils/humanize'
+import { imagesRegisterAndSync, mediaReconcile, mediaReconcileDelete, previewPrune, prune, type PrunePreview } from '#kestrel-admin/actions/system'
+import type { ActionDeps } from '#kestrel-admin/actions/types'
 
 const { t, lang } = useT()
 const api = useApi()

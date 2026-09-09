@@ -1,4 +1,4 @@
-import type { Provenance, ProvenanceOrigin } from '#kestrel/types/api'
+import type { Provenance, ProvenanceOrigin } from '#kestrel-admin/types/api'
 
 export const PROVENANCE_ORIGINS: ProvenanceOrigin[] = ['human', 'ai', 'mixed']
 

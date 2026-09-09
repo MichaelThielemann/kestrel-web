@@ -1,5 +1,5 @@
-import type { ImagesJob, ImagesPruneResult, ImagesStatus, MediaExportReport, MediaReconcileReport, MigrationsApplyResult, MigrationsDryRunResult, PublishAllReport, RebuildReport, ReplicationRestoreResult, ReplicationSnapshotResult } from '#kestrel/types/api'
-import { defineAction, defineStep, type ActionStep } from '../../../core/app/utils/actions'
+import type { ImagesJob, ImagesPruneResult, ImagesStatus, MediaExportReport, MediaReconcileReport, MigrationsApplyResult, MigrationsDryRunResult, PublishAllReport, RebuildReport, ReplicationRestoreResult, ReplicationSnapshotResult } from '#kestrel-admin/types/api'
+import { defineAction, defineStep, type ActionStep } from '#kestrel-core/app/utils/actions'
 import { apiErrorCode, apiErrorMessage, apiErrorRunId, apiErrorStatus, withRunId } from '../composables/useApi'
 import { humanizeSize } from '../utils/library'
 import { apiRequest } from './steps/api'

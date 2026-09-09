@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { isFallbackDocument, primaryPathOf } from './untranslated'
-import type { PageDocument } from '../../../core/app/types/api'
+import type { PageDocument } from '#kestrel-core/app/types/api'
 
 function doc(over: Partial<PageDocument> = {}): PageDocument {
   return {

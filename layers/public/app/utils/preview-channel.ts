@@ -1,4 +1,4 @@
-import type { BlockNode, PageDocument, PageSeo } from '../../../core/app/types/api'
+import type { BlockNode, PageDocument, PageSeo } from '#kestrel-core/app/types/api'
 
 export const PREVIEW_PREFIX = 'kestrel:preview:'
 

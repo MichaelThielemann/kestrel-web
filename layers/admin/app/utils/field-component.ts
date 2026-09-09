@@ -1,4 +1,4 @@
-import type { FieldDef } from '#kestrel/types/kestrel'
+import type { FieldDef } from '#kestrel-admin/types/kestrel'
 import type { RowErrorMap } from './row-errors'
 
 export interface FieldOption { value: string; label: string }

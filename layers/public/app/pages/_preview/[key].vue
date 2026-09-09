@@ -2,7 +2,7 @@
 import type { LayoutKey } from '#app'
 import { defaultLocale, previewBanner } from '~~/shared/model'
 import { resolvePageLayout } from '../../utils/page-layout'
-import type { PageDocument } from '../../../../core/app/types/api'
+import type { PageDocument } from '#kestrel-core/app/types/api'
 
 definePageMeta({ key: (route) => route.fullPath, layout: false })
 

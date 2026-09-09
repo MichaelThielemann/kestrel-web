@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { userCreate } from '#kestrel/actions/system'
-import type { ActionDeps } from '#kestrel/actions/types'
+import { userCreate } from '#kestrel-admin/actions/system'
+import type { ActionDeps } from '#kestrel-admin/actions/types'
 
 const open = defineModel<boolean>('open', { default: false })
 const emit = defineEmits<{ created: [] }>()

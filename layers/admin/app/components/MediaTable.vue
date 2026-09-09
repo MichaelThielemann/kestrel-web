@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { humanizeSize, itemKey, type LibraryItem } from '../utils/library'
 import { isDisclosed, provenanceLabelKey, provenanceOrigin } from '../utils/provenance'
-import type { MediaItem } from '#kestrel/types/api'
+import type { MediaItem } from '#kestrel-admin/types/api'
 
 const { t, lang } = useT()
 const props = defineProps<{ items: LibraryItem[]; isSelected: (item: LibraryItem) => boolean; dropTargetPath?: string | null; sort?: string; parentPath?: string | null; upLabel?: string }>()

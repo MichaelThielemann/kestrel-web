@@ -7,7 +7,7 @@ import LinkInternalPicker from './LinkInternalPicker.vue'
 import LinkSettings from './LinkSettings.vue'
 import { hasExtras, useLinkField } from '../../composables/useLinkField'
 import type { FieldComponentProps } from '../../utils/field-component'
-import type { FieldOf, LinkType, LinkValue } from '#kestrel/types/kestrel'
+import type { FieldOf, LinkType, LinkValue } from '#kestrel-admin/types/kestrel'
 
 const ALL: LinkType[] = ['external', 'email', 'tel', 'internal']
 

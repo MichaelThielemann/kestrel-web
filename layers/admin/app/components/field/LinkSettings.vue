@@ -4,7 +4,7 @@ import UiButton from '../ui/Button.vue'
 import UiButtonGroup from '../ui/ButtonGroup.vue'
 import UiTextInput from '../ui/TextInput.vue'
 import UiPopover from '../ui/Popover.vue'
-import type { LinkType } from '#kestrel/types/kestrel'
+import type { LinkType } from '#kestrel-admin/types/kestrel'
 
 const TYPE_KEYS: Record<LinkType, string> = {
   internal: 'field.link.type_internal',

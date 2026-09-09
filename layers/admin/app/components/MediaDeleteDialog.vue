@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import type { ReferenceTo } from '#kestrel/types/api'
+import type { ReferenceTo } from '#kestrel-admin/types/api'
 import { humanizeSize } from '../utils/library'
 import type { DeleteSummary } from '../utils/ops'
 

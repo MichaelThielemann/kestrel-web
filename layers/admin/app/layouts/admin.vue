@@ -1,6 +1,6 @@
 <script setup lang="ts">
 
-import '#kestrel/assets/scss/main.scss'
+import '#kestrel-admin/assets/scss/main.scss'
 import { installAdminClient } from '../utils/admin-client'
 
 installAdminClient()

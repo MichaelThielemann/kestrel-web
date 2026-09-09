@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import type { Provenance, ProvenanceOrigin } from '#kestrel/types/api'
+import type { Provenance, ProvenanceOrigin } from '#kestrel-admin/types/api'
 import type { PendingUpload } from '../utils/dnd'
 import { displayFolderPath } from '../utils/library'
 import { PROVENANCE_ORIGINS } from '../utils/provenance'

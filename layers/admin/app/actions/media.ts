@@ -1,5 +1,5 @@
-import type { ApiErrorDetails, MediaFolder, MediaFolderRenameResponse, MediaItem, Provenance, ReferenceTo } from '#kestrel/types/api'
-import { defineAction, defineStep, type ActionContext, type ActionStep } from '../../../core/app/utils/actions'
+import type { ApiErrorDetails, MediaFolder, MediaFolderRenameResponse, MediaItem, Provenance, ReferenceTo } from '#kestrel-admin/types/api'
+import { defineAction, defineStep, type ActionContext, type ActionStep } from '#kestrel-core/app/utils/actions'
 import { ApiError, apiErrorCode, apiErrorDetails, apiErrorMessage, apiErrorRetryable, apiErrorRunId, apiErrorStatus, retryableMessage, withRunId } from '../composables/useApi'
 import type { UploadItem } from '../composables/useMediaUpload'
 import { humanizeSize, joinFolder, parentFolder } from '../utils/library'

@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import type { BrokenReference, BrokenLink } from '#kestrel/types/api'
-import { linksRebuild, referencesRebuild } from '#kestrel/actions/system'
-import type { ActionDeps } from '#kestrel/actions/types'
+import type { BrokenReference, BrokenLink } from '#kestrel-admin/types/api'
+import { linksRebuild, referencesRebuild } from '#kestrel-admin/actions/system'
+import type { ActionDeps } from '#kestrel-admin/actions/types'
 
 const { t } = useT()
 const api = useApi()

@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import type { User } from '#kestrel/types/api'
-import { userSetPassword } from '#kestrel/actions/system'
-import type { ActionDeps } from '#kestrel/actions/types'
+import type { User } from '#kestrel-admin/types/api'
+import { userSetPassword } from '#kestrel-admin/actions/system'
+import type { ActionDeps } from '#kestrel-admin/actions/types'
 
 const props = defineProps<{ user: User | null }>()
 const emit = defineEmits<{ 'update:user': [User | null] }>()

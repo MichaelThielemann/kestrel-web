@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { resolveLocalized } from '#kestrel/utils/localized'
+import { resolveLocalized } from '#kestrel-admin/utils/localized'
 
 const { t, lang } = useT()
 const { collections } = useCollections()

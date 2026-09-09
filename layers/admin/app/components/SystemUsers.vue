@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import type { User } from '#kestrel/types/api'
-import { userToggle } from '#kestrel/actions/system'
-import type { ActionDeps } from '#kestrel/actions/types'
+import type { User } from '#kestrel-admin/types/api'
+import { userToggle } from '#kestrel-admin/actions/system'
+import type { ActionDeps } from '#kestrel-admin/actions/types'
 
 const { t } = useT()
 const api = useApi()

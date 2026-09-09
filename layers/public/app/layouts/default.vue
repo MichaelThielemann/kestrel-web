@@ -3,7 +3,7 @@
 import '../assets/css/site.css'
 import type { NavigationItem } from '~~/shared/model'
 import { defaultLocale, prefixPrimary, locales } from '~~/shared/model'
-import { localePath } from '../../../core/app/utils/locale-path'
+import { localePath } from '#kestrel-core/app/utils/locale-path'
 import { linkHrefOf } from '../composables/useLinkHref'
 
 interface Chrome { skip: string; navigation: string; language: string }

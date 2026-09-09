@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, inject, onMounted, onUnmounted, ref, watch } from 'vue'
-import type { BlockNode, PageSeo } from '#kestrel/types/api'
-import { localePath } from '#kestrel/utils/kestrel'
+import type { BlockNode, PageSeo } from '#kestrel-admin/types/api'
+import { localePath } from '#kestrel-admin/utils/kestrel'
 import { editorFormContextKey } from '../utils/editor-form-context'
 import { PRESETS, matchPreset, fitScale, clampDim, DIM_MIN, WIDTH_MAX, type ViewportPreset } from '../utils/preview-viewport'
 

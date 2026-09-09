@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { resolveLocalized } from '#kestrel/utils/localized'
+import { resolveLocalized } from '#kestrel-admin/utils/localized'
 
 definePageMeta({
   layout: 'admin',

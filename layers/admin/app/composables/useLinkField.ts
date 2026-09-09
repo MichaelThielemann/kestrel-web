@@ -1,7 +1,7 @@
 import { ref, computed, watch } from 'vue'
 import type { Ref } from 'vue'
 import { useEchoGuard } from './useEchoGuard'
-import type { LinkValue, LinkType } from '#kestrel/types/kestrel'
+import type { LinkValue, LinkType } from '#kestrel-admin/types/kestrel'
 
 export function hasExtras(value: LinkValue | null | undefined): boolean {
   return !!(value?.label || (value?.type === 'internal' && value.hash))

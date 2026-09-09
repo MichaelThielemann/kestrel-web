@@ -1,7 +1,7 @@
 import { toggleSort, isValidSort } from '../utils/list-query'
 import { sortableKeys } from '../utils/list-columns'
-import type { SerializedCollection } from '#kestrel/types/kestrel'
-import { clampPerPage, DEFAULT_PER_PAGE } from '#kestrel/utils/kestrel'
+import type { SerializedCollection } from '#kestrel-admin/types/kestrel'
+import { clampPerPage, DEFAULT_PER_PAGE } from '#kestrel-admin/utils/kestrel'
 
 const DEFAULT_SORT = '-updatedAt'
 

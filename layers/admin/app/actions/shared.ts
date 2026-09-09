@@ -1,4 +1,4 @@
-import { defineAction, type ActionDefinition } from '../../../core/app/utils/actions'
+import { defineAction, type ActionDefinition } from '#kestrel-core/app/utils/actions'
 import { buildDeleteReport, type BatchDeleteReport } from '../utils/collection-ops'
 import { referencesPrecheck } from './steps/api'
 import { guardSelection } from './steps/guard'

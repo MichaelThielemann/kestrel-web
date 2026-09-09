@@ -1,4 +1,4 @@
-import type { ApiErrorDetails, ReferenceTo } from '#kestrel/types/api'
+import type { ApiErrorDetails, ReferenceTo } from '#kestrel-admin/types/api'
 
 const ENTRY_RE = /([A-Za-z][\w-]*)\/([\w-]+)(?:\s*\(([^)]+)\))?/g
 

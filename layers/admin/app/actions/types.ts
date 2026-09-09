@@ -1,4 +1,4 @@
-import type { ApiErrorDetails, DeliveryEntry, Document, ReferenceTo } from '#kestrel/types/api'
+import type { ApiErrorDetails, DeliveryEntry, Document, ReferenceTo } from '#kestrel-admin/types/api'
 import type { BlockErrors } from '../composables/useEditForm'
 import type { BlockRow } from '../utils/block-tree'
 import type { RowErrorMap } from '../utils/row-errors'

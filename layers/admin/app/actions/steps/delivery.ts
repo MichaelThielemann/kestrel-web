@@ -1,4 +1,4 @@
-import { defineStep, type ActionStep } from '../../../../core/app/utils/actions'
+import { defineStep, type ActionStep } from '#kestrel-core/app/utils/actions'
 import type { EditFormPort, SaveOutcome } from '../types'
 
 export function deliveryRemember<I extends { form: EditFormPort }, R extends SaveOutcome>(): ActionStep<I, R> {

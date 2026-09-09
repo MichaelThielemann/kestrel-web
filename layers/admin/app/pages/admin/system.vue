@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { resolveLocalized } from '#kestrel/utils/localized'
-import { switchSystemTab } from '#kestrel/actions/editor'
-import type { NavigatePort } from '#kestrel/actions/types'
+import { resolveLocalized } from '#kestrel-admin/utils/localized'
+import { switchSystemTab } from '#kestrel-admin/actions/editor'
+import type { NavigatePort } from '#kestrel-admin/actions/types'
 
 definePageMeta({ layout: 'admin', middleware: 'admin-auth' })
 

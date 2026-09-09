@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { SerializedBlock } from '#kestrel/types/kestrel'
+import type { SerializedBlock } from '#kestrel-admin/types/kestrel'
 import { blockDetails } from '../utils/block-details'
 
 const props = defineProps<{ type: SerializedBlock; lang: string }>()

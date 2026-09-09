@@ -1,6 +1,6 @@
 import { ref } from 'vue'
 import type { Ref } from 'vue'
-import type { FieldDef } from '#kestrel/types/kestrel'
+import type { FieldDef } from '#kestrel-admin/types/kestrel'
 import { reorder } from '../utils/reorder'
 import { useEchoGuard } from './useEchoGuard'
 import { cloneDefault, emptyForField } from '../utils/edit-form'

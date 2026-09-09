@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { pickImageSources } from './image-variants'
-import type { MediaItem, MediaVariant } from '../../../admin/app/types/api'
+import type { MediaItem, MediaVariant } from '#kestrel-core/app/types/api'
 
 function variant(over: Partial<MediaVariant>): MediaVariant {
   return { size: 'thumb', width: 320, height: 240, format: 'webp', bytes: 1000, state: 'done', path: '/api/media/m1/variants/thumb.webp', ...over }

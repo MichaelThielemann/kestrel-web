@@ -1,4 +1,4 @@
-import type { ReferenceTo } from '#kestrel/types/api'
+import type { ReferenceTo } from '#kestrel-admin/types/api'
 import { findCollection } from './collections'
 import { recordTitle } from './record-title'
 

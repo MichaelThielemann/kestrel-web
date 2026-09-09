@@ -1,6 +1,6 @@
 <script setup lang="ts">
 
-import type { DeliveryEntry } from '#kestrel/types/api'
+import type { DeliveryEntry } from '#kestrel-admin/types/api'
 
 const props = defineProps<{
   dirty: boolean

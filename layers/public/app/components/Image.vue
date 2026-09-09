@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { MediaItem } from '../../../core/app/types/api'
+import type { MediaItem } from '#kestrel-core/app/types/api'
 
 const props = withDefaults(defineProps<{
   media: string | MediaItem | null

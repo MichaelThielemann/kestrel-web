@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 const app = fileURLToPath(new URL("./app", import.meta.url));
 
 export default defineNuxtConfig({
-  alias: { "#kestrel": app },
+  alias: { "#kestrel-admin": app },
   components: [{ path: `${app}/components`, prefix: "Kestrel", pathPrefix: true }],
   routeRules: { "/admin/**": { ssr: false } },
   runtimeConfig: { public: { siteUrl: "" } },

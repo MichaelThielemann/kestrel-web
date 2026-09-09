@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import './assets/css/site.css'
 import { defaultLocale, prefixPrimary } from '~~/shared/model'
-import { localePath } from '../../core/app/utils/locale-path'
+import { localePath } from '#kestrel-core/app/utils/locale-path'
 
 const props = defineProps<{ error: { statusCode?: number; statusMessage?: string; message?: string } }>()
 

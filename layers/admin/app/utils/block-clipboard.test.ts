@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { boundaryCast } from '#kestrel/cast'
-import type { SerializedBlock, SerializedField } from '#kestrel/types/kestrel'
+import type { SerializedBlock, SerializedField } from '#kestrel-admin/types/kestrel'
 import {
   CLIPBOARD_MARKER,
   CLIPBOARD_VERSION,

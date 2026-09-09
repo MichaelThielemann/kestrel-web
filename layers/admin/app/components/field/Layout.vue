@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import FieldRenderer from './Renderer.vue'
-import { isFieldVisible } from '#kestrel/utils/kestrel'
-import type { FieldDef, LayoutNode, LayoutTrack, Localized } from '#kestrel/types/kestrel'
+import { isFieldVisible } from '#kestrel-admin/utils/kestrel'
+import type { FieldDef, LayoutNode, LayoutTrack, Localized } from '#kestrel-admin/types/kestrel'
 import { resolveLocalized } from '../../utils/localized'
 import type { RowErrorMap } from '../../utils/row-errors'
 

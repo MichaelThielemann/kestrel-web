@@ -1,5 +1,5 @@
-import type { SerializedField } from '#kestrel/types/kestrel'
-import { defineAction, type ActionStep } from '../../../core/app/utils/actions'
+import type { SerializedField } from '#kestrel-admin/types/kestrel'
+import { defineAction, type ActionStep } from '#kestrel-core/app/utils/actions'
 import { previewDeleteAction } from './shared'
 import { translationSourceValues } from '../utils/translation-copy'
 import { apiEach, apiRequest, apiWrite } from './steps/api'

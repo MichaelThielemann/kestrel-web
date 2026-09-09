@@ -1,4 +1,4 @@
-import type { ApiErrorBody, ApiErrorDetails } from '#kestrel/types/api'
+import type { ApiErrorBody, ApiErrorDetails } from '#kestrel-admin/types/api'
 import type { Translate } from '../actions/types'
 
 export class ApiError extends Error {

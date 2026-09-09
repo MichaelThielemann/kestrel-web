@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { contentLocales } from '#kestrel/utils/collections'
+import { contentLocales } from '#kestrel-admin/utils/collections'
 import { resolveCollectionEditor } from '../utils/editor-registry'
 import { editorFormContextKey } from '../utils/editor-form-context'
 import '../utils/register-builtin-editors'

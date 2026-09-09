@@ -1,4 +1,4 @@
-export * from '../../../core/app/types/kestrel'
+export * from '#kestrel-core/app/types/kestrel'
 
 export interface SeoMeta {
   title?: string

@@ -1,1 +1,1 @@
-export { localePath } from '../../../../core/app/utils/locale-path'
+export { localePath } from '#kestrel-core/app/utils/locale-path'

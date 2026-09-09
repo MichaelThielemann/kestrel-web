@@ -1,4 +1,4 @@
-import type { SerializedField } from '#kestrel/types/kestrel'
+import type { SerializedField } from '#kestrel-admin/types/kestrel'
 import { slugFromWire } from './edit-form'
 
 export function translationSourceValues(

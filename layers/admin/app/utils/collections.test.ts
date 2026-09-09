@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { serializeCollections, type CollectionUi } from './collections-serialize'
 import { contentTypes } from '../../../../playground/shared/model'
 import playgroundUi from '../../../../playground/shared/collections-ui'
-import { syntheticContentTypes } from '../../../core/pipelines/__fixtures__/synthetic-collections'
+import { syntheticContentTypes } from '#kestrel-core/pipelines/__fixtures__/synthetic-collections'
 import { syntheticCollectionsUi } from './__fixtures__/synthetic-collections-ui'
 
 describe('serializeCollections golden fixture', () => {

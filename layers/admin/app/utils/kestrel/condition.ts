@@ -1,4 +1,4 @@
-import type { Condition, ConditionOperator, ConditionRule } from '#kestrel/types/kestrel'
+import type { Condition, ConditionOperator, ConditionRule } from '#kestrel-admin/types/kestrel'
 
 export function isEmptyValue(value: unknown): boolean {
   return value === null || value === undefined || value === '' || (Array.isArray(value) && value.length === 0)

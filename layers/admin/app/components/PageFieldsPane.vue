@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { findCollection } from '#kestrel/utils/collections'
+import { findCollection } from '#kestrel-admin/utils/collections'
 import type { PageFieldsBindings } from '../utils/editor-form-context'
 
 const props = defineProps<PageFieldsBindings>()

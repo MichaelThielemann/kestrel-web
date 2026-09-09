@@ -2,8 +2,8 @@
 import { sortDirection } from '../utils/list-query'
 import { cellDisplay, columnLabel } from '../utils/list-cell'
 import type { ListColumn } from '../utils/list-columns'
-import { resolveLocalized } from '#kestrel/utils/localized'
-import type { Localized } from '#kestrel/types/kestrel'
+import { resolveLocalized } from '#kestrel-admin/utils/localized'
+import type { Localized } from '#kestrel-admin/types/kestrel'
 
 const props = defineProps<{
   rows: Record<string, unknown>[]

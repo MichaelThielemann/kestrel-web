@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import type { MediaItem, Provenance, ReferenceTo } from '#kestrel/types/api'
-import { createFolder, deleteItems, previewDeleteItems, renameOrMove, setMediaMeta, setMediaProvenance, type RenameOrMoveTarget } from '#kestrel/actions/media'
-import type { ActionDeps, BusyPort, RefreshPort } from '#kestrel/actions/types'
+import type { MediaItem, Provenance, ReferenceTo } from '#kestrel-admin/types/api'
+import { createFolder, deleteItems, previewDeleteItems, renameOrMove, setMediaMeta, setMediaProvenance, type RenameOrMoveTarget } from '#kestrel-admin/actions/media'
+import type { ActionDeps, BusyPort, RefreshPort } from '#kestrel-admin/actions/types'
 import type { LibraryItem } from '../utils/library'
 import { folderIsEmpty, joinFolder } from '../utils/library'
 import type { PendingUpload } from '../utils/dnd'

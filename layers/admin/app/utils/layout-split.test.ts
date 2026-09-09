@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { splitLayoutAfter } from './layout-split'
-import type { LayoutNode } from '#kestrel/types/kestrel'
+import type { LayoutNode } from '#kestrel-admin/types/kestrel'
 
 describe('splitLayoutAfter', () => {
   it('splits right after the row containing a target field', () => {

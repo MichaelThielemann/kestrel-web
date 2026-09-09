@@ -1,4 +1,4 @@
-import type { Identity, LoginResponse } from '#kestrel/types/api'
+import type { Identity, LoginResponse } from '#kestrel-admin/types/api'
 
 interface AuthState {
   identity: Identity | null

@@ -1,4 +1,4 @@
-import type { MediaFolder, MediaItem } from '#kestrel/types/api'
+import type { MediaFolder, MediaItem } from '#kestrel-admin/types/api'
 
 export interface LibraryFolder { path: string; name: string; count: number }
 

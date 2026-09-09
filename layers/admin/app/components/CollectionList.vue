@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import type { SerializedCollection, Localized } from '#kestrel/types/kestrel'
-import { resolveLocalized } from '#kestrel/utils/localized'
+import type { SerializedCollection, Localized } from '#kestrel-admin/types/kestrel'
+import { resolveLocalized } from '#kestrel-admin/utils/localized'
 import { listColumns } from '../utils/list-columns'
 
 const props = defineProps<{ schema: SerializedCollection; locale?: string }>()
