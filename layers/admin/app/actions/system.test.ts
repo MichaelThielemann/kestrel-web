@@ -1,6 +1,6 @@
-import type { ApiErrorDetails } from '#kestrel/types/api'
+import type { ApiErrorDetails } from '#kestrel-admin/types/api'
 import { describe, expect, it, vi } from 'vitest'
-import { runAction } from '../../../core/app/utils/actions'
+import { runAction } from '#kestrel-core/app/utils/actions'
 import { humanizeSize } from '../utils/library'
 import {
   exportMedia,

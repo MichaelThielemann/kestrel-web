@@ -1,6 +1,6 @@
 import { ref, computed, watch } from 'vue'
 import type { Ref } from 'vue'
-import type { Document, ListPage } from '#kestrel/types/api'
+import type { Document, ListPage } from '#kestrel-admin/types/api'
 import type { FieldOption } from '../utils/field-component'
 import { contentLocales } from '../utils/collections'
 

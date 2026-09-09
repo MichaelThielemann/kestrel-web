@@ -1,1 +1,1 @@
-export * from '../../../core/app/types/api'
+export * from '#kestrel-core/app/types/api'

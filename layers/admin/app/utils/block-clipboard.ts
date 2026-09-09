@@ -1,4 +1,4 @@
-import type { SerializedBlock, SerializedField } from '#kestrel/types/kestrel'
+import type { SerializedBlock, SerializedField } from '#kestrel-admin/types/kestrel'
 import type { BlockRow } from './block-tree'
 
 export const CLIPBOARD_MARKER = 'blocks'

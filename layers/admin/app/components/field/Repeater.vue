@@ -6,7 +6,7 @@ import { useRepeater } from '../../composables/useRepeater'
 import { useFieldA11y } from '../../utils/useFieldA11y'
 import type { FieldComponentProps } from '../../utils/field-component'
 import { nestedRowErrorsOf, rowFieldErrors, rowMessage, scalarErrorsOf, type RowErrorMap } from '../../utils/row-errors'
-import type { FieldDef, FieldOf, LayoutNode } from '#kestrel/types/kestrel'
+import type { FieldDef, FieldOf, LayoutNode } from '#kestrel-admin/types/kestrel'
 const props = defineProps<FieldComponentProps>()
 const model = defineModel<Record<string, unknown>[] | null>()
 

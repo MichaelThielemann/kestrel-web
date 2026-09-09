@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue'
 import type { MenuItem } from './ui/Menu.vue'
 import type { BlockRow, BlockTreeCtx } from '../utils/block-tree'
-import { resolveLocalized } from '#kestrel/utils/localized'
+import { resolveLocalized } from '#kestrel-admin/utils/localized'
 import BlockTree from './BlockTree.vue'
 import BlockPicker from './BlockPicker.vue'
 

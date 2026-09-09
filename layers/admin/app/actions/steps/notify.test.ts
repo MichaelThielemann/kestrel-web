@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { defineAction, runAction } from '../../../../core/app/utils/actions'
+import { defineAction, runAction } from '#kestrel-core/app/utils/actions'
 import type { ActionDeps, ApiClient, ApiRequestOptions, BusyPort, EachReport, WithDeps } from '../types'
 import { dialogConfirm } from './guard'
 import { opsBusy, opsError, toastError, toastSuccess, toastSummary } from './notify'

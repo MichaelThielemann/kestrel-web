@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { defineAction, runAction, type ActionContext } from '../../../../core/app/utils/actions'
+import { defineAction, runAction, type ActionContext } from '#kestrel-core/app/utils/actions'
 import { ApiError } from '../../composables/useApi'
 import type { ActionDeps, ApiClient, EditFormPort, SaveFailure, SaveOutcome, WithDeps } from '../types'
 import { apiWrite } from './api'

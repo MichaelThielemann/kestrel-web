@@ -1,4 +1,4 @@
-import type { FieldDef } from '#kestrel/types/kestrel'
+import type { FieldDef } from '#kestrel-admin/types/kestrel'
 
 type NumberOptions = Extract<FieldDef, { type: 'number' }>['options']
 type ChoiceOptions = Extract<FieldDef, { type: 'choice' }>['options']

@@ -1,8 +1,8 @@
 
 
 import { computed, ref, type ComputedRef, type Ref } from 'vue'
-import type { ListPage } from '#kestrel/types/api'
-import { contentLocales } from '#kestrel/utils/collections'
+import type { ListPage } from '#kestrel-admin/types/api'
+import { contentLocales } from '#kestrel-admin/utils/collections'
 
 interface ListRowsOptions {
   collection: ComputedRef<string>

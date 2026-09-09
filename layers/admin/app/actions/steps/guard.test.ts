@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { defineAction, runAction } from '../../../../core/app/utils/actions'
+import { defineAction, runAction } from '#kestrel-core/app/utils/actions'
 import { dialogConfirm, guardSelection } from './guard'
 
 describe('guards', () => {

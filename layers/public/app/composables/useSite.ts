@@ -1,7 +1,7 @@
 import type { Ref } from 'vue'
 import type { NavigationItem } from '~~/shared/model'
 import { defaultLocale, locales, prefixPrimary } from '~~/shared/model'
-import type { PageDocument, SettingsDocument } from '../../../core/app/types/api'
+import type { PageDocument, SettingsDocument } from '#kestrel-core/app/types/api'
 
 export interface SiteLocaleLink {
   locale: string

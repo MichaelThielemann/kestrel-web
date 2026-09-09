@@ -1,4 +1,4 @@
-import type { DeliveryEntry } from '#kestrel/types/api'
+import type { DeliveryEntry } from '#kestrel-admin/types/api'
 
 export interface EditorExpose {
   dirty: boolean

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { resolveLocalized } from '#kestrel/utils/localized'
-import type { SerializedBlock } from '#kestrel/types/kestrel'
+import { resolveLocalized } from '#kestrel-admin/utils/localized'
+import type { SerializedBlock } from '#kestrel-admin/types/kestrel'
 import type { BlockPickerView } from '../utils/block-picker-view'
 import BlockPickerDetails from './BlockPickerDetails.vue'
 

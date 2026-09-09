@@ -1,6 +1,6 @@
-import type { ApiErrorDetails } from '#kestrel/types/api'
+import type { ApiErrorDetails } from '#kestrel-admin/types/api'
 import { describe, expect, it, vi } from 'vitest'
-import { defineAction, runAction } from '../../../../core/app/utils/actions'
+import { defineAction, runAction } from '#kestrel-core/app/utils/actions'
 import type { ActionDeps, ApiClient, ApiFailure, ApiRequestOptions, EachReport, PrecheckReport, WithDeps } from '../types'
 import { apiEach, apiRequest, isSaveResponse, referencesPrecheck } from './api'
 

@@ -1,4 +1,4 @@
-import type { SerializedField } from '#kestrel/types/kestrel'
+import type { SerializedField } from '#kestrel-admin/types/kestrel'
 
 export type FilterOp = 'eq' | 'ne' | 'lt' | 'lte' | 'gt' | 'gte' | 'contains' | 'notContains'
 

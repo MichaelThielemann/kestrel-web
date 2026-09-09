@@ -1,4 +1,4 @@
-import type { IconName } from '#kestrel/utils/icons'
+import type { IconName } from '#kestrel-admin/utils/icons'
 
 export type Dim = number | 'auto'
 

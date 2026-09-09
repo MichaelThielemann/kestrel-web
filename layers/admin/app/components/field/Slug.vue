@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { slugify } from '#kestrel/utils/kestrel'
-import type { FieldOf } from '#kestrel/types/kestrel'
+import { slugify } from '#kestrel-admin/utils/kestrel'
+import type { FieldOf } from '#kestrel-admin/types/kestrel'
 import type { FieldComponentProps } from '../../utils/field-component'
 import { editorFormContextKey } from '../../utils/editor-form-context'
 

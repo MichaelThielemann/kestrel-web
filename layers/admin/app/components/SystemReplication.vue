@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import type { ReplicationStatus, ReplicationPoint, ReplicationRestoreResult } from '#kestrel/types/api'
-import { humanizeSize } from '#kestrel/utils/library'
-import { humanizeRelativeTime } from '#kestrel/utils/humanize'
-import { replicationRestore, replicationSnapshot } from '#kestrel/actions/system'
-import type { RestoreTarget } from '#kestrel/actions/system'
-import type { ActionDeps } from '#kestrel/actions/types'
+import type { ReplicationStatus, ReplicationPoint, ReplicationRestoreResult } from '#kestrel-admin/types/api'
+import { humanizeSize } from '#kestrel-admin/utils/library'
+import { humanizeRelativeTime } from '#kestrel-admin/utils/humanize'
+import { replicationRestore, replicationSnapshot } from '#kestrel-admin/actions/system'
+import type { RestoreTarget } from '#kestrel-admin/actions/system'
+import type { ActionDeps } from '#kestrel-admin/actions/types'
 
 const { t, lang } = useT()
 const api = useApi()

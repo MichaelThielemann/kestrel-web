@@ -1,5 +1,5 @@
 
-import type { ReferenceTo } from '#kestrel/types/api'
+import type { ReferenceTo } from '#kestrel-admin/types/api'
 
 export interface BatchDeleteReport {
   count: number

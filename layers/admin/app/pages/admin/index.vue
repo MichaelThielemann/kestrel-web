@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { resolveLocalized } from '#kestrel/utils/localized'
-import type { ListPage, BrokenReference, BrokenLink, User } from '#kestrel/types/api'
+import { resolveLocalized } from '#kestrel-admin/utils/localized'
+import type { ListPage, BrokenReference, BrokenLink, User } from '#kestrel-admin/types/api'
 
 definePageMeta({ layout: 'admin', middleware: 'admin-auth' })
 

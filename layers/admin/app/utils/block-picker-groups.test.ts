@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { groupBlockTypes, updateRecentList } from './block-picker-groups'
-import type { SerializedBlock } from '#kestrel/types/kestrel'
+import type { SerializedBlock } from '#kestrel-admin/types/kestrel'
 
 const hero: SerializedBlock = { name: 'hero', fields: {} }
 const prose: SerializedBlock = { name: 'prose', fields: {} }

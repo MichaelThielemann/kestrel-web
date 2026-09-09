@@ -1,4 +1,4 @@
-import type { MediaItem, ReferenceTo } from '#kestrel/types/api'
+import type { MediaItem, ReferenceTo } from '#kestrel-admin/types/api'
 import type { LibraryItem } from './library'
 
 export type OpItem = { type: 'file'; id: string } | { type: 'folder'; path: string }

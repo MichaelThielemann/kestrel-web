@@ -1,6 +1,6 @@
 import { blockDefinitions } from '#kestrel/blocks'
 import { blockImages } from '#kestrel/block-images'
-import type { SerializedBlock } from '#kestrel/types/kestrel'
+import type { SerializedBlock } from '#kestrel-admin/types/kestrel'
 
 export const blocksWithImages: SerializedBlock[] = blockDefinitions.map((block) =>
   blockImages[block.name] ? { ...block, image: blockImages[block.name] } : block,

@@ -1,4 +1,4 @@
-import type { SerializedBlock } from '#kestrel/types/kestrel'
+import type { SerializedBlock } from '#kestrel-admin/types/kestrel'
 
 export const BLOCK_PICKER_RECENT_CAP = 6
 

@@ -10,7 +10,7 @@ import {
   slugToWire,
   stripLinkResolution,
   toSubmitResult, pruneBlockProps, writeKeys } from './edit-form'
-import type { SerializedField } from '#kestrel/types/kestrel'
+import type { SerializedField } from '#kestrel-admin/types/kestrel'
 import type { BlockRow } from './block-tree'
 
 describe('toSubmitResult', () => {

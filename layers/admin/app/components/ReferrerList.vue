@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { toRef } from 'vue'
-import type { ReferenceTo } from '#kestrel/types/api'
+import type { ReferenceTo } from '#kestrel-admin/types/api'
 import { referrerPath } from '../utils/referrer-label'
 
 const props = defineProps<{ refs: ReferenceTo[] }>()

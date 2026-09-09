@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { resolveRichtextLinks } from '#kestrel/utils/kestrel'
+import { resolveRichtextLinks } from '#kestrel-admin/utils/kestrel'
 
 const props = defineProps({
   body: richtextField({ required: true, label: { en: 'Text', de: 'Text' } }),

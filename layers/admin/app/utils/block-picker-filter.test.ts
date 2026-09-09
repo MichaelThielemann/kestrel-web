@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { collectBlockTags, filterBlockTypes, normalizeForSearch } from './block-picker-filter'
-import type { SerializedBlock } from '#kestrel/types/kestrel'
+import type { SerializedBlock } from '#kestrel-admin/types/kestrel'
 
 const hero: SerializedBlock = { name: 'hero', label: { en: 'Hero', de: 'Held' }, description: { en: 'A big banner', de: 'Ein Banner für die Startseite' }, tags: ['hero', 'marketing'], fields: {} }
 const uberHero: SerializedBlock = { name: 'ueber-uns', label: { en: 'About us', de: 'Über uns' }, tags: ['marketing'], fields: {} }

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import type { IconName } from '#kestrel/utils/icons'
+import type { IconName } from '#kestrel-admin/utils/icons'
 
 type View = 'grid' | 'table'
 

@@ -1,4 +1,4 @@
-import { defineStep, type ActionContext, type ActionStep } from '../../../../core/app/utils/actions'
+import { defineStep, type ActionContext, type ActionStep } from '#kestrel-core/app/utils/actions'
 import type { BusyPort, ConfirmPort, EachReport, EditFormPort, Translate } from '../types'
 
 export function guardUnsaved<I extends { t: Translate, confirm: ConfirmPort }, R = unknown>(messageKey = 'editor.discardConfirm'): ActionStep<I, R> {

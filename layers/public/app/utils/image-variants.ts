@@ -1,4 +1,4 @@
-import type { MediaItem, MediaVariant } from '../../../core/app/types/api'
+import type { MediaItem, MediaVariant } from '#kestrel-core/app/types/api'
 
 export interface ImageSources {
   src: string

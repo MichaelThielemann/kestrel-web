@@ -1,4 +1,4 @@
-import type { Localized } from '#kestrel/types/kestrel'
+import type { Localized } from '#kestrel-admin/types/kestrel'
 
 export function resolveLocalized(value: Localized | undefined, lang: string): string | undefined {
   if (value == null) return undefined

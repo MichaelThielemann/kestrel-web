@@ -2,7 +2,7 @@
 import BlockRenderer from './BlockRenderer.vue'
 import BlockBoundary from './BlockBoundary.vue'
 import { blockComponents } from '#kestrel/blocks'
-import type { BlockNode } from '../../../core/app/types/api'
+import type { BlockNode } from '#kestrel-core/app/types/api'
 
 const props = defineProps<{
   nodes: BlockNode[]

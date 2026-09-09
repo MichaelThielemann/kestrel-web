@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import UiField from '../ui/Field.vue'
 import UiTextInput from '../ui/TextInput.vue'
 import UiTextarea from '../ui/Textarea.vue'
-import { fieldConstraints } from '#kestrel/utils/kestrel'
+import { fieldConstraints } from '#kestrel-admin/utils/kestrel'
 import type { FieldComponentProps } from '../../utils/field-component'
 
 const props = defineProps<FieldComponentProps>()

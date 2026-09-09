@@ -1,5 +1,5 @@
 import type { ComputedRef, InjectionKey, Ref } from 'vue'
-import type { FieldDef, LayoutNode } from '#kestrel/types/kestrel'
+import type { FieldDef, LayoutNode } from '#kestrel-admin/types/kestrel'
 import type { BlockErrors } from '../composables/useEditForm'
 import type { RowErrorMap } from './row-errors'
 

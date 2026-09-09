@@ -1,7 +1,7 @@
 import { ref } from 'vue'
 import { describe, expect, it } from 'vitest'
 import { useRepeater } from './useRepeater'
-import type { FieldDef } from '#kestrel/types/kestrel'
+import type { FieldDef } from '#kestrel-admin/types/kestrel'
 
 const itemFields: Record<string, FieldDef> = {
   name: { type: 'text', required: true },

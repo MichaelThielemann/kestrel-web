@@ -1,4 +1,4 @@
-import { defineAction } from '../../../core/app/utils/actions'
+import { defineAction } from '#kestrel-core/app/utils/actions'
 import { withRunId } from '../composables/useApi'
 import { referencedBy } from '../utils/references'
 import { previewDeleteAction } from './shared'

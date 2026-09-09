@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { localePath } from '#kestrel/utils/kestrel'
-import type { PageSeo } from '#kestrel/types/api'
+import { localePath } from '#kestrel-admin/utils/kestrel'
+import type { PageSeo } from '#kestrel-admin/types/api'
 
 const props = defineProps<{
   value: PageSeo

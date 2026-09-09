@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { PER_PAGE_OPTIONS } from '#kestrel/utils/kestrel'
+import { PER_PAGE_OPTIONS } from '#kestrel-admin/utils/kestrel'
 
 const props = defineProps<{ page: number; totalPages: number; total: number; perPage: number }>()
 const emit = defineEmits<{ 'update:page': [page: number]; 'update:perPage': [perPage: number] }>()

@@ -1,4 +1,4 @@
-import type { LinkValue } from '#kestrel/types/kestrel'
+import type { LinkValue } from '#kestrel-admin/types/kestrel'
 
 export function linkHref(link: LinkValue | null): string | null {
   if (!link) return null

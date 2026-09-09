@@ -1,4 +1,4 @@
-import type { FieldDef, FieldOf } from '#kestrel/types/kestrel'
+import type { FieldDef, FieldOf } from '#kestrel-admin/types/kestrel'
 import { numberIsInteger } from './field-constraints.js'
 
 export interface FieldConstraints {

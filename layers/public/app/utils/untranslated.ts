@@ -1,5 +1,5 @@
-import { localePath } from '../../../core/app/utils/locale-path'
-import type { PageDocument } from '../../../core/app/types/api'
+import { localePath } from '#kestrel-core/app/utils/locale-path'
+import type { PageDocument } from '#kestrel-core/app/types/api'
 
 export function isFallbackDocument(doc: PageDocument, locale: string): boolean {
   if (doc._translations) return doc._translations[locale] !== true

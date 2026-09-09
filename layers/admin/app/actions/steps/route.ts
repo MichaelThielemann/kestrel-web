@@ -1,4 +1,4 @@
-import { defineStep, type ActionContext, type ActionStep } from '../../../../core/app/utils/actions'
+import { defineStep, type ActionContext, type ActionStep } from '#kestrel-core/app/utils/actions'
 import type { Destination, NavigatePort, RefreshPort } from '../types'
 
 export function routeNavigate<I extends { navigate: NavigatePort }, R = unknown>(pick: (ctx: ActionContext<I, R>) => Destination | null): ActionStep<I, R> {

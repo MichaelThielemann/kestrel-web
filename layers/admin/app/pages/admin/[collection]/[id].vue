@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { resolveLocalized } from '#kestrel/utils/localized'
-import { contentLocales, findCollection } from '#kestrel/utils/collections'
-import type { EditorExpose } from '#kestrel/utils/editor-expose'
-import type { BatchDeleteReport } from '#kestrel/utils/collection-ops'
-import { deleteRecord, deleteTranslation, discardRecord, leaveEditor, previewDeleteRecord } from '#kestrel/actions/editor'
-import type { ActionDeps, NavigatePort } from '#kestrel/actions/types'
+import { resolveLocalized } from '#kestrel-admin/utils/localized'
+import { contentLocales, findCollection } from '#kestrel-admin/utils/collections'
+import type { EditorExpose } from '#kestrel-admin/utils/editor-expose'
+import type { BatchDeleteReport } from '#kestrel-admin/utils/collection-ops'
+import { deleteRecord, deleteTranslation, discardRecord, leaveEditor, previewDeleteRecord } from '#kestrel-admin/actions/editor'
+import type { ActionDeps, NavigatePort } from '#kestrel-admin/actions/types'
 
 definePageMeta({ layout: 'admin', middleware: 'admin-auth', key: (route) => route.fullPath })
 

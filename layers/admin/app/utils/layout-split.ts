@@ -1,4 +1,4 @@
-import type { LayoutNode } from '#kestrel/types/kestrel'
+import type { LayoutNode } from '#kestrel-admin/types/kestrel'
 
 function nodeHasField(node: LayoutNode, fields: Set<string>): boolean {
   const rows = node.kind === 'row' ? [node] : node.rows

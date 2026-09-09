@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { SerializedField } from '#kestrel/types/kestrel'
+import type { SerializedField } from '#kestrel-admin/types/kestrel'
 import { translationSourceValues } from './translation-copy'
 
 describe('translationSourceValues', () => {

@@ -1,5 +1,5 @@
 import { resolveLocalized } from './localized'
-import type { SerializedBlock } from '#kestrel/types/kestrel'
+import type { SerializedBlock } from '#kestrel-admin/types/kestrel'
 
 export interface BlockDetailField {
   key: string

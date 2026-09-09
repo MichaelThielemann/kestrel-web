@@ -1,7 +1,7 @@
-import type { LayoutNode, SerializedField } from '#kestrel/types/kestrel'
-import type { Document, DeliveryEntry, PublishStatusEntry } from '#kestrel/types/api'
-import { isFieldVisible, slugify, validateField } from '#kestrel/utils/kestrel'
-import { BLOCKS_FIELD, editorOwnedFields, findCollection, contentLocales } from '#kestrel/utils/collections'
+import type { LayoutNode, SerializedField } from '#kestrel-admin/types/kestrel'
+import type { Document, DeliveryEntry, PublishStatusEntry } from '#kestrel-admin/types/api'
+import { isFieldVisible, slugify, validateField } from '#kestrel-admin/utils/kestrel'
+import { BLOCKS_FIELD, editorOwnedFields, findCollection, contentLocales } from '#kestrel-admin/utils/collections'
 import {
   asFieldDef,
   derivedSlugFields,

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { defineAction, runAction } from '../../../../core/app/utils/actions'
+import { defineAction, runAction } from '#kestrel-core/app/utils/actions'
 import type { RefreshPort } from '../types'
 import { dataReload, listRefresh, routeNavigate } from './route'
 

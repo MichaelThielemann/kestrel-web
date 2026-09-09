@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import type { MigrationsDryRunResult, MigrationsListResult } from '#kestrel/types/api'
-import { migrationsApply, migrationsDryRun } from '#kestrel/actions/system'
-import type { ActionDeps } from '#kestrel/actions/types'
+import type { MigrationsDryRunResult, MigrationsListResult } from '#kestrel-admin/types/api'
+import { migrationsApply, migrationsDryRun } from '#kestrel-admin/actions/system'
+import type { ActionDeps } from '#kestrel-admin/actions/types'
 
 const { t } = useT()
 const api = useApi()

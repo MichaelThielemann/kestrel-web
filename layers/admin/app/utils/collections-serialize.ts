@@ -1,4 +1,4 @@
-import type { LayoutNode, SerializedField, SerializedCollection } from '#kestrel/types/kestrel'
+import type { LayoutNode, SerializedField, SerializedCollection } from '#kestrel-admin/types/kestrel'
 import type { CollectionUi } from '#kestrel/collections-ui'
 
 export const SEO_FIELD = 'seo'

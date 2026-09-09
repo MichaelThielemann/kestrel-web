@@ -1,4 +1,4 @@
-import type { SerializedCollection } from '#kestrel/types/kestrel'
+import type { SerializedCollection } from '#kestrel-admin/types/kestrel'
 
 export interface ListColumn {
   key: 'title' | 'slug' | 'status' | 'updatedAt'

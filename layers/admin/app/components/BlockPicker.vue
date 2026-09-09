@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
-import type { SerializedBlock } from '#kestrel/types/kestrel'
-import type { IconName } from '#kestrel/utils/icons'
+import type { SerializedBlock } from '#kestrel-admin/types/kestrel'
+import type { IconName } from '#kestrel-admin/utils/icons'
 import { useBlockPickerView } from '../composables/useBlockPickerView'
 import { useBlockPickerTags } from '../composables/useBlockPickerTags'
 import { useBlockPickerFavorites } from '../composables/useBlockPickerFavorites'

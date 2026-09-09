@@ -1,4 +1,4 @@
-import { contentLocales } from '#kestrel/utils/collections'
+import { contentLocales } from '#kestrel-admin/utils/collections'
 
 export interface ContentLocales {
   locales: string[]

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { MediaItem } from '#kestrel/types/api'
+import type { MediaItem } from '#kestrel-admin/types/api'
 import { itemKey, humanizeSize, type LibraryItem } from '../utils/library'
 import { isDisclosed, provenanceLabelKey, provenanceOrigin } from '../utils/provenance'
 

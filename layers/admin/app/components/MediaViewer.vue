@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import type { MediaItem, Provenance, ProvenanceOrigin } from '#kestrel/types/api'
+import type { MediaItem, Provenance, ProvenanceOrigin } from '#kestrel-admin/types/api'
 import { humanizeSize } from '../utils/library'
 import { PROVENANCE_ORIGINS, provenanceOrigin } from '../utils/provenance'
 import { changedMetaFields, type MediaMetaFields } from '../utils/media-meta'

@@ -11,7 +11,7 @@ extends: ["./layers/core", "./layers/admin", "./layers/public"]
   Owns no UI. Derives `maxBodyBytes` for the embedded HTTP handler from the media module's `maxBytes`
   (`server/utils/limits.ts`) and exposes it to the admin via `GET /api/limits`.
 - **`layers/admin`** — the editorial UI at `/admin` (SPA, `ssr: false` for that route). Its own files
-  are addressed via the alias `#kestrel/*`; it reaches into the consumer app via `#kestrel/blocks` (the
+  are addressed via the alias `#kestrel-admin/*`; it reaches into the consumer app via `#kestrel/blocks` (the
   block library, generated from the consumer's `app/blocks/*.vue`), `~~/shared/model` (the content model
   and, via its `features` export, `useFeatures()` — hides system tabs and skips requests for features the
   consumer has not enabled) and `~~/shared/collections-ui`, rather than importing a specific consumer.
@@ -20,6 +20,28 @@ extends: ["./layers/core", "./layers/admin", "./layers/public"]
 `packages/renderer-nuxt` is a separate package (not a layer): a Kestrel module that implements the
 `renderer@1` contract using `layers/public`'s own rendering, so `delivery-static` can produce static
 output for a page.
+
+## Layer boundaries
+Every layer has one named entry; relative paths never cross a layer.
+
+| Alias | Target | Who may import it |
+| --- | --- | --- |
+| `#kestrel-core/*` | `layers/core` (the layer root, so `app/utils/*`, `app/types/api` and `pipelines/__fixtures__/*` are reachable) | `layers/admin`, `layers/public`, tests |
+| `#kestrel-admin/*` | `layers/admin/app` | `layers/admin` only |
+| `#kestrel/*` | the exact core entries (`pipelines`, `modules`, `collections-ui`, `cast`) and the virtual ids of the Nuxt modules (`blocks`, `block-images`, `image-sizes`, `layouts`, `build-assets`, `migrations`, `schemas`, `consumer-*`) | everyone; this is the surface documented for consumers |
+
+`layers/public` has no alias: nothing imports the public layer. The aliases are registered in
+`layers/core/nuxt.config.ts` (Nuxt, Vite and Nitro resolvers), `layers/admin/nuxt.config.ts` and
+`vitest.config.ts`. ESLint (`playground/eslint.config.mjs`, blocks `kestrel/layer-boundaries`,
+`kestrel/no-admin-from-public-or-core`, `kestrel/no-backend-in-ui-layers`,
+`kestrel/backend-types-only-in-core-app-types`) enforces the rules in CI: a relative import that walks
+into another layer (`../../../core/...`) is an error; `#kestrel-admin/*` is refused outside
+`layers/admin`; `@michaelthielemann/kestrel*` is refused in `layers/admin`, `layers/public` and
+`layers/core/app`, except as `import type` in `layers/core/app/types/**`, where the frontend API types
+are derived from the backend exports so that drift is a `tsc` error. Backend runtime imports live in
+`layers/core/server`, `layers/core/pipelines`, `layers/core/module-registry`, `layers/core/modules`,
+`layers/core/schemas` and `packages/renderer-nuxt`. Nuxt auto-imports (`runAction`, composables) are
+not imports and stay available across layers.
 
 ## Type-assertion boundaries
 `as unknown as T` and `as any` are banned by lint (`eslint.config.mjs`'s third config block, no type
@@ -261,7 +283,7 @@ one level of that tree per nesting depth when it renders its rows. A consumer's 
 `layers/admin/app/utils/collections.ts` reads it via `~~/shared/collections-ui` (same mechanism as
 `~~/shared/model`) and delegates the actual merge/validation to
 `layers/admin/app/utils/collections-serialize.ts` (`serializeCollections(contentTypes, ui)`). It only
-imports the `#kestrel/types/kestrel` and `#kestrel/collections-ui` aliases (both resolved in `vitest.config.ts`
+imports the `#kestrel-admin/types/kestrel` and `#kestrel/collections-ui` aliases (both resolved in `vitest.config.ts`
 too, no `~~` alias), so it stays unit-testable directly. Enum choice labels come from
 `fieldOverrides.<field>.options.choices` (matched by value): every model value needs a matching choice,
 and every choice's `value` must be one of the model's `options` — either mismatch throws. A relation's
@@ -376,10 +398,9 @@ The reason is the test setup: `vitest.config.ts` declares `test.projects`, and e
 - imports from `#kestrel/*` must be `import type` only, so nothing needs the alias at runtime;
 - runtime imports use relative paths, including `../../../../core/app/utils/actions` for the runner.
 
-One relative import does pull a `#kestrel/*` module at runtime (`../../utils/edit-form` imports
-`#kestrel/utils/field-empty`), so only the `admin` project (`layers/admin/**/*.test.ts`) carries a
-`#kestrel/` → `layers/admin/app/` alias; the other project, covering the rest of the layers and packages,
-does not need it.
+One relative import does pull a `#kestrel-admin/*` module at runtime (`../../utils/edit-form` imports
+`#kestrel-admin/utils/field-empty`), so only the `admin` project (`layers/admin/**/*.test.ts`) carries the
+`#kestrel-admin/` → `layers/admin/app/` alias; both projects resolve `#kestrel-core/` and `#kestrel/cast`.
 
 ### Step names
 Steps live in `layers/admin/app/actions/steps/`. Each is either a plain step or a factory that takes

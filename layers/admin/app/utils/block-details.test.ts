@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { blockDetails } from './block-details'
-import type { SerializedBlock } from '#kestrel/types/kestrel'
+import type { SerializedBlock } from '#kestrel-admin/types/kestrel'
 
 describe('blockDetails', () => {
   it('resolves the localized description in the given language', () => {

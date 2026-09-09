@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { kestrelLayouts } from '#kestrel/layouts'
-import type { FieldDef, LayoutNode } from '#kestrel/types/kestrel'
-import type { PageSeo } from '#kestrel/types/api'
-import { layoutSelectOptions } from '../../../core/app/utils/layouts'
+import type { FieldDef, LayoutNode } from '#kestrel-admin/types/kestrel'
+import type { PageSeo } from '#kestrel-admin/types/api'
+import { layoutSelectOptions } from '#kestrel-core/app/utils/layouts'
 import { splitLayoutAfter } from '../utils/layout-split'
 import type { RowErrorMap } from '../utils/row-errors'
 

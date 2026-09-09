@@ -1,7 +1,7 @@
 import { contentTypes, locales, defaultLocale, prefixPrimary } from '~~/shared/model'
 import collectionsUi from '~~/shared/collections-ui'
 import blockTags from '#kestrel/consumer-block-tags'
-import type { SerializedCollection } from '#kestrel/types/kestrel'
+import type { SerializedCollection } from '#kestrel-admin/types/kestrel'
 import { LAYOUT_FIELD, serializeCollections } from './collections-serialize'
 import { resolveLocalized } from './localized'
 

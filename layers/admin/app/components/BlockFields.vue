@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { LayoutNode, SerializedBlock } from '#kestrel/types/kestrel'
+import type { LayoutNode, SerializedBlock } from '#kestrel-admin/types/kestrel'
 import type { BlockRow } from '../utils/block-tree'
-import { resolveLocalized } from '#kestrel/utils/localized'
+import { resolveLocalized } from '#kestrel-admin/utils/localized'
 import { blockRowErrors } from '../utils/edit-form'
 
 const props = defineProps<{

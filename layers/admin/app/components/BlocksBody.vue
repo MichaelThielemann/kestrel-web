@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import type { SerializedBlock } from '#kestrel/types/kestrel'
-import type { BlockNode } from '#kestrel/types/api'
+import type { SerializedBlock } from '#kestrel-admin/types/kestrel'
+import type { BlockNode } from '#kestrel-admin/types/api'
 import type { BlockTreeCtx } from '../utils/block-tree'
 import { errorBearingIds, firstMatchingId } from '../utils/block-tree'
 

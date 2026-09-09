@@ -1,5 +1,5 @@
-import type { SerializedBlock } from '#kestrel/types/kestrel'
-import { reorder } from '#kestrel/utils/reorder'
+import type { SerializedBlock } from '#kestrel-admin/types/kestrel'
+import { reorder } from '#kestrel-admin/utils/reorder'
 import { initialValues } from './edit-form'
 
 export interface BlockRow {

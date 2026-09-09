@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import type { LayoutKey } from '#app'
 import { defaultLocale, homeSlug, locales, prefixPrimary, untranslatedPages } from '~~/shared/model'
-import { localePath } from '../../../core/app/utils/locale-path'
+import { localePath } from '#kestrel-core/app/utils/locale-path'
 import { isFallbackDocument, primaryPathOf } from '../utils/untranslated'
 import { resolvePageLayout } from '../utils/page-layout'
-import type { PageDocument, RedirectHit, SiteResponse } from '../../../core/app/types/api'
+import type { PageDocument, RedirectHit, SiteResponse } from '#kestrel-core/app/types/api'
 
 definePageMeta({ key: (route) => route.path, layout: false })
 
