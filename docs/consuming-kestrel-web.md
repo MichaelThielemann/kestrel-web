@@ -437,6 +437,11 @@ system clipboard and paste it back on the same or another page — see **Page bu
 
 **Block name** = the kebab-cased file name: `Hero.vue` → `hero`, `BoxedContainer.vue` → `boxed-container`.
 
+**Rendering helpers** (auto-imported as well): `resolveRichtextLinks(html, (collection, id) => href)` turns the
+editor's internal link scheme into real hrefs, `stripBrokenPageLinks` drops links to unpublished pages,
+`useSanitizedHtml` sanitizes the result SSR-safe. Blocks do not import from `#kestrel-admin/*`; that alias is the
+admin layer's private entry.
+
 **Field factories** (auto-imported, no import statement needed):
 
 | factory | value | notable options |

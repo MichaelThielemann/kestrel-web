@@ -61,7 +61,7 @@ function recordBootFailure(err: unknown): void {
 export function getKestrel(): Promise<Kestrel> {
   instance ??= (async () => {
     try {
-      const kestrel = await boot({ config: { ...config, modules: applyBundledSchemas(config.modules, boundaryCast<SchemaBundle>(bundledSchemas, "host")) }, modules, pipelines, logger: consoleLogger, dev: import.meta.dev });
+      const kestrel = await boot({ config: { ...config, modules: applyBundledSchemas(config.modules, boundaryCast<SchemaBundle>(bundledSchemas, "host")) }, modules, pipelines, logger: consoleLogger });
       await kestrel.start();
       warnIfImagesPublicPathMismatched();
       await registerImageSizes(kestrel);
