@@ -1,0 +1,17 @@
+{
+  "generatedAt": 1757603600000,
+  "process": { "pid": 4242, "startedAt": 1757600000000, "uptimeMs": 3600000 },
+  "runs": { "active": 1, "total": 120, "failed": 4, "errors": 1 },
+  "pipelines": [
+    { "name": "login", "count": 20, "failed": 3, "errors": 1, "p50Ms": 42, "p95Ms": 88, "lastAt": 1757603500000 },
+    { "name": "listPages", "count": 100, "failed": 1, "errors": 0, "p50Ms": 6, "p95Ms": 19, "lastAt": 1757603590000 },
+    { "name": "sweepRateLimits", "count": 0, "failed": 0, "errors": 0, "p50Ms": 0, "p95Ms": 0, "lastAt": null }
+  ],
+  "steps": [
+    { "pipeline": "login", "step": "ratelimit.check:login", "count": 20, "failed": 2, "errors": 1, "p50Ms": 1, "p95Ms": 2 },
+    { "pipeline": "login", "step": "authn.login", "count": 18, "failed": 1, "errors": 0, "p50Ms": 40, "p95Ms": 85 },
+    { "pipeline": "listPages", "step": "content.list:pages", "count": 100, "failed": 1, "errors": 0, "p50Ms": 5, "p95Ms": 17 }
+  ],
+  "events": [{ "name": "auth.loggedIn", "count": 17, "lastAt": 1757603500000 }],
+  "ratelimit": [{ "key": "login", "remaining": 3, "resetAt": 1757603660000 }]
+}

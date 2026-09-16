@@ -4,8 +4,9 @@ import '#kestrel-admin/assets/scss/main.scss'
 import { installAdminClient } from '../utils/admin-client'
 
 installAdminClient()
-const { authenticated } = useAuth()
+const { authenticated, can } = useAuth()
 const { collapsed, toggle: toggleRail } = useRailCollapsed()
+const { has } = useFeatures()
 const { theme } = useTheme()
 const { t } = useT()
 const route = useRoute()
@@ -50,6 +51,16 @@ useHead(() => ({
 
       <div class="rail__foot">
         <KestrelAdminAccount />
+        <NuxtLink
+          v-if="has('insights') && can('insights.read')"
+          to="/admin/insights"
+          class="rail__item"
+          :class="{ 'router-link-active': isNavItemActive(route.path, '/admin/insights') }"
+          :title="collapsed ? t('nav.insights') : undefined"
+        >
+          <KestrelUiIcon name="activity" class="rail__icon" size="1.25rem" />
+          <span class="rail__label">{{ t('nav.insights') }}</span>
+        </NuxtLink>
         <NuxtLink
           to="/admin/system"
           class="rail__item"

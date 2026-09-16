@@ -22,11 +22,12 @@ import images from "./features/images";
 import replication from "./features/replication";
 import migrations from "./features/migrations";
 import audit from "./features/audit";
+import insights from "./features/insights";
 
 export type { CollectionModel } from "./collections";
 export type { PresetStep } from "../module-registry";
 
-export type Feature = "ratelimit" | "sanitizeSvg" | "references" | "links" | "delivery" | "redirects" | "images" | "replication" | "migrations" | "audit";
+export type Feature = "ratelimit" | "sanitizeSvg" | "references" | "links" | "delivery" | "redirects" | "images" | "replication" | "migrations" | "audit" | "insights";
 
 export interface FeatureModule {
   modules: string[];
@@ -47,7 +48,8 @@ export type StaticPipelineName =
   | "serveImageVariant" | "registerImageSizes" | "registerImageSizesBoot" | "listImageSizes" | "syncImages" | "pruneImages" | "imagesStatus" | "generateImageVariants" | "resumeImages"
   | "replicate" | "replicationStatus" | "replicationPoints" | "replicationSnapshot" | "replicationRestore"
   | "listMigrations" | "applyMigrations"
-  | "auditAuth";
+  | "auditAuth"
+  | "insightsManifest" | "insightsStats";
 
 export type PresetPipelineName<C extends Record<string, CollectionModel> = Record<string, CollectionModel>> =
   | StaticPipelineName
@@ -82,6 +84,7 @@ const featureOrder: readonly Feature[] = [
   "replication",
   "migrations",
   "audit",
+  "insights",
 ];
 
 const featureFactories: Record<Feature, (context: PresetContext) => FeatureModule> = {
@@ -95,6 +98,7 @@ const featureFactories: Record<Feature, (context: PresetContext) => FeatureModul
   replication,
   migrations,
   audit,
+  insights,
 };
 
 const VALIDATE_JSONSCHEMA_MODULE = "@michaelthielemann/kestrel-validate-jsonschema";

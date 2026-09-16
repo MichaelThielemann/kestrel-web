@@ -15,6 +15,7 @@ import images from "./features/images";
 import replication from "./features/replication";
 import migrations from "./features/migrations";
 import audit from "./features/audit";
+import insights from "./features/insights";
 import { syntheticContentTypes } from "./__fixtures__/synthetic-collections";
 import { contentTypes } from "../../../playground/shared/model";
 
@@ -37,7 +38,7 @@ function pipelinesMap(pipelines: { name: string; steps: readonly string[] }[]): 
   return Object.fromEntries(pipelines.map((pipeline) => [pipeline.name, [...pipeline.steps]]));
 }
 
-const allFeatures: readonly Feature[] = ["ratelimit", "sanitizeSvg", "references", "links", "delivery", "redirects", "images", "replication", "audit"];
+const allFeatures: readonly Feature[] = ["ratelimit", "sanitizeSvg", "references", "links", "delivery", "redirects", "images", "replication", "audit", "insights"];
 
 const allModules = [
   { use: "@michaelthielemann/kestrel-blobstore-filesystem" },
@@ -58,6 +59,7 @@ const allModules = [
   { use: "@michaelthielemann/kestrel-audit-persistence" },
   { use: "@michaelthielemann/kestrel-events-inmemory" },
   { use: "@michaelthielemann/kestrel-ratelimit-memory" },
+  { use: "@michaelthielemann/kestrel-insights" },
 ];
 
 describe("golden: playground", () => {
@@ -109,7 +111,7 @@ describe("golden: synthetic collections (news multi, profile system single, noti
 describe("canonicalTriggers consistency", () => {
   const context = { exportDir: EXPORT_DIR, homeSlug: "home" };
   const collections = { pages: { kind: "multi" as const, fields: {} } };
-  const featureFactories = { ratelimit, sanitizeSvg, references, links, delivery, redirects, images, replication, migrations, audit };
+  const featureFactories = { ratelimit, sanitizeSvg, references, links, delivery, redirects, images, replication, migrations, audit, insights };
   const basePipelineNames = new Set(Object.keys(basePipelines(context, collections)));
   const featurePipelineNames = new Map(
     Object.entries(featureFactories).map(([feature, factory]) => [feature, new Set(Object.keys(factory(context).pipelines))]),

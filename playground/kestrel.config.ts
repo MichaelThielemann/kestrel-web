@@ -40,6 +40,7 @@ const modules = [
   { use: "@michaelthielemann/kestrel-audit-persistence", config: {} },
   { use: "@michaelthielemann/kestrel-events-inmemory", config: {} },
   { use: "@michaelthielemann/kestrel-ratelimit-memory", config: { buckets: { login: { limit: 5, windowSeconds: 60 } } } },
+  { use: "@michaelthielemann/kestrel-insights", config: {} },
 ];
 
 export const preset = definePreset({ modules, features, collections: contentTypes });

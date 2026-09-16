@@ -137,6 +137,16 @@
       "authz.require:images.read",
       "images.readStatus"
     ],
+    "insightsManifest": [
+      "authn.requireUser",
+      "authz.require:insights.read",
+      "insights.readManifest"
+    ],
+    "insightsStats": [
+      "authn.requireUser",
+      "authz.require:insights.read",
+      "insights.readStats"
+    ],
     "listAllPages": [
       "authn.requireUser",
       "authz.require:pages.manage",
@@ -593,6 +603,14 @@
     {
       "http": "POST /admin/replication/restore",
       "pipeline": "replicationRestore"
+    },
+    {
+      "http": "GET /admin/insights/manifest",
+      "pipeline": "insightsManifest"
+    },
+    {
+      "http": "GET /admin/insights/stats",
+      "pipeline": "insightsStats"
     },
     {
       "cron": "30 2 * * *",

@@ -176,7 +176,7 @@ aliases it as `#kestrel/pipelines`, the same mechanism as `#kestrel/blocks`, so 
 composes in a fixed order: base pipelines → collection-derived pipelines (`collections.ts`, one `multi`
 or `single` CRUD set per entry in `collections`, `settings`/`redirects` excluded since they're already in
 base/the `redirects` feature) → feature patches, in canonical feature order (`ratelimit, sanitizeSvg,
-references, links, delivery, redirects, images, replication, migrations, audit`; within one feature, in
+references, links, delivery, redirects, images, replication, migrations, audit, insights`; within one feature, in
 the order its patches are declared) → `overrides` → `exclude` → `schedules`. Each feature also names the module(s) it
 needs; a feature without its module throws at compose time, a configured module whose feature is off only
 warns (the consumer may still use the module with pipelines of its own).

@@ -185,3 +185,88 @@ export type MigrationsListResult = Returns<Migrations['list']>
 export type MigrationsDryRunResult = Extract<ApplyResult, { dry: true }>
 export type MigrationsDryRunChange = MigrationsDryRunResult['changes'][number]
 export type MigrationsApplyResult = Exclude<ApplyResult, { dry: true }>
+
+export type JsonSchema = Record<string, unknown>
+
+export interface InsightsStepDescription {
+  summary: string
+  reads: string[]
+  writes: string[]
+  input?: JsonSchema
+  output?: JsonSchema
+  extendsOutput?: JsonSchema
+  extendsItems?: JsonSchema
+  query?: Record<string, JsonSchema>
+  errors?: Record<string, string>
+  security?: 'required' | 'optional'
+  multipart?: boolean
+  binary?: boolean
+}
+
+export type InsightsVariableType = 'string' | 'number' | 'integer' | 'boolean' | 'array' | 'object' | 'record' | 'enum' | 'union' | 'literal' | 'function' | 'unknown'
+
+export interface InsightsConfigVariable {
+  path: string
+  type: InsightsVariableType
+  required: boolean
+  default?: unknown
+  secret: boolean
+  set: boolean
+}
+
+export interface InsightsModule {
+  name: string
+  use: string
+  version: string | null
+  provides: string[]
+  requires: string[]
+  optional: string[]
+  config: { schema: JsonSchema; variables: InsightsConfigVariable[] }
+  steps: string[]
+  eventHook: boolean
+}
+
+export interface InsightsStep {
+  name: string
+  module: string
+  factory: boolean
+  description: InsightsStepDescription | null
+}
+
+export interface InsightsPipelineStep {
+  spec: string
+  name: string
+  module: string
+  description: InsightsStepDescription
+}
+
+export interface InsightsPipeline { name: string; steps: InsightsPipelineStep[] }
+
+export interface InsightsHttpTrigger { method: string; path: string; pipeline: string }
+export interface InsightsEventTrigger { event: string; pipeline: string }
+export interface InsightsCronTrigger { expression: string; pipeline: string }
+
+export interface InsightsManifest {
+  generatedAt: number
+  core: { version: string }
+  contracts: string[]
+  modules: InsightsModule[]
+  steps: InsightsStep[]
+  pipelines: InsightsPipeline[]
+  triggers: { http: InsightsHttpTrigger[]; events: InsightsEventTrigger[]; crons: InsightsCronTrigger[] }
+}
+
+export interface InsightsPipelineStats { name: string; count: number; failed: number; errors: number; p50Ms: number; p95Ms: number; lastAt: number | null }
+export interface InsightsStepStats { pipeline: string; step: string; count: number; failed: number; errors: number; p50Ms: number; p95Ms: number }
+export interface InsightsEventStats { name: string; count: number; lastAt: number | null }
+export interface InsightsRatelimitBucket { key: string; remaining: number; resetAt: number }
+
+export interface InsightsStats {
+  generatedAt: number
+  process: { pid: number; startedAt: number; uptimeMs: number }
+  runs: { active: number; total: number; failed: number; errors: number }
+  pipelines: InsightsPipelineStats[]
+  steps: InsightsStepStats[]
+  events: InsightsEventStats[]
+  ratelimit: InsightsRatelimitBucket[]
+}
