@@ -796,6 +796,7 @@ export const en: Catalog = {
   'insights.graph.legendPipeline': 'Pipeline step order',
   'insights.graph.legendTrigger': 'Trigger',
   'insights.graph.loading': 'Loading graph…',
+  'insights.graph.unavailable': 'Graph unavailable: install @vue-flow/core and @dagrejs/dagre to enable it.',
   'insights.graph.selectHint': 'Select a module to see details.',
   'insights.graph.openModule': 'Open module',
   'insights.graph.steps': '{count} steps',

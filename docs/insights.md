@@ -42,9 +42,13 @@ role.
 
 ## Graph
 `InsightsGraph.vue` renders the toolbar, legend, side panel and text alternative; it lazily imports
-`InsightsGraphCanvas.vue` through `defineAsyncComponent` inside `<ClientOnly>`, and only that canvas
-component imports Vue Flow (`@vue-flow/core`) and dagre (`@dagrejs/dagre`), so the rest of the admin
-bundle does not carry them. `utils/insights-graph.ts` builds the graph without any DOM:
+the canvas through `defineAsyncComponent(() => import('#kestrel-insights-canvas'))` inside
+`<ClientOnly>`. The `insights-graph` Nuxt module of the admin layer points that alias at
+`InsightsGraphCanvas.vue` when `@vue-flow/core` and `@dagrejs/dagre` are installed (both are optional
+peer dependencies) and adds them to Vite's `optimizeDeps`; otherwise it points at
+`InsightsGraphUnavailable.vue`, which renders a notice, so consumers without the graph packages build
+without them. Only the canvas component imports Vue Flow, so the rest of the admin bundle never
+carries it. `utils/insights-graph.ts` builds the graph without any DOM:
 
 - one node per module with config/error counts;
 - contract edges from the provider to each module that `requires` (solid) or `optional`ly uses

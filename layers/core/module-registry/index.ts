@@ -1,5 +1,6 @@
 import type { StepsOf } from "@michaelthielemann/kestrel/catalogue";
 import type { ModuleDefinition } from "@michaelthielemann/kestrel/defineModule";
+import optionalModules from "#kestrel/optional-modules";
 import auditPersistence from "@michaelthielemann/kestrel-audit-persistence";
 import authnMulti from "@michaelthielemann/kestrel-authn-multi";
 import authnSingle from "@michaelthielemann/kestrel-authn-single";
@@ -11,7 +12,6 @@ import contentDefault from "@michaelthielemann/kestrel-content-default";
 import deliveryStatic from "@michaelthielemann/kestrel-delivery-static";
 import eventsInmemory from "@michaelthielemann/kestrel-events-inmemory";
 import imagesDefault from "@michaelthielemann/kestrel-images-default";
-import insights from "@michaelthielemann/kestrel-insights";
 import linksDefault from "@michaelthielemann/kestrel-links-default";
 import mediaDefault from "@michaelthielemann/kestrel-media-default";
 import migrationsDefault from "@michaelthielemann/kestrel-migrations-default";
@@ -37,7 +37,6 @@ export const moduleRegistry = {
   "@michaelthielemann/kestrel-delivery-static": deliveryStatic,
   "@michaelthielemann/kestrel-events-inmemory": eventsInmemory,
   "@michaelthielemann/kestrel-images-default": imagesDefault,
-  "@michaelthielemann/kestrel-insights": insights,
   "@michaelthielemann/kestrel-links-default": linksDefault,
   "@michaelthielemann/kestrel-media-default": mediaDefault,
   "@michaelthielemann/kestrel-migrations-default": migrationsDefault,
@@ -52,9 +51,11 @@ export const moduleRegistry = {
   "@michaelthielemann/kestrel-validate-jsonschema": validateJsonschema,
 } as const satisfies Record<string, ModuleDefinition>;
 
-export type PresetStep = StepsOf<(typeof moduleRegistry)[keyof typeof moduleRegistry]>;
+export type OptionalStep = "insights.readManifest" | "insights.readStats";
 
-const registry: Record<string, ModuleDefinition> = moduleRegistry;
+export type PresetStep = StepsOf<(typeof moduleRegistry)[keyof typeof moduleRegistry]> | OptionalStep;
+
+const registry: Record<string, ModuleDefinition> = { ...moduleRegistry, ...optionalModules };
 
 export function presetModules(modules: readonly { use: string; config?: unknown }[], extra: Record<string, ModuleDefinition> = {}): ModuleDefinition[] {
   return modules.map((entry) => {

@@ -7,13 +7,13 @@ const props = defineProps<{ manifest: InsightsManifest }>()
 
 const { t } = useT()
 
-const InsightsGraphCanvas = defineAsyncComponent(() => import('./InsightsGraphCanvas.vue'))
+const InsightsGraphCanvas = defineAsyncComponent(() => import('#kestrel-insights-canvas'))
 
 const showContracts = ref(true)
 const showPipelines = ref(true)
 const showTriggers = ref(true)
 const selectedId = ref<string | null>(null)
-const canvas = ref<InstanceType<typeof InsightsGraphCanvas> | null>(null)
+const canvas = ref<{ fitView: () => void } | null>(null)
 
 const graph = computed(() => buildGraph(props.manifest, {
   contracts: showContracts.value,

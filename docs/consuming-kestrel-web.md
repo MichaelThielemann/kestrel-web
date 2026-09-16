@@ -322,6 +322,15 @@ server is running needs a restart to switch between the consumer file and the de
 | `replication` | kestrel-replication-sqlite | `replicate` (cron), `replicationStatus`, `replicationPoints`, `replicationSnapshot`, `replicationRestore` |
 | `migrations` | kestrel-migrations-default | `listMigrations`, `applyMigrations` (`GET /admin/migrations`, `POST /admin/migrations/apply`) |
 | `audit` | kestrel-audit-persistence | `auditAuth` (on `auth.loggedIn`/`auth.loggedOut`) |
+| `insights` | kestrel-insights (optional peer) | `insightsManifest`, `insightsStats` (`GET /admin/insights/manifest`, `GET /admin/insights/stats`, `insights.read`); the `/admin/insights` page |
+
+
+Optional packages: `@michaelthielemann/kestrel-insights`, `@vue-flow/core` and `@dagrejs/dagre` are
+optional peer dependencies of kestrel-web. Install the first one only when you configure the
+`insights` module; the module registry picks it up when it is present in your `node_modules` and
+`presetModules()` throws for it otherwise. The two graph packages are only needed for the wiring
+graph tab of `/admin/insights`: without them the page still works and the tab shows a notice
+instead of the graph, and they stay out of your bundle and your Vite `optimizeDeps`.
 
 Base pipelines — always present, no feature needed: auth (`login`, `logout`, `me`, `changePassword`, user
 management), `getSettings`/`setSettings`, media CRUD + folders, and `reconcileMedia` (cron `30 3 * * *`,
