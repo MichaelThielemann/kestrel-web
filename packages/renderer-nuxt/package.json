@@ -1,20 +1,58 @@
 {
   "name": "@michaelthielemann/kestrel-renderer-nuxt",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "renderer@1 backed by the running Nuxt app: renders a page through Nitro's localFetch and ships the build assets it references.",
   "type": "module",
-  "license": "MIT",
-  "engines": { "node": ">=22" },
-  "exports": { ".": "./index.ts", "./impl": "./impl.ts", "./registry": "./registry.ts" },
-  "files": ["index.ts", "module.ts", "impl.ts", "registry.ts", "README.md"],
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MichaelThielemann/kestrel-web.git",
+    "directory": "packages/renderer-nuxt"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "exports": {
+    ".": "./index.ts",
+    "./impl": "./impl.ts",
+    "./registry": "./registry.ts"
+  },
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "./impl": {
+        "types": "./dist/impl.d.ts",
+        "default": "./dist/impl.js"
+      },
+      "./registry": {
+        "types": "./dist/registry.d.ts",
+        "default": "./dist/registry.js"
+      }
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
   "peerDependencies": {
     "@michaelthielemann/kestrel": "*",
     "@michaelthielemann/kestrel-contracts": "*"
   },
-  "dependencies": { "zod": "^3.23.8" },
+  "dependencies": {
+    "zod": "^3.23.8"
+  },
   "devDependencies": {
     "@michaelthielemann/kestrel": "^5.3.0",
     "@michaelthielemann/kestrel-contracts": "^5.3.0",
+    "@types/node": "^26.4.0",
+    "typescript": "^5.9.3",
     "vitest": "^3.2.0"
   }
 }

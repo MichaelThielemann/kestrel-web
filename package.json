@@ -1,19 +1,38 @@
 {
-  "name": "kestrel-web",
-  "private": true,
+  "name": "@michaelthielemann/kestrel-web",
+  "version": "1.0.0",
+  "description": "Nuxt 4 layer with the Kestrel admin UI and public site renderer; embeds a Kestrel backend in the app's own Nitro server.",
   "type": "module",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MichaelThielemann/kestrel-web.git"
+  },
   "engines": {
     "node": ">=22.13.0"
   },
   "packageManager": "pnpm@11.2.2",
+  "main": "./nuxt.config.ts",
+  "files": [
+    "nuxt.config.ts",
+    "layers",
+    "!layers/**/*.test.ts",
+    "!layers/**/__fixtures__",
+    "README.md",
+    "docs"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "dev": "NODE_OPTIONS=--disable-warning=ExperimentalWarning nuxt dev playground",
     "build": "nuxt build playground",
     "preview": "nuxt preview playground",
-    "postinstall": "nuxt prepare playground",
+    "prepare": "nuxt prepare playground",
     "typecheck": "nuxt typecheck playground",
     "lint": "nuxt prepare playground && eslint .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "build:packages": "pnpm -r --filter './packages/*' build"
   },
   "dependencies": {
     "@babel/parser": "^8.0.4",
@@ -39,7 +58,7 @@
     "@michaelthielemann/kestrel-ratelimit-memory": "^5.3.0",
     "@michaelthielemann/kestrel-redirects-default": "^5.3.0",
     "@michaelthielemann/kestrel-references-default": "^5.3.0",
-    "@michaelthielemann/kestrel-renderer-nuxt": "workspace:*",
+    "@michaelthielemann/kestrel-renderer-nuxt": "workspace:^",
     "@michaelthielemann/kestrel-replication-sqlite": "^5.3.0",
     "@michaelthielemann/kestrel-sanitize-svg": "^5.3.0",
     "@michaelthielemann/kestrel-site-default": "^5.3.0",
@@ -54,17 +73,18 @@
     "@tiptap/vue-3": "^3.30.5",
     "dompurify": "^3.4.14",
     "h3": "^1.15.11",
-    "nuxt": "^4.5.2",
     "reka-ui": "^2.10.1",
     "sanitize-html": "^2.17.7",
     "sass": "^1.102.0",
-    "vue": "^3.5.35",
-    "vue-router": "^5.2.0"
+    "typescript": "^5.9.3"
   },
   "peerDependencies": {
     "@dagrejs/dagre": "^3.1.1",
     "@michaelthielemann/kestrel-insights": "^5.3.0",
-    "@vue-flow/core": "^1.48.2"
+    "@vue-flow/core": "^1.48.2",
+    "nuxt": "^4.5.2",
+    "vue": "^3.5.35",
+    "vue-router": "^5.2.0"
   },
   "peerDependenciesMeta": {
     "@dagrejs/dagre": {
@@ -86,21 +106,10 @@
     "@types/sanitize-html": "^2.16.1",
     "@vue-flow/core": "^1.48.2",
     "eslint": "^9.39.1",
-    "typescript": "^5.9.3",
+    "nuxt": "^4.5.2",
     "vitest": "^3.2.0",
+    "vue": "^3.5.35",
+    "vue-router": "^5.2.0",
     "vue-tsc": "^3.3.9"
-  },
-  "main": "./nuxt.config.ts",
-  "files": [
-    "nuxt.config.ts",
-    "layers",
-    "packages",
-    "README.md",
-    "docs"
-  ],
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/MichaelThielemann/kestrel-web.git"
-  },
-  "license": "Apache-2.0"
+  }
 }

@@ -5,15 +5,23 @@ complete working example of everything below — copy from it freely.
 
 ## 1. Extend the layer
 
+```bash
+pnpm add @michaelthielemann/kestrel-web nuxt vue vue-router
+```
+
 ```ts
 // nuxt.config.ts
 export default defineNuxtConfig({
-  extends: ["kestrel-web"],
+  extends: ["@michaelthielemann/kestrel-web"],
 });
 ```
 
-While `kestrel-web` is unpublished, point `extends` at the local path (as `playground/nuxt.config.ts`
-does with `extends: [".."]`) or add it to your `package.json` as a `link:` dependency.
+The layer brings every standard Kestrel module with it (`@michaelthielemann/kestrel-*` are its
+dependencies); `nuxt`, `vue` and `vue-router` are peer dependencies, so your app owns their versions.
+The `insights` feature needs three optional peers on top: `@michaelthielemann/kestrel-insights`,
+`@vue-flow/core` and `@dagrejs/dagre` (see the Features table below). To develop against a checkout
+of this repository, point `extends` at its path instead (as `playground/nuxt.config.ts` does with
+`extends: [".."]`).
 
 ## 2. Define your content model
 
