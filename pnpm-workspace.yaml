@@ -12,6 +12,4 @@ minimumReleaseAgeExclude:
   - '@michaelthielemann/*'
 trustPolicy: no-downgrade
 trustPolicyIgnoreAfter: 129600
-trustPolicyExclude:
-  - '@michaelthielemann/*'
 blockExoticSubdeps: true
