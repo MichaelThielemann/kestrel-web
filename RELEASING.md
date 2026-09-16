@@ -15,7 +15,7 @@
    yet. It authenticates with npm trusted publishing (OIDC): both packages need a trusted publisher
    on npmjs.com pointing at this repository and the workflow file `release.yml`. A package that does
    not exist on npm yet cannot have one, so its first version is published from the terminal
-   (`pnpm -r --include-workspace-root publish --access public`) and the trusted publisher is added
+   (`./scripts/publish-new.sh`, which runs `pnpm publish` in every package whose version is not on the registry yet) and the trusted publisher is added
    afterwards.
 
 `workspace:^` on the renderer is rewritten to the real range by pnpm on pack/publish.
