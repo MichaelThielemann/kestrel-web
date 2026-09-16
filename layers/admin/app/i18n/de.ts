@@ -796,6 +796,7 @@ export const de: Catalog = {
   'insights.graph.legendPipeline': 'Pipeline-Reihenfolge',
   'insights.graph.legendTrigger': 'Trigger',
   'insights.graph.loading': 'Graph wird geladen…',
+  'insights.graph.unavailable': 'Graph nicht verfügbar: @vue-flow/core und @dagrejs/dagre installieren, um ihn zu aktivieren.',
   'insights.graph.selectHint': 'Modul auswählen, um Details zu sehen.',
   'insights.graph.openModule': 'Modul öffnen',
   'insights.graph.steps': '{count} Steps',

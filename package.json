@@ -17,7 +17,6 @@
   },
   "dependencies": {
     "@babel/parser": "^8.0.4",
-    "@dagrejs/dagre": "^3.1.1",
     "@internationalized/date": "^3.12.3",
     "@michaelthielemann/kestrel": "^5.3.0",
     "@michaelthielemann/kestrel-audit-persistence": "^5.3.0",
@@ -33,7 +32,6 @@
     "@michaelthielemann/kestrel-events-inmemory": "^5.3.0",
     "@michaelthielemann/kestrel-h3": "^5.3.0",
     "@michaelthielemann/kestrel-images-default": "^5.3.0",
-    "@michaelthielemann/kestrel-insights": "^5.3.0",
     "@michaelthielemann/kestrel-links-default": "^5.3.0",
     "@michaelthielemann/kestrel-media-default": "^5.3.0",
     "@michaelthielemann/kestrel-migrations-default": "^5.3.0",
@@ -54,7 +52,6 @@
     "@tiptap/pm": "^3.30.5",
     "@tiptap/starter-kit": "^3.30.5",
     "@tiptap/vue-3": "^3.30.5",
-    "@vue-flow/core": "^1.48.2",
     "dompurify": "^3.4.14",
     "h3": "^1.15.11",
     "nuxt": "^4.5.2",
@@ -64,11 +61,30 @@
     "vue": "^3.5.35",
     "vue-router": "^5.2.0"
   },
+  "peerDependencies": {
+    "@dagrejs/dagre": "^3.1.1",
+    "@michaelthielemann/kestrel-insights": "^5.3.0",
+    "@vue-flow/core": "^1.48.2"
+  },
+  "peerDependenciesMeta": {
+    "@dagrejs/dagre": {
+      "optional": true
+    },
+    "@michaelthielemann/kestrel-insights": {
+      "optional": true
+    },
+    "@vue-flow/core": {
+      "optional": true
+    }
+  },
   "devDependencies": {
+    "@dagrejs/dagre": "^3.1.1",
+    "@michaelthielemann/kestrel-insights": "^5.3.0",
     "@nuxt/eslint": "^1.9.0",
     "@types/dompurify": "^3.2.0",
     "@types/node": "^26.4.0",
     "@types/sanitize-html": "^2.16.1",
+    "@vue-flow/core": "^1.48.2",
     "eslint": "^9.39.1",
     "typescript": "^5.9.3",
     "vitest": "^3.2.0",
