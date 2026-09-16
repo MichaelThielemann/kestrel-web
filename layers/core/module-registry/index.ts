@@ -11,6 +11,7 @@ import contentDefault from "@michaelthielemann/kestrel-content-default";
 import deliveryStatic from "@michaelthielemann/kestrel-delivery-static";
 import eventsInmemory from "@michaelthielemann/kestrel-events-inmemory";
 import imagesDefault from "@michaelthielemann/kestrel-images-default";
+import insights from "@michaelthielemann/kestrel-insights";
 import linksDefault from "@michaelthielemann/kestrel-links-default";
 import mediaDefault from "@michaelthielemann/kestrel-media-default";
 import migrationsDefault from "@michaelthielemann/kestrel-migrations-default";
@@ -36,6 +37,7 @@ export const moduleRegistry = {
   "@michaelthielemann/kestrel-delivery-static": deliveryStatic,
   "@michaelthielemann/kestrel-events-inmemory": eventsInmemory,
   "@michaelthielemann/kestrel-images-default": imagesDefault,
+  "@michaelthielemann/kestrel-insights": insights,
   "@michaelthielemann/kestrel-links-default": linksDefault,
   "@michaelthielemann/kestrel-media-default": mediaDefault,
   "@michaelthielemann/kestrel-migrations-default": migrationsDefault,

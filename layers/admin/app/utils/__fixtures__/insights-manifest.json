@@ -1,0 +1,187 @@
+{
+  "generatedAt": 1757600000000,
+  "core": { "version": "5.3.0" },
+  "contracts": ["persistence@1", "authn@1", "authz@1", "blobstore@1", "events@1", "content@1", "ratelimit@1", "insights@1"],
+  "modules": [
+    {
+      "name": "blobstore/filesystem",
+      "use": "@michaelthielemann/kestrel-blobstore-filesystem",
+      "version": "5.3.0",
+      "provides": ["blobstore@1"],
+      "requires": [],
+      "optional": [],
+      "config": {
+        "schema": { "type": "object", "properties": { "root": { "type": "string" } }, "required": ["root"], "additionalProperties": false },
+        "variables": [{ "path": "root", "type": "string", "required": true, "secret": false, "set": true }]
+      },
+      "steps": [],
+      "eventHook": false
+    },
+    {
+      "name": "persistence/sqlite",
+      "use": "@michaelthielemann/kestrel-persistence-sqlite",
+      "version": "5.3.0",
+      "provides": ["persistence@1"],
+      "requires": [],
+      "optional": [],
+      "config": {
+        "schema": { "type": "object", "properties": { "file": { "type": "string" } }, "required": ["file"], "additionalProperties": false },
+        "variables": [{ "path": "file", "type": "string", "required": true, "secret": false, "set": true }]
+      },
+      "steps": ["persistence.createOne", "persistence.updateOne"],
+      "eventHook": false
+    },
+    {
+      "name": "events/inmemory",
+      "use": "@michaelthielemann/kestrel-events-inmemory",
+      "version": "5.3.0",
+      "provides": ["events@1"],
+      "requires": [],
+      "optional": [],
+      "config": { "schema": { "type": "object", "properties": {}, "additionalProperties": false }, "variables": [] },
+      "steps": ["events.emit"],
+      "eventHook": true
+    },
+    {
+      "name": "authn/multi",
+      "use": "@michaelthielemann/kestrel-authn-multi",
+      "version": "5.3.0",
+      "provides": ["authn@1"],
+      "requires": ["persistence@1"],
+      "optional": ["events@1"],
+      "config": {
+        "schema": {
+          "type": "object",
+          "properties": {
+            "identifier": { "type": "string", "default": "username" },
+            "minPasswordLength": { "type": "integer", "default": 8 },
+            "sessionTtlSeconds": { "type": "integer", "default": 86400 },
+            "bootstrap": { "type": "object", "properties": { "username": { "type": "string" }, "passwordHash": { "type": "string", "description": "secret" }, "roles": { "type": "array", "items": { "type": "string" } } }, "required": ["username", "passwordHash", "roles"] }
+          },
+          "additionalProperties": false
+        },
+        "variables": [
+          { "path": "identifier", "type": "string", "required": false, "default": "username", "secret": false, "set": true },
+          { "path": "minPasswordLength", "type": "integer", "required": false, "default": 8, "secret": false, "set": true },
+          { "path": "sessionTtlSeconds", "type": "integer", "required": false, "default": 86400, "secret": false, "set": false },
+          { "path": "bootstrap.username", "type": "string", "required": false, "secret": false, "set": true },
+          { "path": "bootstrap.passwordHash", "type": "string", "required": false, "secret": true, "set": true },
+          { "path": "bootstrap.roles", "type": "array", "required": false, "secret": false, "set": true }
+        ]
+      },
+      "steps": ["authn.login", "authn.logout", "authn.requireUser", "authn.me"],
+      "eventHook": false
+    },
+    {
+      "name": "authz/roles",
+      "use": "@michaelthielemann/kestrel-authz-roles",
+      "version": "5.3.0",
+      "provides": ["authz@1"],
+      "requires": [],
+      "optional": [],
+      "config": {
+        "schema": { "type": "object", "properties": { "roles": { "type": "object", "additionalProperties": { "type": "array", "items": { "type": "string" } } }, "anonymous": { "type": "array", "items": { "type": "string" }, "default": [] } }, "required": ["roles"], "additionalProperties": false },
+        "variables": [
+          { "path": "roles", "type": "object", "required": true, "secret": false, "set": true },
+          { "path": "anonymous", "type": "array", "required": false, "default": [], "secret": false, "set": true }
+        ]
+      },
+      "steps": ["authz.require"],
+      "eventHook": false
+    },
+    {
+      "name": "content/default",
+      "use": "@michaelthielemann/kestrel-content-default",
+      "version": "5.3.0",
+      "provides": ["content@1"],
+      "requires": ["persistence@1", "events@1"],
+      "optional": ["authz@1"],
+      "config": {
+        "schema": { "type": "object", "properties": { "locales": { "type": "array", "items": { "type": "string" } }, "defaultLocale": { "type": "string" }, "types": { "type": "object" } }, "required": ["locales", "defaultLocale", "types"], "additionalProperties": false },
+        "variables": [
+          { "path": "locales", "type": "array", "required": true, "secret": false, "set": true },
+          { "path": "defaultLocale", "type": "string", "required": true, "secret": false, "set": true },
+          { "path": "types", "type": "object", "required": true, "secret": false, "set": true }
+        ]
+      },
+      "steps": ["content.list", "content.read", "content.create", "content.update", "content.delete"],
+      "eventHook": false
+    },
+    {
+      "name": "ratelimit/memory",
+      "use": "@michaelthielemann/kestrel-ratelimit-memory",
+      "version": "5.3.0",
+      "provides": [],
+      "requires": [],
+      "optional": [],
+      "config": {
+        "schema": { "type": "object", "properties": { "buckets": { "type": "object" } }, "required": ["buckets"], "additionalProperties": false },
+        "variables": [{ "path": "buckets", "type": "object", "required": true, "secret": false, "set": true }]
+      },
+      "steps": ["ratelimit.check", "ratelimit.sweep"],
+      "eventHook": false
+    },
+    {
+      "name": "insights/default",
+      "use": "@michaelthielemann/kestrel-insights",
+      "version": "5.3.0",
+      "provides": ["insights@1"],
+      "requires": [],
+      "optional": [],
+      "config": { "schema": { "type": "object", "properties": {}, "additionalProperties": false }, "variables": [] },
+      "steps": ["insights.readManifest", "insights.readStats"],
+      "eventHook": false
+    }
+  ],
+  "steps": [
+    { "name": "persistence.createOne", "module": "persistence/sqlite", "factory": true, "description": null },
+    { "name": "persistence.updateOne", "module": "persistence/sqlite", "factory": true, "description": null },
+    { "name": "events.emit", "module": "events/inmemory", "factory": true, "description": null },
+    { "name": "authn.login", "module": "authn/multi", "factory": false, "description": { "summary": "Verifies credentials and issues a session token.", "reads": ["body"], "writes": ["identity", "result"], "input": { "type": "object", "properties": { "username": { "type": "string" }, "password": { "type": "string" } }, "required": ["username", "password"], "additionalProperties": false }, "output": { "type": "object", "properties": { "token": { "type": "string" } } }, "errors": { "401": "invalid credentials" } } },
+    { "name": "authn.logout", "module": "authn/multi", "factory": false, "description": { "summary": "Revokes the current session.", "reads": ["identity"], "writes": ["result"], "security": "required" } },
+    { "name": "authn.requireUser", "module": "authn/multi", "factory": false, "description": { "summary": "Rejects anonymous requests.", "reads": ["headers"], "writes": ["identity"], "errors": { "401": "no valid session" }, "security": "required" } },
+    { "name": "authn.me", "module": "authn/multi", "factory": false, "description": { "summary": "Returns the current identity.", "reads": ["identity"], "writes": ["result"], "security": "required" } },
+    { "name": "authz.require", "module": "authz/roles", "factory": true, "description": null },
+    { "name": "content.list", "module": "content/default", "factory": true, "description": null },
+    { "name": "content.read", "module": "content/default", "factory": true, "description": null },
+    { "name": "content.create", "module": "content/default", "factory": true, "description": null },
+    { "name": "content.update", "module": "content/default", "factory": true, "description": null },
+    { "name": "content.delete", "module": "content/default", "factory": true, "description": null },
+    { "name": "ratelimit.check", "module": "ratelimit/memory", "factory": true, "description": null },
+    { "name": "ratelimit.sweep", "module": "ratelimit/memory", "factory": false, "description": { "summary": "Drops expired buckets.", "reads": [], "writes": ["result"] } },
+    { "name": "insights.readManifest", "module": "insights/default", "factory": false, "description": { "summary": "Describes the booted instance.", "reads": [], "writes": ["result"], "security": "required" } },
+    { "name": "insights.readStats", "module": "insights/default", "factory": false, "description": { "summary": "Process-local run statistics.", "reads": [], "writes": ["result"], "security": "required" } }
+  ],
+  "pipelines": [
+    { "name": "login", "steps": [
+      { "spec": "ratelimit.check:login", "name": "ratelimit.check", "module": "ratelimit/memory", "description": { "summary": "Counts the request against bucket \"login\".", "reads": ["ip"], "writes": [], "errors": { "429": "too many requests" } } },
+      { "spec": "authn.login", "name": "authn.login", "module": "authn/multi", "description": { "summary": "Verifies credentials and issues a session token.", "reads": ["body"], "writes": ["identity", "result"], "input": { "type": "object", "properties": { "username": { "type": "string" }, "password": { "type": "string" } }, "required": ["username", "password"], "additionalProperties": false }, "output": { "type": "object", "properties": { "token": { "type": "string" } } }, "errors": { "401": "invalid credentials" } } },
+      { "spec": "events.emit:auth.loggedIn", "name": "events.emit", "module": "events/inmemory", "description": { "summary": "Emits auth.loggedIn.", "reads": ["identity"], "writes": [] } }
+    ] },
+    { "name": "listPages", "steps": [
+      { "spec": "authn.requireUser", "name": "authn.requireUser", "module": "authn/multi", "description": { "summary": "Rejects anonymous requests.", "reads": ["headers"], "writes": ["identity"], "errors": { "401": "no valid session" }, "security": "required" } },
+      { "spec": "authz.require:pages.read", "name": "authz.require", "module": "authz/roles", "description": { "summary": "Requires permission pages.read.", "reads": ["identity"], "writes": [], "errors": { "403": "missing permission" } } },
+      { "spec": "content.list:pages", "name": "content.list", "module": "content/default", "description": { "summary": "Lists pages.", "reads": ["query"], "writes": ["result"], "query": { "limit": { "type": "integer" }, "offset": { "type": "integer" } }, "output": { "type": "object", "properties": { "items": { "type": "array" }, "total": { "type": "integer" } } } } }
+    ] },
+    { "name": "sweepRateLimits", "steps": [
+      { "spec": "ratelimit.sweep", "name": "ratelimit.sweep", "module": "ratelimit/memory", "description": { "summary": "Drops expired buckets.", "reads": [], "writes": ["result"] } }
+    ] },
+    { "name": "auditAuth", "steps": [
+      { "spec": "persistence.createOne:audit_log", "name": "persistence.createOne", "module": "persistence/sqlite", "description": { "summary": "Inserts one audit_log row.", "reads": ["event"], "writes": ["result"] } }
+    ] },
+    { "name": "insightsManifest", "steps": [
+      { "spec": "authn.requireUser", "name": "authn.requireUser", "module": "authn/multi", "description": { "summary": "Rejects anonymous requests.", "reads": ["headers"], "writes": ["identity"], "errors": { "401": "no valid session" }, "security": "required" } },
+      { "spec": "authz.require:insights.read", "name": "authz.require", "module": "authz/roles", "description": { "summary": "Requires permission insights.read.", "reads": ["identity"], "writes": [], "errors": { "403": "missing permission" } } },
+      { "spec": "insights.readManifest", "name": "insights.readManifest", "module": "insights/default", "description": { "summary": "Describes the booted instance.", "reads": [], "writes": ["result"], "security": "required" } }
+    ] }
+  ],
+  "triggers": {
+    "http": [
+      { "method": "POST", "path": "/login", "pipeline": "login" },
+      { "method": "GET", "path": "/admin/pages", "pipeline": "listPages" },
+      { "method": "GET", "path": "/admin/insights/manifest", "pipeline": "insightsManifest" }
+    ],
+    "events": [{ "event": "auth.loggedIn", "pipeline": "auditAuth" }],
+    "crons": [{ "expression": "*/15 * * * *", "pipeline": "sweepRateLimits" }]
+  }
+}

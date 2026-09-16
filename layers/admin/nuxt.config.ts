@@ -10,7 +10,7 @@ export default defineNuxtConfig({
 
   vite: {
     optimizeDeps: {
-      include: ["@tiptap/vue-3", "@tiptap/starter-kit", "@tiptap/extension-highlight", "@tiptap/extension-subscript", "@tiptap/extension-superscript", "@tiptap/extension-text-align", "reka-ui", "dompurify", "@internationalized/date"],
+      include: ["@tiptap/vue-3", "@tiptap/starter-kit", "@tiptap/extension-highlight", "@tiptap/extension-subscript", "@tiptap/extension-superscript", "@tiptap/extension-text-align", "reka-ui", "dompurify", "@internationalized/date", "@vue-flow/core", "@dagrejs/dagre"],
     },
   },
 });

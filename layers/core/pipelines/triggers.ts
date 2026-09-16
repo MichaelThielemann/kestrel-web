@@ -58,6 +58,8 @@ export const canonicalTriggers: readonly TriggerEntry[] = [
   { trigger: { http: "POST /admin/replication/restore", pipeline: "replicationRestore" }, feature: "replication" },
   { trigger: { http: "GET /admin/migrations", pipeline: "listMigrations" }, feature: "migrations" },
   { trigger: { http: "POST /admin/migrations/apply", pipeline: "applyMigrations" }, feature: "migrations" },
+  { trigger: { http: "GET /admin/insights/manifest", pipeline: "insightsManifest" }, feature: "insights" },
+  { trigger: { http: "GET /admin/insights/stats", pipeline: "insightsStats" }, feature: "insights" },
   { trigger: { cron: "30 2 * * *", pipeline: "scanReferences" }, feature: "references" },
   { trigger: { cron: "0 3 * * *", pipeline: "checkLinks" }, feature: "links" },
   { trigger: { cron: "0 * * * *", pipeline: "cleanupSessions" } },
