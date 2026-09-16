@@ -6,7 +6,7 @@ complete working example of everything below — copy from it freely.
 ## 1. Extend the layer
 
 ```bash
-pnpm add @michaelthielemann/kestrel-web nuxt vue vue-router
+pnpm add @michaelthielemann/kestrel-web @michaelthielemann/kestrel nuxt vue vue-router
 ```
 
 ```ts
@@ -17,7 +17,10 @@ export default defineNuxtConfig({
 ```
 
 The layer brings every standard Kestrel module with it (`@michaelthielemann/kestrel-*` are its
-dependencies); `nuxt`, `vue` and `vue-router` are peer dependencies, so your app owns their versions.
+dependencies); your own `kestrel.config.ts` imports `defineConfig` from `@michaelthielemann/kestrel`,
+so list that one directly. `typescript`, `@types/node` and the other type packages the layer's
+sources need come with the layer. `nuxt`, `vue` and `vue-router` are peer dependencies, so your app
+owns their versions.
 The `insights` feature needs three optional peers on top: `@michaelthielemann/kestrel-insights`,
 `@vue-flow/core` and `@dagrejs/dagre` (see the Features table below). To develop against a checkout
 of this repository, point `extends` at its path instead (as `playground/nuxt.config.ts` does with

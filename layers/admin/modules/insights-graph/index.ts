@@ -48,9 +48,10 @@ export default defineNuxtModule({
       vite.resolve ??= {};
       const existing = vite.resolve.alias ?? {};
       vite.resolve.alias = Array.isArray(existing) ? [{ find: VIRTUAL_ID, replacement: dst }, ...existing] : { [VIRTUAL_ID]: dst, ...existing };
-      if (!available) return;
+      const prebundle = GRAPH_PACKAGES.filter((name) => packageInstalled(name, [nuxt.options.rootDir]));
+      if (!available || prebundle.length === 0) return;
       vite.optimizeDeps ??= {};
-      vite.optimizeDeps.include = [...(vite.optimizeDeps.include ?? []), ...GRAPH_PACKAGES];
+      vite.optimizeDeps.include = [...(vite.optimizeDeps.include ?? []), ...prebundle];
     });
   },
 });
