@@ -23,4 +23,4 @@ jobs:
       - run: pnpm test
       - run: pnpm build
       - run: pnpm build:packages
-      - run: pnpm -r --include-workspace-root publish --access public --provenance --no-git-checks
+      - run: ./scripts/publish-new.sh
