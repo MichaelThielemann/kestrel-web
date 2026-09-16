@@ -4,8 +4,41 @@ allowBuilds:
   unrs-resolver: true
   vue-demi: false
   sharp: true
-minimumReleaseAgeExclude:
-  - '@michaelthielemann/*'
 packages:
   - playground
   - packages/*
+overrides:
+  "@michaelthielemann/kestrel": "link:../kestrel/packages/core"
+  "@michaelthielemann/kestrel-audit-persistence": "link:../kestrel/packages/audit-persistence"
+  "@michaelthielemann/kestrel-authn-multi": "link:../kestrel/packages/authn-multi"
+  "@michaelthielemann/kestrel-authn-single": "link:../kestrel/packages/authn-single"
+  "@michaelthielemann/kestrel-authz-roles": "link:../kestrel/packages/authz-roles"
+  "@michaelthielemann/kestrel-backup-blobstore": "link:../kestrel/packages/backup-blobstore"
+  "@michaelthielemann/kestrel-blobstore-filesystem": "link:../kestrel/packages/blobstore-filesystem"
+  "@michaelthielemann/kestrel-blobstore-s3": "link:../kestrel/packages/blobstore-s3"
+  "@michaelthielemann/kestrel-content-default": "link:../kestrel/packages/content-default"
+  "@michaelthielemann/kestrel-contracts": "link:../kestrel/packages/contracts"
+  "@michaelthielemann/kestrel-delivery-static": "link:../kestrel/packages/delivery-static"
+  "@michaelthielemann/kestrel-events-inmemory": "link:../kestrel/packages/events-inmemory"
+  "@michaelthielemann/kestrel-h3": "link:../kestrel/packages/h3"
+  "@michaelthielemann/kestrel-images-default": "link:../kestrel/packages/images-default"
+  "@michaelthielemann/kestrel-insights": "link:../kestrel/packages/insights"
+  "@michaelthielemann/kestrel-links-default": "link:../kestrel/packages/links-default"
+  "@michaelthielemann/kestrel-media-default": "link:../kestrel/packages/media-default"
+  "@michaelthielemann/kestrel-migrations-default": "link:../kestrel/packages/migrations-default"
+  "@michaelthielemann/kestrel-openapi": "link:../kestrel/packages/openapi"
+  "@michaelthielemann/kestrel-persistence-sqlite": "link:../kestrel/packages/persistence-sqlite"
+  "@michaelthielemann/kestrel-ratelimit-memory": "link:../kestrel/packages/ratelimit-memory"
+  "@michaelthielemann/kestrel-redirects-default": "link:../kestrel/packages/redirects-default"
+  "@michaelthielemann/kestrel-references-default": "link:../kestrel/packages/references-default"
+  "@michaelthielemann/kestrel-renderer-plain": "link:../kestrel/packages/renderer-plain"
+  "@michaelthielemann/kestrel-replication-sqlite": "link:../kestrel/packages/replication-sqlite"
+  "@michaelthielemann/kestrel-sanitize-svg": "link:../kestrel/packages/sanitize-svg"
+  "@michaelthielemann/kestrel-site-default": "link:../kestrel/packages/site-default"
+  "@michaelthielemann/kestrel-validate-jsonschema": "link:../kestrel/packages/validate-jsonschema"
+minimumReleaseAge: 4320
+minimumReleaseAgeExclude:
+  - '@michaelthielemann/*'
+trustPolicy: no-downgrade
+trustPolicyIgnoreAfter: 129600
+blockExoticSubdeps: true
