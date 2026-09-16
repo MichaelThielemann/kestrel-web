@@ -25,7 +25,9 @@ const [root, layer, renderer] = process.argv.slice(2);
 const pkg = JSON.parse(require("node:fs").readFileSync(root, "utf8"));
 const dependencies = { [pkg.name]: `file:${layer}`, "@michaelthielemann/kestrel-renderer-nuxt": `file:${renderer}` };
 for (const name of Object.keys(pkg.peerDependencies)) dependencies[name] = pkg.peerDependencies[name];
-console.log(JSON.stringify({ name: "smoke-consumer", private: true, type: "module", dependencies }, null, 2));
+dependencies["@michaelthielemann/kestrel"] = pkg.dependencies["@michaelthielemann/kestrel"];
+const devDependencies = { "vue-tsc": pkg.devDependencies["vue-tsc"] };
+console.log(JSON.stringify({ name: "smoke-consumer", private: true, type: "module", dependencies, devDependencies }, null, 2));
 JS
 cat > nuxt.config.ts <<TS
 export default defineNuxtConfig({
@@ -49,6 +51,9 @@ pnpm install --reporter=silent
 test -d node_modules/@michaelthielemann/kestrel-web/layers/core || { echo "layer sources missing from the tarball"; exit 1; }
 test ! -e node_modules/@michaelthielemann/kestrel-web/layers/core/pipelines/__fixtures__ || { echo "fixtures leaked into the tarball"; exit 1; }
 test -z "$(find node_modules/@michaelthielemann/kestrel-web/layers -name '*.test.ts' | head -1)" || { echo "tests leaked into the tarball"; exit 1; }
+
+echo "== typecheck"
+pnpm exec nuxt typecheck >"$WORK/typecheck.log" 2>&1 || { grep "error TS" "$WORK/typecheck.log" | head -20; exit 1; }
 
 echo "== build"
 pnpm exec nuxt build >"$WORK/build.log" 2>&1 || { tail -40 "$WORK/build.log"; exit 1; }
