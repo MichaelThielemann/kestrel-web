@@ -5,6 +5,7 @@ import { definePipeline as defineRawPipeline, pipelineDefiner } from "@michaelth
 import type { PipelineDefinition } from "@michaelthielemann/kestrel/definePipeline";
 import type { TriggerConfig } from "@michaelthielemann/kestrel/defineConfig";
 import type { PresetStep } from "../module-registry";
+import type { Workflow } from "../app/types/kestrel";
 import { applyExclude, applyFeaturePatches, applyOverrides, applySchedules, mergePipelines } from "./compose";
 import type { Patch } from "./compose";
 import { basePipelines } from "./base";
@@ -26,6 +27,7 @@ import insights from "./features/insights";
 import eventsQueue from "./features/eventsQueue";
 
 export type { CollectionModel } from "./collections";
+export type { Workflow } from "../app/types/kestrel";
 export type { PresetStep } from "../module-registry";
 export { presetModuleConfig } from "./config";
 export type {
@@ -52,7 +54,7 @@ export interface FeatureModule {
 }
 
 export const staticPipelineNames = [
-  "login", "logout", "me", "changePassword", "listUsers", "createUser", "getUser", "setPassword", "deactivateUser", "activateUser",
+  "login", "logout", "me", "changePassword", "adminSchemaModel", "listUsers", "createUser", "getUser", "setPassword", "deactivateUser", "activateUser",
   "cleanupSessions", "getSettings", "setSettings", "listPages", "listAllPages", "readPage", "readAnyPage", "resolvePage", "createPage", "updatePage",
   "deletePage", "uploadMedia", "exportMedia", "listMediaFolders", "createMediaFolder", "renameMediaFolder", "deleteMediaFolder",
   "listMedia", "getMedia", "downloadMedia", "updateMedia", "deleteMedia", "reconcileMedia", "reconcileMediaReport", "reconcileMediaDelete",
@@ -81,6 +83,7 @@ export interface PresetOptions<C extends Record<string, CollectionModel> = Recor
   modules: readonly { use: string; config?: unknown }[];
   features: readonly Feature[];
   collections?: C;
+  collectionsUi?: Record<string, { workflow?: Workflow }>;
   overrides?: Partial<Record<PresetPipelineName<C>, readonly NoInfer<S>[]>>;
   exclude?: readonly PresetPipelineName<C>[];
   schedules?: Partial<Record<CronPipelineName, string>>;
@@ -165,7 +168,7 @@ export function definePreset<C extends Record<string, CollectionModel> = Record<
   let pipelines: Record<string, string[]> = basePipelines(context, collections);
   for (const [name, model] of Object.entries(collections)) {
     if (!isGenericCollection(name)) continue;
-    pipelines = mergePipelines(pipelines, collectionPipelines(name, model), name, "collection");
+    pipelines = mergePipelines(pipelines, collectionPipelines(name, model, options.collectionsUi?.[name]), name, "collection");
   }
 
   for (const feature of featureOrder) {

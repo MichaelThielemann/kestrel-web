@@ -142,6 +142,34 @@ describe("definePreset option handling", () => {
   });
 });
 
+describe("definePreset status filtering", () => {
+  const news = { news: { kind: "multi" as const, fields: { title: {}, status: { type: "enum", options: ["draft", "finished", "published"] } } } };
+
+  it("pins the derived live value on the public list and read pipelines", () => {
+    const preset = definePreset({ modules: baseModules, features: [], collections: news });
+    expect(preset.pipelines.find((pipeline) => pipeline.name === "listNews")?.steps).toContain("content.list:news?status=published");
+    expect(preset.pipelines.find((pipeline) => pipeline.name === "readNews")?.steps).toContain("content.get:news?status=published");
+  });
+
+  it("pins the declared live value when the collection UI names a workflow", () => {
+    const collections = { news: { kind: "multi" as const, fields: { title: {}, state: { type: "enum", options: ["entwurf", "live"] } } } };
+    const preset = definePreset({ modules: baseModules, features: [], collections, collectionsUi: { news: { workflow: { field: "state", live: "live", draft: "entwurf" } } } });
+    expect(preset.pipelines.find((pipeline) => pipeline.name === "listNews")?.steps).toContain("content.list:news?status=live");
+  });
+
+  it("filters nothing when a status enum carries neither draft nor published", () => {
+    const collections = { news: { kind: "multi" as const, fields: { title: {}, status: { type: "enum", options: ["entwurf", "live"] } } } };
+    const preset = definePreset({ modules: baseModules, features: [], collections });
+    expect(preset.pipelines.find((pipeline) => pipeline.name === "listNews")?.steps).toContain("content.list:news");
+  });
+
+  it("filters nothing for a collection without a status field", () => {
+    const collections = { news: { kind: "multi" as const, fields: { title: {} } } };
+    const preset = definePreset({ modules: baseModules, features: [], collections });
+    expect(preset.pipelines.find((pipeline) => pipeline.name === "listNews")?.steps).toContain("content.list:news");
+  });
+});
+
 describe("definePreset module coupling", () => {
   it("throws when a feature is enabled but its module is not configured", () => {
     expect(() => definePreset({ modules: baseModules, features: ["ratelimit"] })).toThrow(

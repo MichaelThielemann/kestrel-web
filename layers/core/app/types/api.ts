@@ -5,6 +5,8 @@ import type { ImagesStatus as ImagesStatusDoc, Job as ImagesJobDoc } from '@mich
 import type { MediaItem as MediaItemDoc, Provenance } from '@michaelthielemann/kestrel-media-default/impl'
 import type { PublishStatus } from '@michaelthielemann/kestrel-delivery-static/impl'
 import type { Point as ReplicationPointDoc, Replication, Status as ReplicationStatusDoc } from '@michaelthielemann/kestrel-replication-sqlite/impl'
+import type { Feature } from '#kestrel/pipelines'
+import type { SerializedCollection } from './kestrel'
 
 export type { Provenance }
 
@@ -286,3 +288,12 @@ export interface EventsQueueStatus {
 export interface DeadEvent { id: string; name: string; attempts: number; error: string; createdAt: number; availableAt: number }
 export interface DeadEventsResponse { items: DeadEvent[] }
 export interface EventsRetryResult { retried: number }
+
+export interface AdminSchemaLocales { all: string[]; primary: string; prefixPrimary: boolean }
+
+export interface AdminSchema {
+  locales: AdminSchemaLocales
+  collections: SerializedCollection[]
+  features: Feature[]
+  capabilities: { pipelines: string[] }
+}

@@ -2,7 +2,7 @@ import { contentTypes, locales, defaultLocale, prefixPrimary } from '~~/shared/m
 import collectionsUi from '~~/shared/collections-ui'
 import blockTags from '#kestrel/consumer-block-tags'
 import type { SerializedCollection } from '#kestrel-admin/types/kestrel'
-import { LAYOUT_FIELD, serializeCollections } from './collections-serialize'
+import { LAYOUT_FIELD, serializeCollections } from '#kestrel/collections-ui'
 import { resolveLocalized } from './localized'
 
 export const BLOCKS_FIELD = 'body'

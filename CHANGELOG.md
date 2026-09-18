@@ -4,6 +4,28 @@
 
 ### Added
 
+- `GET /api/admin/schema` (consumer-visible): the content model, collection UI, workflow, features and
+  pipeline names in one answer, `{ locales: { all, primary, prefixPrimary }, collections:
+  SerializedCollection[], features: Feature[], capabilities: { pipelines: string[] } }`, typed as
+  `AdminSchema` in `#kestrel-admin/types/api`. The route runs the new preset pipeline `adminSchemaModel`
+  (`authn.requireUser`, `content.describeModel`, no trigger — the Nitro route starts it) with the request
+  headers, so the session is checked by the backend; a run status of 400 or above is passed through with
+  the backend's own error body. `buildAdminSchema` in `layers/core/server/utils/admin-schema.ts` is the
+  pure assembly, frozen against `layers/core/server/__fixtures__/admin-schema.json`. Needs
+  `@michaelthielemann/kestrel-content-default` 5.3.0 or newer.
+- `CollectionUi.workflow` (`{ field, live, draft, done? }`, consumer-visible): the field and values behind
+  the status light, the publish button and the public-site filter. `defineCollectionsUi(map, collections)`
+  checks a declared workflow against the model — the field must exist and be `type: "enum"`, and
+  `live`/`draft`/`done` must be among its `options`, with collection and field named in the error.
+  `resolveWorkflow(name, model, ui)` (`#kestrel/collections-ui`) derives
+  `{ field: "status", live: "published", draft: "draft", done: "finished" }` from a reserved `status` enum
+  when no workflow is declared, so existing behaviour is unchanged.
+- `definePreset({ collectionsUi })` (consumer-visible): the public `list`/`read` pipelines of a `multi`
+  collection filter on `?status=<workflow.live>` instead of the hardcoded `?status=published`; a
+  collection that resolves to no workflow gets no filter at all.
+- `SerializedCollection` gains `workflow` and `editorOwned`, so a client no longer needs the collection
+  UI map next to the serialized collections.
+
 - Admin kit: `KestrelUiButton` variants `icon` (square, icon-only, `size` sm/md/lg, caller supplies
   `aria-label`) and `bare` (native button semantics without styling, for cards, tiles and tree rows);
   both keep their rules in `:where()` so call-site classes win, with the focus ring outside it;
@@ -74,6 +96,13 @@
   marker attributes.
 
 ### Changed
+
+- The collection serializer moved from `layers/admin/app/utils/collections-serialize.ts` to
+  `layers/core/collections-ui/serialize.ts` and is exported through `#kestrel/collections-ui`
+  (`serializeCollection`, `serializeCollections`, `SEO_FIELD`, `LAYOUT_FIELD`, `TITLE_FIELD`,
+  `STATUS_FIELD`, `BODY_FIELD`, `SLUG_FIELD`, `STATUS_VALUES`), together with its golden fixtures, so the
+  admin and the `GET /api/admin/schema` route share one implementation. Consumer-visible only for code
+  that imported the admin path directly.
 
 - Admin: "UI kit first" is enforced. The `kestrel/ui-kit-first` lint block makes a raw `table`,
   `button`, `input`, `select`, `textarea` or `dialog` in `layers/admin/app/**/*.vue` an error naming

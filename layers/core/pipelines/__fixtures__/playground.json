@@ -5,6 +5,10 @@
       "authz.require:users.manage",
       "authn.activateUser"
     ],
+    "adminSchemaModel": [
+      "authn.requireUser",
+      "content.describeModel"
+    ],
     "auditAuth": [
       "audit.record"
     ],

@@ -203,6 +203,15 @@
         ]
       }
     ],
+    "editorOwned": [
+      "body"
+    ],
+    "workflow": {
+      "field": "status",
+      "live": "published",
+      "draft": "draft",
+      "done": "finished"
+    },
     "actions": []
   },
   {
@@ -296,6 +305,12 @@
         ]
       }
     ],
+    "workflow": {
+      "field": "status",
+      "live": "published",
+      "draft": "draft",
+      "done": "finished"
+    },
     "actions": []
   },
   {

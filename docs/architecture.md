@@ -92,6 +92,7 @@ Nitro  server/api/[...].ts  →  createKestrelHandler(kestrel, { mountPath: "/ap
          kestrel.start()  (cron + event triggers)
        server/api/health.get.ts  →  { ok, uptimeSeconds }              (liveness)
        server/api/ready.get.ts   →  { ready, uptimeSeconds } | 503     (readiness)
+       server/api/admin/schema.get.ts  →  kestrel.run("adminSchemaModel")  (admin schema)
 ```
 `GET /api/health` is liveness only: it answers `{ ok: true, uptimeSeconds }` as long as the process
 runs, whatever the backend does. `GET /api/ready` is readiness: 200 `{ ready: true, uptimeSeconds }`
@@ -101,6 +102,28 @@ without a bespoke fetch) one of `booting`, `failed` (boot rejected) or `degraded
 persistence probe failed). The probe is a `count()` on the first collection of the content module's
 `types` — the module registering `content.create`; without a content module the probe is skipped. Use
 `/api/health` for a restart policy and `/api/ready` for load-balancer traffic.
+
+### `GET /api/admin/schema`
+One route in `layers/core/server/api/admin/schema.get.ts` answers everything the admin needs to know
+about the content model. It runs the preset pipeline `adminSchemaModel` (`authn.requireUser`,
+`content.describeModel`) through `kestrel.run` with the request headers, so the Bearer token is checked
+exactly as on any backend route; a run with `status >= 400` is passed through with `responseForRun`, the
+same status, body and headers the h3 handler produces, so `useApi()`'s `ApiError` mapping works
+unchanged. On success the pure assembly in `server/utils/admin-schema.ts` (`buildAdminSchema`) answers
+
+```
+{ locales: { all, primary, prefixPrimary },
+  collections: SerializedCollection[],      // ordered like the model's types
+  features: Feature[],
+  capabilities: { pipelines: string[] } }
+```
+
+`AdminSchema` and `AdminSchemaLocales` live in `layers/core/app/types/api.ts`, so the admin imports them
+from `#kestrel-admin/types/api`. The model comes from the run result (the backend's own config), the UI
+hints from `~~/shared/collections-ui`, `features`/`prefixPrimary` and the fallback locales from
+`~~/shared/model` and the pipeline names from `#kestrel/consumer-pipelines` — all server-side, the same
+way `server/plugins/kestrel.ts` imports `~~/kestrel.config`. `layers/core/server/__fixtures__/admin-schema.json`
+freezes the playground's answer.
 
 A failed boot is loud: `server/plugins/kestrel.ts` logs it through the Kestrel `consoleLogger`
 (`module` + `reason` from `KestrelBootError`), keeps the state observable via its exported
@@ -182,7 +205,7 @@ An app that extends `kestrel-web` provides, at its root:
 | `kestrel.modules.ts` *(optional)* | The module *implementations*, one per entry in `kestrel.config.ts`'s `modules`, same order. Needed only when a `modules` entry isn't a standard `@michaelthielemann/kestrel-*` package — see **Module registry**. |
 | `pipelines/index.ts` *(optional)* | Exports `pipelines`, the list of pipeline definitions referenced by `kestrel.config.ts` triggers — `[...preset.pipelines, ...ownPipelines]`. Needed only once you have pipelines of your own. |
 | `shared/model.ts` | The content model — `locales`, `defaultLocale`, `prefixPrimary` (whether public URLs prefix the default locale too — the backend never does), `contentTypes` — and `features`, the `Feature[]` list passed to `definePreset`/`presetSchemas`/`presetCollectionsUi`. Consumed by `kestrel.config.ts` and `shared/collections-ui.ts` (backend + admin UI config, so they can't drift) and, via `layers/admin/app/utils/collections.ts`, by the admin UI. |
-| `shared/collections-ui.ts` | The admin UI for each collection: labels, icon, editor, field layout/labels/overrides. `defineCollectionsUi({ ...presetCollectionsUi({ features }), ...ownEntries })`, see **Collection UI**. |
+| `shared/collections-ui.ts` | The admin UI for each collection: labels, icon, editor, field layout/labels/overrides, and the optional `workflow`. `defineCollectionsUi({ ...presetCollectionsUi({ features }), ...ownEntries }, contentTypes)`, see **Collection UI**. |
 | `app/blocks/*.vue` | One SFC per block. Its `defineProps({ … field factories … })` IS the block schema and its `defineBlock({ … })` the block metadata; the file name is the block name. No registry, index or definitions file. |
 | `migrations/*.ts` *(optional)* | One `defineMigration({ id, collection, up })` per file, collected sorted by filename into `#kestrel/migrations` (`modules/migrations`, directory configurable via `kestrel.migrationsDir`). Needed only with the `migrations` feature on. |
 
@@ -218,7 +241,9 @@ with no `extra`, so it only ever resolves standard packages; a consumer with a n
 ## Pipeline presets
 `layers/core/pipelines/` (`index.ts` — the `#kestrel/pipelines` public API: `definePreset`,
 `presetSchemas`, `presetModuleConfig`, `Feature`; `config.ts` — the module-config builder, see
-**Consumer module config**; `base.ts` — the always-on pipelines (auth, `getSettings`/`setSettings`, media
+**Consumer module config**; `base.ts` — the always-on pipelines (auth including `adminSchemaModel`
+(`authn.requireUser`, `content.describeModel`), which has no trigger and is run by the
+`GET /api/admin/schema` Nitro route, `getSettings`/`setSettings`, media
 including the nightly report-only `reconcileMedia` and its two admin routes `reconcileMediaReport`
 (`POST /admin/media/reconcile`) and `reconcileMediaDelete` (`POST /admin/media/reconcile/delete`,
 `media.reconcileDelete` — the deletion is in the pipeline, not in the request body), plus `resolvePage`
@@ -231,7 +256,7 @@ and the `<name>.body`/`redirects.rules` JSON-Schema paths as one preset. `layers
 aliases it as `#kestrel/pipelines`, the same mechanism as `#kestrel/blocks`, so a consumer's
 `kestrel.config.ts` and (optional) `pipelines/index.ts` can import it.
 
-`definePreset({ modules, features, collections?, overrides?, exclude?, schedules?, exportDir?, homeSlug? })`
+`definePreset({ modules, features, collections?, collectionsUi?, overrides?, exclude?, schedules?, exportDir?, homeSlug? })`
 composes in a fixed order: base pipelines → collection-derived pipelines (`collections.ts`, one `multi`
 or `single` CRUD set per entry in `collections`, `settings`/`redirects` excluded since they're already in
 base/the `redirects` feature) → feature patches, in canonical feature order (`ratelimit, sanitizeSvg,
@@ -319,12 +344,12 @@ field or enum name.
 ## Collection UI
 `layers/core/collections-ui/` is the `#kestrel/collections-ui` public API: `CollectionUi` (labels, icon,
 editor, `fieldLayout`, `fieldLabels`, `editorOwned`, `fieldOverrides`, `placement`, `nav`),
-`defineCollectionsUi(map)` (a shape guard, including `placement`) and `presetCollectionsUi({ features })`,
+`defineCollectionsUi(map, collections?)` (a shape guard, including `placement` and `workflow`) and `presetCollectionsUi({ features })`,
 which returns the `settings` entry always — including a `navigation` repeater fieldOverride
 (`label`/`link`/`target`, plus one nested `children` repeater) — and the `redirects` entry (with its
 `rules` repeater fields) only when the `redirects` feature is on; both with `placement: "system"` set.
 `placement` (`"rail" | "system" | "account"`, default `"rail"`) decides where `serializeCollection`
-(`layers/admin/app/utils/collections-serialize.ts`) puts a collection in the admin — `AdminNav.vue`
+(`layers/core/collections-ui/serialize.ts`) puts a collection in the admin — `AdminNav.vue`
 filters the rail on `placement === 'rail'`, `pages/admin/system.vue` builds its tab list from every
 `placement === 'system'` `single` collection (settings first, then the rest in model order, then the
 fixed feature tabs — including the Events tab from the `eventsQueue` feature), `pages/admin/index.vue`'s dashboard cards link `"rail"` to the list and `"system"`
@@ -338,11 +363,12 @@ dispatches a `type: "repeater"` sub-field back to `Repeater.vue` itself, at any 
 `layers/admin/app/utils/row-errors.ts` turns the `validate.check` step's `<target>: <jsonPointer>
 <message>; ...` errors into a tree keyed by array index at every repeater level, and `Repeater.vue` walks
 one level of that tree per nesting depth when it renders its rows. A consumer's `shared/collections-ui.ts` spreads the preset and adds its own collections, e.g. `pages`.
-`layers/admin/app/utils/collections.ts` reads it via `~~/shared/collections-ui` (same mechanism as
-`~~/shared/model`) and delegates the actual merge/validation to
-`layers/admin/app/utils/collections-serialize.ts` (`serializeCollections(contentTypes, ui)`). It only
-imports the `#kestrel-admin/types/kestrel` and `#kestrel/collections-ui` aliases (both resolved in `vitest.config.ts`
-too, no `~~` alias), so it stays unit-testable directly. Enum choice labels come from
+The merge and validation live in `layers/core/collections-ui/serialize.ts`
+(`serializeCollections(contentTypes, ui)`), exported through `#kestrel/collections-ui`, so both the admin
+(`layers/admin/app/utils/collections.ts`, via `~~/shared/collections-ui`) and the `GET /api/admin/schema`
+route call the same function. It imports nothing but the core type module, so it stays unit-testable
+directly. `SerializedCollection` carries `editorOwned` and `workflow` alongside the fields, so a client
+needs no second look at the UI map. Enum choice labels come from
 `fieldOverrides.<field>.options.choices` (matched by value): every model value needs a matching choice,
 and every choice's `value` must be one of the model's `options` — either mismatch throws. A relation's
 `labelField` comes from `fieldOverrides.<field>.relation.labelField` (a partial override — `collection`
@@ -354,6 +380,18 @@ generated keys. A UI entry for an unknown collection, or `fieldLayout` (checked 
 `LayoutGroup` rows) / `fieldLabels` / `fieldOverrides` / `editorOwned` naming a field the content model
 lacks, throws at collection-serialization time, naming the collection and field; `options.from` is
 checked for every field of type `slug`, not only one literally named `slug`.
+
+`workflow` (`{ field, live, draft, done? }`) names the field and the values that drive the admin's status
+light, publish button and the public-site filter. `resolveWorkflow(name, model, ui)`
+(`collections-ui/workflow.ts`, re-exported from `#kestrel/collections-ui`) returns the declared
+`CollectionUi.workflow` when there is one, else derives the conventional
+`{ field: "status", live: "published", draft: "draft", done: "finished" }` from a `status` field: a
+`status` enum listing `draft` and `published` gets it (with `done` only when `finished` is among the
+options), a `status` field whose definition carries no options at all (the placeholder shape of
+`DEFAULT_COLLECTIONS`) gets it unconditionally, and anything else gets no workflow. `defineCollectionsUi`
+checks a declared workflow against the model when it is given one: the field must exist and be
+`type: "enum"`, and `live`/`draft`/`done` must be among its `options` — the error names collection and
+field.
 
 ## Admin client layer
 - `app/composables/useApi.ts` — the HTTP client for JSON requests; errors become

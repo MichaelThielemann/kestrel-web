@@ -544,6 +544,16 @@
     "seoFields": [
       "shareImage"
     ],
+    "editorOwned": [
+      "body",
+      "seo"
+    ],
+    "workflow": {
+      "field": "status",
+      "live": "published",
+      "draft": "draft",
+      "done": "finished"
+    },
     "actions": []
   }
 ]

@@ -37,6 +37,7 @@ export default defineConfig({
         resolve: {
           alias: [
             { find: "#kestrel/cast", replacement: castEntry },
+            { find: "#kestrel/collections-ui", replacement: collectionsUiEntry },
             { find: "#kestrel/config", replacement: configEntry },
             { find: "#kestrel/optional-modules", replacement: optionalModulesNone },
             { find: "#kestrel/pipelines", replacement: pipelinesEntry },

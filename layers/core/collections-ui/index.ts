@@ -1,5 +1,6 @@
-import type { Localized, LayoutNode, SerializedField } from "../app/types/kestrel";
+import type { Localized, LayoutNode, SerializedField, Workflow } from "../app/types/kestrel";
 import type { CollectionModel, Feature } from "#kestrel/pipelines";
+import { fieldOptions, fieldType } from "./workflow";
 
 const NAVIGATION_TARGET_CHOICES = {
   choices: [
@@ -17,6 +18,9 @@ export type SerializedFieldOverride = Omit<Partial<SerializedField>, "relation">
   relation?: Partial<NonNullable<SerializedField["relation"]>>;
 };
 
+export type { Workflow };
+export { resolveWorkflow } from "./workflow";
+
 export type CollectionPlacement = "rail" | "system" | "account";
 
 const PLACEMENTS: readonly CollectionPlacement[] = ["rail", "system", "account"];
@@ -32,6 +36,7 @@ export interface CollectionUi {
   fieldOverrides?: Record<string, SerializedFieldOverride>;
   placement?: CollectionPlacement;
   nav?: boolean;
+  workflow?: Workflow;
 }
 
 export type BlockTagLabels = Record<string, Localized>;
@@ -45,6 +50,23 @@ export function defineBlockTags(map: BlockTagLabels): BlockTagLabels {
   return map;
 }
 
+function validateWorkflow(name: string, workflow: Workflow, model: CollectionModel): void {
+  const { field } = workflow;
+  if (!(field in model.fields)) {
+    throw new Error(`collections-ui: "${name}" workflow names unknown field "${field}"`);
+  }
+  if (fieldType(model, field) !== "enum") {
+    throw new Error(`collections-ui: "${name}" workflow field "${field}" must be type "enum"`);
+  }
+  const options = fieldOptions(model, field) ?? [];
+  const declared = [workflow.live, workflow.draft, ...(workflow.done === undefined ? [] : [workflow.done])];
+  for (const value of declared) {
+    if (!options.includes(value)) {
+      throw new Error(`collections-ui: "${name}" workflow value "${value}" is not an option of field "${field}"`);
+    }
+  }
+}
+
 export function defineCollectionsUi(map: Record<string, CollectionUi>, collections?: Record<string, CollectionModel>): Record<string, CollectionUi> {
   for (const [name, ui] of Object.entries(map)) {
     if (!ui.label?.singular || !ui.label?.plural) {
@@ -53,10 +75,11 @@ export function defineCollectionsUi(map: Record<string, CollectionUi>, collectio
     if (ui.placement !== undefined && !PLACEMENTS.includes(ui.placement)) {
       throw new Error(`collections-ui: "${name}" has invalid placement "${ui.placement}"`);
     }
-    const kind = collections?.[name]?.kind;
-    if (kind === "multi" && (ui.placement === "system" || ui.placement === "account")) {
+    const model = collections?.[name];
+    if (model?.kind === "multi" && (ui.placement === "system" || ui.placement === "account")) {
       throw new Error(`collections-ui: "${name}" is kind "multi" and cannot use placement "${ui.placement}" (must be "rail")`);
     }
+    if (ui.workflow && model) validateWorkflow(name, ui.workflow, model);
   }
   return map;
 }
@@ -176,3 +199,6 @@ export function presetCollectionsUi({
 
   return ui;
 }
+
+export { SEO_FIELD, LAYOUT_FIELD, TITLE_FIELD, STATUS_FIELD, BODY_FIELD, SLUG_FIELD, STATUS_VALUES, serializeCollection, serializeCollections } from "./serialize";
+export type { ContentField, ContentType } from "./serialize";

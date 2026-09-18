@@ -1,5 +1,7 @@
 import type { TriggerConfig } from "@michaelthielemann/kestrel/defineConfig";
 import type { PresetStep } from "../module-registry";
+import { resolveWorkflow } from "../collections-ui/workflow";
+import type { WorkflowUi } from "../collections-ui/workflow";
 
 export interface CollectionModel {
   kind: "single" | "multi";
@@ -37,9 +39,10 @@ export function hasLocalizedField(model: CollectionModel): boolean {
   return Object.values(model.fields).some((field) => typeof field === "object" && field !== null && (field as { localized?: unknown }).localized === true);
 }
 
-export function multiCollectionPipelines(name: string, model: CollectionModel): Record<string, PresetStep[]> {
+export function multiCollectionPipelines(name: string, model: CollectionModel, ui?: WorkflowUi): Record<string, PresetStep[]> {
   const { plural, singular, event } = collectionNames(name);
-  const statusQuery = "status" in model.fields ? "?status=published" : "";
+  const workflow = resolveWorkflow(name, model, ui);
+  const statusQuery = workflow === undefined ? "" : `?status=${workflow.live}`;
   const bodySteps: PresetStep[] = "body" in model.fields ? [`validate.check:${name}.body`, `validate.sanitize:${name}.body`, `validate.check:${name}.body`] : [];
   const pipelines: Record<string, PresetStep[]> = {
     [`list${plural}`]: ["authn.identifyUser", `authz.require:${name}.read`, `content.list:${name}${statusQuery}`],
@@ -81,15 +84,15 @@ export function singleCollectionPipelines(name: string): Record<string, PresetSt
   };
 }
 
-export function collectionPipelines(name: string, model: CollectionModel): Record<string, PresetStep[]> {
-  return model.kind === "multi" ? multiCollectionPipelines(name, model) : singleCollectionPipelines(name);
+export function collectionPipelines(name: string, model: CollectionModel, ui?: WorkflowUi): Record<string, PresetStep[]> {
+  return model.kind === "multi" ? multiCollectionPipelines(name, model, ui) : singleCollectionPipelines(name);
 }
 
-export function buildCollectionPipelines(collections: Record<string, CollectionModel>): Record<string, PresetStep[]> {
+export function buildCollectionPipelines(collections: Record<string, CollectionModel>, collectionsUi?: Record<string, WorkflowUi>): Record<string, PresetStep[]> {
   const result: Record<string, PresetStep[]> = {};
   for (const [name, model] of Object.entries(collections)) {
     if (!isGenericCollection(name)) continue;
-    Object.assign(result, collectionPipelines(name, model));
+    Object.assign(result, collectionPipelines(name, model, collectionsUi?.[name]));
   }
   return result;
 }

@@ -93,6 +93,13 @@ export interface SerializedField {
   condition?: Condition
 }
 
+export interface Workflow {
+  field: string
+  live: string
+  draft: string
+  done?: string
+}
+
 export interface SerializedAction {
   name: string
   route: { url: string; method: 'GET' | 'POST' }
@@ -119,6 +126,8 @@ export interface SerializedCollection {
   fields: Record<string, SerializedField>
   fieldLayout?: LayoutNode[]
   seoFields?: string[]
+  editorOwned?: string[]
+  workflow?: Workflow
   actions?: SerializedAction[]
 }
 

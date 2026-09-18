@@ -12,6 +12,7 @@ export function basePipelines({ exportDir, homeSlug }: PresetContext, collection
     login: ["authn.login", "events.emit:auth.loggedIn"],
     logout: ["authn.requireUser", "authn.logout", "events.emit:auth.loggedOut"],
     me: ["authn.requireUser", "authn.loadIdentity"],
+    adminSchemaModel: ["authn.requireUser", "content.describeModel"],
     changePassword: ["authn.requireUser", "authn.changePassword"],
     listUsers: ["authn.requireUser", "authz.require:users.manage", "authn.listUsers"],
     createUser: ["authn.requireUser", "authz.require:users.manage", "authn.createUser", "events.emit:user.created"],

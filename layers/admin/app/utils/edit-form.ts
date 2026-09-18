@@ -5,7 +5,7 @@ import type { FieldDef, SerializedField } from '#kestrel-admin/types/kestrel'
 import { resolveFieldEmpty } from '#kestrel-admin/utils/field-empty'
 import { boundaryCast } from '#kestrel/cast'
 import type { BlockRow } from './block-tree'
-import { LAYOUT_FIELD } from './collections-serialize'
+import { LAYOUT_FIELD } from '#kestrel/collections-ui'
 import { insert, type RowErrorMap } from './row-errors'
 
 export type SubmitResult = { ok: true; record: Document | null } | { ok: false }

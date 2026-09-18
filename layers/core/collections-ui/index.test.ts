@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { boundaryCast } from "@michaelthielemann/kestrel/cast";
-import { defineBlockTags, defineCollectionsUi } from "./index";
+import { defineBlockTags, defineCollectionsUi, resolveWorkflow } from "./index";
 import type { CollectionModel } from "../pipelines";
 
 describe("defineCollectionsUi", () => {
@@ -58,5 +58,80 @@ describe("defineBlockTags", () => {
 
   it("throws when a label is an array", () => {
     expect(() => defineBlockTags({ hero: boundaryCast(["Hero"], "json") })).toThrow(/blockTags\["hero"\]/);
+  });
+});
+
+describe("defineCollectionsUi workflow validation", () => {
+  const label = { singular: "n", plural: "n" };
+  const collections: Record<string, CollectionModel> = {
+    news: { kind: "multi", fields: { title: { type: "text" }, state: { type: "enum", options: ["entwurf", "live"] }, flag: { type: "boolean" } } },
+  };
+
+  it("accepts a workflow whose values are options of an enum field", () => {
+    expect(() => defineCollectionsUi({ news: { label, workflow: { field: "state", live: "live", draft: "entwurf" } } }, collections)).not.toThrow();
+  });
+
+  it("throws naming collection and field when the field is missing from the model", () => {
+    expect(() => defineCollectionsUi({ news: { label, workflow: { field: "nope", live: "live", draft: "entwurf" } } }, collections)).toThrow(
+      /"news".*"nope"/,
+    );
+  });
+
+  it("throws naming collection and field when the field is not an enum", () => {
+    expect(() => defineCollectionsUi({ news: { label, workflow: { field: "flag", live: "live", draft: "entwurf" } } }, collections)).toThrow(
+      /"news".*"flag".*"enum"/,
+    );
+  });
+
+  it("throws when live is not one of the field options", () => {
+    expect(() => defineCollectionsUi({ news: { label, workflow: { field: "state", live: "public", draft: "entwurf" } } }, collections)).toThrow(
+      /"news".*"public".*"state"/,
+    );
+  });
+
+  it("throws when done is set but not one of the field options", () => {
+    expect(() =>
+      defineCollectionsUi({ news: { label, workflow: { field: "state", live: "live", draft: "entwurf", done: "fertig" } } }, collections),
+    ).toThrow(/"news".*"fertig".*"state"/);
+  });
+
+  it("skips the check without a collections model", () => {
+    expect(() => defineCollectionsUi({ news: { label, workflow: { field: "nope", live: "live", draft: "entwurf" } } })).not.toThrow();
+  });
+});
+
+describe("resolveWorkflow", () => {
+  it("returns the declared workflow unchanged", () => {
+    const workflow = { field: "state", live: "live", draft: "entwurf" };
+    expect(resolveWorkflow("news", { fields: { state: { type: "enum", options: ["entwurf", "live"] } } }, { workflow })).toBe(workflow);
+  });
+
+  it("returns undefined without a status field", () => {
+    expect(resolveWorkflow("news", { fields: { title: { type: "text" } } })).toBeUndefined();
+  });
+
+  it("derives the conventional default from a status enum carrying the reserved options", () => {
+    expect(resolveWorkflow("pages", { fields: { status: { type: "enum", options: ["draft", "finished", "published"] } } })).toEqual({
+      field: "status",
+      live: "published",
+      draft: "draft",
+      done: "finished",
+    });
+  });
+
+  it("omits done when the status options lack it", () => {
+    expect(resolveWorkflow("pages", { fields: { status: { type: "enum", options: ["draft", "published"] } } })).toEqual({
+      field: "status",
+      live: "published",
+      draft: "draft",
+    });
+  });
+
+  it("returns undefined when the status options miss draft or published", () => {
+    expect(resolveWorkflow("pages", { fields: { status: { type: "enum", options: ["entwurf", "live"] } } })).toBeUndefined();
+  });
+
+  it("falls back to the conventional default for a status field without options", () => {
+    expect(resolveWorkflow("pages", { fields: { status: {} } })).toEqual({ field: "status", live: "published", draft: "draft", done: "finished" });
   });
 });

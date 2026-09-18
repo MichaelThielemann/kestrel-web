@@ -23,7 +23,7 @@ import { contentTypes } from "../../../playground/shared/model";
 
 const EXPORT_DIR = "<exportDir>";
 
-const HOST_RUN_PIPELINES = new Set(["registerImageSizesBoot"]);
+const HOST_RUN_PIPELINES = new Set(["registerImageSizesBoot", "adminSchemaModel"]);
 
 interface Fixture {
   pipelines: Record<string, string[]>;
