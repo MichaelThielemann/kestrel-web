@@ -190,6 +190,8 @@
 - `KestrelUiDialog`: the fixed-header/scrolling-body/fixed-footer layout used by `size="screen"` now
   applies to every size, capped by each size's own `max-height`, instead of being tied to the `screen`
   variant alone.
+- Media library drag-and-drop: hovering an SVG folder icon (e.g. the folder-up icon's stroke) dropped the
+  drop-target highlight because the hit test only accepted `HTMLElement`; it now accepts any `Element`.
 - Media upload counter stuck at "0 uploaded": the queue mutated a non-reactive object.
 - Redirects could not be saved: `locale` is sent only for collections with a localized field; an
   `additionalProperties` violation gets a plain-language prefix.

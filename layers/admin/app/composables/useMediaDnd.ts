@@ -5,8 +5,8 @@ import type { OpItem } from '../utils/ops'
 const MEDIA_DRAG = 'application/x-kestrel-media'
 export interface DropResult { uploads: PendingUpload[]; folders: string[] }
 
-function hoveredFolder(e: DragEvent): string | null {
-  const target = e.target instanceof HTMLElement ? e.target : null
+export function hoveredFolder(e: Pick<DragEvent, 'target'>): string | null {
+  const target = e.target instanceof Element ? e.target : null
   const el = target?.closest<HTMLElement>('[data-drop-folder]')
   return el ? el.getAttribute('data-drop-folder') : null
 }
