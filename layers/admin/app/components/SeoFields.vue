@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, toRef } from 'vue'
 import { localePath } from '#kestrel-admin/utils/kestrel'
 import type { PageSeo } from '#kestrel-admin/types/api'
 
@@ -22,8 +22,11 @@ function patch(next: Partial<PageSeo>) {
   emit('update', { ...props.value, ...next })
 }
 
+const siteDescription = useSiteDescription(toRef(props, 'locale'))
+
 const previewTitle = computed(() => props.value.title?.trim() || props.pageTitle?.trim() || t('seo.untitled'))
-const previewDesc = computed(() => props.value.description?.trim() || t('seo.noDescription'))
+const previewDesc = computed(() => props.value.description?.trim() || siteDescription.value || t('seo.noDescription'))
+const descPlaceholder = computed(() => siteDescription.value || t('seo.descriptionPlaceholder'))
 
 const siteUrl = computed(() => String(useRuntimeConfig().public.siteUrl ?? '').replace(/\/+$/, ''))
 const previewUrl = computed(() => {
@@ -62,6 +65,7 @@ const descLen = computed(() => (props.value.description ?? '').length)
       <template #default="f">
         <KestrelUiTextarea
           :model-value="value.description ?? ''"
+          :placeholder="descPlaceholder"
           :rows="3"
           :disabled="disabled"
           v-bind="f"

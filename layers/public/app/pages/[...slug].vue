@@ -100,13 +100,14 @@ const { data: siteSettings } = await useSiteSettings(locale)
 useHead(() => {
   const seo = page.value?.seo ?? {}
   const title = seo.title || page.value?.title || ''
+  const description = metaDescription(seo.description, siteSettings.value?.description)
   const image = page.value?.shareImage ? `${siteUrl}${mediaFileUrl(page.value.shareImage)}` : ''
   return {
     htmlAttrs: { lang: locale.value },
     titleTemplate: siteTitleTemplate(siteSettings.value?.title, siteSettings.value?.titleSeparator, siteSettings.value?.titlePosition),
     title,
     meta: [
-      ...(seo.description ? [{ name: 'description', content: seo.description }, { property: 'og:description', content: seo.description }] : []),
+      ...(description ? [{ name: 'description', content: description }, { property: 'og:description', content: description }] : []),
       ...(seo.noindex ? [{ name: 'robots', content: 'noindex, nofollow' }] : []),
       { property: 'og:title', content: title },
       { property: 'og:type', content: 'website' },

@@ -194,6 +194,12 @@
   drop-target highlight because the hit test only accepted `HTMLElement`; it now accepts any `Element`.
 - Block picker: a single favourite no longer stretches across the full width of the "Large" view (the
   grid used `auto-fit`, collapsing empty tracks; it now uses `auto-fill`, matching the default grid view).
+- The site description reaches the public page (consumer-visible): the `description` field of the
+  `settings` singleton is part of `SettingsDocument` and `SiteSettings` again, and `[...slug].vue` and
+  the preview page render `<meta name="description">` and `og:description` from the page's SEO
+  description with the site description of the current locale as the fallback. A blank value counts as
+  unset, so an empty page and an empty site description render no meta tag. The admin shows the
+  inherited site description as the placeholder of the SEO description field and in its SERP preview.
 - The consumer's global CSS no longer reaches `/admin` (consumer-visible): the admin styles dropped their
   cascade layers, which lose to every unlayered consumer rule, and bind every rule to the admin roots
   `.admin` and `.admin-portal` instead — design tokens included, so a consumer's `:root` tokens and the

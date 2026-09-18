@@ -80,6 +80,7 @@ export interface PublicRedirectRule { pattern: string; target: string; status: n
 
 export interface SettingsDocument extends Document {
   title: string | null
+  description?: unknown
   navigation: unknown
   titleSeparator?: unknown
   titlePosition?: unknown

@@ -100,13 +100,14 @@ const previewLocale = computed(() => snapshot.value?.locale ?? defaultLocale)
 const { data: siteSettings } = await useSiteSettings(previewLocale)
 useHead(() => {
   const seo = page.value?.seo ?? {}
+  const description = metaDescription(seo.description, siteSettings.value?.description)
   return {
     htmlAttrs: { lang: previewLocale.value },
     titleTemplate: siteTitleTemplate(siteSettings.value?.title, siteSettings.value?.titleSeparator, siteSettings.value?.titlePosition),
     title: seo.title || page.value?.title || '',
     meta: [
       { name: 'robots', content: 'noindex' },
-      ...(seo.description ? [{ name: 'description', content: seo.description }] : []),
+      ...(description ? [{ name: 'description', content: description }, { property: 'og:description', content: description }] : []),
     ],
   }
 })

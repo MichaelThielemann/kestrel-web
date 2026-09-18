@@ -1244,6 +1244,15 @@ imported only there, so admin and site styles never mix. Locale comes from the p
 `title` = SEO title or page title, `titleTemplate` appends the site title from `settings.title`. A consumer
 layout does not have to repeat this; it only renders the chrome.
 
+`<meta name="description">` and `og:description` follow the same shape: `metaDescription(seo.description,
+siteSettings.description)` (`app/utils/site-settings.ts`) takes the page's SEO description and falls back
+to the `description` field of the `settings` singleton in the current locale — a blank-only value counts
+as unset, and when both are empty no meta tag is rendered at all. The site value reaches the page through
+`useSiteSettings()`, whose mapping (`toSiteSettings`) lives next to it in `app/utils/site-settings.ts` so
+it can be unit-tested without Nuxt. In the admin, `SeoFields.vue` shows that inherited value as the
+description field's placeholder and in the SERP preview (`useSiteDescription(locale)` reads
+`GET /settings` once per locale), so an empty field shows what will actually be delivered.
+
 ## Layouts
 `[...slug].vue` and `_preview/[key].vue` opt out of Nuxt's route-meta layout (`definePageMeta({ layout:
 false })`) and render `<NuxtLayout :name="resolvePageLayout(page.layout)" fallback="default">`

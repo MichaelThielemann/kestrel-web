@@ -209,6 +209,7 @@ export const en: Catalog = {
   'seo.noindexLabel': 'Hide this page from search engines (noindex)',
   'seo.untitled': '(untitled)',
   'seo.noDescription': 'No meta description — search engines will choose a snippet.',
+  'seo.descriptionPlaceholder': 'Without an entry the website description is used.',
   'field.boolean.yes': 'Yes',
   'field.boolean.no': 'No',
   'editor.unsupported': 'No editor is registered for type “{type}”.',

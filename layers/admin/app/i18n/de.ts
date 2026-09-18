@@ -209,6 +209,7 @@ export const de: Catalog = {
   'seo.noindexLabel': 'Diese Seite vor Suchmaschinen verbergen (noindex)',
   'seo.untitled': '(ohne Titel)',
   'seo.noDescription': 'Keine Meta-Beschreibung — Suchmaschinen wählen ein Snippet.',
+  'seo.descriptionPlaceholder': 'Ohne Angabe wird die Website-Beschreibung verwendet.',
   'field.boolean.yes': 'Ja',
   'field.boolean.no': 'Nein',
   'editor.unsupported': 'Für den Typ „{type}“ ist kein Editor registriert.',
