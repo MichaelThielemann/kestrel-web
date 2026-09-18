@@ -298,7 +298,7 @@ onUnmounted(() => {
   }
 
   &__seg--active {
-    color: var(--color-primary);
+    color: var(--color-primary-text);
     background: var(--color-surface-2);
   }
 
@@ -349,14 +349,14 @@ onUnmounted(() => {
   &__viewport {
     flex: 0 0 auto;
     box-shadow: 0 0 0 1px var(--color-border);
-    background: #fff;
+    background: var(--color-canvas);
     overflow: hidden;
     transition: width 160ms ease, height 160ms ease;
   }
   &__canvas {
     display: block;
     border: 0;
-    background: #fff;
+    background: var(--color-canvas);
     transition: transform 160ms ease;
   }
 }

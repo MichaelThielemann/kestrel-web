@@ -128,7 +128,7 @@ const detailsOpen = ref(false)
   right: 2rem;
 
   &[aria-pressed='true'] {
-    color: var(--color-warning);
+    color: var(--color-warning-text);
   }
   &[aria-pressed='true'] .ui-icon {
     fill: currentColor;

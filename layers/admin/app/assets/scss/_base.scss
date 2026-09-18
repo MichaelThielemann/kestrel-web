@@ -20,7 +20,7 @@
 }
 
 @include element-defaults('a') {
-  color: var(--color-primary);
+  color: var(--color-primary-text);
   text-decoration: underline;
 }
 

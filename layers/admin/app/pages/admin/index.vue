@@ -183,7 +183,7 @@ await Promise.all([loadCounts(), loadBroken()])
     }
   }
   &__icon {
-    color: var(--color-primary);
+    color: var(--color-primary-text);
   }
   &__name {
     font-weight: var(--weight-medium);

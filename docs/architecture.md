@@ -600,6 +600,86 @@ outside the admin. In dev `installAdminClient()` additionally disables foreign s
 `/admin` (`utils/admin-style-guard.ts`); production has no such guard, which is why the isolation has to
 hold on its own.
 
+### Design tokens and contrast
+`assets/scss/_tokens.scss` is the only place in `layers/admin` that names a colour. Every other rule
+reads a token, so both themes can be checked by measuring the tokens alone. The contract: **the admin
+meets WCAG 2.2 AA in the light and the dark theme** — 4.5:1 for text against the surface it sits on,
+3:1 for the borders and graphics that identify a control and for the focus ring. The tokens split by
+that role:
+
+- Text: `--color-text`, `--color-text-muted`, `--color-primary-text` (accent text and links, separate
+  from the accent *fill* `--color-primary`), `--color-link` (the SERP preview only), `--color-danger`,
+  `--color-success`, `--color-warning-text` (`--color-warning` is a fill and border colour, never text),
+  `--color-on-primary`, `--color-on-danger`, `--color-on-highlight`, `--color-on-overlay`,
+  `--color-on-canvas`, `--color-primary-on-fill`.
+- Controls and graphics (3:1): `--color-control-border` / `--color-border-strong` (input, select and
+  secondary-button outlines), `--color-primary` (selection and chip borders), `--color-text-subtle`
+  (icons, the status dot), `--color-focus` and `--color-focus-on-fill` — the ring on a filled primary
+  or danger button, where `--color-focus` would sit on its own colour because the ring is drawn inside
+  the button.
+- Decorative: `--color-border` (table rules, card outlines, separators). 1.4.11 does not apply to it;
+  it is reported by the script without a threshold. The dark value was raised to `#5e5e6a` (3.09:1
+  against the page) so it stays visible; the light value stays low on purpose — a 3:1 hairline would
+  turn every card into a box.
+- Surfaces: `--color-bg`, `--color-surface`, `--color-surface-2`, `--color-rail-bg`, `--color-active`,
+  `--color-hover`, `--color-primary-soft`, `--color-highlight`, `--color-scrim`, `--color-overlay`
+  (+ `--color-overlay-edge`, the hairline around an overlay button) and `--color-canvas`, the block
+  preview's page surface. The preview simulates the public site, so `--color-canvas` is white in both
+  themes by design, with `--color-on-canvas` as its text colour.
+
+`scripts/token-contrast.ts` compiles `_tokens.scss`, resolves `var()` references, composites
+translucent values over their background and measures every declared pair in both themes.
+`node --experimental-strip-types scripts/token-contrast.ts` prints the table below;
+`scripts/token-contrast.test.ts` runs the same measurement in `pnpm test` and fails when a pair drops
+below its threshold, so a new or retuned token cannot slip through.
+
+| Pair | Foreground | Background | Required | Light | Dark |
+|---|---|---|---|---|---|
+| body text on page | `--color-text` | `--color-bg` | 4.5:1 | #18181b on #f5f5fa — 16.30:1 | #fafafa on #09090b — 19.06:1 |
+| body text on surface | `--color-text` | `--color-surface` | 4.5:1 | #18181b on #ffffff — 17.72:1 | #fafafa on #18181b — 16.97:1 |
+| body text on raised surface | `--color-text` | `--color-surface-2` | 4.5:1 | #18181b on #f4f4f5 — 16.12:1 | #fafafa on #27272a — 14.27:1 |
+| body text on rail | `--color-text` | `--color-rail-bg` | 4.5:1 | #18181b on #ffffff — 17.72:1 | #fafafa on #111113 — 18.07:1 |
+| muted text on page | `--color-text-muted` | `--color-bg` | 4.5:1 | #6b6b73 on #f5f5fa — 4.86:1 | #a1a1aa on #09090b — 7.76:1 |
+| muted text on surface | `--color-text-muted` | `--color-surface` | 4.5:1 | #6b6b73 on #ffffff — 5.28:1 | #a1a1aa on #18181b — 6.91:1 |
+| muted text on raised surface | `--color-text-muted` | `--color-surface-2` | 4.5:1 | #6b6b73 on #f4f4f5 — 4.81:1 | #a1a1aa on #27272a — 5.81:1 |
+| muted text on rail | `--color-text-muted` | `--color-rail-bg` | 4.5:1 | #6b6b73 on #ffffff — 5.28:1 | #a1a1aa on #111113 — 7.36:1 |
+| link/accent text on page | `--color-primary-text` | `--color-bg` | 4.5:1 | #4f46e5 on #f5f5fa — 5.79:1 | #a5b4fc on #09090b — 9.98:1 |
+| link/accent text on surface | `--color-primary-text` | `--color-surface` | 4.5:1 | #4f46e5 on #ffffff — 6.29:1 | #a5b4fc on #18181b — 8.89:1 |
+| SERP preview link on surface | `--color-link` | `--color-surface` | 4.5:1 | #1a0dab on #ffffff — 12.43:1 | #8ab4f8 on #18181b — 8.41:1 |
+| danger text on page | `--color-danger` | `--color-bg` | 4.5:1 | #d41d1d on #f5f5fa — 4.84:1 | #f87171 on #09090b — 7.19:1 |
+| danger text on surface | `--color-danger` | `--color-surface` | 4.5:1 | #d41d1d on #ffffff — 5.26:1 | #f87171 on #18181b — 6.40:1 |
+| warning text on page | `--color-warning-text` | `--color-bg` | 4.5:1 | #b45309 on #f5f5fa — 4.62:1 | #fbbf24 on #09090b — 11.92:1 |
+| warning text on surface | `--color-warning-text` | `--color-surface` | 4.5:1 | #b45309 on #ffffff — 5.02:1 | #fbbf24 on #18181b — 10.61:1 |
+| success text on page | `--color-success` | `--color-bg` | 4.5:1 | #137a37 on #f5f5fa — 5.00:1 | #4ade80 on #09090b — 11.42:1 |
+| success text on surface | `--color-success` | `--color-surface` | 4.5:1 | #137a37 on #ffffff — 5.43:1 | #4ade80 on #18181b — 10.17:1 |
+| primary button label | `--color-on-primary` | `--color-primary` | 4.5:1 | #ffffff on #4f46e5 — 6.29:1 | #ffffff on #6062ef — 4.68:1 |
+| solid primary label | `--color-on-primary` | `--color-primary-solid` | 4.5:1 | #ffffff on #4f46e5 — 6.29:1 | #ffffff on #4f46e5 — 6.29:1 |
+| primary button label (hover) | `--color-on-primary` | `--color-primary-hover` | 4.5:1 | #ffffff on #4338ca — 7.90:1 | #ffffff on #5a5ceb — 5.04:1 |
+| danger button label | `--color-on-danger` | `--color-danger-solid` | 4.5:1 | #ffffff on #d41d1d — 5.26:1 | #ffffff on #dc2626 — 4.83:1 |
+| highlighted text | `--color-on-highlight` | `--color-highlight` | 4.5:1 | #18181b on #fde68a — 14.23:1 | #fef3c7 on #854d0e — 6.15:1 |
+| selected tab label | `--color-primary-on-fill` | `--color-active` | 4.5:1 | #4f46e5 on #f1f1f4 — 5.58:1 | #818cf8 on #232327 — 5.25:1 |
+| chip text on page | `--color-text` | `--color-primary-soft over --color-bg` | 4.5:1 | #18181b on rgba(79, 70, 229, 0.1) over #f5f5fa — 14.10:1 | #fafafa on rgba(99, 102, 241, 0.16) over #09090b — 16.64:1 |
+| chip text on surface | `--color-text` | `--color-primary-soft over --color-surface` | 4.5:1 | #18181b on rgba(79, 70, 229, 0.1) over #ffffff — 15.25:1 | #fafafa on rgba(99, 102, 241, 0.16) over #18181b — 14.36:1 |
+| badge text (warning) on surface | `--color-warning-text` | `--color-surface` | 4.5:1 | #b45309 on #ffffff — 5.02:1 | #fbbf24 on #18181b — 10.61:1 |
+| overlay button label | `--color-on-overlay` | `--color-overlay over --color-bg` | 4.5:1 | #ffffff on rgba(9, 9, 11, 0.72) over #f5f5fa — 8.68:1 | #ffffff on rgba(9, 9, 11, 0.72) over #09090b — 19.90:1 |
+| control border on page | `--color-control-border` | `--color-bg` | 3:1 | #87878f on #f5f5fa — 3.28:1 | #71717a on #09090b — 4.12:1 |
+| control border on surface | `--color-control-border` | `--color-surface` | 3:1 | #87878f on #ffffff — 3.56:1 | #71717a on #18181b — 3.67:1 |
+| strong border on page | `--color-border-strong` | `--color-bg` | 3:1 | #87878f on #f5f5fa — 3.28:1 | #71717a on #09090b — 4.12:1 |
+| strong border on surface | `--color-border-strong` | `--color-surface` | 3:1 | #87878f on #ffffff — 3.56:1 | #71717a on #18181b — 3.67:1 |
+| chip/selection border on page | `--color-primary` | `--color-bg` | 3:1 | #4f46e5 on #f5f5fa — 5.79:1 | #6062ef on #09090b — 4.25:1 |
+| chip/selection border on surface | `--color-primary` | `--color-surface` | 3:1 | #4f46e5 on #ffffff — 6.29:1 | #6062ef on #18181b — 3.79:1 |
+| focus ring on page | `--color-focus` | `--color-bg` | 3:1 | #4f46e5 on #f5f5fa — 5.79:1 | #818cf8 on #09090b — 6.67:1 |
+| focus ring on surface | `--color-focus` | `--color-surface` | 3:1 | #4f46e5 on #ffffff — 6.29:1 | #818cf8 on #18181b — 5.94:1 |
+| focus ring on raised surface | `--color-focus` | `--color-surface-2` | 3:1 | #4f46e5 on #f4f4f5 — 5.72:1 | #818cf8 on #27272a — 4.99:1 |
+| focus ring on rail | `--color-focus` | `--color-rail-bg` | 3:1 | #4f46e5 on #ffffff — 6.29:1 | #818cf8 on #111113 — 6.32:1 |
+| focus ring on primary fill | `--color-focus-on-fill` | `--color-primary` | 3:1 | #ffffff on #4f46e5 — 6.29:1 | #ffffff on #6062ef — 4.68:1 |
+| focus ring on danger fill | `--color-focus-on-fill` | `--color-danger-solid` | 3:1 | #ffffff on #d41d1d — 5.26:1 | #ffffff on #dc2626 — 4.83:1 |
+| icon/status graphic on page | `--color-text-subtle` | `--color-bg` | 3:1 | #87878f on #f5f5fa — 3.28:1 | #71717a on #09090b — 4.12:1 |
+| icon/status graphic on surface | `--color-text-subtle` | `--color-surface` | 3:1 | #87878f on #ffffff — 3.56:1 | #71717a on #18181b — 3.67:1 |
+| status dot (danger) on surface | `--color-danger` | `--color-surface` | 3:1 | #d41d1d on #ffffff — 5.26:1 | #f87171 on #18181b — 6.40:1 |
+| separator border on page | `--color-border` | `--color-bg` | decorative | #c4c4cc on #f5f5fa — 1.60:1 | #5e5e6a on #09090b — 3.11:1 |
+| separator border on surface | `--color-border` | `--color-surface` | decorative | #c4c4cc on #ffffff — 1.73:1 | #5e5e6a on #18181b — 2.77:1 |
+
 ## UI actions
 Every user-triggered write in `layers/admin` — save, publish, delete, discard, bulk status, media
 folder and upload work, the system-screen operations — is a declared step sequence run by the small

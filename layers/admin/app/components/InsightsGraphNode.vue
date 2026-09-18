@@ -119,7 +119,7 @@ const triggerLabel = computed(() => {
     &--provides {
       background: var(--color-primary-soft);
       border-color: var(--color-primary);
-      color: var(--color-primary);
+      color: var(--color-primary-text);
     }
 
     &--optional {

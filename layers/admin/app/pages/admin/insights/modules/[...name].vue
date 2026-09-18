@@ -164,6 +164,6 @@ const pipelines = computed(() => (manifest.value ? pipelinesUsingModule(manifest
 
 .insights-chip--highlight {
   border-color: var(--color-primary);
-  color: var(--color-primary);
+  color: var(--color-primary-text);
 }
 </style>

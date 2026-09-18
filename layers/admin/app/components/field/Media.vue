@@ -114,9 +114,9 @@ function removeId(id: string) {
   padding: 0;
   border: 0;
   border-radius: var(--radius-full);
-  background: rgba(9, 9, 11, 0.55);
-  color: #fff;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.55), var(--shadow-sm);
+  background: var(--color-overlay);
+  color: var(--color-on-overlay);
+  box-shadow: 0 0 0 1px var(--color-overlay-edge), var(--shadow-sm);
   cursor: pointer;
   line-height: 1;
   transition: background var(--motion-fast) var(--ease-standard),
@@ -126,7 +126,7 @@ function removeId(id: string) {
 .field-media__remove:hover {
   background: var(--color-danger-solid);
   color: var(--color-on-danger);
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.7), var(--shadow-md);
+  box-shadow: 0 0 0 1px var(--color-overlay-edge-strong), var(--shadow-md);
   transform: scale(1.08);
 }
 .field-media__remove:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }

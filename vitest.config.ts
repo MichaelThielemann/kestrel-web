@@ -47,7 +47,7 @@ export default defineConfig({
         },
         test: {
           name: "rest",
-          include: ["layers/**/*.test.ts", "packages/**/*.test.ts"],
+          include: ["layers/**/*.test.ts", "packages/**/*.test.ts", "scripts/**/*.test.ts"],
           exclude: [...defaultExclude, "layers/admin/**", DOM_TEST_PATTERN],
           environment: "node",
         },

@@ -56,12 +56,12 @@
 
 #{$root} :where(.insights-badge--warning) {
   border-color: var(--color-warning);
-  color: var(--color-warning);
+  color: var(--color-warning-text);
 }
 
 #{$root} :where(.insights-badge--info) {
   border-color: var(--color-primary);
-  color: var(--color-primary);
+  color: var(--color-primary-text);
 }
 
 #{$root} :where(.insights-badge--danger) {

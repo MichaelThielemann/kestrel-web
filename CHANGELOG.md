@@ -194,6 +194,17 @@
   drop-target highlight because the hit test only accepted `HTMLElement`; it now accepts any `Element`.
 - Block picker: a single favourite no longer stretches across the full width of the "Large" view (the
   grid used `auto-fit`, collapsing empty tracks; it now uses `auto-fill`, matching the default grid view).
+- Dark and light theme meet WCAG 2.2 AA (consumer-visible): `--color-primary-text` is the new accent
+  colour for text and links (the fill `--color-primary` stays), the dark primary fill is a touch darker
+  so a white label clears 4.5:1 on it and on hover, the light neutrals (`--color-text-muted`,
+  `--color-text-subtle`, `--color-control-border`), `--color-danger` and `--color-success` were darkened
+  to clear their thresholds against the page, and the dark `--color-border` was raised to stay visible.
+  `--color-focus-on-fill` gives the focus ring of a filled primary or danger button its own colour — it
+  was drawn in the button's own colour before. New tokens `--color-overlay`, `--color-on-overlay`,
+  `--color-overlay-edge`, `--color-canvas` and `--color-on-canvas` replace the last hard-coded colours
+  in `layers/admin` (`field/Media.vue`'s overlay buttons, `BlockPreview.vue`'s preview surface,
+  `SeoFields.vue`'s and `field/Slug.vue`'s literal fallbacks). `scripts/token-contrast.ts` measures
+  every token pair in both themes and runs as a test.
 - The site description reaches the public page (consumer-visible): the `description` field of the
   `settings` singleton is part of `SettingsDocument` and `SiteSettings` again, and `[...slug].vue` and
   the preview page render `<meta name="description">` and `og:description` from the page's SEO

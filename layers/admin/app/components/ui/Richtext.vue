@@ -117,7 +117,7 @@ watchEffect(() => {
         overflow-x: auto;
       }
       code { font-family: monospace; }
-      a { color: var(--color-primary); }
+      a { color: var(--color-primary-text); }
       mark { background: var(--color-highlight); color: var(--color-on-highlight); }
       hr { border: 0; border-top: 1px solid var(--color-border); margin: var(--space-4) 0; }
     }

@@ -322,7 +322,7 @@ function relative(ms: number | null): string { return ms === null ? '—' : huma
   }
 
   &__row--orphaned td:first-child {
-    color: var(--color-warning);
+    color: var(--color-warning-text);
   }
 }
 </style>

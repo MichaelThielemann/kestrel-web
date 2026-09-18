@@ -105,6 +105,13 @@ defineExpose({ focus })
     font-size: var(--text-lg);
   }
 
+  &--primary,
+  &--danger {
+    &:focus-visible {
+      outline-color: var(--color-focus-on-fill);
+    }
+  }
+
   &--primary {
     background: var(--color-primary);
     color: var(--color-on-primary);

@@ -125,7 +125,7 @@ const descLen = computed(() => (props.value.description ?? '').length)
     margin-top: var(--space-1);
     font-size: var(--text-lg);
     line-height: 1.3;
-    color: var(--color-link, #1a0dab);
+    color: var(--color-link);
     overflow: hidden;
     text-overflow: ellipsis;
     display: -webkit-box;

@@ -229,7 +229,7 @@ defineExpose({ lang, selectLang, signOut, theme, toggleTheme })
   justify-content: center;
   width: 1rem;
   flex-shrink: 0;
-  color: var(--color-primary);
+  color: var(--color-primary-text);
 }
 .rail-account__item-icon {
   flex-shrink: 0;

@@ -244,7 +244,7 @@ function relative(ms: number | null): string { return ms === null ? '—' : huma
 
     &--snapshot {
       border-color: var(--color-primary);
-      color: var(--color-primary);
+      color: var(--color-primary-text);
     }
   }
 

@@ -141,7 +141,7 @@ function fromLink(id: string, locale: string | null) {
     font-weight: var(--weight-bold);
   }
   &__link {
-    color: var(--color-primary);
+    color: var(--color-primary-text);
     text-decoration: none;
     text-transform: capitalize;
   }

@@ -333,6 +333,6 @@ function moveChip(from: number, to: number) {
     &[data-highlighted] { background: var(--color-hover); outline: none; }
     &[data-state='checked'] { font-weight: var(--weight-medium); }
   }
-  &__check { color: var(--color-primary); }
+  &__check { color: var(--color-primary-text); }
 }
 </style>

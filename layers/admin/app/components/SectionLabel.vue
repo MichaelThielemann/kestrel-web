@@ -41,7 +41,7 @@ const { t } = useT()
     cursor: help;
 
     &:hover {
-      color: var(--color-primary);
+      color: var(--color-primary-text);
     }
     &:focus-visible {
       outline: 2px solid var(--color-focus);

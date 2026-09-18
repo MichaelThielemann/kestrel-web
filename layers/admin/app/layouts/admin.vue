@@ -222,7 +222,7 @@ useHead(() => ({
   }
 
   &__item.router-link-active &__icon {
-    color: var(--color-primary);
+    color: var(--color-primary-text);
   }
 
   &__icon {

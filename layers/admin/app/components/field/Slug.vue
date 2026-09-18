@@ -82,5 +82,5 @@ function onFocus(event: FocusEvent) {
   &:focus, &:focus-visible { outline: none; }
   &.field-slug__input--auto { color: var(--color-text-muted); }
 }
-.field-slug:focus-within { border-color: var(--color-primary, #6366f1); }
+.field-slug:focus-within { border-color: var(--color-primary); }
 </style>

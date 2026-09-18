@@ -245,7 +245,7 @@ function applyInternalLink() {
       background: var(--color-active, var(--color-surface-2));
     }
     .ui-icon {
-      color: var(--color-primary);
+      color: var(--color-primary-text);
     }
   }
 }
