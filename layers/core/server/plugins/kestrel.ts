@@ -9,13 +9,13 @@ import { pipelines } from "#kestrel/consumer-pipelines";
 import { imageSizes } from "#kestrel/image-sizes";
 import modules from "#kestrel/consumer-modules";
 import config from "~~/kestrel.config";
+import { MOUNT_PATH } from "../../mount-path";
 import { inlineTypesFor } from "../utils/inline-types";
 import { uploadLimits } from "../utils/limits";
 import { applyBundledSchemas } from "../utils/bundled-schemas";
 import { moduleConfigForStep } from "../utils/modules";
 import { accessLists } from "./access";
 
-const MOUNT_PATH = "/api";
 const IMAGES_REGISTER_STEP = "images.register";
 const IMAGES_REGISTER_PIPELINE = "registerImageSizesBoot";
 

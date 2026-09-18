@@ -6,6 +6,7 @@ const adminAppDir = fileURLToPath(new URL("./layers/admin/app", import.meta.url)
 const coreLayerDir = fileURLToPath(new URL("./layers/core", import.meta.url));
 const collectionsUiEntry = fileURLToPath(new URL("./layers/core/collections-ui/index.ts", import.meta.url));
 const castEntry = fileURLToPath(new URL("./layers/core/app/utils/cast.ts", import.meta.url));
+const configEntry = fileURLToPath(new URL("./layers/core/config/index.ts", import.meta.url));
 const optionalModulesNone = fileURLToPath(new URL("./layers/core/module-registry/optional-modules.none.ts", import.meta.url));
 const pipelinesEntry = fileURLToPath(new URL("./layers/core/pipelines/index.ts", import.meta.url));
 const moduleRegistryEntry = fileURLToPath(new URL("./layers/core/module-registry/index.ts", import.meta.url));
@@ -36,6 +37,7 @@ export default defineConfig({
         resolve: {
           alias: [
             { find: "#kestrel/cast", replacement: castEntry },
+            { find: "#kestrel/config", replacement: configEntry },
             { find: "#kestrel/optional-modules", replacement: optionalModulesNone },
             { find: "#kestrel/pipelines", replacement: pipelinesEntry },
             { find: "#kestrel/modules", replacement: moduleRegistryEntry },

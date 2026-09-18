@@ -26,6 +26,19 @@ import insights from "./features/insights";
 
 export type { CollectionModel } from "./collections";
 export type { PresetStep } from "../module-registry";
+export { presetModuleConfig } from "./config";
+export type {
+  ModuleEntry,
+  PresetBootstrap,
+  PresetContentModel,
+  PresetLlms,
+  PresetMediaPolicy,
+  PresetMigrations,
+  PresetModuleConfigOptions,
+  PresetRateLimit,
+  PresetRoles,
+  PresetSession,
+} from "./config";
 
 export const definePipeline = pipelineDefiner<PresetStep>();
 

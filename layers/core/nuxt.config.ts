@@ -9,6 +9,8 @@ const MODULE_REGISTRY_VIRTUAL_ID = "#kestrel/modules";
 const MODULE_REGISTRY_ENTRY = fileURLToPath(new URL("./module-registry/index.ts", import.meta.url));
 const CAST_VIRTUAL_ID = "#kestrel/cast";
 const CAST_ENTRY = fileURLToPath(new URL("./app/utils/cast.ts", import.meta.url));
+const CONFIG_VIRTUAL_ID = "#kestrel/config";
+const CONFIG_ENTRY = fileURLToPath(new URL("./config/index.ts", import.meta.url));
 const CORE_LAYER_ALIAS = "#kestrel-core";
 const CORE_LAYER_DIR = fileURLToPath(new URL(".", import.meta.url)).replace(/\/$/, "");
 
@@ -21,7 +23,7 @@ export default defineNuxtConfig({
     fileURLToPath(new URL("./modules/consumer-entries/index.ts", import.meta.url)),
     fileURLToPath(new URL("./modules/optional-modules/index.ts", import.meta.url)),
   ],
-  alias: { [PIPELINES_VIRTUAL_ID]: PIPELINES_ENTRY, [COLLECTIONS_UI_VIRTUAL_ID]: COLLECTIONS_UI_ENTRY, [MODULE_REGISTRY_VIRTUAL_ID]: MODULE_REGISTRY_ENTRY, [CAST_VIRTUAL_ID]: CAST_ENTRY, [CORE_LAYER_ALIAS]: CORE_LAYER_DIR },
+  alias: { [PIPELINES_VIRTUAL_ID]: PIPELINES_ENTRY, [COLLECTIONS_UI_VIRTUAL_ID]: COLLECTIONS_UI_ENTRY, [MODULE_REGISTRY_VIRTUAL_ID]: MODULE_REGISTRY_ENTRY, [CAST_VIRTUAL_ID]: CAST_ENTRY, [CONFIG_VIRTUAL_ID]: CONFIG_ENTRY, [CORE_LAYER_ALIAS]: CORE_LAYER_DIR },
   hooks: {
     "vite:extendConfig"(config: { resolve?: { alias?: Record<string, string> | readonly { find: string | RegExp; replacement: string }[] } }) {
       config.resolve ??= {};
@@ -30,6 +32,7 @@ export default defineNuxtConfig({
         [COLLECTIONS_UI_VIRTUAL_ID]: COLLECTIONS_UI_ENTRY,
         [MODULE_REGISTRY_VIRTUAL_ID]: MODULE_REGISTRY_ENTRY,
         [CAST_VIRTUAL_ID]: CAST_ENTRY,
+        [CONFIG_VIRTUAL_ID]: CONFIG_ENTRY,
         [CORE_LAYER_ALIAS]: CORE_LAYER_DIR,
         ...config.resolve.alias,
       };
@@ -46,6 +49,7 @@ export default defineNuxtConfig({
         [COLLECTIONS_UI_VIRTUAL_ID]: COLLECTIONS_UI_ENTRY,
         [MODULE_REGISTRY_VIRTUAL_ID]: MODULE_REGISTRY_ENTRY,
         [CAST_VIRTUAL_ID]: CAST_ENTRY,
+        [CONFIG_VIRTUAL_ID]: CONFIG_ENTRY,
         [CORE_LAYER_ALIAS]: CORE_LAYER_DIR,
         ...(config.alias ?? {}),
       };

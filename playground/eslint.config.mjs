@@ -111,6 +111,7 @@ export default withNuxt(
     files: [
       'layers/*/server/**/*.ts',
       'layers/*/pipelines/**/*.ts',
+      'layers/*/config/**/*.ts',
       'layers/*/collections-ui/**/*.ts',
       'layers/*/module-registry/**/*.ts',
       'layers/*/schemas/**/*.ts',
