@@ -31,7 +31,7 @@ export function useRecordOptions(
     const own = rawLabel(doc)
     if (own) return own
     const inherited = primary.get(doc.id)
-    return inherited ? `${inherited} (${primaryLocale.toUpperCase()})` : doc.id
+    return inherited ? `${inherited} (${primaryLocale.value.toUpperCase()})` : doc.id
   }
 
   async function load(name: string) {
@@ -40,7 +40,7 @@ export function useRecordOptions(
       const list = (query: Record<string, unknown>) => api<ListPage<Document>>(`/admin/${name}`, { query: { ...query, limit: LIMIT } })
       const [page, primaryPage] = await Promise.all([
         list({ locale: locale.value }),
-        locale.value === primaryLocale ? null : list({ locale: primaryLocale }),
+        locale.value === primaryLocale.value ? null : list({ locale: primaryLocale.value }),
       ])
       if (collection.value !== name) return
       const primary = new Map((primaryPage?.items ?? []).map((doc) => [doc.id, rawLabel(doc) ?? '']))

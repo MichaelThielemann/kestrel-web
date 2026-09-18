@@ -35,6 +35,23 @@ export function fieldOptions(model: WorkflowModel, field: string): readonly stri
   return isStringArray(options) ? options : undefined;
 }
 
+export function validateWorkflow(name: string, workflow: Workflow, model: WorkflowModel): void {
+  const { field } = workflow;
+  if (!(field in model.fields)) {
+    throw new Error(`collections-ui: "${name}" workflow names unknown field "${field}"`);
+  }
+  if (fieldType(model, field) !== "enum") {
+    throw new Error(`collections-ui: "${name}" workflow field "${field}" must be type "enum"`);
+  }
+  const options = fieldOptions(model, field) ?? [];
+  const declared = [workflow.live, workflow.draft, ...(workflow.done === undefined ? [] : [workflow.done])];
+  for (const value of declared) {
+    if (!options.includes(value)) {
+      throw new Error(`collections-ui: "${name}" workflow value "${value}" is not an option of field "${field}"`);
+    }
+  }
+}
+
 export function resolveWorkflow(name: string, model: WorkflowModel, ui?: WorkflowUi): Workflow | undefined {
   if (ui?.workflow !== undefined) return ui.workflow;
   if (!(STATUS_FIELD in model.fields)) return undefined;

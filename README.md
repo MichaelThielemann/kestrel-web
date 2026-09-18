@@ -59,7 +59,7 @@ overrides:
   `kestrel.blockImagesDir`). Standard pipelines, module implementations and the `settings`/`redirects`
   UI come from the presets in `layers/core`, never from the consumer; `layers/admin` never imports a
   specific consumer — and never `~~/shared/*` at all: it reads `GET /api/admin/schema` once per session
-  (`useSchema()`) for the model, collection UI, workflow, features and pipeline names.
+  (`useSchema()`) for the model, collection UI, workflow and features.
 - A block SFC's `defineProps({ heading: textField(…) })` is its schema and `defineBlock({ … })` its
   metadata; both arguments must be self-contained literals plus factory calls (read statically at
   build). `.nuxt/kestrel/pages.body.json` is generated from them — never hand-edit it.

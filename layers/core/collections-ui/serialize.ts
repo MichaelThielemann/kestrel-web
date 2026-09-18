@@ -1,6 +1,6 @@
 import type { LayoutNode, SerializedField, SerializedCollection } from "../app/types/kestrel";
 import type { CollectionUi } from "./index";
-import { resolveWorkflow } from "./workflow";
+import { resolveWorkflow, validateWorkflow } from "./workflow";
 
 export const SEO_FIELD = "seo";
 export const LAYOUT_FIELD = "layout";
@@ -88,7 +88,7 @@ function serializeField(collection: string, name: string, f: ContentField, def: 
   }
 }
 
-function validateReservedFields(collection: string, def: ContentType): void {
+function validateReservedFields(collection: string, def: ContentType, u: CollectionUi): void {
   const fields = def.fields;
   const pageLike = SLUG_FIELD in fields;
 
@@ -112,12 +112,17 @@ function validateReservedFields(collection: string, def: ContentType): void {
     throw new Error(`collections: "${collection}" field "${SEO_FIELD}" must be type "json"`);
   }
 
+  if (STATUS_FIELD in fields && fields[STATUS_FIELD].type !== "enum") {
+    throw new Error(`collections: "${collection}" field "${STATUS_FIELD}" must be type "enum"`);
+  }
+
+  if (u.workflow !== undefined) {
+    validateWorkflow(collection, u.workflow, def);
+    return;
+  }
+
   if (STATUS_FIELD in fields) {
-    const statusDef = fields[STATUS_FIELD];
-    if (statusDef.type !== "enum") {
-      throw new Error(`collections: "${collection}" field "${STATUS_FIELD}" must be type "enum"`);
-    }
-    const options = statusDef.options ?? [];
+    const options = fields[STATUS_FIELD].options ?? [];
     for (const value of options) {
       if (!(STATUS_VALUES as readonly string[]).includes(value)) {
         throw new Error(`collections: "${collection}" field "${STATUS_FIELD}" has invalid option "${value}"`);
@@ -204,7 +209,7 @@ function validateUiFields(collection: string, def: ContentType, u: CollectionUi)
 
 export function serializeCollection(name: string, def: ContentType, contentTypes: Record<string, ContentType>, uiMap: Record<string, CollectionUi>): SerializedCollection {
   const u = uiMap[name] ?? { label: { singular: name, plural: name }, icon: "file-text" };
-  validateReservedFields(name, def);
+  validateReservedFields(name, def, u);
   validateUiFields(name, def, u);
   const owned = u.editorOwned ?? [];
   const seoFields = new Set(u.seoFields ?? []);

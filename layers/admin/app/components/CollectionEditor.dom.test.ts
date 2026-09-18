@@ -46,7 +46,6 @@ const { schema } = vi.hoisted(() => {
     locales: { all: ['en'], primary: 'en', prefixPrimary: false },
     collections: [widgetsCollection, redirectsCollection],
     features: [],
-    capabilities: { pipelines: [] },
   }
   return { schema }
 })

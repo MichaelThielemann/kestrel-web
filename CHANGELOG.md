@@ -4,25 +4,36 @@
 
 ### Added
 
-- `GET /api/admin/schema` (consumer-visible): the content model, collection UI, workflow, features and
-  pipeline names in one answer, `{ locales: { all, primary, prefixPrimary }, collections:
-  SerializedCollection[], features: Feature[], capabilities: { pipelines: string[] } }`, typed as
-  `AdminSchema` in `#kestrel-admin/types/api`. The route runs the new preset pipeline `adminSchemaModel`
-  (`authn.requireUser`, `content.describeModel`, no trigger — the Nitro route starts it) with the request
-  headers, so the session is checked by the backend; a run status of 400 or above is passed through with
-  the backend's own error body. `buildAdminSchema` in `layers/core/server/utils/admin-schema.ts` is the
-  pure assembly, frozen against `layers/core/server/__fixtures__/admin-schema.json`. Needs
+- `GET /api/admin/schema` (consumer-visible): the content model, collection UI, workflow and features in
+  one answer, `{ locales: { all, primary, prefixPrimary }, collections: SerializedCollection[], features:
+  Feature[] }`, typed as `AdminSchema` in `#kestrel-admin/types/api`. The route runs the new preset
+  pipeline `adminSchemaModel` (`authn.requireUser`, `content.describeModel`, no trigger — the Nitro route
+  starts it) with the request headers and the client IP, resolved by Kestrel's own `clientIp()` under the
+  same trust-proxy policy the h3 adapter uses, so the session and the rate limits are checked by the
+  backend; a run status of 400 or above is passed through with the backend's own error body, and while
+  Kestrel is booting or failed the route answers the same 503 `{ state, error? }` the `/api/**` handler
+  answers. The 200 carries `cache-control: no-store`, `x-content-type-options: nosniff` and
+  `x-kestrel-run-id` like every other backend answer. `buildAdminSchema` in
+  `layers/core/server/utils/admin-schema.ts` is the pure assembly, frozen against
+  `layers/core/server/__fixtures__/admin-schema.json`. Needs
   `@michaelthielemann/kestrel-content-default` 5.3.0 or newer.
 - `CollectionUi.workflow` (`{ field, live, draft, done? }`, consumer-visible): the field and values behind
   the status light, the publish button and the public-site filter. `defineCollectionsUi(map, collections)`
   checks a declared workflow against the model — the field must exist and be `type: "enum"`, and
-  `live`/`draft`/`done` must be among its `options`, with collection and field named in the error.
+  `live`/`draft`/`done` must be among its `options`, with collection and field named in the error; a
+  workflow declared without the content types throws and asks for `defineCollectionsUi(map, contentTypes)`.
+  A declared workflow also replaces the reserved `draft`/`finished`/`published` check on a `status` field,
+  so `workflow: { field: "status", live: "live", draft: "entwurf" }` works.
   `resolveWorkflow(name, model, ui)` (`#kestrel/collections-ui`) derives
   `{ field: "status", live: "published", draft: "draft", done: "finished" }` from a reserved `status` enum
   when no workflow is declared, so existing behaviour is unchanged.
 - `definePreset({ collectionsUi })` (consumer-visible): the public `list`/`read` pipelines of a `multi`
-  collection filter on `?status=<workflow.live>` instead of the hardcoded `?status=published`; a
-  collection that resolves to no workflow gets no filter at all.
+  collection filter on `?status=<workflow.live>` (URL-encoded) instead of the hardcoded
+  `?status=published`; a collection that resolves to no workflow gets no filter at all. A boot guard in
+  `layers/core/server` (pure check in `server/utils/status-filter.ts`, run before Kestrel is reported
+  ready) fails the boot when a collection declares a workflow that never reached `definePreset`, naming
+  the collection, the expected filter and the fix — otherwise that collection would serve every status
+  anonymously. Pipelines a consumer overrode or excluded are left alone.
 - `SerializedCollection` gains `workflow` and `editorOwned`, so a client no longer needs the collection
   UI map next to the serialized collections.
 
@@ -102,14 +113,16 @@
   `#kestrel/consumer-block-tags` stay. `useSchema()` (`useState('kestrel-schema')`) requests the answer
   once per admin session — loaded by the `admin-auth` middleware after a successful session check and by
   the login page after a successful login, cleared by `useAuth().reset()` (logout, the 401 interceptor).
-  A 401 is treated as an invalid session (reset plus login redirect); every other failure keeps its
-  message and the admin layout shows `BootFailure` instead of the page, with no fallback schema.
+  Concurrent calls share one in-flight request. A 401 is left to the `$fetch` reauth interceptor, which
+  already resets the session and navigates to the login page; every other failure keeps its message and
+  the admin layout shows `BootFailure` instead of the page, with no fallback schema.
   `shared/model.ts` and `shared/collections-ui.ts` are unchanged for consumers — they stay backend
   configuration and are now read server-side by the route.
 - **Breaking (admin client API):** the static exports of `layers/admin/app/utils/collections.ts` became
   functions over the schema — `collections(schema)`, `findCollection(schema, name)`,
   `editorOwnedFields(schema, name)`, `contentLocales(schema)`. `useFeatures().features` is a `ComputedRef`
-  rather than an array. `EditFormPort`/`EditorExpose` carry `workflow: Workflow | undefined` in place of
+  rather than an array, and `useContentLocales()` answers `{ locales, primary, prefixPrimary }` as
+  `ComputedRef`s rather than a snapshot taken at setup time. `EditFormPort`/`EditorExpose` carry `workflow: Workflow | undefined` in place of
   `hasStatus: boolean`, and `bulkSetStatus` takes `{ workflow, live }` in place of
   `status: 'published' | 'draft'`. Only code that imported these admin internals is affected.
 - Publish state comes from the collection's `workflow` everywhere in the client: the status light

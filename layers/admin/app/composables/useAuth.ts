@@ -49,6 +49,7 @@ export function useAuth() {
   const api = useApi()
   const { t } = useT()
   const toast = useToast()
+  const schema = useSchema()
 
   async function checkSession() {
     if (!token.value) {
@@ -81,7 +82,7 @@ export function useAuth() {
   function reset() {
     token.value = null
     state.value = { identity: null, checked: true, error: null }
-    useSchema().clear()
+    schema.clear()
   }
 
   async function logout() {

@@ -11,9 +11,6 @@ function readJson<T>(url: URL): T {
   return boundaryCast<T>(parsed, "json");
 }
 
-const presetFixture = readJson<{ pipelines: Record<string, string[]> }>(new URL("../../pipelines/__fixtures__/playground.json", import.meta.url));
-const pipelineNames = Object.keys(presetFixture.pipelines);
-
 const schema = buildAdminSchema({
   model: contentModel,
   collectionsUi,
@@ -21,7 +18,6 @@ const schema = buildAdminSchema({
   prefixPrimary,
   locales,
   defaultLocale,
-  pipelines: pipelineNames,
 });
 
 describe("buildAdminSchema", () => {
@@ -46,14 +42,8 @@ describe("buildAdminSchema", () => {
       prefixPrimary,
       locales,
       defaultLocale,
-      pipelines: pipelineNames,
     });
     expect(fallback.locales).toEqual({ all: [...locales], primary: defaultLocale, prefixPrimary });
-  });
-
-  it("carries the pipeline names as capabilities", () => {
-    expect(schema.capabilities.pipelines).toEqual(pipelineNames);
-    expect(schema.capabilities.pipelines).toContain("adminSchemaModel");
   });
 
   it("derives the pages workflow from the status enum", () => {

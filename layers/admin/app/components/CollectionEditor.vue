@@ -19,7 +19,7 @@ const {
   locale, showCopyTranslation, copySourceLocales, copySourceDefault, blockErrors, revealError,
 } = f
 
-const primaryLocale = computed(() => useContentLocales().primary)
+const { primary: primaryLocale } = useContentLocales()
 
 const renderable = computed(() =>
   Object.fromEntries(Object.entries(f.renderableFields.value).map(([name, field]) => [name, asFieldDef(field)])),

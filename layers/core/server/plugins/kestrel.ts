@@ -9,22 +9,22 @@ import { pipelines } from "#kestrel/consumer-pipelines";
 import { imageSizes } from "#kestrel/image-sizes";
 import modules from "#kestrel/consumer-modules";
 import config from "~~/kestrel.config";
+import collectionsUi from "~~/shared/collections-ui";
 import { MOUNT_PATH } from "../../mount-path";
 import { inlineTypesFor } from "../utils/inline-types";
 import { uploadLimits } from "../utils/limits";
 import { applyBundledSchemas } from "../utils/bundled-schemas";
 import { moduleConfigForStep } from "../utils/modules";
+import { contentCollections, statusFilterFailure, statusFilterProblems } from "../utils/status-filter";
+import { bootFailure } from "../utils/boot-failure";
+import type { KestrelState, KestrelStatus } from "../utils/boot-failure";
 import { accessLists } from "./access";
 
 const IMAGES_REGISTER_STEP = "images.register";
 const IMAGES_REGISTER_PIPELINE = "registerImageSizesBoot";
+const CONTENT_LIST_STEP = "content.list";
 
-export type KestrelState = "booting" | "ready" | "failed";
-
-export interface KestrelStatus {
-  state: KestrelState;
-  error?: string;
-}
+export type { KestrelState, KestrelStatus };
 
 function warnIfImagesPublicPathMismatched(kestrel: Kestrel): void {
   const images = moduleConfigForStep(modules, config.modules, kestrel.steps.owner(IMAGES_REGISTER_STEP));
@@ -32,6 +32,13 @@ function warnIfImagesPublicPathMismatched(kestrel: Kestrel): void {
   const raw = typeof images === "object" && images !== null ? (images as { publicPath?: unknown }).publicPath : undefined;
   const publicPath = typeof raw === "string" ? raw : "/media";
   if (publicPath !== MOUNT_PATH && !publicPath.startsWith(`${MOUNT_PATH}/`)) consoleLogger.error(`images: publicPath "${publicPath}" is not served under the mount path "${MOUNT_PATH}" — variant URLs will 404`);
+}
+
+function assertStatusFilters(kestrel: Kestrel): void {
+  const content = moduleConfigForStep(modules, config.modules, kestrel.steps.owner(CONTENT_LIST_STEP));
+  const shapes = pipelines.map((pipeline) => ({ name: pipeline.name, steps: pipeline.steps }));
+  const failure = statusFilterFailure(statusFilterProblems(contentCollections(content), collectionsUi, shapes));
+  if (failure !== undefined) throw new Error(failure);
 }
 
 async function registerImageSizes(kestrel: Kestrel): Promise<void> {
@@ -73,6 +80,7 @@ export function getKestrel(): Promise<Kestrel> {
     try {
       const kestrel = await boot({ config: { ...config, modules: applyBundledSchemas(config.modules, bundledSchemas) }, modules, pipelines, logger: consoleLogger });
       await kestrel.start();
+      assertStatusFilters(kestrel);
       warnIfImagesPublicPathMismatched(kestrel);
       await registerImageSizes(kestrel);
       state = "ready";
@@ -109,7 +117,7 @@ export default defineNitroPlugin((nitro) => {
     .catch((err: unknown) => {
       if (getKestrelState().state !== "failed") recordBootFailure(err);
       return defineEventHandler(() => {
-        throw createError({ statusCode: 503, statusMessage: "Kestrel failed to boot", data: getKestrelState() });
+        throw createError(bootFailure(getKestrelState()));
       });
     });
   boundaryCast<{ kestrelHandler: Promise<EventHandler> }>(nitro, "host").kestrelHandler = handler;

@@ -17,14 +17,13 @@ const localeParam = computed(() => (typeof route.query.locale === 'string' ? rou
 const { primary } = useContentLocales()
 
 const { t, lang } = useT()
-const { load } = useCollections()
-const collections = load()
-const def = collections.find((c) => c.name === collection) ?? null
+const { collections } = useCollections()
+const def = computed(() => collections.value.find((c) => c.name === collection) ?? null)
 
-const listLocale = computed(() => (def?.translatable ? (localeParam.value || primary) : undefined))
-const singletonTitle = computed(() => resolveLocalized(def?.label?.singular, lang.value) ?? collection)
+const listLocale = computed(() => (def.value?.translatable ? (localeParam.value || primary.value) : undefined))
+const singletonTitle = computed(() => resolveLocalized(def.value?.label?.singular, lang.value) ?? collection)
 
-if (def?.mode === 'single' && def.placement === 'system') {
+if (def.value?.mode === 'single' && def.value.placement === 'system') {
   await navigateTo({ path: '/admin/system', query: { ...route.query, tab: collection } }, { replace: true })
 }
 </script>

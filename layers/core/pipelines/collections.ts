@@ -39,10 +39,29 @@ export function hasLocalizedField(model: CollectionModel): boolean {
   return Object.values(model.fields).some((field) => typeof field === "object" && field !== null && (field as { localized?: unknown }).localized === true);
 }
 
+export interface PublicCollectionStep {
+  pipeline: string;
+  step: string;
+  base: string;
+}
+
+export function statusQueryFor(name: string, model: CollectionModel, ui?: WorkflowUi): string {
+  const workflow = resolveWorkflow(name, model, ui);
+  return workflow === undefined ? "" : `?status=${encodeURIComponent(workflow.live)}`;
+}
+
+export function publicCollectionSteps(name: string, model: CollectionModel, ui?: WorkflowUi): PublicCollectionStep[] {
+  const { plural, singular } = collectionNames(name);
+  const query = statusQueryFor(name, model, ui);
+  return [
+    { pipeline: `list${plural}`, base: `content.list:${name}`, step: `content.list:${name}${query}` },
+    { pipeline: `read${singular}`, base: `content.get:${name}`, step: `content.get:${name}${query}` },
+  ];
+}
+
 export function multiCollectionPipelines(name: string, model: CollectionModel, ui?: WorkflowUi): Record<string, PresetStep[]> {
   const { plural, singular, event } = collectionNames(name);
-  const workflow = resolveWorkflow(name, model, ui);
-  const statusQuery = workflow === undefined ? "" : `?status=${workflow.live}`;
+  const statusQuery = statusQueryFor(name, model, ui);
   const bodySteps: PresetStep[] = "body" in model.fields ? [`validate.check:${name}.body`, `validate.sanitize:${name}.body`, `validate.check:${name}.body`] : [];
   const pipelines: Record<string, PresetStep[]> = {
     [`list${plural}`]: ["authn.identifyUser", `authz.require:${name}.read`, `content.list:${name}${statusQuery}`],

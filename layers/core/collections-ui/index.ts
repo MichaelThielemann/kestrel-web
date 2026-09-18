@@ -1,6 +1,6 @@
 import type { Localized, LayoutNode, SerializedField, Workflow } from "../app/types/kestrel";
 import type { CollectionModel, Feature } from "#kestrel/pipelines";
-import { fieldOptions, fieldType } from "./workflow";
+import { validateWorkflow } from "./workflow";
 
 const NAVIGATION_TARGET_CHOICES = {
   choices: [
@@ -50,23 +50,6 @@ export function defineBlockTags(map: BlockTagLabels): BlockTagLabels {
   return map;
 }
 
-function validateWorkflow(name: string, workflow: Workflow, model: CollectionModel): void {
-  const { field } = workflow;
-  if (!(field in model.fields)) {
-    throw new Error(`collections-ui: "${name}" workflow names unknown field "${field}"`);
-  }
-  if (fieldType(model, field) !== "enum") {
-    throw new Error(`collections-ui: "${name}" workflow field "${field}" must be type "enum"`);
-  }
-  const options = fieldOptions(model, field) ?? [];
-  const declared = [workflow.live, workflow.draft, ...(workflow.done === undefined ? [] : [workflow.done])];
-  for (const value of declared) {
-    if (!options.includes(value)) {
-      throw new Error(`collections-ui: "${name}" workflow value "${value}" is not an option of field "${field}"`);
-    }
-  }
-}
-
 export function defineCollectionsUi(map: Record<string, CollectionUi>, collections?: Record<string, CollectionModel>): Record<string, CollectionUi> {
   for (const [name, ui] of Object.entries(map)) {
     if (!ui.label?.singular || !ui.label?.plural) {
@@ -79,7 +62,15 @@ export function defineCollectionsUi(map: Record<string, CollectionUi>, collectio
     if (model?.kind === "multi" && (ui.placement === "system" || ui.placement === "account")) {
       throw new Error(`collections-ui: "${name}" is kind "multi" and cannot use placement "${ui.placement}" (must be "rail")`);
     }
-    if (ui.workflow && model) validateWorkflow(name, ui.workflow, model);
+    if (ui.workflow !== undefined) {
+      if (collections === undefined) {
+        throw new Error(`collections-ui: "${name}" declares a workflow – pass the content types as the second argument: defineCollectionsUi(map, contentTypes)`);
+      }
+      if (model === undefined) {
+        throw new Error(`collections-ui: "${name}" declares a workflow but the content types have no "${name}"`);
+      }
+      validateWorkflow(name, ui.workflow, model);
+    }
   }
   return map;
 }

@@ -158,7 +158,7 @@
                 "default": [],
                 "label": {
                   "en": "Sub items",
-                  "de": "Untereinträge"
+                  "de": "Untereintr\u00e4ge"
                 },
                 "options": {
                   "fields": {
@@ -500,7 +500,7 @@
                 "value": "published",
                 "label": {
                   "en": "Published",
-                  "de": "Veröffentlicht"
+                  "de": "Ver\u00f6ffentlicht"
                 }
               }
             ],
@@ -577,79 +577,5 @@
     "audit",
     "sanitizeSvg",
     "insights"
-  ],
-  "capabilities": {
-    "pipelines": [
-      "activateUser",
-      "adminSchemaModel",
-      "auditAuth",
-      "brokenLinks",
-      "brokenReferences",
-      "changePassword",
-      "checkLinks",
-      "cleanupSessions",
-      "createMediaFolder",
-      "createPage",
-      "createUser",
-      "deactivateUser",
-      "deleteMedia",
-      "deleteMediaFolder",
-      "deletePage",
-      "deletePageTranslation",
-      "downloadMedia",
-      "exportMedia",
-      "generateImageVariants",
-      "getMedia",
-      "getRedirects",
-      "getSettings",
-      "getUser",
-      "imagesStatus",
-      "insightsManifest",
-      "insightsStats",
-      "listAllPages",
-      "listImageSizes",
-      "listMedia",
-      "listMediaFolders",
-      "listPages",
-      "listUsers",
-      "login",
-      "logout",
-      "me",
-      "mediaReferrers",
-      "mediaReferrersMany",
-      "pagePublishStatus",
-      "pageReferrers",
-      "pageReferrersMany",
-      "pruneImages",
-      "publishAllPages",
-      "readAnyPage",
-      "readPage",
-      "rebuildLinks",
-      "rebuildReferences",
-      "reconcileMedia",
-      "reconcileMediaDelete",
-      "reconcileMediaReport",
-      "registerImageSizes",
-      "registerImageSizesBoot",
-      "renameMediaFolder",
-      "renderRedirects",
-      "replicate",
-      "replicationPoints",
-      "replicationRestore",
-      "replicationSnapshot",
-      "replicationStatus",
-      "resolvePage",
-      "resumeImages",
-      "scanReferences",
-      "serveImageVariant",
-      "setPassword",
-      "setRedirects",
-      "setSettings",
-      "sweepRateLimits",
-      "syncImages",
-      "updateMedia",
-      "updatePage",
-      "uploadMedia"
-    ]
-  }
+  ]
 }

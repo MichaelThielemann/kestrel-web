@@ -38,7 +38,6 @@ const schema: AdminSchema = {
   locales: { all: ['en', 'de'], primary: 'en', prefixPrimary: false },
   collections: serializeCollections(contentTypes, collectionsUi),
   features: [],
-  capabilities: { pipelines: [] },
 }
 
 describe('collections', () => {

@@ -157,6 +157,19 @@ describe("definePreset status filtering", () => {
     expect(preset.pipelines.find((pipeline) => pipeline.name === "listNews")?.steps).toContain("content.list:news?status=live");
   });
 
+  it("pins a declared workflow that renames the values of the reserved status field", () => {
+    const collections = { news: { kind: "multi" as const, fields: { title: {}, status: { type: "enum", options: ["entwurf", "live"] } } } };
+    const preset = definePreset({ modules: baseModules, features: [], collections, collectionsUi: { news: { workflow: { field: "status", live: "live", draft: "entwurf" } } } });
+    expect(preset.pipelines.find((pipeline) => pipeline.name === "listNews")?.steps).toContain("content.list:news?status=live");
+    expect(preset.pipelines.find((pipeline) => pipeline.name === "readNews")?.steps).toContain("content.get:news?status=live");
+  });
+
+  it("encodes a live value that is not URL-safe", () => {
+    const collections = { news: { kind: "multi" as const, fields: { title: {}, status: { type: "enum", options: ["entwurf", "live & kicking"] } } } };
+    const preset = definePreset({ modules: baseModules, features: [], collections, collectionsUi: { news: { workflow: { field: "status", live: "live & kicking", draft: "entwurf" } } } });
+    expect(preset.pipelines.find((pipeline) => pipeline.name === "listNews")?.steps).toContain("content.list:news?status=live%20%26%20kicking");
+  });
+
   it("filters nothing when a status enum carries neither draft nor published", () => {
     const collections = { news: { kind: "multi" as const, fields: { title: {}, status: { type: "enum", options: ["entwurf", "live"] } } } };
     const preset = definePreset({ modules: baseModules, features: [], collections });

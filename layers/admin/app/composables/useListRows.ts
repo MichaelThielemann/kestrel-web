@@ -42,11 +42,11 @@ export function useListRows(opts: ListRowsOptions): {
 
   async function loadFallbackTitles(items: Record<string, unknown>[], locale: string | undefined, offset: number, mine: number) {
     fallbackTitles.value = {}
-    if (!locale || locale === primary) return
+    if (!locale || locale === primary.value) return
     if (!items.some((r) => r.title == null)) return
     try {
       const res = await api<ListPage<Record<string, unknown>>>(`/admin/${opts.collection.value}`, {
-        query: query(primary, offset),
+        query: query(primary.value, offset),
       })
       if (mine !== seq) return
       const map: Record<string, string> = {}

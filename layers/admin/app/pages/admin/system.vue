@@ -21,7 +21,7 @@ const toast = useToast()
 const { isAdmin, can } = useAuth()
 const { has } = useFeatures()
 const { collections } = useCollections()
-const hasReferences = has('references') || has('links')
+const hasReferences = computed(() => has('references') || has('links'))
 const canDeliver = computed(() => has('delivery') && can('pages.manage'))
 const canRedirects = computed(() => has('redirects') && (isAdmin.value || can('redirects.write')))
 const canReplication = computed(() => has('replication') && isAdmin.value)
@@ -55,7 +55,7 @@ function tabTitle(tab: string): string {
 
 const visibleTabs = computed<string[]>(() => TAB_IDS.value.filter((id) => {
   if (id === 'users') return isAdmin.value
-  if (id === 'references') return hasReferences
+  if (id === 'references') return hasReferences.value
   if (id === 'delivery') return canDeliver.value
   if (id === 'replication') return canReplication.value
   if (id === 'migrations') return canMigrations.value
@@ -69,7 +69,7 @@ const activeTab = computed<string>(() => {
   const raw = typeof route.query.tab === 'string' ? route.query.tab : ''
   const id = TAB_IDS.value.includes(raw) ? raw : fallback
   if (id === 'users' && !isAdmin.value) return fallback
-  if (id === 'references' && !hasReferences) return fallback
+  if (id === 'references' && !hasReferences.value) return fallback
   if (id === 'delivery' && !canDeliver.value) return fallback
   if (id === 'replication' && !canReplication.value) return fallback
   if (id === 'migrations' && !canMigrations.value) return fallback

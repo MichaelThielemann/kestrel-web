@@ -13,8 +13,9 @@ export const SCHEMA_STATE_KEY = 'kestrel-schema'
 
 export const SCHEMA_PATH = '/admin/schema'
 
-export async function loadSchemaInto(state: { value: SchemaState }, api: ApiClient): Promise<SchemaOutcome> {
-  if (state.value.schema) return 'ok'
+const inFlight = new WeakMap<object, Promise<SchemaOutcome>>()
+
+async function fetchSchemaInto(state: { value: SchemaState }, api: ApiClient): Promise<SchemaOutcome> {
   try {
     state.value = { schema: await api<AdminSchema>(SCHEMA_PATH), error: null }
     return 'ok'
@@ -28,14 +29,24 @@ export async function loadSchemaInto(state: { value: SchemaState }, api: ApiClie
   }
 }
 
+export function loadSchemaInto(state: { value: SchemaState }, api: ApiClient, scope: object): Promise<SchemaOutcome> {
+  if (state.value.schema) return Promise.resolve('ok')
+  const running = inFlight.get(scope)
+  if (running) return running
+  const load = fetchSchemaInto(state, api).finally(() => { inFlight.delete(scope) })
+  inFlight.set(scope, load)
+  return load
+}
+
 export function useSchema() {
   const state = useState<SchemaState>(SCHEMA_STATE_KEY, () => ({ schema: null, error: null }))
   const api = useApi()
+  const scope = useNuxtApp()
 
   return {
     schema: computed(() => state.value.schema),
     error: computed(() => state.value.error),
-    load: () => loadSchemaInto(state, api),
+    load: () => loadSchemaInto(state, api, scope),
     clear: () => { state.value = { schema: null, error: null } },
   }
 }

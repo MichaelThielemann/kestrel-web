@@ -86,9 +86,11 @@ Two files have to agree on the name:
    kestrel-web and `serializeCollections` enforces them at build time, throwing with the collection and
    field name on a violation — the app fails to build rather than rendering broken UI:
    - `title`, when present, must be `type: "text"` — it is the record's display name.
-   - `status`, when present, must be `type: "enum"` with `options` set to exactly
-     `["draft", "finished", "published"]` (any other value, missing value, or renamed value throws)
-     — it carries the publish workflow, and gets the preset's `?status=<live>` read filtering (§4).
+   - `status`, when present, must be `type: "enum"`. Without a declared `workflow` its `options` have to
+     be exactly `["draft", "finished", "published"]` (any other value, missing value, or renamed value
+     throws); with a `workflow` (§3.5) it is checked against that instead, so you can name the values
+     yourself. Either way it carries the publish workflow and gets the preset's `?status=<live>` read
+     filtering (§4).
    - `slug`, when present, must be `type: "slug"` — its presence makes the record page-like.
    - `body`, when present, must be `type: "json"` — it holds blocks, and gets the preset's
      `validate.check`/`validate.sanitize`/`validate.check` steps and a `<name>.body` schema entry from
@@ -139,7 +141,7 @@ listed), so they can't drift.
 
 `shared/model.ts` stays what it always was — backend configuration — but it is no longer part of the
 admin's browser bundle: the admin imports no `~~/shared/*` file and reads the model, the collection UI,
-the workflow, the features and the pipeline names from `GET /api/admin/schema` once per session. The
+the workflow and the features from `GET /api/admin/schema` once per session. The
 route assembles that answer server-side from the very same files, so nothing about how you write them
 changes.
 
@@ -436,11 +438,17 @@ field component supports a repeater inside a repeater generically, at any depth,
   `{ field: "status", live: "published", draft: "draft", done: "finished" }` derived for it, and that is
   also the filter the preset pins on the public `list`/`read` pipelines. Set it when your model names the
   field or the values differently, e.g.
-  `workflow: { field: "state", live: "live", draft: "entwurf" }` — then pass the same map as
-  `definePreset({ collectionsUi })` (§4) so the backend filters on `?status=live` too.
-  `defineCollectionsUi` checks a declared workflow against the model you hand it: the field must exist and
-  be `type: "enum"`, and `live`/`draft`/`done` must be among its `options`; the error names collection and
-  field.
+  `workflow: { field: "state", live: "live", draft: "entwurf" }` or, keeping the field name and renaming
+  only the values, `workflow: { field: "status", live: "live", draft: "entwurf" }` — a declared workflow
+  replaces the reserved `draft`/`finished`/`published` check on a `status` field, which still has to be
+  `type: "enum"`.
+  **You must pass the same map as `definePreset({ collectionsUi })` (§4)**, or the public `list`/`read`
+  pipelines would keep serving every status to anonymous callers; the layer refuses to boot when they
+  disagree, naming the collection, the expected `?status=…` filter and this fix. `defineCollectionsUi`
+  checks a declared workflow against the model you hand it: the field must exist and be `type: "enum"`,
+  and `live`/`draft`/`done` must be among its `options`; the error names collection and field. Declaring a
+  workflow without the content types — `defineCollectionsUi(map)` instead of
+  `defineCollectionsUi(map, contentTypes)` — throws, because nothing could be checked.
 - **Link fields**: a `link` field always renders as one row — the primary control (URL/email/phone input,
   or the internal-record picker) plus a settings icon button at the row end. The button opens a popover
   with the link type switch, the anchor field (internal links only) and the link-text field; it picks up a
@@ -548,10 +556,14 @@ same hand-written ones as before, for exact backwards compatibility.
   type); defaults to a single `pages` entry matching today's hardcoded shape, so omitting it reproduces
   the original pipeline set exactly. Pass your real `contentTypes` so every collection you define gets
   its pipelines and routes for free (§2).
-- `collectionsUi` — `Record<string, { workflow? }>`, only needed when a collection's `workflow` renames
-  the status values (§3.5): the public `list`/`read` pipelines then filter on `?status=<workflow.live>`
-  instead of the derived default. Passing the whole `shared/collections-ui.ts` map works too, it is a
-  superset of the expected shape.
+- `collectionsUi` — `Record<string, { workflow? }>`, required as soon as any collection declares a
+  `workflow` (§3.5): the public `list`/`read` pipelines then filter on `?status=<workflow.live>` (URL-
+  encoded) instead of the derived default, and the layer fails to boot when a declared workflow never
+  reached the preset. Pass the whole `shared/collections-ui.ts` map — it is a superset of the expected
+  shape, and `playground/kestrel.config.ts` does exactly that:
+  `definePreset({ modules, features, collections: contentTypes, collectionsUi })`. The import is safe:
+  `shared/collections-ui.ts` only pulls type declarations back out of `#kestrel/pipelines`, so there is no
+  cycle with `kestrel.config.ts`.
 - `overrides` replaces the **fully composed** step list of a named preset pipeline — feature patches no
   longer apply to it, you own the whole list. Collection-derived names (`listNews`, `getProfile`, …)
   work here too.
@@ -890,14 +902,16 @@ website public.
 
 One more route comes with the layer, for the admin rather than for an operator:
 
-| `GET /api/admin/schema` | the content model, UI hints, workflow, features and pipeline names in one answer | `{ locales, collections, features, capabilities }` | `401` (and any other backend status) in the usual Kestrel error body |
+| `GET /api/admin/schema` | the content model, UI hints, workflow and features in one answer | `{ locales, collections, features }` | `401` (and any other backend status) in the usual Kestrel error body, `503 { state, error? }` while the backend is booting or failed |
 
 It needs the admin's Bearer token — it runs the preset pipeline `adminSchemaModel`
-(`authn.requireUser`, `content.describeModel`) with the request headers, so the session is checked by the
-backend, not by the Nitro layer. `collections` is the array `serializeCollections()` produces, in the
-order of your `contentTypes`, each entry carrying `editorOwned` and, where one is resolved, `workflow`.
-`capabilities.pipelines` lists the names your preset generated, so a client can tell which routes exist.
-The response type is `AdminSchema` from `#kestrel-admin/types/api`. You configure nothing for it.
+(`authn.requireUser`, `content.describeModel`) with the request headers and the client IP (resolved under
+the same `KESTREL_TRUST_PROXY`/`KESTREL_PROXY_HOPS`/`KESTREL_TRUSTED_HEADER` policy as every other
+backend route), so the session is checked by the backend, not by the Nitro layer. `collections` is the
+array `serializeCollections()` produces, in the order of your `contentTypes`, each entry carrying
+`editorOwned` and, where one is resolved, `workflow`. The 200 carries the same `cache-control: no-store`,
+`x-content-type-options: nosniff` and `x-kestrel-run-id` headers as any backend answer. The response type
+is `AdminSchema` from `#kestrel-admin/types/api`. You configure nothing for it.
 
 `state` is `booting` (boot still running), `failed` (boot rejected) or `degraded` (booted, but the read
 against the database failed). Point a restart policy (Kubernetes `livenessProbe`, systemd, a process

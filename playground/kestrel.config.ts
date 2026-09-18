@@ -3,6 +3,7 @@ import { defineConfig } from "@michaelthielemann/kestrel/defineConfig";
 import { kestrelDataDir } from "#kestrel/config";
 import { definePreset, presetModuleConfig } from "#kestrel/pipelines";
 import { contentModel, contentTypes, features } from "./shared/model";
+import collectionsUi from "./shared/collections-ui";
 
 const dataDir = kestrelDataDir();
 
@@ -21,6 +22,6 @@ const modules = presetModuleConfig({
   },
 });
 
-export const preset = definePreset({ modules, features, collections: contentTypes });
+export const preset = definePreset({ modules, features, collections: contentTypes, collectionsUi });
 
 export default defineConfig({ modules, triggers: preset.triggers, http: null });

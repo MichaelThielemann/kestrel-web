@@ -295,5 +295,4 @@ export interface AdminSchema {
   locales: AdminSchemaLocales
   collections: SerializedCollection[]
   features: Feature[]
-  capabilities: { pipelines: string[] }
 }

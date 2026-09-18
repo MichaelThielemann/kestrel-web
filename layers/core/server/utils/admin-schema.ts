@@ -16,14 +16,12 @@ export interface AdminSchemaSources {
   prefixPrimary: boolean;
   locales: readonly string[];
   defaultLocale: string;
-  pipelines: readonly string[];
 }
 
-export function buildAdminSchema({ model, collectionsUi, features, prefixPrimary, locales, defaultLocale, pipelines }: AdminSchemaSources): AdminSchema {
+export function buildAdminSchema({ model, collectionsUi, features, prefixPrimary, locales, defaultLocale }: AdminSchemaSources): AdminSchema {
   return {
     locales: { all: [...(model.locales ?? locales)], primary: model.defaultLocale ?? defaultLocale, prefixPrimary },
     collections: serializeCollections(model.types, collectionsUi),
     features: [...features],
-    capabilities: { pipelines: [...pipelines] },
   };
 }

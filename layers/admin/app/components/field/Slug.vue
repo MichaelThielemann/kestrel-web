@@ -24,7 +24,7 @@ const opts = computed(() => {
 })
 const fromField = computed(() => opts.value?.from)
 
-const prefix = computed(() => (props.locale === primary && !prefixPrimary ? '/' : `/${props.locale}/`))
+const prefix = computed(() => (props.locale === primary.value && !prefixPrimary.value ? '/' : `/${props.locale}/`))
 
 const rootPlaceholder = computed(() => (model.value ? undefined : t('field.slug.rootPlaceholder')))
 const rootHint = computed(() => (model.value ? undefined : t('pageSettings.slugHomeHint')))

@@ -22,7 +22,7 @@ const dimensions = computed(() => {
   return f?.width != null && f?.height != null ? `${f.width} × ${f.height}` : '–'
 })
 
-const localeOptions = computed(() => locales.map((loc) => ({ label: loc.toUpperCase(), value: loc })))
+const localeOptions = computed(() => locales.value.map((loc) => ({ label: loc.toUpperCase(), value: loc })))
 const origin = ref<ProvenanceOrigin>('human')
 const tool = ref('')
 const model = ref('')
@@ -37,7 +37,7 @@ const originModel = computed<string | null>({
 })
 const provenanceDirty = computed(() => origin.value !== fileOrigin.value || tool.value !== fileTool.value || model.value !== fileModel.value)
 
-const metaLocale = ref(primary)
+const metaLocale = ref(primary.value)
 const metaLoading = ref(false)
 const metaError = ref('')
 
@@ -55,7 +55,7 @@ async function loadMeta(locale: string) {
   const f = props.file
   if (!f) return
 
-  if (locale === primary && f.id === lastLoadedFor) {
+  if (locale === primary.value && f.id === lastLoadedFor) {
     loaded.value = { alt: f.alt, title: f.title, description: f.description }
     alt.value = f.alt ?? ''; title.value = f.title ?? ''; description.value = f.description ?? ''
     return
@@ -80,9 +80,9 @@ watch(() => props.open, (o) => {
   origin.value = fileOrigin.value
   tool.value = fileTool.value
   model.value = fileModel.value
-  metaLocale.value = primary
+  metaLocale.value = primary.value
   lastLoadedFor = props.file.id
-  void loadMeta(primary)
+  void loadMeta(primary.value)
 }, { immediate: true })
 
 watch(metaLocale, (loc) => { if (props.open) void loadMeta(loc) })

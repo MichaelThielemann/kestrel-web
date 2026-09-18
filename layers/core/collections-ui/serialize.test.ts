@@ -402,6 +402,46 @@ describe("reserved field names", () => {
     expect(() => serializeCollections(badTypes, uiFor("pages"))).toThrow(/entwurf/);
   });
 
+  it("accepts renamed status values when the collection declares a workflow for them", () => {
+    const types = {
+      pages: {
+        kind: "multi" as const,
+        fields: {
+          slug: { type: "slug", required: true },
+          title: { type: "text", required: true },
+          status: { type: "enum", options: ["entwurf", "live"] },
+        },
+      },
+    };
+    const ui: Record<string, CollectionUi> = {
+      pages: { label: { singular: "Page", plural: "Pages" }, workflow: { field: "status", live: "live", draft: "entwurf" } },
+    };
+    const pages = serializeCollections(types, ui)[0];
+    expect(pages?.workflow).toEqual({ field: "status", live: "live", draft: "entwurf" });
+    expect(pages?.status).toBe(true);
+    expect(pages?.fields.status?.options?.choices).toEqual([
+      { value: "entwurf", label: "entwurf" },
+      { value: "live", label: "live" },
+    ]);
+  });
+
+  it("still checks a declared workflow against the model", () => {
+    const types = {
+      pages: {
+        kind: "multi" as const,
+        fields: {
+          slug: { type: "slug", required: true },
+          title: { type: "text", required: true },
+          status: { type: "enum", options: ["entwurf", "live"] },
+        },
+      },
+    };
+    const ui: Record<string, CollectionUi> = {
+      pages: { label: { singular: "Page", plural: "Pages" }, workflow: { field: "status", live: "public", draft: "entwurf" } },
+    };
+    expect(() => serializeCollections(types, ui)).toThrow(/"pages".*"public".*"status"/);
+  });
+
   it('throws when "status" is not type enum', () => {
     const badTypes = {
       pages: {

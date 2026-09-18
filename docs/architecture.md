@@ -107,23 +107,31 @@ persistence probe failed). The probe is a `count()` on the first collection of t
 ### `GET /api/admin/schema`
 One route in `layers/core/server/api/admin/schema.get.ts` answers everything the admin needs to know
 about the content model. It runs the preset pipeline `adminSchemaModel` (`authn.requireUser`,
-`content.describeModel`) through `kestrel.run` with the request headers, so the Bearer token is checked
-exactly as on any backend route; a run with `status >= 400` is passed through with `responseForRun`, the
-same status, body and headers the h3 handler produces, so `useApi()`'s `ApiError` mapping works
-unchanged. On success the pure assembly in `server/utils/admin-schema.ts` (`buildAdminSchema`) answers
+`content.describeModel`) through `kestrel.run` with the request headers and the client IP — resolved by
+Kestrel's own `clientIp()` under the `trustProxy`/`proxyHops`/`trustedHeader` policy the h3 adapter uses,
+never from a raw `x-forwarded-for` — so token and rate limits are checked exactly as on any backend
+route; a run with `status >= 400` is passed through with `responseForRun`, the same status, body and
+headers the h3 handler produces, so `useApi()`'s `ApiError` mapping works unchanged. On success the pure
+assembly in `server/utils/admin-schema.ts` (`buildAdminSchema`) answers
 
 ```
 { locales: { all, primary, prefixPrimary },
   collections: SerializedCollection[],      // ordered like the model's types
-  features: Feature[],
-  capabilities: { pipelines: string[] } }
+  features: Feature[] }
 ```
+
+under the same response headers every backend answer carries: `cache-control: no-store`,
+`x-content-type-options: nosniff` and `x-kestrel-run-id`. While Kestrel is booting or failed the route
+throws the same 503 the `/api/**` handler throws — `bootFailure()` in `server/utils/boot-failure.ts`,
+`{ statusCode: 503, statusMessage: "Kestrel failed to boot", data: { state, error? } }` — so both share
+one shape.
 
 `AdminSchema` and `AdminSchemaLocales` live in `layers/core/app/types/api.ts`, so the admin imports them
 from `#kestrel-admin/types/api`. The model comes from the run result (the backend's own config), the UI
-hints from `~~/shared/collections-ui`, `features`/`prefixPrimary` and the fallback locales from
-`~~/shared/model` and the pipeline names from `#kestrel/consumer-pipelines` — all server-side, the same
-way `server/plugins/kestrel.ts` imports `~~/kestrel.config`. `layers/core/server/__fixtures__/admin-schema.json`
+hints from `~~/shared/collections-ui` and `features`/`prefixPrimary` plus the fallback locales from
+`~~/shared/model` — all server-side, the same way `server/plugins/kestrel.ts` imports `~~/kestrel.config`.
+The pipeline names are deliberately not part of the answer: nothing reads them and they would name admin
+pipelines to every role. `layers/core/server/__fixtures__/admin-schema.json`
 freezes the playground's answer.
 
 A failed boot is loud: `server/plugins/kestrel.ts` logs it through the Kestrel `consoleLogger`
@@ -393,16 +401,34 @@ options), a `status` field whose definition carries no options at all (the place
 `DEFAULT_COLLECTIONS`) gets it unconditionally, and anything else gets no workflow. `defineCollectionsUi`
 checks a declared workflow against the model when it is given one: the field must exist and be
 `type: "enum"`, and `live`/`draft`/`done` must be among its `options` — the error names collection and
-field.
+field. Declaring a `workflow` without passing the content types throws: `defineCollectionsUi(map)` cannot
+check it, so it demands `defineCollectionsUi(map, contentTypes)`. A declared workflow also relaxes the
+reserved `status` check in `collections-ui/serialize.ts`: a collection that names its own values
+(`workflow: { field: "status", live: "live", draft: "entwurf" }`) is validated against the workflow
+instead of against `STATUS_VALUES`; `status` still has to be `type: "enum"`.
+
+### The status-filter boot guard
+The workflow decides what the public `list`/`read` pipelines filter on, so it has to reach
+`definePreset` as well — a consumer that declares a `workflow` in `shared/collections-ui.ts` but forgets
+`definePreset({ collectionsUi })` would serve drafts anonymously. `server/utils/status-filter.ts` is the
+pure check (`contentCollections`, `statusFilterProblems`, `statusFilterFailure`): for every generic
+`multi` collection it resolves the workflow from the content module's own model plus
+`~~/shared/collections-ui` — the same inputs the schema route uses — and compares the resulting
+`content.list:<name>`/`content.get:<name>` step of `list<Plural>`/`read<Singular>` against what
+`#kestrel/consumer-pipelines` actually carries. A pipeline that is absent (excluded) or no longer runs
+that step (overridden) is skipped. `server/plugins/kestrel.ts` runs it right after `kestrel.start()` and
+before the state flips to `ready`, so a mismatch fails the boot through `recordBootFailure` with the
+collection, the expected filter and the fix in the message.
 
 ## Admin client layer
 - `app/composables/useSchema.ts` — the one place the admin learns what it is editing. It holds
   `GET /api/admin/schema`'s answer in `useState('kestrel-schema')` as `{ schema, error }` and requests it
   exactly once per admin session: `load()` returns `"ok"` straight away when a schema is already in the
-  state. The `admin-auth` middleware calls it after a successful session check, and `login.vue` after a
-  successful login, so every page behind the middleware can read the schema synchronously. A 401 answers
-  `"unauthenticated"` — the middleware resets the session and redirects to login exactly as a failed
-  `/me` does, so a stale token cannot leave the admin half-loaded. Any other failure answers `"failed"`
+  state, and concurrent calls share one in-flight request. The `admin-auth` middleware calls it after a
+  successful session check, and `login.vue` after a successful login. A 401 answers `"unauthenticated"`
+  and nothing else happens there — the `$fetch` reauth interceptor (`utils/reauth.ts`) already resets the
+  session and navigates to login for any 401, so the middleware would only add a second reset and a
+  competing navigation. Any other failure answers `"failed"`
   and keeps its message in the state: the admin layout then renders `BootFailure.vue` with it instead of
   the page, the same treatment a failed backend boot gets. There is no fallback schema and no retry
   loop — `useAuth().reset()` (logout, the 401 interceptor) clears the state, and the next login loads it
@@ -412,7 +438,9 @@ field.
   collection has one) and `contentLocales(schema)`. They take the schema as a parameter and answer empty
   while none is loaded, so they stay unit-testable and actions can be handed schema data through their
   input instead of calling a composable. `useCollections()`, `useFeatures()` and `useContentLocales()`
-  are the thin composable clients on top.
+  are the thin composable clients on top. They all answer computed refs — `useContentLocales()` returns
+  `{ locales, primary, prefixPrimary }` as `ComputedRef`s, not a snapshot — because the schema arrives
+  after a component's setup has run and a value read at setup time would stay empty forever.
 - Workflow: a collection's `workflow` (`{ field, live, draft, done? }`, see **Collection UI**) is the only
   source of publish state in the client. `EditorStatus.vue` colours the light by comparing the saved
   status against `workflow.draft`/`workflow.done`/`workflow.live`, `pages/admin/[collection]/[id].vue`

@@ -8,11 +8,14 @@ const schema: AdminSchema = {
   locales: { all: ['en'], primary: 'en', prefixPrimary: false },
   collections: [],
   features: ['delivery'],
-  capabilities: { pipelines: ['listPages'] },
 }
 
 function fakeState(): { value: SchemaState } {
   return { value: { schema: null, error: null } }
+}
+
+function scope(): object {
+  return {}
 }
 
 function fakeApi(answer: unknown | Error) {
@@ -32,8 +35,8 @@ describe('loadSchemaInto', () => {
     const state = fakeState()
     const { api, paths } = fakeApi(schema)
 
-    expect(await loadSchemaInto(state, api)).toBe('ok')
-    expect(await loadSchemaInto(state, api)).toBe('ok')
+    expect(await loadSchemaInto(state, api, scope())).toBe('ok')
+    expect(await loadSchemaInto(state, api, scope())).toBe('ok')
 
     expect(paths).toEqual([SCHEMA_PATH])
     expect(state.value.schema).toEqual(schema)
@@ -44,9 +47,9 @@ describe('loadSchemaInto', () => {
     const state = fakeState()
     const { api, paths } = fakeApi(schema)
 
-    await loadSchemaInto(state, api)
+    await loadSchemaInto(state, api, scope())
     state.value = { schema: null, error: null }
-    await loadSchemaInto(state, api)
+    await loadSchemaInto(state, api, scope())
 
     expect(paths).toEqual([SCHEMA_PATH, SCHEMA_PATH])
   })
@@ -55,7 +58,7 @@ describe('loadSchemaInto', () => {
     const state = fakeState()
     const { api } = fakeApi(apiError(401, 'unauthenticated'))
 
-    expect(await loadSchemaInto(state, api)).toBe('unauthenticated')
+    expect(await loadSchemaInto(state, api, scope())).toBe('unauthenticated')
     expect(state.value).toEqual({ schema: null, error: null })
   })
 
@@ -63,7 +66,7 @@ describe('loadSchemaInto', () => {
     const state = fakeState()
     const { api } = fakeApi(apiError(503, 'database is busy'))
 
-    expect(await loadSchemaInto(state, api)).toBe('failed')
+    expect(await loadSchemaInto(state, api, scope())).toBe('failed')
     expect(state.value.schema).toBeNull()
     expect(state.value.error).toBe('database is busy')
   })
@@ -73,11 +76,41 @@ describe('loadSchemaInto', () => {
     const failing = fakeApi(apiError(500, 'boom'))
     const succeeding = fakeApi(schema)
 
-    expect(await loadSchemaInto(state, failing.api)).toBe('failed')
-    expect(await loadSchemaInto(state, succeeding.api)).toBe('ok')
+    expect(await loadSchemaInto(state, failing.api, scope())).toBe('failed')
+    expect(await loadSchemaInto(state, succeeding.api, scope())).toBe('ok')
 
     expect(succeeding.paths).toEqual([SCHEMA_PATH])
     expect(state.value.error).toBeNull()
+  })
+
+  it('shares one request between concurrent loads', async () => {
+    const state = fakeState()
+    const here = scope()
+    const paths: string[] = []
+    let release: (value: AdminSchema) => void = () => {}
+    const api: ApiClient = <T>(path: string): Promise<T> => {
+      paths.push(path)
+      return new Promise<AdminSchema>((resolve) => { release = resolve }).then((value) => boundaryCast<T>(value, 'json'))
+    }
+
+    const first = loadSchemaInto(state, api, here)
+    const second = loadSchemaInto(state, api, here)
+    release(schema)
+
+    expect(await first).toBe('ok')
+    expect(await second).toBe('ok')
+    expect(paths).toEqual([SCHEMA_PATH])
+  })
+
+  it('requests again once the in-flight load has settled', async () => {
+    const state = fakeState()
+    const here = scope()
+    const { api, paths } = fakeApi(apiError(500, 'boom'))
+
+    await Promise.all([loadSchemaInto(state, api, here), loadSchemaInto(state, api, here)])
+    await loadSchemaInto(state, api, here)
+
+    expect(paths).toEqual([SCHEMA_PATH, SCHEMA_PATH])
   })
 
   it('does not touch the network once a schema is present', async () => {
@@ -85,7 +118,7 @@ describe('loadSchemaInto', () => {
     state.value = { schema, error: null }
     const api = vi.fn()
 
-    expect(await loadSchemaInto(state, api)).toBe('ok')
+    expect(await loadSchemaInto(state, api, scope())).toBe('ok')
     expect(api).not.toHaveBeenCalled()
   })
 })

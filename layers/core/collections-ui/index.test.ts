@@ -95,8 +95,16 @@ describe("defineCollectionsUi workflow validation", () => {
     ).toThrow(/"news".*"fertig".*"state"/);
   });
 
-  it("skips the check without a collections model", () => {
-    expect(() => defineCollectionsUi({ news: { label, workflow: { field: "nope", live: "live", draft: "entwurf" } } })).not.toThrow();
+  it("throws when a workflow is declared but no content types were passed", () => {
+    expect(() => defineCollectionsUi({ news: { label, workflow: { field: "state", live: "live", draft: "entwurf" } } })).toThrow(
+      /"news".*second argument/,
+    );
+  });
+
+  it("throws when the content types have no entry for the collection", () => {
+    expect(() => defineCollectionsUi({ blog: { label, workflow: { field: "state", live: "live", draft: "entwurf" } } }, collections)).toThrow(
+      /"blog".*content types/,
+    );
   });
 });
 

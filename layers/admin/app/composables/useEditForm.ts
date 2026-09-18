@@ -45,8 +45,8 @@ export function useEditForm(opts: UseEditFormOptions) {
   const api = useApi()
   const toast = useToast()
   const { schema } = useSchema()
-  const contentLocales = useContentLocales()
-  const locale = ref(opts.locale?.trim() || contentLocales.primary)
+  const { locales: contentLocales, primary: primaryLocale } = useContentLocales()
+  const locale = ref(opts.locale?.trim() || primaryLocale.value)
 
   const fields = ref<Record<string, SerializedField>>({})
   const fieldLayout = ref<LayoutNode[] | undefined>(undefined)
@@ -139,10 +139,10 @@ export function useEditForm(opts: UseEditFormOptions) {
   )
 
   const copySourceLocales = computed(() =>
-    contentLocales.locales.filter((l) => l !== locale.value && translations.value[l] === true),
+    contentLocales.value.filter((l) => l !== locale.value && translations.value[l] === true),
   )
   const copySourceDefault = computed(() =>
-    copySourceLocales.value.includes(contentLocales.primary) ? contentLocales.primary : (copySourceLocales.value[0] ?? ''),
+    copySourceLocales.value.includes(primaryLocale.value) ? primaryLocale.value : (copySourceLocales.value[0] ?? ''),
   )
   const showCopyTranslation = computed(() => missingTranslation.value && !copied.value && copySourceLocales.value.length > 0)
 
@@ -224,9 +224,9 @@ export function useEditForm(opts: UseEditFormOptions) {
 
   async function loadPrimaryTitle() {
     primaryTitle.value = ''
-    if (mode.value !== 'multi' || id === 'new' || !translatable.value || locale.value === contentLocales.primary) return
+    if (mode.value !== 'multi' || id === 'new' || !translatable.value || locale.value === primaryLocale.value) return
     try {
-      const row = await api<Document>(`/admin/${collection}/${id}`, { query: { locale: contentLocales.primary } })
+      const row = await api<Document>(`/admin/${collection}/${id}`, { query: { locale: primaryLocale.value } })
       primaryTitle.value = typeof row.title === 'string' ? row.title : ''
     } catch {
       primaryTitle.value = ''

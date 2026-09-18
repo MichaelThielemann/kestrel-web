@@ -8,8 +8,8 @@ const { t } = useT()
 const api = useApi()
 const toast = useToast()
 const { has } = useFeatures()
-const hasReferences = has('references')
-const hasLinks = has('links')
+const hasReferences = computed(() => has('references'))
+const hasLinks = computed(() => has('links'))
 
 const deps: ActionDeps = { api, t, toast }
 
@@ -31,7 +31,7 @@ async function loadLinks() {
   catch { linksError.value = true }
 }
 
-await Promise.all([hasReferences ? loadRefs() : null, hasLinks ? loadLinks() : null])
+await Promise.all([hasReferences.value ? loadRefs() : null, hasLinks.value ? loadLinks() : null])
 
 async function rebuildRefs() {
   const result = await runAction(referencesRebuild, {

@@ -28,7 +28,7 @@ const previewDesc = computed(() => props.value.description?.trim() || t('seo.noD
 const siteUrl = computed(() => String(useRuntimeConfig().public.siteUrl ?? '').replace(/\/+$/, ''))
 const previewUrl = computed(() => {
   const slug = props.slug?.trim() ?? ''
-  const path = localePath(slug ? `/${slug}` : '/', props.locale, primary, prefixPrimary)
+  const path = localePath(slug ? `/${slug}` : '/', props.locale, primary.value, prefixPrimary.value)
   return `${siteUrl.value || (import.meta.client ? window.location.host : '')}${path}`
 })
 

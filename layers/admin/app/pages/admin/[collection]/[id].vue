@@ -32,13 +32,14 @@ const { can } = useAuth()
 const deps: ActionDeps = { api, t, toast }
 const navigate: NavigatePort = async (d) => (d.kind === 'path' ? navigateTo(d.to) : router.replace({ query: d.query }))
 
-const contentLocales = useContentLocales()
-const def = findCollection(useSchema().schema.value, collection) ?? null
-const workflow = computed(() => def?.workflow)
-const singular = computed(() => resolveLocalized(def?.label?.singular, lang.value) ?? collection)
-const plural = computed(() => resolveLocalized(def?.label?.plural, lang.value) ?? collection)
+const { locales: contentLocales, primary: primaryLocale, prefixPrimary } = useContentLocales()
+const { schema } = useSchema()
+const def = computed(() => findCollection(schema.value, collection) ?? null)
+const workflow = computed(() => def.value?.workflow)
+const singular = computed(() => resolveLocalized(def.value?.label?.singular, lang.value) ?? collection)
+const plural = computed(() => resolveLocalized(def.value?.label?.plural, lang.value) ?? collection)
 
-const newTitle = computed(() => resolveLocalized(def?.label?.new, lang.value) ?? t('editor.newRecord', { collection: singular.value }))
+const newTitle = computed(() => resolveLocalized(def.value?.label?.new, lang.value) ?? t('editor.newRecord', { collection: singular.value }))
 
 const EDITOR_FORM_ID = 'record-editor'
 const editorRef = ref<EditorExpose | null>(null)
@@ -72,21 +73,21 @@ const deleteOps = {
   setError: (message: string | null) => { deleteError.value = message },
 }
 
-const canDeleteTranslation = computed(() => def?.translatable === true && def?.mode === 'multi' && id !== 'new')
-const currentLocale = computed(() => editorRef.value?.locale ?? localeParam.value ?? contentLocales.primary)
+const canDeleteTranslation = computed(() => def.value?.translatable === true && def.value?.mode === 'multi' && id !== 'new')
+const currentLocale = computed(() => editorRef.value?.locale ?? localeParam.value ?? primaryLocale.value)
 
 const publicUrl = computed(() => {
   const siteUrl = String(useRuntimeConfig().public.siteUrl ?? '').replace(/\/+$/, '')
   if (!siteUrl) return ''
   const slug = editorRef.value?.slug ?? ''
-  return `${siteUrl}${localePath(slug ? `/${slug}` : '/', currentLocale.value, contentLocales.primary, contentLocales.prefixPrimary)}`
+  return `${siteUrl}${localePath(slug ? `/${slug}` : '/', currentLocale.value, primaryLocale.value, prefixPrimary.value)}`
 })
 const otherTranslations = computed(() =>
-  contentLocales.locales.filter((locale) => locale !== currentLocale.value && editorRef.value?.translations?.[locale] === true),
+  contentLocales.value.filter((locale) => locale !== currentLocale.value && editorRef.value?.translations?.[locale] === true),
 )
 const translationScope = computed(() =>
   canDeleteTranslation.value
-    ? { locale: currentLocale.value, others: otherTranslations.value, defaultLocale: contentLocales.primary }
+    ? { locale: currentLocale.value, others: otherTranslations.value, defaultLocale: primaryLocale.value }
     : undefined,
 )
 
@@ -126,7 +127,7 @@ async function confirmDelete() {
 
 async function confirmDeleteTranslation() {
   const others = otherTranslations.value
-  const target = others.includes(contentLocales.primary) ? contentLocales.primary : others[0]
+  const target = others.includes(primaryLocale.value) ? primaryLocale.value : others[0]
   if (!target) return
   const r = await runAction(deleteTranslation, {
     deps, collection, id, locale: currentLocale.value, confirmed: true, ops: deleteOps, navigate, bypassGuard,

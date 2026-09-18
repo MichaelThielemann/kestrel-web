@@ -17,7 +17,7 @@ export function useMediaLibrary(opts: { urlSync?: boolean; accept?: 'image' | 'a
   const router = useRouter()
   const { t } = useT()
 
-  const displayLocale = useContentLocales().primary
+  const { primary: displayLocale } = useContentLocales()
 
   const folder = ref<string>(urlSync && typeof route.query.folder === 'string' ? route.query.folder : (opts.initialFolder ?? ''))
   const files = ref<MediaItem[]>([])
@@ -78,7 +78,7 @@ export function useMediaLibrary(opts: { urlSync?: boolean; accept?: 'image' | 'a
           limit: perPage.value,
           offset: (page.value - 1) * perPage.value,
           sort: sort.value,
-          locale: displayLocale,
+          locale: displayLocale.value,
           ...(q ? { q } : {}),
         },
       })
