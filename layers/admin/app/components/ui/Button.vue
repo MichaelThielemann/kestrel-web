@@ -169,6 +169,7 @@ defineExpose({ focus })
   background: transparent;
   color: var(--color-text-muted);
   font: inherit;
+  text-decoration: none;
   cursor: pointer;
 }
 :where(.ui-button--icon-sm) {

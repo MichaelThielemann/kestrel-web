@@ -56,6 +56,7 @@ export default withNuxt(
     name: 'kestrel/ui-kit-first',
     files: ['layers/admin/app/**/*.vue'],
     ignores: ['layers/admin/app/components/ui/**', 'layers/admin/app/pages/admin/system.vue'],
+    linterOptions: { noInlineConfig: true },
     rules: {
       'vue/comment-directive': 'off',
       'vue/no-v-html': 'error',
@@ -72,7 +73,7 @@ export default withNuxt(
         'error',
         { key: 'role', value: 'button', message: 'Use KestrelUiButton instead of role="button"' },
         { key: 'href', value: '#', element: 'a', message: 'A link that goes nowhere is a button: use KestrelUiButton' },
-        { key: 'is', element: 'component', value: '/^(table|button|input|select|textarea|dialog)$/', message: 'Use the KestrelUi* component' },
+        { key: 'is', element: 'component', value: '/^(table|button|input|select|textarea|dialog)$/i', message: 'Use the KestrelUi* component' },
       ],
       'vue/no-restricted-class': ['error', '/^ui-button(--|$)/'],
       'vue/no-restricted-syntax': [
@@ -82,8 +83,12 @@ export default withNuxt(
           message: 'Raw control in mixed case: use the KestrelUi* component',
         },
         {
-          selector: "VElement[name='component'] > VStartTag > VAttribute[directive=true][key.name.name='bind'][key.argument.name='is'] > VExpressionContainer > Literal[value=/^(table|button|input|select|textarea|dialog)$/]",
+          selector: "VElement[name='component'] > VStartTag > VAttribute[directive=true][key.name.name='bind'][key.argument.name='is'] > VExpressionContainer > Literal[value=/^(table|button|input|select|textarea|dialog)$/i]",
           message: 'Use the KestrelUi* component',
+        },
+        {
+          selector: "VAttribute[directive=true][key.name.name='bind'][key.argument.name='role'] > VExpressionContainer > Literal[value='button']",
+          message: 'Use KestrelUiButton instead of :role="\'button\'"',
         },
       ],
     },

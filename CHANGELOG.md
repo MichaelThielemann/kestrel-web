@@ -70,10 +70,12 @@
   `button`, `input`, `select`, `textarea` or `dialog` in `layers/admin/app/**/*.vue` an error naming
   the kit component, and closes the ways around it: template `eslint-disable` comments do not apply,
   `role="button"`, `href="#"`, kit classes on foreign elements, mixed-case raw controls, a literal
-  `<component :is="'button'">` and `v-html` are errors; `components/ui/**` is exempt. The 32 existing raw controls in 18 files moved to the kit
+  `<component :is="'button'">`, a bound `:role="'button'"` and `v-html` are errors, and inline ESLint
+  comments in template or script have no effect there; `components/ui/**` is exempt. The 32 existing raw controls in 18 files moved to the kit
   with unchanged classes, ARIA names, keyboard paths and `data-*` hooks.
-- Admin styles: `assets/scss/_reset.scss` is wrapped in `@layer reset`, so kit `:where()` rules win
-  over the reset's element selectors while call-site classes keep winning over both.
+- Admin styles: `assets/scss/_reset.scss` is wrapped in `@layer reset` and the `body`/`a` defaults of
+  `_base.scss` in `@layer base`, so kit `:where()` rules win over both element selectors while call-site
+  classes keep winning over everything.
 - Admin: `BlockTree.vue` and `field/Repeater.vue` hand their row markup to `BlockTreeRow.vue` and
   `field/RepeaterRow.vue` (typed props and emits); no DOM, class, ARIA or behaviour change.
 - `ui/Dialog.vue` teleports overlay and content to the body (`DialogPortal`); the media picker fills the

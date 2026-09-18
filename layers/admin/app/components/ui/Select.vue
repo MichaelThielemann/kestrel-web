@@ -18,7 +18,6 @@ const model = defineModel<string | null>()
 
 <template>
   <span class="ui-select" :class="{ 'ui-select--slim': slim }">
-    <!-- eslint-disable-next-line vuejs-accessibility/form-control-has-label -- id/label land via v-bind="$attrs" from the wrapping UiField, invisible to static analysis -->
     <select v-model="model" :disabled="disabled" class="ui-select__field" v-bind="$attrs">
       <option v-if="placeholder" value="" disabled>{{ placeholder }}</option>
       <option v-for="o in options" :key="o.value" :value="o.value">{{ o.label }}</option>

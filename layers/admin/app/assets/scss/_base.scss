@@ -1,12 +1,14 @@
-body {
-  font-family: var(--font-sans);
-  font-size: var(--text-base);
-  color: var(--color-text);
-  background: var(--color-bg);
-}
+@layer base {
+  body {
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    color: var(--color-text);
+    background: var(--color-bg);
+  }
 
-a {
-  color: var(--color-primary);
+  a {
+    color: var(--color-primary);
+  }
 }
 
 .u-measure {
