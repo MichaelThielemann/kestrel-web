@@ -2,7 +2,6 @@
 
 import { computed, ref, type ComputedRef, type Ref } from 'vue'
 import type { ListPage } from '#kestrel-admin/types/api'
-import { contentLocales } from '#kestrel-admin/utils/collections'
 
 interface ListRowsOptions {
   collection: ComputedRef<string>
@@ -26,6 +25,7 @@ export function useListRows(opts: ListRowsOptions): {
 } {
   const { t } = useT()
   const api = useApi()
+  const { primary } = useContentLocales()
   const rows = ref<Record<string, unknown>[]>([])
   const total = ref(0)
 
@@ -42,11 +42,11 @@ export function useListRows(opts: ListRowsOptions): {
 
   async function loadFallbackTitles(items: Record<string, unknown>[], locale: string | undefined, offset: number, mine: number) {
     fallbackTitles.value = {}
-    if (!locale || locale === contentLocales.primary) return
+    if (!locale || locale === primary) return
     if (!items.some((r) => r.title == null)) return
     try {
       const res = await api<ListPage<Record<string, unknown>>>(`/admin/${opts.collection.value}`, {
-        query: query(contentLocales.primary, offset),
+        query: query(primary, offset),
       })
       if (mine !== seq) return
       const map: Record<string, string> = {}

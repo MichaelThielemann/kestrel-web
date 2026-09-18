@@ -15,6 +15,7 @@ async function submit() {
   error.value = null
   try {
     await login(username.value, password.value)
+    await useSchema().load()
     await navigateTo(safeRedirect(route.query.redirect) ?? '/admin')
   } catch (e: unknown) {
     const code = apiErrorCode(e)

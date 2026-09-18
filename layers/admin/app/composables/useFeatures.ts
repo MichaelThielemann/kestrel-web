@@ -1,9 +1,8 @@
-import { features } from '~~/shared/model'
 import type { Feature } from '#kestrel/pipelines'
 
-const active: readonly Feature[] = features
-
 export function useFeatures() {
-  const has = (feature: Feature): boolean => active.includes(feature)
-  return { features: active, has }
+  const { schema } = useSchema()
+  const features = computed<readonly Feature[]>(() => schema.value?.features ?? [])
+  const has = (feature: Feature): boolean => features.value.includes(feature)
+  return { features, has }
 }

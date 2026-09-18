@@ -34,7 +34,8 @@ overrides:
   collection UI (`#kestrel/collections-ui`), discovers the consumer's block SFCs into `#kestrel/blocks`
   and its migration files into `#kestrel/migrations`.
 - `layers/admin` — the editorial UI at `/admin` (Nuxt SPA; reaches into the consumer via
-  `#kestrel/blocks`, `~~/shared/model` and `~~/shared/collections-ui`).
+  `#kestrel/blocks` only — the content model, collection UI, workflow and features arrive at runtime from
+  `GET /api/admin/schema`).
 - `layers/public` — the public site that renders published content.
 - `packages/renderer-nuxt` — the `renderer@1` module that lets `delivery-static` render pages through
   `layers/public`.
@@ -57,7 +58,8 @@ overrides:
   (one `app/blocks/*.vue` per block; the picker thumbnail is a sibling `<Block>.webp|jpg|png` or lives in
   `kestrel.blockImagesDir`). Standard pipelines, module implementations and the `settings`/`redirects`
   UI come from the presets in `layers/core`, never from the consumer; `layers/admin` never imports a
-  specific consumer.
+  specific consumer — and never `~~/shared/*` at all: it reads `GET /api/admin/schema` once per session
+  (`useSchema()`) for the model, collection UI, workflow, features and pipeline names.
 - A block SFC's `defineProps({ heading: textField(…) })` is its schema and `defineBlock({ … })` its
   metadata; both arguments must be self-contained literals plus factory calls (read statically at
   build). `.nuxt/kestrel/pages.body.json` is generated from them — never hand-edit it.

@@ -21,7 +21,7 @@ function fakeForm() {
     id: 'p1',
     mode: 'multi',
     pageLike: true,
-    hasStatus: () => false,
+    workflow: () => undefined,
     status: () => '',
     saving: () => false,
     blocksField: () => '',

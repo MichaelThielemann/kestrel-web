@@ -1,21 +1,32 @@
-import { contentTypes, locales, defaultLocale, prefixPrimary } from '~~/shared/model'
-import collectionsUi from '~~/shared/collections-ui'
 import blockTags from '#kestrel/consumer-block-tags'
+import type { AdminSchema } from '#kestrel-admin/types/api'
 import type { SerializedCollection } from '#kestrel-admin/types/kestrel'
-import { LAYOUT_FIELD, serializeCollections } from '#kestrel/collections-ui'
+import { LAYOUT_FIELD } from '#kestrel/collections-ui'
 import { resolveLocalized } from './localized'
 
 export const BLOCKS_FIELD = 'body'
 
-export const blockTagLabel = (tag: string, lang: string): string => resolveLocalized(blockTags[tag], lang) ?? tag
+export interface ContentLocales {
+  locales: string[]
+  primary: string
 
-export const collections: SerializedCollection[] = serializeCollections(contentTypes, collectionsUi)
-
-export const findCollection = (name: string): SerializedCollection | undefined => collections.find((c) => c.name === name)
-
-export const editorOwnedFields = (name: string): string[] => {
-  const owned = collectionsUi[name]?.editorOwned ?? []
-  return findCollection(name)?.layoutField ? [...owned, LAYOUT_FIELD] : owned
+  prefixPrimary: boolean
 }
 
-export const contentLocales = { locales: [...locales] as string[], primary: defaultLocale, prefixPrimary }
+export const blockTagLabel = (tag: string, lang: string): string => resolveLocalized(blockTags[tag], lang) ?? tag
+
+export const collections = (schema: AdminSchema | null): SerializedCollection[] => schema?.collections ?? []
+
+export const findCollection = (schema: AdminSchema | null, name: string): SerializedCollection | undefined =>
+  collections(schema).find((c) => c.name === name)
+
+export const editorOwnedFields = (schema: AdminSchema | null, name: string): string[] => {
+  const collection = findCollection(schema, name)
+  const owned = collection?.editorOwned ?? []
+  return collection?.layoutField ? [...owned, LAYOUT_FIELD] : owned
+}
+
+export const contentLocales = (schema: AdminSchema | null): ContentLocales =>
+  schema
+    ? { locales: [...schema.locales.all], primary: schema.locales.primary, prefixPrimary: schema.locales.prefixPrimary }
+    : { locales: [], primary: '', prefixPrimary: false }

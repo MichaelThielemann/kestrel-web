@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { resolveLocalized } from '#kestrel-admin/utils/localized'
-import { contentLocales, findCollection } from '#kestrel-admin/utils/collections'
+import { findCollection } from '#kestrel-admin/utils/collections'
 import { localePath } from '#kestrel-admin/utils/kestrel'
 import type { EditorExpose } from '#kestrel-admin/utils/editor-expose'
 import type { BatchDeleteReport } from '#kestrel-admin/utils/collection-ops'
@@ -32,7 +32,9 @@ const { can } = useAuth()
 const deps: ActionDeps = { api, t, toast }
 const navigate: NavigatePort = async (d) => (d.kind === 'path' ? navigateTo(d.to) : router.replace({ query: d.query }))
 
-const def = findCollection(collection) ?? null
+const contentLocales = useContentLocales()
+const def = findCollection(useSchema().schema.value, collection) ?? null
+const workflow = computed(() => def?.workflow)
 const singular = computed(() => resolveLocalized(def?.label?.singular, lang.value) ?? collection)
 const plural = computed(() => resolveLocalized(def?.label?.plural, lang.value) ?? collection)
 
@@ -52,8 +54,8 @@ const translationNote = computed(() =>
     : '',
 )
 
-const published = computed(() => editorRef.value?.savedStatus === 'published')
-const canPublish = computed(() => (editorRef.value?.hasStatus ?? false) && id !== 'new')
+const published = computed(() => workflow.value !== undefined && editorRef.value?.savedStatus === workflow.value.live)
+const canPublish = computed(() => workflow.value !== undefined && id !== 'new')
 
 const publishBlocked = computed(() => editorRef.value?.missingTranslation === true)
 
@@ -151,13 +153,13 @@ async function confirmDeleteTranslation() {
         <KestrelUiButton v-if="id !== 'new'" variant="danger" size="sm" icon="trash" :loading="deleting" @click="onDelete">{{ t('common.delete') }}</KestrelUiButton>
         <KestrelUiButton type="submit" :form="EDITOR_FORM_ID" variant="primary" size="sm" icon="check" :loading="saving">{{ t('common.save') }}</KestrelUiButton>
 
-        <KestrelUiButton v-if="canPublish && !published" type="button" variant="secondary" size="sm" icon="upload" :disabled="saving || publishBlocked" :title="publishBlocked ? t('editor.publishNeedsTranslation') : undefined" @click="editorRef?.setStatus('published')">{{ t('common.publish') }}</KestrelUiButton>
-        <KestrelUiButton v-else-if="canPublish" type="button" variant="secondary" size="sm" icon="undo" :disabled="saving" @click="editorRef?.setStatus('draft')">{{ t('common.unpublish') }}</KestrelUiButton>
+        <KestrelUiButton v-if="workflow && canPublish && !published" type="button" variant="secondary" size="sm" icon="upload" :disabled="saving || publishBlocked" :title="publishBlocked ? t('editor.publishNeedsTranslation') : undefined" @click="editorRef?.setStatus(workflow.live)">{{ t('common.publish') }}</KestrelUiButton>
+        <KestrelUiButton v-else-if="workflow && canPublish" type="button" variant="secondary" size="sm" icon="undo" :disabled="saving" @click="editorRef?.setStatus(workflow.draft)">{{ t('common.unpublish') }}</KestrelUiButton>
         <KestrelEditorStatus
           class="record__ampel"
           :dirty="editorRef?.dirty ?? false"
           :saving="saving"
-          :has-status="editorRef?.hasStatus ?? false"
+          :workflow="workflow"
           :status="editorRef?.savedStatus"
           :page-like="(editorRef?.pageLike ?? false) && id !== 'new'"
           :delivery="editorRef?.delivery ?? null"

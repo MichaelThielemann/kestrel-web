@@ -1,14 +1,15 @@
-import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
+import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { readBody, setResponseStatus } from 'h3'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { computed } from 'vue'
 import { boundaryCast } from '#kestrel/cast'
-import type { Document } from '#kestrel-admin/types/api'
+import type { AdminSchema, Document } from '#kestrel-admin/types/api'
 import type { SerializedCollection, SerializedField } from '#kestrel-admin/types/kestrel'
 import { en } from '#kestrel-admin/i18n/en'
 import { useToast } from '#kestrel-admin/composables/useToast'
 import CollectionEditor from './CollectionEditor.vue'
 
-const { widgetsCollection, redirectsCollection } = vi.hoisted(() => {
+const { schema } = vi.hoisted(() => {
   const titleField: SerializedField = { type: 'text', required: true, unique: false, localized: true, label: 'Title' }
   const widgetsCollection: SerializedCollection = {
     name: 'widgets',
@@ -41,15 +42,20 @@ const { widgetsCollection, redirectsCollection } = vi.hoisted(() => {
     fields: { rules: rulesField },
     fieldLayout: [{ kind: 'row', fields: ['rules'], tracks: [1] }],
   }
-  return { widgetsCollection, redirectsCollection }
+  const schema: AdminSchema = {
+    locales: { all: ['en'], primary: 'en', prefixPrimary: false },
+    collections: [widgetsCollection, redirectsCollection],
+    features: [],
+    capabilities: { pipelines: [] },
+  }
+  return { schema }
 })
 
-vi.mock('#kestrel-admin/utils/collections', () => ({
-  findCollection: (name: string) => [widgetsCollection, redirectsCollection].find((c) => c.name === name),
-  editorOwnedFields: () => [],
-  contentLocales: { locales: ['en'], primary: 'en', prefixPrimary: false },
-  BLOCKS_FIELD: 'body',
-  blockTagLabel: (tag: string) => tag,
+mockNuxtImport('useSchema', () => () => ({
+  schema: computed(() => schema),
+  error: computed(() => null),
+  load: () => Promise.resolve('ok' as const),
+  clear: () => {},
 }))
 
 function baseRecord(): Document {

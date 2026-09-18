@@ -30,7 +30,7 @@ export function guardTab<I extends { tabs: readonly string[], activeTab: string,
 export function guardStatus<I extends { form: EditFormPort, status: string }, R = unknown>(): ActionStep<I, R> {
   return defineUiStep<I, R>('guard.status', (ctx) => {
     const { form, status } = ctx.input
-    if (form.saving() || !form.hasStatus() || form.status() === status) ctx.fail('guard.status')
+    if (form.saving() || !form.workflow() || form.status() === status) ctx.fail('guard.status')
   })
 }
 

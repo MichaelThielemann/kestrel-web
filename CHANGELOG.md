@@ -97,6 +97,28 @@
 
 ### Changed
 
+- **Breaking (admin client):** the admin reads its schema from `GET /api/admin/schema` instead of
+  importing consumer TypeScript. `grep -rn "~~/shared" layers/admin` is empty; `#kestrel/blocks` and
+  `#kestrel/consumer-block-tags` stay. `useSchema()` (`useState('kestrel-schema')`) requests the answer
+  once per admin session — loaded by the `admin-auth` middleware after a successful session check and by
+  the login page after a successful login, cleared by `useAuth().reset()` (logout, the 401 interceptor).
+  A 401 is treated as an invalid session (reset plus login redirect); every other failure keeps its
+  message and the admin layout shows `BootFailure` instead of the page, with no fallback schema.
+  `shared/model.ts` and `shared/collections-ui.ts` are unchanged for consumers — they stay backend
+  configuration and are now read server-side by the route.
+- **Breaking (admin client API):** the static exports of `layers/admin/app/utils/collections.ts` became
+  functions over the schema — `collections(schema)`, `findCollection(schema, name)`,
+  `editorOwnedFields(schema, name)`, `contentLocales(schema)`. `useFeatures().features` is a `ComputedRef`
+  rather than an array. `EditFormPort`/`EditorExpose` carry `workflow: Workflow | undefined` in place of
+  `hasStatus: boolean`, and `bulkSetStatus` takes `{ workflow, live }` in place of
+  `status: 'published' | 'draft'`. Only code that imported these admin internals is affected.
+- Publish state comes from the collection's `workflow` everywhere in the client: the status light
+  (`EditorStatus.vue`), publish/unpublish, the bulk bar, the list's status cell and the public site's
+  locale-link filter (`layers/public/app/pages/[...slug].vue`, via `resolveWorkflow` over the consumer's
+  `shared/model.ts` and `shared/collections-ui.ts`). A collection without a workflow now gets no status
+  light, no publish button and no bulk status actions instead of writing a value its model does not know.
+  A consumer that renames the values — `workflow: { field: 'status', live: 'live', draft: 'entwurf' }` —
+  gets them in all of those places.
 - The collection serializer moved from `layers/admin/app/utils/collections-serialize.ts` to
   `layers/core/collections-ui/serialize.ts` and is exported through `#kestrel/collections-ui`
   (`serializeCollection`, `serializeCollections`, `SEO_FIELD`, `LAYOUT_FIELD`, `TITLE_FIELD`,

@@ -11,10 +11,11 @@ extends: ["./layers/core", "./layers/admin", "./layers/public"]
   Owns no UI. Derives `maxBodyBytes` for the embedded HTTP handler from the media module's `maxBytes`
   (`server/utils/limits.ts`) and exposes it to the admin via `GET /api/limits`.
 - **`layers/admin`** — the editorial UI at `/admin` (SPA, `ssr: false` for that route). Its own files
-  are addressed via the alias `#kestrel-admin/*`; it reaches into the consumer app via `#kestrel/blocks` (the
-  block library, generated from the consumer's `app/blocks/*.vue`), `~~/shared/model` (the content model
-  and, via its `features` export, `useFeatures()` — hides system tabs and skips requests for features the
-  consumer has not enabled) and `~~/shared/collections-ui`, rather than importing a specific consumer.
+  are addressed via the alias `#kestrel-admin/*`. It imports no consumer TypeScript: the content model,
+  the collection UI, the workflow, the active features and the pipeline names all arrive at runtime from
+  `GET /api/admin/schema` (**Admin client layer**). The only consumer-generated modules it still reaches
+  for are `#kestrel/blocks` (the block library, generated from the consumer's `app/blocks/*.vue`) and
+  `#kestrel/consumer-block-tags` — renderer code and labels, not schema.
 - **`layers/public`** — the public site that resolves and renders published content.
 
 `packages/renderer-nuxt` is a separate package (not a layer): a Kestrel module that implements the
@@ -204,7 +205,7 @@ An app that extends `kestrel-web` provides, at its root:
 | `kestrel.config.ts` | `defineConfig({ modules, triggers, http: null })` — the backend's module config and HTTP-trigger routing; also exports `preset` (`definePreset({ modules, features, collections })`, see **Pipeline presets**). The `modules` list comes from `presetModuleConfig()` (see **Consumer module config**); writing it out by hand stays supported. |
 | `kestrel.modules.ts` *(optional)* | The module *implementations*, one per entry in `kestrel.config.ts`'s `modules`, same order. Needed only when a `modules` entry isn't a standard `@michaelthielemann/kestrel-*` package — see **Module registry**. |
 | `pipelines/index.ts` *(optional)* | Exports `pipelines`, the list of pipeline definitions referenced by `kestrel.config.ts` triggers — `[...preset.pipelines, ...ownPipelines]`. Needed only once you have pipelines of your own. |
-| `shared/model.ts` | The content model — `locales`, `defaultLocale`, `prefixPrimary` (whether public URLs prefix the default locale too — the backend never does), `contentTypes` — and `features`, the `Feature[]` list passed to `definePreset`/`presetSchemas`/`presetCollectionsUi`. Consumed by `kestrel.config.ts` and `shared/collections-ui.ts` (backend + admin UI config, so they can't drift) and, via `layers/admin/app/utils/collections.ts`, by the admin UI. |
+| `shared/model.ts` | The content model — `locales`, `defaultLocale`, `prefixPrimary` (whether public URLs prefix the default locale too — the backend never does), `contentTypes` — and `features`, the `Feature[]` list passed to `definePreset`/`presetSchemas`/`presetCollectionsUi`. Backend config: consumed by `kestrel.config.ts`, by `shared/collections-ui.ts` and, server-side, by the `GET /api/admin/schema` route (so backend and admin UI can't drift). The admin browser bundle does not import it. |
 | `shared/collections-ui.ts` | The admin UI for each collection: labels, icon, editor, field layout/labels/overrides, and the optional `workflow`. `defineCollectionsUi({ ...presetCollectionsUi({ features }), ...ownEntries }, contentTypes)`, see **Collection UI**. |
 | `app/blocks/*.vue` | One SFC per block. Its `defineProps({ … field factories … })` IS the block schema and its `defineBlock({ … })` the block metadata; the file name is the block name. No registry, index or definitions file. |
 | `migrations/*.ts` *(optional)* | One `defineMigration({ id, collection, up })` per file, collected sorted by filename into `#kestrel/migrations` (`modules/migrations`, directory configurable via `kestrel.migrationsDir`). Needed only with the `migrations` feature on. |
@@ -335,8 +336,9 @@ other feature's. The `migrations` feature (`features/migrations.ts`) only adds `
 
 ## Content model
 `shared/model.ts` exports `contentModel` (locales, types) for the backend module config and the typed
-field list for the UI. `layers/admin/app/utils/collections.ts` turns it into the `SerializedCollection` shape (labels, icons, editor body, layout rows) so the generic editor, list and
-field renderer work unchanged. Mapping: `enum → choice`, `ref(media) → media`, `ref(x) → relation`,
+field list for the UI. `serializeCollections` (`layers/core/collections-ui/serialize.ts`) turns it into the `SerializedCollection` shape (labels, icons, editor body, layout rows) so the generic
+editor, list and field renderer work unchanged; the admin gets the result over
+`GET /api/admin/schema`, not from a build-time import. Mapping: `enum → choice`, `ref(media) → media`, `ref(x) → relation`,
 `date → datetime` (ms epoch on the wire), everything else 1:1. Enum choice labels and relation
 `labelField` are consumer-owned (see **Collection UI**) — kestrel-web carries no consumer collection,
 field or enum name.
@@ -394,6 +396,31 @@ checks a declared workflow against the model when it is given one: the field mus
 field.
 
 ## Admin client layer
+- `app/composables/useSchema.ts` — the one place the admin learns what it is editing. It holds
+  `GET /api/admin/schema`'s answer in `useState('kestrel-schema')` as `{ schema, error }` and requests it
+  exactly once per admin session: `load()` returns `"ok"` straight away when a schema is already in the
+  state. The `admin-auth` middleware calls it after a successful session check, and `login.vue` after a
+  successful login, so every page behind the middleware can read the schema synchronously. A 401 answers
+  `"unauthenticated"` — the middleware resets the session and redirects to login exactly as a failed
+  `/me` does, so a stale token cannot leave the admin half-loaded. Any other failure answers `"failed"`
+  and keeps its message in the state: the admin layout then renders `BootFailure.vue` with it instead of
+  the page, the same treatment a failed backend boot gets. There is no fallback schema and no retry
+  loop — `useAuth().reset()` (logout, the 401 interceptor) clears the state, and the next login loads it
+  again.
+- `app/utils/collections.ts` — the pure readers over that answer: `collections(schema)`,
+  `findCollection(schema, name)`, `editorOwnedFields(schema, name)` (appends `LAYOUT_FIELD` when the
+  collection has one) and `contentLocales(schema)`. They take the schema as a parameter and answer empty
+  while none is loaded, so they stay unit-testable and actions can be handed schema data through their
+  input instead of calling a composable. `useCollections()`, `useFeatures()` and `useContentLocales()`
+  are the thin composable clients on top.
+- Workflow: a collection's `workflow` (`{ field, live, draft, done? }`, see **Collection UI**) is the only
+  source of publish state in the client. `EditorStatus.vue` colours the light by comparing the saved
+  status against `workflow.draft`/`workflow.done`/`workflow.live`, `pages/admin/[collection]/[id].vue`
+  writes `workflow.live`/`workflow.draft` from publish/unpublish, `actions/list.ts`'s `bulkSetStatus`
+  takes `{ workflow, live }` and writes `{ [workflow.field]: live ? workflow.live : workflow.draft }`, and
+  `CollectionListTable.vue` reads the status cell from `workflow.field`. A collection without a workflow
+  gets no status light, no publish button and no bulk status actions rather than writing a value its model
+  does not know.
 - `app/composables/useApi.ts` — the HTTP client for JSON requests; errors become
   `ApiError { status, code, retryable, message, runId, step?, details? }`. `retryable` is `true` for a `503`
   (with a `Retry-After` header) or `429`; the UI offers a retry and names the `Retry-After` seconds when

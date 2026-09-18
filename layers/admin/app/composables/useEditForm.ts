@@ -1,8 +1,8 @@
-import type { LayoutNode, SerializedField } from '#kestrel-admin/types/kestrel'
+import type { LayoutNode, SerializedField, Workflow } from '#kestrel-admin/types/kestrel'
 import type { Document, DeliveryEntry, PublishStatusEntry } from '#kestrel-admin/types/api'
 import { boundaryCast } from '#kestrel/cast'
 import { isFieldVisible, slugify, validateField } from '#kestrel-admin/utils/kestrel'
-import { BLOCKS_FIELD, editorOwnedFields, findCollection, contentLocales } from '#kestrel-admin/utils/collections'
+import { BLOCKS_FIELD, editorOwnedFields, findCollection } from '#kestrel-admin/utils/collections'
 import {
   asFieldDef,
   buildBody,
@@ -44,6 +44,8 @@ export function useEditForm(opts: UseEditFormOptions) {
   const { t } = useT()
   const api = useApi()
   const toast = useToast()
+  const { schema } = useSchema()
+  const contentLocales = useContentLocales()
   const locale = ref(opts.locale?.trim() || contentLocales.primary)
 
   const fields = ref<Record<string, SerializedField>>({})
@@ -57,7 +59,7 @@ export function useEditForm(opts: UseEditFormOptions) {
   const deliveryLoading = ref(false)
   const blocksEnabled = ref(false)
   const blocksAllowed = ref<string[] | undefined>(undefined)
-  const hasStatus = ref(false)
+  const workflow = ref<Workflow | undefined>(undefined)
   const editorType = ref('fields')
   const editorOwned = ref<string[]>([])
 
@@ -79,7 +81,10 @@ export function useEditForm(opts: UseEditFormOptions) {
   const dirty = computed(() => !valuesEqual(values, baseline.value))
   const dirtyKeys = computed(() => fieldKeys().filter((k) => !valuesEqual(values[k], baseline.value[k])))
 
-  const savedStatus = computed(() => (hasStatus.value ? (boundaryCast<string | undefined>(baseline.value.status, 'json') ?? '') : ''))
+  const statusField = computed(() => workflow.value?.field ?? '')
+  const savedStatus = computed(() =>
+    statusField.value ? (boundaryCast<string | undefined>(baseline.value[statusField.value], 'json') ?? '') : '',
+  )
 
   const past = ref<Record<string, unknown>[]>([])
   const future = ref<Record<string, unknown>[]>([])
@@ -172,18 +177,18 @@ export function useEditForm(opts: UseEditFormOptions) {
   }
 
   async function init() {
-    const schema = findCollection(collection)
-    if (!schema) throw createError({ statusCode: 404, statusMessage: `Unknown collection: ${collection}` })
-    fields.value = schema.fields
-    fieldLayout.value = schema.fieldLayout
-    mode.value = schema.mode
-    translatable.value = schema.translatable
-    pageLike.value = schema.pageLike ?? false
-    blocksEnabled.value = schema.blocks?.enabled ?? false
-    blocksAllowed.value = schema.blocks?.allowed
-    hasStatus.value = 'status' in schema.fields
-    editorType.value = schema.editor || (schema.blocks?.enabled ? 'blocks' : 'fields')
-    editorOwned.value = editorOwnedFields(collection)
+    const def = findCollection(schema.value, collection)
+    if (!def) throw createError({ statusCode: 404, statusMessage: `Unknown collection: ${collection}` })
+    fields.value = def.fields
+    fieldLayout.value = def.fieldLayout
+    mode.value = def.mode
+    translatable.value = def.translatable
+    pageLike.value = def.pageLike ?? false
+    blocksEnabled.value = def.blocks?.enabled ?? false
+    blocksAllowed.value = def.blocks?.allowed
+    workflow.value = def.workflow
+    editorType.value = def.editor || (def.blocks?.enabled ? 'blocks' : 'fields')
+    editorOwned.value = editorOwnedFields(schema.value, collection)
 
     let row: Document | null = null
     if (mode.value === 'single') {
@@ -323,8 +328,8 @@ export function useEditForm(opts: UseEditFormOptions) {
       id,
       mode: mode.value,
       pageLike: pageLike.value,
-      hasStatus: () => hasStatus.value,
-      status: () => boundaryCast<string | undefined>(values.status, 'json') ?? '',
+      workflow: () => workflow.value,
+      status: () => (statusField.value ? boundaryCast<string | undefined>(values[statusField.value], 'json') ?? '' : ''),
       saving: () => saving.value,
       blocksField: () => blocksField.value,
       fieldKeys,
@@ -417,7 +422,7 @@ export function useEditForm(opts: UseEditFormOptions) {
     blocksField,
     blocksAllowed,
     editorType,
-    hasStatus,
+    workflow,
     values,
     errors,
     blockErrors,

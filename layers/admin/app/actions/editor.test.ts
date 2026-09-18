@@ -73,7 +73,7 @@ function fakeForm(overrides: Partial<EditFormPort> = {}, opts: { valid?: boolean
     id: 'p1',
     mode: 'multi',
     pageLike: true,
-    hasStatus: () => true,
+    workflow: () => ({ field: 'status', live: 'published', draft: 'draft', done: 'finished' }),
     status: () => String(state.values.status ?? ''),
     saving: () => state.saving,
     blocksField: () => 'body',
@@ -281,7 +281,7 @@ describe('saveRecord', () => {
 
 describe('setStatus', () => {
   it('does nothing while saving, without a status field, or when already in that state', async () => {
-    for (const overrides of [{ saving: () => true }, { hasStatus: () => false }, { status: () => 'published' }]) {
+    for (const overrides of [{ saving: () => true }, { workflow: () => undefined }, { status: () => 'published' }]) {
       const { deps, calls } = fakeDeps([doc()])
       const { form } = fakeForm(overrides)
       const result = await runAction(setStatus, { deps, form, status: 'published' })

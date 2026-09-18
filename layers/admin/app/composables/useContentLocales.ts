@@ -1,12 +1,5 @@
-import { contentLocales } from '#kestrel-admin/utils/collections'
-
-export interface ContentLocales {
-  locales: string[]
-  primary: string
-
-  prefixPrimary: boolean
-}
+import { contentLocales, type ContentLocales } from '#kestrel-admin/utils/collections'
 
 export function useContentLocales(): ContentLocales {
-  return { ...contentLocales }
+  return contentLocales(useSchema().schema.value)
 }

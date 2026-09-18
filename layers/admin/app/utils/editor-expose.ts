@@ -1,4 +1,5 @@
 import type { DeliveryEntry } from '#kestrel-admin/types/api'
+import type { Workflow } from '#kestrel-admin/types/kestrel'
 
 export interface EditorExpose {
   dirty: boolean
@@ -8,7 +9,7 @@ export interface EditorExpose {
   undo: () => void
   redo: () => void
 
-  hasStatus: boolean
+  workflow: Workflow | undefined
 
   status: string
 

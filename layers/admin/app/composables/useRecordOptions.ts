@@ -2,7 +2,6 @@ import { ref, computed, watch } from 'vue'
 import type { Ref } from 'vue'
 import type { Document, ListPage } from '#kestrel-admin/types/api'
 import type { FieldOption } from '../utils/field-component'
-import { contentLocales } from '../utils/collections'
 
 const LIMIT = 200
 
@@ -13,6 +12,7 @@ export function useRecordOptions(
   labelField?: Ref<string | undefined>,
 ) {
   const api = useApi()
+  const { primary: primaryLocale } = useContentLocales()
   const all = ref<FieldOption[]>([])
   const options = ref<FieldOption[]>([])
   const loading = ref(false)
@@ -31,7 +31,7 @@ export function useRecordOptions(
     const own = rawLabel(doc)
     if (own) return own
     const inherited = primary.get(doc.id)
-    return inherited ? `${inherited} (${contentLocales.primary.toUpperCase()})` : doc.id
+    return inherited ? `${inherited} (${primaryLocale.toUpperCase()})` : doc.id
   }
 
   async function load(name: string) {
@@ -40,7 +40,7 @@ export function useRecordOptions(
       const list = (query: Record<string, unknown>) => api<ListPage<Document>>(`/admin/${name}`, { query: { ...query, limit: LIMIT } })
       const [page, primaryPage] = await Promise.all([
         list({ locale: locale.value }),
-        locale.value === contentLocales.primary ? null : list({ locale: contentLocales.primary }),
+        locale.value === primaryLocale ? null : list({ locale: primaryLocale }),
       ])
       if (collection.value !== name) return
       const primary = new Map((primaryPage?.items ?? []).map((doc) => [doc.id, rawLabel(doc) ?? '']))

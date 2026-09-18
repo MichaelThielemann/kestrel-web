@@ -6,9 +6,11 @@ const props = defineProps<PageFieldsBindings>()
 const emit = defineEmits<{ update: [name: string, value: unknown] }>()
 const { t } = useT()
 
-const seo = computed(() => findCollection(props.collection)?.seo ?? false)
-const seoFields = computed(() => findCollection(props.collection)?.seoFields)
-const layoutField = computed(() => findCollection(props.collection)?.layoutField ?? false)
+const { schema } = useSchema()
+const def = computed(() => findCollection(schema.value, props.collection))
+const seo = computed(() => def.value?.seo ?? false)
+const seoFields = computed(() => def.value?.seoFields)
+const layoutField = computed(() => def.value?.layoutField ?? false)
 </script>
 
 <template>

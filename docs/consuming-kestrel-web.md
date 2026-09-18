@@ -133,8 +133,15 @@ export const features = ["references", "links", "delivery", "redirects"] as cons
 
 `features` is the single source for the `Feature[]` list, typed against `#kestrel/pipelines`'s `Feature`
 union so an unknown name fails to typecheck rather than throwing at compose time — `kestrel.config.ts`
-(§3) and `shared/collections-ui.ts` (§3.5) both import it from `shared/model.ts`, and the admin reads it
-too (system tabs and dashboard checks for a feature only appear when it is listed), so they can't drift.
+(§3) and `shared/collections-ui.ts` (§3.5) both import it from `shared/model.ts`, and the admin gets it
+over `GET /api/admin/schema` (§7; system tabs and dashboard checks for a feature only appear when it is
+listed), so they can't drift.
+
+`shared/model.ts` stays what it always was — backend configuration — but it is no longer part of the
+admin's browser bundle: the admin imports no `~~/shared/*` file and reads the model, the collection UI,
+the workflow, the features and the pipeline names from `GET /api/admin/schema` once per session. The
+route assembles that answer server-side from the very same files, so nothing about how you write them
+changes.
 
 **Migration note**: this moved out of a separate `shared/features.ts` — nothing in `kestrel-web` imports
 that file any more. If your app still has one, move its `features` export into `shared/model.ts` and

@@ -3,7 +3,6 @@ import { ref, computed, onMounted, toRef } from 'vue'
 import UiSelect from '../ui/Select.vue'
 import UiCombobox from '../ui/Combobox.vue'
 import { useRecordOptions } from '../../composables/useRecordOptions'
-import { collections as allCollections } from '../../utils/collections'
 import { resolveLocalized } from '../../utils/localized'
 
 const { t, lang } = useT()
@@ -21,8 +20,10 @@ const props = defineProps<{
 const collection = defineModel<string | null>('collection')
 const recordId = defineModel<string | null>('recordId')
 
+const { collections: allCollections } = useCollections()
+
 const collectionOptions = computed(() =>
-  allCollections
+  allCollections.value
     .filter((c) => c.mode === 'multi' && (!props.collections || props.collections.includes(c.name)))
     .map((c) => ({
       value: c.name,

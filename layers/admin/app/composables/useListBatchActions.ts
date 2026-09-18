@@ -1,9 +1,14 @@
 import { ref, type ComputedRef } from 'vue'
+import type { Workflow } from '#kestrel-admin/types/kestrel'
 import { bulkDelete, bulkSetStatus, previewBulkDelete } from '../actions/list'
 import { toastUnexpected } from '../actions/steps/notify'
 import type { BatchDeleteReport } from '../utils/collection-ops'
 
-export function useListBatchActions(collection: ComputedRef<string>, refetch: () => void | Promise<void>) {
+export function useListBatchActions(
+  collection: ComputedRef<string>,
+  refetch: () => void | Promise<void>,
+  workflow: ComputedRef<Workflow | undefined>,
+) {
   const { t } = useT()
   const api = useApi()
   const toast = useToast()
@@ -37,8 +42,10 @@ export function useListBatchActions(collection: ComputedRef<string>, refetch: ()
     if (r.ok) deleteOpen.value = false
   }
 
-  async function setStatus(ids: string[], status: 'published' | 'draft', locale?: string) {
-    const r = await runAction(bulkSetStatus, { deps, collection: collection.value, ids, status, locale, ops, refresh: refetch })
+  async function setStatus(ids: string[], live: boolean, locale?: string) {
+    const current = workflow.value
+    if (!current) return
+    const r = await runAction(bulkSetStatus, { deps, collection: collection.value, ids, workflow: current, live, locale, ops, refresh: refetch })
     toastUnexpected(deps, r)
   }
 

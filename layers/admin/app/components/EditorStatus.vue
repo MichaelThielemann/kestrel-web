@@ -1,12 +1,13 @@
 <script setup lang="ts">
 
 import type { DeliveryEntry } from '#kestrel-admin/types/api'
+import type { Workflow } from '#kestrel-admin/types/kestrel'
 
 const props = defineProps<{
   dirty: boolean
   saving?: boolean
 
-  hasStatus?: boolean
+  workflow?: Workflow
 
   status?: string
 
@@ -27,9 +28,10 @@ type Tone = 'amber' | 'green' | 'blue' | 'neutral'
 const save = computed<{ tone: Tone; word: string; detail: string }>(() => {
   if (props.saving) return { tone: 'amber', word: t('editorStatus.word.saving'), detail: t('editorStatus.detail.saving') }
   if (props.dirty) return { tone: 'amber', word: t('editorStatus.word.unsaved'), detail: t('editorStatus.detail.unsaved') }
-  if (props.hasStatus && props.status === 'draft') return { tone: 'blue', word: t('editorStatus.word.draft'), detail: t('editorStatus.detail.draft') }
-  if (props.hasStatus && props.status === 'finished') return { tone: 'neutral', word: t('editorStatus.word.finished'), detail: t('editorStatus.detail.finished') }
-  if (props.hasStatus && props.status === 'published') return { tone: 'green', word: t('editorStatus.word.published'), detail: t('editorStatus.detail.published') }
+  const workflow = props.workflow
+  if (workflow && props.status === workflow.draft) return { tone: 'blue', word: t('editorStatus.word.draft'), detail: t('editorStatus.detail.draft') }
+  if (workflow?.done !== undefined && props.status === workflow.done) return { tone: 'neutral', word: t('editorStatus.word.finished'), detail: t('editorStatus.detail.finished') }
+  if (workflow && props.status === workflow.live) return { tone: 'green', word: t('editorStatus.word.published'), detail: t('editorStatus.detail.published') }
   return { tone: 'green', word: t('editorStatus.word.saved'), detail: t('editorStatus.detail.saved') }
 })
 

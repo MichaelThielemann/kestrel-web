@@ -16,7 +16,11 @@ const newLabel = computed(() => resolveLocalized(props.schema.label?.new, lang.v
 const localeQuery = computed(() => (props.locale ? `?locale=${props.locale}` : ''))
 
 const columns = listColumns(props.schema)
-const statusChoices = computed(() => boundaryCast<{ value: string; label: Localized }[]>(props.schema.fields.status?.options?.choices ?? [], 'json'))
+const workflow = computed(() => props.schema.workflow)
+const statusChoices = computed(() => {
+  const field = workflow.value?.field
+  return boundaryCast<{ value: string; label: Localized }[]>((field ? props.schema.fields[field]?.options?.choices : []) ?? [], 'json')
+})
 
 const { sort, page, perPage, setSort, setPage, clampPage, setPerPage } = useListUrlState(props.schema)
 
@@ -45,7 +49,7 @@ const { selected, allSelected, headerIndeterminate, toggleRow, toggleAll, clear:
   useListSelection(filteredRows)
 
 const { busy: opsBusy, error: opsError, deleteOpen, deleteReport, askDelete, confirmDelete, setStatus } =
-  useListBatchActions(collection, fetchRows)
+  useListBatchActions(collection, fetchRows, workflow)
 
 const resultsLabel = computed(() => t(total.value === 1 ? 'list.result' : 'list.results', { total: total.value }))
 const srStatus = computed(() => (selected.size ? t('list.selected', { n: selected.size }) : resultsLabel.value))
@@ -77,9 +81,9 @@ await fetchRows()
       <KestrelCollectionListBulkBar
         v-if="selected.size"
         :count="selected.size"
-        :has-status="!!schema.status"
+        :has-workflow="!!workflow"
         :busy="opsBusy"
-        @set-status="(status) => setStatus([...selected], status, locale)"
+        @set-status="(live) => setStatus([...selected], live, locale)"
         @delete="askDelete([...selected])"
         @clear="clearSelection"
       />
@@ -107,6 +111,7 @@ await fetchRows()
         :all-selected="allSelected"
         :header-indeterminate="headerIndeterminate"
         :status-choices="statusChoices"
+        :workflow="workflow"
         @sort="setSort"
         @toggle-row="toggleRow"
         @toggle-all="toggleAll"

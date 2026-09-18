@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type { LayoutKey } from '#app'
-import { defaultLocale, homeSlug, locales, prefixPrimary, untranslatedPages } from '~~/shared/model'
+import { contentTypes, defaultLocale, homeSlug, locales, prefixPrimary, untranslatedPages } from '~~/shared/model'
+import collectionsUi from '~~/shared/collections-ui'
+import { resolveWorkflow } from '#kestrel/collections-ui'
 import { localePath } from '#kestrel-core/app/utils/locale-path'
 import { isFallbackDocument, primaryPathOf } from '../utils/untranslated'
 import { resolvePageLayout } from '../utils/page-layout'
@@ -8,6 +10,10 @@ import type { PageDocument, RedirectHit, SiteResponse } from '#kestrel-core/app/
 import { boundaryCast } from '#kestrel/cast'
 
 definePageMeta({ key: (route) => route.path, layout: false })
+
+const PAGES_COLLECTION = 'pages'
+const pagesModel = contentTypes[PAGES_COLLECTION]
+const pagesWorkflow = pagesModel ? resolveWorkflow(PAGES_COLLECTION, pagesModel, collectionsUi[PAGES_COLLECTION]) : undefined
 
 const route = useRoute()
 const locale = useSiteLocale()
@@ -69,7 +75,8 @@ const { data: localeLinks } = await useAsyncData<SiteLocaleLink[]>(
         if (apiErrorStatus(e) !== 404) console.error(`Locale links: "${doc.id}" (${target}) could not be loaded: ${apiErrorMessage(e)}`)
         return null
       })
-      if (!sibling?.slug || sibling.status !== 'published') continue
+      if (!sibling?.slug) continue
+      if (pagesWorkflow && sibling[pagesWorkflow.field] !== pagesWorkflow.live) continue
       const path = localePath(sibling.slug === homeSlug ? '/' : `/${sibling.slug}`, target, defaultLocale, prefixPrimary)
       links.push({ locale: target, path, current: false })
     }

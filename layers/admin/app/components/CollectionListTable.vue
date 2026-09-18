@@ -4,7 +4,7 @@ import { cellDisplay, columnLabel, stringOrEmpty } from '../utils/list-cell'
 import { boundaryCast } from '#kestrel/cast'
 import type { ListColumn } from '../utils/list-columns'
 import { resolveLocalized } from '#kestrel-admin/utils/localized'
-import type { Localized } from '#kestrel-admin/types/kestrel'
+import type { Localized, Workflow } from '#kestrel-admin/types/kestrel'
 
 const props = defineProps<{
   rows: Record<string, unknown>[]
@@ -22,6 +22,8 @@ const props = defineProps<{
   allSelected: boolean
   headerIndeterminate: boolean
   statusChoices: { value: string; label: Localized }[]
+
+  workflow?: Workflow
 }>()
 const emit = defineEmits<{
   sort: [key: string]
@@ -49,12 +51,13 @@ const fallbackLocale = (row: Record<string, unknown>) =>
   !row.title && props.fallbackTitles?.[String(row.id)] ? props.primaryLocale.toUpperCase() : ''
 
 function statusLabel(value: unknown): string {
-  const v = value ?? 'draft'
+  const v = value ?? props.workflow?.draft ?? ''
   const choice = props.statusChoices.find((c) => c.value === v)
   return choice ? (resolveLocalized(choice.label, lang.value) ?? String(v)) : String(v)
 }
 function cellText(c: ListColumn, row: Record<string, unknown>): string {
-  return c.key === 'status' ? statusLabel(row.status) : cellDisplay(c, row)
+  const field = props.workflow?.field
+  return c.key === 'status' && field ? statusLabel(row[field]) : cellDisplay(c, row)
 }
 
 function ariaSort(field: string): 'ascending' | 'descending' | 'none' {

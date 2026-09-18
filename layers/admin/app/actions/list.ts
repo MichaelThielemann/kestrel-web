@@ -1,4 +1,5 @@
 import { defineAction, type ActionContext } from '#kestrel-core/app/utils/actions'
+import type { Workflow } from '#kestrel-admin/types/kestrel'
 import { withRunId } from '../composables/useApi'
 import { referencedBy } from '../utils/references'
 import { previewDeleteAction } from './shared'
@@ -16,11 +17,17 @@ function eachReport<I, T>(ctx: ActionContext<I, EachReport<T>>, step: string): E
 export interface BulkStatusInput extends WithDeps {
   collection: string
   ids: readonly string[]
-  status: 'published' | 'draft'
+  workflow: Workflow
+  live: boolean
   locale?: string
   ops: BusyPort
   refresh: RefreshPort
 }
+
+const statusBody = (input: BulkStatusInput): Record<string, unknown> => ({
+  [input.workflow.field]: input.live ? input.workflow.live : input.workflow.draft,
+  ...(input.locale ? { locale: input.locale } : {}),
+})
 
 export interface BulkDeleteInput extends WithDeps {
   collection: string
@@ -40,7 +47,7 @@ export const bulkSetStatus = defineAction<BulkStatusInput, EachReport<unknown>>(
       call: (ctx, id) => ({
         path: `/${ctx.input.collection}/${id}`,
         method: 'PATCH',
-        body: { status: ctx.input.status, ...(ctx.input.locale ? { locale: ctx.input.locale } : {}) },
+        body: statusBody(ctx.input),
       }),
       policy: 'continue',
       onItemError: (ctx, item) => {
@@ -53,7 +60,7 @@ export const bulkSetStatus = defineAction<BulkStatusInput, EachReport<unknown>>(
     opsError<BulkStatusInput, EachReport<unknown>>((ctx) => (ctx.result && ctx.result.failed > 0 ? ctx.result.lastMessage : null)),
     toastSummary<BulkStatusInput, EachReport<unknown>>((ctx) => ({
       report: eachReport(ctx, 'toastSummary'),
-      successKey: ctx.input.status === 'published' ? 'toast.published' : 'toast.unpublished',
+      successKey: ctx.input.live ? 'toast.published' : 'toast.unpublished',
     })),
     listRefresh<BulkStatusInput, EachReport<unknown>>(),
   ],

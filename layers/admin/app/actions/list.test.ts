@@ -2,6 +2,7 @@ import type { ApiErrorDetails } from '#kestrel-admin/types/api'
 import { describe, expect, it, vi } from 'vitest'
 import { boundaryCast } from '#kestrel/cast'
 import { runAction } from '#kestrel-core/app/utils/actions'
+import type { Workflow } from '#kestrel-admin/types/kestrel'
 import { bulkDelete, bulkSetStatus, previewBulkDelete } from './list'
 import type { ActionDeps, ApiRequestOptions } from './types'
 
@@ -47,13 +48,15 @@ function fakeOps() {
   }
 }
 
+const DEFAULT_WORKFLOW: Workflow = { field: 'status', live: 'published', draft: 'draft', done: 'finished' }
+
 describe('bulkSetStatus', () => {
   it('publishes every id and toasts once', async () => {
     const { deps, calls, toast } = fakeDeps([null, null, null])
     const ops = fakeOps()
     const refresh = vi.fn()
 
-    const result = await runAction(bulkSetStatus, { deps, collection: 'pages', ids: ['a', 'b', 'c'], status: 'published', ops, refresh })
+    const result = await runAction(bulkSetStatus, { deps, collection: 'pages', ids: ['a', 'b', 'c'], workflow: DEFAULT_WORKFLOW, live: true, ops, refresh })
 
     expect(result.ok).toBe(true)
     expect(calls).toEqual([
@@ -71,7 +74,7 @@ describe('bulkSetStatus', () => {
     const { deps, calls } = fakeDeps([null])
     const ops = fakeOps()
 
-    await runAction(bulkSetStatus, { deps, collection: 'pages', ids: ['a'], status: 'draft', locale: 'de', ops, refresh: vi.fn() })
+    await runAction(bulkSetStatus, { deps, collection: 'pages', ids: ['a'], workflow: DEFAULT_WORKFLOW, live: false, locale: 'de', ops, refresh: vi.fn() })
 
     expect(calls[0]).toMatchObject({ body: { status: 'draft', locale: 'de' } })
   })
@@ -81,7 +84,7 @@ describe('bulkSetStatus', () => {
     const ops = fakeOps()
     const refresh = vi.fn()
 
-    const result = await runAction(bulkSetStatus, { deps, collection: 'pages', ids: ['a', 'b', 'c'], status: 'published', ops, refresh })
+    const result = await runAction(bulkSetStatus, { deps, collection: 'pages', ids: ['a', 'b', 'c'], workflow: DEFAULT_WORKFLOW, live: true, ops, refresh })
 
     expect(result.ok).toBe(true)
     expect(calls).toHaveLength(3)
@@ -96,7 +99,7 @@ describe('bulkSetStatus', () => {
     const ops = fakeOps()
     const refresh = vi.fn()
 
-    const result = await runAction(bulkSetStatus, { deps, collection: 'pages', ids: ['a', 'b', 'c'], status: 'published', ops, refresh })
+    const result = await runAction(bulkSetStatus, { deps, collection: 'pages', ids: ['a', 'b', 'c'], workflow: DEFAULT_WORKFLOW, live: true, ops, refresh })
 
     expect(result.ok).toBe(true)
     expect(toast.error).toHaveBeenCalledTimes(3)
@@ -104,12 +107,35 @@ describe('bulkSetStatus', () => {
     expect(refresh).toHaveBeenCalledTimes(1)
   })
 
+  it('writes the field and values of a custom workflow', async () => {
+    const workflow: Workflow = { field: 'status', live: 'live', draft: 'entwurf' }
+    const { deps, calls, toast } = fakeDeps([null, null])
+    const ops = fakeOps()
+
+    await runAction(bulkSetStatus, { deps, collection: 'pages', ids: ['a'], workflow, live: true, ops, refresh: vi.fn() })
+    await runAction(bulkSetStatus, { deps, collection: 'pages', ids: ['b'], workflow, live: false, ops, refresh: vi.fn() })
+
+    expect(calls.map((c) => c.body)).toEqual([{ status: 'live' }, { status: 'entwurf' }])
+    expect(toast.success).toHaveBeenNthCalledWith(1, 'toast.published')
+    expect(toast.success).toHaveBeenNthCalledWith(2, 'toast.unpublished')
+  })
+
+  it('writes a workflow that names another field entirely', async () => {
+    const workflow: Workflow = { field: 'state', live: 'live', draft: 'entwurf' }
+    const { deps, calls } = fakeDeps([null])
+    const ops = fakeOps()
+
+    await runAction(bulkSetStatus, { deps, collection: 'pages', ids: ['a'], workflow, live: true, locale: 'de', ops, refresh: vi.fn() })
+
+    expect(calls[0]).toMatchObject({ body: { state: 'live', locale: 'de' } })
+  })
+
   it('fails on an empty selection without a request or a refresh', async () => {
     const { deps, calls } = fakeDeps([])
     const ops = fakeOps()
     const refresh = vi.fn()
 
-    const result = await runAction(bulkSetStatus, { deps, collection: 'pages', ids: [], status: 'published', ops, refresh })
+    const result = await runAction(bulkSetStatus, { deps, collection: 'pages', ids: [], workflow: DEFAULT_WORKFLOW, live: true, ops, refresh })
 
     expect(result).toEqual({ ok: false, error: 'guard.selection' })
     expect(calls).toEqual([])

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 
-defineProps<{ count: number; hasStatus: boolean; busy: boolean }>()
-const emit = defineEmits<{ setStatus: [status: 'published' | 'draft']; delete: []; clear: [] }>()
+defineProps<{ count: number; hasWorkflow: boolean; busy: boolean }>()
+const emit = defineEmits<{ setStatus: [live: boolean]; delete: []; clear: [] }>()
 
 const { t } = useT()
 </script>
@@ -9,9 +9,9 @@ const { t } = useT()
 <template>
   <div class="list__bulkbar" role="toolbar" :aria-label="t('list.selected', { n: count })">
     <p class="list__bulk-count" role="status" aria-live="polite">{{ t('list.selected', { n: count }) }}</p>
-    <template v-if="hasStatus">
-      <KestrelUiButton type="button" size="sm" variant="ghost" :disabled="busy" @click="emit('setStatus', 'published')">{{ t('list.bulkPublish') }}</KestrelUiButton>
-      <KestrelUiButton type="button" size="sm" variant="ghost" :disabled="busy" @click="emit('setStatus', 'draft')">{{ t('list.bulkUnpublish') }}</KestrelUiButton>
+    <template v-if="hasWorkflow">
+      <KestrelUiButton type="button" size="sm" variant="ghost" :disabled="busy" @click="emit('setStatus', true)">{{ t('list.bulkPublish') }}</KestrelUiButton>
+      <KestrelUiButton type="button" size="sm" variant="ghost" :disabled="busy" @click="emit('setStatus', false)">{{ t('list.bulkUnpublish') }}</KestrelUiButton>
     </template>
     <KestrelUiButton type="button" size="sm" variant="danger-ghost" :disabled="busy" @click="emit('delete')">{{ t('list.bulkDelete') }}</KestrelUiButton>
     <KestrelUiButton type="button" size="sm" variant="ghost" icon="x" :aria-label="t('list.clearSelection')" @click="emit('clear')" />

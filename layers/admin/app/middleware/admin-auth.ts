@@ -1,4 +1,9 @@
 export default defineNuxtRouteMiddleware(async (to) => {
-  if (await useAuth().ensureSession()) return
-  return navigateTo(`/admin/login?redirect=${encodeURIComponent(to.fullPath)}`)
+  const auth = useAuth()
+  const loginPath = `/admin/login?redirect=${encodeURIComponent(to.fullPath)}`
+  if (!(await auth.ensureSession())) return navigateTo(loginPath)
+  if (await useSchema().load() === 'unauthenticated') {
+    auth.reset()
+    return navigateTo(loginPath)
+  }
 })

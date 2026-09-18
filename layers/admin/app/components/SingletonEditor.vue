@@ -21,7 +21,7 @@ useUnsavedGuard(() => editorRef.value?.dirty ?? false, () => t('editor.discardCo
         <KestrelUiButton type="button" variant="ghost" size="sm" icon="undo" :disabled="saving || !editorRef?.canUndo" :title="t('history.undo')" :aria-label="t('history.undo')" @click="editorRef?.undo()" />
         <KestrelUiButton type="button" variant="ghost" size="sm" icon="redo" :disabled="saving || !editorRef?.canRedo" :title="t('history.redo')" :aria-label="t('history.redo')" @click="editorRef?.redo()" />
         <KestrelUiButton type="submit" :form="EDITOR_FORM_ID" variant="primary" size="sm" icon="check" :loading="saving">{{ t('common.save') }}</KestrelUiButton>
-        <KestrelEditorStatus class="singleton__ampel" :dirty="editorRef?.dirty ?? false" :saving="saving" :has-status="editorRef?.hasStatus ?? false" :status="editorRef?.savedStatus" />
+        <KestrelEditorStatus class="singleton__ampel" :dirty="editorRef?.dirty ?? false" :saving="saving" :workflow="editorRef?.workflow" :status="editorRef?.savedStatus" />
       </div>
     </div>
     <KestrelCollectionEditor

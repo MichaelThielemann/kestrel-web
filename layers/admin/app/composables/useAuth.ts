@@ -81,6 +81,7 @@ export function useAuth() {
   function reset() {
     token.value = null
     state.value = { identity: null, checked: true, error: null }
+    useSchema().clear()
   }
 
   async function logout() {

@@ -88,7 +88,9 @@ export function formValidate<I extends WithDeps & { form: EditFormPort }>(): Act
 
 export function formSetStatus<I extends { form: EditFormPort, status: string }, R = unknown>(): ActionStep<I, R> {
   return defineUiStep<I, R>('form.setStatus', (ctx) => {
-    ctx.input.form.setField('status', ctx.input.status)
+    const workflow = ctx.input.form.workflow()
+    if (!workflow) return ctx.fail('form.setStatus')
+    ctx.input.form.setField(workflow.field, ctx.input.status)
   })
 }
 

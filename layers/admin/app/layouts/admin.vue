@@ -11,6 +11,10 @@ const { theme } = useTheme()
 const { t } = useT()
 const route = useRoute()
 const { failed: bootFailed, error: bootError } = useBootStatus()
+const { error: schemaError } = useSchema()
+const schemaFailed = computed(() => authenticated.value && schemaError.value !== null)
+const failed = computed(() => bootFailed.value || schemaFailed.value)
+const failure = computed(() => (schemaFailed.value ? schemaError.value : bootError.value))
 
 useHead(() => ({
   title: 'Kestrel',
@@ -20,7 +24,7 @@ useHead(() => ({
 </script>
 
 <template>
-  <KestrelBootFailure v-if="bootFailed" :error="bootError" />
+  <KestrelBootFailure v-if="failed" :error="failure" />
   <div v-else class="admin" :class="{ 'admin--rail-collapsed': collapsed }">
     <aside v-if="authenticated" class="admin__rail">
       <div class="rail__head">

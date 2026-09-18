@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { contentLocales } from '#kestrel-admin/utils/collections'
 import { resolveCollectionEditor } from '../utils/editor-registry'
 import { editorFormContextKey } from '../utils/editor-form-context'
 import { boundaryCast } from '#kestrel/cast'
@@ -16,9 +15,11 @@ const { t } = useT()
 const f = useEditForm({ collection: props.collection, id: props.id, locale: props.localeParam })
 
 const {
-  formError, saving, submit, dirty, editorType, hasStatus, savedStatus, undo, redo, canUndo, canRedo, pageLike, delivery, deliveryLoading,
+  formError, saving, submit, dirty, editorType, workflow, savedStatus, undo, redo, canUndo, canRedo, pageLike, delivery, deliveryLoading,
   locale, showCopyTranslation, copySourceLocales, copySourceDefault, blockErrors, revealError,
 } = f
+
+const primaryLocale = computed(() => useContentLocales().primary)
 
 const renderable = computed(() =>
   Object.fromEntries(Object.entries(f.renderableFields.value).map(([name, field]) => [name, asFieldDef(field)])),
@@ -34,7 +35,10 @@ const pageFieldsBindings = computed(() => ({
 
 const pageFieldsHandlers = { update: f.setField }
 
-const status = computed(() => boundaryCast<string | undefined>(f.values.status, 'json') ?? '')
+const status = computed(() => {
+  const field = workflow.value?.field
+  return field ? boundaryCast<string | undefined>(f.values[field], 'json') ?? '' : ''
+})
 const slug = computed(() => boundaryCast<string | undefined>(f.values.slug, 'json') ?? '')
 
 provide(editorFormContextKey, {
@@ -46,9 +50,9 @@ provide(editorFormContextKey, {
 })
 
 defineExpose({
-  dirty, saving, undo, redo, canUndo, canRedo, hasStatus, status, savedStatus, setStatus,
+  dirty, saving, undo, redo, canUndo, canRedo, workflow, status, savedStatus, setStatus,
   recordTitle: heading,
-  missingTranslation: f.missingTranslation, primaryTitle: f.primaryTitle, primaryLocale: contentLocales.primary,
+  missingTranslation: f.missingTranslation, primaryTitle: f.primaryTitle, primaryLocale,
   locale: f.locale, translations: f.translations,
   pageLike, delivery, deliveryLoading, slug,
 })

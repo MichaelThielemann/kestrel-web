@@ -1,4 +1,5 @@
 import type { ApiErrorDetails, DeliveryEntry, Document, ReferenceTo } from '#kestrel-admin/types/api'
+import type { Workflow } from '#kestrel-admin/types/kestrel'
 import type { BlockErrors } from '../composables/useEditForm'
 import type { BlockRow } from '../utils/block-tree'
 import type { RowErrorMap } from '../utils/row-errors'
@@ -52,7 +53,7 @@ export interface EditFormPort {
   id: string
   mode: 'multi' | 'single'
   pageLike: boolean
-  hasStatus: () => boolean
+  workflow: () => Workflow | undefined
   status: () => string
   saving: () => boolean
   blocksField: () => string
