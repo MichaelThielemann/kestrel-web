@@ -32,6 +32,7 @@ function confirm() {
 <template>
   <KestrelUiDialog
     :open="open"
+    nested
     :title="t('media.upload.title')"
     :description="t('media.upload.desc', { count: uploads.length, folder: displayFolderPath(folder) })"
     @update:open="(v) => emit('update:open', v)"

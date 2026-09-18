@@ -117,7 +117,6 @@ const detailsOpen = ref(false)
   cursor: pointer;
 
   &:hover {
-    background: var(--color-hover);
     color: var(--color-text);
   }
   &:focus-visible {

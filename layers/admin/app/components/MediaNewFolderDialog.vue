@@ -20,7 +20,7 @@ function onCreate() {
 </script>
 
 <template>
-  <KestrelUiDialog :open="open" :title="t('media.newFolder')" @update:open="(v) => emit('update:open', v)">
+  <KestrelUiDialog :open="open" nested :title="t('media.newFolder')" @update:open="(v) => emit('update:open', v)">
     <KestrelUiField :label="t('media.folderName')" :error="invalid ? t('media.folderNameInvalid') : null">
       <template #default="f">
         <KestrelUiTextInput v-model="name" :placeholder="t('media.folderNamePlaceholder')" v-bind="f" @keydown.enter="onCreate" />

@@ -18,7 +18,7 @@ watch(() => props.open, (o) => { if (o) recursive.value = false })
 </script>
 
 <template>
-  <KestrelUiDialog :open="open" :title="t('common.delete')" @update:open="(v) => emit('update:open', v)">
+  <KestrelUiDialog :open="open" nested :title="t('common.delete')" @update:open="(v) => emit('update:open', v)">
     <p v-if="summary">
       {{ t('media.deleteSummary', {
         files: summary.files,

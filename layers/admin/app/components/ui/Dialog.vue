@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { DialogRoot, DialogOverlay, DialogContent, DialogTitle, DialogDescription, DialogClose } from 'reka-ui'
+import { DialogRoot, DialogPortal, DialogOverlay, DialogContent, DialogTitle, DialogDescription, DialogClose } from 'reka-ui'
 import UiIcon from './Icon.vue'
 
-const props = defineProps<{ open: boolean; title: string; description?: string; size?: 'md' | 'lg' | 'xl' }>()
+const props = defineProps<{ open: boolean; title: string; description?: string; size?: 'md' | 'lg' | 'xl' | 'screen'; nested?: boolean }>()
 const emit = defineEmits<{ 'update:open': [boolean] }>()
 const { t } = useT()
 
@@ -17,21 +17,23 @@ function onKeydown(e: KeyboardEvent) {
 <template>
 
   <DialogRoot :open="props.open" @update:open="emit('update:open', $event)">
-    <DialogOverlay class="ui-dialog__overlay" />
-    <DialogContent
-      class="ui-dialog__content"
-      :class="`ui-dialog__content--${size ?? 'md'}`"
-      v-bind="description ? {} : { 'aria-describedby': undefined }"
-      @keydown="onKeydown"
-    >
-      <header class="ui-dialog__header">
-        <DialogTitle class="ui-dialog__title">{{ title }}</DialogTitle>
-        <DialogClose data-test="dialog-close" class="ui-dialog__close" :aria-label="t('common.close')"><UiIcon name="x" :size="16" /></DialogClose>
-      </header>
-      <DialogDescription v-if="description" class="ui-dialog__desc">{{ description }}</DialogDescription>
-      <div class="ui-dialog__body"><slot /></div>
-      <footer v-if="$slots.footer" class="ui-dialog__footer"><slot name="footer" /></footer>
-    </DialogContent>
+    <DialogPortal>
+      <DialogOverlay class="ui-dialog__overlay" :class="{ 'ui-dialog__overlay--nested': nested }" />
+      <DialogContent
+        class="ui-dialog__content"
+        :class="[`ui-dialog__content--${size ?? 'md'}`, { 'ui-dialog__content--nested': nested }]"
+        v-bind="description ? {} : { 'aria-describedby': undefined }"
+        @keydown="onKeydown"
+      >
+        <header class="ui-dialog__header">
+          <DialogTitle class="ui-dialog__title">{{ title }}</DialogTitle>
+          <DialogClose data-test="dialog-close" class="ui-dialog__close" :aria-label="t('common.close')"><UiIcon name="x" :size="16" /></DialogClose>
+        </header>
+        <DialogDescription v-if="description" class="ui-dialog__desc">{{ description }}</DialogDescription>
+        <div class="ui-dialog__body"><slot /></div>
+        <footer v-if="$slots.footer" class="ui-dialog__footer"><slot name="footer" /></footer>
+      </DialogContent>
+    </DialogPortal>
   </DialogRoot>
 </template>
 
@@ -62,6 +64,47 @@ function onKeydown(e: KeyboardEvent) {
 .ui-dialog__content--md { width: min(32rem, calc(100vw - 2rem)); }
 .ui-dialog__content--lg { width: min(64rem, calc(100vw - 2rem)); }
 .ui-dialog__content--xl { width: min(80rem, calc(100vw - 2rem)); }
+.ui-dialog__content--screen {
+  inset: var(--space-5);
+  transform: none;
+  width: auto;
+  max-width: 1600px;
+  max-height: none;
+  margin-inline: auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.ui-dialog__content--screen > .ui-dialog__header,
+.ui-dialog__content--screen > .ui-dialog__desc,
+.ui-dialog__content--screen > .ui-dialog__footer {
+  flex: 0 0 auto;
+}
+.ui-dialog__content--screen > .ui-dialog__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+}
+@media (max-width: 48rem) {
+  .ui-dialog__content--screen { inset: var(--space-3); }
+}
+@media (max-width: 40rem) {
+  .ui-dialog__content--screen {
+    inset: 0;
+    max-width: none;
+    border-radius: 0;
+  }
+}
+.ui-dialog__overlay--nested,
+.ui-dialog__content--nested {
+  z-index: var(--z-popover);
+}
+.ui-dialog__content--nested {
+  max-height: calc(100svh - 6rem);
+  overflow: auto;
+}
 .ui-dialog__header {
   display: flex;
   align-items: center;
