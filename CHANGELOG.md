@@ -19,6 +19,12 @@
   styling; both pages now render it instead of hard-coding `ui-btngroup__item` on a `KestrelUiButton`
   without rendering `ButtonGroup`, which also removes the duplicated arrow/Home/End key handling and the
   `data-state="active"` value that never matched the kit's `[data-state='on']` rule.
+- Insights → Live shows a "Recent failures" table (`InsightsFailures.vue`) above the pipeline counters:
+  time, pipeline, trigger, status, code, step, message and run id of the last failed runs, newest
+  first, from `stats().recentFailures` of `@michaelthielemann/kestrel-insights` 5.5.0 or newer. The
+  message wraps, every other long value ellipsizes with the full text in `title`, and an empty state
+  covers both "nothing failed yet" and a backend that answers without the field —
+  `InsightsStats.recentFailures` is optional in `#kestrel-admin/types/api`.
 - The preset pipelines `updateUser` (`PATCH /users/:id`, `authn.requireUser`,
   `authz.require:users.manage`, `authn.updateUser`, `events.emit:user.updated`) and `deleteUser`
   (`DELETE /users/:id`, the same guard, `authn.deleteUser`, `events.emit:user.deleted`), both in

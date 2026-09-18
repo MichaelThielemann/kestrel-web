@@ -15,6 +15,24 @@ values, step descriptions, pipelines with step order, triggers). The stats are c
 percentiles aggregated in this process only; they reset on restart and differ per instance behind a
 load balancer. The page says so above the live tab.
 
+## Recent failures
+`stats().recentFailures` is a ring buffer of the last failed runs of this process, newest first, each
+`{ at, runId, pipeline, trigger: { kind, name }, status, ms, code?, step?, message? }`. Its size is the
+`recentFailures` config of the `insights` module (default 50, `0` turns it off). `InsightsFailures.vue`
+renders it above the pipeline counters on the live tab: time (relative, with the absolute time in
+`title`), pipeline, trigger, status, code, step, message and run id. The message wraps, every other long
+value ellipsizes as an `.insights-chip` with the full text in `title`, and `KestrelUiEmptyState` covers
+the case of no failure yet.
+
+`message` is the text the caller already received in the HTTP answer, truncated by the backend and never
+a stack — an unexpected `throw` only contributes `"<pipeline>/<step>: unexpected <ErrorName>"`, its own
+text and stack stay in the process log. Module authors must therefore keep connection strings, tokens
+and other secrets out of `error.message`; whatever a step puts there reaches both the caller and this
+table.
+
+The field is optional in `InsightsStats`, so an admin built against an older backend that answers
+without `recentFailures` renders the empty state instead of failing.
+
 ## Enabling it
 - `shared/model.ts`: add `"insights"` to `features`.
 - `kestrel.config.ts`: add `{ use: "@michaelthielemann/kestrel-insights", config: {} }` to `modules`.

@@ -13,5 +13,10 @@
     { "pipeline": "listPages", "step": "content.list:pages", "count": 100, "failed": 1, "errors": 0, "p50Ms": 5, "p95Ms": 17 }
   ],
   "events": [{ "name": "auth.loggedIn", "count": 17, "lastAt": 1757603500000 }],
-  "ratelimit": [{ "key": "login", "remaining": 3, "resetAt": 1757603660000 }]
+  "ratelimit": [{ "key": "login", "remaining": 3, "resetAt": 1757603660000 }],
+  "recentFailures": [
+    { "at": 1757603500000, "runId": "r-3", "pipeline": "login", "trigger": { "kind": "http", "name": "POST /login" }, "status": 401, "ms": 41, "code": "UNAUTHENTICATED", "step": "authn.login", "message": "invalid credentials" },
+    { "at": 1757603400000, "runId": "r-2", "pipeline": "listPages", "trigger": { "kind": "http", "name": "GET /pages" }, "status": 500, "ms": 17, "code": "INTERNAL", "step": "content.list:pages", "message": "listPages/content.list:pages: unexpected TypeError" },
+    { "at": 1757603300000, "runId": "r-1", "pipeline": "login", "trigger": { "kind": "http", "name": "POST /login" }, "status": 429, "ms": 1, "code": "RATE_LIMITED" }
+  ]
 }

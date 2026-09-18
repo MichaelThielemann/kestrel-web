@@ -267,6 +267,18 @@ export interface InsightsStepStats { pipeline: string; step: string; count: numb
 export interface InsightsEventStats { name: string; count: number; lastAt: number | null }
 export interface InsightsRatelimitBucket { key: string; remaining: number; resetAt: number }
 
+export interface InsightsRecentFailure {
+  at: number
+  runId: string
+  pipeline: string
+  trigger: { kind: string; name: string }
+  status: number
+  ms: number
+  code?: string
+  step?: string
+  message?: string
+}
+
 export interface InsightsStats {
   generatedAt: number
   process: { pid: number; startedAt: number; uptimeMs: number }
@@ -275,6 +287,7 @@ export interface InsightsStats {
   steps: InsightsStepStats[]
   events: InsightsEventStats[]
   ratelimit: InsightsRatelimitBucket[]
+  recentFailures?: InsightsRecentFailure[]
 }
 
 export interface EventsQueueStatus {

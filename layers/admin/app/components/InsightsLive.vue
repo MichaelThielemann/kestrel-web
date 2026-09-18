@@ -75,6 +75,8 @@ function relative(ms: number | null): string { return ms === null ? '—' : huma
         </div>
       </div>
 
+      <KestrelInsightsFailures :failures="stats.recentFailures ?? []" />
+
       <div class="insights-live__section">
         <h2 class="insights-live__title">{{ t('insights.colPipelines') }}</h2>
         <div class="list__scroll">
