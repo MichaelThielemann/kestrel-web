@@ -14,20 +14,25 @@ const toast = useToast()
 const deps: ActionDeps = { api, t, toast }
 
 const password = ref('')
+const passwordConfirm = ref('')
 const error = ref<string | null>(null)
+const confirmError = ref<string | null>(null)
 const busy = ref(false)
 
 const open = computed(() => props.user !== null)
 
-watch(() => props.user, () => { password.value = ''; error.value = null })
+watch(() => props.user, () => { password.value = ''; passwordConfirm.value = ''; error.value = null; confirmError.value = null })
 
 function close() { emit('update:user', null) }
 
 async function submit() {
+  confirmError.value = null
+  if (password.value !== passwordConfirm.value) { confirmError.value = t('password.mismatch'); return }
   const r = await runAction(userSetPassword, {
     deps,
     userId: props.user?.id ?? null,
     password: password.value,
+    passwordConfirm: passwordConfirm.value,
     ops: { setBusy: (on) => { busy.value = on }, busy: () => busy.value, setError: (m) => { error.value = m } },
   })
   toastUnexpected(deps, r)
@@ -43,6 +48,11 @@ async function submit() {
       <KestrelUiField :label="t('users.newPassword')">
         <template #default="f">
           <KestrelUiTextInput v-model="password" type="password" autocomplete="new-password" v-bind="f" />
+        </template>
+      </KestrelUiField>
+      <KestrelUiField :label="t('password.confirm')" :error="confirmError">
+        <template #default="f">
+          <KestrelUiTextInput v-model="passwordConfirm" type="password" autocomplete="new-password" v-bind="f" />
         </template>
       </KestrelUiField>
     </form>

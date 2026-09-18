@@ -20,6 +20,22 @@
   }
 }
 
+.insights-num {
+  white-space: nowrap;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.insights-nowrap {
+  white-space: nowrap;
+}
+
+.insights-steps-cell {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
 .insights-badge {
   display: inline-block;
   margin-inline-start: var(--space-1);

@@ -29,22 +29,22 @@ const filtered = computed(() => {
           <th scope="col">{{ t('insights.colPipeline') }}</th>
           <th scope="col">{{ t('insights.colSteps') }}</th>
           <th scope="col">{{ t('insights.colTriggers') }}</th>
-          <th scope="col">{{ t('insights.colRuns') }}</th>
-          <th scope="col">{{ t('insights.colFailed') }}</th>
-          <th scope="col">{{ t('insights.colP95') }}</th>
+          <th scope="col" class="insights-num">{{ t('insights.colRuns') }}</th>
+          <th scope="col" class="insights-num">{{ t('insights.colFailed') }}</th>
+          <th scope="col" class="insights-num">{{ t('insights.colP95') }}</th>
         </template>
         <template #body>
           <tr v-for="p in filtered" :key="p.name">
             <td>{{ p.name }}</td>
-            <td>
+            <td class="insights-steps-cell">
               <span v-for="s in p.steps" :key="s.spec" class="insights-chip" :title="s.module">{{ s.spec }}</span>
             </td>
             <td>
               <span v-for="tr in triggersOf(manifest, p.name)" :key="`${tr.kind}:${tr.label}`" class="insights-chip">{{ tr.label }}</span>
             </td>
-            <td>{{ statsByName.get(p.name)?.count ?? '—' }}</td>
-            <td>{{ statsByName.get(p.name)?.failed ?? '—' }}</td>
-            <td>{{ statsByName.has(p.name) ? formatMs(statsByName.get(p.name)!.p95Ms) : '—' }}</td>
+            <td class="insights-num">{{ statsByName.get(p.name)?.count ?? '—' }}</td>
+            <td class="insights-num">{{ statsByName.get(p.name)?.failed ?? '—' }}</td>
+            <td class="insights-num">{{ statsByName.has(p.name) ? formatMs(statsByName.get(p.name)!.p95Ms) : '—' }}</td>
           </tr>
         </template>
       </KestrelUiTable>

@@ -533,10 +533,11 @@ export const en: Catalog = {
   'account.password.title': 'Change password',
   'account.password.current': 'Current password',
   'account.password.new': 'New password',
-  'account.password.confirm': 'Confirm new password',
   'account.password.tooShort': 'Password must be at least 8 characters.',
-  'account.password.mismatch': 'Passwords do not match.',
   'account.password.success': 'Password changed',
+
+  'password.confirm': 'Confirm password',
+  'password.mismatch': 'The passwords do not match.',
 
   'users.title': 'Users',
   'users.new': 'New user',

@@ -75,7 +75,7 @@ const pipelines = computed(() => (manifest.value ? pipelinesUsingModule(manifest
             <template #body>
               <tr v-for="p in pipelines" :key="p.name">
                 <td>{{ p.name }}</td>
-                <td>
+                <td class="insights-steps-cell">
                   <span
                     v-for="s in p.steps"
                     :key="s.spec"

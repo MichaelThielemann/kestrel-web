@@ -9,6 +9,7 @@ const current = ref('')
 const next = ref('')
 const confirm = ref('')
 const error = ref<string | null>(null)
+const confirmError = ref<string | null>(null)
 const busy = ref(false)
 
 function reset() {
@@ -16,13 +17,15 @@ function reset() {
   next.value = ''
   confirm.value = ''
   error.value = null
+  confirmError.value = null
 }
 watch(open, (v) => { if (!v) reset() })
 
 async function submit() {
   error.value = null
+  confirmError.value = null
   if (next.value.length < 8) { error.value = t('account.password.tooShort'); return }
-  if (next.value !== confirm.value) { error.value = t('account.password.mismatch'); return }
+  if (next.value !== confirm.value) { confirmError.value = t('password.mismatch'); return }
   busy.value = true
   try {
     await changePassword(current.value, next.value)
@@ -50,7 +53,7 @@ async function submit() {
           <KestrelUiTextInput v-model="next" type="password" autocomplete="new-password" v-bind="f" />
         </template>
       </KestrelUiField>
-      <KestrelUiField :label="t('account.password.confirm')">
+      <KestrelUiField :label="t('password.confirm')" :error="confirmError">
         <template #default="f">
           <KestrelUiTextInput v-model="confirm" type="password" autocomplete="new-password" v-bind="f" />
         </template>
