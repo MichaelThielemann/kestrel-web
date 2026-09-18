@@ -4,6 +4,28 @@
 
 ### Added
 
+- `#kestrel/pipelines` exports `presetModuleConfig({ dataDir, blobstore, model, features, roles,
+  bootstrap, media?, ratelimit?, llms?, migrations?, session?, overrides? })`: the `modules` list with
+  exactly the modules the features imply, in the canonical order, with media locales, references
+  targets, delivery types, both `publicPath` values and the validate-jsonschema schemas derived;
+  `blobstore`, `roles` and `bootstrap` have no default and throw when missing; `overrides` shallow-merges
+  per-module settings the builder does not expose and rejects a module that is not enabled. A
+  consumer's `kestrel.config.ts` is about 25 lines.
+- `#kestrel/config`: `kestrelDataDir()`, `requiredEnv(name)`, `adminPasswordHash()` and
+  `envBlobstore(dataDir)`; a production run without `KESTREL_ADMIN_PASSWORD_HASH` or an S3 store
+  without its variables throws while the config loads, naming the variable.
+- Admin: block tree rows with a validation error show red text, a labelled error icon and
+  `aria-invalid`; ancestors of a nested error get a dot with accessible text; the save-error banner
+  gets a button that focuses the first erroneous block. Blocks reorder by dragging a per-row handle with
+  a drop indicator, through the same path as the arrow buttons; a live region announces the new
+  position.
+- Admin: media uploads show per-file progress (`useUploadTransport`, XHR with the same token and error
+  mapping as `useApi`), a "generating variants" state after 100 %, a `role="status"` summary that
+  disappears when nothing is left, and failed items that stay until dismissed.
+- Admin: every password dialog (own account, set password, create user) requires a confirmation;
+  a mismatch is rejected inline before any request.
+- Admin: the insights config table shows `set`, `default` and `missing` (backend `status`, with a
+  fallback to the boolean `set` for backends without it).
 - `defineBlock({ fieldLayout })` lays out a block's own fields with the same `LayoutNode[]` grammar as
   a collection's `fieldLayout` and a repeater's `options.fieldLayout`; the block extraction validates
   it at build time (unknown field, duplicate field, `tracks` and `fields` length, groups recursively)
@@ -37,6 +59,13 @@
 
 ### Changed
 
+- `ui/Dialog.vue` teleports overlay and content to the body (`DialogPortal`); the media picker fills the
+  viewport with an even margin, capped at 1600px, full screen below 640px, with a scrolling body; nested
+  dialogs (upload provenance, new folder, rename, delete) render above it on their own layer.
+- The preview toolbar keeps one open button (live preview); the link to the public page sits next to
+  the publish status once the page is live.
+- The `/api` mount path is a shared constant (`layers/core/mount-path.ts`) used by the Nitro plugin and
+  `presetModuleConfig`.
 - `no-unsafe-type-assertion` applies wherever the other type-aware rules do (every layer,
   `packages/renderer-nuxt`, `playground`, `.vue` included, tests included); 199 assertions became
   discriminated-union guards (`fieldIs`), `boundaryCast` at real JSON, AST, DOM or host boundaries,
@@ -62,6 +91,14 @@
 
 ### Fixed
 
+- Media upload counter stuck at "0 uploaded": the queue mutated a non-reactive object.
+- Redirects could not be saved: `locale` is sent only for collections with a localized field; an
+  `additionalProperties` violation gets a plain-language prefix.
+- Block picker: favourite and info buttons no longer change background on hover; the block info popover
+  renders above the picker in every view.
+- Insights tables keep numbers, routes and cron expressions on one line; the steps column wraps.
+- `playground/kestrel.config.ts` gave `delivery-static` no `media.publicPath`; the builder sets
+  `/api/media` on both modules.
 - `sanitizeInBrowser` throws instead of returning the unsanitized input when DOMPurify reports
   the environment as unsupported.
 - `collections-serialize.ts`: a `relation` override applies only on top of an existing base

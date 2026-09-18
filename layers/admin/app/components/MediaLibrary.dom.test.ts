@@ -1,5 +1,6 @@
 import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
+import { nextTick } from 'vue'
 import { boundaryCast } from '#kestrel/cast'
 import { en } from '#kestrel-admin/i18n/en'
 import MediaLibrary from './MediaLibrary.vue'
@@ -42,15 +43,18 @@ describe('MediaLibrary upload status', () => {
     unregisterAll.push(registerEndpoint('/api/limits', { method: 'GET', handler: () => ({ maxUploadBytes: null }) }))
 
     const wrapper = await mountSuspended(MediaLibrary, { attachTo: document.body })
+    onTestFinished(() => wrapper.unmount())
 
     const fileInput = wrapper.get('input[type="file"]')
     selectFile(boundaryCast<HTMLInputElement>(fileInput.element, 'dom'), new File(['x'.repeat(10)], 'photo.jpg', { type: 'image/jpeg' }))
 
-    await vi.waitFor(() => expect(wrapper.find('.ui-dialog__content').exists()).toBe(true))
-    const dialog = wrapper.get('.ui-dialog__content')
-    const confirmButton = dialog.findAll('button').find((b) => b.text() === en['mediaToolbar.upload'])
+    await vi.waitFor(() => expect(document.body.querySelector('.ui-dialog__content')).toBeTruthy())
+    const dialog = document.body.querySelector('.ui-dialog__content')
+    if (!dialog) throw new Error('expected the upload dialog to render')
+    const confirmButton = Array.from(dialog.querySelectorAll('button')).find((b) => b.textContent?.trim() === en['mediaToolbar.upload'])
     if (!confirmButton) throw new Error('expected the upload dialog to render a confirm button')
-    await confirmButton.trigger('click')
+    confirmButton.click()
+    await nextTick()
 
     await vi.waitFor(() => expect(wrapper.find('[role="status"]').exists()).toBe(true))
     expect(wrapper.get('[role="status"]').text()).toContain(en['media.uploading']!.trim())
@@ -71,15 +75,18 @@ describe('MediaLibrary upload status', () => {
     unregisterAll.push(registerEndpoint('/api/limits', { method: 'GET', handler: () => ({ maxUploadBytes: null }) }))
 
     const wrapper = await mountSuspended(MediaLibrary, { attachTo: document.body })
+    onTestFinished(() => wrapper.unmount())
 
     const fileInput = wrapper.get('input[type="file"]')
     selectFile(boundaryCast<HTMLInputElement>(fileInput.element, 'dom'), new File(['x'], 'bad.exe', { type: 'application/octet-stream' }))
 
-    await vi.waitFor(() => expect(wrapper.find('.ui-dialog__content').exists()).toBe(true))
-    const dialog = wrapper.get('.ui-dialog__content')
-    const confirmButton = dialog.findAll('button').find((b) => b.text() === en['mediaToolbar.upload'])
+    await vi.waitFor(() => expect(document.body.querySelector('.ui-dialog__content')).toBeTruthy())
+    const dialog = document.body.querySelector('.ui-dialog__content')
+    if (!dialog) throw new Error('expected the upload dialog to render')
+    const confirmButton = Array.from(dialog.querySelectorAll('button')).find((b) => b.textContent?.trim() === en['mediaToolbar.upload'])
     if (!confirmButton) throw new Error('expected the upload dialog to render a confirm button')
-    await confirmButton.trigger('click')
+    confirmButton.click()
+    await nextTick()
 
     await vi.waitFor(() => expect(uploadControl.state.fail).not.toBeNull())
     uploadControl.state.fail?.(Object.assign(new Error('type application/octet-stream is not allowed'), {
