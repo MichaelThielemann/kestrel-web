@@ -183,6 +183,13 @@
 
 ### Fixed
 
+- Media viewer: the dialog body now fixes the header and footer and scrolls only the details panel, so
+  the image stays in view while editing metadata; a `Delete` action was added that runs through the same
+  `MediaDeleteDialog` (reference precheck, recursive-folder handling) as the context menu, closes the
+  viewer and refreshes the list on success, and returns focus to the library.
+- `KestrelUiDialog`: the fixed-header/scrolling-body/fixed-footer layout used by `size="screen"` now
+  applies to every size, capped by each size's own `max-height`, instead of being tied to the `screen`
+  variant alone.
 - Media upload counter stuck at "0 uploaded": the queue mutated a non-reactive object.
 - Redirects could not be saved: `locale` is sent only for collections with a localized field; an
   `additionalProperties` violation gets a plain-language prefix.

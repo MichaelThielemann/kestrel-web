@@ -6,7 +6,7 @@ import { PROVENANCE_ORIGINS, provenanceOrigin } from '../utils/provenance'
 import { changedMetaFields, type MediaViewerSave } from '../utils/media-meta'
 
 const props = defineProps<{ open: boolean; file: MediaItem | null; busy?: boolean; error?: string | null }>()
-const emit = defineEmits<{ 'update:open': [boolean]; save: [MediaViewerSave] }>()
+const emit = defineEmits<{ 'update:open': [boolean]; save: [MediaViewerSave]; delete: [] }>()
 const { t, lang } = useT()
 const { locales, primary } = useContentLocales()
 const api = useApi()
@@ -111,7 +111,7 @@ function save() {
         <img v-if="isImage" :src="mediaFileUrl(file.id)" :alt="file.alt ?? file.filename">
         <a v-else class="media-viewer__ext" :href="mediaFileUrl(file.id)" target="_blank" rel="noopener noreferrer">{{ ext }}</a>
       </div>
-      <aside class="media-viewer__details">
+      <aside class="media-viewer__details" tabindex="0" :aria-label="t('mediaViewer.detailsRegionLabel')">
         <dl class="media-viewer__info">
           <div><dt>{{ t('media.colType') }}</dt><dd>{{ file.contentType }}</dd></div>
           <div><dt>{{ t('media.colSize') }}</dt><dd>{{ humanizeSize(file.size) }}</dd></div>
@@ -170,6 +170,7 @@ function save() {
       </aside>
     </div>
     <template v-if="file" #footer>
+      <KestrelUiButton variant="danger" icon="trash" class="media-viewer__delete" :disabled="busy" @click="emit('delete')">{{ t('common.delete') }}</KestrelUiButton>
       <KestrelUiButton :disabled="busy" @click="emit('update:open', false)">{{ t('common.close') }}</KestrelUiButton>
       <KestrelUiButton variant="primary" :disabled="busy || !dirty" @click="save">{{ t('common.save') }}</KestrelUiButton>
     </template>
@@ -181,24 +182,45 @@ function save() {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 18rem);
   gap: var(--space-4);
-  align-items: start;
+  height: 100%;
+  min-height: 0;
 }
 @media (max-width: 48rem) {
-  .media-viewer { grid-template-columns: 1fr; }
+  .media-viewer {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+  .media-viewer__preview {
+    max-height: 40svh;
+  }
+  .media-viewer__preview img {
+    max-height: 40svh;
+  }
+  .media-viewer__details {
+    overflow-y: visible;
+  }
 }
 .media-viewer__preview {
   display: grid;
   place-items: center;
   min-height: 16rem;
-  max-height: 70svh;
   overflow: hidden;
   background: var(--color-bg);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
 }
-.media-viewer__preview img { max-width: 100%; max-height: 70svh; object-fit: contain; }
+.media-viewer__preview img { max-width: 100%; max-height: 100%; object-fit: contain; }
 .media-viewer__ext { padding: var(--space-7); font-size: var(--text-xl); font-weight: var(--weight-bold); color: var(--color-text-muted); }
-.media-viewer__details { display: flex; flex-direction: column; gap: var(--space-4); }
+.media-viewer__details {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-height: 0;
+  overflow-y: auto;
+
+  &:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -2px; }
+}
+.media-viewer__delete { margin-right: auto; }
 .media-viewer__provenance,
 .media-viewer__meta { display: flex; flex-direction: column; gap: var(--space-3); }
 .media-viewer__meta-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }

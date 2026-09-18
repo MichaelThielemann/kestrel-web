@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, nextTick, onUnmounted } from 'vue'
 import type { MediaItem, Provenance, ReferenceTo } from '#kestrel-admin/types/api'
 import { createFolder, deleteItems, previewDeleteItems, renameOrMove, setMediaMeta, setMediaProvenance, type RenameOrMoveTarget } from '#kestrel-admin/actions/media'
 import type { ActionDeps, BusyPort, RefreshPort } from '#kestrel-admin/actions/types'
@@ -51,6 +51,9 @@ const newFolderOpen = ref(false)
 const uploadOpen = ref(false)
 const pendingUploads = ref<PendingUpload[]>([])
 
+const mediaLibraryRef = ref<HTMLElement | null>(null)
+let focusReturnTimer: ReturnType<typeof setTimeout> | null = null
+onUnmounted(() => { if (focusReturnTimer) clearTimeout(focusReturnTimer) })
 const viewerOpen = ref(false)
 const viewerFile = ref<MediaItem | null>(null)
 const viewerBusy = ref(false)
@@ -168,8 +171,10 @@ const deleteOpen = ref(false)
 const deleteTargets = ref<OpItem[]>([])
 const deleteFiles = ref<MediaItem[]>([])
 const deleteInfo = ref<DeleteSummary | null>(null)
-async function askDelete(opItems: OpItem[]) {
+const deleteFromViewer = ref(false)
+async function askDelete(opItems: OpItem[], origin: 'menu' | 'viewer' = 'menu') {
   opError.value = null
+  deleteFromViewer.value = origin === 'viewer'
   deleteTargets.value = opItems
   const resolved = resolveFileTargets(opItems, files.value)
   deleteFiles.value = resolved
@@ -200,6 +205,20 @@ async function onConfirmDelete(recursive: boolean) {
   if (!r.ok) return
   deleteOpen.value = false
   deleteTargets.value = []
+  if (deleteFromViewer.value) {
+    deleteFromViewer.value = false
+    viewerOpen.value = false
+    viewerFile.value = null
+    await nextTick()
+    if (focusReturnTimer) clearTimeout(focusReturnTimer)
+    focusReturnTimer = setTimeout(() => { mediaLibraryRef.value?.focus() }, 0)
+  }
+}
+
+function onViewerDelete() {
+  const f = viewerFile.value
+  if (!f) return
+  void askDelete([{ type: 'file', id: f.id }], 'viewer')
 }
 
 const renameOpen = ref(false)
@@ -239,7 +258,7 @@ const localizedMenu = computed(() => menuItems.value.map((s) => ({
 </script>
 
 <template>
-  <section class="media-library" @click.self="lib.clear()" @dragenter="onDragEnter" @dragover="onDragOver" @dragleave="onDragLeave" @drop="onDrop">
+  <section ref="mediaLibraryRef" class="media-library" tabindex="-1" @click.self="lib.clear()" @dragenter="onDragEnter" @dragover="onDragOver" @dragleave="onDragLeave" @drop="onDrop">
     <KestrelMediaPathBar :folder="folder" :folders="allFolderPaths" @navigate="lib.navigate" />
     <KestrelMediaToolbar
       :view="view"
@@ -286,7 +305,7 @@ const localizedMenu = computed(() => menuItems.value.map((s) => ({
       @update:open="(v) => { if (!v) { uploadOpen = false; pendingUploads = [] } }"
     />
     <KestrelMediaNewFolderDialog v-model:open="newFolderOpen" :busy="opsBusy" :error="opError" @create="onCreateFolder" />
-    <KestrelMediaViewer :open="viewerOpen" :file="viewerFile" :busy="viewerBusy" :error="viewerError" @update:open="(v) => { viewerOpen = v }" @save="onSaveViewer" />
+    <KestrelMediaViewer :open="viewerOpen" :file="viewerFile" :busy="viewerBusy" :error="viewerError" @update:open="(v) => { viewerOpen = v }" @save="onSaveViewer" @delete="onViewerDelete" />
     <KestrelUiAlert v-if="opError && !deleteOpen && !renameOpen && !viewerOpen && !newFolderOpen" variant="error">{{ opError }}</KestrelUiAlert>
     <KestrelMediaDeleteDialog
       :open="deleteOpen"
@@ -295,7 +314,7 @@ const localizedMenu = computed(() => menuItems.value.map((s) => ({
       :error="opError"
       :conflict="opConflict"
       @confirm="onConfirmDelete"
-      @update:open="(v) => { if (!v) { deleteOpen = false; deleteInfo = null; deleteTargets = []; deleteFiles = []; opConflict = null } }"
+      @update:open="(v) => { if (!v) { deleteOpen = false; deleteInfo = null; deleteTargets = []; deleteFiles = []; opConflict = null; deleteFromViewer = false } }"
     />
     <KestrelMediaRenameDialog
       :open="renameOpen"

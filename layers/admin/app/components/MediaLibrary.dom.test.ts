@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { nextTick } from 'vue'
 import { boundaryCast } from '#kestrel/cast'
 import { en } from '#kestrel-admin/i18n/en'
+import type { ListPage, MediaFolder, MediaItem } from '#kestrel-admin/types/api'
 import MediaLibrary from './MediaLibrary.vue'
 
 const uploadControl = vi.hoisted(() => {
@@ -103,5 +104,68 @@ describe('MediaLibrary upload status', () => {
     await dismissButton.trigger('click')
 
     expect(wrapper.find('.media-upload-queue__row').exists()).toBe(false)
+  })
+})
+
+describe('MediaLibrary viewer delete flow', () => {
+  const unregisterAll: (() => void)[] = []
+
+  afterEach(() => {
+    unregisterAll.splice(0).forEach((unregister) => unregister())
+  })
+
+  it('deletes the open file through the same dialog as the context menu, then closes the viewer and refreshes the list', async () => {
+    const file: MediaItem = {
+      id: 'f1',
+      filename: 'report.pdf',
+      folder: '',
+      contentType: 'application/pdf',
+      size: 1024,
+      key: 'f1',
+      checksum: null,
+      status: 'ready',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      provenance: { origin: 'human' },
+      width: null,
+      height: null,
+      alt: null,
+      title: null,
+      description: null,
+      variants: [],
+    }
+    let deleteCalls = 0
+    const emptyFolders: MediaFolder[] = []
+    const oneFile: ListPage<MediaItem> = { items: [file], total: 1 }
+    const noFiles: ListPage<MediaItem> = { items: [], total: 0 }
+
+    unregisterAll.push(registerEndpoint('/api/media/folders', { method: 'GET', handler: () => emptyFolders }))
+    unregisterAll.push(registerEndpoint('/api/media', { method: 'GET', handler: () => (deleteCalls > 0 ? noFiles : oneFile) }))
+    unregisterAll.push(registerEndpoint('/api/limits', { method: 'GET', handler: () => ({ maxUploadBytes: null }) }))
+    unregisterAll.push(registerEndpoint('/api/media/f1', { method: 'DELETE', handler: () => { deleteCalls++; return {} } }))
+
+    const wrapper = await mountSuspended(MediaLibrary, { attachTo: document.body })
+    onTestFinished(() => wrapper.unmount())
+
+    await vi.waitFor(() => expect(wrapper.find('[data-test="file-f1"]').exists()).toBe(true))
+    await wrapper.get('[data-test="file-f1"]').trigger('dblclick')
+
+    await vi.waitFor(() => expect(document.body.querySelector('.media-viewer')).toBeTruthy())
+    const viewerContent = document.body.querySelector('.ui-dialog__content--xl')
+    if (!viewerContent) throw new Error('expected the viewer dialog to render')
+    const deleteButton = Array.from(viewerContent.querySelectorAll('button')).find((b) => b.textContent?.trim() === en['common.delete'])
+    if (!deleteButton) throw new Error('expected the viewer to render a delete button')
+    deleteButton.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+
+    await vi.waitFor(() => expect(document.body.querySelector('.ui-dialog__content--nested')).toBeTruthy())
+    const confirmDialog = document.body.querySelector('.ui-dialog__content--nested')
+    if (!confirmDialog) throw new Error('expected the delete confirmation dialog to render')
+    const confirmButton = Array.from(confirmDialog.querySelectorAll('button')).find((b) => b.textContent?.trim() === en['common.delete'])
+    if (!confirmButton) throw new Error('expected the delete confirmation dialog to render a confirm button')
+    confirmButton.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+
+    await vi.waitFor(() => expect(deleteCalls).toBe(1))
+    await vi.waitFor(() => expect(document.body.querySelector('.media-viewer')).toBeFalsy())
+    await vi.waitFor(() => expect(wrapper.find('[data-test="file-f1"]').exists()).toBe(false))
   })
 })

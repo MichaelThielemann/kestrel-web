@@ -382,6 +382,7 @@ export const en: Catalog = {
 
   'mediaViewer.folder': 'Folder',
   'mediaViewer.uploaded': 'Uploaded',
+  'mediaViewer.detailsRegionLabel': 'Media details, scrollable',
   'mediaViewer.alt': 'Alt text',
   'mediaViewer.altHint': 'Describes the image for screen readers and SEO.',
   'mediaViewer.saveFailed': "Couldn't save the alt text.",

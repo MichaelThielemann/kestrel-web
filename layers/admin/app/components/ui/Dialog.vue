@@ -51,7 +51,9 @@ function onKeydown(e: KeyboardEvent) {
   transform: translate(-50%, -50%);
   z-index: var(--z-dialog);
   max-height: calc(100svh - var(--space-6));
-  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -71,19 +73,18 @@ function onKeydown(e: KeyboardEvent) {
   max-width: 1600px;
   max-height: none;
   margin-inline: auto;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
 }
-.ui-dialog__content--screen > .ui-dialog__header,
-.ui-dialog__content--screen > .ui-dialog__desc,
-.ui-dialog__content--screen > .ui-dialog__footer {
+.ui-dialog__header,
+.ui-dialog__desc,
+.ui-dialog__footer {
   flex: 0 0 auto;
 }
-.ui-dialog__content--screen > .ui-dialog__body {
+.ui-dialog__body {
   flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
+}
+.ui-dialog__content--screen > .ui-dialog__body {
   display: flex;
   flex-direction: column;
 }
