@@ -28,14 +28,7 @@ const viewModel = computed<string | string[] | null>({
   set: (v) => { if (typeof v === 'string' && isView(v)) emit('update:view', v) },
 })
 
-const fileInput = ref<HTMLInputElement | null>(null)
-
-function onFiles(e: Event) {
-  if (!(e.target instanceof HTMLInputElement)) return
-  const input = e.target
-  emit('upload', Array.from(input.files ?? []))
-  input.value = ''
-}
+const fileInput = ref<{ open: () => void } | null>(null)
 </script>
 
 <template>
@@ -52,8 +45,8 @@ function onFiles(e: Event) {
     <div class="media-toolbar__actions">
       <KestrelUiButtonGroup v-model="viewModel" :options="VIEW_OPTIONS" :aria-label="t('mediaToolbar.viewAriaLabel')" />
       <span class="media-toolbar__divider" aria-hidden="true"></span>
-      <input ref="fileInput" type="file" multiple class="media-toolbar__file" :aria-label="t('mediaToolbar.upload')" @change="onFiles" />
-      <KestrelUiButton :disabled="disabled" @click="fileInput?.click()"><KestrelUiIcon name="upload" :size="16" /> {{ t('mediaToolbar.upload') }}</KestrelUiButton>
+      <KestrelUiFileInput ref="fileInput" multiple class="media-toolbar__file" :aria-label="t('mediaToolbar.upload')" @select="(files) => emit('upload', files)" />
+      <KestrelUiButton :disabled="disabled" @click="fileInput?.open()"><KestrelUiIcon name="upload" :size="16" /> {{ t('mediaToolbar.upload') }}</KestrelUiButton>
       <KestrelUiButton :disabled="disabled" @click="emit('new-folder')"><KestrelUiIcon name="folder-plus" :size="16" /> {{ t('mediaToolbar.newFolder') }}</KestrelUiButton>
     </div>
   </div>

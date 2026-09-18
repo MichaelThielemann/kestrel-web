@@ -27,11 +27,11 @@ defineExpose({ lang, selectLang, signOut, theme, toggleTheme })
 <template>
   <DropdownMenuRoot>
     <DropdownMenuTrigger as-child>
-      <button type="button" class="rail-account__trigger" :aria-label="t('account.label')" :title="t('account.label')">
+      <KestrelUiButton variant="bare" class="rail-account__trigger" :aria-label="t('account.label')" :title="t('account.label')">
         <span class="rail-account__avatar" aria-hidden="true">{{ initials }}</span>
         <span class="rail-account__name rail__label">{{ displayName }}</span>
         <KestrelUiIcon name="chevron-down" class="rail-account__caret" size="1rem" />
-      </button>
+      </KestrelUiButton>
     </DropdownMenuTrigger>
 
     <DropdownMenuPortal>

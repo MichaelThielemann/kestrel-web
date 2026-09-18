@@ -46,20 +46,19 @@ function onFocus(event: FocusEvent) {
     <template #default="f">
       <div class="field-slug">
         <span class="field-slug__prefix">{{ prefix }}</span>
-        <input
+        <KestrelUiTextInput
           :id="f.id"
+          v-model="model"
           class="field-slug__input"
           :class="{ 'field-slug__input--auto': auto }"
           type="text"
-          :value="model ?? ''"
           :placeholder="rootPlaceholder"
           :aria-invalid="f['aria-invalid']"
           :aria-describedby="f['aria-describedby']"
           :disabled="disabled"
-          @input="model = ($event.target as HTMLInputElement).value"
           @focus="onFocus"
           @blur="onBlur"
-        >
+        />
       </div>
     </template>
   </KestrelUiField>
@@ -76,11 +75,12 @@ function onFocus(event: FocusEvent) {
   background: var(--color-surface-2); color: var(--color-text-muted);
   border-right: 1px solid var(--color-border); font-size: var(--text-sm); white-space: nowrap;
 }
-.field-slug__input {
-  flex: 1 1 auto; min-width: 0; padding: var(--space-2) var(--space-4);
-  border: 0; background: transparent; color: var(--color-text); font: inherit; font-size: var(--text-base);
-  &:focus { outline: none; }
-  &--auto { color: var(--color-text-muted); }
+.field-slug :deep(.ui-input-wrap) { flex: 1 1 auto; min-width: 0; width: auto; }
+.field-slug :deep(.field-slug__input) {
+  width: 100%; padding: var(--space-2) var(--space-4);
+  border: 0; border-radius: 0; background: transparent; color: var(--color-text); font: inherit; font-size: var(--text-base);
+  &:focus, &:focus-visible { outline: none; }
+  &.field-slug__input--auto { color: var(--color-text-muted); }
 }
 .field-slug:focus-within { border-color: var(--color-primary, #6366f1); }
 </style>

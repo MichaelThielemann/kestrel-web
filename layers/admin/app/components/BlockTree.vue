@@ -89,9 +89,9 @@ const { listEl, dragIndex, dropGap, onHandleDown, onHandleMove, onHandleUp, onHa
 
 <template>
   <div ref="rootEl" class="block-tree">
-    <button
+    <KestrelUiButton
       v-if="root"
-      type="button"
+      variant="bare"
       class="block-tree__root"
       :class="{ 'block-tree__node-label--selected': selectedId === null }"
       :aria-pressed="selectedId === null"
@@ -99,7 +99,7 @@ const { listEl, dragIndex, dropGap, onHandleDown, onHandleMove, onHandleUp, onHa
     >
       <KestrelUiIcon name="file-text" :size="15" class="block-tree__root-icon" />
       <span>{{ t('blocks.page') }}</span>
-    </button>
+    </KestrelUiButton>
 
     <p v-if="root && !blocks.length" class="block-tree__empty">{{ t('blocks.empty') }}</p>
 
@@ -161,8 +161,8 @@ const { listEl, dragIndex, dropGap, onHandleDown, onHandleMove, onHandleUp, onHa
     <p v-if="blocks.length" :id="moveHintId" class="block-tree__sr-only">{{ t('blocks.moveHint') }}</p>
 
     <div class="block-tree__add">
-      <button
-        type="button"
+      <KestrelUiButton
+        variant="bare"
         class="block-tree__add-btn"
         :class="{ 'block-tree__add-btn--active': picking }"
         :disabled="disabled"
@@ -172,7 +172,7 @@ const { listEl, dragIndex, dropGap, onHandleDown, onHandleMove, onHandleUp, onHa
       >
         <KestrelUiIcon name="plus" :size="15" />
         <span>{{ slotName ? t('blocks.addInto', { slot: slotName }) : t('blocks.add') }}</span>
-      </button>
+      </KestrelUiButton>
 
       <BlockPicker
         :open="picking"

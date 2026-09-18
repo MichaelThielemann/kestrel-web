@@ -46,9 +46,9 @@ function onTabKey(e: KeyboardEvent) {
 
     <div v-else-if="manifest" class="insights__tabs">
       <div class="insights__tablist ui-btngroup" role="tablist" :aria-label="t('insights.tabsLabel')" @keydown="onTabKey">
-        <button v-for="tab in TAB_IDS" :id="`insights-tab-${tab}`" :key="tab" type="button" role="tab" class="insights__tab ui-btngroup__item"
+        <KestrelUiButton v-for="tab in TAB_IDS" :id="`insights-tab-${tab}`" :key="tab" variant="bare" role="tab" class="insights__tab ui-btngroup__item"
           :aria-selected="tab === activeTab" :aria-controls="`insights-panel-${tab}`" :tabindex="tab === activeTab ? 0 : -1"
-          :data-state="tab === activeTab ? 'active' : 'inactive'" @click="setTab(tab)">{{ t(`insights.tabs.${tab}`) }}</button>
+          :data-state="tab === activeTab ? 'active' : 'inactive'" @click="setTab(tab)">{{ t(`insights.tabs.${tab}`) }}</KestrelUiButton>
       </div>
 
       <div v-for="tab in TAB_IDS" :id="`insights-panel-${tab}`" :key="tab" role="tabpanel" class="insights__panel" :aria-labelledby="`insights-tab-${tab}`" :hidden="tab !== activeTab">

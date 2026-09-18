@@ -26,8 +26,8 @@ const detailsOpen = ref(false)
 
 <template>
   <li class="block-picker-item">
-    <button
-      type="button"
+    <KestrelUiButton
+      variant="bare"
       class="block-picker-item__pick"
       :disabled="disabled"
       :aria-label="t('blocks.addOfType', { type: label })"
@@ -39,23 +39,23 @@ const detailsOpen = ref(false)
         <span class="block-picker-item__label">{{ label }}</span>
         <span v-if="view === 'list' && description" class="block-picker-item__meta">{{ description }}</span>
       </span>
-    </button>
+    </KestrelUiButton>
 
-    <button
-      type="button"
+    <KestrelUiButton
+      variant="icon"
       class="block-picker-item__favorite"
       :aria-pressed="favorite"
       :aria-label="t(favorite ? 'blocks.pickerRemoveFavorite' : 'blocks.pickerAddFavorite')"
       @click.stop="emit('toggle-favorite', type.name)"
     >
       <KestrelUiIcon name="star" :size="16" />
-    </button>
+    </KestrelUiButton>
 
     <KestrelUiPopover v-model:open="detailsOpen" side="right" align="start">
       <template #trigger>
-        <button type="button" class="block-picker-item__info" :aria-label="t('blocks.pickerDetailsFor', { type: label })" @click.stop>
+        <KestrelUiButton variant="icon" class="block-picker-item__info" :aria-label="t('blocks.pickerDetailsFor', { type: label })" @click.stop>
           <KestrelUiIcon name="info" :size="16" />
-        </button>
+        </KestrelUiButton>
       </template>
       <BlockPickerDetails :type="type" :lang="lang" />
     </KestrelUiPopover>

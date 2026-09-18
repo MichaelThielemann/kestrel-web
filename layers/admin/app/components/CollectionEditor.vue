@@ -87,7 +87,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
   <form :id="formId" class="editor" novalidate @submit.prevent="onSave">
     <p v-if="formError" class="editor__error" role="alert">
       <span>{{ formError }}</span>
-      <button v-if="blockErrors.size" type="button" class="editor__error-action" @click="revealError">{{ t('editor.blocksJumpToFirst') }}</button>
+      <KestrelUiButton v-if="blockErrors.size" variant="bare" class="editor__error-action" @click="revealError">{{ t('editor.blocksJumpToFirst') }}</KestrelUiButton>
     </p>
     <KestrelTranslationCopyBanner
       v-if="showCopyTranslation"

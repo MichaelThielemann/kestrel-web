@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import UiButton from '../ui/Button.vue'
 import UiIcon from '../ui/Icon.vue'
 
 defineProps<{
@@ -32,42 +33,42 @@ const { t } = useT()
     <slot />
 
     <div class="ui-repeater__actions">
-      <button
-        type="button"
+      <UiButton
+        variant="icon"
         class="ui-repeater__move"
         :aria-label="t('field.repeater.move_up', { n: index + 1 })"
         :disabled="disabled || index === 0"
         @click="emit('move', -1)"
       >
         <UiIcon name="chevron-up" :size="16" />
-      </button>
-      <button
-        type="button"
+      </UiButton>
+      <UiButton
+        variant="icon"
         class="ui-repeater__move"
         :aria-label="t('field.repeater.move_down', { n: index + 1 })"
         :disabled="disabled || index === total - 1"
         @click="emit('move', 1)"
       >
         <UiIcon name="chevron-down" :size="16" />
-      </button>
-      <button
-        type="button"
+      </UiButton>
+      <UiButton
+        variant="icon"
         class="ui-repeater__duplicate"
         :aria-label="t('field.repeater.duplicate_label', { n: index + 1 })"
         :disabled="disabled"
         @click="emit('duplicate')"
       >
         <UiIcon name="copy" :size="16" />
-      </button>
-      <button
-        type="button"
+      </UiButton>
+      <UiButton
+        variant="icon"
         class="ui-repeater__remove"
         :aria-label="t('field.repeater.remove_label', { n: index + 1 })"
         :disabled="disabled"
         @click="emit('remove')"
       >
         <UiIcon name="trash" :size="16" />
-      </button>
+      </UiButton>
     </div>
   </div>
 </template>

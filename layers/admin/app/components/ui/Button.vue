@@ -1,9 +1,10 @@
 <script setup lang="ts">
+import { computed, ref } from 'vue'
 import type { IconName } from '../../utils/icons'
 
-withDefaults(
+const props = withDefaults(
   defineProps<{
-    variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'danger-ghost'
+    variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'danger-ghost' | 'icon' | 'bare'
     size?: 'sm' | 'md' | 'lg'
     type?: 'button' | 'submit' | 'reset'
     disabled?: boolean
@@ -13,30 +14,47 @@ withDefaults(
   }>(),
   { variant: 'secondary', size: 'md', type: 'button', disabled: false, loading: false },
 )
+
+const unstyled = computed(() => props.variant === 'icon' || props.variant === 'bare')
+
+const classes = computed(() =>
+  unstyled.value
+    ? [`ui-button--${props.variant}`]
+    : ['ui-button', `ui-button--${props.variant}`, `ui-button--${props.size}`],
+)
+
+const el = ref<HTMLButtonElement | null>(null)
+
+defineExpose({ focus: (options?: FocusOptions) => el.value?.focus(options) })
 </script>
 
 <template>
   <NuxtLink
     v-if="to"
     :to="to"
-    class="ui-button"
-    :class="[`ui-button--${variant}`, `ui-button--${size}`, { 'ui-button--disabled': disabled }]"
+    :class="[classes, { 'ui-button--disabled': disabled }]"
     :aria-disabled="disabled || undefined"
   >
     <KestrelUiIcon v-if="icon" :name="icon" class="ui-button__icon" />
-    <span v-if="$slots.default" class="ui-button__label"><slot /></span>
+    <template v-if="$slots.default">
+      <span v-if="!unstyled" class="ui-button__label"><slot /></span>
+      <slot v-else />
+    </template>
   </NuxtLink>
   <button
     v-else
+    ref="el"
     :type="type"
-    class="ui-button"
-    :class="[`ui-button--${variant}`, `ui-button--${size}`]"
+    :class="classes"
     :disabled="disabled || loading"
     :aria-busy="loading || undefined"
   >
     <span v-if="loading" class="ui-button__spinner" aria-hidden="true" />
     <KestrelUiIcon v-else-if="icon" :name="icon" class="ui-button__icon" />
-    <span v-if="$slots.default" class="ui-button__label"><slot /></span>
+    <template v-if="$slots.default">
+      <span v-if="!unstyled" class="ui-button__label"><slot /></span>
+      <slot v-else />
+    </template>
   </button>
 </template>
 
@@ -129,6 +147,46 @@ withDefaults(
     border-radius: var(--radius-full);
     animation: ui-button-spin var(--motion-base) linear infinite;
   }
+}
+
+:where(.ui-button--icon) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-inline-size: 1.5rem;
+  min-block-size: 1.5rem;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  font: inherit;
+  cursor: pointer;
+}
+:where(.ui-button--icon:hover:not(:disabled)) {
+  color: var(--color-text);
+}
+:where(.ui-button--icon:disabled) {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+:where(.ui-button--bare) {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: inherit;
+  cursor: pointer;
+}
+:where(.ui-button--bare:disabled) {
+  cursor: not-allowed;
+}
+
+:where(.ui-button--icon:focus-visible, .ui-button--bare:focus-visible) {
+  outline: 2px solid var(--color-focus);
+  outline-offset: -2px;
 }
 
 @keyframes ui-button-spin {

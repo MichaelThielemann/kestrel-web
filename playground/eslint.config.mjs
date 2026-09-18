@@ -53,6 +53,22 @@ export default withNuxt(
     },
   },
   {
+    name: 'kestrel/ui-kit-first',
+    files: ['layers/admin/app/components/**/*.vue', 'layers/admin/app/layouts/**/*.vue', 'layers/admin/app/pages/**/*.vue'],
+    ignores: ['layers/admin/app/components/ui/**', 'layers/admin/app/pages/admin/system.vue'],
+    rules: {
+      'vue/no-restricted-html-elements': [
+        'error',
+        { element: 'table', message: 'Use KestrelUiTable' },
+        { element: 'button', message: 'Use KestrelUiButton' },
+        { element: 'input', message: 'Use KestrelUiTextInput/Checkbox/…' },
+        { element: 'select', message: 'Use KestrelUiSelect' },
+        { element: 'textarea', message: 'Use KestrelUiTextarea' },
+        { element: 'dialog', message: 'Use KestrelUiDialog' },
+      ],
+    },
+  },
+  {
     name: 'kestrel/no-admin-from-public-or-core',
     files: ['layers/public/**/*.{ts,vue}', 'layers/core/**/*.{ts,vue}'],
     rules: {

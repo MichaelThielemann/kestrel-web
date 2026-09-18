@@ -60,20 +60,18 @@ const errorEntries = computed(() => Object.entries(description.value?.errors ?? 
         <div class="insights-step__section">
           <h4 class="insights-step__section-title">{{ t('insights.colErrorMessage') }}</h4>
           <p v-if="errorEntries.length === 0" class="insights-step__muted">{{ t('insights.noErrors') }}</p>
-          <table v-else class="insights-step__errors">
-            <thead>
-              <tr>
-                <th scope="col">{{ t('insights.colStatus') }}</th>
-                <th scope="col">{{ t('insights.colErrorMessage') }}</th>
-              </tr>
-            </thead>
-            <tbody>
+          <KestrelUiTable v-else :sticky="false">
+            <template #head>
+              <th scope="col">{{ t('insights.colStatus') }}</th>
+              <th scope="col">{{ t('insights.colErrorMessage') }}</th>
+            </template>
+            <template #body>
               <tr v-for="[status, message] in errorEntries" :key="status">
                 <td>{{ status }}</td>
                 <td>{{ message }}</td>
               </tr>
-            </tbody>
-          </table>
+            </template>
+          </KestrelUiTable>
         </div>
       </template>
     </div>
@@ -143,19 +141,6 @@ const errorEntries = computed(() => Object.entries(description.value?.errors ?? 
     font-size: var(--text-sm);
     font-weight: var(--weight-medium);
     margin: 0 0 var(--space-1);
-  }
-
-  &__errors {
-    width: 100%;
-    font-size: var(--text-sm);
-    border-collapse: collapse;
-
-    th,
-    td {
-      text-align: start;
-      padding: var(--space-1) var(--space-2);
-      border-bottom: 1px solid var(--color-border);
-    }
   }
 }
 </style>

@@ -28,22 +28,20 @@ function sizeLabel(size: { width: number; height?: number }): string {
 
     <section v-if="details.fields.length" class="block-picker-details__section">
       <h3 class="block-picker-details__heading">{{ t('blocks.pickerDetailsFields') }}</h3>
-      <table class="block-picker-details__table">
-        <thead>
-          <tr>
-            <th scope="col">{{ t('blocks.pickerDetailsFieldName') }}</th>
-            <th scope="col">{{ t('blocks.pickerDetailsFieldType') }}</th>
-            <th scope="col">{{ t('blocks.pickerDetailsFieldRequired') }}</th>
-          </tr>
-        </thead>
-        <tbody>
+      <KestrelUiTable :sticky="false">
+        <template #head>
+          <th scope="col">{{ t('blocks.pickerDetailsFieldName') }}</th>
+          <th scope="col">{{ t('blocks.pickerDetailsFieldType') }}</th>
+          <th scope="col">{{ t('blocks.pickerDetailsFieldRequired') }}</th>
+        </template>
+        <template #body>
           <tr v-for="field in details.fields" :key="field.key">
             <td>{{ field.label }}</td>
             <td>{{ field.type }}</td>
             <td>{{ field.required ? t('blocks.pickerDetailsFieldRequired') : '' }}</td>
           </tr>
-        </tbody>
-      </table>
+        </template>
+      </KestrelUiTable>
     </section>
 
     <section v-if="details.imageSizes.length" class="block-picker-details__section">
@@ -90,22 +88,6 @@ function sizeLabel(size: { width: number; height?: number }): string {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
-}
-.block-picker-details__table {
-  width: 100%;
-  border-collapse: collapse;
-
-  th,
-  td {
-    padding: var(--space-1) var(--space-2) var(--space-1) 0;
-    text-align: left;
-    vertical-align: top;
-  }
-  th {
-    font-size: var(--text-xs);
-    font-weight: var(--weight-medium);
-    color: var(--color-text-muted);
-  }
 }
 .block-picker-details__source {
   margin: 0;

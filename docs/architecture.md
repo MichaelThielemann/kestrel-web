@@ -389,6 +389,51 @@ checked for every field of type `slug`, not only one literally named `slug`.
   request per folder, no per-item loop); file rename/move stays `PATCH /media/:id`. On disk a file's blob
   key is `<folder>/<filename>` (no folder → `<filename>`), so a folder rename moves every blob under it.
 
+### UI kit first
+`layers/admin/app/components/ui/` is the admin UI kit. Admin components, layouts and pages use it instead of raw
+`<table>`, `<button>`, `<input>`, `<select>`, `<textarea>` and `<dialog>`; those elements belong to the kit
+alone, so focus rings, disabled states, ARIA wiring and design tokens live in one place. **Rule for admin UI work: new admin UI uses `components/ui`; a missing variant is added to the kit.**
+
+The `kestrel/ui-kit-first` block in `playground/eslint.config.mjs` enforces the rule with
+`vue/no-restricted-html-elements` over `layers/admin/app/components/**/*.vue`,
+`layers/admin/app/layouts/**/*.vue` and `layers/admin/app/pages/**/*.vue`, each element carrying the kit
+component to use instead. It ignores
+`components/ui/**` (the kit itself) and `pages/admin/system.vue`. Suppression comments are allowed inside `components/ui/**` only.
+
+Kit inventory:
+- `ActionMenu.vue` — dropdown menu behind a caller-styled trigger button.
+- `Alert.vue` — inline message box; `role="alert"` for warning/error, `role="status"` otherwise.
+- `Brand.vue` — the decorative product mark.
+- `Button.vue` — every button and button-shaped link (`to` renders a `NuxtLink`).
+- `ButtonGroup.vue` — segmented single- or multi-select toggle group.
+- `Checkbox.vue` / `CheckboxGroup.vue` — native checkbox with indeterminate support; a group bound to `string[]`.
+- `Combobox.vue` — searchable single/multi select with reorderable selection.
+- `DatePicker.vue` / `DateRangePicker.vue` / `TimeInput.vue` — ISO date, date-range and time entry.
+- `Dialog.vue` — modal with title, optional description, footer slot and `md|lg|xl|screen` sizes.
+- `EmptyState.vue` — empty-list placeholder with an optional action slot.
+- `Field.vue` / `Fieldset.vue` — label, hint and error wrappers that hand `id` and `aria-*` to the control slot.
+- `FileInput.vue` — hidden file picker; `open()` opens it, `select` emits the chosen `File[]`.
+- `Icon.vue` — sanitized inline SVG icon, `aria-hidden` unless it carries a name.
+- `Menu.vue` — right-click context menu.
+- `NumberInput.vue` — numeric input with min/max/step and an optional suffix.
+- `Popover.vue` — anchored popover with a trigger slot.
+- `Richtext.vue` / `RichtextToolbar.vue` — the TipTap editor and its toolbar.
+- `Select.vue` — native select styled like the other controls.
+- `Table.vue` / `TableSort.vue` — the table shell (`head`/`body` slots, sticky header) and its sortable column header.
+- `Textarea.vue` — multi-line text input.
+- `TextInput.vue` — single-line input with optional leading icon and password reveal.
+- `Toasts.vue` — the toast host with its polite/assertive live regions.
+- `Tooltip.vue` — hover and focus tooltip.
+
+Adding a variant: extend the kit component rather than dropping back to a raw element. A button variant is
+a new member of `Button.vue`'s `variant` union plus its SCSS block. `primary`, `secondary`, `ghost`,
+`danger` and `danger-ghost` are fully styled and carry the `.ui-button` base class and a size class.
+`icon` (square, ghost, icon-only — the caller supplies `aria-label`) and `bare` (native button semantics,
+no styling — a clickable card, tile or tree row) carry only their own modifier class, render the default
+slot unwrapped, and declare their rules inside `:where(…)`, so a call site's own class always wins and
+migrating an existing control to the kit cannot change how it looks. `Button.vue` exposes `focus()` for
+components that move focus after a list edit.
+
 ## UI actions
 Every user-triggered write in `layers/admin` — save, publish, delete, discard, bulk status, media
 folder and upload work, the system-screen operations — is a declared step sequence run by the small

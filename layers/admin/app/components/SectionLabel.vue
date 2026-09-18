@@ -7,9 +7,9 @@ const { t } = useT()
   <p class="section-label">
     <span class="section-label__text">{{ label }}</span>
     <KestrelUiTooltip v-if="hint" side="bottom">
-      <button type="button" class="section-label__info" :aria-label="t('common.help')">
+      <KestrelUiButton variant="icon" class="section-label__info" :aria-label="t('common.help')">
         <KestrelUiIcon name="info" :size="16" />
-      </button>
+      </KestrelUiButton>
       <template #content>{{ hint }}</template>
     </KestrelUiTooltip>
   </p>

@@ -64,7 +64,7 @@ function removeId(id: string) {
             <KestrelMediaThumb :id="r.id" class="field-media__thumb" :content-type="r.item?.contentType" :alt="r.item?.alt ?? r.item?.filename ?? ''" />
             <span class="field-media__filename">{{ nameOf(r.id, r.item, i) }}</span>
             <span v-if="isDisclosed(r.item?.provenance)" class="field-media__ai">{{ t(provenanceLabelKey(provenanceOrigin(r.item?.provenance))) }}</span>
-            <button v-if="!disabled" type="button" class="field-media__remove" :aria-label="t('field.media.remove', { name: nameOf(r.id, r.item, i) })" @click="removeId(r.id)"><KestrelUiIcon name="x" size="1rem" /></button>
+            <KestrelUiButton v-if="!disabled" variant="icon" class="field-media__remove" :aria-label="t('field.media.remove', { name: nameOf(r.id, r.item, i) })" @click="removeId(r.id)"><KestrelUiIcon name="x" size="1rem" /></KestrelUiButton>
           </li>
         </ul>
         <p v-else class="field-media__empty">{{ t('field.media.empty') }}</p>

@@ -57,7 +57,7 @@ function rowNestedErrors(i: number): Record<string, RowErrorMap> {
 }
 
 const rowsEl = ref<HTMLElement | null>(null)
-const addEl = ref<HTMLButtonElement | null>(null)
+const addEl = ref<{ focus: () => void } | null>(null)
 const dragIndex = ref<number | null>(null)
 const overIndex = ref<number | null>(null)
 const liveMessage = ref('')
@@ -125,7 +125,9 @@ function removeRowAt(i: number) {
     const row = idx >= 0
       ? rowsEl.value?.querySelectorAll<HTMLElement>(':scope > .ui-repeater__row-wrap > .ui-repeater__row')[idx]
       : undefined
-    ;(row?.querySelector<HTMLButtonElement>(':scope > .ui-repeater__actions > .ui-repeater__remove') ?? addEl.value)?.focus()
+    const next = row?.querySelector<HTMLButtonElement>(':scope > .ui-repeater__actions > .ui-repeater__remove')
+    if (next) next.focus()
+    else addEl.value?.focus()
   })
 }
 
@@ -163,15 +165,15 @@ function insertRowAt(at: number) {
     <div v-if="rows.length" ref="rowsEl" class="ui-repeater__rows" @dragleave="onDragLeave">
       <template v-for="(row, i) in rows" :key="keys[i]">
         <div class="ui-repeater__insert-zone">
-          <button
-            type="button"
+          <KestrelUiButton
+            variant="icon"
             class="ui-repeater__insert"
             :aria-label="t('field.repeater.insert_label', { n: i + 1 })"
             :disabled="disabled"
             @click="insertRowAt(i)"
           >
             <UiIcon name="plus" :size="16" />
-          </button>
+          </KestrelUiButton>
         </div>
 
         <!-- eslint-disable-next-line vuejs-accessibility/no-static-element-interactions -- drag handlers are a mouse-only progressive enhancement; the move-up/move-down buttons below give the same reorder fully keyboard access -->
@@ -214,19 +216,19 @@ function insertRowAt(at: number) {
       </template>
 
       <div class="ui-repeater__insert-zone">
-        <button
-          type="button"
+        <KestrelUiButton
+          variant="icon"
           class="ui-repeater__insert"
           :aria-label="t('field.repeater.insert_label', { n: rows.length + 1 })"
           :disabled="disabled"
           @click="insertRowAt(rows.length)"
         >
           <UiIcon name="plus" :size="16" />
-        </button>
+        </KestrelUiButton>
       </div>
     </div>
 
-    <button ref="addEl" type="button" class="ui-repeater__add" :disabled="disabled" @click="addRow">{{ t('field.repeater.add') }}</button>
+    <KestrelUiButton ref="addEl" variant="bare" class="ui-repeater__add" :disabled="disabled" @click="addRow">{{ t('field.repeater.add') }}</KestrelUiButton>
 
     <p v-if="error" :id="errId" class="ui-repeater__error" role="alert">{{ error }}</p>
     <span class="ui-repeater__live" aria-live="polite">{{ liveMessage }}</span>

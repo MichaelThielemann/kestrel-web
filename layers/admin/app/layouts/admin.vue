@@ -28,14 +28,14 @@ useHead(() => ({
           <KestrelUiBrand />
           <span class="rail__brand-word rail__label">kestrel</span>
         </NuxtLink>
-        <button
-          type="button"
+        <KestrelUiButton
+          variant="icon"
           class="rail__toggle"
           :aria-label="collapsed ? t('a11y.expandSidebar') : t('a11y.collapseSidebar')"
           @click="toggleRail"
         >
           <KestrelUiIcon :name="collapsed ? 'panel-left-open' : 'panel-left-close'" size="1.25rem" />
-        </button>
+        </KestrelUiButton>
       </div>
 
       <div class="rail__nav">

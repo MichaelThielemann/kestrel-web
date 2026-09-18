@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import UiField from '../ui/Field.vue'
+import UiButton from '../ui/Button.vue'
 import UiTextInput from '../ui/TextInput.vue'
 import UiIcon from '../ui/Icon.vue'
 import LinkInternalPicker from './LinkInternalPicker.vue'
@@ -43,14 +44,14 @@ const hasSettings = computed(() => hasExtras(model.value))
             v-bind="f"
           />
           <div class="ui-link__text-suffix">
-            <button
+            <UiButton
               v-if="url"
-              type="button"
+              variant="icon"
               class="ui-link__text-clear"
               :disabled="disabled"
               :aria-label="t('field.link.clear')"
               @click="url = ''"
-            ><UiIcon name="x" :size="14" /></button>
+            ><UiIcon name="x" :size="14" /></UiButton>
             <LinkSettings
               v-model:type="typeModel"
               v-model:hash="hash"
@@ -70,14 +71,14 @@ const hasSettings = computed(() => hasExtras(model.value))
             v-bind="f"
           />
           <div class="ui-link__text-suffix">
-            <button
+            <UiButton
               v-if="email"
-              type="button"
+              variant="icon"
               class="ui-link__text-clear"
               :disabled="disabled"
               :aria-label="t('field.link.clear')"
               @click="email = ''"
-            ><UiIcon name="x" :size="14" /></button>
+            ><UiIcon name="x" :size="14" /></UiButton>
             <LinkSettings
               v-model:type="typeModel"
               v-model:hash="hash"
@@ -97,14 +98,14 @@ const hasSettings = computed(() => hasExtras(model.value))
             v-bind="f"
           />
           <div class="ui-link__text-suffix">
-            <button
+            <UiButton
               v-if="tel"
-              type="button"
+              variant="icon"
               class="ui-link__text-clear"
               :disabled="disabled"
               :aria-label="t('field.link.clear')"
               @click="tel = ''"
-            ><UiIcon name="x" :size="14" /></button>
+            ><UiIcon name="x" :size="14" /></UiButton>
             <LinkSettings
               v-model:type="typeModel"
               v-model:hash="hash"

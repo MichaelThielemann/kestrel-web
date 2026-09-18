@@ -57,7 +57,7 @@ function cancel() { editing.value = false }
       />
       <ul v-if="suggestions.length" class="media-pathbar__suggestions">
         <li v-for="s in suggestions" :key="s">
-          <button type="button" @click="commit(s)">{{ displayFolderPath(s) }}</button>
+          <KestrelUiButton variant="bare" class="media-pathbar__suggestion" @click="commit(s)">{{ displayFolderPath(s) }}</KestrelUiButton>
         </li>
       </ul>
     </div>
@@ -103,20 +103,17 @@ function cancel() { editing.value = false }
     border-radius: var(--radius-md);
     box-shadow: var(--shadow-md);
     min-width: 18rem;
+  }
 
-    button {
-      display: block;
-      width: 100%;
-      text-align: left;
-      background: none;
-      border: 0;
-      padding: var(--space-1) var(--space-2);
-      border-radius: var(--radius-sm);
-      cursor: pointer;
+  &__suggestion {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--radius-sm);
 
-      &:hover {
-        background: var(--color-hover);
-      }
+    &:hover {
+      background: var(--color-hover);
     }
   }
 }

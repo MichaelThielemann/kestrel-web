@@ -21,31 +21,31 @@ const badge = (f: MediaItem) => t(provenanceLabelKey(provenanceOrigin(f.provenan
   <ul class="media-grid">
     <li v-if="parentPath != null" class="media-grid__cell">
 
-      <button type="button" class="media-grid__tile media-grid__tile--folder" data-test="folder-up"
+      <KestrelUiButton variant="bare" class="media-grid__tile media-grid__tile--folder" data-test="folder-up"
         :data-drop-folder="parentPath" :class="{ 'is-drop-target': parentPath === dropTargetPath }"
         :aria-label="upLabel" @click="emit('navigate', parentPath)">
         <span class="media-grid__thumb-wrap">
           <span class="media-grid__thumb media-grid__thumb--folder" aria-hidden="true"><KestrelUiIcon name="folder" :size="40" /></span>
         </span>
         <span class="media-grid__name">..</span>
-      </button>
+      </KestrelUiButton>
     </li>
     <li v-for="item in items" :key="itemKey(item)" class="media-grid__cell">
-      <button v-if="item.type === 'folder'" type="button" class="media-grid__tile media-grid__tile--folder"
+      <KestrelUiButton v-if="item.type === 'folder'" variant="bare" class="media-grid__tile media-grid__tile--folder"
         :data-test="`folder-${item.folder.path}`" :aria-pressed="isSelected(item)"
         :data-drop-folder="item.folder.path"
         :class="{ 'is-selected': isSelected(item), 'is-drop-target': item.folder.path === dropTargetPath }"
         draggable="true"
         @click="onFolder(item, item.folder.path, $event)"
         @keydown.space.prevent="emit('select', item, { toggle: true, range: false })"
-        @dragstart="(e) => emit('dragstart', item, e)"
+        @dragstart="(e: DragEvent) => emit('dragstart', item, e)"
         @dragend="emit('dragend')">
         <span class="media-grid__thumb-wrap">
           <span class="media-grid__thumb media-grid__thumb--folder" aria-hidden="true"><KestrelUiIcon name="folder" :size="40" /></span>
         </span>
         <span class="media-grid__name">{{ item.folder.name }}</span>
-      </button>
-      <button v-else type="button" class="media-grid__tile media-grid__tile--file"
+      </KestrelUiButton>
+      <KestrelUiButton v-else variant="bare" class="media-grid__tile media-grid__tile--file"
         :data-test="`file-${item.file.id}`" :aria-pressed="isSelected(item)"
         :data-file-id="item.file.id"
         :class="{ 'is-selected': isSelected(item) }"
@@ -53,7 +53,7 @@ const badge = (f: MediaItem) => t(provenanceLabelKey(provenanceOrigin(f.provenan
         @click="onFile(item, $event)"
         @dblclick="emit('open', item)"
         @keydown.enter.prevent="emit('open', item)"
-        @dragstart="(e) => emit('dragstart', item, e)"
+        @dragstart="(e: DragEvent) => emit('dragstart', item, e)"
         @dragend="emit('dragend')">
         <span class="media-grid__thumb-wrap">
           <KestrelMediaThumb
@@ -67,7 +67,7 @@ const badge = (f: MediaItem) => t(provenanceLabelKey(provenanceOrigin(f.provenan
           <span class="media-grid__meta" aria-hidden="true">{{ humanizeSize(item.file.size) }}</span>
         </span>
         <span class="media-grid__name">{{ item.file.filename }}</span>
-      </button>
+      </KestrelUiButton>
     </li>
   </ul>
 </template>

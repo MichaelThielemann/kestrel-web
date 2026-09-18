@@ -49,8 +49,8 @@ const rowMenu = computed<MenuItem[]>(() => [
     >
       <KestrelUiIcon name="grip" :size="14" />
     </div>
-    <button
-      type="button"
+    <KestrelUiButton
+      variant="bare"
       class="block-tree__node-label"
       :class="{ 'block-tree__node-label--selected': selected }"
       :aria-pressed="selected"
@@ -72,10 +72,10 @@ const rowMenu = computed<MenuItem[]>(() => [
         :aria-label="t('blocks.invalid')"
         :title="t('blocks.invalid')"
       ></span>
-    </button>
+    </KestrelUiButton>
     <div class="block-tree__actions">
-      <button type="button" class="block-tree__btn" :disabled="disabled || index === 0" :aria-label="t('blocks.moveUp', { n: index + 1 })" :aria-describedby="moveHintId" @click="emit('move', -1)"><KestrelUiIcon name="chevron-up" :size="15" /></button>
-      <button type="button" class="block-tree__btn" :disabled="disabled || index === total - 1" :aria-label="t('blocks.moveDown', { n: index + 1 })" :aria-describedby="moveHintId" @click="emit('move', 1)"><KestrelUiIcon name="chevron-down" :size="15" /></button>
+      <KestrelUiButton variant="icon" class="block-tree__btn" :disabled="disabled || index === 0" :aria-label="t('blocks.moveUp', { n: index + 1 })" :aria-describedby="moveHintId" @click="emit('move', -1)"><KestrelUiIcon name="chevron-up" :size="15" /></KestrelUiButton>
+      <KestrelUiButton variant="icon" class="block-tree__btn" :disabled="disabled || index === total - 1" :aria-label="t('blocks.moveDown', { n: index + 1 })" :aria-describedby="moveHintId" @click="emit('move', 1)"><KestrelUiIcon name="chevron-down" :size="15" /></KestrelUiButton>
       <KestrelUiActionMenu
         :items="rowMenu"
         :label="t('blocks.more', { n: index + 1 })"
