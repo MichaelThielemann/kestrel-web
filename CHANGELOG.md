@@ -192,6 +192,8 @@
   variant alone.
 - Media library drag-and-drop: hovering an SVG folder icon (e.g. the folder-up icon's stroke) dropped the
   drop-target highlight because the hit test only accepted `HTMLElement`; it now accepts any `Element`.
+- Block picker: a single favourite no longer stretches across the full width of the "Large" view (the
+  grid used `auto-fit`, collapsing empty tracks; it now uses `auto-fill`, matching the default grid view).
 - Media upload counter stuck at "0 uploaded": the queue mutated a non-reactive object.
 - Redirects could not be saved: `locale` is sent only for collections with a localized field; an
   `additionalProperties` violation gets a plain-language prefix.

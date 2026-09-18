@@ -215,7 +215,7 @@ watch(
     gap: var(--space-2);
   }
   &__grid--large {
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr));
     gap: var(--space-4);
   }
   &__grid--list {
