@@ -4,6 +4,10 @@
 
 ### Added
 
+- `defineBlock({ fieldLayout })` lays out a block's own fields with the same `LayoutNode[]` grammar as
+  a collection's `fieldLayout` and a repeater's `options.fieldLayout`; the block extraction validates
+  it at build time (unknown field, duplicate field, `tracks` and `fields` length, groups recursively)
+  and the block editor renders the rows. The key is optional; without it every field keeps its own row.
 - A third vitest project, `components` (`environment: "nuxt"` via `@nuxt/test-utils`, jsdom), renders
   `*.dom.test.ts` specs with `mountSuspended` against the playground app: keyboard, ARIA and emit
   behaviour of `field/Repeater.vue` and `BlockTree.vue`, the save path of `CollectionEditor.vue`

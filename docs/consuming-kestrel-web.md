@@ -288,7 +288,8 @@ field component supports a repeater inside a repeater generically, at any depth,
   the same way a collection's top-level `fieldLayout` does — rows with `tracks`, optionally grouped —
   letting a repeater row read as one compact line (e.g. `label`/`link`/`target` side by side) instead of
   one field per line. It nests to any depth: a `children` repeater inside a repeater gets its own
-  `fieldLayout` independently of its parent's.
+  `fieldLayout` independently of its parent's. A block's own fields support this same `fieldLayout`
+  grammar and validation too, through `defineBlock({ fieldLayout })` — see **5. Define your blocks** below.
 - **Link fields**: a `link` field always renders as one row — the primary control (URL/email/phone input,
   or the internal-record picker) plus a settings icon button at the row end. The button opens a popover
   with the link type switch, the anchor field (internal links only) and the link-text field; it picks up a
@@ -520,6 +521,19 @@ or a `{ locale: string }` map per tag); `#kestrel/consumer-block-tags` resolves 
 empty map otherwise (creating or deleting the file needs a dev restart, like the other optional consumer
 entries). A tag without an entry falls back to showing its raw key, so the file is only worth adding once
 your tag vocabulary needs a friendlier label than its own name.
+
+A block can lay out its own fields the same way a collection or repeater does, with an optional
+`fieldLayout` key on `defineBlock` — the same `LayoutNode[]` grammar (rows with `tracks`, optionally
+grouped, checked recursively; see **3.5 Collections in the admin** above):
+
+```ts
+defineBlock({ label: "Hero", fieldLayout: [{ kind: "row", fields: ["title", "subtitle"], tracks: [1, 1] }] });
+```
+
+Every field it names must exist among the block's own fields, and none may appear twice across the whole
+layout; a row's `tracks` length must match its `fields` length when given. Any violation fails the build
+naming the block file and the field. Without a `fieldLayout`, `BlockFields.vue` falls back to one field per
+row, in prop-declaration order.
 
 Every block also gets a `source` in the registry — its own `.vue` path relative to your app root — shown
 to editors in the picker's details popover; it is always that relative path, never an absolute filesystem

@@ -5,7 +5,7 @@ import { boundaryCast } from "@michaelthielemann/kestrel/cast";
 import * as factories from "../../app/utils/field-factories";
 import { KESTREL_FIELD } from "../../app/utils/field-factories";
 import { normalizeImageSize } from "./image-sizes";
-import type { SerializedBlock, SerializedField } from "../../app/types/kestrel";
+import type { LayoutNode, SerializedBlock, SerializedField } from "../../app/types/kestrel";
 
 const FACTORIES: Record<string, unknown> = Object.fromEntries(Object.entries(factories).filter(([, value]) => typeof value === "function"));
 const FACTORY_FUNCTIONS = new Set(Object.values(FACTORIES));
@@ -22,6 +22,30 @@ function normalizeTags(raw: unknown, where: string): string[] {
     }
     return tag;
   });
+}
+
+function validateFieldLayout(nodes: LayoutNode[], known: Set<string>, seen: Set<string>, where: string): void {
+  for (const node of nodes) {
+    if (node.kind === "row") {
+      if (node.tracks && node.tracks.length !== node.fields.length) {
+        throw new Error(`${where}: defineBlock's fieldLayout row "tracks" length must match "fields" length`);
+      }
+      for (const fieldName of node.fields) {
+        if (!known.has(fieldName)) throw new Error(`${where}: defineBlock's fieldLayout names unknown field "${fieldName}"`);
+        if (seen.has(fieldName)) throw new Error(`${where}: defineBlock's fieldLayout names field "${fieldName}" more than once`);
+        seen.add(fieldName);
+      }
+    } else {
+      validateFieldLayout(node.rows, known, seen, where);
+    }
+  }
+}
+
+function normalizeFieldLayout(raw: unknown, known: Set<string>, where: string): LayoutNode[] {
+  if (!Array.isArray(raw)) throw new Error(`${where}: defineBlock's "fieldLayout" must be a literal array of layout nodes`);
+  const nodes = boundaryCast<LayoutNode[]>(raw, "json");
+  validateFieldLayout(nodes, known, new Set(), where);
+  return nodes;
 }
 
 export function blockNameFromFile(fileBase: string): string {
@@ -181,6 +205,9 @@ export function extractBlockDef(
   if (meta.tags !== undefined) {
     const tags = normalizeTags(meta.tags, fileBase);
     if (tags.length) block.tags = tags;
+  }
+  if (meta.fieldLayout !== undefined) {
+    block.fieldLayout = normalizeFieldLayout(meta.fieldLayout, new Set(Object.keys(fields)), fileBase);
   }
   return block;
 }

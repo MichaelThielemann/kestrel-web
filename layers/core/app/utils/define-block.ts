@@ -1,4 +1,4 @@
-import type { Localized } from "../types/kestrel";
+import type { LayoutNode, Localized } from "../types/kestrel";
 import type { ImageSizeDecl } from "./define-image-sizes";
 
 export interface BlockMeta {
@@ -9,6 +9,7 @@ export interface BlockMeta {
   image?: string;
   imageSizes?: ImageSizeDecl[];
   tags?: string[];
+  fieldLayout?: LayoutNode[];
 }
 
 export function defineBlock<T extends BlockMeta>(meta: T): T {

@@ -754,6 +754,16 @@ defineBlock({ label: "Hero", slots: ["default"], icon: "image" });
   supplies the chip text, falling back to the raw tag key; it is not
   cross-validated against the tag set in the registry. The search box also matches a block's localized
   `description` (`filterBlockTypes`, same accent-insensitive comparison as `label`/name).
+- **Field layout**: `defineBlock({ fieldLayout: [...] })` is optional and takes the same `LayoutNode[]`
+  grammar as a collection's top-level `fieldLayout` and a repeater's `options.fieldLayout`
+  (`layers/core/app/types/kestrel.ts`) — rows (`{ kind: "row", fields, tracks }`) optionally grouped
+  (`{ kind: "group", label, hint?, rows }`), checked recursively. `extract-block.ts` validates it at build
+  time the same way as `tags`: every named field must exist among the block's own extracted fields, no
+  field may appear twice across the whole layout, a row's `tracks` length (when given) must match its
+  `fields` length, and any violation — or a non-literal value — fails the build naming the block file and
+  the offending field (`normalizeFieldLayout`/`validateFieldLayout`). Stored on `SerializedBlock.fieldLayout`
+  only when present; `BlockFields.vue`'s `KestrelFieldLayout` falls back to one field per row, in
+  prop-declaration order, when it's absent — the same default a collection or repeater uses.
 - **Source**: `SerializedBlock.source` is the block's own `.vue` path relative to `nuxt.options.rootDir`,
   POSIX-separated — computed once in `scan.ts`'s `relativeSource` from the paths `collectBlockSfcs`
   already resolved and passed into `extractBlockDef` as a plain string, so extraction itself never touches

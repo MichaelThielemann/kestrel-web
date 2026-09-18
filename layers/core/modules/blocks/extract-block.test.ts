@@ -206,6 +206,78 @@ defineBlock({ label: 'Hero', slots: ['default'], icon: 'image' })`),
     expect(() => extractBlockDef(sfc("defineBlock({ tags: [42] })"), "Hero.vue")).toThrow(/Hero\.vue: defineBlock tag "42" must match/);
   });
 
+  it("extracts defineBlock's fieldLayout matching the literal", () => {
+    const block = extractBlockDef(
+      sfc(`defineProps({ title: textField(), subtitle: textField() })
+defineBlock({ label: 'Hero', fieldLayout: [{ kind: 'row', fields: ['title', 'subtitle'], tracks: [1, 1] }] })`),
+      "Hero.vue",
+    );
+    expect(block.fieldLayout).toEqual([{ kind: "row", fields: ["title", "subtitle"], tracks: [1, 1] }]);
+  });
+
+  it("omits fieldLayout entirely when defineBlock declares none", () => {
+    const block = extractBlockDef(sfc("defineProps({ title: textField() })\ndefineBlock({ label: 'Hero' })"), "Hero.vue");
+    expect(block).not.toHaveProperty("fieldLayout");
+  });
+
+  it("rejects a fieldLayout row naming an unknown field", () => {
+    expect(() =>
+      extractBlockDef(
+        sfc(`defineProps({ title: textField() })
+defineBlock({ fieldLayout: [{ kind: 'row', fields: ['nope'], tracks: [1] }] })`),
+        "Hero.vue",
+      ),
+    ).toThrow(/Hero\.vue: defineBlock's fieldLayout names unknown field "nope"/);
+  });
+
+  it("rejects a fieldLayout that names the same field twice", () => {
+    expect(() =>
+      extractBlockDef(
+        sfc(`defineProps({ title: textField() })
+defineBlock({ fieldLayout: [{ kind: 'row', fields: ['title'], tracks: [1] }, { kind: 'row', fields: ['title'], tracks: [1] }] })`),
+        "Hero.vue",
+      ),
+    ).toThrow(/Hero\.vue: defineBlock's fieldLayout names field "title" more than once/);
+  });
+
+  it("rejects a fieldLayout row whose tracks length does not match its fields length", () => {
+    expect(() =>
+      extractBlockDef(
+        sfc(`defineProps({ title: textField(), subtitle: textField() })
+defineBlock({ fieldLayout: [{ kind: 'row', fields: ['title', 'subtitle'], tracks: [1] }] })`),
+        "Hero.vue",
+      ),
+    ).toThrow(/Hero\.vue: defineBlock's fieldLayout row "tracks" length must match "fields" length/);
+  });
+
+  it("validates fields inside a fieldLayout group's nested rows", () => {
+    expect(() =>
+      extractBlockDef(
+        sfc(`defineProps({ title: textField() })
+defineBlock({ fieldLayout: [{ kind: 'group', label: 'g', rows: [{ kind: 'row', fields: ['nope'], tracks: [1] }] }] })`),
+        "Hero.vue",
+      ),
+    ).toThrow(/Hero\.vue: defineBlock's fieldLayout names unknown field "nope"/);
+  });
+
+  it("accepts fields inside a fieldLayout group's nested rows", () => {
+    const block = extractBlockDef(
+      sfc(`defineProps({ title: textField() })
+defineBlock({ fieldLayout: [{ kind: 'group', label: 'g', rows: [{ kind: 'row', fields: ['title'], tracks: [1] }] }] })`),
+      "Hero.vue",
+    );
+    expect(block.fieldLayout).toEqual([{ kind: "group", label: "g", rows: [{ kind: "row", fields: ["title"], tracks: [1] }] }]);
+  });
+
+  it("rejects a non-literal fieldLayout naming the file", () => {
+    expect(() =>
+      extractBlockDef(
+        sfc("import { LAYOUT } from './layout'\ndefineProps({ title: textField() })\ndefineBlock({ fieldLayout: LAYOUT })"),
+        "Hero.vue",
+      ),
+    ).toThrow(/Hero\.vue: could not evaluate the block declaration/);
+  });
+
   it("sets source to the passed-in relative path", () => {
     const block = extractBlockDef(sfc("defineProps({ heading: textField() })"), "Hero.vue", "/root/app/blocks/Hero.vue", undefined, undefined, "app/blocks/Hero.vue");
     expect(block.source).toBe("app/blocks/Hero.vue");
