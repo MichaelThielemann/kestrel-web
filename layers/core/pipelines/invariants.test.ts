@@ -17,6 +17,7 @@ const allFeaturesRecord = {
   migrations: 1,
   audit: 1,
   insights: 1,
+  eventsQueue: 1,
 } satisfies Record<Feature, 1>;
 
 const allModules = [
@@ -36,7 +37,7 @@ const allModules = [
   { use: "@michaelthielemann/kestrel-delivery-static" },
   { use: "@michaelthielemann/kestrel-redirects-default" },
   { use: "@michaelthielemann/kestrel-audit-persistence" },
-  { use: "@michaelthielemann/kestrel-events-inmemory" },
+  { use: "@michaelthielemann/kestrel-events-queue" },
   { use: "@michaelthielemann/kestrel-ratelimit-memory" },
   { use: "@michaelthielemann/kestrel-migrations-default" },
   { use: "@michaelthielemann/kestrel-insights" },

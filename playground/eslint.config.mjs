@@ -55,7 +55,7 @@ export default withNuxt(
   {
     name: 'kestrel/ui-kit-first',
     files: ['layers/admin/app/**/*.vue'],
-    ignores: ['layers/admin/app/components/ui/**', 'layers/admin/app/pages/admin/system.vue'],
+    ignores: ['layers/admin/app/components/ui/**'],
     linterOptions: { noInlineConfig: true },
     rules: {
       'vue/comment-directive': 'off',

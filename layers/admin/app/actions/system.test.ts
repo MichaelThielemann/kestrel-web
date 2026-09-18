@@ -4,6 +4,8 @@ import { boundaryCast } from '#kestrel/cast'
 import { runAction } from '#kestrel-core/app/utils/actions'
 import { humanizeSize } from '../utils/library'
 import {
+  eventsRetryAll,
+  eventsRetryOne,
   exportMedia,
   imagesRegisterAndSync,
   linksRebuild,
@@ -723,5 +725,84 @@ describe('imagesRegisterAndSync', () => {
     expect(toast.error).toHaveBeenCalledWith('boom')
     expect(refreshCalls.length).toBe(0)
     expect(busyLog).toEqual([true, false])
+  })
+})
+
+describe('eventsRetryAll', () => {
+  it('retries all, toasts the count and reloads', async () => {
+    const { deps, calls, toast } = fakeDeps([{ retried: 3 }])
+    const { ops, busyLog } = fakeOps()
+    const { refresh, calls: refreshCalls } = fakeRefresh()
+
+    const result = await runAction(eventsRetryAll, { deps, ops, refresh, count: 3 })
+
+    expect(result.ok).toBe(true)
+    expect(calls).toEqual([{ path: '/admin/events/retry', method: 'POST', body: undefined, query: undefined }])
+    expect(toast.success).toHaveBeenCalledWith('events.retriedAll:{"count":3}')
+    expect(refreshCalls.length).toBe(1)
+    expect(busyLog).toEqual([true, false])
+  })
+
+  it('fails the dialog guard and makes no request when count is 0', async () => {
+    const { deps, calls } = fakeDeps([])
+    const { ops } = fakeOps()
+    const { refresh, calls: refreshCalls } = fakeRefresh()
+
+    const result = await runAction(eventsRetryAll, { deps, ops, refresh, count: 0 })
+
+    expect(result.ok).toBe(false)
+    expect(calls.length).toBe(0)
+    expect(refreshCalls.length).toBe(0)
+  })
+
+  it('toasts the raw error message and skips the reload', async () => {
+    const { deps, toast } = fakeDeps([apiError(500, 'boom')])
+    const { ops } = fakeOps()
+    const { refresh, calls: refreshCalls } = fakeRefresh()
+
+    const result = await runAction(eventsRetryAll, { deps, ops, refresh, count: 2 })
+
+    expect(result.ok).toBe(false)
+    expect(toast.error).toHaveBeenCalledWith('boom')
+    expect(refreshCalls.length).toBe(0)
+  })
+})
+
+describe('eventsRetryOne', () => {
+  it('retries one event, toasts and reloads', async () => {
+    const { deps, calls, toast } = fakeDeps([{ retried: 1 }])
+    const { ops } = fakeOps()
+    const { refresh, calls: refreshCalls } = fakeRefresh()
+
+    const result = await runAction(eventsRetryOne, { deps, ops, refresh, id: 'evt-1' })
+
+    expect(result.ok).toBe(true)
+    expect(calls).toEqual([{ path: '/admin/events/dead/evt-1/retry', method: 'POST', body: undefined, query: undefined }])
+    expect(toast.success).toHaveBeenCalledWith('events.retriedOne')
+    expect(refreshCalls.length).toBe(1)
+  })
+
+  it('toasts events.retryNotFound on a 404 and skips the reload', async () => {
+    const { deps, toast } = fakeDeps([apiError(404, 'nope')])
+    const { ops } = fakeOps()
+    const { refresh, calls: refreshCalls } = fakeRefresh()
+
+    const result = await runAction(eventsRetryOne, { deps, ops, refresh, id: 'evt-1' })
+
+    expect(result.ok).toBe(false)
+    expect(toast.error).toHaveBeenCalledWith('events.retryNotFound')
+    expect(refreshCalls.length).toBe(0)
+  })
+
+  it('toasts the raw error message on any other error', async () => {
+    const { deps, toast } = fakeDeps([apiError(500, 'boom')])
+    const { ops } = fakeOps()
+    const { refresh, calls: refreshCalls } = fakeRefresh()
+
+    const result = await runAction(eventsRetryOne, { deps, ops, refresh, id: 'evt-1' })
+
+    expect(result.ok).toBe(false)
+    expect(toast.error).toHaveBeenCalledWith('boom')
+    expect(refreshCalls.length).toBe(0)
   })
 })

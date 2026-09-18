@@ -42,6 +42,15 @@
   behaviour of `field/Repeater.vue` and `BlockTree.vue`, the save path of `CollectionEditor.vue`
   (dirty keys only, success toast, 400 field error mapped onto the field) and `sanitizeInBrowser`
   (script, inline handlers, `javascript:` links and iframes removed; safe formatting kept).
+- `eventsQueue` preset feature: wires `@michaelthielemann/kestrel-events-queue` (alternative to
+  `kestrel-events-inmemory`) with `eventsQueueStatus`, `eventsDead`, `eventsRetryDead`,
+  `eventsRetryOne` (`GET /admin/events/status`, `GET /admin/events/dead`, `POST /admin/events/retry`,
+  `POST /admin/events/dead/:id/retry`, all `system.manage`) and `purgeEvents` (nightly cron). The
+  admin System page gets an "Events" tab (`SystemEvents.vue`) with queue/worker stats, a dead-letter
+  table and retry actions. `definePreset` throws when both events modules are configured, and when
+  `eventsQueue` is enabled without any event trigger in the final trigger list. `presetModuleConfig()`
+  emits `events-queue` instead of `events-inmemory` when the feature is on and takes its config from
+  the new `eventsQueue` option.
 - `#kestrel/pipelines` exports `definePipeline`, typed against `PresetStep`, so a misspelled step in
   a consumer's own `pipelines/index.ts` fails `nuxt typecheck`; `pipelineDefiner` is documented for
   consumers with modules of their own. `#kestrel/consumer-pipelines` and `#kestrel/consumer-modules`

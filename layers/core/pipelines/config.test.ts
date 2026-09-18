@@ -196,6 +196,14 @@ describe("feature gating", () => {
     });
   });
 
+  it("replaces events-inmemory by events-queue with the eventsQueue feature and passes the option through", () => {
+    const names = moduleNames(presetModuleConfig({ ...playgroundOptions(), features: ["eventsQueue"], eventsQueue: { pollMs: 200, maxAttempts: 3 } }));
+    expect(names).toContain("@michaelthielemann/kestrel-events-queue");
+    expect(names).not.toContain("@michaelthielemann/kestrel-events-inmemory");
+    expect(configFor(presetModuleConfig({ ...playgroundOptions(), features: ["eventsQueue"], eventsQueue: { pollMs: 200, maxAttempts: 3 } }), "events-queue")).toEqual({ pollMs: 200, maxAttempts: 3 });
+    expect(configFor(presetModuleConfig({ ...playgroundOptions(), features: ["eventsQueue"] }), "events-queue")).toEqual({});
+  });
+
   it("appends migrations-default with the migrations the option carries", () => {
     const migration = { id: "0001-seed", collection: "pages", up: () => undefined };
     const modules = presetModuleConfig({ ...playgroundOptions(), features: ["migrations"], migrations: { migrations: [migration], mode: "check" } });

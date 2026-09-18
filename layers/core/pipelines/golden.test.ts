@@ -17,6 +17,7 @@ import replication from "./features/replication";
 import migrations from "./features/migrations";
 import audit from "./features/audit";
 import insights from "./features/insights";
+import eventsQueue from "./features/eventsQueue";
 import { syntheticContentTypes } from "./__fixtures__/synthetic-collections";
 import { contentTypes } from "../../../playground/shared/model";
 
@@ -39,7 +40,7 @@ function pipelinesMap(pipelines: { name: string; steps: readonly string[] }[]): 
   return Object.fromEntries(pipelines.map((pipeline) => [pipeline.name, [...pipeline.steps]]));
 }
 
-const allFeatures: readonly Feature[] = featureOrder.filter((feature) => feature !== "migrations");
+const allFeatures: readonly Feature[] = featureOrder.filter((feature) => feature !== "migrations" && feature !== "eventsQueue");
 
 const allModules = [
   { use: "@michaelthielemann/kestrel-blobstore-filesystem" },
@@ -64,9 +65,9 @@ const allModules = [
 ];
 
 describe("allFeatures", () => {
-  it("omits exactly migrations from featureOrder", () => {
+  it("omits exactly migrations and eventsQueue from featureOrder", () => {
     const omitted = featureOrder.filter((feature) => !allFeatures.includes(feature));
-    expect(omitted).toEqual(["migrations"]);
+    expect(omitted).toEqual(["migrations", "eventsQueue"]);
   });
 });
 
@@ -119,7 +120,7 @@ describe("golden: synthetic collections (news multi, profile system single, noti
 describe("canonicalTriggers consistency", () => {
   const context = { exportDir: EXPORT_DIR, homeSlug: "home" };
   const collections = { pages: { kind: "multi" as const, fields: {} } };
-  const featureFactories = { ratelimit, sanitizeSvg, references, links, delivery, redirects, images, replication, migrations, audit, insights };
+  const featureFactories = { ratelimit, sanitizeSvg, references, links, delivery, redirects, images, replication, migrations, audit, insights, eventsQueue };
   const basePipelineNames = new Set(Object.keys(basePipelines(context, collections)));
   const featurePipelineNames = new Map(
     Object.entries(featureFactories).map(([feature, factory]) => [feature, new Set(Object.keys(factory(context).pipelines))]),

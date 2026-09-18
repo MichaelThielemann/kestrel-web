@@ -341,6 +341,67 @@ describe("presetSchemas", () => {
   });
 });
 
+describe("definePreset eventsQueue feature", () => {
+  const modules = [...baseModules, { use: "@michaelthielemann/kestrel-events-queue" }, { use: "@michaelthielemann/kestrel-images-default" }];
+
+  it("wires the five pipelines and triggers when enabled with the queue module and an event trigger present", () => {
+    const preset = definePreset({ modules, features: ["eventsQueue", "images"] });
+    expect(preset.pipelines.find((pipeline) => pipeline.name === "eventsQueueStatus")?.steps).toEqual([
+      "authn.requireUser",
+      "authz.require:system.manage",
+      "events.readQueueStatus",
+    ]);
+    expect(preset.pipelines.find((pipeline) => pipeline.name === "eventsDead")?.steps).toEqual([
+      "authn.requireUser",
+      "authz.require:system.manage",
+      "events.listDead",
+    ]);
+    expect(preset.pipelines.find((pipeline) => pipeline.name === "eventsRetryDead")?.steps).toEqual([
+      "authn.requireUser",
+      "authz.require:system.manage",
+      "events.retryDead:all",
+    ]);
+    expect(preset.pipelines.find((pipeline) => pipeline.name === "eventsRetryOne")?.steps).toEqual([
+      "authn.requireUser",
+      "authz.require:system.manage",
+      "events.retryDead:one",
+    ]);
+    expect(preset.pipelines.find((pipeline) => pipeline.name === "purgeEvents")?.steps).toEqual(["events.purgeDone"]);
+
+    expect(preset.triggers).toContainEqual({ http: "GET /admin/events/status", pipeline: "eventsQueueStatus" });
+    expect(preset.triggers).toContainEqual({ http: "GET /admin/events/dead", pipeline: "eventsDead" });
+    expect(preset.triggers).toContainEqual({ http: "POST /admin/events/retry", pipeline: "eventsRetryDead" });
+    expect(preset.triggers).toContainEqual({ http: "POST /admin/events/dead/:id/retry", pipeline: "eventsRetryOne" });
+    expect(preset.triggers).toContainEqual({ cron: "15 4 * * *", pipeline: "purgeEvents" });
+  });
+
+  it("throws when both events-queue and events-inmemory are configured", () => {
+    const withBoth = [...modules, { use: "@michaelthielemann/kestrel-events-inmemory" }];
+    expect(() => definePreset({ modules: withBoth, features: ["eventsQueue", "images"] })).toThrow(
+      'preset: feature "eventsQueue" replaces module "@michaelthielemann/kestrel-events-inmemory" – configure only one events module',
+    );
+  });
+
+  it("throws when enabled but the final trigger list has no event trigger", () => {
+    expect(() =>
+      definePreset({
+        modules,
+        features: ["eventsQueue", "images"],
+        exclude: ["generateImageVariants"],
+      }),
+    ).toThrow('preset: feature "eventsQueue" needs at least one event trigger – the queue would be written but never consumed');
+  });
+
+  it("warns when the events-queue module is configured but the feature is not enabled", () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    definePreset({ modules, features: ["images"] });
+    expect(warnSpy).toHaveBeenCalledWith(
+      'preset: module "@michaelthielemann/kestrel-events-queue" is configured but feature "eventsQueue" is not enabled – its pipelines and steps are not wired',
+    );
+    warnSpy.mockRestore();
+  });
+});
+
 describe("definePreset collection name validation", () => {
   it.each(["my-collection", "my_collection", "1collection", "MyCollection"])(
     "throws for an invalid collection name %s",

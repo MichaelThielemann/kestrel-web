@@ -23,6 +23,7 @@ import replication from "./features/replication";
 import migrations from "./features/migrations";
 import audit from "./features/audit";
 import insights from "./features/insights";
+import eventsQueue from "./features/eventsQueue";
 
 export type { CollectionModel } from "./collections";
 export type { PresetStep } from "../module-registry";
@@ -42,7 +43,7 @@ export type {
 
 export const definePipeline = pipelineDefiner<PresetStep>();
 
-export type Feature = "ratelimit" | "sanitizeSvg" | "references" | "links" | "delivery" | "redirects" | "images" | "replication" | "migrations" | "audit" | "insights";
+export type Feature = "ratelimit" | "sanitizeSvg" | "references" | "links" | "delivery" | "redirects" | "images" | "replication" | "migrations" | "audit" | "insights" | "eventsQueue";
 
 export interface FeatureModule {
   modules: string[];
@@ -65,6 +66,7 @@ export const staticPipelineNames = [
   "listMigrations", "applyMigrations",
   "auditAuth",
   "insightsManifest", "insightsStats",
+  "eventsQueueStatus", "eventsDead", "eventsRetryDead", "eventsRetryOne", "purgeEvents",
 ] as const;
 
 export type StaticPipelineName = (typeof staticPipelineNames)[number];
@@ -73,7 +75,7 @@ export type PresetPipelineName<C extends Record<string, CollectionModel> = Recor
   | StaticPipelineName
   | CollectionPipelineName<C>;
 
-export type CronPipelineName = "cleanupSessions" | "sweepRateLimits" | "scanReferences" | "checkLinks" | "resumeImages" | "replicate" | "reconcileMedia";
+export type CronPipelineName = "cleanupSessions" | "sweepRateLimits" | "scanReferences" | "checkLinks" | "resumeImages" | "replicate" | "reconcileMedia" | "purgeEvents";
 
 export interface PresetOptions<C extends Record<string, CollectionModel> = Record<string, CollectionModel>, S extends string = PresetStep> {
   modules: readonly { use: string; config?: unknown }[];
@@ -103,6 +105,7 @@ const featureFactories: Record<Feature, (context: PresetContext) => FeatureModul
   migrations,
   audit,
   insights,
+  eventsQueue,
 };
 
 function featureKeys(factories: Record<Feature, unknown>): readonly Feature[] {
@@ -194,6 +197,12 @@ export function definePreset<C extends Record<string, CollectionModel> = Record<
     }
   }
 
+  if (enabledFeatures.has("eventsQueue") && configuredModules.has("@michaelthielemann/kestrel-events-inmemory")) {
+    throw new Error(
+      'preset: feature "eventsQueue" replaces module "@michaelthielemann/kestrel-events-inmemory" – configure only one events module',
+    );
+  }
+
   let triggers: TriggerConfig[] = canonicalTriggers
     .filter((entry) => entry.feature === undefined || enabledFeatures.has(entry.feature))
     .filter((entry) => !("http" in entry.trigger) || entry.trigger.pipeline !== "resolvePage" || "pages" in collections)
@@ -233,6 +242,12 @@ export function definePreset<C extends Record<string, CollectionModel> = Record<
   triggers = excluded.triggers;
 
   triggers = applySchedules(triggers, options.schedules ?? {});
+
+  if (enabledFeatures.has("eventsQueue") && !triggers.some((trigger) => "event" in trigger)) {
+    throw new Error(
+      'preset: feature "eventsQueue" needs at least one event trigger – the queue would be written but never consumed',
+    );
+  }
 
   const pipelineDefs = Object.keys(pipelines)
     .sort()

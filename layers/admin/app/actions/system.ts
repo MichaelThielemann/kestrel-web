@@ -1,4 +1,4 @@
-import type { ImagesJob, ImagesPruneResult, ImagesStatus, MediaExportReport, MediaReconcileReport, MigrationsApplyResult, MigrationsDryRunResult, PublishAllReport, RebuildReport, ReplicationRestoreResult, ReplicationSnapshotResult } from '#kestrel-admin/types/api'
+import type { EventsRetryResult, ImagesJob, ImagesPruneResult, ImagesStatus, MediaExportReport, MediaReconcileReport, MigrationsApplyResult, MigrationsDryRunResult, PublishAllReport, RebuildReport, ReplicationRestoreResult, ReplicationSnapshotResult } from '#kestrel-admin/types/api'
 import { defineAction, type ActionStep } from '#kestrel-core/app/utils/actions'
 import { apiErrorCode, apiErrorMessage, apiErrorRunId, apiErrorStatus, withRunId } from '../composables/useApi'
 import { humanizeSize } from '../utils/library'
@@ -101,6 +101,18 @@ export interface ImagesRegisterInput extends WithDeps {
   sizes: readonly DeclaredImageSize[]
   ops: BusyPort
   refresh: RefreshPort
+}
+
+export interface EventsRetryAllInput extends WithDeps {
+  ops: BusyPort
+  refresh: RefreshPort
+  count: number
+}
+
+export interface EventsRetryOneInput extends WithDeps {
+  ops: BusyPort
+  refresh: RefreshPort
+  id: string
 }
 
 export const publishAll = defineAction<PublishAllInput, PublishAllReport>({
@@ -447,4 +459,46 @@ export const imagesRegisterAndSync = defineAction<ImagesRegisterInput, ImagesJob
     dataReload<ImagesRegisterInput, ImagesJob>(),
   ],
   always: [opsBusy<ImagesRegisterInput, ImagesJob>(false)],
+})
+
+export const eventsRetryAll = defineAction<EventsRetryAllInput, EventsRetryResult>({
+  name: 'eventsRetryAll',
+  steps: [
+    dialogConfirm<EventsRetryAllInput, EventsRetryResult>((ctx) => ctx.input.count > 0),
+    opsBusy<EventsRetryAllInput, EventsRetryResult>(true),
+    apiRequest<EventsRetryAllInput, EventsRetryResult, EventsRetryResult>('api.request', {
+      call: () => ({ path: '/admin/events/retry', method: 'POST' }),
+      onSuccess: (ctx, value) => {
+        ctx.result = value
+        ctx.input.deps.toast.success(ctx.input.deps.t('events.retriedAll', { count: value.retried }))
+      },
+      onError: (ctx, err) => {
+        ctx.input.deps.toast.error(withRunId(err.message, err.status, err.runId))
+        ctx.fail(err.message || 'events.retryFailed')
+      },
+    }),
+    dataReload<EventsRetryAllInput, EventsRetryResult>(),
+  ],
+  always: [opsBusy<EventsRetryAllInput, EventsRetryResult>(false)],
+})
+
+export const eventsRetryOne = defineAction<EventsRetryOneInput, EventsRetryResult>({
+  name: 'eventsRetryOne',
+  steps: [
+    opsBusy<EventsRetryOneInput, EventsRetryResult>(true),
+    apiRequest<EventsRetryOneInput, EventsRetryResult, EventsRetryResult>('api.request', {
+      call: (ctx) => ({ path: `/admin/events/dead/${encodeURIComponent(ctx.input.id)}/retry`, method: 'POST' }),
+      onSuccess: (ctx, value) => {
+        ctx.result = value
+        ctx.input.deps.toast.success(ctx.input.deps.t('events.retriedOne'))
+      },
+      onError: (ctx, err) => {
+        if (err.code === 'NOT_FOUND') ctx.input.deps.toast.error(ctx.input.deps.t('events.retryNotFound'))
+        else ctx.input.deps.toast.error(withRunId(err.message, err.status, err.runId))
+        ctx.fail(err.message || 'events.retryFailed')
+      },
+    }),
+    dataReload<EventsRetryOneInput, EventsRetryResult>(),
+  ],
+  always: [opsBusy<EventsRetryOneInput, EventsRetryResult>(false)],
 })

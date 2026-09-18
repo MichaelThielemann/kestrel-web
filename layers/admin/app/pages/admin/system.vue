@@ -2,10 +2,11 @@
 import { resolveLocalized } from '#kestrel-admin/utils/localized'
 import { switchSystemTab } from '#kestrel-admin/actions/editor'
 import type { NavigatePort } from '#kestrel-admin/actions/types'
+import { toastUnexpected } from '#kestrel-admin/actions/steps/notify'
 
 definePageMeta({ layout: 'admin', middleware: 'admin-auth' })
 
-const FEATURE_TAB_IDS = ['users', 'references', 'delivery', 'replication', 'migrations', 'images'] as const
+const FEATURE_TAB_IDS = ['users', 'references', 'delivery', 'replication', 'migrations', 'events', 'images'] as const
 type FeatureTabId = typeof FEATURE_TAB_IDS[number]
 
 function isFeatureTab(id: string): id is FeatureTabId {
@@ -15,6 +16,8 @@ function isFeatureTab(id: string): id is FeatureTabId {
 const route = useRoute()
 const router = useRouter()
 const { t, lang } = useT()
+const api = useApi()
+const toast = useToast()
 const { isAdmin, can } = useAuth()
 const { has } = useFeatures()
 const { collections } = useCollections()
@@ -23,6 +26,7 @@ const canDeliver = computed(() => has('delivery') && can('pages.manage'))
 const canRedirects = computed(() => has('redirects') && (isAdmin.value || can('redirects.write')))
 const canReplication = computed(() => has('replication') && isAdmin.value)
 const canMigrations = computed(() => has('migrations') && isAdmin.value)
+const canEvents = computed(() => has('eventsQueue') && isAdmin.value)
 const canImages = computed(() => has('images') && can('images.manage'))
 const localeParam = computed(() => (typeof route.query.locale === 'string' ? route.query.locale.trim() || undefined : undefined))
 
@@ -55,6 +59,7 @@ const visibleTabs = computed<string[]>(() => TAB_IDS.value.filter((id) => {
   if (id === 'delivery') return canDeliver.value
   if (id === 'replication') return canReplication.value
   if (id === 'migrations') return canMigrations.value
+  if (id === 'events') return canEvents.value
   if (id === 'images') return canImages.value
   return collectionVisible(id)
 }))
@@ -68,6 +73,7 @@ const activeTab = computed<string>(() => {
   if (id === 'delivery' && !canDeliver.value) return fallback
   if (id === 'replication' && !canReplication.value) return fallback
   if (id === 'migrations' && !canMigrations.value) return fallback
+  if (id === 'events' && !canEvents.value) return fallback
   if (id === 'images' && !canImages.value) return fallback
   if (!isFeatureTab(id) && !collectionVisible(id)) return fallback
   return id
@@ -90,7 +96,7 @@ async function setTab(value: unknown) {
   if (id === pendingTab) return
   pendingTab = id
   try {
-    await runAction(switchSystemTab, {
+    const result = await runAction(switchSystemTab, {
       t,
       confirm: confirmDiscard,
       navigate,
@@ -99,6 +105,7 @@ async function setTab(value: unknown) {
       tab: id,
       query: route.query,
     })
+    toastUnexpected({ api, t, toast }, result)
   } finally {
     pendingTab = null
   }
@@ -111,9 +118,9 @@ async function setTab(value: unknown) {
 
     <div v-if="visibleTabs.length" class="system__tabs">
       <div class="system__tablist ui-btngroup" role="tablist" :aria-label="t('system.tabsLabel')" @keydown="onTabKey">
-        <button v-for="tab in visibleTabs" :id="`system-tab-${tab}`" :key="tab" type="button" role="tab" class="system__tab ui-btngroup__item"
+        <KestrelUiButton v-for="tab in visibleTabs" :id="`system-tab-${tab}`" :key="tab" variant="bare" role="tab" class="system__tab ui-btngroup__item"
           :aria-selected="tab === activeTab" :aria-controls="`system-panel-${tab}`" :tabindex="tab === activeTab ? 0 : -1"
-          :data-state="tab === activeTab ? 'active' : 'inactive'" @click="setTab(tab)">{{ tabTitle(tab) }}</button>
+          :data-state="tab === activeTab ? 'active' : 'inactive'" @click="setTab(tab)">{{ tabTitle(tab) }}</KestrelUiButton>
       </div>
 
       <div v-for="tab in visibleTabs" :id="`system-panel-${tab}`" :key="tab" role="tabpanel" class="system__panel" :aria-labelledby="`system-tab-${tab}`" :hidden="tab !== activeTab">
@@ -123,6 +130,7 @@ async function setTab(value: unknown) {
           <KestrelSystemDelivery v-else-if="tab === 'delivery'" />
           <KestrelSystemReplication v-else-if="tab === 'replication'" />
           <KestrelSystemMigrations v-else-if="tab === 'migrations'" />
+          <KestrelSystemEvents v-else-if="tab === 'events'" />
           <KestrelSystemImages v-else-if="tab === 'images'" />
           <KestrelSingletonEditor v-else-if="tabDef(tab)" :collection="tab" :title="tabTitle(tab)" :locale-param="tabDef(tab)?.translatable ? localeParam : undefined" />
         </template>

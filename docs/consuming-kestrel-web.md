@@ -197,6 +197,7 @@ mechanism as `#kestrel/blocks`.
 | `llms` | no | `{ full: true, headings: { pages: "Pages" } }`; `siteUrl` falls back to `NUXT_PUBLIC_SITE_URL` |
 | `migrations` | with the `migrations` feature | — `{ migrations, mode? }`, the `#kestrel/migrations` list (§10); the feature without it throws |
 | `session` | no | `{ identifier: "username", minPasswordLength: 8, sessionTtlSeconds: 86400 }` |
+| `eventsQueue` | no | `{}` — the `events-queue` module config (`pollMs`, `batch`, `maxAttempts`, `backoffSeconds`, `lockTtlSeconds`, `retentionDays`), used only with the `eventsQueue` feature |
 | `overrides` | no | — per-module escape hatch, keyed by package name, shallow-merged onto that module's derived config |
 
 `blobstore`, `roles` and `bootstrap` have no default at all — a missing one throws naming the option
@@ -206,8 +207,9 @@ rather than booting with something plausible.
 
 - **The module set** — the always-on modules (your blobstore, `persistence-sqlite`, `media-default`,
   `authn-multi`, `authz-roles`, `content-default`, `site-default`, `validate-jsonschema`,
-  `events-inmemory`) plus exactly the modules the features in `features` require (§4's table), in the
-  canonical order. Drop a feature and its module goes with it.
+  `events-inmemory`, or `events-queue` instead of it with the `eventsQueue` feature) plus exactly the
+  modules the features in `features` require (§4's table), in the canonical order. Drop a feature and
+  its module goes with it.
 - **`media.locales` / `media.defaultLocale`** — from `model.locales` / `model.defaultLocale`, so the
   media library can't drift from the content model.
 - **`references.targets`** — `pages` when the model has it, plus one entry per `ref` field: `to: "media"`
@@ -470,6 +472,13 @@ server is running needs a restart to switch between the consumer file and the de
 | `migrations` | kestrel-migrations-default | `listMigrations`, `applyMigrations` (`GET /admin/migrations`, `POST /admin/migrations/apply`) |
 | `audit` | kestrel-audit-persistence | `auditAuth` (on `auth.loggedIn`/`auth.loggedOut`) |
 | `insights` | kestrel-insights (optional peer) | `insightsManifest`, `insightsStats` (`GET /admin/insights/manifest`, `GET /admin/insights/stats`, `insights.read`); the `/admin/insights` page |
+| `eventsQueue` | kestrel-events-queue (instead of kestrel-events-inmemory) | `eventsQueueStatus`, `eventsDead`, `eventsRetryDead`, `eventsRetryOne` (`/admin/events/*`, `system.manage`), `purgeEvents` (cron); the System → Events tab; delivery at least once, listeners must be idempotent |
+
+Configure exactly one events module: `kestrel-events-inmemory` (default) or, with the `eventsQueue`
+feature, `kestrel-events-queue` — never both; `presetModuleConfig()` (§3) makes that choice from the
+feature list. The `eventsQueue` feature also requires at least one
+event trigger in the final trigger list (for example `images`' `generateImageVariants` or `audit`'s
+`auditAuth`), since otherwise queued events would never be consumed.
 
 
 Optional packages: `@michaelthielemann/kestrel-insights`, `@vue-flow/core` and `@dagrejs/dagre` are

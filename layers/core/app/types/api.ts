@@ -273,3 +273,16 @@ export interface InsightsStats {
   events: InsightsEventStats[]
   ratelimit: InsightsRatelimitBucket[]
 }
+
+export interface EventsQueueStatus {
+  pending: number
+  running: number
+  dead: number
+  done24h: number
+  oldestPendingAt: number | null
+  worker: { running: boolean; lastTickAt: number | null }
+}
+
+export interface DeadEvent { id: string; name: string; attempts: number; error: string; createdAt: number; availableAt: number }
+export interface DeadEventsResponse { items: DeadEvent[] }
+export interface EventsRetryResult { retried: number }

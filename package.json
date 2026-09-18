@@ -49,6 +49,7 @@
     "@michaelthielemann/kestrel-contracts": "^5.3.0",
     "@michaelthielemann/kestrel-delivery-static": "^5.3.0",
     "@michaelthielemann/kestrel-events-inmemory": "^5.3.0",
+    "@michaelthielemann/kestrel-events-queue": "^5.4.0",
     "@michaelthielemann/kestrel-h3": "^5.3.0",
     "@michaelthielemann/kestrel-images-default": "^5.3.0",
     "@michaelthielemann/kestrel-links-default": "^5.3.0",

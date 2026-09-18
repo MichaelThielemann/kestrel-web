@@ -43,6 +43,15 @@ export interface PresetLlms {
   siteUrl?: string;
 }
 
+export interface PresetEventsQueue {
+  pollMs?: number;
+  batch?: number;
+  maxAttempts?: number;
+  backoffSeconds?: number[];
+  lockTtlSeconds?: number;
+  retentionDays?: number;
+}
+
 export interface PresetMigrations {
   migrations: unknown[];
   mode?: string;
@@ -66,6 +75,7 @@ export interface PresetModuleConfigOptions {
   llms?: PresetLlms;
   migrations?: PresetMigrations;
   session?: PresetSession;
+  eventsQueue?: PresetEventsQueue;
   overrides?: Partial<Record<string, Record<string, unknown>>>;
 }
 
@@ -229,7 +239,8 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
 
   if (enabled.has("redirects")) modules.push({ use: "@michaelthielemann/kestrel-redirects-default", config: { prefix: SITE_PREFIX } });
   if (enabled.has("audit")) modules.push({ use: "@michaelthielemann/kestrel-audit-persistence", config: {} });
-  modules.push({ use: "@michaelthielemann/kestrel-events-inmemory", config: {} });
+  if (enabled.has("eventsQueue")) modules.push({ use: "@michaelthielemann/kestrel-events-queue", config: { ...options.eventsQueue } });
+  else modules.push({ use: "@michaelthielemann/kestrel-events-inmemory", config: {} });
   if (enabled.has("ratelimit")) {
     modules.push({
       use: "@michaelthielemann/kestrel-ratelimit-memory",

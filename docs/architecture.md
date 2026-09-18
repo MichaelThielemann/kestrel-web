@@ -235,7 +235,7 @@ aliases it as `#kestrel/pipelines`, the same mechanism as `#kestrel/blocks`, so 
 composes in a fixed order: base pipelines → collection-derived pipelines (`collections.ts`, one `multi`
 or `single` CRUD set per entry in `collections`, `settings`/`redirects` excluded since they're already in
 base/the `redirects` feature) → feature patches, in canonical feature order (`ratelimit, sanitizeSvg,
-references, links, delivery, redirects, images, replication, migrations, audit, insights`; within one feature, in
+references, links, delivery, redirects, images, replication, migrations, audit, insights, eventsQueue`; within one feature, in
 the order its patches are declared) → `overrides` → `exclude` → `schedules`. Each feature also names the module(s) it
 needs; a feature without its module throws at compose time, a configured module whose feature is off only
 warns (the consumer may still use the module with pipelines of its own).
@@ -327,7 +327,7 @@ which returns the `settings` entry always — including a `navigation` repeater 
 (`layers/admin/app/utils/collections-serialize.ts`) puts a collection in the admin — `AdminNav.vue`
 filters the rail on `placement === 'rail'`, `pages/admin/system.vue` builds its tab list from every
 `placement === 'system'` `single` collection (settings first, then the rest in model order, then the
-fixed feature tabs), `pages/admin/index.vue`'s dashboard cards link `"rail"` to the list and `"system"`
+fixed feature tabs — including the Events tab from the `eventsQueue` feature), `pages/admin/index.vue`'s dashboard cards link `"rail"` to the list and `"system"`
 to the tab (skipping `"account"` cards), and `AdminAccount.vue`'s rail-foot menu lists every
 `placement === 'account'` collection. `nav: false` still opts a `"rail"`-placed collection out of the
 rail link and dashboard card. An invalid `placement` value throws, in both `defineCollectionsUi` and
@@ -657,6 +657,8 @@ untouched.
 | `userCreate` | `actions/system.ts` | `user.validate`, `ops.busy:on`, `api.request` (toasts on success; inline error only, no toast, on failure), `data.reload`; always `ops.busy:off` | `UserNewDialog.vue` |
 | `userSetPassword` | `actions/system.ts` | `user.validate`, `ops.busy:on`, `api.request` (toasts on success; inline error only, no toast, on failure); always `ops.busy:off` | `UserSetPasswordDialog.vue` |
 | `userToggle` | `actions/system.ts` | `ops.busy:on`, `api.request` (no success toast; toasts and fails on error), `data.reload`; always `ops.busy:off` | `SystemUsers.vue` |
+| `eventsRetryAll` | `actions/system.ts` | `dialog.confirm` (only when there's at least one dead-letter event), `ops.busy:on`, `api.request` (toasts the retried count on success; toasts and fails on error), `data.reload`; always `ops.busy:off` | `SystemEvents.vue` |
+| `eventsRetryOne` | `actions/system.ts` | `ops.busy:on`, `api.request` (toasts on success; on error toasts `events.retryNotFound` on 404, otherwise the raw message; always fails), `data.reload`; always `ops.busy:off` | `SystemEvents.vue` |
 | `referencesRebuild` | `actions/system.ts` | `ops.busy:on`, `api.request` (toasts and fails on error; toasts on success), `data.reload`; always `ops.busy:off` | `SystemReferences.vue` |
 | `linksRebuild` | `actions/system.ts` | `ops.busy:on`, `api.request` (toasts and fails on error; toasts on success), `data.reload`; always `ops.busy:off` | `SystemReferences.vue` |
 | `previewPrune` | `actions/system.ts` | `api.request` (`GET /admin/images/status`; on success sets the result to the orphaned sizes and variant count; toasts and fails on error), `guard.selection` (fails when nothing is orphaned) | `SystemImages.vue`, "Remove orphaned" button, to fill the confirm dialog |
