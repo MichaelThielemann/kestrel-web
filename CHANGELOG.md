@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Breaking
+
+- The preset moves user deactivation from `DELETE /users/:id` to `POST /users/:id/deactivate`, the
+  counterpart of `POST /users/:id/activate`, and gives `DELETE /users/:id` the new `deleteUser`
+  pipeline, which removes the user for good. A consumer with its own `triggers`, `overrides` or
+  `exclude` list that named `deactivateUser` behind `DELETE` keeps its own mapping and has to move it
+  itself; a consumer on the preset gets the new routes with the next build. Needs
+  `@michaelthielemann/kestrel-authn-multi` 5.5.0 or newer for the `authn.updateUser` and
+  `authn.deleteUser` steps.
+
 ### Added
 
 - `KestrelUiTabList` (`components/ui/TabList.vue`): the roving-tabindex `role="tablist"` strip the system
@@ -9,6 +19,18 @@
   styling; both pages now render it instead of hard-coding `ui-btngroup__item` on a `KestrelUiButton`
   without rendering `ButtonGroup`, which also removes the duplicated arrow/Home/End key handling and the
   `data-state="active"` value that never matched the kit's `[data-state='on']` rule.
+- The preset pipelines `updateUser` (`PATCH /users/:id`, `authn.requireUser`,
+  `authz.require:users.manage`, `authn.updateUser`, `events.emit:user.updated`) and `deleteUser`
+  (`DELETE /users/:id`, the same guard, `authn.deleteUser`, `events.emit:user.deleted`), both in
+  `staticPipelineNames`. `authn-multi` guards the last active holder of `users.manage` itself
+  (409 `LAST_ADMIN`) once an `authz@1` module is configured, which `presetModuleConfig` always does.
+- Admin, System → Users: the row cogwheel gives way to an actions menu (`KestrelUiActionMenu`) with
+  Edit, Activate/Deactivate and Delete. `UserEditDialog.vue` renames a user, sets their roles
+  (a checkbox group over every role in use, extendable with a free role name), switches the account
+  active and optionally sets a new password with confirmation — each part only sends its own request
+  when it changed. `UserDeleteDialog.vue` is the delete confirmation. Both refuse the signed-in
+  user's own account up front, and the backend's `LAST_ADMIN`, `CONFLICT` and self-protection
+  answers appear as localized messages (`utils/user-errors.ts`).
 
 - `GET /api/admin/schema` (consumer-visible): the content model, collection UI, workflow and features in
   one answer, `{ locales: { all, primary, prefixPrimary }, collections: SerializedCollection[], features:

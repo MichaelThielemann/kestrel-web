@@ -871,7 +871,9 @@ registered that isn't in `uiStepNames`, and nothing in `uiStepNames` goes unregi
 | `guard.filesDeleted` / `guard.foldersDeleted` | `actions/media.ts` | Fails `deleteItems`'s main sequence when the file batch, respectively the folder batch, reported any failure. |
 | `media.applyTargets` | `actions/media.ts` | Does the one write `renameOrMove` needs: a file rename, a folder rename, or a multi-target move. |
 | `upload.begin` / `upload.request` / `upload.settle` | `actions/media.ts` | Marks the queued item `'uploading'` (`progress` 0); sends the multipart POST through the injected `useUploadTransport` transport, updating `progress` from its callback and switching to `'processing'` at 100% until the response arrives; then seeds `ctx.result` with the item. |
-| `user.validate` | `actions/system.ts` | Field validation before the request; declared separately, under the same name, in `userCreate` (username + password) and `userSetPassword` (password only). |
+| `user.validate` | `actions/system.ts` | Field validation before the request; declared separately, under the same name, in `userCreate` (username + password) and `userUpdate` (username, plus the password only when one was typed). |
+| `user.patch` / `user.active` / `user.password` | `actions/system.ts` | The three halves of `userUpdate`: `PATCH /users/{id}` with only the changed fields, `POST /users/{id}/deactivate` or `/activate`, `PUT /users/{id}/password`. Each is a no-op when its part did not change, and each maps the failure through `utils/user-errors.ts` into the inline error. |
+| `user.delete` | `actions/system.ts` | `DELETE /users/{id}`, with the same error mapping. |
 | `delivery.remember` | `steps/delivery.ts` | Stores the delivery entries a page write answered with, for the editor's second traffic light. |
 | `api.request:register` | `actions/system.ts` | Inline step (not the `api.request` factory): a no-op when the declared size list is empty, otherwise `PUT /admin/images/sizes`; a 409 (name collision with a `source: "config"` size) returns silently, the same as the empty-list case — nothing is written to `ctx.result` either way. Used by `imagesRegisterAndSync`. |
 | `api.request:sync` | `actions/system.ts` | The `api.request` factory under this name — the sync half of `imagesRegisterAndSync`, run after `api.request:register`. Named separately so the two requests of one action log as distinct steps, the same convention as `media.each:files`/`media.each:folders`. |
@@ -913,8 +915,9 @@ untouched.
 | `migrationsDryRun` | `actions/system.ts` | `ops.busy:on`, `api.request` (`POST /admin/migrations/apply` with `{ dry: true }`; toasts and fails on error); always `ops.busy:off` | `SystemMigrations.vue`, "Dry run" button |
 | `migrationsApply` | `actions/system.ts` | `dialog.confirm`, `ops.busy:on`, `api.request` (`POST /admin/migrations/apply` with `{ dry: false }`; toasts the applied count on success; toasts and fails on error), `data.reload`; always `ops.busy:off` | `SystemMigrations.vue`, "Apply" confirm |
 | `userCreate` | `actions/system.ts` | `user.validate`, `ops.busy:on`, `api.request` (toasts on success; inline error only, no toast, on failure), `data.reload`; always `ops.busy:off` | `UserNewDialog.vue` |
-| `userSetPassword` | `actions/system.ts` | `user.validate`, `ops.busy:on`, `api.request` (toasts on success; inline error only, no toast, on failure); always `ops.busy:off` | `UserSetPasswordDialog.vue` |
-| `userToggle` | `actions/system.ts` | `ops.busy:on`, `api.request` (no success toast; toasts and fails on error), `data.reload`; always `ops.busy:off` | `SystemUsers.vue` |
+| `userUpdate` | `actions/system.ts` | `user.validate`, `ops.busy:on`, `user.patch`, `user.active`, `user.password`, `toast.success`, `data.reload`; always `ops.busy:off` | `UserEditDialog.vue` |
+| `userDelete` | `actions/system.ts` | `dialog.confirm`, `ops.busy:on`, `user.delete`, `toast.success`, `data.reload`; always `ops.busy:off` | `UserDeleteDialog.vue` |
+| `userToggle` | `actions/system.ts` | `ops.busy:on`, `api.request` (`POST /users/{id}/deactivate` or `/activate`; no success toast; toasts the mapped message and fails on error), `data.reload`; always `ops.busy:off` | `SystemUsers.vue`, row menu |
 | `eventsRetryAll` | `actions/system.ts` | `dialog.confirm` (only when there's at least one dead-letter event), `ops.busy:on`, `api.request` (toasts the retried count on success; toasts and fails on error), `data.reload`; always `ops.busy:off` | `SystemEvents.vue` |
 | `eventsRetryOne` | `actions/system.ts` | `ops.busy:on`, `api.request` (toasts on success; on error toasts `events.retryNotFound` on 404, otherwise the raw message; always fails), `data.reload`; always `ops.busy:off` | `SystemEvents.vue` |
 | `referencesRebuild` | `actions/system.ts` | `ops.busy:on`, `api.request` (toasts and fails on error; toasts on success), `data.reload`; always `ops.busy:off` | `SystemReferences.vue` |
@@ -941,7 +944,7 @@ A few steps are inline in their action file rather than shared, because only one
 `media.applyTargets` (three endpoints behind one rename-or-move dialog), `deleteItems`'s own
 `guard.filesDeleted` / `guard.foldersDeleted` and its per-batch `media.each:files` / `media.each:folders`
 / `data.reload:files` / `data.reload:folders` steps, `upload.begin` / `upload.settle`, `user.validate`
-(declared once per caller, with its own validation body, in `userCreate` and `userSetPassword`), and
+(declared once per caller, with its own validation body, in `userCreate` and `userUpdate`), and
 `api.request:register` (`imagesRegisterAndSync`'s own registration half).
 
 ### Adding an action

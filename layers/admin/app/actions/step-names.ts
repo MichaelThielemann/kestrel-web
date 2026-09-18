@@ -41,6 +41,10 @@ export const uiStepNames = [
   'upload.request',
   'upload.settle',
   'user.validate',
+  'user.patch',
+  'user.active',
+  'user.password',
+  'user.delete',
   'delivery.remember',
 ] as const
 

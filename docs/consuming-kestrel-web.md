@@ -487,6 +487,25 @@ For pipeline shapes and trigger config beyond what `definePreset` covers, see th
 That alias is resolved once, at Nuxt startup — adding or deleting `pipelines/index.ts` while the dev
 server is running needs a restart to switch between the consumer file and the default.
 
+### User administration
+
+The preset wires the whole user lifecycle to `authn-multi` and guards every route with
+`authz.require:users.manage`:
+
+| route | pipeline | answer |
+|---|---|---|
+| `GET /users`, `POST /users`, `GET /users/:id` | `listUsers`, `createUser`, `getUser` | the user(s) |
+| `PATCH /users/:id` | `updateUser` | the user; `{ username?, roles? }`, emits `user.updated` |
+| `PUT /users/:id/password` | `setPassword` | `{ ok: true }` |
+| `POST /users/:id/deactivate` / `/activate` | `deactivateUser`, `activateUser` | `{ ok: true }` |
+| `DELETE /users/:id` | `deleteUser` | `{ ok: true }`, a hard delete, emits `user.deleted` |
+
+The username is the identity — there is no e-mail field. Roles are free strings; which permissions
+they carry is the `roles` option of `presetModuleConfig`. Nobody can delete or deactivate their own
+account (400), and the last active holder of `users.manage` can be neither deactivated, nor deleted,
+nor stripped of that permission (409 `LAST_ADMIN`). Deactivation used to answer `DELETE /users/:id`;
+a consumer that kept its own trigger list has to move it to `POST /users/:id/deactivate` itself.
+
 ### Features
 
 | feature | required module(s) | adds |

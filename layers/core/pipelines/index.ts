@@ -54,7 +54,7 @@ export interface FeatureModule {
 }
 
 export const staticPipelineNames = [
-  "login", "logout", "me", "changePassword", "adminSchemaModel", "listUsers", "createUser", "getUser", "setPassword", "deactivateUser", "activateUser",
+  "login", "logout", "me", "changePassword", "adminSchemaModel", "listUsers", "createUser", "getUser", "updateUser", "deleteUser", "setPassword", "deactivateUser", "activateUser",
   "cleanupSessions", "getSettings", "setSettings", "listPages", "listAllPages", "readPage", "readAnyPage", "resolvePage", "createPage", "updatePage",
   "deletePage", "uploadMedia", "exportMedia", "listMediaFolders", "createMediaFolder", "renameMediaFolder", "deleteMediaFolder",
   "listMedia", "getMedia", "downloadMedia", "updateMedia", "deleteMedia", "reconcileMedia", "reconcileMediaReport", "reconcileMediaDelete",

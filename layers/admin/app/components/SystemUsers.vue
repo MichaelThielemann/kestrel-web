@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { User } from '#kestrel-admin/types/api'
+import type { MenuItem } from '#kestrel-admin/components/ui/Menu.vue'
 import { userToggle } from '#kestrel-admin/actions/system'
 import type { ActionDeps } from '#kestrel-admin/actions/types'
 import { toastUnexpected } from '#kestrel-admin/actions/steps/notify'
@@ -7,6 +8,7 @@ import { toastUnexpected } from '#kestrel-admin/actions/steps/notify'
 const { t } = useT()
 const api = useApi()
 const toast = useToast()
+const { identity } = useAuth()
 
 const deps: ActionDeps = { api, t, toast }
 
@@ -22,7 +24,19 @@ async function load() {
 await load()
 
 const newOpen = ref(false)
-const passwordUser = ref<User | null>(null)
+const editUser = ref<User | null>(null)
+const deleteUser = ref<User | null>(null)
+
+const knownRoles = computed(() => [...new Set(users.value.flatMap((u) => u.roles))])
+function isSelf(u: User) { return identity.value?.id === u.id }
+
+function rowMenu(u: User): MenuItem[] {
+  return [
+    { value: 'edit', label: t('users.edit') },
+    { value: 'toggle', label: u.active ? t('users.deactivate') : t('users.activate'), disabled: u.active && isSelf(u) },
+    { value: 'delete', label: t('users.delete'), danger: true, disabled: isSelf(u) },
+  ]
+}
 
 async function toggleActive(u: User) {
   const result = await runAction(userToggle, {
@@ -33,6 +47,12 @@ async function toggleActive(u: User) {
     refresh: load,
   })
   toastUnexpected(deps, result)
+}
+
+function onSelect(u: User, action: string) {
+  if (action === 'edit') editUser.value = u
+  if (action === 'delete') deleteUser.value = u
+  if (action === 'toggle') void toggleActive(u)
 }
 
 const dateFmt = new Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'short', day: '2-digit' })
@@ -64,15 +84,13 @@ function formatDate(ms: number) { return dateFmt.format(new Date(ms)) }
             <td>{{ formatDate(u.createdAt) }}</td>
             <td class="ui-table__col--actions">
               <div class="ui-table__actions">
-                <KestrelUiButton variant="ghost" size="sm" icon="settings" :disabled="busyId === u.id" :aria-label="t('users.setPassword')" @click="passwordUser = u" />
-                <KestrelUiButton
-                  :variant="u.active ? 'danger-ghost' : 'ghost'"
-                  size="sm"
-                  :icon="u.active ? 'x' : 'check'"
+                <KestrelUiActionMenu
+                  :items="rowMenu(u)"
+                  :label="t('users.rowActions', { username: u.username })"
                   :disabled="busyId === u.id"
-                  :aria-label="u.active ? t('users.deactivate') : t('users.activate')"
-                  @click="toggleActive(u)"
-                />
+                  trigger-class="ui-button--icon ui-button--icon-sm"
+                  @select="(action) => onSelect(u, action)"
+                ><KestrelUiIcon name="more-horizontal" :size="15" /></KestrelUiActionMenu>
               </div>
             </td>
           </tr>
@@ -81,7 +99,19 @@ function formatDate(ms: number) { return dateFmt.format(new Date(ms)) }
     </div>
 
     <KestrelUserNewDialog v-model:open="newOpen" @created="load" />
-    <KestrelUserSetPasswordDialog :user="passwordUser" @update:user="passwordUser = $event" />
+    <KestrelUserEditDialog
+      :user="editUser"
+      :known-roles="knownRoles"
+      :self="editUser !== null && isSelf(editUser)"
+      @update:user="editUser = $event"
+      @saved="load"
+    />
+    <KestrelUserDeleteDialog
+      :user="deleteUser"
+      :self="deleteUser !== null && isSelf(deleteUser)"
+      @update:user="deleteUser = $event"
+      @deleted="load"
+    />
   </section>
 </template>
 

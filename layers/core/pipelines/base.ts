@@ -17,6 +17,8 @@ export function basePipelines({ exportDir, homeSlug }: PresetContext, collection
     listUsers: ["authn.requireUser", "authz.require:users.manage", "authn.listUsers"],
     createUser: ["authn.requireUser", "authz.require:users.manage", "authn.createUser", "events.emit:user.created"],
     getUser: ["authn.requireUser", "authz.require:users.manage", "authn.getUser"],
+    updateUser: ["authn.requireUser", "authz.require:users.manage", "authn.updateUser", "events.emit:user.updated"],
+    deleteUser: ["authn.requireUser", "authz.require:users.manage", "authn.deleteUser", "events.emit:user.deleted"],
     setPassword: ["authn.requireUser", "authz.require:users.manage", "authn.setPassword"],
     deactivateUser: ["authn.requireUser", "authz.require:users.manage", "authn.deactivateUser", "events.emit:user.deactivated"],
     activateUser: ["authn.requireUser", "authz.require:users.manage", "authn.activateUser"],

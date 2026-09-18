@@ -100,6 +100,12 @@
       "delivery.exportLlms",
       "events.emit:page.translationRemoved"
     ],
+    "deleteUser": [
+      "authn.requireUser",
+      "authz.require:users.manage",
+      "authn.deleteUser",
+      "events.emit:user.deleted"
+    ],
     "downloadMedia": [
       "authn.identifyUser",
       "authz.require:media.read",
@@ -371,6 +377,12 @@
       "delivery.exportLlms",
       "events.emit:page.updated"
     ],
+    "updateUser": [
+      "authn.requireUser",
+      "authz.require:users.manage",
+      "authn.updateUser",
+      "events.emit:user.updated"
+    ],
     "uploadMedia": [
       "authn.requireUser",
       "authz.require:media.write",
@@ -409,11 +421,19 @@
       "pipeline": "getUser"
     },
     {
+      "http": "PATCH /users/:id",
+      "pipeline": "updateUser"
+    },
+    {
       "http": "PUT /users/:id/password",
       "pipeline": "setPassword"
     },
     {
       "http": "DELETE /users/:id",
+      "pipeline": "deleteUser"
+    },
+    {
+      "http": "POST /users/:id/deactivate",
       "pipeline": "deactivateUser"
     },
     {

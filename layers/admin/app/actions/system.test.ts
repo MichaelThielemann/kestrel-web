@@ -20,8 +20,9 @@ import {
   replicationRestore,
   replicationSnapshot,
   userCreate,
-  userSetPassword,
+  userDelete,
   userToggle,
+  userUpdate,
 } from './system'
 import type { ActionDeps, ApiRequestOptions, BusyPort } from './types'
 
@@ -370,63 +371,6 @@ describe('userCreate', () => {
   })
 })
 
-describe('userSetPassword', () => {
-  it('makes no request when the user is null', async () => {
-    const { deps, calls } = fakeDeps([])
-    const { ops, errors } = fakeOps()
-
-    const result = await runAction(userSetPassword, { deps, userId: null, password: 'longenough', passwordConfirm: 'longenough', ops })
-
-    expect(result.ok).toBe(false)
-    expect(calls.length).toBe(0)
-    expect(errors).toEqual([])
-  })
-
-  it('fails validation on a short password without a request', async () => {
-    const { deps, calls } = fakeDeps([])
-    const { ops, errors } = fakeOps()
-
-    await runAction(userSetPassword, { deps, userId: 'u1', password: 'short12', passwordConfirm: 'short12', ops })
-
-    expect(calls.length).toBe(0)
-    expect(errors).toEqual(['users.passwordTooShort'])
-  })
-
-  it('fails validation when the confirmation does not match, without a request', async () => {
-    const { deps, calls } = fakeDeps([])
-    const { ops, errors } = fakeOps()
-
-    const result = await runAction(userSetPassword, { deps, userId: 'u1', password: 'longenough', passwordConfirm: 'different', ops })
-
-    expect(result.ok).toBe(false)
-    expect(calls.length).toBe(0)
-    expect(errors).toEqual(['password.mismatch'])
-  })
-
-  it('sets the password and toasts success', async () => {
-    const { deps, calls, toast } = fakeDeps([{}])
-    const { ops } = fakeOps()
-
-    const result = await runAction(userSetPassword, { deps, userId: 'u1', password: 'longenough', passwordConfirm: 'longenough', ops })
-
-    expect(result.ok).toBe(true)
-    expect(calls).toEqual([{ path: '/users/u1/password', method: 'PUT', body: { password: 'longenough' }, query: undefined }])
-    expect(toast.success).toHaveBeenCalledWith('users.passwordChanged')
-  })
-
-  it('sets the inline error without a toast on failure', async () => {
-    const { deps, toast } = fakeDeps([apiError(500, 'boom')])
-    const { ops, errors } = fakeOps()
-
-    const result = await runAction(userSetPassword, { deps, userId: 'u1', password: 'longenough', passwordConfirm: 'longenough', ops })
-
-    expect(result.ok).toBe(false)
-    expect(errors).toContain('boom')
-    expect(toast.success).not.toHaveBeenCalled()
-    expect(toast.error).not.toHaveBeenCalled()
-  })
-})
-
 describe('referencesRebuild', () => {
   it('rebuilds, toasts the report and reloads', async () => {
     const { deps, calls, toast } = fakeDeps([{ documents: 5, entries: 12 }])
@@ -500,7 +444,7 @@ describe('userToggle', () => {
     const result = await runAction(userToggle, { deps, userId: 'u1', active: true, ops: trackedOps, refresh })
 
     expect(result.ok).toBe(true)
-    expect(calls).toEqual([{ path: '/users/u1', method: 'DELETE', body: undefined, query: undefined }])
+    expect(calls).toEqual([{ path: '/users/u1/deactivate', method: 'POST', body: undefined, query: undefined }])
     expect(busyLog).toEqual([true, false])
     expect(order).toEqual(['refresh', 'busy:off'])
   })
@@ -526,6 +470,139 @@ describe('userToggle', () => {
     expect(toast.error).toHaveBeenCalledWith('boom')
     expect(refreshCalls.length).toBe(0)
     expect(busyLog).toEqual([true, false])
+  })
+})
+
+describe('userUpdate', () => {
+  const initial = { username: 'bob', roles: ['editor'], active: true }
+
+  it('fails validation on a blank username without a request', async () => {
+    const { deps, calls } = fakeDeps([])
+    const { ops, errors } = fakeOps()
+    const { refresh } = fakeRefresh()
+
+    const result = await runAction(userUpdate, { deps, userId: 'u1', username: '  ', roles: ['editor'], active: true, password: '', passwordConfirm: '', initial, ops, refresh })
+
+    expect(result.ok).toBe(false)
+    expect(calls.length).toBe(0)
+    expect(errors).toEqual(['users.usernameRequired'])
+  })
+
+  it('fails validation on a short password without a request', async () => {
+    const { deps, calls } = fakeDeps([])
+    const { ops, errors } = fakeOps()
+    const { refresh } = fakeRefresh()
+
+    await runAction(userUpdate, { deps, userId: 'u1', username: 'bob', roles: ['editor'], active: true, password: 'short12', passwordConfirm: 'short12', initial, ops, refresh })
+
+    expect(calls.length).toBe(0)
+    expect(errors).toEqual(['users.passwordTooShort'])
+  })
+
+  it('patches only the changed fields with the trimmed username', async () => {
+    const { deps, calls, toast } = fakeDeps([{ id: 'u1' }])
+    const { ops } = fakeOps()
+    const { refresh, calls: refreshCalls } = fakeRefresh()
+
+    const result = await runAction(userUpdate, { deps, userId: 'u1', username: '  ada  ', roles: ['editor'], active: true, password: '', passwordConfirm: '', initial, ops, refresh })
+
+    expect(result.ok).toBe(true)
+    expect(calls).toEqual([{ path: '/users/u1', method: 'PATCH', body: { username: 'ada' }, query: undefined }])
+    expect(toast.success).toHaveBeenCalledWith('users.saved')
+    expect(refreshCalls.length).toBe(1)
+  })
+
+  it('sends roles, the deactivation and the new password in that order', async () => {
+    const { deps, calls } = fakeDeps([{ id: 'u1' }, undefined, undefined])
+    const { ops } = fakeOps()
+    const { refresh } = fakeRefresh()
+
+    await runAction(userUpdate, { deps, userId: 'u1', username: 'bob', roles: ['admin', 'editor'], active: false, password: 'longenough', passwordConfirm: 'longenough', initial, ops, refresh })
+
+    expect(calls).toEqual([
+      { path: '/users/u1', method: 'PATCH', body: { roles: ['admin', 'editor'] }, query: undefined },
+      { path: '/users/u1/deactivate', method: 'POST', body: undefined, query: undefined },
+      { path: '/users/u1/password', method: 'PUT', body: { password: 'longenough' }, query: undefined },
+    ])
+  })
+
+  it('makes no request at all when nothing changed', async () => {
+    const { deps, calls } = fakeDeps([])
+    const { ops } = fakeOps()
+    const { refresh, calls: refreshCalls } = fakeRefresh()
+
+    const result = await runAction(userUpdate, { deps, userId: 'u1', username: 'bob', roles: ['editor'], active: true, password: '', passwordConfirm: '', initial, ops, refresh })
+
+    expect(result.ok).toBe(true)
+    expect(calls.length).toBe(0)
+    expect(refreshCalls.length).toBe(1)
+  })
+
+  it('shows the localized message on a taken username and stops before the password', async () => {
+    const { deps, calls } = fakeDeps([apiError(409, 'username already exists')])
+    const { ops, errors, busyLog } = fakeOps()
+    const { refresh, calls: refreshCalls } = fakeRefresh()
+
+    const result = await runAction(userUpdate, { deps, userId: 'u1', username: 'ada', roles: ['editor'], active: true, password: 'longenough', passwordConfirm: 'longenough', initial, ops, refresh })
+
+    expect(result.ok).toBe(false)
+    expect(calls.length).toBe(1)
+    expect(errors).toContain('users.nameTaken')
+    expect(refreshCalls.length).toBe(0)
+    expect(busyLog).toEqual([true, false])
+  })
+
+  it('shows the last-administrator message when the role change is refused', async () => {
+    const { deps } = fakeDeps([Object.assign(new Error('the last admin must keep users.manage'), {
+      status: 409,
+      name: 'ApiError',
+      data: { error: 'the last admin must keep users.manage', code: 'LAST_ADMIN', retryable: false },
+    })])
+    const { ops, errors } = fakeOps()
+    const { refresh } = fakeRefresh()
+
+    await runAction(userUpdate, { deps, userId: 'u1', username: 'bob', roles: [], active: true, password: '', passwordConfirm: '', initial, ops, refresh })
+
+    expect(errors).toContain('users.lastAdminRoles')
+  })
+})
+
+describe('userDelete', () => {
+  it('makes no request while the dialog is not confirmed', async () => {
+    const { deps, calls } = fakeDeps([])
+    const { ops } = fakeOps()
+    const { refresh } = fakeRefresh()
+
+    const result = await runAction(userDelete, { deps, userId: 'u1', confirmed: false, ops, refresh })
+
+    expect(result.ok).toBe(false)
+    expect(calls.length).toBe(0)
+  })
+
+  it('deletes, toasts and reloads', async () => {
+    const { deps, calls, toast } = fakeDeps([{ ok: true }])
+    const { ops, busyLog } = fakeOps()
+    const { refresh, calls: refreshCalls } = fakeRefresh()
+
+    const result = await runAction(userDelete, { deps, userId: 'u1', confirmed: true, ops, refresh })
+
+    expect(result.ok).toBe(true)
+    expect(calls).toEqual([{ path: '/users/u1', method: 'DELETE', body: undefined, query: undefined }])
+    expect(toast.success).toHaveBeenCalledWith('users.deleted')
+    expect(refreshCalls.length).toBe(1)
+    expect(busyLog).toEqual([true, false])
+  })
+
+  it('shows the self-protection message and skips the reload', async () => {
+    const { deps } = fakeDeps([apiError(400, 'you cannot delete yourself')])
+    const { ops, errors } = fakeOps()
+    const { refresh, calls: refreshCalls } = fakeRefresh()
+
+    const result = await runAction(userDelete, { deps, userId: 'u1', confirmed: true, ops, refresh })
+
+    expect(result.ok).toBe(false)
+    expect(errors).toContain('users.cannotDeleteSelf')
+    expect(refreshCalls.length).toBe(0)
   })
 })
 

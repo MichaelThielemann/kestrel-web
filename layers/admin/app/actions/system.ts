@@ -1,13 +1,15 @@
 import type { EventsRetryResult, ImagesJob, ImagesPruneResult, ImagesStatus, MediaExportReport, MediaReconcileReport, MigrationsApplyResult, MigrationsDryRunResult, PublishAllReport, RebuildReport, ReplicationRestoreResult, ReplicationSnapshotResult } from '#kestrel-admin/types/api'
-import { defineAction, type ActionStep } from '#kestrel-core/app/utils/actions'
+import { defineAction, type ActionContext, type ActionStep } from '#kestrel-core/app/utils/actions'
 import { apiErrorCode, apiErrorMessage, apiErrorRunId, apiErrorStatus, withRunId } from '../composables/useApi'
 import { humanizeSize } from '../utils/library'
+import { userErrorMessage } from '../utils/user-errors'
+import type { UserOperation } from '../utils/user-errors'
 import { defineUiStep } from './define'
 import { apiRequest } from './steps/api'
 import { dialogConfirm, guardSelection } from './steps/guard'
 import { opsBusy } from './steps/notify'
 import { dataReload } from './steps/route'
-import type { BusyPort, RefreshPort, WithDeps } from './types'
+import type { ApiCall, BusyPort, RefreshPort, WithDeps } from './types'
 
 export interface PublishAllInput extends WithDeps { ops: BusyPort }
 export interface ExportMediaInput extends WithDeps { ops: BusyPort }
@@ -43,16 +45,34 @@ export interface UserCreateInput extends WithDeps {
   refresh: RefreshPort
 }
 
-export interface UserPasswordInput extends WithDeps {
-  userId: string | null
-  password: string
-  passwordConfirm: string
-  ops: BusyPort
-}
-
 export interface UserToggleInput extends WithDeps {
   userId: string
   active: boolean
+  ops: BusyPort
+  refresh: RefreshPort
+}
+
+export interface UserSnapshot {
+  username: string
+  roles: readonly string[]
+  active: boolean
+}
+
+export interface UserUpdateInput extends WithDeps {
+  userId: string
+  username: string
+  roles: readonly string[]
+  active: boolean
+  password: string
+  passwordConfirm: string
+  initial: UserSnapshot
+  ops: BusyPort
+  refresh: RefreshPort
+}
+
+export interface UserDeleteInput extends WithDeps {
+  userId: string
+  confirmed: boolean
   ops: BusyPort
   refresh: RefreshPort
 }
@@ -263,44 +283,98 @@ export const userCreate = defineAction<UserCreateInput, undefined>({
   always: [opsBusy<UserCreateInput, undefined>(false)],
 })
 
-const userPasswordValidate: ActionStep<UserPasswordInput, undefined> = defineUiStep('user.validate', (ctx) => {
-  const { userId, password, passwordConfirm, ops, deps } = ctx.input
-  if (userId === null) ctx.fail('user.validate')
-  if (password.length < 8) { ops.setError?.(deps.t('users.passwordTooShort')); ctx.fail('users.passwordTooShort') }
-  if (password !== passwordConfirm) { ops.setError?.(deps.t('password.mismatch')); ctx.fail('password.mismatch') }
-})
-
-export const userSetPassword = defineAction<UserPasswordInput, undefined>({
-  name: 'userSetPassword',
-  steps: [
-    userPasswordValidate,
-    opsBusy<UserPasswordInput, undefined>(true),
-    apiRequest<UserPasswordInput, undefined, unknown>('api.request', {
-      call: (ctx) => ({ path: `/users/${ctx.input.userId}/password`, method: 'PUT', body: { password: ctx.input.password } }),
-      onSuccess: (ctx) => { ctx.input.deps.toast.success(ctx.input.deps.t('users.passwordChanged')) },
-      onError: (ctx, err) => { ctx.input.ops.setError?.(err.message); ctx.fail(err.message) },
-    }),
-  ],
-  always: [opsBusy<UserPasswordInput, undefined>(false)],
-})
-
 export const userToggle = defineAction<UserToggleInput, undefined>({
   name: 'userToggle',
   steps: [
     opsBusy<UserToggleInput, undefined>(true),
     apiRequest<UserToggleInput, undefined, unknown>('api.request', {
       call: (ctx) => (ctx.input.active
-        ? { path: `/users/${ctx.input.userId}`, method: 'DELETE' }
+        ? { path: `/users/${ctx.input.userId}/deactivate`, method: 'POST' }
         : { path: `/users/${ctx.input.userId}/activate`, method: 'POST' }),
       onSuccess: () => {},
       onError: (ctx, err) => {
-        ctx.input.deps.toast.error(withRunId(err.message, err.status, err.runId))
-        ctx.fail(err.message)
+        const message = userErrorMessage(ctx.input.deps.t, ctx.input.active ? 'deactivate' : 'activate', err)
+        ctx.input.deps.toast.error(withRunId(message, err.status, err.runId))
+        ctx.fail(message)
       },
     }),
     dataReload<UserToggleInput, undefined>(),
   ],
   always: [opsBusy<UserToggleInput, undefined>(false)],
+})
+
+async function callUser<I extends WithDeps & { ops: BusyPort }>(ctx: ActionContext<I, undefined>, operation: UserOperation, call: ApiCall): Promise<void> {
+  try {
+    await ctx.input.deps.api(call.path, { method: call.method, ...(call.body === undefined ? {} : { body: call.body }) })
+  } catch (e) {
+    const message = userErrorMessage(ctx.input.deps.t, operation, { status: apiErrorStatus(e), code: apiErrorCode(e), message: apiErrorMessage(e) })
+    ctx.input.ops.setError?.(message)
+    ctx.fail(message)
+  }
+}
+
+function rolesChanged(a: readonly string[], b: readonly string[]): boolean {
+  return a.length !== b.length || a.some((role, index) => role !== b[index])
+}
+
+const userUpdateValidate: ActionStep<UserUpdateInput, undefined> = defineUiStep('user.validate', (ctx) => {
+  const { username, password, passwordConfirm, ops, deps } = ctx.input
+  if (!username.trim()) { ops.setError?.(deps.t('users.usernameRequired')); ctx.fail('users.usernameRequired') }
+  if (password.length > 0 && password.length < 8) { ops.setError?.(deps.t('users.passwordTooShort')); ctx.fail('users.passwordTooShort') }
+  if (password !== passwordConfirm) { ops.setError?.(deps.t('password.mismatch')); ctx.fail('password.mismatch') }
+})
+
+const userUpdatePatch: ActionStep<UserUpdateInput, undefined> = defineUiStep('user.patch', async (ctx) => {
+  const { userId, username, roles, initial } = ctx.input
+  const name = username.trim()
+  const renamed = name !== initial.username
+  const rerolled = rolesChanged(roles, initial.roles)
+  if (!renamed && !rerolled) return
+  const body = { ...(renamed ? { username: name } : {}), ...(rerolled ? { roles: [...roles] } : {}) }
+  await callUser(ctx, 'update', { path: `/users/${userId}`, method: 'PATCH', body })
+})
+
+const userUpdateActive: ActionStep<UserUpdateInput, undefined> = defineUiStep('user.active', async (ctx) => {
+  const { userId, active, initial } = ctx.input
+  if (active === initial.active) return
+  const path = active ? `/users/${userId}/activate` : `/users/${userId}/deactivate`
+  await callUser(ctx, active ? 'activate' : 'deactivate', { path, method: 'POST' })
+})
+
+const userUpdatePassword: ActionStep<UserUpdateInput, undefined> = defineUiStep('user.password', async (ctx) => {
+  const { userId, password } = ctx.input
+  if (password.length === 0) return
+  await callUser(ctx, 'password', { path: `/users/${userId}/password`, method: 'PUT', body: { password } })
+})
+
+export const userUpdate = defineAction<UserUpdateInput, undefined>({
+  name: 'userUpdate',
+  steps: [
+    userUpdateValidate,
+    opsBusy<UserUpdateInput, undefined>(true),
+    userUpdatePatch,
+    userUpdateActive,
+    userUpdatePassword,
+    defineUiStep<UserUpdateInput, undefined>('toast.success', (ctx) => { ctx.input.deps.toast.success(ctx.input.deps.t('users.saved')) }),
+    dataReload<UserUpdateInput, undefined>(),
+  ],
+  always: [opsBusy<UserUpdateInput, undefined>(false)],
+})
+
+const userDeleteRequest: ActionStep<UserDeleteInput, undefined> = defineUiStep('user.delete', async (ctx) => {
+  await callUser(ctx, 'delete', { path: `/users/${ctx.input.userId}`, method: 'DELETE' })
+})
+
+export const userDelete = defineAction<UserDeleteInput, undefined>({
+  name: 'userDelete',
+  steps: [
+    dialogConfirm<UserDeleteInput, undefined>((ctx) => ctx.input.confirmed),
+    opsBusy<UserDeleteInput, undefined>(true),
+    userDeleteRequest,
+    defineUiStep<UserDeleteInput, undefined>('toast.success', (ctx) => { ctx.input.deps.toast.success(ctx.input.deps.t('users.deleted')) }),
+    dataReload<UserDeleteInput, undefined>(),
+  ],
+  always: [opsBusy<UserDeleteInput, undefined>(false)],
 })
 
 export const referencesRebuild = defineAction<ReferencesRebuildInput, RebuildReport>({
