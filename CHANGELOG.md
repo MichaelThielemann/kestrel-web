@@ -215,3 +215,7 @@
   `white-space: nowrap` and ellipsizes past `16rem` instead, with the full value in `title`; the
   trigger cell wraps between chips like the steps cell already did (shared `.insights-chip-cell`),
   and the same cell class now covers the module table's provides/requires/optional columns.
+- Insights graph: the module node's "N errors" is the count of distinct error codes the module's
+  steps declare, not runtime errors, so it no longer renders in the danger colour next to the
+  neutral step and config counts; the label reads "N error codes" and a tooltip explains the
+  source.

@@ -38,7 +38,7 @@ const triggerLabel = computed(() => {
       <footer class="insights-graph-node__meta">
         <span v-if="data.module?.steps.length">{{ t('insights.graph.steps', { count: data.module.steps.length }) }}</span>
         <span v-if="data.counts.config">{{ t('insights.graph.config', { count: data.counts.config }) }}</span>
-        <span v-if="data.counts.errors" class="insights-graph-node__meta--errors">{{ t('insights.graph.errors', { count: data.counts.errors }) }}</span>
+        <span v-if="data.counts.errors" :title="t('insights.graph.errorsHint')">{{ t('insights.graph.errors', { count: data.counts.errors }) }}</span>
         <span v-if="data.module?.eventHook" class="insights-graph-node__badge">{{ t('insights.graph.eventHook') }}</span>
       </footer>
     </template>
@@ -134,10 +134,6 @@ const triggerLabel = computed(() => {
     font-size: var(--text-xs);
     color: var(--color-text-muted);
     margin-top: auto;
-
-    &--errors {
-      color: var(--color-danger);
-    }
   }
 
   &__badge {
