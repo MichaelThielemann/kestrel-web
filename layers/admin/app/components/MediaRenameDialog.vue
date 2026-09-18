@@ -19,7 +19,7 @@ function submit() { if (canRename.value && !props.busy) emit('rename', draft.val
 </script>
 
 <template>
-  <KestrelUiDialog :open="open" :title="t('media.rename')" @update:open="(v) => emit('update:open', v)">
+  <KestrelUiDialog :open="open" nested :title="t('media.rename')" @update:open="(v) => emit('update:open', v)">
     <KestrelUiField :label="t('media.newName')" :error="invalid ? t('media.folderNameInvalid') : null">
       <template #default="f">
         <KestrelUiTextInput v-model="draft" v-bind="f" @keydown.enter="submit" />

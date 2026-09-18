@@ -32,7 +32,7 @@ const open = defineModel<boolean>('open', { default: false })
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-md);
-  z-index: var(--z-dropdown);
+  z-index: var(--z-popover);
 
   &:focus-visible {
     outline: none;

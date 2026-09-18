@@ -5,7 +5,7 @@ const { t } = useT()
 </script>
 
 <template>
-  <KestrelUiDialog :open="open" size="lg" :title="multiple ? t('media.picker.titleMultiple') : t('media.picker.titleSingle')" @update:open="(v) => emit('update:open', v)">
+  <KestrelUiDialog :open="open" size="screen" :title="multiple ? t('media.picker.titleMultiple') : t('media.picker.titleSingle')" @update:open="(v) => emit('update:open', v)">
     <KestrelMediaLibrary
       pick
       :multiple="multiple"
