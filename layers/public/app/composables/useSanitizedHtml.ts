@@ -26,8 +26,11 @@ export async function sanitizeOnServer(html: string): Promise<string> {
   })
 }
 
-async function sanitizeInBrowser(html: string): Promise<string> {
+export async function sanitizeInBrowser(html: string): Promise<string> {
   const { default: DOMPurify } = await import('dompurify')
+  if (!DOMPurify.isSupported) {
+    throw new Error('sanitizeInBrowser: DOMPurify is not supported in this environment')
+  }
   return DOMPurify.sanitize(html, { ALLOWED_TAGS, ALLOWED_ATTR: [...new Set(Object.values(ALLOWED_ATTRS).flat())], ALLOWED_URI_REGEXP: URI_PATTERN })
 }
 

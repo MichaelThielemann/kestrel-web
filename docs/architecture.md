@@ -438,6 +438,19 @@ One relative import does pull a `#kestrel-admin/*` module at runtime (`../../uti
 `#kestrel-admin/utils/field-empty`), so only the `admin` project (`layers/admin/**/*.test.ts`) carries the
 `#kestrel-admin/` → `layers/admin/app/` alias; both projects resolve `#kestrel-core/` and `#kestrel/cast`.
 
+A third project, `components`, covers what `admin` and `rest` cannot: `.vue` files, and browser-only
+code such as DOMPurify. It runs `environment: "nuxt"` (`@nuxt/test-utils/config`'s `defineVitestProject`,
+`environmentOptions.nuxt.rootDir` pointing at `playground`), which boots the real playground Nuxt app
+once per run and mounts components with `mountSuspended` (`@nuxt/test-utils/runtime`) under jsdom
+(`environmentOptions.nuxt.domEnvironment`) — layer aliases and Nuxt auto-imports resolve exactly as they
+do in the app, so a component test needs no hand-rolled stubs beyond `registerEndpoint` for `/api/*` calls
+and `vi.mock` for an explicit module import. Its `include` is `layers/**/*.dom.test.ts`; `admin` and
+`rest` exclude that pattern, so a component is never picked up twice. Write a `*.dom.test.ts` next to a
+component when its behavior needs rendering, DOM interaction (click, keyboard, form submit) or a browser
+API (DOMPurify's `window`, focus) that a plain-node `*.test.ts` cannot exercise; keep composables and
+utilities that take their dependencies as plain arguments in the fast node-environment `admin`/`rest`
+projects.
+
 ### Step names
 Steps live in `layers/admin/app/actions/steps/`. Each is either a plain step or a factory that takes
 declarative configuration — plain strings and pure functions of `ctx` — and returns one. A factory never
