@@ -5,11 +5,11 @@ import { isFieldVisible, slugify, validateField } from '#kestrel-admin/utils/kes
 import { BLOCKS_FIELD, editorOwnedFields, findCollection, contentLocales } from '#kestrel-admin/utils/collections'
 import {
   asFieldDef,
+  buildBody,
   derivedSlugFields,
   initialValues,
   mergeInFlightEdits,
   slugFromWire,
-  slugToWire,
   stripLinkResolution,
   toSubmitResult,
   valuesEqual,
@@ -295,8 +295,7 @@ export function useEditForm(opts: UseEditFormOptions) {
 
   function bodyFor(dirty: string[]): Record<string, unknown> {
     const keys = writeKeys(dirty, fields.value, missingTranslation.value)
-    const body: Record<string, unknown> = { locale: locale.value }
-    for (const k of keys) body[k] = slugKeys.value.includes(k) ? slugToWire(values[k]) : values[k]
+    const body = buildBody(keys, values, slugKeys.value, translatable.value, locale.value)
     if (blocksField.value && keys.includes(blocksField.value)) {
       const fieldsByType = Object.fromEntries(useBlocks().blocks.value.map((d) => [d.name, d.fields]))
       body[blocksField.value] = pruneBlockProps(values[blocksField.value], fieldsByType)

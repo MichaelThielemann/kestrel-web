@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { resolveLocalized } from '#kestrel-admin/utils/localized'
 import { contentLocales, findCollection } from '#kestrel-admin/utils/collections'
+import { localePath } from '#kestrel-admin/utils/kestrel'
 import type { EditorExpose } from '#kestrel-admin/utils/editor-expose'
 import type { BatchDeleteReport } from '#kestrel-admin/utils/collection-ops'
 import { deleteRecord, deleteTranslation, discardRecord, leaveEditor, previewDeleteRecord } from '#kestrel-admin/actions/editor'
@@ -71,6 +72,13 @@ const deleteOps = {
 
 const canDeleteTranslation = computed(() => def?.translatable === true && def?.mode === 'multi' && id !== 'new')
 const currentLocale = computed(() => editorRef.value?.locale ?? localeParam.value ?? contentLocales.primary)
+
+const publicUrl = computed(() => {
+  const siteUrl = String(useRuntimeConfig().public.siteUrl ?? '').replace(/\/+$/, '')
+  if (!siteUrl) return ''
+  const slug = editorRef.value?.slug ?? ''
+  return `${siteUrl}${localePath(slug ? `/${slug}` : '/', currentLocale.value, contentLocales.primary, contentLocales.prefixPrimary)}`
+})
 const otherTranslations = computed(() =>
   contentLocales.locales.filter((locale) => locale !== currentLocale.value && editorRef.value?.translations?.[locale] === true),
 )
@@ -155,6 +163,7 @@ async function confirmDeleteTranslation() {
           :delivery="editorRef?.delivery ?? null"
           :delivery-loading="editorRef?.deliveryLoading ?? false"
           :locale="editorRef?.locale"
+          :public-url="publicUrl"
         />
       </div>
     </div>

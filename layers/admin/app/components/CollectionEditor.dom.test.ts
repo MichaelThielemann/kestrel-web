@@ -8,12 +8,12 @@ import { en } from '#kestrel-admin/i18n/en'
 import { useToast } from '#kestrel-admin/composables/useToast'
 import CollectionEditor from './CollectionEditor.vue'
 
-const { widgetsCollection } = vi.hoisted(() => {
-  const titleField: SerializedField = { type: 'text', required: true, unique: false, label: 'Title' }
+const { widgetsCollection, redirectsCollection } = vi.hoisted(() => {
+  const titleField: SerializedField = { type: 'text', required: true, unique: false, localized: true, label: 'Title' }
   const widgetsCollection: SerializedCollection = {
     name: 'widgets',
     mode: 'multi',
-    translatable: false,
+    translatable: true,
     pageLike: false,
     seo: false,
     status: false,
@@ -25,11 +25,27 @@ const { widgetsCollection } = vi.hoisted(() => {
     fields: { title: titleField },
     fieldLayout: [{ kind: 'row', fields: ['title'], tracks: [1] }],
   }
-  return { widgetsCollection }
+  const rulesField: SerializedField = { type: 'json', required: false, unique: false, localized: false, label: 'Rules' }
+  const redirectsCollection: SerializedCollection = {
+    name: 'redirects',
+    mode: 'single',
+    translatable: false,
+    pageLike: false,
+    seo: false,
+    status: false,
+    layoutField: false,
+    blocks: { enabled: false },
+    editor: 'fields',
+    nav: true,
+    placement: 'rail',
+    fields: { rules: rulesField },
+    fieldLayout: [{ kind: 'row', fields: ['rules'], tracks: [1] }],
+  }
+  return { widgetsCollection, redirectsCollection }
 })
 
 vi.mock('#kestrel-admin/utils/collections', () => ({
-  findCollection: (name: string) => (name === widgetsCollection.name ? widgetsCollection : undefined),
+  findCollection: (name: string) => [widgetsCollection, redirectsCollection].find((c) => c.name === name),
   editorOwnedFields: () => [],
   contentLocales: { locales: ['en'], primary: 'en', prefixPrimary: false },
   BLOCKS_FIELD: 'body',
@@ -99,5 +115,29 @@ describe('CollectionEditor', () => {
       const alerts = wrapper.findAll('[role="alert"]').map((node) => node.text())
       expect(alerts).toContain('Title is already taken')
     })
+  })
+
+  it('saves a single collection with no localized fields (Redirects) without sending a locale', async () => {
+    unregisterAll.push(registerEndpoint('/api/redirects', {
+      method: 'GET',
+      handler: () => ({ id: 'redirects', rules: [], createdAt: 0, updatedAt: 0 }),
+    }))
+
+    let receivedBody: Record<string, unknown> | null = null
+    unregisterAll.push(registerEndpoint('/api/redirects', {
+      method: 'PUT',
+      handler: async (event) => {
+        receivedBody = boundaryCast<Record<string, unknown>>(await readBody(event), 'json')
+        return { document: { ...receivedBody, id: 'redirects' }, delivery: [] }
+      },
+    }))
+
+    const wrapper = await mountSuspended(CollectionEditor, { props: { collection: 'redirects', id: 'single' } })
+
+    await wrapper.get('form').trigger('submit')
+    await vi.waitFor(() => expect(receivedBody).not.toBeNull())
+
+    expect(receivedBody).toEqual({ rules: [] })
+    expect(receivedBody).not.toHaveProperty('locale')
   })
 })

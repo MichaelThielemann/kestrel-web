@@ -2,6 +2,7 @@ import type { ApiErrorDetails, MediaFolder, MediaFolderRenameResponse, MediaItem
 import { defineAction, type ActionContext, type ActionStep } from '#kestrel-core/app/utils/actions'
 import { ApiError, apiErrorCode, apiErrorDetails, apiErrorMessage, apiErrorRetryable, apiErrorRunId, apiErrorStatus, retryableMessage, withRunId } from '../composables/useApi'
 import type { UploadItem } from '../composables/useMediaUpload'
+import type { UploadTransport } from '../composables/useUploadTransport'
 import { humanizeSize, joinFolder, parentFolder } from '../utils/library'
 import type { OpItem } from '../utils/ops'
 import { referencedBy } from '../utils/references'
@@ -64,6 +65,7 @@ export interface PreviewMediaDeleteInput extends WithDeps {
 export interface UploadInput extends WithDeps {
   item: UploadItem
   provenance?: Provenance
+  transport: UploadTransport
 }
 
 function encodeFolderPath(path: string): string {
@@ -275,6 +277,22 @@ function buildUploadBody(item: UploadItem, provenance: Provenance | undefined): 
 
 const uploadBegin = defineUiStep<UploadInput, UploadItem>('upload.begin', (ctx) => {
   ctx.input.item.status = 'uploading'
+  ctx.input.item.progress = 0
+})
+
+const uploadRequest = defineUiStep<UploadInput, UploadItem>('upload.request', async (ctx) => {
+  const { item, provenance, transport, deps } = ctx.input
+  try {
+    await transport<MediaItem>('/media', buildUploadBody(item, provenance), (progress) => {
+      item.progress = progress.percent
+      if (progress.percent >= 100 && item.status === 'uploading') item.status = 'processing'
+    })
+    item.status = 'done'
+    item.progress = 100
+  } catch (e) {
+    item.status = 'failed'
+    if (apiErrorCode(e) !== 'UNAUTHENTICATED') item.message = uploadMessage(deps.t, apiErrorCode(e), apiErrorMessage(e))
+  }
 })
 
 const uploadSettle = defineUiStep<UploadInput, UploadItem>('upload.settle', (ctx) => {
@@ -283,18 +301,7 @@ const uploadSettle = defineUiStep<UploadInput, UploadItem>('upload.settle', (ctx
 
 export const upload = defineAction<UploadInput, UploadItem>({
   name: 'upload',
-  steps: [
-    uploadBegin,
-    apiRequest<UploadInput, UploadItem, MediaItem>('api.request', {
-      call: (ctx) => ({ path: '/media', method: 'POST', body: buildUploadBody(ctx.input.item, ctx.input.provenance) }),
-      onSuccess: (ctx) => { ctx.input.item.status = 'done' },
-      onError: (ctx, err) => {
-        ctx.input.item.status = 'error'
-        if (err.code !== 'UNAUTHENTICATED') ctx.input.item.message = uploadMessage(ctx.input.deps.t, err.code, err.message)
-      },
-    }),
-    uploadSettle,
-  ],
+  steps: [uploadBegin, uploadRequest, uploadSettle],
 })
 
 export interface SetMediaMetaInput extends WithDeps {

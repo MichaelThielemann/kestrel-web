@@ -104,6 +104,10 @@ export function fieldErrorsFromDetails(details: ApiErrorDetails | undefined, key
   return out
 }
 
+export function hasAdditionalPropertiesProblem(details: ApiErrorDetails | undefined): boolean {
+  return (details?.problems ?? []).some((problem) => /additional\s*propert/i.test(problem.message))
+}
+
 export interface BodyError { pointer: string; message: string }
 
 export function parseBodyErrors(message: string, blocksField: string): BodyError[] {
@@ -256,4 +260,16 @@ export function writeKeys(dirty: string[], fields: Record<string, SerializedFiel
   if (!creatingTranslation) return dirty
   const localized = Object.entries(fields).filter(([, field]) => field.localized).map(([name]) => name)
   return [...new Set([...dirty, ...localized])]
+}
+
+export function buildBody(
+  keys: string[],
+  values: Record<string, unknown>,
+  slugKeys: string[],
+  translatable: boolean,
+  locale: string,
+): Record<string, unknown> {
+  const body: Record<string, unknown> = translatable ? { locale } : {}
+  for (const k of keys) body[k] = slugKeys.includes(k) ? slugToWire(values[k]) : values[k]
+  return body
 }

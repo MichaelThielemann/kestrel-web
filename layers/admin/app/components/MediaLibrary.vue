@@ -44,7 +44,8 @@ const upload = useMediaUpload({
   onSettled: () => { void lib.fetchLibrary() },
   onError: (item) => toast.error(t('media.uploadError', { name: item.filename, reason: item.message || t('media.uploadFailedReason') })),
 })
-const { active, counts, limitError } = upload
+const { active, counts, limitError, dismiss } = upload
+const queueRows = computed(() => upload.queue.value.filter((i) => i.status !== 'done'))
 
 const newFolderOpen = ref(false)
 const uploadOpen = ref(false)
@@ -235,12 +236,6 @@ const localizedMenu = computed(() => menuItems.value.map((s) => ({
   value: s.value,
   ...(s.danger ? { danger: true } : {}),
 })))
-
-const srStatus = computed(() => {
-  if (!active.value && !counts.value.done && !counts.value.error) return ''
-  const msg = active.value ? `${t('media.uploading')}${counts.value.done} ${t('media.uploadUploaded')}` : `${counts.value.done} ${t('media.uploadUploaded')}`
-  return counts.value.error ? `${msg}, ${counts.value.error} ${t('media.uploadFailed')}` : msg
-})
 </script>
 
 <template>
@@ -275,11 +270,11 @@ const srStatus = computed(() => {
       @update:page="lib.setPage"
       @update:per-page="lib.setPerPage"
     />
-    <p v-if="active || counts.done || counts.error" class="media-library__status">
-      <span v-if="active">{{ t('media.uploading') }}</span>{{ counts.done }} {{ t('media.uploadUploaded') }}<span v-if="counts.error">, {{ counts.error }} {{ t('media.uploadFailed') }}</span>
+    <p v-if="active" class="media-library__status" role="status" aria-live="polite">
+      <span>{{ t('media.uploading') }}</span>{{ counts.done }} {{ t('media.uploadUploaded') }}<span v-if="counts.failed">, {{ counts.failed }} {{ t('media.uploadFailed') }}</span>
     </p>
+    <KestrelMediaUploadQueue v-if="queueRows.length" :items="queueRows" @dismiss="dismiss" />
     <KestrelUiAlert v-if="limitError" variant="error">{{ limitError }}</KestrelUiAlert>
-    <p class="media-library__sr-status" role="status" aria-live="polite">{{ srStatus }}</p>
     <div v-if="pick" class="media-library__pickbar">
       <span>{{ selectedFileIds.length }} {{ t('media.selected') }}</span>
       <KestrelUiButton variant="primary" :disabled="!selectedFileIds.length" @click="onConfirmPick">{{ t('media.useSelected') }}</KestrelUiButton>
@@ -359,17 +354,6 @@ const srStatus = computed(() => {
 .media-library__status {
   color: var(--color-text-muted);
   font-size: var(--text-sm);
-}
-
-.media-library__sr-status {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
 }
 
 .media-library__pickbar {

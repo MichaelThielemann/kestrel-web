@@ -1,21 +1,40 @@
+import { computed, ref } from 'vue'
 import { describe, expect, it } from 'vitest'
 import { nextLimitState, uploadFailed, type UploadLimitState } from './useMediaUpload'
 
 describe('uploadFailed', () => {
   it('fires for a non-401 error even when the server message is empty', () => {
-    expect(uploadFailed({ status: 'error', message: '' })).toBe(true)
+    expect(uploadFailed({ status: 'failed', message: '' })).toBe(true)
   })
 
   it('fires for a non-401 error with a message', () => {
-    expect(uploadFailed({ status: 'error', message: 'file exceeds 5.0 MB' })).toBe(true)
+    expect(uploadFailed({ status: 'failed', message: 'file exceeds 5.0 MB' })).toBe(true)
   })
 
   it('stays quiet on the swallowed 401, where message is never set', () => {
-    expect(uploadFailed({ status: 'error', message: undefined })).toBe(false)
+    expect(uploadFailed({ status: 'failed', message: undefined })).toBe(false)
   })
 
-  it('stays quiet outside the error state', () => {
+  it('stays quiet outside the failed state', () => {
     expect(uploadFailed({ status: 'done', message: undefined })).toBe(false)
+  })
+})
+
+describe('reactive queue mutation (root cause of the stuck counter)', () => {
+  it('only notifies a dependent computed when the mutation goes through the reactive element from the array, not the raw pushed object', () => {
+    const queue = ref<{ status: string }[]>([])
+    const doneCount = computed(() => queue.value.filter((i) => i.status === 'done').length)
+
+    const raw = { status: 'queued' }
+    queue.value.push(raw)
+    const reactiveItem = queue.value[queue.value.length - 1]!
+    expect(doneCount.value).toBe(0)
+
+    raw.status = 'processing'
+    expect(doneCount.value).toBe(0)
+
+    reactiveItem.status = 'done'
+    expect(doneCount.value).toBe(1)
   })
 })
 

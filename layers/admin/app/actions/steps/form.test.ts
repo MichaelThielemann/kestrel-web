@@ -84,6 +84,18 @@ describe('formMapErrors', () => {
     expect(state.formError).toBe('slug is already taken')
   })
 
+  it('prefixes an additionalProperties schema problem with a plain-language sentence, keeping the backend text', () => {
+    const message = 'redirects.validate: payload does not match schema ($.locale is not allowed by additionalProperties: false)'
+    const state = runMapErrors({
+      status: 400,
+      code: 'VALIDATION',
+      retryable: false,
+      message,
+      details: { problems: [{ path: '$.locale', message: 'is not allowed by additionalProperties: false' }] },
+    })
+    expect(state.formError).toBe(`editor.unknownFieldSent ${message}`)
+  })
+
   it('appends the runId to server errors', () => {
     expect(runMapErrors({ status: 500, code: 'INTERNAL', retryable: false, message: 'boom', runId: 'run-1' }).formError).toBe('boom (run-1)')
     expect(runMapErrors({ status: 500, code: 'INTERNAL', retryable: false, message: '', runId: 'run-1' }).formError).toBe('editor.saveFailed (run-1)')

@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import manifest from './__fixtures__/insights-manifest.json'
 import stats from './__fixtures__/insights-stats.json'
-import type { InsightsManifest, InsightsModule, InsightsStats } from '#kestrel-admin/types/api'
+import type { InsightsConfigVariable, InsightsManifest, InsightsModule, InsightsStats } from '#kestrel-admin/types/api'
 import { boundaryCast } from '#kestrel/cast'
 import {
+  effectiveConfigStatus,
   formatMs,
   formatUptime,
   moduleConfigSummary,
@@ -33,6 +34,21 @@ describe('formatUptime', () => {
   it('falls back to English units for an unknown language', () => expect(formatUptime(5 * 60000, 'fr')).toBe('5 min'))
 })
 
+describe('effectiveConfigStatus', () => {
+  const base: InsightsConfigVariable = { path: 'a', type: 'string', required: true, secret: false, set: false }
+
+  it('trusts an explicit status from a 5.5+ backend', () => {
+    expect(effectiveConfigStatus({ ...base, status: 'set' })).toBe('set')
+    expect(effectiveConfigStatus({ ...base, status: 'default' })).toBe('default')
+    expect(effectiveConfigStatus({ ...base, status: 'missing' })).toBe('missing')
+  })
+
+  it('falls back to the boolean set from a pre-status 5.3/5.4 backend', () => {
+    expect(effectiveConfigStatus({ ...base, set: true })).toBe('set')
+    expect(effectiveConfigStatus({ ...base, set: false })).toBe('missing')
+  })
+})
+
 describe('moduleConfigSummary', () => {
   it('counts set variables and lists missing required ones', () => {
     const m = typedManifest.modules.find((mod) => mod.name === 'blobstore/filesystem')
@@ -40,13 +56,31 @@ describe('moduleConfigSummary', () => {
     expect(moduleConfigSummary(m)).toEqual({ set: 1, total: 1, missingRequired: [] })
   })
 
-  it('reports missing required variables', () => {
+  it('reports missing required variables (pre-status backend)', () => {
     const missing: InsightsModule = {
       name: 'x', use: 'x', version: null, provides: [], requires: [], optional: [],
       config: { schema: {}, variables: [{ path: 'a', type: 'string', required: true, secret: false, set: false }] },
       steps: [], eventHook: false,
     }
     expect(moduleConfigSummary(missing)).toEqual({ set: 0, total: 1, missingRequired: ['a'] })
+  })
+
+  it('does not flag a required variable using its schema default as missing', () => {
+    const usingDefault: InsightsModule = {
+      name: 'x', use: 'x', version: null, provides: [], requires: [], optional: [],
+      config: { schema: {}, variables: [{ path: 'a', type: 'string', required: true, default: 'inherited', secret: false, set: false, status: 'default' }] },
+      steps: [], eventHook: false,
+    }
+    expect(moduleConfigSummary(usingDefault)).toEqual({ set: 0, total: 1, missingRequired: [] })
+  })
+
+  it('trusts an explicit missing status over a stale true set flag', () => {
+    const staleSet: InsightsModule = {
+      name: 'x', use: 'x', version: null, provides: [], requires: [], optional: [],
+      config: { schema: {}, variables: [{ path: 'a', type: 'string', required: true, secret: false, set: true, status: 'missing' }] },
+      steps: [], eventHook: false,
+    }
+    expect(moduleConfigSummary(staleSet).missingRequired).toEqual(['a'])
   })
 })
 

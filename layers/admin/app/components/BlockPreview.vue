@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, inject, onMounted, onUnmounted, ref, watch } from 'vue'
 import type { BlockNode, PageSeo } from '#kestrel-admin/types/api'
-import { localePath } from '#kestrel-admin/utils/kestrel'
 import { editorFormContextKey } from '../utils/editor-form-context'
 import { PRESETS, matchPreset, fitScale, clampDim, DIM_MIN, WIDTH_MAX, type ViewportPreset } from '../utils/preview-viewport'
 import { boundaryCast } from '#kestrel/cast'
@@ -12,13 +11,6 @@ const { t } = useT()
 const toast = useToast()
 
 const ctx = inject(editorFormContextKey, null)
-const { primary, prefixPrimary } = useContentLocales()
-const siteUrl = computed(() => String(useRuntimeConfig().public.siteUrl ?? '').replace(/\/+$/, ''))
-const openUrl = computed(() => {
-  if (!siteUrl.value || !ctx) return ''
-  const slug = String(ctx.values.slug ?? '').trim()
-  return `${siteUrl.value}${localePath(slug ? `/${slug}` : '/', ctx.locale.value, primary, prefixPrimary)}`
-})
 
 const previewKeyValue = computed(() => previewKey(ctx?.pageFieldsBindings.value.id))
 const iframeSrc = computed(() => (ctx ? `${previewTabPath(previewKeyValue.value)}?embed=1` : ''))
@@ -199,16 +191,6 @@ onUnmounted(() => {
           <span class="block-preview__sep" aria-hidden="true" />
         </template>
 
-        <template v-if="openUrl">
-          <KestrelUiTooltip>
-            <a class="block-preview__open" :href="openUrl" target="_blank" rel="noopener" :aria-label="t('editor.openInNewTab')">
-              <KestrelUiIcon name="external-link" :size="16" />
-            </a>
-            <template #content>{{ t('editor.openInNewTab') }}</template>
-          </KestrelUiTooltip>
-          <span class="block-preview__sep" aria-hidden="true" />
-        </template>
-
         <div class="block-preview__group" role="group" :aria-label="t('preview.deviceLabel')">
           <KestrelUiTooltip v-for="p in presets" :key="p.key">
             <KestrelUiButton
@@ -320,21 +302,6 @@ onUnmounted(() => {
     background: var(--color-surface-2);
   }
 
-  &__open {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 1.75rem;
-    height: 1.75rem;
-    border-radius: var(--radius-sm);
-    color: var(--color-text-muted);
-    text-decoration: none;
-
-    &:hover {
-      background: var(--color-surface-2);
-      color: var(--color-text);
-    }
-  }
   &__sep {
     align-self: stretch;
     width: 1px;

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { InsightsConfigVariable } from '#kestrel-admin/types/api'
+import { effectiveConfigStatus } from '../utils/insights-format'
 
 defineProps<{ variables: InsightsConfigVariable[] }>()
 const { t } = useT()
@@ -8,6 +9,20 @@ function defaultText(v: InsightsConfigVariable): string {
   if (v.secret) return '—'
   if (!('default' in v) || v.default === undefined) return '—'
   return JSON.stringify(v.default)
+}
+
+function statusDotClass(v: InsightsConfigVariable): string {
+  const status = effectiveConfigStatus(v)
+  if (status === 'set') return 'insights-config__dot--set'
+  if (status === 'default') return 'insights-config__dot--default'
+  return v.required ? 'insights-config__dot--danger' : 'insights-config__dot--muted'
+}
+
+function statusLabel(v: InsightsConfigVariable): string {
+  const status = effectiveConfigStatus(v)
+  if (status === 'set') return t('insights.set')
+  if (status === 'default') return t('insights.default')
+  return t('insights.notSet')
 }
 </script>
 
@@ -35,10 +50,11 @@ function defaultText(v: InsightsConfigVariable): string {
             <td>
               <span
                 class="insights-config__dot"
-                :class="v.set ? 'insights-config__dot--set' : (v.required ? 'insights-config__dot--danger' : 'insights-config__dot--muted')"
+                :class="statusDotClass(v)"
+                :title="effectiveConfigStatus(v) === 'default' ? t('insights.defaultHint') : undefined"
                 aria-hidden="true"
               />
-              {{ v.set ? t('insights.set') : t('insights.notSet') }}
+              {{ statusLabel(v) }}
             </td>
           </tr>
         </template>
@@ -64,6 +80,9 @@ function defaultText(v: InsightsConfigVariable): string {
 
     &--set {
       background: var(--color-success);
+    }
+    &--default {
+      background: var(--color-primary);
     }
     &--danger {
       background: var(--color-danger);

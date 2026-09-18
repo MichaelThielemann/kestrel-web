@@ -17,6 +17,8 @@ const props = defineProps<{
   deliveryLoading?: boolean
 
   locale?: string
+
+  publicUrl?: string
 }>()
 const { t, lang } = useT()
 
@@ -95,6 +97,11 @@ const live = computed<{ tone: LiveTone; word: string; detail: string; when?: str
         </span>
       </template>
     </KestrelUiTooltip>
+
+    <a v-if="live?.tone === 'green' && publicUrl" class="editor-status-open" :href="publicUrl" target="_blank" rel="noopener">
+      <KestrelUiIcon name="globe" :size="14" />
+      <span>{{ t('editorStatus.openPage') }}</span>
+    </a>
   </span>
 </template>
 
@@ -152,6 +159,24 @@ const live = computed<{ tone: LiveTone; word: string; detail: string; when?: str
   }
   &[data-tone='neutral'] {
     --_tone: var(--color-text-subtle);
+  }
+  &:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+  }
+}
+
+.editor-status-open {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  text-decoration: none;
+
+  &:hover {
+    color: var(--color-text);
   }
   &:focus-visible {
     outline: 2px solid var(--color-primary);

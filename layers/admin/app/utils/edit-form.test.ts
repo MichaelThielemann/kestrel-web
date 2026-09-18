@@ -3,7 +3,9 @@ import { boundaryCast } from '#kestrel/cast'
 import {
   blockErrorFromPointer,
   blockRowErrors,
+  buildBody,
   fieldErrorsFromDetails,
+  hasAdditionalPropertiesProblem,
   initialValues,
   mergeInFlightEdits,
   slugFromWire,
@@ -240,6 +242,39 @@ describe('writeKeys', () => {
 
   it('adds every localized field when the save creates a translation', () => {
     expect(writeKeys(['layout'], fields, true)).toEqual(['layout', 'title', 'status'])
+  })
+})
+
+describe('buildBody', () => {
+  const values = { title: 'Home', slug: '', rules: [{ from: '/a', to: '/b' }] }
+
+  it('sends locale for a translatable form (Settings, Pages)', () => {
+    expect(buildBody(['title'], values, [], true, 'en')).toEqual({ locale: 'en', title: 'Home' })
+  })
+
+  it('omits locale for a form with no localized fields (Redirects)', () => {
+    expect(buildBody(['rules'], values, [], false, 'en')).toEqual({ rules: [{ from: '/a', to: '/b' }] })
+  })
+
+  it('still converts slug fields to their wire form either way', () => {
+    expect(buildBody(['slug'], values, ['slug'], false, 'en')).toEqual({ slug: 'home' })
+    expect(buildBody(['slug'], values, ['slug'], true, 'en')).toEqual({ locale: 'en', slug: 'home' })
+  })
+})
+
+describe('hasAdditionalPropertiesProblem', () => {
+  it('recognizes the custom backend wording for a disallowed field', () => {
+    expect(hasAdditionalPropertiesProblem({ problems: [{ path: '$.locale', message: 'is not allowed by additionalProperties: false' }] })).toBe(true)
+  })
+
+  it('recognizes the ajv-style wording too', () => {
+    expect(hasAdditionalPropertiesProblem({ problems: [{ path: '', message: 'must NOT have additional properties' }] })).toBe(true)
+  })
+
+  it('stays false without a matching problem', () => {
+    expect(hasAdditionalPropertiesProblem({ problems: [{ path: '$.title', message: "must have required property 'title'" }] })).toBe(false)
+    expect(hasAdditionalPropertiesProblem({})).toBe(false)
+    expect(hasAdditionalPropertiesProblem(undefined)).toBe(false)
   })
 })
 

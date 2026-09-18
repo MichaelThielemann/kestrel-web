@@ -5,6 +5,7 @@ import { runAction } from '#kestrel-core/app/utils/actions'
 import { createFolder, deleteItems, previewDeleteItems, renameOrMove, setMediaMeta, setMediaProvenance, upload } from './media'
 import type { ActionDeps, ApiRequestOptions } from './types'
 import type { UploadItem } from '../composables/useMediaUpload'
+import type { UploadProgress, UploadTransport } from '../composables/useUploadTransport'
 
 interface Call { path: string, method: string, body?: unknown, query?: unknown }
 
@@ -368,13 +369,20 @@ describe('previewDeleteItems', () => {
 })
 
 describe('upload', () => {
+  interface TransportCall { path: string, body: FormData }
+
   function uploadItem(overrides: Partial<UploadItem> = {}): UploadItem {
-    return { id: 'u1', file: new File(['x'], 'a.png'), filename: 'a.png', folder: '', status: 'queued', ...overrides }
+    return { id: 'u1', file: new File(['x'], 'a.png'), filename: 'a.png', folder: '', status: 'queued', progress: 0, ...overrides }
   }
 
-  function formDataBody(call: Call | undefined): FormData {
-    if (!(call?.body instanceof FormData)) throw new Error('expected a FormData body')
-    return call.body
+  function fakeTransport(responses: Array<unknown | Error>) {
+    const calls: TransportCall[] = []
+    const transport: UploadTransport = <T>(path: string, body: FormData) => {
+      calls.push({ path, body })
+      const next = responses.shift()
+      return next instanceof Error ? Promise.reject(next) : Promise.resolve(boundaryCast<T>(next, 'json'))
+    }
+    return { transport, calls }
   }
 
   function formDataString(body: FormData, key: string): string {
@@ -384,76 +392,111 @@ describe('upload', () => {
   }
 
   it('uploads with folder and provenance', async () => {
-    const { deps, calls } = fakeDeps([{ id: 'f1' }])
+    const { deps } = fakeDeps()
+    const { transport, calls } = fakeTransport([{ id: 'f1' }])
     const item = uploadItem({ folder: 'a/b' })
 
-    const result = await runAction(upload, { deps, item, provenance: { origin: 'ai', model: 'gpt' } })
+    const result = await runAction(upload, { deps, item, provenance: { origin: 'ai', model: 'gpt' }, transport })
 
     expect(result.ok).toBe(true)
     expect(item.status).toBe('done')
+    expect(item.progress).toBe(100)
     expect(calls).toHaveLength(1)
-    const body = formDataBody(calls[0])
+    expect(calls[0]?.path).toBe('/media')
+    const body = calls[0]!.body
     expect(body.get('folder')).toBe('a/b')
     expect(JSON.parse(formDataString(body, 'provenance'))).toEqual({ origin: 'ai', model: 'gpt' })
   })
 
   it('omits the folder field when there is none', async () => {
-    const { deps, calls } = fakeDeps([{ id: 'f1' }])
+    const { deps } = fakeDeps()
+    const { transport, calls } = fakeTransport([{ id: 'f1' }])
     const item = uploadItem({ folder: '' })
 
-    await runAction(upload, { deps, item })
+    await runAction(upload, { deps, item, transport })
 
-    const body = formDataBody(calls[0])
-    expect(body.has('folder')).toBe(false)
+    expect(calls[0]!.body.has('folder')).toBe(false)
   })
 
   it('sends a human origin for a plain upload', async () => {
-    const { deps, calls } = fakeDeps([{ id: 'f1' }])
+    const { deps } = fakeDeps()
+    const { transport, calls } = fakeTransport([{ id: 'f1' }])
     const item = uploadItem()
 
-    await runAction(upload, { deps, item, provenance: { origin: 'human' } })
+    await runAction(upload, { deps, item, provenance: { origin: 'human' }, transport })
 
-    const body = formDataBody(calls[0])
-    expect(JSON.parse(formDataString(body, 'provenance'))).toEqual({ origin: 'human' })
+    expect(JSON.parse(formDataString(calls[0]!.body, 'provenance'))).toEqual({ origin: 'human' })
   })
 
   it('sends a human origin when the caller passes none', async () => {
-    const { deps, calls } = fakeDeps([{ id: 'f1' }])
+    const { deps } = fakeDeps()
+    const { transport, calls } = fakeTransport([{ id: 'f1' }])
     const item = uploadItem()
 
-    await runAction(upload, { deps, item })
+    await runAction(upload, { deps, item, transport })
 
-    const body = formDataBody(calls[0])
-    expect(JSON.parse(formDataString(body, 'provenance'))).toEqual({ origin: 'human' })
+    expect(JSON.parse(formDataString(calls[0]!.body, 'provenance'))).toEqual({ origin: 'human' })
+  })
+
+  it('tracks percent as it arrives and switches to processing once the transport reports 100%', async () => {
+    const { deps } = fakeDeps()
+    const item = uploadItem()
+    let sawProcessingBeforeSettling = false
+    let deliver: (value: { id: string }) => void = () => {}
+    const transport: UploadTransport = <T>(_path: string, _body: FormData, onProgress?: (progress: UploadProgress) => void) => {
+      onProgress?.({ loaded: 5, total: 10, percent: 50 })
+      return new Promise<T>((resolve) => {
+        deliver = (value) => {
+          onProgress?.({ loaded: 10, total: 10, percent: 100 })
+          sawProcessingBeforeSettling = item.status === 'processing'
+          resolve(boundaryCast<T>(value, 'json'))
+        }
+      })
+    }
+
+    expect(item.progress).toBe(0)
+    const pending = runAction(upload, { deps, item, transport })
+    await vi.waitFor(() => expect(item.progress).toBe(50))
+    expect(item.status).toBe('uploading')
+
+    deliver({ id: 'f1' })
+    await pending
+
+    expect(sawProcessingBeforeSettling).toBe(true)
+    expect(item.status).toBe('done')
+    expect(item.progress).toBe(100)
   })
 
   it('humanises byte counts in the 413 message', async () => {
-    const { deps } = fakeDeps([apiError(413, 'file exceeds 5242880 bytes')])
+    const { deps } = fakeDeps()
+    const { transport } = fakeTransport([apiError(413, 'file exceeds 5242880 bytes')])
     const item = uploadItem()
 
-    await runAction(upload, { deps, item })
+    await runAction(upload, { deps, item, transport })
 
-    expect(item.status).toBe('error')
+    expect(item.status).toBe('failed')
     expect(item.message).toBe('media.uploadTooLarge:{"detail":"file exceeds 5.0 MB"}')
   })
 
   it('gives an unsupported type its own message', async () => {
-    const { deps } = fakeDeps([apiError(415, 'type image/tiff is not allowed')])
+    const { deps } = fakeDeps()
+    const { transport } = fakeTransport([apiError(415, 'type image/tiff is not allowed')])
     const item = uploadItem()
 
-    await runAction(upload, { deps, item })
+    await runAction(upload, { deps, item, transport })
 
-    expect(item.status).toBe('error')
+    expect(item.status).toBe('failed')
     expect(item.message).toBe('media.uploadUnsupported:{"detail":"type image/tiff is not allowed"}')
   })
 
   it('leaves the message unset on a 401', async () => {
-    const { deps } = fakeDeps([apiError(401, 'nope')])
+    const { deps } = fakeDeps()
+    const { transport } = fakeTransport([apiError(401, 'nope')])
     const item = uploadItem()
 
-    await runAction(upload, { deps, item })
+    await runAction(upload, { deps, item, transport })
 
-    expect(item.status).toBe('error')
+    expect(item.status).toBe('failed')
     expect(item.message).toBeUndefined()
   })
 })

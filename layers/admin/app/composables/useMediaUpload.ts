@@ -7,10 +7,14 @@ import type { PendingUpload } from '../utils/dnd'
 import { humanizeSize } from '../utils/library'
 import { exceedsUploadLimit } from '../utils/upload-limit'
 import { apiErrorMessage } from './useApi'
+import { useUploadTransport } from './useUploadTransport'
+
+export type UploadStatus = 'queued' | 'uploading' | 'processing' | 'done' | 'failed'
 
 export interface UploadItem {
   id: string; file: File; filename: string; folder: string
-  status: 'queued' | 'uploading' | 'done' | 'error'
+  status: UploadStatus
+  progress: number
   message?: string
 }
 
@@ -21,7 +25,7 @@ export interface UploadCallbacks {
 }
 
 export function uploadFailed(item: Pick<UploadItem, 'status' | 'message'>): boolean {
-  return item.status === 'error' && item.message !== undefined
+  return item.status === 'failed' && item.message !== undefined
 }
 
 export interface UploadLimitState {
@@ -67,14 +71,15 @@ export function useMediaUpload(cb: UploadCallbacks = {}) {
   const api = useApi()
   const { t } = useT()
   const toast = useToast()
+  const transport = useUploadTransport()
   const queue = ref<UploadItem[]>([])
   const { maxUploadBytes, limitError, ensure: ensureUploadLimit } = useUploadLimit()
   let seq = 0
-  const active = computed(() => queue.value.some((i) => i.status === 'queued' || i.status === 'uploading'))
+  const active = computed(() => queue.value.some((i) => i.status === 'queued' || i.status === 'uploading' || i.status === 'processing'))
   const counts = computed(() => ({
     total: queue.value.length,
     done: queue.value.filter((i) => i.status === 'done').length,
-    error: queue.value.filter((i) => i.status === 'error').length,
+    failed: queue.value.filter((i) => i.status === 'failed').length,
   }))
 
   function deps(): ActionDeps {
@@ -83,7 +88,7 @@ export function useMediaUpload(cb: UploadCallbacks = {}) {
 
   async function uploadItem(item: UploadItem, provenance?: Provenance) {
     const d = deps()
-    const result = await runAction(upload, { deps: d, item, provenance })
+    const result = await runAction(upload, { deps: d, item, provenance, transport })
     toastUnexpected(d, result)
     if (uploadFailed(item)) cb.onError?.(item)
   }
@@ -93,13 +98,13 @@ export function useMediaUpload(cb: UploadCallbacks = {}) {
     const max = maxUploadBytes.value
     const added: UploadItem[] = []
     for (const u of uploads) {
-      const item: UploadItem = { id: `u${++seq}`, file: u.file, filename: u.file.name, folder: u.folder, status: 'queued' }
+      const item: UploadItem = { id: `u${++seq}`, file: u.file, filename: u.file.name, folder: u.folder, status: 'queued', progress: 0 }
       if (exceedsUploadLimit(u.file.size, max) && max !== null) {
-        item.status = 'error'
+        item.status = 'failed'
         item.message = t('upload.tooLarge', { size: humanizeSize(u.file.size), limit: humanizeSize(max) })
       }
       queue.value.push(item)
-      added.push(item)
+      added.push(queue.value[queue.value.length - 1]!)
     }
     for (const item of added) {
       if (item.status === 'queued') await uploadItem(item, provenance)
@@ -114,5 +119,10 @@ export function useMediaUpload(cb: UploadCallbacks = {}) {
 
   function reset() { queue.value = [] }
 
-  return { queue, active, counts, limitError, enqueue, enqueueUploads, reset }
+  function dismiss(id: string) {
+    const index = queue.value.findIndex((i) => i.id === id)
+    if (index !== -1) queue.value.splice(index, 1)
+  }
+
+  return { queue, active, counts, limitError, enqueue, enqueueUploads, reset, dismiss }
 }

@@ -337,10 +337,15 @@ lacks, throws at collection-serialization time, naming the collection and field;
 checked for every field of type `slug`, not only one literally named `slug`.
 
 ## Admin client layer
-- `app/composables/useApi.ts` — the only HTTP client; errors become
+- `app/composables/useApi.ts` — the HTTP client for JSON requests; errors become
   `ApiError { status, code, retryable, message, runId, step?, details? }`. `retryable` is `true` for a `503`
   (with a `Retry-After` header) or `429`; the UI offers a retry and names the `Retry-After` seconds when
   present (`editor.retryable`).
+- `app/composables/useUploadTransport.ts` — the one exception to `useApi.ts`: the multipart
+  `POST /media` upload, which needs `upload.onprogress` (`$fetch` has none). An `XMLHttpRequest`-based
+  transport with the same Bearer token source as `useApi.ts` and the same `ApiError` mapping for a
+  non-2xx response or a network error, plus a `{ loaded, total, percent }` progress callback. Used only
+  by the `upload` action's `upload.request` step (**UI actions**).
 - `app/composables/useAuth.ts` — login/logout/me/change password, roles, `can(permission)`.
 - `app/utils/admin-client.ts` (`installAdminClient()`, called once from the admin layout, never a Nuxt plugin: plugins land in the client entry of every page, so the public site would carry admin code and CSS) — installs the 401 interceptor that clears the session and redirects to login, and in dev the style guard that hides foreign stylesheets under `/admin`.
 - `app/composables/useEditForm.ts` — load one document in one locale (`?locale=`), dirty tracking, undo/redo;
@@ -512,7 +517,7 @@ registered that isn't in `uiStepNames`, and nothing in `uiStepNames` goes unregi
 | `data.reload:files` / `data.reload:folders` | `actions/media.ts` | A reload that only fires when its batch actually had items; `deleteItems` runs one for files, one for folders. |
 | `guard.filesDeleted` / `guard.foldersDeleted` | `actions/media.ts` | Fails `deleteItems`'s main sequence when the file batch, respectively the folder batch, reported any failure. |
 | `media.applyTargets` | `actions/media.ts` | Does the one write `renameOrMove` needs: a file rename, a folder rename, or a multi-target move. |
-| `upload.begin` / `upload.settle` | `actions/media.ts` | Marks the queued item `'uploading'` before the request, then seeds `ctx.result` with it after. |
+| `upload.begin` / `upload.request` / `upload.settle` | `actions/media.ts` | Marks the queued item `'uploading'` (`progress` 0); sends the multipart POST through the injected `useUploadTransport` transport, updating `progress` from its callback and switching to `'processing'` at 100% until the response arrives; then seeds `ctx.result` with the item. |
 | `user.validate` | `actions/system.ts` | Field validation before the request; declared separately, under the same name, in `userCreate` (username + password) and `userSetPassword` (password only). |
 | `delivery.remember` | `steps/delivery.ts` | Stores the delivery entries a page write answered with, for the editor's second traffic light. |
 | `api.request:register` | `actions/system.ts` | Inline step (not the `api.request` factory): a no-op when the declared size list is empty, otherwise `PUT /admin/images/sizes`; a 409 (name collision with a `source: "config"` size) returns silently, the same as the empty-list case — nothing is written to `ctx.result` either way. Used by `imagesRegisterAndSync`. |
@@ -989,7 +994,8 @@ Site URL resolution: the primary locale is never prefixed (`/kontakt`), other lo
 
 ## `NUXT_PUBLIC_SITE_URL`
 `layers/admin` reads `runtimeConfig.public.siteUrl` (env `NUXT_PUBLIC_SITE_URL`) for anything that needs
-the public site's absolute base URL — preview links (`BlockPreview.vue`) and canonical URLs
+the public site's absolute base URL — the editor status's "open page" link, shown once a page is live
+(`EditorStatus.vue`, computed in `pages/admin/[collection]/[id].vue`) — and canonical URLs
 (`SeoFields.vue`). Empty by default; set it in a consumer's `.env` once the public site has a real host.
 
 ## Public site (`layers/public`)

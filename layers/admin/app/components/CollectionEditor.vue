@@ -35,6 +35,7 @@ const pageFieldsBindings = computed(() => ({
 const pageFieldsHandlers = { update: f.setField }
 
 const status = computed(() => boundaryCast<string | undefined>(f.values.status, 'json') ?? '')
+const slug = computed(() => boundaryCast<string | undefined>(f.values.slug, 'json') ?? '')
 
 provide(editorFormContextKey, {
   values: f.values, errors: f.errors, blockErrors: f.blockErrors, following: f.following, formError: f.formError, setField: f.setField, locale: f.locale,
@@ -49,7 +50,7 @@ defineExpose({
   recordTitle: heading,
   missingTranslation: f.missingTranslation, primaryTitle: f.primaryTitle, primaryLocale: contentLocales.primary,
   locale: f.locale, translations: f.translations,
-  pageLike, delivery, deliveryLoading,
+  pageLike, delivery, deliveryLoading, slug,
 })
 
 await f.ready

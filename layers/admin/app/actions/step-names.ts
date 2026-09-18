@@ -38,6 +38,7 @@ export const uiStepNames = [
   'data.reload:folders',
   'media.applyTargets',
   'upload.begin',
+  'upload.request',
   'upload.settle',
   'user.validate',
   'delivery.remember',

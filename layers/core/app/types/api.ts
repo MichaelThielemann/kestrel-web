@@ -214,6 +214,7 @@ export interface InsightsConfigVariable {
   default?: unknown
   secret: boolean
   set: boolean
+  status?: 'set' | 'default' | 'missing'
 }
 
 export interface InsightsModule {

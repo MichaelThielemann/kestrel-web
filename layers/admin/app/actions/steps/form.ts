@@ -2,7 +2,7 @@ import type { ApiErrorDetails } from '#kestrel-admin/types/api'
 import type { ActionContext, ActionStep } from '#kestrel-core/app/utils/actions'
 import { retryableMessage, withRunId } from '../../composables/useApi'
 import type { BlockErrors } from '../../composables/useEditForm'
-import { blockErrorFromPointer, fieldErrorsFromDetails, fieldFromErrorMessage, parseBodyErrors, parseRowErrors } from '../../utils/edit-form'
+import { blockErrorFromPointer, fieldErrorsFromDetails, fieldFromErrorMessage, hasAdditionalPropertiesProblem, parseBodyErrors, parseRowErrors } from '../../utils/edit-form'
 import { parseSchemaRowErrors } from '../../utils/row-errors'
 import { defineUiStep } from '../define'
 import type { EditFormPort, SaveOutcome, Translate, WithDeps } from '../types'
@@ -124,7 +124,7 @@ export function formMapErrors<I extends WithDeps & { form: EditFormPort }>(): Ac
         const key = fieldFromErrorMessage(message, form.fieldKeys())
         if (key) form.setFieldError(key, message)
       }
-      form.setFormError(message)
+      form.setFormError(hasAdditionalPropertiesProblem(details) ? `${deps.t('editor.unknownFieldSent')} ${message}` : message)
       return
     }
 

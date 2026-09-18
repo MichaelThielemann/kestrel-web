@@ -33,4 +33,6 @@ export interface EditorExpose {
   delivery: DeliveryEntry[] | null
 
   deliveryLoading: boolean
+
+  slug: string
 }

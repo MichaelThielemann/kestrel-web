@@ -1,4 +1,10 @@
-import type { InsightsManifest, InsightsModule, InsightsPipeline, InsightsPipelineStats, InsightsStats, InsightsStep } from '#kestrel-admin/types/api'
+import type { InsightsConfigVariable, InsightsManifest, InsightsModule, InsightsPipeline, InsightsPipelineStats, InsightsStats, InsightsStep } from '#kestrel-admin/types/api'
+
+export type InsightsConfigStatus = 'set' | 'default' | 'missing'
+
+export function effectiveConfigStatus(v: InsightsConfigVariable): InsightsConfigStatus {
+  return v.status ?? (v.set ? 'set' : 'missing')
+}
 
 export function formatMs(ms: number): string {
   if (ms <= 0) return '0 ms'
@@ -33,7 +39,7 @@ export function formatUptime(ms: number, lang: string): string {
 export function moduleConfigSummary(m: InsightsModule): { set: number; total: number; missingRequired: string[] } {
   const variables = m.config.variables
   const set = variables.filter((v) => v.set).length
-  const missingRequired = variables.filter((v) => v.required && !v.set).map((v) => v.path)
+  const missingRequired = variables.filter((v) => v.required && effectiveConfigStatus(v) === 'missing').map((v) => v.path)
   return { set, total: variables.length, missingRequired }
 }
 
