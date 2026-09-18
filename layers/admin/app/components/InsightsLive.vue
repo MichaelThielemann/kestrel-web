@@ -81,21 +81,21 @@ function relative(ms: number | null): string { return ms === null ? '—' : huma
           <KestrelUiTable>
             <template #head>
               <th scope="col">{{ t('insights.colPipeline') }}</th>
-              <th scope="col">{{ t('insights.colRuns') }}</th>
-              <th scope="col">{{ t('insights.colFailed') }}</th>
-              <th scope="col">{{ t('insights.colErrors') }}</th>
-              <th scope="col">{{ t('insights.colP50') }}</th>
-              <th scope="col">{{ t('insights.colP95') }}</th>
+              <th scope="col" class="insights-num">{{ t('insights.colRuns') }}</th>
+              <th scope="col" class="insights-num">{{ t('insights.colFailed') }}</th>
+              <th scope="col" class="insights-num">{{ t('insights.colErrors') }}</th>
+              <th scope="col" class="insights-num">{{ t('insights.colP50') }}</th>
+              <th scope="col" class="insights-num">{{ t('insights.colP95') }}</th>
               <th scope="col">{{ t('insights.colLastRun') }}</th>
             </template>
             <template #body>
               <tr v-for="p in stats.pipelines" :key="p.name">
                 <td>{{ p.name }}</td>
-                <td>{{ p.count }}</td>
-                <td>{{ p.failed }}</td>
-                <td>{{ p.errors }}</td>
-                <td>{{ formatMs(p.p50Ms) }}</td>
-                <td>{{ formatMs(p.p95Ms) }}</td>
+                <td class="insights-num">{{ p.count }}</td>
+                <td class="insights-num">{{ p.failed }}</td>
+                <td class="insights-num">{{ p.errors }}</td>
+                <td class="insights-num">{{ formatMs(p.p50Ms) }}</td>
+                <td class="insights-num">{{ formatMs(p.p95Ms) }}</td>
                 <td :title="absolute(p.lastAt)">{{ relative(p.lastAt) }}</td>
               </tr>
             </template>
@@ -110,21 +110,21 @@ function relative(ms: number | null): string { return ms === null ? '—' : huma
             <template #head>
               <th scope="col">{{ t('insights.colPipeline') }}</th>
               <th scope="col">{{ t('insights.colSteps') }}</th>
-              <th scope="col">{{ t('insights.colRuns') }}</th>
-              <th scope="col">{{ t('insights.colFailed') }}</th>
-              <th scope="col">{{ t('insights.colErrors') }}</th>
-              <th scope="col">{{ t('insights.colP50') }}</th>
-              <th scope="col">{{ t('insights.colP95') }}</th>
+              <th scope="col" class="insights-num">{{ t('insights.colRuns') }}</th>
+              <th scope="col" class="insights-num">{{ t('insights.colFailed') }}</th>
+              <th scope="col" class="insights-num">{{ t('insights.colErrors') }}</th>
+              <th scope="col" class="insights-num">{{ t('insights.colP50') }}</th>
+              <th scope="col" class="insights-num">{{ t('insights.colP95') }}</th>
             </template>
             <template #body>
               <tr v-for="s in stats.steps" :key="`${s.pipeline}:${s.step}`">
                 <td>{{ s.pipeline }}</td>
                 <td><code>{{ s.step }}</code></td>
-                <td>{{ s.count }}</td>
-                <td>{{ s.failed }}</td>
-                <td>{{ s.errors }}</td>
-                <td>{{ formatMs(s.p50Ms) }}</td>
-                <td>{{ formatMs(s.p95Ms) }}</td>
+                <td class="insights-num">{{ s.count }}</td>
+                <td class="insights-num">{{ s.failed }}</td>
+                <td class="insights-num">{{ s.errors }}</td>
+                <td class="insights-num">{{ formatMs(s.p50Ms) }}</td>
+                <td class="insights-num">{{ formatMs(s.p95Ms) }}</td>
               </tr>
             </template>
           </KestrelUiTable>
@@ -138,13 +138,13 @@ function relative(ms: number | null): string { return ms === null ? '—' : huma
           <KestrelUiTable>
             <template #head>
               <th scope="col">{{ t('insights.colEvent') }}</th>
-              <th scope="col">{{ t('insights.colCount') }}</th>
+              <th scope="col" class="insights-num">{{ t('insights.colCount') }}</th>
               <th scope="col">{{ t('insights.colLast') }}</th>
             </template>
             <template #body>
               <tr v-for="e in stats.events" :key="e.name">
                 <td>{{ e.name }}</td>
-                <td>{{ e.count }}</td>
+                <td class="insights-num">{{ e.count }}</td>
                 <td :title="absolute(e.lastAt)">{{ relative(e.lastAt) }}</td>
               </tr>
             </template>
@@ -159,13 +159,13 @@ function relative(ms: number | null): string { return ms === null ? '—' : huma
           <KestrelUiTable>
             <template #head>
               <th scope="col">{{ t('insights.colKey') }}</th>
-              <th scope="col">{{ t('insights.colRemaining') }}</th>
+              <th scope="col" class="insights-num">{{ t('insights.colRemaining') }}</th>
               <th scope="col">{{ t('insights.colResetAt') }}</th>
             </template>
             <template #body>
               <tr v-for="b in stats.ratelimit" :key="b.key">
                 <td>{{ b.key }}</td>
-                <td>{{ b.remaining }}</td>
+                <td class="insights-num">{{ b.remaining }}</td>
                 <td :title="absolute(b.resetAt)">{{ relative(b.resetAt) }}</td>
               </tr>
             </template>

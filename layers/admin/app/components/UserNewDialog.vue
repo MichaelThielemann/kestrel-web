@@ -14,8 +14,10 @@ const deps: ActionDeps = { api, t, toast }
 
 const username = ref('')
 const password = ref('')
+const passwordConfirm = ref('')
 const roles = ref<string[]>([])
 const error = ref<string | null>(null)
+const confirmError = ref<string | null>(null)
 const busy = ref(false)
 
 const roleOptions = computed(() => [
@@ -26,16 +28,21 @@ const roleOptions = computed(() => [
 function reset() {
   username.value = ''
   password.value = ''
+  passwordConfirm.value = ''
   roles.value = []
   error.value = null
+  confirmError.value = null
 }
 watch(open, (v) => { if (!v) reset() })
 
 async function submit() {
+  confirmError.value = null
+  if (password.value !== passwordConfirm.value) { confirmError.value = t('password.mismatch'); return }
   const r = await runAction(userCreate, {
     deps,
     username: username.value,
     password: password.value,
+    passwordConfirm: passwordConfirm.value,
     roles: roles.value,
     ops: { setBusy: (on) => { busy.value = on }, busy: () => busy.value, setError: (m) => { error.value = m } },
     refresh: () => emit('created'),
@@ -57,6 +64,11 @@ async function submit() {
       <KestrelUiField :label="t('login.password')" :hint="t('users.passwordHint')">
         <template #default="f">
           <KestrelUiTextInput v-model="password" type="password" autocomplete="new-password" v-bind="f" />
+        </template>
+      </KestrelUiField>
+      <KestrelUiField :label="t('password.confirm')" :error="confirmError">
+        <template #default="f">
+          <KestrelUiTextInput v-model="passwordConfirm" type="password" autocomplete="new-password" v-bind="f" />
         </template>
       </KestrelUiField>
       <KestrelUiField :label="t('users.colRoles')">

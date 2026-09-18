@@ -13,13 +13,13 @@ const { t } = useT()
         <KestrelUiTable>
           <template #head>
             <th scope="col">{{ t('insights.colMethod') }}</th>
-            <th scope="col">{{ t('insights.colPath') }}</th>
+            <th scope="col" class="insights-nowrap">{{ t('insights.colPath') }}</th>
             <th scope="col">{{ t('insights.colPipeline') }}</th>
           </template>
           <template #body>
             <tr v-for="tr in manifest.triggers.http" :key="`${tr.method}:${tr.path}`">
               <td><span class="insights-badge insights-badge--info">{{ tr.method }}</span></td>
-              <td><code>{{ tr.path }}</code></td>
+              <td class="insights-nowrap"><code>{{ tr.path }}</code></td>
               <td>{{ tr.pipeline }}</td>
             </tr>
             <tr v-if="manifest.triggers.http.length === 0">
@@ -56,12 +56,12 @@ const { t } = useT()
       <div class="list__scroll">
         <KestrelUiTable>
           <template #head>
-            <th scope="col">{{ t('insights.colExpression') }}</th>
+            <th scope="col" class="insights-nowrap">{{ t('insights.colExpression') }}</th>
             <th scope="col">{{ t('insights.colPipeline') }}</th>
           </template>
           <template #body>
             <tr v-for="tr in manifest.triggers.crons" :key="`${tr.expression}:${tr.pipeline}`">
-              <td><code>{{ tr.expression }}</code></td>
+              <td class="insights-nowrap"><code>{{ tr.expression }}</code></td>
               <td>{{ tr.pipeline }}</td>
             </tr>
             <tr v-if="manifest.triggers.crons.length === 0">

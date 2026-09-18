@@ -34,7 +34,7 @@ const filtered = computed(() => {
           <th scope="col">{{ t('insights.colProvides') }}</th>
           <th scope="col">{{ t('insights.colRequires') }}</th>
           <th scope="col">{{ t('insights.colOptional') }}</th>
-          <th scope="col">{{ t('insights.colSteps') }}</th>
+          <th scope="col" class="insights-num">{{ t('insights.colSteps') }}</th>
           <th scope="col">{{ t('insights.colConfig') }}</th>
           <th scope="col">{{ t('insights.colEvent') }}</th>
         </template>
@@ -51,7 +51,7 @@ const filtered = computed(() => {
             <td>
               <span v-for="c in m.optional" :key="c" class="insights-chip insights-chip--optional" :title="`${c} ${t('insights.optionalSuffix')}`">{{ c }}</span>
             </td>
-            <td>{{ m.steps.length }}</td>
+            <td class="insights-num">{{ m.steps.length }}</td>
             <td>
               <span>{{ configSummaries.get(m.name)?.set }} / {{ configSummaries.get(m.name)?.total }}</span>
               <span v-if="configSummaries.get(m.name)?.missingRequired.length" class="insights-badge insights-badge--warning">

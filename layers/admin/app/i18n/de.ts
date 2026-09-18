@@ -525,10 +525,11 @@ export const de: Catalog = {
   'account.password.title': 'Passwort ändern',
   'account.password.current': 'Aktuelles Passwort',
   'account.password.new': 'Neues Passwort',
-  'account.password.confirm': 'Neues Passwort bestätigen',
   'account.password.tooShort': 'Das Passwort muss mindestens 8 Zeichen lang sein.',
-  'account.password.mismatch': 'Die Passwörter stimmen nicht überein.',
   'account.password.success': 'Passwort geändert',
+
+  'password.confirm': 'Passwort bestätigen',
+  'password.mismatch': 'Die Passwörter stimmen nicht überein.',
 
   'users.title': 'Benutzer',
   'users.new': 'Neuer Benutzer',

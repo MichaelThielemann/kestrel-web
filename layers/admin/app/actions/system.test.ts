@@ -308,7 +308,7 @@ describe('userCreate', () => {
     const { ops, errors } = fakeOps()
     const { refresh, calls: refreshCalls } = fakeRefresh()
 
-    const result = await runAction(userCreate, { deps, username: '  ', password: 'longenough', roles: [], ops, refresh })
+    const result = await runAction(userCreate, { deps, username: '  ', password: 'longenough', passwordConfirm: 'longenough', roles: [], ops, refresh })
 
     expect(result.ok).toBe(false)
     expect(calls.length).toBe(0)
@@ -321,10 +321,23 @@ describe('userCreate', () => {
     const { ops, errors } = fakeOps()
     const { refresh } = fakeRefresh()
 
-    await runAction(userCreate, { deps, username: 'bob', password: 'short12', roles: [], ops, refresh })
+    await runAction(userCreate, { deps, username: 'bob', password: 'short12', passwordConfirm: 'short12', roles: [], ops, refresh })
 
     expect(calls.length).toBe(0)
     expect(errors).toEqual(['users.passwordTooShort'])
+  })
+
+  it('fails validation when the confirmation does not match, without a request', async () => {
+    const { deps, calls } = fakeDeps([])
+    const { ops, errors } = fakeOps()
+    const { refresh, calls: refreshCalls } = fakeRefresh()
+
+    const result = await runAction(userCreate, { deps, username: 'bob', password: 'longenough', passwordConfirm: 'different', roles: [], ops, refresh })
+
+    expect(result.ok).toBe(false)
+    expect(calls.length).toBe(0)
+    expect(errors).toEqual(['password.mismatch'])
+    expect(refreshCalls.length).toBe(0)
   })
 
   it('creates the user with the trimmed username, toasts and reloads', async () => {
@@ -332,7 +345,7 @@ describe('userCreate', () => {
     const { ops } = fakeOps()
     const { refresh, calls: refreshCalls } = fakeRefresh()
 
-    const result = await runAction(userCreate, { deps, username: '  bob  ', password: 'longenough', roles: ['editor'], ops, refresh })
+    const result = await runAction(userCreate, { deps, username: '  bob  ', password: 'longenough', passwordConfirm: 'longenough', roles: ['editor'], ops, refresh })
 
     expect(result.ok).toBe(true)
     expect(calls).toEqual([{ path: '/users', method: 'POST', body: { username: 'bob', password: 'longenough', roles: ['editor'] }, query: undefined }])
@@ -345,7 +358,7 @@ describe('userCreate', () => {
     const { ops, errors } = fakeOps()
     const { refresh, calls: refreshCalls } = fakeRefresh()
 
-    const result = await runAction(userCreate, { deps, username: 'bob', password: 'longenough', roles: [], ops, refresh })
+    const result = await runAction(userCreate, { deps, username: 'bob', password: 'longenough', passwordConfirm: 'longenough', roles: [], ops, refresh })
 
     expect(result.ok).toBe(false)
     expect(errors).toContain('username taken')
@@ -360,7 +373,7 @@ describe('userSetPassword', () => {
     const { deps, calls } = fakeDeps([])
     const { ops, errors } = fakeOps()
 
-    const result = await runAction(userSetPassword, { deps, userId: null, password: 'longenough', ops })
+    const result = await runAction(userSetPassword, { deps, userId: null, password: 'longenough', passwordConfirm: 'longenough', ops })
 
     expect(result.ok).toBe(false)
     expect(calls.length).toBe(0)
@@ -371,17 +384,28 @@ describe('userSetPassword', () => {
     const { deps, calls } = fakeDeps([])
     const { ops, errors } = fakeOps()
 
-    await runAction(userSetPassword, { deps, userId: 'u1', password: 'short12', ops })
+    await runAction(userSetPassword, { deps, userId: 'u1', password: 'short12', passwordConfirm: 'short12', ops })
 
     expect(calls.length).toBe(0)
     expect(errors).toEqual(['users.passwordTooShort'])
+  })
+
+  it('fails validation when the confirmation does not match, without a request', async () => {
+    const { deps, calls } = fakeDeps([])
+    const { ops, errors } = fakeOps()
+
+    const result = await runAction(userSetPassword, { deps, userId: 'u1', password: 'longenough', passwordConfirm: 'different', ops })
+
+    expect(result.ok).toBe(false)
+    expect(calls.length).toBe(0)
+    expect(errors).toEqual(['password.mismatch'])
   })
 
   it('sets the password and toasts success', async () => {
     const { deps, calls, toast } = fakeDeps([{}])
     const { ops } = fakeOps()
 
-    const result = await runAction(userSetPassword, { deps, userId: 'u1', password: 'longenough', ops })
+    const result = await runAction(userSetPassword, { deps, userId: 'u1', password: 'longenough', passwordConfirm: 'longenough', ops })
 
     expect(result.ok).toBe(true)
     expect(calls).toEqual([{ path: '/users/u1/password', method: 'PUT', body: { password: 'longenough' }, query: undefined }])
@@ -392,7 +416,7 @@ describe('userSetPassword', () => {
     const { deps, toast } = fakeDeps([apiError(500, 'boom')])
     const { ops, errors } = fakeOps()
 
-    const result = await runAction(userSetPassword, { deps, userId: 'u1', password: 'longenough', ops })
+    const result = await runAction(userSetPassword, { deps, userId: 'u1', password: 'longenough', passwordConfirm: 'longenough', ops })
 
     expect(result.ok).toBe(false)
     expect(errors).toContain('boom')

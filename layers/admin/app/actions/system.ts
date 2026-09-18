@@ -37,6 +37,7 @@ export interface MigrationsApplyInput extends WithDeps {
 export interface UserCreateInput extends WithDeps {
   username: string
   password: string
+  passwordConfirm: string
   roles: string[]
   ops: BusyPort
   refresh: RefreshPort
@@ -45,6 +46,7 @@ export interface UserCreateInput extends WithDeps {
 export interface UserPasswordInput extends WithDeps {
   userId: string | null
   password: string
+  passwordConfirm: string
   ops: BusyPort
 }
 
@@ -224,9 +226,10 @@ export const migrationsApply = defineAction<MigrationsApplyInput, MigrationsAppl
 })
 
 const userCreateValidate: ActionStep<UserCreateInput, undefined> = defineUiStep('user.validate', (ctx) => {
-  const { username, password, ops, deps } = ctx.input
+  const { username, password, passwordConfirm, ops, deps } = ctx.input
   if (!username.trim()) { ops.setError?.(deps.t('users.usernameRequired')); ctx.fail('users.usernameRequired') }
   if (password.length < 8) { ops.setError?.(deps.t('users.passwordTooShort')); ctx.fail('users.passwordTooShort') }
+  if (password !== passwordConfirm) { ops.setError?.(deps.t('password.mismatch')); ctx.fail('password.mismatch') }
 })
 
 export const userCreate = defineAction<UserCreateInput, undefined>({
@@ -249,9 +252,10 @@ export const userCreate = defineAction<UserCreateInput, undefined>({
 })
 
 const userPasswordValidate: ActionStep<UserPasswordInput, undefined> = defineUiStep('user.validate', (ctx) => {
-  const { userId, password, ops, deps } = ctx.input
+  const { userId, password, passwordConfirm, ops, deps } = ctx.input
   if (userId === null) ctx.fail('user.validate')
   if (password.length < 8) { ops.setError?.(deps.t('users.passwordTooShort')); ctx.fail('users.passwordTooShort') }
+  if (password !== passwordConfirm) { ops.setError?.(deps.t('password.mismatch')); ctx.fail('password.mismatch') }
 })
 
 export const userSetPassword = defineAction<UserPasswordInput, undefined>({
