@@ -64,6 +64,8 @@ overrides:
 - Ids are strings; dates are ms since epoch; one locale is edited at a time (`?locale=`).
 - `NUXT_PUBLIC_SITE_URL` (runtime config `public.siteUrl`) is the only place the admin needs the public
   site's base URL (preview links, SEO fields); it stays empty in dev.
+- Admin UI is built from `layers/admin/app/components/ui` (see `docs/architecture.md` § UI kit first);
+  a missing variant is added to the kit.
 - No code comments except eslint/ts directives — self-explaining code, explanations in `docs/`.
   English in code and docs.
 

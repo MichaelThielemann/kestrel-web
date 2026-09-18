@@ -34,7 +34,6 @@ watch(() => props.open, (o) => { if (o) recursive.value = false })
       <p v-if="extraRefs > 0" class="media-delete__more">{{ t('refs.referencedByMore', { n: extraRefs }) }}</p>
     </div>
     <p class="media-delete__hint">{{ t('media.deleteHint') }}</p>
-    <!-- eslint-disable-next-line vuejs-accessibility/label-has-for -- native wrapping label around a custom UiCheckbox; no `for`/`id` pair needed, invisible to static analysis -->
     <label v-if="hasNonEmptyFolders" class="media-delete__recursive">
       <KestrelUiCheckbox v-model="recursive" :disabled="busy" />
       <span>{{ t('media.deleteRecursive') }}</span>

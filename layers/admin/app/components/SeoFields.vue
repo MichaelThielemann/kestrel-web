@@ -70,7 +70,6 @@ const descLen = computed(() => (props.value.description ?? '').length)
       </template>
     </KestrelUiField>
 
-    <!-- eslint-disable-next-line vuejs-accessibility/label-has-for -- native wrapping label around a custom UiCheckbox; no `for`/`id` pair needed, invisible to static analysis -->
     <label class="seo-fields__noindex">
       <KestrelUiCheckbox
         :model-value="!!value.noindex"

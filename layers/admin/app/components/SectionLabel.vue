@@ -31,6 +31,8 @@ const { t } = useT()
     justify-content: center;
     width: 1.25rem;
     height: 1.25rem;
+    min-inline-size: 1.25rem;
+    min-block-size: 1.25rem;
     padding: 0;
     border: 0;
     border-radius: var(--radius-sm);

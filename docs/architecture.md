@@ -394,11 +394,26 @@ checked for every field of type `slug`, not only one literally named `slug`.
 `<table>`, `<button>`, `<input>`, `<select>`, `<textarea>` and `<dialog>`; those elements belong to the kit
 alone, so focus rings, disabled states, ARIA wiring and design tokens live in one place. **Rule for admin UI work: new admin UI uses `components/ui`; a missing variant is added to the kit.**
 
-The `kestrel/ui-kit-first` block in `playground/eslint.config.mjs` enforces the rule with
-`vue/no-restricted-html-elements` over `layers/admin/app/components/**/*.vue`,
-`layers/admin/app/layouts/**/*.vue` and `layers/admin/app/pages/**/*.vue`, each element carrying the kit
-component to use instead. It ignores
-`components/ui/**` (the kit itself) and `pages/admin/system.vue`. Suppression comments are allowed inside `components/ui/**` only.
+The `kestrel/ui-kit-first` block in `playground/eslint.config.mjs` enforces the rule over
+`layers/admin/app/**/*.vue` — components, layouts, pages and anything added next to them. It ignores
+`components/ui/**` (the kit itself) and `pages/admin/system.vue`. `vue/no-restricted-html-elements` names the kit component for each raw element; five more rules
+close the ways around it:
+
+- `vue/comment-directive` is off, so a `<!-- eslint-disable … -->` in a template cannot switch the block
+  back off. Suppression comments therefore work inside `components/ui/**` only. The admin templates carry
+  none: the `vuejs-accessibility/*` directives they used to have named a plugin that is not installed.
+  Installing an accessibility plugin would need those suppressions back, and the guard would have to
+  become a vitest scan over the admin templates instead.
+- `vue/no-restricted-static-attribute` rejects `role="button"`, `href="#"` on an `<a>` and a static
+  `<component is="button">`.
+- `vue/no-restricted-class` rejects `ui-button…` classes on anything that is not the kit button.
+- `vue/no-restricted-syntax` rejects a raw control written in mixed case (`<Button>`, `<Table>`) and a
+  literal `<component :is="'button'">`.
+- `vue/no-v-html` is an error; the only `v-html` in the admin layer is `Icon.vue`, inside the kit.
+
+Two holes stay open on purpose: `<component :is="x">` with `x` a variable, and a plain `<div @click>` with
+hand-rolled ARIA — catching either needs runtime or type information a template lint rule does not have.
+`layers/public` has no kit and is out of scope; its markup is the consumer's site, not the admin UI.
 
 Kit inventory:
 - `ActionMenu.vue` — dropdown menu behind a caller-styled trigger button.
@@ -419,7 +434,8 @@ Kit inventory:
 - `Popover.vue` — anchored popover with a trigger slot.
 - `Richtext.vue` / `RichtextToolbar.vue` — the TipTap editor and its toolbar.
 - `Select.vue` — native select styled like the other controls.
-- `Table.vue` / `TableSort.vue` — the table shell (`head`/`body` slots, sticky header) and its sortable column header.
+- `Table.vue` / `TableSort.vue` — the table shell (`head`/`body` slots, sticky header, `plain` for a table
+  inlined in a card: no frame, no header fill, no row hover) and its sortable column header.
 - `Textarea.vue` — multi-line text input.
 - `TextInput.vue` — single-line input with optional leading icon and password reveal.
 - `Toasts.vue` — the toast host with its polite/assertive live regions.
@@ -428,11 +444,21 @@ Kit inventory:
 Adding a variant: extend the kit component rather than dropping back to a raw element. A button variant is
 a new member of `Button.vue`'s `variant` union plus its SCSS block. `primary`, `secondary`, `ghost`,
 `danger` and `danger-ghost` are fully styled and carry the `.ui-button` base class and a size class.
-`icon` (square, ghost, icon-only — the caller supplies `aria-label`) and `bare` (native button semantics,
-no styling — a clickable card, tile or tree row) carry only their own modifier class, render the default
-slot unwrapped, and declare their rules inside `:where(…)`, so a call site's own class always wins and
-migrating an existing control to the kit cannot change how it looks. `Button.vue` exposes `focus()` for
-components that move focus after a list edit.
+`icon` (square, ghost, icon-only — the caller supplies `aria-label`; text content is not supported) and
+`bare` (native button semantics, no styling — a clickable card, tile or tree row) carry only their own
+modifier class, render the default slot unwrapped, and declare their rules inside `:where(…)`: call-site
+classes win, and properties a call site does not set take the variant's defaults. `icon` honours `size`
+only where the call site sets one (`sm` 1.5rem, `md` 2rem, `lg` 2.5rem square); left out, the box stays at
+1.5rem, so migrating a control to the kit does not resize it. The focus ring of both variants is declared
+outside `:where(…)`, so a call-site `outline: none` on the modifier class cannot remove it. `Button.vue`
+exposes `focus()` for components that move focus after a list edit; it focuses the `to` branch's link as
+well as the button.
+
+`assets/scss/_reset.scss` is wrapped in `@layer reset`. Its element selectors — `button { cursor }` and
+`input, button, textarea, select { font, color }` — outweigh the kit's zero-specificity `:where(…)` variant
+rules, so before the layer an icon button took the reset's `color: inherit` instead of the kit's muted
+token. A cascade layer loses to every unlayered rule whatever the specificity, while unlayered call-site
+classes keep winning over `:where(…)`. Nothing else in the admin styles is layered.
 
 ## UI actions
 Every user-triggered write in `layers/admin` — save, publish, delete, discard, bulk status, media

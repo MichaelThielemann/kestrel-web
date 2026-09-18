@@ -239,7 +239,6 @@ const localizedMenu = computed(() => menuItems.value.map((s) => ({
 </script>
 
 <template>
-  <!-- eslint-disable-next-line vuejs-accessibility/click-events-have-key-events, vuejs-accessibility/no-static-element-interactions -- @click.self clears selection as a mouse-only bulk convenience; Space-toggle on each MediaGrid/MediaTable item already gives keyboard users the same end state -->
   <section class="media-library" @click.self="lib.clear()" @dragenter="onDragEnter" @dragover="onDragOver" @dragleave="onDragLeave" @drop="onDrop">
     <KestrelMediaPathBar :folder="folder" :folders="allFolderPaths" @navigate="lib.navigate" />
     <KestrelMediaToolbar
@@ -253,7 +252,6 @@ const localizedMenu = computed(() => menuItems.value.map((s) => ({
     />
     <KestrelUiMenu :items="localizedMenu" @select="onMenuSelect">
 
-      <!-- eslint-disable-next-line vuejs-accessibility/no-static-element-interactions -- contextmenu fires natively via Shift+F10/the Menu key when a MediaGrid/MediaTable item has focus, so this capture handler is already keyboard-reachable -->
       <div class="media-library__items" @contextmenu.capture="onContextMenu">
         <KestrelUiAlert v-if="error" variant="error">{{ error }}</KestrelUiAlert>
         <p v-else-if="!loading && !items.length" class="media-library__empty">{{ t('media.folderEmpty') }}</p>

@@ -12,25 +12,33 @@ const props = withDefaults(
     icon?: IconName
     to?: string
   }>(),
-  { variant: 'secondary', size: 'md', type: 'button', disabled: false, loading: false },
+  { variant: 'secondary', type: 'button', disabled: false, loading: false },
 )
 
 const unstyled = computed(() => props.variant === 'icon' || props.variant === 'bare')
 
-const classes = computed(() =>
-  unstyled.value
-    ? [`ui-button--${props.variant}`]
-    : ['ui-button', `ui-button--${props.variant}`, `ui-button--${props.size}`],
-)
+const classes = computed(() => {
+  if (props.variant === 'icon') return ['ui-button--icon', props.size ? `ui-button--icon-${props.size}` : null]
+  if (props.variant === 'bare') return ['ui-button--bare']
+  return ['ui-button', `ui-button--${props.variant}`, `ui-button--${props.size ?? 'md'}`]
+})
 
-const el = ref<HTMLButtonElement | null>(null)
+const el = ref<HTMLElement | { $el: HTMLElement } | null>(null)
 
-defineExpose({ focus: (options?: FocusOptions) => el.value?.focus(options) })
+function focus(options?: FocusOptions): void {
+  const node = el.value
+  if (!node) return
+  const target = '$el' in node ? node.$el : node
+  target.focus(options)
+}
+
+defineExpose({ focus })
 </script>
 
 <template>
   <NuxtLink
     v-if="to"
+    ref="el"
     :to="to"
     :class="[classes, { 'ui-button--disabled': disabled }]"
     :aria-disabled="disabled || undefined"
@@ -163,6 +171,18 @@ defineExpose({ focus: (options?: FocusOptions) => el.value?.focus(options) })
   font: inherit;
   cursor: pointer;
 }
+:where(.ui-button--icon-sm) {
+  min-inline-size: 1.5rem;
+  min-block-size: 1.5rem;
+}
+:where(.ui-button--icon-md) {
+  min-inline-size: 2rem;
+  min-block-size: 2rem;
+}
+:where(.ui-button--icon-lg) {
+  min-inline-size: 2.5rem;
+  min-block-size: 2.5rem;
+}
 :where(.ui-button--icon:hover:not(:disabled)) {
   color: var(--color-text);
 }
@@ -178,15 +198,16 @@ defineExpose({ focus: (options?: FocusOptions) => el.value?.focus(options) })
   color: inherit;
   font: inherit;
   text-align: inherit;
+  text-decoration: none;
   cursor: pointer;
 }
 :where(.ui-button--bare:disabled) {
   cursor: not-allowed;
 }
 
-:where(.ui-button--icon:focus-visible, .ui-button--bare:focus-visible) {
-  outline: 2px solid var(--color-focus);
-  outline-offset: -2px;
+.ui-button--icon,
+.ui-button--bare {
+  @include mixins.focus-ring;
 }
 
 @keyframes ui-button-spin {

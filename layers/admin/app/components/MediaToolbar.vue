@@ -45,7 +45,7 @@ const fileInput = ref<{ open: () => void } | null>(null)
     <div class="media-toolbar__actions">
       <KestrelUiButtonGroup v-model="viewModel" :options="VIEW_OPTIONS" :aria-label="t('mediaToolbar.viewAriaLabel')" />
       <span class="media-toolbar__divider" aria-hidden="true"></span>
-      <KestrelUiFileInput ref="fileInput" multiple class="media-toolbar__file" :aria-label="t('mediaToolbar.upload')" @select="(files) => emit('upload', files)" />
+      <KestrelUiFileInput ref="fileInput" multiple @select="(files) => emit('upload', files)" />
       <KestrelUiButton :disabled="disabled" @click="fileInput?.open()"><KestrelUiIcon name="upload" :size="16" /> {{ t('mediaToolbar.upload') }}</KestrelUiButton>
       <KestrelUiButton :disabled="disabled" @click="emit('new-folder')"><KestrelUiIcon name="folder-plus" :size="16" /> {{ t('mediaToolbar.newFolder') }}</KestrelUiButton>
     </div>
@@ -79,10 +79,6 @@ const fileInput = ref<{ open: () => void } | null>(null)
     min-height: 1.5rem;
     background: var(--color-border);
     margin: 0 var(--space-1);
-  }
-
-  &__file {
-    display: none;
   }
 }
 </style>

@@ -4,6 +4,11 @@
 
 ### Added
 
+- Admin kit: `KestrelUiButton` variants `icon` (square, icon-only, `size` sm/md/lg, caller supplies
+  `aria-label`) and `bare` (native button semantics without styling, for cards, tiles and tree rows);
+  both keep their rules in `:where()` so call-site classes win, with the focus ring outside it;
+  `focus()` works on both branches. `KestrelUiFileInput` (`multiple`, `accept`, `open()`, `select`
+  emitting `File[]`). `KestrelUiTable` `plain` for tables inlined in a card.
 - `docs/consuming-kestrel-web.md`: "Switching an existing `kestrel.config.ts` to the builder", five
   steps from a hand-written module list to `presetModuleConfig()`.
 - `#kestrel/pipelines` exports `presetModuleConfig({ dataDir, blobstore, model, features, roles,
@@ -61,6 +66,14 @@
 
 ### Changed
 
+- Admin: "UI kit first" is enforced. The `kestrel/ui-kit-first` lint block makes a raw `table`,
+  `button`, `input`, `select`, `textarea` or `dialog` in `layers/admin/app/**/*.vue` an error naming
+  the kit component, and closes the ways around it: template `eslint-disable` comments do not apply,
+  `role="button"`, `href="#"`, kit classes on foreign elements, mixed-case raw controls, a literal
+  `<component :is="'button'">` and `v-html` are errors; `components/ui/**` is exempt. The 32 existing raw controls in 18 files moved to the kit
+  with unchanged classes, ARIA names, keyboard paths and `data-*` hooks.
+- Admin styles: `assets/scss/_reset.scss` is wrapped in `@layer reset`, so kit `:where()` rules win
+  over the reset's element selectors while call-site classes keep winning over both.
 - Admin: `BlockTree.vue` and `field/Repeater.vue` hand their row markup to `BlockTreeRow.vue` and
   `field/RepeaterRow.vue` (typed props and emits); no DOM, class, ARIA or behaviour change.
 - `ui/Dialog.vue` teleports overlay and content to the body (`DialogPortal`); the media picker fills the

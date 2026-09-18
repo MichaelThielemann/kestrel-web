@@ -1,9 +1,9 @@
 <script setup lang="ts">
-withDefaults(defineProps<{ sticky?: boolean }>(), { sticky: true })
+withDefaults(defineProps<{ sticky?: boolean; plain?: boolean }>(), { sticky: true, plain: false })
 </script>
 
 <template>
-  <table class="ui-table" :class="{ 'ui-table--sticky': sticky }">
+  <table class="ui-table" :class="{ 'ui-table--sticky': sticky, 'ui-table--plain': plain }">
     <thead><tr><slot name="head" /></tr></thead>
     <tbody><slot name="body" /></tbody>
   </table>
@@ -52,6 +52,24 @@ withDefaults(defineProps<{ sticky?: boolean }>(), { sticky: true })
 
   tbody tr:hover {
     background: var(--color-hover);
+  }
+
+  &--plain {
+    border: 0;
+    border-radius: 0;
+
+    th,
+    td {
+      padding: var(--space-1) var(--space-2);
+    }
+
+    thead th {
+      background: transparent;
+    }
+
+    tbody tr:hover {
+      background: transparent;
+    }
   }
 
   &__row--muted td {

@@ -28,7 +28,7 @@ function sizeLabel(size: { width: number; height?: number }): string {
 
     <section v-if="details.fields.length" class="block-picker-details__section">
       <h3 class="block-picker-details__heading">{{ t('blocks.pickerDetailsFields') }}</h3>
-      <KestrelUiTable :sticky="false">
+      <KestrelUiTable :sticky="false" plain>
         <template #head>
           <th scope="col">{{ t('blocks.pickerDetailsFieldName') }}</th>
           <th scope="col">{{ t('blocks.pickerDetailsFieldType') }}</th>

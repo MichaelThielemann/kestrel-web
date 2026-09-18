@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 
-defineOptions({ inheritAttrs: false })
-
 withDefaults(
   defineProps<{
     multiple?: boolean
@@ -34,7 +32,6 @@ defineExpose({ open: () => el.value?.click() })
     :accept="accept"
     :disabled="disabled"
     class="ui-file-input"
-    v-bind="$attrs"
     @change="onChange"
   >
 </template>

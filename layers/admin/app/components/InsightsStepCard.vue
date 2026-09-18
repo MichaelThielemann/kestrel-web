@@ -60,7 +60,7 @@ const errorEntries = computed(() => Object.entries(description.value?.errors ?? 
         <div class="insights-step__section">
           <h4 class="insights-step__section-title">{{ t('insights.colErrorMessage') }}</h4>
           <p v-if="errorEntries.length === 0" class="insights-step__muted">{{ t('insights.noErrors') }}</p>
-          <KestrelUiTable v-else :sticky="false">
+          <KestrelUiTable v-else :sticky="false" plain>
             <template #head>
               <th scope="col">{{ t('insights.colStatus') }}</th>
               <th scope="col">{{ t('insights.colErrorMessage') }}</th>
