@@ -4,6 +4,11 @@
 
 ### Added
 
+- A third vitest project, `components` (`environment: "nuxt"` via `@nuxt/test-utils`, jsdom), renders
+  `*.dom.test.ts` specs with `mountSuspended` against the playground app: keyboard, ARIA and emit
+  behaviour of `field/Repeater.vue` and `BlockTree.vue`, the save path of `CollectionEditor.vue`
+  (dirty keys only, success toast, 400 field error mapped onto the field) and `sanitizeInBrowser`
+  (script, inline handlers, `javascript:` links and iframes removed; safe formatting kept).
 - `#kestrel/pipelines` exports `definePipeline`, typed against `PresetStep`, so a misspelled step in
   a consumer's own `pipelines/index.ts` fails `nuxt typecheck`; `pipelineDefiner` is documented for
   consumers with modules of their own. `#kestrel/consumer-pipelines` and `#kestrel/consumer-modules`
@@ -28,6 +33,17 @@
 
 ### Changed
 
+- `no-unsafe-type-assertion` applies wherever the other type-aware rules do (every layer,
+  `packages/renderer-nuxt`, `playground`, `.vue` included, tests included); 199 assertions became
+  discriminated-union guards (`fieldIs`), `boundaryCast` at real JSON, AST, DOM or host boundaries,
+  generic overloads or small literal-union guards; nine directives remain for TypeScript and
+  standard-library gaps, each with its reason.
+- Admin: every `runAction` call site outside `pages/admin/system.vue` shows the unexpected-error
+  toast on `meta.unexpected` (29 sites).
+- `layers/core/nuxt.config.ts` enables `typescript.shim`, so `.vue` imports from `.ts` files need no
+  component cast; the insights canvas virtual module carries an ambient declaration.
+- vitest 4 (root and `packages/renderer-nuxt`; a stale nested vitest 3 had silently dropped the
+  three renderer contract tests); jsdom is the DOM environment of the `components` project.
 - Module-config lookups (upload limit, inline SVG types, readiness probe, images `publicPath`
   check) resolve the owning module through the booted `kestrel.steps.owner()` instead of calling
   each module's `steps()`; a module can no longer borrow another module's config by accident.
@@ -42,6 +58,10 @@
 
 ### Fixed
 
+- `sanitizeInBrowser` throws instead of returning the unsanitized input when DOMPurify reports
+  the environment as unsupported.
+- `collections-serialize.ts`: a `relation` override applies only on top of an existing base
+  relation instead of producing an incomplete `{ collection, many }` object.
 - Media viewer: a failed metadata request no longer leaves an unhandled rejection; the dialog shows
   a translated inline error.
 - Upload limit: a failed `GET /limits` no longer disables the size guard for the session; the
