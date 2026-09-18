@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { computed, ref, useId, watch } from 'vue'
-import type { MenuItem } from './ui/Menu.vue'
+import { ref, useId, watch } from 'vue'
 import type { BlockRow, BlockTreeCtx } from '../utils/block-tree'
 import { resolveLocalized } from '#kestrel-admin/utils/localized'
 import BlockTree from './BlockTree.vue'
+import BlockTreeRow from './BlockTreeRow.vue'
 import BlockPicker from './BlockPicker.vue'
 
 const props = withDefaults(
@@ -48,12 +48,6 @@ watch(() => props.focusRequest, (request) => {
 }, { flush: 'post' })
 
 const picking = ref(false)
-const rowMenu = computed<MenuItem[]>(() => [
-  { label: t('blocks.menuDuplicate'), value: 'duplicate' },
-  { label: t('blocks.menuCopy'), value: 'copy' },
-  { label: t('blocks.menuPaste'), value: 'paste' },
-  { label: t('blocks.menuRemove'), value: 'remove', danger: true },
-])
 
 function onRowMenu(id: string, action: string): void {
   if (action === 'duplicate') props.ctx.ops.duplicate(id)
@@ -125,56 +119,24 @@ const { listEl, dragIndex, dropGap, onHandleDown, onHandleMove, onHandleUp, onHa
       >
         <div v-if="dropGap === i" class="block-tree__indicator" aria-hidden="true"></div>
 
-        <div class="block-tree__row">
-          <div
-            class="block-tree__handle"
-            :class="{ 'block-tree__handle--disabled': disabled || blocks.length < 2 }"
-            :style="{ touchAction: 'none' }"
-            :title="t('blocks.dragHint')"
-            aria-hidden="true"
-            @pointerdown="onHandleDown(i, $event)"
-            @pointermove="onHandleMove($event)"
-            @pointerup="onHandleUp($event)"
-            @pointercancel="onHandleCancel($event)"
-          >
-            <KestrelUiIcon name="grip" :size="14" />
-          </div>
-          <button
-            type="button"
-            class="block-tree__node-label"
-            :class="{ 'block-tree__node-label--selected': selectedId === block.id }"
-            :aria-pressed="selectedId === block.id"
-            @click="ctx.ops.select(block.id)"
-          >
-            <span class="block-tree__node-name">{{ labelOf(block) }}</span>
-            <KestrelUiIcon
-              v-if="hasDirectError(block)"
-              name="triangle-alert"
-              :size="14"
-              class="block-tree__error-icon"
-              :label="t('blocks.hasProblems')"
-              :title="errorMessages.get(block.id)?.join('\n') || t('blocks.hasProblems')"
-            />
-            <span
-              v-else-if="hasNestedError(block)"
-              class="block-tree__error-dot"
-              role="img"
-              :aria-label="t('blocks.invalid')"
-              :title="t('blocks.invalid')"
-            ></span>
-          </button>
-          <div class="block-tree__actions">
-            <button type="button" class="block-tree__btn" :disabled="disabled || i === 0" :aria-label="t('blocks.moveUp', { n: i + 1 })" :aria-describedby="moveHintId" @click="onMove(block, i, -1)"><KestrelUiIcon name="chevron-up" :size="15" /></button>
-            <button type="button" class="block-tree__btn" :disabled="disabled || i === blocks.length - 1" :aria-label="t('blocks.moveDown', { n: i + 1 })" :aria-describedby="moveHintId" @click="onMove(block, i, 1)"><KestrelUiIcon name="chevron-down" :size="15" /></button>
-            <KestrelUiActionMenu
-              :items="rowMenu"
-              :label="t('blocks.more', { n: i + 1 })"
-              :disabled="disabled"
-              trigger-class="block-tree__btn"
-              @select="(action) => onRowMenu(block.id, action)"
-            ><KestrelUiIcon name="more-horizontal" :size="15" /></KestrelUiActionMenu>
-          </div>
-        </div>
+        <BlockTreeRow
+          :label="labelOf(block)"
+          :index="i"
+          :total="blocks.length"
+          :disabled="disabled"
+          :selected="selectedId === block.id"
+          :direct-error="hasDirectError(block)"
+          :nested-error="hasNestedError(block)"
+          :error-message="errorMessages.get(block.id)?.join('\n')"
+          :move-hint-id="moveHintId"
+          @select="ctx.ops.select(block.id)"
+          @move="(dir) => onMove(block, i, dir)"
+          @menu="(action) => onRowMenu(block.id, action)"
+          @pointerdown="onHandleDown(i, $event)"
+          @pointermove="onHandleMove($event)"
+          @pointerup="onHandleUp($event)"
+          @pointercancel="onHandleCancel($event)"
+        />
 
         <div v-if="i === blocks.length - 1 && dropGap === blocks.length" class="block-tree__indicator block-tree__indicator--after" aria-hidden="true"></div>
 
@@ -235,8 +197,7 @@ const { listEl, dragIndex, dropGap, onHandleDown, onHandleMove, onHandleUp, onHa
   gap: var(--space-1);
   font-size: var(--text-sm);
 
-  &__root,
-  &__node-label {
+  &__root {
     display: flex;
     align-items: center;
     gap: var(--space-2);
@@ -271,21 +232,6 @@ const { listEl, dragIndex, dropGap, onHandleDown, onHandleMove, onHandleUp, onHa
     color: var(--color-text-subtle);
   }
 
-  &__node-label--selected {
-    background: var(--color-active, var(--color-surface-2));
-    color: var(--color-text);
-    font-weight: var(--weight-medium);
-    border-inline-start-color: var(--color-primary);
-    border-start-start-radius: 0;
-    border-end-start-radius: 0;
-  }
-
-  &__node-name {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
   &__empty {
     margin: 0;
     padding: var(--space-1) var(--space-2);
@@ -306,49 +252,8 @@ const { listEl, dragIndex, dropGap, onHandleDown, onHandleMove, onHandleUp, onHa
     flex-direction: column;
     gap: var(--space-1);
   }
-  &__node--error &__node-name {
-    color: var(--color-danger);
-  }
   &__node--dragging {
     opacity: 0.5;
-  }
-  &__row {
-    position: relative;
-    display: flex;
-    align-items: center;
-    gap: var(--space-1);
-    border-radius: var(--radius-sm);
-  }
-
-  &__error-icon {
-    flex-shrink: 0;
-    color: var(--color-danger);
-  }
-  &__error-dot {
-    flex-shrink: 0;
-    width: 6px;
-    height: 6px;
-    border-radius: var(--radius-full);
-    background: var(--color-text-muted);
-  }
-
-  &__handle {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    width: 1rem;
-    height: 1.5rem;
-    color: var(--color-text-muted);
-    cursor: grab;
-
-    &:active {
-      cursor: grabbing;
-    }
-  }
-  &__handle--disabled {
-    opacity: 0.35;
-    cursor: default;
   }
 
   &__indicator {
@@ -370,66 +275,6 @@ const { listEl, dragIndex, dropGap, onHandleDown, onHandleMove, onHandleUp, onHa
 
   &__sr-only {
     @include mixins.sr-only;
-  }
-
-  &__actions {
-    position: absolute;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    display: flex;
-    align-items: center;
-    gap: 1px;
-    padding-left: var(--space-5);
-    border-radius: var(--radius-sm);
-    background: linear-gradient(to right, transparent, var(--color-surface) var(--space-4));
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity var(--motion-fast) var(--ease-standard);
-  }
-  &__row:hover &__actions,
-  &__row:focus-within &__actions,
-  &__node--selected > &__row &__actions {
-    opacity: 1;
-    pointer-events: auto;
-  }
-
-  &__row:hover &__node-label,
-  &__row:focus-within &__node-label,
-  &__node--selected > &__row &__node-label {
-    padding-right: 6rem;
-  }
-
-  &__btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 1.5rem;
-    height: 1.5rem;
-    border: 0;
-    border-radius: var(--radius-sm);
-    background: transparent;
-    color: var(--color-text-muted);
-    cursor: pointer;
-    transition:
-      background-color var(--motion-fast) var(--ease-standard),
-      color var(--motion-fast) var(--ease-standard);
-
-    &:hover:not(:disabled) {
-      background: var(--color-hover);
-      color: var(--color-text);
-    }
-    &:focus-visible {
-      outline: 2px solid var(--color-focus);
-      outline-offset: -2px;
-    }
-    &:disabled {
-      opacity: 0.35;
-      cursor: default;
-    }
-    &--danger:hover:not(:disabled) {
-      color: var(--color-danger);
-    }
   }
 
   &__slots {

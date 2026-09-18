@@ -258,6 +258,25 @@ const modules = [
 ];
 ```
 
+### Switching an existing `kestrel.config.ts` to the builder
+
+1. Map each module entry to a builder option (`blobstore`, `roles`, `bootstrap`, `media`, `ratelimit`,
+   `llms`, `session`, `migrations`) and delete the entries the builder derives: `persistence-sqlite`,
+   `sanitize-svg`, `media-default`'s `locales`/`defaultLocale`, `images-default`'s and
+   `delivery-static`'s `publicPath`, `references-default`'s `targets`, `validate-jsonschema`'s
+   `schemas`, the `site/` prefixes, and any module whose config was already `{}`.
+2. Move whatever module setting is left over — anything `presetModuleConfig()` doesn't expose — into
+   `overrides`, keyed by package name, e.g. `@michaelthielemann/kestrel-replication-sqlite`'s `prefix`,
+   `restoreOnStart` and `retentionSeconds`.
+3. Replace the environment plumbing with `#kestrel/config`: `kestrelDataDir()`, `envBlobstore()`,
+   `adminPasswordHash()`, `requiredEnv()`. Production still needs `KESTREL_ADMIN_PASSWORD_HASH` and,
+   for an S3 blobstore, its `KESTREL_S3_*` variables.
+4. Keep `definePreset` and `defineConfig` exactly as before — only the `modules` list construction
+   changes.
+5. Verify: `nuxt typecheck`, then compare the built list against the long form above or boot the app —
+   a module the enabled features don't imply must not appear, and a missing required option throws at
+   load time instead of booting with something plausible.
+
 ### `#kestrel/config` — the environment plumbing
 
 A second alias, independent of the preset, for what every deployment needs anyway:

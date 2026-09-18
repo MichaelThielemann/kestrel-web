@@ -4,6 +4,8 @@
 
 ### Added
 
+- `docs/consuming-kestrel-web.md`: "Switching an existing `kestrel.config.ts` to the builder", five
+  steps from a hand-written module list to `presetModuleConfig()`.
 - `#kestrel/pipelines` exports `presetModuleConfig({ dataDir, blobstore, model, features, roles,
   bootstrap, media?, ratelimit?, llms?, migrations?, session?, overrides? })`: the `modules` list with
   exactly the modules the features imply, in the canonical order, with media locales, references
@@ -59,6 +61,8 @@
 
 ### Changed
 
+- Admin: `BlockTree.vue` and `field/Repeater.vue` hand their row markup to `BlockTreeRow.vue` and
+  `field/RepeaterRow.vue` (typed props and emits); no DOM, class, ARIA or behaviour change.
 - `ui/Dialog.vue` teleports overlay and content to the body (`DialogPortal`); the media picker fills the
   viewport with an even margin, capped at 1600px, full screen below 640px, with a scrolling body; nested
   dialogs (upload provenance, new folder, rename, delete) render above it on their own layer.

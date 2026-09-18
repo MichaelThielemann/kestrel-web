@@ -2,6 +2,7 @@
 import { computed, ref, nextTick } from 'vue'
 import UiIcon from '../ui/Icon.vue'
 import FieldLayout from './Layout.vue'
+import RepeaterRow from './RepeaterRow.vue'
 import { useRepeater } from '../../composables/useRepeater'
 import { useFieldA11y } from '../../utils/useFieldA11y'
 import type { FieldComponentProps } from '../../utils/field-component'
@@ -182,17 +183,15 @@ function insertRowAt(at: number) {
           @drop.prevent="onDrop(i)"
           @dragend="onDragEnd"
         >
-          <div class="ui-repeater__row" role="group" :aria-label="t('field.repeater.item_label', { n: i + 1 })">
-            <div
-              class="ui-repeater__gutter"
-              :draggable="!disabled"
-              aria-hidden="true"
-              @dragstart="onDragStart(i, $event)"
-            >
-              <span class="ui-repeater__index">{{ i + 1 }}</span>
-              <UiIcon name="grip" :size="16" />
-            </div>
-
+          <RepeaterRow
+            :index="i"
+            :total="rows.length"
+            :disabled="disabled"
+            @dragstart="onDragStart(i, $event)"
+            @move="(dir) => moveRow(i, i + dir)"
+            @duplicate="duplicateRowAt(i)"
+            @remove="removeRowAt(i)"
+          >
             <div class="ui-repeater__fields">
 
               <KestrelUiAlert v-if="rowAlert(i)" variant="error" class="ui-repeater__row-error">
@@ -210,46 +209,7 @@ function insertRowAt(at: number) {
                 @update="(key, value) => setCell(i, key, value)"
               />
             </div>
-
-            <div class="ui-repeater__actions">
-              <button
-                type="button"
-                class="ui-repeater__move"
-                :aria-label="t('field.repeater.move_up', { n: i + 1 })"
-                :disabled="disabled || i === 0"
-                @click="moveRow(i, i - 1)"
-              >
-                <UiIcon name="chevron-up" :size="16" />
-              </button>
-              <button
-                type="button"
-                class="ui-repeater__move"
-                :aria-label="t('field.repeater.move_down', { n: i + 1 })"
-                :disabled="disabled || i === rows.length - 1"
-                @click="moveRow(i, i + 1)"
-              >
-                <UiIcon name="chevron-down" :size="16" />
-              </button>
-              <button
-                type="button"
-                class="ui-repeater__duplicate"
-                :aria-label="t('field.repeater.duplicate_label', { n: i + 1 })"
-                :disabled="disabled"
-                @click="duplicateRowAt(i)"
-              >
-                <UiIcon name="copy" :size="16" />
-              </button>
-              <button
-                type="button"
-                class="ui-repeater__remove"
-                :aria-label="t('field.repeater.remove_label', { n: i + 1 })"
-                :disabled="disabled"
-                @click="removeRowAt(i)"
-              >
-                <UiIcon name="trash" :size="16" />
-              </button>
-            </div>
-          </div>
+          </RepeaterRow>
         </div>
       </template>
 
@@ -358,101 +318,11 @@ function insertRowAt(at: number) {
     &__insert { opacity: 1; }
   }
 
-  &__row-wrap {
-    &--over {
-      .ui-repeater__row {
-        outline: 2px solid var(--color-primary);
-        outline-offset: -2px;
-      }
-    }
-  }
-
-  &__row {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    gap: var(--space-2);
-    align-items: start;
-    padding: var(--space-3);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-    background: var(--color-surface);
-
-    &:hover .ui-repeater__actions { opacity: 1; }
-    &:focus-within .ui-repeater__actions { opacity: 1; transition: none; }
-  }
-
-  &__gutter {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: var(--space-1);
-    padding-top: var(--space-1);
-    cursor: grab;
-    color: var(--color-text-muted);
-    user-select: none;
-
-    &:active { cursor: grabbing; }
-  }
-
-  &__index {
-    font-size: var(--text-sm);
-    line-height: 1;
-  }
-
   &__fields {
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
     min-inline-size: 0;
-  }
-
-  &__actions {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-1);
-    opacity: 0;
-    transition: opacity 0.1s;
-  }
-
-  @media (hover: none) {
-    &__actions { opacity: 1; }
-  }
-
-  &__move,
-  &__duplicate,
-  &__remove {
-    @include mixins.focus-ring;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 1.75rem;
-    height: 1.75rem;
-    border: 1px solid transparent;
-    border-radius: var(--radius-sm);
-    background: transparent;
-    cursor: pointer;
-    color: var(--color-text-muted);
-    transition: background 0.1s, border-color 0.1s, color 0.1s;
-
-    &:hover:not(:disabled) {
-      background: var(--color-bg);
-      border-color: var(--color-border);
-      color: var(--color-text);
-    }
-
-    &:disabled {
-      opacity: 0.4;
-      cursor: default;
-    }
-  }
-
-  &__remove {
-    color: var(--color-danger);
-
-    &:hover:not(:disabled) {
-      color: var(--color-danger);
-      border-color: var(--color-danger);
-    }
   }
 
   &--empty {
@@ -501,7 +371,6 @@ function insertRowAt(at: number) {
   }
 
   @media (prefers-reduced-motion: reduce) {
-    &__actions,
     &__insert,
     &__insert-zone::before { transition: none; }
   }
