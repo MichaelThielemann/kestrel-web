@@ -28,7 +28,7 @@ Every layer has one named entry; relative paths never cross a layer.
 | --- | --- | --- |
 | `#kestrel-core/*` | `layers/core` (the layer root, so `app/utils/*`, `app/types/api` and `pipelines/__fixtures__/*` are reachable) | `layers/admin`, `layers/public`, tests |
 | `#kestrel-admin/*` | `layers/admin/app` | `layers/admin` only |
-| `#kestrel/*` | the exact core entries (`pipelines`, `modules`, `collections-ui`, `cast`) and the virtual ids of the Nuxt modules (`blocks`, `block-images`, `image-sizes`, `layouts`, `build-assets`, `migrations`, `schemas`, `consumer-*`) | everyone; this is the surface documented for consumers |
+| `#kestrel/*` | the exact core entries (`pipelines`, `modules`, `collections-ui`, `cast`, `config`) and the virtual ids of the Nuxt modules (`blocks`, `block-images`, `image-sizes`, `layouts`, `build-assets`, `migrations`, `schemas`, `consumer-*`) | everyone; this is the surface documented for consumers |
 
 `layers/public` has no alias: nothing imports the public layer. The aliases are registered in
 `layers/core/nuxt.config.ts` (Nuxt, Vite and Nitro resolvers), `layers/admin/nuxt.config.ts` and
@@ -39,8 +39,8 @@ into another layer (`../../../core/...`) is an error; `#kestrel-admin/*` is refu
 `layers/admin`; `@michaelthielemann/kestrel*` is refused in `layers/admin`, `layers/public` and
 `layers/core/app`, except as `import type` in `layers/core/app/types/**`, where the frontend API types
 are derived from the backend exports so that drift is a `tsc` error. Backend runtime imports live in
-`layers/core/server`, `layers/core/pipelines`, `layers/core/module-registry`, `layers/core/modules`,
-`layers/core/schemas` and `packages/renderer-nuxt`. Nuxt auto-imports (`runAction`, composables) are
+`layers/core/server`, `layers/core/pipelines`, `layers/core/config`, `layers/core/module-registry`,
+`layers/core/modules`, `layers/core/schemas` and `packages/renderer-nuxt`. Nuxt auto-imports (`runAction`, composables) are
 not imports and stay available across layers.
 
 ## Type-assertion boundaries
@@ -178,13 +178,31 @@ An app that extends `kestrel-web` provides, at its root:
 
 | file | purpose |
 |---|---|
-| `kestrel.config.ts` | `defineConfig({ modules, triggers, http: null })` — the backend's module config and HTTP-trigger routing; also exports `preset` (`definePreset({ modules, features, collections })`, see **Pipeline presets**). |
+| `kestrel.config.ts` | `defineConfig({ modules, triggers, http: null })` — the backend's module config and HTTP-trigger routing; also exports `preset` (`definePreset({ modules, features, collections })`, see **Pipeline presets**). The `modules` list comes from `presetModuleConfig()` (see **Consumer module config**); writing it out by hand stays supported. |
 | `kestrel.modules.ts` *(optional)* | The module *implementations*, one per entry in `kestrel.config.ts`'s `modules`, same order. Needed only when a `modules` entry isn't a standard `@michaelthielemann/kestrel-*` package — see **Module registry**. |
 | `pipelines/index.ts` *(optional)* | Exports `pipelines`, the list of pipeline definitions referenced by `kestrel.config.ts` triggers — `[...preset.pipelines, ...ownPipelines]`. Needed only once you have pipelines of your own. |
 | `shared/model.ts` | The content model — `locales`, `defaultLocale`, `prefixPrimary` (whether public URLs prefix the default locale too — the backend never does), `contentTypes` — and `features`, the `Feature[]` list passed to `definePreset`/`presetSchemas`/`presetCollectionsUi`. Consumed by `kestrel.config.ts` and `shared/collections-ui.ts` (backend + admin UI config, so they can't drift) and, via `layers/admin/app/utils/collections.ts`, by the admin UI. |
 | `shared/collections-ui.ts` | The admin UI for each collection: labels, icon, editor, field layout/labels/overrides. `defineCollectionsUi({ ...presetCollectionsUi({ features }), ...ownEntries })`, see **Collection UI**. |
 | `app/blocks/*.vue` | One SFC per block. Its `defineProps({ … field factories … })` IS the block schema and its `defineBlock({ … })` the block metadata; the file name is the block name. No registry, index or definitions file. |
 | `migrations/*.ts` *(optional)* | One `defineMigration({ id, collection, up })` per file, collected sorted by filename into `#kestrel/migrations` (`modules/migrations`, directory configurable via `kestrel.migrationsDir`). Needed only with the `migrations` feature on. |
+
+## Consumer module config
+`layers/core/pipelines/config.ts` (`presetModuleConfig`, re-exported from `#kestrel/pipelines`) builds a
+`kestrel.config.ts` `modules` list from `{ dataDir, blobstore, model, features, roles, bootstrap, media?,
+ratelimit?, llms?, migrations?, session? }`. It emits the base modules plus exactly the modules the given
+features require — the same feature→module mapping `definePreset` checks (`pipelines/features/*.ts`) — in
+the canonical order, and derives from the model what is derivable: `media.locales`/`defaultLocale`,
+`references.targets` (`pages` plus every `ref` field's `to`), `delivery.types` (every `multi` collection
+with `slug`, `status` and `body`), `validate-jsonschema.schemas` via `presetSchemas()`, and both
+`publicPath` values from `MOUNT_PATH`. That constant lives in `layers/core/mount-path.ts`, shared with
+`server/plugins/kestrel.ts`, which mounts the backend there — the two cannot drift.
+
+`layers/core/config/` (`#kestrel/config`) is the environment half, deliberately free of preset types:
+`kestrelDataDir()`, `requiredEnv(name)`, `adminPasswordHash()` and `envBlobstore(dataDir)`. Production
+without `KESTREL_ADMIN_PASSWORD_HASH`, or an S3 blobstore without its variables, throws while the config
+loads, naming the variable. `playground/kestrel.config.ts` uses `kestrelDataDir()` with a literal
+filesystem blobstore and the development hash, so building and previewing the playground needs no
+environment.
 
 ## Module registry
 `layers/core/module-registry/` is the `#kestrel/modules` public API: `moduleRegistry` (every standard
@@ -199,7 +217,8 @@ with no `extra`, so it only ever resolves standard packages; a consumer with a n
 
 ## Pipeline presets
 `layers/core/pipelines/` (`index.ts` — the `#kestrel/pipelines` public API: `definePreset`,
-`presetSchemas`, `Feature`; `base.ts` — the always-on pipelines (auth, `getSettings`/`setSettings`, media
+`presetSchemas`, `presetModuleConfig`, `Feature`; `config.ts` — the module-config builder, see
+**Consumer module config**; `base.ts` — the always-on pipelines (auth, `getSettings`/`setSettings`, media
 including the nightly report-only `reconcileMedia` and its two admin routes `reconcileMediaReport`
 (`POST /admin/media/reconcile`) and `reconcileMediaDelete` (`POST /admin/media/reconcile/delete`,
 `media.reconcileDelete` — the deletion is in the pipeline, not in the request body), plus `resolvePage`
@@ -932,13 +951,13 @@ Props: `media` (a media id string, or an already-fetched `MediaItem` — the com
   then to `''`.
 
 ### `publicPath`
-`layers/core` mounts the entire Kestrel backend under `/api` (`server/plugins/kestrel.ts`, `MOUNT_PATH
-= "/api"`). `@michaelthielemann/kestrel-images-default` builds variant paths as
+`layers/core` mounts the entire Kestrel backend under `/api` (`MOUNT_PATH`, `layers/core/mount-path.ts`,
+used by `server/plugins/kestrel.ts`). `@michaelthielemann/kestrel-images-default` builds variant paths as
 `` `${publicPath}/${mediaId}/variants/${size}${extension}` ``, and its own config default for
 `publicPath` is `"/media"` — a path the browser would request directly, 404ing, because nothing in
-kestrel-web serves anything outside `/api`. That's why `playground/kestrel.config.ts` sets
-`{ use: "@michaelthielemann/kestrel-images-default", config: { publicPath: "/api/media" } }`: it has to
-resolve under the same mount path everything else does.
+kestrel-web serves anything outside `/api`. `presetModuleConfig()` therefore sets `publicPath` to
+`` `${MOUNT_PATH}/media` `` on both `images-default` and `delivery-static`'s `media`, from the same
+constant the mount uses: it has to resolve under the same mount path everything else does.
 
 `warnIfImagesPublicPathMismatched` in `server/plugins/kestrel.ts` runs once at boot, after `kestrel.start()`,
 and logs an error (not a hard failure) when the configured `publicPath` is neither `/api` nor prefixed
@@ -997,6 +1016,8 @@ Site URL resolution: the primary locale is never prefixed (`/kontakt`), other lo
 the public site's absolute base URL — the editor status's "open page" link, shown once a page is live
 (`EditorStatus.vue`, computed in `pages/admin/[collection]/[id].vue`) — and canonical URLs
 (`SeoFields.vue`). Empty by default; set it in a consumer's `.env` once the public site has a real host.
+`presetModuleConfig()` also passes it to `delivery-static`'s `llms.siteUrl` unless the `llms` option
+carries one, so llms.txt lists absolute URLs rather than paths.
 
 ## Public site (`layers/public`)
 `app/pages/[...slug].vue` resolves `/api/site<path>` through `useApi()` (in-process `localFetch` during

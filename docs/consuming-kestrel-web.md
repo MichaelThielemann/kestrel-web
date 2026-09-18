@@ -142,6 +142,139 @@ delete `shared/features.ts`.
 
 ## 3. Configure the backend
 
+`kestrel.config.ts` carries the backend's module config and its HTTP-trigger routing. Build the
+`modules` list with `presetModuleConfig()` (`#kestrel/pipelines`): it emits the standard modules in the
+canonical order, only the ones your `features` imply, with kestrel-web's fixed conventions (the `/api`
+mount path, the `media/` blob prefix, the `site/` delivery prefix) and everything derivable from the
+content model already filled in. What stays in the file is what is genuinely yours.
+
+```ts
+// kestrel.config.ts
+import { defineConfig } from "@michaelthielemann/kestrel/defineConfig";
+import { adminPasswordHash, envBlobstore, kestrelDataDir } from "#kestrel/config";
+import { definePreset, presetModuleConfig } from "#kestrel/pipelines";
+import { contentModel, contentTypes, features } from "./shared/model"; // add a feature name once you want it — see §4
+
+const dataDir = kestrelDataDir();
+
+const modules = presetModuleConfig({
+  dataDir,
+  blobstore: envBlobstore(dataDir),
+  model: contentModel,
+  features,
+  roles: {
+    roles: { admin: ["*"], editor: ["pages.*", "media.*", "images.read", "settings.read", "redirects.*"] },
+    anonymous: ["pages.read", "settings.read", "media.read"],
+  },
+  bootstrap: { username: "admin", passwordHash: adminPasswordHash() },
+});
+
+export const preset = definePreset({ modules, features, collections: contentTypes });
+
+export default defineConfig({
+  modules,
+  triggers: preset.triggers, // append your own: [...preset.triggers, { http: "POST /myRoute", pipeline: "myPipeline" }]
+  http: null, // the admin talks to Nitro's /api mount, not a standalone HTTP server
+});
+```
+
+`features` is a plain list — order in the array doesn't matter, the preset applies them in a fixed
+canonical order internally. `#kestrel/pipelines` is an alias into `layers/core/pipelines/`, the same
+mechanism as `#kestrel/blocks`.
+
+### `presetModuleConfig()` options
+
+| option | required | default |
+|---|---|---|
+| `dataDir` | yes | — the SQLite database lands at `<dataDir>/kestrel.db`, filesystem blobs under `<dataDir>/blobs` |
+| `blobstore` | yes | — a `{ use, config }` entry; `envBlobstore()` builds the usual two |
+| `model` | yes | — your `contentModel` (`{ locales?, defaultLocale?, types }`), handed to `content-default` |
+| `features` | yes | — the same list you pass to `definePreset` and `presetSchemas` |
+| `roles` | yes | — `{ roles, anonymous }` for `authz-roles` |
+| `bootstrap` | yes | — `{ username, passwordHash, roles? }`, `roles` defaulting to `["admin"]` |
+| `media` | no | `{ maxBytes: 5242880, allowedTypes: ["image/*", "application/pdf"], deniedTypes: ["text/html", "application/xhtml+xml"] }` |
+| `ratelimit` | no | `{ login: { limit: 5, windowSeconds: 60 } }` |
+| `llms` | no | `{ full: true, headings: { pages: "Pages" } }`; `siteUrl` falls back to `NUXT_PUBLIC_SITE_URL` |
+| `migrations` | with the `migrations` feature | — `{ migrations, mode? }`, the `#kestrel/migrations` list (§10); the feature without it throws |
+| `session` | no | `{ identifier: "username", minPasswordLength: 8, sessionTtlSeconds: 86400 }` |
+| `overrides` | no | — per-module escape hatch, keyed by package name, shallow-merged onto that module's derived config |
+
+`blobstore`, `roles` and `bootstrap` have no default at all — a missing one throws naming the option
+rather than booting with something plausible.
+
+### What the builder derives
+
+- **The module set** — the always-on modules (your blobstore, `persistence-sqlite`, `media-default`,
+  `authn-multi`, `authz-roles`, `content-default`, `site-default`, `validate-jsonschema`,
+  `events-inmemory`) plus exactly the modules the features in `features` require (§4's table), in the
+  canonical order. Drop a feature and its module goes with it.
+- **`media.locales` / `media.defaultLocale`** — from `model.locales` / `model.defaultLocale`, so the
+  media library can't drift from the content model.
+- **`references.targets`** — `pages` when the model has it, plus one entry per `ref` field: `to: "media"`
+  becomes `{ collection: "media_items" }`, a `to` naming another collection becomes `{ content: <name> }`.
+  A `to` pointing at neither is left out.
+- **`delivery.types`** — every page-like collection, i.e. every `multi` type carrying `slug`, `status`
+  and `body`, as `{}` so the module's own field defaults apply.
+- **Both `publicPath` values** — `images-default`'s and `delivery-static`'s `media.publicPath` — from the
+  `/api` mount path, so variant URLs and exported media stay under it (§6).
+- **`validate-jsonschema.schemas`** — `presetSchemas({ features, collections })`, with `watch` on
+  outside production.
+- **The conventions** — `media/` for the media prefix, `site/` for delivery and redirects, the empty
+  configs of the modules that take none.
+
+Anything the builder doesn't expose goes through `overrides`, keyed by package name and shallow-merged
+onto that module's derived config with your keys winning — e.g.
+`overrides: { "@michaelthielemann/kestrel-replication-sqlite": { prefix: "database/", restoreOnStart: true, retentionSeconds: 604800 } }`.
+A key naming a module the built list doesn't contain — a typo, or a module whose feature is off — throws
+`presetModuleConfig: overrides name module "<use>" which is not enabled`, so it can't pass silently.
+
+### What the builder expands to
+
+The same config written out by hand, for the playground's model and features. Build the list yourself
+only if you need a module `presetModuleConfig()` doesn't emit — `definePreset` takes any `modules` list:
+
+```ts
+const modules = [
+  { use: "@michaelthielemann/kestrel-blobstore-filesystem", config: { root: resolve(dataDir, "blobs") } },
+  { use: "@michaelthielemann/kestrel-replication-sqlite", config: { file: resolve(dataDir, "kestrel.db") } },
+  { use: "@michaelthielemann/kestrel-persistence-sqlite", config: { file: resolve(dataDir, "kestrel.db") } },
+  { use: "@michaelthielemann/kestrel-sanitize-svg", config: {} },
+  { use: "@michaelthielemann/kestrel-media-default", config: { prefix: "media/", allowedTypes: ["image/*", "application/pdf"], deniedTypes: ["text/html", "application/xhtml+xml"], maxBytes: 5242880, locales: ["de", "en"], defaultLocale: "de" } },
+  { use: "@michaelthielemann/kestrel-images-default", config: { publicPath: "/api/media" } },
+  { use: "@michaelthielemann/kestrel-authn-multi", config: { identifier: "username", minPasswordLength: 8, sessionTtlSeconds: 86400, bootstrap: { username: "admin", passwordHash: adminPasswordHash(), roles: ["admin"] } } },
+  { use: "@michaelthielemann/kestrel-authz-roles", config: { roles: { admin: ["*"], editor: ["pages.*", "media.*", "images.read", "settings.read", "redirects.*"] }, anonymous: ["pages.read", "settings.read", "media.read"] } },
+  { use: "@michaelthielemann/kestrel-content-default", config: contentModel },
+  { use: "@michaelthielemann/kestrel-site-default", config: {} },
+  { use: "@michaelthielemann/kestrel-references-default", config: { targets: { pages: { content: "pages" }, media: { collection: "media_items" } } } },
+  { use: "@michaelthielemann/kestrel-links-default", config: { timeoutMs: 10000, concurrency: 4, recheckAfterSeconds: 21600 } },
+  { use: "@michaelthielemann/kestrel-validate-jsonschema", config: { schemas: presetSchemas({ features, collections: contentTypes }), watch: process.env.NODE_ENV !== "production" } },
+  { use: "@michaelthielemann/kestrel-renderer-nuxt", config: {} },
+  { use: "@michaelthielemann/kestrel-delivery-static", config: { types: { pages: {} }, prefix: "site/", media: { publicPath: "/api/media" }, llms: { full: true, headings: { pages: "Pages" } } } },
+  { use: "@michaelthielemann/kestrel-redirects-default", config: { prefix: "site/" } },
+  { use: "@michaelthielemann/kestrel-audit-persistence", config: {} },
+  { use: "@michaelthielemann/kestrel-events-inmemory", config: {} },
+  { use: "@michaelthielemann/kestrel-ratelimit-memory", config: { buckets: { login: { limit: 5, windowSeconds: 60 } } } },
+  { use: "@michaelthielemann/kestrel-insights", config: {} },
+];
+```
+
+### `#kestrel/config` — the environment plumbing
+
+A second alias, independent of the preset, for what every deployment needs anyway:
+
+| helper | what it returns |
+|---|---|
+| `kestrelDataDir()` | `KESTREL_DATA_DIR`, else `data/` under `KESTREL_APP_ROOT` (the app root in dev, that variable or the process cwd on a production server). |
+| `requiredEnv(name)` | The variable's value, or throws `kestrel.config: <name> must be set in this environment`. |
+| `adminPasswordHash()` | In production `KESTREL_ADMIN_PASSWORD_HASH`, required. Otherwise that variable when set, else the built-in development hash of `change-me`, with one `console.warn`. |
+| `envBlobstore(dataDir)` | `KESTREL_BLOBSTORE=s3` → `blobstore-s3` from `KESTREL_S3_BUCKET`, `KESTREL_S3_ENDPOINT`, `KESTREL_S3_REGION`, `KESTREL_S3_ACCESS_KEY_ID`, `KESTREL_S3_SECRET_ACCESS_KEY` (each via `requiredEnv`) with `forcePathStyle: true`; `filesystem` or unset outside production → `blobstore-filesystem` under `<dataDir>/blobs`; production without a choice throws. |
+
+So a missing production hash or a missing S3 variable fails when the config loads, naming the variable,
+instead of at the first request. `playground/kestrel.config.ts` deliberately keeps a literal filesystem
+blobstore and the development hash instead, so `nuxt build` and `nuxt preview` need no environment at all.
+
+### `kestrel.modules.ts` — only for a non-standard module
+
 `kestrel.modules.ts` — the module *implementations* matching `kestrel.config.ts`'s `modules` list — is
 optional. `#kestrel/modules` ships a registry of every standard kestrel module and a `presetModules()`
 helper that looks each `use:` name up in it, in order:
@@ -156,40 +289,15 @@ export default presetModules(config.modules, { "./modules/my-custom-module": myC
 ```
 
 Omit the file entirely when every module in `kestrel.config.ts`'s `modules` list is a standard
-`@michaelthielemann/kestrel-*` package — `#kestrel/consumer-modules` then falls back to
-`presetModules(config.modules)` with no `extra`, resolving every entry from the registry. An unresolved
-`use:` name (not in the registry, and not in `extra`) throws naming it. Boot's own order/provider/contract
-validation (`@michaelthielemann/kestrel`'s `boot()`) is unaffected either way — `presetModules()` only
-builds the implementation list, in the same order as `config.modules`.
+`@michaelthielemann/kestrel-*` package — everything `presetModuleConfig()` emits is — so
+`#kestrel/consumer-modules` falls back to `presetModules(config.modules)` with no `extra`, resolving
+every entry from the registry. An unresolved `use:` name (not in the registry, and not in `extra`)
+throws naming it. Boot's own order/provider/contract validation (`@michaelthielemann/kestrel`'s
+`boot()`) is unaffected either way — `presetModules()` only builds the implementation list, in the same
+order as `config.modules`.
 
 Like `pipelines/index.ts` (§4), this resolves once at Nuxt startup — adding or deleting
 `kestrel.modules.ts` while the dev server is running needs a restart.
-
-```ts
-// kestrel.config.ts
-import { defineConfig } from "@michaelthielemann/kestrel/defineConfig";
-import { definePreset, presetSchemas } from "#kestrel/pipelines";
-import { contentModel, contentTypes, features } from "./shared/model"; // add a feature name once its module is below — see §4
-
-const modules = [
-  { use: "@michaelthielemann/kestrel-persistence-sqlite", config: { file: "./data/kestrel.db" } },
-  { use: "@michaelthielemann/kestrel-content-default", config: contentModel },
-  { use: "@michaelthielemann/kestrel-validate-jsonschema", config: { schemas: presetSchemas({ features, collections: contentTypes }), watch: process.env.NODE_ENV !== "production" } },
-  // plus persistence/blobstore/authn/authz/media, and one entry per module a feature you enable requires (see §4)
-];
-
-export const preset = definePreset({ modules, features, collections: contentTypes });
-
-export default defineConfig({
-  modules,
-  triggers: preset.triggers, // append your own: [...preset.triggers, { http: "POST /myRoute", pipeline: "myPipeline" }]
-  http: null, // the admin talks to Nitro's /api mount, not a standalone HTTP server
-});
-```
-
-`features` is a plain list — order in the array doesn't matter, the preset applies them in a fixed
-canonical order internally. `#kestrel/pipelines` is an alias into `layers/core/pipelines/`, the same
-mechanism as `#kestrel/blocks`.
 
 `presetSchemas()` resolves `settings.navigation`'s schema to `<appRoot>/schemas/settings.navigation.json`
 when that file exists, else the layer's own default (`layers/core/schemas/settings.navigation.json`) —
@@ -424,7 +532,8 @@ stay checked alongside your addition.
 
 - `redirects` needs a `redirects` content type in your content model (`shared/model.ts`).
 - `images` needs the `images.read`/`images.write`/`images.manage` permissions granted in your roles.
-- `ratelimit` needs a `login` bucket configured in the `kestrel-ratelimit-memory` module config.
+- `ratelimit` needs a `login` bucket configured in the `kestrel-ratelimit-memory` module config —
+  `presetModuleConfig()` (§3) supplies `{ limit: 5, windowSeconds: 60 }` unless you override it.
 - Every collection needs its `<name>.read`/`write`/`manage`/`delete` permissions (`<name>.read`/`write`
   only for a `single` type) granted in your roles config, the same way `pages.*` is today — including
   the `anonymous` role: public reads on a new collection 403 until `<name>.read` is granted there too,
@@ -648,11 +757,15 @@ app, fails the build. Both sources are scanned the same way `app/blocks/*.vue` i
 `.nuxt/kestrel/image-sizes.json` — generated, **never hand-edited**, same rule as
 `.nuxt/kestrel/pages.body.json`.
 
-**Wire the images module** with a `publicPath` under your API mount — kestrel-web mounts the backend at
-`/api`, so the module's own default (`/media`) 404s in the browser:
+**Wiring the images module** is already done for you: `presetModuleConfig()` (§3) adds
+`images-default` with `publicPath: "/api/media"` as soon as the `images` feature is on, and gives
+`delivery-static` the same value under `media.publicPath` so exported media matches. Both come from
+kestrel-web's `/api` mount path — the module's own default (`/media`) 404s in the browser. Hand-written
+`modules` lists need both spelled out:
 
 ```ts
-{ use: "@michaelthielemann/kestrel-images-default", config: { publicPath: "/api/media" } }
+{ use: "@michaelthielemann/kestrel-images-default", config: { publicPath: "/api/media" } },
+{ use: "@michaelthielemann/kestrel-delivery-static", config: { types: { pages: {} }, prefix: "site/", media: { publicPath: "/api/media" } } }
 ```
 
 A mismatch here logs a boot-time error (`images: publicPath "…" is not served under the mount path
@@ -771,11 +884,11 @@ location / { try_files $uri $uri/index.html =404; }
 
 ## 9. Optional: redirects
 
-Add `redirects: { kind: "single", fields: { rules: { type: "json" } } }` to your content model, enable
-the `redirects` feature (§4), and add `@michaelthielemann/kestrel-redirects-default` to
-`kestrel.modules.ts`/`kestrel.config.ts` (see `playground/kestrel.config.ts`) to let editors manage SEO
-redirects — the preset wires the pipelines, triggers and `redirects.rules` schema; you only own the
-content type and the module. Rules are edited under **System → Redirects** as a repeater (`from` / `to` /
+Add `redirects: { kind: "single", fields: { rules: { type: "json" } } }` to your content model and
+enable the `redirects` feature (§4) to let editors manage SEO redirects. `presetModuleConfig()` (§3)
+then adds `@michaelthielemann/kestrel-redirects-default` with the `site/` prefix, and the preset wires
+the pipelines, triggers and `redirects.rules` schema; you only own the content type. A hand-written
+`modules` list has to carry the module itself (see the long form in §3). Rules are edited under **System → Redirects** as a repeater (`from` / `to` /
 `status`); a matching request to `GET /site/*path` is answered with `{ redirect: { to, status } }` instead
 of a page, and `[...slug].vue` turns that into a real 30x via `navigateTo`. See
 `docs/architecture.md#redirects`.
