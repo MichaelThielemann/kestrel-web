@@ -1,4 +1,5 @@
 import { fileURLToPath } from "node:url";
+import { defineVitestProject } from "@nuxt/test-utils/config";
 import { defineConfig, defaultExclude } from "vitest/config";
 
 const adminAppDir = fileURLToPath(new URL("./layers/admin/app", import.meta.url));
@@ -8,6 +9,9 @@ const castEntry = fileURLToPath(new URL("./layers/core/app/utils/cast.ts", impor
 const optionalModulesNone = fileURLToPath(new URL("./layers/core/module-registry/optional-modules.none.ts", import.meta.url));
 const pipelinesEntry = fileURLToPath(new URL("./layers/core/pipelines/index.ts", import.meta.url));
 const moduleRegistryEntry = fileURLToPath(new URL("./layers/core/module-registry/index.ts", import.meta.url));
+const playgroundDir = fileURLToPath(new URL("./playground", import.meta.url));
+
+const DOM_TEST_PATTERN = "**/*.dom.test.ts";
 
 export default defineConfig({
   test: {
@@ -21,7 +25,12 @@ export default defineConfig({
             { find: /^#kestrel-core\//, replacement: `${coreLayerDir}/` },
           ],
         },
-        test: { name: "admin", include: ["layers/admin/**/*.test.ts"], environment: "node" },
+        test: {
+          name: "admin",
+          include: ["layers/admin/**/*.test.ts"],
+          exclude: [...defaultExclude, DOM_TEST_PATTERN],
+          environment: "node",
+        },
       },
       {
         resolve: {
@@ -36,10 +45,18 @@ export default defineConfig({
         test: {
           name: "rest",
           include: ["layers/**/*.test.ts", "packages/**/*.test.ts"],
-          exclude: [...defaultExclude, "layers/admin/**"],
+          exclude: [...defaultExclude, "layers/admin/**", DOM_TEST_PATTERN],
           environment: "node",
         },
       },
+      await defineVitestProject({
+        test: {
+          name: "components",
+          include: ["layers/**/*.dom.test.ts"],
+          environment: "nuxt",
+          environmentOptions: { nuxt: { rootDir: playgroundDir, domEnvironment: "jsdom" } },
+        },
+      }),
     ],
   },
 });
