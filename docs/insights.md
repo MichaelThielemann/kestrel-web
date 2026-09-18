@@ -35,6 +35,10 @@ role.
   that use the module.
 - `components/Insights*.vue` — one component per tab plus `InsightsConfigVariables`,
   `InsightsStepCard`, `InsightsSchema` (a depth-limited JSON Schema renderer).
+- `assets/scss/_insights.scss`: `.insights-chip` never wraps inside itself and ellipsizes past
+  `16rem` (full value in `title`); a table cell holding several chips (steps, triggers,
+  provides/requires/optional) gets `.insights-chip-cell` so wrapping happens between chips, not
+  inside one.
 - `utils/insights-format.ts` — pure helpers over the manifest (config summary, pipelines using a
   module, triggers of a pipeline, formatting); tested against
   `utils/__fixtures__/insights-manifest.json` and `insights-stats.json`, which mirror the API shapes

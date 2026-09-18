@@ -211,3 +211,7 @@
   `PipelineFailure`/`PipelineDone` analogy, the actions runner import path and the `cast.ts`
   statement are correct; `docs/consuming-kestrel-web.md` links the backend pipeline docs instead of
   a missing `docs/PIPELINES.md`.
+- Insights trigger chips no longer wrap between the HTTP method and the path: `.insights-chip` is
+  `white-space: nowrap` and ellipsizes past `16rem` instead, with the full value in `title`; the
+  trigger cell wraps between chips like the steps cell already did (shared `.insights-chip-cell`),
+  and the same cell class now covers the module table's provides/requires/optional columns.

@@ -42,11 +42,11 @@ const pipelines = computed(() => (manifest.value ? pipelinesUsingModule(manifest
         </p>
         <div v-if="module.provides.length" class="insights-module__chip-group">
           <span class="insights-module__chip-group-label">{{ t('insights.colProvides') }}</span>
-          <span v-for="c in module.provides" :key="c" class="insights-chip insights-chip--provides">{{ c }}</span>
+          <span v-for="c in module.provides" :key="c" class="insights-chip insights-chip--provides" :title="c">{{ c }}</span>
         </div>
         <div v-if="module.requires.length" class="insights-module__chip-group">
           <span class="insights-module__chip-group-label">{{ t('insights.colRequires') }}</span>
-          <span v-for="c in module.requires" :key="c" class="insights-chip insights-chip--requires">{{ c }}</span>
+          <span v-for="c in module.requires" :key="c" class="insights-chip insights-chip--requires" :title="c">{{ c }}</span>
         </div>
         <div v-if="module.optional.length" class="insights-module__chip-group">
           <span class="insights-module__chip-group-label">{{ t('insights.colOptional') }}</span>
@@ -75,7 +75,7 @@ const pipelines = computed(() => (manifest.value ? pipelinesUsingModule(manifest
             <template #body>
               <tr v-for="p in pipelines" :key="p.name">
                 <td>{{ p.name }}</td>
-                <td class="insights-steps-cell">
+                <td class="insights-chip-cell">
                   <span
                     v-for="s in p.steps"
                     :key="s.spec"
@@ -84,8 +84,8 @@ const pipelines = computed(() => (manifest.value ? pipelinesUsingModule(manifest
                     :title="s.module"
                   >{{ s.spec }}</span>
                 </td>
-                <td>
-                  <span v-for="tr in triggersOf(manifest!, p.name)" :key="`${tr.kind}:${tr.label}`" class="insights-chip">{{ tr.label }}</span>
+                <td class="insights-chip-cell">
+                  <span v-for="tr in triggersOf(manifest!, p.name)" :key="`${tr.kind}:${tr.label}`" class="insights-chip" :title="tr.label">{{ tr.label }}</span>
                 </td>
               </tr>
             </template>

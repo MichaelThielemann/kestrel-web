@@ -1,7 +1,12 @@
 .insights-chip {
   display: inline-block;
+  max-width: 16rem;
   margin: 0 var(--space-1) var(--space-1) 0;
   padding: 0 var(--space-1);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  vertical-align: top;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   font-size: var(--text-xs);
@@ -30,7 +35,7 @@
   white-space: nowrap;
 }
 
-.insights-steps-cell {
+.insights-chip-cell {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-1);

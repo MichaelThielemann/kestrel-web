@@ -36,11 +36,11 @@ const filtered = computed(() => {
         <template #body>
           <tr v-for="p in filtered" :key="p.name">
             <td>{{ p.name }}</td>
-            <td class="insights-steps-cell">
+            <td class="insights-chip-cell">
               <span v-for="s in p.steps" :key="s.spec" class="insights-chip" :title="s.module">{{ s.spec }}</span>
             </td>
-            <td>
-              <span v-for="tr in triggersOf(manifest, p.name)" :key="`${tr.kind}:${tr.label}`" class="insights-chip">{{ tr.label }}</span>
+            <td class="insights-chip-cell">
+              <span v-for="tr in triggersOf(manifest, p.name)" :key="`${tr.kind}:${tr.label}`" class="insights-chip" :title="tr.label">{{ tr.label }}</span>
             </td>
             <td class="insights-num">{{ statsByName.get(p.name)?.count ?? '—' }}</td>
             <td class="insights-num">{{ statsByName.get(p.name)?.failed ?? '—' }}</td>

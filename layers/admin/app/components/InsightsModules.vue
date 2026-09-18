@@ -42,13 +42,13 @@ const filtered = computed(() => {
           <tr v-for="m in filtered" :key="m.name">
             <td><NuxtLink :to="moduleRoute(m.name)">{{ m.name }}</NuxtLink></td>
             <td>{{ m.version ?? '—' }}</td>
-            <td>
-              <span v-for="c in m.provides" :key="c" class="insights-chip insights-chip--provides">{{ c }}</span>
+            <td class="insights-chip-cell">
+              <span v-for="c in m.provides" :key="c" class="insights-chip insights-chip--provides" :title="c">{{ c }}</span>
             </td>
-            <td>
-              <span v-for="c in m.requires" :key="c" class="insights-chip insights-chip--requires">{{ c }}</span>
+            <td class="insights-chip-cell">
+              <span v-for="c in m.requires" :key="c" class="insights-chip insights-chip--requires" :title="c">{{ c }}</span>
             </td>
-            <td>
+            <td class="insights-chip-cell">
               <span v-for="c in m.optional" :key="c" class="insights-chip insights-chip--optional" :title="`${c} ${t('insights.optionalSuffix')}`">{{ c }}</span>
             </td>
             <td class="insights-num">{{ m.steps.length }}</td>

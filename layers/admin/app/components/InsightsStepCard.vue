@@ -29,11 +29,11 @@ const errorEntries = computed(() => Object.entries(description.value?.errors ?? 
 
         <div v-if="description.reads.length" class="insights-step__row">
           <span class="insights-step__row-label">{{ t('insights.reads') }}</span>
-          <span v-for="r in description.reads" :key="r" class="insights-chip">{{ r }}</span>
+          <span v-for="r in description.reads" :key="r" class="insights-chip" :title="r">{{ r }}</span>
         </div>
         <div v-if="description.writes.length" class="insights-step__row">
           <span class="insights-step__row-label">{{ t('insights.writes') }}</span>
-          <span v-for="w in description.writes" :key="w" class="insights-chip">{{ w }}</span>
+          <span v-for="w in description.writes" :key="w" class="insights-chip" :title="w">{{ w }}</span>
         </div>
 
         <div v-if="description.input" class="insights-step__section">
