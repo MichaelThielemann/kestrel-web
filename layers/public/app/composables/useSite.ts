@@ -2,6 +2,7 @@ import type { Ref } from 'vue'
 import type { NavigationItem } from '~~/shared/model'
 import { defaultLocale, locales, prefixPrimary } from '~~/shared/model'
 import type { PageDocument, SettingsDocument } from '#kestrel-core/app/types/api'
+import { boundaryCast } from '#kestrel/cast'
 
 export interface SiteLocaleLink {
   locale: string
@@ -39,10 +40,10 @@ export function useSitePage() {
 
 function toNavigationLink(value: unknown): NavigationItem['link'] | null {
   if (typeof value !== 'object' || value === null) return null
-  const { type, path, broken, url, email, tel, hash, label } = value as Record<string, unknown>
+  const { type, path, broken, url, email, tel, hash, label } = boundaryCast<Record<string, unknown>>(value, 'json')
   if (typeof type !== 'string') return null
   return {
-    type: type as NavigationItem['link']['type'],
+    type: boundaryCast<NavigationItem['link']['type']>(type, 'json'),
     ...(typeof path === 'string' ? { path } : {}),
     ...(broken === true ? { broken: true } : {}),
     ...(typeof url === 'string' ? { url } : {}),
@@ -55,7 +56,7 @@ function toNavigationLink(value: unknown): NavigationItem['link'] | null {
 
 function toNavigationEntry(entry: unknown, allowChildren: boolean): NavigationItem[] {
   if (typeof entry !== 'object' || entry === null) return []
-  const { label, link: rawLink, target, children } = entry as Record<string, unknown>
+  const { label, link: rawLink, target, children } = boundaryCast<Record<string, unknown>>(entry, 'json')
   const link = toNavigationLink(rawLink)
   if (typeof label !== 'string' || !link) return []
   const item: NavigationItem = { label, link }
@@ -79,12 +80,11 @@ export function useSiteSettings(locale: Ref<string>) {
     async () => {
       try {
         const doc = await api<SettingsDocument>('/settings', { query: { locale: locale.value } })
-        const { titleSeparator, titlePosition } = doc as Record<string, unknown>
         return {
           title: doc.title ?? '',
           navigation: toNavigation(doc.navigation),
-          titleSeparator: typeof titleSeparator === 'string' ? titleSeparator : null,
-          titlePosition: typeof titlePosition === 'string' ? titlePosition : null,
+          titleSeparator: typeof doc.titleSeparator === 'string' ? doc.titleSeparator : null,
+          titlePosition: typeof doc.titlePosition === 'string' ? doc.titlePosition : null,
         }
       } catch (e) {
         if (apiErrorStatus(e) !== 404) throw e

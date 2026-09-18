@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import type { InsightsManifest } from '#kestrel-admin/types/api'
+import { boundaryCast } from '#kestrel/cast'
 import manifest from './__fixtures__/insights-manifest.json'
 import { buildGraph } from './insights-graph'
 
-const typedManifest = manifest as InsightsManifest
+const typedManifest = boundaryCast<InsightsManifest>(manifest, 'json')
 
 describe('buildGraph', () => {
   it('creates one node per module plus one per present trigger kind', () => {

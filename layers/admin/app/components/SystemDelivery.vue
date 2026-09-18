@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { exportMedia, publishAll } from '#kestrel-admin/actions/system'
 import type { ActionDeps } from '#kestrel-admin/actions/types'
+import { toastUnexpected } from '#kestrel-admin/actions/steps/notify'
 
 const { t } = useT()
 const api = useApi()
@@ -12,12 +13,14 @@ const deps: ActionDeps = { api, t, toast }
 const busy = ref(false)
 const exporting = ref(false)
 
-function onPublishAll() {
-  return runAction(publishAll, { deps, ops: { setBusy: (on) => { busy.value = on }, busy: () => busy.value } })
+async function onPublishAll() {
+  const result = await runAction(publishAll, { deps, ops: { setBusy: (on) => { busy.value = on }, busy: () => busy.value } })
+  toastUnexpected(deps, result)
 }
 
-function onExportMedia() {
-  return runAction(exportMedia, { deps, ops: { setBusy: (on) => { exporting.value = on }, busy: () => exporting.value } })
+async function onExportMedia() {
+  const result = await runAction(exportMedia, { deps, ops: { setBusy: (on) => { exporting.value = on }, busy: () => exporting.value } })
+  toastUnexpected(deps, result)
 }
 </script>
 

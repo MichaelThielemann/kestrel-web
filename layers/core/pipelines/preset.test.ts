@@ -1,4 +1,5 @@
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { boundaryCast } from "@michaelthielemann/kestrel/cast";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
@@ -124,7 +125,7 @@ describe("definePreset option handling", () => {
 
   it("throws for a schedule on an unknown or non-cron pipeline", () => {
     const schedules = { me: "5 5 * * *" };
-    expect(() => definePreset({ modules: baseModules, features: [], schedules: schedules as never })).toThrow();
+    expect(() => definePreset({ modules: baseModules, features: [], schedules: boundaryCast(schedules, "json") })).toThrow();
   });
 
   it("throws naming the gating feature for a schedule on a known cron pipeline whose feature is not enabled", () => {

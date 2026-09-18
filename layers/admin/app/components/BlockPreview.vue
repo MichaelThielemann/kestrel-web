@@ -4,6 +4,7 @@ import type { BlockNode, PageSeo } from '#kestrel-admin/types/api'
 import { localePath } from '#kestrel-admin/utils/kestrel'
 import { editorFormContextKey } from '../utils/editor-form-context'
 import { PRESETS, matchPreset, fitScale, clampDim, DIM_MIN, WIDTH_MAX, type ViewportPreset } from '../utils/preview-viewport'
+import { boundaryCast } from '#kestrel/cast'
 
 const props = defineProps<{ content: BlockNode[]; selectedId?: string | null }>()
 const emit = defineEmits<{ select: [id: string | null] }>()
@@ -27,11 +28,11 @@ function buildPreviewSnapshot(): PreviewSnapshot {
   const document = buildPreviewDocument(
     {
       id: ctx!.pageFieldsBindings.value.id,
-      slug: (values.slug as string | null) ?? null,
-      title: (values.title as string | null) ?? null,
+      slug: boundaryCast<string | null>(values.slug, 'json') ?? null,
+      title: boundaryCast<string | null>(values.title, 'json') ?? null,
       body: props.content,
-      seo: (values.seo as PageSeo | null) ?? null,
-      layout: (values.layout as string | null) ?? null,
+      seo: boundaryCast<PageSeo | null>(values.seo, 'json') ?? null,
+      layout: boundaryCast<string | null>(values.layout, 'json') ?? null,
     },
     Object.keys(ctx!.pageFieldsBindings.value.fields),
     values,
@@ -73,7 +74,8 @@ function selectPreset(p: ViewportPreset) {
 }
 
 function onDimCommit(target: 'w' | 'h', e: Event) {
-  const el = e.target as HTMLInputElement
+  if (!(e.target instanceof HTMLInputElement)) return
+  const el = e.target
   if (el.value === '') {
     if (el.validity?.badInput) return
     if (target === 'w') width.value = 'auto'

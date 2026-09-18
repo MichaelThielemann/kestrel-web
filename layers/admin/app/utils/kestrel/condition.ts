@@ -28,6 +28,7 @@ function matchOperator(dep: unknown, op: ConditionOperator): boolean {
       case 'eq': ok = dep === target; break
       case 'ne': ok = dep !== target; break
       case 'gt': case 'gte': case 'lt': case 'lte':
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Object.entries(op) types values as `any` for a plain interface; op is declared ConditionOperator so target is number | string for these keys
         ok = compare(dep, target as number | string, key); break
       case 'in': ok = Array.isArray(target) && (target as unknown[]).includes(dep); break
       case 'notIn': ok = Array.isArray(target) && !(target as unknown[]).includes(dep); break

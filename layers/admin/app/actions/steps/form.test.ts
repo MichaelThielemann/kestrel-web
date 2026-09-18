@@ -1,37 +1,57 @@
 import { describe, expect, it, vi } from 'vitest'
 import { defineAction, runAction, type ActionContext } from '#kestrel-core/app/utils/actions'
 import { ApiError } from '../../composables/useApi'
-import type { ActionDeps, ApiClient, EditFormPort, SaveFailure, SaveOutcome, WithDeps } from '../types'
+import type { ActionDeps, ApiClient, ApiRequestOptions, EditFormPort, SaveFailure, SaveOutcome, WithDeps } from '../types'
 import { apiWrite } from './api'
 import { formMapErrors, formReset } from './form'
 
 type Input = WithDeps & { form: EditFormPort }
 
+function fakeApiClient(): ApiClient {
+  function api<T>(_path: string, _options?: ApiRequestOptions): Promise<T> {
+    throw new Error('fakeForm: api should not be called')
+  }
+  return api
+}
+
 function fakeForm() {
   const state: { formError: string, fieldErrors: Record<string, string> } = { formError: '', fieldErrors: {} }
-  const form: Partial<EditFormPort> = {
+  const form: EditFormPort = {
     collection: 'pages',
     id: 'p1',
     mode: 'multi',
     pageLike: true,
+    hasStatus: () => false,
+    status: () => '',
+    saving: () => false,
     blocksField: () => '',
     fieldKeys: () => ['title', 'slug', 'status'],
-    repeaterField: () => null,
-    formError: () => state.formError,
     dirtyKeys: () => ['title', 'slug'],
     bodyFor: (keys: string[]) => Object.fromEntries(keys.map((key) => [key, ''])),
+    blocks: () => [],
+    repeaterField: () => null,
+    formError: () => state.formError,
+    setField: () => {},
     clearErrors: () => { state.formError = ''; state.fieldErrors = {} },
     setFieldError: (name: string, message: string) => { state.fieldErrors[name] = message },
+    setRowErrors: () => {},
+    setBlockErrors: () => {},
     setFormError: (message: string) => { state.formError = message },
+    setSaving: () => {},
+    validateAll: () => true,
+    validateBlocks: () => 0,
+    applySaved: () => {},
+    setDelivery: () => {},
+    revealError: () => {},
   }
-  return { form: form as EditFormPort, state }
+  return { form, state }
 }
 
 function runMapErrors(failure: SaveFailure | null) {
   const { form, state } = fakeForm()
-  const deps: Partial<ActionDeps> = { t: vi.fn((key: string) => key) }
+  const deps: ActionDeps = { api: fakeApiClient(), t: vi.fn((key: string) => key), toast: { success: vi.fn(), error: vi.fn() } }
   const ctx: ActionContext<Input, SaveOutcome> = {
-    input: { deps: deps as ActionDeps, form },
+    input: { deps, form },
     result: { record: null, delivery: null, failure, failed: failure !== null },
     fail: () => { throw new Error('unexpected fail') },
     done: () => { throw new Error('unexpected done') },

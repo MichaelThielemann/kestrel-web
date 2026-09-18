@@ -2,6 +2,7 @@
 import type { User } from '#kestrel-admin/types/api'
 import { userToggle } from '#kestrel-admin/actions/system'
 import type { ActionDeps } from '#kestrel-admin/actions/types'
+import { toastUnexpected } from '#kestrel-admin/actions/steps/notify'
 
 const { t } = useT()
 const api = useApi()
@@ -23,14 +24,15 @@ await load()
 const newOpen = ref(false)
 const passwordUser = ref<User | null>(null)
 
-function toggleActive(u: User) {
-  return runAction(userToggle, {
+async function toggleActive(u: User) {
+  const result = await runAction(userToggle, {
     deps,
     userId: u.id,
     active: u.active,
     ops: { setBusy: (on) => { busyId.value = on ? u.id : null }, busy: () => busyId.value === u.id },
     refresh: load,
   })
+  toastUnexpected(deps, result)
 }
 
 const dateFmt = new Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'short', day: '2-digit' })

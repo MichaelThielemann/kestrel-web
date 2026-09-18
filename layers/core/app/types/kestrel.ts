@@ -134,4 +134,5 @@ export interface SerializedBlock {
   tags?: string[]
   source?: string
   fields: Record<string, SerializedField>
+  fieldLayout?: LayoutNode[]
 }

@@ -1,4 +1,5 @@
 import type { ApiErrorBody, ApiErrorDetails } from '#kestrel-admin/types/api'
+import { boundaryCast } from '#kestrel/cast'
 import type { Translate } from '../actions/types'
 
 export class ApiError extends Error {
@@ -67,7 +68,7 @@ export function useApi() {
   })
   return async <T>(path: string, options: Parameters<typeof client>[1] = {}): Promise<T> => {
     try {
-      return (await client<T>(path, options)) as T
+      return boundaryCast<T>(await client(path, options), 'json')
     } catch (e) {
       throw toApiError(e)
     }

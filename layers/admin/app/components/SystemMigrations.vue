@@ -2,6 +2,7 @@
 import type { MigrationsDryRunResult, MigrationsListResult } from '#kestrel-admin/types/api'
 import { migrationsApply, migrationsDryRun } from '#kestrel-admin/actions/system'
 import type { ActionDeps } from '#kestrel-admin/actions/types'
+import { toastUnexpected } from '#kestrel-admin/actions/steps/notify'
 
 const { t } = useT()
 const api = useApi()
@@ -26,14 +27,14 @@ async function load() {
 }
 await load()
 
-function dryRun() {
+async function dryRun() {
   dryRunResult.value = null
-  return runAction(migrationsDryRun, {
+  const result = await runAction(migrationsDryRun, {
     deps,
     ops: { setBusy: (on) => { dryRunBusy.value = on }, busy: () => dryRunBusy.value },
-  }).then((r) => {
-    if (r.ok && r.result) dryRunResult.value = r.result
   })
+  toastUnexpected(deps, result)
+  if (result.ok && result.result) dryRunResult.value = result.result
 }
 
 async function apply() {
@@ -43,6 +44,7 @@ async function apply() {
     ops: { setBusy: (on) => { applyBusy.value = on }, busy: () => applyBusy.value },
     refresh: load,
   })
+  toastUnexpected(deps, r)
   confirmApply.value = false
   if (r.ok) dryRunResult.value = null
 }

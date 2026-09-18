@@ -11,9 +11,13 @@ const { manifest, availability, error, loadManifest } = useInsights()
 
 await loadManifest()
 
+function isTabId(value: string): value is TabId {
+  return TAB_IDS.some((id) => id === value)
+}
+
 const activeTab = computed<TabId>(() => {
   const raw = typeof route.query.tab === 'string' ? route.query.tab : ''
-  return (TAB_IDS as readonly string[]).includes(raw) ? raw as TabId : 'modules'
+  return isTabId(raw) ? raw : 'modules'
 })
 
 function setTab(tab: TabId) {

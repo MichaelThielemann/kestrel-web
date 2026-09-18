@@ -1,18 +1,19 @@
 import type { ApiErrorDetails } from '#kestrel-admin/types/api'
 import { describe, expect, it, vi } from 'vitest'
+import { boundaryCast } from '#kestrel/cast'
 import { defineAction, runAction } from '#kestrel-core/app/utils/actions'
-import type { ActionDeps, ApiClient, ApiFailure, ApiRequestOptions, EachReport, PrecheckReport, WithDeps } from '../types'
+import type { ActionDeps, ApiFailure, ApiRequestOptions, EachReport, PrecheckReport, WithDeps } from '../types'
 import { apiEach, apiRequest, isSaveResponse, referencesPrecheck } from './api'
 
 interface Call { path: string, method: string, body?: unknown, query?: unknown }
 
 function fakeApi(responses: Array<unknown | Error>) {
   const calls: Call[] = []
-  const api = ((path: string, options?: ApiRequestOptions) => {
+  function api<T>(path: string, options?: ApiRequestOptions): Promise<T> {
     calls.push({ path, method: options?.method ?? 'GET', body: options?.body, query: options?.query })
     const next = responses.shift()
-    return next instanceof Error ? Promise.reject(next) : Promise.resolve(next)
-  }) as ApiClient
+    return next instanceof Error ? Promise.reject(next) : Promise.resolve(boundaryCast<T>(next, 'json'))
+  }
   return { api, calls }
 }
 
@@ -116,11 +117,12 @@ describe('api.each', () => {
     const itemErrors: string[] = []
 
     const result = await runAction(eachAction('continue', itemErrors), { deps, ids: ['a', 'b', 'c'] })
+    if (!result.ok || result.result === undefined) throw new Error('expected ok with a result')
 
     expect(calls).toHaveLength(3)
     expect(itemErrors).toEqual(['first', 'second'])
-    expect(result).toMatchObject({ ok: true, result: { succeeded: 1, failed: 2, lastMessage: 'second' } })
-    expect((result as { result: EachReport<unknown> }).result.firstFailure?.id).toBe('b')
+    expect(result.result).toMatchObject({ succeeded: 1, failed: 2, lastMessage: 'second' })
+    expect(result.result.firstFailure?.id).toBe('b')
   })
 
   it('breaks at the first failure when stopping', async () => {
@@ -186,9 +188,10 @@ describe('references.precheck', () => {
     const { deps, calls } = fakeDeps([apiError(500, 'boom'), [{ type: 'pages', field: 'body', id: 'p' }], []])
 
     const result = await runAction(precheckAction('skip'), { deps, ids: ['a', 'b', 'c'] })
+    if (!result.ok || result.result === undefined) throw new Error('expected ok with a result')
 
     expect(calls).toHaveLength(3)
-    const report = (result as { result: PrecheckReport }).result
+    const report = result.result
     expect(report.checked).toBe(false)
     expect([...report.byId.keys()]).toEqual(['b', 'c'])
   })
@@ -197,9 +200,10 @@ describe('references.precheck', () => {
     const { deps, calls } = fakeDeps([[], apiError(500, 'boom'), []])
 
     const result = await runAction(precheckAction('stop'), { deps, ids: ['a', 'b', 'c'] })
+    if (!result.ok || result.result === undefined) throw new Error('expected ok with a result')
 
     expect(calls).toHaveLength(2)
-    const report = (result as { result: PrecheckReport }).result
+    const report = result.result
     expect([...report.byId.keys()]).toEqual(['a'])
     expect(report.forbidden).toBe(false)
   })
@@ -208,10 +212,11 @@ describe('references.precheck', () => {
     const { deps, calls } = fakeDeps([[], apiError(403, 'forbidden'), []])
 
     const result = await runAction(precheckAction('skip'), { deps, ids: ['a', 'b', 'c'] })
+    if (!result.ok || result.result === undefined) throw new Error('expected ok with a result')
 
     expect(calls).toHaveLength(2)
-    expect(result).toMatchObject({ ok: true, result: { checked: false, forbidden: true } })
-    expect((result as { result: PrecheckReport }).result.byId.size).toBe(0)
+    expect(result.result).toMatchObject({ checked: false, forbidden: true })
+    expect(result.result.byId.size).toBe(0)
   })
 
   it('never asks when the check is not allowed', async () => {

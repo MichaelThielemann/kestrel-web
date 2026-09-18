@@ -4,6 +4,7 @@ import { imageSizes } from '#kestrel/blocks'
 import { humanizeRelativeTime } from '#kestrel-admin/utils/humanize'
 import { imagesRegisterAndSync, mediaReconcile, mediaReconcileDelete, previewPrune, prune, type PrunePreview } from '#kestrel-admin/actions/system'
 import type { ActionDeps } from '#kestrel-admin/actions/types'
+import { toastUnexpected } from '#kestrel-admin/actions/steps/notify'
 
 const { t, lang } = useT()
 const api = useApi()
@@ -48,12 +49,13 @@ onUnmounted(stopPolling)
 
 const syncBusy = ref(false)
 async function onSync() {
-  await runAction(imagesRegisterAndSync, {
+  const result = await runAction(imagesRegisterAndSync, {
     deps,
     sizes: imageSizes,
     ops: { setBusy: (on) => { syncBusy.value = on }, busy: () => syncBusy.value },
     refresh: load,
   })
+  toastUnexpected(deps, result)
   startPolling()
 }
 
@@ -63,6 +65,7 @@ const pruneError = ref<string | null>(null)
 
 async function onPreviewPrune() {
   const r = await runAction(previewPrune, { deps })
+  toastUnexpected(deps, r)
   if (r.ok && r.result) pruneTarget.value = r.result
 }
 
@@ -84,6 +87,7 @@ async function onConfirmPrune() {
     },
     refresh: load,
   })
+  toastUnexpected(deps, r)
   if (r.ok) closePrune()
 }
 
@@ -102,6 +106,7 @@ const reconcileOps = {
 
 async function runReconcileCheck() {
   const r = await runAction(mediaReconcile, { deps, ops: reconcileOps })
+  toastUnexpected(deps, r)
   if (r.ok && r.result) {
     reconcileReport.value = r.result
     reconcileError.value = null
@@ -110,6 +115,7 @@ async function runReconcileCheck() {
 
 async function onConfirmReconcileDelete() {
   const r = await runAction(mediaReconcileDelete, { deps, orphans: orphanBlobs.value.length, confirmed: true, ops: reconcileOps })
+  toastUnexpected(deps, r)
   if (!r.ok) return
   reconcileConfirmOpen.value = false
   await runReconcileCheck()

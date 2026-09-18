@@ -5,6 +5,7 @@ import {
   DropdownMenuItemIndicator, DropdownMenuItem,
 } from 'reka-ui'
 import { resolveLocalized } from '#kestrel-admin/utils/localized'
+import { boundaryCast } from '#kestrel/cast'
 
 const { t, lang } = useT()
 const { logout, username } = useAuth()
@@ -17,7 +18,7 @@ const accountCollections = computed(() => collections.value.filter((c) => c.mode
 
 const changePasswordOpen = ref(false)
 
-function selectLang(value: unknown) { lang.value = value as string }
+function selectLang(value: unknown) { lang.value = boundaryCast<string>(value, 'dom') }
 function signOut() { void logout() }
 
 defineExpose({ lang, selectLang, signOut, theme, toggleTheme })

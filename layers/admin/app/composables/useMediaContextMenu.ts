@@ -15,7 +15,7 @@ export function useMediaContextMenu(opts: {
 
   function onContextMenu(e: MouseEvent) {
     const all = opts.items()
-    const target = resolveTargetItem(e.target as Element, all)
+    const target = resolveTargetItem(e.target instanceof Element ? e.target : null, all)
     if (!target) {
       targets.value = []
       e.preventDefault?.()

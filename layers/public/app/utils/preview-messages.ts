@@ -1,3 +1,5 @@
+import { boundaryCast } from '#kestrel/cast'
+
 export type PreviewMessage =
   | { type: 'kestrel-preview:select'; id: string | null }
   | { type: 'kestrel-preview:selected'; id: string | null }
@@ -17,7 +19,7 @@ export function readyMessage(): PreviewMessage {
 
 function isPreviewMessage(value: unknown): value is PreviewMessage {
   if (!value || typeof value !== 'object') return false
-  const v = value as Record<string, unknown>
+  const v = boundaryCast<Record<string, unknown>>(value, 'dom')
   switch (v.type) {
     case 'kestrel-preview:select':
     case 'kestrel-preview:selected':

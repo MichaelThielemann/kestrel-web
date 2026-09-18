@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import { boundaryCast } from '#kestrel/cast'
 import { serializeCollections, type CollectionUi } from './collections-serialize'
 import { contentTypes } from '../../../../playground/shared/model'
 import playgroundUi from '../../../../playground/shared/collections-ui'
@@ -28,7 +29,7 @@ describe('serializeCollections golden fixture: synthetic collections', () => {
 
   it('throws for an invalid placement value', () => {
     const ui: Record<string, CollectionUi> = {
-      pages: { label: { singular: 'p', plural: 'p' }, placement: 'nowhere' as never },
+      pages: { label: { singular: 'p', plural: 'p' }, placement: boundaryCast('nowhere', 'json') },
     }
     expect(() => serializeCollections({ pages: { kind: 'multi', fields: { title: { type: 'text' } } } }, ui)).toThrow(/placement/)
   })

@@ -6,7 +6,8 @@ const MEDIA_DRAG = 'application/x-kestrel-media'
 export interface DropResult { uploads: PendingUpload[]; folders: string[] }
 
 function hoveredFolder(e: DragEvent): string | null {
-  const el = (e.target as HTMLElement | null)?.closest?.('[data-drop-folder]') as HTMLElement | null
+  const target = e.target instanceof HTMLElement ? e.target : null
+  const el = target?.closest<HTMLElement>('[data-drop-folder]')
   return el ? el.getAttribute('data-drop-folder') : null
 }
 function dragTypes(e: DragEvent): string[] { return e.dataTransfer ? Array.from(e.dataTransfer.types) : [] }

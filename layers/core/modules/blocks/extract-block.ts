@@ -50,20 +50,21 @@ type Wrapped = Record<string, unknown> | undefined;
 export const WRAPPERS = new Set(["TSAsExpression", "TSSatisfiesExpression", "TSNonNullExpression", "ParenthesizedExpression"]);
 
 export function unwrap(node: unknown): Wrapped {
-  let current = node as Wrapped;
-  while (current && WRAPPERS.has(current.type as string)) current = current.expression as Wrapped;
+  let current = boundaryCast<Wrapped>(node, "ast");
+  while (current && typeof current.type === "string" && WRAPPERS.has(current.type)) current = boundaryCast<Wrapped>(current.expression, "ast");
   return current;
 }
 
 function macroInCall(call: unknown, macro: string): { arg?: Node; hasTypeParam: boolean } | undefined {
   const node = unwrap(call);
   if (node?.type !== "CallExpression") return undefined;
-  const callee = node.callee as Wrapped;
+  const callee = boundaryCast<Wrapped>(node.callee, "ast");
+  const args = boundaryCast<Node[]>(node.arguments, "ast");
   if (callee?.type === "Identifier" && callee.name === macro) {
-    return { arg: (node.arguments as Node[])[0], hasTypeParam: !!(node.typeParameters || node.typeArguments) };
+    return { arg: args[0], hasTypeParam: !!(node.typeParameters || node.typeArguments) };
   }
   if (callee?.type === "Identifier" && callee.name === "withDefaults") {
-    for (const argument of (node.arguments as unknown[]) ?? []) {
+    for (const argument of args) {
       const hit = macroInCall(argument, macro);
       if (hit) return hit;
     }
@@ -73,12 +74,12 @@ function macroInCall(call: unknown, macro: string): { arg?: Node; hasTypeParam: 
 
 function macroCall(ast: ReturnType<typeof parse>, macro: string): { arg?: Node; hasTypeParam: boolean } | undefined {
   for (const raw of boundaryCast<Array<Record<string, unknown>>>(ast.program.body, "ast")) {
-    const statement = raw.type === "ExportNamedDeclaration" && raw.declaration ? (raw.declaration as Record<string, unknown>) : raw;
+    const statement = raw.type === "ExportNamedDeclaration" && raw.declaration ? boundaryCast<Record<string, unknown>>(raw.declaration, "ast") : raw;
     if (statement.type === "ExpressionStatement") {
       const hit = macroInCall(statement.expression, macro);
       if (hit) return hit;
     } else if (statement.type === "VariableDeclaration") {
-      for (const declarator of (statement.declarations as Array<Record<string, unknown>>) ?? []) {
+      for (const declarator of boundaryCast<Array<Record<string, unknown>>>(statement.declarations, "ast") ?? []) {
         const hit = macroInCall(declarator.init, macro);
         if (hit) return hit;
       }
@@ -90,13 +91,15 @@ function macroCall(ast: ReturnType<typeof parse>, macro: string): { arg?: Node; 
 export function evalObject(source: string, node: Node, scope: Record<string, unknown>, where: string): Record<string, unknown> {
   const names = Object.keys(scope);
   try {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- new Function's return has no callable signature; this is the one place that gives the dynamically-built function a shape so it can be invoked
     const build = new Function(...names, `return (${source.slice(node.start, node.end)})`) as (...args: unknown[]) => unknown;
     const value = build(...names.map((name) => scope[name]));
     if (!value || typeof value !== "object") throw new Error("expected an object literal");
-    return value as Record<string, unknown>;
+    return boundaryCast<Record<string, unknown>>(value, "json");
   } catch (cause) {
+    const message = cause instanceof Error ? cause.message : String(cause);
     throw new Error(
-      `${where}: could not evaluate the block declaration. Field and block arguments must be self-contained literals plus field-factory calls (no imported constants, computed values or type arguments). Cause: ${(cause as Error).message}`,
+      `${where}: could not evaluate the block declaration. Field and block arguments must be self-contained literals plus field-factory calls (no imported constants, computed values or type arguments). Cause: ${message}`,
       { cause },
     );
   }
@@ -127,7 +130,8 @@ export function extractBlockDef(
   try {
     ast = parse(source, { sourceType: "module", plugins: ["typescript"] });
   } catch (cause) {
-    throw new Error(`${fileBase}: could not parse <script setup> — ${(cause as Error).message}`, { cause });
+    const message = cause instanceof Error ? cause.message : String(cause);
+    throw new Error(`${fileBase}: could not parse <script setup> — ${message}`, { cause });
   }
 
   const propsMacro = macroCall(ast, "defineProps");
@@ -141,14 +145,14 @@ export function extractBlockDef(
 
   const fields: Record<string, SerializedField> = {};
   for (const [key, value] of Object.entries(props)) {
-    const carried = value && typeof value === "object" ? (value as Record<symbol, unknown>)[KESTREL_FIELD] : undefined;
+    const carried = value && typeof value === "object" ? boundaryCast<Record<symbol, unknown>>(value, "json")[KESTREL_FIELD] : undefined;
     if (carried === undefined) {
       if (typeof value === "function" && FACTORY_FUNCTIONS.has(value)) {
         throw new Error(`${fileBase}: prop "${key}" is a field factory that was not called — write ${(value as { name?: string }).name ?? "xField"}({ … })`);
       }
       continue;
     }
-    const definition = carried as SerializedField;
+    const definition = boundaryCast<SerializedField>(carried, "json");
     if (typeof definition.default === "function") {
       throw new Error(`${fileBase}: prop "${key}" has a function \`default\` — block field defaults must be JSON-serializable literals`);
     }
@@ -157,9 +161,9 @@ export function extractBlockDef(
 
   const block: SerializedBlock = { name, fields };
   if (sourcePath !== undefined) block.source = sourcePath;
-  if (meta.label !== undefined) block.label = meta.label as SerializedBlock["label"];
-  if (meta.description !== undefined) block.description = meta.description as SerializedBlock["description"];
-  if (Array.isArray(meta.slots) && meta.slots.length) block.slots = meta.slots as string[];
+  if (meta.label !== undefined) block.label = boundaryCast<SerializedBlock["label"]>(meta.label, "json");
+  if (meta.description !== undefined) block.description = boundaryCast<SerializedBlock["description"]>(meta.description, "json");
+  if (Array.isArray(meta.slots) && meta.slots.length) block.slots = boundaryCast<string[]>(meta.slots, "json");
   if (typeof meta.icon === "string") block.icon = meta.icon;
   if (typeof meta.image === "string") {
     if (meta.image.startsWith("./") || meta.image.startsWith("../")) {

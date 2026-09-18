@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineNuxtModule } from "@nuxt/kit";
+import { boundaryCast } from "@michaelthielemann/kestrel/cast";
 
 const PIPELINES_VIRTUAL_ID = "#kestrel/consumer-pipelines";
 const PIPELINES_DEFAULT = fileURLToPath(new URL("./pipelines.default.ts", import.meta.url));
@@ -11,13 +12,14 @@ const BLOCK_TAGS_VIRTUAL_ID = "#kestrel/consumer-block-tags";
 const BLOCK_TAGS_DEFAULT = fileURLToPath(new URL("./block-tags.default.ts", import.meta.url));
 const TYPES = fileURLToPath(new URL("../../types/consumer-entries.d.ts", import.meta.url));
 
-type ViteConfig = { resolve?: { alias?: Record<string, string> | { find: string | RegExp; replacement: string }[] } };
+type ViteConfig = { resolve?: { alias?: Record<string, string> | readonly { find: string | RegExp; replacement: string }[] } };
 
-function registerViteAlias(config: unknown, id: string, dst: string): void {
-  const vite = config as ViteConfig;
+function registerViteAlias(vite: ViteConfig, id: string, dst: string): void {
   vite.resolve ??= {};
   const existing = vite.resolve.alias ?? {};
-  vite.resolve.alias = Array.isArray(existing) ? [{ find: id, replacement: dst }, ...existing] : { [id]: dst, ...existing };
+  vite.resolve.alias = Array.isArray(existing)
+    ? [{ find: id, replacement: dst }, ...boundaryCast<readonly { find: string | RegExp; replacement: string }[]>(existing, "host")]
+    : { [id]: dst, ...existing };
 }
 
 export default defineNuxtModule({

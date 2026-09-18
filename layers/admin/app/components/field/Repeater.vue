@@ -6,15 +6,19 @@ import { useRepeater } from '../../composables/useRepeater'
 import { useFieldA11y } from '../../utils/useFieldA11y'
 import type { FieldComponentProps } from '../../utils/field-component'
 import { nestedRowErrorsOf, rowFieldErrors, rowMessage, scalarErrorsOf, type RowErrorMap } from '../../utils/row-errors'
-import type { FieldDef, FieldOf, LayoutNode } from '#kestrel-admin/types/kestrel'
+import { fieldIs, type FieldDef, type LayoutNode } from '#kestrel-admin/types/kestrel'
 const props = defineProps<FieldComponentProps>()
 const model = defineModel<Record<string, unknown>[] | null>()
 
-const subFields = computed<Record<string, FieldDef>>(() =>
-  props.field.type === 'repeater' ? (props.field as FieldOf<'repeater'>).options.fields : {})
+const subFields = computed<Record<string, FieldDef>>(() => {
+  const field = props.field
+  return fieldIs(field, 'repeater') ? field.options.fields : {}
+})
 
-const subLayout = computed<LayoutNode[] | undefined>(() =>
-  (props.field as { options?: { fieldLayout?: LayoutNode[] } }).options?.fieldLayout)
+const subLayout = computed<LayoutNode[] | undefined>(() => {
+  const field = props.field
+  return fieldIs(field, 'repeater') ? field.options.fieldLayout : undefined
+})
 const required = computed(() => !!props.field.required)
 const { rows, keys, addRow, removeRow, move, setCell, insertRow, duplicateRow } = useRepeater(model, subFields)
 const { errId, describedby, ariaInvalid } = useFieldA11y(props)
@@ -78,7 +82,8 @@ function onDragEnter(i: number) {
 }
 
 function onDragLeave(event: DragEvent) {
-  if (!(event.currentTarget as Element).contains(event.relatedTarget as Node | null)) {
+  const related = event.relatedTarget instanceof Node ? event.relatedTarget : null
+  if (event.currentTarget instanceof Element && !event.currentTarget.contains(related)) {
     overIndex.value = null
   }
 }
@@ -102,7 +107,7 @@ function moveRow(from: number, to: number) {
   move(from, to)
   void nextTick(() => {
     announce(to)
-    const row = rowsEl.value?.querySelectorAll(':scope > .ui-repeater__row-wrap > .ui-repeater__row')[to] as HTMLElement | undefined
+    const row = rowsEl.value?.querySelectorAll<HTMLElement>(':scope > .ui-repeater__row-wrap > .ui-repeater__row')[to]
     if (!row) return
     const dir = to < from ? 'up' : 'down'
     const btns = row.querySelectorAll<HTMLButtonElement>(':scope > .ui-repeater__actions > .ui-repeater__move')
@@ -117,7 +122,7 @@ function removeRowAt(i: number) {
   void nextTick(() => {
     const idx = Math.min(i, rows.value.length - 1)
     const row = idx >= 0
-      ? rowsEl.value?.querySelectorAll(':scope > .ui-repeater__row-wrap > .ui-repeater__row')[idx] as HTMLElement | undefined
+      ? rowsEl.value?.querySelectorAll<HTMLElement>(':scope > .ui-repeater__row-wrap > .ui-repeater__row')[idx]
       : undefined
     ;(row?.querySelector<HTMLButtonElement>(':scope > .ui-repeater__actions > .ui-repeater__remove') ?? addEl.value)?.focus()
   })
@@ -127,7 +132,7 @@ function duplicateRowAt(i: number) {
   duplicateRow(i)
   say(t('field.repeater.duplicated', { n: i + 1 }))
   void nextTick(() => {
-    const row = rowsEl.value?.querySelectorAll(':scope > .ui-repeater__row-wrap > .ui-repeater__row')[i + 1] as HTMLElement | undefined
+    const row = rowsEl.value?.querySelectorAll<HTMLElement>(':scope > .ui-repeater__row-wrap > .ui-repeater__row')[i + 1]
     row?.querySelector<HTMLElement>('input, button:not([disabled]), [tabindex]:not([tabindex="-1"])')?.focus()
   })
 }
@@ -136,7 +141,7 @@ function insertRowAt(at: number) {
   insertRow(at)
   say(t('field.repeater.inserted', { n: at + 1 }))
   void nextTick(() => {
-    const row = rowsEl.value?.querySelectorAll(':scope > .ui-repeater__row-wrap > .ui-repeater__row')[at] as HTMLElement | undefined
+    const row = rowsEl.value?.querySelectorAll<HTMLElement>(':scope > .ui-repeater__row-wrap > .ui-repeater__row')[at]
     row?.querySelector<HTMLElement>('input, button:not([disabled]), [tabindex]:not([tabindex="-1"])')?.focus()
   })
 }

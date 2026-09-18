@@ -3,6 +3,7 @@ import { toRaw } from 'vue'
 import type { ApiErrorDetails, Document } from '#kestrel-admin/types/api'
 import type { FieldDef, SerializedField } from '#kestrel-admin/types/kestrel'
 import { resolveFieldEmpty } from '#kestrel-admin/utils/field-empty'
+import { boundaryCast } from '#kestrel/cast'
 import type { BlockRow } from './block-tree'
 import { LAYOUT_FIELD } from './collections-serialize'
 import { insert, type RowErrorMap } from './row-errors'
@@ -43,7 +44,7 @@ export function emptyForField(field: EmptyableField): unknown {
     case 'choice': {
       if (field.options?.multiple) return []
 
-      const choices = field.options?.choices as Choice[] | undefined
+      const choices = boundaryCast<Choice[] | undefined>(field.options?.choices, 'json')
       return field.required && choices?.length ? choices[0]!.value : null
     }
     case 'relation':
@@ -60,7 +61,7 @@ const RESERVED_FIELD_EMPTY: Record<string, unknown> = { [LAYOUT_FIELD]: null }
 export function stripLinkResolution(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(stripLinkResolution)
   if (typeof value !== 'object' || value === null) return value
-  const o = value as Record<string, unknown>
+  const o = boundaryCast<Record<string, unknown>>(value, 'json')
   const isInternalLink = o.type === 'internal' && typeof o.collection === 'string' && typeof o.id === 'string'
   const out: Record<string, unknown> = {}
   for (const [k, v] of Object.entries(o)) {
@@ -158,7 +159,7 @@ export function blockErrorFromPointer(blocks: BlockRow[], error: BodyError): Blo
     if (kind === 'slots') {
       const sub = block.slots?.[tokens[i + 1] ?? '']
       if (!Array.isArray(sub)) break
-      arr = sub as BlockRow[]
+      arr = boundaryCast<BlockRow[]>(sub, 'json')
       i += 2
       continue
     }
@@ -224,8 +225,8 @@ export function valuesEqual(a: unknown, b: unknown): boolean {
     return a.every((item, i) => valuesEqual(item, b[i]))
   }
 
-  const aRec = a as Record<string, unknown>
-  const bRec = b as Record<string, unknown>
+  const aRec = boundaryCast<Record<string, unknown>>(a, 'json')
+  const bRec = boundaryCast<Record<string, unknown>>(b, 'json')
   const aKeys = Object.keys(aRec)
   const bKeys = Object.keys(bRec)
   if (aKeys.length !== bKeys.length) return false
@@ -243,7 +244,7 @@ export function pruneBlockProps(blocks: unknown, fieldsByType: Record<string, Re
   if (!Array.isArray(blocks)) return blocks
   return blocks.map((raw: unknown) => {
     if (!raw || typeof raw !== 'object') return raw
-    const block = raw as PrunableBlock
+    const block = boundaryCast<PrunableBlock>(raw, 'json')
     const known = fieldsByType[block.type]
     const props = known && block.props ? Object.fromEntries(Object.entries(block.props).filter(([key]) => key in known)) : block.props
     const slots = block.slots ? Object.fromEntries(Object.entries(block.slots).map(([name, children]) => [name, pruneBlockProps(children, fieldsByType)])) : undefined

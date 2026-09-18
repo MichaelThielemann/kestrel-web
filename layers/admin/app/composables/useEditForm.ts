@@ -1,5 +1,6 @@
 import type { LayoutNode, SerializedField } from '#kestrel-admin/types/kestrel'
 import type { Document, DeliveryEntry, PublishStatusEntry } from '#kestrel-admin/types/api'
+import { boundaryCast } from '#kestrel/cast'
 import { isFieldVisible, slugify, validateField } from '#kestrel-admin/utils/kestrel'
 import { BLOCKS_FIELD, editorOwnedFields, findCollection, contentLocales } from '#kestrel-admin/utils/collections'
 import {
@@ -24,7 +25,7 @@ export type BlockErrors = Map<string, { field?: string; message: string; path?: 
 export type RowErrors = Record<string, RowErrorMap>
 
 function blocksOf(values: Record<string, unknown>, blocksField: string): BlockRow[] {
-  return blocksField ? ((values[blocksField] as BlockRow[] | undefined) ?? []) : []
+  return blocksField ? (boundaryCast<BlockRow[] | undefined>(values[blocksField], 'json') ?? []) : []
 }
 
 export interface UseEditFormOptions {
@@ -78,7 +79,7 @@ export function useEditForm(opts: UseEditFormOptions) {
   const dirty = computed(() => !valuesEqual(values, baseline.value))
   const dirtyKeys = computed(() => fieldKeys().filter((k) => !valuesEqual(values[k], baseline.value[k])))
 
-  const savedStatus = computed(() => (hasStatus.value ? ((baseline.value.status as string | undefined) ?? '') : ''))
+  const savedStatus = computed(() => (hasStatus.value ? (boundaryCast<string | undefined>(baseline.value.status, 'json') ?? '') : ''))
 
   const past = ref<Record<string, unknown>[]>([])
   const future = ref<Record<string, unknown>[]>([])
@@ -284,7 +285,7 @@ export function useEditForm(opts: UseEditFormOptions) {
           if (msg) list.push({ field: name, message: msg })
         }
         if (list.length) map.set(b.id, list)
-        if (b.slots) for (const sub of Object.values(b.slots)) if (Array.isArray(sub)) walk(sub as BlockRow[])
+        if (b.slots) for (const sub of Object.values(b.slots)) if (Array.isArray(sub)) walk(boundaryCast<BlockRow[]>(sub, 'json'))
       }
     }
     walk(blocksOf(values, blocksField.value))
@@ -320,7 +321,7 @@ export function useEditForm(opts: UseEditFormOptions) {
       mode: mode.value,
       pageLike: pageLike.value,
       hasStatus: () => hasStatus.value,
-      status: () => (values.status as string | undefined) ?? '',
+      status: () => boundaryCast<string | undefined>(values.status, 'json') ?? '',
       saving: () => saving.value,
       blocksField: () => blocksField.value,
       fieldKeys,

@@ -3,6 +3,8 @@ export function reorder<T>(arr: readonly T[], from: number, to: number): T[] {
     return [...arr]
   }
   const result = [...arr]
-  result.splice(to, 0, result.splice(from, 1)[0] as T)
+  const [item] = result.splice(from, 1)
+  if (item === undefined) return result
+  result.splice(to, 0, item)
   return result
 }

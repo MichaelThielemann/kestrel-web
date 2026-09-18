@@ -87,7 +87,8 @@ function moveChip(from: number, to: number) {
 
   void nextTick(() => {
     announceMove(label, to)
-    const chip = chips.value?.children[to] as HTMLElement | undefined
+    const chipChild = chips.value?.children[to]
+    const chip = chipChild instanceof HTMLElement ? chipChild : undefined
     if (!chip) return
     const moveBtns = chip.querySelectorAll<HTMLButtonElement>('.ui-combobox__chip-move')
     const dirBtn = dir === 'earlier' ? moveBtns[0] : moveBtns[1]

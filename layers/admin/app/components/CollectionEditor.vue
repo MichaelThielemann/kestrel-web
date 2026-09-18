@@ -2,6 +2,7 @@
 import { contentLocales } from '#kestrel-admin/utils/collections'
 import { resolveCollectionEditor } from '../utils/editor-registry'
 import { editorFormContextKey } from '../utils/editor-form-context'
+import { boundaryCast } from '#kestrel/cast'
 import '../utils/register-builtin-editors'
 
 const props = withDefaults(
@@ -33,7 +34,7 @@ const pageFieldsBindings = computed(() => ({
 
 const pageFieldsHandlers = { update: f.setField }
 
-const status = computed(() => (f.values.status as string | undefined) ?? '')
+const status = computed(() => boundaryCast<string | undefined>(f.values.status, 'json') ?? '')
 
 provide(editorFormContextKey, {
   values: f.values, errors: f.errors, blockErrors: f.blockErrors, following: f.following, formError: f.formError, setField: f.setField, locale: f.locale,

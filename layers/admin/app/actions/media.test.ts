@@ -1,19 +1,20 @@
 import type { ApiErrorDetails } from '#kestrel-admin/types/api'
 import { describe, expect, it, vi } from 'vitest'
+import { boundaryCast } from '#kestrel/cast'
 import { runAction } from '#kestrel-core/app/utils/actions'
 import { createFolder, deleteItems, previewDeleteItems, renameOrMove, setMediaMeta, setMediaProvenance, upload } from './media'
-import type { ActionDeps, ApiClient, ApiRequestOptions } from './types'
+import type { ActionDeps, ApiRequestOptions } from './types'
 import type { UploadItem } from '../composables/useMediaUpload'
 
 interface Call { path: string, method: string, body?: unknown, query?: unknown }
 
 function fakeApi(responses: Array<unknown | Error>) {
   const calls: Call[] = []
-  const api = ((path: string, options?: ApiRequestOptions) => {
+  function api<T>(path: string, options?: ApiRequestOptions): Promise<T> {
     calls.push({ path, method: options?.method ?? 'GET', body: options?.body, query: options?.query })
     const next = responses.shift()
-    return next instanceof Error ? Promise.reject(next) : Promise.resolve(next)
-  }) as ApiClient
+    return next instanceof Error ? Promise.reject(next) : Promise.resolve(boundaryCast<T>(next, 'json'))
+  }
   return { api, calls }
 }
 
@@ -371,6 +372,17 @@ describe('upload', () => {
     return { id: 'u1', file: new File(['x'], 'a.png'), filename: 'a.png', folder: '', status: 'queued', ...overrides }
   }
 
+  function formDataBody(call: Call | undefined): FormData {
+    if (!(call?.body instanceof FormData)) throw new Error('expected a FormData body')
+    return call.body
+  }
+
+  function formDataString(body: FormData, key: string): string {
+    const value = body.get(key)
+    if (typeof value !== 'string') throw new Error(`expected "${key}" to be a string field`)
+    return value
+  }
+
   it('uploads with folder and provenance', async () => {
     const { deps, calls } = fakeDeps([{ id: 'f1' }])
     const item = uploadItem({ folder: 'a/b' })
@@ -380,9 +392,9 @@ describe('upload', () => {
     expect(result.ok).toBe(true)
     expect(item.status).toBe('done')
     expect(calls).toHaveLength(1)
-    const body = calls[0]!.body as FormData
+    const body = formDataBody(calls[0])
     expect(body.get('folder')).toBe('a/b')
-    expect(JSON.parse(body.get('provenance') as string)).toEqual({ origin: 'ai', model: 'gpt' })
+    expect(JSON.parse(formDataString(body, 'provenance'))).toEqual({ origin: 'ai', model: 'gpt' })
   })
 
   it('omits the folder field when there is none', async () => {
@@ -391,7 +403,7 @@ describe('upload', () => {
 
     await runAction(upload, { deps, item })
 
-    const body = calls[0]!.body as FormData
+    const body = formDataBody(calls[0])
     expect(body.has('folder')).toBe(false)
   })
 
@@ -401,8 +413,8 @@ describe('upload', () => {
 
     await runAction(upload, { deps, item, provenance: { origin: 'human' } })
 
-    const body = calls[0]!.body as FormData
-    expect(JSON.parse(body.get('provenance') as string)).toEqual({ origin: 'human' })
+    const body = formDataBody(calls[0])
+    expect(JSON.parse(formDataString(body, 'provenance'))).toEqual({ origin: 'human' })
   })
 
   it('sends a human origin when the caller passes none', async () => {
@@ -411,8 +423,8 @@ describe('upload', () => {
 
     await runAction(upload, { deps, item })
 
-    const body = calls[0]!.body as FormData
-    expect(JSON.parse(body.get('provenance') as string)).toEqual({ origin: 'human' })
+    const body = formDataBody(calls[0])
+    expect(JSON.parse(formDataString(body, 'provenance'))).toEqual({ origin: 'human' })
   })
 
   it('humanises byte counts in the 413 message', async () => {

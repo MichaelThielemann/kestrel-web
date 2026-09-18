@@ -5,6 +5,7 @@ import { humanizeRelativeTime } from '#kestrel-admin/utils/humanize'
 import { replicationRestore, replicationSnapshot } from '#kestrel-admin/actions/system'
 import type { RestoreTarget } from '#kestrel-admin/actions/system'
 import type { ActionDeps } from '#kestrel-admin/actions/types'
+import { toastUnexpected } from '#kestrel-admin/actions/steps/notify'
 
 const { t, lang } = useT()
 const api = useApi()
@@ -39,13 +40,14 @@ async function load() {
 }
 await load()
 
-function snapshotNow() {
-  return runAction(replicationSnapshot, {
+async function snapshotNow() {
+  const result = await runAction(replicationSnapshot, {
     deps,
     ops: { setBusy: (on) => { snapshotBusy.value = on }, busy: () => snapshotBusy.value },
     onNotFound: () => { notFound.value = true },
     refresh: load,
   })
+  toastUnexpected(deps, result)
 }
 
 async function restore(point: RestoreTarget | null, busyKey: string) {
@@ -55,6 +57,7 @@ async function restore(point: RestoreTarget | null, busyKey: string) {
     ops: { setBusy: (on) => { restoreBusy.value = on ? busyKey : null }, busy: () => restoreBusy.value === busyKey },
     refresh: load,
   })
+  toastUnexpected(deps, r)
   if (r.ok && r.result) {
     restoreResult.value = r.result
     confirmPoint.value = null

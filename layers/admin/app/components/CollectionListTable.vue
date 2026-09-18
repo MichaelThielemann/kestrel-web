@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { sortDirection } from '../utils/list-query'
-import { cellDisplay, columnLabel } from '../utils/list-cell'
+import { cellDisplay, columnLabel, stringOrEmpty } from '../utils/list-cell'
+import { boundaryCast } from '#kestrel/cast'
 import type { ListColumn } from '../utils/list-columns'
 import { resolveLocalized } from '#kestrel-admin/utils/localized'
 import type { Localized } from '#kestrel-admin/types/kestrel'
@@ -35,12 +36,12 @@ const colLabel = (col: ListColumn) => columnLabel(col, t)
 
 function untranslated(row: Record<string, unknown>): boolean {
   if (!props.locale) return false
-  const flags = row._translations as Record<string, boolean> | undefined
+  const flags = boundaryCast<Record<string, boolean> | undefined>(row._translations, 'json')
   return flags ? flags[props.locale] === false : row.title == null
 }
 
 function rowTitle(row: Record<string, unknown>): string {
-  return (row.title as string) || props.fallbackTitles?.[String(row.id)] || t('list.untitled')
+  return stringOrEmpty(row.title) || props.fallbackTitles?.[String(row.id)] || t('list.untitled')
 }
 const rowLabel = (row: Record<string, unknown>) => rowTitle(row)
 

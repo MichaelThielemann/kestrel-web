@@ -2,6 +2,7 @@
 import type { SerializedCollection, Localized } from '#kestrel-admin/types/kestrel'
 import { resolveLocalized } from '#kestrel-admin/utils/localized'
 import { listColumns } from '../utils/list-columns'
+import { boundaryCast } from '#kestrel/cast'
 
 const props = defineProps<{ schema: SerializedCollection; locale?: string }>()
 
@@ -15,7 +16,7 @@ const newLabel = computed(() => resolveLocalized(props.schema.label?.new, lang.v
 const localeQuery = computed(() => (props.locale ? `?locale=${props.locale}` : ''))
 
 const columns = listColumns(props.schema)
-const statusChoices = computed(() => (props.schema.fields.status?.options?.choices ?? []) as { value: string; label: Localized }[])
+const statusChoices = computed(() => boundaryCast<{ value: string; label: Localized }[]>(props.schema.fields.status?.options?.choices ?? [], 'json'))
 
 const { sort, page, perPage, setSort, setPage, clampPage, setPerPage } = useListUrlState(props.schema)
 

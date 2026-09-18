@@ -55,19 +55,31 @@ from the core package, imports the same function from `layers/core/app/utils/cas
 
 Type-aware lint (`await-thenable`, `no-floating-promises`, `no-misused-promises`,
 `no-unnecessary-type-assertion`, `no-unsafe-argument`, `no-unsafe-assignment`, `no-unsafe-call`,
-`no-unsafe-member-access`, `no-unsafe-return`, `require-await`, `restrict-template-expressions`) covers
-every layer, `packages/renderer-nuxt` and `playground`, in both `.ts` and `.vue` files
+`no-unsafe-member-access`, `no-unsafe-return`, `no-unsafe-type-assertion`, `require-await`,
+`restrict-template-expressions`) covers every layer, `packages/renderer-nuxt` and `playground`, in both
+`.ts` and `.vue` files, tests included
 (`playground/eslint.config.mjs`'s `kestrel/type-aware` and `kestrel/type-aware-server` blocks). Each
 block picks the `parserOptions.project` matching its files: `kestrel/type-aware` uses
 `playground/.nuxt/tsconfig.app.json` for `layers/*/app/**` and `playground/app/**`;
 `kestrel/type-aware-server` uses `playground/.nuxt/tsconfig.server.json` for server, pipeline, module
 and registry code; both fall back to `playground/tsconfig.json` for files the app/server project
 doesn't include (e.g. `layers/core/pipelines`, per-layer `nuxt.config.ts`). `.vue` files need
-`extraFileExtensions: ['.vue']` on the app block only, since only app code has `.vue` sources. A `.vue`
-file's own default export cannot be resolved through a plain `.ts` import (no `declare module '*.vue'`
-shim in this project) — `field-registry.ts`, `register-builtin-editors.ts` and `InsightsGraph.vue` cast
-such imports to `Component` (or `Promise<{ default: Component }>` for `defineAsyncComponent`) at the
-point of use rather than relying on the broken inferred type.
+`extraFileExtensions: ['.vue']` on the app block only, since only app code has `.vue` sources.
+
+`layers/core/nuxt.config.ts` sets `typescript: { shim: true }`, so `nuxt prepare` generates
+`playground/.nuxt/types/vue-shim.d.ts` (`declare module '*.vue' { ... DefineComponent<{}, {}, any> ... }`,
+referenced from the generated `nuxt.d.ts`), and every consumer extending the layer inherits it. That shim
+is what lets a plain `.ts` file's `.vue` import resolve to a real, if loosely-typed, component instead of
+an unresolvable module — `field-registry.ts` and `register-builtin-editors.ts` import their `.vue`
+components with no cast. `vue-tsc` (`pnpm typecheck`) is unaffected either way: it resolves `.vue` files
+itself and keeps checking real prop types whether or not the shim is present, so a component used with a
+prop value outside its real type still fails `vue-tsc`. `InsightsGraph.vue`'s
+`defineAsyncComponent(() => import('#kestrel-insights-canvas'))` needed a different fix: that bare alias
+never matches the `*.vue` wildcard (the shim only matches specifiers that literally end in `.vue`), so
+plain `tsc` still resolved it as `any`. `layers/admin/modules/insights-graph/index.ts` now declares that
+virtual module's shape directly (`declare module "#kestrel-insights-canvas" { ... }`, written the same way
+as the module's existing `@vue-flow/core`/`@dagrejs/dagre` stub for the optional-peers case), so
+`InsightsGraph.vue` imports it with no cast either.
 
 ## Runtime
 ```
@@ -580,13 +592,15 @@ and has to become a visible failure at the end; `form.outcome` is the only one.
 
 `meta.unexpected` (see **The runner**) is attached by `runAction` itself, after every step — main and
 `always` — has already run, so no step can inspect it to decide whether to toast. `useEditForm`'s
-`submit`/`setStatus`/`copyTranslation`, `useListBatchActions`'s `askDelete`/`confirmDelete`/`setStatus` and
-`useMediaUpload`'s upload call `toastUnexpected(deps, result)` (`layers/admin/app/actions/steps/notify.ts`)
-right after `runAction` resolves, which shows `toast.unexpected` ("Unerwarteter Fehler, Details in der
+`submit`/`setStatus`/`copyTranslation`, `useListBatchActions`'s `askDelete`/`confirmDelete`/`setStatus`,
+`useMediaUpload`'s upload, and every other `runAction` call site under `layers/admin` — the system-screen
+components, the record editor's save/delete/discard/leave flow, the user dialogs and the media library and
+its viewer — call `toastUnexpected(deps, result)` (`layers/admin/app/actions/steps/notify.ts`) right after
+`runAction` resolves, which shows `toast.unexpected` ("Unerwarteter Fehler, Details in der
 Browser-Konsole" / "Unexpected error, details in the browser console") exactly when `meta.unexpected` is
-`true`. Other `runAction` call sites — the system-screen components and dialogs — don't have this fallback
-yet; they surface an unexpected failure the way they always have, through whatever inline error or toast
-step the action itself defines (often none, in production).
+`true`. The one exception is `pages/admin/system.vue`'s `switchSystemTab` call: it still surfaces an
+unexpected failure only the way it always has, through whatever inline error or toast step the action
+itself defines (often none, in production).
 
 Per-item loops choose their policy explicitly: `'continue'` for bulk status and bulk delete, which
 report every failure and act on the partial success, `'stop'` for media delete and multi-target move,

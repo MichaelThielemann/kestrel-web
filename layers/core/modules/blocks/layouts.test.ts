@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { boundaryCast } from "@michaelthielemann/kestrel/cast";
 import { ADMIN_LAYOUT, offerableLayouts, renderLayoutRegistry } from "./layouts";
 
 const map = (...entries: [string, string][]) => Object.fromEntries(entries.map(([name, file]) => [name, { name, file }]));
@@ -32,7 +33,7 @@ describe("offerableLayouts", () => {
 
   it("tolerates a malformed entry", () => {
     const dirty = { default: { name: "default", file: "/p/app/layouts/default.vue" }, broken: undefined };
-    expect(offerableLayouts(dirty as never)).toEqual(["default"]);
+    expect(offerableLayouts(boundaryCast(dirty, "json"))).toEqual(["default"]);
   });
 });
 

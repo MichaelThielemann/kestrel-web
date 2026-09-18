@@ -2,7 +2,7 @@
 import { ref, computed, watch } from 'vue'
 import type { ListPage, MediaItem } from '#kestrel-admin/types/api'
 import type { FieldComponentProps } from '../../utils/field-component'
-import type { FieldOf } from '#kestrel-admin/types/kestrel'
+import { fieldIs } from '#kestrel-admin/types/kestrel'
 import { commonFolder } from '#kestrel-admin/utils/library'
 import { isDisclosed, provenanceLabelKey, provenanceOrigin } from '#kestrel-admin/utils/provenance'
 
@@ -11,7 +11,10 @@ const model = defineModel<string | string[] | null>()
 
 const api = useApi()
 const { t } = useT()
-const options = computed(() => (props.field.type === 'media' ? (props.field as FieldOf<'media'>).options : undefined))
+const options = computed(() => {
+  const field = props.field
+  return fieldIs(field, 'media') ? field.options : undefined
+})
 const required = computed(() => !!props.field.required)
 const multiple = computed(() => !!options.value?.multiple)
 const accept = computed(() => options.value?.accept ?? 'any')

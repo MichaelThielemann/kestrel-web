@@ -8,5 +8,7 @@ export function numberIsInteger(options: NumberOptions): boolean {
 }
 
 export function choiceValues(options: ChoiceOptions): [string, ...string[]] {
-  return options.choices.map((c) => c.value) as [string, ...string[]]
+  const [first, ...rest] = options.choices.map((c) => c.value)
+  if (first === undefined) throw new Error('choiceValues: options.choices must not be empty')
+  return [first, ...rest]
 }

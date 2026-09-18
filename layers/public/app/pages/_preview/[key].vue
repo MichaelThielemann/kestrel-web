@@ -38,6 +38,7 @@ const page = computed<PageDocument | null>(() => {
   if (!doc) return null
   return previewPageDocument(doc, snapshot.value?.updatedAt ?? 0)
 })
+// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- resolvePageLayout may return a stale/unregistered name on purpose; NuxtLayout's fallback prop renders "default" when it isn't a real LayoutKey
 const pageLayout = computed(() => resolvePageLayout(page.value?.layout) as LayoutKey)
 
 const sharedPage = useSitePage()

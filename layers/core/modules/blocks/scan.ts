@@ -10,12 +10,16 @@ export const BLOCKS_DIR = "app/blocks";
 
 type Lister = (dir: string) => string[];
 
+function errnoCode(error: unknown): string | undefined {
+  return error instanceof Error && "code" in error && typeof error.code === "string" ? error.code : undefined;
+}
+
 export function listBlockFiles(dir: string, list: Lister = readdirSync): string[] {
   let entries: string[];
   try {
     entries = list(dir);
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+    if (errnoCode(error) === "ENOENT") return [];
     throw error;
   }
   return entries

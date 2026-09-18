@@ -2,6 +2,7 @@
 import type { User } from '#kestrel-admin/types/api'
 import { userSetPassword } from '#kestrel-admin/actions/system'
 import type { ActionDeps } from '#kestrel-admin/actions/types'
+import { toastUnexpected } from '#kestrel-admin/actions/steps/notify'
 
 const props = defineProps<{ user: User | null }>()
 const emit = defineEmits<{ 'update:user': [User | null] }>()
@@ -29,6 +30,7 @@ async function submit() {
     password: password.value,
     ops: { setBusy: (on) => { busy.value = on }, busy: () => busy.value, setError: (m) => { error.value = m } },
   })
+  toastUnexpected(deps, r)
   if (r.ok) close()
 }
 </script>

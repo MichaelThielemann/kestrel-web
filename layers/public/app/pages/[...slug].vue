@@ -5,6 +5,7 @@ import { localePath } from '#kestrel-core/app/utils/locale-path'
 import { isFallbackDocument, primaryPathOf } from '../utils/untranslated'
 import { resolvePageLayout } from '../utils/page-layout'
 import type { PageDocument, RedirectHit, SiteResponse } from '#kestrel-core/app/types/api'
+import { boundaryCast } from '#kestrel/cast'
 
 definePageMeta({ key: (route) => route.path, layout: false })
 
@@ -12,27 +13,27 @@ const route = useRoute()
 const locale = useSiteLocale()
 const api = useApi()
 
-function redirectOf(value: unknown): RedirectHit | null {
-  return value && typeof value === 'object' && 'redirect' in value
-    ? (value as { redirect: RedirectHit }).redirect
-    : null
+function redirectOf(value: SiteResponse): RedirectHit | null {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- PageDocument inherits an index signature ([field: string]: unknown), so TS cannot discriminate SiteResponse by the "redirect" key alone
+  return 'redirect' in value ? (value as { redirect: RedirectHit }).redirect : null
 }
 
 const { data, error } = await useAsyncData(
   () => `site:${route.path}`,
   () => api<SiteResponse>(`/site${route.path}`),
 )
-const response = data as Ref<SiteResponse | null | undefined>
+const response = boundaryCast<Ref<SiteResponse | null | undefined>>(data, 'host')
 
-const redirect = redirectOf(response.value)
+const redirect = response.value ? redirectOf(response.value) : null
 
 if (redirect) {
   await navigateTo(redirect.to, { redirectCode: redirect.status, external: /^https?:/.test(redirect.to) })
 }
 
 const page = computed<PageDocument | null>(() =>
-  response.value && !redirectOf(response.value) ? (response.value as PageDocument) : null,
+  response.value && !redirectOf(response.value) ? boundaryCast<PageDocument>(response.value, 'json') : null,
 )
+// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- resolvePageLayout may return a stale/unregistered name on purpose; NuxtLayout's fallback prop renders "default" when it isn't a real LayoutKey
 const pageLayout = computed(() => resolvePageLayout(page.value?.layout) as LayoutKey)
 
 if (!redirect && !page.value) {

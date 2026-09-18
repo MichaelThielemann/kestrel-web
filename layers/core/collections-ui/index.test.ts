@@ -1,15 +1,16 @@
 import { describe, expect, it } from "vitest";
+import { boundaryCast } from "@michaelthielemann/kestrel/cast";
 import { defineBlockTags, defineCollectionsUi } from "./index";
 import type { CollectionModel } from "../pipelines";
 
 describe("defineCollectionsUi", () => {
   it("throws when a label is missing", () => {
     const label = { singular: "n" };
-    expect(() => defineCollectionsUi({ news: { label: label as never } })).toThrow(/label/);
+    expect(() => defineCollectionsUi({ news: { label: boundaryCast(label, "json") } })).toThrow(/label/);
   });
 
   it("throws for an invalid placement value", () => {
-    expect(() => defineCollectionsUi({ news: { label: { singular: "n", plural: "n" }, placement: "nowhere" as never } })).toThrow(/placement/);
+    expect(() => defineCollectionsUi({ news: { label: { singular: "n", plural: "n" }, placement: boundaryCast("nowhere", "json") } })).toThrow(/placement/);
   });
 
   it("passes without a collections model", () => {
@@ -52,10 +53,10 @@ describe("defineBlockTags", () => {
   });
 
   it("throws when a label is neither a string nor a locale map", () => {
-    expect(() => defineBlockTags({ hero: 42 as never })).toThrow(/blockTags\["hero"\]/);
+    expect(() => defineBlockTags({ hero: boundaryCast(42, "json") })).toThrow(/blockTags\["hero"\]/);
   });
 
   it("throws when a label is an array", () => {
-    expect(() => defineBlockTags({ hero: ["Hero"] as never })).toThrow(/blockTags\["hero"\]/);
+    expect(() => defineBlockTags({ hero: boundaryCast(["Hero"], "json") })).toThrow(/blockTags\["hero"\]/);
   });
 });

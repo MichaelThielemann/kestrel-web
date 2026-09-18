@@ -1,5 +1,6 @@
 import { fileURLToPath } from "node:url";
 import { addTemplate, defineNuxtModule } from "@nuxt/kit";
+import { boundaryCast } from "@michaelthielemann/kestrel/cast";
 import { packageInstalled } from "./installed";
 
 const VIRTUAL_ID = "#kestrel/optional-modules";
@@ -10,13 +11,14 @@ const LAYER_DIR = fileURLToPath(new URL("../..", import.meta.url));
 
 export const OPTIONAL_MODULES = ["@michaelthielemann/kestrel-insights"] as const;
 
-type ViteConfig = { resolve?: { alias?: Record<string, string> | { find: string | RegExp; replacement: string }[] } };
+type ViteConfig = { resolve?: { alias?: Record<string, string> | readonly { find: string | RegExp; replacement: string }[] } };
 
-function registerViteAlias(config: unknown, id: string, dst: string): void {
-  const vite = config as ViteConfig;
+function registerViteAlias(vite: ViteConfig, id: string, dst: string): void {
   vite.resolve ??= {};
   const existing = vite.resolve.alias ?? {};
-  vite.resolve.alias = Array.isArray(existing) ? [{ find: id, replacement: dst }, ...existing] : { [id]: dst, ...existing };
+  vite.resolve.alias = Array.isArray(existing)
+    ? [{ find: id, replacement: dst }, ...boundaryCast<readonly { find: string | RegExp; replacement: string }[]>(existing, "host")]
+    : { [id]: dst, ...existing };
 }
 
 export function renderOptionalModules(names: readonly string[]): string {

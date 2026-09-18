@@ -2,10 +2,10 @@ import { isProtectedStyle } from './admin-style-guard'
 import { makeReauthInterceptor } from './reauth'
 
 function isKestrelOwned(node: Element): boolean {
-  const el = node as HTMLElement
-  const devId = el.dataset?.viteDevId ?? ''
+  const el = node instanceof HTMLElement ? node : null
+  const devId = el?.dataset?.viteDevId ?? ''
   const href = node.getAttribute?.('href') ?? ''
-  return isProtectedStyle(devId, href, el.dataset?.kestrel !== undefined)
+  return isProtectedStyle(devId, href, el?.dataset?.kestrel !== undefined)
 }
 
 function installReauth(): void {

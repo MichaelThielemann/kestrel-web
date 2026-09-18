@@ -5,12 +5,16 @@ export const MIGRATIONS_DIR_DEFAULT = "migrations";
 
 type Lister = (dir: string) => string[];
 
+function errnoCode(error: unknown): string | undefined {
+  return error instanceof Error && "code" in error && typeof error.code === "string" ? error.code : undefined;
+}
+
 export function listMigrationFiles(dir: string, list: Lister = readdirSync): string[] {
   let entries: string[];
   try {
     entries = list(dir);
   } catch (error) {
-    const code = (error as NodeJS.ErrnoException).code;
+    const code = errnoCode(error);
     if (code === "ENOENT" || code === "ENOTDIR") return [];
     throw error;
   }

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { LayoutNode, SerializedBlock } from '#kestrel-admin/types/kestrel'
+import type { SerializedBlock } from '#kestrel-admin/types/kestrel'
 import type { BlockRow } from '../utils/block-tree'
 import { resolveLocalized } from '#kestrel-admin/utils/localized'
 import { blockRowErrors } from '../utils/edit-form'
@@ -30,7 +30,7 @@ const blockAlerts = computed(() =>
 )
 const fieldRowErrors = computed(() => blockRowErrors(props.errors ?? []))
 
-const blockLayout = computed(() => (props.def as { fieldLayout?: LayoutNode[] } | undefined)?.fieldLayout)
+const blockLayout = computed(() => props.def?.fieldLayout)
 </script>
 
 <template>

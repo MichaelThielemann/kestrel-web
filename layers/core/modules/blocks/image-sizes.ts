@@ -20,12 +20,15 @@ interface AstNode {
 
 const NAME_RE = /^[a-z][a-z0-9-]*$/;
 const ALLOWED_KEYS = new Set(["name", "width", "height", "fit", "quality"]);
-const FIT_VALUES = new Set(["inside", "cover"]);
 const DEFAULT_FIT = "inside";
 const DEFAULT_QUALITY = 82;
 
 function fail(where: string, message: string): never {
   throw new Error(`${where}: ${message}`);
+}
+
+function isFit(value: unknown): value is "inside" | "cover" {
+  return value === "inside" || value === "cover";
 }
 
 function normalizeDimension(value: unknown, where: string, name: string, key: "width" | "height"): number {
@@ -37,7 +40,7 @@ function normalizeDimension(value: unknown, where: string, name: string, key: "w
 
 export function normalizeImageSize(raw: unknown, where: string): ImageSize {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) fail(where, "image size must be an object literal");
-  const decl = raw as Record<string, unknown>;
+  const decl = boundaryCast<Record<string, unknown>>(raw, "json");
 
   for (const key of Object.keys(decl)) {
     if (!ALLOWED_KEYS.has(key)) {
@@ -54,7 +57,7 @@ export function normalizeImageSize(raw: unknown, where: string): ImageSize {
   const height = decl.height === undefined ? undefined : normalizeDimension(decl.height, where, name, "height");
 
   const fit = decl.fit === undefined ? DEFAULT_FIT : decl.fit;
-  if (!FIT_VALUES.has(fit as string)) fail(where, `image size "${name}" fit "${String(fit)}" must be "inside" or "cover"`);
+  if (!isFit(fit)) fail(where, `image size "${name}" fit "${String(fit)}" must be "inside" or "cover"`);
   if (fit === "cover" && height === undefined) fail(where, `image size "${name}" uses fit "cover" and must declare a height`);
 
   const quality = decl.quality === undefined ? DEFAULT_QUALITY : decl.quality;
@@ -62,7 +65,7 @@ export function normalizeImageSize(raw: unknown, where: string): ImageSize {
     fail(where, `image size "${name}" quality must be an integer between 1 and 100`);
   }
 
-  const size: ImageSize = { name, width, fit: fit as "inside" | "cover", format: "webp", quality };
+  const size: ImageSize = { name, width, fit, format: "webp", quality };
   if (height !== undefined) size.height = height;
   return size;
 }
@@ -80,18 +83,17 @@ export function extractImageSizesFile(source: string, fileBase: string): ImageSi
   try {
     ast = parse(source, { sourceType: "module", plugins: ["typescript"] });
   } catch (cause) {
-    throw new Error(`${fileBase}: could not parse — ${(cause as Error).message}`, { cause });
+    const message = cause instanceof Error ? cause.message : String(cause);
+    throw new Error(`${fileBase}: could not parse — ${message}`, { cause });
   }
 
-  const exportStatement = boundaryCast<Array<Record<string, unknown>>>(ast.program.body, "ast").find((statement) => statement.type === "ExportDefaultDeclaration") as
-    | { declaration: unknown }
-    | undefined;
+  const exportStatement = boundaryCast<Array<Record<string, unknown>>>(ast.program.body, "ast").find((statement) => statement.type === "ExportDefaultDeclaration");
   if (!exportStatement) throw new Error(`${fileBase}: expected a default export calling defineImageSizes([...])`);
 
   const call = defineImageSizesCall(exportStatement.declaration);
   if (!call) throw new Error(`${fileBase}: expected a default export calling defineImageSizes([...])`);
 
-  const arg = (call.arguments as AstNode[])[0];
+  const arg = boundaryCast<AstNode[]>(call.arguments, "ast")[0];
   if (!arg) throw new Error(`${fileBase}: defineImageSizes(...) needs an array literal argument`);
 
   const value = evalObject(source, arg, {}, fileBase);

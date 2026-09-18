@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { ToggleGroupRoot, ToggleGroupItem } from 'reka-ui'
 import UiIcon from './Icon.vue'
 import type { IconName } from '../../utils/icons'
+import { boundaryCast } from '#kestrel/cast'
 
 const props = withDefaults(
   defineProps<{
@@ -20,8 +21,8 @@ const current = computed(() =>
 )
 
 function onUpdate(v: unknown) {
-  if (props.multiple) model.value = Array.isArray(v) ? (v as string[]) : []
-  else model.value = v ? (v as string) : null
+  if (props.multiple) model.value = Array.isArray(v) ? boundaryCast<string[]>(v, 'dom') : []
+  else model.value = v ? boundaryCast<string>(v, 'dom') : null
 }
 </script>
 

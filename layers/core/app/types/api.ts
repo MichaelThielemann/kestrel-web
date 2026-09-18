@@ -79,6 +79,8 @@ export interface PublicRedirectRule { pattern: string; target: string; status: n
 export interface SettingsDocument extends Document {
   title: string | null
   navigation: unknown
+  titleSeparator?: unknown
+  titlePosition?: unknown
 }
 
 export interface BlockNode {

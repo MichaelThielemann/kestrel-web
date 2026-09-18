@@ -1,4 +1,5 @@
 import type { BlockNode, PageDocument, PageSeo } from '#kestrel-core/app/types/api'
+import { boundaryCast } from '#kestrel/cast'
 
 export const PREVIEW_PREFIX = 'kestrel:preview:'
 
@@ -72,7 +73,7 @@ export function readPreviewSnapshot(key: string): PreviewSnapshot | null {
   if (typeof window === 'undefined') return null
   try {
     const raw = window.sessionStorage.getItem(previewStorageKey(key))
-    return raw ? (JSON.parse(raw) as PreviewSnapshot) : null
+    return raw ? boundaryCast<PreviewSnapshot>(JSON.parse(raw), 'json') : null
   } catch {
     return null
   }
@@ -83,7 +84,7 @@ export function subscribePreview(key: string, onUpdate: (snapshot: PreviewSnapsh
   const channel = new BroadcastChannel(previewChannelName(key))
   const handler = (e: MessageEvent<string>) => {
     try {
-      onUpdate(JSON.parse(e.data) as PreviewSnapshot)
+      onUpdate(boundaryCast<PreviewSnapshot>(JSON.parse(e.data), 'json'))
     } catch {
       return
     }

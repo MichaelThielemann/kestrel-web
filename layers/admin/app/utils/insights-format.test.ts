@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import manifest from './__fixtures__/insights-manifest.json'
 import stats from './__fixtures__/insights-stats.json'
 import type { InsightsManifest, InsightsModule, InsightsStats } from '#kestrel-admin/types/api'
+import { boundaryCast } from '#kestrel/cast'
 import {
   formatMs,
   formatUptime,
@@ -14,8 +15,8 @@ import {
   triggersOf,
 } from './insights-format'
 
-const typedManifest = manifest as InsightsManifest
-const typedStats = stats as InsightsStats
+const typedManifest = boundaryCast<InsightsManifest>(manifest, 'json')
+const typedStats = boundaryCast<InsightsStats>(stats, 'json')
 
 describe('formatMs', () => {
   it('formats zero', () => expect(formatMs(0)).toBe('0 ms'))
@@ -34,7 +35,8 @@ describe('formatUptime', () => {
 
 describe('moduleConfigSummary', () => {
   it('counts set variables and lists missing required ones', () => {
-    const m = typedManifest.modules.find((mod) => mod.name === 'blobstore/filesystem') as InsightsModule
+    const m = typedManifest.modules.find((mod) => mod.name === 'blobstore/filesystem')
+    if (!m) throw new Error('fixture missing blobstore/filesystem module')
     expect(moduleConfigSummary(m)).toEqual({ set: 1, total: 1, missingRequired: [] })
   })
 

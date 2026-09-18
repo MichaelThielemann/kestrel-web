@@ -94,9 +94,9 @@ export function useMediaUpload(cb: UploadCallbacks = {}) {
     const added: UploadItem[] = []
     for (const u of uploads) {
       const item: UploadItem = { id: `u${++seq}`, file: u.file, filename: u.file.name, folder: u.folder, status: 'queued' }
-      if (exceedsUploadLimit(u.file.size, max)) {
+      if (exceedsUploadLimit(u.file.size, max) && max !== null) {
         item.status = 'error'
-        item.message = t('upload.tooLarge', { size: humanizeSize(u.file.size), limit: humanizeSize(max as number) })
+        item.message = t('upload.tooLarge', { size: humanizeSize(u.file.size), limit: humanizeSize(max) })
       }
       queue.value.push(item)
       added.push(item)

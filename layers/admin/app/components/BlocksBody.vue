@@ -3,6 +3,7 @@ import type { SerializedBlock } from '#kestrel-admin/types/kestrel'
 import type { BlockNode } from '#kestrel-admin/types/api'
 import type { BlockTreeCtx } from '../utils/block-tree'
 import { errorBearingIds, firstMatchingId } from '../utils/block-tree'
+import { boundaryCast } from '#kestrel/cast'
 
 const { t } = useT()
 const ctx = useEditorFormContext()
@@ -13,7 +14,7 @@ const allowedTypes = computed(() => (blocksAllowed.value?.length ? blocksWithIma
 
 const key = blocksField.value
 const content = computed<unknown[]>({
-  get: () => (values[key] as unknown[]) ?? [],
+  get: () => boundaryCast<unknown[] | undefined>(values[key], 'json') ?? [],
   set: (v) => setField(key, v),
 })
 const tree = useBlockTree(content, byName, undefined, (v, coalesceAs) => setField(key, v, coalesceAs))
@@ -22,7 +23,7 @@ const { selectedId, selectedBlock } = tree
 const toast = useToast()
 const clipboard = useBlockClipboard(tree, { t, toast })
 
-const canvasNodes = computed(() => tree.blocks.value as BlockNode[])
+const canvasNodes = computed(() => boundaryCast<BlockNode[]>(tree.blocks.value, 'json'))
 
 const fieldsPane = ref<HTMLElement | null>(null)
 
@@ -74,7 +75,7 @@ function onKeydown(e: KeyboardEvent) {
   const isRedo = k === 'y' || (k === 'z' && e.shiftKey)
   const isUndo = k === 'z' && !e.shiftKey
   if (!isUndo && !isRedo) return
-  const el = e.target as HTMLElement | null
+  const el = e.target instanceof HTMLElement ? e.target : null
   if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return
   e.preventDefault()
   if (isRedo) ctx.redo()
@@ -87,7 +88,7 @@ function onTreeKeydown(e: KeyboardEvent): void {
   if (!(e.metaKey || e.ctrlKey)) return
   const k = e.key.toLowerCase()
   if (k !== 'c' && k !== 'v') return
-  const el = e.target as HTMLElement | null
+  const el = e.target instanceof HTMLElement ? e.target : null
   if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return
   e.preventDefault()
   if (k === 'c') {

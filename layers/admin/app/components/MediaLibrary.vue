@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import type { MediaItem, Provenance, ReferenceTo } from '#kestrel-admin/types/api'
 import { createFolder, deleteItems, previewDeleteItems, renameOrMove, setMediaMeta, setMediaProvenance, type RenameOrMoveTarget } from '#kestrel-admin/actions/media'
 import type { ActionDeps, BusyPort, RefreshPort } from '#kestrel-admin/actions/types'
+import { toastUnexpected } from '#kestrel-admin/actions/steps/notify'
 import type { LibraryItem } from '../utils/library'
 import { folderIsEmpty, joinFolder } from '../utils/library'
 import type { PendingUpload } from '../utils/dnd'
@@ -67,10 +68,16 @@ async function onSaveViewer(save: MediaViewerSave) {
   viewerError.value = ''
   let ok = true
   if (save.provenance) {
-    ok = (await runAction(setMediaProvenance, { deps: mediaDeps(), id: f.id, provenance: save.provenance, ops: opsPort, refresh: mediaRefresh })).ok
+    const d = mediaDeps()
+    const result = await runAction(setMediaProvenance, { deps: d, id: f.id, provenance: save.provenance, ops: opsPort, refresh: mediaRefresh })
+    toastUnexpected(d, result)
+    ok = result.ok
   }
   if (ok && save.meta) {
-    ok = (await runAction(setMediaMeta, { deps: mediaDeps(), id: f.id, locale: save.meta.locale, fields: save.meta.fields, ops: opsPort, refresh: mediaRefresh })).ok
+    const d = mediaDeps()
+    const result = await runAction(setMediaMeta, { deps: d, id: f.id, locale: save.meta.locale, fields: save.meta.fields, ops: opsPort, refresh: mediaRefresh })
+    toastUnexpected(d, result)
+    ok = result.ok
   }
   viewerBusy.value = false
   if (ok) { viewerOpen.value = false; return }
@@ -118,14 +125,18 @@ function onConfirmUpload(provenance: Provenance) {
 
 async function onCreateFolder(name: string) {
   if (error.value) return
-  const r = await runAction(createFolder, { deps: mediaDeps(), path: joinFolder(folder.value, name), ops: opsPort, refresh: mediaRefresh })
+  const d = mediaDeps()
+  const r = await runAction(createFolder, { deps: d, path: joinFolder(folder.value, name), ops: opsPort, refresh: mediaRefresh })
+  toastUnexpected(d, r)
   if (r.ok) newFolderOpen.value = false
 }
 
 async function onDropResult({ uploads, folders }: DropResult) {
   if (error.value) return
   for (const path of folders) {
-    const r = await runAction(createFolder, { deps: mediaDeps(), path, ops: opsPort, refresh: mediaRefresh })
+    const d = mediaDeps()
+    const r = await runAction(createFolder, { deps: d, path, ops: opsPort, refresh: mediaRefresh })
+    toastUnexpected(d, r)
     if (!r.ok) return
   }
   queueUploads(uploads)
@@ -147,7 +158,8 @@ const { dragActive, dropFolder, onDragEnter, onDragOver, onDragLeave, onDrop } =
   onDrop: (result) => { void onDropResult(result) },
   draggedItems: () => draggedItems.value,
   onMove: (opItems, dest) => {
-    void runAction(renameOrMove, { deps: mediaDeps(), target: { kind: 'move', targets: opItems, dest }, notify: 'toast', ops: opsPort, refresh: mediaRefresh })
+    const d = mediaDeps()
+    void runAction(renameOrMove, { deps: d, target: { kind: 'move', targets: opItems, dest }, notify: 'toast', ops: opsPort, refresh: mediaRefresh }).then((result) => toastUnexpected(d, result))
   },
 })
 
@@ -165,14 +177,17 @@ async function askDelete(opItems: OpItem[]) {
     .map((t) => t.path)
   deleteInfo.value = deleteSummary(resolved, opItems, [], nonEmptyFolders)
   deleteOpen.value = true
-  const r = await runAction(previewDeleteItems, { deps: mediaDeps(), fileIds: resolved.map((f) => f.id), allowed: can('pages.manage') })
+  const d = mediaDeps()
+  const r = await runAction(previewDeleteItems, { deps: d, fileIds: resolved.map((f) => f.id), allowed: can('pages.manage') })
+  toastUnexpected(d, r)
   deleteInfo.value = deleteSummary(resolved, opItems, r.ok ? (r.result ?? []) : [], nonEmptyFolders)
 }
 async function onConfirmDelete(recursive: boolean) {
   const targets = deleteTargets.value
   const folderPaths = targets.filter((t): t is Extract<OpItem, { type: 'folder' }> => t.type === 'folder').map((t) => t.path)
+  const d = mediaDeps()
   const r = await runAction(deleteItems, {
-    deps: mediaDeps(),
+    deps: d,
     files: deleteFiles.value,
     folderPaths,
     recursive,
@@ -180,6 +195,7 @@ async function onConfirmDelete(recursive: boolean) {
     ops: opsPort,
     refresh: mediaRefresh,
   })
+  toastUnexpected(d, r)
   if (!r.ok) return
   deleteOpen.value = false
   deleteTargets.value = []
@@ -198,7 +214,9 @@ async function onConfirmRename(name: string) {
   const rtarget: RenameOrMoveTarget = target.type === 'file'
     ? { kind: 'file-rename', id: target.file.id, filename: name }
     : { kind: 'folder-rename', path: target.folder.path, name }
-  const r = await runAction(renameOrMove, { deps: mediaDeps(), target: rtarget, notify: 'inline', ops: opsPort, refresh: mediaRefresh })
+  const d = mediaDeps()
+  const r = await runAction(renameOrMove, { deps: d, target: rtarget, notify: 'inline', ops: opsPort, refresh: mediaRefresh })
+  toastUnexpected(d, r)
   if (!r.ok) return
   renameOpen.value = false
   renameTarget.value = null

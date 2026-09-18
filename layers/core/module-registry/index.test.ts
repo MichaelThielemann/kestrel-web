@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import insights from "@michaelthielemann/kestrel-insights";
+import { boundaryCast } from "@michaelthielemann/kestrel/cast";
 import { moduleRegistry, presetModules } from "./index";
 import type { OptionalStep } from "./index";
 
@@ -18,13 +19,13 @@ describe("presetModules", () => {
 
   it("prefers an extra implementation over the registry", () => {
     const own = { name: "own/module" };
-    const result = presetModules([{ use: "@michaelthielemann/kestrel-content-default" }], { "@michaelthielemann/kestrel-content-default": own as never });
+    const result = presetModules([{ use: "@michaelthielemann/kestrel-content-default" }], { "@michaelthielemann/kestrel-content-default": boundaryCast(own, "json") });
     expect(result).toEqual([own]);
   });
 
   it("resolves a non-standard use value only from extra", () => {
     const own = { name: "own/module" };
-    const result = presetModules([{ use: "./modules/my-module.ts" }], { "./modules/my-module.ts": own as never });
+    const result = presetModules([{ use: "./modules/my-module.ts" }], { "./modules/my-module.ts": boundaryCast(own, "json") });
     expect(result).toEqual([own]);
   });
 });
@@ -36,7 +37,7 @@ interface PackageJson {
 function readPackageJson(): PackageJson {
   const path = fileURLToPath(new URL("../../../package.json", import.meta.url));
   const parsed: unknown = JSON.parse(readFileSync(path, "utf-8"));
-  return parsed as PackageJson;
+  return boundaryCast<PackageJson>(parsed, "json");
 }
 
 const EXCLUDED_SUFFIXES = ["-contracts", "-h3", "-openapi"];

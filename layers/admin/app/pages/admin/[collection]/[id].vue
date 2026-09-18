@@ -5,13 +5,19 @@ import type { EditorExpose } from '#kestrel-admin/utils/editor-expose'
 import type { BatchDeleteReport } from '#kestrel-admin/utils/collection-ops'
 import { deleteRecord, deleteTranslation, discardRecord, leaveEditor, previewDeleteRecord } from '#kestrel-admin/actions/editor'
 import type { ActionDeps, NavigatePort } from '#kestrel-admin/actions/types'
+import { toastUnexpected } from '#kestrel-admin/actions/steps/notify'
+import { boundaryCast } from '#kestrel/cast'
 
 definePageMeta({ layout: 'admin', middleware: 'admin-auth', key: (route) => route.fullPath })
 
+function firstParam(value: string | string[] | undefined): string {
+  return Array.isArray(value) ? (value[0] ?? '') : (value ?? '')
+}
+
 const route = useRoute()
 const router = useRouter()
-const collection = route.params.collection as string
-const id = route.params.id as string
+const collection = firstParam(route.params.collection)
+const id = firstParam(route.params.id)
 
 const localeParam = computed(() => (typeof route.query.locale === 'string' ? route.query.locale.trim() || undefined : undefined))
 
@@ -74,25 +80,28 @@ const translationScope = computed(() =>
     : undefined,
 )
 
-function onSaved(record: unknown) {
+async function onSaved(record: unknown) {
   if (id !== 'new') return
-  const newId = (record as { id?: string } | null)?.id
+  const newId = boundaryCast<{ id?: string } | null>(record, 'json')?.id
   if (!newId) return
-  return runAction(leaveEditor, {
+  const result = await runAction(leaveEditor, {
     navigate,
     bypassGuard,
     to: `/admin/${collection}/${newId}${localeParam.value ? `?locale=${localeParam.value}` : ''}`,
   })
+  toastUnexpected(deps, result)
 }
 
 useUnsavedGuard(() => editorRef.value?.dirty ?? false, () => t('editor.discardConfirm'), () => skipGuard.value)
 
-function toList() {
-  return runAction(discardRecord, { t, confirm: confirmDiscard, navigate, to: listPath.value })
+async function toList() {
+  const result = await runAction(discardRecord, { t, confirm: confirmDiscard, navigate, to: listPath.value })
+  toastUnexpected(deps, result)
 }
 
 async function onDelete() {
   const r = await runAction(previewDeleteRecord, { deps, collection, ids: [id], allowed: can('pages.manage') })
+  toastUnexpected(deps, r)
   deleteReport.value = r.ok ? (r.result ?? null) : null
   deleteOpen.value = true
 }
@@ -101,6 +110,7 @@ async function confirmDelete() {
   const r = await runAction(deleteRecord, {
     deps, collection, ids: [id], confirmed: true, ops: deleteOps, navigate, bypassGuard, to: listPath.value,
   })
+  toastUnexpected(deps, r)
   if (r.ok) deleteOpen.value = false
 }
 
@@ -112,6 +122,7 @@ async function confirmDeleteTranslation() {
     deps, collection, id, locale: currentLocale.value, confirmed: true, ops: deleteOps, navigate, bypassGuard,
     to: `/admin/${collection}/${id}?locale=${target}`,
   })
+  toastUnexpected(deps, r)
   if (r.ok) deleteOpen.value = false
 }
 </script>

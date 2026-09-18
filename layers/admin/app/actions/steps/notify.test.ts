@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
+import { boundaryCast } from '#kestrel/cast'
 import { defineAction, runAction } from '#kestrel-core/app/utils/actions'
-import type { ActionDeps, ApiClient, ApiRequestOptions, BusyPort, EachReport, WithDeps } from '../types'
+import type { ActionDeps, ApiRequestOptions, BusyPort, EachReport, WithDeps } from '../types'
 import { dialogConfirm } from './guard'
 import { opsBusy, opsError, toastError, toastSuccess, toastSummary } from './notify'
 
@@ -8,11 +9,11 @@ interface Call { path: string, method: string, body?: unknown, query?: unknown }
 
 function fakeApi(responses: Array<unknown | Error>) {
   const calls: Call[] = []
-  const api = ((path: string, options?: ApiRequestOptions) => {
+  function api<T>(path: string, options?: ApiRequestOptions): Promise<T> {
     calls.push({ path, method: options?.method ?? 'GET', body: options?.body, query: options?.query })
     const next = responses.shift()
-    return next instanceof Error ? Promise.reject(next) : Promise.resolve(next)
-  }) as ApiClient
+    return next instanceof Error ? Promise.reject(next) : Promise.resolve(boundaryCast<T>(next, 'json'))
+  }
   return { api, calls }
 }
 

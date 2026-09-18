@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { boundaryCast } from "@michaelthielemann/kestrel/cast";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { definePreset, featureOrder } from "./index";
@@ -31,7 +32,7 @@ interface Fixture {
 function readFixture(name: string): Fixture {
   const path = fileURLToPath(new URL(`./__fixtures__/${name}`, import.meta.url));
   const parsed: unknown = JSON.parse(readFileSync(path, "utf-8"));
-  return parsed as Fixture;
+  return boundaryCast<Fixture>(parsed, "json");
 }
 
 function pipelinesMap(pipelines: { name: string; steps: readonly string[] }[]): Record<string, string[]> {

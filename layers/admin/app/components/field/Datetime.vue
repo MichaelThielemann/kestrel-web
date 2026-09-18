@@ -6,7 +6,7 @@ import UiTimeInput from '../ui/TimeInput.vue'
 import UiDatePicker from '../ui/DatePicker.vue'
 import UiDateRangePicker from '../ui/DateRangePicker.vue'
 import type { FieldComponentProps } from '../../utils/field-component'
-import type { FieldOf } from '#kestrel-admin/types/kestrel'
+import { fieldIs } from '#kestrel-admin/types/kestrel'
 
 const { t } = useT()
 const props = defineProps<FieldComponentProps>()
@@ -14,8 +14,9 @@ const props = defineProps<FieldComponentProps>()
 const model = defineModel<number | { start: number; end: number } | null>()
 
 const cfg = computed(() => {
-  if (props.field.type !== 'datetime') return { precision: 'datetime' as const, range: false }
-  const o = (props.field as FieldOf<'datetime'>).options
+  const field = props.field
+  if (!fieldIs(field, 'datetime')) return { precision: 'datetime' as const, range: false }
+  const o = field.options
   return { precision: o?.precision ?? 'datetime', range: !!o?.range }
 })
 const required = computed(() => !!props.field.required)

@@ -1,4 +1,5 @@
 import dagre from '@dagrejs/dagre'
+import { boundaryCast } from '#kestrel/cast'
 import type { GraphEdge, GraphNode } from '#kestrel-admin/utils/insights-graph'
 
 const DEFAULT_NODE_SIZE = { width: 220, height: 120 }
@@ -22,7 +23,7 @@ export function layoutGraph(nodes: GraphNode[], edges: GraphEdge[], size?: { wid
 
   const positions = new Map<string, { x: number; y: number }>()
   for (const node of nodes) {
-    const g = graph.node(node.id) as { x: number; y: number } | undefined
+    const g = boundaryCast<{ x: number; y: number } | undefined>(graph.node(node.id), 'host')
     if (!g) continue
     const dims = size ?? (node.kind === 'trigger' ? TRIGGER_NODE_SIZE : DEFAULT_NODE_SIZE)
     positions.set(node.id, { x: g.x - dims.width / 2, y: g.y - dims.height / 2 })

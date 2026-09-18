@@ -1,21 +1,22 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { ApiErrorDetails, Document } from '#kestrel-admin/types/api'
+import { boundaryCast } from '#kestrel/cast'
 import { runAction } from '#kestrel-core/app/utils/actions'
 import type { BlockRow } from '../utils/block-tree'
 import type { SerializedField } from '#kestrel-admin/types/kestrel'
 import { copyTranslation, deleteRecord, deleteTranslation, discardRecord, leaveEditor, previewDeleteRecord, saveRecord, setStatus, switchSystemTab } from './editor'
-import type { ActionDeps, ApiClient, ApiRequestOptions, EditFormPort } from './types'
+import type { ActionDeps, ApiRequestOptions, EditFormPort } from './types'
 import type { RowErrorMap } from '../utils/row-errors'
 
 interface Call { path: string, method: string, body?: unknown, query?: unknown }
 
 function fakeApi(responses: Array<unknown | Error>) {
   const calls: Call[] = []
-  const api = ((path: string, options?: ApiRequestOptions) => {
+  function api<T>(path: string, options?: ApiRequestOptions): Promise<T> {
     calls.push({ path, method: options?.method ?? 'GET', body: options?.body, query: options?.query })
     const next = responses.shift()
-    return next instanceof Error ? Promise.reject(next) : Promise.resolve(next)
-  }) as ApiClient
+    return next instanceof Error ? Promise.reject(next) : Promise.resolve(boundaryCast<T>(next, 'json'))
+  }
   return { api, calls }
 }
 
@@ -167,7 +168,7 @@ describe('saveRecord', () => {
     const result = await runAction(saveRecord, { deps, form })
 
     expect(result.ok).toBe(false)
-    expect([...(state.blockErrors as Map<string, unknown[]>).keys()]).toEqual(['b1'])
+    expect([...boundaryCast<Map<string, unknown[]>>(state.blockErrors, 'json').keys()]).toEqual(['b1'])
     expect(state.formError).toBe('editor.blocksHaveProblems:{"n":1}')
   })
 

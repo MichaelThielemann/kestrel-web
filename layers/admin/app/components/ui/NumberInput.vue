@@ -29,12 +29,13 @@ function snapBack(el: HTMLInputElement) {
   if (el.validity?.badInput) el.value = model.value == null ? '' : String(model.value)
 }
 function onBlur(e: Event) {
-  snapBack(e.target as HTMLInputElement)
+  if (e.target instanceof HTMLInputElement) snapBack(e.target)
 }
 
 function onKeydown(e: KeyboardEvent) {
   if (e.key !== 'Enter' || e.isComposing) return
-  const el = e.target as HTMLInputElement
+  if (!(e.target instanceof HTMLInputElement)) return
+  const el = e.target
   if (el.validity?.badInput) { e.preventDefault(); snapBack(el) }
 }
 </script>

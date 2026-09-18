@@ -1,5 +1,6 @@
 import type { SerializedBlock } from '#kestrel-admin/types/kestrel'
 import { reorder } from '#kestrel-admin/utils/reorder'
+import { boundaryCast } from '#kestrel/cast'
 import { initialValues } from './edit-form'
 
 export interface BlockRow {
@@ -38,7 +39,7 @@ export function cloneBlockTree(b: BlockRow, genId: GenId): BlockRow {
   const copy: BlockRow = { ...b, id: genId(), props: boundaryCast<Record<string, unknown>>(JSON.parse(JSON.stringify(b.props ?? {})), 'json') }
   if (b.slots) {
     copy.slots = Object.fromEntries(
-      Object.entries(b.slots).map(([name, arr]) => [name, Array.isArray(arr) ? (arr as BlockRow[]).map((c) => cloneBlockTree(c, genId)) : arr]),
+      Object.entries(b.slots).map(([name, arr]) => [name, Array.isArray(arr) ? boundaryCast<BlockRow[]>(arr, 'json').map((c) => cloneBlockTree(c, genId)) : arr]),
     )
   }
   return copy
@@ -63,7 +64,7 @@ export function findInTree(blocks: BlockRow[], id: string): Found | null {
       if (b.slots) {
         for (const [name, sub] of Object.entries(b.slots)) {
           if (Array.isArray(sub)) {
-            const hit = walk(sub as BlockRow[], b.id, name)
+            const hit = walk(boundaryCast<BlockRow[]>(sub, 'json'), b.id, name)
             if (hit) return hit
           }
         }
@@ -89,7 +90,7 @@ function updateBlock(blocks: BlockRow[], id: string, fn: (b: BlockRow) => BlockR
     const slots: Record<string, unknown> = {}
     for (const [name, sub] of Object.entries(b.slots!)) {
       if (Array.isArray(sub)) {
-        const next = updateBlock(sub as BlockRow[], id, fn)
+        const next = updateBlock(boundaryCast<BlockRow[]>(sub, 'json'), id, fn)
         if (next !== sub) changed = true
         slots[name] = next
       } else slots[name] = sub
@@ -108,7 +109,7 @@ function updateContaining(blocks: BlockRow[], id: string, fn: (arr: BlockRow[], 
     const slots: Record<string, unknown> = {}
     for (const [name, sub] of Object.entries(b.slots)) {
       if (Array.isArray(sub)) {
-        const next = updateContaining(sub as BlockRow[], id, fn)
+        const next = updateContaining(boundaryCast<BlockRow[]>(sub, 'json'), id, fn)
         if (next !== sub) slotChanged = true
         slots[name] = next
       } else slots[name] = sub
@@ -167,7 +168,7 @@ export function addBlock(
   const block = blankBlock(type, schemas, genId)
   if (parentId === null || slotName === null) return { tree: [...blocks, block], newId: block.id }
   const tree = updateBlock(blocks, parentId, (parent) => {
-    const cur = Array.isArray(parent.slots?.[slotName]) ? (parent.slots[slotName] as BlockRow[]) : []
+    const cur = Array.isArray(parent.slots?.[slotName]) ? boundaryCast<BlockRow[]>(parent.slots[slotName], 'json') : []
     return { ...parent, slots: { ...(parent.slots ?? {}), [slotName]: [...cur, block] } }
   })
   return { tree, newId: block.id }
@@ -189,7 +190,7 @@ export function pasteBlocks(
   }
   if (parentId === null || slotName === null) return spliceAfter(blocks)
   return updateBlock(blocks, parentId, (parent) => {
-    const cur = Array.isArray(parent.slots?.[slotName]) ? (parent.slots[slotName] as BlockRow[]) : []
+    const cur = Array.isArray(parent.slots?.[slotName]) ? boundaryCast<BlockRow[]>(parent.slots[slotName], 'json') : []
     return { ...parent, slots: { ...(parent.slots ?? {}), [slotName]: spliceAfter(cur) } }
   })
 }
@@ -202,7 +203,7 @@ export function errorBearingIds(blocks: BlockRow[], directIds: Set<string>): Set
       let descendantHasError = false
       if (b.slots) {
         for (const sub of Object.values(b.slots)) {
-          if (Array.isArray(sub) && walk(sub as BlockRow[])) descendantHasError = true
+          if (Array.isArray(sub) && walk(boundaryCast<BlockRow[]>(sub, 'json'))) descendantHasError = true
         }
       }
       if (directIds.has(b.id) || descendantHasError) {
@@ -222,7 +223,7 @@ export function firstMatchingId(blocks: BlockRow[], ids: Set<string>): string | 
     if (b.slots) {
       for (const sub of Object.values(b.slots)) {
         if (Array.isArray(sub)) {
-          const hit = firstMatchingId(sub as BlockRow[], ids)
+          const hit = firstMatchingId(boundaryCast<BlockRow[]>(sub, 'json'), ids)
           if (hit) return hit
         }
       }

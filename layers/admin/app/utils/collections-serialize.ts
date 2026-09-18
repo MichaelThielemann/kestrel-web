@@ -31,13 +31,10 @@ type FieldOverride = NonNullable<CollectionUi['fieldOverrides']>[string]
 
 function mergeField(base: SerializedField, override: FieldOverride | undefined): SerializedField {
   if (!override) return base
-  const combined = { ...base, ...override }
-  const merged: SerializedField = combined as SerializedField
+  const { relation: overrideRelation, ...overrideRest } = override
+  const merged: SerializedField = { ...base, ...overrideRest }
   if (base.options || override.options) merged.options = { ...base.options, ...override.options }
-  if (base.relation || override.relation) {
-    const relation = { ...base.relation, ...override.relation }
-    merged.relation = relation as SerializedField['relation']
-  }
+  if (base.relation) merged.relation = { ...base.relation, ...overrideRelation }
   return merged
 }
 
@@ -82,7 +79,7 @@ function serializeField(collection: string, name: string, f: ContentField, def: 
     case 'ref':
       return f.to === 'media'
         ? { ...base, type: 'media', single: true, options: { accept: 'image' } }
-        : { ...base, type: 'relation', single: true, relation: { collection: f.to as string, many: false, labelField: relationLabelField(collection, name, def, contentTypes, u) } }
+        : { ...base, type: 'relation', single: true, relation: { collection: f.to ?? '', many: false, labelField: relationLabelField(collection, name, def, contentTypes, u) } }
     case 'date':
       return { ...base, type: 'datetime', options: { precision: 'datetime' } }
     default:

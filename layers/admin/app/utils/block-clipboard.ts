@@ -1,4 +1,5 @@
 import type { SerializedBlock, SerializedField } from '#kestrel-admin/types/kestrel'
+import { boundaryCast } from '#kestrel/cast'
 import type { BlockRow } from './block-tree'
 
 export const CLIPBOARD_MARKER = 'blocks'
@@ -32,9 +33,9 @@ export function parseClipboardPayload(text: string | null | undefined): Clipboar
     return null
   }
   if (!data || typeof data !== 'object') return null
-  const obj = data as Record<string, unknown>
+  const obj = boundaryCast<Record<string, unknown>>(data, 'json')
   if (obj.kestrel !== CLIPBOARD_MARKER || obj.version !== CLIPBOARD_VERSION || !Array.isArray(obj.blocks)) return null
-  return obj.blocks as ClipboardBlockNode[]
+  return boundaryCast<ClipboardBlockNode[]>(obj.blocks, 'json')
 }
 
 interface CountableNode { slots?: Record<string, unknown> }
@@ -45,7 +46,7 @@ export function countBlocks(nodes: CountableNode[]): number {
     n += 1
     if (!node.slots) continue
     for (const sub of Object.values(node.slots)) {
-      if (Array.isArray(sub)) n += countBlocks(sub as CountableNode[])
+      if (Array.isArray(sub)) n += countBlocks(boundaryCast<CountableNode[]>(sub, 'json'))
     }
   }
   return n
@@ -58,7 +59,7 @@ export interface NormalizedClipboard {
 
 function reconcileProps(props: unknown, fields: Record<string, SerializedField>): Record<string, unknown> {
   if (!props || typeof props !== 'object') return {}
-  return Object.fromEntries(Object.entries(props as Record<string, unknown>).filter(([key]) => key in fields))
+  return Object.fromEntries(Object.entries(boundaryCast<Record<string, unknown>>(props, 'json')).filter(([key]) => key in fields))
 }
 
 export function normalizeClipboardBlocks(
@@ -73,7 +74,7 @@ export function normalizeClipboardBlocks(
     const out: BlockRow[] = []
     for (const raw of list) {
       if (!raw || typeof raw !== 'object') continue
-      const node = raw as ClipboardBlockNode
+      const node = boundaryCast<ClipboardBlockNode>(raw, 'json')
       const def = typeof node.type === 'string' ? schemas[node.type] : undefined
       if (!def) {
         if (typeof node.type === 'string') skippedTypes.add(node.type)

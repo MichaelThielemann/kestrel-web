@@ -1,5 +1,6 @@
 import { ref, computed } from 'vue'
 import type { Ref } from 'vue'
+import { boundaryCast } from '#kestrel/cast'
 import { randomId } from '../utils/random-id'
 import { useEchoGuard } from '#kestrel-admin/composables/useEchoGuard'
 import type { SerializedBlock } from '#kestrel-admin/types/kestrel'
@@ -25,7 +26,7 @@ export function useBlockTree(
 
   setContent?: (value: unknown[], coalesceAs: string) => void,
 ) {
-  const clone = (v: unknown): BlockRow[] => (Array.isArray(v) ? (JSON.parse(JSON.stringify(v)) as BlockRow[]) : [])
+  const clone = (v: unknown): BlockRow[] => (Array.isArray(v) ? boundaryCast<BlockRow[]>(JSON.parse(JSON.stringify(v)), 'json') : [])
 
   const blocks = ref<BlockRow[]>(clone(model.value))
   const selectedId = ref<string | null>(null)

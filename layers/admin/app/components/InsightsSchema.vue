@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { JsonSchema } from '#kestrel-admin/types/api'
+import { boundaryCast } from '#kestrel/cast'
 
 const props = withDefaults(defineProps<{ schema: JsonSchema; depth?: number }>(), { depth: 0 })
 const { t } = useT()
@@ -12,15 +13,15 @@ function typeLabel(s: JsonSchema): string {
   if ('const' in s) return `const: ${String(s.const)}`
   if (Array.isArray(s.oneOf) || Array.isArray(s.anyOf)) return t('insights.schemaOneOf')
   if (typeof s.type === 'string') return s.type
-  if (Array.isArray(s.type)) return (s.type as string[]).join(' | ')
+  if (Array.isArray(s.type)) return boundaryCast<string[]>(s.type, 'json').join(' | ')
   return 'unknown'
 }
 
-const properties = computed(() => (props.schema.properties ?? {}) as Record<string, JsonSchema>)
-const requiredKeys = computed(() => new Set((props.schema.required as string[] | undefined) ?? []))
-const items = computed(() => props.schema.items as JsonSchema | undefined)
+const properties = computed(() => boundaryCast<Record<string, JsonSchema>>(props.schema.properties ?? {}, 'json'))
+const requiredKeys = computed(() => new Set(boundaryCast<string[] | undefined>(props.schema.required, 'json') ?? []))
+const items = computed(() => boundaryCast<JsonSchema | undefined>(props.schema.items, 'json'))
 const additionalPropertiesFalse = computed(() => props.schema.additionalProperties === false)
-const alternatives = computed(() => (props.schema.oneOf ?? props.schema.anyOf) as JsonSchema[] | undefined)
+const alternatives = computed(() => boundaryCast<JsonSchema[] | undefined>(props.schema.oneOf ?? props.schema.anyOf, 'json'))
 const hasProperties = computed(() => Object.keys(properties.value).length > 0)
 const isLeaf = computed(() => !hasProperties.value && !items.value && !alternatives.value)
 const atMaxDepth = computed(() => props.depth >= MAX_DEPTH)

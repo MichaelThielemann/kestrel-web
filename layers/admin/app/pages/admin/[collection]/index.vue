@@ -7,8 +7,12 @@ definePageMeta({
   key: (route) => `${String(route.params.collection)}::${typeof route.query.locale === 'string' ? route.query.locale : ''}`,
 })
 
+function firstParam(value: string | string[] | undefined): string {
+  return Array.isArray(value) ? (value[0] ?? '') : (value ?? '')
+}
+
 const route = useRoute()
-const collection = route.params.collection as string
+const collection = firstParam(route.params.collection)
 const localeParam = computed(() => (typeof route.query.locale === 'string' ? route.query.locale.trim() || undefined : undefined))
 const { primary } = useContentLocales()
 

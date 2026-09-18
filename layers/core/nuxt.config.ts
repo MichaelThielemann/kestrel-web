@@ -1,4 +1,5 @@
 import { fileURLToPath } from "node:url";
+import { boundaryCast } from "@michaelthielemann/kestrel/cast";
 
 const PIPELINES_VIRTUAL_ID = "#kestrel/pipelines";
 const PIPELINES_ENTRY = fileURLToPath(new URL("./pipelines/index.ts", import.meta.url));
@@ -22,21 +23,23 @@ export default defineNuxtConfig({
   ],
   alias: { [PIPELINES_VIRTUAL_ID]: PIPELINES_ENTRY, [COLLECTIONS_UI_VIRTUAL_ID]: COLLECTIONS_UI_ENTRY, [MODULE_REGISTRY_VIRTUAL_ID]: MODULE_REGISTRY_ENTRY, [CAST_VIRTUAL_ID]: CAST_ENTRY, [CORE_LAYER_ALIAS]: CORE_LAYER_DIR },
   hooks: {
-    "vite:extendConfig"(config) {
-      config.resolve!.alias = {
+    "vite:extendConfig"(config: { resolve?: { alias?: Record<string, string> | readonly { find: string | RegExp; replacement: string }[] } }) {
+      config.resolve ??= {};
+      config.resolve.alias = {
         [PIPELINES_VIRTUAL_ID]: PIPELINES_ENTRY,
         [COLLECTIONS_UI_VIRTUAL_ID]: COLLECTIONS_UI_ENTRY,
         [MODULE_REGISTRY_VIRTUAL_ID]: MODULE_REGISTRY_ENTRY,
         [CAST_VIRTUAL_ID]: CAST_ENTRY,
         [CORE_LAYER_ALIAS]: CORE_LAYER_DIR,
-        ...(config.resolve!.alias as Record<string, string> | undefined),
+        ...config.resolve.alias,
       };
     },
     "nitro:config"(config) {
       config.externals ??= {};
       config.externals.external = [...(config.externals.external ?? []), "node:sqlite"];
       config.rollupConfig ??= {};
-      config.rollupConfig.external = [...((config.rollupConfig.external as string[] | undefined) ?? []), "node:sqlite"];
+      const external = Array.isArray(config.rollupConfig.external) ? boundaryCast<string[]>(config.rollupConfig.external, "host") : [];
+      config.rollupConfig.external = [...external, "node:sqlite"];
 
       config.alias = {
         [PIPELINES_VIRTUAL_ID]: PIPELINES_ENTRY,
@@ -55,4 +58,5 @@ export default defineNuxtConfig({
   },
   ignore: ["**/node_modules"],
   runtimeConfig: { kestrel: { access: { admin: "", site: "", trustProxy: false, proxyHops: 1, trustedHeader: "" } }, public: { kestrelDebugActions: false } },
+  typescript: { shim: true },
 });

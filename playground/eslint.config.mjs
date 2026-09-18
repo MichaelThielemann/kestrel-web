@@ -101,6 +101,7 @@ export default withNuxt(
       '@typescript-eslint/no-unsafe-call': 'error',
       '@typescript-eslint/no-unsafe-member-access': 'error',
       '@typescript-eslint/no-unsafe-return': 'error',
+      '@typescript-eslint/no-unsafe-type-assertion': 'error',
       '@typescript-eslint/require-await': 'error',
       '@typescript-eslint/restrict-template-expressions': ['error', { allowNumber: true }],
     },
@@ -136,22 +137,9 @@ export default withNuxt(
       '@typescript-eslint/no-unsafe-call': 'error',
       '@typescript-eslint/no-unsafe-member-access': 'error',
       '@typescript-eslint/no-unsafe-return': 'error',
+      '@typescript-eslint/no-unsafe-type-assertion': 'error',
       '@typescript-eslint/require-await': 'error',
       '@typescript-eslint/restrict-template-expressions': ['error', { allowNumber: true }],
-    },
-  },
-  {
-    name: 'kestrel/type-aware-admin-actions',
-    files: ['layers/admin/app/actions/**/*.ts'],
-    ignores: ['layers/admin/app/actions/**/*.test.ts'],
-    languageOptions: {
-      parserOptions: {
-        project: ['playground/.nuxt/tsconfig.app.json', 'playground/tsconfig.json'],
-        tsconfigRootDir: repoRoot,
-      },
-    },
-    rules: {
-      '@typescript-eslint/no-unsafe-type-assertion': 'error',
     },
   },
 )

@@ -17,7 +17,8 @@ export function useDragReorder(opts: { disabled: () => boolean; commit: (from: n
   }
 
   function onDragLeave(event: DragEvent) {
-    if (!(event.currentTarget as Element).contains(event.relatedTarget as Node | null)) overIndex.value = null
+    const related = event.relatedTarget instanceof Node ? event.relatedTarget : null
+    if (event.currentTarget instanceof Element && !event.currentTarget.contains(related)) overIndex.value = null
   }
   function onDrop(index: number) {
     if (opts.disabled() || dragIndex.value === null) return

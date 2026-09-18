@@ -1,5 +1,6 @@
 import type { ApiErrorDetails } from '#kestrel-admin/types/api'
 import { describe, expect, it, vi } from 'vitest'
+import { boundaryCast } from '#kestrel/cast'
 import { runAction } from '#kestrel-core/app/utils/actions'
 import { humanizeSize } from '../utils/library'
 import {
@@ -20,17 +21,17 @@ import {
   userSetPassword,
   userToggle,
 } from './system'
-import type { ActionDeps, ApiClient, ApiRequestOptions, BusyPort } from './types'
+import type { ActionDeps, ApiRequestOptions, BusyPort } from './types'
 
 interface Call { path: string, method: string, body?: unknown, query?: unknown }
 
 function fakeApi(responses: Array<unknown | Error>) {
   const calls: Call[] = []
-  const api = ((path: string, options?: ApiRequestOptions) => {
+  function api<T>(path: string, options?: ApiRequestOptions): Promise<T> {
     calls.push({ path, method: options?.method ?? 'GET', body: options?.body, query: options?.query })
     const next = responses.shift()
-    return next instanceof Error ? Promise.reject(next) : Promise.resolve(next)
-  }) as ApiClient
+    return next instanceof Error ? Promise.reject(next) : Promise.resolve(boundaryCast<T>(next, 'json'))
+  }
   return { api, calls }
 }
 

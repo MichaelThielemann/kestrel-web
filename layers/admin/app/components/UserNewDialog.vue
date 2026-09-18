@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { userCreate } from '#kestrel-admin/actions/system'
 import type { ActionDeps } from '#kestrel-admin/actions/types'
+import { toastUnexpected } from '#kestrel-admin/actions/steps/notify'
 
 const open = defineModel<boolean>('open', { default: false })
 const emit = defineEmits<{ created: [] }>()
@@ -39,6 +40,7 @@ async function submit() {
     ops: { setBusy: (on) => { busy.value = on }, busy: () => busy.value, setError: (m) => { error.value = m } },
     refresh: () => emit('created'),
   })
+  toastUnexpected(deps, r)
   if (r.ok) open.value = false
 }
 </script>

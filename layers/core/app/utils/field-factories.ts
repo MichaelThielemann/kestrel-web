@@ -1,4 +1,5 @@
 import type { PropType } from "vue";
+import { boundaryCast } from "./cast";
 import type { Condition, LayoutNode, LinkType, LinkValue, Localized, SerializedField } from "../types/kestrel";
 
 export const KESTREL_FIELD = Symbol.for("kestrel.field");
@@ -36,13 +37,14 @@ function serialize(type: string, opts: BaseFieldOptions, extra?: Partial<Seriali
   return field;
 }
 
-const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
+const clone = <T>(value: T): T => boundaryCast<T>(JSON.parse(JSON.stringify(value)), "json");
 
 function prop<T>(field: SerializedField, ctor: unknown): FieldProp<T> {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- ctor is one of the built-in constructors (String, Number, Boolean, Object, Array); Vue's PropType has no generic signature that infers T from a runtime constructor reference
   const declaration: FieldProp<T> = { type: ctor as PropType<T>, required: field.required, [KESTREL_FIELD]: field };
   if ("default" in field) {
     const value = field.default;
-    declaration.default = (value !== null && typeof value === "object" ? () => clone(value) : value) as FieldProp<T>["default"];
+    declaration.default = boundaryCast<FieldProp<T>["default"]>(value !== null && typeof value === "object" ? () => clone(value) : value, "json");
   }
   return declaration;
 }
@@ -136,7 +138,9 @@ export function repeaterField(opts: RepeaterFieldOptions): FieldProp<Record<stri
 function unwrapFields(fields: Record<string, unknown>): Record<string, SerializedField> {
   const out: Record<string, SerializedField> = {};
   for (const [name, value] of Object.entries(fields)) {
-    out[name] = value && typeof value === "object" && KESTREL_FIELD in value ? (value as FieldProp<unknown>)[KESTREL_FIELD] : (value as SerializedField);
+    out[name] = value && typeof value === "object" && KESTREL_FIELD in value
+      ? boundaryCast<SerializedField>(boundaryCast<Record<symbol, unknown>>(value, "json")[KESTREL_FIELD], "json")
+      : boundaryCast<SerializedField>(value, "json");
   }
   return out;
 }

@@ -7,7 +7,7 @@ import LinkInternalPicker from './LinkInternalPicker.vue'
 import LinkSettings from './LinkSettings.vue'
 import { hasExtras, useLinkField } from '../../composables/useLinkField'
 import type { FieldComponentProps } from '../../utils/field-component'
-import type { FieldOf, LinkType, LinkValue } from '#kestrel-admin/types/kestrel'
+import { fieldIs, type LinkType, type LinkValue } from '#kestrel-admin/types/kestrel'
 
 const ALL: LinkType[] = ['external', 'email', 'tel', 'internal']
 
@@ -16,12 +16,14 @@ const props = defineProps<FieldComponentProps>()
 const model = defineModel<LinkValue | null>()
 
 const required = computed(() => !!props.field.required)
-const allowed = computed<LinkType[]>(() =>
-  props.field.type === 'link' ? ((props.field as FieldOf<'link'>).options?.types ?? ALL) : ALL,
-)
-const internalCollections = computed(() =>
-  props.field.type === 'link' ? (props.field as FieldOf<'link'>).options?.collections : undefined,
-)
+const allowed = computed<LinkType[]>(() => {
+  const field = props.field
+  return fieldIs(field, 'link') ? (field.options?.types ?? ALL) : ALL
+})
+const internalCollections = computed(() => {
+  const field = props.field
+  return fieldIs(field, 'link') ? field.options?.collections : undefined
+})
 
 const { currentType, typeModel, url, email, tel, label, collection, recordId, hash } = useLinkField(model, allowed)
 

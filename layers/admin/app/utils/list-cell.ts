@@ -14,6 +14,10 @@ export function columnLabel(col: ListColumn, t: (key: string) => string): string
   return t(col.labelKey)
 }
 
+export function stringOrEmpty(value: unknown): string {
+  return typeof value === 'string' ? value : ''
+}
+
 export function rowLabel(row: Record<string, unknown>): string {
-  return (row.title as string) || (row.slug as string) || `#${String(row.id)}`
+  return stringOrEmpty(row.title) || stringOrEmpty(row.slug) || `#${String(row.id)}`
 }

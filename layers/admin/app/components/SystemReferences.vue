@@ -2,6 +2,7 @@
 import type { BrokenReference, BrokenLink } from '#kestrel-admin/types/api'
 import { linksRebuild, referencesRebuild } from '#kestrel-admin/actions/system'
 import type { ActionDeps } from '#kestrel-admin/actions/types'
+import { toastUnexpected } from '#kestrel-admin/actions/steps/notify'
 
 const { t } = useT()
 const api = useApi()
@@ -32,19 +33,21 @@ async function loadLinks() {
 
 await Promise.all([hasReferences ? loadRefs() : null, hasLinks ? loadLinks() : null])
 
-function rebuildRefs() {
-  return runAction(referencesRebuild, {
+async function rebuildRefs() {
+  const result = await runAction(referencesRebuild, {
     deps,
     ops: { setBusy: (on) => { refsBusy.value = on }, busy: () => refsBusy.value },
     refresh: loadRefs,
   })
+  toastUnexpected(deps, result)
 }
-function rebuildLinks() {
-  return runAction(linksRebuild, {
+async function rebuildLinks() {
+  const result = await runAction(linksRebuild, {
     deps,
     ops: { setBusy: (on) => { linksBusy.value = on }, busy: () => linksBusy.value },
     refresh: loadLinks,
   })
+  toastUnexpected(deps, result)
 }
 
 function fromLink(id: string, locale: string | null) {

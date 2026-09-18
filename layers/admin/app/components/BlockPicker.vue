@@ -9,6 +9,7 @@ import { useBlockPickerRecent } from '../composables/useBlockPickerRecent'
 import { collectBlockTags, filterBlockTypes } from '../utils/block-picker-filter'
 import { groupBlockTypes, type BlockPickerGroupKind } from '../utils/block-picker-groups'
 import { blockTagLabel } from '../utils/collections'
+import { parseBlockPickerView } from '../utils/block-picker-view'
 import BlockPickerItem from './BlockPickerItem.vue'
 
 const props = defineProps<{
@@ -36,7 +37,7 @@ const PICKER_VIEW_OPTIONS = computed<{ label: string; value: string; icon: IconN
 
 const pickerViewModel = computed<string | string[] | null>({
   get: () => pickerView.value,
-  set: (v) => { if (typeof v === 'string') setPickerView(v as typeof pickerView.value) },
+  set: (v) => { if (typeof v === 'string') setPickerView(parseBlockPickerView(v)) },
 })
 
 const PICKER_ICON_SIZES: Record<typeof pickerView.value, number> = { grid: 24, large: 32, list: 20 }

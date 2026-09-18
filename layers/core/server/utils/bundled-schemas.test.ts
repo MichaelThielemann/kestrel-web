@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { boundaryCast } from "@michaelthielemann/kestrel/cast";
 import { applyBundledSchemas } from "./bundled-schemas";
 
 const validate = { use: "@michaelthielemann/kestrel-validate-jsonschema", config: { schemas: { "pages.body": "/build/pages.body.json", "custom.body": "/app/schemas/custom.body.json" }, watch: true } };
@@ -14,6 +15,6 @@ describe("applyBundledSchemas", () => {
 
   it("replaces paths with the build directory paths in dev mode", () => {
     const out = applyBundledSchemas([validate], { mode: "paths", schemas: { "pages.body": "/cache/.nuxt/kestrel/pages.body.json" } });
-    expect((out[0]?.config as { schemas: Record<string, unknown> }).schemas["pages.body"]).toBe("/cache/.nuxt/kestrel/pages.body.json");
+    expect(boundaryCast<{ schemas: Record<string, unknown> }>(out[0]?.config, "json").schemas["pages.body"]).toBe("/cache/.nuxt/kestrel/pages.body.json");
   });
 });

@@ -7,13 +7,13 @@ const { t, lang } = useT()
 const props = defineProps<{ items: LibraryItem[]; isSelected: (item: LibraryItem) => boolean; dropTargetPath?: string | null; sort?: string; parentPath?: string | null; upLabel?: string }>()
 const emit = defineEmits<{ navigate: [string]; select: [LibraryItem, { toggle: boolean; range: boolean }]; open: [LibraryItem]; dragstart: [LibraryItem, DragEvent]; dragend: []; sort: [string] }>()
 const ariaSort = (field: string): 'ascending' | 'descending' | 'none' => (props.sort === field ? 'ascending' : props.sort === `-${field}` ? 'descending' : 'none')
-const mods = (e: MouseEvent) => ({ toggle: e.ctrlKey || e.metaKey, range: e.shiftKey })
+const mods = (e: { ctrlKey: boolean; metaKey: boolean; shiftKey: boolean }) => ({ toggle: e.ctrlKey || e.metaKey, range: e.shiftKey })
 
 function onFolder(item: LibraryItem, path: string, e: MouseEvent | KeyboardEvent) {
-  if (e.ctrlKey || e.metaKey || e.shiftKey) emit('select', item, mods(e as MouseEvent))
+  if (e.ctrlKey || e.metaKey || e.shiftKey) emit('select', item, mods(e))
   else emit('navigate', path)
 }
-function onFile(item: LibraryItem, e: MouseEvent | KeyboardEvent) { emit('select', item, mods(e as MouseEvent)) }
+function onFile(item: LibraryItem, e: MouseEvent | KeyboardEvent) { emit('select', item, mods(e)) }
 const uploaded = (f: MediaItem) => new Date(f.createdAt).toLocaleString(lang.value)
 const badge = (f: MediaItem) => t(provenanceLabelKey(provenanceOrigin(f.provenance)))
 const dimensions = (f: MediaItem) => (f.width != null && f.height != null ? `${f.width} × ${f.height}` : '–')

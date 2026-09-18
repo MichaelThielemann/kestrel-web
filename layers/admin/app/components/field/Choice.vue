@@ -7,7 +7,7 @@ import UiButtonGroup from '../ui/ButtonGroup.vue'
 import UiCheckboxGroup from '../ui/CheckboxGroup.vue'
 import { resolveLocalized } from '../../utils/localized'
 import type { FieldComponentProps } from '../../utils/field-component'
-import type { FieldOf } from '#kestrel-admin/types/kestrel'
+import { fieldIs } from '#kestrel-admin/types/kestrel'
 
 const props = defineProps<FieldComponentProps>()
 const model = defineModel<string | string[] | null>()
@@ -15,8 +15,9 @@ const model = defineModel<string | string[] | null>()
 const { lang } = useT()
 
 const cfg = computed(() => {
-  if (props.field.type !== 'choice') return { choices: [] as { label: string; value: string }[], multiple: false, buttons: false }
-  const o = (props.field as FieldOf<'choice'>).options
+  const field = props.field
+  if (!fieldIs(field, 'choice')) return { choices: [] as { label: string; value: string }[], multiple: false, buttons: false }
+  const o = field.options
   return {
     choices: o.choices.map((c) => ({ ...c, label: resolveLocalized(c.label, lang.value) ?? c.value })),
     multiple: !!o.multiple,

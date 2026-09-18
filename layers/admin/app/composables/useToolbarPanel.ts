@@ -10,11 +10,12 @@ export function useToolbarPanel<T extends string>() {
 
   function toggle(which: T, e: MouseEvent) {
     if (open.value === which) { open.value = null; return }
-    trigger = e.currentTarget as HTMLElement
+    trigger = e.currentTarget instanceof HTMLElement ? e.currentTarget : null
     open.value = which
   }
   function onDocPointer(e: PointerEvent) {
-    if (container.value && !container.value.contains(e.target as Node)) open.value = null
+    const target = e.target instanceof Node ? e.target : null
+    if (container.value && !container.value.contains(target)) open.value = null
   }
   function onDocKeydown(e: KeyboardEvent) {
     if (e.key === 'Escape' && open.value) {

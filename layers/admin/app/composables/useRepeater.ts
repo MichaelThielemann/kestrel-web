@@ -1,6 +1,7 @@
 import { ref } from 'vue'
 import type { Ref } from 'vue'
 import type { FieldDef } from '#kestrel-admin/types/kestrel'
+import { boundaryCast } from '#kestrel/cast'
 import { reorder } from '../utils/reorder'
 import { useEchoGuard } from './useEchoGuard'
 import { cloneDefault, emptyForField } from '../utils/edit-form'
@@ -24,7 +25,7 @@ export function useRepeater(
 
   function cloneRows(v: unknown): Record<string, unknown>[] {
     if (!Array.isArray(v)) return []
-    return (v as Record<string, unknown>[]).map(r => ({ ...r }))
+    return boundaryCast<Record<string, unknown>[]>(v, 'json').map(r => ({ ...r }))
   }
 
   const rows = ref<Record<string, unknown>[]>(cloneRows(model.value))
@@ -69,7 +70,7 @@ export function useRepeater(
 
   function duplicateRow(i: number): void {
     if (i < 0 || i >= rows.value.length) return
-    const clone = JSON.parse(JSON.stringify(rows.value[i])) as Record<string, unknown>
+    const clone = boundaryCast<Record<string, unknown>>(JSON.parse(JSON.stringify(rows.value[i])), 'json')
     const newRows = [...rows.value]
     const newKeys = [...keys.value]
     newRows.splice(i + 1, 0, clone)

@@ -1,5 +1,6 @@
 import { fileURLToPath } from "node:url";
 import { addTemplate, defineNuxtModule } from "@nuxt/kit";
+import { boundaryCast } from "#kestrel/cast";
 import { packageInstalled } from "#kestrel-core/modules/optional-modules/installed";
 
 const VIRTUAL_ID = "#kestrel-insights-canvas";
@@ -7,6 +8,13 @@ const CANVAS = fileURLToPath(new URL("../../app/components/InsightsGraphCanvas.v
 const UNAVAILABLE = fileURLToPath(new URL("../../app/components/InsightsGraphUnavailable.vue", import.meta.url));
 const LAYER_DIR = fileURLToPath(new URL("../..", import.meta.url));
 const GRAPH_PACKAGES = ["@vue-flow/core", "@dagrejs/dagre"] as const;
+const CANVAS_TYPES = "kestrel/insights-graph-canvas.d.ts";
+const CANVAS_DECLARATION = `declare module "${VIRTUAL_ID}" {
+  import type { Component } from "vue";
+  const component: Component;
+  export default component;
+}
+`;
 const STUB_TYPES = "kestrel/insights-graph-stubs.d.ts";
 const STUB_DECLARATIONS = `declare module "@vue-flow/core" {
   export interface Node {
@@ -55,7 +63,7 @@ declare module "@dagrejs/dagre" {
 `;
 
 type ViteConfig = {
-  resolve?: { alias?: Record<string, string> | { find: string | RegExp; replacement: string }[] };
+  resolve?: { alias?: Record<string, string> | readonly { find: string | RegExp; replacement: string }[] };
   optimizeDeps?: { include?: string[] };
 };
 
@@ -68,6 +76,11 @@ export default defineNuxtModule({
 
     nuxt.options.alias[VIRTUAL_ID] = dst;
 
+    const canvasTypes = addTemplate({ filename: CANVAS_TYPES, write: true, getContents: () => CANVAS_DECLARATION });
+    nuxt.hook("prepare:types", ({ references }) => {
+      references.push({ path: canvasTypes.dst });
+    });
+
     if (!available) {
       const stubs = addTemplate({ filename: STUB_TYPES, write: true, getContents: () => STUB_DECLARATIONS });
       nuxt.hook("prepare:types", ({ references }) => {
@@ -75,15 +88,16 @@ export default defineNuxtModule({
       });
     }
 
-    nuxt.hook("vite:extendConfig", (config) => {
-      const vite = config as ViteConfig;
-      vite.resolve ??= {};
-      const existing = vite.resolve.alias ?? {};
-      vite.resolve.alias = Array.isArray(existing) ? [{ find: VIRTUAL_ID, replacement: dst }, ...existing] : { [VIRTUAL_ID]: dst, ...existing };
+    nuxt.hook("vite:extendConfig", (config: ViteConfig) => {
+      config.resolve ??= {};
+      const existing = config.resolve.alias ?? {};
+      config.resolve.alias = Array.isArray(existing)
+        ? [{ find: VIRTUAL_ID, replacement: dst }, ...boundaryCast<readonly { find: string | RegExp; replacement: string }[]>(existing, "host")]
+        : { [VIRTUAL_ID]: dst, ...existing };
       const prebundle = GRAPH_PACKAGES.filter((name) => packageInstalled(name, [nuxt.options.rootDir]));
       if (!available || prebundle.length === 0) return;
-      vite.optimizeDeps ??= {};
-      vite.optimizeDeps.include = [...(vite.optimizeDeps.include ?? []), ...prebundle];
+      config.optimizeDeps ??= {};
+      config.optimizeDeps.include = [...(config.optimizeDeps.include ?? []), ...prebundle];
     });
   },
 });

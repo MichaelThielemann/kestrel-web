@@ -4,6 +4,10 @@ import { join } from "node:path";
 
 const SKIPPED = /\.(gz|br|map)$/i;
 
+function errnoCode(error: unknown): string | undefined {
+  return error instanceof Error && "code" in error && typeof error.code === "string" ? error.code : undefined;
+}
+
 export async function listBuildAssets(dir: string): Promise<string[]> {
   const paths: string[] = [];
 
@@ -12,7 +16,7 @@ export async function listBuildAssets(dir: string): Promise<string[]> {
     try {
       entries = await readdir(currentDir, { withFileTypes: true });
     } catch (error) {
-      const code = (error as NodeJS.ErrnoException).code;
+      const code = errnoCode(error);
       if (code === "ENOENT" || code === "ENOTDIR") return;
       throw error;
     }

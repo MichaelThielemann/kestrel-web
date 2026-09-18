@@ -93,6 +93,7 @@ const featureFactories: Record<Feature, (context: PresetContext) => FeatureModul
 };
 
 function featureKeys(factories: Record<Feature, unknown>): readonly Feature[] {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Object.keys always returns string[]; factories is declared Record<Feature, unknown> so its keys are exactly Feature
   return Object.keys(factories) as Feature[];
 }
 

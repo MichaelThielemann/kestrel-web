@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { boundaryCast } from "#kestrel/cast";
 import { DEFAULT_LAYOUT, resolvePageLayout } from "./page-layout";
 
 describe("resolvePageLayout", () => {
@@ -15,7 +16,7 @@ describe("resolvePageLayout", () => {
   });
 
   it("ignores a non-string value rather than rendering a broken layout name", () => {
-    for (const bad of [42, {}, [], true]) expect(resolvePageLayout(bad as never)).toBe(DEFAULT_LAYOUT);
+    for (const bad of [42, {}, [], true]) expect(resolvePageLayout(boundaryCast(bad, "json"))).toBe(DEFAULT_LAYOUT);
   });
 
   it("trims incidental whitespace", () => {

@@ -110,6 +110,7 @@ async function runMain<I, R>(action: ActionDefinition<I, R>, ctx: ActionContext<
     } catch (err) {
       if (err instanceof ActionDone) {
         logStep(action.name, step.name, started, 'done')
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- ActionDone's generic result is erased by `instanceof`; ctx.done(result) is the only place a step sets it, so this recovers the type lost crossing the throw
         return { result: err.result !== undefined ? { ok: true, result: err.result as R } : { ok: true } }
       }
       if (err instanceof ActionFailure) {

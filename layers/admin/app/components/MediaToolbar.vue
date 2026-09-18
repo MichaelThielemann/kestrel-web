@@ -19,15 +19,20 @@ const VIEW_OPTIONS = computed<{ label: string; value: string; icon: IconName }[]
   { label: t('mediaToolbar.viewTable'), value: 'table', icon: 'table' },
 ])
 
+function isView(value: string): value is View {
+  return value === 'grid' || value === 'table'
+}
+
 const viewModel = computed<string | string[] | null>({
   get: () => props.view,
-  set: (v) => { if (typeof v === 'string') emit('update:view', v as View) },
+  set: (v) => { if (typeof v === 'string' && isView(v)) emit('update:view', v) },
 })
 
 const fileInput = ref<HTMLInputElement | null>(null)
 
 function onFiles(e: Event) {
-  const input = e.target as HTMLInputElement
+  if (!(e.target instanceof HTMLInputElement)) return
+  const input = e.target
   emit('upload', Array.from(input.files ?? []))
   input.value = ''
 }

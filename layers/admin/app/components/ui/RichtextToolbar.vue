@@ -8,6 +8,7 @@ import UiTextInput from './TextInput.vue'
 import LinkInternalPicker from '../field/LinkInternalPicker.vue'
 import type { IconName } from '../../utils/icons'
 import { richtextLinkHref, parseRichtextLinkHref } from '#kestrel-core/app/utils/richtext-links'
+import { boundaryCast } from '#kestrel/cast'
 
 const props = defineProps<{ editor: Editor | undefined; locale?: string; disabled?: boolean }>()
 
@@ -72,11 +73,16 @@ const blockValue = computed(() => {
   for (let l = 1; l <= 6; l++) if (e.isActive('heading', { level: l })) return `h${l}`
   return 'p'
 })
+function isHeadingLevel(n: number): n is 1 | 2 | 3 | 4 | 5 | 6 {
+  return n === 1 || n === 2 || n === 3 || n === 4 || n === 5 || n === 6
+}
+
 function onBlock(v: string | null | undefined) {
   const e = props.editor
   if (!e || !v) return
-  if (v === 'p') e.chain().focus().setParagraph().run()
-  else e.chain().focus().toggleHeading({ level: Number(v[1]) as 1 | 2 | 3 | 4 | 5 | 6 }).run()
+  if (v === 'p') { e.chain().focus().setParagraph().run(); return }
+  const level = Number(v[1])
+  if (isHeadingLevel(level)) e.chain().focus().toggleHeading({ level }).run()
 }
 
 const linkOpen = ref(false)
@@ -85,7 +91,7 @@ function toggleLink() {
   const e = props.editor!
   if (e.isActive('link')) { e.chain().focus().unsetLink().run(); return }
   linkInternalOpen.value = false
-  linkUrl.value = (e.getAttributes('link').href as string) ?? ''
+  linkUrl.value = boundaryCast<string | undefined>(e.getAttributes('link').href, 'host') ?? ''
   linkOpen.value = true
 }
 function applyLink() {
@@ -105,7 +111,7 @@ function toggleInternalLink() {
   linkInternalOpen.value = opening
   if (!opening) return
 
-  const parsed = parseRichtextLinkHref(props.editor!.getAttributes('link').href as string | undefined)
+  const parsed = parseRichtextLinkHref(boundaryCast<string | undefined>(props.editor!.getAttributes('link').href, 'host'))
   pickCollection.value = parsed?.collection ?? null
   pickRecordId.value = parsed?.id ?? null
 }

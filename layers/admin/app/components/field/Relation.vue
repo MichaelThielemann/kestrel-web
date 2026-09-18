@@ -4,14 +4,15 @@ import UiField from '../ui/Field.vue'
 import UiCombobox from '../ui/Combobox.vue'
 import { useRecordOptions } from '../../composables/useRecordOptions'
 import type { FieldComponentProps } from '../../utils/field-component'
-import type { FieldOf } from '#kestrel-admin/types/kestrel'
+import { fieldIs } from '#kestrel-admin/types/kestrel'
 
 const props = defineProps<FieldComponentProps>()
 const model = defineModel<string | string[] | null>()
 
 const cfg = computed(() => {
-  if (props.field.type !== 'relation') return { collection: '', many: false, label: undefined as string | undefined }
-  const r = (props.field as FieldOf<'relation'>).relation
+  const field = props.field
+  if (!fieldIs(field, 'relation')) return { collection: '', many: false, label: undefined as string | undefined }
+  const r = field.relation
   return { collection: r.collection, many: !!r.many, label: r.labelField }
 })
 const required = computed(() => !!props.field.required)

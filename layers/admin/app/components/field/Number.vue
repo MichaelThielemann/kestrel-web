@@ -4,13 +4,16 @@ import UiField from '../ui/Field.vue'
 import UiNumberInput from '../ui/NumberInput.vue'
 import { fieldConstraints } from '#kestrel-admin/utils/kestrel'
 import type { FieldComponentProps } from '../../utils/field-component'
-import type { FieldOf } from '#kestrel-admin/types/kestrel'
+import { fieldIs } from '#kestrel-admin/types/kestrel'
 
 const props = defineProps<FieldComponentProps>()
 const model = defineModel<number | null>()
 const c = computed(() => fieldConstraints(props.field))
 
-const unit = computed(() => (props.field.type === 'number' ? (props.field as FieldOf<'number'>).options?.unit : undefined))
+const unit = computed(() => {
+  const field = props.field
+  return fieldIs(field, 'number') ? field.options?.unit : undefined
+})
 </script>
 
 <template>

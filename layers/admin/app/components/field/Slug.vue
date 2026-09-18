@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { slugify } from '#kestrel-admin/utils/kestrel'
-import type { FieldOf } from '#kestrel-admin/types/kestrel'
+import { fieldIs } from '#kestrel-admin/types/kestrel'
 import type { FieldComponentProps } from '../../utils/field-component'
 import { editorFormContextKey } from '../../utils/editor-form-context'
 
@@ -18,7 +18,10 @@ const auto = computed(() => {
   return Boolean(form.following[props.name]) && slugify(String(form.values[from] ?? '')) === model.value
 })
 
-const opts = computed(() => (props.field.type === 'slug' ? (props.field as FieldOf<'slug'>).options : undefined))
+const opts = computed(() => {
+  const field = props.field
+  return fieldIs(field, 'slug') ? field.options : undefined
+})
 const fromField = computed(() => opts.value?.from)
 
 const prefix = computed(() => (props.locale === primary && !prefixPrimary ? '/' : `/${props.locale}/`))
@@ -34,7 +37,7 @@ function onBlur() {
 }
 
 function onFocus(event: FocusEvent) {
-  if (auto.value) (event.target as HTMLInputElement).select()
+  if (auto.value && event.target instanceof HTMLInputElement) event.target.select()
 }
 </script>
 
