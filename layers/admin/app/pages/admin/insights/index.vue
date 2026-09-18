@@ -24,12 +24,10 @@ function setTab(tab: TabId) {
   return router.replace({ query: { ...route.query, tab } })
 }
 
-function onTabKey(e: KeyboardEvent) {
-  const i = TAB_IDS.indexOf(activeTab.value)
-  const next = e.key === 'ArrowRight' ? TAB_IDS[(i + 1) % TAB_IDS.length] : e.key === 'ArrowLeft' ? TAB_IDS[(i - 1 + TAB_IDS.length) % TAB_IDS.length] : e.key === 'Home' ? TAB_IDS[0] : e.key === 'End' ? TAB_IDS[TAB_IDS.length - 1] : undefined
-  if (!next) return
-  e.preventDefault()
-  void setTab(next).then(() => document.getElementById(`insights-tab-${next}`)?.focus())
+const tabItems = computed(() => TAB_IDS.map((id) => ({ id, label: t(`insights.tabs.${id}`) })))
+
+function onTabSelect(id: string) {
+  if (isTabId(id)) void setTab(id)
 }
 </script>
 
@@ -45,11 +43,14 @@ function onTabKey(e: KeyboardEvent) {
     <KestrelUiAlert v-else-if="availability === 'error'" variant="error">{{ error }}</KestrelUiAlert>
 
     <div v-else-if="manifest" class="insights__tabs">
-      <div class="insights__tablist ui-btngroup" role="tablist" :aria-label="t('insights.tabsLabel')" @keydown="onTabKey">
-        <KestrelUiButton v-for="tab in TAB_IDS" :id="`insights-tab-${tab}`" :key="tab" variant="bare" role="tab" class="insights__tab ui-btngroup__item"
-          :aria-selected="tab === activeTab" :aria-controls="`insights-panel-${tab}`" :tabindex="tab === activeTab ? 0 : -1"
-          :data-state="tab === activeTab ? 'active' : 'inactive'" @click="setTab(tab)">{{ t(`insights.tabs.${tab}`) }}</KestrelUiButton>
-      </div>
+      <KestrelUiTabList
+        class="insights__tablist"
+        :tabs="tabItems"
+        :model-value="activeTab"
+        id-prefix="insights"
+        :label="t('insights.tabsLabel')"
+        @update:model-value="onTabSelect"
+      />
 
       <div v-for="tab in TAB_IDS" :id="`insights-panel-${tab}`" :key="tab" role="tabpanel" class="insights__panel" :aria-labelledby="`insights-tab-${tab}`" :hidden="tab !== activeTab">
         <template v-if="tab === activeTab">
@@ -119,10 +120,5 @@ function onTabKey(e: KeyboardEvent) {
     }
   }
 
-  &__tab[data-state='active'] {
-    background: var(--color-active, var(--color-surface-2));
-    color: var(--color-primary-on-fill, var(--color-primary));
-    font-weight: var(--weight-medium);
-  }
 }
 </style>

@@ -101,6 +101,7 @@ const inputType = computed(() => (revealable.value && revealed.value ? 'text' : 
   justify-content: center;
 
   min-inline-size: 2.25rem;
+  padding-block: 0;
   padding-inline: var(--space-2);
   border: 0;
   border-start-end-radius: var(--radius-md);

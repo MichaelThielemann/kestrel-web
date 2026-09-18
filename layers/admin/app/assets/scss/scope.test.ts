@@ -1,3 +1,5 @@
+import { readdirSync, readFileSync } from 'node:fs'
+import { basename, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { compile } from 'sass'
 import { describe, expect, it } from 'vitest'
@@ -38,7 +40,7 @@ function unscoped(selectors: string[]): string[] {
   return selectors.filter((selector) => {
     if (DOCUMENT_SELECTORS.includes(selector)) return false
     const rest = selector.replace(/^:root\[data-theme[^\]]*\]\s+/, '')
-    return !ROOTS.some((root) => rest === root || rest.startsWith(`${root} `))
+    return !ROOTS.some((root) => rest === root || [' ', ':', '['].some((next) => rest.startsWith(`${root}${next}`)))
   })
 }
 
@@ -57,10 +59,61 @@ describe('admin stylesheet scope', () => {
     expect(unscoped(selectors)).toEqual([])
   })
 
-  it('leaves only color-scheme on the document root', () => {
-    const bodies = [...css.matchAll(/:root\[data-theme[^\]]*\]\s*\{([^}]*)\}/g)]
+  it('declares only the document-root properties the admin owns', () => {
+    const allowed = new Set(['color-scheme', 'scroll-behavior'])
+    const declared = [...css.matchAll(/:root\[data-theme[^\]]*\]\s*\{([^}]*)\}/g)]
       .filter((match) => !ROOTS.some((root) => (match[0] ?? '').includes(root)))
-      .map((match) => (match[1] ?? '').trim())
-    expect(bodies).toEqual(['color-scheme: light;', 'color-scheme: dark;'])
+      .flatMap((match) => (match[1] ?? '').split(';'))
+      .map((declaration) => declaration.split(':')[0]?.trim() ?? '')
+      .filter((property) => property.length > 0)
+    expect(declared.length).toBeGreaterThan(0)
+    expect(declared.filter((property) => !allowed.has(property))).toEqual([])
+  })
+
+  it('pins every inherited property on the admin root so consumer body rules cannot reach in', () => {
+    const rootBlock = [...css.matchAll(/:is\(\.admin, \.admin-portal\)\s*\{([^}]*)\}/g)]
+      .map((match) => match[1] ?? '')
+      .find((body) => body.includes('font-family')) ?? ''
+    const pinned = rootBlock.split(';').map((declaration) => declaration.split(':')[0]?.trim() ?? '')
+    const required = [
+      'font-family', 'font-size', 'font-weight', 'font-style', 'font-variant',
+      'line-height', 'letter-spacing', 'word-spacing', 'color', '-webkit-text-fill-color',
+      'text-align', 'text-indent', 'text-transform', 'text-shadow', 'white-space',
+      'word-break', 'hyphens', 'list-style', 'cursor', 'caret-color', 'accent-color', 'visibility',
+    ]
+    expect(required.filter((property) => !pinned.includes(property))).toEqual([])
+  })
+
+  it('keeps the blanket inherit rules free of kit declarations that would tie with them', () => {
+    const componentDir = fileURLToPath(new URL('../../components', import.meta.url))
+    const files = readdirSync(componentDir, { recursive: true, encoding: 'utf8' })
+      .filter((name) => name.endsWith('.vue'))
+      .map((name) => join(componentDir, name))
+    const blanket = ['caret-color', 'word-spacing', 'text-indent', 'text-shadow', 'hyphens', 'font-variant', 'visibility']
+    const allowedTracking = [
+      'replication__badge', 'rail-account__avatar', 'list__badge',
+      'block-picker-details__heading', 'block-picker__group-heading', 'ui-tabs__item',
+    ]
+    const offenders: string[] = []
+    for (const file of files) {
+      const source = readFileSync(file, 'utf8')
+      for (const property of blanket) {
+        if (new RegExp(`^\\s*${property}\\s*:`, 'm').test(source)) offenders.push(`${basename(file)}: ${property}`)
+      }
+      if (/^\s*letter-spacing\s*:/m.test(source) && !allowedTracking.some((name) => source.includes(name))) {
+        offenders.push(`${basename(file)}: letter-spacing outside the tracked allow list`)
+      }
+    }
+    expect(offenders).toEqual([])
+  })
+
+  it('gives the admin its own selection, placeholder and marker styling', () => {
+    expect(css).toContain('::selection')
+    expect(css).toContain('::placeholder')
+    expect(css).toContain('::marker')
+    for (const pseudo of ['::selection', '::placeholder', '::marker']) {
+      const unbound = selectorsOf(css).filter((selector) => selector.includes(pseudo))
+      expect(unscoped(unbound)).toEqual([])
+    }
   })
 })

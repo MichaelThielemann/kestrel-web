@@ -25,7 +25,7 @@ useHead(() => ({
 
 <template>
   <KestrelBootFailure v-if="failed" :error="failure" />
-  <div v-else class="admin" :class="{ 'admin--rail-collapsed': collapsed }">
+  <div v-else class="admin" :class="{ 'admin--rail-collapsed': collapsed }" :data-theme="theme">
     <aside v-if="authenticated" class="admin__rail">
       <div class="rail__head">
         <NuxtLink to="/admin" class="rail__brand" aria-label="Kestrel">

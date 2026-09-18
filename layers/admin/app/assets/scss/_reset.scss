@@ -15,8 +15,29 @@
   margin: 0;
 }
 
+@include element-defaults('option') {
+  padding: 0;
+}
+
 #{$root} :where(*:not(code, pre, kbd, samp)) {
   font-family: inherit;
+}
+
+$tracked: '.replication__badge, .rail-account__avatar, .list__badge, .block-picker-details__heading, .block-picker__group-heading, .ui-tabs__item';
+
+#{$root} :where(*:not(#{$tracked})) {
+  letter-spacing: inherit;
+}
+
+#{$root} :where(*) {
+  caret-color: inherit;
+  word-spacing: inherit;
+  text-indent: inherit;
+  text-shadow: inherit;
+  hyphens: inherit;
+  font-variant: inherit;
+  font-variant-numeric: inherit;
+  visibility: inherit;
 }
 
 @include unclassed-defaults('*:not(small, sub, sup, code, pre, kbd, samp)') {
@@ -24,6 +45,57 @@
   color: inherit;
   line-height: inherit;
   letter-spacing: inherit;
+  font-weight: inherit;
+  font-style: inherit;
+  font-variant: inherit;
+  font-variant-numeric: inherit;
+  word-spacing: inherit;
+  -webkit-text-fill-color: inherit;
+  text-align: inherit;
+  text-indent: inherit;
+  text-transform: inherit;
+  text-shadow: inherit;
+  white-space: inherit;
+  word-break: inherit;
+  hyphens: inherit;
+  cursor: inherit;
+  caret-color: inherit;
+  accent-color: inherit;
+  visibility: inherit;
+  list-style-type: inherit;
+  list-style-position: inherit;
+}
+
+@include element-defaults('*') {
+  outline-offset: 0;
+  text-decoration-thickness: auto;
+}
+
+#{$root} :where(*)#{$unclassed}::before,
+#{$root} :where(*)#{$unclassed}::after {
+  content: none;
+}
+
+#{$root}::selection,
+#{$root} :where(*)::selection {
+  background-color: var(--color-primary-soft);
+  color: var(--color-text);
+  -webkit-text-fill-color: var(--color-text);
+}
+
+#{$root} :where(input, textarea)::placeholder {
+  color: var(--color-text-muted);
+  -webkit-text-fill-color: var(--color-text-muted);
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: none;
+  opacity: 1;
+}
+
+#{$root} :where(*)::marker {
+  color: inherit;
+  font: inherit;
+  content: normal;
 }
 
 @include element-defaults('img, picture, svg, video, canvas') {

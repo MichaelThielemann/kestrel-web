@@ -1064,6 +1064,45 @@ document count, duration) and the pending migrations, with a dry run (counts doc
 writes nothing) and an apply button (confirm, then run, then refresh) — see
 `docs/architecture.md#content-migrations`.
 
+## Keeping your styles out of the admin
+
+The admin and your site share one document: Nuxt merges every layer's and your app's `css: []` into one
+stylesheet for all routes, so your global CSS is loaded on `/admin` too. `layers/admin` defends itself —
+every rule is bound to `.admin`/`.admin-portal`, the design tokens sit on that root rather than `:root`,
+and the inherited base (font, size, weight, style, line height, letter spacing, colour, text transform,
+white space, list style, cursor, caret, accent colour, …) is pinned there at specificity (0,1,0), which
+outranks any `body` or element selector of yours. The admin also owns its `::selection`, `::placeholder`
+and `::marker`, resets `outline-offset` and `text-decoration-thickness`, and neutralises
+`scroll-behavior` and the `rem` basis on admin routes. `scope.test.ts` fails the build if a rule escapes
+that scope.
+
+Four things a consumer can still do that the admin cannot defend against. Treat them as rules:
+
+- **No `!important` on bare element selectors.** `p { color: red !important }` beats every non-important
+  declaration whatever its specificity. The admin cannot win without an `!important` war of its own.
+- **No `content` on a global pseudo-element rule.** `*::before { content: "▸" }` reaches every admin
+  element that carries a class. The admin resets `content` for elements it leaves unclassed, but a rule
+  that also matches its own classed elements can only be beaten by tying on specificity, which would make
+  the result depend on stylesheet order and would break the kit's own `::before` decorations.
+- **Element selectors still reach classed admin elements for properties the kit does not declare.** A
+  consumer's `div { color: … }` wins over an *inherited* colour on an admin element whose class does not
+  set `color`. The admin closes this where it is visible; the general case cannot be closed without a
+  blanket rule that would tie with the kit's own class rules.
+- **Do not name a component `Kestrel*`.** The admin registers its kit under that prefix with an elevated
+  priority, so a same-named app component no longer replaces it, but the namespace is reserved.
+
+The reliable way to opt out of all of this is to put your own reset in a named cascade layer:
+
+```scss
+@layer reset {
+  * { margin: 0; padding: 0; }
+  body { font-family: …; letter-spacing: …; }
+}
+```
+
+An unlayered declaration beats every layered one regardless of specificity, so the admin's rules (which
+carry no `@layer`) then win unconditionally — including against the cases listed above.
+
 ## What a consumer cannot extend
 
 The admin's UI actions (`layers/admin/app/actions/`, see

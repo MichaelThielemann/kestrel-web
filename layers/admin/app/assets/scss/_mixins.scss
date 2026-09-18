@@ -8,6 +8,10 @@
 }
 
 @mixin sr-only {
+  font: var(--weight-normal) var(--text-base) / var(--leading-normal) var(--font-sans);
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--color-text);
   position: absolute;
   top: 0;
   left: 0;

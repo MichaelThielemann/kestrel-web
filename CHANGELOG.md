@@ -4,6 +4,12 @@
 
 ### Added
 
+- `KestrelUiTabList` (`components/ui/TabList.vue`): the roving-tabindex `role="tablist"` strip the system
+  and insights pages built by hand. It owns the `ui-tabs`/`ui-tabs__item` classes and the active-tab
+  styling; both pages now render it instead of hard-coding `ui-btngroup__item` on a `KestrelUiButton`
+  without rendering `ButtonGroup`, which also removes the duplicated arrow/Home/End key handling and the
+  `data-state="active"` value that never matched the kit's `[data-state='on']` rule.
+
 - `GET /api/admin/schema` (consumer-visible): the content model, collection UI, workflow and features in
   one answer, `{ locales: { all, primary, prefixPrimary }, collections: SerializedCollection[], features:
   Feature[] }`, typed as `AdminSchema` in `#kestrel-admin/types/api`. The route runs the new preset
@@ -108,6 +114,32 @@
 
 ### Changed
 
+- Admin CSS isolation, verified on the packed layer (`pnpm pack` installed into a consumer app, every
+  admin view diffed against the playground in both themes for ~90 computed properties per element):
+  - `_base.scss` pins the whole inherited set on the admin root, not just font and colour — weight,
+    style, variant, letter and word spacing, text align/indent/transform/shadow, white space, word break,
+    hyphens, tab size, list style, cursor, caret colour, accent colour, visibility — so a consumer's
+    `body` rule no longer reaches in. `_reset.scss` re-inherits the same set for unclassed elements.
+  - `_reset.scss` gains blanket `inherit` rules at (0,1,0) for `letter-spacing` (excluding the six kit
+    classes that set tracking on purpose) and for `caret-color`, `word-spacing`, `text-indent`,
+    `text-shadow`, `hyphens`, `font-variant` and `visibility`, which beat a consumer's element selectors
+    on classed admin elements too.
+  - the admin declares its own `::selection`, `::placeholder` and `::marker`, resets `outline-offset` and
+    `text-decoration-thickness`, and resets `content` on `::before`/`::after` for unclassed elements.
+  - `:root[data-theme=light|dark]` carries `scroll-behavior: auto` next to `color-scheme`, so a
+    consumer's `html { scroll-behavior: smooth }` no longer applies on admin routes.
+  - the theme is set on the `.admin` element as well as on `:root` and the token blocks match both, so a
+    consumer's `useHead` cannot strip the admin palette by clobbering the root attribute.
+  - `layers/admin/nuxt.config.ts` registers the kit with `priority: 10`: an app component named
+    `KestrelUiButton.vue` no longer replaces the kit's button (which previously removed the login form's
+    submit control entirely).
+  - `scripts/isolation-diff.mjs` is the repeatable proof: it drives the playground and a consumer app
+    with playwright-core and diffs every admin view in both themes, per element and per property (see
+    `docs/architecture.md#admin-css-isolation`).
+  - `scope.test.ts` grew guards for all of it — the pinned inherited set, the pseudo-element scoping, the
+    document-root allow list, and a scan that fails when a kit component declares one of the
+    blanket-inherit properties.
+
 - **Breaking (admin client):** the admin reads its schema from `GET /api/admin/schema` instead of
   importing consumer TypeScript. `grep -rn "~~/shared" layers/admin` is empty; `#kestrel/blocks` and
   `#kestrel/consumer-block-tags` stay. `useSchema()` (`useState('kestrel-schema')`) requests the answer
@@ -182,6 +214,11 @@
 - The type stubs for the optional `@vue-flow/core` and `@dagrejs/dagre` peers contain no `any`.
 
 ### Fixed
+
+- Admin isolation residue: the `sr-only` mixin pins its own text metrics and colour, the hidden file
+  input is declared outside `:where()` so a consumer's class rule cannot reveal it, and the password
+  reveal button and `option` elements declare their padding so a consumer's `* { padding: 0 }` cannot
+  change it.
 
 - Media viewer: the dialog body now fixes the header and footer and scrolls only the details panel, so
   the image stays in view while editing metadata; a `Delete` action was added that runs through the same

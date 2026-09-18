@@ -80,14 +80,7 @@ const activeTab = computed<string>(() => {
 })
 let pendingTab: string | null = null
 
-function onTabKey(e: KeyboardEvent) {
-  const tabs = visibleTabs.value
-  const i = tabs.indexOf(activeTab.value)
-  const next = e.key === 'ArrowRight' ? tabs[(i + 1) % tabs.length] : e.key === 'ArrowLeft' ? tabs[(i - 1 + tabs.length) % tabs.length] : e.key === 'Home' ? tabs[0] : e.key === 'End' ? tabs[tabs.length - 1] : null
-  if (!next) return
-  e.preventDefault()
-  void setTab(next).then(() => document.getElementById(`system-tab-${next}`)?.focus())
-}
+const tabItems = computed(() => visibleTabs.value.map((id) => ({ id, label: tabTitle(id) })))
 
 const navigate: NavigatePort = async (d) => (d.kind === 'path' ? navigateTo(d.to) : router.replace({ query: d.query }))
 
@@ -117,11 +110,14 @@ async function setTab(value: unknown) {
     <h1 class="system__title">{{ t('system.title') }}</h1>
 
     <div v-if="visibleTabs.length" class="system__tabs">
-      <div class="system__tablist ui-btngroup" role="tablist" :aria-label="t('system.tabsLabel')" @keydown="onTabKey">
-        <KestrelUiButton v-for="tab in visibleTabs" :id="`system-tab-${tab}`" :key="tab" variant="bare" role="tab" class="system__tab ui-btngroup__item"
-          :aria-selected="tab === activeTab" :aria-controls="`system-panel-${tab}`" :tabindex="tab === activeTab ? 0 : -1"
-          :data-state="tab === activeTab ? 'active' : 'inactive'" @click="setTab(tab)">{{ tabTitle(tab) }}</KestrelUiButton>
-      </div>
+      <KestrelUiTabList
+        class="system__tablist"
+        :tabs="tabItems"
+        :model-value="activeTab"
+        id-prefix="system"
+        :label="t('system.tabsLabel')"
+        @update:model-value="setTab"
+      />
 
       <div v-for="tab in visibleTabs" :id="`system-panel-${tab}`" :key="tab" role="tabpanel" class="system__panel" :aria-labelledby="`system-tab-${tab}`" :hidden="tab !== activeTab">
         <template v-if="tab === activeTab">
@@ -182,12 +178,6 @@ async function setTab(value: unknown) {
       outline: 2px solid var(--color-focus);
       outline-offset: 2px;
     }
-  }
-
-  &__tab[data-state='active'] {
-    background: var(--color-active, var(--color-surface-2));
-    color: var(--color-primary-on-fill, var(--color-primary));
-    font-weight: var(--weight-medium);
   }
 
   &__empty {

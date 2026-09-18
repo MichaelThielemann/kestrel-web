@@ -586,19 +586,62 @@ mixins every rule in `assets/scss/` goes through:
   declared in the component that uses the kit, and a component's styles are emitted after the styles of
   the component it imports.
 
+- `_base.scss` pins the whole inherited set on `$root`, not just font and colour: weight, style, variant,
+  letter and word spacing, text align/indent/transform/shadow, white space, word break, hyphens, tab size,
+  list style, cursor, caret colour, accent colour and visibility. Inheritance from the consumer's `body`
+  ends at the admin root for all of them, and `_reset.scss` re-inherits the same set for unclassed
+  elements so the chain continues inside the admin.
+- `_reset.scss` also carries three blanket rules at (0,1,0) — `letter-spacing: inherit` (excluding the six
+  kit classes that set tracking on purpose) and `caret-color`/`word-spacing`/`text-indent`/`text-shadow`/
+  `hyphens`/`font-variant`/`visibility: inherit` — which beat a consumer's element selectors on *classed*
+  admin elements too. They are safe only while no kit class declares those properties; `scope.test.ts`
+  scans every component for exactly that and fails when one does.
+- The admin owns its `::selection`, `::placeholder` and `::marker`, resets `outline-offset` and
+  `text-decoration-thickness`, and resets `content` on `::before`/`::after` for unclassed elements.
+- `:root[data-theme=light|dark]` carries `scroll-behavior: auto` next to `color-scheme`; the attribute is
+  set by the admin layout, so the rule exists only on admin routes. The `rem` basis is neutralised by the
+  layout's inline `style: 'font-size: initial'` on `htmlAttrs`, which outranks a consumer's
+  `html { font-size }`. The theme is set on the `.admin` element as well as on `:root`, and the token
+  blocks match both, so a consumer's `useHead` cannot strip the palette by clobbering the root attribute.
+- `layers/admin/nuxt.config.ts` registers the kit with `priority: 10`. Without it an app component named
+  `KestrelUiButton.vue` replaces the kit's button everywhere — the login form loses its submit control.
+
 What stays outside this: a consumer's element selector can still win over an *inherited* value on an
-admin element that does carry a class and whose class does not declare that property. The admin closes
-that where it is visible — `Table.vue`'s cells (`color: inherit`), the insights chips and badges,
-`EmptyState.vue`'s and the dashboard's text sizes — and leaves it on invisible ones (an `sr-only` status
-line, the hidden file input). A consumer can shut it off completely by putting its own reset in a named
-`@layer`; that is a recommendation in `README.md`, not something the admin can enforce.
+admin element that does carry a class and whose class does not declare that property — `color` is the
+main one, and the properties derived from it (`outline-color`, `text-decoration-color`, `caret-color`,
+`-webkit-text-fill-color`, the marker and placeholder colours) follow it. `!important` on a bare element
+selector, and `content` on a global `*::before`/`*::after` rule that also matches classed admin elements,
+cannot be beaten at all without an `!important` war or a specificity tie that would depend on stylesheet
+order. A consumer can shut all of it off by putting its own reset in a named `@layer`; that is documented
+as a consumer rule in `docs/consuming-kestrel-web.md`, not something the admin can enforce.
 
 `layers/admin/app/assets/scss/scope.test.ts` compiles `main.scss` with Sass and fails if a rule is not
-bound to `.admin`/`.admin-portal`, if a `@layer` comes back, or if anything but `color-scheme` is
-declared on the document root. That is also what keeps the admin reset off the public site: it is no longer a question of where the stylesheet is imported, the rules simply do not match
+bound to `.admin`/`.admin-portal`, if a `@layer` comes back, if the document root carries anything but
+`color-scheme` and `scroll-behavior`, if one of the inherited properties is no longer pinned on the admin
+root, if `::selection`/`::placeholder`/`::marker` lose their admin scoping, or if a kit component starts
+declaring one of the blanket-inherit properties. That is also what keeps the admin reset off the public site: it is no longer a question of where the stylesheet is imported, the rules simply do not match
 outside the admin. In dev `installAdminClient()` additionally disables foreign stylesheets under
 `/admin` (`utils/admin-style-guard.ts`); production has no such guard, which is why the isolation has to
-hold on its own.
+hold on its own. Note that the guard treats any path containing `kestrel-*` as its own, so a consumer
+checkout whose directory matches that keeps its stylesheets live under `/admin` in dev — which is what
+makes the check below work without a production build.
+
+`scripts/isolation-diff.mjs` is the end-to-end proof. Run the playground and a consumer app that extends
+the packed layer on two ports, then diff every admin view in both themes:
+
+```bash
+PLAYWRIGHT_CORE=/path/to/playwright-core/index.mjs \
+  node scripts/isolation-diff.mjs http://localhost:3011 http://localhost:3012
+```
+
+It logs in on both (`ADMIN_USER`/`ADMIN_PASSWORD`, default `admin`/`change-me`), walks the admin routes,
+and for every element that exists on both sides — keyed by its class path, since the content differs —
+compares ~60 computed properties plus `::before`, `::after`, `::placeholder`, `::selection` and
+`::marker`. It reports per property and separates geometry (`width`/`height`/`margin`) from style leaks.
+Geometry differences are expected: the two apps have different content, row counts and scrollbars. The
+same is true for the handful of `border-bottom` differences on `Table.vue` cells, which come from
+`tbody tr:last-child td` matching a single-row table on one side and not the other. Anything else is a
+real leak.
 
 ### Design tokens and contrast
 `assets/scss/_tokens.scss` is the only place in `layers/admin` that names a colour. Every other rule
