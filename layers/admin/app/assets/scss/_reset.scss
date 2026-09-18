@@ -1,69 +1,111 @@
-@layer reset, base;
+@use 'scope' as *;
 
-@layer reset {
-  *,
-  *::before,
-  *::after {
-    box-sizing: border-box;
-  }
+#{$root-where},
+#{$root-where} :where(*),
+#{$root-where} :where(*)::before,
+#{$root-where} :where(*)::after {
+  box-sizing: border-box;
+}
 
-  * {
-    margin: 0;
-  }
+#{$root} :where(*)#{$unclassed} {
+  box-sizing: border-box;
+}
 
-  html {
-    -webkit-text-size-adjust: 100%;
-  }
+@include element-defaults('*') {
+  margin: 0;
+}
 
-  body {
-    min-height: 100svh;
-    line-height: var(--leading-normal);
-    -webkit-font-smoothing: antialiased;
-  }
+#{$root} :where(*:not(code, pre, kbd, samp)) {
+  font-family: inherit;
+}
 
-  img,
-  picture,
-  svg,
-  video,
-  canvas {
-    display: block;
-    max-width: 100%;
-  }
+@include unclassed-defaults('*:not(small, sub, sup, code, pre, kbd, samp)') {
+  font-size: inherit;
+  color: inherit;
+  line-height: inherit;
+  letter-spacing: inherit;
+}
 
-  input,
-  button,
-  textarea,
-  select {
-    font: inherit;
-    color: inherit;
-  }
+@include element-defaults('img, picture, svg, video, canvas') {
+  display: block;
+  max-width: 100%;
+}
 
-  button {
-    cursor: pointer;
-  }
+@include element-defaults('input, button, textarea, select') {
+  font: inherit;
+  color: inherit;
+}
 
-  button:disabled {
-    cursor: not-allowed;
-  }
+@include element-defaults('button') {
+  cursor: pointer;
+}
 
-  p,
-  h1,
-  h2,
-  h3,
-  h4,
-  h5,
-  h6 {
-    overflow-wrap: break-word;
-  }
+@include element-defaults('button:disabled') {
+  cursor: not-allowed;
+}
 
-  @media (prefers-reduced-motion: reduce) {
-    *,
-    *::before,
-    *::after {
-      animation-duration: 0.01ms !important;
-      animation-iteration-count: 1 !important;
-      transition-duration: 0.01ms !important;
-      scroll-behavior: auto !important;
-    }
+@include element-defaults('p, h1, h2, h3, h4, h5, h6') {
+  overflow-wrap: break-word;
+}
+
+@include element-defaults('h1') {
+  font-size: 2em;
+  font-weight: var(--weight-bold);
+}
+
+@include element-defaults('h2') {
+  font-size: 1.5em;
+  font-weight: var(--weight-bold);
+}
+
+@include element-defaults('h3') {
+  font-size: 1.17em;
+  font-weight: var(--weight-bold);
+}
+
+@include element-defaults('h4') {
+  font-size: 1em;
+  font-weight: var(--weight-bold);
+}
+
+@include element-defaults('h5') {
+  font-size: 0.83em;
+  font-weight: var(--weight-bold);
+}
+
+@include element-defaults('h6') {
+  font-size: 0.67em;
+  font-weight: var(--weight-bold);
+}
+
+@include element-defaults('ul, ol') {
+  padding-inline-start: 2.5rem;
+}
+
+@include element-defaults('ul') {
+  list-style-type: disc;
+}
+
+@include element-defaults('ul ul') {
+  list-style-type: circle;
+}
+
+@include element-defaults('ul ul ul') {
+  list-style-type: square;
+}
+
+@include element-defaults('ol') {
+  list-style-type: decimal;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #{$root-where},
+  #{$root-where} :where(*),
+  #{$root-where} :where(*)::before,
+  #{$root-where} :where(*)::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

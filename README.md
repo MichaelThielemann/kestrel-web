@@ -68,6 +68,10 @@ overrides:
   site's base URL (preview links, SEO fields); it stays empty in dev.
 - Admin UI is built from `layers/admin/app/components/ui` (see `docs/architecture.md` § UI kit first);
   a missing variant is added to the kit.
+- Every admin style rule is bound to the admin roots `.admin` / `.admin-portal` and carries no
+  `@layer`, so the consumer's global CSS does not reach `/admin` and the admin reset does not reach the
+  public site (`docs/architecture.md` § Admin CSS isolation). Consumers are advised to put their own
+  reset in a named `@layer` — defence in depth, not a requirement.
 - No code comments except eslint/ts directives — self-explaining code, explanations in `docs/`.
   English in code and docs.
 

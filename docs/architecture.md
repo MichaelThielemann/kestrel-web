@@ -543,20 +543,62 @@ a new member of `Button.vue`'s `variant` union plus its SCSS block. `primary`, `
 `bare` (native button semantics, no styling — a clickable card, tile or tree row) carry only their own
 modifier class, render the default slot unwrapped, and declare their rules inside `:where(…)`: call-site
 classes win, and properties a call site does not set take the variant's defaults, on the `to` branch as
-well (see the cascade layers below). `icon` honours `size`
+well (see **Admin CSS isolation** below). `icon` honours `size`
 only where the call site sets one (`sm` 1.5rem, `md` 2rem, `lg` 2.5rem square); left out, the box stays at
 1.5rem, so migrating a control to the kit does not resize it. The focus ring of both variants is declared
 outside `:where(…)`, so a call-site `outline: none` on the modifier class cannot remove it. `Button.vue`
 exposes `focus()` for components that move focus after a list edit; it focuses the `to` branch's link as
 well as the button.
 
-`assets/scss/_reset.scss` is wrapped in `@layer reset`. Its element selectors — `button { cursor }` and
-`input, button, textarea, select { font, color }` — outweigh the kit's zero-specificity `:where(…)` variant
-rules, so before the layer an icon button took the reset's `color: inherit` instead of the kit's muted
-token. `_base.scss` keeps its `body` and `a` defaults in `@layer base`, ordered after `reset`, for the same
-reason: an `<a class="ui-button--bare">` would otherwise take the link colour and underline. A cascade
-layer loses to every unlayered rule whatever the specificity, while unlayered call-site classes keep
-winning over `:where(…)`. The `.u-*` utilities and everything else in the admin styles stay unlayered.
+### Admin CSS isolation
+The admin styles share a document with the consumer's own global CSS: Nuxt merges every layer's and the
+app's `css: []` into one stylesheet for all routes, and a consumer's `body { font-family; color }` or
+element selectors reach `/admin` like any other page. Cascade layers cannot hold that off — an unlayered
+declaration beats every layered one whatever its specificity — so the admin styles carry no `@layer` at
+all and win on specificity instead. `assets/scss/_scope.scss` holds the two root selectors and the two
+mixins every rule in `assets/scss/` goes through:
+
+- `$root` is `:is(.admin, .admin-portal)`, specificity (0,1,0). `.admin` is the layout root
+  (`layouts/admin.vue`), `.admin-portal` an admin root rendered outside it — the teleported `Toasts.vue`
+  host and `BootFailure.vue`, which renders instead of the layout. `.admin-portal` is `display: contents`,
+  so it carries the inherited base (font, colour, line height) and the design tokens without adding a box.
+- `_tokens.scss` declares the tokens on `$root`, not on `:root`: a consumer that defines `--color-text` or
+  `--color-border` on `:root` no longer reaches the admin (the admin's own declaration on `.admin` shadows
+  it by inheritance, not by the cascade), and the admin no longer redefines the consumer's tokens on the
+  public site. Only `color-scheme` stays on `:root[data-theme=…]`, because the UA reads it from the
+  document root; the attribute is set by the admin layout, so it exists only on admin routes.
+- `_base.scss` binds the inherited base — `font-family`, `font-size` (`--text-root`), `line-height`,
+  `color`, `-webkit-font-smoothing` — to `$root` (0,1,0), so it outranks the consumer's `body` (0,0,1) and
+  ends inheritance from it.
+- `element-defaults($selectors)` emits every element default twice: once under `:where(.admin,
+  .admin-portal)` (specificity 0, the old behaviour for elements an admin class already styles) and once
+  under `$root` with `:where(:not([class]:not([class=""])))` appended (0,1,0, for elements no admin class
+  touches — an empty `class=""`, which `NuxtLink` renders, counts as unclassed). The guarded copy beats a
+  consumer's element selector while it can never collide with an admin class rule, so the order in which
+  the bundler emits `main.scss` and the component styles does not matter. `unclassed-defaults` emits the
+  guarded copy alone; `_reset.scss` uses it for the inherited properties (`font-size`, `color`,
+  `line-height`, `letter-spacing`). `font-family: inherit` is the one unguarded blanket rule
+  (`$root :where(*:not(code, pre, kbd, samp))`), because no admin class sets a font family except the
+  three that say so explicitly (`Richtext.vue`'s `code`, `SystemEvents.vue`'s mono cell, `Textarea.vue`).
+- The kit's `:where(…)` variant rules (`Button.vue`'s `icon` and `bare`, `FileInput.vue`) are prefixed
+  with `$root`, which lifts them from specificity 0 to (0,1,0): a consumer's `a { color }` or
+  `button { border }` no longer reaches an icon button, while a call-site class still wins — it is
+  declared in the component that uses the kit, and a component's styles are emitted after the styles of
+  the component it imports.
+
+What stays outside this: a consumer's element selector can still win over an *inherited* value on an
+admin element that does carry a class and whose class does not declare that property. The admin closes
+that where it is visible — `Table.vue`'s cells (`color: inherit`), the insights chips and badges,
+`EmptyState.vue`'s and the dashboard's text sizes — and leaves it on invisible ones (an `sr-only` status
+line, the hidden file input). A consumer can shut it off completely by putting its own reset in a named
+`@layer`; that is a recommendation in `README.md`, not something the admin can enforce.
+
+`layers/admin/app/assets/scss/scope.test.ts` compiles `main.scss` with Sass and fails if a rule is not
+bound to `.admin`/`.admin-portal`, if a `@layer` comes back, or if anything but `color-scheme` is
+declared on the document root. That is also what keeps the admin reset off the public site: it is no longer a question of where the stylesheet is imported, the rules simply do not match
+outside the admin. In dev `installAdminClient()` additionally disables foreign stylesheets under
+`/admin` (`utils/admin-style-guard.ts`); production has no such guard, which is why the isolation has to
+hold on its own.
 
 ## UI actions
 Every user-triggered write in `layers/admin` — save, publish, delete, discard, bulk status, media

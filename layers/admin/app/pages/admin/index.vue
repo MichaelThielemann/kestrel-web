@@ -139,6 +139,7 @@ await Promise.all([loadCounts(), loadBroken()])
   }
   &__lede {
     color: var(--color-text-muted);
+    font-size: var(--text-base);
   }
 
   &__alert {

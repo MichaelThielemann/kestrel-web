@@ -212,7 +212,7 @@ function relative(ms: number | null): string { return ms === null ? '—' : huma
     gap: var(--space-2);
   }
 
-  &__mono {
+  &__mono.events__mono {
     font-family: var(--font-mono, monospace);
   }
 

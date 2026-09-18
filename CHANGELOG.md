@@ -194,6 +194,15 @@
   drop-target highlight because the hit test only accepted `HTMLElement`; it now accepts any `Element`.
 - Block picker: a single favourite no longer stretches across the full width of the "Large" view (the
   grid used `auto-fit`, collapsing empty tracks; it now uses `auto-fill`, matching the default grid view).
+- The consumer's global CSS no longer reaches `/admin` (consumer-visible): the admin styles dropped their
+  cascade layers, which lose to every unlayered consumer rule, and bind every rule to the admin roots
+  `.admin` and `.admin-portal` instead — design tokens included, so a consumer's `:root` tokens and the
+  admin's no longer overwrite each other in either direction. A consumer's `body { font-family; color }`,
+  its element selectors and its own reset leave the admin's fonts, colours, headings, links, lists,
+  buttons and form controls unchanged; the kit's `:where(…)` variant rules keep losing to call-site
+  classes. `BootFailure.vue` and the teleported toast host carry `.admin-portal` so they get the same
+  base outside the layout root. Consumers are advised, but not required, to put their own reset in a
+  named `@layer`.
 - Media upload counter stuck at "0 uploaded": the queue mutated a non-reactive object.
 - Redirects could not be saved: `locale` is sent only for collections with a localized field; an
   `additionalProperties` violation gets a plain-language prefix.

@@ -5,11 +5,13 @@ const { t } = useT()
 </script>
 
 <template>
-  <div class="boot-failure">
-    <div class="boot-failure__panel" role="alert">
-      <h1 class="boot-failure__title">{{ t('bootFailure.title') }}</h1>
-      <p class="boot-failure__message">{{ error }}</p>
-      <p class="boot-failure__hint">{{ t('bootFailure.hint') }}</p>
+  <div class="admin-portal">
+    <div class="boot-failure">
+      <div class="boot-failure__panel" role="alert">
+        <h1 class="boot-failure__title">{{ t('bootFailure.title') }}</h1>
+        <p class="boot-failure__message">{{ error }}</p>
+        <p class="boot-failure__hint">{{ t('bootFailure.hint') }}</p>
+      </div>
     </div>
   </div>
 </template>

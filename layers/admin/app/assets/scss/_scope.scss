@@ -1,0 +1,19 @@
+$root: ':is(.admin, .admin-portal)';
+$root-where: ':where(.admin, .admin-portal)';
+$unclassed: ':where(:not([class]:not([class=\'\'])))';
+
+@mixin element-defaults($selectors) {
+  #{$root-where} :where(#{$selectors}) {
+    @content;
+  }
+
+  #{$root} :where(#{$selectors})#{$unclassed} {
+    @content;
+  }
+}
+
+@mixin unclassed-defaults($selectors) {
+  #{$root} :where(#{$selectors})#{$unclassed} {
+    @content;
+  }
+}

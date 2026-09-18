@@ -1,5 +1,6 @@
+@use 'scope' as *;
 
-:root {
+#{$root} {
   --color-bg: #ffffff;
   --color-surface: #ffffff;
   --color-surface-2: #f4f4f5;
@@ -35,6 +36,7 @@
   --space-7: 3rem;
   --space-8: 4rem;
 
+  --text-root: 1rem;
   --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --text-xs: 0.75rem;
   --text-sm: 0.875rem;
@@ -70,9 +72,7 @@
   --content-measure: 72rem;
 }
 
-:root[data-theme="light"] {
-  color-scheme: light;
-
+:root[data-theme="light"] #{$root} {
   --color-bg: #f5f5fa;
   --color-surface: #ffffff;
   --color-surface-2: #f4f4f5;
@@ -108,9 +108,7 @@
   --shadow-lg: 0 10px 28px -10px rgba(16, 24, 40, 0.16);
 }
 
-:root[data-theme="dark"] {
-  color-scheme: dark;
-
+:root[data-theme="dark"] #{$root} {
   --color-bg: #09090b;
   --color-surface: #18181b;
   --color-surface-2: #27272a;
@@ -147,8 +145,16 @@
   --color-primary-on-fill: #818cf8;
 }
 
-:root[data-theme] {
+:root[data-theme] #{$root} {
   --radius-sm: 4px;
   --radius-md: 6px;
   --radius-lg: 8px;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
 }

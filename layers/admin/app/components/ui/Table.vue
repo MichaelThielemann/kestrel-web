@@ -16,6 +16,7 @@ withDefaults(defineProps<{ sticky?: boolean; plain?: boolean }>(), { sticky: tru
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
+  color: var(--color-text);
   font-size: var(--text-sm);
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-md);
@@ -23,6 +24,7 @@ withDefaults(defineProps<{ sticky?: boolean; plain?: boolean }>(), { sticky: tru
 
   th,
   td {
+    color: inherit;
     text-align: start;
     padding: var(--space-2) var(--space-3);
     border-bottom: 1px solid var(--color-border);

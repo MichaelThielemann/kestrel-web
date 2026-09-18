@@ -88,8 +88,6 @@ useHead(() => ({
 .admin {
   display: flex;
   align-items: flex-start;
-  min-height: 100svh;
-  background: var(--color-bg);
 
   --text-base: var(--text-sm);
   --space-2: 0.375rem;

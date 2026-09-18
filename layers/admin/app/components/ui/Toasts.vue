@@ -6,31 +6,32 @@ const { t } = useT()
 
 <template>
   <Teleport to="body">
-
-    <div class="ui-toasts__live" aria-live="polite" role="status">
-      <template v-for="toast in toasts.items" :key="`p-${toast.id}`">
-        <div v-if="toast.type !== 'error'">{{ toast.message }}</div>
-      </template>
-    </div>
-    <div class="ui-toasts__live" aria-live="assertive" role="alert">
-      <template v-for="toast in toasts.items" :key="`a-${toast.id}`">
-        <div v-if="toast.type === 'error'">{{ toast.message }}</div>
-      </template>
-    </div>
-    <div class="ui-toasts" role="region" :aria-label="t('toast.region')">
-      <TransitionGroup name="ui-toast">
-        <div
-          v-for="toast in toasts.items"
-          :key="toast.id"
-          class="ui-toast"
-          :class="`ui-toast--${toast.type}`"
-        >
-          <span class="ui-toast__msg">{{ toast.message }}</span>
-          <button type="button" class="ui-toast__close" :aria-label="t('toast.dismiss')" @click="toasts.dismiss(toast.id)">
-            <KestrelUiIcon name="x" size="0.875rem" />
-          </button>
-        </div>
-      </TransitionGroup>
+    <div class="admin-portal">
+      <div class="ui-toasts__live" aria-live="polite" role="status">
+        <template v-for="toast in toasts.items" :key="`p-${toast.id}`">
+          <div v-if="toast.type !== 'error'">{{ toast.message }}</div>
+        </template>
+      </div>
+      <div class="ui-toasts__live" aria-live="assertive" role="alert">
+        <template v-for="toast in toasts.items" :key="`a-${toast.id}`">
+          <div v-if="toast.type === 'error'">{{ toast.message }}</div>
+        </template>
+      </div>
+      <div class="ui-toasts" role="region" :aria-label="t('toast.region')">
+        <TransitionGroup name="ui-toast">
+          <div
+            v-for="toast in toasts.items"
+            :key="toast.id"
+            class="ui-toast"
+            :class="`ui-toast--${toast.type}`"
+          >
+            <span class="ui-toast__msg">{{ toast.message }}</span>
+            <button type="button" class="ui-toast__close" :aria-label="t('toast.dismiss')" @click="toasts.dismiss(toast.id)">
+              <KestrelUiIcon name="x" size="0.875rem" />
+            </button>
+          </div>
+        </TransitionGroup>
+      </div>
     </div>
   </Teleport>
 </template>

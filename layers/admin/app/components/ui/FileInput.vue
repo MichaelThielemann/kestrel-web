@@ -37,7 +37,9 @@ defineExpose({ open: () => el.value?.click() })
 </template>
 
 <style lang="scss">
-:where(.ui-file-input) {
+@use '../../assets/scss/scope' as *;
+
+#{$root} :where(.ui-file-input) {
   display: none;
 }
 </style>

@@ -31,6 +31,7 @@ defineProps<{ icon?: IconName; title: string; description?: string }>()
     color: var(--color-text-subtle);
   }
   &__title {
+    font-size: var(--text-base);
     font-weight: var(--weight-medium);
     color: var(--color-text);
   }

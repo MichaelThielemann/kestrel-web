@@ -364,6 +364,7 @@ const localizedMenu = computed(() => menuItems.value.map((s) => ({
 
 .media-library__empty {
   color: var(--color-text-muted);
+  font-size: var(--text-base);
   padding: var(--space-6) 0;
   text-align: center;
 }

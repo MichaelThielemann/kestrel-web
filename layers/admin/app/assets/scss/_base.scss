@@ -1,22 +1,35 @@
-@layer base {
-  body {
-    font-family: var(--font-sans);
-    font-size: var(--text-base);
-    color: var(--color-text);
-    background: var(--color-bg);
-  }
+@use 'scope' as *;
 
-  a {
-    color: var(--color-primary);
-  }
+#{$root} {
+  font-family: var(--font-sans);
+  font-size: var(--text-root);
+  line-height: var(--leading-normal);
+  color: var(--color-text);
+  text-size-adjust: 100%;
+  -webkit-text-size-adjust: 100%;
+  -webkit-font-smoothing: antialiased;
 }
 
-.u-measure {
+.admin {
+  min-height: 100svh;
+  background: var(--color-bg);
+}
+
+.admin-portal {
+  display: contents;
+}
+
+@include element-defaults('a') {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+
+#{$root} :where(.u-measure) {
   max-width: var(--content-measure);
   margin-inline: auto;
 }
 
-.u-stack {
+#{$root} :where(.u-stack) {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);

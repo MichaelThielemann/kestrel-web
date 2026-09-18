@@ -68,6 +68,7 @@ defineExpose({ focus })
 
 <style lang="scss">
 @use '../../assets/scss/mixins';
+@use '../../assets/scss/scope' as *;
 
 .ui-button {
   @include mixins.focus-ring;
@@ -157,7 +158,7 @@ defineExpose({ focus })
   }
 }
 
-:where(.ui-button--icon) {
+#{$root} :where(.ui-button--icon) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -172,27 +173,27 @@ defineExpose({ focus })
   text-decoration: none;
   cursor: pointer;
 }
-:where(.ui-button--icon-sm) {
+#{$root} :where(.ui-button--icon-sm) {
   min-inline-size: 1.5rem;
   min-block-size: 1.5rem;
 }
-:where(.ui-button--icon-md) {
+#{$root} :where(.ui-button--icon-md) {
   min-inline-size: 2rem;
   min-block-size: 2rem;
 }
-:where(.ui-button--icon-lg) {
+#{$root} :where(.ui-button--icon-lg) {
   min-inline-size: 2.5rem;
   min-block-size: 2.5rem;
 }
-:where(.ui-button--icon:hover:not(:disabled)) {
+#{$root} :where(.ui-button--icon:hover:not(:disabled)) {
   color: var(--color-text);
 }
-:where(.ui-button--icon:disabled) {
+#{$root} :where(.ui-button--icon:disabled) {
   opacity: 0.6;
   cursor: not-allowed;
 }
 
-:where(.ui-button--bare) {
+#{$root} :where(.ui-button--bare) {
   padding: 0;
   border: 0;
   background: transparent;
@@ -202,7 +203,7 @@ defineExpose({ focus })
   text-decoration: none;
   cursor: pointer;
 }
-:where(.ui-button--bare:disabled) {
+#{$root} :where(.ui-button--bare:disabled) {
   cursor: not-allowed;
 }
 
