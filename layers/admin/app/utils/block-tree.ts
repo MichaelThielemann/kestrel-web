@@ -20,6 +20,7 @@ export interface BlockTreeCtx {
     add: (parentId: string | null, slotName: string | null, type: string) => void
     remove: (id: string) => void
     move: (id: string, dir: -1 | 1) => void
+    reorder: (id: string, toIndex: number) => void
     duplicate: (id: string) => void
     copy: (id: string) => void
     pasteAfter: (id: string) => void
@@ -29,6 +30,7 @@ export interface BlockTreeCtx {
     refresh: () => void
     pasteInto: (parentId: string | null, slotName: string | null) => void
   }
+  announce: (message: string) => void
 }
 
 export function blankBlock(type: string, schemas: Record<string, SerializedBlock>, genId: GenId): BlockRow {
@@ -141,6 +143,13 @@ export function moveById(blocks: BlockRow[], id: string, dir: -1 | 1): BlockRow[
   return updateContaining(blocks, id, (arr, i) => {
     const to = i + dir
     if (to < 0 || to >= arr.length) return arr
+    return reorder(arr, i, to)
+  })
+}
+
+export function moveToIndex(blocks: BlockRow[], id: string, toIndex: number): BlockRow[] {
+  return updateContaining(blocks, id, (arr, i) => {
+    const to = Math.min(Math.max(toIndex, 0), arr.length - 1)
     return reorder(arr, i, to)
   })
 }

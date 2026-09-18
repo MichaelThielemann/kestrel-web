@@ -17,7 +17,7 @@ const f = useEditForm({ collection: props.collection, id: props.id, locale: prop
 
 const {
   formError, saving, submit, dirty, editorType, hasStatus, savedStatus, undo, redo, canUndo, canRedo, pageLike, delivery, deliveryLoading,
-  locale, showCopyTranslation, copySourceLocales, copySourceDefault,
+  locale, showCopyTranslation, copySourceLocales, copySourceDefault, blockErrors, revealError,
 } = f
 
 const renderable = computed(() =>
@@ -84,7 +84,10 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
 <template>
 
   <form :id="formId" class="editor" novalidate @submit.prevent="onSave">
-    <p v-if="formError" class="editor__error" role="alert">{{ formError }}</p>
+    <p v-if="formError" class="editor__error" role="alert">
+      <span>{{ formError }}</span>
+      <button v-if="blockErrors.size" type="button" class="editor__error-action" @click="revealError">{{ t('editor.blocksJumpToFirst') }}</button>
+    </p>
     <KestrelTranslationCopyBanner
       v-if="showCopyTranslation"
       :locale="locale"
@@ -113,11 +116,36 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
   min-height: 0;
 
   &__error {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
     padding: var(--space-3) var(--space-4);
     border: 1px solid var(--color-danger);
     border-radius: var(--radius-sm);
     color: var(--color-danger);
     font-size: var(--text-sm);
+  }
+  &__error-action {
+    flex-shrink: 0;
+    border: 1px solid currentColor;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    padding: var(--space-1) var(--space-2);
+    color: inherit;
+    font: inherit;
+    font-size: var(--text-sm);
+    cursor: pointer;
+    white-space: nowrap;
+
+    &:hover {
+      background: var(--color-danger);
+      color: var(--color-on-danger);
+    }
+    &:focus-visible {
+      outline: 2px solid var(--color-focus);
+      outline-offset: 2px;
+    }
   }
   &__actions {
     display: flex;

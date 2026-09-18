@@ -310,6 +310,10 @@ export function useEditForm(opts: UseEditFormOptions) {
     revealErrorFn = fn
   }
 
+  function revealError() {
+    revealErrorFn?.()
+  }
+
   function deps(): ActionDeps {
     return { api, t, toast }
   }
@@ -364,7 +368,7 @@ export function useEditForm(opts: UseEditFormOptions) {
       setDelivery: (entries) => {
         delivery.value = entries
       },
-      revealError: () => revealErrorFn?.(),
+      revealError,
     }
   }
 
@@ -430,6 +434,7 @@ export function useEditForm(opts: UseEditFormOptions) {
     submit,
     setStatus,
     registerRevealError,
+    revealError,
     undo,
     redo,
     canUndo,

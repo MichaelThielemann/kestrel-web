@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, useId, watch } from 'vue'
 import type { MenuItem } from './ui/Menu.vue'
 import type { BlockRow, BlockTreeCtx } from '../utils/block-tree'
 import { resolveLocalized } from '#kestrel-admin/utils/localized'
@@ -21,14 +21,31 @@ const props = withDefaults(
     slotName?: string | null
 
     root?: boolean
+
+    focusRequest?: { id: string } | null
   }>(),
-  { errorIds: () => new Set<string>(), errorMessages: () => new Map<string, string[]>() },
+  { errorIds: () => new Set<string>(), errorMessages: () => new Map<string, string[]>(), focusRequest: null },
 )
 
 const { t, lang } = useT()
 
 const slotNamesOf = (type: string): string[] => props.ctx.byName[type]?.slots ?? []
 const labelOf = (block: BlockRow): string => resolveLocalized(props.ctx.byName[block.type]?.label, lang.value) ?? block.type
+
+const hasDirectError = (block: BlockRow): boolean => props.errorMessages.has(block.id)
+const hasNestedError = (block: BlockRow): boolean => !hasDirectError(block) && props.errorIds.has(block.id)
+
+const moveHintId = `${useId()}-move-hint`
+
+const rootEl = ref<HTMLElement | null>(null)
+
+watch(() => props.focusRequest, (request) => {
+  if (!props.root || !request) return
+  const el = rootEl.value?.querySelector<HTMLElement>(`[data-block-id="${request.id}"] .block-tree__node-label`)
+  if (!el) return
+  el.focus()
+  if (typeof el.scrollIntoView === 'function') el.scrollIntoView({ block: 'nearest' })
+}, { flush: 'post' })
 
 const picking = ref(false)
 const rowMenu = computed<MenuItem[]>(() => [
@@ -45,6 +62,11 @@ function onRowMenu(id: string, action: string): void {
   else if (action === 'remove') props.ctx.ops.remove(id)
 }
 
+function onMove(block: BlockRow, index: number, dir: -1 | 1): void {
+  props.ctx.ops.move(block.id, dir)
+  props.ctx.announce(t('blocks.moved', { label: labelOf(block), pos: index + dir + 1, total: props.blocks.length }))
+}
+
 function openPicker(): void {
   picking.value = true
   props.ctx.clipboard.refresh()
@@ -58,10 +80,21 @@ function pasteFromPicker(): void {
   picking.value = false
   props.ctx.clipboard.pasteInto(props.parentId ?? null, props.slotName ?? null)
 }
+
+const { listEl, dragIndex, dropGap, onHandleDown, onHandleMove, onHandleUp, onHandleCancel } = useBlockPointerDrag({
+  disabled: () => props.disabled ?? false,
+  count: () => props.blocks.length,
+  commit: (from, to) => {
+    const block = props.blocks[from]
+    if (!block) return
+    props.ctx.ops.reorder(block.id, to)
+    props.ctx.announce(t('blocks.moved', { label: labelOf(block), pos: to + 1, total: props.blocks.length }))
+  },
+})
 </script>
 
 <template>
-  <div class="block-tree">
+  <div ref="rootEl" class="block-tree">
     <button
       v-if="root"
       type="button"
@@ -76,15 +109,36 @@ function pasteFromPicker(): void {
 
     <p v-if="root && !blocks.length" class="block-tree__empty">{{ t('blocks.empty') }}</p>
 
-    <ul class="block-tree__list">
+    <ul ref="listEl" class="block-tree__list">
       <li
         v-for="(block, i) in blocks"
         :key="block.id"
         class="block-tree__node"
-        :class="{ 'block-tree__node--selected': selectedId === block.id }"
+        :class="{
+          'block-tree__node--selected': selectedId === block.id,
+          'block-tree__node--error': hasDirectError(block),
+          'block-tree__node--dragging': dragIndex === i,
+        }"
         :data-type="block.type"
+        :data-block-id="block.id"
+        :aria-invalid="hasDirectError(block) ? 'true' : undefined"
       >
+        <div v-if="dropGap === i" class="block-tree__indicator" aria-hidden="true"></div>
+
         <div class="block-tree__row">
+          <div
+            class="block-tree__handle"
+            :class="{ 'block-tree__handle--disabled': disabled || blocks.length < 2 }"
+            :style="{ touchAction: 'none' }"
+            :title="t('blocks.dragHint')"
+            aria-hidden="true"
+            @pointerdown="onHandleDown(i, $event)"
+            @pointermove="onHandleMove($event)"
+            @pointerup="onHandleUp($event)"
+            @pointercancel="onHandleCancel($event)"
+          >
+            <KestrelUiIcon name="grip" :size="14" />
+          </div>
           <button
             type="button"
             class="block-tree__node-label"
@@ -93,17 +147,25 @@ function pasteFromPicker(): void {
             @click="ctx.ops.select(block.id)"
           >
             <span class="block-tree__node-name">{{ labelOf(block) }}</span>
+            <KestrelUiIcon
+              v-if="hasDirectError(block)"
+              name="triangle-alert"
+              :size="14"
+              class="block-tree__error-icon"
+              :label="t('blocks.hasProblems')"
+              :title="errorMessages.get(block.id)?.join('\n') || t('blocks.hasProblems')"
+            />
             <span
-              v-if="errorIds.has(block.id)"
-              class="block-tree__badge"
+              v-else-if="hasNestedError(block)"
+              class="block-tree__error-dot"
               role="img"
               :aria-label="t('blocks.invalid')"
-              :title="errorMessages.get(block.id)?.join('\n') || t('blocks.invalid')"
-            >!</span>
+              :title="t('blocks.invalid')"
+            ></span>
           </button>
           <div class="block-tree__actions">
-            <button type="button" class="block-tree__btn" :disabled="disabled || i === 0" :aria-label="t('blocks.moveUp', { n: i + 1 })" @click="ctx.ops.move(block.id, -1)"><KestrelUiIcon name="chevron-up" :size="15" /></button>
-            <button type="button" class="block-tree__btn" :disabled="disabled || i === blocks.length - 1" :aria-label="t('blocks.moveDown', { n: i + 1 })" @click="ctx.ops.move(block.id, 1)"><KestrelUiIcon name="chevron-down" :size="15" /></button>
+            <button type="button" class="block-tree__btn" :disabled="disabled || i === 0" :aria-label="t('blocks.moveUp', { n: i + 1 })" :aria-describedby="moveHintId" @click="onMove(block, i, -1)"><KestrelUiIcon name="chevron-up" :size="15" /></button>
+            <button type="button" class="block-tree__btn" :disabled="disabled || i === blocks.length - 1" :aria-label="t('blocks.moveDown', { n: i + 1 })" :aria-describedby="moveHintId" @click="onMove(block, i, 1)"><KestrelUiIcon name="chevron-down" :size="15" /></button>
             <KestrelUiActionMenu
               :items="rowMenu"
               :label="t('blocks.more', { n: i + 1 })"
@@ -113,6 +175,8 @@ function pasteFromPicker(): void {
             ><KestrelUiIcon name="more-horizontal" :size="15" /></KestrelUiActionMenu>
           </div>
         </div>
+
+        <div v-if="i === blocks.length - 1 && dropGap === blocks.length" class="block-tree__indicator block-tree__indicator--after" aria-hidden="true"></div>
 
         <div v-if="slotNamesOf(block.type).length" class="block-tree__slots">
           <div v-for="name in slotNamesOf(block.type)" :key="name" class="block-tree__slot">
@@ -131,6 +195,8 @@ function pasteFromPicker(): void {
         </div>
       </li>
     </ul>
+
+    <p v-if="blocks.length" :id="moveHintId" class="block-tree__sr-only">{{ t('blocks.moveHint') }}</p>
 
     <div class="block-tree__add">
       <button
@@ -161,6 +227,8 @@ function pasteFromPicker(): void {
 </template>
 
 <style lang="scss">
+@use '../assets/scss/mixins';
+
 .block-tree {
   display: flex;
   flex-direction: column;
@@ -233,9 +301,16 @@ function pasteFromPicker(): void {
     gap: 2px;
   }
   &__node {
+    position: relative;
     display: flex;
     flex-direction: column;
     gap: var(--space-1);
+  }
+  &__node--error &__node-name {
+    color: var(--color-danger);
+  }
+  &__node--dragging {
+    opacity: 0.5;
   }
   &__row {
     position: relative;
@@ -245,19 +320,56 @@ function pasteFromPicker(): void {
     border-radius: var(--radius-sm);
   }
 
-  &__badge {
-    display: inline-flex;
+  &__error-icon {
+    flex-shrink: 0;
+    color: var(--color-danger);
+  }
+  &__error-dot {
+    flex-shrink: 0;
+    width: 6px;
+    height: 6px;
+    border-radius: var(--radius-full);
+    background: var(--color-text-muted);
+  }
+
+  &__handle {
+    display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
     width: 1rem;
-    height: 1rem;
+    height: 1.5rem;
+    color: var(--color-text-muted);
+    cursor: grab;
+
+    &:active {
+      cursor: grabbing;
+    }
+  }
+  &__handle--disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+
+  &__indicator {
+    position: absolute;
+    z-index: 1;
+    top: -3px;
+    left: 0;
+    right: 0;
+    height: 2px;
     border-radius: var(--radius-full);
-    background: var(--color-danger-solid);
-    color: var(--color-on-danger);
-    font-size: var(--text-xs);
-    font-weight: var(--weight-bold);
-    line-height: 1;
+    background: var(--color-primary);
+    pointer-events: none;
+
+    &--after {
+      top: auto;
+      bottom: -3px;
+    }
+  }
+
+  &__sr-only {
+    @include mixins.sr-only;
   }
 
   &__actions {
