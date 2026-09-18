@@ -48,12 +48,12 @@ const treeCtx: BlockTreeCtx = {
     remove: tree.remove,
     move: tree.move,
     duplicate: tree.duplicate,
-    copy: clipboard.copy,
-    pasteAfter: clipboard.pasteAfter,
+    copy: (id) => { void clipboard.copy(id) },
+    pasteAfter: (id) => { void clipboard.pasteAfter(id) },
   },
   clipboard: {
     get count() { return clipboard.clipboardCount.value },
-    refresh: clipboard.refresh,
+    refresh: () => { void clipboard.refresh() },
     pasteInto: clipboard.pasteInto,
   },
 }

@@ -1,7 +1,8 @@
 import type { ImagesJob, ImagesPruneResult, ImagesStatus, MediaExportReport, MediaReconcileReport, MigrationsApplyResult, MigrationsDryRunResult, PublishAllReport, RebuildReport, ReplicationRestoreResult, ReplicationSnapshotResult } from '#kestrel-admin/types/api'
-import { defineAction, defineStep, type ActionStep } from '#kestrel-core/app/utils/actions'
+import { defineAction, type ActionStep } from '#kestrel-core/app/utils/actions'
 import { apiErrorCode, apiErrorMessage, apiErrorRunId, apiErrorStatus, withRunId } from '../composables/useApi'
 import { humanizeSize } from '../utils/library'
+import { defineUiStep } from './define'
 import { apiRequest } from './steps/api'
 import { dialogConfirm, guardSelection } from './steps/guard'
 import { opsBusy } from './steps/notify'
@@ -222,7 +223,7 @@ export const migrationsApply = defineAction<MigrationsApplyInput, MigrationsAppl
   always: [opsBusy<MigrationsApplyInput, MigrationsApplyResult>(false)],
 })
 
-const userCreateValidate: ActionStep<UserCreateInput, undefined> = defineStep('user.validate', (ctx) => {
+const userCreateValidate: ActionStep<UserCreateInput, undefined> = defineUiStep('user.validate', (ctx) => {
   const { username, password, ops, deps } = ctx.input
   if (!username.trim()) { ops.setError?.(deps.t('users.usernameRequired')); ctx.fail('users.usernameRequired') }
   if (password.length < 8) { ops.setError?.(deps.t('users.passwordTooShort')); ctx.fail('users.passwordTooShort') }
@@ -247,7 +248,7 @@ export const userCreate = defineAction<UserCreateInput, undefined>({
   always: [opsBusy<UserCreateInput, undefined>(false)],
 })
 
-const userPasswordValidate: ActionStep<UserPasswordInput, undefined> = defineStep('user.validate', (ctx) => {
+const userPasswordValidate: ActionStep<UserPasswordInput, undefined> = defineUiStep('user.validate', (ctx) => {
   const { userId, password, ops, deps } = ctx.input
   if (userId === null) ctx.fail('user.validate')
   if (password.length < 8) { ops.setError?.(deps.t('users.passwordTooShort')); ctx.fail('users.passwordTooShort') }
@@ -408,7 +409,7 @@ export const mediaReconcileDelete = defineAction<MediaReconcileDeleteInput, Medi
   always: [opsBusy<MediaReconcileDeleteInput, MediaReconcileReport>(false)],
 })
 
-const registerSizes: ActionStep<ImagesRegisterInput, ImagesJob> = defineStep('api.request:register', async (ctx) => {
+const registerSizes: ActionStep<ImagesRegisterInput, ImagesJob> = defineUiStep('api.request:register', async (ctx) => {
   if (ctx.input.sizes.length === 0) return
   try {
     await ctx.input.deps.api('/admin/images/sizes', { method: 'PUT', body: { sizes: [...ctx.input.sizes] } })

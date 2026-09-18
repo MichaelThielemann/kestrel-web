@@ -35,7 +35,7 @@ export function blankBlock(type: string, schemas: Record<string, SerializedBlock
 }
 
 export function cloneBlockTree(b: BlockRow, genId: GenId): BlockRow {
-  const copy: BlockRow = { ...b, id: genId(), props: JSON.parse(JSON.stringify(b.props ?? {})) }
+  const copy: BlockRow = { ...b, id: genId(), props: boundaryCast<Record<string, unknown>>(JSON.parse(JSON.stringify(b.props ?? {})), 'json') }
   if (b.slots) {
     copy.slots = Object.fromEntries(
       Object.entries(b.slots).map(([name, arr]) => [name, Array.isArray(arr) ? (arr as BlockRow[]).map((c) => cloneBlockTree(c, genId)) : arr]),
@@ -167,7 +167,7 @@ export function addBlock(
   const block = blankBlock(type, schemas, genId)
   if (parentId === null || slotName === null) return { tree: [...blocks, block], newId: block.id }
   const tree = updateBlock(blocks, parentId, (parent) => {
-    const cur = Array.isArray(parent.slots?.[slotName]) ? (parent.slots![slotName] as BlockRow[]) : []
+    const cur = Array.isArray(parent.slots?.[slotName]) ? (parent.slots[slotName] as BlockRow[]) : []
     return { ...parent, slots: { ...(parent.slots ?? {}), [slotName]: [...cur, block] } }
   })
   return { tree, newId: block.id }
@@ -189,7 +189,7 @@ export function pasteBlocks(
   }
   if (parentId === null || slotName === null) return spliceAfter(blocks)
   return updateBlock(blocks, parentId, (parent) => {
-    const cur = Array.isArray(parent.slots?.[slotName]) ? (parent.slots![slotName] as BlockRow[]) : []
+    const cur = Array.isArray(parent.slots?.[slotName]) ? (parent.slots[slotName] as BlockRow[]) : []
     return { ...parent, slots: { ...(parent.slots ?? {}), [slotName]: spliceAfter(cur) } }
   })
 }

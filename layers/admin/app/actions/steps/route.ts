@@ -1,16 +1,18 @@
-import { defineStep, type ActionContext, type ActionStep } from '#kestrel-core/app/utils/actions'
+import type { ActionContext, ActionStep } from '#kestrel-core/app/utils/actions'
+import { defineUiStep } from '../define'
+import type { UiStepName } from '../step-names'
 import type { Destination, NavigatePort, RefreshPort } from '../types'
 
 export function routeNavigate<I extends { navigate: NavigatePort }, R = unknown>(pick: (ctx: ActionContext<I, R>) => Destination | null): ActionStep<I, R> {
-  return defineStep<I, R>('route.navigate', async (ctx) => {
+  return defineUiStep<I, R>('route.navigate', async (ctx) => {
     const destination = pick(ctx)
     if (!destination) return
     await ctx.input.navigate(destination)
   })
 }
 
-export function refreshStep<I extends { refresh?: RefreshPort }, R = unknown>(name: string): ActionStep<I, R> {
-  return defineStep<I, R>(name, async (ctx) => {
+export function refreshStep<I extends { refresh?: RefreshPort }, R = unknown>(name: UiStepName): ActionStep<I, R> {
+  return defineUiStep<I, R>(name, async (ctx) => {
     await ctx.input.refresh?.()
   })
 }

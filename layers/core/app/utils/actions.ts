@@ -79,7 +79,8 @@ function logStep(actionName: string, stepName: string, started: number, outcome:
   console.debug(`[action] ${actionName}/${stepName} ${outcome} ${Math.round(performance.now() - started)}ms`)
 }
 
-async function runAlways<I, R>(action: ActionDefinition<I, R>, ctx: ActionContext<I, R>): Promise<void> {
+async function runAlways<I, R>(action: ActionDefinition<I, R>, ctx: ActionContext<I, R>): Promise<Error | undefined> {
+  let unexpected: Error | undefined
   for (const step of action.always ?? []) {
     const started = performance.now()
     try {
@@ -89,11 +90,18 @@ async function runAlways<I, R>(action: ActionDefinition<I, R>, ctx: ActionContex
       logStep(action.name, step.name, started, 'error')
       const error = err instanceof Error ? err : new Error(String(err))
       console.error(`action "${action.name}" always step "${step.name}" threw`, error)
+      if (!(err instanceof ActionDone) && !(err instanceof ActionFailure)) unexpected ??= error
     }
   }
+  return unexpected
 }
 
-async function runMain<I, R>(action: ActionDefinition<I, R>, ctx: ActionContext<I, R>): Promise<ActionResult<R>> {
+interface MainOutcome<R> {
+  result: ActionResult<R>
+  unexpected?: Error
+}
+
+async function runMain<I, R>(action: ActionDefinition<I, R>, ctx: ActionContext<I, R>): Promise<MainOutcome<R>> {
   for (const step of action.steps) {
     const started = performance.now()
     try {
@@ -102,25 +110,37 @@ async function runMain<I, R>(action: ActionDefinition<I, R>, ctx: ActionContext<
     } catch (err) {
       if (err instanceof ActionDone) {
         logStep(action.name, step.name, started, 'done')
-        return err.result !== undefined ? { ok: true, result: err.result as R } : { ok: true }
+        return { result: err.result !== undefined ? { ok: true, result: err.result as R } : { ok: true } }
       }
       if (err instanceof ActionFailure) {
         logStep(action.name, step.name, started, 'fail')
-        return err.meta !== undefined ? { ok: false, error: err.message, meta: err.meta } : { ok: false, error: err.message }
+        return { result: err.meta !== undefined ? { ok: false, error: err.message, meta: err.meta } : { ok: false, error: err.message } }
       }
       logStep(action.name, step.name, started, 'error')
       const error = err instanceof Error ? err : new Error(String(err))
       console.error(`action "${action.name}" step "${step.name}" threw`, error)
-      return { ok: false, error: error.message, meta: { action: action.name, step: step.name } }
+      return {
+        result: { ok: false, error: error.message, meta: { action: action.name, step: step.name, unexpected: true } },
+        unexpected: error,
+      }
     }
   }
 
-  return ctx.result !== undefined ? { ok: true, result: ctx.result } : { ok: true }
+  return { result: ctx.result !== undefined ? { ok: true, result: ctx.result } : { ok: true } }
 }
 
-export async function runAction<I, R>(action: ActionDefinition<I, R>, input: I): Promise<ActionResult<R>> {
+export interface RunActionOptions {
+  rethrow?: boolean
+}
+
+export async function runAction<I, R>(action: ActionDefinition<I, R>, input: I, options?: RunActionOptions): Promise<ActionResult<R>> {
+  const rethrow = options?.rethrow ?? import.meta.dev
   const ctx = createContext<I, R>(input)
-  const result = await runMain(action, ctx)
-  await runAlways(action, ctx)
-  return result
+  const main = await runMain(action, ctx)
+  const alwaysUnexpected = await runAlways(action, ctx)
+  if (rethrow) {
+    const unexpected = main.unexpected ?? alwaysUnexpected
+    if (unexpected) throw unexpected
+  }
+  return main.result
 }

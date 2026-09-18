@@ -8,11 +8,10 @@ interface Call { path: string, method: string, body?: unknown, query?: unknown }
 
 function fakeApi(responses: Array<unknown | Error>) {
   const calls: Call[] = []
-  const api = (async (path: string, options?: ApiRequestOptions) => {
+  const api = ((path: string, options?: ApiRequestOptions) => {
     calls.push({ path, method: options?.method ?? 'GET', body: options?.body, query: options?.query })
     const next = responses.shift()
-    if (next instanceof Error) throw next
-    return next
+    return next instanceof Error ? Promise.reject(next) : Promise.resolve(next)
   }) as ApiClient
   return { api, calls }
 }

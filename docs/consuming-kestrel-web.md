@@ -305,7 +305,9 @@ preset:
 ```ts
 // pipelines/index.ts — only needed once you have pipelines of your own
 import { preset } from "~~/kestrel.config";
-import myJob from "./myJob";
+import { definePipeline } from "#kestrel/pipelines";
+
+const myJob = definePipeline({ name: "myJob", steps: ["authn.requireUser", "content.list:pages"] });
 
 export const pipelines = [...preset.pipelines, myJob];
 ```
@@ -313,8 +315,14 @@ export const pipelines = [...preset.pipelines, myJob];
 The Nitro plugin imports `#kestrel/consumer-pipelines`, an alias `layers/core` resolves to your
 `pipelines/index.ts` when that file exists, else to a default that re-exports `preset.pipelines`
 unchanged — so a consumer with no pipelines of its own (like `playground`) needs no `pipelines/` directory
-at all. Your own pipelines are still plain `definePipeline({ name, steps })` files, same as always (see
-`docs/PIPELINES.md`).
+at all. `definePipeline` (exported from `#kestrel/pipelines`, alongside `preset`) is bound to `PresetStep`,
+the union of every step name the preset's modules register, so a misspelled step in your own pipeline
+fails `nuxt typecheck` the same way it does inside `overrides` (see below). If your own pipeline calls
+steps from a module you added yourself, outside the preset's module registry, use
+`pipelineDefiner<PresetStep | StepsOf<typeof myModule>>()` (also exported from
+`@michaelthielemann/kestrel/definePipeline`) to widen the checked union to include that module's steps.
+For pipeline shapes and trigger config beyond what `definePreset` covers, see the backend's own
+[pipeline docs](https://github.com/MichaelThielemann/kestrel/blob/main/docs/pipelines.md).
 
 That alias is resolved once, at Nuxt startup — adding or deleting `pipelines/index.ts` while the dev
 server is running needs a restart to switch between the consumer file and the default.

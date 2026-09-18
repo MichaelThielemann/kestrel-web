@@ -101,21 +101,21 @@ function validateReservedFields(collection: string, def: ContentType): void {
     throw new Error(`collections: "${collection}" is page-like (has "${SLUG_FIELD}") and requires field "${STATUS_FIELD}"`)
   }
 
-  if (SLUG_FIELD in fields && fields[SLUG_FIELD]!.type !== 'slug') {
+  if (SLUG_FIELD in fields && fields[SLUG_FIELD].type !== 'slug') {
     throw new Error(`collections: "${collection}" field "${SLUG_FIELD}" must be type "slug"`)
   }
-  if (TITLE_FIELD in fields && fields[TITLE_FIELD]!.type !== 'text') {
+  if (TITLE_FIELD in fields && fields[TITLE_FIELD].type !== 'text') {
     throw new Error(`collections: "${collection}" field "${TITLE_FIELD}" must be type "text"`)
   }
-  if (BODY_FIELD in fields && fields[BODY_FIELD]!.type !== 'json') {
+  if (BODY_FIELD in fields && fields[BODY_FIELD].type !== 'json') {
     throw new Error(`collections: "${collection}" field "${BODY_FIELD}" must be type "json"`)
   }
-  if (SEO_FIELD in fields && fields[SEO_FIELD]!.type !== 'json') {
+  if (SEO_FIELD in fields && fields[SEO_FIELD].type !== 'json') {
     throw new Error(`collections: "${collection}" field "${SEO_FIELD}" must be type "json"`)
   }
 
   if (STATUS_FIELD in fields) {
-    const statusDef = fields[STATUS_FIELD]!
+    const statusDef = fields[STATUS_FIELD]
     if (statusDef.type !== 'enum') {
       throw new Error(`collections: "${collection}" field "${STATUS_FIELD}" must be type "enum"`)
     }
@@ -173,7 +173,7 @@ function validateUiFields(collection: string, def: ContentType, u: CollectionUi)
   if (u.fieldLayout) validateLayout(collection, known, u.fieldLayout)
 
   if (LAYOUT_FIELD in def.fields) {
-    const layoutDef = def.fields[LAYOUT_FIELD]!
+    const layoutDef = def.fields[LAYOUT_FIELD]
     if (layoutDef.type !== 'text') throw new Error(`collections: "${collection}" field "${LAYOUT_FIELD}" must be type "text"`)
     if (layoutDef.localized) throw new Error(`collections: "${collection}" field "${LAYOUT_FIELD}" must not be localized`)
     if (u.fieldLayout) {

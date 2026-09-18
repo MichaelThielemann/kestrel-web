@@ -50,8 +50,24 @@ one of `"json"` (`JSON.parse`/fixture data), `"ast"` (a third-party parser's nod
 library without types) or `"host"` (augmenting a host/global object) — the only kinds of untyped-source
 crossing it may be used at. Server and build code imports it from `@michaelthielemann/kestrel/cast`
 (`packages/core/src/cast.ts` in the backend repo); app/browser code, which does not bundle runtime code
-from the core package, imports the byte-identical `layers/core/app/utils/cast.ts` via the `#kestrel/cast`
-alias (`layers/core/nuxt.config.ts`, the same mechanism as `#kestrel/pipelines`/`#kestrel/modules`).
+from the core package, imports the same function from `layers/core/app/utils/cast.ts` via the
+`#kestrel/cast` alias (`layers/core/nuxt.config.ts`, the same mechanism as `#kestrel/pipelines`/`#kestrel/modules`).
+
+Type-aware lint (`await-thenable`, `no-floating-promises`, `no-misused-promises`,
+`no-unnecessary-type-assertion`, `no-unsafe-argument`, `no-unsafe-assignment`, `no-unsafe-call`,
+`no-unsafe-member-access`, `no-unsafe-return`, `require-await`, `restrict-template-expressions`) covers
+every layer, `packages/renderer-nuxt` and `playground`, in both `.ts` and `.vue` files
+(`playground/eslint.config.mjs`'s `kestrel/type-aware` and `kestrel/type-aware-server` blocks). Each
+block picks the `parserOptions.project` matching its files: `kestrel/type-aware` uses
+`playground/.nuxt/tsconfig.app.json` for `layers/*/app/**` and `playground/app/**`;
+`kestrel/type-aware-server` uses `playground/.nuxt/tsconfig.server.json` for server, pipeline, module
+and registry code; both fall back to `playground/tsconfig.json` for files the app/server project
+doesn't include (e.g. `layers/core/pipelines`, per-layer `nuxt.config.ts`). `.vue` files need
+`extraFileExtensions: ['.vue']` on the app block only, since only app code has `.vue` sources. A `.vue`
+file's own default export cannot be resolved through a plain `.ts` import (no `declare module '*.vue'`
+shim in this project) — `field-registry.ts`, `register-builtin-editors.ts` and `InsightsGraph.vue` cast
+such imports to `Component` (or `Promise<{ default: Component }>` for `defineAsyncComponent`) at the
+point of use rather than relying on the broken inferred type.
 
 ## Runtime
 ```
@@ -67,16 +83,26 @@ Nitro  server/api/[...].ts  →  createKestrelHandler(kestrel, { mountPath: "/ap
 ```
 `GET /api/health` is liveness only: it answers `{ ok: true, uptimeSeconds }` as long as the process
 runs, whatever the backend does. `GET /api/ready` is readiness: 200 `{ ready: true, uptimeSeconds }`
-once the boot promise has resolved, otherwise 503 `{ ready: false, state, error? }` with `state` one of
-`booting`, `failed` (boot rejected) or `degraded` (booted, but the persistence probe failed). The probe
-is a `count()` on the first collection of the content module's `types` — the module registering
-`content.create`; without a content module the probe is skipped. Use `/api/health` for a restart policy
-and `/api/ready` for load-balancer traffic.
+once the boot promise has resolved, otherwise 503 `{ ready: false, state, error?, code }` with `state`
+(and `code`, the same value — `useApi()`'s generic `ApiError.code` is how the admin layout reads it
+without a bespoke fetch) one of `booting`, `failed` (boot rejected) or `degraded` (booted, but the
+persistence probe failed). The probe is a `count()` on the first collection of the content module's
+`types` — the module registering `content.create`; without a content module the probe is skipped. Use
+`/api/health` for a restart policy and `/api/ready` for load-balancer traffic.
 
 A failed boot is loud: `server/plugins/kestrel.ts` logs it through the Kestrel `consoleLogger`
 (`module` + `reason` from `KestrelBootError`), keeps the state observable via its exported
 `getKestrelState()`, answers every `/api/*` request with 503 instead of 500, and — outside `nuxt dev` —
 exits the process with code 1. The `close` hook skips `stop()` after a failed boot.
+
+In dev, `recordBootFailure` also prints a multi-line banner (`module`, `reason`, the hint to fix
+`kestrel.config.ts` and restart) through the same `consoleLogger`, one line per call, so a broken config
+does not scroll off as a single JSON line among many. `layers/admin`'s `admin` layout — the layout every
+admin page, including `login.vue`, renders under — calls `GET /api/ready` once on mount
+(`useBootStatus`); when it reports `state: "failed"`, the layout renders a full-page notice (`role="alert"`,
+the boot error, a hint to check the server log) instead of the rail and the page's own content, so a
+broken backend cannot be mistaken for an ordinary login screen. There is no polling: the check runs once
+per app load.
 
 The Nitro plugin registers the image sizes declared by blocks and layers (`imageSizes` from
 `#kestrel/image-sizes`) after `kestrel.start()`, by running the triggerless preset pipeline
@@ -89,10 +115,12 @@ would 404.
 `layers/core`'s server utils identify submodules by the steps they register, not by package name
 (`server/utils/modules.ts`): `media.upload` for the upload limit (`server/utils/limits.ts`),
 `sanitize.svg` for `http.inlineTypes` (`server/utils/inline-types.ts`), `images.register` for the
-`publicPath` check, `content.create` for the readiness probe. A drop-in replacement for any of those
-modules works without touching `layers/core`. A configured media module whose `maxBytes` cannot be
-determined — not in the entry config and not defaulted by the module's own `configSchema` — fails the
-boot with a clear message instead of silently dropping the limit.
+`publicPath` check, `content.create` for the readiness probe. The owning module name comes from the
+booted instance's `kestrel.steps.owner(step)` — the real step registry, not a pre-boot probe of each
+module's `steps()` factory — so all four callers run after `boot()`/`kestrel.start()` resolves. A
+drop-in replacement for any of those modules works without touching `layers/core`. A configured media
+module whose `maxBytes` cannot be determined — not in the entry config and not defaulted by the module's
+own `configSchema` — fails the boot with a clear message instead of silently dropping the limit.
 
 `kestrel.config.ts` (triggers, module config, and the exported `preset` from `definePreset` — see
 **Pipeline presets**) is a consumer file at the app root. `kestrel.modules.ts` and `pipelines/index.ts`
@@ -357,19 +385,27 @@ outside it.
 |---|---|
 | `defineStep(name, run)` | One named step. `run` receives the context and may be async. |
 | `defineAction({ name, steps, always? })` | Validates the definition (non-empty name, at least one step, every step named) and returns it. |
-| `runAction(action, input)` | Runs it, returning `{ ok: true, result? }` or `{ ok: false, error, meta? }`. |
+| `runAction(action, input, options?)` | Runs it, returning `{ ok: true, result? }` or `{ ok: false, error, meta? }`. `options.rethrow` (default `import.meta.dev`) picks dev or production behaviour for an unexpected throw — see below. |
 | `setActionDebug(enabled)` | Turns per-step logging on. |
 
 The context a step sees is `{ input, result?, fail(message, meta?), done(result?) }`. `fail` and `done`
-throw markers (`ActionFailure` / `ActionDone`) that the runner catches — the same idea as the backend's
-`PipelineFailure` / `PipelineDone`. `ctx.result` starts `undefined`; the first step of an action that
-carries a result seeds it, and later steps read and extend it. A step that throws anything else is
-turned into `{ ok: false, error, meta: { action, step } }` and logged with `console.error`.
+throw markers (`ActionFailure` / `ActionDone`) that the runner catches and turns into an `ActionResult`.
+The backend's own steps never throw for control flow: `ctx.fail(...)` returns an `Err` and `ctx.done(...)`
+an `Ok`, both ordinary `Result` values the pipeline runner inspects. `ctx.result` starts `undefined`; the first step of an action that
+carries a result seeds it, and later steps read and extend it. A step that throws anything that is
+neither marker is a bug, not a designed failure, so the runner never disguises it as one: it is always
+logged with `console.error`, and then, in dev (`import.meta.dev`, overridable through `runAction`'s third
+argument so tests don't have to stub a global), rethrown — the exception surfaces as an unhandled
+rejection instead of a toast, the same as any other uncaught bug. In production it becomes
+`{ ok: false, error, meta: { action, step, unexpected: true } }` instead.
 
 `always` steps run after the main loop in **every** outcome — a clean pass, `ctx.done`, `ctx.fail` and
 an unexpected throw — and cannot change the action's result. They are how a `try/finally` is expressed:
 the flags a run switched on (`form.saving`, `ops.busy`) and the refreshes that must happen even after a
-failed write go there.
+failed write go there. The same dev/production split applies to an `always` step's own unexpected throw,
+except every remaining `always` step still runs first — cleanup is never skipped — and only then, in dev,
+is the throw rethrown; a marker thrown from an `always` step (already meaningless there) is just logged,
+never rethrown.
 
 `runtimeConfig.public.kestrelDebugActions` (set it from a consumer's `nuxt.config.ts` or
 `NUXT_PUBLIC_KESTREL_DEBUG_ACTIONS`) makes `plugins/actions-debug.client.ts` call `setActionDebug(true)`,
@@ -395,7 +431,8 @@ The reason is the test setup: `vitest.config.ts` declares `test.projects`, and e
 `layers/admin/app/actions/**`:
 
 - imports from `#kestrel/*` must be `import type` only, so nothing needs the alias at runtime;
-- runtime imports use relative paths, including `../../../../core/app/utils/actions` for the runner.
+- runtime imports use `#kestrel-core/...`, including `#kestrel-core/app/utils/actions` for the runner —
+  a relative path that walks into another layer is a lint error (`kestrel/layer-boundaries`).
 
 One relative import does pull a `#kestrel-admin/*` module at runtime (`../../utils/edit-form` imports
 `#kestrel-admin/utils/field-empty`), so only the `admin` project (`layers/admin/**/*.test.ts`) carries the
@@ -405,6 +442,17 @@ One relative import does pull a `#kestrel-admin/*` module at runtime (`../../uti
 Steps live in `layers/admin/app/actions/steps/`. Each is either a plain step or a factory that takes
 declarative configuration — plain strings and pure functions of `ctx` — and returns one. A factory never
 receives a component, a composable, a ref or a reactive object.
+
+Every step in `actions/**` is declared with `defineUiStep(name, run)` (`layers/admin/app/actions/define.ts`),
+a thin wrapper over the core `defineStep` — the core runner stays generic and has no notion of a fixed step
+catalogue. `defineUiStep`'s `name` is typed `UiStepName`, the union exported by
+`layers/admin/app/actions/step-names.ts` as `uiStepNames` (a `const` array covering every step name used
+in `actions/**`, including the parametrised ones — `form.saving:on`/`:off`, `ops.busy:on`/`:off`,
+`media.each:files`/`:folders`, `data.reload:files`/`:folders`, `api.request:register`, `api.request:sync`
+— spelled out individually rather than as a template type). A misspelled step name is a `tsc` error, not a
+runtime surprise. `defineUiStep` also records every name it is called with in an exported `Set`;
+`actions/step-names.test.ts` imports every action module and asserts the two directions match: nothing is
+registered that isn't in `uiStepNames`, and nothing in `uiStepNames` goes unregistered.
 
 | step | file | what it does |
 |---|---|---|
@@ -529,6 +577,16 @@ A few steps are inline in their action file rather than shared, because only one
 before the flag went up leaves a concurrent run alone. An `*.outcome` step is for the other case — a
 failure that was deliberately collected in `ctx.result` (so that the mapping steps after it still run)
 and has to become a visible failure at the end; `form.outcome` is the only one.
+
+`meta.unexpected` (see **The runner**) is attached by `runAction` itself, after every step — main and
+`always` — has already run, so no step can inspect it to decide whether to toast. `useEditForm`'s
+`submit`/`setStatus`/`copyTranslation`, `useListBatchActions`'s `askDelete`/`confirmDelete`/`setStatus` and
+`useMediaUpload`'s upload call `toastUnexpected(deps, result)` (`layers/admin/app/actions/steps/notify.ts`)
+right after `runAction` resolves, which shows `toast.unexpected` ("Unerwarteter Fehler, Details in der
+Browser-Konsole" / "Unexpected error, details in the browser console") exactly when `meta.unexpected` is
+`true`. Other `runAction` call sites — the system-screen components and dialogs — don't have this fallback
+yet; they surface an unexpected failure the way they always have, through whatever inline error or toast
+step the action itself defines (often none, in production).
 
 Per-item loops choose their policy explicitly: `'continue'` for bulk status and bulk delete, which
 report every failure and act on the partial success, `'stop'` for media delete and multi-target move,

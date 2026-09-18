@@ -12,7 +12,7 @@ export function useListUrlState(schema: SerializedCollection) {
   const validSortKeys = sortableKeys(schema)
 
   function firstStr(v: unknown): string | undefined {
-    const s = Array.isArray(v) ? v[0] : v
+    const s = Array.isArray(v) ? (v as unknown[])[0] : v
     return typeof s === 'string' ? s : undefined
   }
 

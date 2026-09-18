@@ -1,3 +1,5 @@
+import type { Provenance } from '#kestrel-admin/types/api'
+
 export interface MediaMetaLoaded {
   alt: string | null
   title: string | null
@@ -11,6 +13,9 @@ export interface MediaMetaCurrent {
 }
 
 export type MediaMetaFields = Partial<{ alt: string | null, title: string | null, description: string | null }>
+
+export interface MediaMetaSave { locale: string; fields: MediaMetaFields }
+export interface MediaViewerSave { provenance?: Provenance; meta?: MediaMetaSave }
 
 export function changedMetaFields(loaded: MediaMetaLoaded, current: MediaMetaCurrent): MediaMetaFields {
   const fields: MediaMetaFields = {}

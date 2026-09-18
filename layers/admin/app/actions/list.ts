@@ -1,4 +1,4 @@
-import { defineAction } from '#kestrel-core/app/utils/actions'
+import { defineAction, type ActionContext } from '#kestrel-core/app/utils/actions'
 import { withRunId } from '../composables/useApi'
 import { referencedBy } from '../utils/references'
 import { previewDeleteAction } from './shared'
@@ -7,6 +7,11 @@ import { dialogConfirm, guardAnySucceeded, guardSelection } from './steps/guard'
 import { opsBusy, opsError, toastSummary, toastSuccess } from './steps/notify'
 import { listRefresh } from './steps/route'
 import type { BusyPort, EachReport, RefreshPort, WithDeps } from './types'
+
+function eachReport<I, T>(ctx: ActionContext<I, EachReport<T>>, step: string): EachReport<T> {
+  if (ctx.result === undefined) throw new Error(`api.each must run before ${step}`)
+  return ctx.result
+}
 
 export interface BulkStatusInput extends WithDeps {
   collection: string
@@ -47,7 +52,7 @@ export const bulkSetStatus = defineAction<BulkStatusInput, EachReport<unknown>>(
     }),
     opsError<BulkStatusInput, EachReport<unknown>>((ctx) => (ctx.result && ctx.result.failed > 0 ? ctx.result.lastMessage : null)),
     toastSummary<BulkStatusInput, EachReport<unknown>>((ctx) => ({
-      report: ctx.result!,
+      report: eachReport(ctx, 'toastSummary'),
       successKey: ctx.input.status === 'published' ? 'toast.published' : 'toast.unpublished',
     })),
     listRefresh<BulkStatusInput, EachReport<unknown>>(),

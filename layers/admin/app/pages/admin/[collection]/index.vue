@@ -4,7 +4,7 @@ import { resolveLocalized } from '#kestrel-admin/utils/localized'
 definePageMeta({
   layout: 'admin',
   middleware: 'admin-auth',
-  key: (route) => `${route.params.collection}::${typeof route.query.locale === 'string' ? route.query.locale : ''}`,
+  key: (route) => `${String(route.params.collection)}::${typeof route.query.locale === 'string' ? route.query.locale : ''}`,
 })
 
 const route = useRoute()
@@ -14,7 +14,7 @@ const { primary } = useContentLocales()
 
 const { t, lang } = useT()
 const { load } = useCollections()
-const collections = await load()
+const collections = load()
 const def = collections.find((c) => c.name === collection) ?? null
 
 const listLocale = computed(() => (def?.translatable ? (localeParam.value || primary) : undefined))

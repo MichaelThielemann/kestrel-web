@@ -9,11 +9,10 @@ interface Call { path: string, method: string, body?: unknown, query?: unknown }
 
 function fakeApi(responses: Array<unknown | Error>) {
   const calls: Call[] = []
-  const api = (async (path: string, options?: ApiRequestOptions) => {
+  const api = ((path: string, options?: ApiRequestOptions) => {
     calls.push({ path, method: options?.method ?? 'GET', body: options?.body, query: options?.query })
     const next = responses.shift()
-    if (next instanceof Error) throw next
-    return next
+    return next instanceof Error ? Promise.reject(next) : Promise.resolve(next)
   }) as ApiClient
   return { api, calls }
 }
@@ -46,7 +45,7 @@ describe('createFolder', () => {
   it('creates a folder and refreshes', async () => {
     const { deps, calls } = fakeDeps([{ folder: 'a/b', count: 0 }])
     const ops = fakeOps()
-    const refresh = vi.fn(async () => undefined)
+    const refresh = vi.fn(() => undefined)
 
     const result = await runAction(createFolder, { deps, path: 'a/b', ops, refresh })
 
@@ -59,7 +58,7 @@ describe('createFolder', () => {
   it('maps a 404 and skips the refresh', async () => {
     const { deps } = fakeDeps([apiError(404, 'nope')])
     const ops = fakeOps()
-    const refresh = vi.fn(async () => undefined)
+    const refresh = vi.fn(() => undefined)
 
     const result = await runAction(createFolder, { deps, path: 'a/b', ops, refresh })
 
@@ -73,7 +72,7 @@ describe('createFolder', () => {
     const { deps } = fakeDeps([apiError(409, 'conflict')])
     const ops = fakeOps()
 
-    await runAction(createFolder, { deps, path: 'a/b', ops, refresh: vi.fn(async () => undefined) })
+    await runAction(createFolder, { deps, path: 'a/b', ops, refresh: vi.fn(() => undefined) })
 
     expect(ops.setError).toHaveBeenCalledWith('media.folderConflict')
   })
@@ -82,7 +81,7 @@ describe('createFolder', () => {
     const { deps } = fakeDeps([apiError(500, 'boom')])
     const ops = fakeOps()
 
-    await runAction(createFolder, { deps, path: 'a/b', ops, refresh: vi.fn(async () => undefined) })
+    await runAction(createFolder, { deps, path: 'a/b', ops, refresh: vi.fn(() => undefined) })
 
     expect(ops.setError).toHaveBeenCalledWith('boom')
   })
@@ -94,7 +93,7 @@ describe('renameOrMove', () => {
     const ops = fakeOps()
 
     const result = await runAction(renameOrMove, {
-      deps, target: { kind: 'file-rename', id: 'f1', filename: 'new.jpg' }, notify: 'inline', ops, refresh: vi.fn(async () => undefined),
+      deps, target: { kind: 'file-rename', id: 'f1', filename: 'new.jpg' }, notify: 'inline', ops, refresh: vi.fn(() => undefined),
     })
 
     expect(result.ok).toBe(true)
@@ -106,7 +105,7 @@ describe('renameOrMove', () => {
     const ops = fakeOps()
 
     const result = await runAction(renameOrMove, {
-      deps, target: { kind: 'file-rename', id: 'f1', filename: 'new.jpg' }, notify: 'toast', ops, refresh: vi.fn(async () => undefined),
+      deps, target: { kind: 'file-rename', id: 'f1', filename: 'new.jpg' }, notify: 'toast', ops, refresh: vi.fn(() => undefined),
     })
 
     expect(result.ok).toBe(false)
@@ -119,7 +118,7 @@ describe('renameOrMove', () => {
     const ops = fakeOps()
 
     await runAction(renameOrMove, {
-      deps, target: { kind: 'file-rename', id: 'f1', filename: 'new.jpg' }, notify: 'toast', ops, refresh: vi.fn(async () => undefined),
+      deps, target: { kind: 'file-rename', id: 'f1', filename: 'new.jpg' }, notify: 'toast', ops, refresh: vi.fn(() => undefined),
     })
 
     expect(toast.error).toHaveBeenCalledWith('boom (run-7)')
@@ -131,7 +130,7 @@ describe('renameOrMove', () => {
     const ops = fakeOps()
 
     const result = await runAction(renameOrMove, {
-      deps, target: { kind: 'folder-rename', path: 'a/b', name: 'renamed' }, notify: 'inline', ops, refresh: vi.fn(async () => undefined),
+      deps, target: { kind: 'folder-rename', path: 'a/b', name: 'renamed' }, notify: 'inline', ops, refresh: vi.fn(() => undefined),
     })
 
     expect(calls).toEqual([{ path: '/media/folders/a/b', method: 'PATCH', body: { path: 'a/renamed' }, query: undefined }])
@@ -142,7 +141,7 @@ describe('renameOrMove', () => {
   it('moves two files with one PATCH each', async () => {
     const { deps, calls } = fakeDeps([{}, {}])
     const ops = fakeOps()
-    const refresh = vi.fn(async () => undefined)
+    const refresh = vi.fn(() => undefined)
 
     const result = await runAction(renameOrMove, {
       deps,
@@ -163,7 +162,7 @@ describe('renameOrMove', () => {
   it('skips a folder moved onto itself or into its own descendant', async () => {
     const { deps, calls } = fakeDeps([])
     const ops = fakeOps()
-    const refresh = vi.fn(async () => undefined)
+    const refresh = vi.fn(() => undefined)
 
     const intoSelf = await runAction(renameOrMove, {
       deps, target: { kind: 'move', targets: [{ type: 'folder', path: 'a/b' }], dest: 'a/b' }, notify: 'inline', ops, refresh,
@@ -180,7 +179,7 @@ describe('renameOrMove', () => {
   it('stops a move at the first failed target', async () => {
     const { deps, calls } = fakeDeps([apiError(500, 'boom')])
     const ops = fakeOps()
-    const refresh = vi.fn(async () => undefined)
+    const refresh = vi.fn(() => undefined)
 
     const result = await runAction(renameOrMove, {
       deps,
@@ -199,13 +198,13 @@ describe('renameOrMove', () => {
   it('only toasts the failure when notify is toast', async () => {
     const { deps: inlineDeps, toast: inlineToast } = fakeDeps([apiError(500, 'boom')])
     await runAction(renameOrMove, {
-      deps: inlineDeps, target: { kind: 'file-rename', id: 'f1', filename: 'x' }, notify: 'inline', ops: fakeOps(), refresh: vi.fn(async () => undefined),
+      deps: inlineDeps, target: { kind: 'file-rename', id: 'f1', filename: 'x' }, notify: 'inline', ops: fakeOps(), refresh: vi.fn(() => undefined),
     })
     expect(inlineToast.error).not.toHaveBeenCalled()
 
     const { deps: toastDeps, toast: toastToast } = fakeDeps([apiError(500, 'boom')])
     await runAction(renameOrMove, {
-      deps: toastDeps, target: { kind: 'file-rename', id: 'f1', filename: 'x' }, notify: 'toast', ops: fakeOps(), refresh: vi.fn(async () => undefined),
+      deps: toastDeps, target: { kind: 'file-rename', id: 'f1', filename: 'x' }, notify: 'toast', ops: fakeOps(), refresh: vi.fn(() => undefined),
     })
     expect(toastToast.error).toHaveBeenCalledWith('boom')
   })
@@ -221,7 +220,7 @@ describe('deleteItems', () => {
 
   it('does nothing when the dialog was not confirmed', async () => {
     const { deps, calls } = fakeDeps([])
-    const refresh = vi.fn(async () => undefined)
+    const refresh = vi.fn(() => undefined)
 
     const result = await runAction(deleteItems, {
       deps, files: [file('f1', 'a.png')], folderPaths: [], recursive: false, confirmed: false, ops: fakeOps(), refresh,
@@ -234,7 +233,7 @@ describe('deleteItems', () => {
 
   it('deletes two files and toasts the requested count', async () => {
     const { deps, calls, toast } = fakeDeps([null, null])
-    const refresh = vi.fn(async () => undefined)
+    const refresh = vi.fn(() => undefined)
 
     const result = await runAction(deleteItems, {
       deps, files: [file('f1', 'a.png'), file('f2', 'b.png')], folderPaths: [], recursive: false, confirmed: true, ops: fakeOps(), refresh,
@@ -251,7 +250,7 @@ describe('deleteItems', () => {
 
   it('parses a 409 after a passed precheck and reports the referrers instead of the raw message', async () => {
     const { deps } = fakeDeps([apiError(409, 'media/f1 is referenced by pages/p1 (hero), pages/p2 (body)')])
-    const refresh = vi.fn(async () => undefined)
+    const refresh = vi.fn(() => undefined)
     const ops = fakeOps()
 
     const result = await runAction(deleteItems, {
@@ -273,7 +272,7 @@ describe('deleteItems', () => {
     const ops = fakeOps()
 
     await runAction(deleteItems, {
-      deps, files: [file('f1', 'a.png')], folderPaths: [], recursive: false, confirmed: true, ops, refresh: vi.fn(async () => undefined),
+      deps, files: [file('f1', 'a.png')], folderPaths: [], recursive: false, confirmed: true, ops, refresh: vi.fn(() => undefined),
     })
 
     expect(ops.setConflict).toHaveBeenCalledWith([{ type: 'pages', id: 'p3', field: 'gallery' }])
@@ -281,21 +280,21 @@ describe('deleteItems', () => {
 
   it('reloads exactly once per non-empty category, twice when both are non-empty', async () => {
     const filesOnly = fakeDeps([null])
-    const filesOnlyRefresh = vi.fn(async () => undefined)
+    const filesOnlyRefresh = vi.fn(() => undefined)
     await runAction(deleteItems, {
       deps: filesOnly.deps, files: [file('f1', 'a.png')], folderPaths: [], recursive: false, confirmed: true, ops: fakeOps(), refresh: filesOnlyRefresh,
     })
     expect(filesOnlyRefresh).toHaveBeenCalledTimes(1)
 
     const foldersOnly = fakeDeps([null])
-    const foldersOnlyRefresh = vi.fn(async () => undefined)
+    const foldersOnlyRefresh = vi.fn(() => undefined)
     await runAction(deleteItems, {
       deps: foldersOnly.deps, files: [], folderPaths: ['a/b'], recursive: false, confirmed: true, ops: fakeOps(), refresh: foldersOnlyRefresh,
     })
     expect(foldersOnlyRefresh).toHaveBeenCalledTimes(1)
 
     const mixed = fakeDeps([null, null])
-    const mixedRefresh = vi.fn(async () => undefined)
+    const mixedRefresh = vi.fn(() => undefined)
     await runAction(deleteItems, {
       deps: mixed.deps, files: [file('f1', 'a.png')], folderPaths: ['a/b'], recursive: false, confirmed: true, ops: fakeOps(), refresh: mixedRefresh,
     })
@@ -305,7 +304,7 @@ describe('deleteItems', () => {
   it('stops the file loop at the first failure but still refreshes', async () => {
     const { deps, calls, toast } = fakeDeps([apiError(409, 'in use')])
     const ops = fakeOps()
-    const refresh = vi.fn(async () => undefined)
+    const refresh = vi.fn(() => undefined)
 
     const result = await runAction(deleteItems, {
       deps, files: [file('f1', 'a.png'), file('f2', 'b.png')], folderPaths: ['x'], recursive: false, confirmed: true, ops, refresh,
@@ -320,7 +319,7 @@ describe('deleteItems', () => {
 
   it('deletes folders after files and only sends recursive when asked', async () => {
     const { deps, calls } = fakeDeps([null])
-    const refresh = vi.fn(async () => undefined)
+    const refresh = vi.fn(() => undefined)
     const result = await runAction(deleteItems, {
       deps, files: [], folderPaths: ['a/b'], recursive: true, confirmed: true, ops: fakeOps(), refresh,
     })
@@ -332,7 +331,7 @@ describe('deleteItems', () => {
 
   it('stops the folder loop at the first failure and does not attempt the rest', async () => {
     const { deps, calls } = fakeDeps([null, apiError(500, 'boom')])
-    const refresh = vi.fn(async () => undefined)
+    const refresh = vi.fn(() => undefined)
 
     const result = await runAction(deleteItems, {
       deps, files: [], folderPaths: ['a', 'b', 'c'], recursive: false, confirmed: true, ops: fakeOps(), refresh,
@@ -451,7 +450,7 @@ describe('setMediaMeta', () => {
   it('patches locale and fields, then refreshes', async () => {
     const { deps, calls } = fakeDeps([{ id: 'f1' }])
     const ops = fakeOps()
-    const refresh = vi.fn(async () => undefined)
+    const refresh = vi.fn(() => undefined)
 
     const result = await runAction(setMediaMeta, { deps, id: 'f1', locale: 'en', fields: { alt: 'a photo' }, ops, refresh })
 
@@ -464,7 +463,7 @@ describe('setMediaMeta', () => {
   it('reports the error and skips the refresh on failure', async () => {
     const { deps } = fakeDeps([apiError(500, 'boom')])
     const ops = fakeOps()
-    const refresh = vi.fn(async () => undefined)
+    const refresh = vi.fn(() => undefined)
 
     const result = await runAction(setMediaMeta, { deps, id: 'f1', locale: 'en', fields: { alt: 'a photo' }, ops, refresh })
 
@@ -478,7 +477,7 @@ describe('setMediaProvenance', () => {
   it('patches provenance, then refreshes', async () => {
     const { deps, calls } = fakeDeps([{ id: 'f1' }])
     const ops = fakeOps()
-    const refresh = vi.fn(async () => undefined)
+    const refresh = vi.fn(() => undefined)
 
     const result = await runAction(setMediaProvenance, { deps, id: 'f1', provenance: { origin: 'ai', model: 'gpt' }, ops, refresh })
 
@@ -490,7 +489,7 @@ describe('setMediaProvenance', () => {
   it('reports the error and skips the refresh on failure', async () => {
     const { deps } = fakeDeps([apiError(500, 'boom')])
     const ops = fakeOps()
-    const refresh = vi.fn(async () => undefined)
+    const refresh = vi.fn(() => undefined)
 
     const result = await runAction(setMediaProvenance, { deps, id: 'f1', provenance: { origin: 'ai' }, ops, refresh })
 

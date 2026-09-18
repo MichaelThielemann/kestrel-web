@@ -87,7 +87,7 @@ function onDrop(i: number) {
   if (props.disabled || dragIndex.value === null) return
   if (dragIndex.value !== i) {
     move(dragIndex.value, i)
-    nextTick(() => announce(i))
+    void nextTick(() => announce(i))
   }
   dragIndex.value = null
   overIndex.value = null
@@ -100,7 +100,7 @@ function onDragEnd() {
 
 function moveRow(from: number, to: number) {
   move(from, to)
-  nextTick(() => {
+  void nextTick(() => {
     announce(to)
     const row = rowsEl.value?.querySelectorAll(':scope > .ui-repeater__row-wrap > .ui-repeater__row')[to] as HTMLElement | undefined
     if (!row) return
@@ -114,7 +114,7 @@ function moveRow(from: number, to: number) {
 function removeRowAt(i: number) {
   removeRow(i)
   say(t('field.repeater.removed', { n: i + 1, remaining: rows.value.length }))
-  nextTick(() => {
+  void nextTick(() => {
     const idx = Math.min(i, rows.value.length - 1)
     const row = idx >= 0
       ? rowsEl.value?.querySelectorAll(':scope > .ui-repeater__row-wrap > .ui-repeater__row')[idx] as HTMLElement | undefined
@@ -126,7 +126,7 @@ function removeRowAt(i: number) {
 function duplicateRowAt(i: number) {
   duplicateRow(i)
   say(t('field.repeater.duplicated', { n: i + 1 }))
-  nextTick(() => {
+  void nextTick(() => {
     const row = rowsEl.value?.querySelectorAll(':scope > .ui-repeater__row-wrap > .ui-repeater__row')[i + 1] as HTMLElement | undefined
     row?.querySelector<HTMLElement>('input, button:not([disabled]), [tabindex]:not([tabindex="-1"])')?.focus()
   })
@@ -135,7 +135,7 @@ function duplicateRowAt(i: number) {
 function insertRowAt(at: number) {
   insertRow(at)
   say(t('field.repeater.inserted', { n: at + 1 }))
-  nextTick(() => {
+  void nextTick(() => {
     const row = rowsEl.value?.querySelectorAll(':scope > .ui-repeater__row-wrap > .ui-repeater__row')[at] as HTMLElement | undefined
     row?.querySelector<HTMLElement>('input, button:not([disabled]), [tabindex]:not([tabindex="-1"])')?.focus()
   })

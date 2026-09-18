@@ -9,6 +9,7 @@ const MODULES_VIRTUAL_ID = "#kestrel/consumer-modules";
 const MODULES_DEFAULT = fileURLToPath(new URL("./modules.default.ts", import.meta.url));
 const BLOCK_TAGS_VIRTUAL_ID = "#kestrel/consumer-block-tags";
 const BLOCK_TAGS_DEFAULT = fileURLToPath(new URL("./block-tags.default.ts", import.meta.url));
+const TYPES = fileURLToPath(new URL("../../types/consumer-entries.d.ts", import.meta.url));
 
 type ViteConfig = { resolve?: { alias?: Record<string, string> | { find: string | RegExp; replacement: string }[] } };
 
@@ -41,6 +42,10 @@ export default defineNuxtModule({
 
     nuxt.hook("nitro:config", (config) => {
       config.alias = { [PIPELINES_VIRTUAL_ID]: pipelinesTarget, [MODULES_VIRTUAL_ID]: modulesTarget, [BLOCK_TAGS_VIRTUAL_ID]: blockTagsTarget, ...(config.alias ?? {}) };
+    });
+
+    nuxt.hook("prepare:types", ({ references }) => {
+      references.push({ path: TYPES });
     });
   },
 });

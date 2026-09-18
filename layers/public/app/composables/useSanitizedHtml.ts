@@ -14,7 +14,7 @@ const ALLOWED_ATTRS: Record<string, string[]> = {
 const ALLOWED_SCHEMES = ['http', 'https', 'mailto', 'tel', 'kestrel']
 const URI_PATTERN = /^(?:(?:https?|mailto|tel|kestrel|data):|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i
 
-async function sanitizeOnServer(html: string): Promise<string> {
+export async function sanitizeOnServer(html: string): Promise<string> {
   const { default: sanitizeHtml } = await import('sanitize-html')
   return sanitizeHtml(html, {
     allowedTags: ALLOWED_TAGS,

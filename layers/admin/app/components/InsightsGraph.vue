@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { Component } from 'vue'
 import type { InsightsManifest } from '#kestrel-admin/types/api'
 import { buildGraph } from '#kestrel-admin/utils/insights-graph'
 import { moduleRoute } from '#kestrel-admin/utils/insights-format'
@@ -7,7 +8,7 @@ const props = defineProps<{ manifest: InsightsManifest }>()
 
 const { t } = useT()
 
-const InsightsGraphCanvas = defineAsyncComponent(() => import('#kestrel-insights-canvas'))
+const InsightsGraphCanvas = defineAsyncComponent(() => import('#kestrel-insights-canvas') as Promise<{ default: Component }>)
 
 const showContracts = ref(true)
 const showPipelines = ref(true)

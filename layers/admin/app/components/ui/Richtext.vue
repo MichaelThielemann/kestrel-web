@@ -71,7 +71,7 @@ function setAttr(el: HTMLElement, name: string, value?: string) {
   else el.removeAttribute(name)
 }
 watchEffect(() => {
-  const dom = editor.value?.view?.dom as HTMLElement | undefined
+  const dom = editor.value?.view?.dom
   if (!dom) return
   dom.setAttribute('role', 'textbox')
   dom.setAttribute('aria-multiline', 'true')

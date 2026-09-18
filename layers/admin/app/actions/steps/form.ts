@@ -1,10 +1,16 @@
 import type { ApiErrorDetails } from '#kestrel-admin/types/api'
-import { defineStep, type ActionStep } from '#kestrel-core/app/utils/actions'
+import type { ActionContext, ActionStep } from '#kestrel-core/app/utils/actions'
 import { retryableMessage, withRunId } from '../../composables/useApi'
 import type { BlockErrors } from '../../composables/useEditForm'
 import { blockErrorFromPointer, fieldErrorsFromDetails, fieldFromErrorMessage, parseBodyErrors, parseRowErrors } from '../../utils/edit-form'
 import { parseSchemaRowErrors } from '../../utils/row-errors'
+import { defineUiStep } from '../define'
 import type { EditFormPort, SaveOutcome, Translate, WithDeps } from '../types'
+
+export function saveOutcome<I>(ctx: ActionContext<I, SaveOutcome>, step: string): SaveOutcome {
+  if (ctx.result === undefined) throw new Error(`form.reset must run before ${step}`)
+  return ctx.result
+}
 
 function mapBodyError(t: Translate, form: EditFormPort, message: string): boolean {
   const blocksField = form.blocksField()
@@ -57,18 +63,17 @@ function mapSchemaRowError(form: EditFormPort, message: string): boolean {
   return true
 }
 
-export function formReset<I extends { form: EditFormPort }, R extends SaveOutcome>(): ActionStep<I, R> {
-  return defineStep<I, R>('form.reset', (ctx) => {
-    const empty: SaveOutcome = { record: null, delivery: null, failure: null, failed: false }
-    ctx.result = empty as R
+export function formReset<I extends { form: EditFormPort }>(): ActionStep<I, SaveOutcome> {
+  return defineUiStep<I, SaveOutcome>('form.reset', (ctx) => {
+    ctx.result = { record: null, delivery: null, failure: null, failed: false }
     ctx.input.form.clearErrors()
   })
 }
 
-export function formValidate<I extends WithDeps & { form: EditFormPort }, R extends SaveOutcome>(): ActionStep<I, R> {
-  return defineStep<I, R>('form.validate', (ctx) => {
+export function formValidate<I extends WithDeps & { form: EditFormPort }>(): ActionStep<I, SaveOutcome> {
+  return defineUiStep<I, SaveOutcome>('form.validate', (ctx) => {
     const { deps, form } = ctx.input
-    const out = ctx.result as SaveOutcome
+    const out = saveOutcome(ctx, 'form.validate')
 
     if (!form.validateAll()) {
       form.setFormError(deps.t('editor.fixPageFields'))
@@ -82,13 +87,13 @@ export function formValidate<I extends WithDeps & { form: EditFormPort }, R exte
 }
 
 export function formSetStatus<I extends { form: EditFormPort, status: string }, R = unknown>(): ActionStep<I, R> {
-  return defineStep<I, R>('form.setStatus', (ctx) => {
+  return defineUiStep<I, R>('form.setStatus', (ctx) => {
     ctx.input.form.setField('status', ctx.input.status)
   })
 }
 
 export function formSaving<I extends { form: EditFormPort }, R = unknown>(on: boolean): ActionStep<I, R> {
-  return defineStep<I, R>(`form.saving:${on ? 'on' : 'off'}`, (ctx) => {
+  return defineUiStep<I, R>(`form.saving:${on ? 'on' : 'off'}`, (ctx) => {
     if (on) {
       ctx.input.form.setSaving(true)
       return
@@ -97,17 +102,17 @@ export function formSaving<I extends { form: EditFormPort }, R = unknown>(on: bo
   })
 }
 
-export function formRebaseline<I extends { form: EditFormPort }, R extends SaveOutcome>(): ActionStep<I, R> {
-  return defineStep<I, R>('form.rebaseline', (ctx) => {
-    const record = (ctx.result as SaveOutcome).record
+export function formRebaseline<I extends { form: EditFormPort }>(): ActionStep<I, SaveOutcome> {
+  return defineUiStep<I, SaveOutcome>('form.rebaseline', (ctx) => {
+    const record = saveOutcome(ctx, 'form.rebaseline').record
     if (record) ctx.input.form.applySaved(record)
   })
 }
 
-export function formMapErrors<I extends WithDeps & { form: EditFormPort }, R extends SaveOutcome>(): ActionStep<I, R> {
-  return defineStep<I, R>('form.mapErrors', (ctx) => {
+export function formMapErrors<I extends WithDeps & { form: EditFormPort }>(): ActionStep<I, SaveOutcome> {
+  return defineUiStep<I, SaveOutcome>('form.mapErrors', (ctx) => {
     const { deps, form } = ctx.input
-    const failure = (ctx.result as SaveOutcome).failure
+    const failure = saveOutcome(ctx, 'form.mapErrors').failure
     if (!failure) return
     const { status, code, retryable, message, runId, details } = failure
 
@@ -147,15 +152,15 @@ export function formMapErrors<I extends WithDeps & { form: EditFormPort }, R ext
   })
 }
 
-export function formRevealError<I extends { form: EditFormPort }, R extends SaveOutcome>(): ActionStep<I, R> {
-  return defineStep<I, R>('form.revealError', (ctx) => {
-    if ((ctx.result as SaveOutcome | undefined)?.failed) ctx.input.form.revealError()
+export function formRevealError<I extends { form: EditFormPort }>(): ActionStep<I, SaveOutcome> {
+  return defineUiStep<I, SaveOutcome>('form.revealError', (ctx) => {
+    if (ctx.result?.failed) ctx.input.form.revealError()
   })
 }
 
-export function formOutcome<I extends { form: EditFormPort }, R extends SaveOutcome>(): ActionStep<I, R> {
-  return defineStep<I, R>('form.outcome', (ctx) => {
+export function formOutcome<I extends { form: EditFormPort }>(): ActionStep<I, SaveOutcome> {
+  return defineUiStep<I, SaveOutcome>('form.outcome', (ctx) => {
     const { form } = ctx.input
-    if ((ctx.result as SaveOutcome).failed) ctx.fail(form.formError() || 'editor.saveFailed', { step: 'form.outcome' })
+    if (saveOutcome(ctx, 'form.outcome').failed) ctx.fail(form.formError() || 'editor.saveFailed', { step: 'form.outcome' })
   })
 }

@@ -11,20 +11,20 @@ import FieldSlug from '../components/field/Slug.vue'
 import FieldMedia from '../components/field/Media.vue'
 
 export const fieldComponents: Partial<Record<FieldType, Component>> = {
-  text: FieldText,
-  slug: FieldSlug,
-  number: FieldNumber,
-  boolean: FieldBoolean,
-  json: FieldJson,
-  choice: FieldChoice,
-  relation: FieldRelation,
-  link: FieldLink,
-  media: FieldMedia,
+  text: FieldText as Component,
+  slug: FieldSlug as Component,
+  number: FieldNumber as Component,
+  boolean: FieldBoolean as Component,
+  json: FieldJson as Component,
+  choice: FieldChoice as Component,
+  relation: FieldRelation as Component,
+  link: FieldLink as Component,
+  media: FieldMedia as Component,
 
-  datetime: defineAsyncComponent(() => import('../components/field/Datetime.vue')),
-  richtext: defineAsyncComponent(() => import('../components/field/Richtext.vue')),
+  datetime: defineAsyncComponent(() => import('../components/field/Datetime.vue') as Promise<{ default: Component }>),
+  richtext: defineAsyncComponent(() => import('../components/field/Richtext.vue') as Promise<{ default: Component }>),
 
-  repeater: defineAsyncComponent(() => import('../components/field/Repeater.vue')),
+  repeater: defineAsyncComponent(() => import('../components/field/Repeater.vue') as Promise<{ default: Component }>),
 }
 
 export const resolveFieldComponent = (type: FieldType): Component | undefined => fieldComponents[type]

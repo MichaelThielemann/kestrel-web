@@ -1,7 +1,8 @@
 import type { ApiErrorDetails } from '#kestrel-admin/types/api'
-import { defineStep, type ActionContext, type ActionStep } from '#kestrel-core/app/utils/actions'
+import type { ActionContext, ActionResult, ActionStep } from '#kestrel-core/app/utils/actions'
 import { retryableMessage, withRunId } from '../../composables/useApi'
-import type { BusyPort, EachReport, WithDeps } from '../types'
+import { defineUiStep } from '../define'
+import type { ActionDeps, BusyPort, EachReport, WithDeps } from '../types'
 
 export interface ToastErrorPick {
   key?: string
@@ -14,7 +15,7 @@ export interface ToastErrorPick {
 }
 
 export function toastSuccess<I extends WithDeps, R = unknown>(pick: (ctx: ActionContext<I, R>) => { key: string, params?: Record<string, unknown> } | null): ActionStep<I, R> {
-  return defineStep<I, R>('toast.success', (ctx) => {
+  return defineUiStep<I, R>('toast.success', (ctx) => {
     const message = pick(ctx)
     if (!message) return
     const { t, toast } = ctx.input.deps
@@ -23,7 +24,7 @@ export function toastSuccess<I extends WithDeps, R = unknown>(pick: (ctx: Action
 }
 
 export function toastError<I extends WithDeps, R = unknown>(pick: (ctx: ActionContext<I, R>) => ToastErrorPick | null): ActionStep<I, R> {
-  return defineStep<I, R>('toast.error', (ctx) => {
+  return defineUiStep<I, R>('toast.error', (ctx) => {
     const picked = pick(ctx)
     if (!picked) return
     const { t, toast } = ctx.input.deps
@@ -34,7 +35,7 @@ export function toastError<I extends WithDeps, R = unknown>(pick: (ctx: ActionCo
 }
 
 export function toastSummary<I extends WithDeps, R = unknown>(pick: (ctx: ActionContext<I, R>) => { report: EachReport<unknown>, successKey: string, params?: Record<string, unknown> }): ActionStep<I, R> {
-  return defineStep<I, R>('toast.summary', (ctx) => {
+  return defineUiStep<I, R>('toast.summary', (ctx) => {
     const { report, successKey, params } = pick(ctx)
     if (report.failed > 0) return
     const { t, toast } = ctx.input.deps
@@ -43,7 +44,7 @@ export function toastSummary<I extends WithDeps, R = unknown>(pick: (ctx: Action
 }
 
 export function opsBusy<I extends { ops: BusyPort }, R = unknown>(on: boolean): ActionStep<I, R> {
-  return defineStep<I, R>(`ops.busy:${on ? 'on' : 'off'}`, (ctx) => {
+  return defineUiStep<I, R>(`ops.busy:${on ? 'on' : 'off'}`, (ctx) => {
     if (on) {
       ctx.input.ops.setBusy(true)
       ctx.input.ops.setError?.(null)
@@ -55,9 +56,13 @@ export function opsBusy<I extends { ops: BusyPort }, R = unknown>(on: boolean): 
 }
 
 export function opsError<I extends { ops: BusyPort }, R = unknown>(pick: (ctx: ActionContext<I, R>) => string | null): ActionStep<I, R> {
-  return defineStep<I, R>('ops.error', (ctx) => {
+  return defineUiStep<I, R>('ops.error', (ctx) => {
     const message = pick(ctx)
     if (message === null) return
     ctx.input.ops.setError?.(message)
   })
+}
+
+export function toastUnexpected<R>(deps: ActionDeps, result: ActionResult<R>): void {
+  if (!result.ok && result.meta?.unexpected === true) deps.toast.error(deps.t('toast.unexpected'))
 }

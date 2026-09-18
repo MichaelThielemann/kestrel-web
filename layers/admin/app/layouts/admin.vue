@@ -10,6 +10,7 @@ const { has } = useFeatures()
 const { theme } = useTheme()
 const { t } = useT()
 const route = useRoute()
+const { failed: bootFailed, error: bootError } = useBootStatus()
 
 useHead(() => ({
   title: 'Kestrel',
@@ -19,7 +20,8 @@ useHead(() => ({
 </script>
 
 <template>
-  <div class="admin" :class="{ 'admin--rail-collapsed': collapsed }">
+  <KestrelBootFailure v-if="bootFailed" :error="bootError" />
+  <div v-else class="admin" :class="{ 'admin--rail-collapsed': collapsed }">
     <aside v-if="authenticated" class="admin__rail">
       <div class="rail__head">
         <NuxtLink to="/admin" class="rail__brand" aria-label="Kestrel">

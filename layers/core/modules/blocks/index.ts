@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { addTemplate, defineNuxtModule, updateTemplates } from "@nuxt/kit";
 import { blockSchema } from "../../block-schema";
 import { SIBLING_IMAGE_EXTENSIONS } from "./extract-block";
-import { offerableLayouts, renderLayoutRegistry, type ResolvedLayout } from "./layouts";
+import { offerableLayouts, renderLayoutRegistry } from "./layouts";
 import { IMAGE_SIZES_FILE, renderImageSizesJson } from "./image-sizes";
 import { BLOCKS_DIR, collectBlockSfcs, collectImageSizeFiles, collectImageSizes, extractBlocks, renderBlockImagesModule, renderBlocksModule, renderImageSizesModule } from "./scan";
 import type { SerializedBlock } from "../../app/types/kestrel";
@@ -87,7 +87,7 @@ export default defineNuxtModule<ModuleOptions>({
 
     let layoutNames: string[] = [];
     nuxt.hook("app:resolve", (app) => {
-      layoutNames = offerableLayouts((app.layouts ?? {}) as Record<string, ResolvedLayout | undefined>);
+      layoutNames = offerableLayouts((app.layouts ?? {}));
     });
     const layoutsTemplate = addTemplate({ filename: LAYOUTS_TEMPLATE, write: true, getContents: () => renderLayoutRegistry(layoutNames) });
 

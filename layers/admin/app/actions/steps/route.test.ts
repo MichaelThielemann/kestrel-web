@@ -5,7 +5,7 @@ import { dataReload, listRefresh, routeNavigate } from './route'
 
 describe('route steps', () => {
   it('route.navigate skips a null destination', async () => {
-    const navigate = vi.fn(async () => undefined)
+    const navigate = vi.fn(() => Promise.resolve(undefined))
     const action = defineAction<{ navigate: typeof navigate }>({ name: 'r', steps: [routeNavigate<{ navigate: typeof navigate }>(() => null)] })
 
     await runAction(action, { navigate })

@@ -1,14 +1,16 @@
 import type { ApiErrorDetails, MediaFolder, MediaFolderRenameResponse, MediaItem, Provenance, ReferenceTo } from '#kestrel-admin/types/api'
-import { defineAction, defineStep, type ActionContext, type ActionStep } from '#kestrel-core/app/utils/actions'
+import { defineAction, type ActionContext, type ActionStep } from '#kestrel-core/app/utils/actions'
 import { ApiError, apiErrorCode, apiErrorDetails, apiErrorMessage, apiErrorRetryable, apiErrorRunId, apiErrorStatus, retryableMessage, withRunId } from '../composables/useApi'
 import type { UploadItem } from '../composables/useMediaUpload'
 import { humanizeSize, joinFolder, parentFolder } from '../utils/library'
 import type { OpItem } from '../utils/ops'
 import { referencedBy } from '../utils/references'
+import { defineUiStep } from './define'
 import { apiEach, apiRequest, referencesPrecheck } from './steps/api'
 import { dialogConfirm } from './steps/guard'
 import { opsBusy, toastError, toastSuccess } from './steps/notify'
 import { dataReload } from './steps/route'
+import type { UiStepName } from './step-names'
 import type { ActionDeps, BusyPort, EachReport, RefreshPort, Translate, WithDeps } from './types'
 
 export interface CreateFolderInput extends WithDeps {
@@ -108,7 +110,7 @@ async function patchFolder(deps: ActionDeps, path: string, to: string): Promise<
   }
 }
 
-const applyTargets = defineStep<RenameOrMoveInput, RenameOrMoveResult>('media.applyTargets', async (ctx) => {
+const applyTargets = defineUiStep<RenameOrMoveInput, RenameOrMoveResult>('media.applyTargets', async (ctx) => {
   const { deps, target, ops } = ctx.input
   const result: RenameOrMoveResult = { moved: 0, failed: false, message: null, status: 0, code: '', retryable: false }
   ctx.result = result
@@ -168,8 +170,8 @@ export const renameOrMove = defineAction<RenameOrMoveInput, RenameOrMoveResult>(
 
 const EMPTY_EACH_REPORT: EachReport<unknown> = { results: [], succeeded: 0, failed: 0, lastMessage: null, firstFailure: null }
 
-function reloadWhen<I extends { refresh: RefreshPort }, R>(name: string, hasItems: (ctx: ActionContext<I, R>) => boolean): ActionStep<I, R> {
-  return defineStep<I, R>(name, async (ctx) => {
+function reloadWhen<I extends { refresh: RefreshPort }, R>(name: UiStepName, hasItems: (ctx: ActionContext<I, R>) => boolean): ActionStep<I, R> {
+  return defineUiStep<I, R>(name, async (ctx) => {
     if (hasItems(ctx)) await ctx.input.refresh()
   })
 }
@@ -177,12 +179,12 @@ function reloadWhen<I extends { refresh: RefreshPort }, R>(name: string, hasItem
 const reloadFilesIfAny = reloadWhen<DeleteItemsInput, DeleteItemsResult>('data.reload:files', (ctx) => ctx.input.files.length > 0)
 const reloadFoldersIfAny = reloadWhen<DeleteItemsInput, DeleteItemsResult>('data.reload:folders', (ctx) => ctx.input.folderPaths.length > 0)
 
-const filesDeletedGuard = defineStep<DeleteItemsInput, DeleteItemsResult>('guard.filesDeleted', (ctx) => {
+const filesDeletedGuard = defineUiStep<DeleteItemsInput, DeleteItemsResult>('guard.filesDeleted', (ctx) => {
   const report = ctx.result?.files
   if (report && report.failed) ctx.fail(report.lastMessage ?? 'guard.filesDeleted')
 })
 
-const foldersDeletedGuard = defineStep<DeleteItemsInput, DeleteItemsResult>('guard.foldersDeleted', (ctx) => {
+const foldersDeletedGuard = defineUiStep<DeleteItemsInput, DeleteItemsResult>('guard.foldersDeleted', (ctx) => {
   const report = ctx.result?.folders
   if (report && report.failed) ctx.fail(report.lastMessage ?? 'guard.foldersDeleted')
 })
@@ -271,11 +273,11 @@ function buildUploadBody(item: UploadItem, provenance: Provenance | undefined): 
   return fd
 }
 
-const uploadBegin = defineStep<UploadInput, UploadItem>('upload.begin', (ctx) => {
+const uploadBegin = defineUiStep<UploadInput, UploadItem>('upload.begin', (ctx) => {
   ctx.input.item.status = 'uploading'
 })
 
-const uploadSettle = defineStep<UploadInput, UploadItem>('upload.settle', (ctx) => {
+const uploadSettle = defineUiStep<UploadInput, UploadItem>('upload.settle', (ctx) => {
   ctx.result = ctx.input.item
 })
 

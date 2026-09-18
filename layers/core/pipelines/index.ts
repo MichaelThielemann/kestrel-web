@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { definePipeline } from "@michaelthielemann/kestrel/definePipeline";
+import { definePipeline as defineRawPipeline, pipelineDefiner } from "@michaelthielemann/kestrel/definePipeline";
 import type { PipelineDefinition } from "@michaelthielemann/kestrel/definePipeline";
 import type { TriggerConfig } from "@michaelthielemann/kestrel/defineConfig";
 import type { PresetStep } from "../module-registry";
@@ -27,6 +27,8 @@ import insights from "./features/insights";
 export type { CollectionModel } from "./collections";
 export type { PresetStep } from "../module-registry";
 
+export const definePipeline = pipelineDefiner<PresetStep>();
+
 export type Feature = "ratelimit" | "sanitizeSvg" | "references" | "links" | "delivery" | "redirects" | "images" | "replication" | "migrations" | "audit" | "insights";
 
 export interface FeatureModule {
@@ -35,21 +37,24 @@ export interface FeatureModule {
   patches: readonly Patch<Feature, PresetStep>[];
 }
 
-export type StaticPipelineName =
-  | "login" | "logout" | "me" | "changePassword" | "listUsers" | "createUser" | "getUser" | "setPassword" | "deactivateUser" | "activateUser"
-  | "cleanupSessions" | "getSettings" | "setSettings" | "listPages" | "listAllPages" | "readPage" | "readAnyPage" | "resolvePage" | "createPage" | "updatePage"
-  | "deletePage" | "uploadMedia" | "exportMedia" | "listMediaFolders" | "createMediaFolder" | "renameMediaFolder" | "deleteMediaFolder"
-  | "listMedia" | "getMedia" | "downloadMedia" | "updateMedia" | "deleteMedia" | "reconcileMedia" | "reconcileMediaReport" | "reconcileMediaDelete"
-  | "sweepRateLimits"
-  | "brokenReferences" | "pageReferrers" | "pageReferrersMany" | "mediaReferrers" | "mediaReferrersMany" | "rebuildReferences" | "scanReferences"
-  | "brokenLinks" | "rebuildLinks" | "checkLinks"
-  | "pagePublishStatus" | "publishAllPages"
-  | "getRedirects" | "setRedirects" | "renderRedirects"
-  | "serveImageVariant" | "registerImageSizes" | "registerImageSizesBoot" | "listImageSizes" | "syncImages" | "pruneImages" | "imagesStatus" | "generateImageVariants" | "resumeImages"
-  | "replicate" | "replicationStatus" | "replicationPoints" | "replicationSnapshot" | "replicationRestore"
-  | "listMigrations" | "applyMigrations"
-  | "auditAuth"
-  | "insightsManifest" | "insightsStats";
+export const staticPipelineNames = [
+  "login", "logout", "me", "changePassword", "listUsers", "createUser", "getUser", "setPassword", "deactivateUser", "activateUser",
+  "cleanupSessions", "getSettings", "setSettings", "listPages", "listAllPages", "readPage", "readAnyPage", "resolvePage", "createPage", "updatePage",
+  "deletePage", "uploadMedia", "exportMedia", "listMediaFolders", "createMediaFolder", "renameMediaFolder", "deleteMediaFolder",
+  "listMedia", "getMedia", "downloadMedia", "updateMedia", "deleteMedia", "reconcileMedia", "reconcileMediaReport", "reconcileMediaDelete",
+  "sweepRateLimits",
+  "brokenReferences", "pageReferrers", "pageReferrersMany", "mediaReferrers", "mediaReferrersMany", "rebuildReferences", "scanReferences",
+  "brokenLinks", "rebuildLinks", "checkLinks",
+  "pagePublishStatus", "publishAllPages",
+  "getRedirects", "setRedirects", "renderRedirects",
+  "serveImageVariant", "registerImageSizes", "registerImageSizesBoot", "listImageSizes", "syncImages", "pruneImages", "imagesStatus", "generateImageVariants", "resumeImages",
+  "replicate", "replicationStatus", "replicationPoints", "replicationSnapshot", "replicationRestore",
+  "listMigrations", "applyMigrations",
+  "auditAuth",
+  "insightsManifest", "insightsStats",
+] as const;
+
+export type StaticPipelineName = (typeof staticPipelineNames)[number];
 
 export type PresetPipelineName<C extends Record<string, CollectionModel> = Record<string, CollectionModel>> =
   | StaticPipelineName
@@ -73,20 +78,6 @@ export interface Preset {
   triggers: TriggerConfig[];
 }
 
-const featureOrder: readonly Feature[] = [
-  "ratelimit",
-  "sanitizeSvg",
-  "references",
-  "links",
-  "delivery",
-  "redirects",
-  "images",
-  "replication",
-  "migrations",
-  "audit",
-  "insights",
-];
-
 const featureFactories: Record<Feature, (context: PresetContext) => FeatureModule> = {
   ratelimit,
   sanitizeSvg,
@@ -100,6 +91,12 @@ const featureFactories: Record<Feature, (context: PresetContext) => FeatureModul
   audit,
   insights,
 };
+
+function featureKeys(factories: Record<Feature, unknown>): readonly Feature[] {
+  return Object.keys(factories) as Feature[];
+}
+
+export const featureOrder: readonly Feature[] = featureKeys(featureFactories);
 
 const VALIDATE_JSONSCHEMA_MODULE = "@michaelthielemann/kestrel-validate-jsonschema";
 
@@ -225,7 +222,7 @@ export function definePreset<C extends Record<string, CollectionModel> = Record<
 
   const pipelineDefs = Object.keys(pipelines)
     .sort()
-    .map((name) => definePipeline({ name, steps: pipelines[name] ?? [] }));
+    .map((name) => defineRawPipeline({ name, steps: pipelines[name] ?? [] }));
 
   return { pipelines: pipelineDefs, triggers };
 }

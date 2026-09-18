@@ -31,6 +31,9 @@ export default defineNuxtModule({
 
     nuxt.hook("nitro:config", (config) => {
       config.alias = { [VIRTUAL_ID]: template.dst, ...(config.alias ?? {}) };
+      config.typescript ??= {};
+      config.typescript.tsConfig ??= {};
+      config.typescript.tsConfig.include = [...(config.typescript.tsConfig.include ?? []), TYPES];
     });
 
     nuxt.hook("prepare:types", ({ references }) => {

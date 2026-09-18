@@ -33,7 +33,7 @@ const rootModel = computed<string | string[] | undefined>({
   get: () => (props.multiple
     ? (Array.isArray(model.value) ? model.value : [])
     : (typeof model.value === 'string' ? model.value : undefined)),
-  set: (v) => { model.value = props.multiple ? ((v as string[]) ?? []) : (typeof v === 'string' ? v : null) },
+  set: (v) => { model.value = props.multiple ? ((v) ?? []) : (typeof v === 'string' ? v : null) },
 })
 
 function labelFor(id: string): string {
@@ -75,7 +75,7 @@ const { dragIndex, overIndex, onDragStart, onDragEnter, onDragLeave, onDrop, onD
     if (!Array.isArray(model.value)) return
     const label = props.selected[from]?.label ?? ''
     model.value = reorder(model.value, from, to)
-    nextTick(() => announceMove(label, to))
+    void nextTick(() => announceMove(label, to))
   },
 })
 
@@ -85,7 +85,7 @@ function moveChip(from: number, to: number) {
   const label = props.selected[from]?.label ?? ''
   model.value = reorder(model.value, from, to)
 
-  nextTick(() => {
+  void nextTick(() => {
     announceMove(label, to)
     const chip = chips.value?.children[to] as HTMLElement | undefined
     if (!chip) return

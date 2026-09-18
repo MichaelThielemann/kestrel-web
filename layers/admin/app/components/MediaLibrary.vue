@@ -7,7 +7,7 @@ import type { LibraryItem } from '../utils/library'
 import { folderIsEmpty, joinFolder } from '../utils/library'
 import type { PendingUpload } from '../utils/dnd'
 import type { DropResult } from '../composables/useMediaDnd'
-import type { MediaViewerSave } from './MediaViewer.vue'
+import type { MediaViewerSave } from '../utils/media-meta'
 import { deleteSummary, toOpItem, effectiveTargets, resolveFileTargets, type DeleteSummary, type OpItem } from '../utils/ops'
 
 const props = defineProps<{ pick?: boolean; multiple?: boolean; accept?: 'image' | 'any'; initialFolder?: string; initialSelected?: string[] }>()
@@ -26,7 +26,7 @@ const toast = useToast()
 const api = useApi()
 const { can } = useAuth()
 
-const mediaRefresh: RefreshPort = () => { lib.fetchLibrary(); lib.clear() }
+const mediaRefresh: RefreshPort = () => { void lib.fetchLibrary(); lib.clear() }
 const opsBusy = ref(false)
 const opError = ref<string | null>(null)
 const opConflict = ref<ReferenceTo[] | null>(null)
@@ -40,10 +40,10 @@ const opsPort: BusyPort = {
 }
 
 const upload = useMediaUpload({
-  onSettled: () => lib.fetchLibrary(),
+  onSettled: () => { void lib.fetchLibrary() },
   onError: (item) => toast.error(t('media.uploadError', { name: item.filename, reason: item.message || t('media.uploadFailedReason') })),
 })
-const { active, counts } = upload
+const { active, counts, limitError } = upload
 
 const newFolderOpen = ref(false)
 const uploadOpen = ref(false)
@@ -113,7 +113,7 @@ function onConfirmUpload(provenance: Provenance) {
   uploadOpen.value = false
   const uploads = pendingUploads.value
   pendingUploads.value = []
-  upload.enqueueUploads(uploads, provenance)
+  void upload.enqueueUploads(uploads, provenance)
 }
 
 async function onCreateFolder(name: string) {
@@ -144,10 +144,10 @@ function onItemDragEnd() { draggedItems.value = [] }
 
 const { dragActive, dropFolder, onDragEnter, onDragOver, onDragLeave, onDrop } = useMediaDnd({
   currentFolder: () => folder.value,
-  onDrop: onDropResult,
+  onDrop: (result) => { void onDropResult(result) },
   draggedItems: () => draggedItems.value,
   onMove: (opItems, dest) => {
-    runAction(renameOrMove, { deps: mediaDeps(), target: { kind: 'move', targets: opItems, dest }, notify: 'toast', ops: opsPort, refresh: mediaRefresh })
+    void runAction(renameOrMove, { deps: mediaDeps(), target: { kind: 'move', targets: opItems, dest }, notify: 'toast', ops: opsPort, refresh: mediaRefresh })
   },
 })
 
@@ -208,7 +208,7 @@ const { menuItems, onContextMenu, onSelect: onMenuSelect } = useMediaContextMenu
   items: () => items.value,
   isSelected: lib.isSelected,
   select: lib.select,
-  onDelete: (opItems) => { askDelete(opItems) },
+  onDelete: (opItems) => { void askDelete(opItems) },
   onRename: (item) => { opError.value = null; renameTarget.value = item; renameOpen.value = true },
 })
 
@@ -260,6 +260,7 @@ const srStatus = computed(() => {
     <p v-if="active || counts.done || counts.error" class="media-library__status">
       <span v-if="active">{{ t('media.uploading') }}</span>{{ counts.done }} {{ t('media.uploadUploaded') }}<span v-if="counts.error">, {{ counts.error }} {{ t('media.uploadFailed') }}</span>
     </p>
+    <KestrelUiAlert v-if="limitError" variant="error">{{ limitError }}</KestrelUiAlert>
     <p class="media-library__sr-status" role="status" aria-live="polite">{{ srStatus }}</p>
     <div v-if="pick" class="media-library__pickbar">
       <span>{{ selectedFileIds.length }} {{ t('media.selected') }}</span>

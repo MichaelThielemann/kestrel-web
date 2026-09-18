@@ -14,9 +14,9 @@ function installReauth(): void {
   const onResponseError = makeReauthInterceptor({
     currentPath: () => router.currentRoute.value.fullPath,
     reset: () => auth.reset(),
-    navigate: (to) => { navigateTo(to) },
+    navigate: (to) => { void navigateTo(to) },
   })
-  globalThis.$fetch = globalThis.$fetch.create({ onResponseError }) as typeof globalThis.$fetch
+  globalThis.$fetch = globalThis.$fetch.create({ onResponseError })
 }
 
 function installStyleGuard(): void {

@@ -87,7 +87,7 @@ watchEffect(() => {
   sharedPage.value = page.value
 })
 
-const siteUrl = useRuntimeConfig().public.siteUrl as string
+const siteUrl = useRuntimeConfig().public.siteUrl
 const { data: siteSettings } = await useSiteSettings(locale)
 useHead(() => {
   const seo = page.value?.seo ?? {}

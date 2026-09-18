@@ -25,7 +25,7 @@ const { rows, total, fallbackTitles, error, totalPages, fetchRows } = useListRow
   page,
   perPage,
   locale: () => props.locale,
-  clampPage,
+  clampPage: (p: number) => { void clampPage(p) },
 
   onLoaded: () => clearSelection(),
 })

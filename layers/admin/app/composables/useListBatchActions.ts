@@ -1,5 +1,6 @@
 import { ref, type ComputedRef } from 'vue'
 import { bulkDelete, bulkSetStatus, previewBulkDelete } from '../actions/list'
+import { toastUnexpected } from '../actions/steps/notify'
 import type { BatchDeleteReport } from '../utils/collection-ops'
 
 export function useListBatchActions(collection: ComputedRef<string>, refetch: () => void | Promise<void>) {
@@ -25,17 +26,20 @@ export function useListBatchActions(collection: ComputedRef<string>, refetch: ()
     if (!ids.length) return
     deleteIds.value = ids
     const r = await runAction(previewBulkDelete, { deps, collection: collection.value, ids, allowed: can('pages.manage') })
+    toastUnexpected(deps, r)
     deleteReport.value = r.ok ? (r.result ?? null) : null
     deleteOpen.value = true
   }
 
   async function confirmDelete() {
     const r = await runAction(bulkDelete, { deps, collection: collection.value, ids: deleteIds.value, confirmed: true, ops, refresh: refetch })
+    toastUnexpected(deps, r)
     if (r.ok) deleteOpen.value = false
   }
 
   async function setStatus(ids: string[], status: 'published' | 'draft', locale?: string) {
-    await runAction(bulkSetStatus, { deps, collection: collection.value, ids, status, locale, ops, refresh: refetch })
+    const r = await runAction(bulkSetStatus, { deps, collection: collection.value, ids, status, locale, ops, refresh: refetch })
+    toastUnexpected(deps, r)
   }
 
   return { busy, error, deleteOpen, deleteReport, askDelete, confirmDelete, setStatus }

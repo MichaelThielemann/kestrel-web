@@ -68,14 +68,14 @@ export interface SwitchTabInput {
 
 function saveSteps<I extends SaveInput>(): ActionStep<I, SaveOutcome>[] {
   return [
-    formReset<I, SaveOutcome>(),
-    formValidate<I, SaveOutcome>(),
+    formReset<I>(),
+    formValidate<I>(),
     formSaving<I, SaveOutcome>(true),
-    apiWrite<I, SaveOutcome>(),
-    deliveryRemember<I, SaveOutcome>(),
-    formRebaseline<I, SaveOutcome>(),
-    formMapErrors<I, SaveOutcome>(),
-    formOutcome<I, SaveOutcome>(),
+    apiWrite<I>(),
+    deliveryRemember<I>(),
+    formRebaseline<I>(),
+    formMapErrors<I>(),
+    formOutcome<I>(),
     toastSuccess<I, SaveOutcome>(() => ({ key: 'toast.saved' })),
   ]
 }
@@ -83,7 +83,7 @@ function saveSteps<I extends SaveInput>(): ActionStep<I, SaveOutcome>[] {
 function saveAlways<I extends SaveInput>(): ActionStep<I, SaveOutcome>[] {
   return [
     formSaving<I, SaveOutcome>(false),
-    formRevealError<I, SaveOutcome>(),
+    formRevealError<I>(),
     toastError<I, SaveOutcome>((ctx) =>
       ctx.result?.failed ? { message: ctx.input.form.formError(), key: 'editor.saveFailed' } : null),
   ]

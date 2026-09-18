@@ -1,20 +1,24 @@
 import type { Document, ReferenceTo, SaveResponse } from '#kestrel-admin/types/api'
-import { defineStep, type ActionContext, type ActionStep } from '#kestrel-core/app/utils/actions'
+import { boundaryCast } from '#kestrel/cast'
+import type { ActionContext, ActionStep } from '#kestrel-core/app/utils/actions'
 import { apiErrorCode, apiErrorDetails, apiErrorMessage, apiErrorRetryable, apiErrorRunId, apiErrorStatus, apiErrorStep } from '../../composables/useApi'
+import { defineUiStep } from '../define'
+import { saveOutcome } from './form'
+import type { UiStepName } from '../step-names'
 import type { ApiCall, ApiFailure, EachItemResult, EachReport, EditFormPort, PrecheckReport, SaveOutcome, WithDeps } from '../types'
 
 export function isSaveResponse(value: unknown): value is SaveResponse<Document> {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) return false
-  const record = value as Record<string, unknown>
+  const record = boundaryCast<Record<string, unknown>>(value, 'json')
   return 'document' in record && 'delivery' in record
     && record.document !== null && typeof record.document === 'object'
     && Array.isArray(record.delivery)
 }
 
-export function apiWrite<I extends WithDeps & { form: EditFormPort }, R extends SaveOutcome>(): ActionStep<I, R> {
-  return defineStep<I, R>('api.write', async (ctx) => {
+export function apiWrite<I extends WithDeps & { form: EditFormPort }>(): ActionStep<I, SaveOutcome> {
+  return defineUiStep<I, SaveOutcome>('api.write', async (ctx) => {
     const { deps, form } = ctx.input
-    const out = ctx.result as SaveOutcome
+    const out = saveOutcome(ctx, 'api.write')
     const single = form.mode === 'single'
     const create = form.id === 'new'
     const path = single || create ? `/${form.collection}` : `/${form.collection}/${form.id}`
@@ -22,13 +26,13 @@ export function apiWrite<I extends WithDeps & { form: EditFormPort }, R extends 
     const body = single || create ? form.bodyFor(form.fieldKeys()) : form.bodyFor(form.dirtyKeys())
 
     try {
-      const res = await deps.api<unknown>(path, { method, body })
+      const res = await deps.api<SaveResponse<Document> | Document>(path, { method, body })
       if (isSaveResponse(res)) {
         out.record = res.document
         out.delivery = res.delivery
         return
       }
-      out.record = res as Document
+      out.record = res
     } catch (e) {
       out.failure = {
         status: apiErrorStatus(e),
@@ -44,12 +48,12 @@ export function apiWrite<I extends WithDeps & { form: EditFormPort }, R extends 
   })
 }
 
-export function apiRequest<I extends WithDeps, R = unknown, T = unknown>(name: string, opts: {
+export function apiRequest<I extends WithDeps, R = unknown, T = unknown>(name: UiStepName, opts: {
   call: (ctx: ActionContext<I, R>) => ApiCall
   onSuccess: (ctx: ActionContext<I, R>, value: T) => void
   onError?: (ctx: ActionContext<I, R>, err: ApiFailure) => void
 }): ActionStep<I, R> {
-  return defineStep<I, R>(name, async (ctx) => {
+  return defineUiStep<I, R>(name, async (ctx) => {
     const call = opts.call(ctx)
     try {
       const value = await ctx.input.deps.api<T>(call.path, { method: call.method, body: call.body, query: call.query })
@@ -68,14 +72,14 @@ export function apiRequest<I extends WithDeps, R = unknown, T = unknown>(name: s
   })
 }
 
-export function apiEach<I extends WithDeps, R = unknown, T = unknown>(name: string, opts: {
+export function apiEach<I extends WithDeps, R = unknown, T = unknown>(name: UiStepName, opts: {
   items: (ctx: ActionContext<I, R>) => readonly string[]
   call: (ctx: ActionContext<I, R>, id: string) => ApiCall
   policy: 'continue' | 'stop'
   onItemError?: (ctx: ActionContext<I, R>, item: EachItemResult<T>) => void
   onDone: (ctx: ActionContext<I, R>, report: EachReport<T>) => void
 }): ActionStep<I, R> {
-  return defineStep<I, R>(name, async (ctx) => {
+  return defineUiStep<I, R>(name, async (ctx) => {
     const results: EachItemResult<T>[] = []
     let succeeded = 0
     let failed = 0
@@ -112,14 +116,14 @@ export function apiEach<I extends WithDeps, R = unknown, T = unknown>(name: stri
   })
 }
 
-export function referencesPrecheck<I extends WithDeps, R = unknown>(name: string, opts: {
+export function referencesPrecheck<I extends WithDeps, R = unknown>(name: UiStepName, opts: {
   allowed: (ctx: ActionContext<I, R>) => boolean
   target: (ctx: ActionContext<I, R>) => string
   ids: (ctx: ActionContext<I, R>) => readonly string[]
   onError: 'stop' | 'skip'
   onDone: (ctx: ActionContext<I, R>, report: PrecheckReport) => void
 }): ActionStep<I, R> {
-  return defineStep<I, R>(name, async (ctx) => {
+  return defineUiStep<I, R>(name, async (ctx) => {
     if (!opts.allowed(ctx)) {
       opts.onDone(ctx, { byId: new Map(), checked: false, forbidden: false })
       return

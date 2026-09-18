@@ -61,7 +61,7 @@ export default withNuxt(
   },
   {
     name: 'kestrel/no-backend-in-ui-layers',
-    files: ['layers/admin/**/*.{ts,vue}', 'layers/public/**/*.{ts,vue}', 'layers/core/app/**/*.{ts,vue}'],
+    files: ['layers/admin/**/*.{ts,vue}', 'layers/public/**/*.{ts,vue}', 'layers/core/app/**/*.{ts,vue}', 'playground/app/**/*.{ts,vue}'],
     ignores: ['layers/core/app/types/**'],
     rules: {
       '@typescript-eslint/no-restricted-imports': [
@@ -82,7 +82,44 @@ export default withNuxt(
   },
   {
     name: 'kestrel/type-aware',
-    files: ['layers/core/server/**/*.ts', 'layers/core/pipelines/**/*.ts'],
+    files: ['layers/*/app/**/*.{ts,vue}', 'playground/app/**/*.{ts,vue}'],
+    ignores: ['**/*.d.ts'],
+    languageOptions: {
+      parserOptions: {
+        project: ['playground/.nuxt/tsconfig.app.json', 'playground/tsconfig.json'],
+        tsconfigRootDir: repoRoot,
+        extraFileExtensions: ['.vue'],
+      },
+    },
+    rules: {
+      '@typescript-eslint/await-thenable': 'error',
+      '@typescript-eslint/no-floating-promises': 'error',
+      '@typescript-eslint/no-misused-promises': 'error',
+      '@typescript-eslint/no-unnecessary-type-assertion': 'error',
+      '@typescript-eslint/no-unsafe-argument': 'error',
+      '@typescript-eslint/no-unsafe-assignment': 'error',
+      '@typescript-eslint/no-unsafe-call': 'error',
+      '@typescript-eslint/no-unsafe-member-access': 'error',
+      '@typescript-eslint/no-unsafe-return': 'error',
+      '@typescript-eslint/require-await': 'error',
+      '@typescript-eslint/restrict-template-expressions': ['error', { allowNumber: true }],
+    },
+  },
+  {
+    name: 'kestrel/type-aware-server',
+    files: [
+      'layers/*/server/**/*.ts',
+      'layers/*/pipelines/**/*.ts',
+      'layers/*/collections-ui/**/*.ts',
+      'layers/*/module-registry/**/*.ts',
+      'layers/*/schemas/**/*.ts',
+      'layers/*/modules/**/*.ts',
+      'layers/*/nuxt.config.ts',
+      'packages/renderer-nuxt/**/*.ts',
+      'playground/shared/**/*.ts',
+      'playground/*.ts',
+    ],
+    ignores: ['**/*.d.ts'],
     languageOptions: {
       parserOptions: {
         project: ['playground/.nuxt/tsconfig.server.json', 'playground/tsconfig.json'],
@@ -101,6 +138,20 @@ export default withNuxt(
       '@typescript-eslint/no-unsafe-return': 'error',
       '@typescript-eslint/require-await': 'error',
       '@typescript-eslint/restrict-template-expressions': ['error', { allowNumber: true }],
+    },
+  },
+  {
+    name: 'kestrel/type-aware-admin-actions',
+    files: ['layers/admin/app/actions/**/*.ts'],
+    ignores: ['layers/admin/app/actions/**/*.test.ts'],
+    languageOptions: {
+      parserOptions: {
+        project: ['playground/.nuxt/tsconfig.app.json', 'playground/tsconfig.json'],
+        tsconfigRootDir: repoRoot,
+      },
+    },
+    rules: {
+      '@typescript-eslint/no-unsafe-type-assertion': 'error',
     },
   },
 )

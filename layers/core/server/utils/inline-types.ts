@@ -1,7 +1,7 @@
-import { hasModuleForStep, type ModuleLike } from "./modules";
+import { hasModuleForStep, type ModuleLike, type StepOwnerLookup } from "./modules";
 
 export const SANITIZE_SVG_STEP = "sanitize.svg";
 
-export function inlineTypesFor(modules: readonly ModuleLike[]): string[] {
-  return hasModuleForStep(modules, SANITIZE_SVG_STEP) ? ["image/svg+xml"] : [];
+export function inlineTypesFor(kestrel: StepOwnerLookup, modules: readonly ModuleLike[]): string[] {
+  return hasModuleForStep(modules, kestrel.steps.owner(SANITIZE_SVG_STEP)) ? ["image/svg+xml"] : [];
 }

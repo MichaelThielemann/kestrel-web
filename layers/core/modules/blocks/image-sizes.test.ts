@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { boundaryCast } from "@michaelthielemann/kestrel/cast";
 import { extractImageSizesFile, mergeImageSizes, normalizeImageSize, renderImageSizesJson } from "./image-sizes";
 
 describe("normalizeImageSize", () => {
@@ -115,7 +116,7 @@ describe("renderImageSizesJson", () => {
   it("fixes key order per entry", () => {
     const size = normalizeImageSize({ name: "teaser", width: 480, height: 320, fit: "cover" }, "Image.vue");
     const json = renderImageSizesJson([size]);
-    const parsed = JSON.parse(json);
-    expect(Object.keys(parsed.sizes[0])).toEqual(["name", "width", "height", "fit", "format", "quality"]);
+    const parsed = boundaryCast<{ sizes: Array<Record<string, unknown>> }>(JSON.parse(json), "json");
+    expect(Object.keys(parsed.sizes[0] ?? {})).toEqual(["name", "width", "height", "fit", "format", "quality"]);
   });
 });

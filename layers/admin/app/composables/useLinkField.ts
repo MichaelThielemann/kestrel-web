@@ -64,7 +64,7 @@ export function useLinkField(
 
   const typeModel = computed<LinkType>({
     get: () => currentType.value,
-    set: (v) => { if (v) currentType.value = v as LinkType },
+    set: (v) => { if (v) currentType.value = v },
   })
 
   return { currentType, label, url, email, tel, collection, recordId, hash, typeModel }

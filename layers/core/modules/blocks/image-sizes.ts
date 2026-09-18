@@ -12,6 +12,7 @@ export interface SizeSource {
 
 interface AstNode {
   type: string;
+  name?: string;
   start: number;
   end: number;
   [key: string]: unknown;
@@ -31,7 +32,7 @@ function normalizeDimension(value: unknown, where: string, name: string, key: "w
   if (typeof value !== "number" || !Number.isInteger(value) || value < 16 || value > 8192) {
     fail(where, `image size "${name}" ${key} must be an integer between 16 and 8192`);
   }
-  return value as number;
+  return value;
 }
 
 export function normalizeImageSize(raw: unknown, where: string): ImageSize {
@@ -70,7 +71,7 @@ function defineImageSizesCall(declaration: unknown): AstNode | undefined {
   const node = boundaryCast<AstNode | undefined>(unwrap(declaration), "ast");
   if (node?.type !== "CallExpression") return undefined;
   const callee = boundaryCast<AstNode | undefined>(unwrap(node.callee), "ast");
-  if (callee?.type === "Identifier" && boundaryCast<{ name?: string }>(callee, "ast").name === "defineImageSizes") return node;
+  if (callee?.type === "Identifier" && callee.name === "defineImageSizes") return node;
   return undefined;
 }
 
@@ -93,7 +94,7 @@ export function extractImageSizesFile(source: string, fileBase: string): ImageSi
   const arg = (call.arguments as AstNode[])[0];
   if (!arg) throw new Error(`${fileBase}: defineImageSizes(...) needs an array literal argument`);
 
-  const value = evalObject(source, arg as Parameters<typeof evalObject>[1], {}, fileBase);
+  const value = evalObject(source, arg, {}, fileBase);
   if (!Array.isArray(value)) {
     throw new Error(
       `${fileBase}: could not evaluate the image sizes declaration. The defineImageSizes(...) argument must be a self-contained array literal (no imported constants, computed values or type arguments).`,

@@ -110,7 +110,7 @@ const ALLOWED_SVG_ATTRS = new Set([
 ])
 
 export function sanitizeIconSvg(svg: string): string {
-  return svg.replace(/<(\/?)([a-zA-Z][\w:-]*)((?:"[^"]*"|'[^']*'|[^>])*?)(\/?)>/g, (_m, close, tag, attrs, selfClose) => {
+  return svg.replace(/<(\/?)([a-zA-Z][\w:-]*)((?:"[^"]*"|'[^']*'|[^>])*?)(\/?)>/g, (_m: string, close: string, tag: string, attrs: string, selfClose: string) => {
     if (!ALLOWED_SVG_TAGS.has(tag.toLowerCase())) return ''
     if (close) return `</${tag}>`
     const kept: string[] = []

@@ -11,11 +11,10 @@ interface Call { path: string, method: string, body?: unknown, query?: unknown }
 
 function fakeApi(responses: Array<unknown | Error>) {
   const calls: Call[] = []
-  const api = (async (path: string, options?: ApiRequestOptions) => {
+  const api = ((path: string, options?: ApiRequestOptions) => {
     calls.push({ path, method: options?.method ?? 'GET', body: options?.body, query: options?.query })
     const next = responses.shift()
-    if (next instanceof Error) throw next
-    return next
+    return next instanceof Error ? Promise.reject(next) : Promise.resolve(next)
   }) as ApiClient
   return { api, calls }
 }
@@ -313,7 +312,7 @@ describe('setStatus', () => {
 
 describe('discardRecord', () => {
   it('navigates once the discard is confirmed', async () => {
-    const navigate = vi.fn(async () => undefined)
+    const navigate = vi.fn(() => Promise.resolve(undefined))
     const result = await runAction(discardRecord, { t: (k: string) => k, confirm: () => true, navigate, to: '/admin/pages' })
 
     expect(result.ok).toBe(true)
@@ -321,7 +320,7 @@ describe('discardRecord', () => {
   })
 
   it('stays put when the discard is rejected', async () => {
-    const navigate = vi.fn(async () => undefined)
+    const navigate = vi.fn(() => Promise.resolve(undefined))
     const result = await runAction(discardRecord, { t: (k: string) => k, confirm: () => false, navigate, to: '/admin/pages' })
 
     expect(result).toEqual({ ok: false, error: 'guard.unsaved' })
@@ -332,7 +331,7 @@ describe('discardRecord', () => {
 describe('leaveEditor', () => {
   it('bypasses the guard before navigating', async () => {
     const order: string[] = []
-    const navigate = vi.fn(async () => { order.push('navigate') })
+    const navigate = vi.fn(() => { order.push('navigate'); return Promise.resolve(undefined) })
     await runAction(leaveEditor, { navigate, bypassGuard: () => { order.push('bypass') }, to: '/admin/pages/p2' })
 
     expect(order).toEqual(['bypass', 'navigate'])
@@ -380,7 +379,7 @@ describe('deleteRecord', () => {
   function deleteInput(deps: ActionDeps, ids: string[], confirmed = true) {
     let busy = false
     const ops = { setBusy: vi.fn((on: boolean) => { busy = on }), busy: () => busy, setError: vi.fn() }
-    const navigate = vi.fn(async () => undefined)
+    const navigate = vi.fn(() => Promise.resolve(undefined))
     const bypassGuard = vi.fn()
     return { input: { deps, collection: 'pages', ids, confirmed, ops, navigate, bypassGuard, to: '/admin/pages' }, ops, navigate, bypassGuard }
   }
@@ -440,7 +439,7 @@ describe('deleteTranslation', () => {
   function translationInput(deps: ActionDeps, confirmed = true) {
     let busy = false
     const ops = { setBusy: vi.fn((on: boolean) => { busy = on }), busy: () => busy, setError: vi.fn() }
-    const navigate = vi.fn(async () => undefined)
+    const navigate = vi.fn(() => Promise.resolve(undefined))
     const bypassGuard = vi.fn()
     return {
       input: { deps, collection: 'pages', id: 'p1', locale: 'en', confirmed, ops, navigate, bypassGuard, to: '/admin/pages/p1?locale=de' },
@@ -542,7 +541,7 @@ describe('switchSystemTab', () => {
   const tabs = ['settings', 'users', 'delivery']
 
   function tabInput(tab: string, activeTab = 'settings', confirm = () => true) {
-    const navigate = vi.fn(async () => undefined)
+    const navigate = vi.fn(() => Promise.resolve(undefined))
     const confirmSpy = vi.fn(confirm)
     return { input: { t: (k: string) => k, confirm: confirmSpy, navigate, tabs, activeTab, tab, query: { locale: 'de' } }, navigate, confirmSpy }
   }

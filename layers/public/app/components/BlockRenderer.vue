@@ -3,6 +3,7 @@ import BlockRenderer from './BlockRenderer.vue'
 import BlockBoundary from './BlockBoundary.vue'
 import { blockComponents } from '#kestrel/blocks'
 import type { BlockNode } from '#kestrel-core/app/types/api'
+import { blockMarkerAttrs } from '../utils/block-marker'
 
 const props = defineProps<{
   nodes: BlockNode[]
@@ -21,7 +22,6 @@ const select = (node: BlockNode): void => {
 </script>
 
 <template>
-  <!-- eslint-disable vuejs-accessibility/no-static-element-interactions, vuejs-accessibility/click-events-have-key-events -->
   <div
     v-for="(node, i) in nodes"
     :key="node.id ?? i"
@@ -31,7 +31,10 @@ const select = (node: BlockNode): void => {
       'block-marker--selected': editable && !!node.id && node.id === selectedId,
     }"
     :data-type="node.type"
+    v-bind="blockMarkerAttrs(!!editable, !!editable && !!node.id && node.id === selectedId)"
     @click.stop="select(node)"
+    @keydown.enter.self.prevent="select(node)"
+    @keydown.space.self.prevent="select(node)"
   >
     <BlockBoundary v-if="blockComponents[node.type]" :node-props="node.props" :editable="editable" :label="errorLabel ?? ''">
       <component :is="blockComponents[node.type]" v-bind="node.props">
@@ -63,6 +66,11 @@ const select = (node: BlockNode): void => {
 
     &:hover {
       outline-color: color-mix(in srgb, var(--kestrel-selection) 45%, transparent);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--kestrel-selection);
+      outline-offset: -2px;
     }
   }
   &--selected,

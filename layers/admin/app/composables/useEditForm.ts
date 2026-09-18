@@ -15,6 +15,7 @@ import {
   type SubmitResult,
  pruneBlockProps, writeKeys } from '../utils/edit-form'
 import { copyTranslation as copyTranslationAction, saveRecord, setStatus as setStatusAction } from '../actions/editor'
+import { toastUnexpected } from '../actions/steps/notify'
 import type { ActionDeps, EditFormPort } from '../actions/types'
 import type { BlockRow } from '../utils/block-tree'
 import type { RowErrorMap } from '../utils/row-errors'
@@ -34,7 +35,7 @@ export interface UseEditFormOptions {
 }
 
 function snapshot(values: Record<string, unknown>): Record<string, unknown> {
-  return JSON.parse(JSON.stringify(values))
+  return boundaryCast<Record<string, unknown>>(JSON.parse(JSON.stringify(values)), 'json')
 }
 
 export function useEditForm(opts: UseEditFormOptions) {
@@ -367,15 +368,23 @@ export function useEditForm(opts: UseEditFormOptions) {
   }
 
   async function submit(): Promise<SubmitResult> {
-    return toSubmitResult(await runAction(saveRecord, { deps: deps(), form: port() }))
+    const d = deps()
+    const result = await runAction(saveRecord, { deps: d, form: port() })
+    toastUnexpected(d, result)
+    return toSubmitResult(result)
   }
 
   async function setStatus(next: string): Promise<SubmitResult> {
-    return toSubmitResult(await runAction(setStatusAction, { deps: deps(), form: port(), status: next }))
+    const d = deps()
+    const result = await runAction(setStatusAction, { deps: d, form: port(), status: next })
+    toastUnexpected(d, result)
+    return toSubmitResult(result)
   }
 
   async function copyTranslation(source: string, confirmed: boolean): Promise<boolean> {
-    const result = await runAction(copyTranslationAction, { deps: deps(), form: port(), fields: fields.value, source, confirmed })
+    const d = deps()
+    const result = await runAction(copyTranslationAction, { deps: d, form: port(), fields: fields.value, source, confirmed })
+    toastUnexpected(d, result)
     if (result.ok) copied.value = true
     return result.ok
   }

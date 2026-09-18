@@ -54,7 +54,7 @@ watch(getSelectedNodes, (nodes) => emit('select', nodes[0]?.id ?? null))
 
 let fitViewFrame: number | null = null
 watch(() => [props.nodes, props.edges], () => {
-  fitViewFrame = requestAnimationFrame(() => fitView())
+  fitViewFrame = requestAnimationFrame(() => { void fitView() })
 })
 onUnmounted(() => {
   if (fitViewFrame !== null) cancelAnimationFrame(fitViewFrame)

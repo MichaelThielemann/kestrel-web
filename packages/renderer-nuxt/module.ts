@@ -15,7 +15,7 @@ export default defineModule({
   requires: [],
   configSchema,
 
-  async setup(config): Promise<Renderer> {
-    return createRendererNuxt(config);
+  setup(config): Promise<Renderer> {
+    return Promise.resolve(createRendererNuxt(config));
   },
 });

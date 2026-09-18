@@ -34,12 +34,13 @@ function stopPolling() {
   clearInterval(pollId)
   pollId = null
 }
+async function poll() {
+  await load()
+  if (status.value?.job?.state !== 'running') stopPolling()
+}
 function startPolling() {
   if (pollId !== null) return
-  pollId = setInterval(async () => {
-    await load()
-    if (status.value?.job?.state !== 'running') stopPolling()
-  }, POLL_MS)
+  pollId = setInterval(() => { void poll() }, POLL_MS)
 }
 
 onMounted(() => { if (status.value?.job?.state === 'running') startPolling() })

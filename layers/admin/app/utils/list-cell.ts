@@ -15,5 +15,5 @@ export function columnLabel(col: ListColumn, t: (key: string) => string): string
 }
 
 export function rowLabel(row: Record<string, unknown>): string {
-  return (row.title as string) || (row.slug as string) || `#${row.id}`
+  return (row.title as string) || (row.slug as string) || `#${String(row.id)}`
 }

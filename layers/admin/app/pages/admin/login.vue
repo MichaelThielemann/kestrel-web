@@ -3,16 +3,18 @@ definePageMeta({ layout: 'admin' })
 
 const { t } = useT()
 const route = useRoute()
+const { error: sessionError, checkSession, login } = useAuth()
 const username = ref('')
 const password = ref('')
 const error = ref<string | null>(null)
 const loading = ref(false)
+const retrying = ref(false)
 
 async function submit() {
   loading.value = true
   error.value = null
   try {
-    await useAuth().login(username.value, password.value)
+    await login(username.value, password.value)
     await navigateTo(safeRedirect(route.query.redirect) ?? '/admin')
   } catch (e: unknown) {
     const code = apiErrorCode(e)
@@ -21,10 +23,26 @@ async function submit() {
     loading.value = false
   }
 }
+
+async function retry() {
+  retrying.value = true
+  const ok = await checkSession()
+  retrying.value = false
+  if (ok) await navigateTo(safeRedirect(route.query.redirect) ?? '/admin')
+}
 </script>
 
 <template>
-  <form class="login" @submit.prevent="submit">
+  <div v-if="sessionError" class="login">
+    <div class="login__brand">
+      <KestrelUiBrand />
+      <span class="login__brand-word">kestrel</span>
+    </div>
+    <h1 class="login__title">{{ t('login.signIn') }}</h1>
+    <KestrelUiAlert variant="error">{{ t('login.backendUnreachable') }}</KestrelUiAlert>
+    <KestrelUiButton variant="primary" :loading="retrying" @click="retry">{{ t('common.retry') }}</KestrelUiButton>
+  </div>
+  <form v-else class="login" @submit.prevent="submit">
     <div class="login__brand">
       <KestrelUiBrand />
       <span class="login__brand-word">kestrel</span>

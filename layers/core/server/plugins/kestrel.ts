@@ -11,7 +11,7 @@ import modules from "#kestrel/consumer-modules";
 import config from "~~/kestrel.config";
 import { inlineTypesFor } from "../utils/inline-types";
 import { uploadLimits } from "../utils/limits";
-import { applyBundledSchemas, type SchemaBundle } from "../utils/bundled-schemas";
+import { applyBundledSchemas } from "../utils/bundled-schemas";
 import { moduleConfigForStep } from "../utils/modules";
 import { accessLists } from "./access";
 
@@ -26,8 +26,8 @@ export interface KestrelStatus {
   error?: string;
 }
 
-function warnIfImagesPublicPathMismatched(): void {
-  const images = moduleConfigForStep(modules, config.modules, IMAGES_REGISTER_STEP);
+function warnIfImagesPublicPathMismatched(kestrel: Kestrel): void {
+  const images = moduleConfigForStep(modules, config.modules, kestrel.steps.owner(IMAGES_REGISTER_STEP));
   if (images === undefined) return;
   const raw = typeof images === "object" && images !== null ? (images as { publicPath?: unknown }).publicPath : undefined;
   const publicPath = typeof raw === "string" ? raw : "/media";
@@ -55,15 +55,25 @@ function recordBootFailure(err: unknown): void {
   const module = err instanceof KestrelBootError ? err.module : "kestrel";
   const reason = err instanceof KestrelBootError ? err.reason : bootError;
   consoleLogger.error("kestrel failed to boot", { module, reason });
+  for (const line of [
+    "================================================================",
+    "  KESTREL FAILED TO BOOT",
+    `  module: ${module}`,
+    `  reason: ${reason}`,
+    "  fix kestrel.config.ts and restart",
+    "================================================================",
+  ]) {
+    consoleLogger.error(line);
+  }
   if (!import.meta.dev) process.exit(1);
 }
 
 export function getKestrel(): Promise<Kestrel> {
   instance ??= (async () => {
     try {
-      const kestrel = await boot({ config: { ...config, modules: applyBundledSchemas(config.modules, boundaryCast<SchemaBundle>(bundledSchemas, "host")) }, modules, pipelines, logger: consoleLogger });
+      const kestrel = await boot({ config: { ...config, modules: applyBundledSchemas(config.modules, bundledSchemas) }, modules, pipelines, logger: consoleLogger });
       await kestrel.start();
-      warnIfImagesPublicPathMismatched();
+      warnIfImagesPublicPathMismatched(kestrel);
       await registerImageSizes(kestrel);
       state = "ready";
       return kestrel;
@@ -92,8 +102,8 @@ export default defineNitroPlugin((nitro) => {
         trustProxy,
         proxyHops,
         ...(trustedHeader === "" ? {} : { trustedHeader }),
-        inlineTypes: inlineTypesFor(modules),
-        maxBodyBytes: uploadLimits(modules, config.modules).maxBodyBytes,
+        inlineTypes: inlineTypesFor(kestrel, modules),
+        maxBodyBytes: uploadLimits(kestrel, modules, config.modules).maxBodyBytes,
       });
     })
     .catch((err: unknown) => {

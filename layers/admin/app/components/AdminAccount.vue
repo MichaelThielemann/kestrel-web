@@ -18,7 +18,7 @@ const accountCollections = computed(() => collections.value.filter((c) => c.mode
 const changePasswordOpen = ref(false)
 
 function selectLang(value: unknown) { lang.value = value as string }
-function signOut() { logout() }
+function signOut() { void logout() }
 
 defineExpose({ lang, selectLang, signOut, theme, toggleTheme })
 </script>

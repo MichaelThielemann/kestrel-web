@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { definePreset } from "./index";
+import { definePreset, featureOrder } from "./index";
 import type { Feature } from "./index";
 import { basePipelines } from "./base";
 import { canonicalTriggers } from "./triggers";
@@ -38,7 +38,7 @@ function pipelinesMap(pipelines: { name: string; steps: readonly string[] }[]): 
   return Object.fromEntries(pipelines.map((pipeline) => [pipeline.name, [...pipeline.steps]]));
 }
 
-const allFeatures: readonly Feature[] = ["ratelimit", "sanitizeSvg", "references", "links", "delivery", "redirects", "images", "replication", "audit", "insights"];
+const allFeatures: readonly Feature[] = featureOrder.filter((feature) => feature !== "migrations");
 
 const allModules = [
   { use: "@michaelthielemann/kestrel-blobstore-filesystem" },
@@ -61,6 +61,13 @@ const allModules = [
   { use: "@michaelthielemann/kestrel-ratelimit-memory" },
   { use: "@michaelthielemann/kestrel-insights" },
 ];
+
+describe("allFeatures", () => {
+  it("omits exactly migrations from featureOrder", () => {
+    const omitted = featureOrder.filter((feature) => !allFeatures.includes(feature));
+    expect(omitted).toEqual(["migrations"]);
+  });
+});
 
 describe("golden: playground", () => {
   it("matches playground.json pipelines and triggers exactly", () => {

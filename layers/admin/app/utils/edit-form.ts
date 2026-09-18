@@ -14,7 +14,7 @@ export function toSubmitResult(result: { ok: true, result?: { record: Document |
 }
 
 export function asFieldDef(field: SerializedField): FieldDef {
-  return field as FieldDef
+  return field
 }
 
 export function cloneDefault(value: unknown): unknown {
@@ -241,7 +241,7 @@ interface PrunableBlock {
 
 export function pruneBlockProps(blocks: unknown, fieldsByType: Record<string, Record<string, unknown>>): unknown {
   if (!Array.isArray(blocks)) return blocks
-  return blocks.map((raw) => {
+  return blocks.map((raw: unknown) => {
     if (!raw || typeof raw !== 'object') return raw
     const block = raw as PrunableBlock
     const known = fieldsByType[block.type]

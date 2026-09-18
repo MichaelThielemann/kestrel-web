@@ -146,7 +146,7 @@ describe('runAction', () => {
 
     const result = await runAction(action, undefined)
 
-    expect(result).toEqual({ ok: false, error: 'network down', meta: { action: 'crashy', step: 'api.write' } })
+    expect(result).toEqual({ ok: false, error: 'network down', meta: { action: 'crashy', step: 'api.write', unexpected: true } })
     expect(errorSpy).toHaveBeenCalled()
 
     errorSpy.mockRestore()
@@ -162,9 +162,53 @@ describe('runAction', () => {
 
     const result = await runAction(action, undefined)
 
-    expect(result).toEqual({ ok: false, error: 'plain string', meta: { action: 'crashy-string', step: 'a' } })
+    expect(result).toEqual({ ok: false, error: 'plain string', meta: { action: 'crashy-string', step: 'a', unexpected: true } })
 
     errorSpy.mockRestore()
+  })
+
+  it('resolves with meta.unexpected without rejecting when rethrow is false (production)', async () => {
+    const action = defineAction<undefined>({
+      name: 'crashy-prod',
+      steps: [defineStep('a', () => { throw new TypeError('prod boom') })],
+    })
+
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const result = await runAction(action, undefined, { rethrow: false })
+
+    expect(result).toEqual({ ok: false, error: 'prod boom', meta: { action: 'crashy-prod', step: 'a', unexpected: true } })
+    expect(errorSpy).toHaveBeenCalled()
+
+    errorSpy.mockRestore()
+  })
+
+  it('rejects with the raw error when rethrow is true (dev mode)', async () => {
+    const action = defineAction<undefined>({
+      name: 'crashy-dev',
+      steps: [defineStep('a', () => { throw new TypeError('dev boom') })],
+    })
+
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    await expect(runAction(action, undefined, { rethrow: true })).rejects.toThrow('dev boom')
+    expect(errorSpy).toHaveBeenCalled()
+
+    errorSpy.mockRestore()
+  })
+
+  it('does not rethrow ctx.fail or ctx.done even when rethrow is true', async () => {
+    const failing = defineAction<undefined>({
+      name: 'guarded-dev',
+      steps: [defineStep('a', (ctx) => { ctx.fail('nope') })],
+    })
+    const done = defineAction<undefined>({
+      name: 'done-dev',
+      steps: [defineStep('a', (ctx) => { ctx.done() })],
+    })
+
+    await expect(runAction(failing, undefined, { rethrow: true })).resolves.toEqual({ ok: false, error: 'nope' })
+    await expect(runAction(done, undefined, { rethrow: true })).resolves.toEqual({ ok: true })
   })
 
   it('awaits async steps in order', async () => {
@@ -273,7 +317,7 @@ describe('runAction', () => {
     const result = await runAction(action, undefined)
 
     expect(calls).toEqual(['a', 'cleanup'])
-    expect(result).toEqual({ ok: false, error: 'boom', meta: { action: 'cleanup-crash', step: 'a' } })
+    expect(result).toEqual({ ok: false, error: 'boom', meta: { action: 'cleanup-crash', step: 'a', unexpected: true } })
 
     errorSpy.mockRestore()
   })
@@ -310,6 +354,59 @@ describe('runAction', () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
     const result = await runAction(action, undefined)
+
+    expect(result).toEqual({ ok: true })
+    expect(errorSpy).toHaveBeenCalled()
+
+    errorSpy.mockRestore()
+  })
+
+  it('does not rethrow a marker throw from an always step even when rethrow is true', async () => {
+    const action = defineAction<undefined>({
+      name: 'cleanup-marker-throw-dev',
+      steps: [defineStep('a', () => {})],
+      always: [defineStep('misused', (ctx) => { ctx.fail('should not surface') })],
+    })
+
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const result = await runAction(action, undefined, { rethrow: true })
+
+    expect(result).toEqual({ ok: true })
+    expect(errorSpy).toHaveBeenCalled()
+
+    errorSpy.mockRestore()
+  })
+
+  it('rethrows an unexpected always-step error only after the remaining always steps ran', async () => {
+    const calls: string[] = []
+    const action = defineAction<undefined>({
+      name: 'cleanup-crash-dev',
+      steps: [defineStep('a', () => { calls.push('a') })],
+      always: [
+        defineStep('busy', () => { calls.push('busy'); throw new TypeError('cleanup failed') }),
+        defineStep('refresh', () => { calls.push('refresh') }),
+      ],
+    })
+
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    await expect(runAction(action, undefined, { rethrow: true })).rejects.toThrow('cleanup failed')
+    expect(calls).toEqual(['a', 'busy', 'refresh'])
+
+    errorSpy.mockRestore()
+  })
+
+  it('logs but does not rethrow an unexpected always-step error when rethrow is false', async () => {
+    const action = defineAction<undefined>({
+      name: 'cleanup-crash-prod',
+      steps: [defineStep('a', () => {})],
+      always: [defineStep('busy', () => { throw new TypeError('cleanup failed') })],
+    })
+
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const result = await runAction(action, undefined, { rethrow: false })
 
     expect(result).toEqual({ ok: true })
     expect(errorSpy).toHaveBeenCalled()

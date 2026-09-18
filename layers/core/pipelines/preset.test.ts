@@ -2,7 +2,7 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
-import { definePreset, presetSchemas } from "./index";
+import { definePipeline, definePreset, presetSchemas } from "./index";
 import type { CollectionModel, PresetStep } from "./index";
 
 const baseModules = [
@@ -386,5 +386,17 @@ describe("definePreset pages-optional boot", () => {
     expect(() => definePreset({ modules, features: ["references"], collections: collectionsWithoutPages })).toThrow(
       'preset: feature "references" requires a "pages" collection',
     );
+  });
+});
+
+describe("definePipeline", () => {
+  it("accepts a registered step", () => {
+    const pipeline = definePipeline({ name: "x", steps: ["authn.requireUser"] });
+    expect(pipeline.steps).toEqual(["authn.requireUser"]);
+  });
+
+  it("rejects a misspelled step name at compile time", () => {
+    // @ts-expect-error "authn.requireUsr" is not a registered step
+    definePipeline({ name: "x", steps: ["authn.requireUsr"] });
   });
 });

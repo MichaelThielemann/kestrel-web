@@ -75,6 +75,7 @@ overrides:
 | `docs/consuming-kestrel-web.md` | Step-by-step for a new app that extends `kestrel-web`. |
 | `docs/migrations.md` | Rewriting stored content after a block or model change: enabling the module, writing migrations, run modes, the admin tab. |
 | `docs/insights.md` | The `/admin/insights` page: manifest and stats routes, enabling the module, the wiring graph. |
+| `CHANGELOG.md` | Every behaviour change visible to a consumer, newest first under `## Unreleased`. |
 | [backend `docs/api.md`](https://github.com/MichaelThielemann/kestrel/blob/main/docs/api.md) | The HTTP contract every composable and pipeline is written against. |
 
 ## License

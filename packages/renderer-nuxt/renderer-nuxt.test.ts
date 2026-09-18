@@ -15,18 +15,18 @@ const assetFiles: Record<string, { body: string; type: string }> = {
 
 function stub(overrides: Partial<NuxtTarget> = {}): NuxtTarget {
   return {
-    async fetch(path) {
+    fetch(path) {
       const file = assetFiles[path];
-      if (file) return new Response(file.body, { headers: { "content-type": file.type } });
-      if (path === "/missing" || path === "/_nuxt/missing.js") return new Response("nope", { status: 404 });
-      if (path === "/unavailable" || path === "/_nuxt/unavailable.js") return new Response("nope", { status: 503 });
-      return new Response(`<!doctype html><html><body>${path}</body></html>`, { headers: { "content-type": "text/html" } });
+      if (file) return Promise.resolve(new Response(file.body, { headers: { "content-type": file.type } }));
+      if (path === "/missing" || path === "/_nuxt/missing.js") return Promise.resolve(new Response("nope", { status: 404 }));
+      if (path === "/unavailable" || path === "/_nuxt/unavailable.js") return Promise.resolve(new Response("nope", { status: 503 }));
+      return Promise.resolve(new Response(`<!doctype html><html><body>${path}</body></html>`, { headers: { "content-type": "text/html" } }));
     },
     ...overrides,
   };
 }
 
-rendererContractTests(async () => createRendererNuxt(config, () => stub()));
+rendererContractTests(() => Promise.resolve(createRendererNuxt(config, () => stub())));
 
 describe("renderer/nuxt", () => {
   const input = { type: "pages", id: "p1", locale: "de", path: "/kontakt", format: "html", document: { id: "p1" } };
@@ -41,8 +41,8 @@ describe("renderer/nuxt", () => {
 
   it("returns RENDER_FAILED when the markup contains dev-server source URLs", async () => {
     const target = stub({
-      async fetch() {
-        return new Response('<script type="module" src="/_nuxt/@fs/repo/app.vue?vue&type=script"></script>', { headers: { "content-type": "text/html" } });
+      fetch() {
+        return Promise.resolve(new Response('<script type="module" src="/_nuxt/@fs/repo/app.vue?vue&type=script"></script>', { headers: { "content-type": "text/html" } }));
       },
     });
     const result = await createRendererNuxt(config, () => target).render(input);

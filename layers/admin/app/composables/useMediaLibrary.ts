@@ -107,10 +107,10 @@ export function useMediaLibrary(opts: { urlSync?: boolean; accept?: 'image' | 'a
     page.value = 1
     clear()
     checkFolder()
-    fetchFiles()
+    void fetchFiles()
   }
 
-  function setSearch(s: string) { search.value = s; page.value = 1; fetchFiles() }
+  function setSearch(s: string) { search.value = s; page.value = 1; void fetchFiles() }
 
   function setView(v: 'grid' | 'table') {
     view.value = v
@@ -120,11 +120,11 @@ export function useMediaLibrary(opts: { urlSync?: boolean; accept?: 'image' | 'a
   function setSort(field: string) {
     sort.value = sort.value === field ? `-${field}` : field
     page.value = 1
-    fetchFiles()
+    void fetchFiles()
   }
 
-  function setPage(p: number) { page.value = p; clear(); fetchFiles() }
-  function setPerPage(n: number) { perPage.value = clampPerPage(n); page.value = 1; clear(); fetchFiles() }
+  function setPage(p: number) { page.value = p; clear(); void fetchFiles() }
+  function setPerPage(n: number) { perPage.value = clampPerPage(n); page.value = 1; clear(); void fetchFiles() }
 
   const isSelected = (item: LibraryItem) => selected.value.has(itemKey(item))
   function select(item: LibraryItem) { const k = itemKey(item); selected.value = new Set([k]); anchorKey = k }
@@ -147,7 +147,7 @@ export function useMediaLibrary(opts: { urlSync?: boolean; accept?: 'image' | 'a
       page.value = 1
       clear()
       checkFolder()
-      fetchFiles()
+      void fetchFiles()
     })
   }
 

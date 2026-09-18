@@ -19,7 +19,7 @@ export interface ClipboardPayload {
 }
 
 export function serializeClipboardPayload(blocks: BlockRow[]): string {
-  const payload: ClipboardPayload = { kestrel: CLIPBOARD_MARKER, version: CLIPBOARD_VERSION, blocks: blocks as ClipboardBlockNode[] }
+  const payload: ClipboardPayload = { kestrel: CLIPBOARD_MARKER, version: CLIPBOARD_VERSION, blocks: blocks }
   return JSON.stringify(payload)
 }
 

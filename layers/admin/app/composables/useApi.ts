@@ -67,7 +67,7 @@ export function useApi() {
   })
   return async <T>(path: string, options: Parameters<typeof client>[1] = {}): Promise<T> => {
     try {
-      return (await client<T>(path, options as never)) as T
+      return (await client<T>(path, options)) as T
     } catch (e) {
       throw toApiError(e)
     }

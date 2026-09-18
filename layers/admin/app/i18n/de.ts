@@ -11,6 +11,9 @@ export const de: Catalog = {
   'common.close': 'Schließen',
   'common.retry': 'Erneut versuchen',
 
+  'bootFailure.title': 'Kestrel konnte nicht gestartet werden',
+  'bootFailure.hint': 'Weitere Details finden Sie im Server-Log.',
+
   'nav.dashboard': 'Übersicht',
   'nav.signOut': 'Abmelden',
   'theme.dark': 'Dunkelmodus',
@@ -34,6 +37,7 @@ export const de: Catalog = {
   'login.password': 'Passwort',
   'login.invalid': 'Ungültige Anmeldedaten',
   'login.error': 'Etwas ist schiefgelaufen — bitte erneut versuchen',
+  'login.backendUnreachable': 'Backend nicht erreichbar.',
 
   'dash.title': 'Übersicht',
   'dash.lede': 'Wähle eine Collection, um ihre Inhalte zu verwalten.',
@@ -59,6 +63,8 @@ export const de: Catalog = {
   'editor.quarantined.title': 'Datensatz in Quarantäne',
   'editor.quarantined.desc': 'Dieser Datensatz entspricht nicht mehr dem Schema seiner Collection und wird schreibgeschützt angezeigt. Er kann erst bearbeitet oder gespeichert werden, wenn die zugrunde liegenden Daten korrigiert sind.',
   'toast.saved': 'Gespeichert',
+  'toast.unexpected': 'Unerwarteter Fehler, Details in der Browser-Konsole',
+  'toast.logoutFailed': 'Abmelden fehlgeschlagen',
   'toast.deleted': 'Gelöscht',
   'toast.translationDeleted': 'Übersetzung gelöscht',
   'toast.translationCopied': 'Inhalt aus {locale} übernommen',
@@ -313,6 +319,7 @@ export const de: Catalog = {
   'media.error.load': 'Medien konnten nicht geladen werden.',
   'media.error.relocate': 'Der Vorgang konnte nicht abgeschlossen werden.',
   'media.error.relocateConflict': 'Einige Elemente konnten nicht verschoben oder kopiert werden.',
+  'media.metaLoadFailed': 'Metadaten konnten nicht geladen werden',
   'media.folderEmpty': 'Dieser Ordner ist leer.',
   'media.folderNotFound': 'Dieser Ordner existiert nicht.',
   'media.loadMore': 'Mehr laden',

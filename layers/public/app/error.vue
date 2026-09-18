@@ -20,7 +20,7 @@ const homePath = computed(() => (isAdmin.value ? '/admin' : localePath('/', loca
 useHead(() => ({ htmlAttrs: { lang: isAdmin.value ? defaultLocale : locale.value } }))
 
 function goHome(): void {
-  clearError({ redirect: homePath.value })
+  void clearError({ redirect: homePath.value })
 }
 </script>
 

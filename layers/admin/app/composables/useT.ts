@@ -10,7 +10,7 @@ const catalogs: Record<string, Catalog> = { en, de }
 
 export function interpolate(template: string, params?: Record<string, unknown>): string {
   if (!params) return template
-  return template.replace(/\{(\w+)\}/g, (m, k) => (params[k] != null ? String(params[k]) : m))
+  return template.replace(/\{(\w+)\}/g, (m: string, k: string) => (params[k] != null ? String(params[k]) : m))
 }
 
 export function translate(catalog: Catalog, fallback: Catalog, key: string, params?: Record<string, unknown>): string {

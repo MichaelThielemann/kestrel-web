@@ -11,6 +11,9 @@ export const en: Catalog = {
   'common.close': 'Close',
   'common.retry': 'Retry',
 
+  'bootFailure.title': 'Kestrel failed to start',
+  'bootFailure.hint': 'Check the server log for details.',
+
   'nav.dashboard': 'Dashboard',
   'nav.signOut': 'Sign out',
   'theme.dark': 'Dark mode',
@@ -34,6 +37,7 @@ export const en: Catalog = {
   'login.password': 'Password',
   'login.invalid': 'Invalid credentials',
   'login.error': 'Something went wrong — please try again',
+  'login.backendUnreachable': 'Backend not reachable.',
 
   'dash.title': 'Dashboard',
   'dash.lede': 'Choose a collection to manage its content.',
@@ -59,6 +63,8 @@ export const en: Catalog = {
   'editor.quarantined.title': 'Record quarantined',
   'editor.quarantined.desc': 'This record no longer matches its collection’s schema and is shown read-only. It cannot be edited or saved until the underlying data is fixed.',
   'toast.saved': 'Saved',
+  'toast.unexpected': 'Unexpected error, details in the browser console',
+  'toast.logoutFailed': 'Logout failed',
   'toast.deleted': 'Deleted',
   'toast.translationDeleted': 'Translation deleted',
   'toast.translationCopied': 'Content copied from {locale}',
@@ -313,6 +319,7 @@ export const en: Catalog = {
   'media.error.load': 'Failed to load the library',
   'media.error.relocate': "The operation couldn't be completed.",
   'media.error.relocateConflict': 'Some items could not be moved or copied.',
+  'media.metaLoadFailed': 'Could not load metadata',
   'media.folderEmpty': 'This folder is empty.',
   'media.folderNotFound': 'That folder does not exist.',
   'media.loadMore': 'Load more',

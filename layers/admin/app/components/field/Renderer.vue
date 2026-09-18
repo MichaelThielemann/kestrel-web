@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, type Component } from 'vue'
 import { resolveFieldComponent } from '../../utils/field-registry'
 import { resolveLocalized } from '../../utils/localized'
 import { humanizeFieldName } from '../../utils/humanize'
@@ -9,7 +9,7 @@ import type { FieldComponentProps } from '../../utils/field-component'
 const props = defineProps<FieldComponentProps>()
 const model = defineModel<unknown>()
 const { lang } = useT()
-const component = computed(() => resolveFieldComponent(props.field.type) ?? FieldUnsupported)
+const component = computed(() => resolveFieldComponent(props.field.type) ?? (FieldUnsupported as Component))
 
 const label = computed(() => resolveLocalized(props.field.label, lang.value) ?? humanizeFieldName(props.name))
 </script>

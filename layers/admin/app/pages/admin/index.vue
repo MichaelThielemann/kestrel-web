@@ -4,7 +4,7 @@ import type { ListPage, BrokenReference, BrokenLink, User } from '#kestrel-admin
 
 definePageMeta({ layout: 'admin', middleware: 'admin-auth' })
 
-interface DashCard { name: string; icon: string; label: string; mode: 'multi' | 'single'; placement: 'rail' | 'system' | 'account'; count: number | null }
+interface DashCard { name: string; icon: string; label: string; mode: 'multi' | 'single'; placement: 'rail' | 'system' | 'account'; count: number | null; countError: string | null }
 
 const { t, lang } = useT()
 const { isAdmin } = useAuth()
@@ -22,10 +22,13 @@ const cards = ref<DashCard[]>(
       mode: c.mode,
       placement: c.placement,
       count: null,
+      countError: null,
     })),
 )
 const mediaCount = ref<number | null>(null)
+const mediaCountError = ref<string | null>(null)
 const usersCount = ref<number | null>(null)
+const usersCountError = ref<string | null>(null)
 const brokenCount = ref(0)
 const brokenError = ref<string | null>(null)
 
@@ -34,17 +37,32 @@ async function loadCounts() {
     ...cards.value
       .filter((c) => c.mode === 'multi')
       .map(async (c) => {
-        try { c.count = (await api<ListPage<unknown>>(`/admin/${c.name}`, { query: { limit: 1 } })).total }
-        catch { c.count = null }
+        try {
+          c.count = (await api<ListPage<unknown>>(`/admin/${c.name}`, { query: { limit: 1 } })).total
+          c.countError = null
+        } catch (e) {
+          c.count = null
+          c.countError = apiErrorMessage(e)
+        }
       }),
     (async () => {
-      try { mediaCount.value = (await api<ListPage<unknown>>('/media', { query: { limit: 1 } })).total }
-      catch { mediaCount.value = null }
+      try {
+        mediaCount.value = (await api<ListPage<unknown>>('/media', { query: { limit: 1 } })).total
+        mediaCountError.value = null
+      } catch (e) {
+        mediaCount.value = null
+        mediaCountError.value = apiErrorMessage(e)
+      }
     })(),
     isAdmin.value
       ? (async () => {
-          try { usersCount.value = (await api<User[]>('/users')).length }
-          catch { usersCount.value = null }
+          try {
+            usersCount.value = (await api<User[]>('/users')).length
+            usersCountError.value = null
+          } catch (e) {
+            usersCount.value = null
+            usersCountError.value = apiErrorMessage(e)
+          }
         })()
       : Promise.resolve(),
   ])
@@ -85,6 +103,7 @@ await Promise.all([loadCounts(), loadBroken()])
           <KestrelUiIcon :name="c.icon" class="dash__icon" size="1.5rem" />
           <span class="dash__name">{{ c.label }}</span>
           <span class="dash__mode">{{ c.mode === 'single' ? t('dash.mode.singleton') : (c.count ?? '—') }}</span>
+          <span v-if="c.countError" class="dash__tile-error" role="alert">{{ c.countError }}</span>
         </NuxtLink>
       </li>
       <li>
@@ -92,6 +111,7 @@ await Promise.all([loadCounts(), loadBroken()])
           <KestrelUiIcon name="image" class="dash__icon" size="1.5rem" />
           <span class="dash__name">{{ t('media.title') }}</span>
           <span class="dash__mode">{{ mediaCount ?? '—' }}</span>
+          <span v-if="mediaCountError" class="dash__tile-error" role="alert">{{ mediaCountError }}</span>
         </NuxtLink>
       </li>
       <li v-if="isAdmin">
@@ -99,6 +119,7 @@ await Promise.all([loadCounts(), loadBroken()])
           <KestrelUiIcon name="users" class="dash__icon" size="1.5rem" />
           <span class="dash__name">{{ t('users.title') }}</span>
           <span class="dash__mode">{{ usersCount ?? '—' }}</span>
+          <span v-if="usersCountError" class="dash__tile-error" role="alert">{{ usersCountError }}</span>
         </NuxtLink>
       </li>
     </ul>
@@ -170,6 +191,10 @@ await Promise.all([loadCounts(), loadBroken()])
   &__mode {
     font-size: var(--text-sm);
     color: var(--color-text-muted);
+  }
+  &__tile-error {
+    font-size: var(--text-xs);
+    color: var(--color-danger);
   }
 }
 </style>

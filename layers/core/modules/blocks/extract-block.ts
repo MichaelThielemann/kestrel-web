@@ -90,7 +90,7 @@ function macroCall(ast: ReturnType<typeof parse>, macro: string): { arg?: Node; 
 export function evalObject(source: string, node: Node, scope: Record<string, unknown>, where: string): Record<string, unknown> {
   const names = Object.keys(scope);
   try {
-    const build = new Function(...names, `return (${source.slice(node.start, node.end)})`);
+    const build = new Function(...names, `return (${source.slice(node.start, node.end)})`) as (...args: unknown[]) => unknown;
     const value = build(...names.map((name) => scope[name]));
     if (!value || typeof value !== "object") throw new Error("expected an object literal");
     return value as Record<string, unknown>;

@@ -7,5 +7,5 @@ export const blocksWithImages: SerializedBlock[] = blockDefinitions.map((block) 
 )
 
 export function useBlocks() {
-  return { blocks: computed(() => blocksWithImages), load: async () => blocksWithImages }
+  return { blocks: computed(() => blocksWithImages), load: () => blocksWithImages }
 }

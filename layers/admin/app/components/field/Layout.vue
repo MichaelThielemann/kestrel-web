@@ -25,7 +25,7 @@ const nodes = computed<LayoutNode[]>(() =>
 interface RenderRow { fields: string[]; cols: string }
 type RenderNode = { kind: 'row'; row: RenderRow } | { kind: 'group'; label: Localized; hint?: Localized; rows: RenderRow[] }
 
-const isVisible = (name: string) => !!props.fields[name] && isFieldVisible(props.fields[name]!, props.values)
+const isVisible = (name: string) => !!props.fields[name] && isFieldVisible(props.fields[name], props.values)
 const trackToCss = (t: LayoutTrack): string => (typeof t === 'number' ? `${t}fr` : t)
 
 function pruneRow(fields: string[], tracks: LayoutTrack[] = []): RenderRow {

@@ -3,10 +3,7 @@ import { ref, computed, watch } from 'vue'
 import type { MediaItem, Provenance, ProvenanceOrigin } from '#kestrel-admin/types/api'
 import { humanizeSize } from '../utils/library'
 import { PROVENANCE_ORIGINS, provenanceOrigin } from '../utils/provenance'
-import { changedMetaFields, type MediaMetaFields } from '../utils/media-meta'
-
-export interface MediaMetaSave { locale: string; fields: MediaMetaFields }
-export interface MediaViewerSave { provenance?: Provenance; meta?: MediaMetaSave }
+import { changedMetaFields, type MediaViewerSave } from '../utils/media-meta'
 
 const props = defineProps<{ open: boolean; file: MediaItem | null; busy?: boolean; error?: string | null }>()
 const emit = defineEmits<{ 'update:open': [boolean]; save: [MediaViewerSave] }>()
@@ -42,6 +39,7 @@ const provenanceDirty = computed(() => origin.value !== fileOrigin.value || tool
 
 const metaLocale = ref(primary)
 const metaLoading = ref(false)
+const metaError = ref('')
 
 const loaded = ref<{ alt: string | null; title: string | null; description: string | null }>({ alt: null, title: null, description: null })
 const alt = ref('')
@@ -63,10 +61,13 @@ async function loadMeta(locale: string) {
     return
   }
   metaLoading.value = true
+  metaError.value = ''
   try {
     const item = await api<MediaItem>(`/media/${encodeURIComponent(f.id)}`, { query: { locale } })
     loaded.value = { alt: item.alt, title: item.title, description: item.description }
     alt.value = item.alt ?? ''; title.value = item.title ?? ''; description.value = item.description ?? ''
+  } catch {
+    metaError.value = t('media.metaLoadFailed')
   } finally {
     metaLoading.value = false
   }
@@ -81,10 +82,10 @@ watch(() => props.open, (o) => {
   model.value = fileModel.value
   metaLocale.value = primary
   lastLoadedFor = props.file.id
-  loadMeta(primary)
+  void loadMeta(primary)
 }, { immediate: true })
 
-watch(metaLocale, (loc) => { if (props.open) loadMeta(loc) })
+watch(metaLocale, (loc) => { if (props.open) void loadMeta(loc) })
 
 const dirty = computed(() => provenanceDirty.value || metaDirty.value)
 function save() {
@@ -130,6 +131,7 @@ function save() {
               @update:model-value="(v) => { if (typeof v === 'string' && v) metaLocale = v }"
             />
           </div>
+          <KestrelUiAlert v-if="metaError" variant="error">{{ metaError }}</KestrelUiAlert>
           <KestrelUiField :label="t('mediaViewer.alt')" :hint="t('mediaViewer.altHint')">
             <template #default="f">
               <KestrelUiTextInput v-model="alt" :placeholder="altPlaceholder" :disabled="metaLoading" v-bind="f" @keydown.enter="save" />
