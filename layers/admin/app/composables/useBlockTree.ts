@@ -11,6 +11,7 @@ import {
   removeById,
   removalRetarget,
   moveById,
+  moveToIndex,
   duplicateById,
   addBlock,
   pasteBlocks,
@@ -68,6 +69,11 @@ export function useBlockTree(
     emit(`content:move:${id}`)
   }
 
+  function reorder(id: string, toIndex: number): void {
+    blocks.value = moveToIndex(blocks.value, id, toIndex)
+    emit(`content:move:${id}`)
+  }
+
   function duplicate(id: string): void {
     const { tree, newId } = duplicateById(blocks.value, id, genId)
     blocks.value = tree
@@ -91,5 +97,5 @@ export function useBlockTree(
     return { insertedCount: countBlocks(normalized), skippedTypes }
   }
 
-  return { blocks, selectedId, selectedBlock, select, setProp, remove, move, duplicate, add, paste }
+  return { blocks, selectedId, selectedBlock, select, setProp, remove, move, reorder, duplicate, add, paste }
 }

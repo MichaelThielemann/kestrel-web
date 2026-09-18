@@ -26,6 +26,12 @@ const clipboard = useBlockClipboard(tree, { t, toast })
 const canvasNodes = computed(() => boundaryCast<BlockNode[]>(tree.blocks.value, 'json'))
 
 const fieldsPane = ref<HTMLElement | null>(null)
+const focusRequest = ref<{ id: string } | null>(null)
+
+const liveMessage = ref('')
+function announce(message: string): void {
+  liveMessage.value = message === liveMessage.value ? `${message}\u200B` : message
+}
 
 function addAndFocus(parentId: string | null, slotName: string | null, type: string): void {
   tree.add(parentId, slotName, type)
@@ -48,6 +54,7 @@ const treeCtx: BlockTreeCtx = {
     add: addAndFocus,
     remove: tree.remove,
     move: tree.move,
+    reorder: tree.reorder,
     duplicate: tree.duplicate,
     copy: (id) => { void clipboard.copy(id) },
     pasteAfter: (id) => { void clipboard.pasteAfter(id) },
@@ -57,6 +64,7 @@ const treeCtx: BlockTreeCtx = {
     refresh: () => { void clipboard.refresh() },
     pasteInto: clipboard.pasteInto,
   },
+  announce,
 }
 
 const directErrorIds = computed(() => new Set(ctx.blockErrors.value.keys()))
@@ -65,8 +73,10 @@ const errorMessages = computed(() => new Map([...ctx.blockErrors.value].map(([id
 
 ctx.registerRevealError(() => {
   const flagged = firstMatchingId(tree.blocks.value, directErrorIds.value)
-  if (flagged) tree.select(flagged)
-  else if (selectedId.value) tree.select(null)
+  if (flagged) {
+    tree.select(flagged)
+    focusRequest.value = { id: flagged }
+  } else if (selectedId.value) tree.select(null)
 })
 
 function onKeydown(e: KeyboardEvent) {
@@ -113,7 +123,9 @@ function onTreeKeydown(e: KeyboardEvent): void {
         :error-messages="errorMessages"
         :ctx="treeCtx"
         :disabled="saving"
+        :focus-request="focusRequest"
       />
+      <span class="editor3__live" aria-live="polite">{{ liveMessage }}</span>
     </nav>
 
     <aside class="editor3__preview" :aria-label="t('preview.ariaLabel')">
@@ -141,6 +153,8 @@ function onTreeKeydown(e: KeyboardEvent): void {
 </template>
 
 <style lang="scss">
+@use '../assets/scss/mixins';
+
 .editor3 {
   display: grid;
   grid-template-columns: minmax(0, 17rem) minmax(0, 1fr) minmax(0, 22rem);
@@ -200,6 +214,10 @@ function onTreeKeydown(e: KeyboardEvent): void {
   }
   &__preview {
     background: var(--color-bg);
+  }
+
+  &__live {
+    @include mixins.sr-only;
   }
 }
 </style>

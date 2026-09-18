@@ -8,3 +8,20 @@ export function reorder<T>(arr: readonly T[], from: number, to: number): T[] {
   result.splice(to, 0, item)
   return result
 }
+
+export interface RowRect {
+  top: number
+  height: number
+}
+
+export function dropGapIndex(rects: readonly RowRect[], pointerY: number): number {
+  let index = 0
+  for (const rect of rects) {
+    if (pointerY > rect.top + rect.height / 2) index++
+  }
+  return index
+}
+
+export function reorderTargetIndex(gapIndex: number, sourceIndex: number): number {
+  return gapIndex > sourceIndex ? gapIndex - 1 : gapIndex
+}
