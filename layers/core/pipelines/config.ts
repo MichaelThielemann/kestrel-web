@@ -2,6 +2,8 @@ import { resolve } from "node:path";
 import { MOUNT_PATH } from "../mount-path";
 import { resolveWorkflow } from "../collections-ui/workflow";
 import type { WorkflowUi } from "../collections-ui/workflow";
+import { resolveStorageTypes } from "../field-types";
+import type { FieldTypes } from "../field-types";
 import { isGenericCollection } from "./collections";
 import type { CollectionModel } from "./collections";
 import { presetSchemas } from "./index";
@@ -80,6 +82,7 @@ export interface PresetModuleConfigOptions {
   roles: PresetRoles;
   bootstrap: PresetBootstrap;
   collectionsUi?: Record<string, WorkflowUi>;
+  fieldTypes?: FieldTypes;
   media?: PresetMediaPolicy;
   ratelimit?: PresetRateLimit;
   llms?: PresetLlms;
@@ -201,7 +204,9 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
   const features = requireOption(options.features, "features");
   const roles = requireOption(options.roles, "roles");
   const bootstrap = requireOption(options.bootstrap, "bootstrap");
-  const types = requireOption(model.types, "model.types");
+  const declaredTypes = requireOption(model.types, "model.types");
+  const fieldTypes = options.fieldTypes ?? {};
+  const types: Record<string, CollectionModel> = resolveStorageTypes(declaredTypes, fieldTypes, "presetModuleConfig");
 
   const enabled = new Set<Feature>(features);
   const databaseFile = resolve(dataDir, DATABASE_FILE);
@@ -253,7 +258,7 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
 
   modules.push({
     use: "@michaelthielemann/kestrel-validate-jsonschema",
-    config: { schemas: presetSchemas({ features, collections: types }), watch: process.env.NODE_ENV !== "production" },
+    config: { schemas: presetSchemas({ features, collections: declaredTypes, fieldTypes }), watch: process.env.NODE_ENV !== "production" },
   });
 
   if (enabled.has("delivery")) {

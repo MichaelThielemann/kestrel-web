@@ -4,6 +4,9 @@ import { fileURLToPath } from "node:url";
 import { addTemplate, defineNuxtModule, updateTemplates } from "@nuxt/kit";
 import { boundaryCast } from "@michaelthielemann/kestrel/cast";
 import { blockSchema } from "../../block-schema";
+import { stampBlockFieldTypes } from "../../field-types";
+import type { FieldTypes } from "../../field-types";
+import { fieldTypesEntry, loadFieldTypes } from "../consumer-entries/field-types-entry";
 import { SIBLING_IMAGE_EXTENSIONS } from "./extract-block";
 import { offerableLayouts, renderLayoutRegistry } from "./layouts";
 import { IMAGE_SIZES_FILE, renderImageSizesJson } from "./image-sizes";
@@ -59,7 +62,10 @@ function writeIfChanged(path: string, contents: string): void {
 export default defineNuxtModule<ModuleOptions>({
   meta: { name: "kestrel-blocks", configKey: "kestrel" },
   defaults: { blockImagesDir: undefined },
-  setup(options, nuxt) {
+  async setup(options, nuxt) {
+    const fieldTypes: FieldTypes = await loadFieldTypes(nuxt.options.rootDir);
+    const fieldTypesFile = fieldTypesEntry(nuxt.options.rootDir);
+    if (fieldTypesFile !== undefined) nuxt.options.watch.push(fieldTypesFile);
     const roots = nuxt.options._layers.map((layer) => layer.cwd);
     const schemaPath = join(nuxt.options.buildDir, "kestrel", SCHEMA_FILE);
     const imageSizesPath = join(nuxt.options.buildDir, "kestrel", IMAGE_SIZES_SCHEMA_FILE);
@@ -67,14 +73,14 @@ export default defineNuxtModule<ModuleOptions>({
 
     const scan = (): { paths: string[]; definitions: SerializedBlock[]; sizes: ImageSize[] } => {
       const paths = collectBlockSfcs(roots);
-      const definitions = extractBlocks(paths, undefined, undefined, imagesDir, nuxt.options.rootDir);
+      const definitions = stampBlockFieldTypes(extractBlocks(paths, undefined, undefined, imagesDir, nuxt.options.rootDir), fieldTypes);
       const sizes = collectImageSizes(paths, definitions, collectImageSizeFiles(roots));
       return { paths, definitions, sizes };
     };
 
     const generate = (): string => {
       const { paths, definitions, sizes } = scan();
-      writeIfChanged(schemaPath, `${JSON.stringify(blockSchema(definitions), null, 2)}\n`);
+      writeIfChanged(schemaPath, `${JSON.stringify(blockSchema(definitions, fieldTypes), null, 2)}\n`);
       writeIfChanged(imageSizesPath, renderImageSizesJson(sizes));
       return renderBlocksModule(paths, definitions, sizes);
     };
@@ -84,7 +90,7 @@ export default defineNuxtModule<ModuleOptions>({
     const sizesTemplate = addTemplate({ filename: SIZES_TEMPLATE, write: true, getContents: () => renderImageSizesModule(scan().sizes) });
     nuxt.options.alias[SIZES_VIRTUAL_ID] = sizesTemplate.dst;
 
-    const generateImages = (): string => renderBlockImagesModule(extractBlocks(collectBlockSfcs(roots), undefined, undefined, imagesDir));
+    const generateImages = (): string => renderBlockImagesModule(stampBlockFieldTypes(extractBlocks(collectBlockSfcs(roots), undefined, undefined, imagesDir), fieldTypes));
     const imagesTemplate = addTemplate({ filename: IMAGES_TEMPLATE, write: true, getContents: generateImages });
 
     let layoutNames: string[] = [];

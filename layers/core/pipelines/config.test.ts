@@ -5,7 +5,9 @@ import type { ModuleEntry, PresetModuleConfigOptions } from "./config";
 import { presetSchemas } from "./index";
 import type { Feature } from "./index";
 import type { CollectionModel } from "./collections";
+import { resolveStorageTypes } from "../field-types";
 import { contentModel, contentTypes, features } from "../../../playground/shared/model";
+import fieldTypes from "../../../playground/shared/field-types";
 
 const DATA_DIR = "/srv/kestrel/data";
 const DATABASE_FILE = resolve(DATA_DIR, "kestrel.db");
@@ -19,7 +21,7 @@ const roles = {
 };
 
 function playgroundOptions(): PresetModuleConfigOptions {
-  return { dataDir: DATA_DIR, blobstore, model: contentModel, features, roles, bootstrap: { username: "admin", passwordHash: PASSWORD_HASH } };
+  return { dataDir: DATA_DIR, blobstore, model: contentModel, features, fieldTypes, roles, bootstrap: { username: "admin", passwordHash: PASSWORD_HASH } };
 }
 
 function configFor(modules: readonly ModuleEntry[], use: string): unknown {
@@ -73,13 +75,16 @@ describe("presetModuleConfig with the playground inputs", () => {
           anonymous: ["pages.read", "settings.read", "media.read"],
         },
       },
-      { use: "@michaelthielemann/kestrel-content-default", config: contentModel },
+      {
+        use: "@michaelthielemann/kestrel-content-default",
+        config: { ...contentModel, types: resolveStorageTypes(contentTypes, fieldTypes, "presetModuleConfig") },
+      },
       { use: "@michaelthielemann/kestrel-site-default", config: {} },
       { use: "@michaelthielemann/kestrel-references-default", config: { targets: { pages: { content: "pages" }, media: { collection: "media_items" } } } },
       { use: "@michaelthielemann/kestrel-links-default", config: { timeoutMs: 10000, concurrency: 4, recheckAfterSeconds: 21600 } },
       {
         use: "@michaelthielemann/kestrel-validate-jsonschema",
-        config: { schemas: presetSchemas({ features, collections: contentTypes }), watch: process.env.NODE_ENV !== "production" },
+        config: { schemas: presetSchemas({ features, collections: contentTypes, fieldTypes }), watch: process.env.NODE_ENV !== "production" },
       },
       { use: "@michaelthielemann/kestrel-renderer-nuxt", config: {} },
       {

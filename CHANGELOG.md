@@ -4,6 +4,14 @@
 
 ### Breaking
 
+- `definePreset` now validates collection names against `^[a-z][a-z0-9_]*$`, the pattern
+  `kestrel-content-default` and `kestrel-validate-jsonschema` require, instead of
+  `^[a-z][a-zA-Z0-9]*$`. A camelCase name such as `blogPosts` used to pass config-time validation and
+  then fail the boot with `content/default: invalid type name "blogPosts"`; it is now rejected where
+  it is written, with a message that says why. Rename such a collection to `blog_posts` — the change
+  is a rename of the content type, so existing records need a data migration. Underscores, which the
+  backend has always accepted, are now accepted here too.
+
 - The preset moves user deactivation from `DELETE /users/:id` to `POST /users/:id/deactivate`, the
   counterpart of `POST /users/:id/activate`, and gives `DELETE /users/:id` the new `deleteUser`
   pipeline, which removes the user for good. A consumer with its own `triggers`, `overrides` or
@@ -14,6 +22,21 @@
 
 ### Added
 
+- Field types of your own, declared once and usable on a collection field *and* on a block prop. An
+  optional `shared/field-types.ts` exports `defineFieldTypes({ color: { storage: "text", schema: { … },
+  empty: "#2266cc" } })` (from `#kestrel/collections-ui`) as its default export and is reachable as
+  `#kestrel/field-types`. Pass it to `presetModuleConfig` and `definePreset` as `fieldTypes`:
+  `presetModuleConfig` maps each declared type onto its `kestrel-content-default` storage type before
+  the model reaches the content module (an undeclared type name now throws naming
+  `collection.field`), `presetSchemas` emits the JSON-schema fragment inline as `"<collection>.<field>"`,
+  and the preset inserts `validate.check:<collection>.<field>` before `content.create`/`update`/`set`,
+  so an invalid value answers `400 VALIDATION` with `details.fields` and the admin shows it on the
+  field. `block-schema.ts` uses the same fragment for `field("color")` props instead of the open `{}`
+  default branch. `GET /api/admin/schema` reports the declared type name plus the storage type, the
+  admin's component and empty-value registries are reactive, `empty` is registered for you, and a
+  field whose type has no component yet renders the storage type's component with a note rather than
+  an inert placeholder. `playground/` carries a worked colour field; `docs/field-types.md` is the
+  reference.
 - The admin's own strings are a consumer extension point: an optional `shared/admin-i18n.ts` exporting
   `defineAdminI18n({ en: { … }, fr: { … } })` as default (`#kestrel-admin/i18n/define`) is merged into
   the shipped catalogs at startup, key by key. A shipped language keeps every key the file does not

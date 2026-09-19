@@ -450,7 +450,7 @@ describe("definePreset eventsQueue feature", () => {
 });
 
 describe("definePreset collection name validation", () => {
-  it.each(["my-collection", "my_collection", "1collection", "MyCollection"])(
+  it.each(["my-collection", "1collection", "MyCollection", "newsItem"])(
     "throws for an invalid collection name %s",
     (name) => {
       expect(() => definePreset({ modules: baseModules, features: [], collections: { [name]: { kind: "single", fields: {} } } })).toThrow(
@@ -468,8 +468,8 @@ describe("definePreset collection name validation", () => {
     },
   );
 
-  it("accepts a valid camelCase collection name", () => {
-    expect(() => definePreset({ modules: baseModules, features: [], collections: { newsItem: { kind: "multi", fields: {} } } })).not.toThrow();
+  it("accepts the snake_case names the backend accepts", () => {
+    expect(() => definePreset({ modules: baseModules, features: [], collections: { news_item: { kind: "multi", fields: {} } } })).not.toThrow();
   });
 });
 

@@ -4,6 +4,7 @@ import { kestrelDataDir } from "#kestrel/config";
 import { definePreset, presetModuleConfig } from "#kestrel/pipelines";
 import { contentModel, contentTypes, features } from "./shared/model";
 import collectionsUi from "./shared/collections-ui";
+import fieldTypes from "./shared/field-types";
 
 const dataDir = kestrelDataDir();
 
@@ -13,6 +14,7 @@ const modules = presetModuleConfig({
   model: contentModel,
   features,
   collectionsUi,
+  fieldTypes,
   roles: {
     roles: { admin: ["*"], editor: ["pages.*", "media.*", "images.read", "settings.read", "redirects.*"] },
     anonymous: ["pages.read", "settings.read", "media.read"],
@@ -23,6 +25,6 @@ const modules = presetModuleConfig({
   },
 });
 
-export const preset = definePreset({ modules, features, collections: contentTypes, collectionsUi });
+export const preset = definePreset({ modules, features, collections: contentTypes, collectionsUi, fieldTypes });
 
 export default defineConfig({ modules, triggers: preset.triggers, http: null });

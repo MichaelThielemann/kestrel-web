@@ -211,6 +211,7 @@ export const en = {
   'seo.descriptionPlaceholder': 'Without an entry the website description is used.',
   'field.boolean.yes': 'Yes',
   'field.boolean.no': 'No',
+  'field.customType.unregistered': 'Field type "{type}" has no editor yet – editing the stored value directly.',
   'editor.unsupported': 'No editor is registered for type “{type}”.',
   'seo.socialImage': 'Social share image',
   'seo.socialImageHint': 'Shown as the preview image when the page is shared (og:image).',

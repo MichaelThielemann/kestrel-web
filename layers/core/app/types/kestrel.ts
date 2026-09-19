@@ -50,6 +50,8 @@ interface BaseFieldDef {
   condition?: Condition
 
   localized?: boolean
+
+  storageType?: FieldType
 }
 
 export type LayoutTrack = number | string
@@ -82,6 +84,7 @@ export function fieldIs<T extends FieldType>(field: FieldDef, type: T): field is
 
 export interface SerializedField {
   type: FieldType
+  storageType?: FieldType
   required: boolean
   unique: boolean
   label?: Localized

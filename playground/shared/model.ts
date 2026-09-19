@@ -1,4 +1,5 @@
 import type { Feature } from "#kestrel/pipelines";
+import type fieldTypes from "./field-types";
 
 export const locales = ["de", "en"] as const;
 export const defaultLocale = "de";
@@ -34,7 +35,7 @@ export interface NavigationItem {
 
 export type Locale = (typeof locales)[number];
 
-export type ContentFieldType = "text" | "richtext" | "number" | "boolean" | "date" | "slug" | "json" | "enum" | "ref";
+export type ContentFieldType = "text" | "richtext" | "number" | "boolean" | "date" | "slug" | "json" | "enum" | "ref" | keyof typeof fieldTypes;
 
 export interface ContentField {
   type: ContentFieldType;
@@ -76,6 +77,7 @@ export const contentTypes = {
       seo: { type: "json", localized: true },
       status: { type: "enum", options: ["draft", "finished", "published"], required: true, localized: true },
       shareImage: { type: "ref", to: "media" },
+      accent: { type: "color" },
       layout: { type: "text" },
     },
   },

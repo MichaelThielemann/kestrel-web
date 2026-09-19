@@ -1,4 +1,4 @@
-import { defineAsyncComponent, type Component } from 'vue'
+import { defineAsyncComponent, shallowReactive, type Component } from 'vue'
 import type { FieldType } from '#kestrel-admin/types/kestrel'
 import FieldText from '../components/field/Text.vue'
 import FieldNumber from '../components/field/Number.vue'
@@ -10,7 +10,7 @@ import FieldLink from '../components/field/Link.vue'
 import FieldSlug from '../components/field/Slug.vue'
 import FieldMedia from '../components/field/Media.vue'
 
-export const fieldComponents: Partial<Record<FieldType, Component>> = {
+export const fieldComponents = shallowReactive<Partial<Record<FieldType, Component>>>({
   text: FieldText,
   slug: FieldSlug,
   number: FieldNumber,
@@ -25,7 +25,7 @@ export const fieldComponents: Partial<Record<FieldType, Component>> = {
   richtext: defineAsyncComponent(() => import('../components/field/Richtext.vue')),
 
   repeater: defineAsyncComponent(() => import('../components/field/Repeater.vue')),
-}
+})
 
 export const resolveFieldComponent = (type: FieldType): Component | undefined => fieldComponents[type]
 

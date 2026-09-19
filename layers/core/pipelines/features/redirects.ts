@@ -1,7 +1,8 @@
+import { customFieldChecks } from "../collections";
 import type { PresetContext } from "../base";
 import type { FeatureModule } from "../index";
 
-export default function redirects({ homeSlug }: PresetContext): FeatureModule {
+export default function redirects({ homeSlug, customFields }: PresetContext): FeatureModule {
   return {
     modules: ["@michaelthielemann/kestrel-redirects-default"],
     pipelines: {
@@ -10,6 +11,7 @@ export default function redirects({ homeSlug }: PresetContext): FeatureModule {
         "authn.requireUser",
         "authz.require:redirects.write",
         "validate.check:redirects.rules",
+        ...customFieldChecks("redirects", customFields?.redirects),
         "redirects.validate",
         "content.set:redirects",
         "redirects.export",

@@ -1,5 +1,7 @@
 import type { PresetStep } from "../module-registry";
 import type { WorkflowUi } from "../collections-ui/workflow";
+import type { CustomFieldTypes } from "../field-types";
+import { customFieldChecks } from "./collections";
 import type { CollectionModel } from "./collections";
 
 export interface PresetContext {
@@ -8,9 +10,10 @@ export interface PresetContext {
   pagesTranslatable?: boolean;
   collections?: Record<string, CollectionModel>;
   collectionsUi?: Record<string, WorkflowUi>;
+  customFields?: CustomFieldTypes;
 }
 
-export function basePipelines({ exportDir, homeSlug }: PresetContext, collections: Record<string, CollectionModel>): Record<string, PresetStep[]> {
+export function basePipelines({ exportDir, homeSlug, customFields }: PresetContext, collections: Record<string, CollectionModel>): Record<string, PresetStep[]> {
   const pipelines: Record<string, PresetStep[]> = {
     login: ["authn.login", "events.emit:auth.loggedIn"],
     logout: ["authn.requireUser", "authn.logout", "events.emit:auth.loggedOut"],
@@ -32,7 +35,13 @@ export function basePipelines({ exportDir, homeSlug }: PresetContext, collection
       "content.get:settings",
       `site.resolveLinks:settings?home=${homeSlug}&status=published&fallback=true`,
     ],
-    setSettings: ["authn.requireUser", "authz.require:settings.write", "validate.check:settings.navigation", "content.set:settings"],
+    setSettings: [
+      "authn.requireUser",
+      "authz.require:settings.write",
+      "validate.check:settings.navigation",
+      ...customFieldChecks("settings", customFields?.settings),
+      "content.set:settings",
+    ],
     uploadMedia: ["authn.requireUser", "authz.require:media.write", "media.upload", "events.emit:media.uploaded"],
     exportMedia: ["authn.requireUser", "authz.require:media.manage", `media.export:${exportDir}`],
     listMediaFolders: ["authn.identifyUser", "authz.require:media.read", "media.listFolders"],

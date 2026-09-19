@@ -6,6 +6,8 @@ import type { PipelineDefinition } from "@michaelthielemann/kestrel/definePipeli
 import type { TriggerConfig } from "@michaelthielemann/kestrel/defineConfig";
 import type { PresetStep } from "../module-registry";
 import type { Workflow } from "../app/types/kestrel";
+import { customFieldTypes, fieldTypeSchemas } from "../field-types";
+import type { FieldTypes } from "../field-types";
 import { applyExclude, applyFeaturePatches, applyOverrides, applySchedules, mergePipelines } from "./compose";
 import type { Patch } from "./compose";
 import { basePipelines } from "./base";
@@ -31,6 +33,8 @@ export type { CollectionModel } from "./collections";
 export type { Workflow } from "../app/types/kestrel";
 export type { PresetStep } from "../module-registry";
 export { presetModuleConfig } from "./config";
+export { defineFieldTypes } from "../field-types";
+export type { CustomFieldTypes, FieldTypeDefinition, FieldTypes, StorageFieldType } from "../field-types";
 export type {
   ModuleEntry,
   PresetBootstrap,
@@ -89,6 +93,7 @@ export interface PresetOptions<C extends Record<string, CollectionModel> = Recor
   features: readonly Feature[];
   collections?: C;
   collectionsUi?: Record<string, { workflow?: Workflow }>;
+  fieldTypes?: FieldTypes;
   overrides?: Partial<Record<PresetPipelineName<C>, readonly NoInfer<S>[]>>;
   exclude?: readonly PresetPipelineName<C>[];
   schedules?: Partial<Record<CronPipelineName, string>>;
@@ -134,13 +139,16 @@ function hasRedirectsRulesSchema(config: unknown): boolean {
 
 const PAGE_REQUIRING_FEATURES: readonly Feature[] = ["references", "links", "delivery"];
 
-const COLLECTION_NAME_PATTERN = /^[a-z][a-zA-Z0-9]*$/;
+const COLLECTION_NAME_PATTERN = /^[a-z][a-z0-9_]*$/;
 const RESERVED_COLLECTION_NAMES = new Set(["site", "media", "users", "health", "login", "logout", "me", "admin"]);
 
 function validateCollectionNames(collections: Record<string, CollectionModel>): void {
   for (const name of Object.keys(collections)) {
     if (!COLLECTION_NAME_PATTERN.test(name)) {
-      throw new Error(`preset: collection name "${name}" must match ${COLLECTION_NAME_PATTERN} (start with a lowercase letter, letters and digits only)`);
+      throw new Error(
+        `preset: collection name "${name}" must match ${COLLECTION_NAME_PATTERN} (lowercase letters, digits and underscores, starting with a letter)`
+        + " – kestrel-content-default and kestrel-validate-jsonschema reject anything else at boot",
+      );
     }
     if (RESERVED_COLLECTION_NAMES.has(name)) {
       throw new Error(`preset: collection name "${name}" is reserved`);
@@ -155,7 +163,8 @@ export function definePreset<C extends Record<string, CollectionModel> = Record<
   const homeSlug = options.homeSlug ?? "home";
   const collections: Record<string, CollectionModel> = options.collections ?? DEFAULT_COLLECTIONS;
   validateCollectionNames(collections);
-  const context: PresetContext = { exportDir, homeSlug, collections, ...(options.collectionsUi === undefined ? {} : { collectionsUi: options.collectionsUi }) };
+  const customFields = customFieldTypes(collections, options.fieldTypes ?? {});
+  const context: PresetContext = { exportDir, homeSlug, collections, customFields, ...(options.collectionsUi === undefined ? {} : { collectionsUi: options.collectionsUi }) };
 
   const pagesModel = collections.pages;
   context.pagesTranslatable = pagesModel !== undefined && pagesModel.kind === "multi" && hasLocalizedField(pagesModel);
@@ -174,7 +183,7 @@ export function definePreset<C extends Record<string, CollectionModel> = Record<
   let pipelines: Record<string, string[]> = basePipelines(context, collections);
   for (const [name, model] of Object.entries(collections)) {
     if (!isGenericCollection(name)) continue;
-    pipelines = mergePipelines(pipelines, collectionPipelines(name, model, options.collectionsUi?.[name]), name, "collection");
+    pipelines = mergePipelines(pipelines, collectionPipelines(name, model, options.collectionsUi?.[name], customFields[name]), name, "collection");
   }
 
   const featureTriggers: TriggerConfig[] = [];
@@ -271,17 +280,20 @@ export function definePreset<C extends Record<string, CollectionModel> = Record<
 export function presetSchemas({
   features,
   collections,
+  fieldTypes,
 }: {
   features: readonly Feature[];
   collections?: Record<string, CollectionModel>;
-}): Record<string, string> {
+  fieldTypes?: FieldTypes;
+}): Record<string, string | Record<string, unknown>> {
   const appRoot = process.env.KESTREL_APP_ROOT ?? process.cwd();
   const navigationConsumerPath = resolve(appRoot, "schemas/settings.navigation.json");
   const navigationDefaultPath = process.env.KESTREL_NAVIGATION_SCHEMA_DEFAULT ?? fileURLToPath(new URL("../schemas/settings.navigation.json", import.meta.url));
-  const schemas: Record<string, string> = {
+  const resolved = collections ?? DEFAULT_COLLECTIONS;
+  const schemas: Record<string, string | Record<string, unknown>> = {
     "settings.navigation": existsSync(navigationConsumerPath) ? navigationConsumerPath : navigationDefaultPath,
   };
-  for (const [name, model] of Object.entries(collections ?? DEFAULT_COLLECTIONS)) {
+  for (const [name, model] of Object.entries(resolved)) {
     if (model.kind !== "multi" || !("body" in model.fields)) continue;
     schemas[`${name}.body`] =
       name === "pages" ? process.env.KESTREL_BLOCK_SCHEMA ?? resolve(appRoot, ".nuxt/kestrel/pages.body.json") : resolve(appRoot, `schemas/${name}.body.json`);
@@ -289,5 +301,6 @@ export function presetSchemas({
   if (features.includes("redirects")) {
     schemas["redirects.rules"] = process.env.KESTREL_REDIRECTS_SCHEMA ?? fileURLToPath(new URL("../schemas/redirects.rules.json", import.meta.url));
   }
+  for (const [target, schema] of Object.entries(fieldTypeSchemas(resolved, fieldTypes ?? {}))) schemas[target] = schema;
   return schemas;
 }

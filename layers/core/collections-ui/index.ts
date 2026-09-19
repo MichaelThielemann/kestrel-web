@@ -193,3 +193,5 @@ export function presetCollectionsUi({
 
 export { SEO_FIELD, LAYOUT_FIELD, TITLE_FIELD, STATUS_FIELD, BODY_FIELD, SLUG_FIELD, STATUS_VALUES, serializeCollection, serializeCollections } from "./serialize";
 export type { ContentField, ContentType } from "./serialize";
+export { adminTypeForStorage, customFieldTypes, defineFieldTypes, STORAGE_FIELD_TYPES } from "../field-types";
+export type { CustomFieldTypes, FieldTypeDefinition, FieldTypes, StorageFieldType } from "../field-types";

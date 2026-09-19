@@ -1,7 +1,9 @@
 import { clientIp, responseForRun } from "@michaelthielemann/kestrel";
 import { boundaryCast } from "@michaelthielemann/kestrel/cast";
+import fieldTypes from "#kestrel/field-types";
 import collectionsUi from "~~/shared/collections-ui";
-import { defaultLocale, features, locales, prefixPrimary } from "~~/shared/model";
+import { contentTypes, defaultLocale, features, locales, prefixPrimary } from "~~/shared/model";
+import { customFieldTypes } from "../../../collections-ui";
 import { getKestrel, getKestrelState } from "../../plugins/kestrel";
 import { accessLists } from "../../plugins/access";
 import { bootFailure } from "../../utils/boot-failure";
@@ -36,5 +38,5 @@ export default defineEventHandler(async (event) => {
 
   setResponseHeaders(event, { "cache-control": "no-store", "x-content-type-options": "nosniff", "x-kestrel-run-id": run.runId });
   const model = boundaryCast<DescribedModel>(run.result, "json");
-  return buildAdminSchema({ model, collectionsUi, features, prefixPrimary, locales, defaultLocale });
+  return buildAdminSchema({ model, collectionsUi, features, prefixPrimary, locales, defaultLocale, customTypes: customFieldTypes(contentTypes, fieldTypes) });
 });

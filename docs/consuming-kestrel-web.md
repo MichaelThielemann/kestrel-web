@@ -21,7 +21,7 @@ Everything else is optional.
 | §8–§10 Optional | static delivery, redirects, content migrations |
 | §11 Upgrading | moving to a newer kestrel-web |
 | [`deployment.md`](deployment.md) | Running the build in production: environment, persistent volumes, systemd and container examples, reverse proxy, backups, restarts |
-| [`field-types.md`](field-types.md) | How a field type reaches the editor and the schema, and how far `field("myType")` gets |
+| [`field-types.md`](field-types.md) | How a field type reaches the editor and the schema, and how to declare your own in `shared/field-types.ts` |
 | [`admin-i18n.md`](admin-i18n.md) | The admin UI's own language: overriding its strings and adding a language from `shared/admin-i18n.ts`, and how `Localized` labels resolve against it |
 
 ## 0. The short way
@@ -97,7 +97,12 @@ export const contentModel = { locales: [...locales], defaultLocale, types: conte
 
 export const features = ["references", "links", "delivery", "redirects"] as const satisfies readonly Feature[];
 ```
-See `playground/shared/model.ts` for the full field-type list.
+See `playground/shared/model.ts` for the full field-type list. A field type of your own — one
+declaration, usable on a collection field and on a block prop — goes in the optional
+`shared/field-types.ts`: [`docs/field-types.md`](field-types.md).
+
+A collection name must match `^[a-z][a-z0-9_]*$`, the pattern the backend's content and validation
+modules accept; `definePreset` rejects anything else at config time.
 
 `features` is the single source for the `Feature[]` list, typed against `#kestrel/pipelines`'s `Feature`
 union so an unknown name fails to typecheck rather than throwing at compose time. `kestrel.config.ts`
@@ -800,8 +805,9 @@ admin layer's private entry.
 | `repeaterField` | `Record<string, unknown>[]` | `fields` (nested factories), `fieldLayout`, `min`, `max` |
 
 Every factory also takes `required`, `unique`, `label` (a string or a `{ locale: string }` map),
-`default` and `condition`. `field("myType", { … })` declares a prop of a type of your own — what that
-gets you, and what it does not, is [`docs/field-types.md`](field-types.md).
+`default` and `condition`. `field("myType", { … })` declares a prop of a type of your own — declare
+that type once in `shared/field-types.ts` and it validates here and on a collection field alike:
+[`docs/field-types.md`](field-types.md).
 
 `defineBlock({ label, slots, icon, image })` is optional; without it the block gets no label, no slots
 and no icon. `image` is a picker thumbnail shown in the "Add block" dialog in place of the icon. The

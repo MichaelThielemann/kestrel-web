@@ -1,5 +1,6 @@
+import { shallowReactive } from 'vue'
 
-const fieldEmpties: Record<string, () => unknown> = {}
+const fieldEmpties = shallowReactive<Record<string, () => unknown>>({})
 
 export function registerFieldEmpty(type: string, make: () => unknown): void {
   fieldEmpties[type] = make

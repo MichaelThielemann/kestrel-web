@@ -8,8 +8,12 @@ import type { FieldComponentProps } from '../../utils/field-component'
 
 const props = defineProps<FieldComponentProps>()
 const model = defineModel<unknown>()
-const { lang } = useT()
-const component = computed(() => resolveFieldComponent(props.field.type) ?? (FieldUnsupported as Component))
+const { t, lang } = useT()
+
+const registered = computed(() => resolveFieldComponent(props.field.type))
+const storage = computed(() => (props.field.storageType ? resolveFieldComponent(props.field.storageType) : undefined))
+const component = computed(() => registered.value ?? storage.value ?? (FieldUnsupported as Component))
+const fallback = computed(() => registered.value === undefined && storage.value !== undefined)
 
 const label = computed(() => resolveLocalized(props.field.label, lang.value) ?? humanizeFieldName(props.name))
 </script>
@@ -26,4 +30,15 @@ const label = computed(() => resolveLocalized(props.field.label, lang.value) ?? 
     :row-errors="rowErrors"
     :disabled="disabled"
   />
+  <p v-if="fallback" class="field-fallback-note" role="note">
+    {{ t('field.customType.unregistered', { type: field.type }) }}
+  </p>
 </template>
+
+<style lang="scss">
+.field-fallback-note {
+  margin-block-start: var(--space-1);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+</style>

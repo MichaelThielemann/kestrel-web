@@ -13,6 +13,7 @@ export default defineCollectionsUi({
     fieldLayout: [
       { kind: "row", fields: ["title"], tracks: [1] },
       { kind: "row", fields: ["slug", "status"], tracks: [2, 1] },
+      { kind: "row", fields: ["accent"], tracks: [1] },
     ],
     seoFields: ["shareImage"],
     fieldLabels: {
@@ -20,6 +21,7 @@ export default defineCollectionsUi({
       slug: "Slug",
       status: "Status",
       shareImage: { en: "Share image", de: "Share-Bild" },
+      accent: { en: "Accent colour", de: "Akzentfarbe" },
       body: { en: "Content", de: "Inhalt" },
       seo: "SEO",
     },

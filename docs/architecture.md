@@ -177,7 +177,9 @@ through two aliases instead, `#kestrel/consumer-modules` and `#kestrel/consumer-
 exists at the app root, else to a default in `layers/core` — `presetModules(config.modules)` (see
 **Module registry**) for modules, `preset.pipelines` unchanged for pipelines. The same module resolves
 `#kestrel/consumer-block-tags` to the optional `shared/block-tags.ts` (block tag labels for the admin
-picker) or an empty map. All three stay statically imported either way, so Nitro and Vite bundle them
+picker), `#kestrel/consumer-admin-i18n` to the optional `shared/admin-i18n.ts` and `#kestrel/field-types`
+to the optional `shared/field-types.ts` (consumer-declared field types, see `docs/field-types.md`),
+each to an empty map when the file is absent. All of them stay statically imported either way, so Nitro and Vite bundle them
 without dynamic loading and without "import is undefined" warnings. `http: null` — Kestrel serves through
 Nitro's `server/api/[...].ts`, not its own listener. Data lives in the consumer's `./data` (SQLite +
 blobs), git-ignored.
@@ -218,6 +220,7 @@ An app that extends `kestrel-web` provides, at its root:
 | `pipelines/index.ts` *(optional)* | Exports `pipelines`, the list of pipeline definitions referenced by `kestrel.config.ts` triggers — `[...preset.pipelines, ...ownPipelines]`. Needed only once you have pipelines of your own. |
 | `shared/model.ts` | The content model — `locales`, `defaultLocale`, `prefixPrimary` (whether public URLs prefix the default locale too — the backend never does), `contentTypes` — and `features`, the `Feature[]` list passed to `definePreset`/`presetSchemas`/`presetCollectionsUi`. Backend config: consumed by `kestrel.config.ts`, by `shared/collections-ui.ts` and, server-side, by the `GET /api/admin/schema` route (so backend and admin UI can't drift). The admin browser bundle does not import it. |
 | `shared/collections-ui.ts` | The admin UI for each collection: labels, icon, editor, field layout/labels/overrides, and the optional `workflow`. `defineCollectionsUi({ ...presetCollectionsUi({ features }), ...ownEntries }, contentTypes)`, see **Collection UI**. |
+| `shared/field-types.ts` *(optional)* | Field types of your own: `defineFieldTypes({ color: { storage, schema, empty } })`. Passed to `presetModuleConfig`/`definePreset` as `fieldTypes`, read by the blocks module at build time and by the admin through `#kestrel/field-types`. See `docs/field-types.md`. |
 | `app/blocks/*.vue` | One SFC per block. Its `defineProps({ … field factories … })` IS the block schema and its `defineBlock({ … })` the block metadata; the file name is the block name. No registry, index or definitions file. |
 | `migrations/*.ts` *(optional)* | One `defineMigration({ id, collection, up })` per file, collected sorted by filename into `#kestrel/migrations` (`modules/migrations`, directory configurable via `kestrel.migrationsDir`). Needed only with the `migrations` feature on. |
 

@@ -3,14 +3,16 @@ const props = defineProps({
   heading: textField({ required: true, label: { en: 'Heading', de: 'Überschrift' } }),
   image: mediaField({ accept: 'image', label: { en: 'Image', de: 'Bild' } }),
   cta: linkField({ label: 'Call to action' }),
+  accent: field('color', { label: { en: 'Accent colour', de: 'Akzentfarbe' }, default: '#2266cc' }),
 })
 defineBlock({ label: 'Hero', slots: ['default'], icon: 'image', tags: ['hero', 'marketing'] })
 
 const ctaHref = useLinkHref(() => props.cta ?? null)
+const accentColor = computed(() => (typeof props.accent === 'string' ? props.accent : undefined))
 </script>
 
 <template>
-  <section class="block-hero">
+  <section class="block-hero" :style="{ '--block-hero-accent': accentColor }">
     <h1 v-if="heading">{{ heading }}</h1>
     <KestrelImage v-if="image" :media="image" size="large" sizes="100vw" alt="" class="block-hero__image" />
     <slot />
@@ -41,7 +43,7 @@ const ctaHref = useLinkHref(() => props.cta ?? null)
     justify-self: center;
     padding: var(--space-2) var(--space-4);
     border-radius: var(--radius-md);
-    background: var(--color-accent);
+    background: var(--block-hero-accent, var(--color-accent));
     color: var(--color-on-accent, #fff);
     text-decoration: none;
   }

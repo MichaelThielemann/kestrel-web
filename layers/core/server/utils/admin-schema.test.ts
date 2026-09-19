@@ -3,7 +3,10 @@ import { fileURLToPath } from "node:url";
 import { boundaryCast } from "@michaelthielemann/kestrel/cast";
 import { describe, expect, it } from "vitest";
 import { buildAdminSchema } from "./admin-schema";
-import { contentModel, defaultLocale, features, locales, prefixPrimary } from "../../../../playground/shared/model";
+import { contentModel, contentTypes, defaultLocale, features, locales, prefixPrimary } from "../../../../playground/shared/model";
+import fieldTypes from "../../../../playground/shared/field-types";
+import { customFieldTypes } from "../../collections-ui";
+import type { ContentType } from "../../collections-ui";
 import collectionsUi from "../../../../playground/shared/collections-ui";
 
 function readJson<T>(url: URL): T {
@@ -11,13 +14,21 @@ function readJson<T>(url: URL): T {
   return boundaryCast<T>(parsed, "json");
 }
 
+const describedTypes: Record<string, ContentType> = {
+  ...contentTypes,
+  pages: { ...contentTypes.pages, fields: { ...contentTypes.pages.fields, accent: { type: "text" } } },
+};
+const describedModel = { ...contentModel, types: describedTypes };
+const customTypes = customFieldTypes(contentTypes, fieldTypes);
+
 const schema = buildAdminSchema({
-  model: contentModel,
+  model: describedModel,
   collectionsUi,
   features,
   prefixPrimary,
   locales,
   defaultLocale,
+  customTypes,
 });
 
 describe("buildAdminSchema", () => {

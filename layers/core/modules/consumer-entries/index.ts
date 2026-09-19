@@ -3,12 +3,14 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineNuxtModule } from "@nuxt/kit";
 import { boundaryCast } from "@michaelthielemann/kestrel/cast";
+import { FIELD_TYPES_ENTRY, FIELD_TYPES_ID } from "./field-types-entry";
 
 const ENTRIES = [
   { id: "#kestrel/consumer-pipelines", entry: "pipelines/index.ts", fallback: fileURLToPath(new URL("./pipelines.default.ts", import.meta.url)) },
   { id: "#kestrel/consumer-modules", entry: "kestrel.modules.ts", fallback: fileURLToPath(new URL("./modules.default.ts", import.meta.url)) },
   { id: "#kestrel/consumer-block-tags", entry: "shared/block-tags.ts", fallback: fileURLToPath(new URL("./block-tags.default.ts", import.meta.url)) },
   { id: "#kestrel/consumer-admin-i18n", entry: "shared/admin-i18n.ts", fallback: fileURLToPath(new URL("./admin-i18n.default.ts", import.meta.url)) },
+  { id: FIELD_TYPES_ID, entry: FIELD_TYPES_ENTRY, fallback: fileURLToPath(new URL("./field-types.default.ts", import.meta.url)) },
 ];
 const TYPES = fileURLToPath(new URL("../../types/consumer-entries.d.ts", import.meta.url));
 

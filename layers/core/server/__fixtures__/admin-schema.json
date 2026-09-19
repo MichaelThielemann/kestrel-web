@@ -521,6 +521,17 @@
             "accept": "image"
           }
         },
+        "accent": {
+          "required": false,
+          "unique": false,
+          "localized": false,
+          "label": {
+            "en": "Accent colour",
+            "de": "Akzentfarbe"
+          },
+          "type": "color",
+          "storageType": "text"
+        },
         "layout": {
           "required": false,
           "unique": false,
@@ -546,6 +557,15 @@
           ],
           "tracks": [
             2,
+            1
+          ]
+        },
+        {
+          "kind": "row",
+          "fields": [
+            "accent"
+          ],
+          "tracks": [
             1
           ]
         }

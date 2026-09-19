@@ -213,6 +213,7 @@ export const de: Record<CatalogKey, string> = {
   'seo.descriptionPlaceholder': 'Ohne Angabe wird die Website-Beschreibung verwendet.',
   'field.boolean.yes': 'Ja',
   'field.boolean.no': 'Nein',
+  'field.customType.unregistered': 'Für den Feldtyp "{type}" gibt es noch keinen Editor – der gespeicherte Wert wird direkt bearbeitet.',
   'editor.unsupported': 'Für den Typ „{type}“ ist kein Editor registriert.',
   'seo.socialImage': 'Social-Share-Bild',
   'seo.socialImageHint': 'Wird als Vorschaubild beim Teilen der Seite angezeigt (og:image).',

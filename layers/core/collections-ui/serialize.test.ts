@@ -2,16 +2,35 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { boundaryCast } from "#kestrel/cast";
-import { serializeCollections, type CollectionUi } from "./serialize";
+import { serializeCollections, type CollectionUi, type ContentType } from "./serialize";
 import { contentTypes } from "../../../playground/shared/model";
+import fieldTypes from "../../../playground/shared/field-types";
+import { customFieldTypes } from "../field-types";
 import playgroundUi from "../../../playground/shared/collections-ui";
 import { syntheticContentTypes } from "../pipelines/__fixtures__/synthetic-collections";
 import { syntheticCollectionsUi } from "./__fixtures__/synthetic-collections-ui";
 
+const describedTypes: Record<string, ContentType> = {
+  ...contentTypes,
+  pages: { ...contentTypes.pages, fields: { ...contentTypes.pages.fields, accent: { type: "text" } } },
+};
+const playgroundCustomTypes = customFieldTypes(contentTypes, fieldTypes);
+
 describe("serializeCollections golden fixture", () => {
   it("matches today's frozen playground output", () => {
     const fixture: unknown = JSON.parse(readFileSync(fileURLToPath(new URL("./__fixtures__/collections.playground.json", import.meta.url)), "utf-8"));
-    expect(serializeCollections(contentTypes, playgroundUi)).toEqual(fixture);
+    expect(serializeCollections(describedTypes, playgroundUi, playgroundCustomTypes)).toEqual(fixture);
+  });
+
+  it("reports the declared field type and keeps the storage type for the admin's fallback", () => {
+    const pages = serializeCollections(describedTypes, playgroundUi, playgroundCustomTypes).find((collection) => collection.name === "pages");
+    expect(pages?.fields.accent).toMatchObject({ type: "color", storageType: "text" });
+  });
+
+  it("leaves the storage type alone when no custom type is declared for the field", () => {
+    const pages = serializeCollections(describedTypes, playgroundUi).find((collection) => collection.name === "pages");
+    expect(pages?.fields.accent).toMatchObject({ type: "text" });
+    expect(pages?.fields.accent?.storageType).toBeUndefined();
   });
 });
 

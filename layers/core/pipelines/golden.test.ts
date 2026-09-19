@@ -21,6 +21,7 @@ import eventsQueue from "./features/eventsQueue";
 import revisions from "./features/revisions";
 import { syntheticContentTypes } from "./__fixtures__/synthetic-collections";
 import { contentTypes } from "../../../playground/shared/model";
+import fieldTypes from "../../../playground/shared/field-types";
 
 const EXPORT_DIR = "<exportDir>";
 
@@ -76,7 +77,7 @@ describe("allFeatures", () => {
 describe("golden: playground", () => {
   it("matches playground.json pipelines and triggers exactly", () => {
     const fixture = readFixture("playground.json");
-    const preset = definePreset({ modules: allModules, features: allFeatures, collections: contentTypes, exportDir: EXPORT_DIR });
+    const preset = definePreset({ modules: allModules, features: allFeatures, collections: contentTypes, fieldTypes, exportDir: EXPORT_DIR });
     expect(pipelinesMap(preset.pipelines)).toEqual(fixture.pipelines);
     expect(preset.triggers).toEqual(fixture.triggers);
   });
@@ -87,7 +88,7 @@ describe("golden: consumer without the images feature", () => {
     const fixture = readFixture("without-images.json");
     const modules = allModules.filter((entry) => entry.use !== "@michaelthielemann/kestrel-images-default");
     const features = allFeatures.filter((feature) => feature !== "images");
-    const preset = definePreset({ modules, features, collections: contentTypes, exportDir: EXPORT_DIR });
+    const preset = definePreset({ modules, features, collections: contentTypes, fieldTypes, exportDir: EXPORT_DIR });
     expect(pipelinesMap(preset.pipelines)).toEqual(fixture.pipelines);
     expect(preset.triggers).toEqual(fixture.triggers);
   });

@@ -1,4 +1,5 @@
 import type { LayoutNode, SerializedField, SerializedCollection } from "../app/types/kestrel";
+import type { CustomFieldTypes } from "../field-types";
 import type { CollectionUi } from "./index";
 import { resolveWorkflow, validateWorkflow } from "./workflow";
 
@@ -72,7 +73,20 @@ function enumChoices(collection: string, name: string, f: ContentField, u: Colle
   });
 }
 
-function serializeField(collection: string, name: string, f: ContentField, def: ContentType, contentTypes: Record<string, ContentType>, u: CollectionUi): SerializedField {
+function serializeField(
+  collection: string,
+  name: string,
+  f: ContentField,
+  def: ContentType,
+  contentTypes: Record<string, ContentType>,
+  u: CollectionUi,
+  customType?: string,
+): SerializedField {
+  const stored = serializeStoredField(collection, name, f, def, contentTypes, u);
+  return customType === undefined ? stored : { ...stored, type: customType, storageType: stored.type };
+}
+
+function serializeStoredField(collection: string, name: string, f: ContentField, def: ContentType, contentTypes: Record<string, ContentType>, u: CollectionUi): SerializedField {
   const base = { required: !!f.required, unique: !!f.unique, localized: !!f.localized, label: u.fieldLabels?.[name] };
   switch (f.type) {
     case "enum":
@@ -207,7 +221,13 @@ function validateUiFields(collection: string, def: ContentType, u: CollectionUi)
   }
 }
 
-export function serializeCollection(name: string, def: ContentType, contentTypes: Record<string, ContentType>, uiMap: Record<string, CollectionUi>): SerializedCollection {
+export function serializeCollection(
+  name: string,
+  def: ContentType,
+  contentTypes: Record<string, ContentType>,
+  uiMap: Record<string, CollectionUi>,
+  customTypes: CustomFieldTypes = {},
+): SerializedCollection {
   const u = uiMap[name] ?? { label: { singular: name, plural: name }, icon: "file-text" };
   validateReservedFields(name, def, u);
   validateUiFields(name, def, u);
@@ -215,7 +235,7 @@ export function serializeCollection(name: string, def: ContentType, contentTypes
   const seoFields = new Set(u.seoFields ?? []);
   const fields: Record<string, SerializedField> = {};
   for (const [key, f] of Object.entries(def.fields)) {
-    fields[key] = mergeField(serializeField(name, key, f, def, contentTypes, u), u.fieldOverrides?.[key]);
+    fields[key] = mergeField(serializeField(name, key, f, def, contentTypes, u, customTypes[name]?.[key]), u.fieldOverrides?.[key]);
   }
   const editor = u.editor ?? "fields";
   const workflow = resolveWorkflow(name, def, u);
@@ -242,11 +262,15 @@ export function serializeCollection(name: string, def: ContentType, contentTypes
   };
 }
 
-export function serializeCollections(contentTypes: Record<string, ContentType>, uiMap: Record<string, CollectionUi>): SerializedCollection[] {
+export function serializeCollections(
+  contentTypes: Record<string, ContentType>,
+  uiMap: Record<string, CollectionUi>,
+  customTypes: CustomFieldTypes = {},
+): SerializedCollection[] {
   for (const name of Object.keys(uiMap)) {
     if (!(name in contentTypes)) {
       throw new Error(`collections: "${name}" has a UI entry but no content type`);
     }
   }
-  return Object.entries(contentTypes).map(([name, def]) => serializeCollection(name, def, contentTypes, uiMap));
+  return Object.entries(contentTypes).map(([name, def]) => serializeCollection(name, def, contentTypes, uiMap, customTypes));
 }
