@@ -15,6 +15,31 @@ values, step descriptions, pipelines with step order, triggers). The stats are c
 percentiles aggregated in this process only; they reset on restart and differ per instance behind a
 load balancer. The page says so above the live tab.
 
+## Config
+The first tab lists every config variable of every module, grouped by module, with its path, type,
+required flag, effective value, default and set/default/missing status. The module heading links to
+the module page, and the table is named after it (`aria-labelledby`), so the grouping is announced.
+`Modules` stays the tab a bare `/admin/insights` lands on — the tab strip reads its order from
+`TAB_IDS` but the default comes from the separate `DEFAULT_TAB` constant, so putting `config` first
+changes the strip without changing the landing tab or any `?tab=` deep link.
+
+The effective value (`value` on a config variable, `@michaelthielemann/kestrel` 5.6.0 or newer) is
+what the config sets, otherwise the schema default. The backend serialises it as a JSON snapshot:
+functions, class instances and Buffers become type labels such as `"[function]"`, a `Date` its ISO
+string, and long strings, wide arrays, deep nesting and cycles are truncated with a marker. The
+admin renders that snapshot with `JSON.stringify`, truncates it to one line with the full text in
+`title`, and offers a copy button from 24 characters on.
+
+A variable that is redacted — `redacted: true` from the backend, or `secret` in the schema, which is
+what an older backend reports — shows a lock icon and the word "redacted" and never a value, neither
+in the Value nor in the Default column, and its value is also excluded from the filter. The filter
+box matches module name, variable path and visible value.
+
+`value` and `redacted` are both optional in `InsightsConfigVariable`, so a backend that answers
+without them renders an em dash in the Value column instead of failing. Modules with no config
+variable at all are collected behind a collapsed disclosure below the tables. The module detail page
+renders the same table (`InsightsConfigVariables.vue`) and therefore gained the Value column too.
+
 ## Recent failures
 `stats().recentFailures` is a ring buffer of the last failed runs of this process, newest first, each
 `{ at, runId, pipeline, trigger: { kind, name }, status, ms, code?, step?, message? }`. Its size is the
@@ -47,12 +72,14 @@ role.
 - `layers/admin/app/composables/useInsights.ts` — one `useState` holding manifest, stats and the
   availability (`ok`, `notFound`, `forbidden`, `error`); `loadManifest()` is cached, `loadStats()`
   is what the live tab polls.
-- `pages/admin/insights/index.vue` — the tab shell (`?tab=modules|pipelines|triggers|live|graph`).
+- `pages/admin/insights/index.vue` — the tab shell (`?tab=config|modules|pipelines|triggers|live|graph`).
 - `pages/admin/insights/modules/[...name].vue` — one module: contracts, config variables with
   set/not-set status (secrets never show a default), owned steps with their descriptions, pipelines
   that use the module.
-- `components/Insights*.vue` — one component per tab plus `InsightsConfigVariables`,
-  `InsightsStepCard`, `InsightsSchema` (a depth-limited JSON Schema renderer).
+- `components/Insights*.vue` — one component per tab plus `InsightsConfigVariables` (the per-module
+  config table, shared by the config tab and the module page), `InsightsConfigValue` (one value cell:
+  redaction, truncation, copy button), `InsightsStepCard`, `InsightsSchema` (a depth-limited JSON
+  Schema renderer).
 - `assets/scss/_insights.scss`: `.insights-chip` never wraps inside itself and ellipsizes past
   `16rem` (full value in `title`); a table cell holding several chips (steps, triggers,
   provides/requires/optional) gets `.insights-chip-cell` so wrapping happens between chips, not

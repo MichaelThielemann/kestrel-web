@@ -1,7 +1,8 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'admin', middleware: 'admin-auth' })
 
-const TAB_IDS = ['modules', 'pipelines', 'triggers', 'live', 'graph'] as const
+const TAB_IDS = ['config', 'modules', 'pipelines', 'triggers', 'live', 'graph'] as const
+const DEFAULT_TAB = 'modules'
 type TabId = typeof TAB_IDS[number]
 
 const route = useRoute()
@@ -17,7 +18,7 @@ function isTabId(value: string): value is TabId {
 
 const activeTab = computed<TabId>(() => {
   const raw = typeof route.query.tab === 'string' ? route.query.tab : ''
-  return isTabId(raw) ? raw : 'modules'
+  return isTabId(raw) ? raw : DEFAULT_TAB
 })
 
 function setTab(tab: TabId) {
@@ -54,7 +55,8 @@ function onTabSelect(id: string) {
 
       <div v-for="tab in TAB_IDS" :id="`insights-panel-${tab}`" :key="tab" role="tabpanel" class="insights__panel" :aria-labelledby="`insights-tab-${tab}`" :hidden="tab !== activeTab">
         <template v-if="tab === activeTab">
-          <KestrelInsightsModules v-if="tab === 'modules'" :manifest="manifest" />
+          <KestrelInsightsConfig v-if="tab === 'config'" :manifest="manifest" />
+          <KestrelInsightsModules v-else-if="tab === 'modules'" :manifest="manifest" />
           <KestrelInsightsPipelines v-else-if="tab === 'pipelines'" :manifest="manifest" />
           <KestrelInsightsTriggers v-else-if="tab === 'triggers'" :manifest="manifest" />
           <KestrelInsightsLive v-else-if="tab === 'live'" :manifest="manifest" />

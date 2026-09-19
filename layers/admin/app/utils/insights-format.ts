@@ -6,6 +6,35 @@ export function effectiveConfigStatus(v: InsightsConfigVariable): InsightsConfig
   return v.status ?? (v.set ? 'set' : 'missing')
 }
 
+export function isConfigRedacted(v: InsightsConfigVariable): boolean {
+  return v.redacted === true || v.secret
+}
+
+export function formatConfigValue(value: unknown): string | null {
+  if (value === undefined || value === null) return null
+  const json = JSON.stringify(value)
+  return json === undefined ? null : json
+}
+
+export function configValueText(v: InsightsConfigVariable): string | null {
+  if (isConfigRedacted(v)) return null
+  return formatConfigValue(v.value)
+}
+
+export function configDefaultText(v: InsightsConfigVariable): string | null {
+  if (isConfigRedacted(v)) return null
+  return formatConfigValue(v.default)
+}
+
+export function configVariableMatches(v: InsightsConfigVariable, moduleName: string, query: string): boolean {
+  const q = query.trim().toLowerCase()
+  if (!q) return true
+  if (moduleName.toLowerCase().includes(q)) return true
+  if (v.path.toLowerCase().includes(q)) return true
+  const value = configValueText(v)
+  return value !== null && value.toLowerCase().includes(q)
+}
+
 export function formatMs(ms: number): string {
   if (ms <= 0) return '0 ms'
   if (ms < 1000) return `${ms} ms`

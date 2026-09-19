@@ -175,13 +175,18 @@ export type ImageSizeRow = ImagesStatusDoc['sizes'][number]
 
 export type ImagesJob = ImagesJobDoc
 
+export type ImagesFailedVariant = ImagesStatusDoc['failed']['recent'][number]
+
 export interface ImagesStatus {
   sizes: ImageSizeRow[]
   job: ImagesJob | null
   orphaned: { sizes: string[]; variants: number }
+  failed?: { variants: number; recent: ImagesFailedVariant[] }
 }
 
 export interface ImagesPruneResult { sizes: number; variants: number }
+
+export interface ImagesRetryFailedResult { variants: number; media: number; job: ImagesJob | null }
 
 export interface MediaReconcileReport { blobsWithoutRow: string[]; rowsWithoutBlob: string[] }
 
@@ -218,6 +223,8 @@ export interface InsightsConfigVariable {
   secret: boolean
   set: boolean
   status?: 'set' | 'default' | 'missing'
+  value?: unknown
+  redacted?: boolean
 }
 
 export interface InsightsModule {

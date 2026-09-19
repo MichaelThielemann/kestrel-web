@@ -4,9 +4,13 @@ import stats from './__fixtures__/insights-stats.json'
 import type { InsightsConfigVariable, InsightsManifest, InsightsModule, InsightsStats } from '#kestrel-admin/types/api'
 import { boundaryCast } from '#kestrel/cast'
 import {
+  configDefaultText,
+  configValueText,
+  configVariableMatches,
   effectiveConfigStatus,
   formatMs,
   formatUptime,
+  isConfigRedacted,
   moduleConfigSummary,
   moduleRoute,
   pipelineStatsByName,
@@ -15,6 +19,10 @@ import {
   stepsOfModule,
   triggersOf,
 } from './insights-format'
+
+function variable(patch: Partial<InsightsConfigVariable> = {}): InsightsConfigVariable {
+  return { path: 'a.b', type: 'string', required: false, secret: false, set: true, ...patch }
+}
 
 const typedManifest = boundaryCast<InsightsManifest>(manifest, 'json')
 const typedStats = boundaryCast<InsightsStats>(stats, 'json')
@@ -149,5 +157,62 @@ describe('moduleRoute', () => {
 
   it('encodes a segment containing a space', () => {
     expect(moduleRoute('my module/sub name')).toBe('/admin/insights/modules/my%20module/sub%20name')
+  })
+})
+
+describe('isConfigRedacted', () => {
+  it('is true for a schema secret and for a backend-flagged redaction', () => {
+    expect(isConfigRedacted(variable({ secret: true }))).toBe(true)
+    expect(isConfigRedacted(variable({ redacted: true }))).toBe(true)
+  })
+
+  it('is false for a plain variable', () => {
+    expect(isConfigRedacted(variable())).toBe(false)
+  })
+})
+
+describe('configValueText', () => {
+  it('serialises the effective value', () => {
+    expect(configValueText(variable({ value: 'hello' }))).toBe('"hello"')
+    expect(configValueText(variable({ value: 30000 }))).toBe('30000')
+    expect(configValueText(variable({ value: { a: [1, 2] } }))).toBe('{"a":[1,2]}')
+  })
+
+  it('never returns a value for a redacted variable', () => {
+    expect(configValueText(variable({ secret: true, value: 'leaked' }))).toBeNull()
+    expect(configValueText(variable({ redacted: true, value: 'leaked' }))).toBeNull()
+  })
+
+  it('returns null when the backend sends no value at all', () => {
+    expect(configValueText(variable())).toBeNull()
+    expect(configValueText(variable({ value: null }))).toBeNull()
+  })
+})
+
+describe('configDefaultText', () => {
+  it('serialises the default and hides it for a redacted variable', () => {
+    expect(configDefaultText(variable({ default: 'inherited' }))).toBe('"inherited"')
+    expect(configDefaultText(variable({ secret: true, default: 'inherited' }))).toBeNull()
+    expect(configDefaultText(variable())).toBeNull()
+  })
+})
+
+describe('configVariableMatches', () => {
+  const v = variable({ path: 'blobstore.root', value: '/var/lib/kestrel' })
+
+  it('keeps everything when the query is blank', () => {
+    expect(configVariableMatches(v, 'blobstore/filesystem', '  ')).toBe(true)
+  })
+
+  it('matches the module name, the path and the value', () => {
+    expect(configVariableMatches(v, 'blobstore/filesystem', 'FILESYSTEM')).toBe(true)
+    expect(configVariableMatches(v, 'blobstore/filesystem', 'root')).toBe(true)
+    expect(configVariableMatches(v, 'blobstore/filesystem', 'var/lib')).toBe(true)
+  })
+
+  it('does not match a redacted value', () => {
+    const secret = variable({ path: 'auth.token', secret: true, value: 'hunter2' })
+    expect(configVariableMatches(secret, 'authn/multi', 'hunter2')).toBe(false)
+    expect(configVariableMatches(v, 'blobstore/filesystem', 'nothing')).toBe(false)
   })
 })

@@ -42,4 +42,26 @@ describe('InsightsConfigVariables', () => {
     expect(dot(rows[5]!).classes()).toContain('insights-config__dot--danger')
     expect(rows[5]!.text()).toContain(en['insights.notSet'])
   })
+
+  it('shows the effective value and keeps a redacted one hidden', async () => {
+    const withValues: InsightsConfigVariable[] = [
+      { path: 'root', type: 'string', required: true, secret: false, set: true, status: 'set', value: '/var/lib/kestrel', default: '/tmp', redacted: false },
+      { path: 'sessionSecret', type: 'string', required: true, secret: true, set: true, status: 'set', value: null, redacted: true },
+    ]
+    const wrapper = await mountSuspended(InsightsConfigVariables, { props: { variables: withValues } })
+
+    const cells = wrapper.findAll('tbody tr')[0]!.findAll('td')
+    expect(cells[3]!.text()).toBe('"/var/lib/kestrel"')
+    expect(cells[4]!.text()).toBe('"/tmp"')
+
+    const secretRow = wrapper.findAll('tbody tr')[1]!
+    expect(secretRow.findAll('td')[3]!.text()).toBe(en['insights.redacted'])
+    expect(secretRow.text()).not.toContain('hunter')
+  })
+
+  it('names the table after the given heading', async () => {
+    const wrapper = await mountSuspended(InsightsConfigVariables, { props: { variables, labelledBy: 'heading-id', scroll: false } })
+
+    expect(wrapper.get('table').attributes('aria-labelledby')).toBe('heading-id')
+  })
 })

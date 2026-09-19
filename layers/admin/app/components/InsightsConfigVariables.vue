@@ -2,14 +2,8 @@
 import type { InsightsConfigVariable } from '#kestrel-admin/types/api'
 import { effectiveConfigStatus } from '../utils/insights-format'
 
-defineProps<{ variables: InsightsConfigVariable[] }>()
+withDefaults(defineProps<{ variables: InsightsConfigVariable[], labelledBy?: string, scroll?: boolean }>(), { scroll: true })
 const { t } = useT()
-
-function defaultText(v: InsightsConfigVariable): string {
-  if (v.secret) return '—'
-  if (!('default' in v) || v.default === undefined) return '—'
-  return JSON.stringify(v.default)
-}
 
 function statusDotClass(v: InsightsConfigVariable): string {
   const status = effectiveConfigStatus(v)
@@ -29,24 +23,23 @@ function statusLabel(v: InsightsConfigVariable): string {
 <template>
   <div class="insights-config">
     <div v-if="variables.length === 0" class="insights-config__empty">{{ t('insights.noVariables') }}</div>
-    <div v-else class="list__scroll">
-      <KestrelUiTable class="insights-table">
+    <div v-else :class="scroll ? 'list__scroll' : undefined">
+      <KestrelUiTable class="insights-table" :sticky="scroll" :aria-labelledby="labelledBy">
         <template #head>
-          <th scope="col">{{ t('insights.colVariable') }}</th>
-          <th scope="col">{{ t('insights.colType') }}</th>
-          <th scope="col">{{ t('insights.colRequired') }}</th>
-          <th scope="col">{{ t('insights.colDefault') }}</th>
-          <th scope="col">{{ t('insights.colStatus') }}</th>
+          <th scope="col" class="insights-config__col-path">{{ t('insights.colVariable') }}</th>
+          <th scope="col" class="insights-config__col-type">{{ t('insights.colType') }}</th>
+          <th scope="col" class="insights-config__col-required">{{ t('insights.colRequired') }}</th>
+          <th scope="col">{{ t('insights.colValue') }}</th>
+          <th scope="col" class="insights-config__col-default">{{ t('insights.colDefault') }}</th>
+          <th scope="col" class="insights-config__col-status">{{ t('insights.colStatus') }}</th>
         </template>
         <template #body>
           <tr v-for="v in variables" :key="v.path">
-            <td><code>{{ v.path }}</code></td>
+            <td class="insights-config__path"><code>{{ v.path }}</code></td>
             <td>{{ v.type }}</td>
             <td>{{ v.required ? t('insights.required') : t('insights.optional') }}</td>
-            <td>
-              {{ defaultText(v) }}
-              <span v-if="v.secret" class="insights-badge insights-badge--info">{{ t('insights.secretBadge') }}</span>
-            </td>
+            <td><KestrelInsightsConfigValue :variable="v" /></td>
+            <td><KestrelInsightsConfigValue :variable="v" field="default" /></td>
             <td>
               <span
                 class="insights-config__dot"
@@ -65,6 +58,30 @@ function statusLabel(v: InsightsConfigVariable): string {
 
 <style lang="scss">
 .insights-config {
+  .insights-table {
+    table-layout: fixed;
+  }
+
+  &__col-path {
+    width: 22%;
+  }
+  &__col-type {
+    width: 7rem;
+  }
+  &__col-required {
+    width: 7rem;
+  }
+  &__col-default {
+    width: 18%;
+  }
+  &__col-status {
+    width: 8rem;
+  }
+
+  &__path {
+    overflow-wrap: anywhere;
+  }
+
   &__empty {
     color: var(--color-text-muted);
     font-size: var(--text-sm);
