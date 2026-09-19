@@ -157,7 +157,7 @@ function onActivate(row: RevisionRow, event: KeyboardEvent): void {
               v-if="row.hasParent"
               class="history-tree__line"
               :x1="centre(row.lane)"
-              :x2="centre(row.parentLane ?? row.lane)"
+              :x2="centre(row.lane)"
               :y1="ROW_HEIGHT / 2"
               :y2="ROW_HEIGHT"
             />
@@ -325,6 +325,12 @@ function onActivate(row: RevisionRow, event: KeyboardEvent): void {
 }
 @media (prefers-reduced-motion: reduce) {
   .history-tree__row { transition: none; }
+}
+@media (max-width: 48rem) {
+  .history-tree__list {
+    overflow-y: visible;
+    flex: 0 0 auto;
+  }
 }
 @media (max-width: 30rem) {
   .history-tree__lanes { display: none; }

@@ -140,9 +140,11 @@ async function onLabel(label: string | null): Promise<void> {
 @media (max-width: 48rem) {
   .page-history {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(0, 1fr) auto;
-    overflow-y: auto;
+    grid-template-rows: auto auto;
+    flex: 0 0 auto;
+    min-height: auto;
   }
+  .page-history__details { overflow-y: visible; }
   .page-history__tree {
     border-inline-end: 0;
     padding-inline-end: 0;
