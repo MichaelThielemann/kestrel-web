@@ -1,9 +1,7 @@
 <script setup lang="ts">
-definePageMeta({ layout: 'admin', middleware: 'admin-auth' })
+import { INSIGHTS_TABS, insightsTabFromQuery, isInsightsTab, type InsightsTabId } from '#kestrel-admin/utils/insights-tabs'
 
-const TAB_IDS = ['config', 'modules', 'pipelines', 'triggers', 'live', 'graph'] as const
-const DEFAULT_TAB = 'modules'
-type TabId = typeof TAB_IDS[number]
+definePageMeta({ layout: 'admin', middleware: 'admin-auth' })
 
 const route = useRoute()
 const router = useRouter()
@@ -12,23 +10,16 @@ const { manifest, availability, error, loadManifest } = useInsights()
 
 await loadManifest()
 
-function isTabId(value: string): value is TabId {
-  return TAB_IDS.some((id) => id === value)
-}
+const activeTab = computed<InsightsTabId>(() => insightsTabFromQuery(route.query.tab))
 
-const activeTab = computed<TabId>(() => {
-  const raw = typeof route.query.tab === 'string' ? route.query.tab : ''
-  return isTabId(raw) ? raw : DEFAULT_TAB
-})
-
-function setTab(tab: TabId) {
+function setTab(tab: InsightsTabId) {
   return router.replace({ query: { ...route.query, tab } })
 }
 
-const tabItems = computed(() => TAB_IDS.map((id) => ({ id, label: t(`insights.tabs.${id}`) })))
+const tabItems = computed(() => INSIGHTS_TABS.map((id) => ({ id, label: t(`insights.tabs.${id}`) })))
 
 function onTabSelect(id: string) {
-  if (isTabId(id)) void setTab(id)
+  if (isInsightsTab(id)) void setTab(id)
 }
 </script>
 
@@ -53,7 +44,7 @@ function onTabSelect(id: string) {
         @update:model-value="onTabSelect"
       />
 
-      <div v-for="tab in TAB_IDS" :id="`insights-panel-${tab}`" :key="tab" role="tabpanel" class="insights__panel" :aria-labelledby="`insights-tab-${tab}`" :hidden="tab !== activeTab">
+      <div v-for="tab in INSIGHTS_TABS" :id="`insights-panel-${tab}`" :key="tab" role="tabpanel" class="insights__panel" :aria-labelledby="`insights-tab-${tab}`" :hidden="tab !== activeTab">
         <template v-if="tab === activeTab">
           <KestrelInsightsConfig v-if="tab === 'config'" :manifest="manifest" />
           <KestrelInsightsModules v-else-if="tab === 'modules'" :manifest="manifest" />

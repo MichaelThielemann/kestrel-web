@@ -19,9 +19,9 @@ load balancer. The page says so above the live tab.
 The first tab lists every config variable of every module, grouped by module, with its path, type,
 required flag, effective value, default and set/default/missing status. The module heading links to
 the module page, and the table is named after it (`aria-labelledby`), so the grouping is announced.
-`Modules` stays the tab a bare `/admin/insights` lands on — the tab strip reads its order from
-`TAB_IDS` but the default comes from the separate `DEFAULT_TAB` constant, so putting `config` first
-changes the strip without changing the landing tab or any `?tab=` deep link.
+A bare `/admin/insights` lands on the first tab of the strip: `DEFAULT_TAB` is `TAB_IDS[0]`, so the
+strip order is the single source of truth and reordering `TAB_IDS` moves the landing tab with it. A
+`?tab=` deep link still wins over the default, and an unknown value falls back to the first tab.
 
 The effective value (`value` on a config variable, `@michaelthielemann/kestrel` 5.6.0 or newer) is
 what the config sets, otherwise the schema default. The backend serialises it as a JSON snapshot:
@@ -73,6 +73,8 @@ role.
   availability (`ok`, `notFound`, `forbidden`, `error`); `loadManifest()` is cached, `loadStats()`
   is what the live tab polls.
 - `pages/admin/insights/index.vue` — the tab shell (`?tab=config|modules|pipelines|triggers|live|graph`).
+- `utils/insights-tabs.ts` — `INSIGHTS_TABS` (strip order), `DEFAULT_INSIGHTS_TAB` (its first entry)
+  and `insightsTabFromQuery`, so strip order and landing tab cannot drift apart.
 - `pages/admin/insights/modules/[...name].vue` — one module: contracts, config variables with
   set/not-set status (secrets never show a default), owned steps with their descriptions, pipelines
   that use the module.
