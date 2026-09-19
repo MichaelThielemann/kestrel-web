@@ -15,86 +15,86 @@ importers:
         specifier: ^3.12.3
         version: 3.12.3
       '@michaelthielemann/kestrel':
-        specifier: ^5.5.0
-        version: 5.5.0
+        specifier: ^5.6.0
+        version: 5.6.0
       '@michaelthielemann/kestrel-audit-persistence':
-        specifier: ^5.5.0
-        version: 5.5.0(@michaelthielemann/kestrel-contracts@5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.5.0)
+        specifier: ^5.6.0
+        version: 5.6.0(@michaelthielemann/kestrel-contracts@5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.6.0)
       '@michaelthielemann/kestrel-authn-multi':
-        specifier: ^5.5.0
-        version: 5.5.0(@michaelthielemann/kestrel-contracts@5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.5.0)
+        specifier: ^5.6.0
+        version: 5.6.0(@michaelthielemann/kestrel-contracts@5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.6.0)
       '@michaelthielemann/kestrel-authn-single':
-        specifier: ^5.5.0
-        version: 5.5.0(@michaelthielemann/kestrel-contracts@5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.5.0)
+        specifier: ^5.6.0
+        version: 5.6.0(@michaelthielemann/kestrel-contracts@5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.6.0)
       '@michaelthielemann/kestrel-authz-roles':
-        specifier: ^5.5.0
-        version: 5.5.0(@michaelthielemann/kestrel-contracts@5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.5.0)
+        specifier: ^5.6.0
+        version: 5.6.0(@michaelthielemann/kestrel-contracts@5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.6.0)
       '@michaelthielemann/kestrel-backup-blobstore':
-        specifier: ^5.5.0
-        version: 5.5.0(@michaelthielemann/kestrel-contracts@5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.5.0)
+        specifier: ^5.6.0
+        version: 5.6.0(@michaelthielemann/kestrel-contracts@5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.6.0)
       '@michaelthielemann/kestrel-blobstore-filesystem':
-        specifier: ^5.5.0
-        version: 5.5.0(@michaelthielemann/kestrel-contracts@5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.5.0)
+        specifier: ^5.6.0
+        version: 5.6.0(@michaelthielemann/kestrel-contracts@5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.6.0)
       '@michaelthielemann/kestrel-blobstore-s3':
-        specifier: ^5.4.0
-        version: 5.4.0(@michaelthielemann/kestrel-contracts@5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.5.0)
+        specifier: ^5.6.0
+        version: 5.6.0(@michaelthielemann/kestrel-contracts@5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.6.0)
       '@michaelthielemann/kestrel-content-default':
-        specifier: ^5.5.0
-        version: 5.5.0(@michaelthielemann/kestrel-contracts@5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.5.0)
+        specifier: ^5.6.0
+        version: 5.6.0(@michaelthielemann/kestrel-contracts@5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.6.0)
       '@michaelthielemann/kestrel-contracts':
-        specifier: ^5.5.0
-        version: 5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0)))
+        specifier: ^5.6.0
+        version: 5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0)))
       '@michaelthielemann/kestrel-delivery-static':
-        specifier: ^5.5.0
-        version: 5.5.0(@michaelthielemann/kestrel-contracts@5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.5.0)
+        specifier: ^5.6.0
+        version: 5.6.0(@michaelthielemann/kestrel-contracts@5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.6.0)
       '@michaelthielemann/kestrel-events-inmemory':
-        specifier: ^5.5.0
-        version: 5.5.0(@michaelthielemann/kestrel-contracts@5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.5.0)
+        specifier: ^5.6.0
+        version: 5.6.0(@michaelthielemann/kestrel-contracts@5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.6.0)
       '@michaelthielemann/kestrel-events-queue':
-        specifier: ^5.5.0
-        version: 5.5.0(@michaelthielemann/kestrel-contracts@5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.5.0)
+        specifier: ^5.6.0
+        version: 5.6.0(@michaelthielemann/kestrel-contracts@5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.6.0)
       '@michaelthielemann/kestrel-h3':
-        specifier: ^5.4.0
-        version: 5.4.0(@michaelthielemann/kestrel@5.5.0)(h3@1.15.11)
+        specifier: ^5.6.0
+        version: 5.6.0(@michaelthielemann/kestrel@5.6.0)(h3@1.15.11)
       '@michaelthielemann/kestrel-images-default':
-        specifier: ^5.5.0
-        version: 5.5.0(@michaelthielemann/kestrel-contracts@5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.5.0)(@types/node@26.4.0)
+        specifier: ^5.6.0
+        version: 5.6.0(@michaelthielemann/kestrel-contracts@5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.6.0)(@types/node@26.4.0)
       '@michaelthielemann/kestrel-links-default':
-        specifier: ^5.5.0
-        version: 5.5.0(@michaelthielemann/kestrel-contracts@5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.5.0)
+        specifier: ^5.6.0
+        version: 5.6.0(@michaelthielemann/kestrel-contracts@5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.6.0)
       '@michaelthielemann/kestrel-media-default':
-        specifier: ^5.5.0
-        version: 5.5.0(@michaelthielemann/kestrel-contracts@5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.5.0)
+        specifier: ^5.6.0
+        version: 5.6.0(@michaelthielemann/kestrel-contracts@5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.6.0)
       '@michaelthielemann/kestrel-migrations-default':
-        specifier: ^5.5.0
-        version: 5.5.0(@michaelthielemann/kestrel-contracts@5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.5.0)
+        specifier: ^5.6.0
+        version: 5.6.0(@michaelthielemann/kestrel-contracts@5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.6.0)
       '@michaelthielemann/kestrel-persistence-sqlite':
-        specifier: ^5.5.0
-        version: 5.5.0(@michaelthielemann/kestrel-contracts@5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.5.0)
+        specifier: ^5.6.0
+        version: 5.6.0(@michaelthielemann/kestrel-contracts@5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.6.0)
       '@michaelthielemann/kestrel-ratelimit-memory':
-        specifier: ^5.5.0
-        version: 5.5.0(@michaelthielemann/kestrel-contracts@5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.5.0)
+        specifier: ^5.6.0
+        version: 5.6.0(@michaelthielemann/kestrel-contracts@5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.6.0)
       '@michaelthielemann/kestrel-redirects-default':
-        specifier: ^5.5.0
-        version: 5.5.0(@michaelthielemann/kestrel-contracts@5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.5.0)
+        specifier: ^5.6.0
+        version: 5.6.0(@michaelthielemann/kestrel-contracts@5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.6.0)
       '@michaelthielemann/kestrel-references-default':
-        specifier: ^5.5.0
-        version: 5.5.0(@michaelthielemann/kestrel-contracts@5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.5.0)
+        specifier: ^5.6.0
+        version: 5.6.0(@michaelthielemann/kestrel-contracts@5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.6.0)
       '@michaelthielemann/kestrel-renderer-nuxt':
         specifier: workspace:^
         version: link:packages/renderer-nuxt
       '@michaelthielemann/kestrel-replication-sqlite':
-        specifier: ^5.5.0
-        version: 5.5.0(@michaelthielemann/kestrel-contracts@5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.5.0)
+        specifier: ^5.6.0
+        version: 5.6.0(@michaelthielemann/kestrel-contracts@5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.6.0)
       '@michaelthielemann/kestrel-sanitize-svg':
-        specifier: ^5.5.0
-        version: 5.5.0(@michaelthielemann/kestrel-contracts@5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.5.0)
+        specifier: ^5.6.0
+        version: 5.6.0(@michaelthielemann/kestrel-contracts@5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.6.0)
       '@michaelthielemann/kestrel-site-default':
-        specifier: ^5.5.0
-        version: 5.5.0(@michaelthielemann/kestrel-contracts@5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.5.0)
+        specifier: ^5.6.0
+        version: 5.6.0(@michaelthielemann/kestrel-contracts@5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.6.0)
       '@michaelthielemann/kestrel-validate-jsonschema':
-        specifier: ^5.5.0
-        version: 5.5.0(@michaelthielemann/kestrel-contracts@5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.5.0)
+        specifier: ^5.6.0
+        version: 5.6.0(@michaelthielemann/kestrel-contracts@5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.6.0)
       '@nuxt/kit':
         specifier: ^4.5.2
         version: 4.5.2(magic-string@1.2.3)(magicast@0.5.4)(rolldown@1.2.6)(unplugin@3.3.0(esbuild@0.28.2)(rolldown@1.2.6)(rollup@4.63.0)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0)))
@@ -148,8 +148,8 @@ importers:
         specifier: ^3.1.1
         version: 3.1.1
       '@michaelthielemann/kestrel-insights':
-        specifier: ^5.5.0
-        version: 5.5.0(@michaelthielemann/kestrel-contracts@5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.5.0)
+        specifier: ^5.6.0
+        version: 5.6.0(@michaelthielemann/kestrel-contracts@5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.6.0)
       '@nuxt/eslint':
         specifier: ^1.9.0
         version: 1.17.0(@typescript-eslint/utils@8.68.0(eslint@9.39.5(jiti@2.7.0))(typescript@5.9.3))(@vue/compiler-sfc@3.5.42)(esbuild@0.28.2)(eslint@9.39.5(jiti@2.7.0))(magic-string@1.2.3)(magicast@0.5.4)(rolldown@1.2.6)(rollup@4.63.0)(srvx@0.11.22)(typescript@5.9.3)(unplugin@3.3.0(esbuild@0.28.2)(rolldown@1.2.6)(rollup@4.63.0)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0)))(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))
@@ -191,11 +191,11 @@ importers:
         version: 3.25.76
     devDependencies:
       '@michaelthielemann/kestrel':
-        specifier: ^5.5.0
-        version: 5.5.0
+        specifier: ^5.6.0
+        version: 5.6.0
       '@michaelthielemann/kestrel-contracts':
-        specifier: ^5.5.0
-        version: 5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0)))
+        specifier: ^5.6.0
+        version: 5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0)))
       '@types/node':
         specifier: ^26.4.0
         version: 26.4.0
@@ -227,64 +227,64 @@ packages:
     resolution: {integrity: sha512-93Z1N+BQNXysodoicpOIyNh2drHfz/CTf9nnT0FEx72GJcIiwgydD7tGAr78j41LsYn3hlRn+LdGPuBLn1Bl8Q==}
     engines: {node: ^22.13.0 || >=24.0.0}
 
-  '@aws-sdk/checksums@3.1000.29':
-    resolution: {integrity: sha512-Dtu0gr4dnATZAPwEYbpCsG+MpLM7OAliy2gTepEFQwl1vZ6DL3QMH2FveMa3HLvPsOdhJsPRB3KtxVhph9T75A==}
+  '@aws-sdk/checksums@3.1001.0':
+    resolution: {integrity: sha512-6uTniZc87q+B5eXouGTl+7Tmc482rEeCcvxpsvREP8EfF0gvloRZ41UOA9sbSJlyy8TbqIBXb3kKfKarEArUQA==}
     engines: {node: '>=20.0.0'}
 
-  '@aws-sdk/client-s3@3.1127.0':
-    resolution: {integrity: sha512-0ZSAgmEda33xPqVPt+bx2KzrXV1cUCKRRVPGliLu+V7DzHPa04CqPSi1maGEM4O0LDP0iI6HRSW5ULloNwayNw==}
+  '@aws-sdk/client-s3@3.1133.0':
+    resolution: {integrity: sha512-b7IVvFjNxNt6i//qUr2tWQC1JhUY0HpIiM41vvXv30br/nuXjYtKAADrMFluxGYX0X7LQB5GvzUcFDxNOoLMLg==}
     engines: {node: '>=20.0.0'}
 
-  '@aws-sdk/core@3.977.9':
-    resolution: {integrity: sha512-reqPFEQrZxDZpeGj4PFMepBeR5LGYHRqq/L0motTzgFkCRBA4rFdaVXDSLYyGHhxVz7sT2PDnPN9CluGSfgyJA==}
+  '@aws-sdk/core@3.978.0':
+    resolution: {integrity: sha512-2yX9LUmxPklVjSGTb8dfnWRJSiFQ3TeH2nn7G1mdKHTfnabzF0+gfrS8rYfLWmZrQ8A3mEcxMJjRc51dL5KWaA==}
     engines: {node: '>=20.0.0'}
 
-  '@aws-sdk/credential-provider-env@3.972.70':
-    resolution: {integrity: sha512-H404B7dJl2mCrBqahDEYsanB0xhdDp6tXnXcTUnXmmpy2Q3J0Ho0bUajZ2jr/RdwzCyS59Gi8xXIFwPLGBl6Uw==}
+  '@aws-sdk/credential-provider-env@3.972.71':
+    resolution: {integrity: sha512-JN+JHruYZw3GUZB8YGAlDk4wTDPOEAEEdEzj5nS0xodWR4smzHsN7PnK2j6IeOsDIj2aqua5DSbhXl9Gtf90FQ==}
     engines: {node: '>=20.0.0'}
 
-  '@aws-sdk/credential-provider-http@3.972.72':
-    resolution: {integrity: sha512-X98zYOrVOeuosCX+6ktf29FC2N2GHPLia7qv6mzPzTc+RPAuHWCDS++Z6JK7eGYqb/v6uaW7bAXaOvDBfol+0w==}
+  '@aws-sdk/credential-provider-http@3.972.73':
+    resolution: {integrity: sha512-uyYYnJOnlis8uQzaYGPd7N1JoioCoNpXgnkXYixsWJXHXgXyYi8WXJSDfofxJeWfQIGWLe2Nwyq60Uc7MZdVOg==}
     engines: {node: '>=20.0.0'}
 
-  '@aws-sdk/credential-provider-ini@3.973.15':
-    resolution: {integrity: sha512-Rykg6s5ceBuynMOGWgoowO4N+27JfnqXAnVaSunZl0hOO1XodSrxGNz6sCEbnmS0lAfQZDKyb3fbr46gSuv6Sg==}
+  '@aws-sdk/credential-provider-ini@3.973.16':
+    resolution: {integrity: sha512-i++ly+0Uxa+u3ebSSyr0S/3CFhFJDxCXT3+Zj+mW2bXenEx5bKGCdTIKFu39SgXBNhWDjex/8cXUx9MUTMCrTw==}
     engines: {node: '>=20.0.0'}
 
-  '@aws-sdk/credential-provider-login@3.972.77':
-    resolution: {integrity: sha512-Jb59xfEISoN5mmbnA+HYqdtrSX3CgCtJoof+V5D8/TgUI56W63GEEd5Y58WijU3Ou6+WEgaLD1feVzaRXV5IDQ==}
+  '@aws-sdk/credential-provider-login@3.972.78':
+    resolution: {integrity: sha512-eUtswnXu0+Ii9ieRK+0L7aPFV3Z/dnW2VntJzjBP9xs8s+8p5nBNuymIXtXwZ+5r5+XJP3e32nMkuZ/r0HozEA==}
     engines: {node: '>=20.0.0'}
 
-  '@aws-sdk/credential-provider-node@3.972.82':
-    resolution: {integrity: sha512-znDkEOGXB8W3kG1LJUKP3foBZY/9qLM0eil/DxWXSp37XsdsRLQHE/d/OaCGGVgKpA6znR38h/+INk8do1FjiA==}
+  '@aws-sdk/credential-provider-node@3.972.83':
+    resolution: {integrity: sha512-jdso7ejzfRnatxMUZK4S/U6KbaDPCvfIV4XL+IQAPFDBt5rj5Fq595euqlK8Le4lNCMFR9oUpt+1l0aMgaayOQ==}
     engines: {node: '>=20.0.0'}
 
-  '@aws-sdk/credential-provider-process@3.972.70':
-    resolution: {integrity: sha512-2ry03fGRJr4sV3jI+ocjj5JqALnFD6ymM5KiNCDZMvq8bX2GSbE0vji4aM43TVCl2nXqqLRZaUxdq/KeWRAY4Q==}
+  '@aws-sdk/credential-provider-process@3.972.71':
+    resolution: {integrity: sha512-lYmXJa4gvq4xN1lrT5NiP5vIYYKcGWAdj8y+8o6dlcateB5eF3Dn8DtmjjHKfMBrTPAMr2pebIiX/UOj8c1/UA==}
     engines: {node: '>=20.0.0'}
 
-  '@aws-sdk/credential-provider-sso@3.973.14':
-    resolution: {integrity: sha512-jkhg/8ocAAoc0RFyLMhCw+/zZh7gystQgd4F4hznNa8P4Cc501PQmxd+jGLiMHodPJ+7Zv/3znM62gZojyasmA==}
+  '@aws-sdk/credential-provider-sso@3.973.15':
+    resolution: {integrity: sha512-6Jhcf4v0pSFdjk1EW2kvzuEBKD+UZ2uNcHUIglKKLndD20YhvkL2kdmDOV5/j4mYuWWwe/a1FQ1aomU86/Cg5Q==}
     engines: {node: '>=20.0.0'}
 
-  '@aws-sdk/credential-provider-web-identity@3.972.76':
-    resolution: {integrity: sha512-d3AGyVu759PGr35mEB2s22xxlNEA5rpdxtSPJthfPFJvoQ8dt357iVPECqWfUxXp1toJAvKmbtcIYVGigaGsCA==}
+  '@aws-sdk/credential-provider-web-identity@3.972.77':
+    resolution: {integrity: sha512-uylIQSUWpfLuH2LovxEEfwzJGM/SabLOfLMg6YXu/E8jJEKUdpdILCVCQCdFvHyu/7dLJOHPMfrSwduxO56NkQ==}
     engines: {node: '>=20.0.0'}
 
-  '@aws-sdk/middleware-sdk-s3@3.972.75':
-    resolution: {integrity: sha512-wMIsNumRVKaNMKhvU/s9VrdEwE8S6gSzXp4RygFG5BEMnGkkXf8cjh8zf7cKJBpUDpqTWqwbz5isEgp9rH6Lng==}
+  '@aws-sdk/middleware-sdk-s3@3.972.76':
+    resolution: {integrity: sha512-NfnTkVUTBKTBuBgqaapFK9r3YdkKt1b2oRvgLzZq91bwNKh6ZS0S7sEcheguttREaL4iyfs/xQnqD7Z7AsWSsA==}
     engines: {node: '>=20.0.0'}
 
-  '@aws-sdk/nested-clients@3.997.44':
-    resolution: {integrity: sha512-NhEgryjlBF9w38ZXqGymQV28IhkYa1mKhlbYnqIis57AYwWGVYfUPgg/qC2rLRqOUfblxx++irvju10kVTa8Vw==}
+  '@aws-sdk/nested-clients@3.997.45':
+    resolution: {integrity: sha512-mooq9Q+jLa18VoM7HouczmslZU60iiB0aKc/Ztnq/luIL1ud0z4DnYprLR/ZO1gp331S9tJctM1HZr7u6YKBXQ==}
     engines: {node: '>=20.0.0'}
 
   '@aws-sdk/signature-v4-multi-region@3.996.46':
     resolution: {integrity: sha512-L+2xZTye/2T96f3lwCws0Zw6GG2JHZW9e8FpVgGBeeExSKyeoZ6CWRpBml/7DNiK/O26jrgPM9F+Ay8VkgzUWQ==}
     engines: {node: '>=20.0.0'}
 
-  '@aws-sdk/token-providers@3.1116.0':
-    resolution: {integrity: sha512-ygIivKqh8aHzNkucOCXHyIBgBpLPfrSI0mCqXF+vLBsPTUKqj0VSqAY0GFPe7lQl4HntjOcQ+KSyS7oUV2C54Q==}
+  '@aws-sdk/token-providers@3.1129.0':
+    resolution: {integrity: sha512-Sbl3rpzQdsG4ZK2zh0JWUYyZPKKorJlVOddA2T0DVbKJFrsW8J6wgnslxxUH04+WaBMr4A1HzJZvZX0xUvkniA==}
     engines: {node: '>=20.0.0'}
 
   '@aws-sdk/types@3.974.5':
@@ -1020,193 +1020,193 @@ packages:
     engines: {node: '>=18'}
     hasBin: true
 
-  '@michaelthielemann/kestrel-audit-persistence@5.5.0':
-    resolution: {integrity: sha512-p2vD+gOZdy8P9FEM6oavoRinsUpHSeDJ9lzpa6kL8JiNQqH7FSe5mRMeEIgX8R3eesgis48Nf66/C3xjcEMaNw==}
+  '@michaelthielemann/kestrel-audit-persistence@5.6.0':
+    resolution: {integrity: sha512-Ihih21KwM5g2DVEpuRiY6xnBXsFVzQW24uHCR+aCZ98DKP58mc4XIB4gvfI/XZPpuHmsaryw528KCybSfxJdzw==}
     engines: {node: '>=22.13.0'}
     peerDependencies:
-      '@michaelthielemann/kestrel': ^5.5.0
-      '@michaelthielemann/kestrel-contracts': ^5.5.0
+      '@michaelthielemann/kestrel': ^5.6.0
+      '@michaelthielemann/kestrel-contracts': ^5.6.0
 
-  '@michaelthielemann/kestrel-authn-multi@5.5.0':
-    resolution: {integrity: sha512-6Kq2JEDaatvkYYoP4dW2dORCesY10oxRG0qisOBG6mHVSJYAiP1+OUu+k6J2RG+bYZI1vMJhpRs8u6YyC5tWtQ==}
+  '@michaelthielemann/kestrel-authn-multi@5.6.0':
+    resolution: {integrity: sha512-DGRM+Qg4VDU9F586jgPBe0Me1f1KmqPJHMOUqAbVGHXXO/7JTdfOErAAQVFvnDvgz/t2SJl0mp8C/jNoRChQ/w==}
     engines: {node: '>=22.13.0'}
     peerDependencies:
-      '@michaelthielemann/kestrel': ^5.5.0
-      '@michaelthielemann/kestrel-contracts': ^5.5.0
+      '@michaelthielemann/kestrel': ^5.6.0
+      '@michaelthielemann/kestrel-contracts': ^5.6.0
 
-  '@michaelthielemann/kestrel-authn-single@5.5.0':
-    resolution: {integrity: sha512-5uYjiAquppPwja32mzDDbjFWX8azvOK9K/K4Lnzb5h0gAoLDGjf7SdnnxxjCJntsu6x/YfLScxIZVa9j32jtcg==}
+  '@michaelthielemann/kestrel-authn-single@5.6.0':
+    resolution: {integrity: sha512-u0DAfW2GSgB58wuYEAnsRQijS7Haqn5AGUaIPCHuXvyjXQ3gBli3DW5MTpPlLG1m7tLaS0iAm7I8SaoVAzGFkQ==}
     engines: {node: '>=22.13.0'}
     peerDependencies:
-      '@michaelthielemann/kestrel': ^5.5.0
-      '@michaelthielemann/kestrel-contracts': ^5.5.0
+      '@michaelthielemann/kestrel': ^5.6.0
+      '@michaelthielemann/kestrel-contracts': ^5.6.0
 
-  '@michaelthielemann/kestrel-authz-roles@5.5.0':
-    resolution: {integrity: sha512-CwFsX/BMmqkdM8tkJpUA90bZ5bNwZuUzrYdx9s8UpkkYk3suSUddYW9/8tJ30BpMT1uu9Q2wAX2/gjuzz4nIcw==}
+  '@michaelthielemann/kestrel-authz-roles@5.6.0':
+    resolution: {integrity: sha512-Ja5EIOE3BnFEqk/CiYHzA4h0LU+Wxq9JjViEilYYktfhk51vtZ5OIA1QikN5aCIHGQ4lhKOiYdogp0O5XTPC9A==}
     engines: {node: '>=22.13.0'}
     peerDependencies:
-      '@michaelthielemann/kestrel': ^5.5.0
-      '@michaelthielemann/kestrel-contracts': ^5.5.0
+      '@michaelthielemann/kestrel': ^5.6.0
+      '@michaelthielemann/kestrel-contracts': ^5.6.0
 
-  '@michaelthielemann/kestrel-backup-blobstore@5.5.0':
-    resolution: {integrity: sha512-rPij6yzptYV1kJfpNrX2Ar7cBvr2XWKVdvSTo8ylNFQUsXJrPwAyEk7myLM9kif4nf8ckWEWK6vgtMlyTNheHg==}
+  '@michaelthielemann/kestrel-backup-blobstore@5.6.0':
+    resolution: {integrity: sha512-kKaN9EPPTv29VuXqnrPshc698XKwurzprkPJxRMzVBgXQyGMTgHwsNJazLff5D3C4SgAx8Q6LZsLBDfs4PfzuA==}
     engines: {node: '>=22.13.0'}
     peerDependencies:
-      '@michaelthielemann/kestrel': ^5.5.0
-      '@michaelthielemann/kestrel-contracts': ^5.5.0
+      '@michaelthielemann/kestrel': ^5.6.0
+      '@michaelthielemann/kestrel-contracts': ^5.6.0
 
-  '@michaelthielemann/kestrel-blobstore-filesystem@5.5.0':
-    resolution: {integrity: sha512-nP1bgF3zpbYYM1j5tK9MyZiNThVkHrYuweO5BUiMDilWxPsM0UYmLDuujpZBOWLisxygLa0bAb+Bb+uqBSDDhA==}
+  '@michaelthielemann/kestrel-blobstore-filesystem@5.6.0':
+    resolution: {integrity: sha512-z8eJlJ6Ei+geByImeAcu6eYXzOy7aTdXnNJOfX0f76N67ehfSueXo3Pk6Y9pUhU3Fdha+6X+iW6R8EXHK7R7zQ==}
     engines: {node: '>=22.13.0'}
     peerDependencies:
-      '@michaelthielemann/kestrel': ^5.5.0
-      '@michaelthielemann/kestrel-contracts': ^5.5.0
+      '@michaelthielemann/kestrel': ^5.6.0
+      '@michaelthielemann/kestrel-contracts': ^5.6.0
 
-  '@michaelthielemann/kestrel-blobstore-s3@5.4.0':
-    resolution: {integrity: sha512-Kwnc7fN1Eck0maf2sZo6q/NNl6/OmdJ/FGPZA4CGGkC2U5MUGrxcSoXsUPRuxprsSr/FMPsLx0qQMCfpX0L5bw==}
+  '@michaelthielemann/kestrel-blobstore-s3@5.6.0':
+    resolution: {integrity: sha512-3l40yzQfg9AeOYpayW4t/0R47qK4BMNN4Lw9wDJVAa3j9oGPJqAUPY7ZLDVXDp2n3i5hXQrcsQou1/VMRlqdwg==}
     engines: {node: '>=22.13.0'}
     peerDependencies:
-      '@michaelthielemann/kestrel': ^5.4.0
-      '@michaelthielemann/kestrel-contracts': ^5.4.0
+      '@michaelthielemann/kestrel': ^5.6.0
+      '@michaelthielemann/kestrel-contracts': ^5.6.0
 
-  '@michaelthielemann/kestrel-content-default@5.5.0':
-    resolution: {integrity: sha512-YqlpAAoltYiGjaZv1tczlIx/OCTTs8NvHoIfntcBde2SjXmiV+uvIkPxwEyz41vd7pA78EPL7UUQJOr2vJI7/w==}
+  '@michaelthielemann/kestrel-content-default@5.6.0':
+    resolution: {integrity: sha512-TiJtq6pXQbKVX7v7VLrn7m1jwq879JYSf9Y2UL0YWHLfKXnY0OKdc4WVj5NLxL5mV/rPBXFZwQLkTIMs+wE1Kg==}
     engines: {node: '>=22.13.0'}
     peerDependencies:
-      '@michaelthielemann/kestrel': ^5.5.0
-      '@michaelthielemann/kestrel-contracts': ^5.5.0
+      '@michaelthielemann/kestrel': ^5.6.0
+      '@michaelthielemann/kestrel-contracts': ^5.6.0
 
-  '@michaelthielemann/kestrel-contracts@5.5.0':
-    resolution: {integrity: sha512-0DqpbNVbMH9ayUtDo3w6JBlfmYMbFW8YuE4n/tgfDuIJOp760R2u6N9RWbM0bWAwKnWchHYcfphwJbKAYQKAmA==}
+  '@michaelthielemann/kestrel-contracts@5.6.0':
+    resolution: {integrity: sha512-+z9yiIYB7HWUCp3ba4J1HD56hvbUZjg68ksjHdoIVeggjNIYxp9Rwgg6YqPVw+JSNxtgh7jD60P6ZyqVwT9RTA==}
     engines: {node: '>=22.13.0'}
     peerDependencies:
-      '@michaelthielemann/kestrel': ^5.5.0
+      '@michaelthielemann/kestrel': ^5.6.0
       vitest: '>=3'
     peerDependenciesMeta:
       vitest:
         optional: true
 
-  '@michaelthielemann/kestrel-delivery-static@5.5.0':
-    resolution: {integrity: sha512-9uuqzWbTndAYMn0zgUo3yLpznPhuuEuq7zNoRB1bFhIxnccptQfyPo6H7hPq1BaiJTZJ57Ypxztnq6Xverhgow==}
+  '@michaelthielemann/kestrel-delivery-static@5.6.0':
+    resolution: {integrity: sha512-PdGpNTFL2KZLuTcwKUO/mS+M5X4sM6b9M3NtklW7pBn6HevLwPo8phgQegQxqKT6khljvGoNa4vVKg0QjqeqGA==}
     engines: {node: '>=22.13.0'}
     peerDependencies:
-      '@michaelthielemann/kestrel': ^5.5.0
-      '@michaelthielemann/kestrel-contracts': ^5.5.0
+      '@michaelthielemann/kestrel': ^5.6.0
+      '@michaelthielemann/kestrel-contracts': ^5.6.0
 
-  '@michaelthielemann/kestrel-events-inmemory@5.5.0':
-    resolution: {integrity: sha512-4IcMRDXgTwlsDhbaV45SekTASr9kpjYea/EGFmg4ERiUeBWDctJZ27SFYr9oBgha79nNQ0bKU55EBGq9E5eLow==}
+  '@michaelthielemann/kestrel-events-inmemory@5.6.0':
+    resolution: {integrity: sha512-vPWLLihegJICDtQ1kvBiuQBOZ/uc0lcZqjIi6xD3oPtBF+3L58LK0wBBkmj+J9YEgRK0LAUiNNifeSFpU2HRVQ==}
     engines: {node: '>=22.13.0'}
     peerDependencies:
-      '@michaelthielemann/kestrel': ^5.5.0
-      '@michaelthielemann/kestrel-contracts': ^5.5.0
+      '@michaelthielemann/kestrel': ^5.6.0
+      '@michaelthielemann/kestrel-contracts': ^5.6.0
 
-  '@michaelthielemann/kestrel-events-queue@5.5.0':
-    resolution: {integrity: sha512-JJFg4VTXZ9SNdhqJgNBkF/dbE51zpxJL30K2YOGdIFzQF8kUlLjj2M0MxV8JXBwcDm26dfLlVQSulf7/bK/rRg==}
+  '@michaelthielemann/kestrel-events-queue@5.6.0':
+    resolution: {integrity: sha512-cH1N7XhwbgT4Vsji+VQK+Rt7NOS27xZ0t1xbrMiXG2O4sZ3DcYwSYIka84aXn8HywGRWTGwMYEqzxKB45ldjew==}
     engines: {node: '>=22.13.0'}
     peerDependencies:
-      '@michaelthielemann/kestrel': ^5.5.0
-      '@michaelthielemann/kestrel-contracts': ^5.5.0
+      '@michaelthielemann/kestrel': ^5.6.0
+      '@michaelthielemann/kestrel-contracts': ^5.6.0
 
-  '@michaelthielemann/kestrel-h3@5.4.0':
-    resolution: {integrity: sha512-TFGm2BvYzKSyJU52BakBaIdw2cKVYeKyMNfowWDfHjs+XbFTxxX1nD9JxdYSrGYStHVHXPrC0QQb/p+lv0QV8A==}
+  '@michaelthielemann/kestrel-h3@5.6.0':
+    resolution: {integrity: sha512-3/+Y3gl63oJ434Spkis4YTtLJ7x0O/gXQWNUD+O9Eh+7f20joYeBnjnwC38VVGa1yTR/pN+RVnowFDxq9LFe/Q==}
     engines: {node: '>=22.13.0'}
     peerDependencies:
-      '@michaelthielemann/kestrel': ^5.4.0
+      '@michaelthielemann/kestrel': ^5.6.0
       h3: ^1.15.0
 
-  '@michaelthielemann/kestrel-images-default@5.5.0':
-    resolution: {integrity: sha512-Z+ASUty1bTkYqeYeD0Q2YMidrLrJxkZSqlQK09mkYQJGu5cN3HFlWV6loRALv7oLBVcBwgCSyhoyOB3P8nNnOw==}
+  '@michaelthielemann/kestrel-images-default@5.6.0':
+    resolution: {integrity: sha512-bJNtQ8Tg44yPL6sU5/nkguKvcmJXbJjj14R/AAB8UJnEJXXJu+P+qUEgxhSAXtKq/R5RXELHoGxpxd+02gL+2w==}
     engines: {node: '>=22.13.0'}
     peerDependencies:
-      '@michaelthielemann/kestrel': ^5.5.0
-      '@michaelthielemann/kestrel-contracts': ^5.5.0
+      '@michaelthielemann/kestrel': ^5.6.0
+      '@michaelthielemann/kestrel-contracts': ^5.6.0
 
-  '@michaelthielemann/kestrel-insights@5.5.0':
-    resolution: {integrity: sha512-WV2xvm0/CM/EtmCwgRzI4+3qQpU09UH/y9kvSK5qbKC6/IzBMY5DN4hbQL+FLZnDcw1JzJpSDAH8qQKurL5bEQ==}
+  '@michaelthielemann/kestrel-insights@5.6.0':
+    resolution: {integrity: sha512-vSENg97QXUyBaZg7R8h2NFiDIXisz1M/blIJSMOuES8ILfL/s+qnXcCw9wbCdnVkvku+Q8imSsLE4mQgQsCpmQ==}
     engines: {node: '>=22.13.0'}
     peerDependencies:
-      '@michaelthielemann/kestrel': ^5.5.0
-      '@michaelthielemann/kestrel-contracts': ^5.5.0
+      '@michaelthielemann/kestrel': ^5.6.0
+      '@michaelthielemann/kestrel-contracts': ^5.6.0
 
-  '@michaelthielemann/kestrel-links-default@5.5.0':
-    resolution: {integrity: sha512-wM5p9YR5l7RkQ5trMpbUFDM5IAcII30aOQjnhaCgMLZkzhhIOvL/QDsmHlkXJgIuaZwCJRQm6uwUb9r4jWwDzA==}
+  '@michaelthielemann/kestrel-links-default@5.6.0':
+    resolution: {integrity: sha512-i6z4BQnCuUnB4WuY3GdBThFCtk1N+ku4tjyFVg7U4M+UyCg1Ic+NZcS0UipKYv7mp+2OnFB5gOnmH/jot8wrow==}
     engines: {node: '>=22.13.0'}
     peerDependencies:
-      '@michaelthielemann/kestrel': ^5.5.0
-      '@michaelthielemann/kestrel-contracts': ^5.5.0
+      '@michaelthielemann/kestrel': ^5.6.0
+      '@michaelthielemann/kestrel-contracts': ^5.6.0
 
-  '@michaelthielemann/kestrel-media-default@5.5.0':
-    resolution: {integrity: sha512-K212xWXTm7QhD6yvorwJgCOhaoWZrSfaIIaJz4u8ORCtplxT2HFWi412GlwljC4hsKqrYUP0gscmdMwZPEj2Jw==}
+  '@michaelthielemann/kestrel-media-default@5.6.0':
+    resolution: {integrity: sha512-YNwO584SbYHAf7F6kHP31M2QlluvIM9PVduli0jDs423ui3Wt9RIJWHZ2QDXOVRDWpnWy2rjQln2vx51Fq72gg==}
     engines: {node: '>=22.13.0'}
     peerDependencies:
-      '@michaelthielemann/kestrel': ^5.5.0
-      '@michaelthielemann/kestrel-contracts': ^5.5.0
+      '@michaelthielemann/kestrel': ^5.6.0
+      '@michaelthielemann/kestrel-contracts': ^5.6.0
 
-  '@michaelthielemann/kestrel-migrations-default@5.5.0':
-    resolution: {integrity: sha512-5sq+MoNYLUd7nHUrIrLM/WkSyeTUcjkvZJ/JGFZkVc+vjzorZ7I0bbsg+QaR5uHOf9oL03XesaYFWj+3V+tVQg==}
+  '@michaelthielemann/kestrel-migrations-default@5.6.0':
+    resolution: {integrity: sha512-0Y10AKcPvH28Qt8z0kFwHObd73WCh7dWl6JQt9m5D87gH8LIpfUA4e684zaFbBSN+JzWi81bFGDkisPwQiP34g==}
     engines: {node: '>=22.13.0'}
     peerDependencies:
-      '@michaelthielemann/kestrel': ^5.5.0
-      '@michaelthielemann/kestrel-contracts': ^5.5.0
+      '@michaelthielemann/kestrel': ^5.6.0
+      '@michaelthielemann/kestrel-contracts': ^5.6.0
 
-  '@michaelthielemann/kestrel-persistence-sqlite@5.5.0':
-    resolution: {integrity: sha512-a0T3pJCoqRby4Yex3bQwEVz8YiYPY64txcTWdlSQaQ4BxslkWYQN4ORhPIGhZ6xQhwBpztzY6ott//WV6ofvbQ==}
+  '@michaelthielemann/kestrel-persistence-sqlite@5.6.0':
+    resolution: {integrity: sha512-CJA0DbALjRrI2SfNwZpdl0sOzGucaoLftkRzVsM273urBWlatH7U1HUjpOamWZCxJnM2Fal7OXKtJn9G+XEgUQ==}
     engines: {node: '>=22.13.0'}
     peerDependencies:
-      '@michaelthielemann/kestrel': ^5.5.0
-      '@michaelthielemann/kestrel-contracts': ^5.5.0
+      '@michaelthielemann/kestrel': ^5.6.0
+      '@michaelthielemann/kestrel-contracts': ^5.6.0
 
-  '@michaelthielemann/kestrel-ratelimit-memory@5.5.0':
-    resolution: {integrity: sha512-GT/jsQcZu5Kuo7NuUbUKFYFT6nMAOL7ASvLpKqnO/6NG8W7a+2UVXvVqvVUv9S6gK43cozNA73wS6gk211iAtQ==}
+  '@michaelthielemann/kestrel-ratelimit-memory@5.6.0':
+    resolution: {integrity: sha512-cDt5yGcuL0HLRVOlPyC47Jq+Si4iU6uH+jCaB78m1ii3dnly+THaLvY9A/H3EguEMiV814RozojBML6m6I1S1g==}
     engines: {node: '>=22.13.0'}
     peerDependencies:
-      '@michaelthielemann/kestrel': ^5.5.0
-      '@michaelthielemann/kestrel-contracts': ^5.5.0
+      '@michaelthielemann/kestrel': ^5.6.0
+      '@michaelthielemann/kestrel-contracts': ^5.6.0
 
-  '@michaelthielemann/kestrel-redirects-default@5.5.0':
-    resolution: {integrity: sha512-26AlvW7tTHNnyuU22s1q4kmcEDXv6qSJ6fqlySOO2GkT/bdTAIexT0MQ+beoYD9Ouv4Sp2WaE/vggCkoMYMesQ==}
+  '@michaelthielemann/kestrel-redirects-default@5.6.0':
+    resolution: {integrity: sha512-Gsgo2/evpdCHyW3v8dGwL99NwZiFXI0yY74V3maJnwua4YbtR5vlXDiZeJHq3nZ+UKBbA/GIP/RMIey97kqMKA==}
     engines: {node: '>=22.13.0'}
     peerDependencies:
-      '@michaelthielemann/kestrel': ^5.5.0
-      '@michaelthielemann/kestrel-contracts': ^5.5.0
+      '@michaelthielemann/kestrel': ^5.6.0
+      '@michaelthielemann/kestrel-contracts': ^5.6.0
 
-  '@michaelthielemann/kestrel-references-default@5.5.0':
-    resolution: {integrity: sha512-EJ0hyHcippEjt2J6WX0dZAnd9BUX/DWQxpTSsXCmihlqyEHHIPgcjDLeADkjTyA7/qZyOtc7sXg7agaL9Ikepw==}
+  '@michaelthielemann/kestrel-references-default@5.6.0':
+    resolution: {integrity: sha512-4Wf6NWoOk4IUxplbGcu9w+cUMWWxoHmHHtlcUdhxqnIzBwUQyQz2XcrP9Xvveh2bBa4j9fwb4DNsVL/7KkiEaA==}
     engines: {node: '>=22.13.0'}
     peerDependencies:
-      '@michaelthielemann/kestrel': ^5.5.0
-      '@michaelthielemann/kestrel-contracts': ^5.5.0
+      '@michaelthielemann/kestrel': ^5.6.0
+      '@michaelthielemann/kestrel-contracts': ^5.6.0
 
-  '@michaelthielemann/kestrel-replication-sqlite@5.5.0':
-    resolution: {integrity: sha512-ZXejOg08cMM3Y8E2P9ite5EXiHyJi23HKve0YejZt5msgFqyBjLfuUAUEHegZjI9VorpTuch0U0/B9ABNDREVw==}
+  '@michaelthielemann/kestrel-replication-sqlite@5.6.0':
+    resolution: {integrity: sha512-+FY15IBeQgb2nteHlpCsfIrkL9T5IZGu4BmO8hZUTh75CvDYlEhaj7kwO9rHuzixQ6S+TKRdGwJsow/ORFz6dw==}
     engines: {node: '>=22.13.0'}
     peerDependencies:
-      '@michaelthielemann/kestrel': ^5.5.0
-      '@michaelthielemann/kestrel-contracts': ^5.5.0
+      '@michaelthielemann/kestrel': ^5.6.0
+      '@michaelthielemann/kestrel-contracts': ^5.6.0
 
-  '@michaelthielemann/kestrel-sanitize-svg@5.5.0':
-    resolution: {integrity: sha512-8n3cK+LAFvWZQyy23xSNePaTkA1WddiJXO+o5xvtBSDed74TatZ+/pvpL2IEvcaqbuIJv7xv87ouccKNkoxZmQ==}
+  '@michaelthielemann/kestrel-sanitize-svg@5.6.0':
+    resolution: {integrity: sha512-rRRieGxO64M/vTIU6Axi3eaJwTemvnyU+HGFII6NcT3EN1ZZmFfOYI0nQHmpqhOWNQAgRrMLfXJ74e4VY5AxfA==}
     engines: {node: '>=22.13.0'}
     peerDependencies:
-      '@michaelthielemann/kestrel': ^5.5.0
-      '@michaelthielemann/kestrel-contracts': ^5.5.0
+      '@michaelthielemann/kestrel': ^5.6.0
+      '@michaelthielemann/kestrel-contracts': ^5.6.0
 
-  '@michaelthielemann/kestrel-site-default@5.5.0':
-    resolution: {integrity: sha512-oJH5lfse0lCd/KSLf2zV/yXNSOMgoHFXIP3a1E0GJCrVuAHsNAfnvyrQX19ZT9U9PMlDgwHNPCOUvEw5CFO5+A==}
+  '@michaelthielemann/kestrel-site-default@5.6.0':
+    resolution: {integrity: sha512-gQbTQvrbbBzucs4j/CTYcgm9rd7zcy+eltejPBIY5u1qzYjulonf1bN6WsJ+gm8m66MleFfSD4/L1IWc+MCqDg==}
     engines: {node: '>=22.13.0'}
     peerDependencies:
-      '@michaelthielemann/kestrel': ^5.5.0
-      '@michaelthielemann/kestrel-contracts': ^5.5.0
+      '@michaelthielemann/kestrel': ^5.6.0
+      '@michaelthielemann/kestrel-contracts': ^5.6.0
 
-  '@michaelthielemann/kestrel-validate-jsonschema@5.5.0':
-    resolution: {integrity: sha512-vrjdKNZxkRHffCOeMlWnLWFQfNowRiC/2Tsn9ph87f2+xcCPdtaccAAnOp5LPD8Kri6xk+nEW4kUpIW5raRENg==}
+  '@michaelthielemann/kestrel-validate-jsonschema@5.6.0':
+    resolution: {integrity: sha512-P7ZIO4yCEuqLBfyWIpF7TvIva+Tr0eVVNHHpSfR6SSb3h96fJLIEWNZAgdQVI8tL+jg7oVFFSXbcA++k5+DzEA==}
     engines: {node: '>=22.13.0'}
     peerDependencies:
-      '@michaelthielemann/kestrel': ^5.5.0
-      '@michaelthielemann/kestrel-contracts': ^5.5.0
+      '@michaelthielemann/kestrel': ^5.6.0
+      '@michaelthielemann/kestrel-contracts': ^5.6.0
 
-  '@michaelthielemann/kestrel@5.5.0':
-    resolution: {integrity: sha512-k3Q8op6T6X0XOek1AZ8TueLnm6TVKNzszd/+sWiNyW3V8la5/286kB1sahdImv4pmmXJ4Nj/SiKR/KS85aZkfg==}
+  '@michaelthielemann/kestrel@5.6.0':
+    resolution: {integrity: sha512-tOVbLysv4gcZPKVgEpv+PnTf6n06Ho/+U+AYmiHm93s/gVIw1jmM7YJQmYKV41SpiQnZhCRo5joItpRJTooIPA==}
     engines: {node: '>=22.13.0'}
     hasBin: true
 
@@ -1833,8 +1833,8 @@ packages:
     resolution: {integrity: sha512-tlqY9xq5ukxTUZBmoOp+m61cqwQD5pHJtFY3Mn8CA8ps6yghLH/Hw8UPdqg4OLmFW3IFlcXnQNmo/dh8HzXYIQ==}
     engines: {node: '>=18'}
 
-  '@smithy/core@3.33.3':
-    resolution: {integrity: sha512-CsOeKq/9kA3y6VJHt+/+VTCtBaxJ4OTFpgrjIUhPpDIKxBci1k2bJaQASF2h/ELWrulGp+t97DZ0mevfAD8idg==}
+  '@smithy/core@3.34.1':
+    resolution: {integrity: sha512-dLcOUxz8YCv1RZUMKq6GbyUf95pLbrqh34bPvpCZ1+CByFF31BEAFewZjsGCnVsZTKdThNENfGyAgk2TJqVwSw==}
     engines: {node: '>=18.0.0'}
 
   '@smithy/credential-provider-imds@4.5.2':
@@ -3373,8 +3373,8 @@ packages:
   fast-string-width@3.0.2:
     resolution: {integrity: sha512-gX8LrtNEI5hq8DVUfRQMbr5lpaS4nMIWV+7XEbXk2b8kiQIizgnlr12B4dA3ZEx3308ze0O4Q1R+cHts8kyUJg==}
 
-  fast-uri@3.1.7:
-    resolution: {integrity: sha512-dOvZVzjdZdz7phd9v6jCbwxrBW3fK6n8Rc0CtdmM4bumzMnxywBYhuph6J819RRw/ku+rLbelwfMunktuzVVHg==}
+  fast-uri@3.1.8:
+    resolution: {integrity: sha512-GZMtZUTNRpOVIECoXwLNZS5xUGE+mVNbTB8h/7Rwh2TFWcBQiPzTgyZi05BF9UMZKkLJv8XBRJTlU7zg8+ZfMg==}
 
   fast-wrap-ansi@0.2.2:
     resolution: {integrity: sha512-7F2Fl+TjRSenLqlU3UjSH0iyqopqoZIu7eZVpEirP2g1GtWa2G/ecEmBdgz31+Mxr+ELclgg6sokpSFIQiZ02Q==}
@@ -5616,138 +5616,138 @@ snapshots:
       is-potential-custom-element-name: 1.0.1
       lru-cache: 11.5.2
 
-  '@aws-sdk/checksums@3.1000.29':
+  '@aws-sdk/checksums@3.1001.0':
     dependencies:
-      '@aws-sdk/core': 3.977.9
+      '@aws-sdk/core': 3.978.0
       '@aws-sdk/types': 3.974.5
-      '@smithy/core': 3.33.3
+      '@smithy/core': 3.34.1
       '@smithy/types': 4.18.0
       tslib: 2.8.1
 
-  '@aws-sdk/client-s3@3.1127.0':
+  '@aws-sdk/client-s3@3.1133.0':
     dependencies:
-      '@aws-sdk/checksums': 3.1000.29
-      '@aws-sdk/core': 3.977.9
-      '@aws-sdk/credential-provider-node': 3.972.82
-      '@aws-sdk/middleware-sdk-s3': 3.972.75
+      '@aws-sdk/checksums': 3.1001.0
+      '@aws-sdk/core': 3.978.0
+      '@aws-sdk/credential-provider-node': 3.972.83
+      '@aws-sdk/middleware-sdk-s3': 3.972.76
       '@aws-sdk/signature-v4-multi-region': 3.996.46
       '@aws-sdk/types': 3.974.5
-      '@smithy/core': 3.33.3
+      '@smithy/core': 3.34.1
       '@smithy/fetch-http-handler': 5.8.0
       '@smithy/node-http-handler': 4.12.1
       '@smithy/types': 4.18.0
       tslib: 2.8.1
 
-  '@aws-sdk/core@3.977.9':
+  '@aws-sdk/core@3.978.0':
     dependencies:
       '@aws-sdk/types': 3.974.5
       '@aws-sdk/xml-builder': 3.972.40
       '@aws/lambda-invoke-store': 0.3.0
-      '@smithy/core': 3.33.3
+      '@smithy/core': 3.34.1
       '@smithy/signature-v4': 5.7.3
       '@smithy/types': 4.18.0
       bowser: 2.14.1
       tslib: 2.8.1
 
-  '@aws-sdk/credential-provider-env@3.972.70':
+  '@aws-sdk/credential-provider-env@3.972.71':
     dependencies:
-      '@aws-sdk/core': 3.977.9
+      '@aws-sdk/core': 3.978.0
       '@aws-sdk/types': 3.974.5
-      '@smithy/core': 3.33.3
+      '@smithy/core': 3.34.1
       '@smithy/types': 4.18.0
       tslib: 2.8.1
 
-  '@aws-sdk/credential-provider-http@3.972.72':
+  '@aws-sdk/credential-provider-http@3.972.73':
     dependencies:
-      '@aws-sdk/core': 3.977.9
+      '@aws-sdk/core': 3.978.0
       '@aws-sdk/types': 3.974.5
-      '@smithy/core': 3.33.3
+      '@smithy/core': 3.34.1
       '@smithy/fetch-http-handler': 5.8.0
       '@smithy/node-http-handler': 4.12.1
       '@smithy/types': 4.18.0
       tslib: 2.8.1
 
-  '@aws-sdk/credential-provider-ini@3.973.15':
+  '@aws-sdk/credential-provider-ini@3.973.16':
     dependencies:
-      '@aws-sdk/core': 3.977.9
-      '@aws-sdk/credential-provider-env': 3.972.70
-      '@aws-sdk/credential-provider-http': 3.972.72
-      '@aws-sdk/credential-provider-login': 3.972.77
-      '@aws-sdk/credential-provider-process': 3.972.70
-      '@aws-sdk/credential-provider-sso': 3.973.14
-      '@aws-sdk/credential-provider-web-identity': 3.972.76
-      '@aws-sdk/nested-clients': 3.997.44
+      '@aws-sdk/core': 3.978.0
+      '@aws-sdk/credential-provider-env': 3.972.71
+      '@aws-sdk/credential-provider-http': 3.972.73
+      '@aws-sdk/credential-provider-login': 3.972.78
+      '@aws-sdk/credential-provider-process': 3.972.71
+      '@aws-sdk/credential-provider-sso': 3.973.15
+      '@aws-sdk/credential-provider-web-identity': 3.972.77
+      '@aws-sdk/nested-clients': 3.997.45
       '@aws-sdk/types': 3.974.5
-      '@smithy/core': 3.33.3
+      '@smithy/core': 3.34.1
       '@smithy/credential-provider-imds': 4.5.2
       '@smithy/types': 4.18.0
       tslib: 2.8.1
 
-  '@aws-sdk/credential-provider-login@3.972.77':
+  '@aws-sdk/credential-provider-login@3.972.78':
     dependencies:
-      '@aws-sdk/core': 3.977.9
-      '@aws-sdk/nested-clients': 3.997.44
+      '@aws-sdk/core': 3.978.0
+      '@aws-sdk/nested-clients': 3.997.45
       '@aws-sdk/types': 3.974.5
-      '@smithy/core': 3.33.3
+      '@smithy/core': 3.34.1
       '@smithy/types': 4.18.0
       tslib: 2.8.1
 
-  '@aws-sdk/credential-provider-node@3.972.82':
+  '@aws-sdk/credential-provider-node@3.972.83':
     dependencies:
-      '@aws-sdk/credential-provider-env': 3.972.70
-      '@aws-sdk/credential-provider-http': 3.972.72
-      '@aws-sdk/credential-provider-ini': 3.973.15
-      '@aws-sdk/credential-provider-process': 3.972.70
-      '@aws-sdk/credential-provider-sso': 3.973.14
-      '@aws-sdk/credential-provider-web-identity': 3.972.76
+      '@aws-sdk/credential-provider-env': 3.972.71
+      '@aws-sdk/credential-provider-http': 3.972.73
+      '@aws-sdk/credential-provider-ini': 3.973.16
+      '@aws-sdk/credential-provider-process': 3.972.71
+      '@aws-sdk/credential-provider-sso': 3.973.15
+      '@aws-sdk/credential-provider-web-identity': 3.972.77
       '@aws-sdk/types': 3.974.5
-      '@smithy/core': 3.33.3
+      '@smithy/core': 3.34.1
       '@smithy/credential-provider-imds': 4.5.2
       '@smithy/types': 4.18.0
       tslib: 2.8.1
 
-  '@aws-sdk/credential-provider-process@3.972.70':
+  '@aws-sdk/credential-provider-process@3.972.71':
     dependencies:
-      '@aws-sdk/core': 3.977.9
+      '@aws-sdk/core': 3.978.0
       '@aws-sdk/types': 3.974.5
-      '@smithy/core': 3.33.3
+      '@smithy/core': 3.34.1
       '@smithy/types': 4.18.0
       tslib: 2.8.1
 
-  '@aws-sdk/credential-provider-sso@3.973.14':
+  '@aws-sdk/credential-provider-sso@3.973.15':
     dependencies:
-      '@aws-sdk/core': 3.977.9
-      '@aws-sdk/nested-clients': 3.997.44
-      '@aws-sdk/token-providers': 3.1116.0
+      '@aws-sdk/core': 3.978.0
+      '@aws-sdk/nested-clients': 3.997.45
+      '@aws-sdk/token-providers': 3.1129.0
       '@aws-sdk/types': 3.974.5
-      '@smithy/core': 3.33.3
+      '@smithy/core': 3.34.1
       '@smithy/types': 4.18.0
       tslib: 2.8.1
 
-  '@aws-sdk/credential-provider-web-identity@3.972.76':
+  '@aws-sdk/credential-provider-web-identity@3.972.77':
     dependencies:
-      '@aws-sdk/core': 3.977.9
-      '@aws-sdk/nested-clients': 3.997.44
+      '@aws-sdk/core': 3.978.0
+      '@aws-sdk/nested-clients': 3.997.45
       '@aws-sdk/types': 3.974.5
-      '@smithy/core': 3.33.3
+      '@smithy/core': 3.34.1
       '@smithy/types': 4.18.0
       tslib: 2.8.1
 
-  '@aws-sdk/middleware-sdk-s3@3.972.75':
+  '@aws-sdk/middleware-sdk-s3@3.972.76':
     dependencies:
-      '@aws-sdk/core': 3.977.9
+      '@aws-sdk/core': 3.978.0
       '@aws-sdk/signature-v4-multi-region': 3.996.46
       '@aws-sdk/types': 3.974.5
-      '@smithy/core': 3.33.3
+      '@smithy/core': 3.34.1
       '@smithy/types': 4.18.0
       tslib: 2.8.1
 
-  '@aws-sdk/nested-clients@3.997.44':
+  '@aws-sdk/nested-clients@3.997.45':
     dependencies:
-      '@aws-sdk/core': 3.977.9
+      '@aws-sdk/core': 3.978.0
       '@aws-sdk/signature-v4-multi-region': 3.996.46
       '@aws-sdk/types': 3.974.5
-      '@smithy/core': 3.33.3
+      '@smithy/core': 3.34.1
       '@smithy/fetch-http-handler': 5.8.0
       '@smithy/node-http-handler': 4.12.1
       '@smithy/types': 4.18.0
@@ -5760,12 +5760,12 @@ snapshots:
       '@smithy/types': 4.18.0
       tslib: 2.8.1
 
-  '@aws-sdk/token-providers@3.1116.0':
+  '@aws-sdk/token-providers@3.1129.0':
     dependencies:
-      '@aws-sdk/core': 3.977.9
-      '@aws-sdk/nested-clients': 3.997.44
+      '@aws-sdk/core': 3.978.0
+      '@aws-sdk/nested-clients': 3.997.45
       '@aws-sdk/types': 3.974.5
-      '@smithy/core': 3.33.3
+      '@smithy/core': 3.34.1
       '@smithy/types': 4.18.0
       tslib: 2.8.1
 
@@ -6457,171 +6457,171 @@ snapshots:
       - encoding
       - supports-color
 
-  '@michaelthielemann/kestrel-audit-persistence@5.5.0(@michaelthielemann/kestrel-contracts@5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.5.0)':
+  '@michaelthielemann/kestrel-audit-persistence@5.6.0(@michaelthielemann/kestrel-contracts@5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.6.0)':
     dependencies:
-      '@michaelthielemann/kestrel': 5.5.0
-      '@michaelthielemann/kestrel-contracts': 5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0)))
+      '@michaelthielemann/kestrel': 5.6.0
+      '@michaelthielemann/kestrel-contracts': 5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0)))
       zod: 3.25.76
 
-  '@michaelthielemann/kestrel-authn-multi@5.5.0(@michaelthielemann/kestrel-contracts@5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.5.0)':
+  '@michaelthielemann/kestrel-authn-multi@5.6.0(@michaelthielemann/kestrel-contracts@5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.6.0)':
     dependencies:
-      '@michaelthielemann/kestrel': 5.5.0
-      '@michaelthielemann/kestrel-contracts': 5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0)))
+      '@michaelthielemann/kestrel': 5.6.0
+      '@michaelthielemann/kestrel-contracts': 5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0)))
       zod: 3.25.76
 
-  '@michaelthielemann/kestrel-authn-single@5.5.0(@michaelthielemann/kestrel-contracts@5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.5.0)':
+  '@michaelthielemann/kestrel-authn-single@5.6.0(@michaelthielemann/kestrel-contracts@5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.6.0)':
     dependencies:
-      '@michaelthielemann/kestrel': 5.5.0
-      '@michaelthielemann/kestrel-contracts': 5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0)))
+      '@michaelthielemann/kestrel': 5.6.0
+      '@michaelthielemann/kestrel-contracts': 5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0)))
       zod: 3.25.76
 
-  '@michaelthielemann/kestrel-authz-roles@5.5.0(@michaelthielemann/kestrel-contracts@5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.5.0)':
+  '@michaelthielemann/kestrel-authz-roles@5.6.0(@michaelthielemann/kestrel-contracts@5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.6.0)':
     dependencies:
-      '@michaelthielemann/kestrel': 5.5.0
-      '@michaelthielemann/kestrel-contracts': 5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0)))
+      '@michaelthielemann/kestrel': 5.6.0
+      '@michaelthielemann/kestrel-contracts': 5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0)))
       zod: 3.25.76
 
-  '@michaelthielemann/kestrel-backup-blobstore@5.5.0(@michaelthielemann/kestrel-contracts@5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.5.0)':
+  '@michaelthielemann/kestrel-backup-blobstore@5.6.0(@michaelthielemann/kestrel-contracts@5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.6.0)':
     dependencies:
-      '@michaelthielemann/kestrel': 5.5.0
-      '@michaelthielemann/kestrel-contracts': 5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0)))
+      '@michaelthielemann/kestrel': 5.6.0
+      '@michaelthielemann/kestrel-contracts': 5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0)))
       zod: 3.25.76
 
-  '@michaelthielemann/kestrel-blobstore-filesystem@5.5.0(@michaelthielemann/kestrel-contracts@5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.5.0)':
+  '@michaelthielemann/kestrel-blobstore-filesystem@5.6.0(@michaelthielemann/kestrel-contracts@5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.6.0)':
     dependencies:
-      '@michaelthielemann/kestrel': 5.5.0
-      '@michaelthielemann/kestrel-contracts': 5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0)))
+      '@michaelthielemann/kestrel': 5.6.0
+      '@michaelthielemann/kestrel-contracts': 5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0)))
       zod: 3.25.76
 
-  '@michaelthielemann/kestrel-blobstore-s3@5.4.0(@michaelthielemann/kestrel-contracts@5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.5.0)':
+  '@michaelthielemann/kestrel-blobstore-s3@5.6.0(@michaelthielemann/kestrel-contracts@5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.6.0)':
     dependencies:
-      '@aws-sdk/client-s3': 3.1127.0
-      '@michaelthielemann/kestrel': 5.5.0
-      '@michaelthielemann/kestrel-contracts': 5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0)))
+      '@aws-sdk/client-s3': 3.1133.0
+      '@michaelthielemann/kestrel': 5.6.0
+      '@michaelthielemann/kestrel-contracts': 5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0)))
       zod: 3.25.76
 
-  '@michaelthielemann/kestrel-content-default@5.5.0(@michaelthielemann/kestrel-contracts@5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.5.0)':
+  '@michaelthielemann/kestrel-content-default@5.6.0(@michaelthielemann/kestrel-contracts@5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.6.0)':
     dependencies:
-      '@michaelthielemann/kestrel': 5.5.0
-      '@michaelthielemann/kestrel-contracts': 5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0)))
+      '@michaelthielemann/kestrel': 5.6.0
+      '@michaelthielemann/kestrel-contracts': 5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0)))
       zod: 3.25.76
 
-  '@michaelthielemann/kestrel-contracts@5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0)))':
+  '@michaelthielemann/kestrel-contracts@5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0)))':
     dependencies:
-      '@michaelthielemann/kestrel': 5.5.0
+      '@michaelthielemann/kestrel': 5.6.0
     optionalDependencies:
       vitest: 4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))
 
-  '@michaelthielemann/kestrel-delivery-static@5.5.0(@michaelthielemann/kestrel-contracts@5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.5.0)':
+  '@michaelthielemann/kestrel-delivery-static@5.6.0(@michaelthielemann/kestrel-contracts@5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.6.0)':
     dependencies:
-      '@michaelthielemann/kestrel': 5.5.0
-      '@michaelthielemann/kestrel-contracts': 5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0)))
+      '@michaelthielemann/kestrel': 5.6.0
+      '@michaelthielemann/kestrel-contracts': 5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0)))
       turndown: 7.2.4
       zod: 3.25.76
 
-  '@michaelthielemann/kestrel-events-inmemory@5.5.0(@michaelthielemann/kestrel-contracts@5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.5.0)':
+  '@michaelthielemann/kestrel-events-inmemory@5.6.0(@michaelthielemann/kestrel-contracts@5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.6.0)':
     dependencies:
-      '@michaelthielemann/kestrel': 5.5.0
-      '@michaelthielemann/kestrel-contracts': 5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0)))
+      '@michaelthielemann/kestrel': 5.6.0
+      '@michaelthielemann/kestrel-contracts': 5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0)))
       zod: 3.25.76
 
-  '@michaelthielemann/kestrel-events-queue@5.5.0(@michaelthielemann/kestrel-contracts@5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.5.0)':
+  '@michaelthielemann/kestrel-events-queue@5.6.0(@michaelthielemann/kestrel-contracts@5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.6.0)':
     dependencies:
-      '@michaelthielemann/kestrel': 5.5.0
-      '@michaelthielemann/kestrel-contracts': 5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0)))
+      '@michaelthielemann/kestrel': 5.6.0
+      '@michaelthielemann/kestrel-contracts': 5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0)))
       zod: 3.25.76
 
-  '@michaelthielemann/kestrel-h3@5.4.0(@michaelthielemann/kestrel@5.5.0)(h3@1.15.11)':
+  '@michaelthielemann/kestrel-h3@5.6.0(@michaelthielemann/kestrel@5.6.0)(h3@1.15.11)':
     dependencies:
-      '@michaelthielemann/kestrel': 5.5.0
+      '@michaelthielemann/kestrel': 5.6.0
       h3: 1.15.11
 
-  '@michaelthielemann/kestrel-images-default@5.5.0(@michaelthielemann/kestrel-contracts@5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.5.0)(@types/node@26.4.0)':
+  '@michaelthielemann/kestrel-images-default@5.6.0(@michaelthielemann/kestrel-contracts@5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.6.0)(@types/node@26.4.0)':
     dependencies:
-      '@michaelthielemann/kestrel': 5.5.0
-      '@michaelthielemann/kestrel-contracts': 5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0)))
+      '@michaelthielemann/kestrel': 5.6.0
+      '@michaelthielemann/kestrel-contracts': 5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0)))
       sharp: 0.35.4(@types/node@26.4.0)
       zod: 3.25.76
     transitivePeerDependencies:
       - '@types/node'
 
-  '@michaelthielemann/kestrel-insights@5.5.0(@michaelthielemann/kestrel-contracts@5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.5.0)':
+  '@michaelthielemann/kestrel-insights@5.6.0(@michaelthielemann/kestrel-contracts@5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.6.0)':
     dependencies:
-      '@michaelthielemann/kestrel': 5.5.0
-      '@michaelthielemann/kestrel-contracts': 5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0)))
+      '@michaelthielemann/kestrel': 5.6.0
+      '@michaelthielemann/kestrel-contracts': 5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0)))
       zod: 3.25.76
 
-  '@michaelthielemann/kestrel-links-default@5.5.0(@michaelthielemann/kestrel-contracts@5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.5.0)':
+  '@michaelthielemann/kestrel-links-default@5.6.0(@michaelthielemann/kestrel-contracts@5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.6.0)':
     dependencies:
-      '@michaelthielemann/kestrel': 5.5.0
-      '@michaelthielemann/kestrel-contracts': 5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0)))
+      '@michaelthielemann/kestrel': 5.6.0
+      '@michaelthielemann/kestrel-contracts': 5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0)))
       zod: 3.25.76
 
-  '@michaelthielemann/kestrel-media-default@5.5.0(@michaelthielemann/kestrel-contracts@5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.5.0)':
+  '@michaelthielemann/kestrel-media-default@5.6.0(@michaelthielemann/kestrel-contracts@5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.6.0)':
     dependencies:
-      '@michaelthielemann/kestrel': 5.5.0
-      '@michaelthielemann/kestrel-contracts': 5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0)))
+      '@michaelthielemann/kestrel': 5.6.0
+      '@michaelthielemann/kestrel-contracts': 5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0)))
       zod: 3.25.76
 
-  '@michaelthielemann/kestrel-migrations-default@5.5.0(@michaelthielemann/kestrel-contracts@5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.5.0)':
+  '@michaelthielemann/kestrel-migrations-default@5.6.0(@michaelthielemann/kestrel-contracts@5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.6.0)':
     dependencies:
-      '@michaelthielemann/kestrel': 5.5.0
-      '@michaelthielemann/kestrel-contracts': 5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0)))
+      '@michaelthielemann/kestrel': 5.6.0
+      '@michaelthielemann/kestrel-contracts': 5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0)))
       zod: 3.25.76
 
-  '@michaelthielemann/kestrel-persistence-sqlite@5.5.0(@michaelthielemann/kestrel-contracts@5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.5.0)':
+  '@michaelthielemann/kestrel-persistence-sqlite@5.6.0(@michaelthielemann/kestrel-contracts@5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.6.0)':
     dependencies:
-      '@michaelthielemann/kestrel': 5.5.0
-      '@michaelthielemann/kestrel-contracts': 5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0)))
+      '@michaelthielemann/kestrel': 5.6.0
+      '@michaelthielemann/kestrel-contracts': 5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0)))
       zod: 3.25.76
 
-  '@michaelthielemann/kestrel-ratelimit-memory@5.5.0(@michaelthielemann/kestrel-contracts@5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.5.0)':
+  '@michaelthielemann/kestrel-ratelimit-memory@5.6.0(@michaelthielemann/kestrel-contracts@5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.6.0)':
     dependencies:
-      '@michaelthielemann/kestrel': 5.5.0
-      '@michaelthielemann/kestrel-contracts': 5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0)))
+      '@michaelthielemann/kestrel': 5.6.0
+      '@michaelthielemann/kestrel-contracts': 5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0)))
       zod: 3.25.76
 
-  '@michaelthielemann/kestrel-redirects-default@5.5.0(@michaelthielemann/kestrel-contracts@5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.5.0)':
+  '@michaelthielemann/kestrel-redirects-default@5.6.0(@michaelthielemann/kestrel-contracts@5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.6.0)':
     dependencies:
-      '@michaelthielemann/kestrel': 5.5.0
-      '@michaelthielemann/kestrel-contracts': 5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0)))
+      '@michaelthielemann/kestrel': 5.6.0
+      '@michaelthielemann/kestrel-contracts': 5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0)))
       zod: 3.25.76
 
-  '@michaelthielemann/kestrel-references-default@5.5.0(@michaelthielemann/kestrel-contracts@5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.5.0)':
+  '@michaelthielemann/kestrel-references-default@5.6.0(@michaelthielemann/kestrel-contracts@5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.6.0)':
     dependencies:
-      '@michaelthielemann/kestrel': 5.5.0
-      '@michaelthielemann/kestrel-contracts': 5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0)))
+      '@michaelthielemann/kestrel': 5.6.0
+      '@michaelthielemann/kestrel-contracts': 5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0)))
       zod: 3.25.76
 
-  '@michaelthielemann/kestrel-replication-sqlite@5.5.0(@michaelthielemann/kestrel-contracts@5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.5.0)':
+  '@michaelthielemann/kestrel-replication-sqlite@5.6.0(@michaelthielemann/kestrel-contracts@5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.6.0)':
     dependencies:
-      '@michaelthielemann/kestrel': 5.5.0
-      '@michaelthielemann/kestrel-contracts': 5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0)))
+      '@michaelthielemann/kestrel': 5.6.0
+      '@michaelthielemann/kestrel-contracts': 5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0)))
       zod: 3.25.76
 
-  '@michaelthielemann/kestrel-sanitize-svg@5.5.0(@michaelthielemann/kestrel-contracts@5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.5.0)':
+  '@michaelthielemann/kestrel-sanitize-svg@5.6.0(@michaelthielemann/kestrel-contracts@5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.6.0)':
     dependencies:
-      '@michaelthielemann/kestrel': 5.5.0
-      '@michaelthielemann/kestrel-contracts': 5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0)))
+      '@michaelthielemann/kestrel': 5.6.0
+      '@michaelthielemann/kestrel-contracts': 5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0)))
       sanitize-html: 2.17.7
       zod: 3.25.76
 
-  '@michaelthielemann/kestrel-site-default@5.5.0(@michaelthielemann/kestrel-contracts@5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.5.0)':
+  '@michaelthielemann/kestrel-site-default@5.6.0(@michaelthielemann/kestrel-contracts@5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.6.0)':
     dependencies:
-      '@michaelthielemann/kestrel': 5.5.0
-      '@michaelthielemann/kestrel-contracts': 5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0)))
+      '@michaelthielemann/kestrel': 5.6.0
+      '@michaelthielemann/kestrel-contracts': 5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0)))
       zod: 3.25.76
 
-  '@michaelthielemann/kestrel-validate-jsonschema@5.5.0(@michaelthielemann/kestrel-contracts@5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.5.0)':
+  '@michaelthielemann/kestrel-validate-jsonschema@5.6.0(@michaelthielemann/kestrel-contracts@5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0))))(@michaelthielemann/kestrel@5.6.0)':
     dependencies:
-      '@michaelthielemann/kestrel': 5.5.0
-      '@michaelthielemann/kestrel-contracts': 5.5.0(@michaelthielemann/kestrel@5.5.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0)))
+      '@michaelthielemann/kestrel': 5.6.0
+      '@michaelthielemann/kestrel-contracts': 5.6.0(@michaelthielemann/kestrel@5.6.0)(vitest@4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.103.1)(terser@5.51.1)(yaml@2.9.0)))
       ajv: 8.20.0
       ajv-formats: 3.0.1(ajv@8.20.0)
       sanitize-html: 2.17.7
       zod: 3.25.76
 
-  '@michaelthielemann/kestrel@5.5.0':
+  '@michaelthielemann/kestrel@5.6.0':
     dependencies:
       zod: 3.25.76
 
@@ -7417,32 +7417,32 @@ snapshots:
 
   '@sindresorhus/merge-streams@4.0.0': {}
 
-  '@smithy/core@3.33.3':
+  '@smithy/core@3.34.1':
     dependencies:
       '@smithy/types': 4.18.0
       tslib: 2.8.1
 
   '@smithy/credential-provider-imds@4.5.2':
     dependencies:
-      '@smithy/core': 3.33.3
+      '@smithy/core': 3.34.1
       '@smithy/types': 4.18.0
       tslib: 2.8.1
 
   '@smithy/fetch-http-handler@5.8.0':
     dependencies:
-      '@smithy/core': 3.33.3
+      '@smithy/core': 3.34.1
       '@smithy/types': 4.18.0
       tslib: 2.8.1
 
   '@smithy/node-http-handler@4.12.1':
     dependencies:
-      '@smithy/core': 3.33.3
+      '@smithy/core': 3.34.1
       '@smithy/types': 4.18.0
       tslib: 2.8.1
 
   '@smithy/signature-v4@5.7.3':
     dependencies:
-      '@smithy/core': 3.33.3
+      '@smithy/core': 3.34.1
       '@smithy/types': 4.18.0
       tslib: 2.8.1
 
@@ -8197,7 +8197,7 @@ snapshots:
   ajv@8.20.0:
     dependencies:
       fast-deep-equal: 3.1.3
-      fast-uri: 3.1.7
+      fast-uri: 3.1.8
       json-schema-traverse: 1.0.0
       require-from-string: 2.0.2
 
@@ -9070,7 +9070,7 @@ snapshots:
     dependencies:
       fast-string-truncated-width: 3.0.3
 
-  fast-uri@3.1.7: {}
+  fast-uri@3.1.8: {}
 
   fast-wrap-ansi@0.2.2:
     dependencies:
