@@ -14,6 +14,30 @@
 
 ### Added
 
+- Insights gains a first tab, "Config" (`InsightsConfig.vue`, `?tab=config`): every config variable of
+  every module, grouped by module, with path, type, required flag, effective value, default and
+  set/default/missing status, a filter over module name, path and visible value, and a link from each
+  group heading to the module page. The value comes from `ConfigVariable.value` of
+  `@michaelthielemann/kestrel` 5.6.0 or newer; a variable the backend marks `redacted` — or that an
+  older backend only marks `secret` — shows a lock icon and the word "redacted" instead of a value, in
+  the Value and the Default column, and is left out of the filter. Long values ellipsize with the full
+  text in `title` and get a copy button from 24 characters on. `value` and `redacted` are optional in
+  `InsightsConfigVariable`, so an older backend renders an em dash instead of failing. Modules without
+  a config variable sit behind a collapsed disclosure. The module page's config table
+  (`InsightsConfigVariables.vue`) is the same component and therefore gained the Value column too.
+  `Modules` stays the tab a bare `/admin/insights` lands on: the strip reads `TAB_IDS`, the landing tab
+  the separate `DEFAULT_TAB`, so no `?tab=` deep link changed.
+- System → Images lists the variants that gave up (`SystemImagesFailures.vue`): the total plus the most
+  recent ones with media item, size, attempts, error and time (relative, absolute in `title`), from
+  `readStatus`'s new `failed: { variants, recent }` of `@michaelthielemann/kestrel-images-default` 5.6.0
+  or newer. `ImagesStatus.failed` is optional, so an older backend renders the empty state. The
+  "Retry failed variants" button confirms, then runs the `imagesRetryFailed` action against
+  `POST /admin/images/retry-failed`, toasts how many variants across how many media items were queued
+  again, reloads the status and restarts the job polling.
+- The preset pipeline `retryFailedImages` (`POST /admin/images/retry-failed`, `authn.requireUser`,
+  `authz.require:images.manage`, `images.retryFailed`) in the `images` feature and in
+  `staticPipelineNames`. A consumer that wants the images module's new `renderTimeoutMs` sets it through
+  `presetModuleConfig`'s `overrides`, which is the only images config surface the preset exposes.
 - `KestrelUiTabList` (`components/ui/TabList.vue`): the roving-tabindex `role="tablist"` strip the system
   and insights pages built by hand. It owns the `ui-tabs`/`ui-tabs__item` classes and the active-tab
   styling; both pages now render it instead of hard-coding `ui-btngroup__item` on a `KestrelUiButton`
@@ -242,6 +266,10 @@
 - The type stubs for the optional `@vue-flow/core` and `@dagrejs/dagre` peers contain no `any`.
 
 ### Fixed
+
+- `UserEditDialog.vue`: the "Add role" button sat in a row next to the whole role-name field, so the
+  field's label pushed it below the input it belongs to. It now sits inside the field's control row
+  and is centred against the input.
 
 - Everything the kit teleports — dialogs, dropdown and context menus, the account menu, popovers,
   tooltips, combobox lists, the date pickers and the toasts — landed directly on `<body>`, outside
