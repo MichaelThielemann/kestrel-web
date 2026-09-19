@@ -40,6 +40,7 @@ const status = computed(() => {
   return field ? boundaryCast<string | undefined>(f.values[field], 'json') ?? '' : ''
 })
 const slug = computed(() => boundaryCast<string | undefined>(f.values.slug, 'json') ?? '')
+const fieldKeys = computed(() => Object.keys(f.fields.value))
 
 provide(editorFormContextKey, {
   values: f.values, errors: f.errors, blockErrors: f.blockErrors, following: f.following, formError: f.formError, setField: f.setField, locale: f.locale,
@@ -55,6 +56,10 @@ defineExpose({
   missingTranslation: f.missingTranslation, primaryTitle: f.primaryTitle, primaryLocale,
   locale: f.locale, translations: f.translations,
   pageLike, delivery, deliveryLoading, slug,
+  values: f.values,
+  fieldKeys,
+  blocksField: f.blocksField,
+  reload: f.reload,
 })
 
 await f.ready

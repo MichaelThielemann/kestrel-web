@@ -76,6 +76,15 @@ const deleteOps = {
 const canDeleteTranslation = computed(() => def.value?.translatable === true && def.value?.mode === 'multi' && id !== 'new')
 const currentLocale = computed(() => editorRef.value?.locale ?? localeParam.value ?? primaryLocale.value)
 
+const { has: hasFeature } = useFeatures()
+const historyOpen = ref(false)
+const canManage = computed(() => can(`${collection}.manage`))
+const showHistory = computed(() => hasFeature('revisions') && id !== 'new' && def.value?.mode === 'multi' && canManage.value)
+
+async function onRestored() {
+  await editorRef.value?.reload()
+}
+
 const publicUrl = computed(() => {
   const siteUrl = String(useRuntimeConfig().public.siteUrl ?? '').replace(/\/+$/, '')
   if (!siteUrl) return ''
@@ -148,6 +157,7 @@ async function confirmDeleteTranslation() {
       <h1 class="record__title" :class="{ 'record__title--generic': !hasRecordTitle }">{{ heading }}</h1>
       <p v-if="translationNote" class="record__translation-note">{{ translationNote }}</p>
       <div class="record__actions">
+        <KestrelUiButton v-if="showHistory" type="button" variant="ghost" size="sm" icon="history" :disabled="saving" :title="t('revisions.open')" :aria-label="t('revisions.open')" @click="historyOpen = true" />
         <KestrelUiButton type="button" variant="ghost" size="sm" icon="undo" :disabled="saving || !editorRef?.canUndo" :title="t('history.undo')" :aria-label="t('history.undo')" @click="editorRef?.undo()" />
         <KestrelUiButton type="button" variant="ghost" size="sm" icon="redo" :disabled="saving || !editorRef?.canRedo" :title="t('history.redo')" :aria-label="t('history.redo')" @click="editorRef?.redo()" />
         <KestrelUiButton type="button" variant="secondary" size="sm" icon="x" :disabled="saving" @click="toList">{{ t('common.cancel') }}</KestrelUiButton>
@@ -180,6 +190,20 @@ async function confirmDeleteTranslation() {
       @update:open="deleteOpen = $event"
       @confirm="confirmDelete"
       @confirm-translation="confirmDeleteTranslation"
+    />
+    <KestrelPageHistory
+      v-if="showHistory"
+      :open="historyOpen"
+      :collection="collection"
+      :id="id"
+      :locale="currentLocale"
+      :can-write="can(`${collection}.write`)"
+      :dirty="editorRef?.dirty ?? false"
+      :values="editorRef?.values ?? {}"
+      :field-keys="editorRef?.fieldKeys ?? []"
+      :blocks-field="editorRef?.blocksField ?? ''"
+      @update:open="historyOpen = $event"
+      @restored="onRestored"
     />
   </section>
 </template>

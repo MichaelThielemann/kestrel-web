@@ -39,6 +39,13 @@
   --color-control-border: #8e8e96;
   --color-primary-soft: rgba(37, 99, 235, 0.1);
 
+  --color-lane-1: #2563eb;
+  --color-lane-2: #b45309;
+  --color-lane-3: #15803d;
+  --color-lane-4: #7c3aed;
+  --color-lane-5: #be123c;
+  --color-lane-6: #0e7490;
+
   --space-1: 0.25rem;
   --space-2: 0.5rem;
   --space-3: 0.75rem;
@@ -185,6 +192,13 @@
 
   --color-active: #232327;
   --color-primary-on-fill: #818cf8;
+
+  --color-lane-1: #7aa2f7;
+  --color-lane-2: #e0a458;
+  --color-lane-3: #6bbf73;
+  --color-lane-4: #c4a2fc;
+  --color-lane-5: #f28ba8;
+  --color-lane-6: #67c8d8;
 }
 
 :root[data-theme] #{$root},

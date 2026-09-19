@@ -36,4 +36,12 @@ export interface EditorExpose {
   deliveryLoading: boolean
 
   slug: string
+
+  values: Record<string, unknown>
+
+  fieldKeys: string[]
+
+  blocksField: string
+
+  reload: () => Promise<void>
 }

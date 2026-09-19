@@ -176,6 +176,26 @@ export function useEditForm(opts: UseEditFormOptions) {
     for (const k of Object.keys(rowErrors)) Reflect.deleteProperty(rowErrors, k)
   }
 
+  async function loadRow(): Promise<Document | null> {
+    if (mode.value === 'single') {
+      try {
+        return await api<Document>(`/${collection}`, { query: { locale: locale.value } })
+      } catch (e) {
+        if (apiErrorCode(e) !== 'NOT_FOUND') throw e
+        return null
+      }
+    }
+    return id === 'new' ? null : await api<Document>(`/admin/${collection}/${id}`, { query: { locale: locale.value } })
+  }
+
+  async function reload() {
+    inFlightSnapshot = null
+    const row = await loadRow()
+    translations.value = readTranslations(row)
+    rebaseline(row)
+    await Promise.all([loadPrimaryTitle(), loadDelivery()])
+  }
+
   async function init() {
     const def = findCollection(schema.value, collection)
     if (!def) throw createError({ statusCode: 404, statusMessage: `Unknown collection: ${collection}` })
@@ -190,16 +210,7 @@ export function useEditForm(opts: UseEditFormOptions) {
     editorType.value = def.editor || (def.blocks?.enabled ? 'blocks' : 'fields')
     editorOwned.value = editorOwnedFields(schema.value, collection)
 
-    let row: Document | null = null
-    if (mode.value === 'single') {
-      try {
-        row = await api<Document>(`/${collection}`, { query: { locale: locale.value } })
-      } catch (e) {
-        if (apiErrorCode(e) !== 'NOT_FOUND') throw e
-      }
-    } else if (id !== 'new') {
-      row = await api<Document>(`/admin/${collection}/${id}`, { query: { locale: locale.value } })
-    }
+    const row = await loadRow()
     translations.value = readTranslations(row)
     rebaseline(row)
     await Promise.all([loadPrimaryTitle(), loadDelivery()])
@@ -437,6 +448,7 @@ export function useEditForm(opts: UseEditFormOptions) {
     validateAll,
     submit,
     setStatus,
+    reload,
     registerRevealError,
     revealError,
     undo,
