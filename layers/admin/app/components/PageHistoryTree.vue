@@ -16,6 +16,7 @@ const ROW_HEIGHT = 44
 const LANE_WIDTH = 16
 const LANE_INSET = 10
 const NODE_RADIUS = 5
+const BEND = 8
 
 const dateFmt = computed(() => new Intl.DateTimeFormat(lang.value, { dateStyle: 'medium', timeStyle: 'medium' }))
 
@@ -34,7 +35,13 @@ function connector(from: number, to: number): string {
   const x1 = centre(from)
   const x2 = centre(to)
   const mid = ROW_HEIGHT / 2
-  return `M ${x1} 0 L ${x1} ${mid - 10} C ${x1} ${mid}, ${x2} ${mid - 10}, ${x2} ${mid}`
+  const bend = Math.min(BEND, Math.abs(x1 - x2))
+  const turn = x1 > x2 ? x1 - bend : x1 + bend
+  return `M ${x1} 0 L ${x1} ${mid - bend} Q ${x1} ${mid} ${turn} ${mid} L ${x2} ${mid}`
+}
+
+function laneColour(colour: number): string {
+  return `var(--color-lane-${colour + 1})`
 }
 
 function timeOf(row: RevisionRow): string {
@@ -127,24 +134,24 @@ function onActivate(row: RevisionRow, event: KeyboardEvent): void {
           focusable="false"
         >
           <line
-            v-for="lane in row.through"
-            :key="`through-${lane}`"
+            v-for="arm in row.through"
+            :key="`through-${arm.lane}`"
             class="history-tree__line"
-            :style="{ color: `var(--color-lane-${(lane % 6) + 1})` }"
-            :x1="centre(lane)"
-            :x2="centre(lane)"
+            :style="{ color: laneColour(arm.colour) }"
+            :x1="centre(arm.lane)"
+            :x2="centre(arm.lane)"
             y1="0"
             :y2="ROW_HEIGHT"
           />
           <path
-            v-for="lane in row.merges"
-            :key="`merge-${lane}`"
+            v-for="arm in row.merges"
+            :key="`merge-${arm.lane}`"
             class="history-tree__line"
-            :style="{ color: `var(--color-lane-${(lane % 6) + 1})` }"
-            :d="connector(lane, row.lane)"
+            :style="{ color: laneColour(arm.colour) }"
+            :d="connector(arm.lane, row.lane)"
             fill="none"
           />
-          <g :style="{ color: `var(--color-lane-${row.colour + 1})` }">
+          <g :style="{ color: laneColour(row.colour) }">
             <line
               v-if="row.hasChild"
               class="history-tree__line"
@@ -197,6 +204,8 @@ function onActivate(row: RevisionRow, event: KeyboardEvent): void {
 </template>
 
 <style lang="scss" scoped>
+@use '../assets/scss/mixins';
+
 .history-tree {
   display: flex;
   flex-direction: column;
@@ -211,24 +220,20 @@ function onActivate(row: RevisionRow, event: KeyboardEvent): void {
   flex: 1 1 auto;
 }
 .history-tree__row {
+  @include mixins.accent-slot;
+  @include mixins.focus-ring;
   display: flex;
   align-items: center;
   gap: var(--space-2);
   padding-inline: var(--space-2);
   min-height: 44px;
   cursor: pointer;
-  border-radius: var(--radius-sm);
   transition: background-color 120ms ease;
 
   &:hover { background: var(--color-hover); }
-  &:focus-visible {
-    outline: 2px solid var(--color-focus);
-    outline-offset: -2px;
-  }
 }
 .history-tree__row--selected {
-  background: var(--color-active);
-  box-shadow: inset 2px 0 0 0 var(--color-primary);
+  @include mixins.selected-accent;
 }
 .history-tree__lanes {
   flex: 0 0 auto;

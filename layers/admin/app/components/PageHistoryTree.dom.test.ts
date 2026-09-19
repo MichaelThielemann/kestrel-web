@@ -66,6 +66,33 @@ describe('PageHistoryTree', () => {
     wrapper.unmount()
   })
 
+  it('lets a branch arm meet the node circle at its vertical centre', async () => {
+    const wrapper = await mountTree()
+    const fork = wrapper.findAll('[role="option"]')[3]
+    const arm = fork?.find('path.history-tree__line')
+    const node = fork?.find('circle.history-tree__node')
+
+    expect(arm?.attributes('d')).toBe('M 26 0 L 26 14 Q 26 22 18 22 L 10 22')
+    expect(node?.attributes('cx')).toBe('10')
+    expect(node?.attributes('cy')).toBe('22')
+  })
+
+  it('gives two side branches that reuse a lane their own number and colour', async () => {
+    const items = [
+      revision('a8', 'a6'), revision('a7', 'a5'), revision('a6', 'a4'), revision('a5', 'a4'),
+      revision('a4', 'a3'), revision('a3', 'a1'), revision('a2', 'a1'), revision('a1', null),
+    ]
+    const wrapper = await mountSuspended(PageHistoryTree, {
+      props: { layout: layoutRevisions(items, 'a8'), selectedId: 'a8', hasMore: false, loadingMore: false, busy: false },
+    })
+    const options = wrapper.findAll('[role="option"]')
+
+    expect(options[1]?.text()).toContain('Branch 2')
+    expect(options[6]?.text()).toContain('Branch 3')
+    expect(options[1]?.find('g')?.attributes('style')).not.toBe(options[6]?.find('g')?.attributes('style'))
+    wrapper.unmount()
+  })
+
   it('selects the next revision on ArrowDown and the last one on End', async () => {
     const wrapper = await mountTree('d')
     const list = wrapper.find('[role="listbox"]')

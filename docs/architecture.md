@@ -462,7 +462,13 @@ collection, the expected filter and the fix in the message.
 - `app/composables/useAuth.ts` — login/logout/me/change password, roles, `can(permission)`.
 - `app/utils/admin-client.ts` (`installAdminClient()`, called once from the admin layout, never a Nuxt plugin: plugins land in the client entry of every page, so the public site would carry admin code and CSS) — installs the 401 interceptor that clears the session and redirects to login, and in dev the style guard that hides foreign stylesheets under `/admin`.
 - `app/composables/useEditForm.ts` — load one document in one locale (`?locale=`), dirty tracking, undo/redo;
-  saving and status changes are delegated to the actions below. `missingTranslation` drives
+  saving and status changes are delegated to the actions below. `canSave` is what the Save button and
+  every submit path read: a stored, unchanged record cannot be saved (the button is `disabled`, carries
+  `title`/`aria-describedby` "No changes to save", and `CollectionEditor.onSave` returns early, so a form
+  submit from anywhere is a no-op). A record that does not exist yet (`new`, or a singleton the backend
+  answers `NOT_FOUND` for) and a locale whose translation is still missing stay saveable, because saving
+  is what creates them. Publish/unpublish go through `setStatus` and are unaffected, and a restore or a
+  locale switch re-baselines, so neither leaves the form falsely dirty. `missingTranslation` drives
   `CollectionEditor.vue`'s translation-copy banner (`TranslationCopyBanner.vue`, placed above the
   field/blocks body so it renders for either editor kind), whose source picker defaults to the primary
   locale when translated, else the first translated locale from `_translations`. The copy itself runs
@@ -575,6 +581,13 @@ mixins every rule in `assets/scss/` goes through:
 - `_base.scss` binds the inherited base — `font-family`, `font-size` (`--text-root`), `line-height`,
   `color`, `-webkit-font-smoothing` — to `$root` (0,1,0), so it outranks the consumer's `body` (0,0,1) and
   ends inheritance from it.
+- `_base.scss` also owns the layout utilities that more than one view uses: `.u-stack`, `.u-measure` and
+  `.u-scroll` (`flex: 1 1 auto; min-height: 0; overflow: auto`, the scroll container inside the
+  full-height panes). A class that several components apply belongs here and never in one component's
+  `<style>`: a component's styles are only loaded when that component is, so the same class on another
+  page would silently have no rule and its content would be clipped by the pane's `overflow: hidden`.
+  `scope.test.ts` fails on a `u-*` class a template uses that the compiled `main.scss` does not declare,
+  and on a `u-*` rule declared inside a `.vue` file.
 - `element-defaults($selectors)` emits every element default twice: once under `:where(.admin,
   .admin-portal)` (specificity 0, the old behaviour for elements an admin class already styles) and once
   under `$root` with `:where(:not([class]:not([class=""])))` appended (0,1,0, for elements no admin class
@@ -1070,9 +1083,20 @@ the tree on the left, the selected version on the right.
 
 `utils/revision-lanes.ts` is the whole graph logic and has no Vue in it: `layoutRevisions(items, head)`
 walks the page newest-first, keeps one slot per open lane holding the revision that lane waits for, and
-returns per row the lane, a colour index, the branch number, the head/tip/fork flags, the lanes that
-merge into this row (a second child means a fork) and the lanes that pass straight through it. A parent
+returns per row the lane, a colour index, the branch number, the head/tip/fork flags, the arms that
+merge into this row (a second child means a fork) and the arms that pass straight through it. A parent
 that is not on the loaded page leaves its lane open, which the layout reports as `truncated`.
+
+A branch number identifies a branch, not a lane. A lane is freed at its fork point and the next tip
+reuses it, so numbering by lane would give two unrelated side branches the same name and colour. The
+layout therefore hands out a new branch number whenever a row claims a free lane (a tip), carries it
+along while the lane stays with the same chain, and derives the colour from the branch
+(`branchColour`), so `merges` and `through` arms carry the colour of the branch they belong to rather
+than of the lane index they happen to occupy.
+
+`connector()` in `PageHistoryTree.vue` draws a merge arm as a vertical run, one quarter-circle bend
+and a horizontal run into the node at `ROW_HEIGHT / 2` — the arm meets the circle at its vertical
+centre instead of approaching it from above.
 `PageHistoryTree.vue` renders that as one small SVG per row plus text; it is a `listbox` of `option`s
 with a roving tabindex, Arrow/Home/End/Enter, a visually hidden per-row sentence for screen readers, and
 below 30rem the lanes collapse into indentation with a coloured left border. Colour is never the only
@@ -1097,6 +1121,16 @@ history reloads, so the head marker moves without a page reload.
 and components live in the consumer's `app/blocks/`. `layers/admin`'s `components/BlockRenderer.vue`
 renders the tree in-app for the live preview (no public site round-trip, no iframe/postMessage);
 `layers/public` renders the same tree for real page delivery.
+
+### The left pane
+`BlockTree.vue` with `root` owns the whole pane in one reading order: the page entry (which selects the
+page fields), then the section label (`sectionLabel`, "Block structure"), then the block rows and the
+add button. DOM order is the visual order, so the keyboard walks it top to bottom. The three leading
+boxes are one column: the page entry's icon, the section label's icon and a row's drag handle are all
+`1rem` wide, and the text that follows each sits behind the same `3px` accent slot plus padding
+(`--block-tree-gutter` / `--block-tree-text-inset`), so labels line up whether or not the row has a
+handle. Selection uses the shared `selected-accent` mixin (`assets/scss/_mixins.scss`) — the same
+token, width, squared leading corners and background the version-history row uses.
 
 ### Block clipboard
 `layers/admin/app/utils/block-tree.ts` (`BlockTree.vue`'s per-row Copy/Paste entries in the "More actions" menu and Ctrl/Cmd+C /
