@@ -28,6 +28,7 @@ const model = defineModel<string | string[] | null>()
 const emit = defineEmits<{ search: [term: string] }>()
 
 const query = ref('')
+const { target: portalTarget } = useAdminPortal()
 
 const rootModel = computed<string | string[] | undefined>({
   get: () => (props.multiple
@@ -167,7 +168,7 @@ function moveChip(from: number, to: number) {
       <ComboboxTrigger class="ui-combobox__icon" :aria-label="t('combobox.toggle_options')"><UiIcon name="chevron-down" :size="14" /></ComboboxTrigger>
     </ComboboxAnchor>
 
-    <ComboboxPortal>
+    <ComboboxPortal :to="portalTarget">
       <ComboboxContent class="ui-combobox__content" position="popper" :side-offset="4" :collision-padding="8">
         <ComboboxViewport class="ui-combobox__viewport">
           <p v-if="loading" class="ui-combobox__note">{{ t('combobox.loading') }}</p>

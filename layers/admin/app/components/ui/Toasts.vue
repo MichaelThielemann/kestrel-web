@@ -2,10 +2,11 @@
 
 const toasts = useToast()
 const { t } = useT()
+const { target: portalTarget } = useAdminPortal()
 </script>
 
 <template>
-  <Teleport to="body">
+  <Teleport :to="portalTarget">
     <div class="admin-portal">
       <div class="ui-toasts__live" aria-live="polite" role="status">
         <template v-for="toast in toasts.items" :key="`p-${toast.id}`">

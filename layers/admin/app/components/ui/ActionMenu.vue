@@ -4,6 +4,7 @@ import type { MenuItem } from './Menu.vue'
 
 defineProps<{ items: MenuItem[]; label: string; disabled?: boolean; triggerClass?: string }>()
 const emit = defineEmits<{ select: [string] }>()
+const { target: portalTarget } = useAdminPortal()
 </script>
 
 <template>
@@ -13,7 +14,7 @@ const emit = defineEmits<{ select: [string] }>()
         <slot />
       </button>
     </DropdownMenuTrigger>
-    <DropdownMenuPortal>
+    <DropdownMenuPortal :to="portalTarget">
       <DropdownMenuContent class="ui-menu" align="end" :side-offset="4" :collision-padding="8">
         <DropdownMenuItem
           v-for="it in items"

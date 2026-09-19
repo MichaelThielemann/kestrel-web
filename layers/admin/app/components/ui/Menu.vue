@@ -4,6 +4,7 @@ import { ContextMenuRoot, ContextMenuTrigger, ContextMenuPortal, ContextMenuCont
 export interface MenuItem { label: string; value: string; danger?: boolean; disabled?: boolean }
 defineProps<{ items: MenuItem[] }>()
 const emit = defineEmits<{ select: [string] }>()
+const { target: portalTarget } = useAdminPortal()
 </script>
 
 <template>
@@ -11,7 +12,7 @@ const emit = defineEmits<{ select: [string] }>()
     <ContextMenuTrigger as-child>
       <slot />
     </ContextMenuTrigger>
-    <ContextMenuPortal>
+    <ContextMenuPortal :to="portalTarget">
       <ContextMenuContent class="ui-menu" :collision-padding="8">
         <ContextMenuItem
           v-for="it in items"

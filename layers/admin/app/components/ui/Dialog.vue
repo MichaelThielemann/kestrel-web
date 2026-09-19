@@ -5,6 +5,7 @@ import UiIcon from './Icon.vue'
 const props = defineProps<{ open: boolean; title: string; description?: string; size?: 'md' | 'lg' | 'xl' | 'screen'; nested?: boolean }>()
 const emit = defineEmits<{ 'update:open': [boolean] }>()
 const { t } = useT()
+const { target: portalTarget } = useAdminPortal()
 
 const CLICK_INPUT_TYPES = new Set(['button', 'submit', 'reset', 'checkbox', 'radio', 'file'])
 function onKeydown(e: KeyboardEvent) {
@@ -17,7 +18,7 @@ function onKeydown(e: KeyboardEvent) {
 <template>
 
   <DialogRoot :open="props.open" @update:open="emit('update:open', $event)">
-    <DialogPortal>
+    <DialogPortal :to="portalTarget">
       <DialogOverlay class="ui-dialog__overlay" :class="{ 'ui-dialog__overlay--nested': nested }" />
       <DialogContent
         class="ui-dialog__content"
@@ -114,6 +115,11 @@ function onKeydown(e: KeyboardEvent) {
   margin-bottom: var(--space-3);
 }
 .ui-dialog__title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: var(--text-lg);
   font-weight: var(--weight-bold);
   margin: 0;

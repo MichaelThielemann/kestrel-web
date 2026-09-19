@@ -12,6 +12,7 @@ import type { DateValue } from '@internationalized/date'
 import { isoToDate, dateToIso, type IsoPrecision } from '../../utils/iso-date'
 
 const { t } = useT()
+const { target: portalTarget } = useAdminPortal()
 const props = withDefaults(
   defineProps<{
     precision?: IsoPrecision
@@ -64,7 +65,7 @@ const value = computed<{ start: DateValue | undefined; end: DateValue | undefine
       <DateRangePickerTrigger class="ui-datepicker__trigger" :aria-label="t('dateRange.openCalendar')"><UiIcon name="calendar" :size="16" /></DateRangePickerTrigger>
     </DateRangePickerField>
 
-    <DateRangePickerContent class="ui-datepicker__content" :side-offset="6">
+    <DateRangePickerContent class="ui-datepicker__content" :side-offset="6" :portal="{ to: portalTarget }">
       <DateRangePickerArrow class="ui-datepicker__arrow" />
       <DateRangePickerCalendar v-slot="{ weekDays, grid }" class="ui-datepicker__calendar">
         <DateRangePickerHeader class="ui-datepicker__header">

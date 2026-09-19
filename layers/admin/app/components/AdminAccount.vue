@@ -11,6 +11,7 @@ const { t, lang } = useT()
 const { logout, username } = useAuth()
 const { theme, toggle: toggleTheme } = useTheme()
 const { collections } = useCollections()
+const { target: portalTarget } = useAdminPortal()
 
 const displayName = computed(() => username.value || t('account.name'))
 const initials = computed(() => (username.value.slice(0, 2).toUpperCase() || 'AD'))
@@ -34,7 +35,7 @@ defineExpose({ lang, selectLang, signOut, theme, toggleTheme })
       </KestrelUiButton>
     </DropdownMenuTrigger>
 
-    <DropdownMenuPortal>
+    <DropdownMenuPortal :to="portalTarget">
       <DropdownMenuContent
         class="rail-account__menu"
         side="top"

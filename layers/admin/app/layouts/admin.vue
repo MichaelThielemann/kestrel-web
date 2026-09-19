@@ -24,6 +24,7 @@ useHead(() => ({
 </script>
 
 <template>
+  <KestrelUiPortalHost />
   <KestrelBootFailure v-if="failed" :error="failure" />
   <div v-else class="admin" :class="{ 'admin--rail-collapsed': collapsed }" :data-theme="theme">
     <aside v-if="authenticated" class="admin__rail">
@@ -88,14 +89,6 @@ useHead(() => ({
 .admin {
   display: flex;
   align-items: flex-start;
-
-  --text-base: var(--text-sm);
-  --space-2: 0.375rem;
-  --space-3: 0.5rem;
-  --space-4: 0.625rem;
-  --space-5: 1rem;
-  --control-height: calc((var(--space-2) * 2) + (var(--text-base) * var(--leading-normal)) + 2px);
-  --control-icon-size: calc(var(--text-base) * var(--leading-normal));
 
   &__rail {
     position: sticky;

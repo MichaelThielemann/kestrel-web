@@ -7,6 +7,7 @@ withDefaults(defineProps<{ side?: 'top' | 'right' | 'bottom' | 'left'; align?: '
 })
 
 const open = defineModel<boolean>('open', { default: false })
+const { target: portalTarget } = useAdminPortal()
 </script>
 
 <template>
@@ -14,7 +15,7 @@ const open = defineModel<boolean>('open', { default: false })
     <PopoverTrigger as-child>
       <slot name="trigger" />
     </PopoverTrigger>
-    <PopoverPortal>
+    <PopoverPortal :to="portalTarget">
       <PopoverContent class="ui-popover u-stack" :side="side" :align="align" :side-offset="6" :collision-padding="8">
         <slot />
         <PopoverArrow class="ui-popover__arrow" />

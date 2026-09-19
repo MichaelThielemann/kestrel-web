@@ -5,6 +5,8 @@ withDefaults(defineProps<{ side?: 'top' | 'right' | 'bottom' | 'left'; delay?: n
   side: 'top',
   delay: 150,
 })
+
+const { target: portalTarget } = useAdminPortal()
 </script>
 
 <template>
@@ -13,7 +15,7 @@ withDefaults(defineProps<{ side?: 'top' | 'right' | 'bottom' | 'left'; delay?: n
       <TooltipTrigger as-child>
         <slot />
       </TooltipTrigger>
-      <TooltipPortal>
+      <TooltipPortal :to="portalTarget">
         <TooltipContent class="ui-tooltip" :side="side" :side-offset="6" :collision-padding="8">
           <slot name="content" />
         </TooltipContent>
