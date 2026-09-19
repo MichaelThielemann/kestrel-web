@@ -18,6 +18,30 @@ const PSEUDO_PROPS = ['color', 'background-color', 'font-size', 'content', 'disp
 
 const ROUTES = ['/admin', '/admin/pages', '/admin/media', '/admin/references', '/admin/users', '/admin/system', '/admin/insights']
 
+const OVERLAYS = [
+  { route: '/admin', name: 'account-menu', trigger: '.rail-account__trigger', settle: '.rail-account__menu' },
+  { route: '/admin/users', name: 'row-menu', trigger: '.ui-table__actions button', settle: '.ui-menu' },
+  { route: '/admin/users', name: 'new-user-dialog', trigger: '.list__head button', settle: '.ui-dialog__content' },
+  { route: '/admin/media', name: 'upload-menu', trigger: '.media-toolbar__actions button', settle: '.ui-dialog__content' },
+]
+
+const STRAY_ROLES = ['dialog', 'alertdialog', 'menu', 'listbox', 'tooltip', 'grid']
+
+function collectStrays(roles) {
+  const out = []
+  const looksLikeUi = (el) => roles.includes(el.getAttribute('role') ?? '')
+    || [...el.attributes].some((a) => a.name.startsWith('data-reka-'))
+    || [...el.classList].some((name) => name.startsWith('ui-') || name.startsWith('rail-'))
+  for (const el of document.body.querySelectorAll('*')) {
+    if (el.tagName === 'SCRIPT' || el.tagName === 'STYLE') continue
+    if (el.closest('.admin, .admin-portal')) continue
+    if (!looksLikeUi(el)) continue
+    const cls = (el.getAttribute('class') || '').trim()
+    out.push(cls ? `${el.tagName.toLowerCase()}.${cls.split(/\s+/).sort().join('.')}` : `${el.tagName.toLowerCase()}[role=${el.getAttribute('role')}]`)
+  }
+  return [...new Set(out)]
+}
+
 function collect([props, pseudoProps]) {
   const out = {}
   const push = (key, prop, value) => {
@@ -86,14 +110,30 @@ async function snapshot(chromium, base, theme, user, password) {
     await page.waitForLoadState('networkidle').catch(() => {})
   }
   const views = {}
+  const strays = {}
   for (const route of ['/admin/login', ...ROUTES]) {
     await page.goto(base + route, { waitUntil: 'networkidle' }).catch(() => {})
     await page.evaluate((value) => document.documentElement.setAttribute('data-theme', value), theme)
     await page.waitForTimeout(400)
     views[route] = await page.evaluate(collect, [PROPS, PSEUDO_PROPS]).catch(() => null)
+    strays[route] = await page.evaluate(collectStrays, STRAY_ROLES).catch(() => [])
+
+    for (const overlay of OVERLAYS.filter((o) => o.route === route)) {
+      const key = `${route}#${overlay.name}`
+      const opened = await page.locator(overlay.trigger).first().click({ timeout: 4000 })
+        .then(() => page.locator(overlay.settle).first().waitFor({ state: 'visible', timeout: 4000 }))
+        .then(() => true)
+        .catch(() => false)
+      if (!opened) { console.error(`  overlay ${key} did not open on ${base}`); continue }
+      await page.waitForTimeout(300)
+      views[key] = await page.evaluate(collect, [PROPS, PSEUDO_PROPS]).catch(() => null)
+      strays[key] = await page.evaluate(collectStrays, STRAY_ROLES).catch(() => [])
+      await page.keyboard.press('Escape').catch(() => {})
+      await page.waitForTimeout(200)
+    }
   }
   await browser.close()
-  return views
+  return { views, strays }
 }
 
 const [baseline, consumer] = process.argv.slice(2)
@@ -107,9 +147,18 @@ const { chromium } = await import(playwright).catch(() => createRequire(import.m
 
 const rows = []
 const docRows = []
+const strayRows = []
 for (const theme of ['light', 'dark']) {
-  const base = await snapshot(chromium, baseline, theme, process.env.ADMIN_USER ?? 'admin', process.env.ADMIN_PASSWORD ?? 'change-me')
-  const cons = await snapshot(chromium, consumer, theme, process.env.ADMIN_USER ?? 'admin', process.env.ADMIN_PASSWORD ?? 'change-me')
+  const baseSnapshot = await snapshot(chromium, baseline, theme, process.env.ADMIN_USER ?? 'admin', process.env.ADMIN_PASSWORD ?? 'change-me')
+  const consSnapshot = await snapshot(chromium, consumer, theme, process.env.ADMIN_USER ?? 'admin', process.env.ADMIN_PASSWORD ?? 'change-me')
+  const base = baseSnapshot.views
+  const cons = consSnapshot.views
+  for (const [route, keys] of Object.entries(consSnapshot.strays)) {
+    for (const key of keys) strayRows.push({ theme, route, key })
+  }
+  for (const [route, keys] of Object.entries(baseSnapshot.strays)) {
+    for (const key of keys) strayRows.push({ theme, route: `${route} (baseline)`, key })
+  }
   for (const route of Object.keys(base)) {
     if (!base[route] || !cons[route]) continue
     for (const [key, properties] of Object.entries(base[route].elements)) {
@@ -147,4 +196,9 @@ if (uniqueDoc.size) {
   console.log('\ndocument root:')
   for (const row of uniqueDoc.values()) console.log(` ${row.key}: baseline "${row.baseline}" consumer "${row.consumer}"`)
 }
-process.exit(styleLeaks.length === 0 ? 0 : 1)
+
+const uniqueStrays = new Map(strayRows.map((row) => [JSON.stringify([row.route, row.key]), row]))
+console.log(`\nunscoped body elements ${uniqueStrays.size}`)
+for (const row of uniqueStrays.values()) console.log(` ${row.route}: ${row.key}`)
+
+process.exit(styleLeaks.length === 0 && uniqueStrays.size === 0 ? 0 : 1)
