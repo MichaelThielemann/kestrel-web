@@ -1,0 +1,41 @@
+{
+  "name": "create-kestrel",
+  "version": "5.0.0",
+  "description": "Scaffold a Kestrel site on the kestrel-web Nuxt layer: `pnpm create kestrel my-site`.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "homepage": "https://github.com/MichaelThielemann/kestrel-web#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MichaelThielemann/kestrel-web.git",
+    "directory": "packages/create-kestrel"
+  },
+  "bugs": "https://github.com/MichaelThielemann/kestrel-web/issues",
+  "keywords": [
+    "cms",
+    "nuxt",
+    "kestrel",
+    "create",
+    "scaffold"
+  ],
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "bin": {
+    "create-kestrel": "./index.mjs"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "files": [
+    "index.mjs",
+    "src",
+    "template",
+    "versions.json",
+    "README.md"
+  ],
+  "scripts": {
+    "prepack": "node ../../scripts/create-kestrel-versions.mjs --check"
+  }
+}

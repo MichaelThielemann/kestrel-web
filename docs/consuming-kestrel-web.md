@@ -24,6 +24,16 @@ Everything else is optional.
 | [`field-types.md`](field-types.md) | How a field type reaches the editor and the schema, and how far `field("myType")` gets |
 | [`admin-i18n.md`](admin-i18n.md) | The admin UI's own language, and how `Localized` labels resolve against it |
 
+## 0. The short way
+
+```bash
+pnpm create kestrel my-site
+```
+
+`create-kestrel` asks for locales, features, blobstore and an admin user and writes every file of
+§1 – §5 for you, with the layer and engine versions pinned to a release that belongs together. Read
+on for what those files mean, and for adding kestrel-web to an app that already exists.
+
 ## 1. Extend the layer
 
 ```bash

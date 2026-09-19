@@ -1,8 +1,8 @@
 # Releasing
 
-How to cut a release of this repository. `@michaelthielemann/kestrel-web` (the layer, workspace root)
-and `@michaelthielemann/kestrel-renderer-nuxt` (`packages/renderer-nuxt`) are published together; the
-playground is private and never published.
+How to cut a release of this repository. `@michaelthielemann/kestrel-web` (the layer, workspace root),
+`@michaelthielemann/kestrel-renderer-nuxt` (`packages/renderer-nuxt`) and `create-kestrel`
+(`packages/create-kestrel`) are published together; the playground is private and never published.
 
 1. `pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm build:packages`
 2. `./scripts/smoke-consumer.sh` – packs both packages, installs the tarballs into a throwaway Nuxt app
@@ -11,6 +11,9 @@ playground is private and never published.
 3. Bump `version` in `package.json` and `packages/renderer-nuxt/package.json`, turn `CHANGELOG.md`'s
    `## Unreleased` heading into the new version, and make sure `docs/` describes the released state —
    the docs carry no history, so anything that changed has to be rewritten there, not appended.
+   `packages/create-kestrel` has its own version: bump it whenever the scaffolder or its template
+   changed, and run `node scripts/create-kestrel-versions.mjs` so the ranges it writes into a
+   scaffolded `package.json` follow the layer version of this release.
 4. Commit, tag `v<version>`, push the commit and the tag.
 5. The `release` workflow runs on the tag: it verifies the tag matches the root package version,
    repeats lint, typecheck, tests, the playground build and `build:packages` (the renderer's `dist/`), then publishes every package that is not on the registry

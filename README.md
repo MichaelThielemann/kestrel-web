@@ -25,6 +25,18 @@ Full walkthrough: [`docs/consuming-kestrel-web.md`](docs/consuming-kestrel-web.m
 
 ## Working on this repository
 
+## Start a site
+
+```
+pnpm create kestrel my-site
+```
+
+`create-kestrel` (`packages/create-kestrel`) asks for locales, features, blobstore and an admin
+password and writes a ready-to-run consumer. `docs/consuming-kestrel-web.md` describes the same
+project by hand.
+
+## Develop this layer
+
 ```
 pnpm install
 pnpm dev          # http://localhost:3000/admin — admin / change-me

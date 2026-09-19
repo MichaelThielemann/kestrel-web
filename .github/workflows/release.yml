@@ -18,6 +18,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: tag must match the package version
         run: test "v$(node -p "require('./package.json').version")" = "$GITHUB_REF_NAME"
+      - name: the scaffolder must pin the versions this workspace uses
+        run: node scripts/create-kestrel-versions.mjs --check
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test

@@ -14,6 +14,15 @@
 
 ### Added
 
+- New package `create-kestrel` (`packages/create-kestrel`, 5.0.0):
+  `pnpm create kestrel my-site` scaffolds a consumer of this layer — locales, features, blobstore and
+  a bootstrap admin whose password is stored only as a scrypt hash in `.env`. It has no runtime
+  dependencies, runs from `.mjs` without a build, and pins the generated `package.json` to the layer
+  and engine versions this repository uses (`packages/create-kestrel/versions.json`, derived by
+  `scripts/create-kestrel-versions.mjs` and guarded by a test and by `prepack`). `--yes`, `--name`,
+  `--pm`, `--locales`, `--features`, `--blobstore`, `--admin-user` and `--admin-password` (or
+  `KESTREL_ADMIN_PASSWORD`) make it non-interactive. The release workflow publishes it alongside the
+  layer; it keeps its own version number.
 - New feature `revisions` on `@michaelthielemann/kestrel-revisions-default` (`revisions@1`): every save
   of a `multi` collection records a full snapshot with author, locale and status. The preset inserts
   `revisions.record:<c>` directly after `content.create:<c>`/`content.update:<c>` and the matching

@@ -1,0 +1,12 @@
+{
+  "kestrelWeb": "^1.0.1",
+  "kestrel": "^5.7.0",
+  "insights": "^5.7.0",
+  "vueFlow": "^1.48.2",
+  "dagre": "^3.1.1",
+  "nuxt": "^4.5.2",
+  "vue": "^3.5.35",
+  "vueRouter": "^5.2.0",
+  "typescript": "^5.9.3",
+  "vueTsc": "^3.3.9"
+}

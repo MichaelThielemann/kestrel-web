@@ -187,6 +187,8 @@ importers:
         specifier: ^3.3.9
         version: 3.3.11(typescript@5.9.3)
 
+  packages/create-kestrel: {}
+
   packages/renderer-nuxt:
     dependencies:
       zod:

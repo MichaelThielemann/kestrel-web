@@ -1,0 +1,29 @@
+{
+  "name": "__PROJECT_NAME__",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "dev": "nuxt dev",
+    "build": "nuxt build",
+    "preview": "nuxt preview",
+    "prepare": "nuxt prepare",
+    "typecheck": "nuxt typecheck"
+  },
+  "dependencies": {
+    "@dagrejs/dagre": "__DAGRE_VERSION__",
+    "@michaelthielemann/kestrel": "__KESTREL_VERSION__",
+    "@michaelthielemann/kestrel-insights": "__INSIGHTS_VERSION__",
+    "@michaelthielemann/kestrel-web": "__KESTREL_WEB_VERSION__",
+    "@vue-flow/core": "__VUE_FLOW_VERSION__",
+    "nuxt": "__NUXT_VERSION__",
+    "vue": "__VUE_VERSION__",
+    "vue-router": "__VUE_ROUTER_VERSION__"
+  },
+  "devDependencies": {
+    "typescript": "__TYPESCRIPT_VERSION__",
+    "vue-tsc": "__VUE_TSC_VERSION__"
+  }
+}

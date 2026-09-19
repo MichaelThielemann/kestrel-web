@@ -3,5 +3,5 @@ export default defineNuxtConfig({
   extends: [".."],
   modules: ["@nuxt/eslint"],
 
-  typescript: { tsConfig: { exclude: ["../../../kestrel/**", "../server/**", "../pipelines/**"] } },
+  typescript: { tsConfig: { exclude: ["../../../kestrel/**", "../server/**", "../pipelines/**", "../../packages/create-kestrel/template/**"] } },
 });
