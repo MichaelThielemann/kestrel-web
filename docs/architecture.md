@@ -767,8 +767,9 @@ no error mapping and no navigation — the runner's whole surface would be cerem
 `await`, and its failures are handled by the screen that renders the data, typically by showing an
 empty or error state.
 
-`SystemImages.vue` follows the same split: registering, syncing and pruning image sizes are actions
-(`imagesRegisterAndSync`, `previewPrune`, `prune`); polling `GET /admin/images/status` for job progress
+`SystemImages.vue` follows the same split: registering, syncing, pruning image sizes and retrying the
+variants that gave up are actions (`imagesRegisterAndSync`, `previewPrune`, `prune`,
+`imagesRetryFailed`); polling `GET /admin/images/status` for job progress
 is a load, and stays a plain `setInterval`/`clearInterval` in the component rather than a repeated
 `runAction` call — the runner (`layers/core/app/utils/actions.ts`) has no cancellation, it only ever
 runs a step sequence to completion, so a poll loop that needs to stop when the tab unmounts has to live
@@ -950,6 +951,7 @@ untouched.
 | `linksRebuild` | `actions/system.ts` | `ops.busy:on`, `api.request` (toasts and fails on error; toasts on success), `data.reload`; always `ops.busy:off` | `SystemReferences.vue` |
 | `previewPrune` | `actions/system.ts` | `api.request` (`GET /admin/images/status`; on success sets the result to the orphaned sizes and variant count; toasts and fails on error), `guard.selection` (fails when nothing is orphaned) | `SystemImages.vue`, "Remove orphaned" button, to fill the confirm dialog |
 | `prune` | `actions/system.ts` | `dialog.confirm` (requires `confirmed` and a non-empty size list), `ops.busy:on`, `api.request` (`POST /admin/images/prune`; toasts success; on error sets the inline dialog error, toasts and fails), `data.reload`; always `ops.busy:off` | `SystemImages.vue`, prune dialog confirm |
+| `imagesRetryFailed` | `actions/system.ts` | `dialog.confirm` (requires `confirmed` and at least one failed variant), `ops.busy:on`, `api.request` (`POST /admin/images/retry-failed`; toasts the retried variant and media counts; on error sets the inline dialog error, toasts with the run id and fails), `data.reload`; always `ops.busy:off` | `SystemImages.vue`, "Retry failed variants" dialog confirm |
 | `imagesRegisterAndSync` | `actions/system.ts` | `ops.busy:on`, `api.request:register` (`PUT /admin/images/sizes`; no-op on an empty size list; a 409 collision returns silently; any other error toasts and fails), `api.request:sync` (`POST /admin/images/sync`; toasts success; a 409 — a sync already running — returns silently, any other error toasts and fails), `data.reload`; always `ops.busy:off` | `SystemImages.vue`, "Synchronize" button |
 
 `previewDeleteRecord` and `previewBulkDelete` share their body: `actions/shared.ts` exports

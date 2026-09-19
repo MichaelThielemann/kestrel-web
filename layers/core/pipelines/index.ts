@@ -63,7 +63,7 @@ export const staticPipelineNames = [
   "brokenLinks", "rebuildLinks", "checkLinks",
   "pagePublishStatus", "publishAllPages",
   "getRedirects", "setRedirects", "renderRedirects",
-  "serveImageVariant", "registerImageSizes", "registerImageSizesBoot", "listImageSizes", "syncImages", "pruneImages", "imagesStatus", "generateImageVariants", "resumeImages",
+  "serveImageVariant", "registerImageSizes", "registerImageSizesBoot", "listImageSizes", "syncImages", "pruneImages", "retryFailedImages", "imagesStatus", "generateImageVariants", "resumeImages",
   "replicate", "replicationStatus", "replicationPoints", "replicationSnapshot", "replicationRestore",
   "listMigrations", "applyMigrations",
   "auditAuth",

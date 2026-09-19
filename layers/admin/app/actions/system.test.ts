@@ -8,6 +8,7 @@ import {
   eventsRetryOne,
   exportMedia,
   imagesRegisterAndSync,
+  imagesRetryFailed,
   linksRebuild,
   migrationsApply,
   mediaReconcile,
@@ -657,6 +658,55 @@ describe('prune', () => {
     const { refresh, calls: refreshCalls } = fakeRefresh()
 
     const result = await runAction(prune, { deps, sizes: ['thumb'], confirmed: true, ops, refresh })
+
+    expect(result.ok).toBe(false)
+    expect(errors).toContain(message)
+    expect(toast.error).toHaveBeenCalledWith(message)
+    expect(refreshCalls.length).toBe(0)
+    expect(busyLog).toEqual([true, false])
+  })
+})
+
+describe('imagesRetryFailed', () => {
+  it('fails the dialog guard and makes no request when nothing failed', async () => {
+    const { deps, calls } = fakeDeps([])
+
+    const result = await runAction(imagesRetryFailed, { deps, variants: 0, confirmed: true, ops: fakeOps().ops, refresh: fakeRefresh().refresh })
+
+    expect(result).toEqual({ ok: false, error: 'dialog.confirm' })
+    expect(calls.length).toBe(0)
+  })
+
+  it('fails the dialog guard and makes no request when not confirmed', async () => {
+    const { deps, calls } = fakeDeps([])
+
+    const result = await runAction(imagesRetryFailed, { deps, variants: 4, confirmed: false, ops: fakeOps().ops, refresh: fakeRefresh().refresh })
+
+    expect(result).toEqual({ ok: false, error: 'dialog.confirm' })
+    expect(calls.length).toBe(0)
+  })
+
+  it('posts the retry route, toasts the counts, reloads and clears busy', async () => {
+    const { deps, calls, toast } = fakeDeps([{ variants: 4, media: 2, job: null }])
+    const { ops, busyLog } = fakeOps()
+    const { refresh, calls: refreshCalls } = fakeRefresh()
+
+    const result = await runAction(imagesRetryFailed, { deps, variants: 4, confirmed: true, ops, refresh })
+
+    expect(result.ok).toBe(true)
+    expect(calls).toEqual([{ path: '/admin/images/retry-failed', method: 'POST', body: undefined, query: undefined }])
+    expect(toast.success).toHaveBeenCalledWith('images.retryFailedDone:{"variants":4,"media":2}')
+    expect(refreshCalls.length).toBe(1)
+    expect(busyLog).toEqual([true, false])
+  })
+
+  it('sets the inline error and skips the reload on a 409, and clears busy', async () => {
+    const message = 'images: shutting down'
+    const { deps, toast } = fakeDeps([apiError(409, message)])
+    const { ops, errors, busyLog } = fakeOps()
+    const { refresh, calls: refreshCalls } = fakeRefresh()
+
+    const result = await runAction(imagesRetryFailed, { deps, variants: 4, confirmed: true, ops, refresh })
 
     expect(result.ok).toBe(false)
     expect(errors).toContain(message)

@@ -2,7 +2,7 @@
 import type { ImageSizeRow, ImagesJob, ImagesStatus, MediaReconcileReport } from '#kestrel-admin/types/api'
 import { imageSizes } from '#kestrel/blocks'
 import { humanizeRelativeTime } from '#kestrel-admin/utils/humanize'
-import { imagesRegisterAndSync, mediaReconcile, mediaReconcileDelete, previewPrune, prune, type PrunePreview } from '#kestrel-admin/actions/system'
+import { imagesRegisterAndSync, imagesRetryFailed, mediaReconcile, mediaReconcileDelete, previewPrune, prune, type PrunePreview } from '#kestrel-admin/actions/system'
 import type { ActionDeps } from '#kestrel-admin/actions/types'
 import { toastUnexpected } from '#kestrel-admin/actions/steps/notify'
 
@@ -89,6 +89,36 @@ async function onConfirmPrune() {
   })
   toastUnexpected(deps, r)
   if (r.ok) closePrune()
+}
+
+const failedVariants = computed(() => status.value?.failed?.variants ?? 0)
+const recentFailures = computed(() => status.value?.failed?.recent ?? [])
+
+const retryBusy = ref(false)
+const retryError = ref<string | null>(null)
+const retryConfirmOpen = ref(false)
+
+function closeRetry() {
+  retryConfirmOpen.value = false
+  retryError.value = null
+}
+
+async function onConfirmRetryFailed() {
+  const r = await runAction(imagesRetryFailed, {
+    deps,
+    variants: failedVariants.value,
+    confirmed: true,
+    ops: {
+      setBusy: (on) => { retryBusy.value = on },
+      busy: () => retryBusy.value,
+      setError: (message) => { retryError.value = message },
+    },
+    refresh: load,
+  })
+  toastUnexpected(deps, r)
+  if (!r.ok) return
+  closeRetry()
+  startPolling()
 }
 
 const reconcileReport = ref<MediaReconcileReport | null>(null)
@@ -183,6 +213,20 @@ function relative(ms: number | null): string { return ms === null ? '—' : huma
       <div class="images__section">
         <div class="images__section-head">
           <div>
+            <h2 class="images__section-title">{{ t('images.failedTitle') }}</h2>
+            <p class="images__desc">{{ t('images.failedDesc') }}</p>
+          </div>
+          <div class="images__actions">
+            <KestrelUiButton type="button" size="sm" variant="secondary" icon="rotate-cw" :loading="retryBusy" :disabled="!canManage || !failedVariants" @click="retryConfirmOpen = true">{{ t('images.retryFailed') }}</KestrelUiButton>
+          </div>
+        </div>
+        <KestrelUiAlert v-if="retryError" variant="error">{{ retryError }}</KestrelUiAlert>
+        <KestrelSystemImagesFailures :variants="failedVariants" :recent="recentFailures" />
+      </div>
+
+      <div class="images__section">
+        <div class="images__section-head">
+          <div>
             <h2 class="images__section-title">{{ t('media.reconcile.title') }}</h2>
             <p class="images__desc">{{ t('media.reconcile.desc') }}</p>
           </div>
@@ -247,6 +291,14 @@ function relative(ms: number | null): string { return ms === null ? '—' : huma
       <template #footer>
         <KestrelUiButton variant="ghost" :disabled="reconcileBusy" @click="reconcileConfirmOpen = false">{{ t('common.cancel') }}</KestrelUiButton>
         <KestrelUiButton variant="danger" :loading="reconcileBusy" @click="onConfirmReconcileDelete">{{ t('media.reconcile.delete') }}</KestrelUiButton>
+      </template>
+    </KestrelUiDialog>
+
+    <KestrelUiDialog :open="retryConfirmOpen" :title="t('images.retryFailed')" @update:open="(v) => { if (!v) closeRetry() }">
+      <p>{{ t('images.retryFailedConfirm', { variants: failedVariants }) }}</p>
+      <template #footer>
+        <KestrelUiButton variant="ghost" :disabled="retryBusy" @click="closeRetry">{{ t('common.cancel') }}</KestrelUiButton>
+        <KestrelUiButton variant="primary" :loading="retryBusy" @click="onConfirmRetryFailed">{{ t('images.retryFailed') }}</KestrelUiButton>
       </template>
     </KestrelUiDialog>
 

@@ -117,6 +117,12 @@ describe("definePreset option handling", () => {
     expect(preset.triggers.some((trigger) => trigger.pipeline === "registerImageSizesBoot")).toBe(false);
   });
 
+  it("exposes retrying the variants that gave up behind images.manage", () => {
+    const preset = definePreset({ modules: [...baseModules, { use: "@michaelthielemann/kestrel-images-default" }], features: ["images"] });
+    expect(preset.pipelines.find((pipeline) => pipeline.name === "retryFailedImages")?.steps).toEqual(["authn.requireUser", "authz.require:images.manage", "images.retryFailed"]);
+    expect(preset.triggers.find((trigger) => trigger.pipeline === "retryFailedImages")).toEqual({ http: "POST /admin/images/retry-failed", pipeline: "retryFailedImages" });
+  });
+
   it("applies a custom cron schedule", () => {
     const preset = definePreset({ modules: baseModules, features: [], schedules: { cleanupSessions: "5 5 * * *" } });
     const trigger = preset.triggers.find((t) => t.pipeline === "cleanupSessions");

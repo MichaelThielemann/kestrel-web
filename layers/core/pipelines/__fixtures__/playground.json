@@ -321,6 +321,11 @@
     "resumeImages": [
       "images.resume"
     ],
+    "retryFailedImages": [
+      "authn.requireUser",
+      "authz.require:images.manage",
+      "images.retryFailed"
+    ],
     "scanReferences": [
       "references.scan"
     ],
@@ -607,6 +612,10 @@
     {
       "http": "POST /admin/images/prune",
       "pipeline": "pruneImages"
+    },
+    {
+      "http": "POST /admin/images/retry-failed",
+      "pipeline": "retryFailedImages"
     },
     {
       "http": "GET /admin/images/status",

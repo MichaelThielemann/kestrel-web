@@ -53,6 +53,7 @@ export const canonicalTriggers: readonly TriggerEntry[] = [
   { trigger: { http: "GET /admin/images/sizes", pipeline: "listImageSizes" }, feature: "images" },
   { trigger: { http: "POST /admin/images/sync", pipeline: "syncImages" }, feature: "images" },
   { trigger: { http: "POST /admin/images/prune", pipeline: "pruneImages" }, feature: "images" },
+  { trigger: { http: "POST /admin/images/retry-failed", pipeline: "retryFailedImages" }, feature: "images" },
   { trigger: { http: "GET /admin/images/status", pipeline: "imagesStatus" }, feature: "images" },
   { trigger: { http: "GET /admin/replication/status", pipeline: "replicationStatus" }, feature: "replication" },
   { trigger: { http: "GET /admin/replication/points", pipeline: "replicationPoints" }, feature: "replication" },

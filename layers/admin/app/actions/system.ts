@@ -1,4 +1,4 @@
-import type { EventsRetryResult, ImagesJob, ImagesPruneResult, ImagesStatus, MediaExportReport, MediaReconcileReport, MigrationsApplyResult, MigrationsDryRunResult, PublishAllReport, RebuildReport, ReplicationRestoreResult, ReplicationSnapshotResult } from '#kestrel-admin/types/api'
+import type { EventsRetryResult, ImagesJob, ImagesPruneResult, ImagesRetryFailedResult, ImagesStatus, MediaExportReport, MediaReconcileReport, MigrationsApplyResult, MigrationsDryRunResult, PublishAllReport, RebuildReport, ReplicationRestoreResult, ReplicationSnapshotResult } from '#kestrel-admin/types/api'
 import { defineAction, type ActionContext, type ActionStep } from '#kestrel-core/app/utils/actions'
 import { apiErrorCode, apiErrorMessage, apiErrorRunId, apiErrorStatus, withRunId } from '../composables/useApi'
 import { humanizeSize } from '../utils/library'
@@ -93,6 +93,13 @@ export interface PrunePreview { sizes: string[], variants: number }
 
 export interface ImagesPruneInput extends WithDeps {
   sizes: readonly string[]
+  confirmed: boolean
+  ops: BusyPort
+  refresh: RefreshPort
+}
+
+export interface ImagesRetryFailedInput extends WithDeps {
+  variants: number
   confirmed: boolean
   ops: BusyPort
   refresh: RefreshPort
@@ -455,6 +462,29 @@ export const prune = defineAction<ImagesPruneInput, ImagesPruneResult>({
     dataReload<ImagesPruneInput, ImagesPruneResult>(),
   ],
   always: [opsBusy<ImagesPruneInput, ImagesPruneResult>(false)],
+})
+
+export const imagesRetryFailed = defineAction<ImagesRetryFailedInput, ImagesRetryFailedResult>({
+  name: 'imagesRetryFailed',
+  steps: [
+    dialogConfirm<ImagesRetryFailedInput, ImagesRetryFailedResult>((ctx) => ctx.input.confirmed && ctx.input.variants > 0),
+    opsBusy<ImagesRetryFailedInput, ImagesRetryFailedResult>(true),
+    apiRequest<ImagesRetryFailedInput, ImagesRetryFailedResult, ImagesRetryFailedResult>('api.request', {
+      call: () => ({ path: '/admin/images/retry-failed', method: 'POST' }),
+      onSuccess: (ctx, value) => {
+        ctx.result = value
+        ctx.input.deps.toast.success(ctx.input.deps.t('images.retryFailedDone', { variants: value.variants, media: value.media }))
+      },
+      onError: (ctx, err) => {
+        const message = err.message || ctx.input.deps.t('images.retryFailedError')
+        ctx.input.ops.setError?.(message)
+        ctx.input.deps.toast.error(withRunId(message, err.status, err.runId))
+        ctx.fail(message)
+      },
+    }),
+    dataReload<ImagesRetryFailedInput, ImagesRetryFailedResult>(),
+  ],
+  always: [opsBusy<ImagesRetryFailedInput, ImagesRetryFailedResult>(false)],
 })
 
 export const mediaReconcile = defineAction<MediaReconcileInput, MediaReconcileReport>({

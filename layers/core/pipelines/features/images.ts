@@ -11,6 +11,7 @@ export default function images({ exportDir }: PresetContext): FeatureModule {
       listImageSizes: ["authn.requireUser", "authz.require:images.read", "images.listSizes"],
       syncImages: ["authn.requireUser", "authz.require:images.manage", "images.sync"],
       pruneImages: ["authn.requireUser", "authz.require:images.manage", "images.prune"],
+      retryFailedImages: ["authn.requireUser", "authz.require:images.manage", "images.retryFailed"],
       imagesStatus: ["authn.requireUser", "authz.require:images.read", "images.readStatus"],
       generateImageVariants: ["images.generate"],
       resumeImages: ["images.resume"],
