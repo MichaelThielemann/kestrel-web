@@ -57,7 +57,7 @@ describe('MediaLibrary upload status', () => {
     confirmButton.click()
     await nextTick()
 
-    await vi.waitFor(() => expect(wrapper.find('[role="status"]').exists()).toBe(true))
+    await vi.waitFor(() => expect(wrapper.get('[role="status"]').text()).not.toBe(''))
     expect(wrapper.get('[role="status"]').text()).toContain(en['media.uploading']!.trim())
 
     const progressbar = wrapper.get('[role="progressbar"]')
@@ -66,7 +66,7 @@ describe('MediaLibrary upload status', () => {
     expect(progressbar.attributes('aria-valuemax')).toBe('100')
 
     uploadControl.state.deliver?.({ id: 'f1' })
-    await vi.waitFor(() => expect(wrapper.find('[role="status"]').exists()).toBe(false))
+    await vi.waitFor(() => expect(wrapper.get('[role="status"]').text()).toBe(''))
     expect(wrapper.find('[role="progressbar"]').exists()).toBe(false)
   })
 
@@ -97,7 +97,7 @@ describe('MediaLibrary upload status', () => {
     }))
 
     await vi.waitFor(() => expect(wrapper.find('.media-upload-queue__failed').exists()).toBe(true))
-    expect(wrapper.find('[role="status"]').exists()).toBe(false)
+    expect(wrapper.get('[role="status"]').text()).toBe('')
     expect(wrapper.get('.media-upload-queue__failed').text()).toContain('File type is not allowed')
 
     const dismissButton = wrapper.get(`[aria-label="${en['media.upload.dismiss']!.replace('{name}', 'bad.exe')}"]`)

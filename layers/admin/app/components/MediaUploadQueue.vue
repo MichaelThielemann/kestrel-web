@@ -15,12 +15,7 @@ const { t } = useT()
         <span class="media-upload-queue__size">{{ humanizeSize(item.file.size) }}</span>
       </div>
 
-      <div v-if="item.status === 'processing'" class="media-upload-queue__processing">
-        <span class="media-upload-queue__spinner" aria-hidden="true" />
-        <span>{{ t('media.upload.processing') }}</span>
-      </div>
-
-      <div v-else-if="item.status === 'failed'" class="media-upload-queue__failed">
+      <div v-if="item.status === 'failed'" class="media-upload-queue__failed">
         <span class="media-upload-queue__message">{{ item.message }}</span>
         <KestrelUiButton
           type="button"
@@ -97,23 +92,6 @@ const { t } = useT()
   transition: width var(--motion-fast) var(--ease-standard);
 }
 
-.media-upload-queue__processing {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  color: var(--color-text-muted);
-}
-
-.media-upload-queue__spinner {
-  width: 0.875rem;
-  height: 0.875rem;
-  flex: none;
-  border: 2px solid var(--color-border);
-  border-top-color: var(--color-primary);
-  border-radius: var(--radius-full);
-  animation: media-upload-queue-spin var(--motion-base) linear infinite;
-}
-
 .media-upload-queue__failed {
   display: flex;
   align-items: center;
@@ -127,16 +105,7 @@ const { t } = useT()
   text-overflow: ellipsis;
 }
 
-@keyframes media-upload-queue-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .media-upload-queue__spinner {
-    animation: none;
-  }
   .media-upload-queue__bar {
     transition: none;
   }

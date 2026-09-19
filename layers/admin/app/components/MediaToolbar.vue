@@ -4,7 +4,7 @@ import type { IconName } from '#kestrel-admin/utils/icons'
 
 type View = 'grid' | 'table'
 
-const props = defineProps<{ view: View; search: string; disabled?: boolean }>()
+const props = defineProps<{ view: View; search: string; status?: string; disabled?: boolean }>()
 const emit = defineEmits<{
   'update:view': [View]
   'update:search': [string]
@@ -33,14 +33,17 @@ const fileInput = ref<{ open: () => void } | null>(null)
 
 <template>
   <div class="media-toolbar">
-    <KestrelUiTextInput
-      class="media-toolbar__search"
-      :model-value="search"
-      type="search"
-      :placeholder="t('mediaToolbar.searchPlaceholder')"
-      :aria-label="t('mediaToolbar.searchAriaLabel')"
-      @update:model-value="(v) => emit('update:search', v ?? '')"
-    />
+    <div class="media-toolbar__search">
+      <KestrelUiTextInput
+        :model-value="search"
+        type="search"
+        :placeholder="t('mediaToolbar.searchPlaceholder')"
+        :aria-label="t('mediaToolbar.searchAriaLabel')"
+        @update:model-value="(v) => emit('update:search', v ?? '')"
+      />
+    </div>
+
+    <p class="media-toolbar__status" role="status" aria-live="polite">{{ status }}</p>
 
     <div class="media-toolbar__actions">
       <KestrelUiButtonGroup v-model="viewModel" :options="VIEW_OPTIONS" :aria-label="t('mediaToolbar.viewAriaLabel')" />
@@ -61,10 +64,17 @@ const fileInput = ref<{ open: () => void } | null>(null)
   align-items: center;
 
   &__search {
-    flex: 1 1 16rem;
+    flex: 0 1 24rem;
+    min-width: 8rem;
+  }
+
+  &__status {
+    flex: 1 1 auto;
     min-width: 0;
-    max-width: 24rem;
-    margin-right: auto;
+    margin-inline-start: auto;
+    text-align: end;
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
   }
 
   &__actions {

@@ -45,7 +45,16 @@ const upload = useMediaUpload({
   onError: (item) => toast.error(t('media.uploadError', { name: item.filename, reason: item.message || t('media.uploadFailedReason') })),
 })
 const { active, counts, limitError, dismiss } = upload
-const queueRows = computed(() => upload.queue.value.filter((i) => i.status !== 'done'))
+const queueRows = computed(() => upload.queue.value.filter((i) => i.status !== 'done' && i.status !== 'processing'))
+const uploadStatus = computed(() => {
+  const parts: string[] = []
+  if (active.value) {
+    const failed = counts.value.failed ? `, ${counts.value.failed} ${t('media.uploadFailed')}` : ''
+    parts.push(`${t('media.uploading')}${counts.value.done} ${t('media.uploadUploaded')}${failed}`)
+  }
+  if (upload.queue.value.some((i) => i.status === 'processing')) parts.push(t('media.upload.processing'))
+  return parts.join(' · ')
+})
 
 const newFolderOpen = ref(false)
 const uploadOpen = ref(false)
@@ -263,6 +272,7 @@ const localizedMenu = computed(() => menuItems.value.map((s) => ({
     <KestrelMediaToolbar
       :view="view"
       :search="search"
+      :status="uploadStatus"
       :disabled="!!error"
       @update:view="lib.setView"
       @update:search="lib.setSearch"
@@ -287,9 +297,6 @@ const localizedMenu = computed(() => menuItems.value.map((s) => ({
       @update:page="lib.setPage"
       @update:per-page="lib.setPerPage"
     />
-    <p v-if="active" class="media-library__status" role="status" aria-live="polite">
-      <span>{{ t('media.uploading') }}</span>{{ counts.done }} {{ t('media.uploadUploaded') }}<span v-if="counts.failed">, {{ counts.failed }} {{ t('media.uploadFailed') }}</span>
-    </p>
     <KestrelMediaUploadQueue v-if="queueRows.length" :items="queueRows" @dismiss="dismiss" />
     <KestrelUiAlert v-if="limitError" variant="error">{{ limitError }}</KestrelUiAlert>
     <div v-if="pick" class="media-library__pickbar">
@@ -367,11 +374,6 @@ const localizedMenu = computed(() => menuItems.value.map((s) => ({
   font-size: var(--text-base);
   padding: var(--space-6) 0;
   text-align: center;
-}
-
-.media-library__status {
-  color: var(--color-text-muted);
-  font-size: var(--text-sm);
 }
 
 .media-library__pickbar {
