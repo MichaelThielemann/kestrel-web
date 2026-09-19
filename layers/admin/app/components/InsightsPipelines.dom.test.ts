@@ -43,10 +43,12 @@ describe('InsightsPipelines trigger chips', () => {
     const wrapper = await mountSuspended(InsightsPipelines, { props: { manifest } })
 
     const row = wrapper.get('tbody tr')
+    expect(row.findAll('td')).toHaveLength(6)
     const triggerCell = row.findAll('td')[2]!
     expect(triggerCell.classes()).toContain('insights-chip-cell')
+    expect(triggerCell.find('.insights-chips').exists()).toBe(true)
 
-    const chips = triggerCell.findAll('.insights-chip')
+    const chips = triggerCell.findAll('.insights-chips > .insights-chip')
     expect(chips).toHaveLength(2)
 
     const httpChip = chips[0]!

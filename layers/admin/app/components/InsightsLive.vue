@@ -80,7 +80,7 @@ function relative(ms: number | null): string { return ms === null ? '—' : huma
       <div class="insights-live__section">
         <h2 class="insights-live__title">{{ t('insights.colPipelines') }}</h2>
         <div class="list__scroll">
-          <KestrelUiTable>
+          <KestrelUiTable class="insights-table">
             <template #head>
               <th scope="col">{{ t('insights.colPipeline') }}</th>
               <th scope="col" class="insights-num">{{ t('insights.colRuns') }}</th>
@@ -108,7 +108,7 @@ function relative(ms: number | null): string { return ms === null ? '—' : huma
       <div class="insights-live__section">
         <h2 class="insights-live__title">{{ t('insights.colSteps') }}</h2>
         <div class="list__scroll">
-          <KestrelUiTable>
+          <KestrelUiTable class="insights-table">
             <template #head>
               <th scope="col">{{ t('insights.colPipeline') }}</th>
               <th scope="col">{{ t('insights.colSteps') }}</th>
@@ -137,7 +137,7 @@ function relative(ms: number | null): string { return ms === null ? '—' : huma
         <h2 class="insights-live__title">{{ t('insights.eventsTitle') }}</h2>
         <div v-if="stats.events.length === 0" class="insights-live__empty">{{ t('insights.noEvents') }}</div>
         <div v-else class="list__scroll">
-          <KestrelUiTable>
+          <KestrelUiTable class="insights-table">
             <template #head>
               <th scope="col">{{ t('insights.colEvent') }}</th>
               <th scope="col" class="insights-num">{{ t('insights.colCount') }}</th>
@@ -158,7 +158,7 @@ function relative(ms: number | null): string { return ms === null ? '—' : huma
         <h2 class="insights-live__title">{{ t('insights.rateLimitTitle') }}</h2>
         <div v-if="stats.ratelimit.length === 0" class="insights-live__empty">{{ t('insights.noRateLimitBuckets') }}</div>
         <div v-else class="list__scroll">
-          <KestrelUiTable>
+          <KestrelUiTable class="insights-table">
             <template #head>
               <th scope="col">{{ t('insights.colKey') }}</th>
               <th scope="col" class="insights-num">{{ t('insights.colRemaining') }}</th>

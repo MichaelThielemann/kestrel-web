@@ -27,7 +27,7 @@ const filtered = computed(() => {
     <KestrelUiTextInput v-model="filter" class="insights-modules__filter" :placeholder="t('insights.filterPlaceholder')" icon="search" slim />
 
     <div class="list__scroll">
-      <KestrelUiTable>
+      <KestrelUiTable class="insights-table">
         <template #head>
           <th scope="col">{{ t('insights.colModule') }}</th>
           <th scope="col">{{ t('insights.colVersion') }}</th>
@@ -43,13 +43,19 @@ const filtered = computed(() => {
             <td><NuxtLink :to="moduleRoute(m.name)">{{ m.name }}</NuxtLink></td>
             <td>{{ m.version ?? '—' }}</td>
             <td class="insights-chip-cell">
-              <span v-for="c in m.provides" :key="c" class="insights-chip insights-chip--provides" :title="c">{{ c }}</span>
+              <div class="insights-chips">
+                <span v-for="c in m.provides" :key="c" class="insights-chip insights-chip--provides" :title="c">{{ c }}</span>
+              </div>
             </td>
             <td class="insights-chip-cell">
-              <span v-for="c in m.requires" :key="c" class="insights-chip insights-chip--requires" :title="c">{{ c }}</span>
+              <div class="insights-chips">
+                <span v-for="c in m.requires" :key="c" class="insights-chip insights-chip--requires" :title="c">{{ c }}</span>
+              </div>
             </td>
             <td class="insights-chip-cell">
-              <span v-for="c in m.optional" :key="c" class="insights-chip insights-chip--optional" :title="`${c} ${t('insights.optionalSuffix')}`">{{ c }}</span>
+              <div class="insights-chips">
+                <span v-for="c in m.optional" :key="c" class="insights-chip insights-chip--optional" :title="`${c} ${t('insights.optionalSuffix')}`">{{ c }}</span>
+              </div>
             </td>
             <td class="insights-num">{{ m.steps.length }}</td>
             <td>

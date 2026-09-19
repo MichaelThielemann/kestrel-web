@@ -30,7 +30,7 @@ function statusLabel(v: InsightsConfigVariable): string {
   <div class="insights-config">
     <div v-if="variables.length === 0" class="insights-config__empty">{{ t('insights.noVariables') }}</div>
     <div v-else class="list__scroll">
-      <KestrelUiTable>
+      <KestrelUiTable class="insights-table">
         <template #head>
           <th scope="col">{{ t('insights.colVariable') }}</th>
           <th scope="col">{{ t('insights.colType') }}</th>

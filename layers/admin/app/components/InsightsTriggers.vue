@@ -10,7 +10,7 @@ const { t } = useT()
     <div class="insights-triggers__section">
       <h2 class="insights-triggers__title">{{ t('insights.httpTriggers') }}</h2>
       <div class="list__scroll">
-        <KestrelUiTable>
+        <KestrelUiTable class="insights-table">
           <template #head>
             <th scope="col">{{ t('insights.colMethod') }}</th>
             <th scope="col" class="insights-nowrap">{{ t('insights.colPath') }}</th>
@@ -33,7 +33,7 @@ const { t } = useT()
     <div class="insights-triggers__section">
       <h2 class="insights-triggers__title">{{ t('insights.eventTriggers') }}</h2>
       <div class="list__scroll">
-        <KestrelUiTable>
+        <KestrelUiTable class="insights-table">
           <template #head>
             <th scope="col">{{ t('insights.colEvent') }}</th>
             <th scope="col">{{ t('insights.colPipeline') }}</th>
@@ -54,7 +54,7 @@ const { t } = useT()
     <div class="insights-triggers__section">
       <h2 class="insights-triggers__title">{{ t('insights.cronTriggers') }}</h2>
       <div class="list__scroll">
-        <KestrelUiTable>
+        <KestrelUiTable class="insights-table">
           <template #head>
             <th scope="col" class="insights-nowrap">{{ t('insights.colExpression') }}</th>
             <th scope="col">{{ t('insights.colPipeline') }}</th>

@@ -66,7 +66,7 @@ const pipelines = computed(() => (manifest.value ? pipelinesUsingModule(manifest
         <h2 class="insights-module__section-title">{{ t('insights.pipelinesUsingModule') }}</h2>
         <p v-if="pipelines.length === 0" class="insights-module__muted">{{ t('insights.noPipelines') }}</p>
         <div v-else class="list__scroll">
-          <KestrelUiTable>
+          <KestrelUiTable class="insights-table">
             <template #head>
               <th scope="col">{{ t('insights.colPipeline') }}</th>
               <th scope="col">{{ t('insights.colSteps') }}</th>
@@ -76,16 +76,20 @@ const pipelines = computed(() => (manifest.value ? pipelinesUsingModule(manifest
               <tr v-for="p in pipelines" :key="p.name">
                 <td>{{ p.name }}</td>
                 <td class="insights-chip-cell">
-                  <span
-                    v-for="s in p.steps"
-                    :key="s.spec"
-                    class="insights-chip"
-                    :class="{ 'insights-chip--highlight': s.module === module.name }"
-                    :title="s.module"
-                  >{{ s.spec }}</span>
+                  <div class="insights-chips">
+                    <span
+                      v-for="s in p.steps"
+                      :key="s.spec"
+                      class="insights-chip"
+                      :class="{ 'insights-chip--highlight': s.module === module.name }"
+                      :title="s.module"
+                    >{{ s.spec }}</span>
+                  </div>
                 </td>
                 <td class="insights-chip-cell">
-                  <span v-for="tr in triggersOf(manifest!, p.name)" :key="`${tr.kind}:${tr.label}`" class="insights-chip" :title="tr.label">{{ tr.label }}</span>
+                  <div class="insights-chips">
+                    <span v-for="tr in triggersOf(manifest!, p.name)" :key="`${tr.kind}:${tr.label}`" class="insights-chip" :title="tr.label">{{ tr.label }}</span>
+                  </div>
                 </td>
               </tr>
             </template>

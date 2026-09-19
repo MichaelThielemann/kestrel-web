@@ -3,7 +3,7 @@
 #{$root} :where(.insights-chip) {
   display: inline-block;
   max-width: 16rem;
-  margin: 0 var(--space-1) var(--space-1) 0;
+  margin: 0;
   padding: 0 var(--space-1);
   overflow: hidden;
   white-space: nowrap;
@@ -38,10 +38,18 @@
   white-space: nowrap;
 }
 
-#{$root} :where(.insights-chip-cell) {
+#{$root} :where(.insights-chips) {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-1);
+}
+
+#{$root} .insights-table td {
+  vertical-align: middle;
+}
+
+#{$root} .insights-table td.insights-chip-cell {
+  vertical-align: top;
 }
 
 #{$root} :where(.insights-badge) {
