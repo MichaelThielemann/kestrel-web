@@ -3,6 +3,9 @@ import type { Workflow } from '#kestrel-admin/types/kestrel'
 
 export interface EditorExpose {
   dirty: boolean
+
+  canSave: boolean
+
   saving: boolean
   canUndo: boolean
   canRedo: boolean

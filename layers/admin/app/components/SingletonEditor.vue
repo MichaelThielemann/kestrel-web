@@ -7,8 +7,10 @@ defineProps<{ collection: string; title: string; localeParam?: string }>()
 const { t } = useT()
 
 const EDITOR_FORM_ID = 'singleton-editor'
+const NO_CHANGES_ID = 'singleton-editor-no-changes'
 const editorRef = ref<EditorExpose | null>(null)
 const saving = computed(() => editorRef.value?.saving ?? false)
+const canSave = computed(() => editorRef.value?.canSave ?? false)
 
 useUnsavedGuard(() => editorRef.value?.dirty ?? false, () => t('editor.discardConfirm'))
 </script>
@@ -20,7 +22,18 @@ useUnsavedGuard(() => editorRef.value?.dirty ?? false, () => t('editor.discardCo
       <div class="singleton__actions">
         <KestrelUiButton type="button" variant="ghost" size="sm" icon="undo" :disabled="saving || !editorRef?.canUndo" :title="t('history.undo')" :aria-label="t('history.undo')" @click="editorRef?.undo()" />
         <KestrelUiButton type="button" variant="ghost" size="sm" icon="redo" :disabled="saving || !editorRef?.canRedo" :title="t('history.redo')" :aria-label="t('history.redo')" @click="editorRef?.redo()" />
-        <KestrelUiButton type="submit" :form="EDITOR_FORM_ID" variant="primary" size="sm" icon="check" :loading="saving">{{ t('common.save') }}</KestrelUiButton>
+        <KestrelUiButton
+          type="submit"
+          :form="EDITOR_FORM_ID"
+          variant="primary"
+          size="sm"
+          icon="check"
+          :loading="saving"
+          :disabled="!canSave"
+          :title="canSave ? undefined : t('editor.noChangesToSave')"
+          :aria-describedby="canSave ? undefined : NO_CHANGES_ID"
+        >{{ t('common.save') }}</KestrelUiButton>
+        <span :id="NO_CHANGES_ID" class="singleton__hint">{{ t('editor.noChangesToSave') }}</span>
         <KestrelEditorStatus class="singleton__ampel" :dirty="editorRef?.dirty ?? false" :saving="saving" :workflow="editorRef?.workflow" :status="editorRef?.savedStatus" />
       </div>
     </div>
@@ -36,6 +49,7 @@ useUnsavedGuard(() => editorRef.value?.dirty ?? false, () => t('editor.discardCo
 </template>
 
 <style lang="scss">
+@use '../assets/scss/mixins';
 
 .singleton {
   display: flex;
@@ -66,6 +80,9 @@ useUnsavedGuard(() => editorRef.value?.dirty ?? false, () => t('editor.discardCo
     margin-inline-start: var(--space-1);
     padding-inline-start: var(--space-3);
     border-inline-start: 1px solid var(--color-border);
+  }
+  &__hint {
+    @include mixins.sr-only;
   }
 }
 </style>

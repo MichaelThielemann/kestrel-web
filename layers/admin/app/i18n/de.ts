@@ -56,6 +56,7 @@ export const de: Catalog = {
   'editor.fixBlockContent': 'Einige Block-Inhalte sind ungültig. Prüfe die markierten Block-Felder.',
   'editor.saveConflict': 'Das steht im Konflikt mit einem vorhandenen Datensatz.',
   'editor.saveFailed': 'Speichern fehlgeschlagen.',
+  'editor.noChangesToSave': 'Keine Änderungen zu speichern',
   'editor.unknownFieldSent': 'Das Formular hat ein Feld gesendet, das der Server nicht kennt.',
   'editor.retryable': 'Vorübergehend nicht verfügbar, bitte erneut versuchen.',
   'editor.retryableIn': 'Vorübergehend nicht verfügbar, bitte in {seconds}s erneut versuchen.',

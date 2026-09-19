@@ -139,10 +139,45 @@ describe('CollectionEditor', () => {
 
     const wrapper = await mountSuspended(CollectionEditor, { props: { collection: 'redirects', id: 'single' } })
 
+    await wrapper.get('textarea').setValue('[{"from":"/a","to":"/b"}]')
     await wrapper.get('form').trigger('submit')
     await vi.waitFor(() => expect(receivedBody).not.toBeNull())
 
-    expect(receivedBody).toEqual({ rules: [] })
+    expect(receivedBody).toEqual({ rules: [{ from: '/a', to: '/b' }] })
     expect(receivedBody).not.toHaveProperty('locale')
+  })
+
+  it('offers no save while a stored record is unchanged, and says why', async () => {
+    unregisterAll.push(registerEndpoint('/api/admin/widgets/w1', { method: 'GET', handler: () => baseRecord() }))
+
+    let writes = 0
+    unregisterAll.push(registerEndpoint('/api/widgets/w1', {
+      method: 'PATCH',
+      handler: () => {
+        writes += 1
+        return { document: baseRecord(), delivery: [] }
+      },
+    }))
+
+    const wrapper = await mountSuspended(CollectionEditor, { props: { collection: 'widgets', id: 'w1', actions: true } })
+
+    const save = wrapper.get('button[type="submit"]')
+    expect(save.attributes('disabled')).toBeDefined()
+    expect(save.attributes('title')).toBe(en['editor.noChangesToSave'])
+    const describedBy = save.attributes('aria-describedby') ?? ''
+    expect(wrapper.get(`#${describedBy}`).text()).toBe(en['editor.noChangesToSave'])
+
+    await wrapper.get('form').trigger('submit')
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(writes).toBe(0)
+
+    await wrapper.get('input').setValue('New title')
+    expect(wrapper.get('button[type="submit"]').attributes('disabled')).toBeUndefined()
+  })
+
+  it('offers a save for a record that does not exist yet, even before it is edited', async () => {
+    const wrapper = await mountSuspended(CollectionEditor, { props: { collection: 'widgets', id: 'new', actions: true } })
+
+    expect(wrapper.get('button[type="submit"]').attributes('disabled')).toBeUndefined()
   })
 })

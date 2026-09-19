@@ -78,6 +78,8 @@ export function useEditForm(opts: UseEditFormOptions) {
 
   const blocksField = computed(() => (blocksEnabled.value ? BLOCKS_FIELD : ''))
 
+  const stored = ref(false)
+
   const dirty = computed(() => !valuesEqual(values, baseline.value))
   const dirtyKeys = computed(() => fieldKeys().filter((k) => !valuesEqual(values[k], baseline.value[k])))
 
@@ -146,6 +148,8 @@ export function useEditForm(opts: UseEditFormOptions) {
   )
   const showCopyTranslation = computed(() => missingTranslation.value && !copied.value && copySourceLocales.value.length > 0)
 
+  const canSave = computed(() => !stored.value || missingTranslation.value || dirty.value)
+
   function fieldKeys() {
     return Object.keys(fields.value)
   }
@@ -153,6 +157,7 @@ export function useEditForm(opts: UseEditFormOptions) {
   let inFlightSnapshot: Record<string, unknown> | null = null
 
   function rebaseline(source: Record<string, unknown> | null) {
+    stored.value = source !== null
     const next = initialValues(fields.value)
     if (source) {
       for (const k of fieldKeys()) {
@@ -441,6 +446,7 @@ export function useEditForm(opts: UseEditFormOptions) {
     following,
     formError,
     dirty,
+    canSave,
     savedStatus,
     saving,
     ready,

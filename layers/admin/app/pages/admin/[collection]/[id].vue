@@ -42,8 +42,10 @@ const plural = computed(() => resolveLocalized(def.value?.label?.plural, lang.va
 const newTitle = computed(() => resolveLocalized(def.value?.label?.new, lang.value) ?? t('editor.newRecord', { collection: singular.value }))
 
 const EDITOR_FORM_ID = 'record-editor'
+const NO_CHANGES_ID = 'record-editor-no-changes'
 const editorRef = ref<EditorExpose | null>(null)
 const saving = computed(() => editorRef.value?.saving ?? false)
+const canSave = computed(() => editorRef.value?.canSave ?? false)
 
 const recordName = computed(() => editorRef.value?.recordTitle?.trim() || editorRef.value?.primaryTitle?.trim() || '')
 const hasRecordTitle = computed(() => id !== 'new' && recordName.value !== '')
@@ -168,7 +170,18 @@ async function confirmDeleteTranslation() {
         <KestrelUiButton type="button" variant="ghost" size="sm" icon="redo" :disabled="saving || !editorRef?.canRedo" :title="t('history.redo')" :aria-label="t('history.redo')" @click="editorRef?.redo()" />
         <KestrelUiButton type="button" variant="secondary" size="sm" icon="x" :disabled="saving" @click="toList">{{ t('common.cancel') }}</KestrelUiButton>
         <KestrelUiButton v-if="id !== 'new'" variant="danger" size="sm" icon="trash" :loading="deleting" @click="onDelete">{{ t('common.delete') }}</KestrelUiButton>
-        <KestrelUiButton type="submit" :form="EDITOR_FORM_ID" variant="primary" size="sm" icon="check" :loading="saving">{{ t('common.save') }}</KestrelUiButton>
+        <KestrelUiButton
+          type="submit"
+          :form="EDITOR_FORM_ID"
+          variant="primary"
+          size="sm"
+          icon="check"
+          :loading="saving"
+          :disabled="!canSave"
+          :title="canSave ? undefined : t('editor.noChangesToSave')"
+          :aria-describedby="canSave ? undefined : NO_CHANGES_ID"
+        >{{ t('common.save') }}</KestrelUiButton>
+        <span :id="NO_CHANGES_ID" class="record__hint">{{ t('editor.noChangesToSave') }}</span>
 
         <KestrelUiButton v-if="workflow && canPublish && !published" type="button" variant="secondary" size="sm" icon="upload" :disabled="saving || publishBlocked" :title="publishBlocked ? t('editor.publishNeedsTranslation') : undefined" @click="editorRef?.setStatus(workflow.live)">{{ t('common.publish') }}</KestrelUiButton>
         <KestrelUiButton v-else-if="workflow && canPublish" type="button" variant="secondary" size="sm" icon="undo" :disabled="saving" @click="editorRef?.setStatus(workflow.draft)">{{ t('common.unpublish') }}</KestrelUiButton>
@@ -216,6 +229,8 @@ async function confirmDeleteTranslation() {
 </template>
 
 <style lang="scss">
+@use '../../../assets/scss/mixins';
+
 .record {
   display: flex;
   flex-direction: column;
@@ -258,6 +273,10 @@ async function confirmDeleteTranslation() {
     margin-inline-start: var(--space-1);
     padding-inline-start: var(--space-3);
     border-inline-start: 1px solid var(--color-border);
+  }
+
+  &__hint {
+    @include mixins.sr-only;
   }
 
   &__translation-note {

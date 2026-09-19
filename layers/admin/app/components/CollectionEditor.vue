@@ -15,9 +15,11 @@ const { t } = useT()
 const f = useEditForm({ collection: props.collection, id: props.id, locale: props.localeParam })
 
 const {
-  formError, saving, submit, dirty, editorType, workflow, savedStatus, undo, redo, canUndo, canRedo, pageLike, delivery, deliveryLoading,
+  formError, saving, submit, dirty, canSave, editorType, workflow, savedStatus, undo, redo, canUndo, canRedo, pageLike, delivery, deliveryLoading,
   locale, showCopyTranslation, copySourceLocales, copySourceDefault, blockErrors, revealError,
 } = f
+
+const noChangesId = useId()
 
 const { primary: primaryLocale } = useContentLocales()
 
@@ -51,7 +53,7 @@ provide(editorFormContextKey, {
 })
 
 defineExpose({
-  dirty, saving, undo, redo, canUndo, canRedo, workflow, status, savedStatus, setStatus,
+  dirty, canSave, saving, undo, redo, canUndo, canRedo, workflow, status, savedStatus, setStatus,
   recordTitle: heading,
   missingTranslation: f.missingTranslation, primaryTitle: f.primaryTitle, primaryLocale,
   locale: f.locale, translations: f.translations,
@@ -67,6 +69,7 @@ await f.ready
 const bodyComponent = computed(() => resolveCollectionEditor(editorType.value))
 
 async function onSave() {
+  if (!canSave.value || saving.value) return
   const r = await submit()
   if (r.ok) emit('saved', r.record)
 }
@@ -110,13 +113,23 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
     <KestrelEditorUnsupported v-else :editor="editorType" />
 
     <div v-if="actions" class="editor__actions">
-      <KestrelUiButton type="submit" variant="primary" icon="check" :loading="saving">{{ t('common.save') }}</KestrelUiButton>
+      <KestrelUiButton
+        type="submit"
+        variant="primary"
+        icon="check"
+        :loading="saving"
+        :disabled="!canSave"
+        :title="canSave ? undefined : t('editor.noChangesToSave')"
+        :aria-describedby="canSave ? undefined : noChangesId"
+      >{{ t('common.save') }}</KestrelUiButton>
       <KestrelUiButton type="button" variant="secondary" icon="x" :disabled="saving" @click="emit('cancel')">{{ t('common.cancel') }}</KestrelUiButton>
+      <span :id="noChangesId" class="editor__hint">{{ t('editor.noChangesToSave') }}</span>
     </div>
   </form>
 </template>
 
 <style lang="scss">
+@use '../assets/scss/mixins';
 
 .editor {
   display: flex;
@@ -160,6 +173,9 @@ onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
   &__actions {
     display: flex;
     gap: var(--space-3);
+  }
+  &__hint {
+    @include mixins.sr-only;
   }
 }
 </style>

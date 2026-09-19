@@ -46,8 +46,8 @@
   `InsightsConfigVariable`, so an older backend renders an em dash instead of failing. Modules without
   a config variable sit behind a collapsed disclosure. The module page's config table
   (`InsightsConfigVariables.vue`) is the same component and therefore gained the Value column too.
-  `Modules` stays the tab a bare `/admin/insights` lands on: the strip reads `TAB_IDS`, the landing tab
-  the separate `DEFAULT_TAB`, so no `?tab=` deep link changed.
+  A bare `/admin/insights` lands on the first tab of the strip (`DEFAULT_TAB` is `TAB_IDS[0]`), which
+  is now `Config`; `?tab=` deep links are unchanged.
 - System → Images lists the variants that gave up (`SystemImagesFailures.vue`): the total plus the most
   recent ones with media item, size, attempts, error and time (relative, absolute in `title`), from
   `readStatus`'s new `failed: { variants, recent }` of `@michaelthielemann/kestrel-images-default` 5.6.0
@@ -187,6 +187,11 @@
 
 ### Changed
 
+- The page builder's left pane reads top to bottom as page entry, the "Block structure" label, then the
+  blocks, and the keyboard walks it in that order. The label's icon shares the column of the drag
+  handles and the page entry's icon, and all three labels share one text inset, so nothing in the pane
+  hangs out to the left any more.
+
 - Admin CSS isolation, verified on the packed layer (`pnpm pack` installed into a consumer app, every
   admin view diffed against the playground in both themes for ~90 computed properties per element):
   - `_base.scss` pins the whole inherited set on the admin root, not just font and colour — weight,
@@ -288,6 +293,28 @@
 
 ### Fixed
 
+- Insights and System could not be scrolled once a tab's content was taller than the viewport: the
+  scroll container class of the full-height panes was declared inside `CollectionList.vue`'s component
+  stylesheet, which the bundler only loads together with that component. Every other view — all six
+  Insights tabs, the module detail page, the System tabs — applied the class without the rule, so the
+  container stayed `overflow: visible` and the pane's `overflow: hidden` cut the content off. The rule
+  moved to `assets/scss/_base.scss` as the `u-scroll` utility next to `u-stack`/`u-measure`, and
+  `scope.test.ts` now fails on a `u-*` class a template uses that the global stylesheet does not
+  declare, or on a `u-*` rule declared inside a component.
+- The version-history tree gave two different side branches the same number and colour whenever the
+  second one reused a freed lane. `layoutRevisions` now numbers branches, not lanes: a new number is
+  handed out when a row claims a free lane, it travels with the chain, and the colour follows the
+  branch, so lane reuse stays invisible in the names and colours. `merges` and `through` carry
+  `{ lane, colour }` instead of a bare lane index.
+- The merge arms of the history tree approached a node from above and ended behind it. They now run
+  down their lane, turn once and arrive horizontally at the node's vertical centre.
+- The selected row of the version history drew its accent as an inset box shadow of another width than
+  the selected block row's border. Both now use the shared `selected-accent` mixin — same token, width,
+  squared leading corners and background.
+- Saving an unchanged record did nothing but write a new revision. Save is disabled and every submit
+  path is a no-op while a stored record is unchanged, for collection records and singletons, with
+  `title`/`aria-describedby` "No changes to save". A record that does not exist yet and a locale whose
+  translation is still missing stay saveable; publishing and unpublishing are unaffected.
 - `UserEditDialog.vue`: the "Add role" button sat in a row next to the whole role-name field, so the
   field's label pushed it below the input it belongs to. It now sits inside the field's control row
   and is centred against the input.
