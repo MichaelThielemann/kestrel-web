@@ -11,7 +11,7 @@ Everything else is optional.
 | | |
 |---|---|
 | §1 Extend the layer | the dependency and the one line of `nuxt.config.ts` |
-| §2 Define your content model | collections, fields, locales, the `features` list |
+| §2 Define your content model | collections, fields, locales, the `features` list, every model-level option in full |
 | §3 Configure the backend | `kestrel.config.ts`, the module-config builder, environment variables |
 | §3.5 Collections in the admin | labels, field layout, placement, workflow |
 | §4 Write the pipelines | the preset, every feature and what it adds, user administration |
@@ -20,6 +20,9 @@ Everything else is optional.
 | §7 Run it | first login, where data lives, deploying, IP allowlists, health probes |
 | §8–§10 Optional | static delivery, redirects, content migrations |
 | §11 Upgrading | moving to a newer kestrel-web |
+| [`deployment.md`](deployment.md) | Running the build in production: environment, persistent volumes, systemd and container examples, reverse proxy, backups, restarts |
+| [`field-types.md`](field-types.md) | How a field type reaches the editor and the schema, and how far `field("myType")` gets |
+| [`admin-i18n.md`](admin-i18n.md) | The admin UI's own language, and how `Localized` labels resolve against it |
 
 ## 1. Extend the layer
 
@@ -173,6 +176,42 @@ visitor. `[...slug].vue` checks each resolved page's `_locales` map, and if any 
 inherited from `defaultLocale` rather than owned by the requested locale, it applies `untranslatedPages`:
 `"redirect"` sends a 302 to the primary-locale page, `"notFound"` throws a 404. Only pages with
 `_translations[locale] === true` are ever offered by the language switcher.
+
+### Model-level options in full
+
+`shared/model.ts` is an ordinary module, and its exports are read by name. `contentModel` and
+`features` travel through `kestrel.config.ts`; the rest is imported directly from `~~/shared/model` by
+`layers/public` (five files) and by `layers/core`'s `GET /api/admin/schema` route — the one place the
+server reads your model to hand it to the admin, which never imports `~~/shared/*` itself. No
+interface constrains the module, and **none of these has a default**: omit one and the files that
+import it fail to typecheck, naming the missing export. Copy the whole set from
+`playground/shared/model.ts`.
+
+| export | type | default | read by | effect |
+|---|---|---|---|---|
+| `locales` | `readonly string[]` | none | `contentModel`; `[...slug].vue`, `default.vue`, `useSite.ts`; the schema route | the locales a document can be translated into, the language switcher's candidates, and `locales.all` in the admin schema |
+| `defaultLocale` | `string` | none | as above, plus `error.vue` and `_preview/[key].vue` | the primary locale: the one that is not URL-prefixed, the redirect target for an untranslated page, and `locales.primary` in the admin schema |
+| `prefixPrimary` | `boolean` | none | `[...slug].vue`, `default.vue`, `error.vue`, `useSite.ts`; the schema route | `false` → the primary locale's URLs carry no locale segment (`/about`, while `en` is `/en/about`) and the first path segment is only parsed as a locale when it is not the primary one. `true` prefixes every locale. The admin reads it back from `GET /api/admin/schema` for the slug field's URL preview and the canonical-URL field, so editor and site agree |
+| `untranslatedPages` | `"notFound" \| "redirect"` | none | `[...slug].vue` only | what happens when a page resolves but the requested locale owns none of its localized fields: `"redirect"` 302s to the primary-locale path, `"notFound"` throws 404. See **Untranslated pages** above |
+| `previewBanner` | `boolean` | none | `_preview/[key].vue` only | `true` shows the "unsaved changes, not published" banner on `/_preview/<key>`. It is suppressed inside the editor's own iframe either way (`?embed=1` with a parent window); `false` hides it everywhere |
+| `homeSlug` | `string` | none | `[...slug].vue` (via `primaryPathOf`) | the slug whose page is the site root: `primaryPathOf` turns that record's slug into `/` instead of `/home` when it builds a locale or redirect path. The **backend** side of this is `definePreset({ homeSlug })` (§4), which defaults to `"home"` and is interpolated into `resolvePage`'s `site.resolve:pages?home=…`. Nothing cross-checks the two — change one and you must pass the same string to `definePreset` |
+| `contentTypes` | `Record<string, ContentType>` | none | `kestrel.config.ts` (`definePreset`), `shared/collections-ui.ts`, `[...slug].vue` | the collections: their pipelines, routes, permissions and admin UI (§2 above) |
+| `contentModel` | `{ locales, defaultLocale, types }` | none | `presetModuleConfig({ model })` | the `content-default` and `media-default` module config |
+| `features` | `readonly Feature[]` | none | `presetModuleConfig`, `definePreset`; the schema route | which modules, pipelines, triggers and admin system tabs exist (§4) |
+
+The type-only exports are for your own code: `NavigationItem` is the only one a layer uses
+(`layers/public`'s `site-settings.ts` and `default.vue` type the `settings.navigation` field with it),
+`UntranslatedPagesPolicy`, `Locale`, `ContentFieldType`, `ContentField`, `ContentType` and
+`ContentTypeName` are consumer conveniences.
+
+`layout` is not a module-level export but the reserved content **field** `layout: { type: "text" }`
+(never `localized`), and it belongs to the same set of knobs. Add it to a page-like type and the page
+builder shows a select of `#kestrel/layouts` — every layer's and your own `app/layouts/*.vue` minus
+the admin shell, sorted, with `default` represented by an empty value. The select stays hidden while
+the build offers only `default`. An empty or missing value renders the `default` layout
+(`resolvePageLayout`); a stored name the build no longer has is kept, shown in the select as an extra
+option with an inline error, and renders as `default` on the site and in the preview. See **Layouts**
+above and in `docs/architecture.md`.
 
 ## 3. Configure the backend
 
@@ -730,7 +769,8 @@ admin layer's private entry.
 | `repeaterField` | `Record<string, unknown>[]` | `fields` (nested factories), `fieldLayout`, `min`, `max` |
 
 Every factory also takes `required`, `unique`, `label` (a string or a `{ locale: string }` map),
-`default` and `condition`. For a field type you registered yourself, use `field("myType", { … })`.
+`default` and `condition`. `field("myType", { … })` declares a prop of a type of your own — what that
+gets you, and what it does not, is [`docs/field-types.md`](field-types.md).
 
 `defineBlock({ label, slots, icon, image })` is optional; without it the block gets no label, no slots
 and no icon. `image` is a picker thumbnail shown in the "Add block" dialog in place of the icon. The
@@ -925,7 +965,7 @@ the `<KestrelImage>` prop and fallback rules in full.
 pnpm install
 pnpm dev
 ```
-Nuxt boots the embedded Kestrel backend on first request (`layers/core`'s Nitro plugin) and serves it
+`layers/core`'s Nitro plugin boots the embedded Kestrel backend as the server starts and serves it
 under `/api`; the admin UI is at `/admin`.
 
 **First login**: `kestrel.config.ts`'s `authn-multi` module config carries a `bootstrap` user (see
@@ -943,7 +983,9 @@ the directory that holds `data/` on the target (default: the process cwd); `here
 `KESTREL_ADMIN_PASSWORD_HASH` and, for an S3 blobstore, the `KESTREL_S3_*` variables (§3) — a missing
 one throws while the config loads, naming it. Set `NUXT_PUBLIC_SITE_URL` to the site's real origin so
 the editor's preview links, canonical URLs and `llms.txt` are absolute. Static delivery (§8) requires
-this production build; it cannot run against `nuxt dev`.
+this production build; it cannot run against `nuxt dev`. The full operator's view — every environment
+variable, what has to survive a redeploy, a systemd unit, a Containerfile, reverse-proxy settings,
+backups and why there is no rolling restart — is [`docs/deployment.md`](deployment.md).
 
 **Restricting access by IP**: two allowlists, empty by default (= open), read from the runtime config
 `kestrel.access` — `NUXT_KESTREL_ACCESS_ADMIN` and `NUXT_KESTREL_ACCESS_SITE`, each a comma-separated list of
