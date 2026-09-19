@@ -61,16 +61,16 @@ async function submit() {
         <KestrelUiCheckboxGroup v-model="roles" :options="roleOptions" :disabled="busy" />
       </KestrelUiField>
 
-      <div class="user-edit__add-role">
-        <KestrelUiField :label="t('users.roleName')">
-          <template #default="f">
+      <KestrelUiField :label="t('users.roleName')">
+        <template #default="f">
+          <div class="user-edit__add-role">
             <KestrelUiTextInput v-model="newRole" :disabled="busy" v-bind="f" @keydown.enter.prevent="addRole" />
-          </template>
-        </KestrelUiField>
-        <KestrelUiButton type="button" variant="secondary" size="sm" icon="plus" :disabled="busy || !canAddRole" @click="addRole">
-          {{ t('users.roleAdd') }}
-        </KestrelUiButton>
-      </div>
+            <KestrelUiButton type="button" variant="secondary" size="sm" icon="plus" :disabled="busy || !canAddRole" @click="addRole">
+              {{ t('users.roleAdd') }}
+            </KestrelUiButton>
+          </div>
+        </template>
+      </KestrelUiField>
 
       <KestrelUiField :label="t('users.accountActive')" :hint="self ? t('users.selfActiveHint') : undefined">
         <template #default="f">
@@ -104,8 +104,17 @@ async function submit() {
 
   &__add-role {
     display: flex;
-    align-items: flex-end;
+    align-items: center;
     gap: var(--space-2);
+
+    .ui-input-wrap {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    .ui-button {
+      flex: 0 0 auto;
+    }
   }
 }
 </style>
