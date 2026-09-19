@@ -5,12 +5,13 @@ import type { ImagesStatus as ImagesStatusDoc, Job as ImagesJobDoc } from '@mich
 import type { MediaItem as MediaItemDoc, Provenance } from '@michaelthielemann/kestrel-media-default/impl'
 import type { PublishStatus } from '@michaelthielemann/kestrel-delivery-static/impl'
 import type { Point as ReplicationPointDoc, Replication, Status as ReplicationStatusDoc } from '@michaelthielemann/kestrel-replication-sqlite/impl'
-import type { Revision, RevisionAuthor, RevisionKind, RevisionPage, RevisionSummary } from '@michaelthielemann/kestrel-contracts/revisions'
+import type { RestoreReport, Revision, RevisionAuthor, RevisionKind, RevisionPage, RevisionSummary } from '@michaelthielemann/kestrel-contracts/revisions'
 import type { Feature } from '#kestrel/pipelines'
 import type { SerializedCollection } from './kestrel'
 
 export type { Provenance }
-export type { Revision, RevisionAuthor, RevisionKind, RevisionPage, RevisionSummary }
+export type { RestoreReport, Revision, RevisionAuthor, RevisionKind, RevisionPage, RevisionSummary }
+
 
 type OkValue<T> = T extends Ok<infer V> ? V : never
 
@@ -153,6 +154,14 @@ export type PublishStatusEntry = Pick<PublishStatus, 'locale' | 'state' | 'path'
 export type DeliveryEntry = Omit<PublishStatusEntry, 'updatedAt'>
 
 export interface SaveResponse<T> { document: T; delivery: DeliveryEntry[] }
+
+export interface RevisionDetail extends Revision {
+  restore?: RestoreReport
+}
+
+export interface RevisionRestoreResponse extends SaveResponse<Document> {
+  restore?: RestoreReport
+}
 
 export interface PublishAllReport {
   documents: number

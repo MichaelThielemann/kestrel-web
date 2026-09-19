@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { usePageHistory } from '../composables/usePageHistory'
+import { fieldNames, hasRestoreGap } from '../utils/revision-restore'
 
 const props = defineProps<{
   open: boolean
@@ -10,6 +11,7 @@ const props = defineProps<{
   dirty: boolean
   values: Record<string, unknown>
   fieldKeys: readonly string[]
+  fieldLabels: Record<string, string>
   blocksField: string
 }>()
 const emit = defineEmits<{ 'update:open': [boolean]; restored: [] }>()
@@ -17,12 +19,19 @@ const emit = defineEmits<{ 'update:open': [boolean]; restored: [] }>()
 const { t } = useT()
 
 const locale = computed(() => props.locale)
+const fieldLabels = computed(() => props.fieldLabels)
 const history = usePageHistory({
   collection: props.collection,
   id: props.id,
   locale,
+  fieldLabels,
   onRestored: () => emit('restored'),
 })
+
+const report = computed(() => history.detail.value?.restore)
+const droppedNames = computed(() => fieldNames(report.value?.dropped, props.fieldLabels))
+const missingNames = computed(() => fieldNames(report.value?.missing, props.fieldLabels))
+const showGap = computed(() => hasRestoreGap(report.value))
 
 const confirmOpen = ref(false)
 
@@ -87,6 +96,8 @@ async function onLabel(label: string | null): Promise<void> {
           :values="values"
           :field-keys="fieldKeys"
           :blocks-field="blocksField"
+          :dropped-fields="droppedNames"
+          :missing-fields="missingNames"
           @restore="confirmOpen = true"
           @label="onLabel"
         />
@@ -100,6 +111,10 @@ async function onLabel(label: string | null): Promise<void> {
       @update:open="confirmOpen = $event"
     >
       <p>{{ t('revisions.confirmBody') }}</p>
+      <KestrelUiAlert v-if="showGap" variant="warning">
+        <p v-if="droppedNames.length" class="page-history__gap">{{ t('revisions.droppedFields', { fields: droppedNames.join(', ') }) }}</p>
+        <p v-if="missingNames.length" class="page-history__gap">{{ t('revisions.missingFields', { fields: missingNames.join(', ') }) }}</p>
+      </KestrelUiAlert>
       <KestrelUiAlert v-if="dirty" variant="warning">{{ t('revisions.restoreDirtyWarning') }}</KestrelUiAlert>
       <KestrelUiAlert v-if="history.error.value" variant="error">{{ history.error.value }}</KestrelUiAlert>
       <template #footer>
@@ -131,6 +146,9 @@ async function onLabel(label: string | null): Promise<void> {
   overflow-y: auto;
   display: flex;
   flex-direction: column;
+}
+.page-history__gap {
+  margin: 0;
 }
 .page-history__muted {
   margin: 0;

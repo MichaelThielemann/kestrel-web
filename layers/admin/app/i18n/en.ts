@@ -278,6 +278,10 @@ export const en: Catalog = {
   'revisions.confirmTitle': 'Restore this version?',
   'revisions.confirmBody': 'The record is saved with the content of this version. Nothing is deleted: the history branches here.',
   'revisions.restored': 'Version restored',
+  'revisions.gapTitle': 'This version does not fit the current fields',
+  'revisions.droppedFields': 'Left out, the record no longer has these fields: {fields}',
+  'revisions.missingFields': 'Not covered, these fields came later and keep their current value: {fields}',
+  'revisions.restoredWithoutFields': 'Version restored without {fields}',
   'revisions.alreadyHead': 'This is the current version.',
 
   'blocks.empty': 'No blocks yet.',

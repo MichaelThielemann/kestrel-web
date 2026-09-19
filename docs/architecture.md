@@ -1051,7 +1051,11 @@ fields on every save, per collection, document and locale. The `revisions` featu
   `revisions` is last in `featureOrder` — the tail it copies has to be complete. A restore is
   therefore exactly a save: it validates, sanitizes, checks references, records its own revision,
   re-indexes and re-publishes, so a restored published page goes live again and a restored draft does
-  not.
+  not. `revisions.reportRestore` sits between the tail and the event and puts what the restore had to
+  leave out on the response as `restore: { revisionId, dropped, missing }` — `dropped` are the
+  snapshot's fields the model no longer has (the restore leaves them out instead of failing),
+  `missing` the fields added since, which keep their current value. `GET …/revisions/:revisionId`
+  carries the same analysis next to the snapshot.
 - `pruneRevisions` (`revisions.prune`, cron `15 3 * * *`) applies retention across the whole store.
 - `presetModuleConfig` passes `keep`, `maxSnapshotBytes`, `pruneOnWrite` and `maxLimit` through from
   `options.revisions`, and derives `statusField`/`liveStatuses` from the collections' workflow
@@ -1074,6 +1078,11 @@ with a roving tabindex, Arrow/Home/End/Enter, a visually hidden per-row sentence
 below 30rem the lanes collapse into indentation with a coloured left border. Colour is never the only
 carrier: every row names its branch, its origin and its markers in words. No graph library is involved —
 a git graph is a list with lanes and has to scroll, focus and read out like a list.
+
+`utils/revision-restore.ts` turns the restore report and a validator's `details` into lines that name
+a field by its label: the details pane shows the gap as a warning **before** the restore, the
+confirmation repeats it, the success toast names what was left out, and a 400 on the restored body
+lists the validator's own problems instead of a generic failure.
 
 `utils/revision-diff.ts` compares the selected snapshot with the editor's current values: the changed
 top-level fields (order-independent, treating `null`/`undefined`/`""`/`[]` as the same absence) and the

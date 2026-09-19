@@ -1,9 +1,10 @@
-import type { Revision, RevisionPage, RevisionSummary } from '#kestrel-admin/types/api'
+import type { RestoreReport, RevisionDetail, RevisionPage, RevisionRestoreResponse, RevisionSummary } from '#kestrel-admin/types/api'
 import { defineAction } from '#kestrel-core/app/utils/actions'
 import { apiRequest } from './steps/api'
 import { dialogConfirm } from './steps/guard'
 import { opsBusy, toastSuccess } from './steps/notify'
 import { dataReload } from './steps/route'
+import { fieldNames, restoreProblems } from '../utils/revision-restore'
 import type { BusyPort, RefreshPort, WithDeps } from './types'
 
 export interface RevisionScope extends WithDeps {
@@ -24,6 +25,7 @@ export interface ReadRevisionInput extends RevisionScope {
 export interface RestoreRevisionInput extends RevisionScope {
   revisionId: string
   confirmed: boolean
+  fieldLabels: Record<string, string>
   ops: BusyPort
   refresh: RefreshPort
 }
@@ -51,10 +53,10 @@ export const loadRevisions = defineAction<LoadRevisionsInput, RevisionPage>({
   ],
 })
 
-export const readRevision = defineAction<ReadRevisionInput, Revision>({
+export const readRevision = defineAction<ReadRevisionInput, RevisionDetail>({
   name: 'readRevision',
   steps: [
-    apiRequest<ReadRevisionInput, Revision, Revision>('api.request:revision', {
+    apiRequest<ReadRevisionInput, RevisionDetail, RevisionDetail>('api.request:revision', {
       call: (ctx) => ({ path: `${base(ctx.input)}/${encodeURIComponent(ctx.input.revisionId)}`, query: { locale: ctx.input.locale } }),
       onSuccess: (ctx, revision) => {
         ctx.result = revision
@@ -64,27 +66,37 @@ export const readRevision = defineAction<ReadRevisionInput, Revision>({
   ],
 })
 
-export const restoreRevision = defineAction<RestoreRevisionInput, undefined>({
+export const restoreRevision = defineAction<RestoreRevisionInput, RestoreReport | null>({
   name: 'restoreRevision',
   steps: [
-    dialogConfirm<RestoreRevisionInput, undefined>((ctx) => ctx.input.confirmed),
-    opsBusy<RestoreRevisionInput, undefined>(true),
-    apiRequest<RestoreRevisionInput, undefined, unknown>('api.request:restore', {
+    dialogConfirm<RestoreRevisionInput, RestoreReport | null>((ctx) => ctx.input.confirmed),
+    opsBusy<RestoreRevisionInput, RestoreReport | null>(true),
+    apiRequest<RestoreRevisionInput, RestoreReport | null, RevisionRestoreResponse>('api.request:restore', {
       call: (ctx) => ({
         path: `${base(ctx.input)}/${encodeURIComponent(ctx.input.revisionId)}/restore`,
         method: 'POST',
         query: { locale: ctx.input.locale },
       }),
-      onSuccess: () => {},
+      onSuccess: (ctx, response) => {
+        ctx.result = response.restore ?? null
+      },
       onError: (ctx, err) => {
-        ctx.input.ops.setError?.(err.code === 'CONFLICT' ? ctx.input.deps.t('revisions.skippedCannotRestore') : err.message)
-        ctx.fail(err.message)
+        const problems = restoreProblems(err.details, ctx.input.fieldLabels)
+        const message = err.code === 'CONFLICT'
+          ? ctx.input.deps.t('revisions.skippedCannotRestore')
+          : [err.message, ...problems].join(' — ')
+        ctx.input.ops.setError?.(message)
+        ctx.fail(message)
       },
     }),
-    dataReload<RestoreRevisionInput, undefined>(),
-    toastSuccess<RestoreRevisionInput, undefined>(() => ({ key: 'revisions.restored' })),
+    dataReload<RestoreRevisionInput, RestoreReport | null>(),
+    toastSuccess<RestoreRevisionInput, RestoreReport | null>((ctx) => {
+      const dropped = ctx.result?.dropped ?? []
+      if (dropped.length === 0) return { key: 'revisions.restored' }
+      return { key: 'revisions.restoredWithoutFields', params: { fields: fieldNames(dropped, ctx.input.fieldLabels).join(', ') } }
+    }),
   ],
-  always: [opsBusy<RestoreRevisionInput, undefined>(false)],
+  always: [opsBusy<RestoreRevisionInput, RestoreReport | null>(false)],
 })
 
 export const labelRevision = defineAction<LabelRevisionInput, RevisionSummary>({

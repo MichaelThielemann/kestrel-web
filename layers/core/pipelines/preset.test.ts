@@ -507,6 +507,7 @@ describe("definePreset revisions feature", () => {
       "authz.require:pages.write",
       "revisions.restore:pages",
       ...stepsOf("updatePage").slice(2, -1),
+      "revisions.reportRestore",
       "events.emit:page.restored",
     ]);
   });

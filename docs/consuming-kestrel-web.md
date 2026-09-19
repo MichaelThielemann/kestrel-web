@@ -558,6 +558,10 @@ as `PATCH /<collection>/:id`, so restoring a published state republishes it and 
 not. The next save after a restore branches the history there; the versions that were newer stay and
 can be restored again, which is how you switch back to the other branch. There are no merges.
 
+A snapshot older than a model change still restores: fields your model no longer has are left out,
+fields it gained keep their current value, and both lists are named in the history — as a warning
+before the restore, in the confirmation, and in the toast afterwards.
+
 Configure exactly one events module: `kestrel-events-inmemory` (default) or, with the `eventsQueue`
 feature, `kestrel-events-queue` — never both; `presetModuleConfig()` (§3) makes that choice from the
 feature list. The `eventsQueue` feature also requires at least one

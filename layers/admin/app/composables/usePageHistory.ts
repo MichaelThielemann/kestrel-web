@@ -1,4 +1,4 @@
-import type { Revision, RevisionSummary } from '#kestrel-admin/types/api'
+import type { RevisionDetail, RevisionSummary } from '#kestrel-admin/types/api'
 import { labelRevision, loadRevisions, readRevision, restoreRevision } from '../actions/revisions'
 import { toastUnexpected } from '../actions/steps/notify'
 import type { ActionDeps, BusyPort } from '../actions/types'
@@ -10,6 +10,7 @@ export interface UsePageHistoryOptions {
   collection: string
   id: string
   locale: Ref<string>
+  fieldLabels: Ref<Record<string, string>>
   onRestored: () => Promise<void> | void
 }
 
@@ -27,7 +28,7 @@ export function usePageHistory(opts: UsePageHistoryOptions) {
   const busy = ref(false)
   const error = ref<string | null>(null)
   const selectedId = ref<string | null>(null)
-  const detail = ref<Revision | null>(null)
+  const detail = ref<RevisionDetail | null>(null)
   const detailLoading = ref(false)
 
   const ops: BusyPort = {
@@ -103,6 +104,7 @@ export function usePageHistory(opts: UsePageHistoryOptions) {
       ...scope(),
       revisionId,
       confirmed: true,
+      fieldLabels: opts.fieldLabels.value,
       ops,
       refresh: async () => {
         await opts.onRestored()

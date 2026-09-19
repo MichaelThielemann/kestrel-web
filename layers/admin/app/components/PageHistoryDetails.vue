@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import type { Revision, RevisionSummary } from '#kestrel-admin/types/api'
+import type { RevisionDetail, RevisionSummary } from '#kestrel-admin/types/api'
 import { humanizeFieldName } from '../utils/humanize'
 import { humanizeSize } from '../utils/library'
 import { diffRevision } from '../utils/revision-diff'
 
 const props = defineProps<{
   summary: RevisionSummary | null
-  detail: Revision | null
+  detail: RevisionDetail | null
   loading: boolean
   busy: boolean
   isHead: boolean
@@ -16,6 +16,8 @@ const props = defineProps<{
   values: Record<string, unknown>
   fieldKeys: readonly string[]
   blocksField: string
+  droppedFields: readonly string[]
+  missingFields: readonly string[]
 }>()
 const emit = defineEmits<{ restore: []; label: [string | null] }>()
 
@@ -65,6 +67,11 @@ function onLabel(): void {
       </dl>
 
       <KestrelUiAlert v-if="summary.skipped" variant="warning">{{ t('revisions.skippedNotice') }}</KestrelUiAlert>
+      <KestrelUiAlert v-if="droppedFields.length || missingFields.length" variant="warning">
+        <template #title>{{ t('revisions.gapTitle') }}</template>
+        <p v-if="droppedFields.length" class="history-details__gap">{{ t('revisions.droppedFields', { fields: droppedFields.join(', ') }) }}</p>
+        <p v-if="missingFields.length" class="history-details__gap">{{ t('revisions.missingFields', { fields: missingFields.join(', ') }) }}</p>
+      </KestrelUiAlert>
 
       <section class="history-details__section">
         <KestrelSectionLabel :label="t('revisions.diffHeading')" />
@@ -150,6 +157,9 @@ function onLabel(): void {
   margin-top: auto;
   border-top: 1px solid var(--color-border);
   padding-top: var(--space-3);
+}
+.history-details__gap {
+  margin: 0;
 }
 .history-details__muted {
   margin: 0;

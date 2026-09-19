@@ -31,7 +31,10 @@
   (Arrow/Home/End/Enter, roving tabindex) that names every marker in words as well as colour and
   collapses to indentation at phone width, with paged loading. The details pane shows time, author,
   origin, status, size, a field and block diff against the current editor state, the version name
-  editor and "Restore this version" behind a confirmation that warns about unsaved changes.
+  editor and "Restore this version" behind a confirmation that warns about unsaved changes. A version
+  older than a model change is restored anyway: the fields the model no longer has are named as "left
+  out" and the ones it gained since as "not covered", before the restore, in the confirmation and in
+  the toast, and a validation failure on the restored body lists the validator's own problems.
 - Insights gains a first tab, "Config" (`InsightsConfig.vue`, `?tab=config`): every config variable of
   every module, grouped by module, with path, type, required flag, effective value, default and
   set/default/missing status, a filter over module name, path and visible value, and a link from each

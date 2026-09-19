@@ -1,3 +1,4 @@
+import type { ApiErrorDetails } from '#kestrel-admin/types/api'
 import { describe, expect, it, vi } from 'vitest'
 import { boundaryCast } from '#kestrel/cast'
 import { runAction } from '#kestrel-core/app/utils/actions'
@@ -6,12 +7,12 @@ import type { ActionDeps, ApiRequestOptions, BusyPort } from './types'
 
 interface Call { path: string, method: string, body?: unknown, query?: unknown }
 
-const CODE_OF: Record<number, string> = { 404: 'NOT_FOUND', 409: 'CONFLICT', 500: 'INTERNAL' }
+const CODE_OF: Record<number, string> = { 400: 'VALIDATION', 404: 'NOT_FOUND', 409: 'CONFLICT', 500: 'INTERNAL' }
 
-const apiError = (status: number, message: string) => Object.assign(new Error(message), {
+const apiError = (status: number, message: string, details?: ApiErrorDetails) => Object.assign(new Error(message), {
   status,
   name: 'ApiError',
-  data: { error: message, code: CODE_OF[status] ?? 'INTERNAL', retryable: false },
+  data: { error: message, code: CODE_OF[status] ?? 'INTERNAL', retryable: false, ...(details ? { details } : {}) },
 })
 
 function fakeDeps(responses: Array<unknown | Error> = []) {
@@ -22,7 +23,7 @@ function fakeDeps(responses: Array<unknown | Error> = []) {
     return next instanceof Error ? Promise.reject(next) : Promise.resolve(boundaryCast<T>(next, 'json'))
   }
   const toast = { success: vi.fn(), error: vi.fn() }
-  const t = vi.fn((key: string) => key)
+  const t = vi.fn((key: string, params?: Record<string, unknown>) => (params ? `${key}:${JSON.stringify(params)}` : key))
   const deps: ActionDeps = { api, t, toast }
   return { deps, calls, toast }
 }
@@ -39,6 +40,7 @@ function fakeOps() {
 }
 
 const scope = { collection: 'pages', id: 'p 1', locale: 'de' }
+const LABELS = { title: 'Title', teaser: 'Teaser' }
 
 describe('loadRevisions', () => {
   it('asks for one page of the collection history in the editor locale', async () => {
@@ -72,18 +74,28 @@ describe('restoreRevision', () => {
     const { deps, calls, toast } = fakeDeps([{ document: { id: 'p1' }, delivery: [] }])
     const { ops } = fakeOps()
     const refresh = vi.fn()
-    const result = await runAction(restoreRevision, { deps, ...scope, revisionId: 'r1', confirmed: true, ops, refresh })
+    const result = await runAction(restoreRevision, { deps, ...scope, revisionId: 'r1', confirmed: true, fieldLabels: LABELS, ops, refresh })
 
-    expect(result.ok).toBe(true)
+    expect(result).toEqual({ ok: true, result: null })
     expect(calls[0]).toEqual({ path: '/admin/pages/p%201/revisions/r1/restore', method: 'POST', body: undefined, query: { locale: 'de' } })
     expect(refresh).toHaveBeenCalledOnce()
     expect(toast.success).toHaveBeenCalledWith('revisions.restored')
   })
 
+  it('names the fields the current model no longer has in the success message', async () => {
+    const restore = { revisionId: 'r1', dropped: ['teaser', 'byline'], missing: [] }
+    const { deps, toast } = fakeDeps([{ document: { id: 'p1' }, delivery: [], restore }])
+    const { ops } = fakeOps()
+    const result = await runAction(restoreRevision, { deps, ...scope, revisionId: 'r1', confirmed: true, fieldLabels: LABELS, ops, refresh: vi.fn() })
+
+    expect(result).toEqual({ ok: true, result: restore })
+    expect(toast.success).toHaveBeenCalledWith('revisions.restoredWithoutFields:{"fields":"Teaser, Byline"}')
+  })
+
   it('does nothing without a confirmation', async () => {
     const { deps, calls } = fakeDeps([])
     const { ops } = fakeOps()
-    const result = await runAction(restoreRevision, { deps, ...scope, revisionId: 'r1', confirmed: false, ops, refresh: vi.fn() })
+    const result = await runAction(restoreRevision, { deps, ...scope, revisionId: 'r1', confirmed: false, fieldLabels: LABELS, ops, refresh: vi.fn() })
 
     expect(result.ok).toBe(false)
     expect(calls).toEqual([])
@@ -93,11 +105,21 @@ describe('restoreRevision', () => {
     const { deps } = fakeDeps([apiError(409, 'no snapshot')])
     const { ops, errors } = fakeOps()
     const refresh = vi.fn()
-    const result = await runAction(restoreRevision, { deps, ...scope, revisionId: 'r1', confirmed: true, ops, refresh })
+    const result = await runAction(restoreRevision, { deps, ...scope, revisionId: 'r1', confirmed: true, fieldLabels: LABELS, ops, refresh })
 
     expect(result.ok).toBe(false)
     expect(errors).toEqual([null, 'revisions.skippedCannotRestore'])
     expect(refresh).not.toHaveBeenCalled()
+  })
+
+  it('shows what the validator rejected instead of a bare 400', async () => {
+    const details = { problems: [{ path: '/body/0', message: 'unknown block type "teaserGrid"' }], fields: [{ field: 'title', message: 'required' }] }
+    const { deps } = fakeDeps([apiError(400, 'pages.body: invalid', details)])
+    const { ops, errors } = fakeOps()
+    const result = await runAction(restoreRevision, { deps, ...scope, revisionId: 'r1', confirmed: true, fieldLabels: LABELS, ops, refresh: vi.fn() })
+
+    expect(result.ok).toBe(false)
+    expect(errors[1]).toBe('pages.body: invalid — Title: required — /body/0: unknown block type "teaserGrid"')
   })
 })
 

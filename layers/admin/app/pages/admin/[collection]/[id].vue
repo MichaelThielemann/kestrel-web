@@ -81,6 +81,12 @@ const historyOpen = ref(false)
 const canManage = computed(() => can(`${collection}.manage`))
 const showHistory = computed(() => hasFeature('revisions') && id !== 'new' && def.value?.mode === 'multi' && canManage.value)
 
+const fieldLabels = computed(() =>
+  Object.fromEntries(
+    Object.entries(def.value?.fields ?? {}).map(([name, field]) => [name, resolveLocalized(field.label, lang.value) ?? name]),
+  ),
+)
+
 async function onRestored() {
   await editorRef.value?.reload()
 }
@@ -201,6 +207,7 @@ async function confirmDeleteTranslation() {
       :dirty="editorRef?.dirty ?? false"
       :values="editorRef?.values ?? {}"
       :field-keys="editorRef?.fieldKeys ?? []"
+      :field-labels="fieldLabels"
       :blocks-field="editorRef?.blocksField ?? ''"
       @update:open="historyOpen = $event"
       @restored="onRestored"

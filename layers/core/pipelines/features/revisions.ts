@@ -41,7 +41,7 @@ function restorePipeline(name: string, update: readonly string[]): string[] {
     throw new Error(`preset: feature "revisions" expects pipeline "update${singular}" to end with "${updated}"`);
   }
   const head: PresetStep[] = ["authn.requireUser", `authz.require:${name}.write`, `revisions.restore:${name}`];
-  const tail: PresetStep[] = [`events.emit:${event}.restored`];
+  const tail: PresetStep[] = ["revisions.reportRestore", `events.emit:${event}.restored`];
   return [...head, ...update.slice(2, -1), ...tail];
 }
 

@@ -353,6 +353,7 @@
       "links.extract:pages",
       "delivery.publish:pages",
       "delivery.exportLlms",
+      "revisions.reportRestore",
       "events.emit:page.restored"
     ],
     "resumeImages": [

@@ -278,6 +278,10 @@ export const de: Catalog = {
   'revisions.confirmTitle': 'Diese Version wiederherstellen?',
   'revisions.confirmBody': 'Der Datensatz wird mit dem Inhalt dieser Version gespeichert. Es wird nichts gelöscht: Der Verlauf verzweigt sich hier.',
   'revisions.restored': 'Version wiederhergestellt',
+  'revisions.gapTitle': 'Diese Version passt nicht zu den heutigen Feldern',
+  'revisions.droppedFields': 'Ausgelassen, der Datensatz hat diese Felder nicht mehr: {fields}',
+  'revisions.missingFields': 'Nicht abgedeckt, diese Felder kamen später dazu und behalten ihren aktuellen Wert: {fields}',
+  'revisions.restoredWithoutFields': 'Version ohne {fields} wiederhergestellt',
   'revisions.alreadyHead': 'Das ist die aktuelle Version.',
 
   'blocks.empty': 'Noch keine Blöcke.',
