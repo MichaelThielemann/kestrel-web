@@ -25,6 +25,7 @@ import migrations from "./features/migrations";
 import audit from "./features/audit";
 import insights from "./features/insights";
 import eventsQueue from "./features/eventsQueue";
+import revisions from "./features/revisions";
 
 export type { CollectionModel } from "./collections";
 export type { Workflow } from "../app/types/kestrel";
@@ -39,18 +40,21 @@ export type {
   PresetMigrations,
   PresetModuleConfigOptions,
   PresetRateLimit,
+  PresetRevisions,
   PresetRoles,
   PresetSession,
 } from "./config";
 
 export const definePipeline = pipelineDefiner<PresetStep>();
 
-export type Feature = "ratelimit" | "sanitizeSvg" | "references" | "links" | "delivery" | "redirects" | "images" | "replication" | "migrations" | "audit" | "insights" | "eventsQueue";
+export type Feature = "ratelimit" | "sanitizeSvg" | "references" | "links" | "delivery" | "redirects" | "images" | "replication" | "migrations" | "audit" | "insights" | "eventsQueue" | "revisions";
 
 export interface FeatureModule {
   modules: string[];
   pipelines: Record<string, PresetStep[]>;
   patches: readonly Patch<Feature, PresetStep>[];
+  triggers?: readonly TriggerConfig[];
+  derive?: (pipelines: Record<string, readonly string[]>) => Record<string, string[]>;
 }
 
 export const staticPipelineNames = [
@@ -69,6 +73,7 @@ export const staticPipelineNames = [
   "auditAuth",
   "insightsManifest", "insightsStats",
   "eventsQueueStatus", "eventsDead", "eventsRetryDead", "eventsRetryOne", "purgeEvents",
+  "pageRevisions", "pageRevision", "labelPageRevision", "restorePageRevision", "pruneRevisions",
 ] as const;
 
 export type StaticPipelineName = (typeof staticPipelineNames)[number];
@@ -77,7 +82,7 @@ export type PresetPipelineName<C extends Record<string, CollectionModel> = Recor
   | StaticPipelineName
   | CollectionPipelineName<C>;
 
-export type CronPipelineName = "cleanupSessions" | "sweepRateLimits" | "scanReferences" | "checkLinks" | "resumeImages" | "replicate" | "reconcileMedia" | "purgeEvents";
+export type CronPipelineName = "cleanupSessions" | "sweepRateLimits" | "scanReferences" | "checkLinks" | "resumeImages" | "replicate" | "reconcileMedia" | "purgeEvents" | "pruneRevisions";
 
 export interface PresetOptions<C extends Record<string, CollectionModel> = Record<string, CollectionModel>, S extends string = PresetStep> {
   modules: readonly { use: string; config?: unknown }[];
@@ -109,6 +114,7 @@ const featureFactories: Record<Feature, (context: PresetContext) => FeatureModul
   audit,
   insights,
   eventsQueue,
+  revisions,
 };
 
 function featureKeys(factories: Record<Feature, unknown>): readonly Feature[] {
@@ -147,9 +153,9 @@ export function definePreset<C extends Record<string, CollectionModel> = Record<
 ): Preset {
   const exportDir = options.exportDir ?? resolve(process.env.KESTREL_APP_ROOT ?? process.cwd(), "data/export");
   const homeSlug = options.homeSlug ?? "home";
-  const context: PresetContext = { exportDir, homeSlug };
   const collections: Record<string, CollectionModel> = options.collections ?? DEFAULT_COLLECTIONS;
   validateCollectionNames(collections);
+  const context: PresetContext = { exportDir, homeSlug, collections, ...(options.collectionsUi === undefined ? {} : { collectionsUi: options.collectionsUi }) };
 
   const pagesModel = collections.pages;
   context.pagesTranslatable = pagesModel !== undefined && pagesModel.kind === "multi" && hasLocalizedField(pagesModel);
@@ -171,6 +177,7 @@ export function definePreset<C extends Record<string, CollectionModel> = Record<
     pipelines = mergePipelines(pipelines, collectionPipelines(name, model, options.collectionsUi?.[name]), name, "collection");
   }
 
+  const featureTriggers: TriggerConfig[] = [];
   for (const feature of featureOrder) {
     const module = featureFactories[feature](context);
     if (enabledFeatures.has(feature)) {
@@ -181,6 +188,8 @@ export function definePreset<C extends Record<string, CollectionModel> = Record<
       }
       pipelines = mergePipelines(pipelines, module.pipelines, feature);
       pipelines = applyFeaturePatches(pipelines, feature, module.patches, enabledFeatures);
+      if (module.derive) pipelines = mergePipelines(pipelines, module.derive(pipelines), feature);
+      featureTriggers.push(...(module.triggers ?? []));
     } else {
       for (const use of module.modules) {
         if (configuredModules.has(use)) {
@@ -210,7 +219,7 @@ export function definePreset<C extends Record<string, CollectionModel> = Record<
     .filter((entry) => entry.feature === undefined || enabledFeatures.has(entry.feature))
     .filter((entry) => !("http" in entry.trigger) || entry.trigger.pipeline !== "resolvePage" || "pages" in collections)
     .map((entry) => entry.trigger);
-  triggers = insertCollectionTriggers(triggers, collections);
+  triggers = [...insertCollectionTriggers(triggers, collections), ...featureTriggers];
 
   const overrideNames = new Set(Object.keys(options.overrides ?? {}));
   const excludeNames = new Set<string>(options.exclude ?? []);

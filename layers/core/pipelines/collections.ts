@@ -24,7 +24,11 @@ function capitalize(name: string): string {
   return name.charAt(0).toUpperCase() + name.slice(1);
 }
 
-function collectionNames(name: string): CollectionNames {
+export function uncapitalize(name: string): string {
+  return name.charAt(0).toLowerCase() + name.slice(1);
+}
+
+export function collectionNames(name: string): CollectionNames {
   const override = NAME_OVERRIDES[name];
   if (override) return override;
   const pascal = capitalize(name);
@@ -162,6 +166,12 @@ export function insertCollectionTriggers(triggers: TriggerConfig[], collections:
 
 type Capitalized<S extends string> = S extends `${infer F}${infer R}` ? `${Uppercase<F>}${R}` : S;
 
+export type RevisionPipelineName<K extends string> =
+  | `${K}Revisions`
+  | `${K}Revision`
+  | `label${Capitalized<K>}Revision`
+  | `restore${Capitalized<K>}Revision`;
+
 export type MultiCollectionPipelineName<K extends string> =
   | `list${Capitalized<K>}`
   | `listAll${Capitalized<K>}`
@@ -170,7 +180,8 @@ export type MultiCollectionPipelineName<K extends string> =
   | `create${Capitalized<K>}`
   | `update${Capitalized<K>}`
   | `delete${Capitalized<K>}`
-  | `delete${Capitalized<K>}Translation`;
+  | `delete${Capitalized<K>}Translation`
+  | RevisionPipelineName<K>;
 
 export type SingleCollectionPipelineName<K extends string> = `get${Capitalized<K>}` | `set${Capitalized<K>}`;
 

@@ -18,6 +18,7 @@ import migrations from "./features/migrations";
 import audit from "./features/audit";
 import insights from "./features/insights";
 import eventsQueue from "./features/eventsQueue";
+import revisions from "./features/revisions";
 import { syntheticContentTypes } from "./__fixtures__/synthetic-collections";
 import { contentTypes } from "../../../playground/shared/model";
 
@@ -62,6 +63,7 @@ const allModules = [
   { use: "@michaelthielemann/kestrel-events-inmemory" },
   { use: "@michaelthielemann/kestrel-ratelimit-memory" },
   { use: "@michaelthielemann/kestrel-insights" },
+  { use: "@michaelthielemann/kestrel-revisions-default" },
 ];
 
 describe("allFeatures", () => {
@@ -118,9 +120,9 @@ describe("golden: synthetic collections (news multi, profile system single, noti
 });
 
 describe("canonicalTriggers consistency", () => {
-  const context = { exportDir: EXPORT_DIR, homeSlug: "home" };
   const collections = { pages: { kind: "multi" as const, fields: {} } };
-  const featureFactories = { ratelimit, sanitizeSvg, references, links, delivery, redirects, images, replication, migrations, audit, insights, eventsQueue };
+  const context = { exportDir: EXPORT_DIR, homeSlug: "home", collections };
+  const featureFactories = { ratelimit, sanitizeSvg, references, links, delivery, redirects, images, replication, migrations, audit, insights, eventsQueue, revisions };
   const basePipelineNames = new Set(Object.keys(basePipelines(context, collections)));
   const featurePipelineNames = new Map(
     Object.entries(featureFactories).map(([feature, factory]) => [feature, new Set(Object.keys(factory(context).pipelines))]),
@@ -134,11 +136,14 @@ describe("canonicalTriggers consistency", () => {
   });
 
   it("gives every feature pipeline at least one trigger, except the ones a host runs itself", () => {
+    const ownTriggers = new Set(
+      Object.values(featureFactories).flatMap((factory) => (factory(context).triggers ?? []).map((trigger) => trigger.pipeline)),
+    );
     for (const [feature, names] of featurePipelineNames) {
       for (const name of names) {
         if (HOST_RUN_PIPELINES.has(name)) continue;
-        const hasTrigger = canonicalTriggers.some((entry) => entry.trigger.pipeline === name);
-        expect(hasTrigger, `${feature} pipeline "${name}" has no trigger in canonicalTriggers`).toBe(true);
+        const hasTrigger = ownTriggers.has(name) || canonicalTriggers.some((entry) => entry.trigger.pipeline === name);
+        expect(hasTrigger, `${feature} pipeline "${name}" has no trigger`).toBe(true);
       }
     }
   });

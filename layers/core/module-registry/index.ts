@@ -22,6 +22,7 @@ import redirectsDefault from "@michaelthielemann/kestrel-redirects-default";
 import referencesDefault from "@michaelthielemann/kestrel-references-default";
 import rendererNuxt from "@michaelthielemann/kestrel-renderer-nuxt";
 import replicationSqlite from "@michaelthielemann/kestrel-replication-sqlite";
+import revisionsDefault from "@michaelthielemann/kestrel-revisions-default";
 import sanitizeSvg from "@michaelthielemann/kestrel-sanitize-svg";
 import siteDefault from "@michaelthielemann/kestrel-site-default";
 import validateJsonschema from "@michaelthielemann/kestrel-validate-jsonschema";
@@ -48,6 +49,7 @@ export const moduleRegistry = {
   "@michaelthielemann/kestrel-references-default": referencesDefault,
   "@michaelthielemann/kestrel-renderer-nuxt": rendererNuxt,
   "@michaelthielemann/kestrel-replication-sqlite": replicationSqlite,
+  "@michaelthielemann/kestrel-revisions-default": revisionsDefault,
   "@michaelthielemann/kestrel-sanitize-svg": sanitizeSvg,
   "@michaelthielemann/kestrel-site-default": siteDefault,
   "@michaelthielemann/kestrel-validate-jsonschema": validateJsonschema,

@@ -75,6 +75,7 @@ export const canonicalTriggers: readonly TriggerEntry[] = [
   { trigger: { cron: "30 3 * * *", pipeline: "reconcileMedia" } },
   { trigger: { cron: "* * * * *", pipeline: "replicate" }, feature: "replication" },
   { trigger: { cron: "15 4 * * *", pipeline: "purgeEvents" }, feature: "eventsQueue" },
+  { trigger: { cron: "15 3 * * *", pipeline: "pruneRevisions" }, feature: "revisions" },
   { trigger: { event: "media.uploaded", pipeline: "generateImageVariants" }, feature: "images" },
   { trigger: { event: "auth.loggedIn", pipeline: "auditAuth" }, feature: "audit" },
   { trigger: { event: "auth.loggedOut", pipeline: "auditAuth" }, feature: "audit" },

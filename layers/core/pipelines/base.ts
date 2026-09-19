@@ -1,10 +1,13 @@
 import type { PresetStep } from "../module-registry";
+import type { WorkflowUi } from "../collections-ui/workflow";
 import type { CollectionModel } from "./collections";
 
 export interface PresetContext {
   exportDir: string;
   homeSlug: string;
   pagesTranslatable?: boolean;
+  collections?: Record<string, CollectionModel>;
+  collectionsUi?: Record<string, WorkflowUi>;
 }
 
 export function basePipelines({ exportDir, homeSlug }: PresetContext, collections: Record<string, CollectionModel>): Record<string, PresetStep[]> {

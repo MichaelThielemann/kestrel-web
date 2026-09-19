@@ -481,6 +481,72 @@ describe("definePreset collection pipeline collisions", () => {
   });
 });
 
+describe("definePreset revisions feature", () => {
+  const modules = [...baseModules, { use: "@michaelthielemann/kestrel-revisions-default" }];
+  const collections: Record<string, CollectionModel> = {
+    pages: { kind: "multi", fields: { slug: {}, title: {}, body: {}, status: {}, locale: { localized: true } } },
+    news: { kind: "multi", fields: { title: {}, body: {} } },
+    profile: { kind: "single", fields: { bio: {} } },
+  };
+  const preset = definePreset({ modules, features: ["revisions"], collections });
+  const stepsOf = (name: string): readonly string[] => preset.pipelines.find((pipeline) => pipeline.name === name)?.steps ?? [];
+
+  it("records a revision directly after the content step of create and update", () => {
+    expect(stepsOf("createPage")[stepsOf("createPage").indexOf("content.create:pages") + 1]).toBe("revisions.record:pages");
+    expect(stepsOf("updatePage")[stepsOf("updatePage").indexOf("content.update:pages") + 1]).toBe("revisions.record:pages");
+  });
+
+  it("drops the revisions of a removed document and of a removed translation", () => {
+    expect(stepsOf("deletePage")).toEqual(["authn.requireUser", "authz.require:pages.delete", "content.remove:pages", "revisions.remove:pages", "events.emit:page.deleted"]);
+    expect(stepsOf("deletePageTranslation")).toContain("revisions.removeTranslation:pages");
+  });
+
+  it("builds the restore pipeline from the update pipeline behind its authorization, and emits a restored event", () => {
+    expect(stepsOf("restorePageRevision")).toEqual([
+      "authn.requireUser",
+      "authz.require:pages.write",
+      "revisions.restore:pages",
+      ...stepsOf("updatePage").slice(2, -1),
+      "events.emit:page.restored",
+    ]);
+  });
+
+  it("reads the history with manage and writes it with write", () => {
+    expect(stepsOf("pageRevisions")).toEqual(["authn.requireUser", "authz.require:pages.manage", "revisions.list:pages"]);
+    expect(stepsOf("pageRevision")).toEqual(["authn.requireUser", "authz.require:pages.manage", "revisions.read:pages"]);
+    expect(stepsOf("labelPageRevision")).toEqual(["authn.requireUser", "authz.require:pages.write", "revisions.label:pages"]);
+  });
+
+  it("covers every multi collection, not just pages, and leaves single collections alone", () => {
+    expect(stepsOf("newsRevisions")).toEqual(["authn.requireUser", "authz.require:news.manage", "revisions.list:news"]);
+    expect(stepsOf("restoreNewsRevision")).toContain("revisions.restore:news");
+    expect(preset.pipelines.some((pipeline) => pipeline.name.startsWith("profileRevision"))).toBe(false);
+  });
+
+  it("routes the history under the collection's admin path and prunes on a cron", () => {
+    expect(preset.triggers).toContainEqual({ http: "GET /admin/pages/:id/revisions", pipeline: "pageRevisions" });
+    expect(preset.triggers).toContainEqual({ http: "POST /admin/news/:id/revisions/:revisionId/restore", pipeline: "restoreNewsRevision" });
+    expect(preset.triggers).toContainEqual({ cron: "15 3 * * *", pipeline: "pruneRevisions" });
+  });
+
+  it("leaves every revision step out when the feature is off", () => {
+    const off = definePreset({ modules: baseModules, features: [], collections });
+    expect(off.pipelines.flatMap((pipeline) => pipeline.steps).filter((step) => step.startsWith("revisions."))).toEqual([]);
+    expect(off.triggers.some((trigger) => trigger.pipeline === "pruneRevisions")).toBe(false);
+  });
+
+  it("puts the revision record behind the content step whatever other features insert there", () => {
+    const withDelivery = definePreset({
+      modules: [...modules, { use: "@michaelthielemann/kestrel-delivery-static" }, { use: "@michaelthielemann/kestrel-renderer-nuxt" }],
+      features: ["delivery", "revisions"],
+      collections,
+    });
+    const update = withDelivery.pipelines.find((pipeline) => pipeline.name === "updatePage")?.steps ?? [];
+    expect(update.indexOf("revisions.record:pages")).toBe(update.indexOf("content.update:pages") + 1);
+    expect(update.indexOf("delivery.publish:pages")).toBeGreaterThan(update.indexOf("revisions.record:pages"));
+  });
+});
+
 describe("definePreset pages-optional boot", () => {
   const collectionsWithoutPages = { settings: { kind: "single" as const, fields: {} } };
 

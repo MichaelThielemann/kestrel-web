@@ -85,4 +85,4 @@ export type ContentTypeName = keyof typeof contentTypes;
 
 export const contentModel = { locales: [...locales], defaultLocale, types: contentTypes };
 
-export const features = ["references", "links", "delivery", "redirects", "images", "replication", "ratelimit", "audit", "sanitizeSvg", "insights"] as const satisfies readonly Feature[];
+export const features = ["references", "links", "delivery", "redirects", "images", "replication", "ratelimit", "audit", "sanitizeSvg", "insights", "revisions"] as const satisfies readonly Feature[];

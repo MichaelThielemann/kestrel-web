@@ -522,6 +522,7 @@ a consumer that kept its own trigger list has to move it to `POST /users/:id/dea
 | `audit` | kestrel-audit-persistence | `auditAuth` (on `auth.loggedIn`/`auth.loggedOut`) |
 | `insights` | kestrel-insights (optional peer) | `insightsManifest`, `insightsStats` (`GET /admin/insights/manifest`, `GET /admin/insights/stats`, `insights.read`); the `/admin/insights` page |
 | `eventsQueue` | kestrel-events-queue (instead of kestrel-events-inmemory) | `eventsQueueStatus`, `eventsDead`, `eventsRetryDead`, `eventsRetryOne` (`/admin/events/*`, `system.manage`), `purgeEvents` (cron); the System → Events tab; delivery at least once, listeners must be idempotent |
+| `revisions` | kestrel-revisions-default | per multi collection `<c>`: `<c>Revisions`, `<c>Revision`, `label<C>Revision`, `restore<C>Revision` (`/admin/<c>/:id/revisions…`, `<c>.manage` to read, `<c>.write` to label and restore), plus `pruneRevisions` (cron); record/remove steps directly after `content.create`, `content.update`, `content.remove` and `content.removeTranslation`; the history dialog in the record editor |
 
 Configure exactly one events module: `kestrel-events-inmemory` (default) or, with the `eventsQueue`
 feature, `kestrel-events-queue` — never both; `presetModuleConfig()` (§3) makes that choice from the

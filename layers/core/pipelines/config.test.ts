@@ -86,6 +86,7 @@ describe("presetModuleConfig with the playground inputs", () => {
         use: "@michaelthielemann/kestrel-delivery-static",
         config: { types: { pages: {} }, prefix: "site/", media: { publicPath: "/api/media" }, llms: { full: true, headings: { pages: "Pages" } } },
       },
+      { use: "@michaelthielemann/kestrel-revisions-default", config: { statusField: "status", liveStatuses: ["published"] } },
       { use: "@michaelthielemann/kestrel-redirects-default", config: { prefix: "site/" } },
       { use: "@michaelthielemann/kestrel-audit-persistence", config: {} },
       { use: "@michaelthielemann/kestrel-events-inmemory", config: {} },
@@ -193,7 +194,37 @@ describe("feature gating", () => {
       audit: ["@michaelthielemann/kestrel-audit-persistence"],
       sanitizeSvg: ["@michaelthielemann/kestrel-sanitize-svg"],
       insights: ["@michaelthielemann/kestrel-insights"],
+      revisions: ["@michaelthielemann/kestrel-revisions-default"],
     });
+  });
+
+  it("takes the revisions retention from the options and the live states from the collection workflow", () => {
+    const modules = presetModuleConfig({ ...playgroundOptions(), features: ["revisions"], revisions: { keep: 20, maxSnapshotBytes: 2048 } });
+    expect(configFor(modules, "revisions-default")).toEqual({ keep: 20, maxSnapshotBytes: 2048, statusField: "status", liveStatuses: ["published"] });
+  });
+
+  it("follows a custom workflow from collectionsUi instead of the status defaults", () => {
+    const types: Record<string, CollectionModel> = {
+      pages: { kind: "multi", fields: { slug: {}, status: {}, body: {}, state: { type: "enum", options: ["hidden", "listed"] } } },
+    };
+    const collectionsUi = { pages: { workflow: { field: "state", live: "listed", draft: "hidden" } } };
+    const modules = presetModuleConfig({ ...playgroundOptions(), model: { types }, features: ["revisions"], collectionsUi });
+    expect(configFor(modules, "revisions-default")).toEqual({ statusField: "state", liveStatuses: ["listed"] });
+  });
+
+  it("refuses to guess when two collections disagree about their status field", () => {
+    const types: Record<string, CollectionModel> = {
+      pages: { kind: "multi", fields: { slug: {}, status: {}, body: {} } },
+      news: { kind: "multi", fields: { title: {}, state: { type: "enum", options: ["hidden", "listed"] } } },
+    };
+    const collectionsUi = { news: { workflow: { field: "state", live: "listed", draft: "hidden" } } };
+    expect(() => presetModuleConfig({ ...playgroundOptions(), model: { types }, features: ["revisions"], collectionsUi })).toThrow(/one status field/);
+  });
+
+  it("leaves the module's own defaults in place when no collection declares a workflow", () => {
+    const types: Record<string, CollectionModel> = { pages: { kind: "multi", fields: { slug: {}, title: {} } } };
+    const modules = presetModuleConfig({ ...playgroundOptions(), model: { types }, features: ["revisions"] });
+    expect(configFor(modules, "revisions-default")).toEqual({});
   });
 
   it("replaces events-inmemory by events-queue with the eventsQueue feature and passes the option through", () => {

@@ -12,6 +12,7 @@ const modules = presetModuleConfig({
   blobstore: { use: "@michaelthielemann/kestrel-blobstore-filesystem", config: { root: resolve(dataDir, "blobs") } },
   model: contentModel,
   features,
+  collectionsUi,
   roles: {
     roles: { admin: ["*"], editor: ["pages.*", "media.*", "images.read", "settings.read", "redirects.*"] },
     anonymous: ["pages.read", "settings.read", "media.read"],

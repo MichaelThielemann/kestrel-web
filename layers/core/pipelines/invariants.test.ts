@@ -18,6 +18,7 @@ const allFeaturesRecord = {
   audit: 1,
   insights: 1,
   eventsQueue: 1,
+  revisions: 1,
 } satisfies Record<Feature, 1>;
 
 const allModules = [
@@ -41,6 +42,7 @@ const allModules = [
   { use: "@michaelthielemann/kestrel-ratelimit-memory" },
   { use: "@michaelthielemann/kestrel-migrations-default" },
   { use: "@michaelthielemann/kestrel-insights" },
+  { use: "@michaelthielemann/kestrel-revisions-default" },
 ];
 
 const KEEPS_HISTORICAL_NAMES = new Set(["pages"]);

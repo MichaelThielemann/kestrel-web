@@ -2,6 +2,7 @@ import type { TriggerConfig } from "@michaelthielemann/kestrel/defineConfig";
 
 export type Patch<F extends string = string, S extends string = string> =
   | { pipeline: string; steps: readonly S[]; when?: F; at: "before"; anchor: S }
+  | { pipeline: string; steps: readonly S[]; when?: F; at: "after"; anchor: S }
   | { pipeline: string; steps: readonly S[]; when?: F; at: "start" }
   | { pipeline: string; steps: readonly S[]; when?: F; at: "end" };
 
@@ -37,7 +38,7 @@ export function applyFeaturePatches<F extends string>(
         const problem = occurrences === 0 ? "not found" : "found more than once";
         throw new Error(`preset: feature "${feature}" pipeline "${patch.pipeline}" anchor "${patch.anchor}" ${problem}`);
       }
-      current.splice(current.indexOf(patch.anchor), 0, ...patch.steps);
+      current.splice(current.indexOf(patch.anchor) + (patch.at === "after" ? 1 : 0), 0, ...patch.steps);
     }
   }
   return result;

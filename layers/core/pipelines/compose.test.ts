@@ -13,6 +13,23 @@ describe("applyFeaturePatches", () => {
     expect(result.p).toEqual(["one", "inserted", "two", "three"]);
   });
 
+  it("inserts steps after an anchor", () => {
+    const pipelines = { p: ["one", "two", "three"] };
+    const patches: readonly Patch<F>[] = [{ pipeline: "p", steps: ["inserted"], at: "after", anchor: "two" }];
+    const result = applyFeaturePatches(pipelines, "a", patches, new Set<F>(["a"]));
+    expect(result.p).toEqual(["one", "two", "inserted", "three"]);
+  });
+
+  it("keeps an after-patch next to its anchor when a later before-patch targets the step behind it", () => {
+    const pipelines = { p: ["save", "emit"] };
+    const patches: readonly Patch<F>[] = [
+      { pipeline: "p", steps: ["record"], at: "after", anchor: "save" },
+      { pipeline: "p", steps: ["index"], at: "before", anchor: "emit" },
+    ];
+    const result = applyFeaturePatches(pipelines, "a", patches, new Set<F>(["a"]));
+    expect(result.p).toEqual(["save", "record", "index", "emit"]);
+  });
+
   it("inserts steps at the start", () => {
     const pipelines = { p: ["one", "two"] };
     const patches: readonly Patch<F>[] = [{ pipeline: "p", steps: ["zero"], at: "start" }];

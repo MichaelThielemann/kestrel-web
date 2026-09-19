@@ -576,6 +576,7 @@
     "ratelimit",
     "audit",
     "sanitizeSvg",
-    "insights"
+    "insights",
+    "revisions"
   ]
 }

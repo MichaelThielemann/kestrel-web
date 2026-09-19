@@ -45,6 +45,7 @@
       "validate.check:pages.body",
       "references.check:pages",
       "content.create:pages",
+      "revisions.record:pages",
       "references.index:pages",
       "links.extract:pages",
       "delivery.publish:pages",
@@ -82,6 +83,7 @@
       "authz.require:pages.delete",
       "references.guard:pages",
       "content.remove:pages",
+      "revisions.remove:pages",
       "references.unindex:pages",
       "links.unextract:pages",
       "delivery.unpublish:pages",
@@ -92,6 +94,7 @@
       "authn.requireUser",
       "authz.require:pages.write",
       "content.removeTranslation:pages",
+      "revisions.removeTranslation:pages",
       "references.index:pages",
       "links.extract:pages",
       "delivery.publish:pages",
@@ -144,6 +147,11 @@
       "authn.requireUser",
       "authz.require:insights.read",
       "insights.readStats"
+    ],
+    "labelPageRevision": [
+      "authn.requireUser",
+      "authz.require:pages.write",
+      "revisions.label:pages"
     ],
     "listAllPages": [
       "authn.requireUser",
@@ -208,6 +216,19 @@
       "authn.requireUser",
       "authz.require:pages.manage",
       "references.referrersMany:pages"
+    ],
+    "pageRevision": [
+      "authn.requireUser",
+      "authz.require:pages.manage",
+      "revisions.read:pages"
+    ],
+    "pageRevisions": [
+      "authn.requireUser",
+      "authz.require:pages.manage",
+      "revisions.list:pages"
+    ],
+    "pruneRevisions": [
+      "revisions.prune"
     ],
     "publishAllPages": [
       "authn.requireUser",
@@ -287,6 +308,22 @@
       "site.resolve:pages?home=home&status=published&fallback=true",
       "site.resolveLinks:pages?home=home&status=published&fallback=true"
     ],
+    "restorePageRevision": [
+      "authn.requireUser",
+      "authz.require:pages.write",
+      "revisions.restore:pages",
+      "validate.check:pages.body",
+      "validate.sanitize:pages.body",
+      "validate.check:pages.body",
+      "references.check:pages",
+      "content.update:pages",
+      "revisions.record:pages",
+      "references.index:pages",
+      "links.extract:pages",
+      "delivery.publish:pages",
+      "delivery.exportLlms",
+      "events.emit:page.restored"
+    ],
     "scanReferences": [
       "references.scan"
     ],
@@ -327,6 +364,7 @@
       "validate.check:pages.body",
       "references.check:pages",
       "content.update:pages",
+      "revisions.record:pages",
       "references.index:pages",
       "links.extract:pages",
       "delivery.publish:pages",
@@ -593,12 +631,32 @@
       "pipeline": "replicate"
     },
     {
+      "cron": "15 3 * * *",
+      "pipeline": "pruneRevisions"
+    },
+    {
       "event": "auth.loggedIn",
       "pipeline": "auditAuth"
     },
     {
       "event": "auth.loggedOut",
       "pipeline": "auditAuth"
+    },
+    {
+      "http": "GET /admin/pages/:id/revisions",
+      "pipeline": "pageRevisions"
+    },
+    {
+      "http": "GET /admin/pages/:id/revisions/:revisionId",
+      "pipeline": "pageRevision"
+    },
+    {
+      "http": "PATCH /admin/pages/:id/revisions/:revisionId",
+      "pipeline": "labelPageRevision"
+    },
+    {
+      "http": "POST /admin/pages/:id/revisions/:revisionId/restore",
+      "pipeline": "restorePageRevision"
     }
   ]
 }

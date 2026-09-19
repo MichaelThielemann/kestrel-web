@@ -1,5 +1,7 @@
 import { resolve } from "node:path";
 import { MOUNT_PATH } from "../mount-path";
+import { resolveWorkflow } from "../collections-ui/workflow";
+import type { WorkflowUi } from "../collections-ui/workflow";
 import { isGenericCollection } from "./collections";
 import type { CollectionModel } from "./collections";
 import { presetSchemas } from "./index";
@@ -52,6 +54,13 @@ export interface PresetEventsQueue {
   retentionDays?: number;
 }
 
+export interface PresetRevisions {
+  keep?: number;
+  maxSnapshotBytes?: number;
+  pruneOnWrite?: boolean;
+  maxLimit?: number;
+}
+
 export interface PresetMigrations {
   migrations: unknown[];
   mode?: string;
@@ -70,10 +79,12 @@ export interface PresetModuleConfigOptions {
   features: readonly Feature[];
   roles: PresetRoles;
   bootstrap: PresetBootstrap;
+  collectionsUi?: Record<string, WorkflowUi>;
   media?: PresetMediaPolicy;
   ratelimit?: PresetRateLimit;
   llms?: PresetLlms;
   migrations?: PresetMigrations;
+  revisions?: PresetRevisions;
   session?: PresetSession;
   eventsQueue?: PresetEventsQueue;
   overrides?: Partial<Record<string, Record<string, unknown>>>;
@@ -134,6 +145,31 @@ function deliveryTypes(types: Record<string, CollectionModel>): Record<string, R
     if (isPageLike(name, model)) delivered[name] = {};
   }
   return delivered;
+}
+
+interface LiveStates {
+  statusField: string;
+  liveStatuses: string[];
+}
+
+function liveStatesOf(types: Record<string, CollectionModel>, collectionsUi: Record<string, WorkflowUi> | undefined): LiveStates | undefined {
+  const fields = new Set<string>();
+  const live = new Set<string>();
+  for (const [name, model] of Object.entries(types)) {
+    if (!isGenericCollection(name) || model.kind !== "multi") continue;
+    const workflow = resolveWorkflow(name, model, collectionsUi?.[name]);
+    if (workflow === undefined) continue;
+    fields.add(workflow.field);
+    live.add(workflow.live);
+  }
+  if (fields.size === 0) return undefined;
+  if (fields.size > 1) {
+    throw new Error(
+      `presetModuleConfig: feature "revisions" needs one status field across the collections, found ${[...fields].map((field) => `"${field}"`).join(", ")}`
+      + ' – set "statusField" and "liveStatuses" via overrides["@michaelthielemann/kestrel-revisions-default"]',
+    );
+  }
+  return { statusField: [...fields][0] ?? "", liveStatuses: [...live].sort() };
 }
 
 function mergedConfig(config: unknown, override: Record<string, unknown>): unknown {
@@ -233,6 +269,20 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
           headings: options.llms?.headings ?? { ...DEFAULT_LLMS_HEADINGS },
           ...(siteUrl === undefined ? {} : { siteUrl }),
         },
+      },
+    });
+  }
+
+  if (enabled.has("revisions")) {
+    const live = liveStatesOf(types, options.collectionsUi);
+    modules.push({
+      use: "@michaelthielemann/kestrel-revisions-default",
+      config: {
+        ...(options.revisions?.keep === undefined ? {} : { keep: options.revisions.keep }),
+        ...(options.revisions?.maxSnapshotBytes === undefined ? {} : { maxSnapshotBytes: options.revisions.maxSnapshotBytes }),
+        ...(options.revisions?.pruneOnWrite === undefined ? {} : { pruneOnWrite: options.revisions.pruneOnWrite }),
+        ...(options.revisions?.maxLimit === undefined ? {} : { maxLimit: options.revisions.maxLimit }),
+        ...(live === undefined ? {} : live),
       },
     });
   }
