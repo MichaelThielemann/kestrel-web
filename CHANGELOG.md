@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 2.0.0 – 2026-09-20
+
 ### Breaking
 
 - `definePreset` now validates collection names against `^[a-z][a-z0-9_]*$`, the pattern

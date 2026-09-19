@@ -58,7 +58,7 @@ of this repository, point `extends` at its path instead (as `playground/nuxt.con
 `extends: [".."]`).
 
 A kestrel-web release pins one Kestrel minor line — its `@michaelthielemann/kestrel*` dependencies are
-`^5.7.0` — so the `@michaelthielemann/kestrel` you install directly has to come from that same line.
+`^5.8.0` — so the `@michaelthielemann/kestrel` you install directly has to come from that same line.
 See §11 before moving to a newer kestrel-web.
 
 ## 2. Define your content model
@@ -1243,7 +1243,7 @@ writes nothing) and an apply button (confirm, then run, then refresh) — see
 ## 11. Upgrading
 
 kestrel-web and the Kestrel backend move together: a kestrel-web release depends on one Kestrel minor
-line (`^5.7.0` today), so bump `@michaelthielemann/kestrel` — and any `@michaelthielemann/kestrel-*`
+line (`^5.8.0` today), so bump `@michaelthielemann/kestrel` — and any `@michaelthielemann/kestrel-*`
 package you list yourself, such as `kestrel-insights` — in the same step as
 `@michaelthielemann/kestrel-web`. A mismatched pair fails at boot with the missing step or contract
 named, not silently.
@@ -1263,6 +1263,25 @@ named, not silently.
 
 `@michaelthielemann/kestrel-renderer-nuxt` is versioned separately but released together with the layer;
 it is an ordinary dependency and needs no attention unless you pinned it yourself.
+
+### 1.x → 2.0
+
+- A collection name has to match `^[a-z][a-z0-9_]*$`; a camelCase name such as `blogPosts` is rejected
+  at config time with a message that names it. Rename it to `blog_posts` — this is a rename of the
+  content type, so existing records need a data migration.
+- `DELETE /users/:id` deletes the user for good; deactivating one is `POST /users/:id/deactivate`. A
+  `kestrel.config.ts` with its own `triggers`, `overrides` or `exclude` list naming `deactivateUser`
+  behind `DELETE` keeps its own mapping and has to move it to the new route itself. This needs
+  `@michaelthielemann/kestrel-authn-multi` 5.5.0 or newer.
+- The admin no longer imports `shared/model.ts` and `shared/collections-ui.ts` as consumer TypeScript;
+  it reads them from the new `GET /api/admin/schema` route instead. Both files stay backend
+  configuration and need no changes, but code importing admin internals directly is affected: the
+  static exports of `layers/admin/app/utils/collections.ts` are now functions over the schema
+  (`collections(schema)`, `findCollection(schema, name)`, `editorOwnedFields(schema, name)`,
+  `contentLocales(schema)`), `useFeatures().features` is a `ComputedRef` rather than an array, and
+  `useContentLocales()` answers `{ locales, primary, prefixPrimary }` as `ComputedRef`s. `EditFormPort`/
+  `EditorExpose` carry `workflow: Workflow | undefined` in place of `hasStatus: boolean`, and
+  `bulkSetStatus` takes `{ workflow, live }` in place of `status: 'published' | 'draft'`.
 
 ## Keeping your styles out of the admin
 

@@ -1,5 +1,5 @@
 {
-  "kestrelWeb": "^1.0.1",
+  "kestrelWeb": "^2.0.0",
   "kestrel": "^5.8.0",
   "insights": "^5.8.0",
   "vueFlow": "^1.48.2",
