@@ -210,6 +210,35 @@ function relative(ms: number | null): string { return ms === null ? '—' : huma
         <p v-if="orphanCount" class="images__orphan-hint">{{ t('images.orphaned', { sizes: orphanCount, variants: status.orphaned.variants }) }}</p>
       </div>
 
+      <div class="images__scroll">
+        <KestrelUiEmptyState v-if="!status.sizes.length" icon="image" :title="t('images.empty.title')" :description="t('images.empty.desc')" />
+        <KestrelUiTable v-else :sticky="false">
+          <template #head>
+            <th>{{ t('images.colName') }}</th>
+            <th>{{ t('images.colSize') }}</th>
+            <th>{{ t('images.colSource') }}</th>
+            <th>{{ t('images.colUsed') }}</th>
+            <th>{{ t('images.colVariants') }}</th>
+          </template>
+          <template #body>
+            <tr v-for="row in status.sizes" :key="row.name" class="images__row" :class="{ 'images__row--orphaned': orphanedNames.has(row.name) }">
+              <td>
+                <KestrelUiIcon v-if="orphanedNames.has(row.name)" name="triangle-alert" :label="t('images.orphaned')" />
+                {{ row.name }}
+              </td>
+              <td>{{ dimensions(row) }}</td>
+              <td>{{ row.source }}</td>
+              <td>
+                <template v-if="row.source === 'default' && !row.used">{{ t('images.defaultUnused') }}</template>
+                <KestrelUiIcon v-else-if="row.used" name="check" :label="t('images.colUsed')" />
+                <span v-else aria-hidden="true">—</span>
+              </td>
+              <td>{{ row.variants.done }} / {{ row.variants.pending }} / {{ row.variants.error }} / {{ row.variants.failed }}</td>
+            </tr>
+          </template>
+        </KestrelUiTable>
+      </div>
+
       <div class="images__section">
         <div class="images__section-head">
           <div>
@@ -256,34 +285,6 @@ function relative(ms: number | null): string { return ms === null ? '—' : huma
         </template>
       </div>
 
-      <div class="images__scroll">
-        <KestrelUiEmptyState v-if="!status.sizes.length" icon="image" :title="t('images.empty.title')" :description="t('images.empty.desc')" />
-        <KestrelUiTable v-else :sticky="false">
-          <template #head>
-            <th>{{ t('images.colName') }}</th>
-            <th>{{ t('images.colSize') }}</th>
-            <th>{{ t('images.colSource') }}</th>
-            <th>{{ t('images.colUsed') }}</th>
-            <th>{{ t('images.colVariants') }}</th>
-          </template>
-          <template #body>
-            <tr v-for="row in status.sizes" :key="row.name" class="images__row" :class="{ 'images__row--orphaned': orphanedNames.has(row.name) }">
-              <td>
-                <KestrelUiIcon v-if="orphanedNames.has(row.name)" name="triangle-alert" :label="t('images.orphaned')" />
-                {{ row.name }}
-              </td>
-              <td>{{ dimensions(row) }}</td>
-              <td>{{ row.source }}</td>
-              <td>
-                <template v-if="row.source === 'default' && !row.used">{{ t('images.defaultUnused') }}</template>
-                <KestrelUiIcon v-else-if="row.used" name="check" :label="t('images.colUsed')" />
-                <span v-else aria-hidden="true">—</span>
-              </td>
-              <td>{{ row.variants.done }} / {{ row.variants.pending }} / {{ row.variants.error }} / {{ row.variants.failed }}</td>
-            </tr>
-          </template>
-        </KestrelUiTable>
-      </div>
     </template>
 
     <KestrelUiDialog :open="reconcileConfirmOpen" :title="t('media.reconcile.delete')" @update:open="(v) => { reconcileConfirmOpen = v }">
