@@ -243,6 +243,33 @@
 
 ### Fixed
 
+- Everything the kit teleports — dialogs, dropdown and context menus, the account menu, popovers,
+  tooltips, combobox lists, the date pickers and the toasts — landed directly on `<body>`, outside
+  `.admin`, and therefore outside the scoped stylesheet: unstyled text, no tokens, no theme, no
+  z-index tiers. The admin layout now renders `KestrelUiPortalHost`, one
+  `<div id="kestrel-admin-portal" class="admin-portal" :data-theme>` teleported to the body, and every
+  reka portal targets it through `useAdminPortal()` (`:to="portalTarget"`, `:portal="{ to: portalTarget }"`
+  for the pickers that portal internally). The density tokens that `.admin` declared inline moved to
+  `_tokens.scss` so both roots share them. `components/portal-target.test.ts` fails when a kit component
+  renders a reka `*Portal` without the shared target or teleports straight to the body, and
+  `components/ui/PortalHost.dom.test.ts` asserts that a dialog's overlay and content, an open dropdown
+  menu and the toast region all sit inside the portal root.
+- Insights tables: `.insights-chip-cell` set `display: flex` on `<td>`, which took the cell out of the
+  table layout — rules ran through cells, chips dropped onto their own lines and the remaining columns
+  shifted (Requires showed the step count, Optional the config summary). The chips now wrap in an inner
+  `.insights-chips`, the cell stays a table cell with exactly one bottom rule per row, and
+  `.insights-table` centres short and numeric cells vertically against multi-line chip cells. Applies to
+  Modules, Pipelines, Triggers, Live, the recent-failures table, the config variables and the module
+  detail page.
+- Media viewer: the details panel scrolls only vertically — it is wider (22rem), clips horizontally and
+  its children may shrink — and the dialog title ellipsizes instead of pushing the close button out.
+- The media toolbar's search field kept its class on the `<input>` (`inheritAttrs: false`) instead of the
+  flex item, so the scoped width rule never matched and the field spanned the whole row. It now sits in
+  its own container, and the upload status ("Uploading… n uploaded", "Generating variants…") moved from
+  the bottom of the library to that row, right-aligned, as one `aria-live="polite"` region.
+- `scripts/isolation-diff.mjs` opens overlays (account menu, user row menu, new-user dialog, media
+  upload dialog) as extra views and reports any UI element under `<body>` that is outside `.admin` and
+  `.admin-portal`, which is what missed the teleported overlays before.
 - Admin isolation residue: the `sr-only` mixin pins its own text metrics and colour, the hidden file
   input is declared outside `:where()` so a consumer's class rule cannot reveal it, and the password
   reveal button and `option` elements declare their padding so a consumer's `* { padding: 0 }` cannot

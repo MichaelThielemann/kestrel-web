@@ -559,9 +559,13 @@ all and win on specificity instead. `assets/scss/_scope.scss` holds the two root
 mixins every rule in `assets/scss/` goes through:
 
 - `$root` is `:is(.admin, .admin-portal)`, specificity (0,1,0). `.admin` is the layout root
-  (`layouts/admin.vue`), `.admin-portal` an admin root rendered outside it — the teleported `Toasts.vue`
-  host and `BootFailure.vue`, which renders instead of the layout. `.admin-portal` is `display: contents`,
-  so it carries the inherited base (font, colour, line height) and the design tokens without adding a box.
+  (`layouts/admin.vue`), `.admin-portal` an admin root rendered outside it — the portal host below, the
+  `Toasts.vue` region and `BootFailure.vue`, which renders instead of the layout. `.admin-portal` is
+  `display: contents`, so it carries the inherited base (font, colour, line height) and the design tokens
+  without adding a box.
+- `_tokens.scss` also declares the admin's density tokens (`--text-base`, the tightened `--space-2…5`,
+  `--control-height`, `--control-icon-size`) on `$root`, not on `.admin`, so a teleported overlay is sized
+  like the rest of the admin.
 - `_tokens.scss` declares the tokens on `$root`, not on `:root`: a consumer that defines `--color-text` or
   `--color-border` on `:root` no longer reaches the admin (the admin's own declaration on `.admin` shadows
   it by inheritance, not by the cascade), and the admin no longer redefines the consumer's tokens on the
@@ -606,6 +610,24 @@ mixins every rule in `assets/scss/` goes through:
 - `layers/admin/nuxt.config.ts` registers the kit with `priority: 10`. Without it an app component named
   `KestrelUiButton.vue` replaces the kit's button everywhere — the login form loses its submit control.
 
+#### The portal host
+reka-ui teleports every overlay — `DialogPortal`, `DropdownMenuPortal`, `ContextMenuPortal`,
+`PopoverPortal`, `TooltipPortal`, `ComboboxPortal` and the portal inside `DatePickerContent` /
+`DateRangePickerContent` — and its default target is `document.body`, which is outside `.admin`. Scoping
+the stylesheet to the admin roots therefore left every overlay unstyled in a consumer app. The layout
+renders `KestrelUiPortalHost` (`components/ui/PortalHost.vue`) before anything else: one
+`<div id="kestrel-admin-portal" class="admin-portal" :data-theme>` teleported to the body, registered in
+`composables/useAdminPortal.ts` while it is mounted. Every portal in the kit takes its target from
+`useAdminPortal()` — `:to="portalTarget"` on a `*Portal`, `:portal="{ to: portalTarget }"` on the two
+pickers that portal internally, and `Toasts.vue` teleports into the same host. The target falls back to
+`'body'` while no host is mounted, which is what a standalone component test sees.
+
+Two tests guard it. `components/portal-target.test.ts` reads every admin `.vue` file and fails when a
+reka `*Portal` has no `:to="portalTarget"`, when `DatePickerContent`/`DateRangePickerContent` has no
+`:portal="{ to: portalTarget }"`, or when anything but `PortalHost.vue` teleports straight to the body.
+`components/ui/PortalHost.dom.test.ts` mounts the host and asserts that a dialog's overlay and content,
+an open dropdown menu and the toast region all sit inside it.
+
 What stays outside this: a consumer's element selector can still win over an *inherited* value on an
 admin element that does carry a class and whose class does not declare that property — `color` is the
 main one, and the properties derived from it (`outline-color`, `text-decoration-color`, `caret-color`,
@@ -634,8 +656,12 @@ PLAYWRIGHT_CORE=/path/to/playwright-core/index.mjs \
   node scripts/isolation-diff.mjs http://localhost:3011 http://localhost:3012
 ```
 
-It logs in on both (`ADMIN_USER`/`ADMIN_PASSWORD`, default `admin`/`change-me`), walks the admin routes,
-and for every element that exists on both sides — keyed by its class path, since the content differs —
+It logs in on both (`ADMIN_USER`/`ADMIN_PASSWORD`, default `admin`/`change-me`), walks the admin routes
+and, per route, the overlays in `OVERLAYS` (account menu, user row menu, new-user dialog, media upload
+dialog) as extra views, so a teleported overlay is compared like any other view. It also reports every UI
+element under `<body>` that is outside `.admin` and `.admin-portal` — a portal that lost its target shows
+up there even when the consumer and the playground are broken in the same way — and fails on any such
+element. For every element that exists on both sides — keyed by its class path, since the content differs —
 compares ~60 computed properties plus `::before`, `::after`, `::placeholder`, `::selection` and
 `::marker`. It reports per property and separates geometry (`width`/`height`/`margin`) from style leaks.
 Geometry differences are expected: the two apps have different content, row counts and scrollbars. The
