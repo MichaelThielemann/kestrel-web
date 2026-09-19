@@ -65,7 +65,7 @@ const pipelines = computed(() => (manifest.value ? pipelinesUsingModule(manifest
       <section class="insights-module__section">
         <h2 class="insights-module__section-title">{{ t('insights.pipelinesUsingModule') }}</h2>
         <p v-if="pipelines.length === 0" class="insights-module__muted">{{ t('insights.noPipelines') }}</p>
-        <div v-else class="list__scroll">
+        <div v-else class="u-scroll">
           <KestrelUiTable class="insights-table">
             <template #head>
               <th scope="col">{{ t('insights.colPipeline') }}</th>

@@ -67,7 +67,7 @@ function formatDate(ms: number) { return dateFmt.format(new Date(ms)) }
 
     <KestrelUiAlert v-if="loadError" variant="error">{{ loadError }}</KestrelUiAlert>
 
-    <div v-else class="list__scroll">
+    <div v-else class="u-scroll">
       <KestrelUiTable>
         <template #head>
           <th>{{ t('users.colUsername') }}</th>

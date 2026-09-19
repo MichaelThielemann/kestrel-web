@@ -41,7 +41,7 @@ const shown = computed(() => groups.value.reduce((sum, g) => sum + g.variables.l
       <p class="insights-config-tab__count">{{ t('insights.configCount', { shown, total }) }}</p>
     </div>
 
-    <div class="list__scroll insights-config-tab__body">
+    <div class="u-scroll insights-config-tab__body">
       <section v-for="g in groups" :key="g.name" class="insights-config-tab__group">
         <h2 :id="`insights-config-${g.slug}`" class="insights-config-tab__module">
           <NuxtLink :to="moduleRoute(g.name)">{{ g.name }}</NuxtLink>

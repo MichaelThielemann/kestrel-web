@@ -96,7 +96,7 @@ await fetchRows()
       <KestrelUiButton type="button" variant="secondary" size="sm" class="list__retry" @click="fetchRows">{{ t('common.retry') }}</KestrelUiButton>
     </KestrelUiAlert>
 
-    <div class="list__scroll">
+    <div class="u-scroll">
       <KestrelCollectionListTable
         :rows="filteredRows"
         :columns="columns"
@@ -188,12 +188,6 @@ await fetchRows()
   &__error,
   &__pager {
     flex: 0 0 auto;
-  }
-
-  &__scroll {
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow: auto;
   }
 
   &__bar {

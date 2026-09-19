@@ -95,7 +95,7 @@ function absolute(ms: number): string { return dateFmt.format(new Date(ms)) }
 
       <div>
         <h2 class="migrations__subtitle">{{ t('migrations.pendingTitle') }}</h2>
-        <div class="list__scroll">
+        <div class="u-scroll">
           <KestrelUiTable>
             <template #head>
               <th>{{ t('migrations.colId') }}</th>
@@ -116,7 +116,7 @@ function absolute(ms: number): string { return dateFmt.format(new Date(ms)) }
 
       <div>
         <h2 class="migrations__subtitle">{{ t('migrations.appliedTitle') }}</h2>
-        <div class="list__scroll">
+        <div class="u-scroll">
           <KestrelUiTable>
             <template #head>
               <th>{{ t('migrations.colId') }}</th>

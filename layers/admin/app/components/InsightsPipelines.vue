@@ -23,7 +23,7 @@ const filtered = computed(() => {
   <section class="insights-pipelines">
     <KestrelUiTextInput v-model="filter" class="insights-pipelines__filter" :placeholder="t('insights.filterPlaceholder')" icon="search" slim />
 
-    <div class="list__scroll">
+    <div class="u-scroll">
       <KestrelUiTable class="insights-table">
         <template #head>
           <th scope="col">{{ t('insights.colPipeline') }}</th>

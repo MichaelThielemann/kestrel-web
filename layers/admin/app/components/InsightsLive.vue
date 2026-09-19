@@ -79,7 +79,7 @@ function relative(ms: number | null): string { return ms === null ? '—' : huma
 
       <div class="insights-live__section">
         <h2 class="insights-live__title">{{ t('insights.colPipelines') }}</h2>
-        <div class="list__scroll">
+        <div class="u-scroll">
           <KestrelUiTable class="insights-table">
             <template #head>
               <th scope="col">{{ t('insights.colPipeline') }}</th>
@@ -107,7 +107,7 @@ function relative(ms: number | null): string { return ms === null ? '—' : huma
 
       <div class="insights-live__section">
         <h2 class="insights-live__title">{{ t('insights.colSteps') }}</h2>
-        <div class="list__scroll">
+        <div class="u-scroll">
           <KestrelUiTable class="insights-table">
             <template #head>
               <th scope="col">{{ t('insights.colPipeline') }}</th>
@@ -136,7 +136,7 @@ function relative(ms: number | null): string { return ms === null ? '—' : huma
       <div class="insights-live__section">
         <h2 class="insights-live__title">{{ t('insights.eventsTitle') }}</h2>
         <div v-if="stats.events.length === 0" class="insights-live__empty">{{ t('insights.noEvents') }}</div>
-        <div v-else class="list__scroll">
+        <div v-else class="u-scroll">
           <KestrelUiTable class="insights-table">
             <template #head>
               <th scope="col">{{ t('insights.colEvent') }}</th>
@@ -157,7 +157,7 @@ function relative(ms: number | null): string { return ms === null ? '—' : huma
       <div class="insights-live__section">
         <h2 class="insights-live__title">{{ t('insights.rateLimitTitle') }}</h2>
         <div v-if="stats.ratelimit.length === 0" class="insights-live__empty">{{ t('insights.noRateLimitBuckets') }}</div>
-        <div v-else class="list__scroll">
+        <div v-else class="u-scroll">
           <KestrelUiTable class="insights-table">
             <template #head>
               <th scope="col">{{ t('insights.colKey') }}</th>

@@ -135,7 +135,7 @@ function relative(ms: number | null): string { return ms === null ? '—' : huma
         </div>
       </div>
 
-      <div class="list__scroll">
+      <div class="u-scroll">
         <KestrelUiTable>
           <template #head>
             <th>{{ t('replication.colWhen') }}</th>

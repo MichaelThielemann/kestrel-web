@@ -7,6 +7,17 @@ import { describe, expect, it } from 'vitest'
 const entry = fileURLToPath(new URL('./main.scss', import.meta.url))
 const css = compile(entry).css
 
+function vueSources(): { name: string; source: string }[] {
+  const roots = ['../../components', '../../pages'].map((relative) => fileURLToPath(new URL(relative, import.meta.url)))
+  return roots.flatMap((root) => readdirSync(root, { recursive: true, encoding: 'utf8' })
+    .filter((name) => name.endsWith('.vue'))
+    .map((name) => ({ name, source: readFileSync(join(root, name), 'utf8') })))
+}
+
+function utilityClassesUsed(source: string): string[] {
+  return [...source.matchAll(/\bu-[a-z0-9-]+/g)].map((match) => match[0])
+}
+
 const ROOTS = [':is(.admin, .admin-portal)', ':where(.admin, .admin-portal)', '.admin', '.admin-portal']
 const DOCUMENT_SELECTORS = [':root[data-theme=light]', ':root[data-theme=dark]']
 
@@ -105,6 +116,29 @@ describe('admin stylesheet scope', () => {
       }
     }
     expect(offenders).toEqual([])
+  })
+
+  it('owns every shared layout utility itself, so a view gets it without mounting an unrelated component', () => {
+    const files = vueSources()
+    const declared = new Set(selectors.flatMap((selector) => utilityClassesUsed(selector)))
+    const missing = new Set<string>()
+    for (const file of files) {
+      for (const name of utilityClassesUsed(file.source)) {
+        if (!declared.has(name)) missing.add(`${file.name}: ${name}`)
+      }
+    }
+    expect([...missing]).toEqual([])
+
+    const localised = files
+      .filter((file) => new RegExp(`\\.u-[a-z0-9-]*\\s*[{,]`).test(file.source.split('<style')[1] ?? ''))
+      .map((file) => file.name)
+    expect(localised).toEqual([])
+  })
+
+  it('makes the shared scroll container scroll rather than clip', () => {
+    const rule = /\.u-scroll\s*\{([^}]*)\}/.exec(css)?.[1] ?? ''
+    expect(rule).toContain('overflow: auto')
+    expect(rule).toContain('min-height: 0')
   })
 
   it('gives the admin its own selection, placeholder and marker styling', () => {

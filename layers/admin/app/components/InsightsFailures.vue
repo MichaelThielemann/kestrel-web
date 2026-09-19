@@ -14,7 +14,7 @@ function relative(ms: number): string { return humanizeRelativeTime(ms, lang.val
   <div class="insights-live__section">
     <h2 class="insights-live__title">{{ t('insights.failuresTitle') }}</h2>
     <KestrelUiEmptyState v-if="failures.length === 0" icon="check" :title="t('insights.noFailures')" :description="t('insights.noFailuresHint')" />
-    <div v-else class="list__scroll">
+    <div v-else class="u-scroll">
       <KestrelUiTable class="insights-table">
         <template #head>
           <th scope="col">{{ t('insights.colWhen') }}</th>

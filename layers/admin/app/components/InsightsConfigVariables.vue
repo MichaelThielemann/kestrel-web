@@ -23,7 +23,7 @@ function statusLabel(v: InsightsConfigVariable): string {
 <template>
   <div class="insights-config">
     <div v-if="variables.length === 0" class="insights-config__empty">{{ t('insights.noVariables') }}</div>
-    <div v-else :class="scroll ? 'list__scroll' : undefined">
+    <div v-else :class="scroll ? 'u-scroll' : undefined">
       <KestrelUiTable class="insights-table" :sticky="scroll" :aria-labelledby="labelledBy">
         <template #head>
           <th scope="col" class="insights-config__col-path">{{ t('insights.colVariable') }}</th>
