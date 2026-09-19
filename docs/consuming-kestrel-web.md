@@ -1,7 +1,25 @@
 # Consuming kestrel-web
 
-How to add the kestrel-web admin + public site to your own Nuxt 4 app. `playground/` in this repo is a
-complete working example of everything below — copy from it freely.
+How to add the kestrel-web admin + public site to your own Nuxt 4 app, from an empty directory to a
+deployed build. `playground/` in this repo is a complete working example of everything below — copy
+from it freely.
+
+The five files an app has to bring are `nuxt.config.ts` (§1), `shared/model.ts` (§2),
+`kestrel.config.ts` (§3), `shared/collections-ui.ts` (§3.5) and one `app/blocks/*.vue` per block (§5).
+Everything else is optional.
+
+| | |
+|---|---|
+| §1 Extend the layer | the dependency and the one line of `nuxt.config.ts` |
+| §2 Define your content model | collections, fields, locales, the `features` list |
+| §3 Configure the backend | `kestrel.config.ts`, the module-config builder, environment variables |
+| §3.5 Collections in the admin | labels, field layout, placement, workflow |
+| §4 Write the pipelines | the preset, every feature and what it adds, user administration |
+| §5 Define your blocks | one SFC per block, field factories, the generated body schema |
+| §6 Declare image sizes | `imageSizes`, `<KestrelImage>`, registering variants |
+| §7 Run it | first login, where data lives, deploying, IP allowlists, health probes |
+| §8–§10 Optional | static delivery, redirects, content migrations |
+| §11 Upgrading | moving to a newer kestrel-web |
 
 ## 1. Extend the layer
 
@@ -26,10 +44,17 @@ The `insights` feature needs three optional peers on top: `@michaelthielemann/ke
 of this repository, point `extends` at its path instead (as `playground/nuxt.config.ts` does with
 `extends: [".."]`).
 
+A kestrel-web release pins one Kestrel minor line — its `@michaelthielemann/kestrel*` dependencies are
+`^5.7.0` — so the `@michaelthielemann/kestrel` you install directly has to come from that same line.
+See §11 before moving to a newer kestrel-web.
+
 ## 2. Define your content model
 
 ```ts
 // shared/model.ts
+import type { ContentType } from "#kestrel/collections-ui";
+import type { Feature } from "#kestrel/pipelines";
+
 export const locales = ["de", "en"] as const;
 export const defaultLocale = "de";
 export const prefixPrimary = false; // public URLs never prefix the default locale
@@ -48,14 +73,33 @@ export const contentTypes = {
       title: { type: "text", required: true, localized: true },
       body: { type: "json", localized: true },
       status: { type: "enum", options: ["draft", "finished", "published"], required: true, localized: true },
+      seo: { type: "json", localized: true },
       shareImage: { type: "ref", to: "media" },
     },
   },
+  redirects: { kind: "single", fields: { rules: { type: "json" } } },
 } satisfies Record<string, ContentType>;
 
 export const contentModel = { locales: [...locales], defaultLocale, types: contentTypes };
+
+export const features = ["references", "links", "delivery", "redirects"] as const satisfies readonly Feature[];
 ```
 See `playground/shared/model.ts` for the full field-type list.
+
+`features` is the single source for the `Feature[]` list, typed against `#kestrel/pipelines`'s `Feature`
+union so an unknown name fails to typecheck rather than throwing at compose time. `kestrel.config.ts`
+(§3) and `shared/collections-ui.ts` (§3.5) both import it from here, and the admin gets it over
+`GET /api/admin/schema` (§7) — system tabs and dashboard checks for a feature only appear when it is
+listed — so the three cannot drift.
+
+Some features need a matching content type, which the preset cannot supply for you: the `redirects`
+feature in the list above is why the model declares a `redirects` type. Enabling it without that type
+fails the boot. §4 lists every such prerequisite.
+
+`shared/model.ts` is backend configuration and is not part of the admin's browser bundle: the admin
+imports no `~~/shared/*` file and reads the model, the collection UI, the workflow and the features
+from `GET /api/admin/schema` once per session. The route assembles that answer server-side from these
+very files.
 
 `settings.navigation` is a preset field: the preset admin UI (§3.5) renders it as a repeater
 (label / link / target / one level of children), the preset schema validates its stored shape, and
@@ -123,31 +167,12 @@ ships `default.vue`, so a consumer with no layouts of its own still renders. See
 
 ### Untranslated pages
 
-The public site resolves pages with `fallback=true`, which lets a page whose translation is missing still be found so its primary-locale path can be resolved — but the fallback content is never rendered to a visitor. `[...slug].vue` checks each resolved page's `_locales` map, and if any localized field is inherited from `defaultLocale` rather than owned by the requested locale, it applies `untranslatedPages`: `"redirect"` sends a 302 to the primary-locale page, `"notFound"` throws a 404. Only pages with `_translations[locale] === true` are ever offered by the language switcher.
-
-```ts
-// shared/model.ts
-import type { Feature } from "#kestrel/pipelines";
-// ...contentTypes, contentModel, etc. (§2 above)
-
-export const features = ["references", "links", "delivery", "redirects"] as const satisfies readonly Feature[];
-```
-
-`features` is the single source for the `Feature[]` list, typed against `#kestrel/pipelines`'s `Feature`
-union so an unknown name fails to typecheck rather than throwing at compose time — `kestrel.config.ts`
-(§3) and `shared/collections-ui.ts` (§3.5) both import it from `shared/model.ts`, and the admin gets it
-over `GET /api/admin/schema` (§7; system tabs and dashboard checks for a feature only appear when it is
-listed), so they can't drift.
-
-`shared/model.ts` stays what it always was — backend configuration — but it is no longer part of the
-admin's browser bundle: the admin imports no `~~/shared/*` file and reads the model, the collection UI,
-the workflow and the features from `GET /api/admin/schema` once per session. The
-route assembles that answer server-side from the very same files, so nothing about how you write them
-changes.
-
-**Migration note**: this moved out of a separate `shared/features.ts` — nothing in `kestrel-web` imports
-that file any more. If your app still has one, move its `features` export into `shared/model.ts` and
-delete `shared/features.ts`.
+The public site resolves pages with `fallback=true`, which lets a page whose translation is missing still
+be found so its primary-locale path can be resolved — but the fallback content is never rendered to a
+visitor. `[...slug].vue` checks each resolved page's `_locales` map, and if any localized field is
+inherited from `defaultLocale` rather than owned by the requested locale, it applies `untranslatedPages`:
+`"redirect"` sends a 302 to the primary-locale page, `"notFound"` throws a 404. Only pages with
+`_translations[locale] === true` are ever offered by the language switcher.
 
 ## 3. Configure the backend
 
@@ -163,6 +188,7 @@ import { defineConfig } from "@michaelthielemann/kestrel/defineConfig";
 import { adminPasswordHash, envBlobstore, kestrelDataDir } from "#kestrel/config";
 import { definePreset, presetModuleConfig } from "#kestrel/pipelines";
 import { contentModel, contentTypes, features } from "./shared/model"; // add a feature name once you want it — see §4
+import collectionsUi from "./shared/collections-ui";
 
 const dataDir = kestrelDataDir();
 
@@ -171,6 +197,7 @@ const modules = presetModuleConfig({
   blobstore: envBlobstore(dataDir),
   model: contentModel,
   features,
+  collectionsUi,
   roles: {
     roles: { admin: ["*"], editor: ["pages.*", "media.*", "images.read", "settings.read", "redirects.*"] },
     anonymous: ["pages.read", "settings.read", "media.read"],
@@ -178,7 +205,7 @@ const modules = presetModuleConfig({
   bootstrap: { username: "admin", passwordHash: adminPasswordHash() },
 });
 
-export const preset = definePreset({ modules, features, collections: contentTypes });
+export const preset = definePreset({ modules, features, collections: contentTypes, collectionsUi });
 
 export default defineConfig({
   modules,
@@ -201,12 +228,14 @@ mechanism as `#kestrel/blocks`.
 | `features` | yes | — the same list you pass to `definePreset` and `presetSchemas` |
 | `roles` | yes | — `{ roles, anonymous }` for `authz-roles` |
 | `bootstrap` | yes | — `{ username, passwordHash, roles? }`, `roles` defaulting to `["admin"]` |
+| `collectionsUi` | no | — your `shared/collections-ui.ts` map; the `revisions` module's `statusField`/`liveStatuses` are derived from the workflows in it |
 | `media` | no | `{ maxBytes: 5242880, allowedTypes: ["image/*", "application/pdf"], deniedTypes: ["text/html", "application/xhtml+xml"] }` |
 | `ratelimit` | no | `{ login: { limit: 5, windowSeconds: 60 } }` |
 | `llms` | no | `{ full: true, headings: { pages: "Pages" } }`; `siteUrl` falls back to `NUXT_PUBLIC_SITE_URL` |
 | `migrations` | with the `migrations` feature | — `{ migrations, mode? }`, the `#kestrel/migrations` list (§10); the feature without it throws |
 | `session` | no | `{ identifier: "username", minPasswordLength: 8, sessionTtlSeconds: 86400 }` |
 | `eventsQueue` | no | `{}` — the `events-queue` module config (`pollMs`, `batch`, `maxAttempts`, `backoffSeconds`, `lockTtlSeconds`, `retentionDays`), used only with the `eventsQueue` feature |
+| `revisions` | no | — `{ keep?, maxSnapshotBytes?, pruneOnWrite?, maxLimit? }`, passed through to `revisions-default`; used only with the `revisions` feature (§4) |
 | `overrides` | no | — per-module escape hatch, keyed by package name, shallow-merged onto that module's derived config |
 
 `blobstore`, `roles` and `bootstrap` have no default at all — a missing one throws naming the option
@@ -269,25 +298,6 @@ const modules = [
 ];
 ```
 
-### Switching an existing `kestrel.config.ts` to the builder
-
-1. Map each module entry to a builder option (`blobstore`, `roles`, `bootstrap`, `media`, `ratelimit`,
-   `llms`, `session`, `migrations`) and delete the entries the builder derives: `persistence-sqlite`,
-   `sanitize-svg`, `media-default`'s `locales`/`defaultLocale`, `images-default`'s and
-   `delivery-static`'s `publicPath`, `references-default`'s `targets`, `validate-jsonschema`'s
-   `schemas`, the `site/` prefixes, and any module whose config was already `{}`.
-2. Move whatever module setting is left over — anything `presetModuleConfig()` doesn't expose — into
-   `overrides`, keyed by package name, e.g. `@michaelthielemann/kestrel-replication-sqlite`'s `prefix`,
-   `restoreOnStart` and `retentionSeconds`.
-3. Replace the environment plumbing with `#kestrel/config`: `kestrelDataDir()`, `envBlobstore()`,
-   `adminPasswordHash()`, `requiredEnv()`. Production still needs `KESTREL_ADMIN_PASSWORD_HASH` and,
-   for an S3 blobstore, its `KESTREL_S3_*` variables.
-4. Keep `definePreset` and `defineConfig` exactly as before — only the `modules` list construction
-   changes.
-5. Verify: `nuxt typecheck`, then compare the built list against the long form above or boot the app —
-   a module the enabled features don't imply must not appear, and a missing required option throws at
-   load time instead of booting with something plausible.
-
 ### `#kestrel/config` — the environment plumbing
 
 A second alias, independent of the preset, for what every deployment needs anyway:
@@ -345,10 +355,10 @@ could render.
 ```ts
 // shared/collections-ui.ts
 import { defineCollectionsUi, presetCollectionsUi } from "#kestrel/collections-ui";
-import { features } from "./model";
+import { contentTypes, features } from "./model";
 
 export default defineCollectionsUi({
-  ...presetCollectionsUi({ features }),
+  ...presetCollectionsUi({ features, collections: contentTypes }),
   pages: {
     label: { singular: { en: "Page", de: "Seite" }, plural: { en: "Pages", de: "Seiten" } },
     icon: "file-text",
@@ -368,7 +378,7 @@ export default defineCollectionsUi({
       },
     },
   },
-});
+}, contentTypes);
 ```
 
 `presetCollectionsUi({ features, collections })` returns the `settings` entry always (pass your `contentTypes` so the optional standard fields get their labels, choices and a shared first row: `settings.titlePosition` (`suffix` | `prefix`, site title after or before the page title in `<title>`, default suffix) and `settings.titleSeparator` (the string between them, default `·`), and `settings.description` (localized text, the
@@ -389,8 +399,8 @@ shape guard can only check what needs no model.
   `placement: "system"` collection in model order, then the fixed feature tabs); `"account"` puts a
   `single` collection in the account menu (rail foot) instead. An invalid value throws, and so does a
   `multi` collection setting `placement: "system"` or `"account"` — only `"rail"` is valid for `multi`.
-  `nav?: boolean` (new on `CollectionUi`) opts a `"rail"`-placed collection out of the rail link and
-  dashboard card when set to `false`.
+  `nav?: boolean` opts a `"rail"`-placed collection out of the rail link and dashboard card when set to
+  `false`.
 
 The `settings` entry's `navigation` field is a repeater the same way, with a `link`-typed sub-field
 (restricted to `internal`/`external`) and a nested `children` repeater one level deep — the `Repeater`
@@ -503,8 +513,7 @@ The preset wires the whole user lifecycle to `authn-multi` and guards every rout
 The username is the identity — there is no e-mail field. Roles are free strings; which permissions
 they carry is the `roles` option of `presetModuleConfig`. Nobody can delete or deactivate their own
 account (400), and the last active holder of `users.manage` can be neither deactivated, nor deleted,
-nor stripped of that permission (409 `LAST_ADMIN`). Deactivation used to answer `DELETE /users/:id`;
-a consumer that kept its own trigger list has to move it to `POST /users/:id/deactivate` itself.
+nor stripped of that permission (409 `LAST_ADMIN`).
 
 ### Features
 
@@ -598,22 +607,21 @@ does) and `GET /<name>` / `PUT /<name>`. A `multi` type with at least one `local
 gets `delete<Name>Translation` (`<name>.write`, `content.removeTranslation:<name>`, then
 `events.emit:<event>.translationRemoved`) and `DELETE /<name>/:id/translations/:locale` — it clears one
 locale's fields instead of removing the document; the backend answers 409 on the last remaining
-translation. `pages` goes through the same generator — it just also keeps its historical singular
-pipeline names (`readPage`, not `readPages`) and its `resolvePage` + delivery/references/links patches,
-since a page-like `pageLike` model marker doesn't exist yet; `deletePageTranslation` additionally
-gets the same delivery/links/references patches as `updatePage` (re-publish, re-export llms.txt,
-re-extract links, re-index references), right before its `events.emit:page.translationRemoved`.
-`settings` and `redirects` are excluded from generation entirely — their pipelines and routes are the
-same hand-written ones as before, for exact backwards compatibility.
+translation. `pages` goes through the same generator but is special-cased twice: its pipelines carry
+singular names (`readPage`, not `readPages`) and singular event names (`page.created`), and it is the
+only collection that gets `resolvePage` and the `delivery`/`references`/`links` feature patches, which
+are pinned to the name `pages`. `deletePageTranslation` gets the same delivery/links/references patches
+as `updatePage` (re-publish, re-export llms.txt, re-extract links, re-index references), right before
+its `events.emit:page.translationRemoved`. `settings` and `redirects` are excluded from generation
+entirely — their pipelines and routes are hand-written in the preset.
 
 ### Options
 
 `definePreset({ modules, features, collections?, collectionsUi?, overrides?, exclude?, schedules?, exportDir?, homeSlug? })`:
 
 - `collections` — your `contentTypes` record (or a reduced one with just `kind` and field names per
-  type); defaults to a single `pages` entry matching today's hardcoded shape, so omitting it reproduces
-  the original pipeline set exactly. Pass your real `contentTypes` so every collection you define gets
-  its pipelines and routes for free (§2).
+  type). Omitted, it defaults to a single `pages` entry. Pass your real `contentTypes` so every
+  collection you define gets its pipelines and routes for free (§2).
 - `collectionsUi` — `Record<string, { workflow? }>`, required as soon as any collection declares a
   `workflow` (§3.5): the public `list`/`read` pipelines then filter on `?status=<workflow.live>` (URL-
   encoded) instead of the derived default, and the layer fails to boot when a declared workflow never
@@ -927,11 +935,15 @@ further users from **System → Users** and change the bootstrap password.
 **Where data lives**: SQLite database and blobstore under the app's `./data/` (git-ignored) — set by the
 `persistence-sqlite` and `blobstore-*` module `config` in `kestrel.config.ts`.
 
-**Deploying a build**: `nuxt build` produces a self-contained `.output` — the JSON Schemas are inlined
-into the server bundle, no path of the build machine is baked in, and the folder can be copied to
-another machine. Set `KESTREL_APP_ROOT` to the directory that holds `data/` on the target (default: the
-process cwd); `here()` in `kestrel.config.ts` and the `data/export` default resolve against it. This
-needs `@michaelthielemann/kestrel-validate-jsonschema` 5.0.1 or newer (inline schemas).
+**Building and deploying**: `nuxt build` produces a self-contained `.output`, started with
+`node .output/server/index.mjs`. The JSON Schemas are inlined into the server bundle and no path of the
+build machine is baked in, so the folder can be copied to another machine. Set `KESTREL_APP_ROOT` to
+the directory that holds `data/` on the target (default: the process cwd); `here()` in
+`kestrel.config.ts` and the `data/export` default resolve against it. Production also needs
+`KESTREL_ADMIN_PASSWORD_HASH` and, for an S3 blobstore, the `KESTREL_S3_*` variables (§3) — a missing
+one throws while the config loads, naming it. Set `NUXT_PUBLIC_SITE_URL` to the site's real origin so
+the editor's preview links, canonical URLs and `llms.txt` are absolute. Static delivery (§8) requires
+this production build; it cannot run against `nuxt dev`.
 
 **Restricting access by IP**: two allowlists, empty by default (= open), read from the runtime config
 `kestrel.access` — `NUXT_KESTREL_ACCESS_ADMIN` and `NUXT_KESTREL_ACCESS_SITE`, each a comma-separated list of
@@ -964,8 +976,8 @@ One more route comes with the layer, for the admin rather than for an operator:
 
 It needs the admin's Bearer token — it runs the preset pipeline `adminSchemaModel`
 (`authn.requireUser`, `content.describeModel`) with the request headers and the client IP (resolved under
-the same `KESTREL_TRUST_PROXY`/`KESTREL_PROXY_HOPS`/`KESTREL_TRUSTED_HEADER` policy as every other
-backend route), so the session is checked by the backend, not by the Nitro layer. `collections` is the
+the same `NUXT_KESTREL_ACCESS_TRUST_PROXY`/`_PROXY_HOPS`/`_TRUSTED_HEADER` policy as every other backend
+route, see above), so the session is checked by the backend, not by the Nitro layer. `collections` is the
 array `serializeCollections()` produces, in the order of your `contentTypes`, each entry carrying
 `editorOwned` and, where one is resolved, `workflow`. The 200 carries the same `cache-control: no-store`,
 `x-content-type-options: nosniff` and `x-kestrel-run-id` headers as any backend answer. The response type
@@ -1030,21 +1042,12 @@ the pipelines, triggers and `redirects.rules` schema; you only own the content t
 of a page, and `[...slug].vue` turns that into a real 30x via `navigateTo`. See
 `docs/architecture.md#redirects`.
 
-## 9.5 Migrating `settings.navigation` from the pre-link-field shape
+## 9.5 Internal links in `settings`
 
-Before this preset resolved links, a hand-rolled `settings.navigation` field typically stored
-`{ label, path, children? }` entries. Moving to `{ label, link, target?, children? }` needs a one-off
-data migration, not a code change: read the current value via the admin API for every locale, convert
-each `path` — `/`-prefixed and matching a page's slug for that locale becomes
-`{ type: "internal", collection: "pages", id }`, anything else becomes `{ type: "external", url: path }`
-— and write it back with a small Node script against the admin API.
-
-If you kept a custom `schemas/settings.navigation.json` in `<appRoot>` from before this preset existed,
-`presetSchemas()` still finds it and uses it in place of the layer default (§3) — even though the preset's
-own default schema has since changed shape. An outdated consumer file (the pre-link-field `{ label, path,
-children? }` shape, or one still allowing `email`/`tel` link types) will reject the payload the admin UI
-now emits, so every `PUT /settings` write fails with a 400. Delete `schemas/settings.navigation.json` from
-your app root to fall back to the current preset default, or update it to match
+A custom `schemas/settings.navigation.json` in your app root wins over the layer default (§3), and
+`presetSchemas()` gives you no warning when the two have drifted apart: a schema that does not accept
+the `{ label, link, target?, children? }` entries the admin UI emits makes every `PUT /settings` write
+fail with a 400. Delete the file to fall back to the preset default, or keep it in step with
 `layers/core/schemas/settings.navigation.json`.
 
 `site.resolveLinks` doesn't only resolve `link`-typed values — it also rewrites any `kestrel:<type>:<id>`
@@ -1121,6 +1124,30 @@ replication/point-in-time restore, not a migration.
 document count, duration) and the pending migrations, with a dry run (counts documents that would change,
 writes nothing) and an apply button (confirm, then run, then refresh) — see
 `docs/architecture.md#content-migrations`.
+
+## 11. Upgrading
+
+kestrel-web and the Kestrel backend move together: a kestrel-web release depends on one Kestrel minor
+line (`^5.7.0` today), so bump `@michaelthielemann/kestrel` — and any `@michaelthielemann/kestrel-*`
+package you list yourself, such as `kestrel-insights` — in the same step as
+`@michaelthielemann/kestrel-web`. A mismatched pair fails at boot with the missing step or contract
+named, not silently.
+
+1. Read `CHANGELOG.md` from your current version upwards. It is the only place that records behaviour
+   changes; everything in `docs/` describes the current version only. `### Breaking` entries name what a
+   consumer has to change.
+2. Update the dependencies, then `pnpm install`.
+3. `nuxt typecheck`. Renamed steps, features and preset options are typed, so most breakage surfaces
+   here rather than at runtime — a step name that no longer exists fails in `overrides`, and a feature
+   name that no longer exists fails in `features`.
+4. `nuxt build`, then boot it once. The preset validates its own composition at boot: a feature without
+   its module, a declared workflow that never reached `definePreset`, and a misconfigured `publicPath`
+   are all reported with the collection or option named.
+5. Run the migrations (§10) a changed content shape needs, and click **Synchronize** under
+   **System → Images** if the release changed your image sizes (§6).
+
+`@michaelthielemann/kestrel-renderer-nuxt` is versioned separately but released together with the layer;
+it is an ordinary dependency and needs no attention unless you pinned it yourself.
 
 ## Keeping your styles out of the admin
 

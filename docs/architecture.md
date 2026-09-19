@@ -1,5 +1,8 @@
 # Architecture
 
+How kestrel-web is built, for anyone changing it. A consuming app does not need this file — that is
+`docs/consuming-kestrel-web.md`; this one starts where the consumer surface ends.
+
 ## Layers
 `nuxt.config.ts` extends three layers in order:
 
@@ -29,7 +32,7 @@ Every layer has one named entry; relative paths never cross a layer.
 | --- | --- | --- |
 | `#kestrel-core/*` | `layers/core` (the layer root, so `app/utils/*`, `app/types/api` and `pipelines/__fixtures__/*` are reachable) | `layers/admin`, `layers/public`, tests |
 | `#kestrel-admin/*` | `layers/admin/app` | `layers/admin` only |
-| `#kestrel/*` | the exact core entries (`pipelines`, `modules`, `collections-ui`, `cast`, `config`) and the virtual ids of the Nuxt modules (`blocks`, `block-images`, `image-sizes`, `layouts`, `build-assets`, `migrations`, `schemas`, `consumer-*`) | everyone; this is the surface documented for consumers |
+| `#kestrel/*` | the core entries (`pipelines`, `modules`, `collections-ui`, `cast`, `config`) and the virtual ids of the Nuxt modules (`blocks`, `block-images`, `image-sizes`, `layouts`, `build-assets`, `migrations`, `schemas`, `optional-modules`, `consumer-pipelines`, `consumer-modules`, `consumer-block-tags`) | everyone; this is the surface documented for consumers |
 
 `layers/public` has no alias: nothing imports the public layer. The aliases are registered in
 `layers/core/nuxt.config.ts` (Nuxt, Vite and Nitro resolvers), `layers/admin/nuxt.config.ts` and
@@ -74,13 +77,13 @@ is what lets a plain `.ts` file's `.vue` import resolve to a real, if loosely-ty
 an unresolvable module — `field-registry.ts` and `register-builtin-editors.ts` import their `.vue`
 components with no cast. `vue-tsc` (`pnpm typecheck`) is unaffected either way: it resolves `.vue` files
 itself and keeps checking real prop types whether or not the shim is present, so a component used with a
-prop value outside its real type still fails `vue-tsc`. `InsightsGraph.vue`'s
-`defineAsyncComponent(() => import('#kestrel-insights-canvas'))` needed a different fix: that bare alias
-never matches the `*.vue` wildcard (the shim only matches specifiers that literally end in `.vue`), so
-plain `tsc` still resolved it as `any`. `layers/admin/modules/insights-graph/index.ts` now declares that
-virtual module's shape directly (`declare module "#kestrel-insights-canvas" { ... }`, written the same way
-as the module's existing `@vue-flow/core`/`@dagrejs/dagre` stub for the optional-peers case), so
-`InsightsGraph.vue` imports it with no cast either.
+prop value outside its real type still fails `vue-tsc`. The shim does not cover `InsightsGraph.vue`'s
+`defineAsyncComponent(() => import('#kestrel-insights-canvas'))`: that bare alias never matches the
+`*.vue` wildcard, which only matches specifiers literally ending in `.vue`, so plain `tsc` would resolve
+it as `any`. `layers/admin/modules/insights-graph/index.ts` therefore declares that virtual module's
+shape directly (`declare module "#kestrel-insights-canvas" { ... }`, written like the module's
+`@vue-flow/core`/`@dagrejs/dagre` stub for the optional-peers case), so `InsightsGraph.vue` imports it
+with no cast either.
 
 ## Runtime
 ```
@@ -315,17 +318,12 @@ wins over `GET /admin/references/to/pages/:id` regardless of where either is reg
 that resolve to the same method-and-pattern are a boot error (`boot.ts`), not a silent override — the
 list order only matters for readability and for where a route logically belongs among its feature group.
 
-`golden.test.ts` pins this against frozen fixtures (`__fixtures__/playground.json`,
-`__fixtures__/without-images.json`, captured from the pre-preset per-file pipelines, and `__fixtures__/synthetic.json`,
-captured from a `definePreset` call with an extra `news` multi collection and two extra single
-collections): `definePreset` with every feature must reproduce today's playground pipeline and trigger
-lists exactly, and with every feature but `images` reproduce `without-images.json` — a mismatch there is a spec bug in
-the preset, not a fixture to update. The fixtures additionally contain
-`pageReferrersMany`/`mediaReferrersMany`, which were added by the preset (backend batch-referrer routes)
-and never existed as consumer files. `synthetic.json` additionally has the `migrations` feature on (the other
-two fixtures don't enable it, so they stay byte-identical); `synthetic-collections.ts` and
-`golden.test.ts`'s own `syntheticModules`/`syntheticFeatures` exercise the `migrations` feature in the preset;
-the playground does not enable it yet.
+`golden.test.ts` pins this against three frozen fixtures: `__fixtures__/playground.json` (every feature),
+`__fixtures__/without-images.json` (every feature but `images`) and `__fixtures__/synthetic.json`
+(a `definePreset` call with an extra `news` multi collection, two extra single collections and the
+`migrations` feature, whose inputs are `synthetic-collections.ts` plus `golden.test.ts`'s own
+`syntheticModules`/`syntheticFeatures`). `definePreset` must reproduce each pipeline and trigger list
+exactly — a mismatch is a spec bug in the preset, not a fixture to update.
 
 ## Content migrations
 A consumer that changes a block's props or a collection's field shape needs existing documents rewritten,
@@ -496,16 +494,15 @@ alone, so focus rings, disabled states, ARIA wiring and design tokens live in on
 
 The `kestrel/ui-kit-first` block in `playground/eslint.config.mjs` enforces the rule over
 `layers/admin/app/**/*.vue` — components, layouts, pages and anything added next to them. It ignores
-`components/ui/**` (the kit itself) and `pages/admin/system.vue`. `vue/no-restricted-html-elements` names the kit component for each raw element; five more rules
-close the ways around it:
+`components/ui/**`, the kit itself. `vue/no-restricted-html-elements` names the kit component for each
+raw element; five more rules close the ways around it:
 
 - The block sets `linterOptions.noInlineConfig` and turns `vue/comment-directive` off, so neither a
   `<!-- eslint-disable … -->` in the template nor a `/* eslint-disable … */` in the script block can switch
   it back off: inline ESLint comments have no effect in admin `.vue` files outside `components/ui/**`. A
-  suppression that is genuinely needed goes into a `.ts` file or into the kit. The admin templates carried
-  none worth keeping: the `vuejs-accessibility/*` directives they and the kit used to have named a plugin
-  that is not installed. Installing an accessibility plugin would need those suppressions back, and the
-  guard would have to become a vitest scan over the admin templates instead.
+  suppression that is genuinely needed goes into a `.ts` file or into the kit. Installing an
+  accessibility plugin (whose rules would need template-level suppressions) would mean turning this
+  guard into a vitest scan over the admin templates instead.
 - `vue/no-restricted-static-attribute` rejects `role="button"`, `href="#"` on an `<a>` and a static
   `<component is="button">`.
 - `vue/no-restricted-class` rejects `ui-button…` classes on anything that is not the kit button.
@@ -536,6 +533,7 @@ Kit inventory:
 - `Popover.vue` — anchored popover with a trigger slot.
 - `Richtext.vue` / `RichtextToolbar.vue` — the TipTap editor and its toolbar.
 - `Select.vue` — native select styled like the other controls.
+- `TabList.vue` — the horizontal tab strip the system and insights screens sit in.
 - `Table.vue` / `TableSort.vue` — the table shell (`head`/`body` slots, sticky header, `plain` for a table
   inlined in a card: no frame, no header fill, no row hover) and its sortable column header.
 - `Textarea.vue` — multi-line text input.
@@ -655,8 +653,9 @@ as a consumer rule in `docs/consuming-kestrel-web.md`, not something the admin c
 bound to `.admin`/`.admin-portal`, if a `@layer` comes back, if the document root carries anything but
 `color-scheme` and `scroll-behavior`, if one of the inherited properties is no longer pinned on the admin
 root, if `::selection`/`::placeholder`/`::marker` lose their admin scoping, or if a kit component starts
-declaring one of the blanket-inherit properties. That is also what keeps the admin reset off the public site: it is no longer a question of where the stylesheet is imported, the rules simply do not match
-outside the admin. In dev `installAdminClient()` additionally disables foreign stylesheets under
+declaring one of the blanket-inherit properties. That is also what keeps the admin reset off the public
+site: it does not depend on where the stylesheet is imported, the rules simply do not match outside the
+admin. In dev `installAdminClient()` additionally disables foreign stylesheets under
 `/admin` (`utils/admin-style-guard.ts`); production has no such guard, which is why the isolation has to
 hold on its own. Note that the guard treats any path containing `kestrel-*` as its own, so a consumer
 checkout whose directory matches that keeps its stylesheets live under `/admin` in dev — which is what
@@ -701,9 +700,9 @@ that role:
   or danger button, where `--color-focus` would sit on its own colour because the ring is drawn inside
   the button.
 - Decorative: `--color-border` (table rules, card outlines, separators). 1.4.11 does not apply to it;
-  it is reported by the script without a threshold. The dark value was raised to `#5e5e6a` (3.09:1
-  against the page) so it stays visible; the light value stays low on purpose — a 3:1 hairline would
-  turn every card into a box.
+  it is reported by the script without a threshold. The dark value (`#5e5e6a`, 3.09:1 against the page)
+  is high enough to stay visible; the light value stays low on purpose — a 3:1 hairline would turn every
+  card into a box.
 - Surfaces: `--color-bg`, `--color-surface`, `--color-surface-2`, `--color-rail-bg`, `--color-active`,
   `--color-hover`, `--color-primary-soft`, `--color-highlight`, `--color-scrim`, `--color-overlay`
   (+ `--color-overlay-edge`, the hairline around an overlay button) and `--color-canvas`, the block
@@ -1397,8 +1396,8 @@ Props: `media` (a media id string, or an already-fetched `MediaItem` — the com
   `w`-descriptor `srcset` must be the same image at different widths: a `cover` crop has a different
   aspect ratio than the original, and mixing it into the same `srcset` would let the browser pick it
   purely for viewport size or pixel density and render it into a box built for a different ratio — a
-  visibly wrong crop. This was observed for real, not hypothetical: a content image picked up both
-  `avatar` (96×96, square) and `teaser` (480×320, 3:2) in its `srcset`. Consequence for a consumer
+  visibly wrong crop, e.g. a content image picking up both `avatar` (96×96, square) and `teaser`
+  (480×320, 3:2) in one `srcset`. Consequence for a consumer
   declaring its own sizes: a `cover` size forms its own `srcset` family and is never mixed with
   `inside` sizes, even when both are named through `only`.
 - **`width`/`height` come from the variant, not the original**, but only when that named variant is
@@ -1530,9 +1529,9 @@ notion of that field's name or type.
 instead of rendering `KestrelBlockRenderer` in the admin DOM — the iframe runs `_preview/[key].vue`
 through the public layer's own layout and CSS, so header/menu/footer and site styles render for real and
 never leak into the admin bundle. The snapshot channel (`app/utils/preview-channel.ts` —
-`sessionStorage` + `BroadcastChannel`) is unchanged from 093 and keeps the iframe's content in sync with
-unsaved editor changes; `BlockPreview` also publishes a snapshot synchronously before the iframe's first
-load so `readPreviewSnapshot` on mount already has data.
+`sessionStorage` + `BroadcastChannel`) keeps the iframe's content in sync with unsaved editor changes;
+`BlockPreview` also publishes a snapshot synchronously before the iframe's first load so
+`readPreviewSnapshot` on mount already has data.
 
 `BlockPreview`'s `buildPreviewSnapshot` builds `PreviewDocument` from `ctx.values` generically:
 `id`/`slug`/`title`/`body`/`seo`/`layout` stay explicit (editor-owned or, for `body`, sourced from the

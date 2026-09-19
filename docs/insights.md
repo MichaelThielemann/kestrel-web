@@ -23,22 +23,22 @@ A bare `/admin/insights` lands on the first tab of the strip: `DEFAULT_TAB` is `
 strip order is the single source of truth and reordering `TAB_IDS` moves the landing tab with it. A
 `?tab=` deep link still wins over the default, and an unknown value falls back to the first tab.
 
-The effective value (`value` on a config variable, `@michaelthielemann/kestrel` 5.6.0 or newer) is
-what the config sets, otherwise the schema default. The backend serialises it as a JSON snapshot:
+The effective value (`value` on a config variable) is what the config sets, otherwise the schema
+default. The backend serialises it as a JSON snapshot:
 functions, class instances and Buffers become type labels such as `"[function]"`, a `Date` its ISO
 string, and long strings, wide arrays, deep nesting and cycles are truncated with a marker. The
 admin renders that snapshot with `JSON.stringify`, truncates it to one line with the full text in
 `title`, and offers a copy button from 24 characters on.
 
-A variable that is redacted — `redacted: true` from the backend, or `secret` in the schema, which is
-what an older backend reports — shows a lock icon and the word "redacted" and never a value, neither
-in the Value nor in the Default column, and its value is also excluded from the filter. The filter
-box matches module name, variable path and visible value.
+A variable that is redacted — `redacted: true` from the backend, or `secret` in the schema — shows a
+lock icon and the word "redacted" and never a value, neither in the Value nor in the Default column,
+and its value is also excluded from the filter. The filter box matches module name, variable path and
+visible value.
 
 `value` and `redacted` are both optional in `InsightsConfigVariable`, so a backend that answers
 without them renders an em dash in the Value column instead of failing. Modules with no config
 variable at all are collected behind a collapsed disclosure below the tables. The module detail page
-renders the same table (`InsightsConfigVariables.vue`) and therefore gained the Value column too.
+renders the same table component (`InsightsConfigVariables.vue`), Value column included.
 
 ## Recent failures
 `stats().recentFailures` is a ring buffer of the last failed runs of this process, newest first, each
@@ -59,14 +59,16 @@ The field is optional in `InsightsStats`, so an admin built against an older bac
 without `recentFailures` renders the empty state instead of failing.
 
 ## Enabling it
-- `shared/model.ts`: add `"insights"` to `features`.
-- `kestrel.config.ts`: add `{ use: "@michaelthielemann/kestrel-insights", config: {} }` to `modules`.
+- Install `@michaelthielemann/kestrel-insights` — it is an optional peer dependency of kestrel-web, so
+  it is not there by default. `@vue-flow/core` and `@dagrejs/dagre` are needed for the graph tab only.
+- `shared/model.ts`: add `"insights"` to `features`. `presetModuleConfig()` then adds
+  `{ use: "@michaelthielemann/kestrel-insights", config: {} }` to the module list itself; a
+  hand-written `modules` list has to carry that entry.
 - The role that should see the page needs `insights.read` (the example admin role has `*`).
 
 Without the module the page renders an info alert ("not available"); without the permission a
 warning. The rail link appears when the `insights` feature is on and `can('insights.read')` is
-true; today `canWithRoles` (`composables/useAuth.ts`) only grants `insights.read` to the `admin`
-role.
+true; `canWithRoles` (`composables/useAuth.ts`) grants `insights.read` to the `admin` role only.
 
 ## Pieces
 - `layers/admin/app/composables/useInsights.ts` — one `useState` holding manifest, stats and the

@@ -1,7 +1,29 @@
 # kestrel-web
 
-A Nuxt 4 meta-layer for the Kestrel CMS: an editorial admin (`/admin`) and the public site that
-renders published content, both wired to a Kestrel backend embedded in the app's own Nitro server.
+`@michaelthielemann/kestrel-web` is a Nuxt 4 layer that gives a Nuxt app two things at once:
+
+- **an editorial admin UI at `/admin`** — content list and record editor, page builder, media library,
+  users, and the system screens for delivery, redirects, images, references, replication, events and
+  version history;
+- **a public site** that resolves and renders the published content.
+
+Both talk to a [Kestrel](https://github.com/MichaelThielemann/kestrel) backend that the layer boots
+**inside the app's own Nitro server** and serves under `/api`. There is no second process and no
+separate deployment: `nuxt build` produces one `.output` that contains the site, the admin and the CMS.
+
+A consuming app owns its content model, its Kestrel configuration and its block library. Everything
+else — pipelines, module wiring, admin UI, validation schemas — comes from the layer.
+
+```ts
+// nuxt.config.ts of your app
+export default defineNuxtConfig({
+  extends: ["@michaelthielemann/kestrel-web"],
+});
+```
+
+Full walkthrough: [`docs/consuming-kestrel-web.md`](docs/consuming-kestrel-web.md).
+
+## Working on this repository
 
 ```
 pnpm install
@@ -11,11 +33,16 @@ pnpm dev          # http://localhost:3000/admin — admin / change-me
 Requires Node 22.13 or newer (`node:sqlite`) and pnpm 11 (`corepack enable`). The Kestrel backend
 packages (`@michaelthielemann/kestrel*`) are installed from npm.
 
-`pnpm dev` runs the `playground` app, the reference consumer of this layer. To use kestrel-web in
-your own app, see `docs/consuming-kestrel-web.md`. For how the pieces fit together, see
-`docs/architecture.md`.
+`pnpm dev` runs `playground/`, the reference consumer of this layer.
 
-## Layout
+| command | what it does |
+|---|---|
+| `pnpm dev` | `nuxt dev playground` → http://localhost:3000 (admin at `/admin`, API at `/api`) |
+| `pnpm build` / `pnpm preview` | production build of the playground, and a preview server for it |
+| `pnpm typecheck` | `nuxt typecheck playground` |
+| `pnpm test` | vitest (`layers/**/*.test.ts`, `packages/**/*.test.ts`, `scripts/**/*.test.ts`) |
+| `pnpm lint` | `nuxt prepare playground && eslint .` |
+| `pnpm build:packages` | builds `packages/*` (the renderer's `dist/`) |
 
 To develop against an unpublished backend checkout, point the packages at its sources with a pnpm
 override in `pnpm-workspace.yaml` (do not commit it):
@@ -25,6 +52,8 @@ overrides:
   "@michaelthielemann/kestrel": "link:../kestrel/packages/core"
   "@michaelthielemann/kestrel-contracts": "link:../kestrel/packages/contracts"
 ```
+
+## Repository layout
 
 - `layers/core` — boots the embedded Kestrel backend (Nitro plugin) from the consumer's
   `kestrel.config.ts` plus its optional `kestrel.modules.ts`/`pipelines/` (each falls back to a
@@ -40,14 +69,6 @@ overrides:
 - `packages/renderer-nuxt` — the `renderer@1` module that lets `delivery-static` render pages through
   `layers/public`.
 - `playground` — the reference consumer used for development.
-
-## Commands
-
-- `pnpm dev` — `nuxt dev playground` → http://localhost:3000 (admin at `/admin`, API at `/api`, login `admin` / `change-me`)
-- `pnpm build` / `pnpm preview`
-- `pnpm typecheck` — `nuxt typecheck playground`
-- `pnpm test` — vitest (`layers/**/*.test.ts`, `packages/**/*.test.ts`)
-- `pnpm lint` — `nuxt prepare playground && eslint .`
 
 ## Conventions
 
@@ -79,11 +100,13 @@ overrides:
 
 | doc | when to read |
 |---|---|
-| `docs/architecture.md` | How the layers, the embedded backend, the API client and the block/renderer contracts fit together. |
-| `docs/consuming-kestrel-web.md` | Step-by-step for a new app that extends `kestrel-web`. |
-| `docs/migrations.md` | Rewriting stored content after a block or model change: enabling the module, writing migrations, run modes, the admin tab. |
-| `docs/insights.md` | The `/admin/insights` page: manifest and stats routes, enabling the module, the wiring graph. |
-| `CHANGELOG.md` | Every behaviour change visible to a consumer, newest first under `## Unreleased`. |
+| [`docs/consuming-kestrel-web.md`](docs/consuming-kestrel-web.md) | You are building an app on kestrel-web: install, content model, collections, backend config, blocks, images, running, deploying, upgrading. Start here. |
+| [`docs/architecture.md`](docs/architecture.md) | You are changing kestrel-web itself, or need to know why it behaves the way it does: layers and aliases, the embedded backend, the pipeline preset, the admin client, the UI kit and CSS isolation, UI actions, blocks, images, delivery. |
+| [`docs/migrations.md`](docs/migrations.md) | Stored content has to be rewritten after a block or model change: enabling the module, writing migrations, run modes, the admin tab. |
+| [`docs/insights.md`](docs/insights.md) | The `/admin/insights` page: what it shows, the two routes behind it, enabling it, the wiring graph. |
+| [`RELEASING.md`](RELEASING.md) | You are cutting a release of this repository. |
+| [`packages/renderer-nuxt/README.md`](packages/renderer-nuxt/README.md) | The `renderer@1` module: how a published page is rendered and which assets travel with it. |
+| [`CHANGELOG.md`](CHANGELOG.md) | Every behaviour change visible to a consumer, newest first under `## Unreleased`. Read it before upgrading. |
 | [backend `docs/api.md`](https://github.com/MichaelThielemann/kestrel/blob/main/docs/api.md) | The HTTP contract every composable and pipeline is written against. |
 
 ## License
