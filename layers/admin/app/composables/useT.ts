@@ -1,12 +1,11 @@
 import { en } from '../i18n/en'
-import { de } from '../i18n/de'
+import { adminCatalogs, adminLangs } from '../i18n/catalogs'
+import type { Catalog } from '../i18n/define'
 
-export type Catalog = Record<string, string>
+export type { AdminI18n, Catalog, CatalogKey, CatalogOverrides } from '../i18n/define'
 
-export const ADMIN_LANGS = ['en', 'de'] as const
-export type AdminLang = (typeof ADMIN_LANGS)[number]
-
-const catalogs: Record<string, Catalog> = { en, de }
+export const ADMIN_LANGS = adminLangs
+export type AdminLang = string
 
 export function interpolate(template: string, params?: Record<string, unknown>): string {
   if (!params) return template
@@ -19,6 +18,6 @@ export function translate(catalog: Catalog, fallback: Catalog, key: string, para
 
 export function useT() {
   const lang = useAdminLang()
-  const t = (key: string, params?: Record<string, unknown>) => translate(catalogs[lang.value] ?? en, en, key, params)
+  const t = (key: string, params?: Record<string, unknown>) => translate(adminCatalogs[lang.value] ?? en, en, key, params)
   return { t, lang }
 }

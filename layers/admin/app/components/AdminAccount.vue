@@ -5,6 +5,7 @@ import {
   DropdownMenuItemIndicator, DropdownMenuItem,
 } from 'reka-ui'
 import { resolveLocalized } from '#kestrel-admin/utils/localized'
+import { langLabel } from '#kestrel-admin/i18n/lang'
 import { boundaryCast } from '#kestrel/cast'
 
 const { t, lang } = useT()
@@ -63,7 +64,7 @@ defineExpose({ lang, selectLang, signOut, theme, toggleTheme })
                 <KestrelUiIcon name="check" size="1rem" />
               </DropdownMenuItemIndicator>
             </span>
-            <span>{{ l.toUpperCase() }}</span>
+            <span :lang="l">{{ langLabel(l) }}</span>
           </DropdownMenuRadioItem>
         </DropdownMenuRadioGroup>
 

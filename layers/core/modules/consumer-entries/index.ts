@@ -4,12 +4,12 @@ import { fileURLToPath } from "node:url";
 import { defineNuxtModule } from "@nuxt/kit";
 import { boundaryCast } from "@michaelthielemann/kestrel/cast";
 
-const PIPELINES_VIRTUAL_ID = "#kestrel/consumer-pipelines";
-const PIPELINES_DEFAULT = fileURLToPath(new URL("./pipelines.default.ts", import.meta.url));
-const MODULES_VIRTUAL_ID = "#kestrel/consumer-modules";
-const MODULES_DEFAULT = fileURLToPath(new URL("./modules.default.ts", import.meta.url));
-const BLOCK_TAGS_VIRTUAL_ID = "#kestrel/consumer-block-tags";
-const BLOCK_TAGS_DEFAULT = fileURLToPath(new URL("./block-tags.default.ts", import.meta.url));
+const ENTRIES = [
+  { id: "#kestrel/consumer-pipelines", entry: "pipelines/index.ts", fallback: fileURLToPath(new URL("./pipelines.default.ts", import.meta.url)) },
+  { id: "#kestrel/consumer-modules", entry: "kestrel.modules.ts", fallback: fileURLToPath(new URL("./modules.default.ts", import.meta.url)) },
+  { id: "#kestrel/consumer-block-tags", entry: "shared/block-tags.ts", fallback: fileURLToPath(new URL("./block-tags.default.ts", import.meta.url)) },
+  { id: "#kestrel/consumer-admin-i18n", entry: "shared/admin-i18n.ts", fallback: fileURLToPath(new URL("./admin-i18n.default.ts", import.meta.url)) },
+];
 const TYPES = fileURLToPath(new URL("../../types/consumer-entries.d.ts", import.meta.url));
 
 type ViteConfig = { resolve?: { alias?: Record<string, string> | readonly { find: string | RegExp; replacement: string }[] } };
@@ -25,25 +25,20 @@ function registerViteAlias(vite: ViteConfig, id: string, dst: string): void {
 export default defineNuxtModule({
   meta: { name: "kestrel-consumer-entries" },
   setup(_options, nuxt) {
-    const pipelinesEntry = resolve(nuxt.options.rootDir, "pipelines/index.ts");
-    const pipelinesTarget = existsSync(pipelinesEntry) ? pipelinesEntry : PIPELINES_DEFAULT;
-    const modulesEntry = resolve(nuxt.options.rootDir, "kestrel.modules.ts");
-    const modulesTarget = existsSync(modulesEntry) ? modulesEntry : MODULES_DEFAULT;
-    const blockTagsEntry = resolve(nuxt.options.rootDir, "shared/block-tags.ts");
-    const blockTagsTarget = existsSync(blockTagsEntry) ? blockTagsEntry : BLOCK_TAGS_DEFAULT;
-
-    nuxt.options.alias[PIPELINES_VIRTUAL_ID] = pipelinesTarget;
-    nuxt.options.alias[MODULES_VIRTUAL_ID] = modulesTarget;
-    nuxt.options.alias[BLOCK_TAGS_VIRTUAL_ID] = blockTagsTarget;
+    const targets: Record<string, string> = {};
+    for (const { id, entry, fallback } of ENTRIES) {
+      const consumerEntry = resolve(nuxt.options.rootDir, entry);
+      const target = existsSync(consumerEntry) ? consumerEntry : fallback;
+      targets[id] = target;
+      nuxt.options.alias[id] = target;
+    }
 
     nuxt.hook("vite:extendConfig", (config) => {
-      registerViteAlias(config, PIPELINES_VIRTUAL_ID, pipelinesTarget);
-      registerViteAlias(config, MODULES_VIRTUAL_ID, modulesTarget);
-      registerViteAlias(config, BLOCK_TAGS_VIRTUAL_ID, blockTagsTarget);
+      for (const [id, target] of Object.entries(targets)) registerViteAlias(config, id, target);
     });
 
     nuxt.hook("nitro:config", (config) => {
-      config.alias = { [PIPELINES_VIRTUAL_ID]: pipelinesTarget, [MODULES_VIRTUAL_ID]: modulesTarget, [BLOCK_TAGS_VIRTUAL_ID]: blockTagsTarget, ...(config.alias ?? {}) };
+      config.alias = { ...targets, ...(config.alias ?? {}) };
     });
 
     nuxt.hook("prepare:types", ({ references }) => {

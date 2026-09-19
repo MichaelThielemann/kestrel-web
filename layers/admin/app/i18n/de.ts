@@ -1,6 +1,6 @@
-import type { Catalog } from '../composables/useT'
+import type { CatalogKey } from './define'
 
-export const de: Catalog = {
+export const de: Record<CatalogKey, string> = {
   'common.new': '{label} anlegen',
   'common.save': 'Speichern',
   'common.publish': 'Veröffentlichen',

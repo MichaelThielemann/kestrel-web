@@ -8,12 +8,12 @@ import Repeater from './Repeater.vue'
 const subFields: Record<string, FieldDef> = { label: { type: 'text', required: true } }
 const field: FieldDef = { type: 'repeater', options: { fields: subFields } }
 
-const itemLabel = (n: number) => interpolate(en['field.repeater.item_label']!, { n })
-const insertLabel = (n: number) => interpolate(en['field.repeater.insert_label']!, { n })
-const moveUpLabel = (n: number) => interpolate(en['field.repeater.move_up']!, { n })
-const moveDownLabel = (n: number) => interpolate(en['field.repeater.move_down']!, { n })
-const duplicateLabel = (n: number) => interpolate(en['field.repeater.duplicate_label']!, { n })
-const removeLabel = (n: number) => interpolate(en['field.repeater.remove_label']!, { n })
+const itemLabel = (n: number) => interpolate(en['field.repeater.item_label'], { n })
+const insertLabel = (n: number) => interpolate(en['field.repeater.insert_label'], { n })
+const moveUpLabel = (n: number) => interpolate(en['field.repeater.move_up'], { n })
+const moveDownLabel = (n: number) => interpolate(en['field.repeater.move_down'], { n })
+const duplicateLabel = (n: number) => interpolate(en['field.repeater.duplicate_label'], { n })
+const removeLabel = (n: number) => interpolate(en['field.repeater.remove_label'], { n })
 
 function mountRepeater(modelValue: Record<string, unknown>[]) {
   return mountSuspended(Repeater, {

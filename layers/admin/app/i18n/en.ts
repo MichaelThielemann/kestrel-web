@@ -1,6 +1,4 @@
-import type { Catalog } from '../composables/useT'
-
-export const en: Catalog = {
+export const en = {
   'common.new': 'New {label}',
   'common.save': 'Save',
   'common.publish': 'Publish',
@@ -969,4 +967,4 @@ export const en: Catalog = {
   'insights.graph.triggerHttp': 'HTTP',
   'insights.graph.triggerEvent': 'Event',
   'insights.graph.triggerCron': 'Cron',
-}
+} satisfies Record<string, string>

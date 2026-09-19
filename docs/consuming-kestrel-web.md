@@ -22,7 +22,7 @@ Everything else is optional.
 | §11 Upgrading | moving to a newer kestrel-web |
 | [`deployment.md`](deployment.md) | Running the build in production: environment, persistent volumes, systemd and container examples, reverse proxy, backups, restarts |
 | [`field-types.md`](field-types.md) | How a field type reaches the editor and the schema, and how far `field("myType")` gets |
-| [`admin-i18n.md`](admin-i18n.md) | The admin UI's own language, and how `Localized` labels resolve against it |
+| [`admin-i18n.md`](admin-i18n.md) | The admin UI's own language: overriding its strings and adding a language from `shared/admin-i18n.ts`, and how `Localized` labels resolve against it |
 
 ## 0. The short way
 
@@ -513,6 +513,27 @@ field component supports a repeater inside a repeater generically, at any depth,
   with the link type switch, the anchor field (internal links only) and the link-text field; it picks up a
   small active dot when an anchor or link text is already set, so editors can see there is more without
   opening it. `options.types` still limits which link types are offered.
+
+### The admin's own language
+
+`shared/admin-i18n.ts` is optional and overrides the admin's own chrome — the strings that are not
+yours to name, unlike the `Localized` labels above:
+
+```ts
+// shared/admin-i18n.ts
+import { defineAdminI18n } from "#kestrel-admin/i18n/define";
+
+export default defineAdminI18n({
+  en: { "nav.dashboard": "Overview" },
+  fr: { "nav.dashboard": "Aperçu", "common.save": "Enregistrer" },
+});
+```
+
+A shipped language (`en`, `de`) keeps every key you do not name; any other tag adds a language to the
+account menu's language switch and falls back to English key by key. Unknown keys fail the typecheck.
+Creating or deleting the file needs a dev restart, like the other optional consumer entries.
+[`admin-i18n.md`](admin-i18n.md) has the whole mechanism, including how the initial language is picked
+from `navigator.languages`.
 
 ## 4. Write the pipelines
 

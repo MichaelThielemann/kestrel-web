@@ -4,7 +4,7 @@ Two independent things are localized in `/admin`, and they are resolved from dif
 
 | | what it covers | source |
 |---|---|---|
-| **the admin language** | the UI's own chrome — buttons, tabs, dialogs, error text | `layers/admin/app/i18n/{en,de}.ts`, picked by a cookie |
+| **the admin language** | the UI's own chrome — buttons, tabs, dialogs, error text | `layers/admin/app/i18n/{en,de}.ts` plus your `shared/admin-i18n.ts`, picked by a cookie |
 | **`Localized` labels** | collection, field, enum-choice, block and block-tag labels | your `shared/collections-ui.ts`, `shared/model.ts`, `defineBlock` |
 
 The content locales of `shared/model.ts` are a third, unrelated thing: they decide which translations
@@ -16,20 +16,26 @@ page in an English admin.
 `layers/admin/app/i18n/en.ts` and `de.ts` each export one flat map of dotted keys to strings:
 
 ```ts
-import type { Catalog } from '../composables/useT'
-
-export const en: Catalog = {
+// en.ts — the key set
+export const en = {
   'common.new': 'New {label}',
   'common.save': 'Save',
   …
-}
+} satisfies Record<string, string>
+
+// de.ts — every key of en, no more
+import type { CatalogKey } from './define'
+
+export const de: Record<CatalogKey, string> = { … }
 ```
 
 Around 900 keys each, grouped by prefix: `common`, `nav`, `dash`, `list`, `collection`, `editor`,
 `blocks`, `field`, `media`, `seo`, `preview`, `history`, `revisions`, `system`, `users`, `images`,
 `delivery`, `replication`, `events`, `migrations`, `insights`, `login`, `toast`, `a11y` and the rest.
-`Catalog` is `Record<string, string>`, so nothing checks that the two files carry the same keys —
-parity is a runtime fallback, not a type.
+
+`en` is the key set: `CatalogKey` is `keyof typeof en`, and `de` is typed `Record<CatalogKey, string>`,
+so a key missing from or added to `de` alone fails `pnpm typecheck`. `layers/admin/app/i18n/parity.test.ts`
+names the offending keys as well, which is the faster of the two to read.
 
 `layers/admin/app/composables/useT.ts` is the whole mechanism; there is no vue-i18n and no
 `@nuxtjs/i18n`:
@@ -37,7 +43,7 @@ parity is a runtime fallback, not a type.
 ```ts
 export function useT() {
   const lang = useAdminLang()
-  const t = (key, params) => translate(catalogs[lang.value] ?? en, en, key, params)
+  const t = (key, params) => translate(adminCatalogs[lang.value] ?? en, en, key, params)
   return { t, lang }
 }
 ```
@@ -47,23 +53,31 @@ export function useT() {
   UI.
 - **Interpolation** is a `{name}` replacement over the params object. A param that is `null` or absent
   leaves the placeholder in place.
-- **Plurals** do not exist. A count-dependent string needs its own key per form.
+- **Plurals** do not exist, and no key is chosen by a count. The 19 `{count}` strings carry one fixed
+  wording that reads in both forms (`'{count} file(s) already exist.'`), so a language that needs a
+  real plural rule needs its own key per form and a caller that picks between them.
 
 ## Choosing the language
 
-`useAdminLang()` is a cookie:
+`useAdminLang()` is a cookie, and the cookie wins whenever it is set:
 
 ```ts
 export function useAdminLang() {
-  return useCookie<string>('kestrel-admin-lang', { default: () => 'en' })
+  return useCookie<string>('kestrel-admin-lang', { default: initialLang })
 }
 ```
 
-English until somebody picks otherwise — there is no `Accept-Language` negotiation and no
-`navigator.language` detection for the UI language (`navigator.language` is only used by the date and
-date-range pickers when no explicit locale is passed). The switch is in the account menu at the foot
-of the rail (`AdminAccount.vue`), a radio group over `ADMIN_LANGS` (`['en', 'de']`), writing straight
-back into the cookie. A cookie value with no catalog silently renders English.
+With no cookie, `initialLang()` runs `pickLang(adminLangs, navigator.languages)`: the first entry of
+`navigator.languages` that has a catalog, matched case-insensitively and by primary subtag as well, so
+`de-AT` reaches `de`. It is guarded by `import.meta.client` and answers `en` on the server; the admin
+is client-rendered, so the guard only matters for a server-rendered page that reads the cookie. There
+is no `Accept-Language` negotiation. Picking a language in the UI stores the cookie, and from then on
+the browser's own list is ignored. A cookie value with no catalog silently renders English.
+
+The switch is in the account menu at the foot of the rail (`AdminAccount.vue`), a radio group over
+`ADMIN_LANGS` — `['en', 'de']` plus the languages your `shared/admin-i18n.ts` adds, in that order.
+Each entry carries `lang="…"` and its own endonym from `Intl.DisplayNames` (`English`, `Deutsch`,
+`français`), so a screen reader pronounces it in the right language.
 
 Dates follow the admin language only in the version-history screens; the system and insights screens
 format them with `Intl` and no explicit locale, i.e. in the browser's own locale. The admin does not
@@ -90,50 +104,35 @@ German sees German collection names without anything in the content model changi
 
 ## Adding or overriding strings
 
-There is no merge hook: no `#kestrel/i18n` alias, no runtime-config key, no `app.config` entry, and
-no plugin that merges a partial catalog. `en.ts`/`de.ts` are reached through a relative import inside
-`useT.ts`, so a consumer file at `app/i18n/en.ts` does nothing.
-
-What does work is Nuxt's ordinary composable shadowing: `layers/admin/app/composables/` is a scanned
-directory, so a consumer's own `app/composables/useT.ts` replaces the layer's for the whole app — the
-admin's components call `useT()` as an auto-import, and `AdminAccount.vue` builds its language switch
-from the `ADMIN_LANGS` the same module exports. One file, and you own all of it:
+`shared/admin-i18n.ts` is the hook. Export a default `defineAdminI18n({ … })` and the admin merges it
+into its own catalogs at startup; `#kestrel/consumer-admin-i18n` resolves to the file when it exists
+and to an empty default when it does not, exactly like `shared/block-tags.ts`. Nothing is shadowed,
+and no layer file is copied:
 
 ```ts
-// app/composables/useT.ts
-import { en } from "@michaelthielemann/kestrel-web/layers/admin/app/i18n/en";
-import { de } from "@michaelthielemann/kestrel-web/layers/admin/app/i18n/de";
+// shared/admin-i18n.ts
+import { defineAdminI18n } from "#kestrel-admin/i18n/define";
 
-export type Catalog = Record<string, string>;
-export const ADMIN_LANGS = ["en", "de", "fr"] as const;
-export type AdminLang = (typeof ADMIN_LANGS)[number];
-
-const fr: Catalog = { ...en, "common.save": "Enregistrer" };
-const catalogs: Record<string, Catalog> = { en: { ...en, "common.save": "Store" }, de, fr };
-
-export function interpolate(template: string, params?: Record<string, unknown>): string {
-  if (!params) return template;
-  return template.replace(/\{(\w+)\}/g, (m: string, k: string) => (params[k] != null ? String(params[k]) : m));
-}
-
-export function translate(catalog: Catalog, fallback: Catalog, key: string, params?: Record<string, unknown>): string {
-  return interpolate(catalog[key] ?? fallback[key] ?? key, params);
-}
-
-export function useT() {
-  const lang = useAdminLang();
-  const t = (key: string, params?: Record<string, unknown>) => translate(catalogs[lang.value] ?? en, en, key, params);
-  return { t, lang };
-}
+export default defineAdminI18n({
+  en: { "nav.dashboard": "Overview" },
+  fr: {
+    "nav.dashboard": "Aperçu",
+    "common.save": "Enregistrer",
+    "lang.label": "Langue",
+  },
+});
 ```
 
-Spreading the layer's catalog and overwriting individual keys is the whole point: a new language that
-only translates part of the UI falls back to English key by key, and an override of one string leaves
-the other 900 alone. Re-export `interpolate` and `translate` as well — they are auto-imports the layer
-uses elsewhere.
+- **A language the admin ships** (`en`, `de`) takes the keys you name and keeps the other ~900.
+- **Any other language tag** adds a language. It is appended to `ADMIN_LANGS`, appears in the account
+  menu's language switch, and needs no completeness: every key you leave out falls back to English at
+  lookup time, so the French admin above is French where you translated it, English everywhere else.
+- **An unknown key is a type error**: the value per language is `Partial<Record<CatalogKey, string>>`,
+  so `pnpm typecheck` names a key that no catalog defines. When the overrides are assembled at runtime
+  rather than written as a literal, the dev server warns once per language instead.
 
-The costs are real and this is not a supported extension point: the module is copied from layer
-sources, so every release can change what it has to match, the keys it overrides can disappear, and
-`useAdminLang` (a separate file, shadowable the same way) still decides the default and the cookie
-name. For a single wording change, prefer a `Localized` label in your own collection UI where the
-string is one you own anyway.
+Which key is which is a question for `layers/admin/app/i18n/en.ts`; the keys are the API, and a key
+that disappears in a later release takes its override with it, silently.
+
+For a single wording change, prefer a `Localized` label in your own collection UI where the string is
+one you own anyway. `playground/shared/admin-i18n.ts` is the example above, running.

@@ -38,10 +38,10 @@ function createCtx(): BlockTreeCtx {
   }
 }
 
-const moveUpLabel = (n: number) => interpolate(en['blocks.moveUp']!, { n })
-const moveDownLabel = (n: number) => interpolate(en['blocks.moveDown']!, { n })
-const moreLabel = (n: number) => interpolate(en['blocks.more']!, { n })
-const movedMessage = (label: string, pos: number, total: number) => interpolate(en['blocks.moved']!, { label, pos, total })
+const moveUpLabel = (n: number) => interpolate(en['blocks.moveUp'], { n })
+const moveDownLabel = (n: number) => interpolate(en['blocks.moveDown'], { n })
+const moreLabel = (n: number) => interpolate(en['blocks.more'], { n })
+const movedMessage = (label: string, pos: number, total: number) => interpolate(en['blocks.moved'], { label, pos, total })
 
 async function firePointer(el: Element, type: string, init: { pointerId: number; clientY: number }): Promise<void> {
   el.dispatchEvent(new PointerEvent(type, { ...init, bubbles: true, cancelable: true }))

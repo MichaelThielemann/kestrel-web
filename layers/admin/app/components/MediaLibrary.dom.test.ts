@@ -58,7 +58,7 @@ describe('MediaLibrary upload status', () => {
     await nextTick()
 
     await vi.waitFor(() => expect(wrapper.get('[role="status"]').text()).not.toBe(''))
-    expect(wrapper.get('[role="status"]').text()).toContain(en['media.uploading']!.trim())
+    expect(wrapper.get('[role="status"]').text()).toContain(en['media.uploading'].trim())
 
     const progressbar = wrapper.get('[role="progressbar"]')
     expect(progressbar.attributes('aria-valuenow')).toBe('50')
@@ -100,7 +100,7 @@ describe('MediaLibrary upload status', () => {
     expect(wrapper.get('[role="status"]').text()).toBe('')
     expect(wrapper.get('.media-upload-queue__failed').text()).toContain('File type is not allowed')
 
-    const dismissButton = wrapper.get(`[aria-label="${en['media.upload.dismiss']!.replace('{name}', 'bad.exe')}"]`)
+    const dismissButton = wrapper.get(`[aria-label="${en['media.upload.dismiss'].replace('{name}', 'bad.exe')}"]`)
     await dismissButton.trigger('click')
 
     expect(wrapper.find('.media-upload-queue__row').exists()).toBe(false)

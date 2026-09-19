@@ -14,6 +14,16 @@
 
 ### Added
 
+- The admin's own strings are a consumer extension point: an optional `shared/admin-i18n.ts` exporting
+  `defineAdminI18n({ en: { … }, fr: { … } })` as default (`#kestrel-admin/i18n/define`) is merged into
+  the shipped catalogs at startup, key by key. A shipped language keeps every key the file does not
+  name, any other tag adds a language to the account menu's language switch, and a key it leaves out
+  falls back to English at lookup time. A key no catalog defines fails the typecheck, and the dev
+  server warns about one that only appears at runtime. `de.ts` is now typed against the keys of `en.ts`,
+  so a missing or stray translation fails `pnpm typecheck` and `parity.test.ts` names it. With no
+  stored choice the admin starts in the first of `navigator.languages` that has a catalog (`de-AT`
+  matches `de`); the cookie still wins once set. The switch shows each language's own name with a
+  `lang` attribute. `{count}` interpolation is unchanged and there are still no plural forms.
 - New package `create-kestrel` (`packages/create-kestrel`, 5.0.0):
   `pnpm create kestrel my-site` scaffolds a consumer of this layer — locales, features, blobstore and
   a bootstrap admin whose password is stored only as a scrypt hash in `.env`. It has no runtime
