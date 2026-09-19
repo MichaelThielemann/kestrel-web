@@ -203,6 +203,11 @@ describe("feature gating", () => {
     });
   });
 
+  it("takes the audit retention from the options and leaves the module config empty without it", () => {
+    expect(configFor(presetModuleConfig({ ...playgroundOptions(), features: ["audit"] }), "audit-persistence")).toEqual({});
+    expect(configFor(presetModuleConfig({ ...playgroundOptions(), features: ["audit"], audit: { retentionDays: 365 } }), "audit-persistence")).toEqual({ retentionDays: 365 });
+  });
+
   it("takes the revisions retention from the options and the live states from the collection workflow", () => {
     const modules = presetModuleConfig({ ...playgroundOptions(), features: ["revisions"], revisions: { keep: 20, maxSnapshotBytes: 2048 } });
     expect(configFor(modules, "revisions-default")).toEqual({ keep: 20, maxSnapshotBytes: 2048, statusField: "status", liveStatuses: ["published"] });

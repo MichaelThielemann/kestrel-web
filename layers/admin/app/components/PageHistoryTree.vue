@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { RevisionLayout, RevisionRow } from '../utils/revision-lanes'
+import { revisionAuthorName } from '../utils/revision-author'
 
 const props = defineProps<{
   layout: RevisionLayout
@@ -49,7 +50,7 @@ function timeOf(row: RevisionRow): string {
 }
 
 function authorOf(row: RevisionRow): string {
-  return row.revision.author.name ?? t('revisions.unknownAuthor')
+  return revisionAuthorName(t, row.revision.author)
 }
 
 function describe(row: RevisionRow): string {

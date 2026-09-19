@@ -60,7 +60,7 @@ const allModules = [
   { use: "@michaelthielemann/kestrel-renderer-nuxt" },
   { use: "@michaelthielemann/kestrel-delivery-static" },
   { use: "@michaelthielemann/kestrel-redirects-default" },
-  { use: "@michaelthielemann/kestrel-audit-persistence" },
+  { use: "@michaelthielemann/kestrel-audit-persistence", config: { retentionDays: 365 } },
   { use: "@michaelthielemann/kestrel-events-inmemory" },
   { use: "@michaelthielemann/kestrel-ratelimit-memory" },
   { use: "@michaelthielemann/kestrel-insights" },

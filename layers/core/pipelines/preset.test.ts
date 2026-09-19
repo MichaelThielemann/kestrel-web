@@ -292,7 +292,8 @@ describe("definePreset feature composition", () => {
 
   it("throws when a feature pipeline name collides with a base pipeline", async () => {
     vi.resetModules();
-    vi.doMock("./features/audit", () => ({
+    vi.doMock("./features/audit", async (importOriginal) => ({
+      ...await importOriginal<typeof import("./features/audit")>(),
       default: () => ({ modules: ["@michaelthielemann/kestrel-audit-persistence"], pipelines: { login: ["x"] }, patches: [] }),
     }));
     const { definePreset: definePresetWithCollidingAudit } = await import("./index");
@@ -545,6 +546,80 @@ describe("definePreset revisions feature", () => {
     const update = withDelivery.pipelines.find((pipeline) => pipeline.name === "updatePage")?.steps ?? [];
     expect(update.indexOf("revisions.record:pages")).toBe(update.indexOf("content.update:pages") + 1);
     expect(update.indexOf("delivery.publish:pages")).toBeGreaterThan(update.indexOf("revisions.record:pages"));
+  });
+});
+
+describe("definePreset user deletion", () => {
+  const auditModules = [...baseModules, { use: "@michaelthielemann/kestrel-audit-persistence" }];
+  const bothModules = [...auditModules, { use: "@michaelthielemann/kestrel-revisions-default" }];
+  const stepsOf = (preset: { pipelines: { name: string; steps: readonly string[] }[] }, name: string): readonly string[] =>
+    preset.pipelines.find((pipeline) => pipeline.name === name)?.steps ?? [];
+
+  it("emits user.deleted with the step result so the listeners see reassignTo", () => {
+    const preset = definePreset({ modules: baseModules, features: [] });
+    expect(stepsOf(preset, "deleteUser")).toEqual([
+      "authn.requireUser",
+      "authz.require:users.manage",
+      "authn.deleteUser",
+      "events.emit:user.deleted?with=result",
+    ]);
+  });
+
+  it("wires the revisions listener and its retry route behind users.manage", () => {
+    const preset = definePreset({ modules: bothModules, features: ["revisions", "audit"] });
+    expect(stepsOf(preset, "reassignRevisionAuthor")).toEqual(["revisions.reassignAuthor"]);
+    expect(stepsOf(preset, "retryReassignRevisionAuthor")).toEqual(["authn.requireUser", "authz.require:users.manage", "revisions.reassignAuthor"]);
+    expect(preset.triggers).toContainEqual({ event: "user.deleted", pipeline: "reassignRevisionAuthor" });
+    expect(preset.triggers).toContainEqual({ http: "POST /admin/users/:id/revisions/reassign", pipeline: "retryReassignRevisionAuthor" });
+  });
+
+  it("wires the audit listener and its retry route behind users.manage", () => {
+    const preset = definePreset({ modules: bothModules, features: ["revisions", "audit"] });
+    expect(stepsOf(preset, "anonymizeAuditUser")).toEqual(["audit.anonymize"]);
+    expect(stepsOf(preset, "retryAnonymizeAuditUser")).toEqual(["authn.requireUser", "authz.require:users.manage", "audit.anonymize"]);
+    expect(preset.triggers).toContainEqual({ event: "user.deleted", pipeline: "anonymizeAuditUser" });
+    expect(preset.triggers).toContainEqual({ http: "POST /admin/users/:id/audit/anonymize", pipeline: "retryAnonymizeAuditUser" });
+  });
+
+  it("leaves both listeners out when neither feature is on", () => {
+    const preset = definePreset({ modules: baseModules, features: [] });
+    expect(preset.triggers.some((trigger) => trigger.pipeline === "reassignRevisionAuthor")).toBe(false);
+    expect(preset.triggers.some((trigger) => trigger.pipeline === "anonymizeAuditUser")).toBe(false);
+  });
+
+  it("adds the audit prune cron only when the module carries retentionDays", () => {
+    const without = definePreset({ modules: auditModules, features: ["audit"] });
+    expect(without.pipelines.some((pipeline) => pipeline.name === "pruneAudit")).toBe(false);
+    expect(without.triggers.some((trigger) => trigger.pipeline === "pruneAudit")).toBe(false);
+
+    const withRetention = definePreset({
+      modules: [...baseModules, { use: "@michaelthielemann/kestrel-audit-persistence", config: { retentionDays: 90 } }],
+      features: ["audit"],
+    });
+    expect(stepsOf(withRetention, "pruneAudit")).toEqual(["audit.prune"]);
+    expect(withRetention.triggers).toContainEqual({ cron: "45 3 * * *", pipeline: "pruneAudit" });
+  });
+
+  it("reschedules the audit prune cron and explains a schedule without retentionDays", () => {
+    const rescheduled = definePreset({
+      modules: [...baseModules, { use: "@michaelthielemann/kestrel-audit-persistence", config: { retentionDays: 90 } }],
+      features: ["audit"],
+      schedules: { pruneAudit: "0 5 * * 0" },
+    });
+    expect(rescheduled.triggers).toContainEqual({ cron: "0 5 * * 0", pipeline: "pruneAudit" });
+
+    expect(() => definePreset({ modules: auditModules, features: ["audit"], schedules: { pruneAudit: "0 5 * * 0" } })).toThrow(
+      'preset: schedule for pipeline "pruneAudit" – module "@michaelthielemann/kestrel-audit-persistence" has no "retentionDays"',
+    );
+  });
+
+  it("satisfies the events-queue feature's demand for an event trigger on its own", () => {
+    const queued = definePreset({
+      modules: [...bothModules, { use: "@michaelthielemann/kestrel-events-queue" }],
+      features: ["revisions", "audit", "eventsQueue"],
+    });
+    expect(queued.triggers).toContainEqual({ event: "user.deleted", pipeline: "reassignRevisionAuthor" });
+    expect(queued.triggers).toContainEqual({ event: "user.deleted", pipeline: "anonymizeAuditUser" });
   });
 });
 

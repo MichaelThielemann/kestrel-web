@@ -22,6 +22,24 @@
 
 ### Added
 
+- Deleting a user now decides what happens to what they wrote. `DELETE /users/:id` takes an optional
+  `{ reassignTo }` — the id of another active user — and answers
+  `{ ok: true, reassignTo: { id, name } | null }`; `deleteUser` emits `user.deleted` with
+  `?with=result`, so the listeners see the target. The `revisions` feature adds
+  `reassignRevisionAuthor` on that event plus `retryReassignRevisionAuthor`
+  (`POST /admin/users/:id/revisions/reassign`), the `audit` feature adds `anonymizeAuditUser` plus
+  `retryAnonymizeAuditUser` (`POST /admin/users/:id/audit/anonymize`), both behind `users.manage` and
+  both idempotent, so a failure seen in Insights → Live can be repeated. Needs
+  `@michaelthielemann/kestrel-revisions-default` and `@michaelthielemann/kestrel-audit-persistence`
+  5.8.0 or newer.
+- The delete dialog in System → Users asks what happens to the author reference: anonymise it (the
+  default) or transfer it to another active user, picked from a list that leaves out the account
+  being deleted and every inactive one. Content and version history stay either way, which the dialog
+  says; an unusable (400) or unknown (404) target is shown as a localized message and the user
+  survives it. The history dialog names an anonymised author "Deleted user".
+- `presetModuleConfig({ audit: { retentionDays } })` passes the retention to `audit-persistence` and
+  is what adds the `pruneAudit` cron (`45 3 * * *`, rescheduled through `schedules`); without it
+  there is nothing to prune and the cron stays out.
 - Field types of your own, declared once and usable on a collection field *and* on a block prop. An
   optional `shared/field-types.ts` exports `defineFieldTypes({ color: { storage: "text", schema: { … },
   empty: "#2266cc" } })` (from `#kestrel/collections-ui`) as its default export and is reachable as
@@ -228,6 +246,10 @@
   marker attributes.
 
 ### Changed
+
+- The admin string `users.deleted` is gone; the delete toast now names the outcome through
+  `users.deletedAnonymized` or `users.deletedReassigned`. A consumer overriding the old key through
+  `shared/admin-i18n.ts` has to move the override.
 
 - The page builder's left pane reads top to bottom as page entry, the "Block structure" label, then the
   blocks, and the keyboard walks it in that order. The label's icon shares the column of the drag

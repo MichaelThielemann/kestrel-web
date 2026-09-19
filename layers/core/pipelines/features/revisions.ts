@@ -6,6 +6,8 @@ import type { CollectionModel } from "../collections";
 import type { FeatureModule } from "../index";
 
 export const REVISIONS_PRUNE_PIPELINE = "pruneRevisions";
+export const REVISIONS_REASSIGN_PIPELINE = "reassignRevisionAuthor";
+export const REVISIONS_REASSIGN_RETRY_PIPELINE = "retryReassignRevisionAuthor";
 
 export interface RevisionPipelineNames {
   list: string;
@@ -49,9 +51,16 @@ export default function revisions(context: PresetContext): FeatureModule {
   const collections = context.collections ?? DEFAULT_COLLECTIONS;
   const entries = revisionedCollections(collections);
 
-  const pipelines: Record<string, PresetStep[]> = { [REVISIONS_PRUNE_PIPELINE]: ["revisions.prune"] };
+  const pipelines: Record<string, PresetStep[]> = {
+    [REVISIONS_PRUNE_PIPELINE]: ["revisions.prune"],
+    [REVISIONS_REASSIGN_PIPELINE]: ["revisions.reassignAuthor"],
+    [REVISIONS_REASSIGN_RETRY_PIPELINE]: ["authn.requireUser", "authz.require:users.manage", "revisions.reassignAuthor"],
+  };
   const patches: FeatureModule["patches"][number][] = [];
-  const triggers: TriggerConfig[] = [];
+  const triggers: TriggerConfig[] = [
+    { http: "POST /admin/users/:id/revisions/reassign", pipeline: REVISIONS_REASSIGN_RETRY_PIPELINE },
+    { event: "user.deleted", pipeline: REVISIONS_REASSIGN_PIPELINE },
+  ];
 
   for (const [name, model] of entries) {
     const { singular } = collectionNames(name);

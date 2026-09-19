@@ -58,6 +58,17 @@ describe('PageHistoryTree', () => {
     wrapper.unmount()
   })
 
+  it('names an anonymised author as a deleted user, in the row and in its screen-reader text', async () => {
+    const items = [revision('a', null, { author: { id: null, name: null } })]
+    const wrapper = await mountSuspended(PageHistoryTree, {
+      props: { layout: layoutRevisions(items, 'a'), selectedId: 'a', hasMore: false, loadingMore: false, busy: false },
+    })
+    const option = wrapper.find('[role="option"]')
+    expect(option.text()).toContain('Deleted user')
+    expect(option.text()).not.toContain('Unknown')
+    wrapper.unmount()
+  })
+
   it('separates the branches by lane so a second branch sits on lane 2', async () => {
     const wrapper = await mountTree()
     const rows = layoutRevisions(ITEMS, 'd').rows

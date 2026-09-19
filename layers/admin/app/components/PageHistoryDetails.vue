@@ -3,6 +3,7 @@ import type { RevisionDetail, RevisionSummary } from '#kestrel-admin/types/api'
 import { humanizeFieldName } from '../utils/humanize'
 import { humanizeSize } from '../utils/library'
 import { diffRevision } from '../utils/revision-diff'
+import { revisionAuthorName } from '../utils/revision-author'
 
 const props = defineProps<{
   summary: RevisionSummary | null
@@ -50,7 +51,7 @@ function onLabel(): void {
       <h3 class="history-details__title">{{ dateFmt.format(new Date(summary.createdAt)) }}</h3>
       <dl class="history-details__facts">
         <dt>{{ t('revisions.author') }}</dt>
-        <dd>{{ summary.author.name ?? t('revisions.unknownAuthor') }}</dd>
+        <dd>{{ revisionAuthorName(t, summary.author) }}</dd>
         <dt>{{ t('revisions.kind') }}</dt>
         <dd>{{ summary.kind === 'restore' ? t('revisions.kindRestore') : t('revisions.kindSave') }}</dd>
         <dt>{{ t('revisions.branch') }}</dt>

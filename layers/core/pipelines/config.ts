@@ -63,6 +63,10 @@ export interface PresetRevisions {
   maxLimit?: number;
 }
 
+export interface PresetAudit {
+  retentionDays?: number;
+}
+
 export interface PresetMigrations {
   migrations: unknown[];
   mode?: string;
@@ -88,6 +92,7 @@ export interface PresetModuleConfigOptions {
   llms?: PresetLlms;
   migrations?: PresetMigrations;
   revisions?: PresetRevisions;
+  audit?: PresetAudit;
   session?: PresetSession;
   eventsQueue?: PresetEventsQueue;
   overrides?: Partial<Record<string, Record<string, unknown>>>;
@@ -293,7 +298,12 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
   }
 
   if (enabled.has("redirects")) modules.push({ use: "@michaelthielemann/kestrel-redirects-default", config: { prefix: SITE_PREFIX } });
-  if (enabled.has("audit")) modules.push({ use: "@michaelthielemann/kestrel-audit-persistence", config: {} });
+  if (enabled.has("audit")) {
+    modules.push({
+      use: "@michaelthielemann/kestrel-audit-persistence",
+      config: { ...(options.audit?.retentionDays === undefined ? {} : { retentionDays: options.audit.retentionDays }) },
+    });
+  }
   if (enabled.has("eventsQueue")) modules.push({ use: "@michaelthielemann/kestrel-events-queue", config: { ...options.eventsQueue } });
   else modules.push({ use: "@michaelthielemann/kestrel-events-inmemory", config: {} });
   if (enabled.has("ratelimit")) {

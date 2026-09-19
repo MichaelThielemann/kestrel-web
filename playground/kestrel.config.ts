@@ -15,6 +15,7 @@ const modules = presetModuleConfig({
   features,
   collectionsUi,
   fieldTypes,
+  audit: { retentionDays: 365 },
   roles: {
     roles: { admin: ["*"], editor: ["pages.*", "media.*", "images.read", "settings.read", "redirects.*"] },
     anonymous: ["pages.read", "settings.read", "media.read"],

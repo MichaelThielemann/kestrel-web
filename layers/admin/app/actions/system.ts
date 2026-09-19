@@ -1,4 +1,4 @@
-import type { EventsRetryResult, ImagesJob, ImagesPruneResult, ImagesRetryFailedResult, ImagesStatus, MediaExportReport, MediaReconcileReport, MigrationsApplyResult, MigrationsDryRunResult, PublishAllReport, RebuildReport, ReplicationRestoreResult, ReplicationSnapshotResult } from '#kestrel-admin/types/api'
+import type { EventsRetryResult, ImagesJob, ImagesPruneResult, ImagesRetryFailedResult, ImagesStatus, MediaExportReport, MediaReconcileReport, MigrationsApplyResult, MigrationsDryRunResult, PublishAllReport, RebuildReport, ReplicationRestoreResult, ReplicationSnapshotResult, UserDeleteResponse, UserReassignTarget } from '#kestrel-admin/types/api'
 import { defineAction, type ActionContext, type ActionStep } from '#kestrel-core/app/utils/actions'
 import { apiErrorCode, apiErrorMessage, apiErrorRunId, apiErrorStatus, withRunId } from '../composables/useApi'
 import { humanizeSize } from '../utils/library'
@@ -72,9 +72,14 @@ export interface UserUpdateInput extends WithDeps {
 
 export interface UserDeleteInput extends WithDeps {
   userId: string
+  reassignTo: string | null
   confirmed: boolean
   ops: BusyPort
   refresh: RefreshPort
+}
+
+export interface UserDeleteOutcome {
+  reassignTo: UserReassignTarget | null
 }
 
 export interface ReferencesRebuildInput extends WithDeps {
@@ -368,20 +373,35 @@ export const userUpdate = defineAction<UserUpdateInput, undefined>({
   always: [opsBusy<UserUpdateInput, undefined>(false)],
 })
 
-const userDeleteRequest: ActionStep<UserDeleteInput, undefined> = defineUiStep('user.delete', async (ctx) => {
-  await callUser(ctx, 'delete', { path: `/users/${ctx.input.userId}`, method: 'DELETE' })
+const userDeleteRequest: ActionStep<UserDeleteInput, UserDeleteOutcome> = defineUiStep('user.delete', async (ctx) => {
+  const { deps, userId, reassignTo, ops } = ctx.input
+  try {
+    const value = await deps.api<UserDeleteResponse>(`/users/${userId}`, { method: 'DELETE', body: { reassignTo } })
+    ctx.result = { reassignTo: value.reassignTo }
+  } catch (e) {
+    const failure = { status: apiErrorStatus(e), code: apiErrorCode(e), message: apiErrorMessage(e) }
+    const message = userErrorMessage(deps.t, reassignTo === null ? 'delete' : 'reassign', failure)
+    ops.setError?.(message)
+    ctx.fail(message)
+  }
 })
 
-export const userDelete = defineAction<UserDeleteInput, undefined>({
+const userDeleteToast: ActionStep<UserDeleteInput, UserDeleteOutcome> = defineUiStep('toast.success', (ctx) => {
+  const { t, toast } = ctx.input.deps
+  const target = ctx.result?.reassignTo ?? null
+  toast.success(target === null ? t('users.deletedAnonymized') : t('users.deletedReassigned', { username: target.name }))
+})
+
+export const userDelete = defineAction<UserDeleteInput, UserDeleteOutcome>({
   name: 'userDelete',
   steps: [
-    dialogConfirm<UserDeleteInput, undefined>((ctx) => ctx.input.confirmed),
-    opsBusy<UserDeleteInput, undefined>(true),
+    dialogConfirm<UserDeleteInput, UserDeleteOutcome>((ctx) => ctx.input.confirmed),
+    opsBusy<UserDeleteInput, UserDeleteOutcome>(true),
     userDeleteRequest,
-    defineUiStep<UserDeleteInput, undefined>('toast.success', (ctx) => { ctx.input.deps.toast.success(ctx.input.deps.t('users.deleted')) }),
-    dataReload<UserDeleteInput, undefined>(),
+    userDeleteToast,
+    dataReload<UserDeleteInput, UserDeleteOutcome>(),
   ],
-  always: [opsBusy<UserDeleteInput, undefined>(false)],
+  always: [opsBusy<UserDeleteInput, UserDeleteOutcome>(false)],
 })
 
 export const referencesRebuild = defineAction<ReferencesRebuildInput, RebuildReport>({

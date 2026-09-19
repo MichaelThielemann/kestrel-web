@@ -574,24 +574,37 @@ describe('userDelete', () => {
     const { ops } = fakeOps()
     const { refresh } = fakeRefresh()
 
-    const result = await runAction(userDelete, { deps, userId: 'u1', confirmed: false, ops, refresh })
+    const result = await runAction(userDelete, { deps, userId: 'u1', reassignTo: null, confirmed: false, ops, refresh })
 
     expect(result.ok).toBe(false)
     expect(calls.length).toBe(0)
   })
 
-  it('deletes, toasts and reloads', async () => {
-    const { deps, calls, toast } = fakeDeps([{ ok: true }])
+  it('anonymises by default, toasts the outcome and reloads', async () => {
+    const { deps, calls, toast } = fakeDeps([{ ok: true, reassignTo: null }])
     const { ops, busyLog } = fakeOps()
     const { refresh, calls: refreshCalls } = fakeRefresh()
 
-    const result = await runAction(userDelete, { deps, userId: 'u1', confirmed: true, ops, refresh })
+    const result = await runAction(userDelete, { deps, userId: 'u1', reassignTo: null, confirmed: true, ops, refresh })
 
     expect(result.ok).toBe(true)
-    expect(calls).toEqual([{ path: '/users/u1', method: 'DELETE', body: undefined, query: undefined }])
-    expect(toast.success).toHaveBeenCalledWith('users.deleted')
+    expect(calls).toEqual([{ path: '/users/u1', method: 'DELETE', body: { reassignTo: null }, query: undefined }])
+    expect(toast.success).toHaveBeenCalledWith('users.deletedAnonymized')
     expect(refreshCalls.length).toBe(1)
     expect(busyLog).toEqual([true, false])
+  })
+
+  it('sends the chosen target and names it in the toast', async () => {
+    const { deps, calls, toast } = fakeDeps([{ ok: true, reassignTo: { id: 'u2', name: 'berta' } }])
+    const { ops } = fakeOps()
+    const { refresh } = fakeRefresh()
+
+    const result = await runAction(userDelete, { deps, userId: 'u1', reassignTo: 'u2', confirmed: true, ops, refresh })
+
+    expect(result.ok).toBe(true)
+    expect(result.ok && result.result).toEqual({ reassignTo: { id: 'u2', name: 'berta' } })
+    expect(calls).toEqual([{ path: '/users/u1', method: 'DELETE', body: { reassignTo: 'u2' }, query: undefined }])
+    expect(toast.success).toHaveBeenCalledWith('users.deletedReassigned:{"username":"berta"}')
   })
 
   it('shows the self-protection message and skips the reload', async () => {
@@ -599,10 +612,34 @@ describe('userDelete', () => {
     const { ops, errors } = fakeOps()
     const { refresh, calls: refreshCalls } = fakeRefresh()
 
-    const result = await runAction(userDelete, { deps, userId: 'u1', confirmed: true, ops, refresh })
+    const result = await runAction(userDelete, { deps, userId: 'u1', reassignTo: null, confirmed: true, ops, refresh })
 
     expect(result.ok).toBe(false)
     expect(errors).toContain('users.cannotDeleteSelf')
+    expect(refreshCalls.length).toBe(0)
+  })
+
+  it('explains an unusable target and keeps the user', async () => {
+    const { deps } = fakeDeps([apiError(400, 'reassignTo must be an active user')])
+    const { ops, errors } = fakeOps()
+    const { refresh, calls: refreshCalls } = fakeRefresh()
+
+    const result = await runAction(userDelete, { deps, userId: 'u1', reassignTo: 'u2', confirmed: true, ops, refresh })
+
+    expect(result.ok).toBe(false)
+    expect(errors).toContain('users.reassignUnusable')
+    expect(refreshCalls.length).toBe(0)
+  })
+
+  it('explains an unknown target and keeps the user', async () => {
+    const { deps } = fakeDeps([apiError(404, 'user u2 not found')])
+    const { ops, errors } = fakeOps()
+    const { refresh, calls: refreshCalls } = fakeRefresh()
+
+    const result = await runAction(userDelete, { deps, userId: 'u1', reassignTo: 'u2', confirmed: true, ops, refresh })
+
+    expect(result.ok).toBe(false)
+    expect(errors).toContain('users.reassignUnknown')
     expect(refreshCalls.length).toBe(0)
   })
 })

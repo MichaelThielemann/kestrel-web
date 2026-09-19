@@ -9,6 +9,9 @@
       "authn.requireUser",
       "content.describeModel"
     ],
+    "anonymizeAuditUser": [
+      "audit.anonymize"
+    ],
     "auditAuth": [
       "audit.record"
     ],
@@ -106,7 +109,7 @@
       "authn.requireUser",
       "authz.require:users.manage",
       "authn.deleteUser",
-      "events.emit:user.deleted"
+      "events.emit:user.deleted?with=result"
     ],
     "downloadMedia": [
       "authn.identifyUser",
@@ -228,6 +231,9 @@
       "authz.require:pages.manage",
       "revisions.list:pages"
     ],
+    "pruneAudit": [
+      "audit.prune"
+    ],
     "pruneRevisions": [
       "revisions.prune"
     ],
@@ -247,6 +253,9 @@
       "authn.identifyUser",
       "authz.require:pages.read",
       "content.get:pages?status=published"
+    ],
+    "reassignRevisionAuthor": [
+      "revisions.reassignAuthor"
     ],
     "rebuildLinks": [
       "authn.requireUser",
@@ -326,6 +335,16 @@
       "delivery.exportLlms",
       "revisions.reportRestore",
       "events.emit:page.restored"
+    ],
+    "retryAnonymizeAuditUser": [
+      "authn.requireUser",
+      "authz.require:users.manage",
+      "audit.anonymize"
+    ],
+    "retryReassignRevisionAuthor": [
+      "authn.requireUser",
+      "authz.require:users.manage",
+      "revisions.reassignAuthor"
     ],
     "scanReferences": [
       "references.scan"
@@ -645,6 +664,26 @@
     {
       "event": "auth.loggedOut",
       "pipeline": "auditAuth"
+    },
+    {
+      "http": "POST /admin/users/:id/audit/anonymize",
+      "pipeline": "retryAnonymizeAuditUser"
+    },
+    {
+      "event": "user.deleted",
+      "pipeline": "anonymizeAuditUser"
+    },
+    {
+      "cron": "45 3 * * *",
+      "pipeline": "pruneAudit"
+    },
+    {
+      "http": "POST /admin/users/:id/revisions/reassign",
+      "pipeline": "retryReassignRevisionAuthor"
+    },
+    {
+      "event": "user.deleted",
+      "pipeline": "reassignRevisionAuthor"
     },
     {
       "http": "GET /admin/pages/:id/revisions",

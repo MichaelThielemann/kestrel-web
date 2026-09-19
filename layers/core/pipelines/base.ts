@@ -4,6 +4,11 @@ import type { CustomFieldTypes } from "../field-types";
 import { customFieldChecks } from "./collections";
 import type { CollectionModel } from "./collections";
 
+export interface PresetModuleEntry {
+  use: string;
+  config?: unknown;
+}
+
 export interface PresetContext {
   exportDir: string;
   homeSlug: string;
@@ -11,6 +16,7 @@ export interface PresetContext {
   collections?: Record<string, CollectionModel>;
   collectionsUi?: Record<string, WorkflowUi>;
   customFields?: CustomFieldTypes;
+  modules?: readonly PresetModuleEntry[];
 }
 
 export function basePipelines({ exportDir, homeSlug, customFields }: PresetContext, collections: Record<string, CollectionModel>): Record<string, PresetStep[]> {
@@ -24,7 +30,7 @@ export function basePipelines({ exportDir, homeSlug, customFields }: PresetConte
     createUser: ["authn.requireUser", "authz.require:users.manage", "authn.createUser", "events.emit:user.created"],
     getUser: ["authn.requireUser", "authz.require:users.manage", "authn.getUser"],
     updateUser: ["authn.requireUser", "authz.require:users.manage", "authn.updateUser", "events.emit:user.updated"],
-    deleteUser: ["authn.requireUser", "authz.require:users.manage", "authn.deleteUser", "events.emit:user.deleted"],
+    deleteUser: ["authn.requireUser", "authz.require:users.manage", "authn.deleteUser", "events.emit:user.deleted?with=result"],
     setPassword: ["authn.requireUser", "authz.require:users.manage", "authn.setPassword"],
     deactivateUser: ["authn.requireUser", "authz.require:users.manage", "authn.deactivateUser", "events.emit:user.deactivated"],
     activateUser: ["authn.requireUser", "authz.require:users.manage", "authn.activateUser"],

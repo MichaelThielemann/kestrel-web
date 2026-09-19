@@ -39,6 +39,9 @@ export interface LoginResponse { token: string; identity: Identity }
 
 export interface User { id: string; username: string; roles: string[]; active: boolean; createdAt: number }
 
+export interface UserReassignTarget { id: string; name: string }
+export interface UserDeleteResponse { ok: boolean; reassignTo: UserReassignTarget | null }
+
 export interface ListPage<T> { items: T[]; total: number }
 
 export interface Document extends PersistedDocument {

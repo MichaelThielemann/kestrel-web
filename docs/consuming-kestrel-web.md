@@ -290,6 +290,7 @@ mechanism as `#kestrel/blocks`.
 | `session` | no | `{ identifier: "username", minPasswordLength: 8, sessionTtlSeconds: 86400 }` |
 | `eventsQueue` | no | `{}` — the `events-queue` module config (`pollMs`, `batch`, `maxAttempts`, `backoffSeconds`, `lockTtlSeconds`, `retentionDays`), used only with the `eventsQueue` feature |
 | `revisions` | no | — `{ keep?, maxSnapshotBytes?, pruneOnWrite?, maxLimit? }`, passed through to `revisions-default`; used only with the `revisions` feature (§4) |
+| `audit` | no | — `{ retentionDays? }`, passed through to `audit-persistence`; used only with the `audit` feature. It is what turns the `pruneAudit` cron on (§4) |
 | `overrides` | no | — per-module escape hatch, keyed by package name, shallow-merged onto that module's derived config |
 
 `blobstore`, `roles` and `bootstrap` have no default at all — a missing one throws naming the option
@@ -583,12 +584,20 @@ The preset wires the whole user lifecycle to `authn-multi` and guards every rout
 | `PATCH /users/:id` | `updateUser` | the user; `{ username?, roles? }`, emits `user.updated` |
 | `PUT /users/:id/password` | `setPassword` | `{ ok: true }` |
 | `POST /users/:id/deactivate` / `/activate` | `deactivateUser`, `activateUser` | `{ ok: true }` |
-| `DELETE /users/:id` | `deleteUser` | `{ ok: true }`, a hard delete, emits `user.deleted` |
+| `DELETE /users/:id` | `deleteUser` | `{ ok: true, reassignTo: { id, name } \| null }`, a hard delete, emits `user.deleted` with the step result |
+| `POST /admin/users/:id/revisions/reassign` | `retryReassignRevisionAuthor` | with the `revisions` feature: `{ from, to, revisions }`, re-runs the author reassignment |
+| `POST /admin/users/:id/audit/anonymize` | `retryAnonymizeAuditUser` | with the `audit` feature: `{ entries }`, re-runs the audit anonymisation |
 
 The username is the identity — there is no e-mail field. Roles are free strings; which permissions
 they carry is the `roles` option of `presetModuleConfig`. Nobody can delete or deactivate their own
 account (400), and the last active holder of `users.manage` can be neither deactivated, nor deleted,
 nor stripped of that permission (409 `LAST_ADMIN`).
+
+`DELETE /users/:id` takes an optional `{ reassignTo }` in the body: the id of an active user other
+than the one being deleted, whose name the deleted user's revisions take over. Without it the author
+reference is anonymised. An unusable target answers 400, an unknown one 404, and the user is *not*
+deleted in either case. The admin's delete dialog offers both, defaulting to anonymising — see
+**Personal data** below.
 
 ### Features
 
@@ -603,10 +612,10 @@ nor stripped of that permission (409 `LAST_ADMIN`).
 | `images` | kestrel-images-default | `serveImageVariant`, `registerImageSizes`, `registerImageSizesBoot` (no trigger — the Nitro plugin runs it at boot to register the sizes declared by blocks and layers), `listImageSizes`, `syncImages`, `pruneImages`, `retryFailedImages`, `imagesStatus`, `generateImageVariants` (event), `resumeImages` (cron); attach/remove/removeMany/export steps in `getMedia`, `listMedia`, `deleteMedia`, `deleteMediaFolder`, `exportMedia` |
 | `replication` | kestrel-replication-sqlite | `replicate` (cron), `replicationStatus`, `replicationPoints`, `replicationSnapshot`, `replicationRestore` |
 | `migrations` | kestrel-migrations-default | `listMigrations`, `applyMigrations` (`GET /admin/migrations`, `POST /admin/migrations/apply`) |
-| `audit` | kestrel-audit-persistence | `auditAuth` (on `auth.loggedIn`/`auth.loggedOut`) |
+| `audit` | kestrel-audit-persistence | `auditAuth` (on `auth.loggedIn`/`auth.loggedOut`), `anonymizeAuditUser` (on `user.deleted`), `retryAnonymizeAuditUser` (`POST /admin/users/:id/audit/anonymize`, `users.manage`), and `pruneAudit` (cron `45 3 * * *`) as soon as `audit: { retentionDays }` is configured |
 | `insights` | kestrel-insights (optional peer) | `insightsManifest`, `insightsStats` (`GET /admin/insights/manifest`, `GET /admin/insights/stats`, `insights.read`); the `/admin/insights` page |
 | `eventsQueue` | kestrel-events-queue (instead of kestrel-events-inmemory) | `eventsQueueStatus`, `eventsDead`, `eventsRetryDead`, `eventsRetryOne` (`/admin/events/*`, `system.manage`), `purgeEvents` (cron); the System → Events tab; delivery at least once, listeners must be idempotent |
-| `revisions` | kestrel-revisions-default | per multi collection `<c>`: `<c>Revisions`, `<c>Revision`, `label<C>Revision`, `restore<C>Revision` (`/admin/<c>/:id/revisions…`, `<c>.manage` to read, `<c>.write` to label and restore), plus `pruneRevisions` (cron); record/remove steps directly after `content.create`, `content.update`, `content.remove` and `content.removeTranslation`; the history dialog in the record editor |
+| `revisions` | kestrel-revisions-default | per multi collection `<c>`: `<c>Revisions`, `<c>Revision`, `label<C>Revision`, `restore<C>Revision` (`/admin/<c>/:id/revisions…`, `<c>.manage` to read, `<c>.write` to label and restore), plus `pruneRevisions` (cron), `reassignRevisionAuthor` (on `user.deleted`) and `retryReassignRevisionAuthor` (`POST /admin/users/:id/revisions/reassign`, `users.manage`); record/remove steps directly after `content.create`, `content.update`, `content.remove` and `content.removeTranslation`; the history dialog in the record editor |
 
 #### Version history (`revisions`)
 Turn it on by adding `"revisions"` to `features` and
@@ -645,6 +654,33 @@ can be restored again, which is how you switch back to the other branch. There a
 A snapshot older than a model change still restores: fields your model no longer has are left out,
 fields it gained keep their current value, and both lists are named in the history — as a warning
 before the restore, in the confirmation, and in the toast afterwards.
+
+#### Personal data
+
+Page content belongs to you, the operator, and is not personal data about the editor who typed it.
+What is personal is the *reference*: who wrote something, and who was logged in when.
+
+| where | what is stored | how it disappears |
+|---|---|---|
+| the user table | username, password hash, roles, active, created | `DELETE /users/:id` removes the row for good |
+| sessions | token, user id, expiry | deleted with the user, on logout, on a role or password change, and by the hourly `cleanupSessions` cron |
+| revisions (`revisions` feature) | `author: { id, name }` per revision, the username as it stood at that moment | `user.deleted` runs `reassignRevisionAuthor`, which moves every revision to the chosen user or anonymises it to `{ id: null, name: null }`; snapshots, count and order stay |
+| the audit log (`audit` feature) | who acted per login and logout, plus the route params | the same event runs `anonymizeAuditUser`, which drops the identity and every param naming that user and keeps event and time; `pruneAudit` deletes entries older than `retentionDays` |
+
+Nothing else carries a user reference: documents, media, the reference and link indexes, delivery
+status and the revision *snapshots* hold no user id.
+
+Deleting a user in **System → Users** asks what happens to what they wrote: anonymise the author
+reference (the default) or transfer it to another active user. Either way the content and the whole
+version history stay; only the name on them changes. The history dialog shows an anonymised author as
+"Deleted user". The audit log is only ever anonymised, never transferred — a login belongs to nobody
+else.
+
+Each listener runs on its own, so a failed one does not take the deletion with it. It shows up in
+**Insights → Live** under the recent failures with its pipeline, step and message. Both steps are
+idempotent, so repeating them is safe: `POST /admin/users/:id/revisions/reassign` with
+`{ "reassignTo": { "id", "name" } }` (or `null` to anonymise) and
+`POST /admin/users/:id/audit/anonymize`, both behind `users.manage`.
 
 Configure exactly one events module: `kestrel-events-inmemory` (default) or, with the `eventsQueue`
 feature, `kestrel-events-queue` — never both; `presetModuleConfig()` (§3) makes that choice from the

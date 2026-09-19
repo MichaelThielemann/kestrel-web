@@ -108,6 +108,7 @@ function formatDate(ms: number) { return dateFmt.format(new Date(ms)) }
     />
     <KestrelUserDeleteDialog
       :user="deleteUser"
+      :users="users"
       :self="deleteUser !== null && isSelf(deleteUser)"
       @update:user="deleteUser = $event"
       @deleted="load"

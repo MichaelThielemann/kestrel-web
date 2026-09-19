@@ -24,8 +24,8 @@ import redirects from "./features/redirects";
 import images from "./features/images";
 import replication from "./features/replication";
 import migrations from "./features/migrations";
-import audit from "./features/audit";
 import insights from "./features/insights";
+import audit, { AUDIT_MODULE, AUDIT_PRUNE_PIPELINE, AUDIT_RETENTION_KEY } from "./features/audit";
 import eventsQueue from "./features/eventsQueue";
 import revisions from "./features/revisions";
 
@@ -37,6 +37,7 @@ export { defineFieldTypes } from "../field-types";
 export type { CustomFieldTypes, FieldTypeDefinition, FieldTypes, StorageFieldType } from "../field-types";
 export type {
   ModuleEntry,
+  PresetAudit,
   PresetBootstrap,
   PresetContentModel,
   PresetLlms,
@@ -74,10 +75,11 @@ export const staticPipelineNames = [
   "serveImageVariant", "registerImageSizes", "registerImageSizesBoot", "listImageSizes", "syncImages", "pruneImages", "retryFailedImages", "imagesStatus", "generateImageVariants", "resumeImages",
   "replicate", "replicationStatus", "replicationPoints", "replicationSnapshot", "replicationRestore",
   "listMigrations", "applyMigrations",
-  "auditAuth",
+  "auditAuth", "anonymizeAuditUser", "retryAnonymizeAuditUser", "pruneAudit",
   "insightsManifest", "insightsStats",
   "eventsQueueStatus", "eventsDead", "eventsRetryDead", "eventsRetryOne", "purgeEvents",
   "pageRevisions", "pageRevision", "labelPageRevision", "restorePageRevision", "pruneRevisions",
+  "reassignRevisionAuthor", "retryReassignRevisionAuthor",
 ] as const;
 
 export type StaticPipelineName = (typeof staticPipelineNames)[number];
@@ -86,7 +88,7 @@ export type PresetPipelineName<C extends Record<string, CollectionModel> = Recor
   | StaticPipelineName
   | CollectionPipelineName<C>;
 
-export type CronPipelineName = "cleanupSessions" | "sweepRateLimits" | "scanReferences" | "checkLinks" | "resumeImages" | "replicate" | "reconcileMedia" | "purgeEvents" | "pruneRevisions";
+export type CronPipelineName = "cleanupSessions" | "sweepRateLimits" | "scanReferences" | "checkLinks" | "resumeImages" | "replicate" | "reconcileMedia" | "purgeEvents" | "pruneRevisions" | "pruneAudit";
 
 export interface PresetOptions<C extends Record<string, CollectionModel> = Record<string, CollectionModel>, S extends string = PresetStep> {
   modules: readonly { use: string; config?: unknown }[];
@@ -131,6 +133,10 @@ export const featureOrder: readonly Feature[] = featureKeys(featureFactories);
 
 const VALIDATE_JSONSCHEMA_MODULE = "@michaelthielemann/kestrel-validate-jsonschema";
 
+const CONDITIONAL_CRON_HINTS: Record<string, string> = {
+  [AUDIT_PRUNE_PIPELINE]: `module "${AUDIT_MODULE}" has no "${AUDIT_RETENTION_KEY}", so there is nothing to prune – pass audit: { ${AUDIT_RETENTION_KEY} } to presetModuleConfig()`,
+};
+
 function hasRedirectsRulesSchema(config: unknown): boolean {
   if (typeof config !== "object" || config === null || !("schemas" in config)) return false;
   const schemas = (config as { schemas?: unknown }).schemas;
@@ -164,7 +170,7 @@ export function definePreset<C extends Record<string, CollectionModel> = Record<
   const collections: Record<string, CollectionModel> = options.collections ?? DEFAULT_COLLECTIONS;
   validateCollectionNames(collections);
   const customFields = customFieldTypes(collections, options.fieldTypes ?? {});
-  const context: PresetContext = { exportDir, homeSlug, collections, customFields, ...(options.collectionsUi === undefined ? {} : { collectionsUi: options.collectionsUi }) };
+  const context: PresetContext = { exportDir, homeSlug, collections, customFields, modules: options.modules, ...(options.collectionsUi === undefined ? {} : { collectionsUi: options.collectionsUi }) };
 
   const pagesModel = collections.pages;
   context.pagesTranslatable = pagesModel !== undefined && pagesModel.kind === "multi" && hasLocalizedField(pagesModel);
@@ -245,6 +251,10 @@ export function definePreset<C extends Record<string, CollectionModel> = Record<
   for (const [name, cron] of Object.entries(options.schedules ?? {})) {
     if (cron === undefined) continue;
     if (!cronPipelineNames.has(name)) {
+      const hint = CONDITIONAL_CRON_HINTS[name];
+      if (hint !== undefined) {
+        throw new Error(`preset: schedule for pipeline "${name}" – ${hint}`);
+      }
       const gatingFeature = cronPipelineFeatures.get(name);
       if (gatingFeature !== undefined) {
         throw new Error(`preset: schedule for pipeline "${name}" – feature "${gatingFeature}" is not enabled`);
