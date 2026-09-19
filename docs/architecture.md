@@ -260,7 +260,8 @@ when `pages` is in `collections`); `collections.ts` — generates a `multi` or `
 collection's CRUD pipelines and HTTP triggers from its name and `kind`/`fields`; `features/*.ts` — one
 factory per feature; `triggers.ts` — the canonical, feature-tagged, collection-independent trigger list
 (auth, `settings`, `redirects`, `site/*path`, media, cron/event); `compose.ts` — the
-patch/override/exclude/schedule mechanics) ships every standard pipeline, its HTTP/cron/event triggers,
+patch/override/exclude/schedule mechanics, including the `after` anchor a step uses to sit directly
+behind another) ships every standard pipeline, its HTTP/cron/event triggers,
 and the `<name>.body`/`redirects.rules` JSON-Schema paths as one preset. `layers/core/nuxt.config.ts`
 aliases it as `#kestrel/pipelines`, the same mechanism as `#kestrel/blocks`, so a consumer's
 `kestrel.config.ts` and (optional) `pipelines/index.ts` can import it.
@@ -269,7 +270,7 @@ aliases it as `#kestrel/pipelines`, the same mechanism as `#kestrel/blocks`, so 
 composes in a fixed order: base pipelines → collection-derived pipelines (`collections.ts`, one `multi`
 or `single` CRUD set per entry in `collections`, `settings`/`redirects` excluded since they're already in
 base/the `redirects` feature) → feature patches, in canonical feature order (`ratelimit, sanitizeSvg,
-references, links, delivery, redirects, images, replication, migrations, audit, insights, eventsQueue`; within one feature, in
+references, links, delivery, redirects, images, replication, migrations, audit, insights, eventsQueue, revisions`; within one feature, in
 the order its patches are declared) → `overrides` → `exclude` → `schedules`. Each feature also names the module(s) it
 needs; a feature without its module throws at compose time, a configured module whose feature is off only
 warns (the consumer may still use the module with pipelines of its own).
@@ -1030,6 +1031,57 @@ Where a message lands is part of the behaviour, not a detail:
 - image prune — the inline dialog error **and** a toast on failure, a success toast only on a clean run;
   `previewPrune`, which only loads the orphan list to fill that dialog, toasts on failure and fails
   without opening it.
+
+## Version history
+`revisions@1` (`@michaelthielemann/kestrel-revisions-default`) records a full snapshot of the stored
+fields on every save, per collection, document and locale. The `revisions` feature
+(`layers/core/pipelines/features/revisions.ts`) wires it:
+
+- `revisions.record:<c>` goes **directly after** `content.create:<c>` and `content.update:<c>` — an
+  `at: "after"` patch, so it lands next to the content step whatever `references`, `links` or
+  `delivery` insert further down. `revisions.remove:<c>` and `revisions.removeTranslation:<c>` follow
+  the matching content step the same way, so a deleted document takes its history with it.
+- Per `multi` collection it adds `<c>Revisions` (list), `<c>Revision` (read, with the snapshot),
+  `label<C>Revision` and `restore<C>Revision`, routed under `/admin/<c>/:id/revisions…`. Reading needs
+  `<c>.manage`, labelling and restoring `<c>.write`. `pages` keeps its historical singular names
+  (`pageRevisions`, `restorePageRevision`), like every other pipeline of that collection.
+- The restore pipeline is **derived**, not written out: `FeatureModule.derive` receives the pipelines
+  as composed so far and builds `authn.requireUser, authz.require:<c>.write, revisions.restore:<c>` +
+  the `update<C>` pipeline from its third step + `events.emit:<event>.restored`. That is why
+  `revisions` is last in `featureOrder` — the tail it copies has to be complete. A restore is
+  therefore exactly a save: it validates, sanitizes, checks references, records its own revision,
+  re-indexes and re-publishes, so a restored published page goes live again and a restored draft does
+  not.
+- `pruneRevisions` (`revisions.prune`, cron `15 3 * * *`) applies retention across the whole store.
+- `presetModuleConfig` passes `keep`, `maxSnapshotBytes`, `pruneOnWrite` and `maxLimit` through from
+  `options.revisions`, and derives `statusField`/`liveStatuses` from the collections' workflow
+  (`resolveWorkflow`), so "never prune a state that was live" follows a custom workflow instead of the
+  literal `status`/`published` default. Collections that disagree about their status field are a
+  configuration error naming `overrides` as the way out.
+
+### The history in the editor
+The button sits left of Undo in `pages/admin/[collection]/[id].vue`, shown when the feature is on, the
+record exists and the user has `<c>.manage`. It opens `PageHistory.vue` (a `size="screen"` kit dialog):
+the tree on the left, the selected version on the right.
+
+`utils/revision-lanes.ts` is the whole graph logic and has no Vue in it: `layoutRevisions(items, head)`
+walks the page newest-first, keeps one slot per open lane holding the revision that lane waits for, and
+returns per row the lane, a colour index, the branch number, the head/tip/fork flags, the lanes that
+merge into this row (a second child means a fork) and the lanes that pass straight through it. A parent
+that is not on the loaded page leaves its lane open, which the layout reports as `truncated`.
+`PageHistoryTree.vue` renders that as one small SVG per row plus text; it is a `listbox` of `option`s
+with a roving tabindex, Arrow/Home/End/Enter, a visually hidden per-row sentence for screen readers, and
+below 30rem the lanes collapse into indentation with a coloured left border. Colour is never the only
+carrier: every row names its branch, its origin and its markers in words. No graph library is involved —
+a git graph is a list with lanes and has to scroll, focus and read out like a list.
+
+`utils/revision-diff.ts` compares the selected snapshot with the editor's current values: the changed
+top-level fields (order-independent, treating `null`/`undefined`/`""`/`[]` as the same absence) and the
+block count per type. `actions/revisions.ts` holds the four UI actions (`loadRevisions`,
+`readRevision`, `restoreRevision`, `labelRevision`); `usePageHistory.ts` keeps the paging, the
+selection and the detail fetch. After a restore the editor reloads through
+`EditorExpose.reload()` (`useEditForm`'s `reload`, which re-fetches the row and re-baselines) and the
+history reloads, so the head marker moves without a page reload.
 
 ## Page builder
 `pages.body` is `BlockNode[]` (`{ id?, type, props?, slots? }`), opaque JSON to the backend. Definitions

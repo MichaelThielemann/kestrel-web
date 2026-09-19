@@ -524,6 +524,40 @@ a consumer that kept its own trigger list has to move it to `POST /users/:id/dea
 | `eventsQueue` | kestrel-events-queue (instead of kestrel-events-inmemory) | `eventsQueueStatus`, `eventsDead`, `eventsRetryDead`, `eventsRetryOne` (`/admin/events/*`, `system.manage`), `purgeEvents` (cron); the System → Events tab; delivery at least once, listeners must be idempotent |
 | `revisions` | kestrel-revisions-default | per multi collection `<c>`: `<c>Revisions`, `<c>Revision`, `label<C>Revision`, `restore<C>Revision` (`/admin/<c>/:id/revisions…`, `<c>.manage` to read, `<c>.write` to label and restore), plus `pruneRevisions` (cron); record/remove steps directly after `content.create`, `content.update`, `content.remove` and `content.removeTranslation`; the history dialog in the record editor |
 
+#### Version history (`revisions`)
+Turn it on by adding `"revisions"` to `features` and
+`@michaelthielemann/kestrel-revisions-default` to your dependencies; `presetModuleConfig()` adds the
+module and its config for you. Every save of every `multi` collection then records a full snapshot
+with author, locale and status, and the record editor grows a history button left of Undo.
+
+```ts
+const modules = presetModuleConfig({
+  // …
+  features,
+  collectionsUi,                 // pass it so retention can read your workflow
+  revisions: { keep: 50, maxSnapshotBytes: 1048576 },
+})
+```
+
+`keep` (default 50) is how many newest revisions survive a prune per document and locale;
+`maxSnapshotBytes` (default 1 MiB) caps one snapshot — a bigger one is recorded as `skipped` and
+cannot be restored. Beyond `keep`, retention always keeps every revision that was ever live, every
+named one, the head, every branch tip and every branch point, and re-parents the survivors so the
+tree keeps its shape. `pruneOnWrite` (default true) prunes the document's own group on every save;
+`pruneRevisions` (cron `15 3 * * *`, rescheduled through `schedules`) prunes the whole store.
+
+"Was live" is read from the collection's workflow (§3.5): `presetModuleConfig` derives the module's
+`statusField` and `liveStatuses` from it, so a custom workflow such as
+`{ field: "state", live: "listed", draft: "hidden" }` is followed without extra config. Collections
+that declare different status *fields* are refused with an error — give the module explicit values
+through `overrides["@michaelthielemann/kestrel-revisions-default"]` in that case.
+
+Reading the history needs `<collection>.manage`, restoring and naming a version `<collection>.write`.
+A restore is an ordinary save: it runs the same validation, reference check, indexing and publishing
+as `PATCH /<collection>/:id`, so restoring a published state republishes it and restoring a draft does
+not. The next save after a restore branches the history there; the versions that were newer stay and
+can be restored again, which is how you switch back to the other branch. There are no merges.
+
 Configure exactly one events module: `kestrel-events-inmemory` (default) or, with the `eventsQueue`
 feature, `kestrel-events-queue` — never both; `presetModuleConfig()` (§3) makes that choice from the
 feature list. The `eventsQueue` feature also requires at least one

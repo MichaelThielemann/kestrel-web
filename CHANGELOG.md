@@ -14,6 +14,24 @@
 
 ### Added
 
+- New feature `revisions` on `@michaelthielemann/kestrel-revisions-default` (`revisions@1`): every save
+  of a `multi` collection records a full snapshot with author, locale and status. The preset inserts
+  `revisions.record:<c>` directly after `content.create:<c>`/`content.update:<c>` and the matching
+  `remove`/`removeTranslation` steps after their content step, adds `<c>Revisions`, `<c>Revision`,
+  `label<C>Revision` and `restore<C>Revision` under `/admin/<c>/:id/revisions…` (read needs
+  `<c>.manage`, label and restore `<c>.write`), and `pruneRevisions` on cron `15 3 * * *`. The restore
+  pipeline is derived from the collection's own `update` pipeline, so a restore is an ordinary save and
+  republishes exactly when the restored state is live. `presetModuleConfig` gains a `revisions` option
+  (`keep`, `maxSnapshotBytes`, `pruneOnWrite`, `maxLimit`) and a `collectionsUi` option, from which it
+  derives the module's `statusField`/`liveStatuses` so "never prune a state that was live" follows a
+  custom workflow.
+- The record editor gains a version-history button left of Undo (feature on, record saved,
+  `<c>.manage`). It opens the page's versions as a git-like tree: `layoutRevisions` turns the parent
+  pointers into lanes, branch colours, head and live markers, rendered as a keyboard-operable listbox
+  (Arrow/Home/End/Enter, roving tabindex) that names every marker in words as well as colour and
+  collapses to indentation at phone width, with paged loading. The details pane shows time, author,
+  origin, status, size, a field and block diff against the current editor state, the version name
+  editor and "Restore this version" behind a confirmation that warns about unsaved changes.
 - Insights gains a first tab, "Config" (`InsightsConfig.vue`, `?tab=config`): every config variable of
   every module, grouped by module, with path, type, required flag, effective value, default and
   set/default/missing status, a filter over module name, path and visible value, and a link from each
