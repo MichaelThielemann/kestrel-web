@@ -620,7 +620,7 @@ export const de: Record<CatalogKey, string> = {
   'users.deletedReassigned': 'Benutzer gelöscht, das Geschriebene gehört jetzt {username}',
   'users.deleteConfirm': '{username} endgültig samt Sitzungen löschen? Das lässt sich nicht rückgängig machen.',
   'users.deleteKeepsContent': 'Seiten, Medien und die Versionsgeschichte bleiben erhalten. Nur der Name daran ändert sich.',
-  'users.deleteAuthorship': 'Das Geschriebene',
+  'users.deleteAuthorship': 'Autorenbezug',
   'users.deleteAuthorshipHint': 'An- und Abmeldungen im Prüfprotokoll werden immer anonymisiert, nie übertragen.',
   'users.deleteAnonymize': 'Autorenbezug anonymisieren',
   'users.deleteTransfer': 'Auf Benutzer übertragen',
