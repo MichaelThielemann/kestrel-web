@@ -22,9 +22,11 @@ const props = withDefaults(
 
     root?: boolean
 
+    sectionLabel?: string
+
     focusRequest?: { id: string } | null
   }>(),
-  { errorIds: () => new Set<string>(), errorMessages: () => new Map<string, string[]>(), focusRequest: null },
+  { errorIds: () => new Set<string>(), errorMessages: () => new Map<string, string[]>(), sectionLabel: '', focusRequest: null },
 )
 
 const { t, lang } = useT()
@@ -93,13 +95,18 @@ const { listEl, dragIndex, dropGap, onHandleDown, onHandleMove, onHandleUp, onHa
       v-if="root"
       variant="bare"
       class="block-tree__root"
-      :class="{ 'block-tree__node-label--selected': selectedId === null }"
+      :class="{ 'block-tree__root--selected': selectedId === null }"
       :aria-pressed="selectedId === null"
       @click="ctx.ops.select(null)"
     >
-      <KestrelUiIcon name="file-text" :size="15" class="block-tree__root-icon" />
-      <span>{{ t('blocks.page') }}</span>
+      <span class="block-tree__root-icon" aria-hidden="true"><KestrelUiIcon name="file-text" :size="14" /></span>
+      <span class="block-tree__root-label">{{ t('blocks.page') }}</span>
     </KestrelUiButton>
+
+    <p v-if="sectionLabel" class="block-tree__section">
+      <span class="block-tree__section-icon" aria-hidden="true"><KestrelUiIcon name="list" :size="14" /></span>
+      <span class="block-tree__section-text">{{ sectionLabel }}</span>
+    </p>
 
     <p v-if="root && !blocks.length" class="block-tree__empty">{{ t('blocks.empty') }}</p>
 
@@ -192,49 +199,86 @@ const { listEl, dragIndex, dropGap, onHandleDown, onHandleMove, onHandleUp, onHa
 @use '../assets/scss/mixins';
 
 .block-tree {
+  --block-tree-gutter: calc(1rem + var(--space-1));
+  --block-tree-text-inset: calc(var(--block-tree-gutter) + 3px + var(--space-2));
+
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
   font-size: var(--text-sm);
 
   &__root {
+    @include mixins.focus-ring;
     display: flex;
     align-items: center;
-    gap: var(--space-2);
-    flex: 1;
+    gap: var(--space-1);
+    width: 100%;
     min-width: 0;
-    padding: var(--space-1) var(--space-2);
+    padding: 0;
     border: 0;
-    border-inline-start: 3px solid transparent;
-    border-radius: var(--radius-sm);
     background: transparent;
     font: inherit;
-    text-align: left;
-    text-transform: capitalize;
-    color: var(--color-text);
-    cursor: pointer;
-
-    &:hover {
-      background: var(--color-hover);
-    }
-    &:focus-visible {
-      outline: 2px solid var(--color-focus);
-      outline-offset: -2px;
-    }
-  }
-
-  &__root {
     font-weight: var(--weight-medium);
+    text-align: left;
     color: var(--color-text-muted);
+    cursor: pointer;
   }
+
   &__root-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
     flex-shrink: 0;
+    width: 1rem;
+    height: 1.5rem;
     color: var(--color-text-subtle);
+  }
+
+  &__root-label {
+    @include mixins.accent-slot;
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding: var(--space-1) var(--space-2);
+    text-transform: capitalize;
+  }
+
+  &__root:hover &__root-label {
+    background: var(--color-hover);
+  }
+
+  &__root--selected &__root-label {
+    @include mixins.selected-accent;
+    color: var(--color-text);
+  }
+
+  &__section {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    margin: 0;
+    color: var(--color-text-muted);
+    font-weight: var(--weight-medium);
+  }
+  &__section-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 1rem;
+    height: 1.5rem;
+  }
+  &__section-text {
+    padding: var(--space-1) var(--space-2);
+    border-inline-start: 3px solid transparent;
   }
 
   &__empty {
     margin: 0;
     padding: var(--space-1) var(--space-2);
+    padding-inline-start: var(--block-tree-text-inset);
     color: var(--color-text-muted);
   }
 

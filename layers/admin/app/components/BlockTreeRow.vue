@@ -88,17 +88,18 @@ const rowMenu = computed<MenuItem[]>(() => [
 </template>
 
 <style lang="scss">
+@use '../assets/scss/mixins';
+
 .block-tree {
   &__node-label {
+    @include mixins.accent-slot;
+    @include mixins.focus-ring;
     display: flex;
     align-items: center;
     gap: var(--space-2);
     flex: 1;
     min-width: 0;
     padding: var(--space-1) var(--space-2);
-    border: 0;
-    border-inline-start: 3px solid transparent;
-    border-radius: var(--radius-sm);
     background: transparent;
     font: inherit;
     text-align: left;
@@ -109,19 +110,12 @@ const rowMenu = computed<MenuItem[]>(() => [
     &:hover {
       background: var(--color-hover);
     }
-    &:focus-visible {
-      outline: 2px solid var(--color-focus);
-      outline-offset: -2px;
-    }
   }
 
   &__node-label--selected {
-    background: var(--color-active, var(--color-surface-2));
+    @include mixins.selected-accent;
     color: var(--color-text);
     font-weight: var(--weight-medium);
-    border-inline-start-color: var(--color-primary);
-    border-start-start-radius: 0;
-    border-end-start-radius: 0;
   }
 
   &__node-name {

@@ -112,11 +112,9 @@ function onTreeKeydown(e: KeyboardEvent): void {
 <template>
   <div class="editor3">
     <nav class="editor3__tree" :aria-label="t('blocks.treeLabel')" @keydown="onTreeKeydown">
-      <div class="editor3__tree-head">
-        <p class="editor3__pane-label">{{ t('blocks.treeLabel') }}</p>
-      </div>
       <KestrelBlockTree
         root
+        :section-label="t('blocks.treeLabel')"
         :blocks="tree.blocks.value"
         :selected-id="selectedId"
         :error-ids="errorIds"
@@ -178,13 +176,6 @@ function onTreeKeydown(e: KeyboardEvent): void {
     font-size: var(--text-sm);
     font-weight: var(--weight-medium);
     color: var(--color-text-muted);
-  }
-
-  &__tree-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-2);
   }
 
   &__tree,
