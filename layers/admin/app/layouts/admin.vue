@@ -5,7 +5,10 @@ import { installAdminClient } from '../utils/admin-client'
 
 installAdminClient()
 const { authenticated, can } = useAuth()
-const { collapsed, toggle: toggleRail } = useRailCollapsed()
+const { collapsed: cookieCollapsed, toggle: toggleCookieCollapsed } = useRailCollapsed()
+const isPhone = useIsPhone()
+const railOpen = ref(false)
+const railCollapsed = computed(() => (isPhone.value ? !railOpen.value : cookieCollapsed.value))
 const { has } = useFeatures()
 const { theme } = useTheme()
 const { t } = useT()
@@ -15,6 +18,21 @@ const { error: schemaError } = useSchema()
 const schemaFailed = computed(() => authenticated.value && schemaError.value !== null)
 const failed = computed(() => bootFailed.value || schemaFailed.value)
 const failure = computed(() => (schemaFailed.value ? schemaError.value : bootError.value))
+
+watch(isPhone, (phone) => { if (!phone) railOpen.value = false })
+watch(() => route.path, () => { railOpen.value = false })
+
+function toggleRail() {
+  if (isPhone.value) {
+    railOpen.value = !railOpen.value
+    return
+  }
+  toggleCookieCollapsed()
+}
+
+function closeRailOverlay() {
+  if (railOpen.value) railOpen.value = false
+}
 
 useHead(() => ({
   title: 'Kestrel',
@@ -26,8 +44,9 @@ useHead(() => ({
 <template>
   <KestrelUiPortalHost />
   <KestrelBootFailure v-if="failed" :error="failure" />
-  <div v-else class="admin" :class="{ 'admin--rail-collapsed': collapsed }" :data-theme="theme">
-    <aside v-if="authenticated" class="admin__rail">
+  <div v-else class="admin" :class="{ 'admin--rail-collapsed': railCollapsed, 'admin--rail-open': isPhone && railOpen }" :data-theme="theme">
+    <div v-if="isPhone && railOpen" class="admin__scrim" aria-hidden="true" @click="closeRailOverlay" />
+    <aside v-if="authenticated" class="admin__rail" @keydown.esc="closeRailOverlay">
       <div class="rail__head">
         <NuxtLink to="/admin" class="rail__brand" aria-label="Kestrel">
           <KestrelUiBrand />
@@ -36,10 +55,11 @@ useHead(() => ({
         <KestrelUiButton
           variant="icon"
           class="rail__toggle"
-          :aria-label="collapsed ? t('a11y.expandSidebar') : t('a11y.collapseSidebar')"
+          :aria-label="railCollapsed ? t('a11y.expandSidebar') : t('a11y.collapseSidebar')"
+          :aria-expanded="isPhone ? railOpen : undefined"
           @click="toggleRail"
         >
-          <KestrelUiIcon :name="collapsed ? 'panel-left-open' : 'panel-left-close'" size="1.25rem" />
+          <KestrelUiIcon :name="railCollapsed ? 'panel-left-open' : 'panel-left-close'" size="1.25rem" />
         </KestrelUiButton>
       </div>
 
@@ -47,7 +67,7 @@ useHead(() => ({
         <NuxtLink
           to="/admin"
           class="rail__item rail__item--dashboard"
-          :title="collapsed ? t('nav.dashboard') : undefined"
+          :title="railCollapsed ? t('nav.dashboard') : undefined"
         >
           <KestrelUiIcon name="home" class="rail__icon" size="1.25rem" />
           <span class="rail__label">{{ t('nav.dashboard') }}</span>
@@ -63,7 +83,7 @@ useHead(() => ({
           to="/admin/insights"
           class="rail__item"
           :class="{ 'router-link-active': isNavItemActive(route.path, '/admin/insights') }"
-          :title="collapsed ? t('nav.insights') : undefined"
+          :title="railCollapsed ? t('nav.insights') : undefined"
         >
           <KestrelUiIcon name="activity" class="rail__icon" size="1.25rem" />
           <span class="rail__label">{{ t('nav.insights') }}</span>
@@ -72,7 +92,7 @@ useHead(() => ({
           to="/admin/system"
           class="rail__item"
           :class="{ 'router-link-active': isNavItemActive(route.path, '/admin/system') }"
-          :title="collapsed ? t('nav.system') : undefined"
+          :title="railCollapsed ? t('nav.system') : undefined"
         >
           <KestrelUiIcon name="settings" class="rail__icon" size="1.25rem" />
           <span class="rail__label">{{ t('nav.system') }}</span>
@@ -80,12 +100,14 @@ useHead(() => ({
       </div>
     </aside>
 
-    <main class="admin__main"><slot /></main>
+    <main class="admin__main" :inert="isPhone && railOpen"><slot /></main>
     <KestrelUiToasts />
   </div>
 </template>
 
 <style lang="scss">
+$bp-phone: 640px;
+
 .admin {
   display: flex;
   align-items: flex-start;
@@ -274,6 +296,23 @@ useHead(() => ({
     margin: 0;
     justify-content: center;
     gap: 0;
+  }
+}
+
+@media (max-width: $bp-phone) {
+  .admin__scrim {
+    position: fixed;
+    inset: 0;
+    z-index: calc(var(--z-overlay) - 1);
+    background: var(--color-scrim);
+  }
+
+  .admin--rail-open .admin__rail {
+    position: fixed;
+    inset-block: 0;
+    inset-inline-start: 0;
+    z-index: var(--z-overlay);
+    box-shadow: var(--shadow-lg);
   }
 }
 </style>
