@@ -33,8 +33,10 @@
     "prepare": "nuxt prepare playground",
     "typecheck": "nuxt typecheck playground",
     "lint": "nuxt prepare playground && eslint .",
+    "pretest": "tsx scripts/generate-api-types.ts --check",
     "test": "vitest run",
-    "build:packages": "pnpm -r --filter './packages/*' build"
+    "build:packages": "pnpm -r --filter './packages/*' build",
+    "generate:api-types": "tsx scripts/generate-api-types.ts"
   },
   "dependencies": {
     "@babel/parser": "^8.0.4",
@@ -106,6 +108,7 @@
   "devDependencies": {
     "@dagrejs/dagre": "^3.1.1",
     "@michaelthielemann/kestrel-insights": "^5.8.0",
+    "@michaelthielemann/kestrel-openapi": "^5.8.0",
     "@nuxt/eslint": "^1.9.0",
     "@nuxt/test-utils": "^4.3.2",
     "@vue-flow/core": "^1.48.2",
@@ -113,6 +116,8 @@
     "eslint": "^9.39.1",
     "jsdom": "^30.0.1",
     "nuxt": "^4.5.2",
+    "openapi-typescript": "^7.13.0",
+    "tsx": "^4.23.13",
     "vitest": "^4.1.11",
     "vue": "^3.5.35",
     "vue-router": "^5.2.0",
