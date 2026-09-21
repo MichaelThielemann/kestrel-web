@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Changed
+
+- `layers/core/app/types/api.ts` no longer imports types from a backend package's `impl` subpath; the
+  types it used to take from there (media, images status, delivery status, replication) are now aliases
+  of `layers/core/app/types/openapi.generated.ts`, generated from the preset's OpenAPI document with
+  `pnpm generate:api-types`. `pnpm test` fails if the generated file is stale.
+
 ### Fixed
 
 - The insights graph and the admin sidebar now work at phone width: the sidebar collapses to icons

@@ -43,11 +43,36 @@ or an absolute `~~/layers/...` import that does the same;
 `kestrel/no-backend-in-ui-layers` refuses `@michaelthielemann/kestrel*`, including as `import type`, in
 `layers/admin`, `layers/public` and `layers/core/app`, except `layers/core/app/types/**`; and
 `kestrel/backend-types-only-in-core-app-types` applies inside that `types/**` directory and allows
-`@michaelthielemann/kestrel*` there only as `import type`, since the frontend API types are derived from
-the backend exports so that drift is a `tsc` error. Backend runtime imports live in `layers/core/server`, `layers/core/pipelines`,
+`@michaelthielemann/kestrel*` there only as `import type`, and bans a package's `*/impl` subpath outright,
+type-only import included: those types come from the generated OpenAPI document instead (see "Generated
+API types" below). Backend runtime imports live in `layers/core/server`, `layers/core/pipelines`,
 `layers/core/config`, `layers/core/module-registry`, `layers/core/modules`, `layers/core/schemas` and
 `packages/renderer-nuxt`. Nuxt auto-imports (`runAction`, composables) are not imports and stay
 available across layers.
+
+## Generated API types
+`layers/core/app/types/openapi.generated.ts` is derived, not hand-written: `pnpm generate:api-types`
+(`scripts/generate-api-types.ts`) composes the pipeline preset with every feature enabled, boots a Kestrel
+instance from it, generates its OpenAPI document with `@michaelthielemann/kestrel-openapi`, and runs
+`openapi-typescript` on that document. The result exports `paths`, `components` and, since every OpenAPI
+operation's `operationId` is the pipeline name, an `operations` map keyed by pipeline name — `api.ts` reads
+individual response bodies off it, for example `operations['getMedia']['responses'][200]['content']['application/json']`
+for the shape of a media item.
+
+`pnpm test` runs `scripts/generate-api-types.ts --check` first (the package.json `pretest` script) and
+fails if regenerating would change the file, so a stale generated file or a renamed response field breaks
+both `pnpm test` and `pnpm typecheck` (any type in `api.ts` derived from the stale field disappears or
+changes shape, and every place that consumes it stops compiling). Regenerate after a backend upgrade or a
+pipeline change with `pnpm generate:api-types`, then commit the updated file.
+
+`api.ts` re-exports a name for every type the admin already imports so its own call sites are unaffected.
+The types that used to come from a backend package's `impl` subpath (`ImageSizeRow`, `ImagesJob`,
+`ImagesFailedVariant`, `Provenance`, `MediaVariant`, `MediaStatus`, `MediaItem`, `PublishStatusEntry`,
+`DeliveryState`, `ReplicationStatus`, `ReplicationPoint`, `RestorePointKind`, `ReplicationSnapshotResult`,
+`ReplicationRestoreResult`) now alias a piece of `operations[...]` instead. A field a pipeline's
+`describe().output` leaves undeclared renders as `unknown` in the generated file (for example
+`SettingsDocument.navigation`, still hand-written); such a field would need casting to be usable, so it
+stays hand-written rather than being derived.
 
 ## Type-assertion boundaries
 `as unknown as T` and `as any` are banned by lint (`eslint.config.mjs`'s third config block, no type
