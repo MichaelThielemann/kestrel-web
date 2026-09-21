@@ -7,7 +7,10 @@
 - `layers/core/app/types/api.ts` no longer imports types from a backend package's `impl` subpath; the
   types it used to take from there (media, images status, delivery status, replication) are now aliases
   of `layers/core/app/types/openapi.generated.ts`, generated from the preset's OpenAPI document with
-  `pnpm generate:api-types`. `pnpm test` fails if the generated file is stale.
+  `pnpm generate:api-types`. `pnpm test` fails if the generated file is stale. Some fields of `MediaItem`
+  and `ReplicationStatus` (for example `MediaItem.alt`, `ReplicationStatus.walBytes`) are now typed as
+  optional rather than always present, matching what the backend actually declares; a consumer's own
+  typecheck may newly report these as possibly `undefined`.
 
 ### Fixed
 

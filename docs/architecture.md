@@ -74,6 +74,11 @@ The types that used to come from a backend package's `impl` subpath (`ImageSizeR
 `SettingsDocument.navigation`, still hand-written); such a field would need casting to be usable, so it
 stays hand-written rather than being derived.
 
+The preset that `scripts/generate-api-types.ts` boots enables every `Feature` this layer defines, so the
+generated document — and therefore `operations[...]` in `api.ts` — describes the full surface regardless
+of which features or collections a given consumer's own `definePreset` call enables; a route a consumer
+drops via `exclude` or narrows via `overrides` is missing at run time even though its type still exists.
+
 ## Type-assertion boundaries
 `as unknown as T` and `as any` are banned by lint (`eslint.config.mjs`'s third config block, no type
 information needed). The one sanctioned double cast is `boundaryCast<T>(value, boundary)`, `boundary`
