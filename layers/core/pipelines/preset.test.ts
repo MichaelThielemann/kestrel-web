@@ -474,11 +474,14 @@ describe("definePreset event module invariants", () => {
     );
   });
 
-  it("throws when the queue module is configured but the eventsQueue feature is not enabled", () => {
+  it("throws when the queue module is configured but the eventsQueue feature is not enabled, without also warning", () => {
     const modules = withQueueInsteadOfDirect(baseModules);
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     expect(() => definePreset({ modules, features: [] })).toThrow(
-      'preset: feature "eventsQueue" and module "@michaelthielemann/kestrel-events-queue" must be enabled together – use presetModuleConfig()',
+      'preset: module "@michaelthielemann/kestrel-events-queue" is configured but feature "eventsQueue" is not enabled – use presetModuleConfig()',
     );
+    expect(warnSpy).not.toHaveBeenCalled();
+    warnSpy.mockRestore();
   });
 });
 

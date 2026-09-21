@@ -210,7 +210,7 @@ export function definePreset<C extends Record<string, CollectionModel> = Record<
       featureTriggers.push(...(module.triggers ?? []));
     } else {
       for (const use of module.modules) {
-        if (configuredModules.has(use)) {
+        if (configuredModules.has(use) && feature !== "eventsQueue") {
           console.warn(`preset: module "${use}" is configured but feature "${feature}" is not enabled – its pipelines and steps are not wired`);
         }
       }
@@ -238,8 +238,8 @@ export function definePreset<C extends Record<string, CollectionModel> = Record<
       }`,
     );
   }
-  if (enabledFeatures.has("eventsQueue") !== configuredModules.has(EVENTS_QUEUE_MODULE)) {
-    throw new Error(`preset: feature "eventsQueue" and module "${EVENTS_QUEUE_MODULE}" must be enabled together – use presetModuleConfig()`);
+  if (!enabledFeatures.has("eventsQueue") && configuredModules.has(EVENTS_QUEUE_MODULE)) {
+    throw new Error(`preset: module "${EVENTS_QUEUE_MODULE}" is configured but feature "eventsQueue" is not enabled – use presetModuleConfig()`);
   }
 
   let triggers: TriggerConfig[] = canonicalTriggers
