@@ -23,16 +23,16 @@ function stubMatchMedia(matches: boolean) {
 }
 
 describe('InsightsGraph', () => {
-  it('shows the interactive graph body on a wide viewport', async () => {
+  it('shows the interactive graph body on a wide viewport, with the phone text alternative always in markup for the breakpoint to show', async () => {
     stubMatchMedia(false)
     const wrapper = await mountSuspended(InsightsGraph, { props: { manifest } })
     await nextTick()
 
     expect(wrapper.find('.insights-graph__body').exists()).toBe(true)
-    expect(wrapper.find('.insights-graph__alt--phone').exists()).toBe(false)
+    expect(wrapper.find('.insights-graph__alt--phone').exists()).toBe(true)
   })
 
-  it('replaces the graph with a text alternative on a phone viewport', async () => {
+  it('removes the interactive graph body once JS detects a phone viewport', async () => {
     stubMatchMedia(true)
     const wrapper = await mountSuspended(InsightsGraph, { props: { manifest } })
     await nextTick()

@@ -100,7 +100,7 @@ const textAlternative = computed(() =>
       </aside>
     </div>
 
-    <section v-else class="insights-graph__alt insights-graph__alt--phone" :aria-label="t('insights.graph.textAlternative')">
+    <section class="insights-graph__alt insights-graph__alt--phone" :aria-label="t('insights.graph.textAlternative')">
       <KestrelUiAlert variant="info">{{ t('insights.graph.phoneHint') }}</KestrelUiAlert>
       <KestrelInsightsGraphTextAlternative :modules="textAlternative" />
     </section>
@@ -113,6 +113,8 @@ const textAlternative = computed(() =>
 </template>
 
 <style lang="scss">
+$bp-phone: 640px;
+
 .insights-graph {
   display: flex;
   flex-direction: column;
@@ -226,12 +228,22 @@ const textAlternative = computed(() =>
   }
 
   &__alt--phone {
+    display: none;
     flex: 1;
     min-height: 0;
     overflow-y: auto;
-    display: flex;
     flex-direction: column;
     gap: var(--space-2);
+  }
+}
+
+@media (max-width: $bp-phone) {
+  .insights-graph__body {
+    display: none;
+  }
+
+  .insights-graph__alt--phone {
+    display: flex;
   }
 }
 </style>
