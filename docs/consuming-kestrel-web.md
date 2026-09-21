@@ -206,13 +206,21 @@ import it fail to typecheck, naming the missing export. Copy the whole set from
 |---|---|---|---|---|
 | `locales` | `readonly string[]` | none | `contentModel`; `[...slug].vue`, `default.vue`, `useSite.ts`; the schema route | the locales a document can be translated into, the language switcher's candidates, and `locales.all` in the admin schema |
 | `defaultLocale` | `string` | none | as above, plus `error.vue` and `_preview/[key].vue` | the primary locale: the one that is not URL-prefixed, the redirect target for an untranslated page, and `locales.primary` in the admin schema |
-| `prefixPrimary` | `boolean` | none | `[...slug].vue`, `default.vue`, `error.vue`, `useSite.ts`; the schema route | `false` → the primary locale's URLs carry no locale segment (`/about`, while `en` is `/en/about`) and the first path segment is only parsed as a locale when it is not the primary one. `true` prefixes every locale. The admin reads it back from `GET /api/admin/schema` for the slug field's URL preview and the canonical-URL field, so editor and site agree |
+| `prefixPrimary` | `boolean` | none | `[...slug].vue`, `default.vue`, `error.vue`, `useSite.ts`; the schema route | `false`: the primary locale gets no URL prefix (`/about`; `en` is `/en/about`). `true`: every locale is prefixed. Either way, `GET /api/admin/schema` reports this back so the admin's slug preview and canonical-URL field match the site |
 | `untranslatedPages` | `"notFound" \| "redirect"` | none | `[...slug].vue` only | what happens when a page resolves but the requested locale owns none of its localized fields: `"redirect"` 302s to the primary-locale path, `"notFound"` throws 404. See **Untranslated pages** above |
 | `previewBanner` | `boolean` | none | `_preview/[key].vue` only | `true` shows the "unsaved changes, not published" banner on `/_preview/<key>`. It is suppressed inside the editor's own iframe either way (`?embed=1` with a parent window); `false` hides it everywhere |
-| `homeSlug` | `string` | none | `[...slug].vue` (via `primaryPathOf`) | the slug whose page is the site root: `primaryPathOf` turns that record's slug into `/` instead of `/home` when it builds a locale or redirect path. The **backend** side of this is `definePreset({ homeSlug })` (§4), which defaults to `"home"` and is interpolated into `resolvePage`'s `site.resolve:pages?home=…`. Nothing cross-checks the two — change one and you must pass the same string to `definePreset` |
+| `homeSlug` | `string` | none | `[...slug].vue` (via `primaryPathOf`) | the slug whose page is the site root: `primaryPathOf` turns that record's slug into `/` instead of `/home` when it builds a locale or redirect path. Backend counterpart: `definePreset({ homeSlug })` (§4), default `"home"`, interpolated into `resolvePage`'s `site.resolve:pages?home=…` |
 | `contentTypes` | `Record<string, ContentType>` | none | `kestrel.config.ts` (`definePreset`), `shared/collections-ui.ts`, `[...slug].vue` | the collections: their pipelines, routes, permissions and admin UI (§2 above) |
 | `contentModel` | `{ locales, defaultLocale, types }` | none | `presetModuleConfig({ model })` | the `content-default` and `media-default` module config |
 | `features` | `readonly Feature[]` | none | `presetModuleConfig`, `definePreset`; the schema route | which modules, pipelines, triggers and admin system tabs exist (§4) |
+
+With `prefixPrimary: false`, the first path segment of a URL is parsed as a locale only when it names
+a locale other than the primary one, so `/about` still resolves to the primary locale rather than
+being mistaken for a locale segment.
+
+**Keep `homeSlug` in sync manually:** nothing cross-checks the Nuxt-side `homeSlug` against the
+backend's `definePreset({ homeSlug })` (§4) — changing one without the other silently breaks the site
+root.
 
 The type-only exports are for your own code: `NavigationItem` is the only one a layer uses
 (`layers/public`'s `site-settings.ts` and `default.vue` type the `settings.navigation` field with it),
@@ -362,7 +370,12 @@ A second alias, independent of the preset, for what every deployment needs anywa
 | `kestrelDataDir()` | `KESTREL_DATA_DIR`, else `data/` under `KESTREL_APP_ROOT` (the app root in dev, that variable or the process cwd on a production server). |
 | `requiredEnv(name)` | The variable's value, or throws `kestrel.config: <name> must be set in this environment`. |
 | `adminPasswordHash()` | In production `KESTREL_ADMIN_PASSWORD_HASH`, required. Otherwise that variable when set, else the built-in development hash of `change-me`, with one `console.warn`. |
-| `envBlobstore(dataDir)` | `KESTREL_BLOBSTORE=s3` → `blobstore-s3` from `KESTREL_S3_BUCKET`, `KESTREL_S3_ENDPOINT`, `KESTREL_S3_REGION`, `KESTREL_S3_ACCESS_KEY_ID`, `KESTREL_S3_SECRET_ACCESS_KEY` (each via `requiredEnv`) with `forcePathStyle: true`; `filesystem` or unset outside production → `blobstore-filesystem` under `<dataDir>/blobs`; production without a choice throws. |
+| `envBlobstore(dataDir)` | Picks the blobstore module from `KESTREL_BLOBSTORE`; see the list below the table for the exact variables each choice reads. |
+
+- `s3` (`KESTREL_BLOBSTORE=s3`) → `blobstore-s3`, reading `KESTREL_S3_BUCKET`, `_ENDPOINT`, `_REGION`,
+  `_ACCESS_KEY_ID`, `_SECRET_ACCESS_KEY` (each via `requiredEnv`) with `forcePathStyle: true`.
+- `filesystem` or unset outside production → `blobstore-filesystem` under `<dataDir>/blobs`.
+- Production with neither set → throws.
 
 So a missing production hash or a missing S3 variable fails when the config loads, naming the variable,
 instead of at the first request. `playground/kestrel.config.ts` deliberately keeps a literal filesystem
@@ -609,13 +622,29 @@ deleted in either case. The admin's delete dialog offers both, defaulting to ano
 | `links` | kestrel-links-default | `brokenLinks`, `rebuildLinks`, `checkLinks` (cron); extract/unextract steps in `createPage`, `updatePage`, `deletePage`, and a re-extract step in `deletePageTranslation` when it exists |
 | `delivery` | kestrel-delivery-static + kestrel-renderer-nuxt | `pagePublishStatus`, `publishAllPages`; publish/unpublish steps in `createPage`, `updatePage`, `deletePage`, and in `deletePageTranslation` when it exists |
 | `redirects` | kestrel-redirects-default | `getRedirects`, `setRedirects`, `renderRedirects`; redirect-lookup step in `resolvePage`; export step at the end of `publishAllPages` (only when `delivery` is also on) |
-| `images` | kestrel-images-default | `serveImageVariant`, `registerImageSizes`, `registerImageSizesBoot` (no trigger — the Nitro plugin runs it at boot to register the sizes declared by blocks and layers), `listImageSizes`, `syncImages`, `pruneImages`, `retryFailedImages`, `imagesStatus`, `generateImageVariants` (event), `resumeImages` (cron); attach/remove/removeMany/export steps in `getMedia`, `listMedia`, `deleteMedia`, `deleteMediaFolder`, `exportMedia` |
+| `images` | kestrel-images-default | Routes, an event and a cron job for image variants, plus boot-time size registration — see the list below the table |
 | `replication` | kestrel-replication-sqlite | `replicate` (cron), `replicationStatus`, `replicationPoints`, `replicationSnapshot`, `replicationRestore` |
 | `migrations` | kestrel-migrations-default | `listMigrations`, `applyMigrations` (`GET /admin/migrations`, `POST /admin/migrations/apply`) |
 | `audit` | kestrel-audit-persistence | `auditAuth` (on `auth.loggedIn`/`auth.loggedOut`), `anonymizeAuditUser` (on `user.deleted`), `retryAnonymizeAuditUser` (`POST /admin/users/:id/audit/anonymize`, `users.manage`), and `pruneAudit` (cron `45 3 * * *`) as soon as `audit: { retentionDays }` is configured |
 | `insights` | kestrel-insights (optional peer) | `insightsManifest`, `insightsStats` (`GET /admin/insights/manifest`, `GET /admin/insights/stats`, `insights.read`); the `/admin/insights` page |
-| `eventsQueue` | kestrel-events-queue (instead of kestrel-events-inmemory) | `eventsQueueStatus`, `eventsDead`, `eventsRetryDead`, `eventsRetryOne` (`/admin/events/*`, `system.manage`), `purgeEvents` (cron); the System → Events tab; delivery at least once, listeners must be idempotent |
-| `revisions` | kestrel-revisions-default | per multi collection `<c>`: `<c>Revisions`, `<c>Revision`, `label<C>Revision`, `restore<C>Revision` (`/admin/<c>/:id/revisions…`, `<c>.manage` to read, `<c>.write` to label and restore), plus `pruneRevisions` (cron), `reassignRevisionAuthor` (on `user.deleted`) and `retryReassignRevisionAuthor` (`POST /admin/users/:id/revisions/reassign`, `users.manage`); record/remove steps directly after `content.create`, `content.update`, `content.remove` and `content.removeTranslation`; the history dialog in the record editor |
+| `eventsQueue` | kestrel-events-queue (instead of kestrel-events-inmemory) | Adds `eventsQueueStatus`, `eventsDead`, `eventsRetryDead`, `eventsRetryOne` (`/admin/events/*`, `system.manage`), the System → Events tab, and `purgeEvents` (cron) — see the note below the table |
+| `revisions` | kestrel-revisions-default | Per-collection revision pipelines, routes and the history dialog in the record editor — see the list below the table |
+
+**`images` details:** routes `listImageSizes`, `syncImages`, `pruneImages`, `retryFailedImages`,
+`imagesStatus`; boot step `registerImageSizesBoot` (no trigger — the Nitro plugin runs it at boot to
+register the sizes declared by blocks and layers); pipeline `registerImageSizes` (`PUT
+/admin/images/sizes`); event `generateImageVariants`; cron `resumeImages`; route `serveImageVariant`;
+and attach/remove/removeMany/export steps in `getMedia`, `listMedia`, `deleteMedia`,
+`deleteMediaFolder`, `exportMedia`.
+
+**`eventsQueue` requirement:** delivery is at-least-once, so your event listeners must be idempotent.
+
+**`revisions` details:** per `multi` collection `<c>`: `<c>Revisions`, `<c>Revision`,
+`label<C>Revision`, `restore<C>Revision` (`/admin/<c>/:id/revisions…`, `<c>.manage` to read, `<c>.write`
+to label and restore); plus `pruneRevisions` (cron), `reassignRevisionAuthor` (on `user.deleted`) and
+`retryReassignRevisionAuthor` (`POST /admin/users/:id/revisions/reassign`, `users.manage`); record/remove
+steps directly after `content.create`, `content.update`, `content.remove` and
+`content.removeTranslation`.
 
 #### Version history (`revisions`)
 Turn it on by adding `"revisions"` to `features` and
@@ -778,7 +807,7 @@ stay checked alongside your addition.
 - `ratelimit` needs a `login` bucket configured in the `kestrel-ratelimit-memory` module config —
   `presetModuleConfig()` (§3) supplies `{ limit: 5, windowSeconds: 60 }` unless you override it.
 - Every collection needs its `<name>.read`/`write`/`manage`/`delete` permissions (`<name>.read`/`write`
-  only for a `single` type) granted in your roles config, the same way `pages.*` is today — including
+  only for a `single` type) granted in your roles config, the same way `pages.*` already is — including
   the `anonymous` role: public reads on a new collection 403 until `<name>.read` is granted there too,
   alongside `pages.read`/`settings.read`/`media.read` (a production deployment's `authz-roles` config is
   a worked example of this, same as `playground/kestrel.config.ts`'s).
@@ -959,8 +988,8 @@ const cta = computed(() => (page.value?.ctaLabel && page.value?.ctaLink ? { labe
 
 `PageDocument` carries an index signature (`[field: string]: unknown`), so a custom field like
 `ctaLabel` is available without extending the type — cast it to your own field's type when reading it.
-In the editor preview, every renderable model field (everything not `editorOwned`) reaches the iframe
-through the snapshot published by `BlockPreview.vue`, so an edit shows up live before the page is saved.
+In the editor preview, every renderable model field (everything not `editorOwned`) is live in the
+preview iframe as you type, before the page is saved.
 
 ## 6. Declare image sizes and render them
 
@@ -1243,7 +1272,7 @@ writes nothing) and an apply button (confirm, then run, then refresh) — see
 ## 11. Upgrading
 
 kestrel-web and the Kestrel backend move together: a kestrel-web release depends on one Kestrel minor
-line (`^5.8.0` today), so bump `@michaelthielemann/kestrel` — and any `@michaelthielemann/kestrel-*`
+line (currently `^5.8.0`), so bump `@michaelthielemann/kestrel` — and any `@michaelthielemann/kestrel-*`
 package you list yourself, such as `kestrel-insights` — in the same step as
 `@michaelthielemann/kestrel-web`. A mismatched pair fails at boot with the missing step or contract
 named, not silently.
@@ -1292,8 +1321,8 @@ and the inherited base (font, size, weight, style, line height, letter spacing, 
 white space, list style, cursor, caret, accent colour, …) is pinned there at specificity (0,1,0), which
 outranks any `body` or element selector of yours. The admin also owns its `::selection`, `::placeholder`
 and `::marker`, resets `outline-offset` and `text-decoration-thickness`, and neutralises
-`scroll-behavior` and the `rem` basis on admin routes. `scope.test.ts` fails the build if a rule escapes
-that scope.
+`scroll-behavior` and the `rem` basis on admin routes. `scope.test.ts` fails the test run if a rule
+escapes that scope.
 
 Four things a consumer can still do that the admin cannot defend against. Treat them as rules:
 

@@ -103,16 +103,14 @@ peer dependencies) and adds them to Vite's `optimizeDeps`; otherwise it points a
 without them. Only the canvas component imports Vue Flow, so the rest of the admin bundle never
 carries it. `utils/insights-graph.ts` builds the graph without any DOM:
 
-- one node per module with a config count and a declared-error-code count (`insights.graph.errors`,
-  distinct HTTP status codes the module's steps declare in `describe().errors`, not runtime error
-  occurrences — both counts render in the same muted colour as the step count);
-- contract edges from the provider to each module that `requires` (solid) or `optional`ly uses
-  (dashed) the contract;
-- pipeline edges between the modules of consecutive steps, deduplicated per module pair with the
-  pipeline names collected on the edge;
-- one trigger node per kind (HTTP, event, cron) with an edge to the module owning the first step of
-  each triggered pipeline; the visible trigger label is translated in `InsightsGraphNode.vue` and
-  `InsightsGraph.vue` from `insights.graph.triggerHttp`/`triggerEvent`/`triggerCron`.
+Each module becomes one node showing its config count and how many distinct HTTP error codes its
+steps declare (`insights.graph.errors` — codes declared in `describe().errors`, not runtime error
+occurrences; both counts render in the same muted colour as the step count). Edges show contract
+relationships (solid where a module `requires` the contract, dashed where it only `optional`ly uses
+it), pipeline order between the modules of consecutive steps (deduplicated per module pair, with the
+pipeline names collected on the edge), and one node per trigger kind (HTTP, event, cron) pointing at
+the module that starts its pipeline — the trigger label is translated from
+`insights.graph.triggerHttp`/`triggerEvent`/`triggerCron`.
 
 `utils/insights-layout.ts` holds `layoutGraph`, the only function that imports dagre; it runs dagre
 left-to-right and returns top-left positions. Edge families can be toggled; the legend explains the

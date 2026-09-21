@@ -67,13 +67,13 @@ overrides:
 
 ## Repository layout
 
-- `layers/core` — boots the embedded Kestrel backend (Nitro plugin) from the consumer's
-  `kestrel.config.ts` plus its optional `kestrel.modules.ts`/`pipelines/` (each falls back to a
-  `layers/core` default via `#kestrel/consumer-modules`/`#kestrel/consumer-pipelines` when absent);
-  serves every backend route under `/api`; provides the standard pipelines/triggers/schemas as a preset
-  (`#kestrel/pipelines`), the standard module implementations (`#kestrel/modules`), the standard admin
-  collection UI (`#kestrel/collections-ui`), discovers the consumer's block SFCs into `#kestrel/blocks`
-  and its migration files into `#kestrel/migrations`.
+- `layers/core` — boots the embedded Kestrel backend (a Nitro plugin) from the consumer's
+  `kestrel.config.ts`, plus its optional `kestrel.modules.ts`/`pipelines/` (each falls back to a
+  `layers/core` default via `#kestrel/consumer-modules`/`#kestrel/consumer-pipelines` when absent). It
+  serves every backend route under `/api` and provides the standard pipelines/triggers/schemas as a
+  preset (`#kestrel/pipelines`), the standard module implementations (`#kestrel/modules`) and the
+  standard admin collection UI (`#kestrel/collections-ui`). It also discovers the consumer's block SFCs
+  into `#kestrel/blocks` and its migration files into `#kestrel/migrations`.
 - `layers/admin` — the editorial UI at `/admin` (Nuxt SPA; reaches into the consumer via
   `#kestrel/blocks` only — the content model, collection UI, workflow and features arrive at runtime from
   `GET /api/admin/schema`).
@@ -105,8 +105,8 @@ overrides:
   `@layer`, so the consumer's global CSS does not reach `/admin` and the admin reset does not reach the
   public site (`docs/architecture.md` § Admin CSS isolation). Consumers are advised to put their own
   reset in a named `@layer` — defence in depth, not a requirement.
-- No code comments except eslint/ts directives — self-explaining code, explanations in `docs/`.
-  English in code and docs.
+- English in code and docs. Code explains itself through names and types; longer explanations live in
+  `docs/` ([`CONTRIBUTING.md`](CONTRIBUTING.md) § Style).
 
 ## Documentation
 
@@ -119,6 +119,8 @@ overrides:
 | [`docs/admin-i18n.md`](docs/admin-i18n.md) | The admin's own language: the two catalogs, the language cookie, how `Localized` labels resolve, and what overriding a string costs. |
 | [`docs/migrations.md`](docs/migrations.md) | Stored content has to be rewritten after a block or model change: enabling the module, writing migrations, run modes, the admin tab. |
 | [`docs/insights.md`](docs/insights.md) | The `/admin/insights` page: what it shows, the two routes behind it, enabling it, the wiring graph. |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | You want to report a bug or send a pull request: setup, the checks to run, the design rules that decide most reviews. |
+| [`SECURITY.md`](SECURITY.md) | You found a vulnerability: supported versions and how to report it privately. |
 | [`RELEASING.md`](RELEASING.md) | You are cutting a release of this repository. |
 | [`packages/renderer-nuxt/README.md`](packages/renderer-nuxt/README.md) | The `renderer@1` module: how a published page is rendered and which assets travel with it. |
 | [`CHANGELOG.md`](CHANGELOG.md) | Every behaviour change visible to a consumer, newest first under `## Unreleased`. Read it before upgrading. |

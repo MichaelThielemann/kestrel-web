@@ -36,16 +36,17 @@ Every layer has one named entry; relative paths never cross a layer.
 
 `layers/public` has no alias: nothing imports the public layer. The aliases are registered in
 `layers/core/nuxt.config.ts` (Nuxt, Vite and Nitro resolvers), `layers/admin/nuxt.config.ts` and
-`vitest.config.ts`. ESLint (`playground/eslint.config.mjs`, blocks `kestrel/layer-boundaries`,
-`kestrel/no-admin-from-public-or-core`, `kestrel/no-backend-in-ui-layers`,
-`kestrel/backend-types-only-in-core-app-types`) enforces the rules in CI: a relative import that walks
-into another layer (`../../../core/...`) is an error; `#kestrel-admin/*` is refused outside
-`layers/admin`; `@michaelthielemann/kestrel*` is refused in `layers/admin`, `layers/public` and
-`layers/core/app`, except as `import type` in `layers/core/app/types/**`, where the frontend API types
-are derived from the backend exports so that drift is a `tsc` error. Backend runtime imports live in
-`layers/core/server`, `layers/core/pipelines`, `layers/core/config`, `layers/core/module-registry`,
-`layers/core/modules`, `layers/core/schemas` and `packages/renderer-nuxt`. Nuxt auto-imports (`runAction`, composables) are
-not imports and stay available across layers.
+`vitest.config.ts`. Four ESLint rules in `playground/eslint.config.mjs` enforce the boundaries in CI:
+`kestrel/layer-boundaries` fails a relative import that walks into another layer (`../../../core/...`);
+`kestrel/no-admin-from-public-or-core` refuses `#kestrel-admin/*` outside `layers/admin`;
+`kestrel/no-backend-in-ui-layers` refuses `@michaelthielemann/kestrel*`, including as `import type`, in
+`layers/admin`, `layers/public` and `layers/core/app`, except `layers/core/app/types/**`; and
+`kestrel/backend-types-only-in-core-app-types` applies inside that `types/**` directory and allows
+`@michaelthielemann/kestrel*` there only as `import type`, since the frontend API types are derived from
+the backend exports so that drift is a `tsc` error. Backend runtime imports live in `layers/core/server`, `layers/core/pipelines`,
+`layers/core/config`, `layers/core/module-registry`, `layers/core/modules`, `layers/core/schemas` and
+`packages/renderer-nuxt`. Nuxt auto-imports (`runAction`, composables) are not imports and stay
+available across layers.
 
 ## Type-assertion boundaries
 `as unknown as T` and `as any` are banned by lint (`eslint.config.mjs`'s third config block, no type
@@ -57,33 +58,28 @@ crossing it may be used at. Server and build code imports it from `@michaelthiel
 from the core package, imports the same function from `layers/core/app/utils/cast.ts` via the
 `#kestrel/cast` alias (`layers/core/nuxt.config.ts`, the same mechanism as `#kestrel/pipelines`/`#kestrel/modules`).
 
-Type-aware lint (`await-thenable`, `no-floating-promises`, `no-misused-promises`,
-`no-unnecessary-type-assertion`, `no-unsafe-argument`, `no-unsafe-assignment`, `no-unsafe-call`,
-`no-unsafe-member-access`, `no-unsafe-return`, `no-unsafe-type-assertion`, `require-await`,
-`restrict-template-expressions`) covers every layer, `packages/renderer-nuxt` and `playground`, in both
-`.ts` and `.vue` files, tests included
-(`playground/eslint.config.mjs`'s `kestrel/type-aware` and `kestrel/type-aware-server` blocks). Each
-block picks the `parserOptions.project` matching its files: `kestrel/type-aware` uses
+Type-aware lint (`playground/eslint.config.mjs`'s `kestrel/type-aware` and `kestrel/type-aware-server`
+blocks) covers every layer, `packages/renderer-nuxt` and `playground`, in both `.ts` and `.vue` files,
+tests included. It catches unsafe use of `any`-typed values (the `no-unsafe-*` rules: `no-unsafe-argument`,
+`no-unsafe-assignment`, `no-unsafe-call`, `no-unsafe-member-access`, `no-unsafe-return`,
+`no-unsafe-type-assertion`), unhandled or misused promises (`await-thenable`, `no-floating-promises`,
+`no-misused-promises`, `require-await`), unnecessary type assertions (`no-unnecessary-type-assertion`)
+and template expressions that stringify something other than a string (`restrict-template-expressions`).
+Each block picks the `parserOptions.project` matching its files: `kestrel/type-aware` uses
 `playground/.nuxt/tsconfig.app.json` for `layers/*/app/**` and `playground/app/**`;
 `kestrel/type-aware-server` uses `playground/.nuxt/tsconfig.server.json` for server, pipeline, module
 and registry code; both fall back to `playground/tsconfig.json` for files the app/server project
 doesn't include (e.g. `layers/core/pipelines`, per-layer `nuxt.config.ts`). `.vue` files need
 `extraFileExtensions: ['.vue']` on the app block only, since only app code has `.vue` sources.
 
-`layers/core/nuxt.config.ts` sets `typescript: { shim: true }`, so `nuxt prepare` generates
-`playground/.nuxt/types/vue-shim.d.ts` (`declare module '*.vue' { ... DefineComponent<{}, {}, any> ... }`,
-referenced from the generated `nuxt.d.ts`), and every consumer extending the layer inherits it. That shim
-is what lets a plain `.ts` file's `.vue` import resolve to a real, if loosely-typed, component instead of
-an unresolvable module — `field-registry.ts` and `register-builtin-editors.ts` import their `.vue`
-components with no cast. `vue-tsc` (`pnpm typecheck`) is unaffected either way: it resolves `.vue` files
-itself and keeps checking real prop types whether or not the shim is present, so a component used with a
-prop value outside its real type still fails `vue-tsc`. The shim does not cover `InsightsGraph.vue`'s
-`defineAsyncComponent(() => import('#kestrel-insights-canvas'))`: that bare alias never matches the
-`*.vue` wildcard, which only matches specifiers literally ending in `.vue`, so plain `tsc` would resolve
-it as `any`. `layers/admin/modules/insights-graph/index.ts` therefore declares that virtual module's
-shape directly (`declare module "#kestrel-insights-canvas" { ... }`, written like the module's
-`@vue-flow/core`/`@dagrejs/dagre` stub for the optional-peers case), so `InsightsGraph.vue` imports it
-with no cast either.
+`layers/core/nuxt.config.ts` sets `typescript: { shim: true }`, and every consumer extending the layer
+inherits it: the layer ships a `*.vue` shim so a plain `.ts` file's `.vue` import resolves to a real, if
+loosely-typed, component (`field-registry.ts` and `register-builtin-editors.ts` rely on this) instead of
+an unresolvable module. `vue-tsc` (`pnpm typecheck`) is unaffected either way, since it resolves `.vue`
+files itself and keeps checking real prop types whether or not the shim is present. The shim cannot match
+`InsightsGraph.vue`'s `defineAsyncComponent(() => import('#kestrel-insights-canvas'))`, since that bare
+alias does not end in `.vue`, so `layers/admin/modules/insights-graph/index.ts` declares that virtual
+module's shape directly instead.
 
 ## Runtime
 ```
@@ -159,12 +155,18 @@ breaks the server build (`nuxt build`) and every dev request. `images-default` k
 call a restarted instance would only know its config/default sizes and variant URLs of declared sizes
 would 404.
 
-`layers/core`'s server utils identify submodules by the steps they register, not by package name
-(`server/utils/modules.ts`): `media.upload` for the upload limit (`server/utils/limits.ts`),
-`sanitize.svg` for `http.inlineTypes` (`server/utils/inline-types.ts`), `images.register` for the
-`publicPath` check, `content.create` for the readiness probe. The owning module name comes from the
-booted instance's `kestrel.steps.owner(step)` — the real step registry, not a pre-boot probe of each
-module's `steps()` factory — so all four callers run after `boot()`/`kestrel.start()` resolves. A
+`layers/core`'s server utils (`server/utils/modules.ts`) identify submodules by the steps they register,
+not by package name. Four places rely on this:
+
+- The upload limit (`server/utils/limits.ts`) looks up the module that registers `media.upload`.
+- The inline-SVG check (`http.inlineTypes`, `server/utils/inline-types.ts`) looks up the module that
+  registers `sanitize.svg`.
+- The `publicPath` check looks up the module that registers `images.register`.
+- The readiness probe looks up the module that registers `content.create`.
+
+The owning module name comes from the booted instance's `kestrel.steps.owner(step)` — the real step
+registry, not a pre-boot probe of each module's `steps()` factory — so all four run after
+`boot()`/`kestrel.start()` resolves. A
 drop-in replacement for any of those modules works without touching `layers/core`. A configured media
 module whose `maxBytes` cannot be determined — not in the entry config and not defaulted by the module's
 own `configSchema` — fails the boot with a clear message instead of silently dropping the limit.
@@ -273,13 +275,22 @@ aliases it as `#kestrel/pipelines`, the same mechanism as `#kestrel/blocks`, so 
 `kestrel.config.ts` and (optional) `pipelines/index.ts` can import it.
 
 `definePreset({ modules, features, collections?, collectionsUi?, overrides?, exclude?, schedules?, exportDir?, homeSlug? })`
-composes in a fixed order: base pipelines → collection-derived pipelines (`collections.ts`, one `multi`
-or `single` CRUD set per entry in `collections`, `settings`/`redirects` excluded since they're already in
-base/the `redirects` feature) → feature patches, in canonical feature order (`ratelimit, sanitizeSvg,
-references, links, delivery, redirects, images, replication, migrations, audit, insights, eventsQueue, revisions`; within one feature, in
-the order its patches are declared) → `overrides` → `exclude` → `schedules`. Each feature also names the module(s) it
-needs; a feature without its module throws at compose time, a configured module whose feature is off only
-warns (the consumer may still use the module with pipelines of its own).
+composes pipelines in this fixed order:
+
+1. Base pipelines.
+2. Collection-derived pipelines (`collections.ts`, one `multi` or `single` CRUD set per entry in
+   `collections`; `settings`/`redirects` are excluded here since they're already in base/the `redirects`
+   feature).
+3. Feature patches, in this feature order — `ratelimit, sanitizeSvg, references, links, delivery,
+   redirects, images, replication, migrations, audit, insights, eventsQueue, revisions` — and, within
+   one feature, in the order its patches are declared.
+4. `overrides`.
+5. `exclude`.
+6. `schedules`.
+
+Each feature also names the module(s) it needs; a feature without its module throws at compose time, a
+configured module whose feature is off only warns (the consumer may still use the module with pipelines
+of its own).
 
 `definePreset<C, S extends string = PresetStep>(options: PresetOptions<C, S>)` types `overrides`'s step
 lists against `S`, which defaults to `PresetStep` (`module-registry/index.ts`) — the union of every step
@@ -302,13 +313,7 @@ A `multi` collection with at least one `localized: true` field (`collections.ts`
 additionally gets `delete<Name>Translation` (`authn.requireUser`, `authz.require:<name>.write`,
 `content.removeTranslation:<name>`, `events.emit:<event>.translationRemoved`) and
 `DELETE /<name>/:id/translations/:locale`, so a single locale's fields can be cleared without removing
-the document — the backend answers 409 when it is the last remaining translation. `definePreset` computes
-whether `pages` qualifies once (`PresetContext.pagesTranslatable`) so `features/delivery.ts`,
-`features/links.ts` and `features/references.ts` can each patch `deletePageTranslation` — the same
-`delivery.publish:pages`/`delivery.exportLlms`, `links.extract:pages` and `references.index:pages` steps
-they add to `updatePage` — only when that pipeline actually exists; `applyFeaturePatches` (`compose.ts`)
-throws on a patch targeting a missing pipeline, so a pages model without a localized field (or a preset
-call with no `collections` at all) gets neither the pipeline nor the patches.
+the document — the backend answers 409 when it is the last remaining translation.
 
 `triggers.ts` holds one ordered list, each entry optionally tagged with the feature that gates it;
 `definePreset` filters it by the enabled features, splices the `pages` collection's 7 routes in right
@@ -321,12 +326,8 @@ wins over `GET /admin/references/to/pages/:id` regardless of where either is reg
 that resolve to the same method-and-pattern are a boot error (`boot.ts`), not a silent override — the
 list order only matters for readability and for where a route logically belongs among its feature group.
 
-`golden.test.ts` pins this against three frozen fixtures: `__fixtures__/playground.json` (every feature),
-`__fixtures__/without-images.json` (every feature but `images`) and `__fixtures__/synthetic.json`
-(a `definePreset` call with an extra `news` multi collection, two extra single collections and the
-`migrations` feature, whose inputs are `synthetic-collections.ts` plus `golden.test.ts`'s own
-`syntheticModules`/`syntheticFeatures`). `definePreset` must reproduce each pipeline and trigger list
-exactly — a mismatch is a spec bug in the preset, not a fixture to update.
+`golden.test.ts` pins the pipeline and trigger lists that `definePreset` composes against frozen fixtures
+— a mismatch is a bug in the preset, not a fixture to update.
 
 ## Content migrations
 A consumer that changes a block's props or a collection's field shape needs existing documents rewritten,
@@ -370,12 +371,8 @@ to the tab (skipping `"account"` cards), and `AdminAccount.vue`'s rail-foot menu
 `placement === 'account'` collection. `nav: false` still opts a `"rail"`-placed collection out of the
 rail link and dashboard card. An invalid `placement` value throws, in both `defineCollectionsUi` and
 `serializeCollection` (a consumer can build a `CollectionUi` map without going through
-`defineCollectionsUi`, e.g. in tests). The `Repeater` field component nests generically: `resolveFieldComponent`
-dispatches a `type: "repeater"` sub-field back to `Repeater.vue` itself, at any depth, so `navigation`'s
-`children` needs no special-casing there. Row-level validation errors follow the same recursion —
-`layers/admin/app/utils/row-errors.ts` turns the `validate.check` step's `<target>: <jsonPointer>
-<message>; ...` errors into a tree keyed by array index at every repeater level, and `Repeater.vue` walks
-one level of that tree per nesting depth when it renders its rows. A consumer's `shared/collections-ui.ts` spreads the preset and adds its own collections, e.g. `pages`.
+`defineCollectionsUi`, e.g. in tests). The `Repeater` field component nests to any depth, and row-level
+validation errors follow the same nesting. A consumer's `shared/collections-ui.ts` spreads the preset and adds its own collections, e.g. `pages`.
 The merge and validation live in `layers/core/collections-ui/serialize.ts`
 (`serializeCollections(contentTypes, ui)`), exported through `#kestrel/collections-ui`, so both the admin
 (`layers/admin/app/utils/collections.ts`, via `~~/shared/collections-ui`) and the `GET /api/admin/schema`
@@ -497,27 +494,12 @@ collection, the expected filter and the fix in the message.
 alone, so focus rings, disabled states, ARIA wiring and design tokens live in one place. **Rule for
 admin UI work: new admin UI uses `components/ui`; a missing variant is added to the kit.**
 
-The `kestrel/ui-kit-first` block in `playground/eslint.config.mjs` enforces the rule over
-`layers/admin/app/**/*.vue` — components, layouts, pages and anything added next to them. It ignores
-`components/ui/**`, the kit itself. `vue/no-restricted-html-elements` names the kit component for each
-raw element; five more rules close the ways around it:
-
-- The block sets `linterOptions.noInlineConfig` and turns `vue/comment-directive` off, so neither a
-  `<!-- eslint-disable … -->` in the template nor a `/* eslint-disable … */` in the script block can switch
-  it back off: inline ESLint comments have no effect in admin `.vue` files outside `components/ui/**`. A
-  suppression that is genuinely needed goes into a `.ts` file or into the kit. Installing an
-  accessibility plugin (whose rules would need template-level suppressions) would mean turning this
-  guard into a vitest scan over the admin templates instead.
-- `vue/no-restricted-static-attribute` rejects `role="button"`, `href="#"` on an `<a>` and a static
-  `<component is="button">`.
-- `vue/no-restricted-class` rejects `ui-button…` classes on anything that is not the kit button.
-- `vue/no-restricted-syntax` rejects a raw control written in mixed case (`<Button>`, `<Table>`), a
-  literal `<component :is="'button'">` in any case and a bound `:role="'button'"`.
-- `vue/no-v-html` is an error; the only `v-html` in the admin layer is `Icon.vue`, inside the kit.
-
-Two holes stay open on purpose: `<component :is="x">` with `x` a variable, and a plain `<div @click>` with
-hand-rolled ARIA — catching either needs runtime or type information a template lint rule does not have.
-`layers/public` has no kit and is out of scope; its markup is the consumer's site, not the admin UI.
+The `kestrel/ui-kit-first` block in `playground/eslint.config.mjs` enforces the rule with lint over
+`layers/admin/app/**/*.vue` — components, layouts, pages and anything added next to them — ignoring
+`components/ui/**`, the kit itself. Inline ESLint suppressions (a template `<!-- eslint-disable … -->` or
+a script `/* eslint-disable … */`) do not work there; a suppression that is genuinely needed goes into a
+`.ts` file or into the kit. `layers/public` has no kit and is out of scope; its markup is the consumer's
+site, not the admin UI.
 
 Kit inventory:
 - `ActionMenu.vue` — dropdown menu behind a caller-styled trigger button.
@@ -568,7 +550,8 @@ declaration beats every layered one whatever its specificity — so the admin st
 all and win on specificity instead. `assets/scss/_scope.scss` holds the two root selectors and the two
 mixins every rule in `assets/scss/` goes through:
 
-- `$root` is `:is(.admin, .admin-portal)`, specificity (0,1,0). `.admin` is the layout root
+- `$root` is `:is(.admin, .admin-portal)`, specificity (0,1,0) — one class-level selector, enough to
+  outrank a plain element selector like `body`. `.admin` is the layout root
   (`layouts/admin.vue`), `.admin-portal` an admin root rendered outside it — the portal host below, the
   `Toasts.vue` region and `BootFailure.vue`, which renders instead of the layout. `.admin-portal` is
   `display: contents`, so it carries the inherited base (font, colour, line height) and the design tokens
@@ -586,21 +569,14 @@ mixins every rule in `assets/scss/` goes through:
   ends inheritance from it.
 - `_base.scss` also owns the layout utilities that more than one view uses: `.u-stack`, `.u-measure` and
   `.u-scroll` (`flex: 1 1 auto; min-height: 0; overflow: auto`, the scroll container inside the
-  full-height panes). A class that several components apply belongs here and never in one component's
-  `<style>`: a component's styles are only loaded when that component is, so the same class on another
-  page would silently have no rule and its content would be clipped by the pane's `overflow: hidden`.
-  `scope.test.ts` fails on a `u-*` class a template uses that the compiled `main.scss` does not declare,
-  and on a `u-*` rule declared inside a `.vue` file.
-- `element-defaults($selectors)` emits every element default twice: once under `:where(.admin,
-  .admin-portal)` (specificity 0, the old behaviour for elements an admin class already styles) and once
-  under `$root` with `:where(:not([class]:not([class=""])))` appended (0,1,0, for elements no admin class
-  touches — an empty `class=""`, which `NuxtLink` renders, counts as unclassed). The guarded copy beats a
-  consumer's element selector while it can never collide with an admin class rule, so the order in which
-  the bundler emits `main.scss` and the component styles does not matter. `unclassed-defaults` emits the
-  guarded copy alone; `_reset.scss` uses it for the inherited properties (`font-size`, `color`,
-  `line-height`, `letter-spacing`). `font-family: inherit` is the one unguarded blanket rule
-  (`$root :where(*:not(code, pre, kbd, samp))`), because no admin class sets a font family except the
-  three that say so explicitly (`Richtext.vue`'s `code`, `SystemEvents.vue`'s mono cell, `Textarea.vue`).
+  full-height panes). A class used by more than one component belongs here, never in a single
+  component's `<style>`, so it stays available wherever it's used. `scope.test.ts` fails on a `u-*`
+  class a template uses that the compiled `main.scss` does not declare, and on a `u-*` rule declared
+  inside a `.vue` file.
+- `element-defaults($selectors)` emits element defaults so they beat a consumer's element selector but
+  never an admin class, which makes bundler order irrelevant. `font-family: inherit` is the one exception,
+  applying blanket to all admin elements, because no admin class sets a font family except the three that
+  say so explicitly (`Richtext.vue`'s `code`, `SystemEvents.vue`'s mono cell, `Textarea.vue`).
 - The kit's `:where(…)` variant rules (`Button.vue`'s `icon` and `bare`, `FileInput.vue`) are prefixed
   with `$root`, which lifts them from specificity 0 to (0,1,0): a consumer's `a { color }` or
   `button { border }` no longer reaches an icon button, while a call-site class still wins — it is
@@ -639,7 +615,7 @@ renders `KestrelUiPortalHost` (`components/ui/PortalHost.vue`) before anything e
 pickers that portal internally, and `Toasts.vue` teleports into the same host. The target falls back to
 `'body'` while no host is mounted, which is what a standalone component test sees.
 
-Two tests guard it. `components/portal-target.test.ts` reads every admin `.vue` file and fails when a
+`components/portal-target.test.ts` reads every admin `.vue` file and fails when a
 reka `*Portal` has no `:to="portalTarget"`, when `DatePickerContent`/`DateRangePickerContent` has no
 `:portal="{ to: portalTarget }"`, or when anything but `PortalHost.vue` teleports straight to the body.
 `components/ui/PortalHost.dom.test.ts` mounts the host and asserts that a dialog's overlay and content,
@@ -660,11 +636,13 @@ bound to `.admin`/`.admin-portal`, if a `@layer` comes back, if the document roo
 root, if `::selection`/`::placeholder`/`::marker` lose their admin scoping, or if a kit component starts
 declaring one of the blanket-inherit properties. That is also what keeps the admin reset off the public
 site: it does not depend on where the stylesheet is imported, the rules simply do not match outside the
-admin. In dev `installAdminClient()` additionally disables foreign stylesheets under
-`/admin` (`utils/admin-style-guard.ts`); production has no such guard, which is why the isolation has to
-hold on its own. Note that the guard treats any path containing `kestrel-*` as its own, so a consumer
-checkout whose directory matches that keeps its stylesheets live under `/admin` in dev — which is what
-makes the check below work without a production build.
+admin. In dev `installAdminClient()` additionally disables every stylesheet under `/admin` that
+`isProtectedStyle()` (`utils/admin-style-guard.ts`) does *not* recognise as the layer's own — a path
+matching `kestrel/layers/` or a `kestrel-*` segment, a `?scoped` query, or a `data-kestrel` attribute stays
+live, everything else is switched off. Production carries no such guard, so the isolation has to hold on
+its own there. A consequence: a consumer checkout whose directory name contains `kestrel-` keeps its own
+stylesheets live under `/admin` in dev, which is what lets `scripts/isolation-diff.mjs` (below) run against
+dev servers without a production build.
 
 `scripts/isolation-diff.mjs` is the end-to-end proof. Run the playground and a consumer app that extends
 the packed layer on two ports, then diff every admin view in both themes:
@@ -674,18 +652,9 @@ PLAYWRIGHT_CORE=/path/to/playwright-core/index.mjs \
   node scripts/isolation-diff.mjs http://localhost:3011 http://localhost:3012
 ```
 
-It logs in on both (`ADMIN_USER`/`ADMIN_PASSWORD`, default `admin`/`change-me`), walks the admin routes
-and, per route, the overlays in `OVERLAYS` (account menu, user row menu, new-user dialog, media upload
-dialog) as extra views, so a teleported overlay is compared like any other view. It also reports every UI
-element under `<body>` that is outside `.admin` and `.admin-portal` — a portal that lost its target shows
-up there even when the consumer and the playground are broken in the same way — and fails on any such
-element. For every element that exists on both sides — keyed by its class path, since the content differs —
-compares ~60 computed properties plus `::before`, `::after`, `::placeholder`, `::selection` and
-`::marker`. It reports per property and separates geometry (`width`/`height`/`margin`) from style leaks.
-Geometry differences are expected: the two apps have different content, row counts and scrollbars. The
-same is true for the handful of `border-bottom` differences on `Table.vue` cells, which come from
-`tbody tr:last-child td` matching a single-row table on one side and not the other. Anything else is a
-real leak.
+It reports per computed property and separates geometry (`width`/`height`/`margin`), which is expected to
+differ since the two apps have different content, row counts and scrollbars, from style leaks. Anything
+but geometry is a real leak.
 
 ### Design tokens and contrast
 `assets/scss/_tokens.scss` is the only place in `layers/admin` that names a colour. Every other rule
@@ -714,11 +683,10 @@ that role:
   preview's page surface. The preview simulates the public site, so `--color-canvas` is white in both
   themes by design, with `--color-on-canvas` as its text colour.
 
-`scripts/token-contrast.ts` compiles `_tokens.scss`, resolves `var()` references, composites
-translucent values over their background and measures every declared pair in both themes.
-`node --experimental-strip-types scripts/token-contrast.ts` prints the table below;
-`scripts/token-contrast.test.ts` runs the same measurement in `pnpm test` and fails when a pair drops
-below its threshold, so a new or retuned token cannot slip through.
+The pairs below are measured in both themes by `scripts/token-contrast.ts`
+(`node --experimental-strip-types scripts/token-contrast.ts` prints the table) and again by
+`scripts/token-contrast.test.ts` in `pnpm test`, so a new or retuned token cannot drop below its
+threshold.
 
 | Pair | Foreground | Background | Required | Light | Dark |
 |---|---|---|---|---|---|
@@ -803,14 +771,12 @@ outside it.
 | `runAction(action, input, options?)` | Runs it, returning `{ ok: true, result? }` or `{ ok: false, error, meta? }`. `options.rethrow` (default `import.meta.dev`) picks dev or production behaviour for an unexpected throw — see below. |
 | `setActionDebug(enabled)` | Turns per-step logging on. |
 
-The context a step sees is `{ input, result?, fail(message, meta?), done(result?) }`. `fail` and `done`
-throw markers (`ActionFailure` / `ActionDone`) that the runner catches and turns into an `ActionResult`.
-The backend's own steps never throw for control flow: `ctx.fail(...)` returns an `Err` and `ctx.done(...)`
-an `Ok`, both ordinary `Result` values the pipeline runner inspects. `ctx.result` starts `undefined`; the first step of an action that
-carries a result seeds it, and later steps read and extend it. A step that throws anything that is
-neither marker is a bug, not a designed failure, so the runner never disguises it as one: it is always
-logged with `console.error`, and then, in dev (`import.meta.dev`, overridable through `runAction`'s third
-argument so tests don't have to stub a global), rethrown — the exception surfaces as an unhandled
+The context a step sees is `{ input, result?, fail(message, meta?), done(result?) }`; calling either ends
+the step, and the runner turns the outcome into an `ActionResult`. `ctx.result` starts `undefined`; the
+first step of an action that carries a result seeds it, and later steps read and extend it. A step that
+throws anything else is a bug, not a designed failure, so the runner never disguises it as one: it is
+always logged with `console.error`, and then, in dev (`import.meta.dev`, overridable through `runAction`'s
+third argument so tests don't have to stub a global), rethrown — the exception surfaces as an unhandled
 rejection instead of a toast, the same as any other uncaught bug. In production it becomes
 `{ ok: false, error, meta: { action, step, unexpected: true } }` instead.
 
@@ -818,9 +784,7 @@ rejection instead of a toast, the same as any other uncaught bug. In production 
 an unexpected throw — and cannot change the action's result. They are how a `try/finally` is expressed:
 the flags a run switched on (`form.saving`, `ops.busy`) and the refreshes that must happen even after a
 failed write go there. The same dev/production split applies to an `always` step's own unexpected throw,
-except every remaining `always` step still runs first — cleanup is never skipped — and only then, in dev,
-is the throw rethrown; a marker thrown from an `always` step (already meaningless there) is just logged,
-never rethrown.
+except every remaining `always` step still runs first — cleanup is never skipped.
 
 `runtimeConfig.public.kestrelDebugActions` (set it from a consumer's `nuxt.config.ts` or
 `NUXT_PUBLIC_KESTREL_DEBUG_ACTIONS`) makes `plugins/actions-debug.client.ts` call `setActionDebug(true)`,
@@ -840,14 +804,10 @@ A step never reaches for a composable. Every collaborator arrives as a field of 
 | `ConfirmPort` | `confirmDiscard` from `useUnsavedGuard`. |
 | `RefreshPort` | Whatever the screen does to refetch (`list.refresh` / `data.reload`). |
 
-The reason is the test setup: `vitest.config.ts` declares `test.projects`, and every project runs
-`environment: "node"` with no Nuxt auto-imports, so a step that called `useApi()`, `useT()`, `useToast()`,
-`navigateTo()` or `confirmDiscard()` could not be unit-tested. Two rules follow inside
-`layers/admin/app/actions/**`:
-
-- imports from `#kestrel/*` must be `import type` only, so nothing needs the alias at runtime;
-- runtime imports use `#kestrel-core/...`, including `#kestrel-core/app/utils/actions` for the runner —
-  a relative path that walks into another layer is a lint error (`kestrel/layer-boundaries`).
+A step takes its collaborators as input, never a composable, so it is testable without Nuxt. Inside
+`layers/admin/app/actions/**`, imports from `#kestrel/*` must be `import type` only, and runtime imports
+use `#kestrel-core/...` instead — a relative path that walks into another layer is a lint error
+(`kestrel/layer-boundaries`).
 
 One relative import does pull a `#kestrel-admin/*` module at runtime (`../../utils/edit-form` imports
 `#kestrel-admin/utils/field-empty`), so only the `admin` project (`layers/admin/**/*.test.ts`) carries the
@@ -872,15 +832,10 @@ declarative configuration — plain strings and pure functions of `ctx` — and 
 receives a component, a composable, a ref or a reactive object.
 
 Every step in `actions/**` is declared with `defineUiStep(name, run)` (`layers/admin/app/actions/define.ts`),
-a thin wrapper over the core `defineStep` — the core runner stays generic and has no notion of a fixed step
-catalogue. `defineUiStep`'s `name` is typed `UiStepName`, the union exported by
-`layers/admin/app/actions/step-names.ts` as `uiStepNames` (a `const` array covering every step name used
-in `actions/**`, including the parametrised ones — `form.saving:on`/`:off`, `ops.busy:on`/`:off`,
-`media.each:files`/`:folders`, `data.reload:files`/`:folders`, `api.request:register`, `api.request:sync`
-— spelled out individually rather than as a template type). A misspelled step name is a `tsc` error, not a
-runtime surprise. `defineUiStep` also records every name it is called with in an exported `Set`;
-`actions/step-names.test.ts` imports every action module and asserts the two directions match: nothing is
-registered that isn't in `uiStepNames`, and nothing in `uiStepNames` goes unregistered.
+a thin wrapper over the core `defineStep`. Step names are a checked union (`UiStepName`, from
+`layers/admin/app/actions/step-names.ts`'s `uiStepNames`), so a misspelling is a `tsc` error, not a
+runtime surprise; `actions/step-names.test.ts` fails if a registered name is missing from that union or a
+listed name is never registered.
 
 | step | file | what it does |
 |---|---|---|
@@ -972,10 +927,6 @@ untouched.
 | `imagesRetryFailed` | `actions/system.ts` | `dialog.confirm` (requires `confirmed` and at least one failed variant), `ops.busy:on`, `api.request` (`POST /admin/images/retry-failed`; toasts the retried variant and media counts; on error sets the inline dialog error, toasts with the run id and fails), `data.reload`; always `ops.busy:off` | `SystemImages.vue`, "Retry failed variants" dialog confirm |
 | `imagesRegisterAndSync` | `actions/system.ts` | `ops.busy:on`, `api.request:register` (`PUT /admin/images/sizes`; no-op on an empty size list; a 409 collision returns silently; any other error toasts and fails), `api.request:sync` (`POST /admin/images/sync`; toasts success; a 409 — a sync already running — returns silently, any other error toasts and fails), `data.reload`; always `ops.busy:off` | `SystemImages.vue`, "Synchronize" button |
 
-`previewDeleteRecord` and `previewBulkDelete` share their body: `actions/shared.ts` exports
-`previewDeleteAction(name)`, a factory over `guard.selection` and `references.precheck` that only
-differs by the action name; `editor.ts` and `list.ts` each call it once.
-
 The system actions above that toast from inside `api.request` (`publishAll` through
 `imagesRegisterAndSync`) do so because their `onSuccess` / `onError` callbacks call `deps.toast.success`
 / `deps.toast.error` directly — there is no separate `toast.success` or `toast.error` step to name in
@@ -985,13 +936,6 @@ when the request fails for another reason. A 409 collision still surfaces to the
 this step: `SystemImages.vue`'s own `conflictingSizes` comparison, computed after the action's
 `data.reload`, is what turns it into an inline alert (see **Registration at boot, variants on a
 button**).
-
-A few steps are inline in their action file rather than shared, because only one action has that shape:
-`media.applyTargets` (three endpoints behind one rename-or-move dialog), `deleteItems`'s own
-`guard.filesDeleted` / `guard.foldersDeleted` and its per-batch `media.each:files` / `media.each:folders`
-/ `data.reload:files` / `data.reload:folders` steps, `upload.begin` / `upload.settle`, `user.validate`
-(declared once per caller, with its own validation body, in `userCreate` and `userUpdate`), and
-`api.request:register` (`imagesRegisterAndSync`'s own registration half).
 
 ### Adding an action
 1. Declare the input interface next to the action, extending `WithDeps` when it talks to the backend and
@@ -1085,22 +1029,10 @@ The button sits left of Undo in `pages/admin/[collection]/[id].vue`, shown when 
 record exists and the user has `<c>.manage`. It opens `PageHistory.vue` (a `size="screen"` kit dialog):
 the tree on the left, the selected version on the right.
 
-`utils/revision-lanes.ts` is the whole graph logic and has no Vue in it: `layoutRevisions(items, head)`
-walks the page newest-first, keeps one slot per open lane holding the revision that lane waits for, and
-returns per row the lane, a colour index, the branch number, the head/tip/fork flags, the arms that
-merge into this row (a second child means a fork) and the arms that pass straight through it. A parent
-that is not on the loaded page leaves its lane open, which the layout reports as `truncated`.
+`utils/revision-lanes.ts` is the whole graph logic and has no Vue in it. `layoutRevisions(items, head)`
+walks the page newest-first, assigns each row a lane, a branch number and a per-branch colour, and
+reports `truncated` when a parent is off the loaded page.
 
-A branch number identifies a branch, not a lane. A lane is freed at its fork point and the next tip
-reuses it, so numbering by lane would give two unrelated side branches the same name and colour. The
-layout therefore hands out a new branch number whenever a row claims a free lane (a tip), carries it
-along while the lane stays with the same chain, and derives the colour from the branch
-(`branchColour`), so `merges` and `through` arms carry the colour of the branch they belong to rather
-than of the lane index they happen to occupy.
-
-`connector()` in `PageHistoryTree.vue` draws a merge arm as a vertical run, one quarter-circle bend
-and a horizontal run into the node at `ROW_HEIGHT / 2` — the arm meets the circle at its vertical
-centre instead of approaching it from above.
 `PageHistoryTree.vue` renders that as one small SVG per row plus text; it is a `listbox` of `option`s
 with a roving tabindex, Arrow/Home/End/Enter, a visually hidden per-row sentence for screen readers, and
 below 30rem the lanes collapse into indentation with a coloured left border. Colour is never the only
@@ -1254,11 +1186,8 @@ defineBlock({ label: "Hero", slots: ["default"], icon: "image" });
   the offending field (`normalizeFieldLayout`/`validateFieldLayout`). Stored on `SerializedBlock.fieldLayout`
   only when present; `BlockFields.vue`'s `KestrelFieldLayout` falls back to one field per row, in
   prop-declaration order, when it's absent — the same default a collection or repeater uses.
-- **Source**: `SerializedBlock.source` is the block's own `.vue` path relative to `nuxt.options.rootDir`,
-  POSIX-separated — computed once in `scan.ts`'s `relativeSource` from the paths `collectBlockSfcs`
-  already resolved and passed into `extractBlockDef` as a plain string, so extraction itself never touches
-  `rootDir`. Always a relative path; never an absolute filesystem path, which must not reach the client
-  bundle.
+- **Source**: `SerializedBlock.source` is the block's own `.vue` path relative to the root, POSIX-separated,
+  never an absolute filesystem path, which must not reach the client bundle.
 - **Details popover**: each `BlockPicker.vue` item (`BlockPickerItem.vue`) carries an (i) button —
   always visible in the list view, shown on hover/focus in the grid and large views — that opens a
   `KestrelUiPopover` (`BlockPickerDetails.vue`) built from the pure `blockDetails(block, lang)` helper
@@ -1353,12 +1282,10 @@ variants do not exist until someone clicks Synchronize. Nothing breaks meanwhile
 falls back to the original file for any size that has no `done` variant yet (see below), and the tab's
 own status view shows the gap: `missingSizes` (declared sizes absent from `GET /admin/images/status`)
 and `conflictingSizes` (a declared size whose spec differs from a `source: "config"` row already on the
-backend) are computed client-side in `SystemImages.vue` and surfaced as inline alerts.
-
-**Not built, deliberately**: a standalone server-startup hook that registers sizes against a remote
-backend over HTTP with service credentials. kestrel-web always boots Kestrel in-process
-(`server/plugins/kestrel.ts`) and has no remote-backend mode, so there is nothing for such a hook to
-run in; registration only ever happens the two ways described above.
+backend) are computed client-side in `SystemImages.vue` and surfaced as inline alerts. Registration only
+ever happens through these two paths, the boot-time in-process call and the admin Synchronize button —
+there is no remote-backend registration path, since kestrel-web always boots Kestrel in-process
+(`server/plugins/kestrel.ts`).
 
 ### `KestrelImage`
 `layers/public/app/components/Image.vue` is auto-registered as `<KestrelImage>` by
@@ -1547,14 +1474,14 @@ copies every other renderable field (`Object.keys(pageFieldsBindings.value.field
 with `previewPageDocument` (same file), which spreads the whole `PreviewDocument` through and then pins
 `status`/`shareImage` to `null` and `createdAt` to `0` — those two are never meaningful in a preview.
 
-Block selection and the iframe's measured height cross the frame boundary via `postMessage`, using the
-four message shapes in `app/utils/preview-messages.ts` (`kestrel-preview:select`,
-`kestrel-preview:selected`, `kestrel-preview:ready`); `parsePreviewMessage` checks
-`event.origin` against `window.location.origin` on both sides and drops anything else, and `BlockPreview`
-also checks `event.source` against the iframe's `contentWindow` before acting on a message. The preview page
-posts `ready` from `onMounted` once its own message listener is registered (client-only mount plus an
-awaited `useSiteSettings` in the layout otherwise make the very first `select` reply arrive too early to be
-heard); `BlockPreview` replies with `selected` on `ready` and on every `selectedId` change. `?embed=1` puts
+The editor and the preview iframe are different documents, so block selection crosses that boundary via
+`postMessage`. `app/utils/preview-messages.ts` defines three message shapes: `kestrel-preview:select`,
+`kestrel-preview:selected` and `kestrel-preview:ready`. `parsePreviewMessage` checks `event.origin` against
+`window.location.origin` on both sides and drops anything else, and `BlockPreview` also checks
+`event.source` against the iframe's `contentWindow` before acting on a message. The preview page posts
+`ready` from `onMounted` once its own message listener is registered (client-only mount plus an awaited
+`useSiteSettings` in the layout otherwise make the very first `select` reply arrive too early to be heard);
+`BlockPreview` replies with `selected` on `ready` and on every `selectedId` change. `?embed=1` puts
 `KestrelBlockRenderer` in `editable` mode inside the preview page — a block click posts `select` to
 `window.parent`, the parent replies with `selected` to keep the tree pane and the iframe's outline in sync.
 A capture-phase `click` listener on the preview page's `document` prevents default on any `a[href]` click
@@ -1563,19 +1490,12 @@ click did not land on a `.block-marker`, covering clicks on blocks, on chrome ou
 empty canvas alike.
 
 `?embed=1` also adds a `kestrel-embed` class to `document.documentElement`; `site.css` neutralises
-`body { margin: 0 }` and `.site { min-height: 0 }` under that class so the reported height can shrink back
-down, not just grow (the default UA body margin and `.site`'s `min-height: 100vh` would otherwise ratchet a
-fixed-height iframe up and never let it shrink). Height is measured via
-`document.documentElement.getBoundingClientRect().height`, not `.scrollHeight` — the root element's
-`scrollHeight` is specified to never report less than the iframe's own viewport height, so once the iframe
-has been sized to some height it could never measure a smaller one again; `getBoundingClientRect()` reflects
-the element's actual (auto-sized) layout box instead. A `ResizeObserver` on `document.documentElement` posts a
-`height` message (clamped to `[0, HEIGHT_MAX]`) on load and on every resize; `BlockPreview` clamps again on
-receipt and uses it only when the height control is `"auto"` — with a fallback of `availH / scale` until the
-first measurement arrives — and otherwise sizes the iframe from the width/height inputs, scaling the iframe
-itself (not its document) for the viewport presets. The refresh button republishes the snapshot and forces a
-reload by reassigning the iframe's `src` (`iframe.src = ''` then back), since `contentWindow.location.reload()`
-can throw or reload the wrong document once the user has navigated inside the iframe.
+`body { margin: 0 }` under that class. `BlockPreview` sizes the iframe itself (not its document) from the
+width/height inputs, scaling it for the viewport presets; when height is `"auto"` it fills the space
+available in the admin's preview stage, measured with a `ResizeObserver` on that stage container. The
+refresh button republishes the snapshot and forces a reload by reassigning the iframe's `src`
+(`iframe.src = ''` then back), since `contentWindow.location.reload()` can throw or reload the wrong
+document once the user has navigated inside the iframe.
 
 ### Untranslated pages
 `GET /site<path>` resolves with `fallback=true`, so a page missing the requested locale's edits still
