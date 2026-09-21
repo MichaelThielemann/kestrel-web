@@ -9,6 +9,8 @@ const { t } = useT()
 
 const InsightsGraphCanvas = defineAsyncComponent(() => import('#kestrel-insights-canvas'))
 
+const isPhone = useIsPhone()
+
 const showContracts = ref(true)
 const showPipelines = ref(true)
 const showTriggers = ref(true)
@@ -63,17 +65,17 @@ const textAlternative = computed(() =>
         <KestrelUiCheckbox v-model="showTriggers" />
         {{ t('insights.graph.toggleTriggers') }}
       </label>
-      <KestrelUiButton size="sm" icon="layout-grid" @click="fitView">{{ t('insights.graph.fitView') }}</KestrelUiButton>
+      <KestrelUiButton v-if="!isPhone" size="sm" icon="layout-grid" @click="fitView">{{ t('insights.graph.fitView') }}</KestrelUiButton>
     </div>
 
-    <div class="insights-graph__legend">
+    <div v-if="!isPhone" class="insights-graph__legend">
       <span class="insights-graph__legend-item"><span class="insights-graph__legend-line insights-graph__legend-line--contract" />{{ t('insights.graph.legendContract') }}</span>
       <span class="insights-graph__legend-item"><span class="insights-graph__legend-line insights-graph__legend-line--optional" />{{ t('insights.graph.legendOptional') }}</span>
       <span class="insights-graph__legend-item"><span class="insights-graph__legend-line insights-graph__legend-line--pipeline" />{{ t('insights.graph.legendPipeline') }}</span>
       <span class="insights-graph__legend-item"><span class="insights-graph__legend-line insights-graph__legend-line--trigger" />{{ t('insights.graph.legendTrigger') }}</span>
     </div>
 
-    <div class="insights-graph__body">
+    <div v-if="!isPhone" class="insights-graph__body">
       <ClientOnly>
         <InsightsGraphCanvas ref="canvas" class="insights-graph__canvas" :nodes="graph.nodes" :edges="graph.edges" @select="onSelect" />
         <template #fallback>
@@ -98,15 +100,14 @@ const textAlternative = computed(() =>
       </aside>
     </div>
 
-    <details class="insights-graph__alt">
+    <section v-else class="insights-graph__alt insights-graph__alt--phone" :aria-label="t('insights.graph.textAlternative')">
+      <KestrelUiAlert variant="info">{{ t('insights.graph.phoneHint') }}</KestrelUiAlert>
+      <KestrelInsightsGraphTextAlternative :modules="textAlternative" />
+    </section>
+
+    <details v-if="!isPhone" class="insights-graph__alt">
       <summary>{{ t('insights.graph.textAlternative') }}</summary>
-      <ul :aria-label="t('insights.graph.moduleAndConnections')">
-        <li v-for="module in textAlternative" :key="module.id">
-          <strong>{{ module.label }}</strong>
-          <div>{{ t('insights.graph.incoming') }}: {{ module.incoming.join('; ') || t('insights.graph.noEdges') }}</div>
-          <div>{{ t('insights.graph.outgoing') }}: {{ module.outgoing.join('; ') || t('insights.graph.noEdges') }}</div>
-        </li>
-      </ul>
+      <KestrelInsightsGraphTextAlternative :modules="textAlternative" />
     </details>
   </div>
 </template>
@@ -179,6 +180,7 @@ const textAlternative = computed(() =>
   &__canvas {
     flex: 1;
     min-width: 0;
+    min-height: 20rem;
     border: 1px solid var(--color-border);
     border-radius: var(--radius-lg);
   }
@@ -221,6 +223,15 @@ const textAlternative = computed(() =>
       flex-direction: column;
       gap: var(--space-2);
     }
+  }
+
+  &__alt--phone {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
   }
 }
 </style>

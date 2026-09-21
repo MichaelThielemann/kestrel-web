@@ -955,6 +955,7 @@ export const de: Record<CatalogKey, string> = {
   'insights.rateLimitTitle': 'Rate-Limit-Buckets',
   'insights.noRateLimitBuckets': 'Keine aktiven Rate-Limit-Buckets.',
   'insights.noEvents': 'Noch keine Events erfasst.',
+  'insights.graph.phoneHint': 'Der interaktive Graph benötigt einen breiteren Bildschirm. Module und Verbindungen sind unten aufgelistet.',
   'insights.graph.toggleContracts': 'Contracts',
   'insights.graph.togglePipelines': 'Pipelines',
   'insights.graph.toggleTriggers': 'Trigger',

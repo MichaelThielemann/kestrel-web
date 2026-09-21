@@ -953,6 +953,7 @@ export const en = {
   'insights.rateLimitTitle': 'Rate limit buckets',
   'insights.noRateLimitBuckets': 'No active rate limit buckets.',
   'insights.noEvents': 'No events recorded yet.',
+  'insights.graph.phoneHint': 'The interactive graph needs a wider screen. Modules and connections are listed below.',
   'insights.graph.toggleContracts': 'Contracts',
   'insights.graph.togglePipelines': 'Pipelines',
   'insights.graph.toggleTriggers': 'Triggers',

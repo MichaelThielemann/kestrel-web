@@ -117,3 +117,8 @@ left-to-right and returns top-left positions. Edge families can be toggled; the 
 line styles; a selected node opens a side panel with a link to the module page. Every node is
 focusable (Enter selects it), and a text alternative below the canvas lists the same edges in words
 for screen readers.
+
+Below the phone breakpoint (`useIsPhone`, 640px) the canvas and side panel give way to that same text
+alternative, shown directly instead of behind a disclosure, with a short hint above it; the toolbar
+keeps the contract/pipeline/trigger toggles but drops "Fit view" and the legend, since there is no
+canvas to fit or annotate. `InsightsGraphTextAlternative.vue` renders the list for both layouts.

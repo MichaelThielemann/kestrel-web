@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Fixed
+
+- The insights graph and the admin sidebar now work at phone width: the sidebar collapses to icons
+  below 640px and expands as a dismissible overlay instead of covering the page, and the interactive
+  graph is replaced by a readable list of modules and connections instead of an empty pane.
+
 ## 2.0.1 – 2026-09-21
 
 ### Changed
