@@ -18,6 +18,8 @@
     "layers",
     "!layers/**/*.test.ts",
     "!layers/**/__fixtures__",
+    "!layers/**/__lint_fixtures__",
+    "!layers/core/lint-fixture-type-aware.ts",
     "README.md",
     "docs"
   ],

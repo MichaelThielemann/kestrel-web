@@ -6,6 +6,7 @@ const repoRoot = fileURLToPath(new URL('..', import.meta.url))
 
 export default withNuxt(
   { ignores: ['!**/layers/public/**'] },
+  { name: 'kestrel/lint-fixtures-ignore', ignores: ['**/__lint_fixtures__/**', 'layers/core/lint-fixture-type-aware.ts'] },
   {
     rules: {
       'vue/multi-word-component-names': 'off',
@@ -48,6 +49,10 @@ export default withNuxt(
         {
           selector: ":matches(ImportDeclaration, ExportNamedDeclaration, ExportAllDeclaration, ImportExpression)[source.value=/^(\\.\\.\\/)+(core|admin|public)\\//]",
           message: 'Relative imports must not cross a layer; use #kestrel-core/... or #kestrel-admin/... instead.',
+        },
+        {
+          selector: ":matches(ImportDeclaration, ExportNamedDeclaration, ExportAllDeclaration, ImportExpression)[source.value=/^~~\\/layers\\/(core|admin|public)\\//]",
+          message: 'Absolute `~~/layers/...` imports must not cross a layer; use #kestrel-core/... or #kestrel-admin/... instead.',
         },
       ],
     },
@@ -123,8 +128,14 @@ export default withNuxt(
   },
   {
     name: 'kestrel/type-aware',
-    files: ['layers/*/app/**/*.{ts,vue}', 'playground/app/**/*.{ts,vue}'],
-    ignores: ['**/*.d.ts'],
+    files: ['layers/*/app/**/*.{ts,vue}', 'playground/app/**/*.{ts,vue}', 'packages/create-kestrel/**/*.ts', 'layers/core/*.ts'],
+    ignores: [
+      '**/*.d.ts',
+      'packages/create-kestrel/template/**',
+      'packages/create-kestrel/prompts.test.ts',
+      'packages/create-kestrel/scaffold.e2e.test.ts',
+      'packages/create-kestrel/template.test.ts',
+    ],
     languageOptions: {
       parserOptions: {
         project: ['playground/.nuxt/tsconfig.app.json', 'playground/tsconfig.json'],

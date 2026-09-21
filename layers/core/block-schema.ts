@@ -1,3 +1,4 @@
+import { boundaryCast } from "./app/utils/cast";
 import type { SerializedBlock, SerializedField } from "./app/types/kestrel";
 import type { FieldTypes } from "./field-types";
 
@@ -22,7 +23,7 @@ function fieldSchema(field: SerializedField, fieldTypes: FieldTypes): Schema {
     case "boolean":
       return nullable({ type: "boolean" });
     case "choice": {
-      const choices = (field.options?.choices as { value: string }[] | undefined) ?? [];
+      const choices = boundaryCast<{ value: string }[] | undefined>(field.options?.choices, "json") ?? [];
       const values = { type: "string", enum: choices.map((c) => c.value) };
       return field.options?.multiple ? nullable({ type: "array", items: values }) : nullable(values);
     }
@@ -33,7 +34,7 @@ function fieldSchema(field: SerializedField, fieldTypes: FieldTypes): Schema {
         required: ["type"],
       });
     case "repeater": {
-      const fields = (field.options?.fields as Record<string, SerializedField> | undefined) ?? {};
+      const fields = boundaryCast<Record<string, SerializedField> | undefined>(field.options?.fields, "json") ?? {};
       return nullable({ type: "array", items: propsSchema(fields, fieldTypes) });
     }
     default: {

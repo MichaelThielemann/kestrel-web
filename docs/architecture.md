@@ -37,7 +37,8 @@ Every layer has one named entry; relative paths never cross a layer.
 `layers/public` has no alias: nothing imports the public layer. The aliases are registered in
 `layers/core/nuxt.config.ts` (Nuxt, Vite and Nitro resolvers), `layers/admin/nuxt.config.ts` and
 `vitest.config.ts`. Four ESLint rules in `playground/eslint.config.mjs` enforce the boundaries in CI:
-`kestrel/layer-boundaries` fails a relative import that walks into another layer (`../../../core/...`);
+`kestrel/layer-boundaries` fails a relative import that walks into another layer (`../../../core/...`)
+or an absolute `~~/layers/...` import that does the same;
 `kestrel/no-admin-from-public-or-core` refuses `#kestrel-admin/*` outside `layers/admin`;
 `kestrel/no-backend-in-ui-layers` refuses `@michaelthielemann/kestrel*`, including as `import type`, in
 `layers/admin`, `layers/public` and `layers/core/app`, except `layers/core/app/types/**`; and
@@ -59,18 +60,23 @@ from the core package, imports the same function from `layers/core/app/utils/cas
 `#kestrel/cast` alias (`layers/core/nuxt.config.ts`, the same mechanism as `#kestrel/pipelines`/`#kestrel/modules`).
 
 Type-aware lint (`playground/eslint.config.mjs`'s `kestrel/type-aware` and `kestrel/type-aware-server`
-blocks) covers every layer, `packages/renderer-nuxt` and `playground`, in both `.ts` and `.vue` files,
-tests included. It catches unsafe use of `any`-typed values (the `no-unsafe-*` rules: `no-unsafe-argument`,
-`no-unsafe-assignment`, `no-unsafe-call`, `no-unsafe-member-access`, `no-unsafe-return`,
-`no-unsafe-type-assertion`), unhandled or misused promises (`await-thenable`, `no-floating-promises`,
-`no-misused-promises`, `require-await`), unnecessary type assertions (`no-unnecessary-type-assertion`)
-and template expressions that stringify something other than a string (`restrict-template-expressions`).
-Each block picks the `parserOptions.project` matching its files: `kestrel/type-aware` uses
-`playground/.nuxt/tsconfig.app.json` for `layers/*/app/**` and `playground/app/**`;
-`kestrel/type-aware-server` uses `playground/.nuxt/tsconfig.server.json` for server, pipeline, module
-and registry code; both fall back to `playground/tsconfig.json` for files the app/server project
-doesn't include (e.g. `layers/core/pipelines`, per-layer `nuxt.config.ts`). `.vue` files need
+blocks) covers every layer, `packages/renderer-nuxt`, `packages/create-kestrel` and `playground`, in
+both `.ts` and `.vue` files, tests included. It catches unsafe use of `any`-typed values (the
+`no-unsafe-*` rules: `no-unsafe-argument`, `no-unsafe-assignment`, `no-unsafe-call`,
+`no-unsafe-member-access`, `no-unsafe-return`, `no-unsafe-type-assertion`), unhandled or misused
+promises (`await-thenable`, `no-floating-promises`, `no-misused-promises`, `require-await`),
+unnecessary type assertions (`no-unnecessary-type-assertion`) and template expressions that stringify
+something other than a string (`restrict-template-expressions`). Each block picks the
+`parserOptions.project` matching its files: `kestrel/type-aware` uses `playground/.nuxt/tsconfig.app.json`
+for `layers/*/app/**`, `playground/app/**`, `packages/create-kestrel/**/*.ts` (its `template/**` scaffold
+is out of scope, since it ships to a consumer project with its own TS project) and `.ts` files directly
+in `layers/core/`; `kestrel/type-aware-server` uses `playground/.nuxt/tsconfig.server.json` for server,
+pipeline, module and registry code; both fall back to `playground/tsconfig.json` for files the app/server
+project doesn't include (e.g. per-layer `nuxt.config.ts`). `.vue` files need
 `extraFileExtensions: ['.vue']` on the app block only, since only app code has `.vue` sources.
+Three `packages/create-kestrel` test files (`prompts.test.ts`, `scaffold.e2e.test.ts`, `template.test.ts`)
+are excluded from `kestrel/type-aware`: they consume the package's untyped `.mjs` sources, which
+resolve to `any` and cascade into `no-unsafe-*` findings unrelated to this layer-boundary work.
 
 `layers/core/nuxt.config.ts` sets `typescript: { shim: true }`, and every consumer extending the layer
 inherits it: the layer ships a `*.vue` shim so a plain `.ts` file's `.vue` import resolves to a real, if
