@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { ReplicationStatus, ReplicationPoint, ReplicationRestoreResult } from '#kestrel-admin/types/api'
-import { humanizeSize } from '#kestrel-admin/utils/library'
+import { humanizeSizeOrDash } from '#kestrel-admin/utils/library'
 import { humanizeRelativeTime } from '#kestrel-admin/utils/humanize'
 import { replicationRestore, replicationSnapshot } from '#kestrel-admin/actions/system'
 import type { RestoreTarget } from '#kestrel-admin/actions/system'
@@ -110,7 +110,7 @@ function relative(ms: number | null | undefined): string { return ms == null ? '
         </div>
         <div class="replication__stat">
           <span class="replication__stat-label">{{ t('replication.walBytes') }}</span>
-          <span class="replication__stat-value">{{ humanizeSize(status.walBytes ?? 0) }}</span>
+          <span class="replication__stat-value">{{ humanizeSizeOrDash(status.walBytes) }}</span>
         </div>
       </div>
 

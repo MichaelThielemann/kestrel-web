@@ -161,6 +161,20 @@ describe('replicationSnapshot', () => {
     expect(refreshCalls.length).toBe(1)
   })
 
+  it('toasts an em dash instead of "0 B" when the backend does not report a byte count', async () => {
+    const { deps, calls, toast } = fakeDeps([{ generation: 5 }])
+    const { ops } = fakeOps()
+    const { refresh, calls: refreshCalls } = fakeRefresh()
+    const onNotFound = vi.fn()
+
+    const result = await runAction(replicationSnapshot, { deps, ops, onNotFound, refresh })
+
+    expect(result.ok).toBe(true)
+    expect(calls).toEqual([{ path: '/admin/replication/snapshot', method: 'POST', body: undefined, query: undefined }])
+    expect(toast.success).toHaveBeenCalledWith('replication.snapshotDone:{"bytes":"—"}')
+    expect(refreshCalls.length).toBe(1)
+  })
+
   it('calls onNotFound with no toast and no reload on a 404', async () => {
     const { deps, toast } = fakeDeps([apiError(404, 'no replication')])
     const { ops } = fakeOps()
