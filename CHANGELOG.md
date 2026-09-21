@@ -9,7 +9,10 @@
   of `layers/core/app/types/openapi.generated.ts`, generated from the preset's OpenAPI document with
   `pnpm generate:api-types`. `pnpm test` fails if the generated file is stale. The exported field
   optionality of `MediaItem`, `ReplicationStatus` and `ReplicationSnapshotResult` is unchanged from the
-  previous release.
+  previous release. `scripts/generate-api-types.ts` now boots the same content model as `playground/`
+  instead of a near-duplicate of it, so the collection names behind the generated types (for example
+  `pages`, which decides `PublishStatusEntry`) have one source; this drops the script's unused `news`
+  scaffold collection and has no effect on any exported type.
 
 ### Fixed
 

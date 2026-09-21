@@ -7,6 +7,7 @@ import { boot, silentLogger } from "@michaelthielemann/kestrel";
 import { generateOpenApi } from "@michaelthielemann/kestrel-openapi";
 import { definePreset, featureOrder, presetModuleConfig } from "../layers/core/pipelines/index.ts";
 import { defineFieldTypes } from "../layers/core/field-types.ts";
+import { contentModel, contentTypes } from "../playground/shared/model.ts";
 
 const repoRoot = fileURLToPath(new URL("..", import.meta.url));
 const outFile = resolve(repoRoot, "layers/core/app/types/openapi.generated.ts");
@@ -15,41 +16,6 @@ const generatorCommand = "pnpm generate:api-types";
 const fieldTypes = defineFieldTypes({
   color: { storage: "text", schema: { type: "string", pattern: "^#[0-9a-f]{6}$" }, empty: "#2266cc" },
 });
-
-const contentTypes = {
-  settings: {
-    kind: "single" as const,
-    fields: {
-      title: { type: "text", required: true, localized: true },
-      description: { type: "text", localized: true },
-      navigation: { type: "json", localized: true },
-    },
-  },
-  redirects: {
-    kind: "single" as const,
-    fields: { rules: { type: "json" } },
-  },
-  pages: {
-    kind: "multi" as const,
-    fields: {
-      slug: { type: "slug", required: true, unique: true, localized: true },
-      title: { type: "text", required: true, localized: true },
-      body: { type: "json", localized: true },
-      seo: { type: "json", localized: true },
-      status: { type: "enum", options: ["draft", "finished", "published"], required: true, localized: true },
-      shareImage: { type: "ref", to: "media" },
-      accent: { type: "color" },
-    },
-  },
-  news: {
-    kind: "multi" as const,
-    fields: {
-      title: { type: "text", required: true, localized: true },
-      body: { type: "json", localized: true },
-      status: { type: "enum", options: ["draft", "finished", "published"], required: true, localized: true },
-    },
-  },
-};
 
 const features = featureOrder;
 
@@ -61,7 +27,6 @@ async function main(): Promise<void> {
     mkdirSync(join(schemaDir, "schemas"), { recursive: true });
     const bodySchemaPath = join(schemaDir, "pages.body.json");
     writeFileSync(bodySchemaPath, JSON.stringify({ type: "array" }));
-    writeFileSync(join(schemaDir, "schemas", "news.body.json"), JSON.stringify({ type: "array" }));
     process.env.KESTREL_BLOCK_SCHEMA = bodySchemaPath;
     process.env.KESTREL_APP_ROOT = schemaDir;
 
@@ -72,7 +37,7 @@ async function main(): Promise<void> {
       ...presetModuleConfig({
         dataDir,
         blobstore: { use: "@michaelthielemann/kestrel-blobstore-filesystem", config: { root: join(dataDir, "blobs") } },
-        model: { locales: ["de", "en"], defaultLocale: "de", types: contentTypes },
+        model: contentModel,
         features,
         fieldTypes,
         audit: { retentionDays: 365 },
