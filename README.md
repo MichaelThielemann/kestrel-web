@@ -11,6 +11,11 @@ Both talk to a [Kestrel](https://github.com/MichaelThielemann/kestrel) backend t
 **inside the app's own Nitro server** and serves under `/api`. There is no second process and no
 separate deployment: `nuxt build` produces one `.output` that contains the site, the admin and the CMS.
 
+> **Status:** kestrel-web is under rapid development. Breaking changes arrive as new major versions, and
+> majors follow each other quickly; every one of them is listed in [`CHANGELOG.md`](CHANGELOG.md). Only the
+> latest major receives fixes. For a project that has to run unchanged for years this is a limited fit —
+> pin exact versions and plan time for upgrades.
+
 A consuming app owns its content model, its Kestrel configuration and its block library. Everything
 else — pipelines, module wiring, admin UI, validation schemas — comes from the layer.
 
@@ -106,7 +111,7 @@ overrides:
   public site (`docs/architecture.md` § Admin CSS isolation). Consumers are advised to put their own
   reset in a named `@layer` — defence in depth, not a requirement.
 - English in code and docs. Code explains itself through names and types; longer explanations live in
-  `docs/` ([`CONTRIBUTING.md`](CONTRIBUTING.md) § Style).
+  `docs/`.
 
 ## Documentation
 
@@ -119,8 +124,6 @@ overrides:
 | [`docs/admin-i18n.md`](docs/admin-i18n.md) | The admin's own language: the two catalogs, the language cookie, how `Localized` labels resolve, and what overriding a string costs. |
 | [`docs/migrations.md`](docs/migrations.md) | Stored content has to be rewritten after a block or model change: enabling the module, writing migrations, run modes, the admin tab. |
 | [`docs/insights.md`](docs/insights.md) | The `/admin/insights` page: what it shows, the two routes behind it, enabling it, the wiring graph. |
-| [`CONTRIBUTING.md`](CONTRIBUTING.md) | You want to report a bug or send a pull request: setup, the checks to run, the design rules that decide most reviews. |
-| [`SECURITY.md`](SECURITY.md) | You found a vulnerability: supported versions and how to report it privately. |
 | [`RELEASING.md`](RELEASING.md) | You are cutting a release of this repository. |
 | [`packages/renderer-nuxt/README.md`](packages/renderer-nuxt/README.md) | The `renderer@1` module: how a published page is rendered and which assets travel with it. |
 | [`CHANGELOG.md`](CHANGELOG.md) | Every behaviour change visible to a consumer, newest first under `## Unreleased`. Read it before upgrading. |
