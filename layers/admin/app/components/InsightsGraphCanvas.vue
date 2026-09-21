@@ -9,18 +9,7 @@ const emit = defineEmits<{ select: [id: string | null] }>()
 
 const { fitView, getSelectedNodes } = useVueFlow()
 
-const reducedMotion = ref(false)
-let mediaQuery: MediaQueryList | null = null
-function syncReducedMotion() {
-  reducedMotion.value = mediaQuery?.matches ?? false
-}
-onMounted(() => {
-  if (!import.meta.client) return
-  mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
-  syncReducedMotion()
-  mediaQuery.addEventListener('change', syncReducedMotion)
-})
-onUnmounted(() => mediaQuery?.removeEventListener('change', syncReducedMotion))
+const reducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)')
 
 const positions = computed(() => layoutGraph(props.nodes, props.edges))
 
