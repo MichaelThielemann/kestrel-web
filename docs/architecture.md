@@ -288,13 +288,13 @@ name a registered module's `describe()` declares. A misspelled step in an `overr
 (`definePreset<typeof contentTypes, PresetStep | "my-module.myStep">`) so the preset's own step names stay
 checked alongside the addition.
 
-`collections` defaults to `{ pages: <today's pages shape> }` when omitted, so a consumer that hasn't
-migrated keeps its exact original pipeline/trigger set. `pages` is the one collection name the generator
+`collections` defaults to `{ pages: <the built-in pages shape> }` when omitted, so a consumer that passes
+none gets the `pages` pipelines and triggers. `pages` is the one collection name the generator
 special-cases (`layers/core/pipelines/collections.ts`'s `NAME_OVERRIDES`): every other `multi` collection
-uses its own name for every pipeline (`listNews`, `readNews`, `createNews`, …), but `pages` keeps its
-historical singular forms (`readPage`, `createPage`, …) and event names (`page.created`, not
-`pages.created`) for exact backwards compatibility with the original hand-written pipelines. `pages` also
-still gets `resolvePage` and the delivery/references/links feature patches, which stay hardcoded to the
+uses its own name for every pipeline (`listNews`, `readNews`, `createNews`, …), but `pages` uses
+singular forms (`readPage`, `createPage`, …) and event names (`page.created`, not
+`pages.created`), so overrides, triggers and listeners written against those names keep working. `pages` also
+gets `resolvePage` and the delivery/references/links feature patches, which stay hardcoded to the
 name `"pages"` until a `pageLike` model marker exists — every other collection's pipelines are
 untouched by those features.
 
@@ -346,8 +346,9 @@ other feature's. The `migrations` feature (`features/migrations.ts`) only adds `
 
 ## Content model
 `shared/model.ts` exports `contentModel` (locales, types) for the backend module config and the typed
-field list for the UI. `serializeCollections` (`layers/core/collections-ui/serialize.ts`) turns it into the `SerializedCollection` shape (labels, icons, editor body, layout rows) so the generic
-editor, list and field renderer work unchanged; the admin gets the result over
+field list for the UI. `serializeCollections` (`layers/core/collections-ui/serialize.ts`) turns it into
+the `SerializedCollection` shape (labels, icons, editor body, layout rows) that the generic editor, list
+and field renderer read; the admin gets the result over
 `GET /api/admin/schema`, not from a build-time import. Mapping: `enum → choice`, `ref(media) → media`, `ref(x) → relation`,
 `date → datetime` (ms epoch on the wire), everything else 1:1. Enum choice labels and relation
 `labelField` are consumer-owned (see **Collection UI**) — kestrel-web carries no consumer collection,
@@ -493,7 +494,8 @@ collection, the expected filter and the fix in the message.
 ### UI kit first
 `layers/admin/app/components/ui/` is the admin UI kit. Admin components, layouts and pages use it instead of raw
 `<table>`, `<button>`, `<input>`, `<select>`, `<textarea>` and `<dialog>`; those elements belong to the kit
-alone, so focus rings, disabled states, ARIA wiring and design tokens live in one place. **Rule for admin UI work: new admin UI uses `components/ui`; a missing variant is added to the kit.**
+alone, so focus rings, disabled states, ARIA wiring and design tokens live in one place. **Rule for
+admin UI work: new admin UI uses `components/ui`; a missing variant is added to the kit.**
 
 The `kestrel/ui-kit-first` block in `playground/eslint.config.mjs` enforces the rule over
 `layers/admin/app/**/*.vue` — components, layouts, pages and anything added next to them. It ignores

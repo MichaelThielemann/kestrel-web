@@ -53,8 +53,3 @@ a file whose name starts with `_` is written with a leading dot (`_gitignore` be
 repository's root manifest by `scripts/create-kestrel-versions.mjs`, a test fails when the two
 differ, and `prepack` refuses to pack a stale file — so the scaffolded project can never ask for a
 layer or engine version this repository does not itself use.
-
-This package keeps its own `version` field; it is not tied to the layer's. Raise it by hand in
-`packages/create-kestrel/package.json` whenever the scaffolder or its template changes, in the same
-commit. The release workflow publishes every workspace package whose version is not on the registry
-yet, so the next layer release picks the new number up on its own.
