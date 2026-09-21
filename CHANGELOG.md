@@ -24,10 +24,22 @@
   The dead-letter list now has one entry per event **and** pipeline, and each entry names its
   `pipeline`. Queue counters grow accordingly. Stored events from a previous major are delivered to
   every pipeline subscribed at the first worker tick after the upgrade; drain the queue first if that is
-  not what you want.
+  not what you want — this matters in particular when several worker processes share one queue, since
+  each of them fans out on its own next tick. A dead-letter row written before the upgrade names no
+  pipeline; `events.listDead` reports it as `""` and the admin's System → Events tab shows an empty
+  Pipeline cell for it.
+
+  If you author your own module (not one of kestrel's) that raises an event through `events@1` from
+  inside its own `setup()`, declare that event in the module's `emits`. Without it, `sortModules` has no
+  reason to set your module up after the delivery module, and with `events-queue` an event raised before
+  the queue exists is lost — there is nobody subscribed yet to store it.
+
+  A `Deps` object built by hand — in a module's own tests, or when embedding the core outside
+  `boot()` — now needs an `eventTriggers` property (the configured event triggers, in configuration
+  order); `Kestrel["contracts"]` itself is unaffected.
 
 - `DeadEvent` (the dead-letter list item type) gains a required `pipeline` field, naming the pipeline a
-  dead-letter row belongs to.
+  dead-letter row belongs to; a row stored before this change reports `pipeline: ""`.
 
 ### Changed
 

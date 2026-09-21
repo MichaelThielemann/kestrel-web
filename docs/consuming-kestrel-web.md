@@ -640,7 +640,13 @@ and attach/remove/removeMany/export steps in `getMedia`, `listMedia`, `deleteMed
 
 **`eventsQueue` requirement:** delivery is at-least-once, so your event listeners must be idempotent, and
 no ordering is guaranteed between the pipelines subscribed to one event. Every event a pipeline receives
-carries `eventId` — use it as the dedup key.
+carries `eventId` — use it as the dedup key. Events stored while switching to `eventsQueue` (or stored by
+a previous major before the per-pipeline dead-letter list) are delivered to every currently subscribed
+pipeline at the worker's first tick after start; drain the queue first (`events.readQueueStatus` at
+`pending: 0, running: 0`) if you run several worker processes and don't want each of them to fan out on
+its own next tick, or if you'd rather not redeliver stored events at all. A dead-letter row from before
+that change names no pipeline: `events.listDead` reports `pipeline: ""` for it and the admin's
+System → Events tab shows an empty Pipeline cell.
 
 **`revisions` details:** per `multi` collection `<c>`: `<c>Revisions`, `<c>Revision`,
 `label<C>Revision`, `restore<C>Revision` (`/admin/<c>/:id/revisions…`, `<c>.manage` to read, `<c>.write`
@@ -725,6 +731,14 @@ the event with 500 `INTERNAL` instead of being logged and ignored. With `kestrel
 programmatic bus subscriber sees only events raised through the `events@1` contract by a module (for
 example the backend's `migrations.applied`), not the events a pipeline step emits — those go straight to
 the queue.
+
+If you write your own module that raises an event through `events@1` from inside its own `setup()`,
+declare that event in the module's `emits`. That is also what puts your module's `setup()` after the
+delivery module in the boot order; without it, and with `kestrel-events-queue` configured, an event your
+module raises before the queue exists is lost — nothing is subscribed yet to store it. If you construct a
+`Deps` object by hand — a module's own test, or an embedding that calls `boot()`'s pieces directly rather
+than `boot()` itself — it now needs an `eventTriggers` property (the configured event triggers, in
+configuration order); reading `kestrel.contracts` is unaffected.
 
 
 Optional packages: `@michaelthielemann/kestrel-insights`, `@vue-flow/core` and `@dagrejs/dagre` are
