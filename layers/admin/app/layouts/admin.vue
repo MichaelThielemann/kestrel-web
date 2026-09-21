@@ -7,32 +7,22 @@ installAdminClient()
 const { authenticated, can } = useAuth()
 const { collapsed: cookieCollapsed, toggle: toggleCookieCollapsed } = useRailCollapsed()
 const isPhone = useIsPhone()
-const railOpen = ref(false)
-const railCollapsed = computed(() => (isPhone.value ? !railOpen.value : cookieCollapsed.value))
 const { has } = useFeatures()
 const { theme } = useTheme()
 const { t } = useT()
 const route = useRoute()
+const routePath = computed(() => route.path)
+const { railOpen, railCollapsed, toggleRail, closeRailOverlay } = useRailOverlay({
+  isPhone,
+  routePath,
+  collapsed: cookieCollapsed,
+  toggleCollapsed: toggleCookieCollapsed,
+})
 const { failed: bootFailed, error: bootError } = useBootStatus()
 const { error: schemaError } = useSchema()
 const schemaFailed = computed(() => authenticated.value && schemaError.value !== null)
 const failed = computed(() => bootFailed.value || schemaFailed.value)
 const failure = computed(() => (schemaFailed.value ? schemaError.value : bootError.value))
-
-watch(isPhone, (phone) => { if (!phone) railOpen.value = false })
-watch(() => route.path, () => { railOpen.value = false })
-
-function toggleRail() {
-  if (isPhone.value) {
-    railOpen.value = !railOpen.value
-    return
-  }
-  toggleCookieCollapsed()
-}
-
-function closeRailOverlay() {
-  if (railOpen.value) railOpen.value = false
-}
 
 useHead(() => ({
   title: 'Kestrel',
@@ -46,7 +36,7 @@ useHead(() => ({
   <KestrelBootFailure v-if="failed" :error="failure" />
   <div v-else class="admin" :class="{ 'admin--rail-collapsed': railCollapsed, 'admin--rail-open': isPhone && railOpen }" :data-theme="theme">
     <div v-if="isPhone && railOpen" class="admin__scrim" aria-hidden="true" @click="closeRailOverlay" />
-    <aside v-if="authenticated" class="admin__rail" @keydown.esc="closeRailOverlay">
+    <aside v-if="authenticated" id="admin-rail" class="admin__rail">
       <div class="rail__head">
         <NuxtLink to="/admin" class="rail__brand" aria-label="Kestrel">
           <KestrelUiBrand />
@@ -57,6 +47,7 @@ useHead(() => ({
           class="rail__toggle"
           :aria-label="railCollapsed ? t('a11y.expandSidebar') : t('a11y.collapseSidebar')"
           :aria-expanded="isPhone ? railOpen : undefined"
+          :aria-controls="isPhone ? 'admin-rail' : undefined"
           @click="toggleRail"
         >
           <KestrelUiIcon :name="railCollapsed ? 'panel-left-open' : 'panel-left-close'" size="1.25rem" />
@@ -107,6 +98,47 @@ useHead(() => ({
 
 <style lang="scss">
 $bp-phone: 640px;
+
+@mixin rail-narrow {
+  .rail__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+  .rail__head,
+  .rail__nav,
+  .rail__foot {
+    padding: var(--space-2);
+  }
+  .rail__head {
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-1);
+  }
+  .rail__brand {
+    width: 100%;
+    justify-content: center;
+    padding: 0;
+    margin: 0;
+    gap: 0;
+  }
+  .rail__toggle,
+  .rail__item,
+  .rail-account__trigger {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    padding: 0;
+    margin: 0;
+    justify-content: center;
+    gap: 0;
+  }
+}
 
 .admin {
   display: flex;
@@ -259,44 +291,7 @@ $bp-phone: 640px;
 }
 
 .admin--rail-collapsed {
-  .rail__label {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
-  }
-  .rail__head,
-  .rail__nav,
-  .rail__foot {
-    padding: var(--space-2);
-  }
-  .rail__head {
-    flex-direction: column;
-    align-items: center;
-    gap: var(--space-1);
-  }
-  .rail__brand {
-    width: 100%;
-    justify-content: center;
-    padding: 0;
-    margin: 0;
-    gap: 0;
-  }
-  .rail__toggle,
-  .rail__item,
-  .rail-account__trigger {
-    width: 100%;
-    aspect-ratio: 1 / 1;
-    padding: 0;
-    margin: 0;
-    justify-content: center;
-    gap: 0;
-  }
+  @include rail-narrow;
 }
 
 @media (max-width: $bp-phone) {
@@ -305,6 +300,15 @@ $bp-phone: 640px;
     inset: 0;
     z-index: calc(var(--z-overlay) - 1);
     background: var(--color-scrim);
+  }
+
+  .admin:not(.admin--rail-open) .admin__rail {
+    flex-basis: var(--rail-width-collapsed);
+    width: var(--rail-width-collapsed);
+  }
+
+  .admin:not(.admin--rail-open) {
+    @include rail-narrow;
   }
 
   .admin--rail-open .admin__rail {
