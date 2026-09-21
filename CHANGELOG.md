@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 2.0.1 – 2026-09-21
+
+### Changed
+
+- Documentation and changelog wording. No behaviour change.
+- `create-kestrel` 5.0.1 asks for this release of the layer.
+
 ## 2.0.0 – 2026-09-20
 
 ### Breaking
