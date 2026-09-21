@@ -30,10 +30,6 @@ export function humanizeSize(bytes: number): string {
   return `${(kb / 1024).toFixed(1)} MB`
 }
 
-export function humanizeSizeOrDash(bytes: number | undefined): string {
-  return bytes === undefined ? '—' : humanizeSize(bytes)
-}
-
 export function parentFolder(folder: string): string | null {
   if (folder === '') return null
   const i = folder.lastIndexOf('/')

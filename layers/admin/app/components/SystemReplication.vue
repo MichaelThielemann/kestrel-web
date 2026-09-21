@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { ReplicationStatus, ReplicationPoint, ReplicationRestoreResult } from '#kestrel-admin/types/api'
-import { humanizeSizeOrDash } from '#kestrel-admin/utils/library'
+import { humanizeSize } from '#kestrel-admin/utils/library'
 import { humanizeRelativeTime } from '#kestrel-admin/utils/humanize'
 import { replicationRestore, replicationSnapshot } from '#kestrel-admin/actions/system'
 import type { RestoreTarget } from '#kestrel-admin/actions/system'
@@ -74,8 +74,8 @@ function restoreToTime() {
 }
 
 const dateFmt = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'medium' })
-function absolute(ms: number | null | undefined): string { return ms == null ? '—' : dateFmt.format(new Date(ms)) }
-function relative(ms: number | null | undefined): string { return ms == null ? '—' : humanizeRelativeTime(ms, lang.value) }
+function absolute(ms: number | null): string { return ms === null ? '—' : dateFmt.format(new Date(ms)) }
+function relative(ms: number | null): string { return ms === null ? '—' : humanizeRelativeTime(ms, lang.value) }
 </script>
 
 <template>
@@ -110,7 +110,7 @@ function relative(ms: number | null | undefined): string { return ms == null ? '
         </div>
         <div class="replication__stat">
           <span class="replication__stat-label">{{ t('replication.walBytes') }}</span>
-          <span class="replication__stat-value">{{ humanizeSizeOrDash(status.walBytes) }}</span>
+          <span class="replication__stat-value">{{ humanizeSize(status.walBytes) }}</span>
         </div>
       </div>
 

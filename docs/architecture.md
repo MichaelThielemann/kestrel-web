@@ -74,6 +74,14 @@ The types that used to come from a backend package's `impl` subpath (`ImageSizeR
 `SettingsDocument.navigation`, still hand-written); such a field would need casting to be usable, so it
 stays hand-written rather than being derived.
 
+The installed backend packages describe some always-present response fields without `required` in their
+`describe().output`, so `operations[...]` marks them optional even though the pipeline always sets them.
+`api.ts` defines `RequireFields<T, K>` and applies it to `MediaItem` (`width`, `height`, `alt`, `title`,
+`description`), `ReplicationStatus` (every field) and `ReplicationSnapshotResult` (`generation`, `bytes`)
+to keep those fields as non-optional as they were before this file was generated.
+`layers/core/app/types/api.types.test.ts` pins both sides: that the generated type still needs the
+helper, and that the exported type still matches the published optionality.
+
 The preset that `scripts/generate-api-types.ts` boots enables every `Feature` this layer defines, so the
 generated document — and therefore `operations[...]` in `api.ts` — describes the full surface regardless
 of which features or collections a given consumer's own `definePreset` call enables; a route a consumer

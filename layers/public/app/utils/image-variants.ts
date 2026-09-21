@@ -28,8 +28,8 @@ export function pickImageSources(
   const useNamed = named?.state === 'done' && named.width > 0 && named.height > 0
 
   const src = named ? named.path : `/api/media/${encodeURIComponent(item.id)}/file`
-  const width = useNamed ? named.width : item.width ?? null
-  const height = useNamed ? named.height : item.height ?? null
+  const width = useNamed ? named.width : item.width
+  const height = useNamed ? named.height : item.height
 
   const referenceRatio = useNamed
     ? ratioOf(named)

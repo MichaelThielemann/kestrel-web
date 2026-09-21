@@ -1,7 +1,7 @@
 import type { EventsRetryResult, ImagesJob, ImagesPruneResult, ImagesRetryFailedResult, ImagesStatus, MediaExportReport, MediaReconcileReport, MigrationsApplyResult, MigrationsDryRunResult, PublishAllReport, RebuildReport, ReplicationRestoreResult, ReplicationSnapshotResult, UserDeleteResponse, UserReassignTarget } from '#kestrel-admin/types/api'
 import { defineAction, type ActionContext, type ActionStep } from '#kestrel-core/app/utils/actions'
 import { apiErrorCode, apiErrorMessage, apiErrorRunId, apiErrorStatus, withRunId } from '../composables/useApi'
-import { humanizeSizeOrDash } from '../utils/library'
+import { humanizeSize } from '../utils/library'
 import { userErrorMessage } from '../utils/user-errors'
 import type { UserOperation } from '../utils/user-errors'
 import { defineUiStep } from './define'
@@ -200,7 +200,7 @@ export const replicationSnapshot = defineAction<SnapshotInput, ReplicationSnapsh
       call: () => ({ path: '/admin/replication/snapshot', method: 'POST' }),
       onSuccess: (ctx, value) => {
         ctx.result = value
-        ctx.input.deps.toast.success(ctx.input.deps.t('replication.snapshotDone', { bytes: humanizeSizeOrDash(value.bytes) }))
+        ctx.input.deps.toast.success(ctx.input.deps.t('replication.snapshotDone', { bytes: humanizeSize(value.bytes) }))
       },
       onError: (ctx, err) => {
         if (err.code === 'NOT_FOUND') ctx.input.onNotFound()
