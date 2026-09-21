@@ -822,6 +822,7 @@ export const en = {
   'events.retryNotFound': 'This dead-letter event no longer exists.',
   'events.retryFailed': 'Retry failed.',
   'events.colEvent': 'Event',
+  'events.colPipeline': 'Pipeline',
   'events.colAttempts': 'Attempts',
   'events.colError': 'Error',
   'events.colFailedAt': 'Failed at',

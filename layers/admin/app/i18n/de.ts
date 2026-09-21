@@ -824,6 +824,7 @@ export const de: Record<CatalogKey, string> = {
   'events.retryNotFound': 'Dieses Dead-Letter-Ereignis existiert nicht mehr.',
   'events.retryFailed': 'Erneuter Versuch fehlgeschlagen.',
   'events.colEvent': 'Ereignis',
+  'events.colPipeline': 'Pipeline',
   'events.colAttempts': 'Versuche',
   'events.colError': 'Fehler',
   'events.colFailedAt': 'Fehlgeschlagen am',
