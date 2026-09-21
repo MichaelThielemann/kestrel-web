@@ -625,7 +625,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Require a valid session → Requires permission users.manage → Replace the author of every revision written by the user in `params.id` or the event payload's `id`: with `reassignTo` that user, without it the anonymous author `{ id: null, name: null }` */
+        /** Require a valid session → Requires permission users.manage → Replace the author of every revision written by the user in `params.id` or the event payload's `id`. A preceding step's `verifiedUser` (e.g. `authn.verifyUser`'s verified target) is used when present; without one, falls back to the unverified `reassignTo` from the payload or the event hand-over, a user id or `{ id }`. Without any target, the anonymous author `{ id: null, name: null }` */
         post: operations["retryReassignRevisionAuthor"];
         delete?: never;
         options?: never;
@@ -1070,6 +1070,7 @@ export interface operations {
                             error: string;
                             id: string;
                             name: string;
+                            pipeline: string;
                         }[];
                     };
                 };
@@ -2175,15 +2176,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        checkedAt?: number | null;
-                        error?: string | null;
-                        field?: string;
-                        fromId?: string;
-                        fromType?: string;
-                        locale?: string;
-                        ok?: boolean | null;
-                        status?: number | null;
-                        url?: string;
+                        checkedAt: number | null;
+                        error: string | null;
+                        field: string;
+                        fromId: string;
+                        fromType: string;
+                        locale: string;
+                        ok: boolean | null;
+                        status: number | null;
+                        url: string;
                     }[];
                 };
             };
@@ -2243,8 +2244,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        documents?: number;
-                        entries?: number;
+                        documents: number;
+                        entries: number;
                     };
                 };
             };
@@ -2313,14 +2314,14 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        conflicts?: number;
-                        missing?: number;
-                        skipped?: number;
+                        conflicts: number;
+                        missing: number;
+                        skipped: number;
                         variants: {
                             skipped: number;
                             written: number;
                         };
-                        written?: number;
+                        written: number;
                     };
                 };
             };
@@ -3216,7 +3217,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        delivery?: {
+                        delivery: {
                             docId: string;
                             error?: string | null;
                             locale: string;
@@ -3227,7 +3228,7 @@ export interface operations {
                             type: string;
                             updatedAt: number;
                         }[];
-                        document?: Record<string, never>;
+                        document: Record<string, never>;
                         llms: {
                             entries: number;
                             full: boolean;
@@ -3323,9 +3324,9 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        documents?: number;
-                        errors?: number;
-                        live?: number;
+                        documents: number;
+                        errors: number;
+                        live: number;
                         llms: {
                             entries: number;
                             full: boolean;
@@ -3483,16 +3484,16 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        broken?: boolean;
-                        checkedAt?: number | null;
-                        field?: string;
-                        fromId?: string;
-                        fromType?: string;
-                        locale?: string;
-                        toId?: string;
-                        toTarget?: string;
+                        broken: boolean;
+                        checkedAt: number | null;
+                        field: string;
+                        fromId: string;
+                        fromType: string;
+                        locale: string;
+                        toId: string;
+                        toTarget: string;
                         /** @enum {string} */
-                        via?: "field" | "body";
+                        via: "field" | "body";
                     }[];
                 };
             };
@@ -3552,8 +3553,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        documents?: number;
-                        entries?: number;
+                        documents: number;
+                        entries: number;
                     };
                 };
             };
@@ -4080,8 +4081,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        bytes?: number;
-                        generation?: string;
+                        bytes: number;
+                        generation: string;
                     };
                 };
             };
@@ -4150,14 +4151,14 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        generation?: string | null;
-                        lastCheckpointAt?: number | null;
-                        lastSnapshotAt?: number | null;
-                        lastSyncAt?: number | null;
-                        lineage?: number;
-                        pendingRestore?: string | null;
-                        shippedFrames?: number;
-                        walBytes?: number;
+                        generation: string | null;
+                        lastCheckpointAt: number | null;
+                        lastSnapshotAt: number | null;
+                        lastSyncAt: number | null;
+                        lineage: number;
+                        pendingRestore: string | null;
+                        shippedFrames: number;
+                        walBytes: number;
                     };
                 };
             };
@@ -4290,9 +4291,9 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    reassignTo?: {
+                    reassignTo?: string | {
                         id: string;
-                        name: string;
+                        name?: string;
                     } | null;
                 } & {
                     [key: string]: unknown;
@@ -4316,7 +4317,7 @@ export interface operations {
                     };
                 };
             };
-            /** @description no user id, or a `reassignTo` that is neither null nor `{ id, name }`, or the former author again */
+            /** @description no user id, or an invalid `reassignTo` (the unverified fallback requires `{ id, name }` or null), or the former author again */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -4656,16 +4657,16 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        items?: {
-                            alt?: string | null;
+                        items: {
+                            alt: string | null;
                             /** @description sha256 of the uploaded bytes, hex; null for items uploaded before checksums were recorded */
                             checksum: string | null;
                             contentType: string;
                             createdAt: number;
-                            description?: string | null;
+                            description: string | null;
                             filename: string;
                             folder: string;
-                            height?: number | null;
+                            height: number | null;
                             id: string;
                             key: string;
                             /** @description who made the file; anything but human is flagged on download (X-Content-Provenance); an upload without provenance is recorded as unknown */
@@ -4682,7 +4683,7 @@ export interface operations {
                              * @enum {string}
                              */
                             status: "uploading" | "ready" | "failed";
-                            title?: string | null;
+                            title: string | null;
                             updatedAt: number;
                             variants: {
                                 bytes: number;
@@ -4694,9 +4695,9 @@ export interface operations {
                                 state: "pending" | "done" | "error" | "failed";
                                 width: number;
                             }[];
-                            width?: number | null;
+                            width: number | null;
                         }[];
-                        total?: number;
+                        total: number;
                     };
                 };
             };
@@ -4775,15 +4776,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        alt?: string | null;
+                        alt: string | null;
                         /** @description sha256 of the uploaded bytes, hex; null for items uploaded before checksums were recorded */
                         checksum: string | null;
                         contentType: string;
                         createdAt: number;
-                        description?: string | null;
+                        description: string | null;
                         filename: string;
                         folder: string;
-                        height?: number | null;
+                        height: number | null;
                         id: string;
                         key: string;
                         /** @description who made the file; anything but human is flagged on download (X-Content-Provenance); an upload without provenance is recorded as unknown */
@@ -4800,9 +4801,9 @@ export interface operations {
                          * @enum {string}
                          */
                         status: "uploading" | "ready" | "failed";
-                        title?: string | null;
+                        title: string | null;
                         updatedAt: number;
-                        width?: number | null;
+                        width: number | null;
                     } | {
                         errors: {
                             code: string;
@@ -4813,15 +4814,15 @@ export interface operations {
                         /** @description the newly stored items only; an unchanged re-upload is in `items` but not here, and is not announced as an event */
                         ids: string[];
                         items: {
-                            alt?: string | null;
+                            alt: string | null;
                             /** @description sha256 of the uploaded bytes, hex; null for items uploaded before checksums were recorded */
                             checksum: string | null;
                             contentType: string;
                             createdAt: number;
-                            description?: string | null;
+                            description: string | null;
                             filename: string;
                             folder: string;
-                            height?: number | null;
+                            height: number | null;
                             id: string;
                             key: string;
                             /** @description who made the file; anything but human is flagged on download (X-Content-Provenance); an upload without provenance is recorded as unknown */
@@ -4838,9 +4839,9 @@ export interface operations {
                              * @enum {string}
                              */
                             status: "uploading" | "ready" | "failed";
-                            title?: string | null;
+                            title: string | null;
                             updatedAt: number;
-                            width?: number | null;
+                            width: number | null;
                         }[];
                     };
                 };
@@ -4941,15 +4942,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        alt?: string | null;
+                        alt: string | null;
                         /** @description sha256 of the uploaded bytes, hex; null for items uploaded before checksums were recorded */
                         checksum: string | null;
                         contentType: string;
                         createdAt: number;
-                        description?: string | null;
+                        description: string | null;
                         filename: string;
                         folder: string;
-                        height?: number | null;
+                        height: number | null;
                         id: string;
                         key: string;
                         /** @description who made the file; anything but human is flagged on download (X-Content-Provenance); an upload without provenance is recorded as unknown */
@@ -4966,7 +4967,7 @@ export interface operations {
                          * @enum {string}
                          */
                         status: "uploading" | "ready" | "failed";
-                        title?: string | null;
+                        title: string | null;
                         updatedAt: number;
                         variants: {
                             bytes: number;
@@ -4978,7 +4979,7 @@ export interface operations {
                             state: "pending" | "done" | "error" | "failed";
                             width: number;
                         }[];
-                        width?: number | null;
+                        width: number | null;
                     };
                 };
             };
@@ -5159,15 +5160,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        alt?: string | null;
+                        alt: string | null;
                         /** @description sha256 of the uploaded bytes, hex; null for items uploaded before checksums were recorded */
                         checksum: string | null;
                         contentType: string;
                         createdAt: number;
-                        description?: string | null;
+                        description: string | null;
                         filename: string;
                         folder: string;
-                        height?: number | null;
+                        height: number | null;
                         id: string;
                         key: string;
                         /** @description who made the file; anything but human is flagged on download (X-Content-Provenance); an upload without provenance is recorded as unknown */
@@ -5184,9 +5185,9 @@ export interface operations {
                          * @enum {string}
                          */
                         status: "uploading" | "ready" | "failed";
-                        title?: string | null;
+                        title: string | null;
                         updatedAt: number;
-                        width?: number | null;
+                        width: number | null;
                     };
                 };
             };
@@ -5861,7 +5862,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        delivery?: {
+                        delivery: {
                             docId: string;
                             error?: string | null;
                             locale: string;
@@ -5872,7 +5873,7 @@ export interface operations {
                             type: string;
                             updatedAt: number;
                         }[];
-                        document?: Record<string, never>;
+                        document: Record<string, never>;
                         llms: {
                             entries: number;
                             full: boolean;
@@ -6060,7 +6061,7 @@ export interface operations {
                             entries: number;
                             full: boolean;
                         };
-                        ok?: boolean;
+                        ok: boolean;
                     };
                 };
             };
@@ -6157,7 +6158,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        delivery?: {
+                        delivery: {
                             docId: string;
                             error?: string | null;
                             locale: string;
@@ -6168,7 +6169,7 @@ export interface operations {
                             type: string;
                             updatedAt: number;
                         }[];
-                        document?: Record<string, never>;
+                        document: Record<string, never>;
                         llms: {
                             entries: number;
                             full: boolean;
@@ -6255,7 +6256,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        delivery?: {
+                        delivery: {
                             docId: string;
                             error?: string | null;
                             locale: string;
@@ -6266,7 +6267,7 @@ export interface operations {
                             type: string;
                             updatedAt: number;
                         }[];
-                        document?: Record<string, never>;
+                        document: Record<string, never>;
                         llms: {
                             entries: number;
                             full: boolean;
@@ -6578,6 +6579,14 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @description internal references by target id after site.resolveLinks; absent when the document has no internal references to resolve */
+                        _links?: {
+                            [key: string]: {
+                                broken?: boolean;
+                                locale?: string;
+                                path?: string;
+                            };
+                        };
                         /** @description origin locale per field, only with fallback */
                         _locales?: {
                             [key: string]: string;
@@ -6767,7 +6776,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        /** @description internal references by target id after site.resolveLinks */
+                        /** @description internal references by target id after site.resolveLinks; absent when the document has no internal references to resolve */
                         _links?: {
                             [key: string]: {
                                 broken?: boolean;

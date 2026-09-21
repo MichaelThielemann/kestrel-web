@@ -6,34 +6,9 @@ type GeneratedMediaItem = operations['getMedia']['responses'][200]['content']['a
 type GeneratedReplicationStatus = operations['replicationStatus']['responses'][200]['content']['application/json']
 type GeneratedReplicationSnapshotResult = operations['replicationSnapshot']['responses'][200]['content']['application/json']
 
-describe('generated OpenAPI types still under-declare the fields api.ts re-requires', () => {
-  it('getMedia still marks width/height/alt/title/description optional; once this fails, drop RequireFields<MediaItemResponse, ...> for MediaItem in api.ts', () => {
-    expectTypeOf<GeneratedMediaItem['width']>().toEqualTypeOf<number | null | undefined>()
-    expectTypeOf<GeneratedMediaItem['height']>().toEqualTypeOf<number | null | undefined>()
-    expectTypeOf<GeneratedMediaItem['alt']>().toEqualTypeOf<string | null | undefined>()
-    expectTypeOf<GeneratedMediaItem['title']>().toEqualTypeOf<string | null | undefined>()
-    expectTypeOf<GeneratedMediaItem['description']>().toEqualTypeOf<string | null | undefined>()
-  })
-
-  it('replicationStatus still marks every field optional; once this fails, drop RequireFields<..., 200>, ...> for ReplicationStatus in api.ts', () => {
-    expectTypeOf<GeneratedReplicationStatus['generation']>().toEqualTypeOf<string | null | undefined>()
-    expectTypeOf<GeneratedReplicationStatus['lineage']>().toEqualTypeOf<number | undefined>()
-    expectTypeOf<GeneratedReplicationStatus['shippedFrames']>().toEqualTypeOf<number | undefined>()
-    expectTypeOf<GeneratedReplicationStatus['lastSyncAt']>().toEqualTypeOf<number | null | undefined>()
-    expectTypeOf<GeneratedReplicationStatus['lastSnapshotAt']>().toEqualTypeOf<number | null | undefined>()
-    expectTypeOf<GeneratedReplicationStatus['lastCheckpointAt']>().toEqualTypeOf<number | null | undefined>()
-    expectTypeOf<GeneratedReplicationStatus['walBytes']>().toEqualTypeOf<number | undefined>()
-    expectTypeOf<GeneratedReplicationStatus['pendingRestore']>().toEqualTypeOf<string | null | undefined>()
-  })
-
-  it('replicationSnapshot still marks generation/bytes optional; once this fails, drop RequireFields<..., 200>, ...> for ReplicationSnapshotResult in api.ts', () => {
-    expectTypeOf<GeneratedReplicationSnapshotResult['generation']>().toEqualTypeOf<string | undefined>()
-    expectTypeOf<GeneratedReplicationSnapshotResult['bytes']>().toEqualTypeOf<number | undefined>()
-  })
-})
-
-describe('the public alias types keep the optionality published before the OpenAPI-derived types', () => {
+describe('the public alias types match the generated OpenAPI types at their published optionality', () => {
   it('MediaItem', () => {
+    expectTypeOf<MediaItem>().toEqualTypeOf<GeneratedMediaItem>()
     expectTypeOf<MediaItem['width']>().toEqualTypeOf<number | null>()
     expectTypeOf<MediaItem['height']>().toEqualTypeOf<number | null>()
     expectTypeOf<MediaItem['alt']>().toEqualTypeOf<string | null>()
@@ -42,6 +17,7 @@ describe('the public alias types keep the optionality published before the OpenA
   })
 
   it('ReplicationStatus', () => {
+    expectTypeOf<ReplicationStatus>().toEqualTypeOf<GeneratedReplicationStatus>()
     expectTypeOf<ReplicationStatus['generation']>().toEqualTypeOf<string | null>()
     expectTypeOf<ReplicationStatus['lineage']>().toEqualTypeOf<number>()
     expectTypeOf<ReplicationStatus['shippedFrames']>().toEqualTypeOf<number>()
@@ -53,6 +29,7 @@ describe('the public alias types keep the optionality published before the OpenA
   })
 
   it('ReplicationSnapshotResult', () => {
+    expectTypeOf<ReplicationSnapshotResult>().toEqualTypeOf<GeneratedReplicationSnapshotResult>()
     expectTypeOf<ReplicationSnapshotResult['generation']>().toEqualTypeOf<string>()
     expectTypeOf<ReplicationSnapshotResult['bytes']>().toEqualTypeOf<number>()
   })

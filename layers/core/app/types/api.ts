@@ -15,8 +15,6 @@ type OkValue<T> = T extends Ok<infer V> ? V : never
 
 type Returns<F extends (...args: never[]) => unknown> = OkValue<Awaited<ReturnType<F>>>
 
-type RequireFields<T, K extends keyof T> = Omit<T, K> & { [P in K]-?: Exclude<T[P], undefined> }
-
 export interface ApiFieldError { field: string; message: string }
 
 export interface ApiRefProblem { field: string; to: string; id: string }
@@ -109,7 +107,7 @@ export type MediaVariant = MediaItemResponse['variants'][number]
 
 export type MediaStatus = MediaItemResponse['status']
 
-export type MediaItem = RequireFields<MediaItemResponse, 'width' | 'height' | 'alt' | 'title' | 'description'>
+export type MediaItem = MediaItemResponse
 
 export interface MediaFolder { folder: string; count: number }
 
@@ -167,13 +165,13 @@ export interface PublishAllReport {
   redirects: { rules: number, skipped: number }
 }
 
-export type ReplicationStatus = RequireFields<ResponseOf<'replicationStatus', 200>, 'generation' | 'lineage' | 'shippedFrames' | 'lastSyncAt' | 'lastSnapshotAt' | 'lastCheckpointAt' | 'walBytes' | 'pendingRestore'>
+export type ReplicationStatus = ResponseOf<'replicationStatus', 200>
 
 export type ReplicationPoint = ResponseOf<'replicationPoints', 200>[number]
 
 export type RestorePointKind = ReplicationPoint['kind']
 
-export type ReplicationSnapshotResult = RequireFields<ResponseOf<'replicationSnapshot', 200>, 'generation' | 'bytes'>
+export type ReplicationSnapshotResult = ResponseOf<'replicationSnapshot', 200>
 
 export type ReplicationRestoreResult = ResponseOf<'replicationRestore', 200>
 
@@ -316,7 +314,7 @@ export interface EventsQueueStatus {
   worker: { running: boolean; lastTickAt: number | null }
 }
 
-export interface DeadEvent { id: string; name: string; attempts: number; error: string; createdAt: number; availableAt: number }
+export interface DeadEvent { id: string; name: string; pipeline: string; attempts: number; error: string; createdAt: number; availableAt: number }
 export interface DeadEventsResponse { items: DeadEvent[] }
 export interface EventsRetryResult { retried: number }
 
