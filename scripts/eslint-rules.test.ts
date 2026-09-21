@@ -73,6 +73,24 @@ describe("project-specific eslint rules have a violating fixture", () => {
     expectMessage(messages, "@typescript-eslint/no-restricted-imports", "layers/core/app/types takes its types from the generated OpenAPI document");
   });
 
+  it("kestrel/backend-types-only-in-core-app-types: bans a value import of a two-segment impl subpath", async () => {
+    const messages = await lintVirtual('import { x } from "@michaelthielemann/kestrel-media-default/dist/impl";\n', "layers/core/app/types/probe.ts");
+    expectMessage(messages, "@typescript-eslint/no-restricted-imports", "layers/core/app/types takes its types from the generated OpenAPI document");
+  });
+
+  it("kestrel/backend-types-only-in-core-app-types: bans a type-only import of impl nested under a further subpath", async () => {
+    const messages = await lintVirtual('import type { X } from "@michaelthielemann/kestrel-media-default/impl/media";\n', "layers/core/app/types/probe.ts");
+    expectMessage(messages, "@typescript-eslint/no-restricted-imports", "layers/core/app/types takes its types from the generated OpenAPI document");
+  });
+
+  it("kestrel/backend-types-only-in-core-app-types: bans a value import of a two-segment non-impl subpath but allows it as a type", async () => {
+    const valueMessages = await lintVirtual('import { x } from "@michaelthielemann/kestrel-contracts/src/persistence";\n', "layers/core/app/types/probe.ts");
+    expectMessage(valueMessages, "@typescript-eslint/no-restricted-imports", "layers/core/app/types may import Kestrel backend packages as types only.");
+
+    const typeMessages = await lintVirtual('import type { X } from "@michaelthielemann/kestrel-contracts/src/persistence";\n', "layers/core/app/types/probe.ts");
+    expect(typeMessages.some((m) => m.ruleId === "@typescript-eslint/no-restricted-imports")).toBe(false);
+  });
+
   it("kestrel/ui-kit-first and its companion rules: ban raw controls, restricted attributes/classes and disguised role/is bindings", async () => {
     const code = `<template>
   <div>
