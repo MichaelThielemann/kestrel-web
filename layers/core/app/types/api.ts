@@ -1,17 +1,15 @@
 import type { ApplyResult, Migrations } from '@michaelthielemann/kestrel-contracts/migrations'
 import type { Document as PersistedDocument } from '@michaelthielemann/kestrel-contracts/persistence'
 import type { Ok } from '@michaelthielemann/kestrel/result'
-import type { ImagesStatus as ImagesStatusDoc, Job as ImagesJobDoc } from '@michaelthielemann/kestrel-images-default/impl'
-import type { MediaItem as MediaItemDoc, Provenance } from '@michaelthielemann/kestrel-media-default/impl'
-import type { PublishStatus } from '@michaelthielemann/kestrel-delivery-static/impl'
-import type { Point as ReplicationPointDoc, Replication, Status as ReplicationStatusDoc } from '@michaelthielemann/kestrel-replication-sqlite/impl'
 import type { RestoreReport, Revision, RevisionAuthor, RevisionKind, RevisionPage, RevisionSummary } from '@michaelthielemann/kestrel-contracts/revisions'
 import type { Feature } from '#kestrel/pipelines'
+import type { operations } from './openapi.generated'
 import type { SerializedCollection } from './kestrel'
 
-export type { Provenance }
 export type { RestoreReport, Revision, RevisionAuthor, RevisionKind, RevisionPage, RevisionSummary }
 
+type ResponseOf<Operation extends keyof operations, Status extends keyof operations[Operation]['responses']> =
+  operations[Operation]['responses'][Status] extends { content: { 'application/json': infer Body } } ? Body : never
 
 type OkValue<T> = T extends Ok<infer V> ? V : never
 
@@ -99,23 +97,17 @@ export interface BlockNode {
   slots?: Record<string, BlockNode[]>
 }
 
+type MediaItemResponse = ResponseOf<'getMedia', 200>
+
+export type Provenance = MediaItemResponse['provenance']
+
 export type ProvenanceOrigin = Provenance['origin']
 
-export interface MediaVariant {
-  size: string
-  width: number
-  height: number
-  format: string
-  bytes: number
-  state: 'pending' | 'done' | 'error'
-  path: string
-}
+export type MediaVariant = MediaItemResponse['variants'][number]
 
-export type MediaStatus = MediaItemDoc['status']
+export type MediaStatus = MediaItemResponse['status']
 
-export interface MediaItem extends MediaItemDoc {
-  variants: MediaVariant[]
-}
+export type MediaItem = MediaItemResponse
 
 export interface MediaFolder { folder: string; count: number }
 
@@ -150,9 +142,9 @@ export interface BrokenLink {
 
 export interface RebuildReport { documents: number; entries: number }
 
-export type DeliveryState = PublishStatus['state']
+export type PublishStatusEntry = ResponseOf<'pagePublishStatus', 200>[number]
 
-export type PublishStatusEntry = Pick<PublishStatus, 'locale' | 'state' | 'path' | 'error' | 'publishedAt' | 'updatedAt'>
+export type DeliveryState = PublishStatusEntry['state']
 
 export type DeliveryEntry = Omit<PublishStatusEntry, 'updatedAt'>
 
@@ -173,23 +165,25 @@ export interface PublishAllReport {
   redirects: { rules: number, skipped: number }
 }
 
-export type ReplicationStatus = ReplicationStatusDoc
+export type ReplicationStatus = ResponseOf<'replicationStatus', 200>
 
-export type RestorePointKind = ReplicationPointDoc['kind']
+export type ReplicationPoint = ResponseOf<'replicationPoints', 200>[number]
 
-export type ReplicationPoint = ReplicationPointDoc
+export type RestorePointKind = ReplicationPoint['kind']
 
-export type ReplicationSnapshotResult = Returns<Replication['snapshot']>
+export type ReplicationSnapshotResult = ResponseOf<'replicationSnapshot', 200>
 
-export type ReplicationRestoreResult = Returns<Replication['prepareRestore']>
+export type ReplicationRestoreResult = ResponseOf<'replicationRestore', 200>
 
 export interface MediaExportReport { written: number; skipped: number; missing: number; conflicts: number; variants: { written: number; skipped: number } }
 
-export type ImageSizeRow = ImagesStatusDoc['sizes'][number]
+type ImagesStatusResponse = ResponseOf<'imagesStatus', 200>
 
-export type ImagesJob = ImagesJobDoc
+export type ImageSizeRow = ImagesStatusResponse['sizes'][number]
 
-export type ImagesFailedVariant = ImagesStatusDoc['failed']['recent'][number]
+export type ImagesJob = NonNullable<ImagesStatusResponse['job']>
+
+export type ImagesFailedVariant = ImagesStatusResponse['failed']['recent'][number]
 
 export interface ImagesStatus {
   sizes: ImageSizeRow[]

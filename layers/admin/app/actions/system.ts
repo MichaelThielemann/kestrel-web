@@ -200,7 +200,7 @@ export const replicationSnapshot = defineAction<SnapshotInput, ReplicationSnapsh
       call: () => ({ path: '/admin/replication/snapshot', method: 'POST' }),
       onSuccess: (ctx, value) => {
         ctx.result = value
-        ctx.input.deps.toast.success(ctx.input.deps.t('replication.snapshotDone', { bytes: humanizeSize(value.bytes) }))
+        ctx.input.deps.toast.success(ctx.input.deps.t('replication.snapshotDone', { bytes: humanizeSize(value.bytes ?? 0) }))
       },
       onError: (ctx, err) => {
         if (err.code === 'NOT_FOUND') ctx.input.onNotFound()

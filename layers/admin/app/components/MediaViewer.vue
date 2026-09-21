@@ -56,7 +56,7 @@ async function loadMeta(locale: string) {
   if (!f) return
 
   if (locale === primary.value && f.id === lastLoadedFor) {
-    loaded.value = { alt: f.alt, title: f.title, description: f.description }
+    loaded.value = { alt: f.alt ?? null, title: f.title ?? null, description: f.description ?? null }
     alt.value = f.alt ?? ''; title.value = f.title ?? ''; description.value = f.description ?? ''
     return
   }
@@ -64,7 +64,7 @@ async function loadMeta(locale: string) {
   metaError.value = ''
   try {
     const item = await api<MediaItem>(`/media/${encodeURIComponent(f.id)}`, { query: { locale } })
-    loaded.value = { alt: item.alt, title: item.title, description: item.description }
+    loaded.value = { alt: item.alt ?? null, title: item.title ?? null, description: item.description ?? null }
     alt.value = item.alt ?? ''; title.value = item.title ?? ''; description.value = item.description ?? ''
   } catch {
     metaError.value = t('media.metaLoadFailed')
