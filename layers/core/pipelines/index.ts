@@ -132,6 +132,9 @@ function featureKeys(factories: Record<Feature, unknown>): readonly Feature[] {
 export const featureOrder: readonly Feature[] = featureKeys(featureFactories);
 
 const VALIDATE_JSONSCHEMA_MODULE = "@michaelthielemann/kestrel-validate-jsonschema";
+const EVENTS_BUS_MODULE = "@michaelthielemann/kestrel-events-inmemory";
+const EVENTS_QUEUE_MODULE = "@michaelthielemann/kestrel-events-queue";
+const EVENTS_DIRECT_MODULE = "@michaelthielemann/kestrel-events-direct";
 
 const CONDITIONAL_CRON_HINTS: Record<string, string> = {
   [AUDIT_PRUNE_PIPELINE]: `module "${AUDIT_MODULE}" has no "${AUDIT_RETENTION_KEY}", so there is nothing to prune – pass audit: { ${AUDIT_RETENTION_KEY} } to presetModuleConfig()`,
@@ -224,10 +227,19 @@ export function definePreset<C extends Record<string, CollectionModel> = Record<
     }
   }
 
-  if (enabledFeatures.has("eventsQueue") && configuredModules.has("@michaelthielemann/kestrel-events-inmemory")) {
+  if (!configuredModules.has(EVENTS_BUS_MODULE)) {
+    throw new Error(`preset: every instance needs module "${EVENTS_BUS_MODULE}" – it provides events@1 – use presetModuleConfig()`);
+  }
+  const delivery = [EVENTS_QUEUE_MODULE, EVENTS_DIRECT_MODULE].filter((use) => configuredModules.has(use));
+  if (delivery.length !== 1) {
     throw new Error(
-      'preset: feature "eventsQueue" replaces module "@michaelthielemann/kestrel-events-inmemory" – configure only one events module',
+      `preset: configure exactly one event delivery module, "${EVENTS_QUEUE_MODULE}" or "${EVENTS_DIRECT_MODULE}" – found ${
+        delivery.length === 0 ? "none" : delivery.map((use) => `"${use}"`).join(" and ")
+      }`,
     );
+  }
+  if (enabledFeatures.has("eventsQueue") !== configuredModules.has(EVENTS_QUEUE_MODULE)) {
+    throw new Error(`preset: feature "eventsQueue" and module "${EVENTS_QUEUE_MODULE}" must be enabled together – use presetModuleConfig()`);
   }
 
   let triggers: TriggerConfig[] = canonicalTriggers

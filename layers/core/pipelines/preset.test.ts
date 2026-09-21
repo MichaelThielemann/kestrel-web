@@ -12,7 +12,13 @@ const baseModules = [
   { use: "@michaelthielemann/kestrel-content-default" },
   { use: "@michaelthielemann/kestrel-validate-jsonschema", config: { schemas: { "pages.body": "x" } } },
   { use: "@michaelthielemann/kestrel-media-default" },
+  { use: "@michaelthielemann/kestrel-events-inmemory" },
+  { use: "@michaelthielemann/kestrel-events-direct" },
 ];
+
+function withQueueInsteadOfDirect(modules: readonly { use: string; config?: unknown }[]): { use: string; config?: unknown }[] {
+  return [...modules.filter((entry) => entry.use !== "@michaelthielemann/kestrel-events-direct"), { use: "@michaelthielemann/kestrel-events-queue" }];
+}
 
 describe("definePreset option handling", () => {
   it("defaults exportDir and homeSlug", () => {
@@ -390,7 +396,7 @@ describe("presetSchemas", () => {
 });
 
 describe("definePreset eventsQueue feature", () => {
-  const modules = [...baseModules, { use: "@michaelthielemann/kestrel-events-queue" }, { use: "@michaelthielemann/kestrel-images-default" }];
+  const modules = [...withQueueInsteadOfDirect(baseModules), { use: "@michaelthielemann/kestrel-images-default" }];
 
   it("wires the five pipelines and triggers when enabled with the queue module and an event trigger present", () => {
     const preset = definePreset({ modules, features: ["eventsQueue", "images"] });
@@ -423,13 +429,6 @@ describe("definePreset eventsQueue feature", () => {
     expect(preset.triggers).toContainEqual({ cron: "15 4 * * *", pipeline: "purgeEvents" });
   });
 
-  it("throws when both events-queue and events-inmemory are configured", () => {
-    const withBoth = [...modules, { use: "@michaelthielemann/kestrel-events-inmemory" }];
-    expect(() => definePreset({ modules: withBoth, features: ["eventsQueue", "images"] })).toThrow(
-      'preset: feature "eventsQueue" replaces module "@michaelthielemann/kestrel-events-inmemory" – configure only one events module',
-    );
-  });
-
   it("throws when enabled but the final trigger list has no event trigger", () => {
     expect(() =>
       definePreset({
@@ -439,14 +438,47 @@ describe("definePreset eventsQueue feature", () => {
       }),
     ).toThrow('preset: feature "eventsQueue" needs at least one event trigger – the queue would be written but never consumed');
   });
+});
 
-  it("warns when the events-queue module is configured but the feature is not enabled", () => {
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
-    definePreset({ modules, features: ["images"] });
-    expect(warnSpy).toHaveBeenCalledWith(
-      'preset: module "@michaelthielemann/kestrel-events-queue" is configured but feature "eventsQueue" is not enabled – its pipelines and steps are not wired',
+describe("definePreset event module invariants", () => {
+  const noEvents = baseModules.filter((entry) => !entry.use.includes("kestrel-events-"));
+
+  it("throws when no module provides the events@1 bus", () => {
+    expect(() => definePreset({ modules: noEvents, features: [] })).toThrow(
+      'preset: every instance needs module "@michaelthielemann/kestrel-events-inmemory" – it provides events@1 – use presetModuleConfig()',
     );
-    warnSpy.mockRestore();
+  });
+
+  it("throws when the bus is configured but no delivery module is", () => {
+    const modules = [...noEvents, { use: "@michaelthielemann/kestrel-events-inmemory" }];
+    expect(() => definePreset({ modules, features: [] })).toThrow(
+      'preset: configure exactly one event delivery module, "@michaelthielemann/kestrel-events-queue" or "@michaelthielemann/kestrel-events-direct" – found none',
+    );
+  });
+
+  it("throws when both delivery modules are configured", () => {
+    const modules = [
+      ...noEvents,
+      { use: "@michaelthielemann/kestrel-events-inmemory" },
+      { use: "@michaelthielemann/kestrel-events-direct" },
+      { use: "@michaelthielemann/kestrel-events-queue" },
+    ];
+    expect(() => definePreset({ modules, features: [] })).toThrow(
+      'preset: configure exactly one event delivery module, "@michaelthielemann/kestrel-events-queue" or "@michaelthielemann/kestrel-events-direct" – found "@michaelthielemann/kestrel-events-queue" and "@michaelthielemann/kestrel-events-direct"',
+    );
+  });
+
+  it("throws when the eventsQueue feature is enabled but the queue module is not configured", () => {
+    expect(() => definePreset({ modules: baseModules, features: ["eventsQueue"] })).toThrow(
+      'preset: feature "eventsQueue" requires module "@michaelthielemann/kestrel-events-queue"',
+    );
+  });
+
+  it("throws when the queue module is configured but the eventsQueue feature is not enabled", () => {
+    const modules = withQueueInsteadOfDirect(baseModules);
+    expect(() => definePreset({ modules, features: [] })).toThrow(
+      'preset: feature "eventsQueue" and module "@michaelthielemann/kestrel-events-queue" must be enabled together – use presetModuleConfig()',
+    );
   });
 });
 
@@ -615,7 +647,7 @@ describe("definePreset user deletion", () => {
 
   it("satisfies the events-queue feature's demand for an event trigger on its own", () => {
     const queued = definePreset({
-      modules: [...bothModules, { use: "@michaelthielemann/kestrel-events-queue" }],
+      modules: withQueueInsteadOfDirect(bothModules),
       features: ["revisions", "audit", "eventsQueue"],
     });
     expect(queued.triggers).toContainEqual({ event: "user.deleted", pipeline: "reassignRevisionAuthor" });

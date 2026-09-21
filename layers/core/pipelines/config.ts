@@ -304,8 +304,12 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
       config: { ...(options.audit?.retentionDays === undefined ? {} : { retentionDays: options.audit.retentionDays }) },
     });
   }
-  if (enabled.has("eventsQueue")) modules.push({ use: "@michaelthielemann/kestrel-events-queue", config: { ...options.eventsQueue } });
-  else modules.push({ use: "@michaelthielemann/kestrel-events-inmemory", config: {} });
+  modules.push({ use: "@michaelthielemann/kestrel-events-inmemory", config: {} });
+  modules.push(
+    enabled.has("eventsQueue")
+      ? { use: "@michaelthielemann/kestrel-events-queue", config: { ...options.eventsQueue } }
+      : { use: "@michaelthielemann/kestrel-events-direct", config: {} },
+  );
   if (enabled.has("ratelimit")) {
     modules.push({
       use: "@michaelthielemann/kestrel-ratelimit-memory",

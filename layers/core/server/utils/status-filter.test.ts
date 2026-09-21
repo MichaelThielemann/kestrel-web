@@ -3,7 +3,11 @@ import { definePreset } from "#kestrel/pipelines";
 import type { CollectionModel } from "#kestrel/pipelines";
 import { contentCollections, statusFilterFailure, statusFilterProblems, type PipelineShape } from "./status-filter";
 
-const baseModules = [{ use: "@michaelthielemann/kestrel-content-default" }];
+const baseModules = [
+  { use: "@michaelthielemann/kestrel-content-default" },
+  { use: "@michaelthielemann/kestrel-events-inmemory" },
+  { use: "@michaelthielemann/kestrel-events-direct" },
+];
 
 const news: Record<string, CollectionModel> = {
   news: { kind: "multi", fields: { title: { type: "text" }, status: { type: "enum", options: ["entwurf", "live"] } } },

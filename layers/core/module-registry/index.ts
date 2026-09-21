@@ -10,6 +10,7 @@ import blobstoreFilesystem from "@michaelthielemann/kestrel-blobstore-filesystem
 import blobstoreS3 from "@michaelthielemann/kestrel-blobstore-s3";
 import contentDefault from "@michaelthielemann/kestrel-content-default";
 import deliveryStatic from "@michaelthielemann/kestrel-delivery-static";
+import eventsDirect from "@michaelthielemann/kestrel-events-direct";
 import eventsInmemory from "@michaelthielemann/kestrel-events-inmemory";
 import eventsQueue from "@michaelthielemann/kestrel-events-queue";
 import imagesDefault from "@michaelthielemann/kestrel-images-default";
@@ -37,6 +38,7 @@ export const moduleRegistry = {
   "@michaelthielemann/kestrel-blobstore-s3": blobstoreS3,
   "@michaelthielemann/kestrel-content-default": contentDefault,
   "@michaelthielemann/kestrel-delivery-static": deliveryStatic,
+  "@michaelthielemann/kestrel-events-direct": eventsDirect,
   "@michaelthielemann/kestrel-events-inmemory": eventsInmemory,
   "@michaelthielemann/kestrel-events-queue": eventsQueue,
   "@michaelthielemann/kestrel-images-default": imagesDefault,

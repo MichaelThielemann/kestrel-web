@@ -95,6 +95,7 @@ describe("presetModuleConfig with the playground inputs", () => {
       { use: "@michaelthielemann/kestrel-redirects-default", config: { prefix: "site/" } },
       { use: "@michaelthielemann/kestrel-audit-persistence", config: {} },
       { use: "@michaelthielemann/kestrel-events-inmemory", config: {} },
+      { use: "@michaelthielemann/kestrel-events-direct", config: {} },
       { use: "@michaelthielemann/kestrel-ratelimit-memory", config: { buckets: { login: { limit: 5, windowSeconds: 60 } } } },
       { use: "@michaelthielemann/kestrel-insights", config: {} },
     ]);
@@ -178,6 +179,7 @@ describe("feature gating", () => {
       "@michaelthielemann/kestrel-site-default",
       "@michaelthielemann/kestrel-validate-jsonschema",
       "@michaelthielemann/kestrel-events-inmemory",
+      "@michaelthielemann/kestrel-events-direct",
     ]);
   });
 
@@ -237,10 +239,11 @@ describe("feature gating", () => {
     expect(configFor(modules, "revisions-default")).toEqual({});
   });
 
-  it("replaces events-inmemory by events-queue with the eventsQueue feature and passes the option through", () => {
+  it("replaces events-direct by events-queue with the eventsQueue feature and passes the option through, keeping the bus", () => {
     const names = moduleNames(presetModuleConfig({ ...playgroundOptions(), features: ["eventsQueue"], eventsQueue: { pollMs: 200, maxAttempts: 3 } }));
     expect(names).toContain("@michaelthielemann/kestrel-events-queue");
-    expect(names).not.toContain("@michaelthielemann/kestrel-events-inmemory");
+    expect(names).toContain("@michaelthielemann/kestrel-events-inmemory");
+    expect(names).not.toContain("@michaelthielemann/kestrel-events-direct");
     expect(configFor(presetModuleConfig({ ...playgroundOptions(), features: ["eventsQueue"], eventsQueue: { pollMs: 200, maxAttempts: 3 } }), "events-queue")).toEqual({ pollMs: 200, maxAttempts: 3 });
     expect(configFor(presetModuleConfig({ ...playgroundOptions(), features: ["eventsQueue"] }), "events-queue")).toEqual({});
   });

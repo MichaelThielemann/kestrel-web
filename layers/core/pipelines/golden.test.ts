@@ -62,6 +62,7 @@ const allModules = [
   { use: "@michaelthielemann/kestrel-redirects-default" },
   { use: "@michaelthielemann/kestrel-audit-persistence", config: { retentionDays: 365 } },
   { use: "@michaelthielemann/kestrel-events-inmemory" },
+  { use: "@michaelthielemann/kestrel-events-direct" },
   { use: "@michaelthielemann/kestrel-ratelimit-memory" },
   { use: "@michaelthielemann/kestrel-insights" },
   { use: "@michaelthielemann/kestrel-revisions-default" },
@@ -99,6 +100,8 @@ describe("golden: synthetic collections (news multi, profile system single, noti
     { use: "@michaelthielemann/kestrel-redirects-default" },
     { use: "@michaelthielemann/kestrel-validate-jsonschema", config: { schemas: { "redirects.rules": "y" } } },
     { use: "@michaelthielemann/kestrel-migrations-default" },
+    { use: "@michaelthielemann/kestrel-events-inmemory" },
+    { use: "@michaelthielemann/kestrel-events-direct" },
   ];
   const syntheticFeatures: readonly Feature[] = ["redirects", "migrations"];
 
