@@ -1,36 +1,79 @@
 import { describe, expectTypeOf, it } from 'vitest'
-import type { operations } from './openapi.generated'
-import type { MediaItem, ReplicationSnapshotResult, ReplicationStatus } from './api'
+import type { DeadEvent, MediaItem, ReplicationSnapshotResult, ReplicationStatus } from './api'
 
-type GeneratedMediaItem = operations['getMedia']['responses'][200]['content']['application/json']
-type GeneratedReplicationStatus = operations['replicationStatus']['responses'][200]['content']['application/json']
-type GeneratedReplicationSnapshotResult = operations['replicationSnapshot']['responses'][200]['content']['application/json']
+interface ExpectedMediaItem {
+  alt: string | null
+  checksum: string | null
+  contentType: string
+  createdAt: number
+  description: string | null
+  filename: string
+  folder: string
+  height: number | null
+  id: string
+  key: string
+  provenance: {
+    at?: number
+    model?: string
+    origin: 'human' | 'ai' | 'mixed' | 'unknown'
+    tool?: string
+  }
+  size: number
+  status: 'uploading' | 'ready' | 'failed'
+  title: string | null
+  updatedAt: number
+  variants: {
+    bytes: number
+    format: string
+    height: number
+    path: string
+    size: string
+    state: 'pending' | 'done' | 'error' | 'failed'
+    width: number
+  }[]
+  width: number | null
+}
 
-describe('the public alias types match the generated OpenAPI types at their published optionality', () => {
+interface ExpectedReplicationStatus {
+  generation: string | null
+  lastCheckpointAt: number | null
+  lastSnapshotAt: number | null
+  lastSyncAt: number | null
+  lineage: number
+  pendingRestore: string | null
+  shippedFrames: number
+  walBytes: number
+}
+
+interface ExpectedReplicationSnapshotResult {
+  bytes: number
+  generation: string
+}
+
+interface ExpectedDeadEvent {
+  id: string
+  name: string
+  pipeline: string
+  attempts: number
+  error: string
+  createdAt: number
+  availableAt: number
+}
+
+describe('the public API types keep exactly their published shape', () => {
   it('MediaItem', () => {
-    expectTypeOf<MediaItem>().toEqualTypeOf<GeneratedMediaItem>()
-    expectTypeOf<MediaItem['width']>().toEqualTypeOf<number | null>()
-    expectTypeOf<MediaItem['height']>().toEqualTypeOf<number | null>()
-    expectTypeOf<MediaItem['alt']>().toEqualTypeOf<string | null>()
-    expectTypeOf<MediaItem['title']>().toEqualTypeOf<string | null>()
-    expectTypeOf<MediaItem['description']>().toEqualTypeOf<string | null>()
+    expectTypeOf<MediaItem>().toEqualTypeOf<ExpectedMediaItem>()
   })
 
   it('ReplicationStatus', () => {
-    expectTypeOf<ReplicationStatus>().toEqualTypeOf<GeneratedReplicationStatus>()
-    expectTypeOf<ReplicationStatus['generation']>().toEqualTypeOf<string | null>()
-    expectTypeOf<ReplicationStatus['lineage']>().toEqualTypeOf<number>()
-    expectTypeOf<ReplicationStatus['shippedFrames']>().toEqualTypeOf<number>()
-    expectTypeOf<ReplicationStatus['lastSyncAt']>().toEqualTypeOf<number | null>()
-    expectTypeOf<ReplicationStatus['lastSnapshotAt']>().toEqualTypeOf<number | null>()
-    expectTypeOf<ReplicationStatus['lastCheckpointAt']>().toEqualTypeOf<number | null>()
-    expectTypeOf<ReplicationStatus['walBytes']>().toEqualTypeOf<number>()
-    expectTypeOf<ReplicationStatus['pendingRestore']>().toEqualTypeOf<string | null>()
+    expectTypeOf<ReplicationStatus>().toEqualTypeOf<ExpectedReplicationStatus>()
   })
 
   it('ReplicationSnapshotResult', () => {
-    expectTypeOf<ReplicationSnapshotResult>().toEqualTypeOf<GeneratedReplicationSnapshotResult>()
-    expectTypeOf<ReplicationSnapshotResult['generation']>().toEqualTypeOf<string>()
-    expectTypeOf<ReplicationSnapshotResult['bytes']>().toEqualTypeOf<number>()
+    expectTypeOf<ReplicationSnapshotResult>().toEqualTypeOf<ExpectedReplicationSnapshotResult>()
+  })
+
+  it('DeadEvent, including the pipeline field added for the per-pipeline dead letter', () => {
+    expectTypeOf<DeadEvent>().toEqualTypeOf<ExpectedDeadEvent>()
   })
 })
