@@ -2,7 +2,39 @@
 
 ## Unreleased
 
+### Breaking
+
+- **Events modules are now two modules.** `kestrel-events-inmemory` is the `events@1` bus and nothing
+  else; delivering event-trigger pipelines is the job of exactly one delivery module. Add
+  `@michaelthielemann/kestrel-events-direct` to your module list directly after
+  `@michaelthielemann/kestrel-events-inmemory`. With the `eventsQueue` feature, add
+  `@michaelthielemann/kestrel-events-queue` there instead and keep the bus — `events-queue` no longer
+  provides `events@1`. `presetModuleConfig()` does all of this for you, and the order inside the list no
+  longer matters for events.
+
+  Three behaviour changes: a programmatic `events.on` handler that throws now fails the run that emitted
+  the event with 500 `INTERNAL` instead of being logged and ignored; with `events-queue` a programmatic
+  bus subscriber no longer sees events emitted by pipeline steps, only events raised through `events@1`
+  by a module; and no ordering is guaranteed between the pipelines subscribed to one event.
+
+  **Every event a pipeline receives now carries `eventId`, `event` and `at`**, including events a module
+  raises through `events@1` — `migrations.applied` gains those three fields and keeps its own unchanged.
+  Use `eventId` as the dedup key. Programmatic bus subscribers still see the raw data.
+
+  The dead-letter list now has one entry per event **and** pipeline, and each entry names its
+  `pipeline`. Queue counters grow accordingly. Stored events from a previous major are delivered to
+  every pipeline subscribed at the first worker tick after the upgrade; drain the queue first if that is
+  not what you want.
+
+- `DeadEvent` (the dead-letter list item type) gains a required `pipeline` field, naming the pipeline a
+  dead-letter row belongs to.
+
 ### Changed
+
+- `layers/core/app/types/api.ts`: `MediaItem`, `ReplicationStatus` and `ReplicationSnapshotResult` are
+  now plain aliases of the generated OpenAPI response types instead of widening a subset of fields to
+  required — the backend now declares those fields required itself, so the widening is redundant. The
+  published field optionality is unchanged.
 
 - `layers/core/app/types/api.ts` no longer imports types from a backend package's `impl` subpath; the
   types it used to take from there (media, images status, delivery status, replication) are now aliases

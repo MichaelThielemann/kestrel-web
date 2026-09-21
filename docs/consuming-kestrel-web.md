@@ -308,9 +308,9 @@ rather than booting with something plausible.
 
 - **The module set** — the always-on modules (your blobstore, `persistence-sqlite`, `media-default`,
   `authn-multi`, `authz-roles`, `content-default`, `site-default`, `validate-jsonschema`,
-  `events-inmemory`, or `events-queue` instead of it with the `eventsQueue` feature) plus exactly the
-  modules the features in `features` require (§4's table), in the canonical order. Drop a feature and
-  its module goes with it.
+  `events-inmemory` plus one delivery module, `events-direct` or, with the `eventsQueue` feature,
+  `events-queue`) plus exactly the modules the features in `features` require (§4's table), in the
+  canonical order. Drop a feature and its module goes with it.
 - **`media.locales` / `media.defaultLocale`** — from `model.locales` / `model.defaultLocale`, so the
   media library can't drift from the content model.
 - **`references.targets`** — `pages` when the model has it, plus one entry per `ref` field: `to: "media"`
@@ -356,6 +356,7 @@ const modules = [
   { use: "@michaelthielemann/kestrel-redirects-default", config: { prefix: "site/" } },
   { use: "@michaelthielemann/kestrel-audit-persistence", config: {} },
   { use: "@michaelthielemann/kestrel-events-inmemory", config: {} },
+  { use: "@michaelthielemann/kestrel-events-direct", config: {} },
   { use: "@michaelthielemann/kestrel-ratelimit-memory", config: { buckets: { login: { limit: 5, windowSeconds: 60 } } } },
   { use: "@michaelthielemann/kestrel-insights", config: {} },
 ];
@@ -627,7 +628,7 @@ deleted in either case. The admin's delete dialog offers both, defaulting to ano
 | `migrations` | kestrel-migrations-default | `listMigrations`, `applyMigrations` (`GET /admin/migrations`, `POST /admin/migrations/apply`) |
 | `audit` | kestrel-audit-persistence | `auditAuth` (on `auth.loggedIn`/`auth.loggedOut`), `anonymizeAuditUser` (on `user.deleted`), `retryAnonymizeAuditUser` (`POST /admin/users/:id/audit/anonymize`, `users.manage`), and `pruneAudit` (cron `45 3 * * *`) as soon as `audit: { retentionDays }` is configured |
 | `insights` | kestrel-insights (optional peer) | `insightsManifest`, `insightsStats` (`GET /admin/insights/manifest`, `GET /admin/insights/stats`, `insights.read`); the `/admin/insights` page |
-| `eventsQueue` | kestrel-events-queue (instead of kestrel-events-inmemory) | Adds `eventsQueueStatus`, `eventsDead`, `eventsRetryDead`, `eventsRetryOne` (`/admin/events/*`, `system.manage`), the System → Events tab, and `purgeEvents` (cron) — see the note below the table |
+| `eventsQueue` | kestrel-events-queue (instead of kestrel-events-direct) | Adds `eventsQueueStatus`, `eventsDead`, `eventsRetryDead`, `eventsRetryOne` (`/admin/events/*`, `system.manage`), the System → Events tab, and `purgeEvents` (cron) — see the note below the table |
 | `revisions` | kestrel-revisions-default | Per-collection revision pipelines, routes and the history dialog in the record editor — see the list below the table |
 
 **`images` details:** routes `listImageSizes`, `syncImages`, `pruneImages`, `retryFailedImages`,
@@ -637,7 +638,9 @@ register the sizes declared by blocks and layers); pipeline `registerImageSizes`
 and attach/remove/removeMany/export steps in `getMedia`, `listMedia`, `deleteMedia`,
 `deleteMediaFolder`, `exportMedia`.
 
-**`eventsQueue` requirement:** delivery is at-least-once, so your event listeners must be idempotent.
+**`eventsQueue` requirement:** delivery is at-least-once, so your event listeners must be idempotent, and
+no ordering is guaranteed between the pipelines subscribed to one event. Every event a pipeline receives
+carries `eventId` — use it as the dedup key.
 
 **`revisions` details:** per `multi` collection `<c>`: `<c>Revisions`, `<c>Revision`,
 `label<C>Revision`, `restore<C>Revision` (`/admin/<c>/:id/revisions…`, `<c>.manage` to read, `<c>.write`
@@ -711,11 +714,17 @@ idempotent, so repeating them is safe: `POST /admin/users/:id/revisions/reassign
 `{ "reassignTo": { "id", "name" } }` (or `null` to anonymise) and
 `POST /admin/users/:id/audit/anonymize`, both behind `users.manage`.
 
-Configure exactly one events module: `kestrel-events-inmemory` (default) or, with the `eventsQueue`
-feature, `kestrel-events-queue` — never both; `presetModuleConfig()` (§3) makes that choice from the
-feature list. The `eventsQueue` feature also requires at least one
-event trigger in the final trigger list (for example `images`' `generateImageVariants` or `audit`'s
-`auditAuth`), since otherwise queued events would never be consumed.
+Configure the events bus, `kestrel-events-inmemory`, plus exactly one delivery module: `kestrel-events-direct`
+(default, inline) or, with the `eventsQueue` feature, `kestrel-events-queue` — never zero, never both;
+`presetModuleConfig()` (§3) makes that choice from the feature list. The `eventsQueue` feature also
+requires at least one event trigger in the final trigger list (for example `images`'
+`generateImageVariants` or `audit`'s `auditAuth`), since otherwise queued events would never be consumed.
+
+With `kestrel-events-direct`, a programmatic `events.on` handler that throws fails the run that emitted
+the event with 500 `INTERNAL` instead of being logged and ignored. With `kestrel-events-queue`, a
+programmatic bus subscriber sees only events raised through the `events@1` contract by a module (for
+example the backend's `migrations.applied`), not the events a pipeline step emits — those go straight to
+the queue.
 
 
 Optional packages: `@michaelthielemann/kestrel-insights`, `@vue-flow/core` and `@dagrejs/dagre` are

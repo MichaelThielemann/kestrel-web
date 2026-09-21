@@ -28,7 +28,7 @@ export const FEATURE_SUMMARY = {
   migrations: "run content migrations from the admin",
   audit: "persist login and logout events",
   insights: "the /admin/insights page (needs three extra packages)",
-  eventsQueue: "durable event queue instead of the in-memory one",
+  eventsQueue: "durable event queue instead of inline delivery",
   revisions: "version history for every multi collection",
 };
 

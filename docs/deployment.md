@@ -248,9 +248,9 @@ same `<dataDir>`:
 - both run the whole cron set (`replicate` every minute, `checkLinks`, `scanReferences`,
   `reconcileMedia`, `resumeImages`, `pruneRevisions`, `purgeEvents`, `sweepRateLimits`,
   `cleanupSessions`), so scheduled work runs twice;
-- with `events-inmemory` each process only sees its own events, so a publish in one is invisible to
-  the other's listeners. The `eventsQueue` feature moves the queue into the database and is the only
-  configuration where a second consumer is meaningful;
+- with `events-direct` (the default delivery module) each process delivers inline, so a publish in one
+  is invisible to the other's listeners. The `eventsQueue` feature swaps it for `events-queue`, which
+  moves delivery into the database and is the only configuration where a second consumer is meaningful;
 - both write the same database file.
 
 So the deployment model is stop, swap, start — a short outage on every release. What removes it is
