@@ -68,6 +68,11 @@ describe("project-specific eslint rules have a violating fixture", () => {
     expectMessage(messages, "@typescript-eslint/no-restricted-imports", "layers/core/app/types may import Kestrel backend packages as types only.");
   });
 
+  it("kestrel/backend-types-only-in-core-app-types: bans a type-only import from a backend package's impl subpath", async () => {
+    const messages = await lintVirtual('import type { X } from "@michaelthielemann/kestrel-media-default/impl";\n', "layers/core/app/types/probe.ts");
+    expectMessage(messages, "@typescript-eslint/no-restricted-imports", "layers/core/app/types takes its types from the generated OpenAPI document");
+  });
+
   it("kestrel/ui-kit-first and its companion rules: ban raw controls, restricted attributes/classes and disguised role/is bindings", async () => {
     const code = `<template>
   <div>

@@ -122,7 +122,12 @@ export default withNuxt(
     rules: {
       '@typescript-eslint/no-restricted-imports': [
         'error',
-        { patterns: [{ group: ['@michaelthielemann/kestrel', '@michaelthielemann/kestrel/*', '@michaelthielemann/kestrel-*'], allowTypeImports: true, message: 'layers/core/app/types may import Kestrel backend packages as types only.' }] },
+        {
+          patterns: [
+            { regex: '^@michaelthielemann/kestrel-[a-z0-9-]+/impl$', allowTypeImports: false, message: 'layers/core/app/types takes its types from the generated OpenAPI document (./openapi.generated), not from a backend package\'s impl subpath.' },
+            { regex: '^@michaelthielemann/kestrel(-[a-z0-9-]+)?(/(?!impl$)[A-Za-z0-9_-]+)?$', allowTypeImports: true, message: 'layers/core/app/types may import Kestrel backend packages as types only.' },
+          ],
+        },
       ],
     },
   },
