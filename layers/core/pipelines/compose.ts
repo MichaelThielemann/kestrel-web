@@ -1,21 +1,53 @@
 import type { TriggerConfig } from "@michaelthielemann/kestrel/defineConfig";
+import { isAtomicGroup, pipelineSteps } from "@michaelthielemann/kestrel/definePipeline";
+import type { AtomicGroup, PipelineEntry } from "@michaelthielemann/kestrel/definePipeline";
+
+/** One entry of a preset pipeline's step list: a step name, or an atomic group of them. */
+export type PresetEntry<S extends string = string> = PipelineEntry<S>;
+
+/**
+ * Anchor value for a `before`/`after` patch meaning the closing boundary of a pipeline's atomic group:
+ * `before` appends to the group, `after` inserts as the first plain entry following it. Not a step name
+ * and never collides with one.
+ */
+export const ATOMIC_END = "\0atomic-end";
 
 export type Patch<F extends string = string, S extends string = string> =
-  | { pipeline: string; steps: readonly S[]; when?: F; at: "before"; anchor: S }
-  | { pipeline: string; steps: readonly S[]; when?: F; at: "after"; anchor: S }
+  | { pipeline: string; steps: readonly S[]; when?: F; at: "before"; anchor: S | typeof ATOMIC_END }
+  | { pipeline: string; steps: readonly S[]; when?: F; at: "after"; anchor: S | typeof ATOMIC_END }
   | { pipeline: string; steps: readonly S[]; when?: F; at: "start" }
   | { pipeline: string; steps: readonly S[]; when?: F; at: "end" };
 
-function clonePipelines(pipelines: Record<string, readonly string[]>): Record<string, string[]> {
-  return Object.fromEntries(Object.entries(pipelines).map(([name, steps]) => [name, [...steps]]));
+interface FlatRef<S extends string> {
+  step: S;
+  entryIndex: number;
+  subIndex?: number;
+}
+
+function flatten<S extends string>(entries: readonly PresetEntry<S>[]): FlatRef<S>[] {
+  const result: FlatRef<S>[] = [];
+  entries.forEach((entry, entryIndex) => {
+    if (isAtomicGroup(entry)) {
+      entry.atomic.forEach((step, subIndex) => result.push({ step, entryIndex, subIndex }));
+    } else {
+      result.push({ step: entry, entryIndex });
+    }
+  });
+  return result;
+}
+
+function clonePipelines(pipelines: Record<string, readonly PresetEntry[]>): Record<string, PresetEntry[]> {
+  return Object.fromEntries(
+    Object.entries(pipelines).map(([name, steps]) => [name, steps.map((entry): PresetEntry => (isAtomicGroup(entry) ? { atomic: [...entry.atomic] } : entry))]),
+  );
 }
 
 export function applyFeaturePatches<F extends string>(
-  pipelines: Record<string, readonly string[]>,
+  pipelines: Record<string, readonly PresetEntry[]>,
   feature: F,
   patches: readonly Patch<F>[],
   enabledFeatures: ReadonlySet<F>,
-): Record<string, string[]> {
+): Record<string, PresetEntry[]> {
   const result = clonePipelines(pipelines);
   for (const patch of patches) {
     if (patch.when !== undefined && !enabledFeatures.has(patch.when)) continue;
@@ -23,8 +55,9 @@ export function applyFeaturePatches<F extends string>(
     if (current === undefined) {
       throw new Error(`preset: feature "${feature}" patches unknown pipeline "${patch.pipeline}"`);
     }
+    const flatSteps = pipelineSteps(current);
     for (const step of patch.steps) {
-      if (current.includes(step)) {
+      if (flatSteps.includes(step)) {
         throw new Error(`preset: feature "${feature}" step "${step}" already present in pipeline "${patch.pipeline}"`);
       }
     }
@@ -32,24 +65,49 @@ export function applyFeaturePatches<F extends string>(
       current.unshift(...patch.steps);
     } else if (patch.at === "end") {
       current.push(...patch.steps);
+    } else if (patch.anchor === ATOMIC_END) {
+      const groups = current.filter(isAtomicGroup);
+      if (groups.length !== 1) {
+        const problem = groups.length === 0 ? "not found" : "found more than once";
+        throw new Error(`preset: feature "${feature}" pipeline "${patch.pipeline}" anchor "${ATOMIC_END}" ${problem}`);
+      }
+      const group = groups[0]!;
+      const groupIndex = current.indexOf(group);
+      if (patch.at === "before") {
+        current[groupIndex] = { atomic: [...group.atomic, ...patch.steps] };
+      } else {
+        current.splice(groupIndex + 1, 0, ...patch.steps);
+      }
     } else {
-      const occurrences = current.filter((step) => step === patch.anchor).length;
-      if (occurrences !== 1) {
-        const problem = occurrences === 0 ? "not found" : "found more than once";
+      const flat = flatten(current);
+      const matches = flat.filter((ref) => ref.step === patch.anchor);
+      if (matches.length !== 1) {
+        const problem = matches.length === 0 ? "not found" : "found more than once";
         throw new Error(`preset: feature "${feature}" pipeline "${patch.pipeline}" anchor "${patch.anchor}" ${problem}`);
       }
-      current.splice(current.indexOf(patch.anchor) + (patch.at === "after" ? 1 : 0), 0, ...patch.steps);
+      const ref = matches[0]!;
+      if (ref.subIndex === undefined) {
+        const insertAt = ref.entryIndex + (patch.at === "after" ? 1 : 0);
+        current.splice(insertAt, 0, ...patch.steps);
+      } else {
+        const group = current[ref.entryIndex];
+        if (group === undefined || !isAtomicGroup(group)) throw new Error(`preset: internal error – entry ${ref.entryIndex} of "${patch.pipeline}" was expected to be an atomic group`);
+        const insertAt = ref.subIndex + (patch.at === "after" ? 1 : 0);
+        const atomic = [...group.atomic];
+        atomic.splice(insertAt, 0, ...patch.steps);
+        current[ref.entryIndex] = { atomic };
+      }
     }
   }
   return result;
 }
 
 export function mergePipelines(
-  base: Record<string, readonly string[]>,
-  additions: Record<string, readonly string[]>,
+  base: Record<string, readonly PresetEntry[]>,
+  additions: Record<string, readonly PresetEntry[]>,
   owner: string,
   ownerKind: string = "feature",
-): Record<string, string[]> {
+): Record<string, PresetEntry[]> {
   const result = clonePipelines(base);
   for (const [name, steps] of Object.entries(additions)) {
     if (name in result) {
@@ -60,7 +118,10 @@ export function mergePipelines(
   return result;
 }
 
-export function applyOverrides(pipelines: Record<string, readonly string[]>, overrides: Partial<Record<string, readonly string[]>>): Record<string, string[]> {
+export function applyOverrides(
+  pipelines: Record<string, readonly PresetEntry[]>,
+  overrides: Partial<Record<string, readonly PresetEntry[]>>,
+): Record<string, PresetEntry[]> {
   const result = clonePipelines(pipelines);
   for (const [name, steps] of Object.entries(overrides)) {
     if (steps === undefined) continue;
@@ -72,11 +133,11 @@ export function applyOverrides(pipelines: Record<string, readonly string[]>, ove
   return result;
 }
 
-export function applyExclude<T extends { pipeline: string }>(
-  pipelines: Record<string, readonly string[]>,
+export function applyExclude<T extends { pipeline: string } = { pipeline: string }>(
+  pipelines: Record<string, readonly PresetEntry[]>,
   triggers: readonly T[],
   exclude: readonly string[],
-): { pipelines: Record<string, string[]>; triggers: T[] } {
+): { pipelines: Record<string, PresetEntry[]>; triggers: T[] } {
   const excludeSet = new Set(exclude);
   for (const name of exclude) {
     if (!(name in pipelines)) {
@@ -101,4 +162,66 @@ export function applySchedules(triggers: readonly TriggerConfig[], schedules: Pa
     throw new Error(`preset: schedule for unknown cron pipeline "${name}"`);
   }
   return result;
+}
+
+/** The last step of a pipeline's composed entries. Throws if the pipeline has no steps. */
+export function lastStepOf<S extends string>(entries: readonly PresetEntry<S>[]): S {
+  const flat = pipelineSteps(entries);
+  const last = flat[flat.length - 1];
+  if (last === undefined) throw new Error("preset: pipeline has no steps");
+  return last;
+}
+
+/**
+ * Drops the first `head` and last `dropLast` entries of a composed pipeline, keeping any atomic group
+ * intact. The caller guarantees the dropped entries are plain steps, never part of a group.
+ */
+export function bodyOf<S extends string>(entries: readonly PresetEntry<S>[], head: number, dropLast: number): PresetEntry<S>[] {
+  return entries.slice(head, entries.length - dropLast).map((entry) => (isAtomicGroup(entry) ? { atomic: [...entry.atomic] } : entry));
+}
+
+function baseStepName(step: string): string {
+  const withoutQuery = step.split("?")[0] ?? step;
+  const colon = withoutQuery.indexOf(":");
+  return colon === -1 ? withoutQuery : withoutQuery.slice(0, colon);
+}
+
+/**
+ * Without the `eventsQueue` feature a pipeline's trailing `events.emit:` stays outside its atomic group,
+ * because `events/direct` runs subscribers inline and must not hold the write lock. With the queue the
+ * emit is a row insert and belongs with the write it reports: if the pipeline's last entry is an
+ * `events.emit:` step and it has exactly one atomic group, the emit moves to the end of that group.
+ * Every entry between the group and the emit whose base step name is in `atomicSafe` moves with it, in
+ * declared order; every other entry stays where it is. A pipeline with no group, or whose last entry is
+ * not an emit, is returned unchanged. A pipeline with more than one group throws, naming it.
+ */
+export function foldTrailingEmit<S extends string>(name: string, entries: readonly PresetEntry<S>[], atomicSafe: ReadonlySet<string>): PresetEntry<S>[] {
+  const last = entries[entries.length - 1];
+  if (typeof last !== "string" || !last.startsWith("events.emit:")) return [...entries];
+  const groups = entries.filter(isAtomicGroup);
+  if (groups.length === 0) return [...entries];
+  if (groups.length > 1) {
+    throw new Error(`preset: cannot fold the trailing emit of "${name}" – it has more than one atomic group`);
+  }
+  const group = groups[0]!;
+  const groupIndex = entries.indexOf(group);
+  const between = entries.slice(groupIndex + 1, entries.length - 1);
+  const movable: S[] = [];
+  const stationary: PresetEntry<S>[] = [];
+  for (const entry of between) {
+    if (typeof entry === "string" && atomicSafe.has(baseStepName(entry))) {
+      movable.push(entry);
+    } else {
+      stationary.push(isAtomicGroup(entry) ? { atomic: [...entry.atomic] } : entry);
+    }
+  }
+  const newGroup: AtomicGroup<S> = { atomic: [...group.atomic, ...movable, last] };
+  return [...entries.slice(0, groupIndex), newGroup, ...stationary];
+}
+
+const CONTENT_WRITE_STEP = /^content\.(?:create|update|remove|removeTranslation):/;
+
+/** The `content.*` write step of an atomic group, if the group wraps one. */
+export function contentWriteStepOf<S extends string>(group: AtomicGroup<S>): S | undefined {
+  return group.atomic.find((step) => CONTENT_WRITE_STEP.test(step));
 }

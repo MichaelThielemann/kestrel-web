@@ -1,6 +1,7 @@
 import type { PresetStep } from "../module-registry";
 import type { WorkflowUi } from "../collections-ui/workflow";
 import type { CustomFieldTypes } from "../field-types";
+import type { PresetEntry } from "./compose";
 import { customFieldChecks } from "./collections";
 import type { CollectionModel } from "./collections";
 
@@ -13,14 +14,19 @@ export interface PresetContext {
   exportDir: string;
   homeSlug: string;
   pagesTranslatable?: boolean;
+  /** Whether the `eventsQueue` feature is enabled; set once by `definePreset` before the base pipelines are built. */
+  eventsQueued?: boolean;
   collections?: Record<string, CollectionModel>;
   collectionsUi?: Record<string, WorkflowUi>;
   customFields?: CustomFieldTypes;
   modules?: readonly PresetModuleEntry[];
 }
 
-export function basePipelines({ exportDir, homeSlug, customFields }: PresetContext, collections: Record<string, CollectionModel>): Record<string, PresetStep[]> {
-  const pipelines: Record<string, PresetStep[]> = {
+export function basePipelines(
+  { exportDir, homeSlug, customFields, eventsQueued }: PresetContext,
+  collections: Record<string, CollectionModel>,
+): Record<string, PresetEntry<PresetStep>[]> {
+  const pipelines: Record<string, PresetEntry<PresetStep>[]> = {
     login: ["authn.login", "events.emit:auth.loggedIn"],
     logout: ["authn.requireUser", "authn.logout", "events.emit:auth.loggedOut"],
     me: ["authn.requireUser", "authn.loadIdentity"],
@@ -30,7 +36,9 @@ export function basePipelines({ exportDir, homeSlug, customFields }: PresetConte
     createUser: ["authn.requireUser", "authz.require:users.manage", "authn.createUser", "events.emit:user.created"],
     getUser: ["authn.requireUser", "authz.require:users.manage", "authn.getUser"],
     updateUser: ["authn.requireUser", "authz.require:users.manage", "authn.updateUser", "events.emit:user.updated"],
-    deleteUser: ["authn.requireUser", "authz.require:users.manage", "authn.deleteUser", "events.emit:user.deleted?with=result"],
+    deleteUser: eventsQueued
+      ? ["authn.requireUser", "authz.require:users.manage", { atomic: ["authn.deleteUser"] }, "events.emit:user.deleted?with=result"]
+      : ["authn.requireUser", "authz.require:users.manage", "authn.deleteUser", "events.emit:user.deleted?with=result"],
     setPassword: ["authn.requireUser", "authz.require:users.manage", "authn.setPassword"],
     deactivateUser: ["authn.requireUser", "authz.require:users.manage", "authn.deactivateUser", "events.emit:user.deactivated"],
     activateUser: ["authn.requireUser", "authz.require:users.manage", "authn.activateUser"],

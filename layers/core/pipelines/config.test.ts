@@ -45,7 +45,7 @@ describe("presetModuleConfig with the playground inputs", () => {
     expect(presetModuleConfig(playgroundOptions())).toEqual([
       { use: "@michaelthielemann/kestrel-blobstore-filesystem", config: { root: resolve(DATA_DIR, "blobs") } },
       { use: "@michaelthielemann/kestrel-replication-sqlite", config: { file: DATABASE_FILE } },
-      { use: "@michaelthielemann/kestrel-persistence-sqlite", config: { file: DATABASE_FILE } },
+      { use: "@michaelthielemann/kestrel-persistence-sqlite", config: { file: DATABASE_FILE, acquireTimeoutMs: 15000 } },
       { use: "@michaelthielemann/kestrel-sanitize-svg", config: {} },
       {
         use: "@michaelthielemann/kestrel-media-default",
@@ -326,7 +326,7 @@ describe("options", () => {
 
     expect(configFor(modules, "replication-sqlite")).toEqual({ file: DATABASE_FILE, prefix: "database/", restoreOnStart: true, retentionSeconds: 604800 });
     expect(configFor(modules, "redirects-default")).toEqual({ prefix: "static/" });
-    expect(configFor(modules, "persistence-sqlite")).toEqual({ file: DATABASE_FILE });
+    expect(configFor(modules, "persistence-sqlite")).toEqual({ file: DATABASE_FILE, acquireTimeoutMs: 15000 });
     expect(moduleNames(modules)).toEqual(moduleNames(presetModuleConfig(playgroundOptions())));
   });
 

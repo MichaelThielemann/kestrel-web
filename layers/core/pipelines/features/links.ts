@@ -1,9 +1,10 @@
 import type { PresetContext } from "../base";
+import { ATOMIC_END } from "../compose";
 import type { FeatureModule } from "../index";
 
 export default function links(context: PresetContext): FeatureModule {
   const translationPatches: FeatureModule["patches"] = context.pagesTranslatable
-    ? [{ pipeline: "deletePageTranslation", steps: ["links.extract:pages"], at: "before", anchor: "events.emit:page.translationRemoved" }]
+    ? [{ pipeline: "deletePageTranslation", steps: ["links.extract:pages"], at: "before", anchor: ATOMIC_END }]
     : [];
   return {
     modules: ["@michaelthielemann/kestrel-links-default"],
@@ -13,9 +14,9 @@ export default function links(context: PresetContext): FeatureModule {
       checkLinks: ["links.check"],
     },
     patches: [
-      { pipeline: "createPage", steps: ["links.extract:pages"], at: "before", anchor: "events.emit:page.created" },
-      { pipeline: "updatePage", steps: ["links.extract:pages"], at: "before", anchor: "events.emit:page.updated" },
-      { pipeline: "deletePage", steps: ["links.unextract:pages"], at: "before", anchor: "events.emit:page.deleted" },
+      { pipeline: "createPage", steps: ["links.extract:pages"], at: "before", anchor: ATOMIC_END },
+      { pipeline: "updatePage", steps: ["links.extract:pages"], at: "before", anchor: ATOMIC_END },
+      { pipeline: "deletePage", steps: ["links.unextract:pages"], at: "before", anchor: ATOMIC_END },
       ...translationPatches,
     ],
   };

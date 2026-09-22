@@ -1,6 +1,8 @@
 import type { TriggerConfig } from "@michaelthielemann/kestrel/defineConfig";
 import type { PresetStep } from "../../module-registry";
 import type { PresetContext } from "../base";
+import { bodyOf, lastStepOf } from "../compose";
+import type { PresetEntry } from "../compose";
 import { collectionNames, hasLocalizedField, isGenericCollection, uncapitalize, DEFAULT_COLLECTIONS } from "../collections";
 import type { CollectionModel } from "../collections";
 import type { FeatureModule } from "../index";
@@ -36,22 +38,22 @@ function revisionTriggers(name: string): TriggerConfig[] {
   ];
 }
 
-function restorePipeline(name: string, update: readonly string[]): string[] {
+function restorePipeline(name: string, update: readonly PresetEntry[]): PresetEntry[] {
   const { singular, event } = collectionNames(name);
   const updated = `events.emit:${event}.updated`;
-  if (update[update.length - 1] !== updated) {
+  if (lastStepOf(update) !== updated) {
     throw new Error(`preset: feature "revisions" expects pipeline "update${singular}" to end with "${updated}"`);
   }
-  const head: PresetStep[] = ["authn.requireUser", `authz.require:${name}.write`, `revisions.restore:${name}`];
-  const tail: PresetStep[] = ["revisions.reportRestore", `events.emit:${event}.restored`];
-  return [...head, ...update.slice(2, -1), ...tail];
+  const head: PresetEntry[] = ["authn.requireUser", `authz.require:${name}.write`, `revisions.restore:${name}`];
+  const tail: PresetEntry[] = ["revisions.reportRestore", `events.emit:${event}.restored`];
+  return [...head, ...bodyOf(update, 2, 1), ...tail];
 }
 
 export default function revisions(context: PresetContext): FeatureModule {
   const collections = context.collections ?? DEFAULT_COLLECTIONS;
   const entries = revisionedCollections(collections);
 
-  const pipelines: Record<string, PresetStep[]> = {
+  const pipelines: Record<string, PresetEntry<PresetStep>[]> = {
     [REVISIONS_PRUNE_PIPELINE]: ["revisions.prune"],
     [REVISIONS_REASSIGN_PIPELINE]: ["revisions.reassignAuthor"],
     [REVISIONS_REASSIGN_RETRY_PIPELINE]: ["authn.requireUser", "authz.require:users.manage", "revisions.reassignAuthor"],
@@ -90,7 +92,7 @@ export default function revisions(context: PresetContext): FeatureModule {
     patches,
     triggers,
     derive: (composed) => {
-      const derived: Record<string, string[]> = {};
+      const derived: Record<string, PresetEntry[]> = {};
       for (const [name] of entries) {
         const update = composed[`update${collectionNames(name).singular}`];
         if (update === undefined) continue;

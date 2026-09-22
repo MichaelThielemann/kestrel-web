@@ -1,9 +1,10 @@
 import type { PresetContext } from "../base";
+import { ATOMIC_END } from "../compose";
 import type { FeatureModule } from "../index";
 
 export default function references(context: PresetContext): FeatureModule {
   const translationPatches: FeatureModule["patches"] = context.pagesTranslatable
-    ? [{ pipeline: "deletePageTranslation", steps: ["references.index:pages"], at: "before", anchor: "events.emit:page.translationRemoved" }]
+    ? [{ pipeline: "deletePageTranslation", steps: ["references.index:pages"], at: "before", anchor: ATOMIC_END }]
     : [];
   return {
     modules: ["@michaelthielemann/kestrel-references-default"],
@@ -18,11 +19,11 @@ export default function references(context: PresetContext): FeatureModule {
     },
     patches: [
       { pipeline: "createPage", steps: ["references.check:pages"], at: "before", anchor: "content.create:pages" },
-      { pipeline: "createPage", steps: ["references.index:pages"], at: "before", anchor: "events.emit:page.created" },
+      { pipeline: "createPage", steps: ["references.index:pages"], at: "before", anchor: ATOMIC_END },
       { pipeline: "updatePage", steps: ["references.check:pages"], at: "before", anchor: "content.update:pages" },
-      { pipeline: "updatePage", steps: ["references.index:pages"], at: "before", anchor: "events.emit:page.updated" },
+      { pipeline: "updatePage", steps: ["references.index:pages"], at: "before", anchor: ATOMIC_END },
       { pipeline: "deletePage", steps: ["references.guard:pages"], at: "before", anchor: "content.remove:pages" },
-      { pipeline: "deletePage", steps: ["references.unindex:pages"], at: "before", anchor: "events.emit:page.deleted" },
+      { pipeline: "deletePage", steps: ["references.unindex:pages"], at: "before", anchor: ATOMIC_END },
       { pipeline: "deleteMedia", steps: ["references.guard:media"], at: "before", anchor: "media.remove" },
       { pipeline: "deleteMediaFolder", steps: ["references.guardAll:media"], at: "before", anchor: "media.removeFolder" },
       ...translationPatches,

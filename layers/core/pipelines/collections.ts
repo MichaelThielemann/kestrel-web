@@ -2,6 +2,7 @@ import type { TriggerConfig } from "@michaelthielemann/kestrel/defineConfig";
 import type { PresetStep } from "../module-registry";
 import { resolveWorkflow } from "../collections-ui/workflow";
 import type { WorkflowUi } from "../collections-ui/workflow";
+import type { PresetEntry } from "./compose";
 
 export interface CollectionModel {
   kind: "single" | "multi";
@@ -67,12 +68,12 @@ export function customFieldChecks(name: string, customFields: Record<string, str
   return Object.keys(customFields ?? {}).sort().map((field): PresetStep => `validate.check:${name}.${field}`);
 }
 
-export function multiCollectionPipelines(name: string, model: CollectionModel, ui?: WorkflowUi, customFields?: Record<string, string>): Record<string, PresetStep[]> {
+export function multiCollectionPipelines(name: string, model: CollectionModel, ui?: WorkflowUi, customFields?: Record<string, string>): Record<string, PresetEntry<PresetStep>[]> {
   const { plural, singular, event } = collectionNames(name);
   const statusQuery = statusQueryFor(name, model, ui);
   const bodySteps: PresetStep[] = "body" in model.fields ? [`validate.check:${name}.body`, `validate.sanitize:${name}.body`, `validate.check:${name}.body`] : [];
   const customSteps = customFieldChecks(name, customFields);
-  const pipelines: Record<string, PresetStep[]> = {
+  const pipelines: Record<string, PresetEntry<PresetStep>[]> = {
     [`list${plural}`]: ["authn.identifyUser", `authz.require:${name}.read`, `content.list:${name}${statusQuery}`],
     [`listAll${plural}`]: ["authn.requireUser", `authz.require:${name}.manage`, `content.list:${name}`],
     [`read${singular}`]: ["authn.identifyUser", `authz.require:${name}.read`, `content.get:${name}${statusQuery}`],
@@ -82,7 +83,7 @@ export function multiCollectionPipelines(name: string, model: CollectionModel, u
       `authz.require:${name}.write`,
       ...bodySteps,
       ...customSteps,
-      `content.create:${name}`,
+      { atomic: [`content.create:${name}`] },
       `events.emit:${event}.created`,
     ],
     [`update${singular}`]: [
@@ -90,23 +91,28 @@ export function multiCollectionPipelines(name: string, model: CollectionModel, u
       `authz.require:${name}.write`,
       ...bodySteps,
       ...customSteps,
-      `content.update:${name}`,
+      { atomic: [`content.update:${name}`] },
       `events.emit:${event}.updated`,
     ],
-    [`delete${singular}`]: ["authn.requireUser", `authz.require:${name}.delete`, `content.remove:${name}`, `events.emit:${event}.deleted`],
+    [`delete${singular}`]: [
+      "authn.requireUser",
+      `authz.require:${name}.delete`,
+      { atomic: [`content.remove:${name}`] },
+      `events.emit:${event}.deleted`,
+    ],
   };
   if (hasLocalizedField(model)) {
     pipelines[`delete${singular}Translation`] = [
       "authn.requireUser",
       `authz.require:${name}.write`,
-      `content.removeTranslation:${name}`,
+      { atomic: [`content.removeTranslation:${name}`] },
       `events.emit:${event}.translationRemoved`,
     ];
   }
   return pipelines;
 }
 
-export function singleCollectionPipelines(name: string, customFields?: Record<string, string>): Record<string, PresetStep[]> {
+export function singleCollectionPipelines(name: string, customFields?: Record<string, string>): Record<string, PresetEntry<PresetStep>[]> {
   const { plural } = collectionNames(name);
   return {
     [`get${plural}`]: ["authn.identifyUser", `authz.require:${name}.read`, `content.get:${name}`],
@@ -114,7 +120,7 @@ export function singleCollectionPipelines(name: string, customFields?: Record<st
   };
 }
 
-export function collectionPipelines(name: string, model: CollectionModel, ui?: WorkflowUi, customFields?: Record<string, string>): Record<string, PresetStep[]> {
+export function collectionPipelines(name: string, model: CollectionModel, ui?: WorkflowUi, customFields?: Record<string, string>): Record<string, PresetEntry<PresetStep>[]> {
   return model.kind === "multi" ? multiCollectionPipelines(name, model, ui, customFields) : singleCollectionPipelines(name, customFields);
 }
 
@@ -122,8 +128,8 @@ export function buildCollectionPipelines(
   collections: Record<string, CollectionModel>,
   collectionsUi?: Record<string, WorkflowUi>,
   customFields?: Record<string, Record<string, string>>,
-): Record<string, PresetStep[]> {
-  const result: Record<string, PresetStep[]> = {};
+): Record<string, PresetEntry<PresetStep>[]> {
+  const result: Record<string, PresetEntry<PresetStep>[]> = {};
   for (const [name, model] of Object.entries(collections)) {
     if (!isGenericCollection(name)) continue;
     Object.assign(result, collectionPipelines(name, model, collectionsUi?.[name], customFields?.[name]));
