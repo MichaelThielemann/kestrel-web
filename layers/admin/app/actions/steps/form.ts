@@ -65,7 +65,7 @@ function mapSchemaRowError(form: EditFormPort, message: string): boolean {
 
 export function formReset<I extends { form: EditFormPort }>(): ActionStep<I, SaveOutcome> {
   return defineUiStep<I, SaveOutcome>('form.reset', (ctx) => {
-    ctx.result = { record: null, delivery: null, failure: null, failed: false }
+    ctx.result = { record: null, events: null, failure: null, failed: false }
     ctx.input.form.clearErrors()
   })
 }

@@ -49,6 +49,7 @@ interface FormState {
   values: Record<string, unknown>
   applied: Document[]
   delivery: unknown[]
+  deliveryLoads: number
   revealed: number
   cleared: number
 }
@@ -64,6 +65,7 @@ function fakeForm(overrides: Partial<EditFormPort> = {}, opts: { valid?: boolean
     values: { title: 'A', status: 'draft' },
     applied: [],
     delivery: [],
+    deliveryLoads: 0,
     revealed: 0,
     cleared: 0,
   }
@@ -94,6 +96,7 @@ function fakeForm(overrides: Partial<EditFormPort> = {}, opts: { valid?: boolean
     validateBlocks: () => opts.blockProblems ?? 0,
     applySaved: (record) => { state.applied.push(record) },
     setDelivery: (entries) => { state.delivery.push(entries) },
+    loadDelivery: () => { state.deliveryLoads++; return Promise.resolve() },
     revealError: () => { state.revealed++ },
     ...overrides,
   }
@@ -216,56 +219,92 @@ describe('saveRecord', () => {
     expect(failureForm.state.formError).toBe('editor.saveFailed')
   })
 
-  it('passes a bare document through untouched', async () => {
+  it('passes the response through untouched', async () => {
     const { deps } = fakeDeps([doc({ title: 'A' })])
     const { form, state } = fakeForm()
 
     await runAction(saveRecord, { deps, form })
 
     expect(state.applied).toEqual([doc({ title: 'A' })])
-    expect(state.delivery).toEqual([])
   })
 
-  it('unwraps a document/delivery pair and remembers the delivery before rebaselining', async () => {
+  it('refreshes the publish status from the authoritative endpoint after a page save, before rebaselining', async () => {
     const order: string[] = []
-    const entries = [{ locale: 'en' }]
-    const { deps } = fakeDeps([{ document: doc(), delivery: entries }])
+    const { deps } = fakeDeps([doc({ _events: { status: 'done', pipelines: [] } })])
     const { form, state } = fakeForm({
-      setDelivery: () => { order.push('setDelivery') },
+      loadDelivery: () => { order.push('loadDelivery'); return Promise.resolve() },
       applySaved: () => { order.push('applySaved') },
     })
 
     await runAction(saveRecord, { deps, form })
 
-    expect(order).toEqual(['setDelivery', 'applySaved'])
-    expect(state.applied).toEqual([])
+    expect(order).toEqual(['loadDelivery', 'applySaved'])
+    expect(state.deliveryLoads).toBe(0)
   })
 
-  it('does not unwrap a document carrying unrelated sibling fields', async () => {
-    const withSibling = doc({ rules: [], redirects: 3 })
-    const { deps } = fakeDeps([withSibling])
-    const { form, state } = fakeForm()
+  it('does not refresh the publish status for a collection that is not page-like', async () => {
+    const { deps } = fakeDeps([doc()])
+    const { form, state } = fakeForm({ pageLike: false })
+
     await runAction(saveRecord, { deps, form })
-    expect(state.applied).toEqual([withSibling])
-    expect(state.delivery).toEqual([])
 
-    const ownField = doc({ document: { nested: true } })
-    const second = fakeDeps([ownField])
-    const secondForm = fakeForm()
-    await runAction(saveRecord, { deps: second.deps, form: secondForm.form })
-    expect(secondForm.state.applied).toEqual([ownField])
-    expect(secondForm.state.delivery).toEqual([])
+    expect(state.deliveryLoads).toBe(0)
   })
 
-  it('never remembers a delivery on the error path', async () => {
+  it('never refreshes the publish status on the error path', async () => {
     const { deps } = fakeDeps([apiError(500, 'boom')])
     const { form, state } = fakeForm()
 
     await runAction(saveRecord, { deps, form })
 
-    expect(state.delivery).toEqual([])
+    expect(state.deliveryLoads).toBe(0)
     expect(state.applied).toEqual([])
     expect(state.savingLog).toEqual([true, false])
+  })
+
+  it('toasts a delivery failure, mentioning the queue retry route when the eventsQueue feature is on', async () => {
+    const { deps, toast } = fakeDeps([doc({ _events: { status: 'error', pipelines: [{ event: 'page.updated', pipeline: 'publishPage', status: 'error', attempts: 1, dead: false, error: 'boom' }] } })])
+    const { form } = fakeForm()
+
+    await runAction(saveRecord, { deps, form, eventsQueue: true })
+
+    expect(toast.error).toHaveBeenCalledWith('editorStatus.delivery.failed' + 'editorStatus.delivery.retryQueue')
+  })
+
+  it('toasts a delivery failure, mentioning re-rendering when the eventsQueue feature is off', async () => {
+    const { deps, toast } = fakeDeps([doc({ _events: { status: 'error', pipelines: [] } })])
+    const { form } = fakeForm()
+
+    await runAction(saveRecord, { deps, form })
+
+    expect(toast.error).toHaveBeenCalledWith('editorStatus.delivery.failed' + 'editorStatus.delivery.retryDelivery')
+  })
+
+  it('toasts a pending delivery as still running, not as failed', async () => {
+    const { deps, toast } = fakeDeps([doc({ _events: { status: 'pending', pipelines: [] } })])
+    const { form } = fakeForm()
+
+    await runAction(saveRecord, { deps, form, eventsQueue: true })
+
+    expect(toast.error).toHaveBeenCalledWith('editorStatus.delivery.queued' + 'editorStatus.delivery.retryQueue')
+  })
+
+  it('does not toast when the delivery status is done', async () => {
+    const { deps, toast } = fakeDeps([doc({ _events: { status: 'done', pipelines: [] } })])
+    const { form } = fakeForm()
+
+    await runAction(saveRecord, { deps, form })
+
+    expect(toast.error).not.toHaveBeenCalled()
+  })
+
+  it('does not toast for a collection that is not page-like', async () => {
+    const { deps, toast } = fakeDeps([doc({ _events: { status: 'error', pipelines: [] } })])
+    const { form } = fakeForm({ pageLike: false })
+
+    await runAction(saveRecord, { deps, form })
+
+    expect(toast.error).not.toHaveBeenCalled()
   })
 
   it('does not turn saving off again once something else already did', async () => {
@@ -433,6 +472,24 @@ describe('deleteRecord', () => {
     expect(toast.error).toHaveBeenCalledTimes(1)
     expect(toast.success).toHaveBeenCalledWith('toast.deleted')
     expect(navigate).toHaveBeenCalled()
+  })
+
+  it('toasts that a page-like record was deleted but is still online when unpublishing failed', async () => {
+    const { deps, toast } = fakeDeps([{ _events: { status: 'error', pipelines: [{ event: 'page.deleted', pipeline: 'unpublishPage', status: 'error', attempts: 1, dead: true, error: 'boom' }] } }])
+    const { input } = deleteInput(deps, ['p1'])
+
+    await runAction(deleteRecord, { ...input, pageLike: true, eventsQueue: true })
+
+    expect(toast.error).toHaveBeenCalledWith('editorStatus.delivery.deleteFailed' + 'editorStatus.delivery.retryQueue')
+  })
+
+  it('does not toast a delivery failure for a collection that is not page-like', async () => {
+    const { deps, toast } = fakeDeps([{ _events: { status: 'error', pipelines: [] } }])
+    const { input } = deleteInput(deps, ['p1'])
+
+    await runAction(deleteRecord, input)
+
+    expect(toast.error).not.toHaveBeenCalled()
   })
 })
 

@@ -1,4 +1,4 @@
-import type { ApiErrorDetails, DeliveryEntry, Document, ReferenceTo } from '#kestrel-admin/types/api'
+import type { ApiErrorDetails, DeliveryEntry, Document, EventRelayStatus, ReferenceTo } from '#kestrel-admin/types/api'
 import type { Workflow } from '#kestrel-admin/types/kestrel'
 import type { BlockErrors } from '../composables/useEditForm'
 import type { BlockRow } from '../utils/block-tree'
@@ -74,6 +74,7 @@ export interface EditFormPort {
   validateBlocks: () => number
   applySaved: (record: Document) => void
   setDelivery: (entries: DeliveryEntry[]) => void
+  loadDelivery: () => Promise<void>
   revealError: () => void
 }
 
@@ -131,7 +132,7 @@ export interface SaveFailure {
 
 export interface SaveOutcome {
   record: Document | null
-  delivery: DeliveryEntry[] | null
+  events: EventRelayStatus | null
   failure: SaveFailure | null
   failed: boolean
 }

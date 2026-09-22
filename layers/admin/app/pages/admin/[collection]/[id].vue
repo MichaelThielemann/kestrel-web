@@ -136,7 +136,16 @@ async function onDelete() {
 
 async function confirmDelete() {
   const r = await runAction(deleteRecord, {
-    deps, collection, ids: [id], confirmed: true, ops: deleteOps, navigate, bypassGuard, to: listPath.value,
+    deps,
+    collection,
+    ids: [id],
+    confirmed: true,
+    pageLike: editorRef.value?.pageLike ?? false,
+    eventsQueue: useFeatures().has('eventsQueue'),
+    ops: deleteOps,
+    navigate,
+    bypassGuard,
+    to: listPath.value,
   })
   toastUnexpected(deps, r)
   if (r.ok) deleteOpen.value = false

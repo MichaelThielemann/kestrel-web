@@ -42,6 +42,7 @@ function fakeForm() {
     validateBlocks: () => 0,
     applySaved: () => {},
     setDelivery: () => {},
+    loadDelivery: () => Promise.resolve(),
     revealError: () => {},
   }
   return { form, state }
@@ -52,7 +53,7 @@ function runMapErrors(failure: SaveFailure | null) {
   const deps: ActionDeps = { api: fakeApiClient(), t: vi.fn((key: string) => key), toast: { success: vi.fn(), error: vi.fn() } }
   const ctx: ActionContext<Input, SaveOutcome> = {
     input: { deps, form },
-    result: { record: null, delivery: null, failure, failed: failure !== null },
+    result: { record: null, events: null, failure, failed: failure !== null },
     fail: () => { throw new Error('unexpected fail') },
     done: () => { throw new Error('unexpected done') },
   }

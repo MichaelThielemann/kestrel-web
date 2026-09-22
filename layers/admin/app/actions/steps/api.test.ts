@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { boundaryCast } from '#kestrel/cast'
 import { defineAction, runAction } from '#kestrel-core/app/utils/actions'
 import type { ActionDeps, ApiFailure, ApiRequestOptions, EachReport, PrecheckReport, WithDeps } from '../types'
-import { apiEach, apiRequest, isSaveResponse, referencesPrecheck } from './api'
+import { apiEach, apiRequest, referencesPrecheck } from './api'
 
 interface Call { path: string, method: string, body?: unknown, query?: unknown }
 
@@ -35,18 +35,6 @@ function fakeDeps(responses: Array<unknown | Error> = []) {
   const deps: ActionDeps = { api, t, toast }
   return { deps, calls, toast, t }
 }
-
-describe('isSaveResponse', () => {
-  it('accepts only the strict document/delivery pair', () => {
-    expect(isSaveResponse({ document: { id: 'a' }, delivery: [] })).toBe(true)
-    expect(isSaveResponse({ document: { id: 'a' } })).toBe(false)
-    expect(isSaveResponse({ delivery: [] })).toBe(false)
-    expect(isSaveResponse({ document: null, delivery: [] })).toBe(false)
-    expect(isSaveResponse({ document: { id: 'a' }, delivery: 'no' })).toBe(false)
-    expect(isSaveResponse([{ document: {}, delivery: [] }])).toBe(false)
-    expect(isSaveResponse(null)).toBe(false)
-  })
-})
 
 describe('api.request', () => {
   it('hands the response to onSuccess', async () => {

@@ -49,7 +49,9 @@ export const uiStepNames = [
   'user.active',
   'user.password',
   'user.delete',
-  'delivery.remember',
+  'delivery.refresh',
+  'delivery.toast',
+  'delivery.deleteToast',
 ] as const
 
 export type UiStepName = typeof uiStepNames[number]

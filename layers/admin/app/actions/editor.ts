@@ -1,18 +1,23 @@
+import type { EventRelayStatus } from '#kestrel-admin/types/api'
 import type { SerializedField } from '#kestrel-admin/types/kestrel'
 import { defineAction, type ActionStep } from '#kestrel-core/app/utils/actions'
 import { previewDeleteAction } from './shared'
 import { translationSourceValues } from '../utils/translation-copy'
 import { apiEach, apiRequest, apiWrite } from './steps/api'
-import { deliveryRemember } from './steps/delivery'
+import { deliveryRefresh, deliveryToast } from './steps/delivery'
 import { formMapErrors, formOutcome, formRebaseline, formReset, formRevealError, formSaving, formSetStatus, formValidate } from './steps/form'
 import { dialogConfirm, guardAnySucceeded, guardBypass, guardStatus, guardTab, guardUnsaved } from './steps/guard'
+import { defineUiStep } from './define'
 import { opsBusy, toastError, toastSuccess } from './steps/notify'
 import { routeNavigate } from './steps/route'
 import type { BusyPort, ConfirmPort, EachReport, EditFormPort, NavigatePort, QueryValue, SaveOutcome, Translate, WithDeps } from './types'
 
 export type { SaveOutcome } from './types'
 
-export interface SaveInput extends WithDeps { form: EditFormPort }
+/** Whether the eventsQueue feature is on, so a delivery-failure toast can name the right retry route. */
+export interface DeliveryModeInput { eventsQueue?: boolean }
+
+export interface SaveInput extends WithDeps, DeliveryModeInput { form: EditFormPort }
 export interface SetStatusInput extends SaveInput { status: string }
 
 export interface DiscardInput {
@@ -28,10 +33,11 @@ export interface LeaveInput {
   to: string
 }
 
-export interface DeleteRecordInput extends WithDeps {
+export interface DeleteRecordInput extends WithDeps, DeliveryModeInput {
   collection: string
   ids: readonly string[]
   confirmed: boolean
+  pageLike?: boolean
   ops: BusyPort
   navigate: NavigatePort
   bypassGuard: () => void
@@ -72,7 +78,8 @@ function saveSteps<I extends SaveInput>(): ActionStep<I, SaveOutcome>[] {
     formValidate<I>(),
     formSaving<I, SaveOutcome>(true),
     apiWrite<I>(),
-    deliveryRemember<I>(),
+    deliveryRefresh<I>(),
+    deliveryToast<I>(),
     formRebaseline<I>(),
     formMapErrors<I>(),
     formOutcome<I>(),
@@ -123,12 +130,35 @@ export const leaveEditor = defineAction<LeaveInput, undefined>({
 
 export const previewDeleteRecord = previewDeleteAction('previewDeleteRecord')
 
-export const deleteRecord = defineAction<DeleteRecordInput, EachReport<unknown>>({
+interface DeleteResponse { _events?: EventRelayStatus }
+
+type DeleteReport = EachReport<DeleteResponse>
+
+function worstDeliveryStatus(report: DeleteReport): EventRelayStatus['status'] | undefined {
+  const statuses = report.results
+    .filter((item) => item.ok)
+    .map((item) => item.value?._events?.status)
+    .filter((status): status is EventRelayStatus['status'] => status !== undefined)
+  if (statuses.includes('error')) return 'error'
+  if (statuses.includes('pending')) return 'pending'
+  return statuses[0]
+}
+
+function deleteDeliveryToast<I extends WithDeps & DeliveryModeInput & { pageLike?: boolean }>(): ActionStep<I, DeleteReport> {
+  return defineUiStep<I, DeleteReport>('delivery.deleteToast', (ctx) => {
+    if (!ctx.input.pageLike || ctx.result === undefined || worstDeliveryStatus(ctx.result) !== 'error') return
+    const { t, toast } = ctx.input.deps
+    const suffixKey = ctx.input.eventsQueue ? 'editorStatus.delivery.retryQueue' : 'editorStatus.delivery.retryDelivery'
+    toast.error(`${t('editorStatus.delivery.deleteFailed')}${t(suffixKey)}`)
+  })
+}
+
+export const deleteRecord = defineAction<DeleteRecordInput, DeleteReport>({
   name: 'deleteRecord',
   steps: [
-    dialogConfirm<DeleteRecordInput, EachReport<unknown>>((ctx) => ctx.input.confirmed),
-    opsBusy<DeleteRecordInput, EachReport<unknown>>(true),
-    apiEach<DeleteRecordInput, EachReport<unknown>>('api.each', {
+    dialogConfirm<DeleteRecordInput, DeleteReport>((ctx) => ctx.input.confirmed),
+    opsBusy<DeleteRecordInput, DeleteReport>(true),
+    apiEach<DeleteRecordInput, DeleteReport, DeleteResponse>('api.each', {
       items: (ctx) => ctx.input.ids,
       call: (ctx, id) => ({ path: `/${ctx.input.collection}/${id}`, method: 'DELETE' }),
       policy: 'continue',
@@ -139,12 +169,13 @@ export const deleteRecord = defineAction<DeleteRecordInput, EachReport<unknown>>
         ctx.result = report
       },
     }),
+    deleteDeliveryToast<DeleteRecordInput>(),
     guardAnySucceeded<DeleteRecordInput>(),
-    guardBypass<DeleteRecordInput, EachReport<unknown>>(),
-    routeNavigate<DeleteRecordInput, EachReport<unknown>>((ctx) => ({ kind: 'path', to: ctx.input.to })),
-    toastSuccess<DeleteRecordInput, EachReport<unknown>>(() => ({ key: 'toast.deleted' })),
+    guardBypass<DeleteRecordInput, DeleteReport>(),
+    routeNavigate<DeleteRecordInput, DeleteReport>((ctx) => ({ kind: 'path', to: ctx.input.to })),
+    toastSuccess<DeleteRecordInput, DeleteReport>(() => ({ key: 'toast.deleted' })),
   ],
-  always: [opsBusy<DeleteRecordInput, EachReport<unknown>>(false)],
+  always: [opsBusy<DeleteRecordInput, DeleteReport>(false)],
 })
 
 export const deleteTranslation = defineAction<DeleteTranslationInput, undefined>({

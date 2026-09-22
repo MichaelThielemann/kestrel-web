@@ -148,15 +148,13 @@ export type DeliveryState = PublishStatusEntry['state']
 
 export type DeliveryEntry = Omit<PublishStatusEntry, 'updatedAt'>
 
-export interface SaveResponse<T> { document: T; delivery: DeliveryEntry[] }
+export type EventRelayStatus = ResponseOf<'createPage', 200>['_events']
 
 export interface RevisionDetail extends Revision {
   restore?: RestoreReport
 }
 
-export interface RevisionRestoreResponse extends SaveResponse<Document> {
-  restore?: RestoreReport
-}
+export type RevisionRestoreResponse = Document & { restore?: RestoreReport; _events?: EventRelayStatus }
 
 export interface PublishAllReport {
   documents: number
@@ -317,7 +315,7 @@ export interface EventsQueueStatus {
   worker: { running: boolean; lastTickAt: number | null }
 }
 
-export interface DeadEvent { id: string; name: string; pipeline: string; attempts: number; error: string; createdAt: number; availableAt: number }
+export interface DeadEvent { id: string; name: string; pipeline: string; runId: string; attempts: number; error: string; createdAt: number; availableAt: number }
 export interface DeadEventsResponse { items: DeadEvent[] }
 export interface EventsRetryResult { retried: number }
 

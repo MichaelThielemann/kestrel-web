@@ -76,7 +76,7 @@ describe('CollectionEditor', () => {
       method: 'PATCH',
       handler: async (event) => {
         receivedBody = boundaryCast<Record<string, unknown>>(await readBody(event), 'json')
-        return { document: { ...baseRecord(), ...receivedBody }, delivery: [] }
+        return { ...baseRecord(), ...receivedBody }
       },
     }))
 
@@ -133,7 +133,7 @@ describe('CollectionEditor', () => {
       method: 'PUT',
       handler: async (event) => {
         receivedBody = boundaryCast<Record<string, unknown>>(await readBody(event), 'json')
-        return { document: { ...receivedBody, id: 'redirects' }, delivery: [] }
+        return { ...receivedBody, id: 'redirects' }
       },
     }))
 
@@ -155,7 +155,7 @@ describe('CollectionEditor', () => {
       method: 'PATCH',
       handler: () => {
         writes += 1
-        return { document: baseRecord(), delivery: [] }
+        return baseRecord()
       },
     }))
 

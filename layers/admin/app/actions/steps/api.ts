@@ -1,5 +1,4 @@
-import type { Document, ReferenceTo, SaveResponse } from '#kestrel-admin/types/api'
-import { boundaryCast } from '#kestrel/cast'
+import type { Document, EventRelayStatus, ReferenceTo } from '#kestrel-admin/types/api'
 import type { ActionContext, ActionStep } from '#kestrel-core/app/utils/actions'
 import { apiErrorCode, apiErrorDetails, apiErrorMessage, apiErrorRetryable, apiErrorRunId, apiErrorStatus, apiErrorStep } from '../../composables/useApi'
 import { defineUiStep } from '../define'
@@ -7,13 +6,7 @@ import { saveOutcome } from './form'
 import type { UiStepName } from '../step-names'
 import type { ApiCall, ApiFailure, EachItemResult, EachReport, EditFormPort, PrecheckReport, SaveOutcome, WithDeps } from '../types'
 
-export function isSaveResponse(value: unknown): value is SaveResponse<Document> {
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false
-  const record = boundaryCast<Record<string, unknown>>(value, 'json')
-  return 'document' in record && 'delivery' in record
-    && record.document !== null && typeof record.document === 'object'
-    && Array.isArray(record.delivery)
-}
+type WriteResponse = Document & { _events?: EventRelayStatus }
 
 export function apiWrite<I extends WithDeps & { form: EditFormPort }>(): ActionStep<I, SaveOutcome> {
   return defineUiStep<I, SaveOutcome>('api.write', async (ctx) => {
@@ -26,13 +19,9 @@ export function apiWrite<I extends WithDeps & { form: EditFormPort }>(): ActionS
     const body = single || create ? form.bodyFor(form.fieldKeys()) : form.bodyFor(form.dirtyKeys())
 
     try {
-      const res = await deps.api<SaveResponse<Document> | Document>(path, { method, body })
-      if (isSaveResponse(res)) {
-        out.record = res.document
-        out.delivery = res.delivery
-        return
-      }
+      const res = await deps.api<WriteResponse>(path, { method, body })
       out.record = res
+      out.events = res._events ?? null
     } catch (e) {
       out.failure = {
         status: apiErrorStatus(e),

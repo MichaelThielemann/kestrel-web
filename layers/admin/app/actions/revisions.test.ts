@@ -71,7 +71,7 @@ describe('readRevision', () => {
 
 describe('restoreRevision', () => {
   it('posts the restore, reloads the editor and reports it', async () => {
-    const { deps, calls, toast } = fakeDeps([{ document: { id: 'p1' }, delivery: [] }])
+    const { deps, calls, toast } = fakeDeps([{ id: 'p1' }])
     const { ops } = fakeOps()
     const refresh = vi.fn()
     const result = await runAction(restoreRevision, { deps, ...scope, revisionId: 'r1', confirmed: true, fieldLabels: LABELS, ops, refresh })
@@ -84,7 +84,7 @@ describe('restoreRevision', () => {
 
   it('names the fields the current model no longer has in the success message', async () => {
     const restore = { revisionId: 'r1', dropped: ['teaser', 'byline'], missing: [] }
-    const { deps, toast } = fakeDeps([{ document: { id: 'p1' }, delivery: [], restore }])
+    const { deps, toast } = fakeDeps([{ id: 'p1', restore }])
     const { ops } = fakeOps()
     const result = await runAction(restoreRevision, { deps, ...scope, revisionId: 'r1', confirmed: true, fieldLabels: LABELS, ops, refresh: vi.fn() })
 

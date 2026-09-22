@@ -388,20 +388,21 @@ export function useEditForm(opts: UseEditFormOptions) {
       setDelivery: (entries) => {
         delivery.value = entries
       },
+      loadDelivery,
       revealError,
     }
   }
 
   async function submit(): Promise<SubmitResult> {
     const d = deps()
-    const result = await runAction(saveRecord, { deps: d, form: port() })
+    const result = await runAction(saveRecord, { deps: d, form: port(), eventsQueue: useFeatures().has('eventsQueue') })
     toastUnexpected(d, result)
     return toSubmitResult(result)
   }
 
   async function setStatus(next: string): Promise<SubmitResult> {
     const d = deps()
-    const result = await runAction(setStatusAction, { deps: d, form: port(), status: next })
+    const result = await runAction(setStatusAction, { deps: d, form: port(), status: next, eventsQueue: useFeatures().has('eventsQueue') })
     toastUnexpected(d, result)
     return toSubmitResult(result)
   }
