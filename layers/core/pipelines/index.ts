@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { definePipeline as defineRawPipeline, pipelineDefiner, isAtomicGroup  } from "@michaelthielemann/kestrel/definePipeline";
+import { definePipeline as defineRawPipeline, pipelineDefiner, isAtomicGroup, pipelineSteps } from "@michaelthielemann/kestrel/definePipeline";
 import type { PipelineDefinition } from "@michaelthielemann/kestrel/definePipeline";
 import type { TriggerConfig } from "@michaelthielemann/kestrel/defineConfig";
 import type { PresetStep } from "../module-registry";
@@ -227,12 +227,14 @@ export function definePreset<C extends Record<string, CollectionModel> = Record<
   pipelines = folded;
 
   const groupedSignatures = new Map<string, GroupSignature>();
+  const relayedPipelines = new Set<string>();
   for (const [name, entries] of Object.entries(pipelines)) {
     for (const entry of entries) {
       if (!isAtomicGroup(entry)) continue;
       const signature = groupSignatureOf(entry);
       if (signature !== undefined) groupedSignatures.set(name, signature);
     }
+    if (pipelineSteps(entries).includes("events.relay")) relayedPipelines.add(name);
   }
 
   if (enabledFeatures.has("redirects")) {
@@ -310,6 +312,16 @@ export function definePreset<C extends Record<string, CollectionModel> = Record<
     if (!stillGrouped) {
       throw new Error(
         `preset: override for "${name}" drops the atomic group around "${signature.step}" – wrap the write steps in { atomic: [...] } or exclude the pipeline`,
+      );
+    }
+  }
+
+  for (const name of relayedPipelines) {
+    const entries = pipelines[name];
+    if (entries === undefined) continue;
+    if (!pipelineSteps(entries).includes("events.relay")) {
+      throw new Error(
+        `preset: override for "${name}" drops "events.relay" – append it after the pipeline's events.emit: step, or exclude the pipeline and define your own`,
       );
     }
   }

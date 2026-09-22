@@ -63,7 +63,7 @@ describe("definePreset option handling", () => {
       modules: baseModules,
       features: [],
       overrides: {
-        deletePage: ["authn.requireUser", "authz.require:pages.delete", { atomic: ["content.remove:pages"] }, "events.emit:page.deleted"],
+        deletePage: ["authn.requireUser", "authz.require:pages.delete", { atomic: ["content.remove:pages"] }, "events.emit:page.deleted", "events.relay"],
       },
     });
     const deletePage = preset.pipelines.find((pipeline) => pipeline.name === "deletePage");
@@ -72,6 +72,7 @@ describe("definePreset option handling", () => {
       "authz.require:pages.delete",
       { atomic: ["content.remove:pages"] },
       "events.emit:page.deleted",
+      "events.relay",
     ]);
   });
 
@@ -90,7 +91,7 @@ describe("definePreset option handling", () => {
       modules: baseModules,
       features: [],
       overrides: {
-        deletePage: ["authn.requireUser", "authz.require:pages.delete", { atomic: ["content.remove:pages"] }, "events.emit:page.deleted"],
+        deletePage: ["authn.requireUser", "authz.require:pages.delete", { atomic: ["content.remove:pages"] }, "events.emit:page.deleted", "events.relay"],
       },
     });
     expect(preset.pipelines.find((pipeline) => pipeline.name === "deletePage")?.steps).toContainEqual({ atomic: ["content.remove:pages"] });
@@ -101,10 +102,33 @@ describe("definePreset option handling", () => {
       modules: baseModules,
       features: [],
       overrides: {
-        createPage: ["authn.requireUser", "authz.require:pages.write", { atomic: ["content.set:pages"] }, "events.emit:page.created"],
+        createPage: ["authn.requireUser", "authz.require:pages.write", { atomic: ["content.set:pages"] }, "events.emit:page.created", "events.relay"],
       },
     });
     expect(preset.pipelines.find((pipeline) => pipeline.name === "createPage")?.steps).toContainEqual({ atomic: ["content.set:pages"] });
+  });
+
+  it("rejects an override that keeps the emit but drops events.relay", () => {
+    expect(() =>
+      definePreset({
+        modules: baseModules,
+        features: [],
+        overrides: {
+          deletePage: ["authn.requireUser", "authz.require:pages.delete", { atomic: ["content.remove:pages"] }, "events.emit:page.deleted"],
+        },
+      }),
+    ).toThrow(/"deletePage".*"events\.relay"/s);
+  });
+
+  it("accepts an override that keeps events.relay after the emit", () => {
+    const preset = definePreset({
+      modules: baseModules,
+      features: [],
+      overrides: {
+        deletePage: ["authn.requireUser", "authz.require:pages.delete", { atomic: ["content.remove:pages"] }, "events.emit:page.deleted", "events.relay"],
+      },
+    });
+    expect(preset.pipelines.find((pipeline) => pipeline.name === "deletePage")?.steps).toContainEqual("events.relay");
   });
 
   it("rejects an override that drops the deleteUser group once eventsQueue gives it one", () => {
@@ -124,7 +148,7 @@ describe("definePreset option handling", () => {
       modules,
       features: ["eventsQueue", "revisions"],
       overrides: {
-        deleteUser: ["authn.requireUser", "authz.require:users.manage", { atomic: ["authn.deleteUser", "events.emit:user.deleted?with=result"] }],
+        deleteUser: ["authn.requireUser", "authz.require:users.manage", { atomic: ["authn.deleteUser", "events.emit:user.deleted?with=result"] }, "events.relay"],
       },
     });
     expect(preset.pipelines.find((pipeline) => pipeline.name === "deleteUser")?.steps).toContainEqual({
