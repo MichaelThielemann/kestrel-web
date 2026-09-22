@@ -1,9 +1,9 @@
 import type { Kestrel } from "@michaelthielemann/kestrel";
-import { PERSISTENCE } from "@michaelthielemann/kestrel-contracts/persistence";
 import modules from "#kestrel/consumer-modules";
 import config from "~~/kestrel.config";
 import { getKestrel, getKestrelState } from "../plugins/kestrel";
 import { moduleConfigForStep } from "../utils/modules";
+import { probePersistence } from "../utils/readiness";
 
 const CONTENT_CREATE_STEP = "content.create";
 const started = Date.now();
@@ -25,11 +25,10 @@ export default defineEventHandler(async (event) => {
   const kestrel = await getKestrel();
   const collection = probeCollection(kestrel);
   if (collection !== undefined) {
-    try {
-      await kestrel.contracts.find(PERSISTENCE)?.count(collection, {});
-    } catch (err) {
+    const probe = await probePersistence(kestrel, collection);
+    if (!probe.ready) {
       setResponseStatus(event, 503);
-      return { ready: false, state: "degraded", error: `persistence unreachable: ${err instanceof Error ? err.message : String(err)}`, code: "degraded" };
+      return probe;
     }
   }
 

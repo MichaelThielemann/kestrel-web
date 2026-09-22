@@ -1,10 +1,12 @@
+import { pipelineSteps } from "@michaelthielemann/kestrel/definePipeline";
+import type { PipelineEntry } from "@michaelthielemann/kestrel/definePipeline";
 import { isGenericCollection, publicCollectionSteps } from "../../pipelines/collections";
 import type { CollectionModel } from "../../pipelines/collections";
 import type { WorkflowUi } from "../../collections-ui/workflow";
 
 export interface PipelineShape {
   name: string;
-  steps: readonly string[];
+  steps: readonly PipelineEntry<string>[];
 }
 
 export interface StatusFilterProblem {
@@ -33,7 +35,7 @@ export function statusFilterProblems(
   collectionsUi: Record<string, WorkflowUi>,
   pipelines: readonly PipelineShape[],
 ): StatusFilterProblem[] {
-  const byName = new Map(pipelines.map((pipeline) => [pipeline.name, pipeline.steps]));
+  const byName = new Map(pipelines.map((pipeline) => [pipeline.name, pipelineSteps(pipeline.steps)]));
   const problems: StatusFilterProblem[] = [];
   for (const [name, model] of Object.entries(collections)) {
     if (!isGenericCollection(name) || model.kind !== "multi") continue;
