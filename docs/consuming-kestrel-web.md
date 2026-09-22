@@ -162,7 +162,7 @@ Two files have to agree on the name:
    - `layout` (`{ type: "text" }`, never `localized`) picks the `app/layouts/*.vue` a page-like record
      renders in — editor-owned like `seo`, see **Layouts** below.
    - No field name may start with `_`: that namespace is reserved for members the system merges onto a
-     document after your model is applied — `_locales`, `_translations`, and, on a page, `_delivery` from
+     document after your model is applied — `_locale`, `_links`, `_translations`, and, on a page, `_delivery` from
      `delivery.publish` and `_events` from `events.relay`. `content/default` refuses such a field at boot,
      naming the type and the field.
 2. `shared/collections-ui.ts` (§3.5) — label, icon, editor, field labels/overrides, `placement`. Without
@@ -656,8 +656,10 @@ and attach/remove/removeMany/export steps in `getMedia`, `listMedia`, `deleteMed
 `createPage`, `updatePage`, `deletePage`, `deletePageTranslation` and `restorePageRevision` only emit
 the event; the `delivery` feature's own event pipelines pick it up and publish or unpublish the page.
 Every preset pipeline that ends in an `events.emit:` step — a write pipeline as much as `login` or
-`uploadMedia` — additionally ends in `events.relay`, which delivers this request's events before the
-response and adds `_events: { status, pipelines[] }` to the result: `status` is `"done"`, `"error"` or
+`uploadMedia` — additionally runs `events.relay` right after it, not necessarily as the pipeline's very
+last step (`restorePageRevision` still ends `…, revisions.reportRestore` after the relay). The relay
+delivers this request's events before the response and adds `_events: { status, pipelines[] }` to the
+result: `status` is `"done"`, `"error"` or
 `"pending"`, and each entry names the event, the pipeline, its attempts, whether it is dead-lettered and
 its error. A delivery failure therefore never fails the write request — the response is still 200, and
 `_events.status` says so. `GET /admin/publish-status/pages/:id` remains the authoritative per-locale

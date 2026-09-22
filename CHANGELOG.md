@@ -89,8 +89,10 @@
   the page was actually published.
 
   **The page is still published before the response, in both delivery modes.** Every preset pipeline
-  that ends in an `events.emit:` step now ends in `events.relay`, which reports — and, with
-  `kestrel-events-queue`, performs — that run's delivery. The response of a page write is the saved
+  that ends in an `events.emit:` step now additionally runs `events.relay` right after it — not
+  necessarily as the pipeline's very last step; `restorePageRevision` still ends `…, revisions.reportRestore`
+  after the relay, since that step reads the group's result outside the group — which reports, and with
+  `kestrel-events-queue` performs, that run's delivery. The response of a page write is the saved
   document plus `_events: { status: "done" | "error" | "pending", pipelines: [{ event, pipeline,
   status, attempts, dead, error }] }`; it used to be `{ document, delivery, llms }`. `DELETE` answers
   `{ _events }`. Read the publish status per locale from `GET /admin/publish-status/pages/:id` as
@@ -106,7 +108,8 @@
   the previous behaviour, in which every subscriber runs in the worker.
 
   **A content field name must not start with `_`.** That namespace belongs to the members the system
-  merges onto a document — `_locales` and `_translations` already, `_delivery` and `_events` now. A
+  merges onto a document — `_locale`, `_links` and `_translations` already, `_delivery` and `_events`
+  now. A
   model with such a field fails at boot, naming the type and the field.
 
   If you deliver a second collection yourself, add the two pipelines and their triggers the same way;
