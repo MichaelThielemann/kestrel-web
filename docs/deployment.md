@@ -224,6 +224,11 @@ routing at `/api/ready`: `/api/health` deliberately keeps answering while the ba
 bad config does not become a restart loop. Outside `nuxt dev` a boot failure additionally ends the
 process with exit code 1.
 
+`degraded` also covers a database that answers every call with a failure rather than refusing the
+connection outright — the state a store enters after an atomic group's rollback itself failed to
+complete. That store cannot prove what it holds, so `/api/ready` reports `degraded` and 503 instead of
+`ready: true`, and the process needs a restart, not a retry.
+
 ## 9. Backups
 
 - **Replication.** The `replication` feature adds `@michaelthielemann/kestrel-replication-sqlite`, a

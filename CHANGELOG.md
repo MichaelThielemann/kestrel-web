@@ -41,6 +41,33 @@
 - `DeadEvent` (the dead-letter list item type) gains a required `pipeline` field, naming the pipeline a
   dead-letter row belongs to; a row stored before this change reports `pipeline: ""`.
 
+- **A preset write pipeline now has an atomic group.** `createPage`, `updatePage`, `deletePage` and
+  their equivalents for every collection wrap the reference check, the content write, the revision and
+  the reference/link index in `{ atomic: [...] }`: either all of them are stored or none is, closing the
+  window where a step after a failed write left the database with a stored document but no revision, no
+  reference index and no link index. `overrides` takes the same shape (`readonly PresetEntry[]`, a step
+  name or `{ atomic: [...] }`) and an override that drops the group around the pipeline's `content.*`
+  write is rejected when the preset composes, naming the pipeline — wrap the write steps in
+  `{ atomic: [...] }` or `exclude` the pipeline and define your own. `PresetEntry`, `ATOMIC_END` and
+  `foldTrailingEmit` are exported from `#kestrel/pipelines` for a consumer composing entries by hand;
+  `PresetOptions["overrides"]`, `FeatureModule["pipelines"]` and the collection/base pipeline builders
+  change shape accordingly. With the `eventsQueue` feature, a pipeline's trailing `events.emit:` step
+  joins the end of its group instead of running after it (`deleteUser` gets a group only in this mode,
+  for its `user.deleted` subscribers); every other single-write pipeline keeps no group in both delivery
+  modes, since none has a shipped event subscriber whose loss needs undoing.
+
+  The golden fixtures (`playground.json`, `synthetic.json`, `without-images.json`) reflect the new
+  nesting; a fourth fixture, `queued-events.json`, pins the `eventsQueue` variant.
+
+  `layers/core/server/api/ready.get.ts` now reports `{ ready: false, state: "degraded" }` (503) when the
+  persistence probe resolves to an `Err`, not only when it throws — a database left unusable after a
+  failed atomic-scope rollback answers every call with a resolved `Err`, which the previous `try`/`catch`
+  never saw.
+
+  `layers/admin`'s insights step chips render a pipeline's atomic group as one bracketed unit, and
+  `InsightsModule`/`InsightsPipelineStep` (`layers/core/app/types/api.ts`) gain `atomicScope` and
+  `atomic` to carry it.
+
 ### Changed
 
 - `layers/core/app/types/api.ts`: `MediaItem`, `ReplicationStatus` and `ReplicationSnapshotResult` are

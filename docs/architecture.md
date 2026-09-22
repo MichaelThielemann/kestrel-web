@@ -373,6 +373,44 @@ list order only matters for readability and for where a route logically belongs 
 `golden.test.ts` pins the pipeline and trigger lists that `definePreset` composes against frozen fixtures
 — a mismatch is a bug in the preset, not a fixture to update.
 
+### Atomic groups
+
+A generic collection's `create`/`update`/`delete`/`delete<Name>Translation` pipeline wraps its
+`content.*` write in `{ atomic: [...] }`: the runner commits every step of the group or none of it. The
+group starts as just the content write; `references`, `links` and `revisions` insert their own steps
+into it by anchor the same way they patch any other step, and `delivery` anchors after the group instead
+of before its trailing emit — `delivery.*` renders and writes blobs, which must never hold the write
+lock. A pipeline's step list therefore nests one level in places: `PresetEntry` is a step name or
+`{ atomic: readonly PresetEntry[] }`, and `@michaelthielemann/kestrel/definePipeline`'s `pipelineSteps()`
+flattens it back to a plain list wherever only the order matters (golden fixtures, `status-filter.ts`,
+the admin's insights graph).
+
+`compose.ts`'s anchors work the same inside a group as outside it — an anchor that names a step inside
+the group inserts inside it — plus one reserved anchor, `ATOMIC_END`, meaning the group's own boundary:
+`{ at: "before", anchor: ATOMIC_END }` appends to the group, `{ at: "after", anchor: ATOMIC_END }` inserts
+right after it. A pipeline with no group, or with more than one, makes `ATOMIC_END` a compose-time error.
+
+With the `eventsQueue` feature, `definePreset` folds each pipeline once, after every feature patch and
+`derive()`: if a pipeline's last entry is its `events.emit:` step and it has exactly one atomic group,
+the emit moves to the end of that group, along with every atomic-safe step sitting between them (only
+`revisions.reportRestore`, for `restore<Name>Revision`) — `delivery.*` stays outside because it never
+declares `atomicSafe`. This is why `deleteUser` gets a group only with the queue enabled: the delete
+itself is already a single step, but the queue's write and the `user.deleted` event row now commit or
+roll back together for the two shipped subscribers (`anonymizeAuditUser`, `reassignRevisionAuthor`).
+Every other single-write pipeline (`createUser`, `updateUser`, `setSettings`, `uploadMedia`, …) keeps no
+group in both delivery modes: none of them has a shipped event subscriber whose loss would need
+undoing, and a consumer who adds one overrides that pipeline with its own group.
+
+An `overrides` entry for a pipeline that had a group is rejected at compose time if it drops the group
+around the `content.*` write — a flat replacement loses atomicity silently otherwise. The override may
+reorder or extend the group, or add unrelated steps around it; it may not remove it. A consumer who
+genuinely wants no transaction must `exclude` the pipeline and define it from scratch.
+
+Two pipelines are exempt on purpose: `replicationRestore` replaces the database file, which cannot be
+inside a transaction of that same database, and `deleteMediaFolder` has a check-then-act window between
+its reference guard and the blob removal that no database scope closes — closing it needs a different
+mechanism than grouping and is tracked separately.
+
 ## Content migrations
 A consumer that changes a block's props or a collection's field shape needs existing documents rewritten,
 not just new ones written correctly — the `Migration` type and the helpers (`defineMigration`, `mapBlocks`,

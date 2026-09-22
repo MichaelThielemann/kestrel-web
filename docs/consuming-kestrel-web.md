@@ -795,7 +795,30 @@ entirely — their pipelines and routes are hand-written in the preset.
   cycle with `kestrel.config.ts`.
 - `overrides` replaces the **fully composed** step list of a named preset pipeline — feature patches no
   longer apply to it, you own the whole list. Collection-derived names (`listNews`, `getProfile`, …)
-  work here too.
+  work here too. **A preset write pipeline has an atomic group**: `createPage`, `updatePage`,
+  `deletePage` and their equivalents for every collection wrap the reference check, the content write,
+  the revision and the reference/link index in `{ atomic: [...] }` — either all of them are stored or
+  none is. `overrides` accepts the same shape, so an override keeps the group:
+
+  ```ts
+  overrides: {
+    createPage: [
+      "authn.requireUser",
+      "authz.require:pages.write",
+      { atomic: ["references.check:pages", "content.create:pages", "revisions.record:pages", "references.index:pages", "links.extract:pages"] },
+      "delivery.publish:pages",
+      "events.emit:page.created",
+    ],
+  }
+  ```
+
+  An override of one of those pipelines that no longer wraps its `content.*` write is rejected when the
+  preset composes, naming the pipeline — a flat override must not silently lose atomicity. If you
+  deliberately want no transaction, `exclude` the pipeline and define your own. Steps inside a group must
+  declare `atomicSafe` in their `describe()`; every shipped step that belongs in one does, a step of your
+  own does not by default. `delivery.*` and, without the `eventsQueue` feature, `events.emit` are
+  deliberately outside the group: the database stays consistent, but the published artefact may lag, and
+  `publishAllPages` repairs it.
 - `exclude` removes a preset pipeline **and** its trigger(s) — same for collection-derived names.
 - `schedules` changes a cron pipeline's schedule.
 - `exportDir` — media/image export directory (default `<KESTREL_APP_ROOT>/data/export`; `KESTREL_APP_ROOT` is the app root in dev and the environment variable or process cwd of a production server).
@@ -822,6 +845,8 @@ stay checked alongside your addition.
   throws (use `presetSchemas({ features, collections })`, see §5, so this can't happen).
 - A module present in `modules` whose feature is **not** enabled → `console.warn`, not an error — you may
   use the module with pipelines of your own instead of the preset's.
+- An `overrides` entry that drops the atomic group of a preset write pipeline → throws, naming the
+  pipeline and the `content.*` step whose group it removed (see the `overrides` bullet above).
 
 ### Consumer-side prerequisites the preset cannot check
 
