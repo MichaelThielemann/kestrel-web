@@ -883,6 +883,8 @@ export const de: Record<CatalogKey, string> = {
   'insights.colResetAt': 'Zurückgesetzt am',
   'insights.optionalSuffix': '(optional)',
   'insights.eventHookBadge': 'Event-Hook',
+  'insights.atomicScopeBadge': 'Atomarer Scope',
+  'insights.pipelines.atomic': 'Atomare Gruppe: Alle Schritte werden gemeinsam übernommen oder keiner',
   'insights.configMissing': 'Fehlend (erforderlich): {names}',
   'insights.back': 'Zurück zu Insights',
   'insights.moduleNotFoundTitle': 'Modul nicht gefunden',

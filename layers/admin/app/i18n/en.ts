@@ -881,6 +881,8 @@ export const en = {
   'insights.colResetAt': 'Reset at',
   'insights.optionalSuffix': '(optional)',
   'insights.eventHookBadge': 'event hook',
+  'insights.atomicScopeBadge': 'atomic scope',
+  'insights.pipelines.atomic': 'Atomic group: every step commits together, or none does',
   'insights.configMissing': 'Missing required: {names}',
   'insights.back': 'Back to insights',
   'insights.moduleNotFoundTitle': 'Module not found',

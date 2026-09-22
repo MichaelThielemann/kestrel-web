@@ -44,6 +44,15 @@
   gap: var(--space-1);
 }
 
+#{$root} :where(.insights-chip-group) {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px var(--space-1);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
 #{$root} .insights-table td {
   vertical-align: middle;
 }

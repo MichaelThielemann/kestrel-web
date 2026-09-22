@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import type { InsightsManifest } from '#kestrel-admin/types/api'
+import type { InsightsManifest, InsightsPipelineStep  } from '#kestrel-admin/types/api'
 import { boundaryCast } from '#kestrel/cast'
 import manifest from './__fixtures__/insights-manifest.json'
-import { buildGraph } from './insights-graph'
+import { buildGraph, stepSegments } from './insights-graph'
 
 const typedManifest = boundaryCast<InsightsManifest>(manifest, 'json')
 
@@ -76,5 +76,32 @@ describe('buildGraph', () => {
     const { nodes, edges } = buildGraph(noCrons)
     expect(nodes.some((n) => n.id === 'trigger:cron')).toBe(false)
     expect(edges.some((e) => e.source === 'trigger:cron')).toBe(false)
+  })
+})
+
+function step(spec: string, atomic?: number): InsightsPipelineStep {
+  return { spec, name: spec, module: 'm', description: { summary: '', reads: [], writes: [] }, ...(atomic === undefined ? {} : { atomic }) }
+}
+
+describe('stepSegments', () => {
+  it('keeps a step with no atomic ordinal as its own segment', () => {
+    expect(stepSegments([step('a')])).toEqual([{ kind: 'step', step: step('a') }])
+  })
+
+  it('groups consecutive steps sharing the same ordinal into one segment', () => {
+    const segments = stepSegments([step('a'), step('b', 1), step('c', 1), step('d')])
+    expect(segments).toEqual([
+      { kind: 'step', step: step('a') },
+      { kind: 'group', steps: [step('b', 1), step('c', 1)] },
+      { kind: 'step', step: step('d') },
+    ])
+  })
+
+  it('starts a new group when the ordinal changes', () => {
+    const segments = stepSegments([step('a', 1), step('b', 2)])
+    expect(segments).toEqual([
+      { kind: 'group', steps: [step('a', 1)] },
+      { kind: 'group', steps: [step('b', 2)] },
+    ])
   })
 })

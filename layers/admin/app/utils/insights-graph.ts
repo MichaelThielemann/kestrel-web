@@ -1,4 +1,24 @@
-import type { InsightsManifest, InsightsModule } from '#kestrel-admin/types/api'
+import type { InsightsManifest, InsightsModule, InsightsPipelineStep } from '#kestrel-admin/types/api'
+
+export type StepSegment =
+  | { kind: 'step'; step: InsightsPipelineStep }
+  | { kind: 'group'; steps: InsightsPipelineStep[] }
+
+/** Groups consecutive steps that share the same `atomic` ordinal into one segment, for rendering a pipeline's atomic group as a bracket around its steps. */
+export function stepSegments(steps: InsightsPipelineStep[]): StepSegment[] {
+  const segments: StepSegment[] = []
+  for (const step of steps) {
+    const last = segments[segments.length - 1]
+    if (step.atomic !== undefined && last?.kind === 'group' && last.steps[0]?.atomic === step.atomic) {
+      last.steps.push(step)
+    } else if (step.atomic !== undefined) {
+      segments.push({ kind: 'group', steps: [step] })
+    } else {
+      segments.push({ kind: 'step', step })
+    }
+  }
+  return segments
+}
 
 export interface GraphNode {
   id: string

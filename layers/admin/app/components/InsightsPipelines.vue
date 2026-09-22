@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import type { InsightsManifest } from '#kestrel-admin/types/api'
+import type { InsightsManifest, InsightsPipelineStep } from '#kestrel-admin/types/api'
 import { formatMs, pipelineStatsByName, triggersOf } from '#kestrel-admin/utils/insights-format'
+import { stepSegments } from '#kestrel-admin/utils/insights-graph'
+import type { StepSegment } from '#kestrel-admin/utils/insights-graph'
 
 const props = defineProps<{ manifest: InsightsManifest }>()
 const { t } = useT()
@@ -17,6 +19,10 @@ const filtered = computed(() => {
   if (!q) return props.manifest.pipelines
   return props.manifest.pipelines.filter((p) => p.name.toLowerCase().includes(q))
 })
+
+function segmentsOf(steps: InsightsPipelineStep[]): StepSegment[] {
+  return stepSegments(steps)
+}
 </script>
 
 <template>
@@ -38,7 +44,12 @@ const filtered = computed(() => {
             <td>{{ p.name }}</td>
             <td class="insights-chip-cell">
               <div class="insights-chips">
-                <span v-for="s in p.steps" :key="s.spec" class="insights-chip" :title="s.module">{{ s.spec }}</span>
+                <template v-for="segment in segmentsOf(p.steps)" :key="segment.kind === 'group' ? `group-${segment.steps[0]!.spec}` : segment.step.spec">
+                  <span v-if="segment.kind === 'step'" class="insights-chip" :title="segment.step.module">{{ segment.step.spec }}</span>
+                  <span v-else class="insights-chip-group" :title="t('insights.pipelines.atomic')">
+                    <span v-for="s in segment.steps" :key="s.spec" class="insights-chip" :title="s.module">{{ s.spec }}</span>
+                  </span>
+                </template>
               </div>
             </td>
             <td class="insights-chip-cell">

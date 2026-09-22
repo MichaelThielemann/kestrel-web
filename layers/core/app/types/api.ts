@@ -245,6 +245,7 @@ export interface InsightsModule {
   config: { schema: JsonSchema; variables: InsightsConfigVariable[] }
   steps: string[]
   eventHook: boolean
+  atomicScope: boolean
 }
 
 export interface InsightsStep {
@@ -259,6 +260,8 @@ export interface InsightsPipelineStep {
   name: string
   module: string
   description: InsightsStepDescription
+  /** The 1-based ordinal of the atomic group this step belongs to; absent outside a group. */
+  atomic?: number
 }
 
 export interface InsightsPipeline { name: string; steps: InsightsPipelineStep[] }

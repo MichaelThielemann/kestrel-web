@@ -9,7 +9,7 @@ import InsightsConfig from './InsightsConfig.vue'
 const base = boundaryCast<InsightsManifest>(manifestFixture, 'json')
 
 function moduleWith(name: string, variables: InsightsModule['config']['variables']): InsightsModule {
-  return { name, use: name, version: null, provides: [], requires: [], optional: [], config: { schema: {}, variables }, steps: [], eventHook: false }
+  return { name, use: name, version: null, provides: [], requires: [], optional: [], config: { schema: {}, variables }, steps: [], eventHook: false, atomicScope: false }
 }
 
 const manifest: InsightsManifest = {

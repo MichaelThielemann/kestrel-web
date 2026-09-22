@@ -68,7 +68,7 @@ describe('moduleConfigSummary', () => {
     const missing: InsightsModule = {
       name: 'x', use: 'x', version: null, provides: [], requires: [], optional: [],
       config: { schema: {}, variables: [{ path: 'a', type: 'string', required: true, secret: false, set: false }] },
-      steps: [], eventHook: false,
+      steps: [], eventHook: false, atomicScope: false,
     }
     expect(moduleConfigSummary(missing)).toEqual({ set: 0, total: 1, missingRequired: ['a'] })
   })
@@ -77,7 +77,7 @@ describe('moduleConfigSummary', () => {
     const usingDefault: InsightsModule = {
       name: 'x', use: 'x', version: null, provides: [], requires: [], optional: [],
       config: { schema: {}, variables: [{ path: 'a', type: 'string', required: true, default: 'inherited', secret: false, set: false, status: 'default' }] },
-      steps: [], eventHook: false,
+      steps: [], eventHook: false, atomicScope: false,
     }
     expect(moduleConfigSummary(usingDefault)).toEqual({ set: 0, total: 1, missingRequired: [] })
   })
@@ -86,7 +86,7 @@ describe('moduleConfigSummary', () => {
     const staleSet: InsightsModule = {
       name: 'x', use: 'x', version: null, provides: [], requires: [], optional: [],
       config: { schema: {}, variables: [{ path: 'a', type: 'string', required: true, secret: false, set: true, status: 'missing' }] },
-      steps: [], eventHook: false,
+      steps: [], eventHook: false, atomicScope: false,
     }
     expect(moduleConfigSummary(staleSet).missingRequired).toEqual(['a'])
   })

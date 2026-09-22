@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { pipelinesUsingModule, stepsOfModule, triggersOf } from '#kestrel-admin/utils/insights-format'
+import { stepSegments } from '#kestrel-admin/utils/insights-graph'
+import type { InsightsPipelineStep } from '#kestrel-admin/types/api'
 
 definePageMeta({ layout: 'admin', middleware: 'admin-auth' })
 
@@ -13,6 +15,10 @@ const name = computed(() => [route.params.name].flat().join('/'))
 const module = computed(() => moduleByName.value.get(name.value) ?? null)
 const steps = computed(() => (manifest.value ? stepsOfModule(manifest.value, name.value) : []))
 const pipelines = computed(() => (manifest.value ? pipelinesUsingModule(manifest.value, name.value) : []))
+
+function segmentsOf(steps: InsightsPipelineStep[]) {
+  return stepSegments(steps)
+}
 </script>
 
 <template>
@@ -53,6 +59,7 @@ const pipelines = computed(() => (manifest.value ? pipelinesUsingModule(manifest
           <span v-for="c in module.optional" :key="c" class="insights-chip insights-chip--optional" :title="`${c} ${t('insights.optionalSuffix')}`">{{ c }}</span>
         </div>
         <span v-if="module.eventHook" class="insights-badge insights-badge--info">{{ t('insights.eventHookBadge') }}</span>
+        <span v-if="module.atomicScope" class="insights-badge insights-badge--info">{{ t('insights.atomicScopeBadge') }}</span>
       </header>
 
       <KestrelInsightsConfigVariables :variables="module.config.variables" />
@@ -77,13 +84,23 @@ const pipelines = computed(() => (manifest.value ? pipelinesUsingModule(manifest
                 <td>{{ p.name }}</td>
                 <td class="insights-chip-cell">
                   <div class="insights-chips">
-                    <span
-                      v-for="s in p.steps"
-                      :key="s.spec"
-                      class="insights-chip"
-                      :class="{ 'insights-chip--highlight': s.module === module.name }"
-                      :title="s.module"
-                    >{{ s.spec }}</span>
+                    <template v-for="segment in segmentsOf(p.steps)" :key="segment.kind === 'group' ? `group-${segment.steps[0]!.spec}` : segment.step.spec">
+                      <span
+                        v-if="segment.kind === 'step'"
+                        class="insights-chip"
+                        :class="{ 'insights-chip--highlight': segment.step.module === module.name }"
+                        :title="segment.step.module"
+                      >{{ segment.step.spec }}</span>
+                      <span v-else class="insights-chip-group" :title="t('insights.pipelines.atomic')">
+                        <span
+                          v-for="s in segment.steps"
+                          :key="s.spec"
+                          class="insights-chip"
+                          :class="{ 'insights-chip--highlight': s.module === module.name }"
+                          :title="s.module"
+                        >{{ s.spec }}</span>
+                      </span>
+                    </template>
                   </div>
                 </td>
                 <td class="insights-chip-cell">
