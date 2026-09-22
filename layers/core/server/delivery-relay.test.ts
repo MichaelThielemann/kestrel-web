@@ -116,7 +116,7 @@ describe("delivery is an event pipeline, delivered by events.relay", () => {
     });
   }
 
-  it("queue: a forced delivery.publish failure answers 200 with _events.status \"error\" naming publishPage, and stores the page, its revision and its index", async () => {
+  it("queue: a forced delivery.publish failure answers 200 with _events.status \"error\" naming publishPage, and stores the page and its revision (the reference index runs but stays empty, since this page has no reference fields)", async () => {
     const { kestrel, token } = await bootWithFailingPublish(true);
     try {
       const create = await createDraftPage(kestrel, token, "relay-queue-create");
@@ -149,7 +149,7 @@ describe("delivery is an event pipeline, delivered by events.relay", () => {
     }
   }, 20000);
 
-  it("retrying the dead-lettered delivery does not re-run the revision or the reference index", async () => {
+  it("retrying the dead-lettered delivery does not re-run the revision or the reference index (the row is marked dead directly here; the attempts/backoff timing that gets a row there is the backend's own concern, not this pipeline's)", async () => {
     const { kestrel, token } = await bootWithFailingPublish(true);
     try {
       const create = await createDraftPage(kestrel, token, "relay-queue-retry");
