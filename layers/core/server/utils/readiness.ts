@@ -1,6 +1,5 @@
 import type { Kestrel } from "@michaelthielemann/kestrel";
-import { isErr } from "@michaelthielemann/kestrel";
-import { PERSISTENCE } from "@michaelthielemann/kestrel-contracts/persistence";
+import type { InstanceHealth } from "@michaelthielemann/kestrel/defineModule";
 
 export interface ReadinessDegraded {
   ready: false;
@@ -13,20 +12,49 @@ export interface ReadinessOk {
   ready: true;
 }
 
-/**
- * Probes the persistence contract with a `count` on `collection`. Reports degraded both for a thrown
- * error (an unreachable store) and for a resolved `Err` (a store that answers every call with a failure,
- * as it does after a failed atomic-scope rollback) — a resolved `Err` never throws, so a caller awaiting
- * only a `try`/`catch` around this call would otherwise see a healthy instance.
- */
-export async function probePersistence(kestrel: Pick<Kestrel, "contracts">, collection: string): Promise<ReadinessOk | ReadinessDegraded> {
-  try {
-    const probe = await kestrel.contracts.find(PERSISTENCE)?.count(collection, {});
-    if (probe !== undefined && isErr(probe)) {
-      return { ready: false, state: "degraded", error: `persistence degraded: ${probe.error.code}: ${probe.error.message}`, code: "degraded" };
-    }
-    return { ready: true };
-  } catch (err) {
-    return { ready: false, state: "degraded", error: `persistence unreachable: ${err instanceof Error ? err.message : String(err)}`, code: "degraded" };
+type FailingModule = InstanceHealth["modules"][number] & { ok: false };
+
+function firstFailure(health: InstanceHealth): FailingModule | undefined {
+  for (const module of health.modules) {
+    if (!module.ok) return module;
   }
+  return undefined;
+}
+
+function firstRestartRequired(health: InstanceHealth): FailingModule | undefined {
+  for (const module of health.modules) {
+    if (!module.ok && module.restartRequired) return module;
+  }
+  return undefined;
+}
+
+/**
+ * Reports degraded from `kestrel.health()` rather than from a call outcome: a module's health hook is
+ * synchronous, does no I/O and never reports contention, so this never flaps under load the way probing
+ * a call would. Names the first unhealthy module and its reason.
+ */
+export function readinessFromHealth(kestrel: Pick<Kestrel, "health">): ReadinessOk | ReadinessDegraded {
+  const health = kestrel.health();
+  if (health.ok) return { ready: true };
+  const failing = firstFailure(health);
+  const error = failing === undefined ? "instance reports unhealthy" : `${failing.module}: ${failing.reason}`;
+  return { ready: false, state: "degraded", error, code: "degraded" };
+}
+
+export interface LivenessOk {
+  live: true;
+}
+
+export interface LivenessRestartRequired {
+  live: false;
+  error: string;
+}
+
+/** Reports `live: false` only when `kestrel.health()` says the process cannot recover on its own. */
+export function livenessFromHealth(kestrel: Pick<Kestrel, "health">): LivenessOk | LivenessRestartRequired {
+  const health = kestrel.health();
+  if (!health.restartRequired) return { live: true };
+  const failing = firstRestartRequired(health);
+  const error = failing === undefined ? "instance reports it needs a restart" : `${failing.module}: ${failing.reason}`;
+  return { live: false, error };
 }
