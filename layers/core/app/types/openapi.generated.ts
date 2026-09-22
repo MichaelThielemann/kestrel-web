@@ -387,7 +387,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Require a valid session → Requires permission pages.write → Put a pages revision's snapshot into the body, so the steps behind it save it like any other write and branch the history at that revision; fields the model has dropped since are left out → Validate payload field pages.body against its JSON Schema → Sanitize HTML at format:"html" positions of payload field pages.body → Validate payload field pages.body against its JSON Schema → Validate payload field pages.accent against its JSON Schema → Referenced ids of pages must exist → Update a pages → Record the saved pages document from the result as a revision; its parent is the head, or the revision a restore put on the context → Index the references of a pages document → Index external links of pages → Queue event "page.restored" for the subscribed handler pipelines; the worker delivers it after this run → Render and store published locales of a pages → Write llms.txt (and llms-full.txt when `llms.full` is set) from the live output of every delivered type (adds `llms: { entries, full }` to the result) → Add what the restore of this run left out to the result as `restore`; without a known content model the result stays as it is */
+        /** Require a valid session → Requires permission pages.write → Put a pages revision's snapshot into the body, so the steps behind it save it like any other write and branch the history at that revision; fields the model has dropped since are left out → Validate payload field pages.body against its JSON Schema → Sanitize HTML at format:"html" positions of payload field pages.body → Validate payload field pages.body against its JSON Schema → Validate payload field pages.accent against its JSON Schema → Referenced ids of pages must exist → Update a pages → Record the saved pages document from the result as a revision; its parent is the head, or the revision a restore put on the context → Index the references of a pages document → Index external links of pages → Queue event "page.restored" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) → Add what the restore of this run left out to the result as `restore`; without a known content model the result stays as it is */
         post: operations["restorePageRevision"];
         delete?: never;
         options?: never;
@@ -404,7 +404,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Require a valid session → Requires permission pages.manage → Re-render every pages → Write llms.txt (and llms-full.txt when `llms.full` is set) from the live output of every delivered type (adds `llms: { entries, full }` to the result) → Write redirects.json to the blobstore (adds `redirects: { rules, skipped }` to the result) */
+        /** Require a valid session → Requires permission pages.manage → Re-render every pages → Write llms.txt (and llms-full.txt when `llms.full` is set) from the live output of every delivered type (adds `_llms: { entries, full }` to the result) → Write redirects.json to the blobstore (adds `redirects: { rules, skipped }` to the result) */
         post: operations["publishAllPages"];
         delete?: never;
         options?: never;
@@ -642,7 +642,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Rate limit bucket login → Log in with credentials → Queue event "auth.loggedIn" for the subscribed handler pipelines; the worker delivers it after this run */
+        /** Rate limit bucket login → Log in with credentials → Queue event "auth.loggedIn" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
         post: operations["login"];
         delete?: never;
         options?: never;
@@ -659,7 +659,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Require a valid session → End the current session → Queue event "auth.loggedOut" for the subscribed handler pipelines; the worker delivers it after this run */
+        /** Require a valid session → End the current session → Queue event "auth.loggedOut" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
         post: operations["logout"];
         delete?: never;
         options?: never;
@@ -711,7 +711,7 @@ export interface paths {
         /** Identify the caller if a valid token is present → Requires permission media.read → List media, newest first → Add variants[] to a media item or list (result.id or result.items) */
         get: operations["listMedia"];
         put?: never;
-        /** Require a valid session → Requires permission media.write → Sanitize uploaded SVG files (scripts, handlers, external references removed) → Upload one or more files (multipart field `file`, repeatable). A single file returns the item; multiple files return per-file results. Idempotent: same folder, same filename and same bytes return the item that is already there, and the step then ends the pipeline itself (200), so no following step – notably events.emit:media.uploaded – runs for an upload that stored nothing → Queue event "media.uploaded" for the subscribed handler pipelines; the worker delivers it after this run */
+        /** Require a valid session → Requires permission media.write → Sanitize uploaded SVG files (scripts, handlers, external references removed) → Upload one or more files (multipart field `file`, repeatable). A single file returns the item; multiple files return per-file results. Idempotent: same folder, same filename and same bytes return the item that is already there, and the step then ends the pipeline itself (200), so no following step – notably events.emit:media.uploaded – runs for an upload that stored nothing → Queue event "media.uploaded" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
         post: operations["uploadMedia"];
         delete?: never;
         options?: never;
@@ -730,11 +730,11 @@ export interface paths {
         get: operations["getMedia"];
         put?: never;
         post?: never;
-        /** Require a valid session → Requires permission media.delete → Refuse deletion while media is referenced → Delete one media item's variants (blob + rows) → Delete file and metadata → Queue event "media.deleted" for the subscribed handler pipelines; the worker delivers it after this run */
+        /** Require a valid session → Requires permission media.delete → Refuse deletion while media is referenced → Delete one media item's variants (blob + rows) → Delete file and metadata → Queue event "media.deleted" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
         delete: operations["deleteMedia"];
         options?: never;
         head?: never;
-        /** Require a valid session → Requires permission media.write → Rename, move, set provenance or texts (alt/title/description per locale) → Queue event "media.updated" for the subscribed handler pipelines; the worker delivers it after this run */
+        /** Require a valid session → Requires permission media.write → Rename, move, set provenance or texts (alt/title/description per locale) → Queue event "media.updated" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
         patch: operations["updateMedia"];
         trace?: never;
     };
@@ -818,7 +818,7 @@ export interface paths {
         /** Identify the caller if a valid token is present → Requires permission pages.read → List pages */
         get: operations["listPages"];
         put?: never;
-        /** Require a valid session → Requires permission pages.write → Validate payload field pages.body against its JSON Schema → Sanitize HTML at format:"html" positions of payload field pages.body → Validate payload field pages.body against its JSON Schema → Validate payload field pages.accent against its JSON Schema → Referenced ids of pages must exist → Create a pages → Record the saved pages document from the result as a revision; its parent is the head, or the revision a restore put on the context → Index the references of a pages document → Index external links of pages → Queue event "page.created" for the subscribed handler pipelines; the worker delivers it after this run → Render and store published locales of a pages → Write llms.txt (and llms-full.txt when `llms.full` is set) from the live output of every delivered type (adds `llms: { entries, full }` to the result) */
+        /** Require a valid session → Requires permission pages.write → Validate payload field pages.body against its JSON Schema → Sanitize HTML at format:"html" positions of payload field pages.body → Validate payload field pages.body against its JSON Schema → Validate payload field pages.accent against its JSON Schema → Referenced ids of pages must exist → Create a pages → Record the saved pages document from the result as a revision; its parent is the head, or the revision a restore put on the context → Index the references of a pages document → Index external links of pages → Queue event "page.created" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
         post: operations["createPage"];
         delete?: never;
         options?: never;
@@ -837,11 +837,11 @@ export interface paths {
         get: operations["readPage"];
         put?: never;
         post?: never;
-        /** Require a valid session → Requires permission pages.delete → Refuse deletion while pages is referenced → Delete a pages → Drop every revision of a pages document, in every locale → Drop indexed references of a pages document → Drop indexed links of pages → Queue event "page.deleted" for the subscribed handler pipelines; the worker delivers it after this run → Remove rendered output of a pages → Write llms.txt (and llms-full.txt when `llms.full` is set) from the live output of every delivered type (adds `llms: { entries, full }` to the result) */
+        /** Require a valid session → Requires permission pages.delete → Refuse deletion while pages is referenced → Delete a pages → Drop every revision of a pages document, in every locale → Drop indexed references of a pages document → Drop indexed links of pages → Queue event "page.deleted" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
         delete: operations["deletePage"];
         options?: never;
         head?: never;
-        /** Require a valid session → Requires permission pages.write → Validate payload field pages.body against its JSON Schema → Sanitize HTML at format:"html" positions of payload field pages.body → Validate payload field pages.body against its JSON Schema → Validate payload field pages.accent against its JSON Schema → Referenced ids of pages must exist → Update a pages → Record the saved pages document from the result as a revision; its parent is the head, or the revision a restore put on the context → Index the references of a pages document → Index external links of pages → Queue event "page.updated" for the subscribed handler pipelines; the worker delivers it after this run → Render and store published locales of a pages → Write llms.txt (and llms-full.txt when `llms.full` is set) from the live output of every delivered type (adds `llms: { entries, full }` to the result) */
+        /** Require a valid session → Requires permission pages.write → Validate payload field pages.body against its JSON Schema → Sanitize HTML at format:"html" positions of payload field pages.body → Validate payload field pages.body against its JSON Schema → Validate payload field pages.accent against its JSON Schema → Referenced ids of pages must exist → Update a pages → Record the saved pages document from the result as a revision; its parent is the head, or the revision a restore put on the context → Index the references of a pages document → Index external links of pages → Queue event "page.updated" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
         patch: operations["updatePage"];
         trace?: never;
     };
@@ -855,7 +855,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Require a valid session → Requires permission pages.write → Remove one translation of a pages (locale from the route or ?locale=); the document stays in its other locales → Drop the revisions of one locale of a pages document → Index the references of a pages document → Index external links of pages → Queue event "page.translationRemoved" for the subscribed handler pipelines; the worker delivers it after this run → Render and store published locales of a pages → Write llms.txt (and llms-full.txt when `llms.full` is set) from the live output of every delivered type (adds `llms: { entries, full }` to the result) */
+        /** Require a valid session → Requires permission pages.write → Remove one translation of a pages (locale from the route or ?locale=); the document stays in its other locales → Drop the revisions of one locale of a pages document → Index the references of a pages document → Index external links of pages → Queue event "page.translationRemoved" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
         delete: operations["deletePageTranslation"];
         options?: never;
         head?: never;
@@ -906,7 +906,7 @@ export interface paths {
         };
         /** Identify the caller if a valid token is present → Requires permission settings.read → One settings document → Replace internal kestrel:<type>:<id> references in the settings document with public paths (_links map added) */
         get: operations["getSettings"];
-        /** Require a valid session → Requires permission settings.write → Validate payload field settings.navigation against its JSON Schema → Replace the settings document → Write llms.txt (and llms-full.txt when `llms.full` is set) from the live output of every delivered type (adds `llms: { entries, full }` to the result) */
+        /** Require a valid session → Requires permission settings.write → Validate payload field settings.navigation against its JSON Schema → Replace the settings document → Write llms.txt (and llms-full.txt when `llms.full` is set) from the live output of every delivered type (adds `_llms: { entries, full }` to the result) */
         put: operations["setSettings"];
         post?: never;
         delete?: never;
@@ -942,7 +942,7 @@ export interface paths {
         /** Require a valid session → Requires permission users.manage → List users */
         get: operations["listUsers"];
         put?: never;
-        /** Require a valid session → Requires permission users.manage → Create a user → Queue event "user.created" for the subscribed handler pipelines; the worker delivers it after this run */
+        /** Require a valid session → Requires permission users.manage → Create a user → Queue event "user.created" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
         post: operations["createUser"];
         delete?: never;
         options?: never;
@@ -961,11 +961,11 @@ export interface paths {
         get: operations["getUser"];
         put?: never;
         post?: never;
-        /** Require a valid session → Requires permission users.manage → Delete a user and their sessions for good; `reassignTo` names the active user their authored history moves to, without it the history is anonymised → Queue event "user.deleted?with=result" for the subscribed handler pipelines; the worker delivers it after this run */
+        /** Require a valid session → Requires permission users.manage → Delete a user and their sessions for good; `reassignTo` names the active user their authored history moves to, without it the history is anonymised → Queue event "user.deleted?with=result" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
         delete: operations["deleteUser"];
         options?: never;
         head?: never;
-        /** Require a valid session → Requires permission users.manage → Rename a user or set their roles (a role change ends their sessions) → Queue event "user.updated" for the subscribed handler pipelines; the worker delivers it after this run */
+        /** Require a valid session → Requires permission users.manage → Rename a user or set their roles (a role change ends their sessions) → Queue event "user.updated" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
         patch: operations["updateUser"];
         trace?: never;
     };
@@ -995,7 +995,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Require a valid session → Requires permission users.manage → Deactivate a user (ends their sessions) → Queue event "user.deactivated" for the subscribed handler pipelines; the worker delivers it after this run */
+        /** Require a valid session → Requires permission users.manage → Deactivate a user (ends their sessions) → Queue event "user.deactivated" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
         post: operations["deactivateUser"];
         delete?: never;
         options?: never;
@@ -1071,6 +1071,7 @@ export interface operations {
                             id: string;
                             name: string;
                             pipeline: string;
+                            runId: string;
                         }[];
                     };
                 };
@@ -3219,27 +3220,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        delivery: {
-                            docId: string;
-                            error?: string | null;
-                            locale: string;
-                            path?: string | null;
-                            publishedAt?: number | null;
+                        _events: {
+                            pipelines: {
+                                attempts: number;
+                                dead: boolean;
+                                error: string | null;
+                                event: string;
+                                pipeline: string;
+                                /** @enum {string} */
+                                status: "done" | "error" | "pending";
+                            }[];
                             /** @enum {string} */
-                            state: "live" | "error" | "draft";
-                            type: string;
-                            updatedAt: number;
-                        }[];
-                        document: Record<string, never>;
-                        llms: {
-                            entries: number;
-                            full: boolean;
+                            status: "done" | "error" | "pending";
                         };
+                        /** @description origin locale per field, only with fallback */
+                        _locales?: {
+                            [key: string]: string;
+                        };
+                        /** @description per locale: required localized fields present */
+                        _translations?: {
+                            [key: string]: boolean;
+                        };
+                        accent?: string | null;
+                        body?: unknown | null;
+                        createdAt: number;
+                        id: string;
+                        layout?: string | null;
                         restore?: {
                             dropped: string[];
                             missing: string[];
                             revisionId: string;
                         };
+                        seo?: unknown | null;
+                        shareImage?: string | null;
+                        slug?: string | null;
+                        status?: ("draft" | "finished" | "published") | null;
+                        title?: string | null;
+                        updatedAt: number;
                     };
                 };
             };
@@ -3326,13 +3343,13 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        documents: number;
-                        errors: number;
-                        live: number;
-                        llms: {
+                        _llms: {
                             entries: number;
                             full: boolean;
                         };
+                        documents: number;
+                        errors: number;
+                        live: number;
                         redirects: {
                             rules: number;
                             skipped: string[];
@@ -4392,6 +4409,19 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        _events: {
+                            pipelines: {
+                                attempts: number;
+                                dead: boolean;
+                                error: string | null;
+                                event: string;
+                                pipeline: string;
+                                /** @enum {string} */
+                                status: "done" | "error" | "pending";
+                            }[];
+                            /** @enum {string} */
+                            status: "done" | "error" | "pending";
+                        };
                         identity: {
                             claims: {
                                 [key: string]: unknown;
@@ -4469,6 +4499,19 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        _events: {
+                            pipelines: {
+                                attempts: number;
+                                dead: boolean;
+                                error: string | null;
+                                event: string;
+                                pipeline: string;
+                                /** @enum {string} */
+                                status: "done" | "error" | "pending";
+                            }[];
+                            /** @enum {string} */
+                            status: "done" | "error" | "pending";
+                        };
                         ok: boolean;
                     };
                 };
@@ -4778,73 +4821,19 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        alt: string | null;
-                        /** @description sha256 of the uploaded bytes, hex; null for items uploaded before checksums were recorded */
-                        checksum: string | null;
-                        contentType: string;
-                        createdAt: number;
-                        description: string | null;
-                        filename: string;
-                        folder: string;
-                        height: number | null;
-                        id: string;
-                        key: string;
-                        /** @description who made the file; anything but human is flagged on download (X-Content-Provenance); an upload without provenance is recorded as unknown */
-                        provenance: {
-                            at?: number;
-                            model?: string;
-                            /** @enum {string} */
-                            origin: "human" | "ai" | "mixed" | "unknown";
-                            tool?: string;
-                        };
-                        size: number;
-                        /**
-                         * @description only ready items are listed, readable and downloadable
-                         * @enum {string}
-                         */
-                        status: "uploading" | "ready" | "failed";
-                        title: string | null;
-                        updatedAt: number;
-                        width: number | null;
-                    } | {
-                        errors: {
-                            code: string;
-                            filename: string;
-                            message: string;
-                            status: number;
-                        }[];
-                        /** @description the newly stored items only; an unchanged re-upload is in `items` but not here, and is not announced as an event */
-                        ids: string[];
-                        items: {
-                            alt: string | null;
-                            /** @description sha256 of the uploaded bytes, hex; null for items uploaded before checksums were recorded */
-                            checksum: string | null;
-                            contentType: string;
-                            createdAt: number;
-                            description: string | null;
-                            filename: string;
-                            folder: string;
-                            height: number | null;
-                            id: string;
-                            key: string;
-                            /** @description who made the file; anything but human is flagged on download (X-Content-Provenance); an upload without provenance is recorded as unknown */
-                            provenance: {
-                                at?: number;
-                                model?: string;
+                        _events: {
+                            pipelines: {
+                                attempts: number;
+                                dead: boolean;
+                                error: string | null;
+                                event: string;
+                                pipeline: string;
                                 /** @enum {string} */
-                                origin: "human" | "ai" | "mixed" | "unknown";
-                                tool?: string;
-                            };
-                            size: number;
-                            /**
-                             * @description only ready items are listed, readable and downloadable
-                             * @enum {string}
-                             */
-                            status: "uploading" | "ready" | "failed";
-                            title: string | null;
-                            updatedAt: number;
-                            width: number | null;
-                        }[];
+                                status: "done" | "error" | "pending";
+                            }[];
+                            /** @enum {string} */
+                            status: "done" | "error" | "pending";
+                        };
                     };
                 };
             };
@@ -5061,6 +5050,19 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        _events: {
+                            pipelines: {
+                                attempts: number;
+                                dead: boolean;
+                                error: string | null;
+                                event: string;
+                                pipeline: string;
+                                /** @enum {string} */
+                                status: "done" | "error" | "pending";
+                            }[];
+                            /** @enum {string} */
+                            status: "done" | "error" | "pending";
+                        };
                         ok: boolean;
                     };
                 };
@@ -5162,6 +5164,19 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        _events: {
+                            pipelines: {
+                                attempts: number;
+                                dead: boolean;
+                                error: string | null;
+                                event: string;
+                                pipeline: string;
+                                /** @enum {string} */
+                                status: "done" | "error" | "pending";
+                            }[];
+                            /** @enum {string} */
+                            status: "done" | "error" | "pending";
+                        };
                         alt: string | null;
                         /** @description sha256 of the uploaded bytes, hex; null for items uploaded before checksums were recorded */
                         checksum: string | null;
@@ -5864,22 +5879,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        delivery: {
-                            docId: string;
-                            error?: string | null;
-                            locale: string;
-                            path?: string | null;
-                            publishedAt?: number | null;
+                        _events: {
+                            pipelines: {
+                                attempts: number;
+                                dead: boolean;
+                                error: string | null;
+                                event: string;
+                                pipeline: string;
+                                /** @enum {string} */
+                                status: "done" | "error" | "pending";
+                            }[];
                             /** @enum {string} */
-                            state: "live" | "error" | "draft";
-                            type: string;
-                            updatedAt: number;
-                        }[];
-                        document: Record<string, never>;
-                        llms: {
-                            entries: number;
-                            full: boolean;
+                            status: "done" | "error" | "pending";
                         };
+                        /** @description origin locale per field, only with fallback */
+                        _locales?: {
+                            [key: string]: string;
+                        };
+                        /** @description per locale: required localized fields present */
+                        _translations?: {
+                            [key: string]: boolean;
+                        };
+                        accent?: string | null;
+                        body?: unknown | null;
+                        createdAt: number;
+                        id: string;
+                        layout?: string | null;
+                        seo?: unknown | null;
+                        shareImage?: string | null;
+                        slug?: string | null;
+                        status?: ("draft" | "finished" | "published") | null;
+                        title?: string | null;
+                        updatedAt: number;
                     };
                 };
             };
@@ -6059,9 +6090,18 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        llms: {
-                            entries: number;
-                            full: boolean;
+                        _events: {
+                            pipelines: {
+                                attempts: number;
+                                dead: boolean;
+                                error: string | null;
+                                event: string;
+                                pipeline: string;
+                                /** @enum {string} */
+                                status: "done" | "error" | "pending";
+                            }[];
+                            /** @enum {string} */
+                            status: "done" | "error" | "pending";
                         };
                         ok: boolean;
                     };
@@ -6160,22 +6200,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        delivery: {
-                            docId: string;
-                            error?: string | null;
-                            locale: string;
-                            path?: string | null;
-                            publishedAt?: number | null;
+                        _events: {
+                            pipelines: {
+                                attempts: number;
+                                dead: boolean;
+                                error: string | null;
+                                event: string;
+                                pipeline: string;
+                                /** @enum {string} */
+                                status: "done" | "error" | "pending";
+                            }[];
                             /** @enum {string} */
-                            state: "live" | "error" | "draft";
-                            type: string;
-                            updatedAt: number;
-                        }[];
-                        document: Record<string, never>;
-                        llms: {
-                            entries: number;
-                            full: boolean;
+                            status: "done" | "error" | "pending";
                         };
+                        /** @description origin locale per field, only with fallback */
+                        _locales?: {
+                            [key: string]: string;
+                        };
+                        /** @description per locale: required localized fields present */
+                        _translations?: {
+                            [key: string]: boolean;
+                        };
+                        accent?: string | null;
+                        body?: unknown | null;
+                        createdAt: number;
+                        id: string;
+                        layout?: string | null;
+                        seo?: unknown | null;
+                        shareImage?: string | null;
+                        slug?: string | null;
+                        status?: ("draft" | "finished" | "published") | null;
+                        title?: string | null;
+                        updatedAt: number;
                     };
                 };
             };
@@ -6258,22 +6314,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        delivery: {
-                            docId: string;
-                            error?: string | null;
-                            locale: string;
-                            path?: string | null;
-                            publishedAt?: number | null;
+                        _events: {
+                            pipelines: {
+                                attempts: number;
+                                dead: boolean;
+                                error: string | null;
+                                event: string;
+                                pipeline: string;
+                                /** @enum {string} */
+                                status: "done" | "error" | "pending";
+                            }[];
                             /** @enum {string} */
-                            state: "live" | "error" | "draft";
-                            type: string;
-                            updatedAt: number;
-                        }[];
-                        document: Record<string, never>;
-                        llms: {
-                            entries: number;
-                            full: boolean;
+                            status: "done" | "error" | "pending";
                         };
+                        /** @description origin locale per field, only with fallback */
+                        _locales?: {
+                            [key: string]: string;
+                        };
+                        /** @description per locale: required localized fields present */
+                        _translations?: {
+                            [key: string]: boolean;
+                        };
+                        accent?: string | null;
+                        body?: unknown | null;
+                        createdAt: number;
+                        id: string;
+                        layout?: string | null;
+                        seo?: unknown | null;
+                        shareImage?: string | null;
+                        slug?: string | null;
+                        status?: ("draft" | "finished" | "published") | null;
+                        title?: string | null;
+                        updatedAt: number;
                     };
                 };
             };
@@ -6685,6 +6757,10 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        _llms: {
+                            entries: number;
+                            full: boolean;
+                        };
                         /** @description origin locale per field, only with fallback */
                         _locales?: {
                             [key: string]: string;
@@ -6696,10 +6772,6 @@ export interface operations {
                         createdAt: number;
                         description?: string | null;
                         id: string;
-                        llms: {
-                            entries: number;
-                            full: boolean;
-                        };
                         navigation?: unknown | null;
                         title?: string | null;
                         titlePosition?: ("suffix" | "prefix") | null;
@@ -6947,6 +7019,19 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        _events: {
+                            pipelines: {
+                                attempts: number;
+                                dead: boolean;
+                                error: string | null;
+                                event: string;
+                                pipeline: string;
+                                /** @enum {string} */
+                                status: "done" | "error" | "pending";
+                            }[];
+                            /** @enum {string} */
+                            status: "done" | "error" | "pending";
+                        };
                         active: boolean;
                         createdAt: number;
                         id: string;
@@ -7112,6 +7197,19 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        _events: {
+                            pipelines: {
+                                attempts: number;
+                                dead: boolean;
+                                error: string | null;
+                                event: string;
+                                pipeline: string;
+                                /** @enum {string} */
+                                status: "done" | "error" | "pending";
+                            }[];
+                            /** @enum {string} */
+                            status: "done" | "error" | "pending";
+                        };
                         ok: boolean;
                         reassignTo: {
                             id: string;
@@ -7212,6 +7310,19 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        _events: {
+                            pipelines: {
+                                attempts: number;
+                                dead: boolean;
+                                error: string | null;
+                                event: string;
+                                pipeline: string;
+                                /** @enum {string} */
+                                status: "done" | "error" | "pending";
+                            }[];
+                            /** @enum {string} */
+                            status: "done" | "error" | "pending";
+                        };
                         active: boolean;
                         createdAt: number;
                         id: string;
@@ -7385,6 +7496,19 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        _events: {
+                            pipelines: {
+                                attempts: number;
+                                dead: boolean;
+                                error: string | null;
+                                event: string;
+                                pipeline: string;
+                                /** @enum {string} */
+                                status: "done" | "error" | "pending";
+                            }[];
+                            /** @enum {string} */
+                            status: "done" | "error" | "pending";
+                        };
                         ok: boolean;
                     };
                 };
