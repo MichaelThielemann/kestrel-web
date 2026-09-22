@@ -78,6 +78,48 @@
   something to act on. `layers/core/server/utils/readiness.ts` exports `readinessFromHealth` and
   `livenessFromHealth` in place of the removed `probePersistence`.
 
+- **Publishing is an event pipeline; the write response no longer wraps the document.**
+  `createPage`, `updatePage`, `deletePage`, `deletePageTranslation` and `restorePageRevision` no longer
+  contain `delivery.publish:pages`, `delivery.unpublish:pages` or `delivery.exportLlms`. Two new
+  pipelines do that work instead — `publishPage` (triggered by `page.created`, `page.updated`,
+  `page.restored` and, when the model is translatable, `page.translationRemoved`) and `unpublishPage`
+  (triggered by `page.deleted`) — registered by the `delivery` feature alongside its existing
+  `pagePublishStatus`/`publishAllPages`. A publishing error therefore no longer fails a save: the
+  content, its revision and its indexes are stored, and the request answers 200 regardless of whether
+  the page was actually published.
+
+  **The page is still published before the response, in both delivery modes.** Every preset pipeline
+  that ends in an `events.emit:` step now ends in `events.relay`, which reports — and, with
+  `kestrel-events-queue`, performs — that run's delivery. The response of a page write is the saved
+  document plus `_events: { status: "done" | "error" | "pending", pipelines: [{ event, pipeline,
+  status, attempts, dead, error }] }`; it used to be `{ document, delivery, llms }`. `DELETE` answers
+  `{ _events }`. Read the publish status per locale from `GET /admin/publish-status/pages/:id` as
+  before — the write response no longer carries it. `SaveResponse<T>` is gone from the exported API
+  types; `RevisionRestoreResponse` is the document plus `restore?` and `_events?`.
+
+  **What now runs inside the request that used to be deferred.** With the `eventsQueue` feature the
+  relay delivers every subscriber of the emitting run, not only delivery: `deleteUser` runs
+  `anonymizeAuditUser` and `reassignRevisionAuthor` inside the `DELETE` request, `login`/`logout` run
+  `auditAuth`, and `uploadMedia` runs `generateImageVariants`. All of them were deferred work before.
+  They are bounded by the new `eventsQueue.relayMs` config key (default 5000) — the relay starts no
+  further delivery once the budget is spent, and the worker finishes the rest. Set `relayMs: 0` to get
+  the previous behaviour, in which every subscriber runs in the worker.
+
+  **A content field name must not start with `_`.** That namespace belongs to the members the system
+  merges onto a document — `_locales` and `_translations` already, `_delivery` and `_events` now. A
+  model with such a field fails at boot, naming the type and the field.
+
+  If you deliver a second collection yourself, add the two pipelines and their triggers the same way;
+  the preset wires `pages` only, as it always has.
+
+  In the admin: `layers/admin/app/actions/steps/api.ts`'s `isSaveResponse`/`apiWrite` special case is
+  gone — `apiWrite` reads the response's `_events` member directly. `deliveryRemember` is replaced by
+  `deliveryRefresh` (refetches `/admin/publish-status` after a page save, so the live lamp reads the
+  authoritative endpoint in both delivery modes) and `deliveryToast` (a toast when `_events.status` is
+  `"error"` or `"pending"`, naming the retry route for the active delivery mode); the delete action
+  toasts the same way when unpublishing a deleted page failed. The events tab's dead-letter table gains
+  a Run column next to the Pipeline column the previous release added.
+
 ### Changed
 
 - `layers/core/app/types/api.ts`: `MediaItem`, `ReplicationStatus` and `ReplicationSnapshotResult` are

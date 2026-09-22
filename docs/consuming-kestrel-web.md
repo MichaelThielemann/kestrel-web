@@ -161,6 +161,10 @@ Two files have to agree on the name:
    - A page-like type (one with a `slug` field) must additionally have both `title` and `status`.
    - `layout` (`{ type: "text" }`, never `localized`) picks the `app/layouts/*.vue` a page-like record
      renders in — editor-owned like `seo`, see **Layouts** below.
+   - No field name may start with `_`: that namespace is reserved for members the system merges onto a
+     document after your model is applied — `_locales`, `_translations`, and, on a page, `_delivery` from
+     `delivery.publish` and `_events` from `events.relay`. `content/default` refuses such a field at boot,
+     naming the type and the field.
 2. `shared/collections-ui.ts` (§3.5) — label, icon, editor, field labels/overrides, `placement`. Without
    an entry the collection still renders, with raw field names and `placement: "rail"`.
 
@@ -631,7 +635,7 @@ deleted in either case. The admin's delete dialog offers both, defaulting to ano
 | `sanitizeSvg` | kestrel-sanitize-svg | SVG sanitize step before the upload step in `uploadMedia`; only with this module configured does `layers/core` serve SVG inline (`inlineTypes`), otherwise SVGs are delivered as attachments |
 | `references` | kestrel-references-default | `brokenReferences`, `pageReferrers(Many)`, `mediaReferrers(Many)`, `rebuildReferences`, `scanReferences` (cron); check/index/guard/unindex steps in `createPage`, `updatePage`, `deletePage`, `deleteMedia`, `deleteMediaFolder`, and a re-index step in `deletePageTranslation` when it exists |
 | `links` | kestrel-links-default | `brokenLinks`, `rebuildLinks`, `checkLinks` (cron); extract/unextract steps in `createPage`, `updatePage`, `deletePage`, and a re-extract step in `deletePageTranslation` when it exists |
-| `delivery` | kestrel-delivery-static + kestrel-renderer-nuxt | `pagePublishStatus`, `publishAllPages`; publish/unpublish steps in `createPage`, `updatePage`, `deletePage`, and in `deletePageTranslation` when it exists |
+| `delivery` | kestrel-delivery-static + kestrel-renderer-nuxt | `pagePublishStatus`, `publishAllPages`, plus two event pipelines: `publishPage` (triggered by `page.created`, `page.updated`, `page.restored`, and `page.translationRemoved` when the model is translatable) and `unpublishPage` (triggered by `page.deleted`) — see the note below the table |
 | `redirects` | kestrel-redirects-default | `getRedirects`, `setRedirects`, `renderRedirects`; redirect-lookup step in `resolvePage`; export step at the end of `publishAllPages` (only when `delivery` is also on) |
 | `images` | kestrel-images-default | Routes, an event and a cron job for image variants, plus boot-time size registration — see the list below the table |
 | `replication` | kestrel-replication-sqlite | `replicate` (cron), `replicationStatus`, `replicationPoints`, `replicationSnapshot`, `replicationRestore` |
@@ -648,6 +652,17 @@ register the sizes declared by blocks and layers); pipeline `registerImageSizes`
 and attach/remove/removeMany/export steps in `getMedia`, `listMedia`, `deleteMedia`,
 `deleteMediaFolder`, `exportMedia`.
 
+**`delivery` details:** the three delivery steps are not steps of a page write pipeline any more.
+`createPage`, `updatePage`, `deletePage`, `deletePageTranslation` and `restorePageRevision` only emit
+the event; the `delivery` feature's own event pipelines pick it up and publish or unpublish the page.
+Every preset pipeline that ends in an `events.emit:` step — a write pipeline as much as `login` or
+`uploadMedia` — additionally ends in `events.relay`, which delivers this request's events before the
+response and adds `_events: { status, pipelines[] }` to the result: `status` is `"done"`, `"error"` or
+`"pending"`, and each entry names the event, the pipeline, its attempts, whether it is dead-lettered and
+its error. A delivery failure therefore never fails the write request — the response is still 200, and
+`_events.status` says so. `GET /admin/publish-status/pages/:id` remains the authoritative per-locale
+publish status; the write response's `_events` is about the delivery *run*, not the page's live state.
+
 **`eventsQueue` requirement:** delivery is at-least-once, so your event listeners must be idempotent, and
 no ordering is guaranteed between the pipelines subscribed to one event. Every event a pipeline receives
 carries `eventId` — use it as the dedup key. Events stored while switching to `eventsQueue` (or stored by
@@ -656,7 +671,19 @@ pipeline at the worker's first tick after start; drain the queue first (`events.
 `pending: 0, running: 0`) if you run several worker processes and don't want each of them to fan out on
 its own next tick, or if you'd rather not redeliver stored events at all. A dead-letter row from before
 that change names no pipeline: `events.listDead` reports `pipeline: ""` for it and the admin's
-System → Events tab shows an empty Pipeline cell.
+System → Events tab shows an empty Pipeline cell (and, for a row from before this section's change, an
+empty Run cell too).
+
+**`eventsQueue` and the relay:** `events.relay`, appended to every pipeline that ends in an emit, delivers
+that request's rows itself instead of waiting for the worker — a page publish happens before the response
+goes out, not on the worker's next tick. It has `relayMs` (default 5000) to do so, configured on the
+`eventsQueue` module: `presetModuleConfig({ eventsQueue: { relayMs: 8000 } })`. Whatever the relay does not
+reach within that budget stays `pending` and is picked up by the worker, exactly like today's deferred
+delivery. Setting `relayMs: 0` disables the relay entirely — every subscriber runs on the worker, the
+previous behaviour, useful when an instance's subscribers are too slow to run inline. Because the relay
+runs every subscriber of the emitting run and not only delivery, subscribers that used to be worker-only
+work — `anonymizeAuditUser`, `reassignRevisionAuthor` on `user.deleted`, `generateImageVariants` on
+`media.uploaded` — now run inside the request too, bounded by the same budget.
 
 **`revisions` details:** per `multi` collection `<c>`: `<c>Revisions`, `<c>Revision`,
 `label<C>Revision`, `restore<C>Revision` (`/admin/<c>/:id/revisions…`, `<c>.manage` to read, `<c>.write`
@@ -815,9 +842,8 @@ entirely — their pipelines and routes are hand-written in the preset.
     createPage: [
       "authn.requireUser",
       "authz.require:pages.write",
-      { atomic: ["references.check:pages", "content.create:pages", "revisions.record:pages", "references.index:pages", "links.extract:pages"] },
-      "delivery.publish:pages",
-      "events.emit:page.created",
+      { atomic: ["references.check:pages", "content.create:pages", "revisions.record:pages", "references.index:pages", "links.extract:pages", "events.emit:page.created"] },
+      "events.relay",
     ],
   }
   ```
@@ -829,8 +855,11 @@ entirely — their pipelines and routes are hand-written in the preset.
   `authn.deleteUser` group with the `eventsQueue` feature. If you deliberately want no transaction,
   `exclude` the pipeline and define your own. Steps inside a group must declare `atomicSafe` in their
   `describe()`; every shipped step that belongs in one does, a step of your own does not by default.
-  `delivery.*` and, without the `eventsQueue` feature, `events.emit` are deliberately outside the group:
-  the database stays consistent, but the published artefact may lag, and `publishAllPages` repairs it.
+  `delivery.*` is not a step of a page write pipeline at all any more — it runs in the `publishPage` and
+  `unpublishPage` event pipelines the `delivery` feature registers, triggered by the events a write
+  pipeline emits. `events.relay`, which delivers or reports those pipelines before the response, is
+  deliberately outside every group: the database stays consistent, and the published artefact may lag
+  only when the relay itself fails, which `publishAllPages` then repairs.
 - `exclude` removes a preset pipeline **and** its trigger(s) — same for collection-derived names.
 - `schedules` changes a cron pipeline's schedule.
 - `exportDir` — media/image export directory (default `<KESTREL_APP_ROOT>/data/export`; `KESTREL_APP_ROOT` is the app root in dev and the environment variable or process cwd of a production server).
@@ -1234,6 +1263,18 @@ location /_nuxt/ { expires 1y; add_header Cache-Control "public, immutable"; }
 location ~ \.meta\.json$ { return 404; }
 location / { try_files $uri $uri/index.html =404; }
 ```
+
+**What a failed publish or unpublish means.** Publishing and unpublishing are event pipelines now
+(`publishPage`, `unpublishPage`), delivered by `events.relay` before the response — see the `delivery`
+feature note above. A failed *publish* leaves the saved document as it was: the previous rendered output
+stays live (or absent, for a new page) until a retry succeeds, and the editor's live status shows the
+stale state with the error in its tooltip. A failed *unpublish* is the sharper case: `DELETE
+/admin/pages/:id` still removes the document, its revisions and its indexes — the delete itself is not
+rolled back — but the rendered page **stays reachable** until the retry runs. The admin says so
+explicitly ("The page was deleted, but it is still online.") and points at System → Events with the
+queue, or at System → Delivery without it. **`publishAllPages` does not repair this case**: it re-renders
+every live page and never removes an artefact whose document is already gone, so reach for the queue's
+retry (or, without the queue, re-run the delivery module's own removal) instead of Publish All.
 
 ## 9. Optional: redirects
 

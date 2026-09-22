@@ -352,9 +352,9 @@ special-cases (`layers/core/pipelines/collections.ts`'s `NAME_OVERRIDES`): every
 uses its own name for every pipeline (`listNews`, `readNews`, `createNews`, …), but `pages` uses
 singular forms (`readPage`, `createPage`, …) and event names (`page.created`, not
 `pages.created`), so overrides, triggers and listeners written against those names keep working. `pages` also
-gets `resolvePage` and the delivery/references/links feature patches, which stay hardcoded to the
-name `"pages"` until a `pageLike` model marker exists — every other collection's pipelines are
-untouched by those features.
+gets `resolvePage` and the references/links feature patches plus the `delivery` feature's own
+`publishPage`/`unpublishPage` event pipelines, all of which stay hardcoded to the name `"pages"` until a
+`pageLike` model marker exists — every other collection's pipelines are untouched by those features.
 
 A `multi` collection with at least one `localized: true` field (`collections.ts`'s `hasLocalizedField`)
 additionally gets `delete<Name>Translation` (`authn.requireUser`, `authz.require:<name>.write`,
@@ -381,12 +381,13 @@ list order only matters for readability and for where a route logically belongs 
 A generic collection's `create`/`update`/`delete`/`delete<Name>Translation` pipeline wraps its
 `content.*` write in `{ atomic: [...] }`: the runner commits every step of the group or none of it. The
 group starts as just the content write; `references`, `links` and `revisions` insert their own steps
-into it by anchor the same way they patch any other step, and `delivery` anchors after the group instead
-of before its trailing emit — `delivery.*` renders and writes blobs, which must never hold the write
-lock. A pipeline's step list therefore nests one level in places: `PresetEntry` is a step name or
-`{ atomic: readonly PresetEntry[] }`, and `@michaelthielemann/kestrel/definePipeline`'s `pipelineSteps()`
-flattens it back to a plain list wherever only the order matters (golden fixtures, `status-filter.ts`,
-the admin's insights graph).
+into it by anchor the same way they patch any other step. `delivery` no longer touches a page write
+pipeline at all — `delivery.publish`/`delivery.unpublish` run in the separate `publishPage`/
+`unpublishPage` event pipelines the `delivery` feature registers, triggered by the events a write
+pipeline emits (§ Events and the relay, below). A pipeline's step list therefore nests one level in
+places: `PresetEntry` is a step name or `{ atomic: readonly PresetEntry[] }`, and
+`@michaelthielemann/kestrel/definePipeline`'s `pipelineSteps()` flattens it back to a plain list wherever
+only the order matters (golden fixtures, `status-filter.ts`, the admin's insights graph).
 
 `compose.ts`'s anchors work the same inside a group as outside it — an anchor that names a step inside
 the group inserts inside it — plus one reserved anchor, `ATOMIC_END`, meaning the group's own boundary:
@@ -396,15 +397,39 @@ right after it. A pipeline with no group, or with more than one, makes `ATOMIC_E
 With the `eventsQueue` feature, `definePreset` folds each pipeline once, after every feature patch and
 `derive()`: if a pipeline's last entry is its `events.emit:` step and it has exactly one atomic group,
 the emit — and only the emit — moves to the end of that group. Nothing between the group and the emit
-moves with it, `revisions.reportRestore` included: `resolveOutputSchema` merges step output schemas in
-resolved order, and `revisions.reportRestore`'s `extendsOutput` must run after `delivery.publish`'s full
-`output`, not before it, or the restore report silently disappears from the response. This is why
-`deleteUser` gets a group only with the queue enabled: the delete itself is already a single step, but
-the queue's write and the `user.deleted` event row now commit or roll back together for the two shipped
-subscribers (`anonymizeAuditUser`, `reassignRevisionAuthor`).
+moves with it, `revisions.reportRestore` included; that ordering no longer carries the caveat it once did
+— `delivery.publish` has left the pipeline, and every step that adds to the response now merges via
+`extendsOutput` regardless of order. This is why `deleteUser` gets a group only with the queue enabled:
+the delete itself is already a single step, but the queue's write and the `user.deleted` event row now
+commit or roll back together for the two shipped subscribers (`anonymizeAuditUser`,
+`reassignRevisionAuthor`).
 Every other single-write pipeline (`createUser`, `updateUser`, `setSettings`, `uploadMedia`, …) keeps no
 group in both delivery modes: none of them has a shipped event subscriber whose loss would need
 undoing, and a consumer who adds one overrides that pipeline with its own group.
+
+### Events and the relay
+
+Every preset pipeline that ends in an `events.emit:` step — after the fold above, with the queue, or bare
+without it — additionally ends in `events.relay` (`appendRelay` in `compose.ts`, wired unconditionally in
+`index.ts`'s fold pass, after every feature's patches and `derive()`). The relay is not gated by
+`eventsQueue`: both delivery modules register the step, so the composed pipeline list and the response
+shape are the same regardless of mode — only whether the emit sits inside an atomic group differs.
+`events.relay` is never itself atomic-safe (`atomic-safe.ts` deliberately omits it), so boot rejects any
+attempt to put it inside a group; it always runs after the group's commit.
+
+`appendRelay` inserts the step immediately after the entry carrying the emit — the emit itself when bare,
+or the atomic group it ends when folded — not necessarily at the very end of the pipeline: `restorePageRevision` ends
+`…, revisions.reportRestore` after its group, because `revisions.reportRestore` reads the group's result
+outside the group and `restorePipeline`'s composition (`features/revisions.ts`) is otherwise unchanged;
+the relay sits between the group and that trailing step, which is correct because both only add
+independent members to the result.
+
+`delivery` (`features/delivery.ts`) contributes `publishPage` (`delivery.publish:pages`,
+`delivery.exportLlms`) and `unpublishPage` (`delivery.unpublish:pages`, `delivery.exportLlms`) as plain
+event pipelines with no relay of their own — they run as the payload of another pipeline's relay — and
+five event triggers tagged with the `delivery` feature: `page.created`/`page.updated`/`page.restored`/
+`page.translationRemoved` (the last one only when `context.pagesTranslatable`) → `publishPage`,
+`page.deleted` → `unpublishPage`.
 
 An `overrides` entry for a pipeline that had a group is rejected at compose time if it drops the group
 around the `content.*` write — a flat replacement loses atomicity silently otherwise. The override may
@@ -961,27 +986,29 @@ listed name is never registered.
 | `user.validate` | `actions/system.ts` | Field validation before the request; declared separately, under the same name, in `userCreate` (username + password) and `userUpdate` (username, plus the password only when one was typed). |
 | `user.patch` / `user.active` / `user.password` | `actions/system.ts` | The three halves of `userUpdate`: `PATCH /users/{id}` with only the changed fields, `POST /users/{id}/deactivate` or `/activate`, `PUT /users/{id}/password`. Each is a no-op when its part did not change, and each maps the failure through `utils/user-errors.ts` into the inline error. |
 | `user.delete` | `actions/system.ts` | `DELETE /users/{id}`, with the same error mapping. |
-| `delivery.remember` | `steps/delivery.ts` | Stores the delivery entries a page write answered with, for the editor's second traffic light. |
+| `delivery.refresh` | `steps/delivery.ts` | For a page-like collection, reloads `GET /admin/publish-status/{collection}/{id}` after a successful save, so the live lamp reflects the authoritative per-locale state in both delivery modes. |
+| `delivery.toast` | `steps/delivery.ts` | For a page-like collection, toasts when the write response's `_events.status` is `"error"` or `"pending"`, naming the retry route for the active delivery mode. |
+| `delivery.deleteToast` | `actions/editor.ts` | For a page-like collection, toasts that the page was deleted but is still online when `_events.status` of the delete response is `"error"`. |
 | `api.request:register` | `actions/system.ts` | Inline step (not the `api.request` factory): a no-op when the declared size list is empty, otherwise `PUT /admin/images/sizes`; a 409 (name collision with a `source: "config"` size) returns silently, the same as the empty-list case — nothing is written to `ctx.result` either way. Used by `imagesRegisterAndSync`. |
 | `api.request:sync` | `actions/system.ts` | The `api.request` factory under this name — the sync half of `imagesRegisterAndSync`, run after `api.request:register`. Named separately so the two requests of one action log as distinct steps, the same convention as `media.each:files`/`media.each:folders`. |
 
 `api.write` picks its request from the form's mode and id: `PUT /{collection}` in single mode,
 `POST /{collection}` for a new record, `PATCH /{collection}/{id}` for an existing one. Only the `PATCH`
-sends a partial body — the dirty keys; the other two send every field key. It unwraps the response into
-document plus delivery **only** when the body carries both a `document` and a `delivery` key, the
-`SaveResponse` shape; a document that merely has extra sibling fields (`PUT /redirects` answers with the
-document plus a `redirects` field) or a content field literally named `document` is passed through
-untouched.
+sends a partial body — the dirty keys; the other two send every field key. The response **is** the saved
+document; `api.write` reads its `_events` member (added by `events.relay`, absent for a pipeline with no
+subscriber) into the outcome's `events` field and leaves everything else of the response on `record`
+untouched — a document with extra sibling members (`_locales`, `_translations`, or `PUT /redirects`'s
+`redirects` field) passes through exactly as before.
 
 ### Actions
 | action | file | steps | called from |
 |---|---|---|---|
-| `saveRecord` | `actions/editor.ts` | `form.reset`, `form.validate`, `form.saving:on`, `api.write`, `delivery.remember`, `form.rebaseline`, `form.mapErrors`, `form.outcome`, `toast.success`; always `form.saving:off`, `form.revealError`, `toast.error` | `useEditForm.submit` |
+| `saveRecord` | `actions/editor.ts` | `form.reset`, `form.validate`, `form.saving:on`, `api.write`, `delivery.refresh`, `delivery.toast`, `form.rebaseline`, `form.mapErrors`, `form.outcome`, `toast.success`; always `form.saving:off`, `form.revealError`, `toast.error` | `useEditForm.submit` |
 | `setStatus` | `actions/editor.ts` | `guard.status`, `form.setStatus`, then `saveRecord`'s steps | `useEditForm.setStatus`, reached from `CollectionEditor.vue` |
 | `discardRecord` | `actions/editor.ts` | `guard.unsaved`, `route.navigate` | `pages/admin/[collection]/[id].vue` cancel |
 | `leaveEditor` | `actions/editor.ts` | `guard.bypass`, `route.navigate` | the post-create redirect in `pages/admin/[collection]/[id].vue` |
 | `previewDeleteRecord` | `actions/editor.ts` | `guard.selection`, `references.precheck` | the delete dialog of `pages/admin/[collection]/[id].vue` |
-| `deleteRecord` | `actions/editor.ts` | `dialog.confirm`, `ops.busy:on`, `api.each`, `guard.anySucceeded`, `guard.bypass`, `route.navigate`, `toast.success`; always `ops.busy:off` | the delete dialog's confirm |
+| `deleteRecord` | `actions/editor.ts` | `dialog.confirm`, `ops.busy:on`, `api.each`, `delivery.deleteToast`, `guard.anySucceeded`, `guard.bypass`, `route.navigate`, `toast.success`; always `ops.busy:off` | the delete dialog's confirm |
 | `deleteTranslation` | `actions/editor.ts` | `dialog.confirm`, `ops.busy:on`, `api.request` (`DELETE /{collection}/{id}/translations/{locale}`; a 409 — last remaining translation — toasts the backend message and fails), `guard.bypass`, `route.navigate`, `toast.success`; always `ops.busy:off` | the delete dialog's "delete only this translation" confirm |
 | `copyTranslation` | `actions/editor.ts` | `dialog.confirm` (only required when the form is dirty — the caller passes `confirmed`), `api.request` (`GET /admin/{collection}/{id}?locale={source}`; on success runs `translationSourceValues` and writes each entry through `form.setField`; toasts and fails on error), `toast.success` | `useEditForm.copyTranslation`, from `TranslationCopyBanner.vue`'s copy button |
 | `switchSystemTab` | `actions/editor.ts` | `guard.tab`, `guard.unsaved`, `route.navigate` | `pages/admin/system.vue::setTab` |
@@ -1097,9 +1124,10 @@ fields on every save, per collection, document and locale. The `revisions` featu
   as composed so far and builds `authn.requireUser, authz.require:<c>.write, revisions.restore:<c>` +
   the `update<C>` pipeline from its third step + `events.emit:<event>.restored`. That is why
   `revisions` is last in `featureOrder` — the tail it copies has to be complete. A restore is
-  therefore exactly a save: it validates, sanitizes, checks references, records its own revision,
-  re-indexes and re-publishes, so a restored published page goes live again and a restored draft does
-  not. `revisions.reportRestore` sits between the tail and the event and puts what the restore had to
+  therefore exactly a save: it validates, sanitizes, checks references and records its own revision and
+  indexes, and its `page.restored` emit triggers `publishPage` the same way `updatePage`'s does, so a
+  restored published page goes live again and a restored draft does not. `revisions.reportRestore` sits
+  between the tail and the event and puts what the restore had to
   leave out on the response as `restore: { revisionId, dropped, missing }` — `dropped` are the
   snapshot's fields the model no longer has (the restore leaves them out instead of failing),
   `missing` the fields added since, which keep their current value. `GET …/revisions/:revisionId`

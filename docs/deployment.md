@@ -276,6 +276,8 @@ same `<dataDir>`:
 - with `events-direct` (the default delivery module) each process delivers inline, so a publish in one
   is invisible to the other's listeners. The `eventsQueue` feature swaps it for `events-queue`, which
   moves delivery into the database and is the only configuration where a second consumer is meaningful;
+  the request's own process still delivers its own rows itself, within `relayMs` (default 5000), before
+  answering — the worker only picks up what a relay left `pending`, from either process;
 - both write the same database file.
 
 So the deployment model is stop, swap, start — a short outage on every release. What removes it is
