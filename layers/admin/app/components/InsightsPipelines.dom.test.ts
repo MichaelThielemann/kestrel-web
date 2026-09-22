@@ -58,4 +58,36 @@ describe('InsightsPipelines trigger chips', () => {
     const eventChip = chips[1]!
     expect(eventChip.text()).toBe('media.viewed')
   })
+
+  it('renders a pipeline\'s atomic group as a labelled group of chips', async () => {
+    unregister.push(registerEndpoint('/api/admin/insights/stats', { method: 'GET', handler: () => stats }))
+
+    const grouped: InsightsManifest = {
+      ...manifest,
+      pipelines: [{
+        name: 'createPage',
+        steps: [
+          { spec: 'authn.requireUser', name: 'authn.requireUser', module: 'authn/multi', description: { summary: '', reads: [], writes: [] } },
+          { spec: 'content.create:pages', name: 'content.create', module: 'content/default', description: { summary: '', reads: [], writes: [] }, atomic: 1 },
+          { spec: 'references.index:pages', name: 'references.index', module: 'references/default', description: { summary: '', reads: [], writes: [] }, atomic: 1 },
+          { spec: 'events.emit:page.created', name: 'events.emit', module: 'events/inmemory', description: { summary: '', reads: [], writes: [] } },
+        ],
+      }],
+      triggers: { http: [], events: [], crons: [] },
+    }
+
+    const wrapper = await mountSuspended(InsightsPipelines, { props: { manifest: grouped } })
+
+    const stepCell = wrapper.get('tbody tr').findAll('td')[1]!
+    const group = stepCell.get('.insights-chip-group')
+    expect(group.attributes('role')).toBe('group')
+    expect(group.attributes('aria-label')).toBeTruthy()
+    expect(group.findAll('.insights-chip')).toHaveLength(2)
+    expect(group.findAll('.insights-chip').map((chip) => chip.text())).toEqual(['content.create:pages', 'references.index:pages'])
+
+    const chips = stepCell.findAll('.insights-chips > *')
+    expect(chips[0]!.classes()).toContain('insights-chip')
+    expect(chips[0]!.text()).toBe('authn.requireUser')
+    expect(chips[2]!.text()).toBe('events.emit:page.created')
+  })
 })

@@ -91,7 +91,7 @@ function segmentsOf(steps: InsightsPipelineStep[]) {
                         :class="{ 'insights-chip--highlight': segment.step.module === module.name }"
                         :title="segment.step.module"
                       >{{ segment.step.spec }}</span>
-                      <span v-else class="insights-chip-group" :title="t('insights.pipelines.atomic')">
+                      <span v-else class="insights-chip-group" role="group" :aria-label="t('insights.pipelines.atomic')" :title="t('insights.pipelines.atomic')">
                         <span
                           v-for="s in segment.steps"
                           :key="s.spec"

@@ -46,7 +46,7 @@ function segmentsOf(steps: InsightsPipelineStep[]): StepSegment[] {
               <div class="insights-chips">
                 <template v-for="segment in segmentsOf(p.steps)" :key="segment.kind === 'group' ? `group-${segment.steps[0]!.spec}` : segment.step.spec">
                   <span v-if="segment.kind === 'step'" class="insights-chip" :title="segment.step.module">{{ segment.step.spec }}</span>
-                  <span v-else class="insights-chip-group" :title="t('insights.pipelines.atomic')">
+                  <span v-else class="insights-chip-group" role="group" :aria-label="t('insights.pipelines.atomic')" :title="t('insights.pipelines.atomic')">
                     <span v-for="s in segment.steps" :key="s.spec" class="insights-chip" :title="s.module">{{ s.spec }}</span>
                   </span>
                 </template>
