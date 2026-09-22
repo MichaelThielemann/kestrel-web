@@ -238,16 +238,16 @@ describe("restorePageRevision inherits the group; the fold moves only the emit, 
     expect(group?.atomic).toContain("content.update:pages");
     expect(group?.atomic).not.toContain("revisions.reportRestore");
     const flat = pipelineSteps(restore?.steps ?? []);
-    expect(flat.slice(-2)).toEqual(["revisions.reportRestore", "events.emit:page.restored"]);
+    expect(flat.slice(-3)).toEqual(["revisions.reportRestore", "events.emit:page.restored", "events.relay"]);
   });
 
-  it("queue: the emit joins the group's end; reportRestore stays outside, after delivery, so the response keeps `restore`", () => {
+  it("queue: the emit joins the group's end; the relay follows it and reportRestore stays outside, after both, so the response keeps `restore`", () => {
     const preset = definePreset({ modules: queuedModules, features: queuedFeatures, collections: contentTypes, fieldTypes, exportDir: EXPORT_DIR });
     const restore = preset.pipelines.find((pipeline) => pipeline.name === "restorePageRevision");
     const group = restore?.steps.find(isAtomicGroup);
     expect(group?.atomic.at(-1)).toBe("events.emit:page.restored");
     expect(group?.atomic).not.toContain("revisions.reportRestore");
     const flat = pipelineSteps(restore?.steps ?? []);
-    expect(flat.slice(-3)).toEqual(["delivery.publish:pages", "delivery.exportLlms", "revisions.reportRestore"]);
+    expect(flat.slice(-2)).toEqual(["events.relay", "revisions.reportRestore"]);
   });
 });

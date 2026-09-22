@@ -377,9 +377,7 @@ describe("definePreset feature composition", () => {
 });
 
 describe("definePreset step ordering", () => {
-  const READS_RESULT_ID = /^(?:references\.(?:index|unindex)|links\.(?:extract|unextract)):/;
-
-  it("puts every step reading ctx.result.id before delivery.publish, which replaces ctx.result", () => {
+  it("keeps delivery.publish and delivery.unpublish out of every page write pipeline", () => {
     const modules = [
       ...baseModules,
       { use: "@michaelthielemann/kestrel-references-default" },
@@ -388,18 +386,33 @@ describe("definePreset step ordering", () => {
       { use: "@michaelthielemann/kestrel-renderer-nuxt" },
     ];
     const preset = definePreset({ modules, features: ["references", "links", "delivery"] });
-    let asserted = 0;
-    for (const pipeline of preset.pipelines) {
+    const writePipelines = preset.pipelines.filter((pipeline) => ["createPage", "updatePage", "deletePage", "deletePageTranslation", "restorePageRevision"].includes(pipeline.name));
+    expect(writePipelines.length).toBeGreaterThan(0);
+    for (const pipeline of writePipelines) {
       const steps = pipelineSteps(pipeline.steps);
-      const publish = steps.findIndex((step) => step.startsWith("delivery.publish:"));
-      if (publish === -1) continue;
-      steps.forEach((step, index) => {
-        if (!READS_RESULT_ID.test(step)) return;
-        asserted += 1;
-        expect(index, `${pipeline.name}: "${step}" must run before "${steps[publish]}"`).toBeLessThan(publish);
-      });
+      expect(steps.some((step) => step.startsWith("delivery."))).toBe(false);
     }
-    expect(asserted).toBeGreaterThan(0);
+    const publishPage = preset.pipelines.find((pipeline) => pipeline.name === "publishPage");
+    const unpublishPage = preset.pipelines.find((pipeline) => pipeline.name === "unpublishPage");
+    expect(publishPage && pipelineSteps(publishPage.steps)).toEqual(["delivery.publish:pages", "delivery.exportLlms"]);
+    expect(unpublishPage && pipelineSteps(unpublishPage.steps)).toEqual(["delivery.unpublish:pages", "delivery.exportLlms"]);
+  });
+
+  it("registers the delivery event triggers, gated by translatability for translationRemoved", () => {
+    const modules = [
+      ...baseModules,
+      { use: "@michaelthielemann/kestrel-references-default" },
+      { use: "@michaelthielemann/kestrel-links-default" },
+      { use: "@michaelthielemann/kestrel-delivery-static" },
+      { use: "@michaelthielemann/kestrel-renderer-nuxt" },
+    ];
+    const preset = definePreset({ modules, features: ["references", "links", "delivery"] });
+    const eventTriggers = preset.triggers.filter((trigger): trigger is { event: string; pipeline: string } => "event" in trigger);
+    expect(eventTriggers).toContainEqual({ event: "page.created", pipeline: "publishPage" });
+    expect(eventTriggers).toContainEqual({ event: "page.updated", pipeline: "publishPage" });
+    expect(eventTriggers).toContainEqual({ event: "page.restored", pipeline: "publishPage" });
+    expect(eventTriggers).toContainEqual({ event: "page.deleted", pipeline: "unpublishPage" });
+    expect(eventTriggers.some((trigger) => trigger.event === "page.translationRemoved")).toBe(false);
   });
 });
 
@@ -600,7 +613,14 @@ describe("definePreset revisions feature", () => {
   });
 
   it("drops the revisions of a removed document and of a removed translation, inside the atomic group", () => {
-    expect(stepsOf("deletePage")).toEqual(["authn.requireUser", "authz.require:pages.delete", "content.remove:pages", "revisions.remove:pages", "events.emit:page.deleted"]);
+    expect(stepsOf("deletePage")).toEqual([
+      "authn.requireUser",
+      "authz.require:pages.delete",
+      "content.remove:pages",
+      "revisions.remove:pages",
+      "events.emit:page.deleted",
+      "events.relay",
+    ]);
     const deletePage = preset.pipelines.find((pipeline) => pipeline.name === "deletePage");
     expect(deletePage?.steps).toContainEqual({ atomic: ["content.remove:pages", "revisions.remove:pages"] });
     expect(stepsOf("deletePageTranslation")).toContain("revisions.removeTranslation:pages");
@@ -611,9 +631,10 @@ describe("definePreset revisions feature", () => {
       "authn.requireUser",
       "authz.require:pages.write",
       "revisions.restore:pages",
-      ...stepsOf("updatePage").slice(2, -1),
+      ...stepsOf("updatePage").slice(2, -2),
       "revisions.reportRestore",
       "events.emit:page.restored",
+      "events.relay",
     ]);
   });
 
@@ -649,7 +670,8 @@ describe("definePreset revisions feature", () => {
     });
     const update = pipelineSteps(withDelivery.pipelines.find((pipeline) => pipeline.name === "updatePage")?.steps ?? []);
     expect(update.indexOf("revisions.record:pages")).toBe(update.indexOf("content.update:pages") + 1);
-    expect(update.indexOf("delivery.publish:pages")).toBeGreaterThan(update.indexOf("revisions.record:pages"));
+    expect(update).not.toContain("delivery.publish:pages");
+    expect(update[update.length - 1]).toBe("events.relay");
   });
 });
 
@@ -666,6 +688,7 @@ describe("definePreset user deletion", () => {
       "authz.require:users.manage",
       "authn.deleteUser",
       "events.emit:user.deleted?with=result",
+      "events.relay",
     ]);
   });
 

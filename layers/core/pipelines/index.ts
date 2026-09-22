@@ -8,7 +8,7 @@ import type { PresetStep } from "../module-registry";
 import type { Workflow } from "../app/types/kestrel";
 import { customFieldTypes, fieldTypeSchemas } from "../field-types";
 import type { FieldTypes } from "../field-types";
-import { applyExclude, applyFeaturePatches, applyOverrides, applySchedules, foldTrailingEmit, groupSignatureOf, mergePipelines } from "./compose";
+import { appendRelay, applyExclude, applyFeaturePatches, applyOverrides, applySchedules, foldTrailingEmit, groupSignatureOf, mergePipelines } from "./compose";
 import type { GroupSignature, Patch, PresetEntry } from "./compose";
 import { basePipelines } from "./base";
 import type { PresetContext } from "./base";
@@ -71,7 +71,7 @@ export const staticPipelineNames = [
   "sweepRateLimits",
   "brokenReferences", "pageReferrers", "pageReferrersMany", "mediaReferrers", "mediaReferrersMany", "rebuildReferences", "scanReferences",
   "brokenLinks", "rebuildLinks", "checkLinks",
-  "pagePublishStatus", "publishAllPages",
+  "publishPage", "unpublishPage", "pagePublishStatus", "publishAllPages",
   "getRedirects", "setRedirects", "renderRedirects",
   "serveImageVariant", "registerImageSizes", "registerImageSizesBoot", "listImageSizes", "syncImages", "pruneImages", "retryFailedImages", "imagesStatus", "generateImageVariants", "resumeImages",
   "replicate", "replicationStatus", "replicationPoints", "replicationSnapshot", "replicationRestore",
@@ -219,13 +219,12 @@ export function definePreset<C extends Record<string, CollectionModel> = Record<
     }
   }
 
-  if (enabledFeatures.has("eventsQueue")) {
-    const folded: Record<string, PresetEntry[]> = {};
-    for (const [name, entries] of Object.entries(pipelines)) {
-      folded[name] = foldTrailingEmit(name, entries);
-    }
-    pipelines = folded;
+  const folded: Record<string, PresetEntry[]> = {};
+  for (const [name, entries] of Object.entries(pipelines)) {
+    const withEmitPlaced = enabledFeatures.has("eventsQueue") ? foldTrailingEmit(name, entries) : entries;
+    folded[name] = appendRelay(withEmitPlaced);
   }
+  pipelines = folded;
 
   const groupedSignatures = new Map<string, GroupSignature>();
   for (const [name, entries] of Object.entries(pipelines)) {

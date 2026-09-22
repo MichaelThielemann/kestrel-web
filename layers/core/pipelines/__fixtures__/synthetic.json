@@ -37,7 +37,8 @@
           "content.create:news"
         ]
       },
-      "events.emit:news.created"
+      "events.emit:news.created",
+      "events.relay"
     ],
     "createPage": [
       "authn.requireUser",
@@ -50,25 +51,29 @@
           "content.create:pages"
         ]
       },
-      "events.emit:page.created"
+      "events.emit:page.created",
+      "events.relay"
     ],
     "createUser": [
       "authn.requireUser",
       "authz.require:users.manage",
       "authn.createUser",
-      "events.emit:user.created"
+      "events.emit:user.created",
+      "events.relay"
     ],
     "deactivateUser": [
       "authn.requireUser",
       "authz.require:users.manage",
       "authn.deactivateUser",
-      "events.emit:user.deactivated"
+      "events.emit:user.deactivated",
+      "events.relay"
     ],
     "deleteMedia": [
       "authn.requireUser",
       "authz.require:media.delete",
       "media.remove",
-      "events.emit:media.deleted"
+      "events.emit:media.deleted",
+      "events.relay"
     ],
     "deleteMediaFolder": [
       "authn.requireUser",
@@ -84,7 +89,8 @@
           "content.remove:news"
         ]
       },
-      "events.emit:news.deleted"
+      "events.emit:news.deleted",
+      "events.relay"
     ],
     "deleteNewsTranslation": [
       "authn.requireUser",
@@ -94,7 +100,8 @@
           "content.removeTranslation:news"
         ]
       },
-      "events.emit:news.translationRemoved"
+      "events.emit:news.translationRemoved",
+      "events.relay"
     ],
     "deletePage": [
       "authn.requireUser",
@@ -104,7 +111,8 @@
           "content.remove:pages"
         ]
       },
-      "events.emit:page.deleted"
+      "events.emit:page.deleted",
+      "events.relay"
     ],
     "deletePageTranslation": [
       "authn.requireUser",
@@ -114,13 +122,15 @@
           "content.removeTranslation:pages"
         ]
       },
-      "events.emit:page.translationRemoved"
+      "events.emit:page.translationRemoved",
+      "events.relay"
     ],
     "deleteUser": [
       "authn.requireUser",
       "authz.require:users.manage",
       "authn.deleteUser",
-      "events.emit:user.deleted?with=result"
+      "events.emit:user.deleted?with=result",
+      "events.relay"
     ],
     "downloadMedia": [
       "authn.identifyUser",
@@ -205,12 +215,14 @@
     ],
     "login": [
       "authn.login",
-      "events.emit:auth.loggedIn"
+      "events.emit:auth.loggedIn",
+      "events.relay"
     ],
     "logout": [
       "authn.requireUser",
       "authn.logout",
-      "events.emit:auth.loggedOut"
+      "events.emit:auth.loggedOut",
+      "events.relay"
     ],
     "me": [
       "authn.requireUser",
@@ -297,7 +309,8 @@
       "authn.requireUser",
       "authz.require:media.write",
       "media.update",
-      "events.emit:media.updated"
+      "events.emit:media.updated",
+      "events.relay"
     ],
     "updateNews": [
       "authn.requireUser",
@@ -310,7 +323,8 @@
           "content.update:news"
         ]
       },
-      "events.emit:news.updated"
+      "events.emit:news.updated",
+      "events.relay"
     ],
     "updatePage": [
       "authn.requireUser",
@@ -323,19 +337,22 @@
           "content.update:pages"
         ]
       },
-      "events.emit:page.updated"
+      "events.emit:page.updated",
+      "events.relay"
     ],
     "updateUser": [
       "authn.requireUser",
       "authz.require:users.manage",
       "authn.updateUser",
-      "events.emit:user.updated"
+      "events.emit:user.updated",
+      "events.relay"
     ],
     "uploadMedia": [
       "authn.requireUser",
       "authz.require:media.write",
       "media.upload",
-      "events.emit:media.uploaded"
+      "events.emit:media.uploaded",
+      "events.relay"
     ]
   },
   "triggers": [

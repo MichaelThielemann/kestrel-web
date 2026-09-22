@@ -57,20 +57,21 @@
           "events.emit:page.created"
         ]
       },
-      "delivery.publish:pages",
-      "delivery.exportLlms"
+      "events.relay"
     ],
     "createUser": [
       "authn.requireUser",
       "authz.require:users.manage",
       "authn.createUser",
-      "events.emit:user.created"
+      "events.emit:user.created",
+      "events.relay"
     ],
     "deactivateUser": [
       "authn.requireUser",
       "authz.require:users.manage",
       "authn.deactivateUser",
-      "events.emit:user.deactivated"
+      "events.emit:user.deactivated",
+      "events.relay"
     ],
     "deleteMedia": [
       "authn.requireUser",
@@ -78,7 +79,8 @@
       "references.guard:media",
       "images.remove",
       "media.remove",
-      "events.emit:media.deleted"
+      "events.emit:media.deleted",
+      "events.relay"
     ],
     "deleteMediaFolder": [
       "authn.requireUser",
@@ -101,8 +103,7 @@
           "events.emit:page.deleted"
         ]
       },
-      "delivery.unpublish:pages",
-      "delivery.exportLlms"
+      "events.relay"
     ],
     "deletePageTranslation": [
       "authn.requireUser",
@@ -116,8 +117,7 @@
           "events.emit:page.translationRemoved"
         ]
       },
-      "delivery.publish:pages",
-      "delivery.exportLlms"
+      "events.relay"
     ],
     "deleteUser": [
       "authn.requireUser",
@@ -127,7 +127,8 @@
           "authn.deleteUser",
           "events.emit:user.deleted?with=result"
         ]
-      }
+      },
+      "events.relay"
     ],
     "downloadMedia": [
       "authn.identifyUser",
@@ -239,12 +240,14 @@
     "login": [
       "ratelimit.check:login",
       "authn.login",
-      "events.emit:auth.loggedIn"
+      "events.emit:auth.loggedIn",
+      "events.relay"
     ],
     "logout": [
       "authn.requireUser",
       "authn.logout",
-      "events.emit:auth.loggedOut"
+      "events.emit:auth.loggedOut",
+      "events.relay"
     ],
     "me": [
       "authn.requireUser",
@@ -302,6 +305,10 @@
       "delivery.publishAll:pages",
       "delivery.exportLlms",
       "redirects.export"
+    ],
+    "publishPage": [
+      "delivery.publish:pages",
+      "delivery.exportLlms"
     ],
     "purgeEvents": [
       "events.purgeDone"
@@ -406,8 +413,7 @@
           "events.emit:page.restored"
         ]
       },
-      "delivery.publish:pages",
-      "delivery.exportLlms",
+      "events.relay",
       "revisions.reportRestore"
     ],
     "resumeImages": [
@@ -464,11 +470,16 @@
       "authz.require:images.manage",
       "images.sync"
     ],
+    "unpublishPage": [
+      "delivery.unpublish:pages",
+      "delivery.exportLlms"
+    ],
     "updateMedia": [
       "authn.requireUser",
       "authz.require:media.write",
       "media.update",
-      "events.emit:media.updated"
+      "events.emit:media.updated",
+      "events.relay"
     ],
     "updatePage": [
       "authn.requireUser",
@@ -487,21 +498,22 @@
           "events.emit:page.updated"
         ]
       },
-      "delivery.publish:pages",
-      "delivery.exportLlms"
+      "events.relay"
     ],
     "updateUser": [
       "authn.requireUser",
       "authz.require:users.manage",
       "authn.updateUser",
-      "events.emit:user.updated"
+      "events.emit:user.updated",
+      "events.relay"
     ],
     "uploadMedia": [
       "authn.requireUser",
       "authz.require:media.write",
       "sanitize.svg",
       "media.upload",
-      "events.emit:media.uploaded"
+      "events.emit:media.uploaded",
+      "events.relay"
     ]
   },
   "triggers": [
@@ -816,6 +828,26 @@
     {
       "event": "auth.loggedOut",
       "pipeline": "auditAuth"
+    },
+    {
+      "event": "page.created",
+      "pipeline": "publishPage"
+    },
+    {
+      "event": "page.updated",
+      "pipeline": "publishPage"
+    },
+    {
+      "event": "page.restored",
+      "pipeline": "publishPage"
+    },
+    {
+      "event": "page.deleted",
+      "pipeline": "unpublishPage"
+    },
+    {
+      "event": "page.translationRemoved",
+      "pipeline": "publishPage"
     },
     {
       "http": "POST /admin/users/:id/audit/anonymize",
