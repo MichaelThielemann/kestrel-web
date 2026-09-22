@@ -131,6 +131,7 @@ function relative(ms: number | null): string { return ms === null ? '—' : huma
           <template #head>
             <th>{{ t('events.colEvent') }}</th>
             <th>{{ t('events.colPipeline') }}</th>
+            <th>{{ t('events.colRun') }}</th>
             <th>{{ t('events.colAttempts') }}</th>
             <th>{{ t('events.colError') }}</th>
             <th>{{ t('events.colFailedAt') }}</th>
@@ -141,6 +142,7 @@ function relative(ms: number | null): string { return ms === null ? '—' : huma
             <tr v-for="event in dead" :key="event.id">
               <td class="events__mono">{{ event.name }}</td>
               <td class="events__mono">{{ event.pipeline || '—' }}</td>
+              <td class="events__mono">{{ event.runId || '—' }}</td>
               <td>{{ event.attempts }}</td>
               <td class="events__error" :title="event.error">{{ event.error }}</td>
               <td :title="absolute(event.availableAt)">{{ relative(event.availableAt) }}</td>
@@ -160,7 +162,7 @@ function relative(ms: number | null): string { return ms === null ? '—' : huma
               </td>
             </tr>
             <tr v-if="dead.length === 0">
-              <td colspan="7" class="events__empty">{{ t('events.noDead') }}</td>
+              <td colspan="8" class="events__empty">{{ t('events.noDead') }}</td>
             </tr>
           </template>
         </KestrelUiTable>
