@@ -46,27 +46,37 @@
   the reference/link index in `{ atomic: [...] }`: either all of them are stored or none is, closing the
   window where a step after a failed write left the database with a stored document but no revision, no
   reference index and no link index. `overrides` takes the same shape (`readonly PresetEntry[]`, a step
-  name or `{ atomic: [...] }`) and an override that drops the group around the pipeline's `content.*`
-  write is rejected when the preset composes, naming the pipeline — wrap the write steps in
-  `{ atomic: [...] }` or `exclude` the pipeline and define your own. `PresetEntry`, `ATOMIC_END` and
-  `foldTrailingEmit` are exported from `#kestrel/pipelines` for a consumer composing entries by hand;
-  `PresetOptions["overrides"]`, `FeatureModule["pipelines"]` and the collection/base pipeline builders
-  change shape accordingly. With the `eventsQueue` feature, a pipeline's trailing `events.emit:` step
-  joins the end of its group instead of running after it (`deleteUser` gets a group only in this mode,
-  for its `user.deleted` subscribers); every other single-write pipeline keeps no group in both delivery
-  modes, since none has a shipped event subscriber whose loss needs undoing.
+  name or `{ atomic: [...] }`, `PresetEntry` exported from `#kestrel/pipelines`) and an override that
+  drops the group around the pipeline's `content.*` write, or around `deleteUser`'s `authn.deleteUser`,
+  is rejected when the preset composes, naming the pipeline — wrap the write steps in `{ atomic: [...]
+  }` or `exclude` the pipeline and define your own. Switching the grouped write to a different
+  `content.*` operation on the same collection (for example `content.set` instead of `content.create`)
+  still counts as keeping the group. `PresetOptions["overrides"]`, `FeatureModule["pipelines"]` and the
+  collection/base pipeline builders change shape accordingly. With the `eventsQueue` feature, a
+  pipeline's trailing `events.emit:` step joins the end of its group instead of running after it
+  (`deleteUser` gets a group only in this mode, for its `user.deleted` subscribers) — nothing else moves
+  into the group, so a step like `revisions.reportRestore` keeps merging its output after
+  `delivery.publish`'s; every other single-write pipeline keeps no group in both delivery modes, since
+  none has a shipped event subscriber whose loss needs undoing.
 
   The golden fixtures (`playground.json`, `synthetic.json`, `without-images.json`) reflect the new
   nesting; a fourth fixture, `queued-events.json`, pins the `eventsQueue` variant.
 
-  `layers/core/server/api/ready.get.ts` now reports `{ ready: false, state: "degraded" }` (503) when the
-  persistence probe resolves to an `Err`, not only when it throws — a database left unusable after a
-  failed atomic-scope rollback answers every call with a resolved `Err`, which the previous `try`/`catch`
-  never saw.
+  `layers/admin`'s insights step chips render a pipeline's atomic group as one bracketed, labelled
+  (`role="group"`, `aria-label`) unit, and `InsightsModule`/`InsightsPipelineStep`
+  (`layers/core/app/types/api.ts`) gain `atomicScope` and `atomic` to carry it.
 
-  `layers/admin`'s insights step chips render a pipeline's atomic group as one bracketed unit, and
-  `InsightsModule`/`InsightsPipelineStep` (`layers/core/app/types/api.ts`) gain `atomicScope` and
-  `atomic` to carry it.
+- **`GET /api/ready` and `GET /api/health` now read the booted instance's `health()`** instead of
+  `/api/ready` probing a `count()` call and `/api/health` never failing. `health()` aggregates every
+  module's own synchronous, I/O-free `health(instance)` hook (`persistence-sqlite` reports its store
+  unusable, with `restartRequired: true`, only after a failed atomic-scope rollback — never lock
+  contention), so neither probe can flap under write load the way probing a call's outcome could.
+  `/api/ready` answers `503 { ready: false, state: "degraded", error: "<module>: <reason>", code:
+  "degraded" }` whenever `health().ok` is false; `/api/health` stays `200` through booting and a
+  recoverable boot failure and answers `503 { ok: false, error: "<module>: <reason>", uptimeSeconds }`
+  once `health().restartRequired` is true. A restart policy already pointed at `/api/health` now has
+  something to act on. `layers/core/server/utils/readiness.ts` exports `readinessFromHealth` and
+  `livenessFromHealth` in place of the removed `probePersistence`.
 
 ### Changed
 

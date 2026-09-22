@@ -134,17 +134,20 @@ Nitro  server/api/[...].ts  →  createKestrelHandler(kestrel, { mountPath: "/ap
        server/plugins/kestrel.ts  (layers/core)  boots once per process:
          boot({ config: kestrel.config.ts, modules: #kestrel/consumer-modules, pipelines: #kestrel/consumer-pipelines })
          kestrel.start()  (cron + event triggers)
-       server/api/health.get.ts  →  { ok, uptimeSeconds }              (liveness)
+       server/api/health.get.ts  →  { ok, uptimeSeconds } | 503        (liveness)
        server/api/ready.get.ts   →  { ready, uptimeSeconds } | 503     (readiness)
        server/api/admin/schema.get.ts  →  kestrel.run("adminSchemaModel")  (admin schema)
 ```
-`GET /api/health` is liveness only: it answers `{ ok: true, uptimeSeconds }` as long as the process
-runs, whatever the backend does. `GET /api/ready` is readiness: 200 `{ ready: true, uptimeSeconds }`
-once the boot promise has resolved, otherwise 503 `{ ready: false, state, error?, code }` with `state`
-(and `code`, the same value — `useApi()`'s generic `ApiError.code` is how the admin layout reads it
-without a bespoke fetch) one of `booting`, `failed` (boot rejected) or `degraded` (booted, but the
-persistence probe failed). The probe is a `count()` on the first collection of the content module's
-`types` — the module registering `content.create`; without a content module the probe is skipped. Use
+`GET /api/health` is liveness and `GET /api/ready` is readiness, and once booted they can disagree:
+`/api/ready` is 200 `{ ready: true, uptimeSeconds }` once the boot promise has resolved and the booted
+`Kestrel`'s `health()` reports `ok: true`, otherwise 503 `{ ready: false, state, error?, code }` with
+`state` (and `code`, the same value — `useApi()`'s generic `ApiError.code` is how the admin layout reads
+it without a bespoke fetch) one of `booting`, `failed` (boot rejected) or `degraded` (booted, but
+`health().ok` is false). `/api/health` stays 200 through `booting`/`failed` — a bad config must not
+become a restart loop — and only answers 503 `{ ok: false, error, uptimeSeconds }` once
+`health().restartRequired` is true. `health()` aggregates every module's own synchronous `health(
+instance)` hook (`readiness.ts`'s `readinessFromHealth`/`livenessFromHealth`); it does no I/O and never
+reflects an in-flight call's outcome, so a contended write cannot make either probe flap. Use
 `/api/health` for a restart policy and `/api/ready` for load-balancer traffic.
 
 ### `GET /api/admin/schema`
@@ -392,11 +395,13 @@ right after it. A pipeline with no group, or with more than one, makes `ATOMIC_E
 
 With the `eventsQueue` feature, `definePreset` folds each pipeline once, after every feature patch and
 `derive()`: if a pipeline's last entry is its `events.emit:` step and it has exactly one atomic group,
-the emit moves to the end of that group, along with every atomic-safe step sitting between them (only
-`revisions.reportRestore`, for `restore<Name>Revision`) — `delivery.*` stays outside because it never
-declares `atomicSafe`. This is why `deleteUser` gets a group only with the queue enabled: the delete
-itself is already a single step, but the queue's write and the `user.deleted` event row now commit or
-roll back together for the two shipped subscribers (`anonymizeAuditUser`, `reassignRevisionAuthor`).
+the emit — and only the emit — moves to the end of that group. Nothing between the group and the emit
+moves with it, `revisions.reportRestore` included: `resolveOutputSchema` merges step output schemas in
+resolved order, and `revisions.reportRestore`'s `extendsOutput` must run after `delivery.publish`'s full
+`output`, not before it, or the restore report silently disappears from the response. This is why
+`deleteUser` gets a group only with the queue enabled: the delete itself is already a single step, but
+the queue's write and the `user.deleted` event row now commit or roll back together for the two shipped
+subscribers (`anonymizeAuditUser`, `reassignRevisionAuthor`).
 Every other single-write pipeline (`createUser`, `updateUser`, `setSettings`, `uploadMedia`, …) keeps no
 group in both delivery modes: none of them has a shipped event subscriber whose loss would need
 undoing, and a consumer who adds one overrides that pipeline with its own group.

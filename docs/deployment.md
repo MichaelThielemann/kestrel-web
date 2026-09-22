@@ -216,18 +216,38 @@ deployment with a closed `NUXT_KESTREL_ACCESS_ADMIN` still answers its probes.
 
 | endpoint | meaning | 200 | not 200 |
 |---|---|---|---|
-| `GET /api/health` | the process is up | `{ ok: true, uptimeSeconds }` | never |
-| `GET /api/ready` | the backend booted and its database answers | `{ ready: true, uptimeSeconds }` | `503 { ready: false, state, error? }` |
+| `GET /api/health` | liveness: the process can keep serving, or needs to be restarted | `{ ok: true, uptimeSeconds }` | `503 { ok: false, error, uptimeSeconds }` |
+| `GET /api/ready` | readiness: route traffic here, or don't | `{ ready: true, uptimeSeconds }` | `503 { ready: false, state, error? }` |
 
-`state` is `booting`, `failed` or `degraded`. Point the restart policy at `/api/health` and traffic
-routing at `/api/ready`: `/api/health` deliberately keeps answering while the backend is broken so a
-bad config does not become a restart loop. Outside `nuxt dev` a boot failure additionally ends the
-process with exit code 1.
+Point the restart policy at `/api/health` and traffic routing at `/api/ready` — they now answer two
+different questions and can disagree. A restart policy watching `/api/ready` instead would restart the
+process for a condition a restart cannot fix (a misconfigured collection, a missing permission), and a
+load balancer watching `/api/health` instead would keep sending traffic to an instance that has already
+taken itself out of rotation.
 
-`degraded` also covers a database that answers every call with a failure rather than refusing the
-connection outright — the state a store enters after an atomic group's rollback itself failed to
-complete. That store cannot prove what it holds, so `/api/ready` reports `degraded` and 503 instead of
-`ready: true`, and the process needs a restart, not a retry.
+Both read the booted `Kestrel` instance's `health()` — a synchronous aggregate of every module's own
+`health(instance)` hook, with no I/O and no dependency on an in-flight call, so neither probe can flap
+under write contention the way probing a call's outcome would. A module reports `{ ok: false, reason,
+restartRequired }`; `persistence-sqlite` is the shipped example, reporting the store unusable (and
+`restartRequired: true`) once an atomic scope's rollback itself failed — never ordinary lock contention.
+
+- **`/api/ready`** answers `503 { ready: false, state: "degraded", error: "<module>: <reason>", code:
+  "degraded" }` whenever `health().ok` is false, whatever `restartRequired` says: a store that reports
+  itself unhealthy should not receive new writes even if the process could in principle keep running.
+  It also answers 503 while the backend is still booting or failed to boot (`state: "booting" |
+  "failed"`); outside `nuxt dev` a boot failure additionally ends the process with exit code 1, so this
+  path is normally short-lived.
+- **`/api/health`** stays `200` through booting and through a recoverable boot failure — a bad config
+  does not become a restart loop — and only answers `503 { ok: false, error: "<module>: <reason>" }`
+  once `health().restartRequired` is true: the process cannot recover on its own and needs to be
+  replaced, which is exactly what a restart policy should act on.
+
+A write that touches an atomic group (creating, updating or deleting a page, deleting a user) holds
+SQLite's single connection for the group's duration; a second such request arriving while it is open
+waits, up to `persistence-sqlite`'s `acquireTimeoutMs` (`presetModuleConfig()` sets `15000`), before it
+is answered `503 { retryable: true }` with a `Retry-After` header on the request itself — the same
+shape as any other transient failure. Neither probe reflects this: it is ordinary contention, not a
+health condition, and both `/api/health` and `/api/ready` keep answering normally while it happens.
 
 ## 9. Backups
 

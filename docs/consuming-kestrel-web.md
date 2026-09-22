@@ -324,6 +324,16 @@ rather than booting with something plausible.
   outside production.
 - **The conventions** — `media/` for the media prefix, `site/` for delivery and redirects, the empty
   configs of the modules that take none.
+- **`persistence-sqlite.acquireTimeoutMs`** — set to `15000`. An atomic write group (§4) holds the
+  database's single connection for its duration; `acquireTimeoutMs` bounds how long a second request
+  waits for its turn before it is answered `503`, and `persistence-sqlite` refuses to boot unless it is
+  greater than `busyTimeoutMs` (default `5000`) — an equal pair fails exactly when the wait would have
+  succeeded, because the connection is held synchronously while SQLite waits out `busyTimeoutMs` and no
+  timer can fire during that block. A request that has to wait experiences that wait, then either
+  proceeds once the lock frees or gets `503` at the `acquireTimeoutMs` deadline; the client's own
+  retry, if any, sees the same `Retry-After` handling as any other `503`. Change either number through
+  `overrides: { "@michaelthielemann/kestrel-persistence-sqlite": { acquireTimeoutMs, busyTimeoutMs } }`,
+  keeping `acquireTimeoutMs` above `busyTimeoutMs`.
 
 Anything the builder doesn't expose goes through `overrides`, keyed by package name and shallow-merged
 onto that module's derived config with your keys winning — e.g.
@@ -340,7 +350,7 @@ only if you need a module `presetModuleConfig()` doesn't emit — `definePreset`
 const modules = [
   { use: "@michaelthielemann/kestrel-blobstore-filesystem", config: { root: resolve(dataDir, "blobs") } },
   { use: "@michaelthielemann/kestrel-replication-sqlite", config: { file: resolve(dataDir, "kestrel.db") } },
-  { use: "@michaelthielemann/kestrel-persistence-sqlite", config: { file: resolve(dataDir, "kestrel.db") } },
+  { use: "@michaelthielemann/kestrel-persistence-sqlite", config: { file: resolve(dataDir, "kestrel.db"), acquireTimeoutMs: 15000 } },
   { use: "@michaelthielemann/kestrel-sanitize-svg", config: {} },
   { use: "@michaelthielemann/kestrel-media-default", config: { prefix: "media/", allowedTypes: ["image/*", "application/pdf"], deniedTypes: ["text/html", "application/xhtml+xml"], maxBytes: 5242880, locales: ["de", "en"], defaultLocale: "de" } },
   { use: "@michaelthielemann/kestrel-images-default", config: { publicPath: "/api/media" } },
@@ -813,12 +823,14 @@ entirely — their pipelines and routes are hand-written in the preset.
   ```
 
   An override of one of those pipelines that no longer wraps its `content.*` write is rejected when the
-  preset composes, naming the pipeline — a flat override must not silently lose atomicity. If you
-  deliberately want no transaction, `exclude` the pipeline and define your own. Steps inside a group must
-  declare `atomicSafe` in their `describe()`; every shipped step that belongs in one does, a step of your
-  own does not by default. `delivery.*` and, without the `eventsQueue` feature, `events.emit` are
-  deliberately outside the group: the database stays consistent, but the published artefact may lag, and
-  `publishAllPages` repairs it.
+  preset composes, naming the pipeline — a flat override must not silently lose atomicity. The check is
+  by collection, not by exact step: an override that writes with `content.set:pages` instead of
+  `content.create:pages` still counts as keeping the group. The same protection covers `deleteUser`'s
+  `authn.deleteUser` group with the `eventsQueue` feature. If you deliberately want no transaction,
+  `exclude` the pipeline and define your own. Steps inside a group must declare `atomicSafe` in their
+  `describe()`; every shipped step that belongs in one does, a step of your own does not by default.
+  `delivery.*` and, without the `eventsQueue` feature, `events.emit` are deliberately outside the group:
+  the database stays consistent, but the published artefact may lag, and `publishAllPages` repairs it.
 - `exclude` removes a preset pipeline **and** its trigger(s) — same for collection-derived names.
 - `schedules` changes a cron pipeline's schedule.
 - `exportDir` — media/image export directory (default `<KESTREL_APP_ROOT>/data/export`; `KESTREL_APP_ROOT` is the app root in dev and the environment variable or process cwd of a production server).
