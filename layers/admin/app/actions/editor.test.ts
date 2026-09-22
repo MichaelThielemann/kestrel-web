@@ -33,7 +33,7 @@ const apiError = (status: number, message: string, details?: ApiErrorDetails) =>
 
 function fakeDeps(responses: Array<unknown | Error> = []) {
   const { api, calls } = fakeApi(responses)
-  const toast = { success: vi.fn(), error: vi.fn() }
+  const toast = { success: vi.fn(), error: vi.fn(), info: vi.fn() }
   const t = vi.fn((key: string, params?: Record<string, unknown>) => (params ? `${key}:${JSON.stringify(params)}` : key))
   const deps: ActionDeps = { api, t, toast }
   return { deps, calls, toast, t }
@@ -48,7 +48,6 @@ interface FormState {
   blockErrors: unknown
   values: Record<string, unknown>
   applied: Document[]
-  delivery: unknown[]
   deliveryLoads: number
   revealed: number
   cleared: number
@@ -64,7 +63,6 @@ function fakeForm(overrides: Partial<EditFormPort> = {}, opts: { valid?: boolean
     blockErrors: null,
     values: { title: 'A', status: 'draft' },
     applied: [],
-    delivery: [],
     deliveryLoads: 0,
     revealed: 0,
     cleared: 0,
@@ -95,7 +93,6 @@ function fakeForm(overrides: Partial<EditFormPort> = {}, opts: { valid?: boolean
     validateAll: () => opts.valid !== false,
     validateBlocks: () => opts.blockProblems ?? 0,
     applySaved: (record) => { state.applied.push(record) },
-    setDelivery: (entries) => { state.delivery.push(entries) },
     loadDelivery: () => { state.deliveryLoads++; return Promise.resolve() },
     revealError: () => { state.revealed++ },
     ...overrides,
@@ -268,7 +265,7 @@ describe('saveRecord', () => {
 
     await runAction(saveRecord, { deps, form, eventsQueue: true })
 
-    expect(toast.error).toHaveBeenCalledWith('editorStatus.delivery.failed' + 'editorStatus.delivery.retryQueue')
+    expect(toast.error).toHaveBeenCalledWith('editorStatus.delivery.failed' + 'editorStatus.delivery.retryQueue:{"tab":"system.tabs.events"}')
   })
 
   it('toasts a delivery failure, mentioning re-rendering when the eventsQueue feature is off', async () => {
@@ -277,16 +274,17 @@ describe('saveRecord', () => {
 
     await runAction(saveRecord, { deps, form })
 
-    expect(toast.error).toHaveBeenCalledWith('editorStatus.delivery.failed' + 'editorStatus.delivery.retryDelivery')
+    expect(toast.error).toHaveBeenCalledWith('editorStatus.delivery.failed' + 'editorStatus.delivery.retryDelivery:{"tab":"system.tabs.delivery"}')
   })
 
-  it('toasts a pending delivery as still running, not as failed', async () => {
+  it('toasts a pending delivery as informational, not as an error, still running', async () => {
     const { deps, toast } = fakeDeps([doc({ _events: { status: 'pending', pipelines: [] } })])
     const { form } = fakeForm()
 
     await runAction(saveRecord, { deps, form, eventsQueue: true })
 
-    expect(toast.error).toHaveBeenCalledWith('editorStatus.delivery.queued' + 'editorStatus.delivery.retryQueue')
+    expect(toast.info).toHaveBeenCalledWith('editorStatus.delivery.queued' + 'editorStatus.delivery.retryQueue:{"tab":"system.tabs.events"}')
+    expect(toast.error).not.toHaveBeenCalled()
   })
 
   it('does not toast when the delivery status is done', async () => {
@@ -480,7 +478,7 @@ describe('deleteRecord', () => {
 
     await runAction(deleteRecord, { ...input, pageLike: true, eventsQueue: true })
 
-    expect(toast.error).toHaveBeenCalledWith('editorStatus.delivery.deleteFailed' + 'editorStatus.delivery.retryQueue')
+    expect(toast.error).toHaveBeenCalledWith('editorStatus.delivery.deleteFailed' + 'editorStatus.delivery.retryQueue:{"tab":"system.tabs.events"}')
   })
 
   it('does not toast a delivery failure for a collection that is not page-like', async () => {

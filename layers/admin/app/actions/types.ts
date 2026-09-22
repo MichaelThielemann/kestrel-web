@@ -1,4 +1,4 @@
-import type { ApiErrorDetails, DeliveryEntry, Document, EventRelayStatus, ReferenceTo } from '#kestrel-admin/types/api'
+import type { ApiErrorDetails, Document, EventRelayStatus, ReferenceTo } from '#kestrel-admin/types/api'
 import type { Workflow } from '#kestrel-admin/types/kestrel'
 import type { BlockErrors } from '../composables/useEditForm'
 import type { BlockRow } from '../utils/block-tree'
@@ -19,6 +19,7 @@ export type Translate = (key: string, params?: Record<string, unknown>) => strin
 export interface ToastPort {
   success: (message: string) => unknown
   error: (message: string) => unknown
+  info: (message: string) => unknown
 }
 
 export type ConfirmPort = (message: string) => boolean
@@ -73,7 +74,6 @@ export interface EditFormPort {
   validateAll: () => boolean
   validateBlocks: () => number
   applySaved: (record: Document) => void
-  setDelivery: (entries: DeliveryEntry[]) => void
   loadDelivery: () => Promise<void>
   revealError: () => void
 }

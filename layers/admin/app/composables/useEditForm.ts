@@ -385,9 +385,6 @@ export function useEditForm(opts: UseEditFormOptions) {
         translations.value = readTranslations(record)
         rebaseline(record)
       },
-      setDelivery: (entries) => {
-        delivery.value = entries
-      },
       loadDelivery,
       revealError,
     }

@@ -41,7 +41,6 @@ function fakeForm() {
     validateAll: () => true,
     validateBlocks: () => 0,
     applySaved: () => {},
-    setDelivery: () => {},
     loadDelivery: () => Promise.resolve(),
     revealError: () => {},
   }
@@ -50,7 +49,7 @@ function fakeForm() {
 
 function runMapErrors(failure: SaveFailure | null) {
   const { form, state } = fakeForm()
-  const deps: ActionDeps = { api: fakeApiClient(), t: vi.fn((key: string) => key), toast: { success: vi.fn(), error: vi.fn() } }
+  const deps: ActionDeps = { api: fakeApiClient(), t: vi.fn((key: string) => key), toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() } }
   const ctx: ActionContext<Input, SaveOutcome> = {
     input: { deps, form },
     result: { record: null, events: null, failure, failed: failure !== null },
@@ -140,7 +139,7 @@ describe('api.write to form.mapErrors', () => {
   it('carries details.fields from a 400 through the outcome onto the fields', async () => {
     const { form, state } = fakeForm()
     const api = (() => Promise.reject(new ApiError(400, 'pages: title is required', 'VALIDATION', false, 'run-9', 'content.save', { fields: [{ field: 'title', message: 'is required' }] }))) as ApiClient
-    const deps: ActionDeps = { api, t: vi.fn((key: string) => key), toast: { success: vi.fn(), error: vi.fn() } }
+    const deps: ActionDeps = { api, t: vi.fn((key: string) => key), toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() } }
     const action = defineAction<WithDeps & { form: EditFormPort }, SaveOutcome>({
       name: 'save',
       steps: [formReset(), apiWrite(), formMapErrors()],

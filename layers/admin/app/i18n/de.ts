@@ -206,8 +206,8 @@ export const de: Record<CatalogKey, string> = {
   'editorStatus.delivery.failed': 'Die Seite wurde gespeichert, aber die Veröffentlichung ist fehlgeschlagen.',
   'editorStatus.delivery.queued': 'Die Seite wurde gespeichert; die Veröffentlichung läuft noch.',
   'editorStatus.delivery.deleteFailed': 'Die Seite wurde gelöscht, ist aber weiterhin online.',
-  'editorStatus.delivery.retryQueue': ' Wiederholen unter System → Ereignisse.',
-  'editorStatus.delivery.retryDelivery': ' Neu rendern unter System → Veröffentlichung.',
+  'editorStatus.delivery.retryQueue': ' Wiederholen unter System → {tab}.',
+  'editorStatus.delivery.retryDelivery': ' Neu rendern unter System → {tab}.',
 
   'seo.sectionLabel': 'SEO & GEO',
   'seo.sectionHint': 'Suchmaschinen und KI-Antwortmaschinen lesen dieselben Felder: die Meta-Beschreibung ist zugleich die Kurzbeschreibung in llms.txt, noindex nimmt die Seite aus beidem heraus.',

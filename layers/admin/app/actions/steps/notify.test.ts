@@ -19,7 +19,7 @@ function fakeApi(responses: Array<unknown | Error>) {
 
 function fakeDeps(responses: Array<unknown | Error> = []) {
   const { api } = fakeApi(responses)
-  const toast = { success: vi.fn(), error: vi.fn() }
+  const toast = { success: vi.fn(), error: vi.fn(), info: vi.fn() }
   const t = vi.fn((key: string, params?: Record<string, unknown>) => (params ? `${key}:${JSON.stringify(params)}` : key))
   const deps: ActionDeps = { api, t, toast }
   return { deps, toast, t }

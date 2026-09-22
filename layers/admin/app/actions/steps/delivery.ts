@@ -1,6 +1,6 @@
 import type { ActionStep } from '#kestrel-core/app/utils/actions'
 import { defineUiStep } from '../define'
-import type { EditFormPort, SaveOutcome, WithDeps } from '../types'
+import type { EditFormPort, SaveOutcome, Translate, WithDeps } from '../types'
 import { saveOutcome } from './form'
 
 export function deliveryRefresh<I extends { form: EditFormPort }>(): ActionStep<I, SaveOutcome> {
@@ -11,6 +11,12 @@ export function deliveryRefresh<I extends { form: EditFormPort }>(): ActionStep<
   })
 }
 
+export function retrySuffix(t: Translate, eventsQueue: boolean | undefined): string {
+  return eventsQueue
+    ? t('editorStatus.delivery.retryQueue', { tab: t('system.tabs.events') })
+    : t('editorStatus.delivery.retryDelivery', { tab: t('system.tabs.delivery') })
+}
+
 export function deliveryToast<I extends WithDeps & { form: EditFormPort, eventsQueue?: boolean }>(): ActionStep<I, SaveOutcome> {
   return defineUiStep<I, SaveOutcome>('delivery.toast', (ctx) => {
     const outcome = saveOutcome(ctx, 'delivery.toast')
@@ -18,8 +24,11 @@ export function deliveryToast<I extends WithDeps & { form: EditFormPort, eventsQ
     const status = outcome.events?.status
     if (status === undefined || status === 'done') return
     const { t, toast } = ctx.input.deps
-    const bodyKey = status === 'error' ? 'editorStatus.delivery.failed' : 'editorStatus.delivery.queued'
-    const suffixKey = ctx.input.eventsQueue ? 'editorStatus.delivery.retryQueue' : 'editorStatus.delivery.retryDelivery'
-    toast.error(`${t(bodyKey)}${t(suffixKey)}`)
+    const suffix = retrySuffix(t, ctx.input.eventsQueue)
+    if (status === 'error') {
+      toast.error(`${t('editorStatus.delivery.failed')}${suffix}`)
+    } else {
+      toast.info(`${t('editorStatus.delivery.queued')}${suffix}`)
+    }
   })
 }

@@ -4,7 +4,7 @@ import { defineAction, type ActionStep } from '#kestrel-core/app/utils/actions'
 import { previewDeleteAction } from './shared'
 import { translationSourceValues } from '../utils/translation-copy'
 import { apiEach, apiRequest, apiWrite } from './steps/api'
-import { deliveryRefresh, deliveryToast } from './steps/delivery'
+import { deliveryRefresh, deliveryToast, retrySuffix } from './steps/delivery'
 import { formMapErrors, formOutcome, formRebaseline, formReset, formRevealError, formSaving, formSetStatus, formValidate } from './steps/form'
 import { dialogConfirm, guardAnySucceeded, guardBypass, guardStatus, guardTab, guardUnsaved } from './steps/guard'
 import { defineUiStep } from './define'
@@ -148,8 +148,7 @@ function deleteDeliveryToast<I extends WithDeps & DeliveryModeInput & { pageLike
   return defineUiStep<I, DeleteReport>('delivery.deleteToast', (ctx) => {
     if (!ctx.input.pageLike || ctx.result === undefined || worstDeliveryStatus(ctx.result) !== 'error') return
     const { t, toast } = ctx.input.deps
-    const suffixKey = ctx.input.eventsQueue ? 'editorStatus.delivery.retryQueue' : 'editorStatus.delivery.retryDelivery'
-    toast.error(`${t('editorStatus.delivery.deleteFailed')}${t(suffixKey)}`)
+    toast.error(`${t('editorStatus.delivery.deleteFailed')}${retrySuffix(t, ctx.input.eventsQueue)}`)
   })
 }
 

@@ -204,8 +204,8 @@ export const en = {
   'editorStatus.delivery.failed': 'The page was saved, but publishing failed.',
   'editorStatus.delivery.queued': 'The page was saved; publishing is still running.',
   'editorStatus.delivery.deleteFailed': 'The page was deleted, but it is still online.',
-  'editorStatus.delivery.retryQueue': ' Retry under System → Events.',
-  'editorStatus.delivery.retryDelivery': ' Re-render under System → Delivery.',
+  'editorStatus.delivery.retryQueue': ' Retry under System → {tab}.',
+  'editorStatus.delivery.retryDelivery': ' Re-render under System → {tab}.',
 
   'seo.sectionLabel': 'SEO & GEO',
   'seo.sectionHint': 'Search engines and AI answer engines read the same fields: the meta description doubles as the page summary in llms.txt, noindex removes the page from both.',
