@@ -47,11 +47,15 @@
       "validate.sanitize:pages.body",
       "validate.check:pages.body",
       "validate.check:pages.accent",
-      "references.check:pages",
-      "content.create:pages",
-      "revisions.record:pages",
-      "references.index:pages",
-      "links.extract:pages",
+      {
+        "atomic": [
+          "references.check:pages",
+          "content.create:pages",
+          "revisions.record:pages",
+          "references.index:pages",
+          "links.extract:pages"
+        ]
+      },
       "delivery.publish:pages",
       "delivery.exportLlms",
       "events.emit:page.created"
@@ -87,11 +91,15 @@
     "deletePage": [
       "authn.requireUser",
       "authz.require:pages.delete",
-      "references.guard:pages",
-      "content.remove:pages",
-      "revisions.remove:pages",
-      "references.unindex:pages",
-      "links.unextract:pages",
+      {
+        "atomic": [
+          "references.guard:pages",
+          "content.remove:pages",
+          "revisions.remove:pages",
+          "references.unindex:pages",
+          "links.unextract:pages"
+        ]
+      },
       "delivery.unpublish:pages",
       "delivery.exportLlms",
       "events.emit:page.deleted"
@@ -99,10 +107,14 @@
     "deletePageTranslation": [
       "authn.requireUser",
       "authz.require:pages.write",
-      "content.removeTranslation:pages",
-      "revisions.removeTranslation:pages",
-      "references.index:pages",
-      "links.extract:pages",
+      {
+        "atomic": [
+          "content.removeTranslation:pages",
+          "revisions.removeTranslation:pages",
+          "references.index:pages",
+          "links.extract:pages"
+        ]
+      },
       "delivery.publish:pages",
       "delivery.exportLlms",
       "events.emit:page.translationRemoved"
@@ -357,11 +369,15 @@
       "validate.sanitize:pages.body",
       "validate.check:pages.body",
       "validate.check:pages.accent",
-      "references.check:pages",
-      "content.update:pages",
-      "revisions.record:pages",
-      "references.index:pages",
-      "links.extract:pages",
+      {
+        "atomic": [
+          "references.check:pages",
+          "content.update:pages",
+          "revisions.record:pages",
+          "references.index:pages",
+          "links.extract:pages"
+        ]
+      },
       "delivery.publish:pages",
       "delivery.exportLlms",
       "revisions.reportRestore",
@@ -434,11 +450,15 @@
       "validate.sanitize:pages.body",
       "validate.check:pages.body",
       "validate.check:pages.accent",
-      "references.check:pages",
-      "content.update:pages",
-      "revisions.record:pages",
-      "references.index:pages",
-      "links.extract:pages",
+      {
+        "atomic": [
+          "references.check:pages",
+          "content.update:pages",
+          "revisions.record:pages",
+          "references.index:pages",
+          "links.extract:pages"
+        ]
+      },
       "delivery.publish:pages",
       "delivery.exportLlms",
       "events.emit:page.updated"

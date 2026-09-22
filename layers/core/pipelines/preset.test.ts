@@ -1,5 +1,7 @@
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { boundaryCast } from "@michaelthielemann/kestrel/cast";
+import { pipelineSteps } from "@michaelthielemann/kestrel/definePipeline";
+import type { PipelineEntry } from "@michaelthielemann/kestrel/definePipeline";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
@@ -26,7 +28,7 @@ describe("definePreset option handling", () => {
     const resolvePage = preset.pipelines.find((pipeline) => pipeline.name === "resolvePage");
     expect(resolvePage?.steps).toContain("site.resolve:pages?home=home&status=published&fallback=true");
     const exportMedia = preset.pipelines.find((pipeline) => pipeline.name === "exportMedia");
-    expect(exportMedia?.steps.some((step) => step.startsWith("media.export:"))).toBe(true);
+    expect(pipelineSteps(exportMedia?.steps ?? []).some((step) => step.startsWith("media.export:"))).toBe(true);
   });
 
   it("applies a custom exportDir and homeSlug", () => {
@@ -60,10 +62,38 @@ describe("definePreset option handling", () => {
     const preset = definePreset({
       modules: baseModules,
       features: [],
-      overrides: { deletePage: ["authn.requireUser", "authz.require:pages.delete", "content.remove:pages", "events.emit:page.deleted"] },
+      overrides: {
+        deletePage: ["authn.requireUser", "authz.require:pages.delete", { atomic: ["content.remove:pages"] }, "events.emit:page.deleted"],
+      },
     });
     const deletePage = preset.pipelines.find((pipeline) => pipeline.name === "deletePage");
-    expect(deletePage?.steps).toEqual(["authn.requireUser", "authz.require:pages.delete", "content.remove:pages", "events.emit:page.deleted"]);
+    expect(deletePage?.steps).toEqual([
+      "authn.requireUser",
+      "authz.require:pages.delete",
+      { atomic: ["content.remove:pages"] },
+      "events.emit:page.deleted",
+    ]);
+  });
+
+  it("rejects an override that drops the atomic group around a preset write pipeline's content step", () => {
+    expect(() =>
+      definePreset({
+        modules: baseModules,
+        features: [],
+        overrides: { deletePage: ["authn.requireUser", "authz.require:pages.delete", "content.remove:pages", "events.emit:page.deleted"] },
+      }),
+    ).toThrow(/"deletePage".*"content\.remove:pages"/s);
+  });
+
+  it("accepts an override that reorders the atomic group without dropping it", () => {
+    const preset = definePreset({
+      modules: baseModules,
+      features: [],
+      overrides: {
+        deletePage: ["authn.requireUser", "authz.require:pages.delete", { atomic: ["content.remove:pages"] }, "events.emit:page.deleted"],
+      },
+    });
+    expect(preset.pipelines.find((pipeline) => pipeline.name === "deletePage")?.steps).toContainEqual({ atomic: ["content.remove:pages"] });
   });
 
   it("throws for an override of an unknown pipeline name", () => {
@@ -324,12 +354,13 @@ describe("definePreset step ordering", () => {
     const preset = definePreset({ modules, features: ["references", "links", "delivery"] });
     let asserted = 0;
     for (const pipeline of preset.pipelines) {
-      const publish = pipeline.steps.findIndex((step) => step.startsWith("delivery.publish:"));
+      const steps = pipelineSteps(pipeline.steps);
+      const publish = steps.findIndex((step) => step.startsWith("delivery.publish:"));
       if (publish === -1) continue;
-      pipeline.steps.forEach((step, index) => {
+      steps.forEach((step, index) => {
         if (!READS_RESULT_ID.test(step)) return;
         asserted += 1;
-        expect(index, `${pipeline.name}: "${step}" must run before "${pipeline.steps[publish]}"`).toBeLessThan(publish);
+        expect(index, `${pipeline.name}: "${step}" must run before "${steps[publish]}"`).toBeLessThan(publish);
       });
     }
     expect(asserted).toBeGreaterThan(0);
@@ -525,15 +556,17 @@ describe("definePreset revisions feature", () => {
     profile: { kind: "single", fields: { bio: {} } },
   };
   const preset = definePreset({ modules, features: ["revisions"], collections });
-  const stepsOf = (name: string): readonly string[] => preset.pipelines.find((pipeline) => pipeline.name === name)?.steps ?? [];
+  const stepsOf = (name: string): readonly string[] => pipelineSteps(preset.pipelines.find((pipeline) => pipeline.name === name)?.steps ?? []);
 
   it("records a revision directly after the content step of create and update", () => {
     expect(stepsOf("createPage")[stepsOf("createPage").indexOf("content.create:pages") + 1]).toBe("revisions.record:pages");
     expect(stepsOf("updatePage")[stepsOf("updatePage").indexOf("content.update:pages") + 1]).toBe("revisions.record:pages");
   });
 
-  it("drops the revisions of a removed document and of a removed translation", () => {
+  it("drops the revisions of a removed document and of a removed translation, inside the atomic group", () => {
     expect(stepsOf("deletePage")).toEqual(["authn.requireUser", "authz.require:pages.delete", "content.remove:pages", "revisions.remove:pages", "events.emit:page.deleted"]);
+    const deletePage = preset.pipelines.find((pipeline) => pipeline.name === "deletePage");
+    expect(deletePage?.steps).toContainEqual({ atomic: ["content.remove:pages", "revisions.remove:pages"] });
     expect(stepsOf("deletePageTranslation")).toContain("revisions.removeTranslation:pages");
   });
 
@@ -568,7 +601,7 @@ describe("definePreset revisions feature", () => {
 
   it("leaves every revision step out when the feature is off", () => {
     const off = definePreset({ modules: baseModules, features: [], collections });
-    expect(off.pipelines.flatMap((pipeline) => pipeline.steps).filter((step) => step.startsWith("revisions."))).toEqual([]);
+    expect(off.pipelines.flatMap((pipeline) => pipelineSteps(pipeline.steps)).filter((step) => step.startsWith("revisions."))).toEqual([]);
     expect(off.triggers.some((trigger) => trigger.pipeline === "pruneRevisions")).toBe(false);
   });
 
@@ -578,7 +611,7 @@ describe("definePreset revisions feature", () => {
       features: ["delivery", "revisions"],
       collections,
     });
-    const update = withDelivery.pipelines.find((pipeline) => pipeline.name === "updatePage")?.steps ?? [];
+    const update = pipelineSteps(withDelivery.pipelines.find((pipeline) => pipeline.name === "updatePage")?.steps ?? []);
     expect(update.indexOf("revisions.record:pages")).toBe(update.indexOf("content.update:pages") + 1);
     expect(update.indexOf("delivery.publish:pages")).toBeGreaterThan(update.indexOf("revisions.record:pages"));
   });
@@ -587,8 +620,8 @@ describe("definePreset revisions feature", () => {
 describe("definePreset user deletion", () => {
   const auditModules = [...baseModules, { use: "@michaelthielemann/kestrel-audit-persistence" }];
   const bothModules = [...auditModules, { use: "@michaelthielemann/kestrel-revisions-default" }];
-  const stepsOf = (preset: { pipelines: { name: string; steps: readonly string[] }[] }, name: string): readonly string[] =>
-    preset.pipelines.find((pipeline) => pipeline.name === name)?.steps ?? [];
+  const stepsOf = (preset: { pipelines: { name: string; steps: readonly PipelineEntry<string>[] }[] }, name: string): readonly string[] =>
+    pipelineSteps(preset.pipelines.find((pipeline) => pipeline.name === name)?.steps ?? []);
 
   it("emits user.deleted with the step result so the listeners see reassignTo", () => {
     const preset = definePreset({ modules: baseModules, features: [] });

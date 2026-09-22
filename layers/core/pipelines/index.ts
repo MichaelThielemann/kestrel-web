@@ -1,15 +1,16 @@
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { definePipeline as defineRawPipeline, pipelineDefiner } from "@michaelthielemann/kestrel/definePipeline";
+import { definePipeline as defineRawPipeline, pipelineDefiner, isAtomicGroup  } from "@michaelthielemann/kestrel/definePipeline";
 import type { PipelineDefinition } from "@michaelthielemann/kestrel/definePipeline";
 import type { TriggerConfig } from "@michaelthielemann/kestrel/defineConfig";
 import type { PresetStep } from "../module-registry";
 import type { Workflow } from "../app/types/kestrel";
 import { customFieldTypes, fieldTypeSchemas } from "../field-types";
 import type { FieldTypes } from "../field-types";
-import { applyExclude, applyFeaturePatches, applyOverrides, applySchedules, mergePipelines } from "./compose";
-import type { Patch } from "./compose";
+import { applyExclude, applyFeaturePatches, applyOverrides, applySchedules, contentWriteStepOf, foldTrailingEmit, mergePipelines } from "./compose";
+import type { Patch, PresetEntry } from "./compose";
+import { ATOMIC_SAFE_STEPS } from "./atomic-safe";
 import { basePipelines } from "./base";
 import type { PresetContext } from "./base";
 import { canonicalTriggers } from "./triggers";
@@ -30,6 +31,7 @@ import eventsQueue from "./features/eventsQueue";
 import revisions from "./features/revisions";
 
 export type { CollectionModel } from "./collections";
+export type { PresetEntry } from "./compose";
 export type { Workflow } from "../app/types/kestrel";
 export type { PresetStep } from "../module-registry";
 export { presetModuleConfig } from "./config";
@@ -56,10 +58,10 @@ export type Feature = "ratelimit" | "sanitizeSvg" | "references" | "links" | "de
 
 export interface FeatureModule {
   modules: string[];
-  pipelines: Record<string, PresetStep[]>;
+  pipelines: Record<string, PresetEntry<PresetStep>[]>;
   patches: readonly Patch<Feature, PresetStep>[];
   triggers?: readonly TriggerConfig[];
-  derive?: (pipelines: Record<string, readonly string[]>) => Record<string, string[]>;
+  derive?: (pipelines: Record<string, readonly PresetEntry[]>) => Record<string, PresetEntry[]>;
 }
 
 export const staticPipelineNames = [
@@ -96,7 +98,7 @@ export interface PresetOptions<C extends Record<string, CollectionModel> = Recor
   collections?: C;
   collectionsUi?: Record<string, { workflow?: Workflow }>;
   fieldTypes?: FieldTypes;
-  overrides?: Partial<Record<PresetPipelineName<C>, readonly NoInfer<S>[]>>;
+  overrides?: Partial<Record<PresetPipelineName<C>, readonly PresetEntry<NoInfer<S>>[]>>;
   exclude?: readonly PresetPipelineName<C>[];
   schedules?: Partial<Record<CronPipelineName, string>>;
   exportDir?: string;
@@ -180,6 +182,7 @@ export function definePreset<C extends Record<string, CollectionModel> = Record<
 
   const enabledFeatures = new Set<Feature>(options.features);
   const configuredModules = new Set(options.modules.map((entry) => entry.use));
+  context.eventsQueued = enabledFeatures.has("eventsQueue");
 
   if (!("pages" in collections)) {
     for (const feature of PAGE_REQUIRING_FEATURES) {
@@ -189,7 +192,7 @@ export function definePreset<C extends Record<string, CollectionModel> = Record<
     }
   }
 
-  let pipelines: Record<string, string[]> = basePipelines(context, collections);
+  let pipelines: Record<string, PresetEntry[]> = basePipelines(context, collections);
   for (const [name, model] of Object.entries(collections)) {
     if (!isGenericCollection(name)) continue;
     pipelines = mergePipelines(pipelines, collectionPipelines(name, model, options.collectionsUi?.[name], customFields[name]), name, "collection");
@@ -214,6 +217,23 @@ export function definePreset<C extends Record<string, CollectionModel> = Record<
           console.warn(`preset: module "${use}" is configured but feature "${feature}" is not enabled – its pipelines and steps are not wired`);
         }
       }
+    }
+  }
+
+  if (enabledFeatures.has("eventsQueue")) {
+    const folded: Record<string, PresetEntry[]> = {};
+    for (const [name, entries] of Object.entries(pipelines)) {
+      folded[name] = foldTrailingEmit(name, entries, ATOMIC_SAFE_STEPS);
+    }
+    pipelines = folded;
+  }
+
+  const groupedContentWrites = new Map<string, string>();
+  for (const [name, entries] of Object.entries(pipelines)) {
+    for (const entry of entries) {
+      if (!isAtomicGroup(entry)) continue;
+      const contentStep = contentWriteStepOf(entry);
+      if (contentStep !== undefined) groupedContentWrites.set(name, contentStep);
     }
   }
 
@@ -279,6 +299,17 @@ export function definePreset<C extends Record<string, CollectionModel> = Record<
   }
 
   pipelines = applyOverrides(pipelines, options.overrides ?? {});
+
+  for (const [name, contentStep] of groupedContentWrites) {
+    const entries = pipelines[name];
+    if (entries === undefined) continue;
+    const stillGrouped = entries.some((entry) => isAtomicGroup(entry) && entry.atomic.includes(contentStep));
+    if (!stillGrouped) {
+      throw new Error(
+        `preset: override for "${name}" drops the atomic group around "${contentStep}" – wrap the write steps in { atomic: [...] } or exclude the pipeline`,
+      );
+    }
+  }
 
   const excluded = applyExclude(pipelines, triggers, options.exclude ?? []);
   pipelines = excluded.pipelines;

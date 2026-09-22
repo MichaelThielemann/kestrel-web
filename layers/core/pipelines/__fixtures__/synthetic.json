@@ -32,7 +32,11 @@
       "validate.check:news.body",
       "validate.sanitize:news.body",
       "validate.check:news.body",
-      "content.create:news",
+      {
+        "atomic": [
+          "content.create:news"
+        ]
+      },
       "events.emit:news.created"
     ],
     "createPage": [
@@ -41,7 +45,11 @@
       "validate.check:pages.body",
       "validate.sanitize:pages.body",
       "validate.check:pages.body",
-      "content.create:pages",
+      {
+        "atomic": [
+          "content.create:pages"
+        ]
+      },
       "events.emit:page.created"
     ],
     "createUser": [
@@ -71,25 +79,41 @@
     "deleteNews": [
       "authn.requireUser",
       "authz.require:news.delete",
-      "content.remove:news",
+      {
+        "atomic": [
+          "content.remove:news"
+        ]
+      },
       "events.emit:news.deleted"
     ],
     "deleteNewsTranslation": [
       "authn.requireUser",
       "authz.require:news.write",
-      "content.removeTranslation:news",
+      {
+        "atomic": [
+          "content.removeTranslation:news"
+        ]
+      },
       "events.emit:news.translationRemoved"
     ],
     "deletePage": [
       "authn.requireUser",
       "authz.require:pages.delete",
-      "content.remove:pages",
+      {
+        "atomic": [
+          "content.remove:pages"
+        ]
+      },
       "events.emit:page.deleted"
     ],
     "deletePageTranslation": [
       "authn.requireUser",
       "authz.require:pages.write",
-      "content.removeTranslation:pages",
+      {
+        "atomic": [
+          "content.removeTranslation:pages"
+        ]
+      },
       "events.emit:page.translationRemoved"
     ],
     "deleteUser": [
@@ -281,7 +305,11 @@
       "validate.check:news.body",
       "validate.sanitize:news.body",
       "validate.check:news.body",
-      "content.update:news",
+      {
+        "atomic": [
+          "content.update:news"
+        ]
+      },
       "events.emit:news.updated"
     ],
     "updatePage": [
@@ -290,7 +318,11 @@
       "validate.check:pages.body",
       "validate.sanitize:pages.body",
       "validate.check:pages.body",
-      "content.update:pages",
+      {
+        "atomic": [
+          "content.update:pages"
+        ]
+      },
       "events.emit:page.updated"
     ],
     "updateUser": [

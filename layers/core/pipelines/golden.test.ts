@@ -1,9 +1,10 @@
 import { readFileSync } from "node:fs";
 import { boundaryCast } from "@michaelthielemann/kestrel/cast";
+import { isAtomicGroup, pipelineSteps } from "@michaelthielemann/kestrel/definePipeline";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { definePreset, featureOrder } from "./index";
-import type { Feature } from "./index";
+import type { Feature, PresetEntry } from "./index";
 import { basePipelines } from "./base";
 import { canonicalTriggers } from "./triggers";
 import ratelimit from "./features/ratelimit";
@@ -28,7 +29,7 @@ const EXPORT_DIR = "<exportDir>";
 const HOST_RUN_PIPELINES = new Set(["registerImageSizesBoot", "adminSchemaModel"]);
 
 interface Fixture {
-  pipelines: Record<string, string[]>;
+  pipelines: Record<string, PresetEntry<string>[]>;
   triggers: unknown[];
 }
 
@@ -38,7 +39,7 @@ function readFixture(name: string): Fixture {
   return boundaryCast<Fixture>(parsed, "json");
 }
 
-function pipelinesMap(pipelines: { name: string; steps: readonly string[] }[]): Record<string, string[]> {
+function pipelinesMap(pipelines: { name: string; steps: readonly PresetEntry<string>[] }[]): Record<string, PresetEntry<string>[]> {
   return Object.fromEntries(pipelines.map((pipeline) => [pipeline.name, [...pipeline.steps]]));
 }
 
@@ -164,5 +165,88 @@ describe("golden: images without references", () => {
     const preset = definePreset({ modules, features, exportDir: EXPORT_DIR });
     const deleteMediaFolder = preset.pipelines.find((pipeline) => pipeline.name === "deleteMediaFolder");
     expect(deleteMediaFolder?.steps).toEqual(["authn.requireUser", "authz.require:media.delete", "media.folderItems", "images.removeMany", "media.removeFolder"]);
+  });
+});
+
+const queuedModules = allModules
+  .filter((entry) => entry.use !== "@michaelthielemann/kestrel-events-direct")
+  .concat([{ use: "@michaelthielemann/kestrel-events-queue" }]);
+const queuedFeatures = [...allFeatures, "eventsQueue"] as readonly Feature[];
+
+describe("golden: queued delivery", () => {
+  it("matches queued-events.json pipelines and triggers exactly, with the eventsQueue feature on", () => {
+    const fixture = readFixture("queued-events.json");
+    const preset = definePreset({ modules: queuedModules, features: queuedFeatures, collections: contentTypes, fieldTypes, exportDir: EXPORT_DIR });
+    expect(pipelinesMap(preset.pipelines)).toEqual(fixture.pipelines);
+    expect(preset.triggers).toEqual(fixture.triggers);
+  });
+});
+
+describe("atomic group invariants across every composed pipeline", () => {
+  const direct = definePreset({ modules: allModules, features: allFeatures, collections: contentTypes, fieldTypes, exportDir: EXPORT_DIR });
+  const queued = definePreset({ modules: queuedModules, features: queuedFeatures, collections: contentTypes, fieldTypes, exportDir: EXPORT_DIR });
+
+  it("never puts a delivery.* step inside a group, in either delivery mode", () => {
+    for (const preset of [direct, queued]) {
+      for (const pipeline of preset.pipelines) {
+        for (const entry of pipeline.steps) {
+          if (!isAtomicGroup(entry)) continue;
+          for (const step of entry.atomic) {
+            expect(step.startsWith("delivery."), `${pipeline.name}: "${step}" is inside a group`).toBe(false);
+          }
+        }
+      }
+    }
+  });
+
+  it("without the queue, no group contains an events.emit step", () => {
+    for (const pipeline of direct.pipelines) {
+      for (const entry of pipeline.steps) {
+        if (!isAtomicGroup(entry)) continue;
+        expect(entry.atomic.some((step) => step.startsWith("events.emit"))).toBe(false);
+      }
+    }
+  });
+
+  it("with the queue, every group that ends in an emit puts it last, and no emit sits in the middle of a group", () => {
+    for (const pipeline of queued.pipelines) {
+      for (const entry of pipeline.steps) {
+        if (!isAtomicGroup(entry)) continue;
+        entry.atomic.forEach((step, index) => {
+          if (step.startsWith("events.emit") && index !== entry.atomic.length - 1) {
+            throw new Error(`${pipeline.name}: "${step}" is not the last step of its group`);
+          }
+        });
+      }
+    }
+  });
+
+  it("keeps every step of every group reachable through pipelineSteps", () => {
+    for (const preset of [direct, queued]) {
+      for (const pipeline of preset.pipelines) {
+        expect(pipelineSteps(pipeline.steps).length).toBeGreaterThan(0);
+      }
+    }
+  });
+});
+
+describe("restorePageRevision inherits the group and the fold moves revisions.reportRestore", () => {
+  it("direct: one group around content.update:pages, with reportRestore and the emit outside", () => {
+    const preset = definePreset({ modules: allModules, features: allFeatures, collections: contentTypes, fieldTypes, exportDir: EXPORT_DIR });
+    const restore = preset.pipelines.find((pipeline) => pipeline.name === "restorePageRevision");
+    const group = restore?.steps.find(isAtomicGroup);
+    expect(group?.atomic).toContain("content.update:pages");
+    expect(group?.atomic).not.toContain("revisions.reportRestore");
+    const flat = pipelineSteps(restore?.steps ?? []);
+    expect(flat.slice(-2)).toEqual(["revisions.reportRestore", "events.emit:page.restored"]);
+  });
+
+  it("queue: the same group additionally ends in reportRestore and the emit, with delivery.* still outside", () => {
+    const preset = definePreset({ modules: queuedModules, features: queuedFeatures, collections: contentTypes, fieldTypes, exportDir: EXPORT_DIR });
+    const restore = preset.pipelines.find((pipeline) => pipeline.name === "restorePageRevision");
+    const group = restore?.steps.find(isAtomicGroup);
+    expect(group?.atomic.slice(-2)).toEqual(["revisions.reportRestore", "events.emit:page.restored"]);
+    const flat = pipelineSteps(restore?.steps ?? []);
+    expect(flat.slice(-2)).toEqual(["delivery.publish:pages", "delivery.exportLlms"]);
   });
 });
