@@ -230,8 +230,8 @@ describe("atomic group invariants across every composed pipeline", () => {
   });
 });
 
-describe("restorePageRevision inherits the group and the fold moves revisions.reportRestore", () => {
-  it("direct: one group around content.update:pages, with reportRestore and the emit outside", () => {
+describe("restorePageRevision inherits the group; the fold moves only the emit, never revisions.reportRestore", () => {
+  it("direct: one group around content.update:pages, with reportRestore and the emit outside, in that order", () => {
     const preset = definePreset({ modules: allModules, features: allFeatures, collections: contentTypes, fieldTypes, exportDir: EXPORT_DIR });
     const restore = preset.pipelines.find((pipeline) => pipeline.name === "restorePageRevision");
     const group = restore?.steps.find(isAtomicGroup);
@@ -241,12 +241,13 @@ describe("restorePageRevision inherits the group and the fold moves revisions.re
     expect(flat.slice(-2)).toEqual(["revisions.reportRestore", "events.emit:page.restored"]);
   });
 
-  it("queue: the same group additionally ends in reportRestore and the emit, with delivery.* still outside", () => {
+  it("queue: the emit joins the group's end; reportRestore stays outside, after delivery, so the response keeps `restore`", () => {
     const preset = definePreset({ modules: queuedModules, features: queuedFeatures, collections: contentTypes, fieldTypes, exportDir: EXPORT_DIR });
     const restore = preset.pipelines.find((pipeline) => pipeline.name === "restorePageRevision");
     const group = restore?.steps.find(isAtomicGroup);
-    expect(group?.atomic.slice(-2)).toEqual(["revisions.reportRestore", "events.emit:page.restored"]);
+    expect(group?.atomic.at(-1)).toBe("events.emit:page.restored");
+    expect(group?.atomic).not.toContain("revisions.reportRestore");
     const flat = pipelineSteps(restore?.steps ?? []);
-    expect(flat.slice(-2)).toEqual(["delivery.publish:pages", "delivery.exportLlms"]);
+    expect(flat.slice(-3)).toEqual(["delivery.publish:pages", "delivery.exportLlms", "revisions.reportRestore"]);
   });
 });

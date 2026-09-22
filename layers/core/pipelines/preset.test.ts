@@ -96,6 +96,42 @@ describe("definePreset option handling", () => {
     expect(preset.pipelines.find((pipeline) => pipeline.name === "deletePage")?.steps).toContainEqual({ atomic: ["content.remove:pages"] });
   });
 
+  it("accepts an override that switches the grouped write to content.set for the same collection", () => {
+    const preset = definePreset({
+      modules: baseModules,
+      features: [],
+      overrides: {
+        createPage: ["authn.requireUser", "authz.require:pages.write", { atomic: ["content.set:pages"] }, "events.emit:page.created"],
+      },
+    });
+    expect(preset.pipelines.find((pipeline) => pipeline.name === "createPage")?.steps).toContainEqual({ atomic: ["content.set:pages"] });
+  });
+
+  it("rejects an override that drops the deleteUser group once eventsQueue gives it one", () => {
+    const modules = [...withQueueInsteadOfDirect(baseModules), { use: "@michaelthielemann/kestrel-revisions-default" }];
+    expect(() =>
+      definePreset({
+        modules,
+        features: ["eventsQueue", "revisions"],
+        overrides: { deleteUser: ["authn.requireUser", "authz.require:users.manage", "authn.deleteUser", "events.emit:user.deleted?with=result"] },
+      }),
+    ).toThrow(/"deleteUser".*"authn\.deleteUser"/s);
+  });
+
+  it("accepts an override that keeps the deleteUser group intact", () => {
+    const modules = [...withQueueInsteadOfDirect(baseModules), { use: "@michaelthielemann/kestrel-revisions-default" }];
+    const preset = definePreset({
+      modules,
+      features: ["eventsQueue", "revisions"],
+      overrides: {
+        deleteUser: ["authn.requireUser", "authz.require:users.manage", { atomic: ["authn.deleteUser", "events.emit:user.deleted?with=result"] }],
+      },
+    });
+    expect(preset.pipelines.find((pipeline) => pipeline.name === "deleteUser")?.steps).toContainEqual({
+      atomic: ["authn.deleteUser", "events.emit:user.deleted?with=result"],
+    });
+  });
+
   it("throws for an override of an unknown pipeline name", () => {
     const overrides = { unknownPipeline: ["x"] };
     expect(() => definePreset({ modules: baseModules, features: [], overrides })).toThrow();

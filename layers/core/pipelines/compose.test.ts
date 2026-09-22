@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PresetStep } from "../module-registry";
-import { applyExclude, applyFeaturePatches, applyOverrides, applySchedules, mergePipelines } from "./compose";
+import { applyExclude, applyFeaturePatches, applyOverrides, applySchedules, foldTrailingEmit, groupSignatureOf, mergePipelines } from "./compose";
 import type { Patch } from "./compose";
 
 type F = "a" | "b";
@@ -146,6 +146,69 @@ describe("applySchedules", () => {
     const triggers = [{ http: "GET /x", pipeline: "q" }] as const;
     expect(() => applySchedules(triggers, { q: "5 * * * *" })).toThrow();
     expect(() => applySchedules(triggers, { missing: "5 * * * *" })).toThrow();
+  });
+});
+
+describe("foldTrailingEmit", () => {
+  it("moves a bare trailing emit into the pipeline's sole atomic group", () => {
+    const entries = [{ atomic: ["content.create:pages"] }, "events.emit:page.created"];
+    expect(foldTrailingEmit("createPage", entries)).toEqual([{ atomic: ["content.create:pages", "events.emit:page.created"] }]);
+  });
+
+  it("moves only the emit, leaving every step between the group and the emit in place", () => {
+    const entries = [
+      { atomic: ["content.update:pages"] },
+      "delivery.publish:pages",
+      "delivery.exportLlms",
+      "revisions.reportRestore",
+      "events.emit:page.restored",
+    ];
+    expect(foldTrailingEmit("restorePageRevision", entries)).toEqual([
+      { atomic: ["content.update:pages", "events.emit:page.restored"] },
+      "delivery.publish:pages",
+      "delivery.exportLlms",
+      "revisions.reportRestore",
+    ]);
+  });
+
+  it("leaves a pipeline with no group unchanged", () => {
+    const entries = ["authn.requireUser", "events.emit:auth.loggedIn"];
+    expect(foldTrailingEmit("login", entries)).toEqual(entries);
+  });
+
+  it("leaves a pipeline whose last entry is not an emit unchanged", () => {
+    const entries = [{ atomic: ["content.create:pages"] }, "delivery.publish:pages"];
+    expect(foldTrailingEmit("createPage", entries)).toEqual(entries);
+  });
+
+  it("throws naming the pipeline when it has more than one atomic group", () => {
+    const entries = [{ atomic: ["a"] }, { atomic: ["b"] }, "events.emit:x"];
+    expect(() => foldTrailingEmit("twoGroups", entries)).toThrow(/"twoGroups"/);
+  });
+});
+
+describe("groupSignatureOf", () => {
+  it("finds a content write and reports its collection", () => {
+    expect(groupSignatureOf({ atomic: ["references.check:pages", "content.create:pages", "references.index:pages"] })).toEqual({
+      step: "content.create:pages",
+      target: "pages",
+    });
+  });
+
+  it("recognizes content.set as a content write, matching the same target as content.create", () => {
+    const signature = groupSignatureOf({ atomic: ["content.set:pages"] });
+    expect(signature?.target).toBe("pages");
+  });
+
+  it("finds authn.deleteUser with no target", () => {
+    expect(groupSignatureOf({ atomic: ["authn.deleteUser", "events.emit:user.deleted?with=result"] })).toEqual({
+      step: "authn.deleteUser",
+      target: undefined,
+    });
+  });
+
+  it("returns undefined for a group with neither", () => {
+    expect(groupSignatureOf({ atomic: ["references.check:pages"] })).toBeUndefined();
   });
 });
 

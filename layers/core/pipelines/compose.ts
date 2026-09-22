@@ -180,22 +180,20 @@ export function bodyOf<S extends string>(entries: readonly PresetEntry<S>[], hea
   return entries.slice(head, entries.length - dropLast).map((entry) => (isAtomicGroup(entry) ? { atomic: [...entry.atomic] } : entry));
 }
 
-function baseStepName(step: string): string {
-  const withoutQuery = step.split("?")[0] ?? step;
-  const colon = withoutQuery.indexOf(":");
-  return colon === -1 ? withoutQuery : withoutQuery.slice(0, colon);
-}
-
 /**
  * Without the `eventsQueue` feature a pipeline's trailing `events.emit:` stays outside its atomic group,
  * because `events/direct` runs subscribers inline and must not hold the write lock. With the queue the
  * emit is a row insert and belongs with the write it reports: if the pipeline's last entry is an
  * `events.emit:` step and it has exactly one atomic group, the emit moves to the end of that group.
- * Every entry between the group and the emit whose base step name is in `atomicSafe` moves with it, in
- * declared order; every other entry stays where it is. A pipeline with no group, or whose last entry is
- * not an emit, is returned unchanged. A pipeline with more than one group throws, naming it.
+ * Nothing else moves — a step between the group and the emit (`delivery.*`, `revisions.reportRestore`)
+ * keeps its position, because moving it would reorder it against a later step whose full `output`
+ * replaces the response schema instead of merging into it (`resolveOutputSchema`,
+ * `@michaelthielemann/kestrel/schema`): `revisions.reportRestore`'s `extendsOutput` must run after
+ * `delivery.publish`'s `output`, or the restore report silently disappears from the response. A
+ * pipeline with no group, or whose last entry is not an emit, is returned unchanged. A
+ * pipeline with more than one group throws, naming it.
  */
-export function foldTrailingEmit<S extends string>(name: string, entries: readonly PresetEntry<S>[], atomicSafe: ReadonlySet<string>): PresetEntry<S>[] {
+export function foldTrailingEmit<S extends string>(name: string, entries: readonly PresetEntry<S>[]): PresetEntry<S>[] {
   const last = entries[entries.length - 1];
   if (typeof last !== "string" || !last.startsWith("events.emit:")) return [...entries];
   const groups = entries.filter(isAtomicGroup);
@@ -205,23 +203,32 @@ export function foldTrailingEmit<S extends string>(name: string, entries: readon
   }
   const group = groups[0]!;
   const groupIndex = entries.indexOf(group);
-  const between = entries.slice(groupIndex + 1, entries.length - 1);
-  const movable: S[] = [];
-  const stationary: PresetEntry<S>[] = [];
-  for (const entry of between) {
-    if (typeof entry === "string" && atomicSafe.has(baseStepName(entry))) {
-      movable.push(entry);
-    } else {
-      stationary.push(isAtomicGroup(entry) ? { atomic: [...entry.atomic] } : entry);
-    }
-  }
-  const newGroup: AtomicGroup<S> = { atomic: [...group.atomic, ...movable, last] };
-  return [...entries.slice(0, groupIndex), newGroup, ...stationary];
+  const between = entries.slice(groupIndex + 1, entries.length - 1).map((entry): PresetEntry<S> => (isAtomicGroup(entry) ? { atomic: [...entry.atomic] } : entry));
+  const newGroup: AtomicGroup<S> = { atomic: [...group.atomic, last] };
+  return [...entries.slice(0, groupIndex), newGroup, ...between];
 }
 
-const CONTENT_WRITE_STEP = /^content\.(?:create|update|remove|removeTranslation):/;
+const CONTENT_WRITE_STEP = /^content\.(?:create|update|remove|removeTranslation|set):([^?]+)/;
+const DELETE_USER_STEP = "authn.deleteUser";
 
-/** The `content.*` write step of an atomic group, if the group wraps one. */
-export function contentWriteStepOf<S extends string>(group: AtomicGroup<S>): S | undefined {
-  return group.atomic.find((step) => CONTENT_WRITE_STEP.test(step));
+/** What the preset's override guard protects in a group: a content write, identified by its collection so a consumer may switch between `create`/`update`/`set`, or `authn.deleteUser`, which has no target. */
+export interface GroupSignature<S extends string = string> {
+  step: S;
+  target: string | undefined;
+}
+
+/**
+ * The step of an atomic group the preset's override guard protects against loss: a `content.*` write
+ * (matched by its collection, not its exact operation) or `authn.deleteUser`. Returns undefined for a
+ * group with neither, which the guard leaves unprotected.
+ */
+export function groupSignatureOf<S extends string>(group: AtomicGroup<S>): GroupSignature<S> | undefined {
+  const contentStep = group.atomic.find((step) => CONTENT_WRITE_STEP.test(step));
+  if (contentStep !== undefined) {
+    const target = CONTENT_WRITE_STEP.exec(contentStep)?.[1];
+    return { step: contentStep, target };
+  }
+  const deleteStep = group.atomic.find((step): step is S => step === DELETE_USER_STEP);
+  if (deleteStep !== undefined) return { step: deleteStep, target: undefined };
+  return undefined;
 }

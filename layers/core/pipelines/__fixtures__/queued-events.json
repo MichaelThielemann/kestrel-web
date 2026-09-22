@@ -403,12 +403,12 @@
           "revisions.record:pages",
           "references.index:pages",
           "links.extract:pages",
-          "revisions.reportRestore",
           "events.emit:page.restored"
         ]
       },
       "delivery.publish:pages",
-      "delivery.exportLlms"
+      "delivery.exportLlms",
+      "revisions.reportRestore"
     ],
     "resumeImages": [
       "images.resume"

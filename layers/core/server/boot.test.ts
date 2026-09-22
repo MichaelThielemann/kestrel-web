@@ -12,6 +12,7 @@ import referencesDefault from "@michaelthielemann/kestrel-references-default";
 import insights from "@michaelthielemann/kestrel-insights";
 import { presetModules } from "#kestrel/modules";
 import { definePreset, presetModuleConfig } from "#kestrel/pipelines";
+import { ATOMIC_SAFE_STEPS } from "../pipelines/atomic-safe";
 import { uploadLimits } from "./utils/limits";
 import { inlineTypesFor } from "./utils/inline-types";
 
@@ -133,6 +134,40 @@ describe("boot", () => {
 
       try {
         await kestrel.start();
+      } finally {
+        await kestrel.stop();
+      }
+    }, 10000);
+
+    it("keeps atomic-safe.ts's step set in sync with every module's atomicSafe declaration", async () => {
+      const { contentModel, contentTypes, features } = await import("../../../playground/shared/model");
+      const { default: collectionsUi } = await import("../../../playground/shared/collections-ui");
+      const { default: fieldTypes } = await import("../../../playground/shared/field-types");
+      const eventsQueueFeatures = [...features, "eventsQueue"] as const;
+
+      const modules = presetModuleConfig({
+        dataDir: appRoot,
+        blobstore: { use: "@michaelthielemann/kestrel-blobstore-filesystem", config: { root: resolve(appRoot, "blobs") } },
+        model: contentModel,
+        features: eventsQueueFeatures,
+        collectionsUi,
+        fieldTypes,
+        audit: { retentionDays: 365 },
+        roles: { roles: { admin: ["*"] }, anonymous: [] },
+        bootstrap: { username: "admin", passwordHash: "scrypt$522f4ac87bfe4bcd100ba47a7d2aaec2$dbfc3f2d6cc38a76b21973d7c6f6d310a09506581c665f1f6601fd8fb3fa9bc3959689aea3e389f4d53eb8c7e70791ad4065e308763dd44609904134f0f5ee98" },
+      });
+      const preset = definePreset({ modules, features: eventsQueueFeatures, collections: contentTypes, collectionsUi, fieldTypes });
+      const config = defineConfig({ modules, triggers: preset.triggers, http: null });
+      const bootedModules = presetModules(config.modules, { "@michaelthielemann/kestrel-insights": insights });
+
+      const kestrel = await boot({ config: { ...config, http: null }, modules: bootedModules, pipelines: preset.pipelines, logger: collectingLogger() });
+      try {
+        const manifest = kestrel.describe();
+        const atomicSafeInManifest = new Set(manifest.steps.filter((step) => step.description.atomicSafe === true).map((step) => step.name));
+        const missingFromSet = [...atomicSafeInManifest].filter((name) => !ATOMIC_SAFE_STEPS.has(name));
+        const staleInSet = [...ATOMIC_SAFE_STEPS].filter((name) => !atomicSafeInManifest.has(name));
+        expect(missingFromSet, `atomic-safe.ts is missing step(s) the booted manifest marks atomicSafe: ${missingFromSet.join(", ")}`).toEqual([]);
+        expect(staleInSet, `atomic-safe.ts has step(s) the booted manifest no longer marks atomicSafe: ${staleInSet.join(", ")}`).toEqual([]);
       } finally {
         await kestrel.stop();
       }

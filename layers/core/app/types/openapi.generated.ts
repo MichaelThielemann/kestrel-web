@@ -387,7 +387,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Require a valid session → Requires permission pages.write → Put a pages revision's snapshot into the body, so the steps behind it save it like any other write and branch the history at that revision; fields the model has dropped since are left out → Validate payload field pages.body against its JSON Schema → Sanitize HTML at format:"html" positions of payload field pages.body → Validate payload field pages.body against its JSON Schema → Validate payload field pages.accent against its JSON Schema → Referenced ids of pages must exist → Update a pages → Record the saved pages document from the result as a revision; its parent is the head, or the revision a restore put on the context → Index the references of a pages document → Index external links of pages → Add what the restore of this run left out to the result as `restore`; without a known content model the result stays as it is → Queue event "page.restored" for the subscribed handler pipelines; the worker delivers it after this run → Render and store published locales of a pages → Write llms.txt (and llms-full.txt when `llms.full` is set) from the live output of every delivered type (adds `llms: { entries, full }` to the result) */
+        /** Require a valid session → Requires permission pages.write → Put a pages revision's snapshot into the body, so the steps behind it save it like any other write and branch the history at that revision; fields the model has dropped since are left out → Validate payload field pages.body against its JSON Schema → Sanitize HTML at format:"html" positions of payload field pages.body → Validate payload field pages.body against its JSON Schema → Validate payload field pages.accent against its JSON Schema → Referenced ids of pages must exist → Update a pages → Record the saved pages document from the result as a revision; its parent is the head, or the revision a restore put on the context → Index the references of a pages document → Index external links of pages → Queue event "page.restored" for the subscribed handler pipelines; the worker delivers it after this run → Render and store published locales of a pages → Write llms.txt (and llms-full.txt when `llms.full` is set) from the live output of every delivered type (adds `llms: { entries, full }` to the result) → Add what the restore of this run left out to the result as `restore`; without a known content model the result stays as it is */
         post: operations["restorePageRevision"];
         delete?: never;
         options?: never;
@@ -3234,6 +3234,11 @@ export interface operations {
                         llms: {
                             entries: number;
                             full: boolean;
+                        };
+                        restore?: {
+                            dropped: string[];
+                            missing: string[];
+                            revisionId: string;
                         };
                     };
                 };

@@ -8,9 +8,8 @@ import type { PresetStep } from "../module-registry";
 import type { Workflow } from "../app/types/kestrel";
 import { customFieldTypes, fieldTypeSchemas } from "../field-types";
 import type { FieldTypes } from "../field-types";
-import { applyExclude, applyFeaturePatches, applyOverrides, applySchedules, contentWriteStepOf, foldTrailingEmit, mergePipelines } from "./compose";
-import type { Patch, PresetEntry } from "./compose";
-import { ATOMIC_SAFE_STEPS } from "./atomic-safe";
+import { applyExclude, applyFeaturePatches, applyOverrides, applySchedules, foldTrailingEmit, groupSignatureOf, mergePipelines } from "./compose";
+import type { GroupSignature, Patch, PresetEntry } from "./compose";
 import { basePipelines } from "./base";
 import type { PresetContext } from "./base";
 import { canonicalTriggers } from "./triggers";
@@ -223,17 +222,17 @@ export function definePreset<C extends Record<string, CollectionModel> = Record<
   if (enabledFeatures.has("eventsQueue")) {
     const folded: Record<string, PresetEntry[]> = {};
     for (const [name, entries] of Object.entries(pipelines)) {
-      folded[name] = foldTrailingEmit(name, entries, ATOMIC_SAFE_STEPS);
+      folded[name] = foldTrailingEmit(name, entries);
     }
     pipelines = folded;
   }
 
-  const groupedContentWrites = new Map<string, string>();
+  const groupedSignatures = new Map<string, GroupSignature>();
   for (const [name, entries] of Object.entries(pipelines)) {
     for (const entry of entries) {
       if (!isAtomicGroup(entry)) continue;
-      const contentStep = contentWriteStepOf(entry);
-      if (contentStep !== undefined) groupedContentWrites.set(name, contentStep);
+      const signature = groupSignatureOf(entry);
+      if (signature !== undefined) groupedSignatures.set(name, signature);
     }
   }
 
@@ -300,13 +299,18 @@ export function definePreset<C extends Record<string, CollectionModel> = Record<
 
   pipelines = applyOverrides(pipelines, options.overrides ?? {});
 
-  for (const [name, contentStep] of groupedContentWrites) {
+  for (const [name, signature] of groupedSignatures) {
     const entries = pipelines[name];
     if (entries === undefined) continue;
-    const stillGrouped = entries.some((entry) => isAtomicGroup(entry) && entry.atomic.includes(contentStep));
+    const stillGrouped = entries.some((entry) => {
+      if (!isAtomicGroup(entry)) return false;
+      const overridden = groupSignatureOf(entry);
+      if (overridden === undefined) return false;
+      return signature.target !== undefined ? overridden.target === signature.target : overridden.step === signature.step;
+    });
     if (!stillGrouped) {
       throw new Error(
-        `preset: override for "${name}" drops the atomic group around "${contentStep}" – wrap the write steps in { atomic: [...] } or exclude the pipeline`,
+        `preset: override for "${name}" drops the atomic group around "${signature.step}" – wrap the write steps in { atomic: [...] } or exclude the pipeline`,
       );
     }
   }

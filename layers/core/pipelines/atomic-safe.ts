@@ -1,8 +1,9 @@
 /**
  * Base step names (without a factory argument or query string) that the shipped modules this preset
  * configures declare `atomicSafe: true` for: each reaches only `persistence@1`, from its own async flow,
- * on a single document, in work bounded by the request. Used by `foldTrailingEmit` to decide which steps
- * between a pipeline's atomic group and its trailing emit may move into the group with it.
+ * on a single document, in work bounded by the request. `boot.test.ts` boots the playground preset with
+ * every feature and asserts this set matches the booted manifest's `atomicSafe` steps exactly in both
+ * directions, so this list cannot drift from what the shipped modules actually declare.
  */
 export const ATOMIC_SAFE_STEPS: ReadonlySet<string> = new Set([
   "content.validate",
