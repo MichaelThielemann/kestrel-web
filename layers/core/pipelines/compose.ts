@@ -186,10 +186,8 @@ export function bodyOf<S extends string>(entries: readonly PresetEntry<S>[], hea
  * emit is a row insert and belongs with the write it reports: if the pipeline's last entry is an
  * `events.emit:` step and it has exactly one atomic group, the emit moves to the end of that group.
  * Nothing else moves — a step between the group and the emit (`delivery.*`, `revisions.reportRestore`)
- * keeps its position, because moving it would reorder it against a later step whose full `output`
- * replaces the response schema instead of merging into it (`resolveOutputSchema`,
- * `@michaelthielemann/kestrel/schema`): `revisions.reportRestore`'s `extendsOutput` must run after
- * `delivery.publish`'s `output`, or the restore report silently disappears from the response. A
+ * keeps its position; both steps merge into the response via `extendsOutput`
+ * (`resolveOutputSchema`, `@michaelthielemann/kestrel/schema`), so their order no longer matters. A
  * pipeline with no group, or whose last entry is not an emit, is returned unchanged. A
  * pipeline with more than one group throws, naming it.
  */
@@ -206,6 +204,24 @@ export function foldTrailingEmit<S extends string>(name: string, entries: readon
   const between = entries.slice(groupIndex + 1, entries.length - 1).map((entry): PresetEntry<S> => (isAtomicGroup(entry) ? { atomic: [...entry.atomic] } : entry));
   const newGroup: AtomicGroup<S> = { atomic: [...group.atomic, last] };
   return [...entries.slice(0, groupIndex), newGroup, ...between];
+}
+
+/**
+ * Inserts `events.relay` immediately after the entry carrying the pipeline's `events.emit:` step — a
+ * bare entry, or the atomic group it ends (with the queue, after `foldTrailingEmit`). A step that reads
+ * the result after the emit but outside the group, such as `revisions.reportRestore` on
+ * `restorePageRevision`, stays after the relay: both merge into the result independently, and neither
+ * reads the other's addition. A pipeline with no emit, including an empty one, is returned unchanged.
+ */
+export function appendRelay<S extends string>(entries: readonly PresetEntry<S>[]): PresetEntry<S>[] {
+  const emitIndex = entries.findIndex((entry) =>
+    isAtomicGroup(entry) ? entry.atomic.some((step) => step.startsWith("events.emit:")) : entry.startsWith("events.emit:"),
+  );
+  if (emitIndex === -1) return [...entries];
+  const result = entries.map((entry): PresetEntry<S> => (isAtomicGroup(entry) ? { atomic: [...entry.atomic] } : entry));
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- "events.relay" is a step name registered by both delivery modules; S is a step-name union, not a JSON type
+  result.splice(emitIndex + 1, 0, "events.relay" as S);
+  return result;
 }
 
 const CONTENT_WRITE_STEP = /^content\.(?:create|update|remove|removeTranslation|set):([^?]+)/;

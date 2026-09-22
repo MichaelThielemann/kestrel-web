@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PresetStep } from "../module-registry";
-import { applyExclude, applyFeaturePatches, applyOverrides, applySchedules, foldTrailingEmit, groupSignatureOf, mergePipelines } from "./compose";
+import { appendRelay, applyExclude, applyFeaturePatches, applyOverrides, applySchedules, foldTrailingEmit, groupSignatureOf, mergePipelines } from "./compose";
 import type { Patch } from "./compose";
 
 type F = "a" | "b";
@@ -184,6 +184,37 @@ describe("foldTrailingEmit", () => {
   it("throws naming the pipeline when it has more than one atomic group", () => {
     const entries = [{ atomic: ["a"] }, { atomic: ["b"] }, "events.emit:x"];
     expect(() => foldTrailingEmit("twoGroups", entries)).toThrow(/"twoGroups"/);
+  });
+});
+
+describe("appendRelay", () => {
+  it("appends after a bare trailing emit", () => {
+    const entries = ["authn.requireUser", "events.emit:auth.loggedIn"];
+    expect(appendRelay(entries)).toEqual(["authn.requireUser", "events.emit:auth.loggedIn", "events.relay"]);
+  });
+
+  it("appends after an emit folded into the trailing atomic group", () => {
+    const entries = [{ atomic: ["content.create:pages", "events.emit:page.created"] }];
+    expect(appendRelay(entries)).toEqual([{ atomic: ["content.create:pages", "events.emit:page.created"] }, "events.relay"]);
+  });
+
+  it("leaves a pipeline whose last step is not an emit unchanged", () => {
+    const entries = ["authn.requireUser", "authz.require:pages.read"];
+    expect(appendRelay(entries)).toEqual(entries);
+  });
+
+  it("leaves a pipeline whose group does not end in an emit unchanged", () => {
+    const entries = [{ atomic: ["content.create:pages"] }, "delivery.publish:pages"];
+    expect(appendRelay(entries)).toEqual(entries);
+  });
+
+  it("appends to an empty pipeline unchanged", () => {
+    expect(appendRelay([])).toEqual([]);
+  });
+
+  it("inserts right after the emit, keeping a later step that reads the result outside the group", () => {
+    const entries = [{ atomic: ["content.update:pages", "events.emit:page.restored"] }, "revisions.reportRestore"];
+    expect(appendRelay(entries)).toEqual([{ atomic: ["content.update:pages", "events.emit:page.restored"] }, "events.relay", "revisions.reportRestore"]);
   });
 });
 
