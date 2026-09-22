@@ -387,7 +387,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Require a valid session → Requires permission pages.write → Put a pages revision's snapshot into the body, so the steps behind it save it like any other write and branch the history at that revision; fields the model has dropped since are left out → Validate payload field pages.body against its JSON Schema → Sanitize HTML at format:"html" positions of payload field pages.body → Validate payload field pages.body against its JSON Schema → Validate payload field pages.accent against its JSON Schema → Referenced ids of pages must exist → Update a pages → Record the saved pages document from the result as a revision; its parent is the head, or the revision a restore put on the context → Index the references of a pages document → Index external links of pages → Render and store published locales of a pages → Write llms.txt (and llms-full.txt when `llms.full` is set) from the live output of every delivered type (adds `llms: { entries, full }` to the result) → Add what the restore of this run left out to the result as `restore`; without a known content model the result stays as it is → Queue event "page.restored" for the subscribed handler pipelines; the worker delivers it after this run */
+        /** Require a valid session → Requires permission pages.write → Put a pages revision's snapshot into the body, so the steps behind it save it like any other write and branch the history at that revision; fields the model has dropped since are left out → Validate payload field pages.body against its JSON Schema → Sanitize HTML at format:"html" positions of payload field pages.body → Validate payload field pages.body against its JSON Schema → Validate payload field pages.accent against its JSON Schema → Referenced ids of pages must exist → Update a pages → Record the saved pages document from the result as a revision; its parent is the head, or the revision a restore put on the context → Index the references of a pages document → Index external links of pages → Add what the restore of this run left out to the result as `restore`; without a known content model the result stays as it is → Queue event "page.restored" for the subscribed handler pipelines; the worker delivers it after this run → Render and store published locales of a pages → Write llms.txt (and llms-full.txt when `llms.full` is set) from the live output of every delivered type (adds `llms: { entries, full }` to the result) */
         post: operations["restorePageRevision"];
         delete?: never;
         options?: never;
@@ -818,7 +818,7 @@ export interface paths {
         /** Identify the caller if a valid token is present → Requires permission pages.read → List pages */
         get: operations["listPages"];
         put?: never;
-        /** Require a valid session → Requires permission pages.write → Validate payload field pages.body against its JSON Schema → Sanitize HTML at format:"html" positions of payload field pages.body → Validate payload field pages.body against its JSON Schema → Validate payload field pages.accent against its JSON Schema → Referenced ids of pages must exist → Create a pages → Record the saved pages document from the result as a revision; its parent is the head, or the revision a restore put on the context → Index the references of a pages document → Index external links of pages → Render and store published locales of a pages → Write llms.txt (and llms-full.txt when `llms.full` is set) from the live output of every delivered type (adds `llms: { entries, full }` to the result) → Queue event "page.created" for the subscribed handler pipelines; the worker delivers it after this run */
+        /** Require a valid session → Requires permission pages.write → Validate payload field pages.body against its JSON Schema → Sanitize HTML at format:"html" positions of payload field pages.body → Validate payload field pages.body against its JSON Schema → Validate payload field pages.accent against its JSON Schema → Referenced ids of pages must exist → Create a pages → Record the saved pages document from the result as a revision; its parent is the head, or the revision a restore put on the context → Index the references of a pages document → Index external links of pages → Queue event "page.created" for the subscribed handler pipelines; the worker delivers it after this run → Render and store published locales of a pages → Write llms.txt (and llms-full.txt when `llms.full` is set) from the live output of every delivered type (adds `llms: { entries, full }` to the result) */
         post: operations["createPage"];
         delete?: never;
         options?: never;
@@ -837,11 +837,11 @@ export interface paths {
         get: operations["readPage"];
         put?: never;
         post?: never;
-        /** Require a valid session → Requires permission pages.delete → Refuse deletion while pages is referenced → Delete a pages → Drop every revision of a pages document, in every locale → Drop indexed references of a pages document → Drop indexed links of pages → Remove rendered output of a pages → Write llms.txt (and llms-full.txt when `llms.full` is set) from the live output of every delivered type (adds `llms: { entries, full }` to the result) → Queue event "page.deleted" for the subscribed handler pipelines; the worker delivers it after this run */
+        /** Require a valid session → Requires permission pages.delete → Refuse deletion while pages is referenced → Delete a pages → Drop every revision of a pages document, in every locale → Drop indexed references of a pages document → Drop indexed links of pages → Queue event "page.deleted" for the subscribed handler pipelines; the worker delivers it after this run → Remove rendered output of a pages → Write llms.txt (and llms-full.txt when `llms.full` is set) from the live output of every delivered type (adds `llms: { entries, full }` to the result) */
         delete: operations["deletePage"];
         options?: never;
         head?: never;
-        /** Require a valid session → Requires permission pages.write → Validate payload field pages.body against its JSON Schema → Sanitize HTML at format:"html" positions of payload field pages.body → Validate payload field pages.body against its JSON Schema → Validate payload field pages.accent against its JSON Schema → Referenced ids of pages must exist → Update a pages → Record the saved pages document from the result as a revision; its parent is the head, or the revision a restore put on the context → Index the references of a pages document → Index external links of pages → Render and store published locales of a pages → Write llms.txt (and llms-full.txt when `llms.full` is set) from the live output of every delivered type (adds `llms: { entries, full }` to the result) → Queue event "page.updated" for the subscribed handler pipelines; the worker delivers it after this run */
+        /** Require a valid session → Requires permission pages.write → Validate payload field pages.body against its JSON Schema → Sanitize HTML at format:"html" positions of payload field pages.body → Validate payload field pages.body against its JSON Schema → Validate payload field pages.accent against its JSON Schema → Referenced ids of pages must exist → Update a pages → Record the saved pages document from the result as a revision; its parent is the head, or the revision a restore put on the context → Index the references of a pages document → Index external links of pages → Queue event "page.updated" for the subscribed handler pipelines; the worker delivers it after this run → Render and store published locales of a pages → Write llms.txt (and llms-full.txt when `llms.full` is set) from the live output of every delivered type (adds `llms: { entries, full }` to the result) */
         patch: operations["updatePage"];
         trace?: never;
     };
@@ -855,7 +855,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Require a valid session → Requires permission pages.write → Remove one translation of a pages (locale from the route or ?locale=); the document stays in its other locales → Drop the revisions of one locale of a pages document → Index the references of a pages document → Index external links of pages → Render and store published locales of a pages → Write llms.txt (and llms-full.txt when `llms.full` is set) from the live output of every delivered type (adds `llms: { entries, full }` to the result) → Queue event "page.translationRemoved" for the subscribed handler pipelines; the worker delivers it after this run */
+        /** Require a valid session → Requires permission pages.write → Remove one translation of a pages (locale from the route or ?locale=); the document stays in its other locales → Drop the revisions of one locale of a pages document → Index the references of a pages document → Index external links of pages → Queue event "page.translationRemoved" for the subscribed handler pipelines; the worker delivers it after this run → Render and store published locales of a pages → Write llms.txt (and llms-full.txt when `llms.full` is set) from the live output of every delivered type (adds `llms: { entries, full }` to the result) */
         delete: operations["deletePageTranslation"];
         options?: never;
         head?: never;
@@ -1905,6 +1905,7 @@ export interface operations {
                         };
                         generatedAt: number;
                         modules: {
+                            atomicScope: boolean;
                             config: {
                                 schema: Record<string, never>;
                                 variables: {
@@ -1938,6 +1939,7 @@ export interface operations {
                         pipelines: {
                             name: string;
                             steps: {
+                                atomic?: number;
                                 description: {
                                     binary?: boolean;
                                     errors?: {
@@ -3232,11 +3234,6 @@ export interface operations {
                         llms: {
                             entries: number;
                             full: boolean;
-                        };
-                        restore?: {
-                            dropped: string[];
-                            missing: string[];
-                            revisionId: string;
                         };
                     };
                 };
