@@ -2,7 +2,7 @@
 import { computed, inject, onMounted, onUnmounted, ref, watch } from 'vue'
 import type { BlockNode, PageSeo } from '#kestrel-admin/types/api'
 import { editorFormContextKey } from '../utils/editor-form-context'
-import { PRESETS, matchPreset, fitScale, clampDim, DIM_MIN, WIDTH_MAX, type ViewportPreset } from '../utils/preview-viewport'
+import { PRESETS, matchPreset, fitScale, resolveDim, clampDim, DIM_MIN, WIDTH_MAX, type ViewportPreset } from '../utils/preview-viewport'
 import { boundaryCast } from '#kestrel/cast'
 
 const props = defineProps<{ content: BlockNode[]; selectedId?: string | null }>()
@@ -111,10 +111,7 @@ let ro: ResizeObserver | null = null
 const scale = computed(() => fitScale(availW.value, availH.value, width.value, height.value))
 const scalePct = computed(() => Math.round(scale.value * 100))
 const canvasW = computed(() => (width.value === 'auto' ? Math.max(DIM_MIN, Math.round(availW.value / (scale.value || 1))) : width.value))
-const canvasH = computed(() => {
-  if (height.value !== 'auto') return height.value
-  return Math.round(availH.value / (scale.value || 1))
-})
+const canvasH = computed(() => resolveDim(availH.value, height.value, scale.value, availH.value))
 
 const canvasStyle = computed(() => ({
   width: `${canvasW.value}px`,
@@ -340,6 +337,7 @@ onUnmounted(() => {
     background: var(--color-surface-2);
     overflow-y: auto;
     overflow-x: hidden;
+    scrollbar-gutter: stable;
 
     @media (max-width: 1100px) {
       height: 70vh;

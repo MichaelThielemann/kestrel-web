@@ -160,6 +160,10 @@
 - `/admin` no longer keeps the browser's default 8px body margin. The admin layout marks `<body>` with
   an `admin-body` class only while it is mounted, and the admin stylesheet zeroes the margin under that
   class; the public site is unaffected.
+- The block editor's live preview no longer flickers its zoom level when the preview pane's own
+  vertical scrollbar toggles on and off. The preview's stage now reserves scrollbar-gutter space
+  unconditionally, so the width it measures for the auto-fit zoom calculation stays the same whether
+  or not a scrollbar is actually shown, removing the feedback loop between the two.
 
 ## 2.0.1 – 2026-09-21
 
