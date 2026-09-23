@@ -79,7 +79,7 @@
     "deleteMediaFolder": [
       "authn.requireUser",
       "authz.require:media.delete",
-      "media.folderItems",
+      "media.listFolderItems",
       "media.removeFolder"
     ],
     "deleteNews": [

@@ -85,7 +85,7 @@
     "deleteMediaFolder": [
       "authn.requireUser",
       "authz.require:media.delete",
-      "media.folderItems",
+      "media.listFolderItems",
       "references.guardAll:media",
       "media.removeFolder"
     ],

@@ -73,7 +73,7 @@ export function basePipelines(
     listMediaFolders: ["authn.identifyUser", "authz.require:media.read", "media.listFolders"],
     createMediaFolder: ["authn.requireUser", "authz.require:media.write", "media.createFolder"],
     renameMediaFolder: ["authn.requireUser", "authz.require:media.write", "media.renameFolder"],
-    deleteMediaFolder: ["authn.requireUser", "authz.require:media.delete", "media.folderItems", "media.removeFolder"],
+    deleteMediaFolder: ["authn.requireUser", "authz.require:media.delete", "media.listFolderItems", "media.removeFolder"],
     listMedia: ["authn.identifyUser", "authz.require:media.read", "media.list"],
     getMedia: ["authn.identifyUser", "authz.require:media.read", "media.get"],
     downloadMedia: ["authn.identifyUser", "authz.require:media.read", "media.download"],

@@ -125,6 +125,9 @@
 
 ### Changed
 
+- `deleteMediaFolder` now calls `media.listFolderItems` instead of the deprecated `media.folderItems`;
+  behaviour is unchanged.
+
 - `layers/core/app/types/api.ts`: `MediaItem`, `ReplicationStatus` and `ReplicationSnapshotResult` are
   now plain aliases of the generated OpenAPI response types instead of widening a subset of fields to
   required — the backend now declares those fields required itself, so the widening is redundant. The
