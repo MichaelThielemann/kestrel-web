@@ -33,9 +33,21 @@ export function basePipelines(
     adminSchemaModel: ["authn.requireUser", "content.describeModel"],
     changePassword: ["authn.requireUser", "authn.changePassword"],
     listUsers: ["authn.requireUser", "authz.require:users.manage", "authn.listUsers"],
-    createUser: ["authn.requireUser", "authz.require:users.manage", "authn.createUser", "events.emit:user.created"],
+    createUser: [
+      "authn.requireUser",
+      "authz.require:users.manage",
+      "authz.validateRoles:roles",
+      "authn.createUser",
+      "events.emit:user.created",
+    ],
     getUser: ["authn.requireUser", "authz.require:users.manage", "authn.getUser"],
-    updateUser: ["authn.requireUser", "authz.require:users.manage", "authn.updateUser", "events.emit:user.updated"],
+    updateUser: [
+      "authn.requireUser",
+      "authz.require:users.manage",
+      "authz.validateRoles:roles",
+      "authn.updateUser",
+      "events.emit:user.updated",
+    ],
     deleteUser: eventsQueued
       ? ["authn.requireUser", "authz.require:users.manage", { atomic: ["authn.deleteUser"] }, "events.emit:user.deleted?with=result"]
       : ["authn.requireUser", "authz.require:users.manage", "authn.deleteUser", "events.emit:user.deleted?with=result"],
