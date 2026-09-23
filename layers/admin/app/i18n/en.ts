@@ -55,6 +55,7 @@ export const en = {
   'editor.saveConflict': 'This conflicts with an existing record.',
   'editor.saveFailed': 'Save failed.',
   'editor.noChangesToSave': 'No changes to save',
+  'editor.moreActions': 'More actions',
   'editor.unknownFieldSent': 'The form sent a field the server does not accept.',
   'editor.retryable': 'Temporarily unavailable, try again.',
   'editor.retryableIn': 'Temporarily unavailable, try again in {seconds}s.',

@@ -57,6 +57,7 @@ export const de: Record<CatalogKey, string> = {
   'editor.saveConflict': 'Das steht im Konflikt mit einem vorhandenen Datensatz.',
   'editor.saveFailed': 'Speichern fehlgeschlagen.',
   'editor.noChangesToSave': 'Keine Änderungen zu speichern',
+  'editor.moreActions': 'Weitere Aktionen',
   'editor.unknownFieldSent': 'Das Formular hat ein Feld gesendet, das der Server nicht kennt.',
   'editor.retryable': 'Vorübergehend nicht verfügbar, bitte erneut versuchen.',
   'editor.retryableIn': 'Vorübergehend nicht verfügbar, bitte in {seconds}s erneut versuchen.',

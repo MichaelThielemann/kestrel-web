@@ -146,6 +146,12 @@
   below 640px and expands as a dismissible overlay instead of covering the page, and the interactive
   graph is replaced by a readable list of modules and connections instead of an empty pane.
 
+- The record editor's header action row no longer clips invisibly at narrow or dense widths. It now
+  wraps instead of overflowing, and below 640px the less-frequent actions (version history, undo, redo,
+  and the publish/unpublish toggle) collapse into an overflow menu; Save, Cancel, Delete and both status
+  lamps stay directly visible and operable. The action row moved into a new `RecordHeaderActions`
+  component.
+
 ## 2.0.1 – 2026-09-21
 
 ### Changed

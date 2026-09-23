@@ -42,7 +42,6 @@ const plural = computed(() => resolveLocalized(def.value?.label?.plural, lang.va
 const newTitle = computed(() => resolveLocalized(def.value?.label?.new, lang.value) ?? t('editor.newRecord', { collection: singular.value }))
 
 const EDITOR_FORM_ID = 'record-editor'
-const NO_CHANGES_ID = 'record-editor-no-changes'
 const editorRef = ref<EditorExpose | null>(null)
 const saving = computed(() => editorRef.value?.saving ?? false)
 const canSave = computed(() => editorRef.value?.canSave ?? false)
@@ -173,40 +172,34 @@ async function confirmDeleteTranslation() {
       </NuxtLink>
       <h1 class="record__title" :class="{ 'record__title--generic': !hasRecordTitle }">{{ heading }}</h1>
       <p v-if="translationNote" class="record__translation-note">{{ translationNote }}</p>
-      <div class="record__actions">
-        <KestrelUiButton v-if="showHistory" type="button" variant="ghost" size="sm" icon="history" :disabled="saving" :title="t('revisions.open')" :aria-label="t('revisions.open')" @click="historyOpen = true" />
-        <KestrelUiButton type="button" variant="ghost" size="sm" icon="undo" :disabled="saving || !editorRef?.canUndo" :title="t('history.undo')" :aria-label="t('history.undo')" @click="editorRef?.undo()" />
-        <KestrelUiButton type="button" variant="ghost" size="sm" icon="redo" :disabled="saving || !editorRef?.canRedo" :title="t('history.redo')" :aria-label="t('history.redo')" @click="editorRef?.redo()" />
-        <KestrelUiButton type="button" variant="secondary" size="sm" icon="x" :disabled="saving" @click="toList">{{ t('common.cancel') }}</KestrelUiButton>
-        <KestrelUiButton v-if="id !== 'new'" variant="danger" size="sm" icon="trash" :loading="deleting" @click="onDelete">{{ t('common.delete') }}</KestrelUiButton>
-        <KestrelUiButton
-          type="submit"
-          :form="EDITOR_FORM_ID"
-          variant="primary"
-          size="sm"
-          icon="check"
-          :loading="saving"
-          :disabled="!canSave"
-          :title="canSave ? undefined : t('editor.noChangesToSave')"
-          :aria-describedby="canSave ? undefined : NO_CHANGES_ID"
-        >{{ t('common.save') }}</KestrelUiButton>
-        <span :id="NO_CHANGES_ID" class="record__hint">{{ t('editor.noChangesToSave') }}</span>
-
-        <KestrelUiButton v-if="workflow && canPublish && !published" type="button" variant="secondary" size="sm" icon="upload" :disabled="saving || publishBlocked" :title="publishBlocked ? t('editor.publishNeedsTranslation') : undefined" @click="editorRef?.setStatus(workflow.live)">{{ t('common.publish') }}</KestrelUiButton>
-        <KestrelUiButton v-else-if="workflow && canPublish" type="button" variant="secondary" size="sm" icon="undo" :disabled="saving" @click="editorRef?.setStatus(workflow.draft)">{{ t('common.unpublish') }}</KestrelUiButton>
-        <KestrelEditorStatus
-          class="record__ampel"
-          :dirty="editorRef?.dirty ?? false"
-          :saving="saving"
-          :workflow="workflow"
-          :status="editorRef?.savedStatus"
-          :page-like="(editorRef?.pageLike ?? false) && id !== 'new'"
-          :delivery="editorRef?.delivery ?? null"
-          :delivery-loading="editorRef?.deliveryLoading ?? false"
-          :locale="editorRef?.locale"
-          :public-url="publicUrl"
-        />
-      </div>
+      <KestrelRecordHeaderActions
+        :show-history="showHistory"
+        :saving="saving"
+        :can-undo="editorRef?.canUndo ?? false"
+        :can-redo="editorRef?.canRedo ?? false"
+        :can-save="canSave"
+        :can-delete="id !== 'new'"
+        :deleting="deleting"
+        :form-id="EDITOR_FORM_ID"
+        :workflow="workflow"
+        :can-publish="canPublish"
+        :published="published"
+        :publish-blocked="publishBlocked"
+        :dirty="editorRef?.dirty ?? false"
+        :status="editorRef?.savedStatus"
+        :page-like="(editorRef?.pageLike ?? false) && id !== 'new'"
+        :delivery="editorRef?.delivery ?? null"
+        :delivery-loading="editorRef?.deliveryLoading ?? false"
+        :locale="editorRef?.locale"
+        :public-url="publicUrl"
+        @history="historyOpen = true"
+        @undo="editorRef?.undo()"
+        @redo="editorRef?.redo()"
+        @cancel="toList"
+        @delete="onDelete"
+        @publish="workflow && editorRef?.setStatus(workflow.live)"
+        @unpublish="workflow && editorRef?.setStatus(workflow.draft)"
+      />
     </div>
     <KestrelCollectionEditor :id="id" ref="editorRef" :collection="collection" :form-id="EDITOR_FORM_ID" :locale-param="localeParam" :actions="false" @saved="onSaved" />
     <KestrelCollectionDeleteDialog
@@ -238,8 +231,6 @@ async function confirmDeleteTranslation() {
 </template>
 
 <style lang="scss">
-@use '../../../assets/scss/mixins';
-
 .record {
   display: flex;
   flex-direction: column;
@@ -271,23 +262,6 @@ async function confirmDeleteTranslation() {
     gap: var(--space-3);
     flex-wrap: wrap;
   }
-  &__actions {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    margin-left: auto;
-  }
-
-  &__ampel {
-    margin-inline-start: var(--space-1);
-    padding-inline-start: var(--space-3);
-    border-inline-start: 1px solid var(--color-border);
-  }
-
-  &__hint {
-    @include mixins.sr-only;
-  }
-
   &__translation-note {
     margin: 0;
     flex: 0 1 auto;
