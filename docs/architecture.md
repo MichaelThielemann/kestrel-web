@@ -748,7 +748,10 @@ bound to `.admin`/`.admin-portal`, if a `@layer` comes back, if the document roo
 root, if `::selection`/`::placeholder`/`::marker` lose their admin scoping, or if a kit component starts
 declaring one of the blanket-inherit properties. That is also what keeps the admin reset off the public
 site: it does not depend on where the stylesheet is imported, the rules simply do not match outside the
-admin. In dev `installAdminClient()` additionally disables every stylesheet under `/admin` that
+admin. The one rule the test allows outside `.admin`/`.admin-portal` is `body.admin-body { margin: 0 }`,
+which zeroes the browser's default body margin under `/admin`; `layouts/admin.vue` sets the `admin-body`
+class through `useHead`'s `bodyAttrs` only while it is mounted, so the rule cannot match a public route.
+In dev `installAdminClient()` additionally disables every stylesheet under `/admin` that
 `isProtectedStyle()` (`utils/admin-style-guard.ts`) does *not* recognise as the layer's own — a path
 matching `kestrel/layers/` or a `kestrel-*` segment, a `?scoped` query, or a `data-kestrel` attribute stays
 live, everything else is switched off. Production carries no such guard, so the isolation has to hold on

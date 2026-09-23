@@ -20,6 +20,7 @@ function utilityClassesUsed(source: string): string[] {
 
 const ROOTS = [':is(.admin, .admin-portal)', ':where(.admin, .admin-portal)', '.admin', '.admin-portal']
 const DOCUMENT_SELECTORS = [':root[data-theme=light]', ':root[data-theme=dark]']
+const BODY_SELECTOR = 'body.admin-body'
 
 function splitSelectors(group: string): string[] {
   const out: string[] = []
@@ -66,8 +67,15 @@ describe('admin stylesheet scope', () => {
     expect(css).not.toContain('@layer')
   })
 
-  it('binds every rule to the admin root', () => {
-    expect(unscoped(selectors)).toEqual([])
+  it('binds every rule to the admin root except the one body reset selector', () => {
+    expect(unscoped(selectors)).toEqual([BODY_SELECTOR])
+  })
+
+  it('limits the body reset selector to margin, declared exactly once', () => {
+    const blocks = [...css.matchAll(/body\.admin-body\s*\{([^}]*)\}/g)].map((match) => match[1] ?? '')
+    expect(blocks.length).toBe(1)
+    const declared = (blocks[0] ?? '').split(';').map((declaration) => declaration.split(':')[0]?.trim() ?? '').filter((property) => property.length > 0)
+    expect(declared).toEqual(['margin'])
   })
 
   it('declares only the document-root properties the admin owns', () => {

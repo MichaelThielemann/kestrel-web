@@ -157,6 +157,10 @@
   widest pane, so the live preview scales down correctly and the page-fields panel — and its inputs —
   stay fully visible instead of running off the right edge with no scrollbar to reach them.
 
+- `/admin` no longer keeps the browser's default 8px body margin. The admin layout marks `<body>` with
+  an `admin-body` class only while it is mounted, and the admin stylesheet zeroes the margin under that
+  class; the public site is unaffected.
+
 ## 2.0.1 – 2026-09-21
 
 ### Changed

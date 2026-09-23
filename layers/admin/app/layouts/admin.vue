@@ -4,6 +4,7 @@ import '#kestrel-admin/assets/scss/main.scss'
 import { installAdminClient } from '../utils/admin-client'
 
 installAdminClient()
+useAdminBodyClass()
 const { authenticated, can } = useAuth()
 const { collapsed: cookieCollapsed, toggle: toggleCookieCollapsed } = useRailCollapsed()
 const isPhone = useIsPhone()

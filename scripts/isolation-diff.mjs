@@ -93,6 +93,8 @@ function collect([props, pseudoProps]) {
     doc[`html|${prop}`] = getComputedStyle(document.documentElement).getPropertyValue(prop)
   }
   doc['html|data-theme'] = document.documentElement.getAttribute('data-theme') || ''
+  doc['body|margin'] = getComputedStyle(document.body).margin
+  doc['body|admin-body-class'] = document.body.classList.contains('admin-body') ? 'present' : 'absent'
   freeze.remove()
   return { elements: out, doc }
 }
