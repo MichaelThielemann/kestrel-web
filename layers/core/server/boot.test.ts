@@ -131,6 +131,8 @@ describe("boot", () => {
       expect(config.modules.some((m) => m.use === "@michaelthielemann/kestrel-events-queue")).toBe(true);
       expect(config.modules.some((m) => m.use === "@michaelthielemann/kestrel-events-inmemory")).toBe(true);
       expect(config.modules.some((m) => m.use === "@michaelthielemann/kestrel-events-direct")).toBe(false);
+      expect(logger.entries.filter((entry) => entry.level !== "info")).toEqual([]);
+      expect(kestrel.warnings, `unexpected boot warnings: ${JSON.stringify(kestrel.warnings)}`).toEqual([]);
 
       try {
         await kestrel.start();
