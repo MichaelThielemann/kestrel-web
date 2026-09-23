@@ -89,10 +89,8 @@ describe("reassignRevisionAuthor and retryReassignRevisionAuthor verify the targ
     if (persistence === undefined) throw new Error("expected the booted instance to provide persistence@1");
     const entries = await persistence.findMany("revisions_entries", { documentId });
     if (!isOk(entries)) throw new Error("expected the revisions_entries query to succeed");
-    return entries.value.items.map((item) => {
-      const record = boundaryCast<{ authorId: string | null }>(item, "host");
-      return record.authorId;
-    });
+    const items = boundaryCast<{ authorId: string | null }[]>(entries.value.items, "host");
+    return items.map((item) => item.authorId);
   }
 
   it("retryReassignRevisionAuthor: an unknown target id is rejected and no revision is touched", async () => {
