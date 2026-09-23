@@ -3,13 +3,16 @@ import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { boot, defineConfig, definePipeline, isOk, KestrelBootError, type Logger, type ModuleDefinition } from "@michaelthielemann/kestrel";
+import { boot, defineConfig, defineModule, definePipeline, isOk, KestrelBootError, type Logger, type ModuleDefinition } from "@michaelthielemann/kestrel";
 import { failure } from "@michaelthielemann/kestrel/errors";
 import { err } from "@michaelthielemann/kestrel/result";
 import { stepFactory } from "@michaelthielemann/kestrel/context";
 import { PERSISTENCE } from "@michaelthielemann/kestrel-contracts/persistence";
+import { BLOBSTORE } from "@michaelthielemann/kestrel-contracts/blobstore";
 import referencesDefault from "@michaelthielemann/kestrel-references-default";
 import insights from "@michaelthielemann/kestrel-insights";
+import persistenceSqlite from "@michaelthielemann/kestrel-persistence-sqlite";
+import replicationSqlite from "@michaelthielemann/kestrel-replication-sqlite";
 import { presetModules } from "#kestrel/modules";
 import { definePreset, presetModuleConfig } from "#kestrel/pipelines";
 import { ATOMIC_SAFE_STEPS } from "../pipelines/atomic-safe";
@@ -59,6 +62,14 @@ describe("boot", () => {
         const kestrel = await boot({ config: { ...config, http: null }, modules, pipelines: preset.pipelines, logger });
         expect(kestrel.pipelines.size).toBe(preset.pipelines.length);
         expect(logger.entries.filter((entry) => entry.level !== "info")).toEqual([]);
+        expect(kestrel.warnings, `unexpected boot warnings: ${JSON.stringify(kestrel.warnings)}`).toEqual([]);
+
+        const health = kestrel.health();
+        const replicationIndex = health.modules.findIndex((entry) => entry.module === "replication/sqlite");
+        const persistenceIndex = health.modules.findIndex((entry) => entry.module === "persistence/sqlite");
+        expect(replicationIndex, "expected replication/sqlite to report health").toBeGreaterThanOrEqual(0);
+        expect(persistenceIndex, "expected persistence/sqlite to report health").toBeGreaterThanOrEqual(0);
+        expect(replicationIndex, "replication/sqlite must be set up before persistence/sqlite so a restore runs before the file is opened").toBeLessThan(persistenceIndex);
 
         try {
           await kestrel.start();
@@ -275,6 +286,38 @@ describe("boot", () => {
         await kestrel.stop();
       }
     }, 15000);
+  });
+
+  describe("module setup order: a custom module that requires persistence while replication must run before it", () => {
+    function fakeBlobstoreRequiringPersistence(): ModuleDefinition {
+      return defineModule({
+        name: "blobstore/fake",
+        provides: [BLOBSTORE],
+        requires: [PERSISTENCE],
+        configSchema: referencesDefault.configSchema,
+        async setup(): Promise<never> {
+          throw new Error("blobstore/fake: setup must not run once sortModules finds the cycle first");
+        },
+      });
+    }
+
+    it("fails boot with a KestrelBootError naming the cycle through replication, the custom blobstore and persistence", async () => {
+      const config = defineConfig({
+        modules: [
+          { use: "@michaelthielemann/kestrel-replication-sqlite", config: {} },
+          { use: "@michaelthielemann/kestrel-persistence-sqlite", config: {} },
+          { use: "kestrel-blobstore-fake", config: {} },
+        ],
+        triggers: [],
+        http: null,
+      });
+      const modules = [replicationSqlite, persistenceSqlite, fakeBlobstoreRequiringPersistence()];
+
+      await expect(boot({ config, modules, pipelines: [], logger: collectingLogger() })).rejects.toThrow(KestrelBootError);
+      await expect(boot({ config, modules, pipelines: [], logger: collectingLogger() })).rejects.toThrow(
+        /dependency cycle: replication\/sqlite -> blobstore\/fake -> persistence\/sqlite -> replication\/sqlite/,
+      );
+    });
   });
 
   it("rejects boot with a KestrelBootError naming a mistyped step", async () => {

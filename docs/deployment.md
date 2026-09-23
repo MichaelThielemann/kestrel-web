@@ -257,6 +257,12 @@ health condition, and both `/api/health` and `/api/ready` keep answering normall
   `restoreOnStart` and `retentionSeconds` are set through
   `overrides["@michaelthielemann/kestrel-replication-sqlite"]` (§3 of the consuming guide). With an S3
   blobstore this puts database and blobs in the same off-host place.
+- **Restore-on-start ordering.** `replication-sqlite` and `backup-blobstore` declare a `before` edge on
+  `persistence@1`, so the backend sets either one up before `persistence-sqlite` opens the database file
+  — regardless of the order modules are listed in. A custom blobstore module you write yourself must not
+  `require` `persistence@1`: doing so creates a dependency cycle with the restore module's `before` edge
+  and boot fails with a `KestrelBootError` naming the cycle, rather than silently starting with an empty
+  database.
 - **File-level.** Back up `<dataDir>` as a whole, with the process stopped, or through a tool that
   understands SQLite WAL. `kestrel.db` on its own, copied from a running server, is not restorable.
 - **Blobs.** Filesystem blobs are an ordinary directory; S3 blobs are covered by bucket versioning or
