@@ -161,13 +161,15 @@ function onTreeKeydown(e: KeyboardEvent): void {
   min-height: 0;
 
   @media (max-width: 1100px) {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
 
+    overflow-x: hidden;
     overflow-y: auto;
     .editor3__tree,
     .editor3__preview,
     .editor3__fields {
       overflow: visible;
+      min-width: 0;
     }
   }
 

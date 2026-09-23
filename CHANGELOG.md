@@ -152,6 +152,11 @@
   lamps stay directly visible and operable. The action row moved into a new `RecordHeaderActions`
   component.
 
+- The blocks editor's stacked layout (tree/preview/fields, below 1100px) no longer lets its columns
+  grow past the available width: the single grid track is now floored at `0` instead of sizing to its
+  widest pane, so the live preview scales down correctly and the page-fields panel — and its inputs —
+  stay fully visible instead of running off the right edge with no scrollbar to reach them.
+
 ## 2.0.1 – 2026-09-21
 
 ### Changed
