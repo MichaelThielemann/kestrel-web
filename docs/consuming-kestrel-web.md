@@ -613,19 +613,27 @@ The preset wires the whole user lifecycle to `authn-multi` and guards every rout
 | `PUT /users/:id/password` | `setPassword` | `{ ok: true }` |
 | `POST /users/:id/deactivate` / `/activate` | `deactivateUser`, `activateUser` | `{ ok: true }` |
 | `DELETE /users/:id` | `deleteUser` | `{ ok: true, reassignTo: { id, name } \| null }`, a hard delete, emits `user.deleted` with the step result |
-| `POST /admin/users/:id/revisions/reassign` | `retryReassignRevisionAuthor` | with the `revisions` feature: `{ from, to, revisions }`, re-runs the author reassignment |
+| `POST /admin/users/:id/revisions/reassign` | `retryReassignRevisionAuthor` | with the `revisions` feature: `{ from, to, revisions }`, re-runs the author reassignment against a freshly verified target |
 | `POST /admin/users/:id/audit/anonymize` | `retryAnonymizeAuditUser` | with the `audit` feature: `{ entries }`, re-runs the audit anonymisation |
 
-The username is the identity — there is no e-mail field. Roles are free strings; which permissions
-they carry is the `roles` option of `presetModuleConfig`. Nobody can delete or deactivate their own
-account (400), and the last active holder of `users.manage` can be neither deactivated, nor deleted,
-nor stripped of that permission (409 `LAST_ADMIN`).
+The username is the identity — there is no e-mail field. Roles are free strings, but `createUser` and
+`updateUser` reject a `roles` array containing a name absent from `presetModuleConfig`'s `roles` option
+with 400 `VALIDATION` and `details.unknown` before writing anything. Nobody can delete or deactivate
+their own account (400), and the last active holder of `users.manage` can be neither deactivated, nor
+deleted, nor stripped of that permission (409 `LAST_ADMIN`).
 
 `DELETE /users/:id` takes an optional `{ reassignTo }` in the body: the id of an active user other
 than the one being deleted, whose name the deleted user's revisions take over. Without it the author
 reference is anonymised. An unusable target answers 400, an unknown one 404, and the user is *not*
 deleted in either case. The admin's delete dialog offers both, defaulting to anonymising — see
 **Personal data** below.
+
+`POST /admin/users/:id/revisions/reassign` and the `reassignRevisionAuthor` listener on `user.deleted`
+both verify the target through `authn-multi` right before the reassignment runs: an id that names no
+user or an inactive user is rejected (404 or 400) and no revision is touched; a caller-supplied `name`
+is ignored, the canonical username is looked up fresh. This closes the gap between a delete-time target
+that was valid and the same target having since been deactivated or removed by the time the listener
+or a retry actually runs.
 
 ### Features
 
@@ -756,7 +764,8 @@ else.
 Each listener runs on its own, so a failed one does not take the deletion with it. It shows up in
 **Insights → Live** under the recent failures with its pipeline, step and message. Both steps are
 idempotent, so repeating them is safe: `POST /admin/users/:id/revisions/reassign` with
-`{ "reassignTo": { "id", "name" } }` (or `null` to anonymise) and
+`{ "reassignTo": "<id>" }` or `{ "reassignTo": { "id": "<id>" } }` (a `name` alongside `id` is accepted
+but ignored — the current username is looked up fresh), or `null` to anonymise, and
 `POST /admin/users/:id/audit/anonymize`, both behind `users.manage`.
 
 Configure the events bus, `kestrel-events-inmemory`, plus exactly one delivery module: `kestrel-events-direct`

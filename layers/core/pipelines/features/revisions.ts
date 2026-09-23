@@ -55,8 +55,13 @@ export default function revisions(context: PresetContext): FeatureModule {
 
   const pipelines: Record<string, PresetEntry<PresetStep>[]> = {
     [REVISIONS_PRUNE_PIPELINE]: ["revisions.prune"],
-    [REVISIONS_REASSIGN_PIPELINE]: ["revisions.reassignAuthor"],
-    [REVISIONS_REASSIGN_RETRY_PIPELINE]: ["authn.requireUser", "authz.require:users.manage", "revisions.reassignAuthor"],
+    [REVISIONS_REASSIGN_PIPELINE]: ["authn.verifyUser:result.reassignTo", "revisions.reassignAuthor"],
+    [REVISIONS_REASSIGN_RETRY_PIPELINE]: [
+      "authn.requireUser",
+      "authz.require:users.manage",
+      "authn.verifyUser:reassignTo",
+      "revisions.reassignAuthor",
+    ],
   };
   const patches: FeatureModule["patches"][number][] = [];
   const triggers: TriggerConfig[] = [

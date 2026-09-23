@@ -297,6 +297,7 @@
       "content.get:pages?status=published"
     ],
     "reassignRevisionAuthor": [
+      "authn.verifyUser:result.reassignTo",
       "revisions.reassignAuthor"
     ],
     "rebuildLinks": [
@@ -405,6 +406,7 @@
     "retryReassignRevisionAuthor": [
       "authn.requireUser",
       "authz.require:users.manage",
+      "authn.verifyUser:reassignTo",
       "revisions.reassignAuthor"
     ],
     "scanReferences": [

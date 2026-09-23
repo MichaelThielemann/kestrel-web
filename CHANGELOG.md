@@ -160,10 +160,22 @@
 - `/admin` no longer keeps the browser's default 8px body margin. The admin layout marks `<body>` with
   an `admin-body` class only while it is mounted, and the admin stylesheet zeroes the margin under that
   class; the public site is unaffected.
+
 - The block editor's live preview no longer flickers its zoom level when the preview pane's own
   vertical scrollbar toggles on and off. The preview's stage now reserves scrollbar-gutter space
   unconditionally, so the width it measures for the auto-fit zoom calculation stays the same whether
   or not a scrollbar is actually shown, removing the feedback loop between the two.
+
+- `POST /admin/users/:id/revisions/reassign` and the `reassignRevisionAuthor` listener on `user.deleted`
+  now verify the reassignment target through `authn-multi` before touching any revision: an id naming no
+  user or an inactive user is rejected (404 or 400) instead of being written straight into the author
+  field. A caller-supplied `name` is ignored; the canonical username is looked up fresh at the moment of
+  reassignment, closing the gap where a target valid at delete time could have been deactivated or
+  removed by the time a retry or a queued listener runs.
+
+- `createUser` and `updateUser` now reject an unknown role name in `roles` with 400 `VALIDATION` and
+  `details.unknown` before writing anything, instead of silently creating or updating a user with a role
+  that grants no permission.
 
 ## 2.0.1 – 2026-09-21
 

@@ -716,10 +716,15 @@ describe("definePreset user deletion", () => {
     ]);
   });
 
-  it("wires the revisions listener and its retry route behind users.manage", () => {
+  it("wires the revisions listener and its retry route behind users.manage, both verifying the target before reassigning", () => {
     const preset = definePreset({ modules: bothModules, features: ["revisions", "audit"] });
-    expect(stepsOf(preset, "reassignRevisionAuthor")).toEqual(["revisions.reassignAuthor"]);
-    expect(stepsOf(preset, "retryReassignRevisionAuthor")).toEqual(["authn.requireUser", "authz.require:users.manage", "revisions.reassignAuthor"]);
+    expect(stepsOf(preset, "reassignRevisionAuthor")).toEqual(["authn.verifyUser:result.reassignTo", "revisions.reassignAuthor"]);
+    expect(stepsOf(preset, "retryReassignRevisionAuthor")).toEqual([
+      "authn.requireUser",
+      "authz.require:users.manage",
+      "authn.verifyUser:reassignTo",
+      "revisions.reassignAuthor",
+    ]);
     expect(preset.triggers).toContainEqual({ event: "user.deleted", pipeline: "reassignRevisionAuthor" });
     expect(preset.triggers).toContainEqual({ http: "POST /admin/users/:id/revisions/reassign", pipeline: "retryReassignRevisionAuthor" });
   });
