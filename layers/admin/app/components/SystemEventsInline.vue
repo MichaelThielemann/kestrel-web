@@ -3,9 +3,8 @@ import type { EventDeliveryStatus } from '#kestrel-admin/types/api'
 import { humanizeRelativeTime } from '#kestrel-admin/utils/humanize'
 
 const { t, lang } = useT()
-const api = useApi()
-const { has } = useFeatures()
-const { can } = useAuth()
+const api = useAdminApi()
+const capabilities = useCapabilities()
 
 const status = ref<EventDeliveryStatus | null>(null)
 const notFound = ref(false)
@@ -17,7 +16,7 @@ async function load() {
   if (inFlight) return
   inFlight = true
   try {
-    status.value = await api<EventDeliveryStatus>('/admin/events/delivery')
+    status.value = await api<EventDeliveryStatus>(capabilities.route('eventsDeliveryStatus'))
     notFound.value = false
     loadError.value = null
   } catch (e) {
@@ -46,7 +45,7 @@ onUnmounted(() => {
   pollId = null
 })
 
-const canSeeInsights = computed(() => has('insights') && can('insights.read'))
+const canSeeInsights = computed(() => capabilities.has('insightsManifest'))
 
 const dateFmt = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'medium' })
 function absolute(ms: number | null): string { return ms === null ? '—' : dateFmt.format(new Date(ms)) }

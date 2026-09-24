@@ -1,21 +1,22 @@
 import { computed, nextTick } from 'vue'
 import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { EventDeliveryStatus } from '#kestrel-admin/types/api'
+import type { AdminSchema, EventDeliveryStatus } from '#kestrel-admin/types/api'
 import { en } from '#kestrel-admin/i18n/en'
 import SystemEventsInline from './SystemEventsInline.vue'
 
-const { authState, schemaState } = vi.hoisted(() => ({
-  authState: { canInsightsRead: true },
-  schemaState: { features: ['insights'] as string[] },
-}))
+const { schemaState } = vi.hoisted(() => {
+  const capabilities: AdminSchema['capabilities'] = {
+    eventsDeliveryStatus: { method: 'GET', path: '/admin/events/delivery' },
+    insightsManifest: { method: 'GET', path: '/admin/insights/manifest' },
+  }
+  return { schemaState: { capabilities } }
+})
 
-mockNuxtImport('useAuth', () => () => ({
-  can: (permission: string) => (permission === 'insights.read' ? authState.canInsightsRead : true),
-}))
+const fullCapabilities = { ...schemaState.capabilities }
 
 mockNuxtImport('useSchema', () => () => ({
-  schema: computed(() => ({ locales: { all: ['en'], primary: 'en', prefixPrimary: false }, collections: [], features: schemaState.features })),
+  schema: computed<AdminSchema>(() => ({ locales: { all: ['en'], primary: 'en', prefixPrimary: false }, collections: [], features: [], capabilities: schemaState.capabilities })),
   error: computed(() => null),
   load: () => Promise.resolve('ok' as const),
   clear: () => {},
@@ -27,8 +28,7 @@ describe('SystemEventsInline', () => {
   afterEach(() => {
     unregisterAll.splice(0).forEach((unregister) => unregister())
     vi.useRealTimers()
-    authState.canInsightsRead = true
-    schemaState.features = ['insights']
+    schemaState.capabilities = fullCapabilities
   })
 
   it('shows the failed-delivery count, since when, and the last failure, each paired with its label', async () => {
@@ -61,7 +61,7 @@ describe('SystemEventsInline', () => {
   })
 
   it('names the same text without a link when the viewer cannot read insights', async () => {
-    schemaState.features = []
+    schemaState.capabilities = { eventsDeliveryStatus: { method: 'GET', path: '/admin/events/delivery' } }
     const status: EventDeliveryStatus = { dead: 0, scope: 'process', since: Date.now(), lastDeadAt: null }
     unregisterAll.push(registerEndpoint('/api/admin/events/delivery', { method: 'GET', handler: () => status }))
 
