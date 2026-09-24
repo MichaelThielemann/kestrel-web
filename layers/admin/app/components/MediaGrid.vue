@@ -142,6 +142,7 @@ function uploadChipFor(upload: UploadItem) {
 .media-grid__thumb-wrap { position: relative; width: 100%; }
 .media-grid__thumb { aspect-ratio: 1; width: 100%; object-fit: cover; border-radius: var(--radius-sm); background: var(--color-bg); display: block; }
 .media-grid__thumb--folder { display: grid; place-items: center; color: var(--color-text-subtle); }
+.media-grid__thumb.media-thumb--pending { display: grid; place-items: center; }
 .media-grid__badge { display: grid; place-items: center; aspect-ratio: 1; width: 100%; border-radius: var(--radius-sm); background: var(--color-bg); color: var(--color-text-muted); font-weight: var(--weight-bold); }
 
 .media-grid__ai {
