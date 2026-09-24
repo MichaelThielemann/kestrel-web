@@ -5,7 +5,7 @@ import type { PipelineEntry } from "@michaelthielemann/kestrel/definePipeline";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
-import { definePipeline, definePreset, presetSchemas } from "./index";
+import { definePipeline, definePreset, featureOrder, presetSchemas } from "./index";
 import type { CollectionModel, Feature, PresetStep } from "./index";
 import { presetModuleConfig } from "./config";
 
@@ -63,9 +63,15 @@ describe("definePreset relay pipeline selection", () => {
     });
   }
 
+  function relayPipelinesOf(modules: readonly { use: string; config?: unknown }[]): unknown {
+    const config = modules.find((entry) => entry.use === "@michaelthielemann/kestrel-events-queue")?.config;
+    return typeof config === "object" && config !== null && "relayPipelines" in config ? Reflect.get(config, "relayPipelines") : undefined;
+  }
+
   it("boots with relayPipelines naming publishPage and unpublishPage when delivery is composed", () => {
     const features: Feature[] = ["eventsQueue", "delivery"];
     const modules = relayModules(features);
+    expect(relayPipelinesOf(modules)).toEqual(["publishPage", "unpublishPage"]);
     const preset = definePreset({ modules, features, collections: relayCollections });
     expect(preset.pipelines.map((pipeline) => pipeline.name)).toEqual(expect.arrayContaining(["publishPage", "unpublishPage"]));
   });
@@ -73,6 +79,7 @@ describe("definePreset relay pipeline selection", () => {
   it("boots with an empty relay selection when delivery is off, on another event trigger", () => {
     const features: Feature[] = ["eventsQueue", "audit"];
     const modules = relayModules(features);
+    expect(relayPipelinesOf(modules)).toEqual([]);
     expect(() => definePreset({ modules, features, collections: relayCollections })).not.toThrow();
   });
 
@@ -82,6 +89,129 @@ describe("definePreset relay pipeline selection", () => {
     expect(() => definePreset({ modules, features, collections: relayCollections, exclude: ["publishPage"] })).toThrow(
       /relay pipeline "publishPage"/,
     );
+  });
+
+  it("rejects an override naming a schedule for the wrong pipeline set once publishPage is overridden away", () => {
+    const features: Feature[] = ["eventsQueue", "delivery"];
+    const modules = relayModules(features);
+    expect(() =>
+      definePreset({
+        modules,
+        features,
+        collections: relayCollections,
+        overrides: { publishPage: ["delivery.publish:pages"] },
+        exclude: ["publishPage"],
+      }),
+    ).toThrow('preset: pipeline "publishPage" is both overridden and excluded');
+  });
+
+  it("accepts a relay selection naming a pipeline the preset itself never defines, leaving it to the module's own boot check", () => {
+    const features: Feature[] = ["eventsQueue", "delivery"];
+    const modules = relayModules(features).map((entry) =>
+      entry.use === "@michaelthielemann/kestrel-events-queue" ? { ...entry, config: { relayPipelines: ["publishPage", "unpublishPage", "notifyOwnPipeline"] } } : entry,
+    );
+    expect(() => definePreset({ modules, features, collections: relayCollections })).not.toThrow();
+  });
+
+  it("accepts a relay selection naming an inherited object property, leaving it to the module's own boot check", () => {
+    const features: Feature[] = ["eventsQueue", "delivery"];
+    const modules = relayModules(features).map((entry) =>
+      entry.use === "@michaelthielemann/kestrel-events-queue" ? { ...entry, config: { relayPipelines: ["toString", "hasOwnProperty"] } } : entry,
+    );
+    expect(() => definePreset({ modules, features, collections: relayCollections })).not.toThrow();
+  });
+
+  it("still rejects a relay selection naming a known preset pipeline that this configuration never composes", () => {
+    const features: Feature[] = ["eventsQueue", "audit"];
+    const modules = relayModules(features).map((entry) =>
+      entry.use === "@michaelthielemann/kestrel-events-queue" ? { ...entry, config: { relayPipelines: ["publishPage"] } } : entry,
+    );
+    expect(() => definePreset({ modules, features, collections: relayCollections })).toThrow(/relay pipeline "publishPage"/);
+  });
+
+  it("rejects a relay selection naming a collection pipeline dropped by exclude", () => {
+    const features: Feature[] = ["eventsQueue", "revisions"];
+    const modules = [...relayModules(features), { use: "@michaelthielemann/kestrel-revisions-default" }].map((entry) =>
+      entry.use === "@michaelthielemann/kestrel-events-queue" ? { ...entry, config: { relayPipelines: ["restorePageRevision"] } } : entry,
+    );
+    expect(() =>
+      definePreset({ modules, features, collections: relayCollections, exclude: ["restorePageRevision"] }),
+    ).toThrow(/relay pipeline "restorePageRevision"/);
+  });
+});
+
+describe("definePreset relay pipeline selection over feature combinations", () => {
+  const relayCollections: Record<string, CollectionModel> = {
+    pages: { kind: "multi", fields: { slug: { type: "slug" }, title: {}, body: {}, status: {} } },
+  };
+  const triggerFeatures: readonly Feature[] = ["delivery", "images", "audit", "revisions"];
+  const extraModules: Partial<Record<Feature, { use: string }>> = {
+    images: { use: "@michaelthielemann/kestrel-images-default" },
+    audit: { use: "@michaelthielemann/kestrel-audit-persistence" },
+    revisions: { use: "@michaelthielemann/kestrel-revisions-default" },
+  };
+
+  function subsets<T>(items: readonly T[]): T[][] {
+    return items.reduce<T[][]>((acc, item) => [...acc, ...acc.map((set) => [...set, item])], [[]]);
+  }
+
+  function relayPipelinesOf(modules: readonly { use: string; config?: unknown }[]): string[] | undefined {
+    const config = modules.find((entry) => entry.use === "@michaelthielemann/kestrel-events-queue")?.config;
+    if (typeof config !== "object" || config === null || !("relayPipelines" in config)) return undefined;
+    const value = Reflect.get(config, "relayPipelines");
+    return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === "string") : undefined;
+  }
+
+  it.each(subsets(triggerFeatures).map((subset) => [subset] as const))("with eventsQueue and %j composes a relay selection that is a subset of publishPage/unpublishPage and boots cleanly", (extra) => {
+    const features: Feature[] = ["eventsQueue", ...extra];
+    const modules = [
+      ...presetModuleConfig({
+        dataDir: "/tmp/relay-matrix",
+        blobstore: { use: "@michaelthielemann/kestrel-blobstore-filesystem", config: { root: "/tmp/relay-matrix/blobs" } },
+        model: { types: relayCollections },
+        features,
+        roles: { roles: { admin: ["*"] }, anonymous: [] },
+        bootstrap: { username: "admin", passwordHash: "x" },
+      }),
+      ...extra.map((feature) => extraModules[feature]).filter((entry): entry is { use: string } => entry !== undefined),
+    ];
+    const relayPipelines = relayPipelinesOf(modules);
+    expect(relayPipelines).toEqual(extra.includes("delivery") ? ["publishPage", "unpublishPage"] : []);
+    const preset = definePreset({ modules, features, collections: relayCollections });
+    for (const name of relayPipelines ?? []) {
+      expect(preset.pipelines.map((pipeline) => pipeline.name)).toContain(name);
+    }
+  });
+
+  it("with every feature on, still selects only publishPage and unpublishPage for the relay", () => {
+    const features = featureOrder;
+    const modules = [
+      ...presetModuleConfig({
+        dataDir: "/tmp/relay-matrix-all",
+        blobstore: { use: "@michaelthielemann/kestrel-blobstore-filesystem", config: { root: "/tmp/relay-matrix-all/blobs" } },
+        model: { types: relayCollections },
+        features,
+        audit: { retentionDays: 365 },
+        migrations: { migrations: [] },
+        roles: { roles: { admin: ["*"] }, anonymous: [] },
+        bootstrap: { username: "admin", passwordHash: "x" },
+      }),
+      { use: "@michaelthielemann/kestrel-images-default", config: {} },
+      { use: "@michaelthielemann/kestrel-audit-persistence", config: {} },
+      { use: "@michaelthielemann/kestrel-revisions-default", config: {} },
+      { use: "@michaelthielemann/kestrel-ratelimit-memory", config: {} },
+      { use: "@michaelthielemann/kestrel-references-default", config: {} },
+      { use: "@michaelthielemann/kestrel-links-default", config: {} },
+      { use: "@michaelthielemann/kestrel-redirects-default", config: {} },
+      { use: "@michaelthielemann/kestrel-replication-sqlite", config: {} },
+      { use: "@michaelthielemann/kestrel-sanitize-svg", config: {} },
+      { use: "@michaelthielemann/kestrel-migrations-default", config: {} },
+      { use: "@michaelthielemann/kestrel-validate-jsonschema", config: { schemas: { "pages.body": "x", "redirects.rules": "y" } } },
+    ];
+    const queueEntry = modules.find((entry) => entry.use === "@michaelthielemann/kestrel-events-queue");
+    expect(queueEntry?.config).toMatchObject({ relayPipelines: ["publishPage", "unpublishPage"] });
+    const preset = definePreset({ modules, features, collections: relayCollections });
+    expect(preset.pipelines.map((pipeline) => pipeline.name)).toEqual(expect.arrayContaining(["publishPage", "unpublishPage"]));
   });
 });
 

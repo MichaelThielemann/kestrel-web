@@ -213,9 +213,12 @@ export function definePreset<C extends Record<string, CollectionModel> = Record<
   }
 
   let pipelines: Record<string, PresetEntry[]> = basePipelines(context, collections);
+  const composablePipelineNames = new Set<string>([...staticPipelineNames, ...RELAY_CANDIDATE_PIPELINES]);
   for (const [name, model] of Object.entries(collections)) {
     if (!isGenericCollection(name)) continue;
-    pipelines = mergePipelines(pipelines, collectionPipelines(name, model, options.collectionsUi?.[name], customFields[name]), name, "collection");
+    const generated = collectionPipelines(name, model, options.collectionsUi?.[name], customFields[name]);
+    for (const pipelineName of Object.keys(generated)) composablePipelineNames.add(pipelineName);
+    pipelines = mergePipelines(pipelines, generated, name, "collection");
   }
 
   const featureTriggers: TriggerConfig[] = [];
@@ -354,7 +357,8 @@ export function definePreset<C extends Record<string, CollectionModel> = Record<
   const configuredRelay = configuredRelayPipelines(options.modules);
   if (configuredRelay !== undefined) {
     for (const name of configuredRelay) {
-      if (!(name in pipelines)) {
+      if (!composablePipelineNames.has(name)) continue;
+      if (!Object.hasOwn(pipelines, name)) {
         throw new Error(
           `preset: module "${EVENTS_QUEUE_MODULE}" is configured to relay pipeline "${name}", which the preset does not compose – exclude it from relayPipelines too, or keep the pipeline`,
         );
