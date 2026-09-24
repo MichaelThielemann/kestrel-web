@@ -40,7 +40,7 @@ function readPackageJson(): PackageJson {
   return boundaryCast<PackageJson>(parsed, "json");
 }
 
-const EXCLUDED_SUFFIXES = ["-contracts", "-h3", "-openapi"];
+const EXCLUDED_SUFFIXES = ["-contracts", "-h3", "-openapi", "-upgrade"];
 const OPTIONAL_PEERS = new Set(["@michaelthielemann/kestrel-insights"]);
 
 function isRegistryEligible(name: string): boolean {
