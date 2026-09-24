@@ -82,8 +82,8 @@ describe('InsightsConfigVariables', () => {
   it('keeps path, type, required and status on one line each, so the status dot never wraps away from its label', () => {
     const nowrapBlock = source.match(/&__path,[\s\S]*?{\s*white-space:\s*nowrap;\s*}/)
     expect(nowrapBlock).not.toBeNull()
-    expect(nowrapBlock![0]).toContain('__nowrap')
-    expect(nowrapBlock![0]).toContain('__status')
+    expect(nowrapBlock![0]).toMatch(/&__nowrap\s*[,{]/)
+    expect(nowrapBlock![0]).toMatch(/&__status\s*[,{]/)
   })
 
   it('renders the status dot and its label inside the same cell, never split across a line break', async () => {

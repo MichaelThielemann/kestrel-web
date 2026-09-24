@@ -99,6 +99,7 @@ describe('SystemEventsInline', () => {
   })
 
   it('keeps the same error region across polls instead of removing and re-adding it while the failure persists', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true, toFake: ['setInterval', 'clearInterval'] })
     unregisterAll.push(registerEndpoint('/api/admin/events/delivery', {
       method: 'GET',
       handler: (event) => {
@@ -109,10 +110,10 @@ describe('SystemEventsInline', () => {
 
     const wrapper = await mountSuspended(SystemEventsInline)
     const firstAlert = wrapper.get('[role="alert"]').element
-    await new Promise((resolve) => setTimeout(resolve, 5200))
+    await vi.advanceTimersByTimeAsync(5000)
     await nextTick()
     const secondAlert = wrapper.get('[role="alert"]').element
     expect(secondAlert).toBe(firstAlert)
     wrapper.unmount()
-  }, 10000)
+  })
 })
