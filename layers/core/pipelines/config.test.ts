@@ -136,7 +136,7 @@ describe("derived delivery types", () => {
       people: { kind: "multi", fields: { slug: {}, name: {} } },
       profile: { kind: "single", fields: { slug: {}, status: {}, body: {} } },
     };
-    const modules = presetModuleConfig({ ...playgroundOptions(), model: { types }, features: ["delivery"] });
+    const modules = presetModuleConfig({ ...playgroundOptions(), model: { types }, features: ["delivery", "sanitizeSvg"] });
     const delivery = configFor(modules, "delivery-static");
 
     expect(delivery).toEqual({ types: { pages: {}, news: {} }, prefix: "site/", reservedPaths: ["/api", "/admin", "/media"], llms: { full: true, headings: { pages: "Pages" } } });
@@ -190,9 +190,42 @@ describe("public media copies", () => {
   });
 
   it("sets publicCopy on media-default alone when images is not enabled", () => {
-    const modules = presetModuleConfig({ ...playgroundOptions(), features: ["delivery"] });
+    const modules = presetModuleConfig({ ...playgroundOptions(), features: ["delivery", "sanitizeSvg"] });
     expect(configFor(modules, "media-default")).toMatchObject({ publicCopy: { prefix: "site/" } });
     expect(configFor(modules, "images-default")).toBeUndefined();
+  });
+});
+
+describe("svg sanitize guard", () => {
+  it("throws when publicCopy is on, svg is allowed by default, and sanitizeSvg is not enabled", () => {
+    expect(() => presetModuleConfig({ ...playgroundOptions(), features: ["delivery"] })).toThrow(
+      'presetModuleConfig: publicCopy is set and media.allowedTypes allows "image/svg+xml", but the "sanitizeSvg" feature is not enabled'
+      + ' – either add "sanitizeSvg" to features (it inserts sanitize.svg before media.upload) or deny "image/svg+xml" in media.deniedTypes',
+    );
+  });
+
+  it("passes when sanitizeSvg is enabled alongside publicCopy", () => {
+    expect(() => presetModuleConfig({ ...playgroundOptions(), features: ["delivery", "sanitizeSvg"] })).not.toThrow();
+  });
+
+  it("passes when publicCopy is on but media.deniedTypes explicitly excludes svg", () => {
+    expect(() =>
+      presetModuleConfig({
+        ...playgroundOptions(),
+        features: ["delivery"],
+        media: { deniedTypes: ["text/html", "application/xhtml+xml", "image/svg+xml"] },
+      }),
+    ).not.toThrow();
+  });
+
+  it("passes when publicCopy is on but media.allowedTypes never matches svg", () => {
+    expect(() =>
+      presetModuleConfig({ ...playgroundOptions(), features: ["delivery"], media: { allowedTypes: ["application/pdf"] } }),
+    ).not.toThrow();
+  });
+
+  it("passes without the delivery feature, even with svg allowed and sanitizeSvg off", () => {
+    expect(() => presetModuleConfig({ ...playgroundOptions(), features: ["images"] })).not.toThrow();
   });
 });
 
@@ -226,9 +259,12 @@ describe("feature gating", () => {
 
   it("adds exactly the modules a single feature requires", () => {
     const base = moduleNames(presetModuleConfig({ ...playgroundOptions(), features: [] }));
+    const SANITIZE_SVG_MODULE = "@michaelthielemann/kestrel-sanitize-svg";
     const added: Record<string, string[]> = {};
     for (const feature of features) {
-      added[feature] = moduleNames(presetModuleConfig({ ...playgroundOptions(), features: [feature] })).filter((use) => !base.includes(use));
+      const activeFeatures: Feature[] = feature === "delivery" ? [feature, "sanitizeSvg"] : [feature];
+      added[feature] = moduleNames(presetModuleConfig({ ...playgroundOptions(), features: activeFeatures }))
+        .filter((use) => !base.includes(use) && !(feature === "delivery" && use === SANITIZE_SVG_MODULE));
     }
 
     expect(added).toEqual({
@@ -290,7 +326,7 @@ describe("feature gating", () => {
   });
 
   it("selects publishPage and unpublishPage for the queue's relay when delivery is enabled", () => {
-    const withDelivery = configFor(presetModuleConfig({ ...playgroundOptions(), features: ["eventsQueue", "delivery"] }), "events-queue");
+    const withDelivery = configFor(presetModuleConfig({ ...playgroundOptions(), features: ["eventsQueue", "delivery", "sanitizeSvg"] }), "events-queue");
     expect(withDelivery).toEqual({ relayPipelines: ["publishPage", "unpublishPage"] });
   });
 
@@ -301,7 +337,7 @@ describe("feature gating", () => {
 
   it("passes the relay budget through next to the derived relay selection", () => {
     const withBudget = configFor(
-      presetModuleConfig({ ...playgroundOptions(), features: ["eventsQueue", "delivery"], eventsQueue: { relayMs: 8000 } }),
+      presetModuleConfig({ ...playgroundOptions(), features: ["eventsQueue", "delivery", "sanitizeSvg"], eventsQueue: { relayMs: 8000 } }),
       "events-queue",
     );
     expect(withBudget).toEqual({ relayMs: 8000, relayPipelines: ["publishPage", "unpublishPage"] });

@@ -112,6 +112,7 @@ const PAGES_COLLECTION = "pages";
 const DEFAULT_MEDIA_MAX_BYTES = 5 * 1024 * 1024;
 const DEFAULT_MEDIA_ALLOWED_TYPES = ["image/*", "application/pdf"];
 const DEFAULT_MEDIA_DENIED_TYPES = ["text/html", "application/xhtml+xml"];
+const SVG_CONTENT_TYPE = "image/svg+xml";
 const DEFAULT_LOGIN_BUCKET = { limit: 5, windowSeconds: 60 };
 const DEFAULT_LLMS_HEADINGS = { [PAGES_COLLECTION]: "Pages" };
 const DEFAULT_SESSION: Required<PresetSession> = { identifier: "username", minPasswordLength: 8, sessionTtlSeconds: 86400 };
@@ -120,6 +121,10 @@ const DEFAULT_LINKS = { timeoutMs: 10000, concurrency: 4, recheckAfterSeconds: 2
 function requireOption<T>(value: T | undefined, name: string): T {
   if (value === undefined) throw new Error(`presetModuleConfig: option "${name}" is required`);
   return value;
+}
+
+function typeAllowed(patterns: readonly string[], contentType: string): boolean {
+  return patterns.some((pattern) => pattern === "*" || pattern === contentType || (pattern.endsWith("/*") && contentType.startsWith(pattern.slice(0, -1))));
 }
 
 function refTargetOf(field: unknown): string | undefined {
@@ -220,6 +225,20 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
   const session = { ...DEFAULT_SESSION, ...options.session };
   const siteUrl = siteUrlOf(options.llms);
   const publicCopy = enabled.has("delivery") ? { publicCopy: { prefix: SITE_PREFIX } } : {};
+  const mediaAllowedTypes = options.media?.allowedTypes ?? DEFAULT_MEDIA_ALLOWED_TYPES;
+  const mediaDeniedTypes = options.media?.deniedTypes ?? DEFAULT_MEDIA_DENIED_TYPES;
+
+  if (
+    enabled.has("delivery")
+    && !enabled.has("sanitizeSvg")
+    && typeAllowed(mediaAllowedTypes, SVG_CONTENT_TYPE)
+    && !typeAllowed(mediaDeniedTypes, SVG_CONTENT_TYPE)
+  ) {
+    throw new Error(
+      `presetModuleConfig: publicCopy is set and media.allowedTypes allows "${SVG_CONTENT_TYPE}", but the "sanitizeSvg" feature is not enabled`
+      + ` – either add "sanitizeSvg" to features (it inserts sanitize.svg before media.upload) or deny "${SVG_CONTENT_TYPE}" in media.deniedTypes`,
+    );
+  }
 
   const modules: ModuleEntry[] = [{ use: blobstore.use, config: blobstore.config }];
 
@@ -232,8 +251,8 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
     config: {
       prefix: MEDIA_PREFIX,
       publicPath: MEDIA_PUBLIC_PATH,
-      allowedTypes: options.media?.allowedTypes ?? DEFAULT_MEDIA_ALLOWED_TYPES,
-      deniedTypes: options.media?.deniedTypes ?? DEFAULT_MEDIA_DENIED_TYPES,
+      allowedTypes: mediaAllowedTypes,
+      deniedTypes: mediaDeniedTypes,
       maxBytes: options.media?.maxBytes ?? DEFAULT_MEDIA_MAX_BYTES,
       ...(model.locales === undefined ? {} : { locales: [...model.locales] }),
       ...(model.defaultLocale === undefined ? {} : { defaultLocale: model.defaultLocale }),

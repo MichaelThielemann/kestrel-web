@@ -47,6 +47,62 @@ describe("definePreset eventsDeliveryStatus", () => {
   });
 });
 
+describe("definePreset image-variant queue guards", () => {
+  const directModules = [...baseModules, { use: "@michaelthielemann/kestrel-images-default" }];
+  function queueModules(lanes?: Record<string, string[]>): { use: string; config?: unknown }[] {
+    return [
+      ...withQueueInsteadOfDirect(baseModules),
+      { use: "@michaelthielemann/kestrel-images-default" },
+    ].map((entry) =>
+      entry.use === "@michaelthielemann/kestrel-events-queue" ? { ...entry, config: lanes === undefined ? {} : { lanes } } : entry,
+    );
+  }
+
+  it("rejects a queue override for planImageVariants that does not run images.plan and emit images.planned first", () => {
+    expect(() =>
+      definePreset({
+        modules: queueModules({ variants: ["generateImageVariants"] }),
+        features: ["eventsQueue", "images"],
+        overrides: { planImageVariants: ["images.plan", "images.generate", "events.emit:images.planned", "events.relay"] },
+      }),
+    ).toThrow('preset: override for "planImageVariants" must run "images.plan" and emit "images.planned" – items would stay unavailable until the repair pass');
+  });
+
+  it("rejects a queue override for generateImageVariants that places inline", () => {
+    expect(() =>
+      definePreset({
+        modules: queueModules({ variants: ["generateImageVariants"] }),
+        features: ["eventsQueue", "images"],
+        overrides: { generateImageVariants: ["images.plan", "images.generate"] },
+      }),
+    ).toThrow('preset: override for "generateImageVariants" must not place – placing runs in the main lane');
+  });
+
+  it("rejects a queue module whose lanes config exists but omits generateImageVariants", () => {
+    expect(() =>
+      definePreset({ modules: queueModules({ other: ["some.step"] }), features: ["eventsQueue", "images"] }),
+    ).toThrow('preset: module "@michaelthielemann/kestrel-events-queue" must run "generateImageVariants" in a lane of its own – a render must never block placing new items');
+  });
+
+  it("accepts the default queue composition, generateImageVariants placed in its own lane", () => {
+    expect(() => definePreset({ modules: queueModules({ variants: ["generateImageVariants"] }), features: ["eventsQueue", "images"] })).not.toThrow();
+  });
+
+  it("rejects a direct-mode override for generateImageVariants that runs images.plan inline", () => {
+    expect(() =>
+      definePreset({
+        modules: directModules,
+        features: ["images"],
+        overrides: { generateImageVariants: ["images.plan", "images.generate"] },
+      }),
+    ).toThrow('preset: override for "generateImageVariants" runs "images.plan" inline – placeholders are never written in the upload request');
+  });
+
+  it("accepts the default direct composition", () => {
+    expect(() => definePreset({ modules: directModules, features: ["images"] })).not.toThrow();
+  });
+});
+
 describe("definePreset relay pipeline selection", () => {
   const relayCollections: Record<string, CollectionModel> = {
     pages: { kind: "multi", fields: { slug: { type: "slug" }, title: {}, body: {}, status: {} } },
@@ -60,6 +116,7 @@ describe("definePreset relay pipeline selection", () => {
       features,
       roles: { roles: { admin: ["*"] }, anonymous: [] },
       bootstrap: { username: "admin", passwordHash: "x" },
+      media: { deniedTypes: ["text/html", "application/xhtml+xml", "image/svg+xml"] },
     });
   }
 
@@ -195,6 +252,7 @@ describe("definePreset relay pipeline selection over feature combinations", () =
         features,
         roles: { roles: { admin: ["*"] }, anonymous: [] },
         bootstrap: { username: "admin", passwordHash: "x" },
+        media: { deniedTypes: ["text/html", "application/xhtml+xml", "image/svg+xml"] },
       }),
       ...extra.map((feature) => extraModules[feature]).filter((entry): entry is { use: string } => entry !== undefined),
     ];

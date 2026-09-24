@@ -14,7 +14,7 @@ export const ALL_FEATURES = [
   "revisions",
 ];
 
-export const DEFAULT_FEATURES = ["references", "links", "delivery", "redirects", "images", "insights", "eventsQueue", "revisions"];
+export const DEFAULT_FEATURES = ["sanitizeSvg", "references", "links", "delivery", "redirects", "images", "insights", "eventsQueue", "revisions"];
 
 export const FEATURE_SUMMARY = {
   ratelimit: "rate limit for the login route",
