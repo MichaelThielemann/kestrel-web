@@ -62,12 +62,21 @@ function snapshotDir(dir: string): Map<string, Buffer> {
   return files;
 }
 
-function restoreDir(files: ReadonlyMap<string, Buffer>, dir: string): void {
+function restoreDir(files: ReadonlyMap<string, Buffer>, dir: string, rebase: { from: string; to: string }): void {
   for (const [rel, content] of files) {
     const target = join(dir, rel);
     mkdirSync(dirname(target), { recursive: true });
-    writeFileSync(target, content);
+    writeFileSync(target, content.toString("utf8").split(rebase.from).join(rebase.to));
   }
+}
+
+interface PrepareCache {
+  scratch: string;
+  files: Map<string, Buffer>;
+}
+
+function isPrepareCache(value: unknown): value is PrepareCache {
+  return typeof value === "object" && value !== null && "scratch" in value && "files" in value && (value as { files: unknown }).files instanceof Map;
 }
 
 /**
@@ -75,20 +84,24 @@ function restoreDir(files: ReadonlyMap<string, Buffer>, dir: string): void {
  * paths `kestrelAliases()` predicts. Its output depends only on the project's own blocks and content
  * model, neither of which any rule in this plugin edits, so the first run's `.nuxt` is snapshotted into
  * `cache` (keyed by `root`, the one project this whole `check`/`fix` invocation loads) and replayed by a
- * plain file copy for every later scratch copy of the same project instead of rerunning the command.
+ * plain file copy for every later scratch copy of the same project instead of rerunning the command. A
+ * generated file such as `kestrel/migrations.mjs` embeds absolute import paths under the scratch root that
+ * produced it (`modules/migrations/scan.ts`'s `renderMigrationsModule`, rooted at `nuxt.options.rootDir`);
+ * every restore rewrites the cached snapshot's own scratch root to the new one so those paths stay valid
+ * once the copy that generated them is gone.
  */
 export async function prepareLayerProject(root: string, scratch: string, cache: Map<string, unknown>): Promise<void> {
   const nuxtDir = join(scratch, ".nuxt");
   const cacheKey = `kestrel-web:nuxt-prepare:${root}`;
   const cached = cache.get(cacheKey);
-  if (cached instanceof Map) {
-    restoreDir(cached as Map<string, Buffer>, nuxtDir);
+  if (isPrepareCache(cached)) {
+    restoreDir(cached.files, nuxtDir, { from: cached.scratch, to: scratch });
     return;
   }
   const nuxtBin = join(scratch, "node_modules", ".bin", "nuxt");
   const bin = existsSync(nuxtBin) ? nuxtBin : "nuxt";
   await execFileAsync(bin, ["prepare", scratch], { cwd: scratch, env: { ...process.env, NUXT_TELEMETRY_DISABLED: "1" } });
-  if (existsSync(nuxtDir)) cache.set(cacheKey, snapshotDir(nuxtDir));
+  if (existsSync(nuxtDir)) cache.set(cacheKey, { scratch, files: snapshotDir(nuxtDir) });
 }
 
 function scratchUnique(scratch: string, aliasValue: string, filename: string): string {
