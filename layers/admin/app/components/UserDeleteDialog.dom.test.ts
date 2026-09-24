@@ -126,3 +126,42 @@ describe('UserDeleteDialog', () => {
     expect(selects()).toHaveLength(0)
   })
 })
+
+describe('UserDeleteDialog with a consumer trigger list', () => {
+  const unregisterAll: (() => void)[] = []
+  const consumerSchema: AdminSchema = {
+    locales: { all: ['en'], primary: 'en', prefixPrimary: false },
+    collections: [],
+    features: [],
+    capabilities: { deleteUser: { method: 'POST', path: '/staff/:id/remove' } },
+  }
+
+  beforeEach(async () => {
+    unregisterAll.push(registerEndpoint('/api/admin/schema', { method: 'GET', handler: () => consumerSchema }))
+    await useSchema().load()
+  })
+
+  afterEach(() => {
+    unregisterAll.splice(0).forEach((unregister) => unregister())
+    useSchema().clear()
+  })
+
+  it('deletes a user through the route the schema names, not a hard-coded one', async () => {
+    let receivedBody: Record<string, unknown> | null = null
+    unregisterAll.push(registerEndpoint('/api/staff/u1/remove', {
+      method: 'POST',
+      handler: async (event) => {
+        receivedBody = boundaryCast<Record<string, unknown>>(await readBody(event), 'json')
+        return { ok: true, reassignTo: null }
+      },
+    }))
+
+    const wrapper = await mountSuspended(UserDeleteDialog, { props: { user: doomed, users }, attachTo: document.body })
+    onTestFinished(() => wrapper.unmount())
+
+    await vi.waitFor(() => expect(selects().length).toBe(1))
+    clickDelete()
+    await vi.waitFor(() => expect(receivedBody).not.toBeNull())
+    expect(receivedBody).toEqual({ reassignTo: null })
+  })
+})

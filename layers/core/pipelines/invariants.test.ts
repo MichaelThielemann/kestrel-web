@@ -68,6 +68,23 @@ describe("staticPipelineNames", () => {
   });
 });
 
+describe("HTTP triggers", () => {
+  it("binds every composed pipeline to at most one HTTP trigger", () => {
+    const preset = definePreset({ modules: allModules, features: featureOrder, collections: DEFAULT_COLLECTIONS });
+    const httpTriggers = preset.triggers.filter((trigger): trigger is { http: string; pipeline: string } => "http" in trigger);
+
+    const perPipeline = new Map<string, string[]>();
+    for (const trigger of httpTriggers) {
+      const existing = perPipeline.get(trigger.pipeline) ?? [];
+      existing.push(trigger.http);
+      perPipeline.set(trigger.pipeline, existing);
+    }
+    const boundTwice = [...perPipeline.entries()].filter(([, triggers]) => triggers.length > 1);
+
+    expect(boundTwice).toEqual([]);
+  });
+});
+
 describe("the features table in docs/consuming-kestrel-web.md", () => {
   it("lists exactly the features in featureOrder", () => {
     const docsPath = fileURLToPath(new URL("../../../docs/consuming-kestrel-web.md", import.meta.url));
