@@ -307,7 +307,10 @@ async function verifiedInclude(ctx: RuleContext, file: string, source: string, p
   if (!ctx.verifyEdits) return { kind: "unsafe", reason: "could not verify: no boot check ran; upgrade @michaelthielemann/kestrel to 6 first" };
   const result = await ctx.verifyEdits([edit], { pipelines: [pipelineName] });
   if (!result.verified) {
-    if (result.unchecked.length > 0) return { kind: "unsafe", reason: `the preview did not check pipeline "${pipelineName}"; run with --run-setup for the step's own module first` };
+    if (result.unchecked.length > 0) {
+      const because = result.unchecked[0]?.because;
+      return { kind: "unsafe", reason: `the preview did not check pipeline "${pipelineName}"${because === undefined ? "" : `: ${because}`}` };
+    }
     return { kind: "unsafe", reason: "could not verify: no boot check ran, or the edited copy could not be reloaded" };
   }
   if (result.newErrors.length > 0) return { kind: "unsafe", reason: result.newErrors.map((e) => e.reason).join("; ") };

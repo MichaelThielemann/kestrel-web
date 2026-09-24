@@ -54,7 +54,9 @@ function contextFor(options: { answer?: string; bootErrors?: BootCheck["errors"]
   const answers = new Map<string, string>(options.answer === undefined ? [] : [[`override-group:updatePage`, options.answer]]);
   const verifyEdits = vi.fn(async (_edits: readonly Edit[], verifyOptions?: { pipelines?: readonly string[] }) => {
     const pipelines = verifyOptions?.pipelines ?? [];
-    const unchecked = (options.notChecked ?? []).filter((n) => n.kind === "pipeline" && pipelines.includes(n.name)).map((n) => n.name);
+    const unchecked = (options.notChecked ?? [])
+      .filter((n) => n.kind === "pipeline" && pipelines.includes(n.name))
+      .map((n) => ({ name: n.name, because: n.because }));
     return { verified: unchecked.length === 0, newErrors: options.bootErrors ?? [], unchecked };
   });
   const project: LoadedProject = {
@@ -123,10 +125,12 @@ describe("overrideGroupRule: the ambiguous window (a consumer step sits inside t
     if (asked[0]?.fix.kind !== "ask") throw new Error("expected ask");
     expect(asked[0].fix.prompt).toContain("not offered");
     expect(asked[0].fix.prompt).toContain("did not check");
+    expect(asked[0].fix.prompt).toContain("authn/multi is not consented");
 
     const answered = await overrideGroupRule.check(contextFor({ answer: "include", notChecked }));
     expect(answered[0]?.fix.kind).toBe("manual");
     expect(answered[0]?.suggestion).toContain("did not check");
+    expect(answered[0]?.suggestion).toContain("authn/multi is not consented");
   });
 
   it('answers "exclude" with a manual finding naming the routes/triggers it would remove, never an automatic edit', async () => {
