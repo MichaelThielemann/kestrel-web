@@ -153,6 +153,12 @@
   dropped it: `preset: module "@michaelthielemann/kestrel-events-queue" is configured to relay pipeline
   "<name>", which the preset does not compose – …`. A name outside that vocabulary passes through; the
   `eventsQueue` module's own boot check still rejects an unknown pipeline once every pipeline is resolved.
+- The media library grid shows a progress tile for a file while it uploads (queued, uploading, and while
+  the response is outstanding), then the file itself with a small chip noting that its image variants are
+  still being generated or that some could not be generated; the chip clears on its own, without a reload,
+  once a variant finishes. Table view shows the same states in the existing upload row list. Reads
+  `images.attach`'s `variantCounts` field; the admin never checks which delivery mode generated the
+  variants. New reusable `KestrelUiProgress` component replaces the upload queue's own progress bar.
 
 ### Changed
 
