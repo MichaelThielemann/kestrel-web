@@ -36,6 +36,17 @@ function collectingLogger(): Logger & { entries: CollectedLog[] } {
   };
 }
 
+function recordingSetup(mod: ModuleDefinition, order: string[]): ModuleDefinition {
+  return {
+    ...mod,
+    setup: async (...args: Parameters<ModuleDefinition["setup"]>) => {
+      const instance = await mod.setup(...args);
+      order.push(mod.name);
+      return instance;
+    },
+  };
+}
+
 describe("boot", () => {
   describe("playground config", () => {
     let appRoot: string;
@@ -56,7 +67,12 @@ describe("boot", () => {
       "boots, runs the login pipeline through the real runner and derives module limits from the booted registry",
       async () => {
         const { default: config, preset } = await import("../../../playground/kestrel.config");
-        const modules = presetModules(config.modules, { "@michaelthielemann/kestrel-insights": insights });
+        const setupOrder: string[] = [];
+        const modules = presetModules(config.modules, {
+          "@michaelthielemann/kestrel-insights": insights,
+          "@michaelthielemann/kestrel-replication-sqlite": recordingSetup(replicationSqlite, setupOrder),
+          "@michaelthielemann/kestrel-persistence-sqlite": recordingSetup(persistenceSqlite, setupOrder),
+        });
         const logger = collectingLogger();
 
         const kestrel = await boot({ config: { ...config, http: null }, modules, pipelines: preset.pipelines, logger });
@@ -64,12 +80,14 @@ describe("boot", () => {
         expect(logger.entries.filter((entry) => entry.level !== "info")).toEqual([]);
         expect(kestrel.warnings, `unexpected boot warnings: ${JSON.stringify(kestrel.warnings)}`).toEqual([]);
 
-        const health = kestrel.health();
-        const replicationIndex = health.modules.findIndex((entry) => entry.module === "replication/sqlite");
-        const persistenceIndex = health.modules.findIndex((entry) => entry.module === "persistence/sqlite");
-        expect(replicationIndex, "expected replication/sqlite to report health").toBeGreaterThanOrEqual(0);
-        expect(persistenceIndex, "expected persistence/sqlite to report health").toBeGreaterThanOrEqual(0);
-        expect(replicationIndex, "replication/sqlite must be set up before persistence/sqlite so a restore runs before the file is opened").toBeLessThan(persistenceIndex);
+        const replicationIndex = setupOrder.indexOf("replication/sqlite");
+        const persistenceIndex = setupOrder.indexOf("persistence/sqlite");
+        expect(replicationIndex, `expected replication/sqlite's setup() to have run, order was ${JSON.stringify(setupOrder)}`).toBeGreaterThanOrEqual(0);
+        expect(persistenceIndex, `expected persistence/sqlite's setup() to have run, order was ${JSON.stringify(setupOrder)}`).toBeGreaterThanOrEqual(0);
+        expect(
+          replicationIndex,
+          `replication/sqlite must be set up before persistence/sqlite so a restore runs before the file is opened; order was ${JSON.stringify(setupOrder)}`,
+        ).toBeLessThan(persistenceIndex);
 
         try {
           await kestrel.start();
@@ -295,8 +313,8 @@ describe("boot", () => {
         provides: [BLOBSTORE],
         requires: [PERSISTENCE],
         configSchema: referencesDefault.configSchema,
-        async setup(): Promise<never> {
-          throw new Error("blobstore/fake: setup must not run once sortModules finds the cycle first");
+        setup(): Promise<never> {
+          return Promise.reject(new Error("blobstore/fake: setup must not run once sortModules finds the cycle first"));
         },
       });
     }
