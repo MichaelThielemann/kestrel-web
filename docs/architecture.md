@@ -152,21 +152,33 @@ reflects an in-flight call's outcome, so a contended write cannot make either pr
 
 ### `GET /api/admin/schema`
 One route in `layers/core/server/api/admin/schema.get.ts` answers everything the admin needs to know
-about the content model. It runs the preset pipeline `adminSchemaModel` (`authn.requireUser`,
-`content.describeModel`) through `kestrel.run` with the request headers and the client IP — resolved by
-Kestrel's own `clientIp()` under the `trustProxy`/`proxyHops`/`trustedHeader` policy the h3 adapter uses,
-never from a raw `x-forwarded-for` — so token and rate limits are checked exactly as on any backend
-route; a run with `status >= 400` is passed through with `responseForRun`, the same status, body and
-headers the h3 handler produces, so `useApi()`'s `ApiError` mapping works unchanged. On success the pure
-assembly in `server/utils/admin-schema.ts` (`buildAdminSchema`) answers
+about the content model, and which pipelines the caller may reach and where. It runs the preset
+pipeline `adminSchemaModel` (`authn.requireUser`, `content.describeModel`,
+`authz.describePipelineAccess`) through `kestrel.run` with the request headers and the client IP —
+resolved by Kestrel's own `clientIp()` under the `trustProxy`/`proxyHops`/`trustedHeader` policy the h3
+adapter uses, never from a raw `x-forwarded-for` — so token and rate limits are checked exactly as on
+any backend route; a run with `status >= 400` is passed through with `responseForRun`, the same status,
+body and headers the h3 handler produces, so `useApi()`'s `ApiError` mapping works unchanged. On
+success `schemaFromRun` (`server/utils/admin-schema.ts`) joins the run's `pipelineAccess` with the
+booted HTTP trigger table (`buildCapabilities`, `server/utils/admin-capabilities.ts`) and the pure
+assembly (`buildAdminSchema`) answers
 
 ```
 { locales: { all, primary, prefixPrimary },
-  collections: SerializedCollection[],      // ordered like the model's types
-  features: Feature[] }
+  collections: AdminCollection[],      // ordered like the model's types, each with its own capabilities
+  features: Feature[],
+  capabilities: Record<string, { method, path }> }  // every other pipeline the caller can reach and is not denied
 ```
 
-under the same response headers every backend answer carries: `cache-control: no-store`,
+A pipeline appears only when the booted trigger table still exposes it over HTTP and the caller passes
+every `authz.require` step on it; one gated by anything else, or by nothing, still appears — the
+server's own check on the actual call is the only guarantee. A pipeline a collection's verbs claim
+(`collectionVerbs`, `layers/core/pipelines/capabilities.ts`) never appears in the top-level
+`capabilities` map, even when it is absent from the collection's own entry. If the run ends without a
+valid `pipelineAccess` — a consumer override of `adminSchemaModel` dropped the step, or a step replaced
+`ctx.result` with something that is not an object — the route answers 500 instead of guessing.
+
+Under the same response headers every backend answer carries: `cache-control: no-store`,
 `x-content-type-options: nosniff` and `x-kestrel-run-id`. While Kestrel is booting or failed the route
 throws the same 503 the `/api/**` handler throws — `bootFailure()` in `server/utils/boot-failure.ts`,
 `{ statusCode: 503, statusMessage: "Kestrel failed to boot", data: { state, error? } }` — so both share
@@ -176,9 +188,14 @@ one shape.
 from `#kestrel-admin/types/api`. The model comes from the run result (the backend's own config), the UI
 hints from `~~/shared/collections-ui` and `features`/`prefixPrimary` plus the fallback locales from
 `~~/shared/model` — all server-side, the same way `server/plugins/kestrel.ts` imports `~~/kestrel.config`.
-The pipeline names are deliberately not part of the answer: nothing reads them and they would name admin
-pipelines to every role. `layers/core/server/__fixtures__/admin-schema.json`
-freezes the playground's answer.
+`layers/core/server/__fixtures__/admin-schema.json` freezes the playground's answer for an admin role
+with every capability present and none denied — the fixture action tests seed `ActionDeps.capabilities`
+with.
+
+Three routes the admin needs before it can read a schema at all — `login`, `logout`, `me` — are fixed
+regardless of the consumer's trigger list (`ADMIN_BOOTSTRAP_ROUTES`, `layers/core/fixed-routes.ts`):
+`server/plugins/kestrel.ts` refuses to start unless the booted trigger table still binds them to
+`POST /login`, `POST /logout` and `GET /me` (an alias next to the fixed route is fine).
 
 A failed boot is loud: `server/plugins/kestrel.ts` logs it through the Kestrel `consoleLogger`
 (`module` + `reason` from `KestrelBootError`), keeps the state observable via its exported
@@ -533,18 +550,23 @@ before the state flips to `ready`, so a mismatch fails the boot through `recordB
 collection, the expected filter and the fix in the message.
 
 ## Admin client layer
-- `app/composables/useSchema.ts` — the one place the admin learns what it is editing. It holds
-  `GET /api/admin/schema`'s answer in `useState('kestrel-schema')` as `{ schema, error }` and requests it
-  exactly once per admin session: `load()` returns `"ok"` straight away when a schema is already in the
-  state, and concurrent calls share one in-flight request. The `admin-auth` middleware calls it after a
-  successful session check, and `login.vue` after a successful login. A 401 answers `"unauthenticated"`
-  and nothing else happens there — the `$fetch` reauth interceptor (`utils/reauth.ts`) already resets the
-  session and navigates to login for any 401, so the middleware would only add a second reset and a
-  competing navigation. Any other failure answers `"failed"`
-  and keeps its message in the state: the admin layout then renders `BootFailure.vue` with it instead of
-  the page, the same treatment a failed backend boot gets. There is no fallback schema and no retry
-  loop — `useAuth().reset()` (logout, the 401 interceptor) clears the state, and the next login loads it
-  again.
+- `app/composables/useSchema.ts` — the one place the admin learns what it is editing, and what it is
+  allowed to do. It holds `GET /api/admin/schema`'s answer in `useState('kestrel-schema')` as
+  `{ schema, error, generation }`: `load()` returns `"ok"` straight away when a schema is already in the
+  state, and concurrent calls share one in-flight request. `clear()` bumps `generation` and empties the
+  state; an in-flight `load()` started before a `clear()` checks `generation` before writing, so it
+  cannot resurrect a previous caller's schema. `refresh()` is `clear()` followed by `load()`. The
+  `admin-auth` middleware calls `load()` after a successful session check, and `login.vue` after a
+  successful login (`useAuth().login` clears first, since the schema is caller-specific). A 401 answers
+  `"unauthenticated"` and nothing else happens there — the `$fetch` reauth interceptor
+  (`utils/reauth.ts`) already resets the session and navigates to login for any 401, so the middleware
+  would only add a second reset and a competing navigation. Any other failure answers `"failed"` and
+  keeps its message in the state: the admin layout then renders `BootFailure.vue` with it instead of the
+  page, the same treatment a failed backend boot gets. The schema is never cached across callers:
+  `useAuth().reset()` (logout, the 401 interceptor) clears it, `checkSession()` clears it when the
+  session answers a different identity than before, `useAuth().refreshAccess()` (own user edited)
+  clears and reloads it, and the reauth interceptor's `schemaStaleAfter()` triggers a background
+  `refresh()` on a 403 from any kestrel route other than the schema route itself.
 - `app/utils/collections.ts` — the pure readers over that answer: `collections(schema)`,
   `findCollection(schema, name)`, `editorOwnedFields(schema, name)` (appends `LAYOUT_FIELD` when the
   collection has one) and `contentLocales(schema)`. They take the schema as a parameter and answer empty
@@ -570,7 +592,9 @@ collection, the expected filter and the fix in the message.
   transport with the same Bearer token source as `useApi.ts` and the same `ApiError` mapping for a
   non-2xx response or a network error, plus a `{ loaded, total, percent }` progress callback. Used only
   by the `upload` action's `upload.request` step (**UI actions**).
-- `app/composables/useAuth.ts` — login/logout/me/change password, roles, `can(permission)`.
+- `app/composables/useAuth.ts` — login/logout/me/change password/`refreshAccess()` (own-role change);
+  gating goes through `useCapabilities()` (`has(pipeline)`/`hasVerb(collection, verb)`), not a role
+  table.
 - `app/utils/admin-client.ts` (`installAdminClient()`, called once from the admin layout, never a Nuxt plugin: plugins land in the client entry of every page, so the public site would carry admin code and CSS) — installs the 401 interceptor that clears the session and redirects to login, and in dev the style guard that hides foreign stylesheets under `/admin`.
 - `app/composables/useEditForm.ts` — load one document in one locale (`?locale=`), dirty tracking, undo/redo;
   saving and status changes are delegated to the actions below. `canSave` is what the Save button and
@@ -912,7 +936,7 @@ A step never reaches for a composable. Every collaborator arrives as a field of 
 
 | port | stands for |
 |---|---|
-| `ActionDeps` (`api`, `t`, `toast`) | `useApi()`, `useT().t`, `useToast()`. Actions that talk to the backend take `WithDeps`. |
+| `ActionDeps` (`api`, `t`, `toast`, `capabilities`) | `useAdminApi()`, `useT().t`, `useToast()`, `useCapabilities()`, built together by `useActionDeps()`. `api` takes an `ApiRoute` (`{ method, path }`) from `capabilities.route(pipeline, params?)`/`.verbRoute(collection, verb, params?)`, never a path literal. Actions that talk to the backend take `WithDeps`. |
 | `EditFormPort` | The editor form's whole state surface — field keys, dirty keys, request body, block tree, errors, saving flag, `validateAll` / `validateBlocks`, `applySaved`, `setDelivery`, `revealError`. Built by `useEditForm`. |
 | `BusyPort` (`setBusy`, `busy`, `setError?`) | A screen's busy flag, with a reader so `ops.busy:off` only clears what its own run turned on, plus an optional inline error line. |
 | `NavigatePort` | `navigateTo(path)` or `router.replace({ query })`, chosen by the `Destination` union the step hands it. |

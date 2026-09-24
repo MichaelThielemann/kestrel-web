@@ -89,15 +89,18 @@ overrides:
 
 ## Conventions
 
-- Backend routes go through `useApi()` only (Bearer token from cookie `kestrel_token`); never
-  `$fetch('/api/…')` for `/api/*`.
+- Backend routes go through `useAdminApi()` with a route from `useCapabilities()` in `layers/admin`, or
+  `useApi()` in `layers/public` (Bearer token from cookie `kestrel_token`); never `$fetch('/api/…')` for
+  `/api/*` and never a hand-written path literal in `layers/admin`.
 - The consumer owns its content model and feature selection (`shared/model.ts`), its Kestrel config
   (`kestrel.config.ts`), its admin collection UI (`shared/collections-ui.ts`) and its block library
   (one `app/blocks/*.vue` per block; the picker thumbnail is a sibling `<Block>.webp|jpg|png` or lives in
   `kestrel.blockImagesDir`). Standard pipelines, module implementations and the `settings`/`redirects`
   UI come from the presets in `layers/core`, never from the consumer; `layers/admin` never imports a
-  specific consumer — and never `~~/shared/*` at all: it reads `GET /api/admin/schema` once per session
-  (`useSchema()`) for the model, collection UI, workflow and features.
+  specific consumer — and never `~~/shared/*` at all: it reads `GET /api/admin/schema`
+  (`useSchema()`) for the model, collection UI, workflow, features and the caller's own capabilities
+  (which pipelines it may reach and where). The schema is per caller and is never cached; it refetches
+  on login, logout, the signed-in user's own role change, and a 403 from any other kestrel route.
 - A block SFC's `defineProps({ heading: textField(…) })` is its schema and `defineBlock({ … })` its
   metadata; both arguments must be self-contained literals plus factory calls (read statically at
   build). `.nuxt/kestrel/pages.body.json` is generated from them — never hand-edit it.

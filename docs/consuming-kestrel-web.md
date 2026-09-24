@@ -115,9 +115,10 @@ feature in the list above is why the model declares a `redirects` type. Enabling
 fails the boot. §4 lists every such prerequisite.
 
 `shared/model.ts` is backend configuration and is not part of the admin's browser bundle: the admin
-imports no `~~/shared/*` file and reads the model, the collection UI, the workflow and the features
-from `GET /api/admin/schema` once per session. The route assembles that answer server-side from these
-very files.
+imports no `~~/shared/*` file and reads the model, the collection UI, the workflow, the features and
+the caller's own capabilities from `GET /api/admin/schema`, per caller and never cached — it refetches
+on login, logout, the signed-in user's own role change and a 403 from any other kestrel route. The
+route assembles that answer server-side from these very files.
 
 `settings.navigation` is a preset field: the preset admin UI (§3.5) renders it as a repeater
 (label / link / target / one level of children), the preset schema validates its stored shape, and
@@ -283,6 +284,14 @@ export default defineConfig({
 `features` is a plain list — order in the array doesn't matter, the preset applies them in a fixed
 canonical order internally. `#kestrel/pipelines` is an alias into `layers/core/pipelines/`, the same
 mechanism as `#kestrel/blocks`.
+
+The admin follows this trigger list, not a copy of it: `exclude`-ing a pipeline or moving its path here
+changes the route the admin calls, with no admin code change. Reaching one of your own pipelines from
+admin code you add goes through `useCapabilities().route('myPipeline', params?)` — the same resolver
+the preset's own controls use, so a typo in the pipeline name throws instead of silently building a
+bad URL. Three routes are fixed regardless of this list — `login`, `logout` and `me` must stay
+reachable at `POST /login`, `POST /logout` and `GET /me` (an alias next to them is fine) — the admin
+calls them before it has read a schema at all.
 
 ### `presetModuleConfig()` options
 

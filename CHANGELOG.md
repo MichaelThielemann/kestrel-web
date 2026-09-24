@@ -139,6 +139,42 @@
   required `variantCounts: { done, pending, error, failed }`. Code that builds a `MediaItem` by hand
   now needs the field.
 
+- **The admin resolves every route from the booted schema's capabilities instead of a hard-coded path
+  or role table.** `GET /api/admin/schema` now names, per collection and by verb, and for every other
+  pipeline reachable over HTTP, the `{ method, path }` the caller may use — a pipeline removed by
+  `exclude`, dropped from a consumer's trigger list, moved to another path, or gated by an
+  `authz.require` permission the caller's role does not have, is left out; the corresponding control is
+  hidden instead of failing on click. The schema is caller-specific and must not be cached: the admin
+  refetches it on login, on logout, after the signed-in user's own role changes, and on a 403 from any
+  kestrel route other than the schema route itself.
+
+  `useAuth()` loses `can`, `isAdmin`, `roles` and the module-level `canWithRoles`; use
+  `useCapabilities().has(pipeline)` or `.hasVerb(collection, verb)` instead. `ActionDeps` gains a
+  required `capabilities` field (a `CapabilityResolver`); build it with `useActionDeps()` instead of
+  constructing `{ api, t, toast }` by hand. `ApiClient`, `ApiCall` and `UploadTransport` now take an
+  `ApiRoute` (`{ method, path }`) from `useCapabilities()` instead of a path string; `useApi()` itself
+  is unchanged and still takes a path, but admin code no longer calls it directly — `useAdminApi()` is
+  now the only admin caller of `useApi()`. `mediaFileUrl` moves off `useApi()` onto
+  `useCapabilities().mediaFileUrl(id)`, returning `null` when the caller cannot download media (a
+  placeholder icon renders in its place). `AdminSchema` gains a top-level `capabilities` map and each
+  collection gains its own `capabilities` object; anything constructing an `AdminSchema` by hand (tests,
+  fakes) needs both. A preset override of `adminSchemaModel` that drops `authz.describePipelineAccess`
+  now fails at boot. The server also refuses to start unless `login`, `logout` and `me` are reachable at
+  their fixed routes (`POST /login`, `POST /logout`, `GET /me`; an alias next to the fixed route is
+  fine) — the admin calls them before it has read its capabilities. Requires
+  `@michaelthielemann/kestrel-authz-roles` with `authz.describePipelineAccess`.
+
+  Visible behaviour: a collection whose list pipeline the caller may not run no longer appears in the
+  rail and fails on open; before, it did. The images tab now appears with `images.read` instead of
+  `images.manage`, with its manage buttons hidden rather than disabled; the redirects tab follows
+  `redirects.read` instead of the `admin` role; the users, replication, migrations and events tabs
+  follow their own `*.manage` permission instead of the role name `admin`.
+
+  A new `layers/admin/app/**/*.{ts,vue}` lint rule (`kestrel/admin-api-routes`) bans a path literal
+  passed to the admin API client, a hand-built `{ method, path }` route object, a raw `/api` URL outside
+  `apiUrl()`, and any admin call to `useApi()` outside `useAdminApi()`; admin page routes
+  (`navigateTo`, `NuxtLink`) are unaffected.
+
 ### Added
 
 - `#kestrel/pipelines` exports `relayPipelinesFor(features)` and `RELAY_CANDIDATE_PIPELINES`, the helper
@@ -244,6 +280,10 @@
 - `createUser` and `updateUser` now reject an unknown role name in `roles` with 400 `VALIDATION` and
   `details.unknown` before writing anything, instead of silently creating or updating a user with a role
   that grants no permission.
+
+- Deleting a record of a collection with no references route (anything other than pages) no longer
+  shows "References could not be verified" on every delete; the precheck now runs only for a collection
+  that actually has one, and reports a genuine lookup failure separately from "not applicable here".
 
 ## 2.0.1 – 2026-09-21
 
