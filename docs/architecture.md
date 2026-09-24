@@ -199,8 +199,10 @@ route and overriding `path`), a raw `/api` URL outside `apiUrl()`, importing `us
 and calling `useApi()`, `$fetch`, `useFetch()`, `fetch()`, `globalThis.$fetch` (directly or through
 `.create()`) or `new XMLHttpRequest()` directly — everything goes through
 `useAdminApi()`/`useUploadTransport()` with a route from `useCapabilities()`. `useApi.ts`,
-`useAdminApi.ts`, `useUploadTransport.ts`, `utils/capabilities.ts`, `utils/admin-client.ts` and
-`utils/reauth.ts` are exempt, since they are the routing primitives everything else is built on. Being
+`useAdminApi.ts`, `useAuth.ts`, `useSchema.ts`, `useUploadTransport.ts`, `utils/capabilities.ts`,
+`utils/admin-client.ts` and `utils/reauth.ts` are exempt, since they are the routing primitives
+everything else is built on (`useAuth`/`useSchema` call `useApi()` directly rather than
+`useAdminApi()`, which would import them back). Being
 an AST-only rule, it does not see a bypass written as a Vue `<template>` expression (`@click="api({
 method: 'DELETE', path: '/users/x' })"`), a route object assembled through a computed key
 (`{ method: 'GET', [key]: '/users' }`) or `Object.assign({ method }, { path })`, or reached through a
@@ -573,13 +575,14 @@ collection, the expected filter and the fix in the message.
   cannot resurrect a previous caller's schema. `refresh()` is `clear()` followed by `load()`. The
   `admin-auth` middleware calls `load()` after a successful session check, and `login.vue` after a
   successful login (`useAuth().login` clears first, since the schema is caller-specific). A 401 answers
-  `"unauthenticated"` and nothing else happens there — the `$fetch` reauth interceptor
-  (`utils/reauth.ts`) already resets the session and navigates to login for any 401, so the middleware
-  would only add a second reset and a competing navigation. Any other failure answers `"failed"` and
-  keeps its message in the state: the admin layout then renders `BootFailure.vue` with it instead of the
-  page, the same treatment a failed backend boot gets. The schema is never cached across callers:
-  `useAuth().reset()` (logout, the 401 interceptor) clears it, `checkSession()` clears it when the
-  session answers a different identity than before, `useAuth().refreshAccess()` (own user edited)
+  `"unauthenticated"` and nothing else happens there — `useAdminApi()`'s own reauth interceptor
+  (`utils/reauth.ts`, built into the `$fetch.create()` instance that every `useAdminApi()` call shares
+  its construction with) already resets the session and navigates to login for any 401, so the
+  middleware would only add a second reset and a competing navigation. Any other failure answers
+  `"failed"` and keeps its message in the state: the admin layout then renders `BootFailure.vue` with it
+  instead of the page, the same treatment a failed backend boot gets. The schema is never cached across
+  callers: `useAuth().reset()` (logout, the 401 interceptor) clears it, `checkSession()` clears it when
+  the session answers a different identity than before, `useAuth().refreshAccess()` (own user edited)
   clears and reloads it, and the reauth interceptor's `schemaStaleAfter()` triggers a background
   `refresh()` on a 403 from any kestrel route other than the schema route itself.
 - `app/utils/collections.ts` — the pure readers over that answer: `collections(schema)`,
@@ -610,7 +613,7 @@ collection, the expected filter and the fix in the message.
 - `app/composables/useAuth.ts` — login/logout/me/change password/`refreshAccess()` (own-role change);
   gating goes through `useCapabilities()` (`has(pipeline)`/`hasVerb(collection, verb)`), not a role
   table.
-- `app/utils/admin-client.ts` (`installAdminClient()`, called once from the admin layout, never a Nuxt plugin: plugins land in the client entry of every page, so the public site would carry admin code and CSS) — installs the 401 interceptor that clears the session and redirects to login, and in dev the style guard that hides foreign stylesheets under `/admin`.
+- `app/utils/admin-client.ts` (`installAdminClient()`, called once from the admin layout, never a Nuxt plugin: plugins land in the client entry of every page, so the public site would carry admin code and CSS) — in dev, installs the style guard that hides foreign stylesheets under `/admin`. The reauth interceptor (403 refetches the schema, 401 clears the session and redirects to login) lives in `useAdminApi()` itself, not here — see below.
 - `app/composables/useEditForm.ts` — load one document in one locale (`?locale=`), dirty tracking, undo/redo;
   saving and status changes are delegated to the actions below. `canSave` is what the Save button and
   every submit path read: a stored, unchanged record cannot be saved (the button is `disabled`, carries
@@ -1137,7 +1140,7 @@ Where a message lands is part of the behaviour, not a detail:
   only on a clean run;
 - media folder create, rename and delete, media meta and provenance edits, and user create and
   set-password — the inline dialog error only, no toast; a success toast only on success;
-- media drag-and-drop move, media upload (except a 401, which the reauth plugin owns), user toggle,
+- media drag-and-drop move, media upload (except a 401, which the reauth interceptor owns), user toggle,
   publish-all, media export, snapshot and restore, references rebuild and links rebuild — toast only;
 - replication `notFound` — the inline alert, no toast;
 - `imagesRegisterAndSync` — toast only on either half's failure; a 409 on either half (a name collision

@@ -112,6 +112,8 @@ export default withNuxt(
       'layers/admin/app/utils/capabilities.ts',
       'layers/admin/app/composables/useAdminApi.ts',
       'layers/admin/app/composables/useApi.ts',
+      'layers/admin/app/composables/useAuth.ts',
+      'layers/admin/app/composables/useSchema.ts',
       'layers/admin/app/composables/useUploadTransport.ts',
       'layers/admin/app/utils/admin-client.ts',
       'layers/admin/app/utils/reauth.ts',

@@ -153,8 +153,9 @@
   required `capabilities` field (a `CapabilityResolver`); build it with `useActionDeps()` instead of
   constructing `{ api, t, toast }` by hand. `ApiClient`, `ApiCall` and `UploadTransport` now take an
   `ApiRoute` (`{ method, path }`) from `useCapabilities()` instead of a path string; `useApi()` itself
-  is unchanged and still takes a path, but admin code no longer calls it directly — `useAdminApi()` is
-  now the only admin caller of `useApi()`. `mediaFileUrl` moves off `useApi()` onto
+  is unchanged and still takes a path. Admin code calls it only through `useAdminApi()` (routes) or,
+  for `useAuth()`/`useSchema()` themselves, directly — the two composables `useAdminApi()`'s own reauth
+  interceptor is built from, so they cannot call `useAdminApi()` without a circular import. `mediaFileUrl` moves off `useApi()` onto
   `useCapabilities().mediaFileUrl(id)`, returning `null` when the caller cannot download media (a
   placeholder icon renders in its place). `AdminSchema` gains a top-level `capabilities` map and each
   collection gains its own `capabilities` object; anything constructing an `AdminSchema` by hand (tests,
@@ -177,8 +178,19 @@
 
   A new `layers/admin/app/**/*.{ts,vue}` lint rule (`kestrel/admin-api-routes`) bans a path literal
   passed to the admin API client, a hand-built `{ method, path }` route object, a raw `/api` URL outside
-  `apiUrl()`, and any admin call to `useApi()` outside `useAdminApi()`; admin page routes
-  (`navigateTo`, `NuxtLink`) are unaffected.
+  `apiUrl()`, and any admin call to `useApi()` outside `useAdminApi()`/`useAuth()`/`useSchema()`; admin
+  page routes (`navigateTo`, `NuxtLink`) are unaffected.
+
+- **Breaking (admin client): the reauth interceptor no longer patches the global `$fetch`.**
+  `installAdminClient()` used to replace `globalThis.$fetch` with a wrapped instance carrying the 403
+  refetch/401 redirect logic; `useAdminApi()` now builds its own `$fetch.create()` with that interceptor
+  attached directly, and never touches the global. Consequences: a public-layer or consumer `$fetch`
+  call made in the same browser tab after visiting the admin is never intercepted by admin logic — even
+  by coincidence, even if it answers 401 or 403; every `useAdminApi()` call carries the interceptor
+  regardless of whether `layouts/admin.vue` (and therefore `installAdminClient()`) has run yet, since
+  the interceptor no longer depends on install order at all; and a dev server module reload cannot wrap
+  the global fetch a second time, since nothing wraps it. `installAdminClient()` now only installs the
+  dev style guard. `useApi()` itself reads the plain, unpatched `$fetch` again.
 
 - `referencesPrecheck`'s `allowed`/`target` options are replaced by a single `capability: (ctx) =>
   Capability | undefined`, taken directly from the schema instead of resolved separately; the same

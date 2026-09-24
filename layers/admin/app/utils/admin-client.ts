@@ -1,24 +1,10 @@
 import { isProtectedStyle } from './admin-style-guard'
-import { makeReauthInterceptor } from './reauth'
 
 function isKestrelOwned(node: Element): boolean {
   const el = node instanceof HTMLElement ? node : null
   const devId = el?.dataset?.viteDevId ?? ''
   const href = node.getAttribute?.('href') ?? ''
   return isProtectedStyle(devId, href, el?.dataset?.kestrel !== undefined)
-}
-
-function installReauth(): void {
-  const auth = useAuth()
-  const schema = useSchema()
-  const router = useRouter()
-  const onResponseError = makeReauthInterceptor({
-    currentPath: () => router.currentRoute.value.fullPath,
-    reset: () => auth.reset(),
-    navigate: (to) => { void navigateTo(to) },
-    refreshSchema: () => { void schema.refresh() },
-  })
-  globalThis.$fetch = globalThis.$fetch.create({ onResponseError })
 }
 
 function installStyleGuard(): void {
@@ -65,6 +51,5 @@ let installed = false
 export function installAdminClient(): void {
   if (installed || !import.meta.client) return
   installed = true
-  installReauth()
   if (import.meta.dev) installStyleGuard()
 }

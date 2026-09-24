@@ -1,8 +1,8 @@
 import { LAYER_ROUTES } from '#kestrel-core/fixed-routes'
 import type { AdminSchema } from '#kestrel-admin/types/api'
-import type { ApiClient } from '../actions/types'
-import { apiErrorMessage, apiErrorStatus } from './useApi'
-import { useAdminApi } from './useAdminApi'
+import type { ApiClient, ApiRequestOptions } from '../actions/types'
+import type { ApiRoute } from '../utils/capabilities'
+import { apiErrorMessage, apiErrorStatus, useApi } from './useApi'
 
 export type SchemaOutcome = 'ok' | 'unauthenticated' | 'failed'
 
@@ -74,7 +74,8 @@ export function refreshSchemaInto(state: { value: SchemaState }, api: ApiClient,
 
 export function useSchema() {
   const state = useState<SchemaState>(SCHEMA_STATE_KEY, () => ({ schema: null, error: null, generation: 0 }))
-  const api = useAdminApi()
+  const rawApi = useApi()
+  const api: ApiClient = <T,>(route: ApiRoute, options?: ApiRequestOptions): Promise<T> => rawApi<T>(route.path, { ...options, method: route.method })
   const scope = useNuxtApp()
 
   function clear(): void {

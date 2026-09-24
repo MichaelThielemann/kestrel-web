@@ -1,8 +1,8 @@
 import { ADMIN_BOOTSTRAP_ROUTES } from '#kestrel-core/fixed-routes'
 import type { Identity, LoginResponse } from '#kestrel-admin/types/api'
-import type { Translate } from '../actions/types'
-import { apiErrorMessage, apiErrorStatus } from './useApi'
-import { useAdminApi } from './useAdminApi'
+import type { ApiRequestOptions, Translate } from '../actions/types'
+import type { ApiRoute } from '../utils/capabilities'
+import { apiErrorMessage, apiErrorStatus, useApi } from './useApi'
 import { useCapabilities } from './useCapabilities'
 import { clearInsightsState } from './useInsights'
 
@@ -44,7 +44,8 @@ export function sessionStateFor(error: unknown): SessionCheckOutcome {
 export function useAuth() {
   const state = useState<AuthState>('kestrel-auth', () => ({ identity: null, checked: false, error: null }))
   const token = useApiToken()
-  const api = useAdminApi()
+  const rawApi = useApi()
+  const api = <T,>(route: ApiRoute, options?: ApiRequestOptions): Promise<T> => rawApi<T>(route.path, { ...options, method: route.method })
   const { t } = useT()
   const toast = useToast()
   const schema = useSchema()
