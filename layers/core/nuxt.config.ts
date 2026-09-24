@@ -1,19 +1,10 @@
+import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { boundaryCast } from "@michaelthielemann/kestrel/cast";
 import { MEDIA_PUBLIC_PATH } from "./mount-path";
+import { kestrelAliases } from "./upgrade/aliases";
 
-const PIPELINES_VIRTUAL_ID = "#kestrel/pipelines";
-const PIPELINES_ENTRY = fileURLToPath(new URL("./pipelines/index.ts", import.meta.url));
-const COLLECTIONS_UI_VIRTUAL_ID = "#kestrel/collections-ui";
-const COLLECTIONS_UI_ENTRY = fileURLToPath(new URL("./collections-ui/index.ts", import.meta.url));
-const MODULE_REGISTRY_VIRTUAL_ID = "#kestrel/modules";
-const MODULE_REGISTRY_ENTRY = fileURLToPath(new URL("./module-registry/index.ts", import.meta.url));
-const CAST_VIRTUAL_ID = "#kestrel/cast";
-const CAST_ENTRY = fileURLToPath(new URL("./app/utils/cast.ts", import.meta.url));
-const CONFIG_VIRTUAL_ID = "#kestrel/config";
-const CONFIG_ENTRY = fileURLToPath(new URL("./config/index.ts", import.meta.url));
-const CORE_LAYER_ALIAS = "#kestrel-core";
-const CORE_LAYER_DIR = fileURLToPath(new URL(".", import.meta.url)).replace(/\/$/, "");
+const EARLY_ALIASES = kestrelAliases(process.cwd(), resolve(process.cwd(), ".nuxt"));
 
 export default defineNuxtConfig({
   serverHandlers: [
@@ -27,19 +18,11 @@ export default defineNuxtConfig({
     fileURLToPath(new URL("./modules/consumer-entries/index.ts", import.meta.url)),
     fileURLToPath(new URL("./modules/optional-modules/index.ts", import.meta.url)),
   ],
-  alias: { [PIPELINES_VIRTUAL_ID]: PIPELINES_ENTRY, [COLLECTIONS_UI_VIRTUAL_ID]: COLLECTIONS_UI_ENTRY, [MODULE_REGISTRY_VIRTUAL_ID]: MODULE_REGISTRY_ENTRY, [CAST_VIRTUAL_ID]: CAST_ENTRY, [CONFIG_VIRTUAL_ID]: CONFIG_ENTRY, [CORE_LAYER_ALIAS]: CORE_LAYER_DIR },
+  alias: { ...EARLY_ALIASES },
   hooks: {
     "vite:extendConfig"(config: { resolve?: { alias?: Record<string, string> | readonly { find: string | RegExp; replacement: string }[] } }) {
       config.resolve ??= {};
-      config.resolve.alias = {
-        [PIPELINES_VIRTUAL_ID]: PIPELINES_ENTRY,
-        [COLLECTIONS_UI_VIRTUAL_ID]: COLLECTIONS_UI_ENTRY,
-        [MODULE_REGISTRY_VIRTUAL_ID]: MODULE_REGISTRY_ENTRY,
-        [CAST_VIRTUAL_ID]: CAST_ENTRY,
-        [CONFIG_VIRTUAL_ID]: CONFIG_ENTRY,
-        [CORE_LAYER_ALIAS]: CORE_LAYER_DIR,
-        ...config.resolve.alias,
-      };
+      config.resolve.alias = { ...EARLY_ALIASES, ...config.resolve.alias };
     },
     "nitro:config"(config) {
       config.externals ??= {};
@@ -48,15 +31,7 @@ export default defineNuxtConfig({
       const external = Array.isArray(config.rollupConfig.external) ? boundaryCast<string[]>(config.rollupConfig.external, "host") : [];
       config.rollupConfig.external = [...external, "node:sqlite"];
 
-      config.alias = {
-        [PIPELINES_VIRTUAL_ID]: PIPELINES_ENTRY,
-        [COLLECTIONS_UI_VIRTUAL_ID]: COLLECTIONS_UI_ENTRY,
-        [MODULE_REGISTRY_VIRTUAL_ID]: MODULE_REGISTRY_ENTRY,
-        [CAST_VIRTUAL_ID]: CAST_ENTRY,
-        [CONFIG_VIRTUAL_ID]: CONFIG_ENTRY,
-        [CORE_LAYER_ALIAS]: CORE_LAYER_DIR,
-        ...(config.alias ?? {}),
-      };
+      config.alias = { ...EARLY_ALIASES, ...(config.alias ?? {}) };
 
       if (config.dev) {
         config.replace ??= {};
