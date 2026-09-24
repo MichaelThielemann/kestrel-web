@@ -9,12 +9,8 @@ export function useListBatchActions(
   refetch: () => void | Promise<void>,
   workflow: ComputedRef<Workflow | undefined>,
 ) {
-  const { t } = useT()
-  const api = useAdminApi()
-  const toast = useToast()
-  const capabilities = useCapabilities()
+  const deps = useActionDeps()
   const { schema } = useSchema()
-  const deps = { api, t, toast, capabilities }
 
   const busy = ref(false)
   const error = ref<string | null>(null)

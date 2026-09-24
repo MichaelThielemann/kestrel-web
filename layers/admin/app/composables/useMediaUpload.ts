@@ -2,14 +2,13 @@ import { ref, computed } from 'vue'
 import { LAYER_ROUTES } from '#kestrel-core/fixed-routes'
 import type { MediaItem, Provenance } from '#kestrel-admin/types/api'
 import { upload } from '#kestrel-admin/actions/media'
-import type { ActionDeps, Translate } from '#kestrel-admin/actions/types'
+import type { Translate } from '#kestrel-admin/actions/types'
 import { toastUnexpected } from '#kestrel-admin/actions/steps/notify'
 import type { PendingUpload } from '../utils/dnd'
 import { humanizeSize } from '../utils/library'
 import { exceedsUploadLimit } from '../utils/upload-limit'
 import { apiErrorMessage } from './useApi'
 import { useAdminApi } from './useAdminApi'
-import { useCapabilities } from './useCapabilities'
 import { useUploadTransport } from './useUploadTransport'
 
 export type UploadStatus = 'queued' | 'uploading' | 'processing' | 'done' | 'failed'
@@ -90,10 +89,7 @@ function useUploadLimit() {
 }
 
 export function useMediaUpload(cb: UploadCallbacks = {}) {
-  const api = useAdminApi()
-  const { t } = useT()
-  const toast = useToast()
-  const capabilities = useCapabilities()
+  const deps = useActionDeps()
   const transport = useUploadTransport()
   const queue = ref<UploadItem[]>([])
   const { maxUploadBytes, limitError, ensure: ensureUploadLimit } = useUploadLimit()
@@ -105,14 +101,9 @@ export function useMediaUpload(cb: UploadCallbacks = {}) {
     failed: queue.value.filter((i) => i.status === 'failed').length,
   }))
 
-  function deps(): ActionDeps {
-    return { api, t, toast, capabilities }
-  }
-
   async function uploadItem(item: UploadItem, provenance?: Provenance) {
-    const d = deps()
-    const result = await runAction(upload, { deps: d, item, provenance, transport })
-    toastUnexpected(d, result)
+    const result = await runAction(upload, { deps, item, provenance, transport })
+    toastUnexpected(deps, result)
     if (uploadFailed(item)) cb.onError?.(item)
     else cb.onReady?.(item)
   }
@@ -125,7 +116,7 @@ export function useMediaUpload(cb: UploadCallbacks = {}) {
       const item: UploadItem = { id: `u${++seq}`, file: u.file, filename: u.file.name, folder: u.folder, status: 'queued', progress: 0 }
       if (exceedsUploadLimit(u.file.size, max) && max !== null) {
         item.status = 'failed'
-        item.message = t('upload.tooLarge', { size: humanizeSize(u.file.size), limit: humanizeSize(max) })
+        item.message = deps.t('upload.tooLarge', { size: humanizeSize(u.file.size), limit: humanizeSize(max) })
       }
       queue.value.push(item)
       added.push(queue.value[queue.value.length - 1]!)

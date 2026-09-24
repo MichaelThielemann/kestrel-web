@@ -86,8 +86,10 @@ into a single dead/not-dead outcome. See the dashboard link and the System → E
 - The role that should see the page needs `insights.read` (the example admin role has `*`).
 
 Without the module the page renders an info alert ("not available"); without the permission a
-warning. The rail link appears when the `insights` feature is on and `can('insights.read')` is
-true; `canWithRoles` (`composables/useAuth.ts`) grants `insights.read` to the `admin` role only.
+warning. The rail link, the page and the manifest and stats requests all follow the
+`insightsManifest`/`insightsStats` capabilities from the booted schema
+(`useCapabilities().has('insightsManifest')`), not a role name — any role whose `authz.require`
+permission the insights module's pipelines are gated on sees them.
 
 ## Pieces
 - `layers/admin/app/composables/useInsights.ts` — one `useState` holding manifest, stats and the

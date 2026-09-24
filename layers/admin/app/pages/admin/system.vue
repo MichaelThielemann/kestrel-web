@@ -16,9 +16,8 @@ function isFeatureTab(id: string): id is FeatureTabId {
 const route = useRoute()
 const router = useRouter()
 const { t, lang } = useT()
-const api = useAdminApi()
-const toast = useToast()
-const capabilities = useCapabilities()
+const deps = useActionDeps()
+const capabilities = deps.capabilities
 const { collections } = useCollections()
 const hasReferences = computed(() => capabilities.has('brokenReferences') || capabilities.has('brokenLinks'))
 const canDeliver = computed(() => capabilities.has('publishAllPages'))
@@ -95,7 +94,7 @@ async function setTab(value: unknown) {
       tab: id,
       query: route.query,
     })
-    toastUnexpected({ api, t, toast, capabilities }, result)
+    toastUnexpected(deps, result)
   } finally {
     pendingTab = null
   }
