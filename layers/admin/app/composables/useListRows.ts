@@ -24,7 +24,8 @@ export function useListRows(opts: ListRowsOptions): {
   fetchRows: () => Promise<void>
 } {
   const { t } = useT()
-  const api = useApi()
+  const api = useAdminApi()
+  const capabilities = useCapabilities()
   const { primary } = useContentLocales()
   const rows = ref<Record<string, unknown>[]>([])
   const total = ref(0)
@@ -45,7 +46,7 @@ export function useListRows(opts: ListRowsOptions): {
     if (!locale || locale === primary.value) return
     if (!items.some((r) => r.title == null)) return
     try {
-      const res = await api<ListPage<Record<string, unknown>>>(`/admin/${opts.collection.value}`, {
+      const res = await api<ListPage<Record<string, unknown>>>(capabilities.verbRoute(opts.collection.value, 'listAll'), {
         query: query(primary.value, offset),
       })
       if (mine !== seq) return
@@ -62,7 +63,7 @@ export function useListRows(opts: ListRowsOptions): {
     const locale = opts.locale()
     const offset = (opts.page.value - 1) * opts.perPage.value
     try {
-      const res = await api<ListPage<Record<string, unknown>>>(`/admin/${opts.collection.value}`, { query: query(locale, offset) })
+      const res = await api<ListPage<Record<string, unknown>>>(capabilities.verbRoute(opts.collection.value, 'listAll'), { query: query(locale, offset) })
       if (mine !== seq) return
       rows.value = res.items
       total.value = res.total

@@ -1,4 +1,5 @@
 import { ref, computed } from 'vue'
+import { LAYER_ROUTES } from '#kestrel-core/fixed-routes'
 import type { MediaItem, Provenance } from '#kestrel-admin/types/api'
 import { upload } from '#kestrel-admin/actions/media'
 import type { ActionDeps, Translate } from '#kestrel-admin/actions/types'
@@ -7,6 +8,8 @@ import type { PendingUpload } from '../utils/dnd'
 import { humanizeSize } from '../utils/library'
 import { exceedsUploadLimit } from '../utils/upload-limit'
 import { apiErrorMessage } from './useApi'
+import { useAdminApi } from './useAdminApi'
+import { useCapabilities } from './useCapabilities'
 import { useUploadTransport } from './useUploadTransport'
 
 export type UploadStatus = 'queued' | 'uploading' | 'processing' | 'done' | 'failed'
@@ -63,7 +66,7 @@ export function nextLimitState(previous: UploadLimitState, outcome: LimitFetchOu
 }
 
 function useUploadLimit() {
-  const api = useApi()
+  const api = useAdminApi()
   const maxUploadBytes = useState<number | null>('kestrel-upload-limit', () => null)
   const fetched = useState<boolean>('kestrel-upload-limit-fetched', () => false)
   const limitError = useState<string | null>('kestrel-upload-limit-error', () => null)
@@ -72,7 +75,7 @@ function useUploadLimit() {
     if (fetched.value) return
     let outcome: LimitFetchOutcome
     try {
-      const r = await api<{ maxUploadBytes: number | null }>('/limits')
+      const r = await api<{ maxUploadBytes: number | null }>(LAYER_ROUTES.limits)
       outcome = { ok: true, maxUploadBytes: r.maxUploadBytes }
     } catch (e) {
       outcome = { ok: false, message: apiErrorMessage(e) }
@@ -87,9 +90,10 @@ function useUploadLimit() {
 }
 
 export function useMediaUpload(cb: UploadCallbacks = {}) {
-  const api = useApi()
+  const api = useAdminApi()
   const { t } = useT()
   const toast = useToast()
+  const capabilities = useCapabilities()
   const transport = useUploadTransport()
   const queue = ref<UploadItem[]>([])
   const { maxUploadBytes, limitError, ensure: ensureUploadLimit } = useUploadLimit()
@@ -102,7 +106,7 @@ export function useMediaUpload(cb: UploadCallbacks = {}) {
   }))
 
   function deps(): ActionDeps {
-    return { api, t, toast }
+    return { api, t, toast, capabilities }
   }
 
   async function uploadItem(item: UploadItem, provenance?: Provenance) {

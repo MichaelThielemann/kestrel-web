@@ -12,7 +12,8 @@ export function useMediaLibrary(opts: { urlSync?: boolean; accept?: 'image' | 'a
   const urlSync = opts.urlSync ?? true
   const accept = opts.accept ?? 'any'
 
-  const api = useApi()
+  const api = useAdminApi()
+  const capabilities = useCapabilities()
   const route = useRoute()
   const router = useRouter()
   const { t } = useT()
@@ -62,7 +63,8 @@ export function useMediaLibrary(opts: { urlSync?: boolean; accept?: 'image' | 'a
   }
 
   async function fetchFolders() {
-    folderList.value = await api<MediaFolder[]>('/media/folders')
+    if (!capabilities.has('listMediaFolders')) { folderList.value = []; return }
+    folderList.value = await api<MediaFolder[]>(capabilities.route('listMediaFolders'))
   }
 
   async function fetchFiles() {
@@ -72,7 +74,7 @@ export function useMediaLibrary(opts: { urlSync?: boolean; accept?: 'image' | 'a
     try {
       const q = search.value.trim()
 
-      const page1 = await api<ListPage<MediaItem>>('/media', {
+      const page1 = await api<ListPage<MediaItem>>(capabilities.route('listMedia'), {
         query: {
           folder: folder.value,
           limit: perPage.value,

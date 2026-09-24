@@ -16,9 +16,10 @@ export interface UsePageHistoryOptions {
 
 export function usePageHistory(opts: UsePageHistoryOptions) {
   const { t } = useT()
-  const api = useApi()
+  const api = useAdminApi()
   const toast = useToast()
-  const deps: ActionDeps = { api, t, toast }
+  const capabilities = useCapabilities()
+  const deps: ActionDeps = { api, t, toast, capabilities }
 
   const items = ref<RevisionSummary[]>([])
   const head = ref<string | null>(null)

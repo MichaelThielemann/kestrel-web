@@ -1,5 +1,6 @@
 import type { ApiErrorBody, ApiErrorDetails } from '#kestrel-admin/types/api'
 import { boundaryCast } from '#kestrel/cast'
+import { MOUNT_PATH } from '#kestrel-core/mount-path'
 import type { Translate } from '../actions/types'
 
 export class ApiError extends Error {
@@ -55,7 +56,7 @@ export const retryableMessage = (t: Translate, details?: ApiErrorDetails): strin
 export function useApi() {
   const token = useApiToken()
   const client = $fetch.create({
-    baseURL: '/api',
+    baseURL: MOUNT_PATH,
     retry: 0,
     onRequest({ options }) {
       const t = token.value

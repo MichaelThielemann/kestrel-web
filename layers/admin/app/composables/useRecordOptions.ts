@@ -11,7 +11,8 @@ export function useRecordOptions(
   locale: Ref<string>,
   labelField?: Ref<string | undefined>,
 ) {
-  const api = useApi()
+  const api = useAdminApi()
+  const capabilities = useCapabilities()
   const { primary: primaryLocale } = useContentLocales()
   const all = ref<FieldOption[]>([])
   const options = ref<FieldOption[]>([])
@@ -36,8 +37,14 @@ export function useRecordOptions(
 
   async function load(name: string) {
     loading.value = true
+    if (!capabilities.hasVerb(name, 'listAll')) {
+      all.value = []
+      options.value = []
+      loading.value = false
+      return
+    }
     try {
-      const list = (query: Record<string, unknown>) => api<ListPage<Document>>(`/admin/${name}`, { query: { ...query, limit: LIMIT } })
+      const list = (query: Record<string, unknown>) => api<ListPage<Document>>(capabilities.verbRoute(name, 'listAll'), { query: { ...query, limit: LIMIT } })
       const [page, primaryPage] = await Promise.all([
         list({ locale: locale.value }),
         locale.value === primaryLocale.value ? null : list({ locale: primaryLocale.value }),

@@ -1,3 +1,6 @@
+import { LAYER_ROUTES } from '#kestrel-core/fixed-routes'
+import { useAdminApi } from './useAdminApi'
+
 export function useBootStatus() {
   const failed = useState<boolean>('kestrel-boot-failed', () => false)
   const error = useState<string | null>('kestrel-boot-error', () => null)
@@ -6,9 +9,9 @@ export function useBootStatus() {
   onMounted(async () => {
     if (checked.value) return
     checked.value = true
-    const api = useApi()
+    const api = useAdminApi()
     try {
-      await api('/ready')
+      await api(LAYER_ROUTES.ready)
     } catch (e) {
       if (apiErrorCode(e) === 'failed') {
         failed.value = true

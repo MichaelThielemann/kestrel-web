@@ -17,7 +17,8 @@ export function availabilityOf(status: number, code: string): InsightsAvailabili
 }
 
 export function useInsights() {
-  const api = useApi()
+  const api = useAdminApi()
+  const capabilities = useCapabilities()
   const state = useState<InsightsState>('kestrel-insights', () => ({ manifest: null, stats: null, availability: 'unknown', error: null, statsError: null }))
 
   function fail(e: unknown) {
@@ -28,7 +29,7 @@ export function useInsights() {
   async function loadManifest(force = false): Promise<InsightsManifest | null> {
     if (state.value.manifest && !force) return state.value.manifest
     try {
-      const m = await api<InsightsManifest>('/admin/insights/manifest')
+      const m = await api<InsightsManifest>(capabilities.route('insightsManifest'))
       state.value.manifest = m
       state.value.availability = 'ok'
       state.value.error = null
@@ -41,7 +42,7 @@ export function useInsights() {
 
   async function loadStats(): Promise<InsightsStats | null> {
     try {
-      const s = await api<InsightsStats>('/admin/insights/stats')
+      const s = await api<InsightsStats>(capabilities.route('insightsStats'))
       state.value.stats = s
       state.value.statsError = null
       return s

@@ -10,10 +10,11 @@ export function useListBatchActions(
   workflow: ComputedRef<Workflow | undefined>,
 ) {
   const { t } = useT()
-  const api = useApi()
+  const api = useAdminApi()
   const toast = useToast()
-  const { can } = useAuth()
-  const deps = { api, t, toast }
+  const capabilities = useCapabilities()
+  const { schema } = useSchema()
+  const deps = { api, t, toast, capabilities }
 
   const busy = ref(false)
   const error = ref<string | null>(null)
@@ -30,7 +31,8 @@ export function useListBatchActions(
   async function askDelete(ids: string[]) {
     if (!ids.length) return
     deleteIds.value = ids
-    const r = await runAction(previewBulkDelete, { deps, collection: collection.value, ids, allowed: can('pages.manage') })
+    const capability = schema.value?.collections.find((c) => c.name === collection.value)?.capabilities.referrers
+    const r = await runAction(previewBulkDelete, { deps, collection: collection.value, ids, capability })
     toastUnexpected(deps, r)
     deleteReport.value = r.ok ? (r.result ?? null) : null
     deleteOpen.value = true

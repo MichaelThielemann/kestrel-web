@@ -42,8 +42,9 @@ function snapshot(values: Record<string, unknown>): Record<string, unknown> {
 export function useEditForm(opts: UseEditFormOptions) {
   const { collection, id } = opts
   const { t } = useT()
-  const api = useApi()
+  const api = useAdminApi()
   const toast = useToast()
+  const capabilities = useCapabilities()
   const { schema } = useSchema()
   const { locales: contentLocales, primary: primaryLocale } = useContentLocales()
   const locale = ref(opts.locale?.trim() || primaryLocale.value)
@@ -184,13 +185,13 @@ export function useEditForm(opts: UseEditFormOptions) {
   async function loadRow(): Promise<Document | null> {
     if (mode.value === 'single') {
       try {
-        return await api<Document>(`/${collection}`, { query: { locale: locale.value } })
+        return await api<Document>(capabilities.verbRoute(collection, 'get'), { query: { locale: locale.value } })
       } catch (e) {
         if (apiErrorCode(e) !== 'NOT_FOUND') throw e
         return null
       }
     }
-    return id === 'new' ? null : await api<Document>(`/admin/${collection}/${id}`, { query: { locale: locale.value } })
+    return id === 'new' ? null : await api<Document>(capabilities.verbRoute(collection, 'readAny', { id }), { query: { locale: locale.value } })
   }
 
   async function reload() {
@@ -222,10 +223,10 @@ export function useEditForm(opts: UseEditFormOptions) {
   }
 
   async function loadDelivery() {
-    if (!pageLike.value || id === 'new' || !useAuth().can('pages.manage')) return
+    if (!pageLike.value || id === 'new' || !capabilities.hasVerb(collection, 'publishStatus')) return
     deliveryLoading.value = true
     try {
-      delivery.value = await api<PublishStatusEntry[]>(`/admin/publish-status/${collection}/${id}`)
+      delivery.value = await api<PublishStatusEntry[]>(capabilities.verbRoute(collection, 'publishStatus', { id }))
     } catch {
       delivery.value = null
     } finally {
@@ -242,7 +243,7 @@ export function useEditForm(opts: UseEditFormOptions) {
     primaryTitle.value = ''
     if (mode.value !== 'multi' || id === 'new' || !translatable.value || locale.value === primaryLocale.value) return
     try {
-      const row = await api<Document>(`/admin/${collection}/${id}`, { query: { locale: primaryLocale.value } })
+      const row = await api<Document>(capabilities.verbRoute(collection, 'readAny', { id }), { query: { locale: primaryLocale.value } })
       primaryTitle.value = typeof row.title === 'string' ? row.title : ''
     } catch {
       primaryTitle.value = ''
@@ -335,7 +336,7 @@ export function useEditForm(opts: UseEditFormOptions) {
   }
 
   function deps(): ActionDeps {
-    return { api, t, toast }
+    return { api, t, toast, capabilities }
   }
 
   function port(): EditFormPort {
