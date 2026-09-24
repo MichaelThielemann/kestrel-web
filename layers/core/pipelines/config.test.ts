@@ -258,6 +258,14 @@ describe("feature gating", () => {
     expect(withoutDelivery).toEqual({ relayPipelines: [] });
   });
 
+  it("passes the relay budget through next to the derived relay selection", () => {
+    const withBudget = configFor(
+      presetModuleConfig({ ...playgroundOptions(), features: ["eventsQueue", "delivery"], eventsQueue: { relayMs: 8000 } }),
+      "events-queue",
+    );
+    expect(withBudget).toEqual({ relayMs: 8000, relayPipelines: ["publishPage", "unpublishPage"] });
+  });
+
   it("appends migrations-default with the migrations the option carries", () => {
     const migration = { id: "0001-seed", collection: "pages", up: () => undefined };
     const modules = presetModuleConfig({ ...playgroundOptions(), features: ["migrations"], migrations: { migrations: [migration], mode: "check" } });

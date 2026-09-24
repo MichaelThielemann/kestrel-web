@@ -54,6 +54,7 @@ export interface PresetEventsQueue {
   backoffSeconds?: number[];
   lockTtlSeconds?: number;
   retentionDays?: number;
+  relayMs?: number;
 }
 
 export interface PresetRevisions {
