@@ -282,12 +282,21 @@
   `pages`, which decides `PublishStatusEntry`) have one source; this drops the script's unused `news`
   scaffold collection and has no effect on any exported type.
 
+- `RedirectHit` (`layers/core/app/types/api.ts`) is now derived from the generated 200 response of
+  `GET /site/{path}` instead of hand-written; its `status` narrows to `301 | 302 | 307 | 308` instead of
+  `number`.
+
 ### Fixed
 
 - The insights configuration table no longer collapses into a one-character-wide path column with
   overlapping header labels at phone width. It sizes its columns to their content and scrolls
   horizontally instead of shrinking; a long value or default now wraps within a bounded width rather than
   forcing every column to nearly nothing.
+
+- The public site resolver replaces the current history entry when it follows a redirect hit, so the
+  browser's Back button no longer returns to the redirecting path. A response that is neither a redirect
+  hit nor a page is now rendered as an error instead of as an empty page, and a page whose content model
+  has a field literally named `redirect` is no longer mistaken for a redirect hit.
 
 - The insights graph and the admin sidebar now work at phone width: the sidebar collapses to icons
   below 640px and expands as a dismissible overlay instead of covering the page, and the interactive

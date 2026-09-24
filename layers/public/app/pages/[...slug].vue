@@ -6,7 +6,8 @@ import { resolveWorkflow } from '#kestrel/collections-ui'
 import { localePath } from '#kestrel-core/app/utils/locale-path'
 import { isFallbackDocument, primaryPathOf } from '../utils/untranslated'
 import { resolvePageLayout } from '../utils/page-layout'
-import type { PageDocument, RedirectHit, SiteResponse } from '#kestrel-core/app/types/api'
+import { isPageResponse, isRedirectResponse, redirectNavigation } from '../utils/site-redirect'
+import type { PageDocument, SiteResponse } from '#kestrel-core/app/types/api'
 import { boundaryCast } from '#kestrel/cast'
 
 definePageMeta({ key: (route) => route.path, layout: false })
@@ -19,30 +20,24 @@ const route = useRoute()
 const locale = useSiteLocale()
 const api = useApi()
 
-function redirectOf(value: SiteResponse): RedirectHit | null {
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- PageDocument inherits an index signature ([field: string]: unknown), so TS cannot discriminate SiteResponse by the "redirect" key alone
-  return 'redirect' in value ? (value as { redirect: RedirectHit }).redirect : null
-}
-
 const { data, error } = await useAsyncData(
   () => `site:${route.path}`,
   () => api<SiteResponse>(`/site${route.path}`),
 )
 const response = boundaryCast<Ref<SiteResponse | null | undefined>>(data, 'host')
+const redirectHit = response.value && isRedirectResponse(response.value) ? response.value.redirect : null
 
-const redirect = response.value ? redirectOf(response.value) : null
-
-if (redirect) {
-  await navigateTo(redirect.to, { redirectCode: redirect.status, external: /^https?:/.test(redirect.to) })
+if (redirectHit) {
+  await navigateTo(...redirectNavigation(redirectHit))
 }
 
 const page = computed<PageDocument | null>(() =>
-  response.value && !redirectOf(response.value) ? boundaryCast<PageDocument>(response.value, 'json') : null,
+  response.value && isPageResponse(response.value) ? response.value : null,
 )
 // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- resolvePageLayout may return a stale/unregistered name on purpose; NuxtLayout's fallback prop renders "default" when it isn't a real LayoutKey
 const pageLayout = computed(() => resolvePageLayout(page.value?.layout) as LayoutKey)
 
-if (!redirect && !page.value) {
+if (!redirectHit && !page.value) {
   const status = apiErrorStatus(error.value)
   throw createError({
     statusCode: status >= 400 ? status : 404,
