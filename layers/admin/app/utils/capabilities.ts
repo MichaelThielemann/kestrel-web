@@ -11,8 +11,7 @@ export type PipelineName = StaticPipelineName | (string & Record<never, never>)
 const PARAM_PATTERN = /:([a-zA-Z_][a-zA-Z0-9_]*)|\*([a-zA-Z_][a-zA-Z0-9_]*)/g
 
 function assertNoDotSegment(pattern: string, name: string, segment: string): void {
-  let decoded = segment
-  try { decoded = decodeURIComponent(segment) } catch { decoded = segment }
+  const decoded = (() => { try { return decodeURIComponent(segment) } catch { return segment } })()
   if (decoded === '.' || decoded === '..') throw new Error(`path "${pattern}" got a "." or ".." segment in parameter "${name}"`)
 }
 
