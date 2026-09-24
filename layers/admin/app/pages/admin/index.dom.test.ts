@@ -54,4 +54,11 @@ describe('admin dashboard for a role without users.manage', () => {
     expect(wrapper.text()).toContain('pages')
     wrapper.unmount()
   })
+
+  it('never renders the delivery alert without the eventsDeliveryStatus capability', async () => {
+    const wrapper = await mountSuspended(DashboardPage)
+
+    expect(wrapper.find('.dash__alert').exists()).toBe(false)
+    wrapper.unmount()
+  })
 })
