@@ -14,6 +14,7 @@ import insights from "@michaelthielemann/kestrel-insights";
 import { presetModules } from "#kestrel/modules";
 import { definePreset, presetModuleConfig } from "#kestrel/pipelines";
 import type { Feature } from "#kestrel/pipelines";
+import { readinessFromHealth } from "./utils/readiness";
 
 interface RelayPipelineReport {
   event: string;
@@ -208,6 +209,61 @@ describe("delivery is an event pipeline, delivered by events.relay", () => {
       const relay = relayOf(create.result);
       expect(relay.status).toBe("error");
       expect(relay.pipelines).toEqual([expect.objectContaining({ event: "page.created", pipeline: "publishPage", status: "error", dead: true })]);
+    } finally {
+      await kestrel.stop();
+    }
+  }, 20000);
+
+  it("a dead-lettered event is counted and the instance stays ready", async () => {
+    const { kestrel, token } = await bootWithFailingPublish(true);
+    try {
+      const create = await createDraftPage(kestrel, token, "relay-queue-status");
+      expect(create.status).toBe(200);
+
+      const persistence = kestrel.contracts.find(PERSISTENCE);
+      if (persistence === undefined) throw new Error("expected the booted instance to provide persistence@1");
+      const rows = await persistence.findMany("events_queue", { name: "page.created", pipeline: "publishPage" });
+      if (!isOk(rows)) throw new Error("expected the events_queue query to succeed");
+      const row = rows.value.items[0];
+      if (row === undefined) throw new Error("expected one queued delivery row");
+      const marked = await persistence.updateMany("events_queue", { id: row.id }, { state: "dead", attempts: 5, availableAt: Date.now() });
+      if (!isOk(marked)) throw new Error("expected marking the row dead to succeed");
+
+      const status = await kestrel.run("eventsDeliveryStatus", {
+        trigger: { kind: "http", name: "GET /admin/events/delivery" },
+        headers: { authorization: `Bearer ${token}` },
+      });
+      expect(status.status).toBe(200);
+      expect(boundaryCast<{ dead: number, scope: string }>(status.result, "host")).toMatchObject({ dead: 1, scope: "store" });
+      expect(readinessFromHealth(kestrel)).toEqual({ ready: true });
+    } finally {
+      await kestrel.stop();
+    }
+  }, 20000);
+
+  it("a failed inline delivery is counted and the instance stays ready", async () => {
+    const { kestrel, token } = await bootWithFailingPublish(false);
+    try {
+      const create = await createDraftPage(kestrel, token, "relay-direct-status");
+      expect(create.status).toBe(200);
+
+      const status = await kestrel.run("eventsDeliveryStatus", {
+        trigger: { kind: "http", name: "GET /admin/events/delivery" },
+        headers: { authorization: `Bearer ${token}` },
+      });
+      expect(status.status).toBe(200);
+      expect(boundaryCast<{ dead: number, scope: string }>(status.result, "host")).toMatchObject({ dead: 1, scope: "process" });
+      expect(readinessFromHealth(kestrel)).toEqual({ ready: true });
+    } finally {
+      await kestrel.stop();
+    }
+  }, 20000);
+
+  it("an anonymous request for the delivery status is refused", async () => {
+    const { kestrel } = await bootWithFailingPublish(false);
+    try {
+      const status = await kestrel.run("eventsDeliveryStatus", { trigger: { kind: "http", name: "GET /admin/events/delivery" } });
+      expect(status.status).toBe(401);
     } finally {
       await kestrel.stop();
     }
