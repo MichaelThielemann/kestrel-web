@@ -319,6 +319,37 @@ describe("boot", () => {
         await kestrel.stop();
       }
     }, 15000);
+
+    it("refuses to boot the default feature set with an empty anonymous role, naming the missing media.read permission", async () => {
+      const { DEFAULT_FEATURES } = await import("../../../packages/create-kestrel/src/features.mjs");
+      const { contentModel, contentTypes } = await import("../../../playground/shared/model");
+      const { default: collectionsUi } = await import("../../../playground/shared/collections-ui");
+      const { default: fieldTypes } = await import("../../../playground/shared/field-types");
+      const features = asFeatures(DEFAULT_FEATURES);
+      const negativeRoot = mkdtempSync(join(tmpdir(), "kestrel-web-boot-no-anonymous-media-"));
+
+      try {
+        const modules = presetModuleConfig({
+          dataDir: negativeRoot,
+          blobstore: { use: "@michaelthielemann/kestrel-blobstore-filesystem", config: { root: resolve(negativeRoot, "blobs") } },
+          model: contentModel,
+          features,
+          collectionsUi,
+          fieldTypes,
+          roles: { roles: { admin: ["*"] }, anonymous: [] },
+          bootstrap: { username: "admin", passwordHash: "scrypt$522f4ac87bfe4bcd100ba47a7d2aaec2$dbfc3f2d6cc38a76b21973d7c6f6d310a09506581c665f1f6601fd8fb3fa9bc3959689aea3e389f4d53eb8c7e70791ad4065e308763dd44609904134f0f5ee98" },
+        });
+        const preset = definePreset({ modules, features, collections: contentTypes, collectionsUi, fieldTypes });
+        const config = defineConfig({ modules, triggers: preset.triggers, http: null });
+        const bootedModules = presetModules(config.modules, { "@michaelthielemann/kestrel-insights": insights });
+
+        await expect(boot({ config: { ...config, http: null }, modules: bootedModules, pipelines: preset.pipelines, logger: collectingLogger() })).rejects.toThrow(
+          /anonymous callers lack "media\.read"/,
+        );
+      } finally {
+        rmSync(negativeRoot, { recursive: true, force: true });
+      }
+    }, 15000);
   });
 
   describe("persistence-sqlite's acquireTimeoutMs is derived from busyTimeoutMs", () => {
