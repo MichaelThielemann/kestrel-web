@@ -16,10 +16,21 @@ export function availabilityOf(status: number, code: string): InsightsAvailabili
   return 'error'
 }
 
+const INSIGHTS_STATE_KEY = 'kestrel-insights'
+
+function emptyInsightsState(): InsightsState {
+  return { manifest: null, stats: null, availability: 'unknown', error: null, statsError: null }
+}
+
+/** Called on login/logout/identity change: a second user in the same tab must not see the previous one's cached manifest. */
+export function clearInsightsState(): void {
+  useState<InsightsState>(INSIGHTS_STATE_KEY, emptyInsightsState).value = emptyInsightsState()
+}
+
 export function useInsights() {
   const api = useAdminApi()
   const capabilities = useCapabilities()
-  const state = useState<InsightsState>('kestrel-insights', () => ({ manifest: null, stats: null, availability: 'unknown', error: null, statsError: null }))
+  const state = useState<InsightsState>(INSIGHTS_STATE_KEY, emptyInsightsState)
 
   function fail(e: unknown) {
     state.value.availability = availabilityOf(apiErrorStatus(e), apiErrorCode(e))
@@ -41,6 +52,7 @@ export function useInsights() {
   }
 
   async function loadStats(): Promise<InsightsStats | null> {
+    if (!capabilities.has('insightsStats')) return null
     try {
       const s = await api<InsightsStats>(capabilities.route('insightsStats'))
       state.value.stats = s

@@ -6,9 +6,11 @@ definePageMeta({ layout: 'admin', middleware: 'admin-auth' })
 const route = useRoute()
 const router = useRouter()
 const { t } = useT()
+const capabilities = useCapabilities()
+const hasManifestCapability = computed(() => capabilities.has('insightsManifest'))
 const { manifest, availability, error, loadManifest } = useInsights()
 
-await loadManifest()
+if (hasManifestCapability.value) await loadManifest()
 
 const activeTab = computed<InsightsTabId>(() => insightsTabFromQuery(route.query.tab))
 
@@ -32,7 +34,8 @@ function onTabSelect(id: string) {
 
     <KestrelInsightsBootWarnings v-if="manifest" :warnings="manifest.warnings" />
 
-    <KestrelUiAlert v-if="availability === 'notFound'" variant="info">{{ t('insights.notAvailable') }}</KestrelUiAlert>
+    <p v-if="!hasManifestCapability" class="insights__missing">{{ t('capability.unavailable') }}</p>
+    <KestrelUiAlert v-else-if="availability === 'notFound'" variant="info">{{ t('insights.notAvailable') }}</KestrelUiAlert>
     <KestrelUiAlert v-else-if="availability === 'forbidden'" variant="warning">{{ t('insights.forbidden') }}</KestrelUiAlert>
     <KestrelUiAlert v-else-if="availability === 'error'" variant="error">{{ error }}</KestrelUiAlert>
 
@@ -84,6 +87,10 @@ function onTabSelect(id: string) {
   &__meta {
     color: var(--color-text-muted);
     font-size: var(--text-sm);
+  }
+
+  &__missing {
+    color: var(--color-text-muted);
   }
 
   &__tabs {

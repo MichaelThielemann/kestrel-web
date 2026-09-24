@@ -102,13 +102,13 @@ function onLabel(): void {
         <KestrelUiButton variant="secondary" size="sm" :disabled="busy || !labelDirty" @click="onLabel">{{ t('revisions.labelSave') }}</KestrelUiButton>
       </section>
 
-      <section class="history-details__section history-details__actions">
+      <section v-if="canRestore" class="history-details__section history-details__actions">
         <p class="history-details__muted">{{ t('revisions.restoreExplainer') }}</p>
         <KestrelUiAlert v-if="dirty" variant="warning">{{ t('revisions.restoreDirtyWarning') }}</KestrelUiAlert>
         <KestrelUiButton
           variant="primary"
           icon="history"
-          :disabled="busy || summary.skipped || !canRestore || isHead"
+          :disabled="busy || summary.skipped || isHead"
           @click="emit('restore')"
         >
           {{ t('revisions.restoreAction') }}

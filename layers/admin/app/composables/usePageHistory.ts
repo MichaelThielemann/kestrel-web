@@ -1,7 +1,7 @@
 import type { RevisionDetail, RevisionSummary } from '#kestrel-admin/types/api'
 import { labelRevision, loadRevisions, readRevision, restoreRevision } from '../actions/revisions'
 import { toastUnexpected } from '../actions/steps/notify'
-import type { ActionDeps, BusyPort } from '../actions/types'
+import type { BusyPort } from '../actions/types'
 import { layoutRevisions } from '../utils/revision-lanes'
 
 export const HISTORY_PAGE_SIZE = 50
@@ -15,11 +15,7 @@ export interface UsePageHistoryOptions {
 }
 
 export function usePageHistory(opts: UsePageHistoryOptions) {
-  const { t } = useT()
-  const api = useAdminApi()
-  const toast = useToast()
-  const capabilities = useCapabilities()
-  const deps: ActionDeps = { api, t, toast, capabilities }
+  const deps = useActionDeps()
 
   const items = ref<RevisionSummary[]>([])
   const head = ref<string | null>(null)
@@ -47,8 +43,9 @@ export function usePageHistory(opts: UsePageHistoryOptions) {
   }
 
   async function fetchDetail(revisionId: string): Promise<void> {
-    detailLoading.value = true
     detail.value = null
+    if (!deps.capabilities.hasVerb(opts.collection, 'revision')) return
+    detailLoading.value = true
     const result = await runAction(readRevision, { ...scope(), revisionId })
     toastUnexpected(deps, result)
     if (selectedId.value !== revisionId) return
@@ -68,7 +65,7 @@ export function usePageHistory(opts: UsePageHistoryOptions) {
     const result = await runAction(loadRevisions, { ...scope(), limit: HISTORY_PAGE_SIZE, offset })
     toastUnexpected(deps, result)
     if (!result.ok || !result.result) {
-      error.value = result.ok ? t('revisions.loadFailed') : result.error
+      error.value = result.ok ? deps.t('revisions.loadFailed') : result.error
       return false
     }
     items.value = offset === 0 ? result.result.items : [...items.value, ...result.result.items]
