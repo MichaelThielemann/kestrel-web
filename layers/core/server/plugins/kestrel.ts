@@ -1,4 +1,4 @@
-import { boot, consoleLogger, KestrelBootError, type Kestrel } from "@michaelthielemann/kestrel";
+import { consoleLogger, KestrelBootError, type Kestrel } from "@michaelthielemann/kestrel";
 import { boundaryCast } from "@michaelthielemann/kestrel/cast";
 import { createKestrelHandler } from "@michaelthielemann/kestrel-h3";
 import { setNuxtRenderer } from "@michaelthielemann/kestrel-renderer-nuxt";
@@ -16,7 +16,7 @@ import { uploadLimits } from "../utils/limits";
 import { applyBundledSchemas } from "../utils/bundled-schemas";
 import { moduleConfigForStep } from "../utils/modules";
 import { contentCollections, statusFilterFailure, statusFilterProblems } from "../utils/status-filter";
-import { assertAdminBootstrapRoutes } from "../utils/admin-bootstrap";
+import { bootWithAdminBootstrapCheck } from "../utils/admin-bootstrap";
 import { bootFailure } from "../utils/boot-failure";
 import type { KestrelState, KestrelStatus } from "../utils/boot-failure";
 import { accessLists } from "./access";
@@ -79,8 +79,7 @@ function recordBootFailure(err: unknown): void {
 export function getKestrel(): Promise<Kestrel> {
   instance ??= (async () => {
     try {
-      const kestrel = await boot({ config: { ...config, modules: applyBundledSchemas(config.modules, bundledSchemas) }, modules, pipelines, logger: consoleLogger });
-      assertAdminBootstrapRoutes(kestrel);
+      const kestrel = await bootWithAdminBootstrapCheck({ config: { ...config, modules: applyBundledSchemas(config.modules, bundledSchemas) }, modules, pipelines, logger: consoleLogger });
       await kestrel.start();
       assertStatusFilters(kestrel);
       warnIfImagesPublicPathMismatched(kestrel);

@@ -1,4 +1,4 @@
-import type { Kestrel } from "@michaelthielemann/kestrel";
+import { boot, type BootInput, type Kestrel } from "@michaelthielemann/kestrel";
 import { ADMIN_BOOTSTRAP_ROUTES } from "../../fixed-routes";
 
 export interface BootstrapHttpTrigger {
@@ -27,4 +27,14 @@ export function adminBootstrapProblem(http: readonly BootstrapHttpTrigger[]): st
 export function assertAdminBootstrapRoutes(kestrel: Kestrel): void {
   const problem = adminBootstrapProblem(kestrel.describe().triggers.http);
   if (problem !== undefined) throw new Error(problem);
+}
+
+/**
+ * Boots and checks the admin bootstrap routes as one call, so a caller cannot skip the check while
+ * still obtaining a `Kestrel` instance.
+ */
+export async function bootWithAdminBootstrapCheck(input: BootInput): Promise<Kestrel> {
+  const kestrel = await boot(input);
+  assertAdminBootstrapRoutes(kestrel);
+  return kestrel;
 }

@@ -12,7 +12,7 @@ import { definePreset } from "#kestrel/pipelines";
 import { contentTypes, features } from "../../../../playground/shared/model";
 import collectionsUi from "../../../../playground/shared/collections-ui";
 import fieldTypes from "../../../../playground/shared/field-types";
-import { adminBootstrapProblem, assertAdminBootstrapRoutes } from "./admin-bootstrap";
+import { adminBootstrapProblem, assertAdminBootstrapRoutes, bootWithAdminBootstrapCheck } from "./admin-bootstrap";
 
 const FIXED = [
   { method: "POST", path: "/login", pipeline: "login" },
@@ -85,4 +85,39 @@ describe("assertAdminBootstrapRoutes against a real boot", () => {
       'admin: pipeline "login" must be reachable at "POST /login" (found: "POST /signin") – the admin calls it before it can read its capabilities',
     );
   });
+});
+
+describe("bootWithAdminBootstrapCheck, the call getKestrel() makes", () => {
+  let appRoot: string;
+
+  beforeAll(() => {
+    appRoot = mkdtempSync(join(tmpdir(), "kestrel-web-admin-bootstrap-combined-"));
+    process.env.KESTREL_APP_ROOT = appRoot;
+    process.env.KESTREL_BLOCK_SCHEMA = fileURLToPath(new URL("../../pipelines/__fixtures__/pages.body.json", import.meta.url));
+  });
+
+  afterAll(() => {
+    delete process.env.KESTREL_APP_ROOT;
+    delete process.env.KESTREL_BLOCK_SCHEMA;
+    rmSync(appRoot, { recursive: true, force: true });
+  });
+
+  it("rejects with the boot-failure message in one call, so getKestrel() cannot get a Kestrel instance without passing the check", async () => {
+    const { default: config } = await import("../../../../playground/kestrel.config");
+    const preset = definePreset({ modules: config.modules, features, collections: contentTypes, collectionsUi, fieldTypes });
+    const rerouted = preset.triggers.filter((trigger) => !("http" in trigger) || trigger.pipeline !== "login");
+    rerouted.push({ http: "POST /signin", pipeline: "login" });
+
+    const modules = presetModules(config.modules, {
+      "@michaelthielemann/kestrel-insights": insights,
+      "@michaelthielemann/kestrel-replication-sqlite": replicationSqlite,
+      "@michaelthielemann/kestrel-persistence-sqlite": persistenceSqlite,
+    });
+
+    await expect(
+      bootWithAdminBootstrapCheck({ config: defineConfig({ modules: config.modules, triggers: rerouted, http: null }), modules, pipelines: preset.pipelines }),
+    ).rejects.toThrow(
+      'admin: pipeline "login" must be reachable at "POST /login" (found: "POST /signin") – the admin calls it before it can read its capabilities',
+    );
+  }, 20000);
 });
