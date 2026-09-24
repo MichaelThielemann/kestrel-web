@@ -138,6 +138,11 @@
       "authz.require:media.read",
       "media.download"
     ],
+    "eventsDeliveryStatus": [
+      "authn.requireUser",
+      "authz.require:system.manage",
+      "events.readDeliveryStatus"
+    ],
     "exportMedia": [
       "authn.requireUser",
       "authz.require:media.manage",
@@ -521,6 +526,10 @@
     {
       "http": "POST /admin/migrations/apply",
       "pipeline": "applyMigrations"
+    },
+    {
+      "http": "GET /admin/events/delivery",
+      "pipeline": "eventsDeliveryStatus"
     },
     {
       "cron": "0 * * * *",

@@ -63,6 +63,7 @@ export const canonicalTriggers: readonly TriggerEntry[] = [
   { trigger: { http: "POST /admin/migrations/apply", pipeline: "applyMigrations" }, feature: "migrations" },
   { trigger: { http: "GET /admin/insights/manifest", pipeline: "insightsManifest" }, feature: "insights" },
   { trigger: { http: "GET /admin/insights/stats", pipeline: "insightsStats" }, feature: "insights" },
+  { trigger: { http: "GET /admin/events/delivery", pipeline: "eventsDeliveryStatus" } },
   { trigger: { http: "GET /admin/events/status", pipeline: "eventsQueueStatus" }, feature: "eventsQueue" },
   { trigger: { http: "GET /admin/events/dead", pipeline: "eventsDead" }, feature: "eventsQueue" },
   { trigger: { http: "POST /admin/events/retry", pipeline: "eventsRetryDead" }, feature: "eventsQueue" },

@@ -22,6 +22,30 @@ function withQueueInsteadOfDirect(modules: readonly { use: string; config?: unkn
   return [...modules.filter((entry) => entry.use !== "@michaelthielemann/kestrel-events-direct"), { use: "@michaelthielemann/kestrel-events-queue" }];
 }
 
+describe("definePreset eventsDeliveryStatus", () => {
+  it("eventsDeliveryStatus requires a login and system.manage, in both delivery modes", () => {
+    const direct = definePreset({ modules: baseModules, features: [] });
+    expect(direct.pipelines.find((pipeline) => pipeline.name === "eventsDeliveryStatus")?.steps).toEqual([
+      "authn.requireUser",
+      "authz.require:system.manage",
+      "events.readDeliveryStatus",
+    ]);
+
+    const queued = [...withQueueInsteadOfDirect(baseModules), { use: "@michaelthielemann/kestrel-images-default" }];
+    const queuedPreset = definePreset({ modules: queued, features: ["eventsQueue", "images"] });
+    expect(queuedPreset.pipelines.find((pipeline) => pipeline.name === "eventsDeliveryStatus")?.steps).toEqual([
+      "authn.requireUser",
+      "authz.require:system.manage",
+      "events.readDeliveryStatus",
+    ]);
+  });
+
+  it("routes GET /admin/events/delivery to it, without needing the eventsQueue feature", () => {
+    const preset = definePreset({ modules: baseModules, features: [] });
+    expect(preset.triggers).toContainEqual({ http: "GET /admin/events/delivery", pipeline: "eventsDeliveryStatus" });
+  });
+});
+
 describe("definePreset option handling", () => {
   it("defaults exportDir and homeSlug", () => {
     const preset = definePreset({ modules: baseModules, features: [] });

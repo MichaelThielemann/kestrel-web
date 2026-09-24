@@ -82,6 +82,7 @@ export function basePipelines(
     reconcileMedia: ["media.reconcile"],
     reconcileMediaReport: ["authn.requireUser", "authz.require:media.manage", "media.reconcile"],
     reconcileMediaDelete: ["authn.requireUser", "authz.require:media.manage", "media.reconcileDelete"],
+    eventsDeliveryStatus: ["authn.requireUser", "authz.require:system.manage", "events.readDeliveryStatus"],
   };
 
   if ("pages" in collections) {

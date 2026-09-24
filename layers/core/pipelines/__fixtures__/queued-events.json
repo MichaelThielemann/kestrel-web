@@ -141,6 +141,11 @@
       "authz.require:system.manage",
       "events.listDead"
     ],
+    "eventsDeliveryStatus": [
+      "authn.requireUser",
+      "authz.require:system.manage",
+      "events.readDeliveryStatus"
+    ],
     "eventsQueueStatus": [
       "authn.requireUser",
       "authz.require:system.manage",
@@ -768,6 +773,10 @@
     {
       "http": "GET /admin/insights/stats",
       "pipeline": "insightsStats"
+    },
+    {
+      "http": "GET /admin/events/delivery",
+      "pipeline": "eventsDeliveryStatus"
     },
     {
       "http": "GET /admin/events/status",

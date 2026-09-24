@@ -130,6 +130,11 @@
       "authz.require:media.read",
       "media.download"
     ],
+    "eventsDeliveryStatus": [
+      "authn.requireUser",
+      "authz.require:system.manage",
+      "events.readDeliveryStatus"
+    ],
     "exportMedia": [
       "authn.requireUser",
       "authz.require:media.manage",
@@ -664,6 +669,10 @@
     {
       "http": "GET /admin/insights/stats",
       "pipeline": "insightsStats"
+    },
+    {
+      "http": "GET /admin/events/delivery",
+      "pipeline": "eventsDeliveryStatus"
     },
     {
       "cron": "30 2 * * *",

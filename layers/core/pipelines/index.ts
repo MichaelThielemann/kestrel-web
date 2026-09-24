@@ -68,6 +68,7 @@ export const staticPipelineNames = [
   "cleanupSessions", "getSettings", "setSettings", "listPages", "listAllPages", "readPage", "readAnyPage", "resolvePage", "createPage", "updatePage",
   "deletePage", "uploadMedia", "exportMedia", "listMediaFolders", "createMediaFolder", "renameMediaFolder", "deleteMediaFolder",
   "listMedia", "getMedia", "downloadMedia", "updateMedia", "deleteMedia", "reconcileMedia", "reconcileMediaReport", "reconcileMediaDelete",
+  "eventsDeliveryStatus",
   "sweepRateLimits",
   "brokenReferences", "pageReferrers", "pageReferrersMany", "mediaReferrers", "mediaReferrersMany", "rebuildReferences", "scanReferences",
   "brokenLinks", "rebuildLinks", "checkLinks",
