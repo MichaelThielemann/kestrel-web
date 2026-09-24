@@ -1069,9 +1069,12 @@ path.
 - A block component is instantiated once per node in the tree — in the editor preview many instances of
   the same block live side by side, often with identical (empty) props right after they were added.
   Derive everything from `props`; do not keep module-level state.
-- Never call `useAsyncData`, `useFetch` or `useState` with a fixed or content-derived key: every
-  instance sharing that key shares the state (the left column's text shows up in the right one). Key
-  per instance with `useId()` — `useSanitizedHtml()` does this for you.
+- Never call `useAsyncData`, `useFetch` or `useState` with a fixed key: every instance sharing that
+  key shares the state (the left column's text shows up in the right one). Never key by `useId()`
+  either, because its value depends on setup-call order and can differ between the server render and
+  client hydration, so the client misses the server's cached entry and recomputes it. `useSanitizedHtml()`
+  keys by a hash of its input instead: identical content across instances correctly shares one entry,
+  and different content never collides.
 - Rich text goes through `useSanitizedHtml()` (SSR-safe, same allowlist as the backend); internal links
   arrive resolved (`href`, `path`, `broken`) — use `useLinkHref()` for link fields.
 - Read-only rendering: blocks must not write to the document; the editor owns the tree.

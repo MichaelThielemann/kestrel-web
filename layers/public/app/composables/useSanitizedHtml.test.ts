@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { sanitizeOnServer } from './useSanitizedHtml'
+import { sanitizeOnServer, sanitizedHtmlKey } from './useSanitizedHtml'
 
 describe('sanitizeOnServer', () => {
   it('removes script tags and their content', async () => {
@@ -21,5 +21,23 @@ describe('sanitizeOnServer', () => {
   it('keeps allowed links, headings, lists, and bold/italic formatting', async () => {
     const html = '<h2>Title</h2><p>Some <strong>bold</strong> and <em>italic</em> text.</p><ul><li>one</li><li>two</li></ul><a href="https://example.com">link</a>'
     expect(await sanitizeOnServer(html)).toBe(html)
+  })
+})
+
+describe('sanitizedHtmlKey', () => {
+  it('is the same for identical input regardless of how many other keys were computed first', () => {
+    const before = sanitizedHtmlKey('<p>Hello</p>')
+    sanitizedHtmlKey('<p>Unrelated one</p>')
+    sanitizedHtmlKey('<p>Unrelated two</p>')
+    const after = sanitizedHtmlKey('<p>Hello</p>')
+    expect(after).toBe(before)
+  })
+
+  it('is stable across repeated calls with the same input', () => {
+    expect(sanitizedHtmlKey('<p>Hello</p>')).toBe(sanitizedHtmlKey('<p>Hello</p>'))
+  })
+
+  it('differs for different input', () => {
+    expect(sanitizedHtmlKey('<p>Hello</p>')).not.toBe(sanitizedHtmlKey('<p>Goodbye</p>'))
   })
 })

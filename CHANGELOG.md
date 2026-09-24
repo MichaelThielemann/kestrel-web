@@ -340,6 +340,11 @@
   missing `pages.manage`) now sees no warning either, since the check cannot run for them — the server's
   own `references.guard:pages` step still refuses the delete regardless of what the dialog showed.
 
+- `useSanitizedHtml()` now keys its `useAsyncData` call by a hash of the input instead of `useId()`, so
+  the server and client compute the same key regardless of how many other components ran first, and the
+  client reuses the server-rendered sanitized HTML instead of recomputing it against live data on a
+  static export.
+
 ## 2.0.1 – 2026-09-21
 
 ### Changed

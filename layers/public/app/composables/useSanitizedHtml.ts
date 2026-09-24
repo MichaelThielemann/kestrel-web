@@ -34,8 +34,21 @@ export async function sanitizeInBrowser(html: string): Promise<string> {
   return DOMPurify.sanitize(html, { ALLOWED_TAGS, ALLOWED_ATTR: [...new Set(Object.values(ALLOWED_ATTRS).flat())], ALLOWED_URI_REGEXP: URI_PATTERN })
 }
 
+function hashSource(value: string): string {
+  let hash = 0x811c9dc5
+  for (let i = 0; i < value.length; i++) {
+    hash ^= value.charCodeAt(i)
+    hash = Math.imul(hash, 0x01000193)
+  }
+  return (hash >>> 0).toString(36)
+}
+
+export function sanitizedHtmlKey(source: string): string {
+  return `sanitized:${hashSource(source)}`
+}
+
 export function useSanitizedHtml(source: MaybeRefOrGetter<string>) {
-  return useAsyncData(`sanitized:${useId()}`, () => (import.meta.server ? sanitizeOnServer(toValue(source)) : sanitizeInBrowser(toValue(source))), {
+  return useAsyncData(() => sanitizedHtmlKey(toValue(source)), () => (import.meta.server ? sanitizeOnServer(toValue(source)) : sanitizeInBrowser(toValue(source))), {
     watch: [() => toValue(source)],
     default: () => '',
   })
