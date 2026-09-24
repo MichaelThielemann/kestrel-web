@@ -44,6 +44,28 @@ const ADMIN_ROUTE_SELECTORS = [
     selector: ":matches(Literal[value=/^\\/api(\\/|$)/], TemplateElement[value.raw=/^\\/api(\\/|$)/])",
     message: 'API URLs come from apiUrl() in utils/capabilities.ts.',
   },
+  {
+    selector: "ObjectExpression:has(> SpreadElement):has(> Property[key.name='path'])",
+    message: 'A route object built by spreading another route and overriding `path` still bypasses useCapabilities(); resolve a real capability instead.',
+  },
+  {
+    selector: "ImportSpecifier[imported.name='useApi']",
+    message: 'Do not import useApi (even renamed); admin code calls the API through useAdminApi() with a route from useCapabilities().',
+  },
+]
+
+const ADMIN_FETCH_SELECTORS = [
+  {
+    selector: ":matches(CallExpression[callee.name=/^(\\$fetch|useFetch)$/], CallExpression[callee.object.name='$fetch'], NewExpression[callee.name='XMLHttpRequest'])",
+    message: 'Admin code calls the API through useAdminApi()/useUploadTransport(), never $fetch, useFetch() or XMLHttpRequest directly.',
+  },
+]
+
+const ADMIN_MOUNT_PATH_SELECTOR = [
+  {
+    selector: "ImportSpecifier[imported.name='MOUNT_PATH']",
+    message: 'MOUNT_PATH is a routing primitive for the few files that build routes or URLs directly; everything else goes through useCapabilities()/useAdminApi().',
+  },
 ]
 
 export default withNuxt(
@@ -84,9 +106,18 @@ export default withNuxt(
   {
     name: 'kestrel/admin-api-routes',
     files: ['layers/admin/app/**/*.{ts,vue}'],
-    ignores: ['**/*.test.ts', '**/__fixtures__/**', 'layers/admin/app/utils/capabilities.ts', 'layers/admin/app/composables/useAdminApi.ts'],
+    ignores: [
+      '**/*.test.ts',
+      '**/__fixtures__/**',
+      'layers/admin/app/utils/capabilities.ts',
+      'layers/admin/app/composables/useAdminApi.ts',
+      'layers/admin/app/composables/useApi.ts',
+      'layers/admin/app/composables/useUploadTransport.ts',
+      'layers/admin/app/utils/admin-client.ts',
+      'layers/admin/app/utils/reauth.ts',
+    ],
     rules: {
-      'no-restricted-syntax': ['error', ...LAYER_BOUNDARY_SELECTORS, ...ADMIN_ROUTE_SELECTORS],
+      'no-restricted-syntax': ['error', ...LAYER_BOUNDARY_SELECTORS, ...ADMIN_ROUTE_SELECTORS, ...ADMIN_FETCH_SELECTORS, ...ADMIN_MOUNT_PATH_SELECTOR],
     },
   },
   {

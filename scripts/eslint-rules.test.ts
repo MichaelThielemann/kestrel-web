@@ -175,4 +175,49 @@ const raw = "<b>x</b>"
     const messages = await lintVirtual("await navigateTo('/admin/login');\nawait navigateTo({ path: '/admin/system', query: {} });\n", "layers/admin/app/pages/probe.ts");
     expect(messages.filter((m) => m.ruleId === "no-restricted-syntax")).toEqual([]);
   });
+
+  it("kestrel/admin-api-routes: bans a route built by spreading another route and overriding path", async () => {
+    const messages = await lintVirtual("const route = { ...LAYER_ROUTES.ready, path: '/users' };\n", "layers/admin/app/composables/probe.ts");
+    expectMessage(messages, "no-restricted-syntax", "spreading another route");
+  });
+
+  it("kestrel/admin-api-routes: bans importing useApi under a renamed local binding", async () => {
+    const messages = await lintVirtual("import { useApi as client } from './useApi';\n", "layers/admin/app/composables/probe.ts");
+    expectMessage(messages, "no-restricted-syntax", "Do not import useApi");
+  });
+
+  it("kestrel/admin-no-direct-fetch: bans a raw $fetch call", async () => {
+    const messages = await lintVirtual("await $fetch('/users');\n", "layers/admin/app/composables/probe.ts");
+    expectMessage(messages, "no-restricted-syntax", "never $fetch");
+  });
+
+  it("kestrel/admin-no-direct-fetch: bans $fetch.create", async () => {
+    const messages = await lintVirtual("const client = $fetch.create({ baseURL: '/api' });\n", "layers/admin/app/composables/probe.ts");
+    expectMessage(messages, "no-restricted-syntax", "never $fetch");
+  });
+
+  it("kestrel/admin-no-direct-fetch: bans useFetch()", async () => {
+    const messages = await lintVirtual("const { data } = useFetch('/api/users');\n", "layers/admin/app/composables/probe.ts");
+    expectMessage(messages, "no-restricted-syntax", "never $fetch");
+  });
+
+  it("kestrel/admin-no-direct-fetch: bans new XMLHttpRequest()", async () => {
+    const messages = await lintVirtual("const xhr = new XMLHttpRequest();\n", "layers/admin/app/composables/probe.ts");
+    expectMessage(messages, "no-restricted-syntax", "never $fetch");
+  });
+
+  it("kestrel/admin-no-direct-fetch: allows $fetch.create inside admin-client.ts, which installs the interceptor", async () => {
+    const messages = await lintVirtual("globalThis.$fetch = globalThis.$fetch.create({});\n", "layers/admin/app/utils/admin-client.ts");
+    expect(messages.filter((m) => m.ruleId === "no-restricted-syntax")).toEqual([]);
+  });
+
+  it("kestrel/admin-mount-path: bans importing MOUNT_PATH outside the route-building files", async () => {
+    const messages = await lintVirtual("import { MOUNT_PATH } from '#kestrel-core/mount-path';\n", "layers/admin/app/composables/probe.ts");
+    expectMessage(messages, "no-restricted-syntax", "routing primitive");
+  });
+
+  it("kestrel/admin-mount-path: allows importing MOUNT_PATH inside utils/capabilities.ts", async () => {
+    const messages = await lintVirtual("import { MOUNT_PATH } from '#kestrel-core/mount-path';\n", "layers/admin/app/utils/capabilities.ts");
+    expect(messages.filter((m) => m.ruleId === "no-restricted-syntax")).toEqual([]);
+  });
 });
