@@ -171,6 +171,18 @@ const raw = "<b>x</b>"
     expectMessage(messages, "no-restricted-syntax", "useAdminApi()");
   });
 
+  it("kestrel/admin-api-routes: bans useApi() and a path literal inside a .vue <script setup> block", async () => {
+    const code = `
+<script setup lang="ts">
+const api = useApi()
+const status = await api('/admin/events/delivery')
+</script>
+`;
+    const messages = await lintVirtual(code, "layers/admin/app/components/Probe.vue");
+    expectMessage(messages, "no-restricted-syntax", "useAdminApi()");
+    expectMessage(messages, "no-restricted-syntax", "not a path literal");
+  });
+
   it("kestrel/admin-api-routes: leaves admin page routes alone", async () => {
     const messages = await lintVirtual("await navigateTo('/admin/login');\nawait navigateTo({ path: '/admin/system', query: {} });\n", "layers/admin/app/pages/probe.ts");
     expect(messages.filter((m) => m.ruleId === "no-restricted-syntax")).toEqual([]);
