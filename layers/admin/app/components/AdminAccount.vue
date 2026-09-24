@@ -13,10 +13,11 @@ const { logout, username } = useAuth()
 const { theme, toggle: toggleTheme } = useTheme()
 const { collections } = useCollections()
 const { target: portalTarget } = useAdminPortal()
+const capabilities = useCapabilities()
 
 const displayName = computed(() => username.value || t('account.name'))
 const initials = computed(() => (username.value.slice(0, 2).toUpperCase() || 'AD'))
-const accountCollections = computed(() => collections.value.filter((c) => c.mode === 'single' && c.nav !== false && c.placement === 'account'))
+const accountCollections = computed(() => collections.value.filter((c) => c.mode === 'single' && c.nav !== false && c.placement === 'account' && capabilities.hasVerb(c.name, 'get')))
 
 const changePasswordOpen = ref(false)
 
@@ -77,7 +78,7 @@ defineExpose({ lang, selectLang, signOut, theme, toggleTheme })
 
         <DropdownMenuSeparator class="rail-account__sep" />
 
-        <DropdownMenuItem class="rail-account__item" @select="changePasswordOpen = true">
+        <DropdownMenuItem v-if="capabilities.has('changePassword')" class="rail-account__item" @select="changePasswordOpen = true">
           <KestrelUiIcon name="settings" size="1rem" class="rail-account__item-icon" />
           <span>{{ t('account.password.menu') }}</span>
         </DropdownMenuItem>

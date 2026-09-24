@@ -2,13 +2,11 @@
 import type { DeadEvent, EventsQueueStatus } from '#kestrel-admin/types/api'
 import { humanizeRelativeTime } from '#kestrel-admin/utils/humanize'
 import { eventsRetryAll, eventsRetryOne } from '#kestrel-admin/actions/system'
-import type { ActionDeps } from '#kestrel-admin/actions/types'
 
 const { t, lang } = useT()
-const api = useApi()
-const toast = useToast()
-
-const deps: ActionDeps = { api, t, toast }
+const deps = useActionDeps()
+const canRetryAll = computed(() => deps.capabilities.has('eventsRetryDead'))
+const canRetryOne = computed(() => deps.capabilities.has('eventsRetryOne'))
 
 const status = ref<EventsQueueStatus | null>(null)
 const dead = ref<DeadEvent[]>([])
@@ -27,8 +25,8 @@ async function load() {
   notFound.value = false
   try {
     const [s, d] = await Promise.all([
-      api<EventsQueueStatus>('/admin/events/status'),
-      api<{ items: DeadEvent[] }>('/admin/events/dead', { query: { limit: 100 } }),
+      deps.api<EventsQueueStatus>(deps.capabilities.route('eventsQueueStatus')),
+      deps.api<{ items: DeadEvent[] }>(deps.capabilities.route('eventsDead'), { query: { limit: 100 } }),
     ])
     status.value = s
     dead.value = d.items
@@ -118,7 +116,7 @@ function relative(ms: number | null): string { return ms === null ? '—' : huma
       </div>
 
       <div class="events__bar">
-        <KestrelUiButton type="button" variant="secondary" size="sm" icon="rotate-cw" :disabled="dead.length === 0" :loading="retryAllBusy" @click="confirmRetryAll = true">
+        <KestrelUiButton v-if="canRetryAll" type="button" variant="secondary" size="sm" icon="rotate-cw" :disabled="dead.length === 0" :loading="retryAllBusy" @click="confirmRetryAll = true">
           {{ t('events.retryAll') }}
         </KestrelUiButton>
         <KestrelUiButton type="button" variant="ghost" size="sm" icon="rotate-cw" @click="load">
@@ -150,6 +148,7 @@ function relative(ms: number | null): string { return ms === null ? '—' : huma
               <td class="ui-table__col--actions">
                 <div class="ui-table__actions">
                   <KestrelUiButton
+                    v-if="canRetryOne"
                     variant="ghost"
                     size="sm"
                     icon="rotate-cw"

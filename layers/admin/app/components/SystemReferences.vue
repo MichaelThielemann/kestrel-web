@@ -1,17 +1,14 @@
 <script setup lang="ts">
 import type { BrokenReference, BrokenLink } from '#kestrel-admin/types/api'
 import { linksRebuild, referencesRebuild } from '#kestrel-admin/actions/system'
-import type { ActionDeps } from '#kestrel-admin/actions/types'
 import { toastUnexpected } from '#kestrel-admin/actions/steps/notify'
 
 const { t } = useT()
-const api = useApi()
-const toast = useToast()
-const { has } = useFeatures()
-const hasReferences = computed(() => has('references'))
-const hasLinks = computed(() => has('links'))
-
-const deps: ActionDeps = { api, t, toast }
+const deps = useActionDeps()
+const hasReferences = computed(() => deps.capabilities.has('brokenReferences'))
+const hasLinks = computed(() => deps.capabilities.has('brokenLinks'))
+const canRebuildReferences = computed(() => deps.capabilities.has('rebuildReferences'))
+const canRebuildLinks = computed(() => deps.capabilities.has('rebuildLinks'))
 
 const refs = ref<BrokenReference[]>([])
 const links = ref<BrokenLink[]>([])
@@ -22,12 +19,12 @@ const linksBusy = ref(false)
 
 async function loadRefs() {
   refsError.value = false
-  try { refs.value = await api<BrokenReference[]>('/admin/references/broken') }
+  try { refs.value = await deps.api<BrokenReference[]>(deps.capabilities.route('brokenReferences')) }
   catch { refsError.value = true }
 }
 async function loadLinks() {
   linksError.value = false
-  try { links.value = (await api<BrokenLink[]>('/admin/links/broken')).filter((l) => l.ok === false) }
+  try { links.value = (await deps.api<BrokenLink[]>(deps.capabilities.route('brokenLinks'))).filter((l) => l.ok === false) }
   catch { linksError.value = true }
 }
 
@@ -61,7 +58,7 @@ function fromLink(id: string, locale: string | null) {
       <section v-if="hasReferences" class="refs__section">
         <div class="refs__section-head">
           <h2 class="refs__section-title">{{ t('refs.title') }}</h2>
-          <KestrelUiButton type="button" size="sm" variant="secondary" :loading="refsBusy" @click="rebuildRefs">{{ t('refs.rebuild') }}</KestrelUiButton>
+          <KestrelUiButton v-if="canRebuildReferences" type="button" size="sm" variant="secondary" :loading="refsBusy" @click="rebuildRefs">{{ t('refs.rebuild') }}</KestrelUiButton>
         </div>
         <KestrelUiAlert v-if="refsError" variant="error">{{ t('refs.loadError') }}</KestrelUiAlert>
         <KestrelUiEmptyState v-else-if="!refs.length" icon="check" :title="t('refs.empty.title')" :description="t('refs.empty.desc')" />
@@ -84,7 +81,7 @@ function fromLink(id: string, locale: string | null) {
       <section v-if="hasLinks" class="refs__section">
         <div class="refs__section-head">
           <h2 class="refs__section-title">{{ t('references.links.title') }}</h2>
-          <KestrelUiButton type="button" size="sm" variant="secondary" :loading="linksBusy" @click="rebuildLinks">{{ t('refs.rebuild') }}</KestrelUiButton>
+          <KestrelUiButton v-if="canRebuildLinks" type="button" size="sm" variant="secondary" :loading="linksBusy" @click="rebuildLinks">{{ t('refs.rebuild') }}</KestrelUiButton>
         </div>
         <KestrelUiAlert v-if="linksError" variant="error">{{ t('references.links.loadError') }}</KestrelUiAlert>
         <KestrelUiEmptyState v-else-if="!links.length" icon="check" :title="t('references.links.empty.title')" :description="t('references.links.empty.desc')" />

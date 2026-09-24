@@ -2,17 +2,13 @@
 import { computed, ref, watch } from 'vue'
 import type { User } from '#kestrel-admin/types/api'
 import { userDelete } from '#kestrel-admin/actions/system'
-import type { ActionDeps } from '#kestrel-admin/actions/types'
 import { toastUnexpected } from '#kestrel-admin/actions/steps/notify'
 
 const props = withDefaults(defineProps<{ user: User | null, users?: User[], self?: boolean }>(), { users: () => [], self: false })
 const emit = defineEmits<{ 'update:user': [User | null], deleted: [] }>()
 
 const { t } = useT()
-const api = useApi()
-const toast = useToast()
-
-const deps: ActionDeps = { api, t, toast }
+const deps = useActionDeps()
 
 const busy = ref(false)
 const error = ref<string | null>(null)

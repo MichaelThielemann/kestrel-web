@@ -1,13 +1,21 @@
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { readBody } from 'h3'
-import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { nextTick } from 'vue'
 import { boundaryCast } from '#kestrel/cast'
-import type { User } from '#kestrel-admin/types/api'
+import type { AdminSchema, User } from '#kestrel-admin/types/api'
 import { en } from '#kestrel-admin/i18n/en'
+import { useSchema } from '../composables/useSchema'
 import UserDeleteDialog from './UserDeleteDialog.vue'
 
 const doomed: User = { id: 'u1', username: 'bob', roles: ['editor'], active: true, createdAt: 0 }
+
+const schema: AdminSchema = {
+  locales: { all: ['en'], primary: 'en', prefixPrimary: false },
+  collections: [],
+  features: [],
+  capabilities: { deleteUser: { method: 'DELETE', path: '/users/:id' } },
+}
 const berta: User = { id: 'u2', username: 'berta', roles: ['editor'], active: true, createdAt: 0 }
 const retired: User = { id: 'u3', username: 'retired', roles: ['editor'], active: false, createdAt: 0 }
 
@@ -31,8 +39,14 @@ function clickDelete() {
 describe('UserDeleteDialog', () => {
   const unregisterAll: (() => void)[] = []
 
+  beforeEach(async () => {
+    unregisterAll.push(registerEndpoint('/api/admin/schema', { method: 'GET', handler: () => schema }))
+    await useSchema().load()
+  })
+
   afterEach(() => {
     unregisterAll.splice(0).forEach((unregister) => unregister())
+    useSchema().clear()
   })
 
   it('anonymises by default and says that the content stays', async () => {

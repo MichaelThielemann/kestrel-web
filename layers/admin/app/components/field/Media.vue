@@ -9,7 +9,8 @@ import { isDisclosed, provenanceLabelKey, provenanceOrigin } from '#kestrel-admi
 const props = defineProps<FieldComponentProps>()
 const model = defineModel<string | string[] | null>()
 
-const api = useApi()
+const api = useAdminApi()
+const capabilities = useCapabilities()
 const { t } = useT()
 const options = computed(() => {
   const field = props.field
@@ -31,8 +32,9 @@ watch(ids, async (list) => {
   const missing = list.filter((id) => !(id in meta.value))
   if (!missing.length) return
   for (const id of missing) meta.value[id] = null
+  if (!capabilities.has('listMedia')) return
   try {
-    const page = await api<ListPage<MediaItem>>('/media', { query: { ids: missing.join(','), locale: props.locale } })
+    const page = await api<ListPage<MediaItem>>(capabilities.route('listMedia'), { query: { ids: missing.join(','), locale: props.locale } })
     for (const item of page.items) meta.value[item.id] = item
   } catch {
     return
@@ -69,7 +71,7 @@ function removeId(id: string) {
         </ul>
         <p v-else class="field-media__empty">{{ t('field.media.empty') }}</p>
         <KestrelUiButton
-          v-if="!disabled"
+          v-if="!disabled && capabilities.has('listMedia')"
           :id="f.id"
           type="button"
           variant="secondary"

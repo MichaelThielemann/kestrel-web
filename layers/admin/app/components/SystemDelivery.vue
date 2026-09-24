@@ -1,14 +1,9 @@
 <script setup lang="ts">
 import { exportMedia, publishAll } from '#kestrel-admin/actions/system'
-import type { ActionDeps } from '#kestrel-admin/actions/types'
 import { toastUnexpected } from '#kestrel-admin/actions/steps/notify'
 
 const { t } = useT()
-const api = useApi()
-const toast = useToast()
-const { isAdmin } = useAuth()
-
-const deps: ActionDeps = { api, t, toast }
+const deps = useActionDeps()
 
 const busy = ref(false)
 const exporting = ref(false)
@@ -33,7 +28,7 @@ async function onExportMedia() {
       </div>
       <p class="delivery__desc">{{ t('delivery.desc') }}</p>
     </div>
-    <div v-if="isAdmin" class="delivery__section">
+    <div v-if="deps.capabilities.has('exportMedia')" class="delivery__section">
       <div class="delivery__section-head">
         <h2 class="delivery__section-title">{{ t('delivery.exportTitle') }}</h2>
         <KestrelUiButton type="button" size="sm" variant="secondary" :loading="exporting" @click="onExportMedia">{{ t('delivery.export') }}</KestrelUiButton>

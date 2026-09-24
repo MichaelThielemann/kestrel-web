@@ -3,26 +3,22 @@ import type { ImageSizeRow, ImagesJob, ImagesStatus, MediaReconcileReport } from
 import { imageSizes } from '#kestrel/blocks'
 import { humanizeRelativeTime } from '#kestrel-admin/utils/humanize'
 import { imagesRegisterAndSync, imagesRetryFailed, mediaReconcile, mediaReconcileDelete, previewPrune, prune, type PrunePreview } from '#kestrel-admin/actions/system'
-import type { ActionDeps } from '#kestrel-admin/actions/types'
 import { toastUnexpected } from '#kestrel-admin/actions/steps/notify'
 
 const { t, lang } = useT()
-const api = useApi()
-const toast = useToast()
-const { can } = useAuth()
-
-const deps: ActionDeps = { api, t, toast }
-const canRegister = computed(() => can('images.write'))
-const canManage = computed(() => can('images.manage'))
-const canSync = computed(() => canRegister.value && canManage.value)
-const canReconcile = computed(() => can('media.manage'))
+const deps = useActionDeps()
+const canSync = computed(() => deps.capabilities.has('registerImageSizes') && deps.capabilities.has('syncImages'))
+const canPrune = computed(() => deps.capabilities.has('pruneImages'))
+const canRetryFailed = computed(() => deps.capabilities.has('retryFailedImages'))
+const canReconcileReport = computed(() => deps.capabilities.has('reconcileMediaReport'))
+const canReconcileDelete = computed(() => deps.capabilities.has('reconcileMediaDelete'))
 
 const status = ref<ImagesStatus | null>(null)
 const loadError = ref<string | null>(null)
 
 async function load() {
   loadError.value = null
-  try { status.value = await api<ImagesStatus>('/admin/images/status') }
+  try { status.value = await deps.api<ImagesStatus>(deps.capabilities.route('imagesStatus')) }
   catch (e) { loadError.value = apiErrorMessage(e) || t('images.loadError') }
 }
 await load()
@@ -203,8 +199,8 @@ function relative(ms: number | null): string { return ms === null ? '—' : huma
             <p class="images__desc">{{ t('images.desc') }}</p>
           </div>
           <div class="images__actions">
-            <KestrelUiButton type="button" size="sm" variant="secondary" :loading="syncBusy" :disabled="!canSync" @click="onSync">{{ t('images.sync') }}</KestrelUiButton>
-            <KestrelUiButton type="button" size="sm" variant="secondary" :disabled="!canManage || !orphanCount" @click="onPreviewPrune">{{ t('images.pruneOrphans') }}</KestrelUiButton>
+            <KestrelUiButton v-if="canSync" type="button" size="sm" variant="secondary" :loading="syncBusy" @click="onSync">{{ t('images.sync') }}</KestrelUiButton>
+            <KestrelUiButton v-if="canPrune" type="button" size="sm" variant="secondary" :disabled="!orphanCount" @click="onPreviewPrune">{{ t('images.pruneOrphans') }}</KestrelUiButton>
           </div>
         </div>
         <p v-if="orphanCount" class="images__orphan-hint">{{ t('images.orphaned', { sizes: orphanCount, variants: status.orphaned.variants }) }}</p>
@@ -246,7 +242,7 @@ function relative(ms: number | null): string { return ms === null ? '—' : huma
             <p class="images__desc">{{ t('images.failedDesc') }}</p>
           </div>
           <div class="images__actions">
-            <KestrelUiButton type="button" size="sm" variant="secondary" icon="rotate-cw" :loading="retryBusy" :disabled="!canManage || !failedVariants" @click="retryConfirmOpen = true">{{ t('images.retryFailed') }}</KestrelUiButton>
+            <KestrelUiButton v-if="canRetryFailed" type="button" size="sm" variant="secondary" icon="rotate-cw" :loading="retryBusy" :disabled="!failedVariants" @click="retryConfirmOpen = true">{{ t('images.retryFailed') }}</KestrelUiButton>
           </div>
         </div>
         <KestrelUiAlert v-if="retryError" variant="error">{{ retryError }}</KestrelUiAlert>
@@ -260,8 +256,8 @@ function relative(ms: number | null): string { return ms === null ? '—' : huma
             <p class="images__desc">{{ t('media.reconcile.desc') }}</p>
           </div>
           <div class="images__actions">
-            <KestrelUiButton type="button" size="sm" variant="secondary" :loading="reconcileBusy" :disabled="!canReconcile" @click="runReconcileCheck">{{ t('media.reconcile.check') }}</KestrelUiButton>
-            <KestrelUiButton type="button" size="sm" variant="secondary" :disabled="!canReconcile || !orphanBlobs.length" @click="reconcileConfirmOpen = true">{{ t('media.reconcile.delete') }}</KestrelUiButton>
+            <KestrelUiButton v-if="canReconcileReport" type="button" size="sm" variant="secondary" :loading="reconcileBusy" @click="runReconcileCheck">{{ t('media.reconcile.check') }}</KestrelUiButton>
+            <KestrelUiButton v-if="canReconcileDelete" type="button" size="sm" variant="secondary" :disabled="!orphanBlobs.length" @click="reconcileConfirmOpen = true">{{ t('media.reconcile.delete') }}</KestrelUiButton>
           </div>
         </div>
         <KestrelUiAlert v-if="reconcileError" variant="error">{{ reconcileError }}</KestrelUiAlert>

@@ -4,14 +4,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { computed } from 'vue'
 import { boundaryCast } from '#kestrel/cast'
 import type { AdminSchema, Document } from '#kestrel-admin/types/api'
-import type { SerializedCollection, SerializedField } from '#kestrel-admin/types/kestrel'
+import type { SerializedField } from '#kestrel-admin/types/kestrel'
 import { en } from '#kestrel-admin/i18n/en'
 import { useToast } from '#kestrel-admin/composables/useToast'
 import CollectionEditor from './CollectionEditor.vue'
 
 const { schema } = vi.hoisted(() => {
   const titleField: SerializedField = { type: 'text', required: true, unique: false, localized: true, label: 'Title' }
-  const widgetsCollection: SerializedCollection = {
+  const widgetsCollection: AdminSchema['collections'][number] = {
     name: 'widgets',
     mode: 'multi',
     translatable: true,
@@ -25,9 +25,13 @@ const { schema } = vi.hoisted(() => {
     placement: 'rail',
     fields: { title: titleField },
     fieldLayout: [{ kind: 'row', fields: ['title'], tracks: [1] }],
+    capabilities: {
+      readAny: { method: 'GET', path: '/admin/widgets/:id' },
+      update: { method: 'PATCH', path: '/widgets/:id' },
+    },
   }
   const rulesField: SerializedField = { type: 'json', required: false, unique: false, localized: false, label: 'Rules' }
-  const redirectsCollection: SerializedCollection = {
+  const redirectsCollection: AdminSchema['collections'][number] = {
     name: 'redirects',
     mode: 'single',
     translatable: false,
@@ -41,11 +45,16 @@ const { schema } = vi.hoisted(() => {
     placement: 'rail',
     fields: { rules: rulesField },
     fieldLayout: [{ kind: 'row', fields: ['rules'], tracks: [1] }],
+    capabilities: {
+      get: { method: 'GET', path: '/redirects' },
+      set: { method: 'PUT', path: '/redirects' },
+    },
   }
   const schema: AdminSchema = {
     locales: { all: ['en'], primary: 'en', prefixPrimary: false },
     collections: [widgetsCollection, redirectsCollection],
     features: [],
+    capabilities: {},
   }
   return { schema }
 })

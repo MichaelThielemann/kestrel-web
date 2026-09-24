@@ -5,9 +5,20 @@ import { computed, nextTick } from 'vue'
 import { boundaryCast } from '#kestrel/cast'
 import { en } from '#kestrel-admin/i18n/en'
 import type { AdminSchema, ListPage, MediaFolder, MediaItem } from '#kestrel-admin/types/api'
+import type { ApiRoute } from '../utils/capabilities'
 import MediaLibrary from './MediaLibrary.vue'
 
-const schema: AdminSchema = { locales: { all: ['en'], primary: 'en', prefixPrimary: false }, collections: [], features: [] }
+const schema: AdminSchema = {
+  locales: { all: ['en'], primary: 'en', prefixPrimary: false },
+  collections: [],
+  features: [],
+  capabilities: {
+    listMediaFolders: { method: 'GET', path: '/media/folders' },
+    listMedia: { method: 'GET', path: '/media' },
+    uploadMedia: { method: 'POST', path: '/media' },
+    deleteMedia: { method: 'DELETE', path: '/media/:id' },
+  },
+}
 mockNuxtImport('useSchema', () => () => ({
   schema: computed(() => schema),
   error: computed(() => null),
@@ -20,7 +31,7 @@ const uploadControl = vi.hoisted(() => {
     deliver: ((value: { id: string, contentType?: string }) => void) | null
     fail: ((error: unknown) => void) | null
   } = { deliver: null, fail: null }
-  const transport = (_path: string, _body: FormData, onProgress?: (progress: { loaded: number, total: number, percent: number }) => void) => {
+  const transport = (_route: ApiRoute, _body: FormData, onProgress?: (progress: { loaded: number, total: number, percent: number }) => void) => {
     onProgress?.({ loaded: 5, total: 10, percent: 50 })
     return new Promise<{ id: string, contentType?: string }>((resolve, reject) => {
       state.deliver = (value) => {
@@ -42,6 +53,11 @@ function selectFile(input: HTMLInputElement, file: File) {
 
 describe('MediaLibrary upload status', () => {
   const unregisterAll: (() => void)[] = []
+
+  beforeEach(async () => {
+    unregisterAll.push(registerEndpoint('/api/admin/schema', { method: 'GET', handler: () => schema }))
+    await useSchema().load()
+  })
 
   afterEach(() => {
     unregisterAll.splice(0).forEach((unregister) => unregister())
@@ -304,8 +320,14 @@ describe('media components do not branch on the delivery mode', () => {
 describe('MediaLibrary viewer delete flow', () => {
   const unregisterAll: (() => void)[] = []
 
+  beforeEach(async () => {
+    unregisterAll.push(registerEndpoint('/api/admin/schema', { method: 'GET', handler: () => schema }))
+    await useSchema().load()
+  })
+
   afterEach(() => {
     unregisterAll.splice(0).forEach((unregister) => unregister())
+    useSchema().clear()
   })
 
   it('deletes the open file through the same dialog as the context menu, then closes the viewer and refreshes the list', async () => {
@@ -326,6 +348,7 @@ describe('MediaLibrary viewer delete flow', () => {
       alt: null,
       title: null,
       description: null,
+      variantCounts: { done: 0, pending: 0, error: 0, failed: 0 },
       variants: [],
       variantCounts: { done: 0, pending: 0, error: 0, failed: 0 },
     }

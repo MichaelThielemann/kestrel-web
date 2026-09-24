@@ -16,30 +16,27 @@ function isFeatureTab(id: string): id is FeatureTabId {
 const route = useRoute()
 const router = useRouter()
 const { t, lang } = useT()
-const api = useApi()
+const api = useAdminApi()
 const toast = useToast()
-const { isAdmin, can } = useAuth()
-const { has } = useFeatures()
+const capabilities = useCapabilities()
 const { collections } = useCollections()
-const hasReferences = computed(() => has('references') || has('links'))
-const canDeliver = computed(() => has('delivery') && can('pages.manage'))
-const canRedirects = computed(() => has('redirects') && (isAdmin.value || can('redirects.write')))
-const canReplication = computed(() => has('replication') && isAdmin.value)
-const canMigrations = computed(() => has('migrations') && isAdmin.value)
-const canEvents = computed(() => isAdmin.value)
-const canImages = computed(() => has('images') && can('images.manage'))
+const hasReferences = computed(() => capabilities.has('brokenReferences') || capabilities.has('brokenLinks'))
+const canDeliver = computed(() => capabilities.has('publishAllPages'))
+const canReplication = computed(() => capabilities.has('replicationStatus'))
+const canMigrations = computed(() => capabilities.has('listMigrations'))
+const canEvents = computed(() => capabilities.has('eventsDeliveryStatus'))
+const canImages = computed(() => capabilities.has('imagesStatus'))
 const localeParam = computed(() => (typeof route.query.locale === 'string' ? route.query.locale.trim() || undefined : undefined))
 
-const systemCollections = computed(() => collections.value.filter((c) => c.mode === 'single' && c.placement === 'system'))
+const systemCollections = computed(() => collections.value.filter((entry) => entry.mode === 'single' && entry.placement === 'system'))
 const collectionTabIds = computed(() => {
-  const names = systemCollections.value.map((c) => c.name)
+  const names = systemCollections.value.map((entry) => entry.name)
   const rest = names.filter((name) => name !== 'settings')
   return names.includes('settings') ? ['settings', ...rest] : rest
 })
 
 function collectionVisible(name: string): boolean {
-  if (name === 'redirects') return canRedirects.value
-  return true
+  return capabilities.hasVerb(name, 'get')
 }
 
 const TAB_IDS = computed(() => [...collectionTabIds.value, ...FEATURE_TAB_IDS])
@@ -54,7 +51,7 @@ function tabTitle(tab: string): string {
 }
 
 const visibleTabs = computed<string[]>(() => TAB_IDS.value.filter((id) => {
-  if (id === 'users') return isAdmin.value
+  if (id === 'users') return capabilities.has('listUsers')
   if (id === 'references') return hasReferences.value
   if (id === 'delivery') return canDeliver.value
   if (id === 'replication') return canReplication.value
@@ -68,7 +65,7 @@ const activeTab = computed<string>(() => {
   const fallback = visibleTabs.value[0] ?? ''
   const raw = typeof route.query.tab === 'string' ? route.query.tab : ''
   const id = TAB_IDS.value.includes(raw) ? raw : fallback
-  if (id === 'users' && !isAdmin.value) return fallback
+  if (id === 'users' && !capabilities.has('listUsers')) return fallback
   if (id === 'references' && !hasReferences.value) return fallback
   if (id === 'delivery' && !canDeliver.value) return fallback
   if (id === 'replication' && !canReplication.value) return fallback
@@ -98,7 +95,7 @@ async function setTab(value: unknown) {
       tab: id,
       query: route.query,
     })
-    toastUnexpected({ api, t, toast }, result)
+    toastUnexpected({ api, t, toast, capabilities }, result)
   } finally {
     pendingTab = null
   }

@@ -9,7 +9,9 @@ const props = defineProps<{ open: boolean; file: MediaItem | null; busy?: boolea
 const emit = defineEmits<{ 'update:open': [boolean]; save: [MediaViewerSave]; delete: [] }>()
 const { t, lang } = useT()
 const { locales, primary } = useContentLocales()
-const api = useApi()
+const api = useAdminApi()
+const capabilities = useCapabilities()
+const mediaUrl = computed(() => (props.file ? capabilities.mediaFileUrl(props.file.id) : null))
 
 const isImage = computed(() => props.file?.contentType.startsWith('image/') ?? false)
 const ext = computed(() => (props.file?.filename.split('.').pop() ?? '').toUpperCase())
@@ -60,10 +62,11 @@ async function loadMeta(locale: string) {
     alt.value = f.alt ?? ''; title.value = f.title ?? ''; description.value = f.description ?? ''
     return
   }
+  if (!capabilities.has('getMedia')) return
   metaLoading.value = true
   metaError.value = ''
   try {
-    const item = await api<MediaItem>(`/media/${encodeURIComponent(f.id)}`, { query: { locale } })
+    const item = await api<MediaItem>(capabilities.route('getMedia', { id: f.id }), { query: { locale } })
     loaded.value = { alt: item.alt, title: item.title, description: item.description }
     alt.value = item.alt ?? ''; title.value = item.title ?? ''; description.value = item.description ?? ''
   } catch {
@@ -108,8 +111,9 @@ function save() {
   <KestrelUiDialog :open="open" size="xl" :title="file?.filename ?? ''" @update:open="(v) => emit('update:open', v)">
     <div v-if="file" class="media-viewer">
       <div class="media-viewer__preview">
-        <img v-if="isImage" :src="mediaFileUrl(file.id)" :alt="file.alt ?? file.filename">
-        <a v-else class="media-viewer__ext" :href="mediaFileUrl(file.id)" target="_blank" rel="noopener noreferrer">{{ ext }}</a>
+        <img v-if="isImage && mediaUrl" :src="mediaUrl" :alt="file.alt ?? file.filename">
+        <a v-else-if="mediaUrl" class="media-viewer__ext" :href="mediaUrl" target="_blank" rel="noopener noreferrer">{{ ext }}</a>
+        <span v-else class="media-viewer__ext" aria-hidden="true"><KestrelUiIcon name="file-text" :size="32" /></span>
       </div>
       <aside class="media-viewer__details" tabindex="0" :aria-label="t('mediaViewer.detailsRegionLabel')">
         <dl class="media-viewer__info">

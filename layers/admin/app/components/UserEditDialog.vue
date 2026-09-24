@@ -2,17 +2,13 @@
 import { computed, ref, toRef } from 'vue'
 import type { User } from '#kestrel-admin/types/api'
 import { userUpdate } from '#kestrel-admin/actions/system'
-import type { ActionDeps } from '#kestrel-admin/actions/types'
 import { toastUnexpected } from '#kestrel-admin/actions/steps/notify'
 
 const props = withDefaults(defineProps<{ user: User | null, knownRoles?: string[], self?: boolean }>(), { knownRoles: () => [], self: false })
 const emit = defineEmits<{ 'update:user': [User | null], saved: [] }>()
 
 const { t } = useT()
-const api = useApi()
-const toast = useToast()
-
-const deps: ActionDeps = { api, t, toast }
+const deps = useActionDeps()
 
 const knownRoles = computed<readonly string[]>(() => props.knownRoles)
 const {
@@ -72,22 +68,24 @@ async function submit() {
         </template>
       </KestrelUiField>
 
-      <KestrelUiField :label="t('users.accountActive')" :hint="self ? t('users.selfActiveHint') : undefined">
+      <KestrelUiField v-if="deps.capabilities.has(active ? 'deactivateUser' : 'activateUser')" :label="t('users.accountActive')" :hint="self ? t('users.selfActiveHint') : undefined">
         <template #default="f">
           <KestrelUiCheckbox v-model="active" :disabled="busy || self" v-bind="f" />
         </template>
       </KestrelUiField>
 
-      <KestrelUiField :label="t('users.newPassword')" :hint="t('users.passwordOptionalHint')">
-        <template #default="f">
-          <KestrelUiTextInput v-model="password" type="password" autocomplete="new-password" v-bind="f" />
-        </template>
-      </KestrelUiField>
-      <KestrelUiField :label="t('password.confirm')" :error="confirmError">
-        <template #default="f">
-          <KestrelUiTextInput v-model="passwordConfirm" type="password" autocomplete="new-password" v-bind="f" />
-        </template>
-      </KestrelUiField>
+      <template v-if="deps.capabilities.has('setPassword')">
+        <KestrelUiField :label="t('users.newPassword')" :hint="t('users.passwordOptionalHint')">
+          <template #default="f">
+            <KestrelUiTextInput v-model="password" type="password" autocomplete="new-password" v-bind="f" />
+          </template>
+        </KestrelUiField>
+        <KestrelUiField :label="t('password.confirm')" :error="confirmError">
+          <template #default="f">
+            <KestrelUiTextInput v-model="passwordConfirm" type="password" autocomplete="new-password" v-bind="f" />
+          </template>
+        </KestrelUiField>
+      </template>
     </form>
     <template #footer>
       <KestrelUiButton variant="ghost" :disabled="busy" @click="close">{{ t('common.cancel') }}</KestrelUiButton>

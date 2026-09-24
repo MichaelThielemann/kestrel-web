@@ -18,7 +18,9 @@ const { primary } = useContentLocales()
 
 const { t, lang } = useT()
 const { collections } = useCollections()
+const capabilities = useCapabilities()
 const def = computed(() => collections.value.find((c) => c.name === collection) ?? null)
+const hasCapability = computed(() => def.value !== null && capabilities.hasVerb(collection, def.value.mode === 'single' ? 'get' : 'listAll'))
 
 const listLocale = computed(() => (def.value?.translatable ? (localeParam.value || primary.value) : undefined))
 const singletonTitle = computed(() => resolveLocalized(def.value?.label?.singular, lang.value) ?? collection)
@@ -31,6 +33,7 @@ if (def.value?.mode === 'single' && def.value.placement === 'system') {
 <template>
   <section class="collection">
     <p v-if="!def" class="collection__missing">{{ t('collection.unknown', { name: collection }) }}</p>
+    <p v-else-if="!hasCapability" class="collection__missing">{{ t('capability.unavailable') }}</p>
 
     <template v-else-if="def.mode === 'single'">
       <KestrelSingletonEditor v-if="def.placement !== 'system'" :collection="collection" :title="singletonTitle" :locale-param="def.translatable ? localeParam : undefined" />

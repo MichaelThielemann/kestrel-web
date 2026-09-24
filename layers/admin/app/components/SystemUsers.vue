@@ -1,16 +1,12 @@
 <script setup lang="ts">
 import type { User } from '#kestrel-admin/types/api'
-import type { MenuItem } from '#kestrel-admin/components/ui/Menu.vue'
 import { userToggle } from '#kestrel-admin/actions/system'
-import type { ActionDeps } from '#kestrel-admin/actions/types'
 import { toastUnexpected } from '#kestrel-admin/actions/steps/notify'
+import { userRowMenu } from '../utils/user-row-menu'
 
 const { t } = useT()
-const api = useApi()
-const toast = useToast()
+const deps = useActionDeps()
 const { identity } = useAuth()
-
-const deps: ActionDeps = { api, t, toast }
 
 const users = ref<User[]>([])
 const loadError = ref<string | null>(null)
@@ -18,7 +14,7 @@ const busyId = ref<string | null>(null)
 
 async function load() {
   loadError.value = null
-  try { users.value = await api<User[]>('/users') }
+  try { users.value = await deps.api<User[]>(deps.capabilities.route('listUsers')) }
   catch (e) { loadError.value = apiErrorMessage(e) }
 }
 await load()
@@ -30,12 +26,8 @@ const deleteUser = ref<User | null>(null)
 const knownRoles = computed(() => [...new Set(users.value.flatMap((u) => u.roles))])
 function isSelf(u: User) { return identity.value?.id === u.id }
 
-function rowMenu(u: User): MenuItem[] {
-  return [
-    { value: 'edit', label: t('users.edit') },
-    { value: 'toggle', label: u.active ? t('users.deactivate') : t('users.activate'), disabled: u.active && isSelf(u) },
-    { value: 'delete', label: t('users.delete'), danger: true, disabled: isSelf(u) },
-  ]
+function rowMenu(u: User) {
+  return userRowMenu(u, { self: isSelf(u), capabilities: deps.capabilities, t })
 }
 
 async function toggleActive(u: User) {
@@ -62,7 +54,7 @@ function formatDate(ms: number) { return dateFmt.format(new Date(ms)) }
 <template>
   <section class="users">
     <div class="users__bar">
-      <KestrelUiButton type="button" variant="primary" size="sm" icon="plus" @click="newOpen = true">{{ t('users.new') }}</KestrelUiButton>
+      <KestrelUiButton v-if="deps.capabilities.has('createUser')" type="button" variant="primary" size="sm" icon="plus" @click="newOpen = true">{{ t('users.new') }}</KestrelUiButton>
     </div>
 
     <KestrelUiAlert v-if="loadError" variant="error">{{ loadError }}</KestrelUiAlert>

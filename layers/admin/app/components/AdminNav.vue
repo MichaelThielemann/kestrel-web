@@ -5,12 +5,13 @@ const { t, lang } = useT()
 const { collections } = useCollections()
 const { collapsed } = useRailCollapsed()
 const route = useRoute()
+const capabilities = useCapabilities()
 </script>
 
 <template>
   <nav class="admin-nav" :aria-label="t('nav.collections')">
     <NuxtLink
-      v-for="c in collections.filter((c) => c.nav !== false && c.placement === 'rail')"
+      v-for="c in collections.filter((c) => c.nav !== false && c.placement === 'rail' && capabilities.hasVerb(c.name, 'listAll'))"
       :key="c.name"
       :to="`/admin/${c.name}`"
       class="admin-nav__link rail__item"
@@ -22,6 +23,7 @@ const route = useRoute()
     </NuxtLink>
 
     <NuxtLink
+      v-if="capabilities.has('listMedia')"
       to="/admin/media"
       class="admin-nav__link rail__item"
       :class="{ 'router-link-active': isNavItemActive(route.path, '/admin/media') }"

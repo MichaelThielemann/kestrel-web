@@ -7,7 +7,8 @@ const props = defineProps<{
   collection: string
   id: string
   locale: string
-  canWrite: boolean
+  canLabel: boolean
+  canRestore: boolean
   dirty: boolean
   values: Record<string, unknown>
   fieldKeys: readonly string[]
@@ -91,7 +92,8 @@ async function onLabel(label: string | null): Promise<void> {
           :busy="history.busy.value"
           :is-head="selectedRow?.head ?? false"
           :branch="selectedRow?.branch ?? 1"
-          :can-write="canWrite"
+          :can-label="canLabel"
+          :can-restore="canRestore"
           :dirty="dirty"
           :values="values"
           :field-keys="fieldKeys"

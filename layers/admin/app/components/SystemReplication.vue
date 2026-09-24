@@ -4,14 +4,12 @@ import { humanizeSize } from '#kestrel-admin/utils/library'
 import { humanizeRelativeTime } from '#kestrel-admin/utils/humanize'
 import { replicationRestore, replicationSnapshot } from '#kestrel-admin/actions/system'
 import type { RestoreTarget } from '#kestrel-admin/actions/system'
-import type { ActionDeps } from '#kestrel-admin/actions/types'
 import { toastUnexpected } from '#kestrel-admin/actions/steps/notify'
 
 const { t, lang } = useT()
-const api = useApi()
-const toast = useToast()
-
-const deps: ActionDeps = { api, t, toast }
+const deps = useActionDeps()
+const canSnapshot = computed(() => deps.capabilities.has('replicationSnapshot'))
+const canRestore = computed(() => deps.capabilities.has('replicationRestore'))
 
 const status = ref<ReplicationStatus | null>(null)
 const points = ref<ReplicationPoint[]>([])
@@ -28,8 +26,8 @@ async function load() {
   notFound.value = false
   try {
     const [s, p] = await Promise.all([
-      api<ReplicationStatus>('/admin/replication/status'),
-      api<ReplicationPoint[]>('/admin/replication/points'),
+      deps.api<ReplicationStatus>(deps.capabilities.route('replicationStatus')),
+      deps.api<ReplicationPoint[]>(deps.capabilities.route('replicationPoints')),
     ])
     status.value = s
     points.value = p
@@ -115,10 +113,10 @@ function relative(ms: number | null): string { return ms === null ? '—' : huma
       </div>
 
       <div class="replication__bar">
-        <KestrelUiButton type="button" variant="secondary" size="sm" icon="upload" :loading="snapshotBusy" @click="snapshotNow">
+        <KestrelUiButton v-if="canSnapshot" type="button" variant="secondary" size="sm" icon="upload" :loading="snapshotBusy" @click="snapshotNow">
           {{ t('replication.snapshotNow') }}
         </KestrelUiButton>
-        <div class="replication__restore-time">
+        <div v-if="canRestore" class="replication__restore-time">
           <label class="replication__restore-time-label" for="replication-restore-at">{{ t('replication.restoreToTime') }}</label>
           <KestrelUiTextInput id="replication-restore-at" v-model="restoreAt" type="datetime-local" slim />
           <KestrelUiButton
@@ -151,6 +149,7 @@ function relative(ms: number | null): string { return ms === null ? '—' : huma
               <td class="ui-table__col--actions">
                 <div class="ui-table__actions">
                   <KestrelUiButton
+                    v-if="canRestore"
                     variant="ghost"
                     size="sm"
                     icon="rotate-cw"

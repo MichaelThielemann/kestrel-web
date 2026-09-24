@@ -45,6 +45,7 @@ export const en = {
   'dash.mode.collection': 'Collection',
 
   'collection.unknown': 'Unknown collection: {name}',
+  'capability.unavailable': 'This view is not available to your account.',
 
   'editor.back': '{collection}',
   'editor.newRecord': 'New {collection}',

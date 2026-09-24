@@ -22,6 +22,7 @@ const file: MediaItem = {
   alt: null,
   title: null,
   description: null,
+  variantCounts: { done: 0, pending: 0, error: 0, failed: 0 },
   variants: [],
   variantCounts: { done: 0, pending: 0, error: 0, failed: 0 },
 }

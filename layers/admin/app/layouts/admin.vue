@@ -5,10 +5,10 @@ import { installAdminClient } from '../utils/admin-client'
 
 installAdminClient()
 useAdminBodyClass()
-const { authenticated, can } = useAuth()
+const { authenticated } = useAuth()
+const capabilities = useCapabilities()
 const { collapsed: cookieCollapsed, toggle: toggleCookieCollapsed } = useRailCollapsed()
 const isPhone = useIsPhone()
-const { has } = useFeatures()
 const { theme } = useTheme()
 const { t } = useT()
 const route = useRoute()
@@ -71,7 +71,7 @@ useHead(() => ({
       <div class="rail__foot">
         <KestrelAdminAccount />
         <NuxtLink
-          v-if="has('insights') && can('insights.read')"
+          v-if="capabilities.has('insightsManifest')"
           to="/admin/insights"
           class="rail__item"
           :class="{ 'router-link-active': isNavItemActive(route.path, '/admin/insights') }"

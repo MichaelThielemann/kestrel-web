@@ -7,14 +7,13 @@ definePageMeta({ layout: 'admin', middleware: 'admin-auth' })
 interface DashCard { name: string; icon: string; label: string; mode: 'multi' | 'single'; placement: 'rail' | 'system' | 'account'; count: number | null; countError: string | null }
 
 const { t, lang } = useT()
-const { isAdmin } = useAuth()
-const { has } = useFeatures()
+const capabilities = useCapabilities()
 const { collections } = useCollections()
-const api = useApi()
+const api = useAdminApi()
 
 const cards = ref<DashCard[]>(
   collections.value
-    .filter((c) => c.nav !== false && c.placement !== 'account')
+    .filter((c) => c.nav !== false && c.placement !== 'account' && capabilities.hasVerb(c.name, c.mode === 'single' ? 'get' : 'listAll'))
     .map((c) => ({
       name: c.name,
       icon: c.icon ?? 'file-text',
@@ -38,26 +37,28 @@ async function loadCounts() {
       .filter((c) => c.mode === 'multi')
       .map(async (c) => {
         try {
-          c.count = (await api<ListPage<unknown>>(`/admin/${c.name}`, { query: { limit: 1 } })).total
+          c.count = (await api<ListPage<unknown>>(capabilities.verbRoute(c.name, 'listAll'), { query: { limit: 1 } })).total
           c.countError = null
         } catch (e) {
           c.count = null
           c.countError = apiErrorMessage(e)
         }
       }),
-    (async () => {
-      try {
-        mediaCount.value = (await api<ListPage<unknown>>('/media', { query: { limit: 1 } })).total
-        mediaCountError.value = null
-      } catch (e) {
-        mediaCount.value = null
-        mediaCountError.value = apiErrorMessage(e)
-      }
-    })(),
-    isAdmin.value
+    capabilities.has('listMedia')
       ? (async () => {
           try {
-            usersCount.value = (await api<User[]>('/users')).length
+            mediaCount.value = (await api<ListPage<unknown>>(capabilities.route('listMedia'), { query: { limit: 1 } })).total
+            mediaCountError.value = null
+          } catch (e) {
+            mediaCount.value = null
+            mediaCountError.value = apiErrorMessage(e)
+          }
+        })()
+      : Promise.resolve(),
+    capabilities.has('listUsers')
+      ? (async () => {
+          try {
+            usersCount.value = (await api<User[]>(capabilities.route('listUsers'))).length
             usersCountError.value = null
           } catch (e) {
             usersCount.value = null
@@ -71,8 +72,8 @@ async function loadCounts() {
 async function loadBroken() {
   try {
     const [refs, links] = await Promise.all([
-      has('references') ? api<BrokenReference[]>('/admin/references/broken') : [],
-      has('links') ? api<BrokenLink[]>('/admin/links/broken') : [],
+      capabilities.has('brokenReferences') ? api<BrokenReference[]>(capabilities.route('brokenReferences')) : [],
+      capabilities.has('brokenLinks') ? api<BrokenLink[]>(capabilities.route('brokenLinks')) : [],
     ])
     brokenCount.value = refs.length + links.filter((l) => l.ok === false).length
     brokenError.value = null
@@ -107,7 +108,7 @@ await Promise.all([loadCounts(), loadBroken()])
           <span v-if="c.countError" class="dash__tile-error" role="alert">{{ c.countError }}</span>
         </NuxtLink>
       </li>
-      <li>
+      <li v-if="capabilities.has('listMedia')">
         <NuxtLink to="/admin/media" class="dash__card">
           <KestrelUiIcon name="image" class="dash__icon" size="1.5rem" />
           <span class="dash__name">{{ t('media.title') }}</span>
@@ -115,7 +116,7 @@ await Promise.all([loadCounts(), loadBroken()])
           <span v-if="mediaCountError" class="dash__tile-error" role="alert">{{ mediaCountError }}</span>
         </NuxtLink>
       </li>
-      <li v-if="isAdmin">
+      <li v-if="capabilities.has('listUsers')">
         <NuxtLink to="/admin/system?tab=users" class="dash__card">
           <KestrelUiIcon name="users" class="dash__icon" size="1.5rem" />
           <span class="dash__name">{{ t('users.title') }}</span>

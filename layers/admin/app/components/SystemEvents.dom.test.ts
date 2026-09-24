@@ -1,7 +1,20 @@
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { afterEach, describe, expect, it } from 'vitest'
-import type { DeadEvent, EventsQueueStatus } from '#kestrel-admin/types/api'
+import type { AdminSchema, DeadEvent, EventsQueueStatus } from '#kestrel-admin/types/api'
+import { useSchema } from '../composables/useSchema'
 import SystemEvents from './SystemEvents.vue'
+
+const schema: AdminSchema = {
+  locales: { all: ['en'], primary: 'en', prefixPrimary: false },
+  collections: [],
+  features: [],
+  capabilities: {
+    eventsQueueStatus: { method: 'GET', path: '/admin/events/status' },
+    eventsDead: { method: 'GET', path: '/admin/events/dead' },
+    eventsRetryDead: { method: 'POST', path: '/admin/events/retry' },
+    eventsRetryOne: { method: 'POST', path: '/admin/events/dead/:id/retry' },
+  },
+}
 
 const status: EventsQueueStatus = {
   pending: 1,
@@ -21,11 +34,14 @@ describe('SystemEvents', () => {
 
   afterEach(() => {
     unregisterAll.splice(0).forEach((unregister) => unregister())
+    useSchema().clear()
   })
 
   it('names the pipeline and the run each dead-letter row belongs to', async () => {
+    unregisterAll.push(registerEndpoint('/api/admin/schema', { method: 'GET', handler: () => schema }))
     unregisterAll.push(registerEndpoint('/api/admin/events/status', { method: 'GET', handler: () => status }))
     unregisterAll.push(registerEndpoint('/api/admin/events/dead', { method: 'GET', handler: () => ({ items: dead }) }))
+    await useSchema().load()
 
     const wrapper = await mountSuspended(SystemEvents)
 

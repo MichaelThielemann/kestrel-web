@@ -47,6 +47,7 @@ export const de: Record<CatalogKey, string> = {
   'dash.mode.collection': 'Collection',
 
   'collection.unknown': 'Unbekannte Collection: {name}',
+  'capability.unavailable': 'Diese Ansicht ist für Ihr Konto nicht verfügbar.',
 
   'editor.back': '{collection}',
   'editor.newRecord': '{collection} anlegen',

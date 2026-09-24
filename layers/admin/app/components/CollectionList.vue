@@ -8,8 +8,10 @@ const props = defineProps<{ schema: SerializedCollection; locale?: string }>()
 
 const { t, lang } = useT()
 const { locales, primary } = useContentLocales()
+const capabilities = useCapabilities()
 
 const collection = computed(() => props.schema.name)
+const canCreate = computed(() => capabilities.hasVerb(collection.value, 'create'))
 const label = computed(() => resolveLocalized(props.schema.label?.singular, lang.value) ?? props.schema.name)
 
 const newLabel = computed(() => resolveLocalized(props.schema.label?.new, lang.value) ?? t('common.new', { label: label.value }))
@@ -88,7 +90,7 @@ await fetchRows()
         @clear="clearSelection"
       />
 
-      <NuxtLink :to="`/admin/${collection}/new${localeQuery}`" class="list__new">{{ newLabel }}</NuxtLink>
+      <NuxtLink v-if="canCreate" :to="`/admin/${collection}/new${localeQuery}`" class="list__new">{{ newLabel }}</NuxtLink>
     </div>
 
     <KestrelUiAlert v-if="error" variant="error" class="list__error">
@@ -131,7 +133,7 @@ await fetchRows()
         :description="t('list.empty.desc', { name: label })"
       >
         <template #action>
-          <NuxtLink :to="`/admin/${collection}/new${localeQuery}`" class="list__new">{{ newLabel }}</NuxtLink>
+          <NuxtLink v-if="canCreate" :to="`/admin/${collection}/new${localeQuery}`" class="list__new">{{ newLabel }}</NuxtLink>
         </template>
       </KestrelUiEmptyState>
     </div>

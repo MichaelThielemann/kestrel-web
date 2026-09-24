@@ -1,14 +1,11 @@
 <script setup lang="ts">
 import type { MigrationsDryRunResult, MigrationsListResult } from '#kestrel-admin/types/api'
 import { migrationsApply, migrationsDryRun } from '#kestrel-admin/actions/system'
-import type { ActionDeps } from '#kestrel-admin/actions/types'
 import { toastUnexpected } from '#kestrel-admin/actions/steps/notify'
 
 const { t } = useT()
-const api = useApi()
-const toast = useToast()
-
-const deps: ActionDeps = { api, t, toast }
+const deps = useActionDeps()
+const canApply = computed(() => deps.capabilities.has('applyMigrations'))
 
 const list = ref<MigrationsListResult | null>(null)
 const loadError = ref<string | null>(null)
@@ -20,7 +17,7 @@ const confirmApply = ref(false)
 async function load() {
   loadError.value = null
   try {
-    list.value = await api<MigrationsListResult>('/admin/migrations')
+    list.value = await deps.api<MigrationsListResult>(deps.capabilities.route('listMigrations'))
   } catch (e) {
     loadError.value = apiErrorMessage(e)
   }
@@ -58,7 +55,7 @@ function absolute(ms: number): string { return dateFmt.format(new Date(ms)) }
     <KestrelUiAlert v-if="loadError" variant="error">{{ loadError }}</KestrelUiAlert>
 
     <template v-else-if="list">
-      <div class="migrations__bar">
+      <div v-if="canApply" class="migrations__bar">
         <KestrelUiButton
           type="button"
           variant="secondary"

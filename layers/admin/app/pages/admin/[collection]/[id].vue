@@ -5,7 +5,7 @@ import { localePath } from '#kestrel-admin/utils/kestrel'
 import type { EditorExpose } from '#kestrel-admin/utils/editor-expose'
 import type { BatchDeleteReport } from '#kestrel-admin/utils/collection-ops'
 import { deleteRecord, deleteTranslation, discardRecord, leaveEditor, previewDeleteRecord } from '#kestrel-admin/actions/editor'
-import type { ActionDeps, NavigatePort } from '#kestrel-admin/actions/types'
+import type { NavigatePort } from '#kestrel-admin/actions/types'
 import { toastUnexpected } from '#kestrel-admin/actions/steps/notify'
 import { boundaryCast } from '#kestrel/cast'
 
@@ -25,16 +25,15 @@ const localeParam = computed(() => (typeof route.query.locale === 'string' ? rou
 const listPath = computed(() => `/admin/${collection}${localeParam.value ? `?locale=${localeParam.value}` : ''}`)
 
 const { t, lang } = useT()
-const toast = useToast()
-const api = useApi()
-const { can } = useAuth()
+const deps = useActionDeps()
+const capabilities = deps.capabilities
 
-const deps: ActionDeps = { api, t, toast }
 const navigate: NavigatePort = async (d) => (d.kind === 'path' ? navigateTo(d.to) : router.replace({ query: d.query }))
 
 const { locales: contentLocales, primary: primaryLocale, prefixPrimary } = useContentLocales()
 const { schema } = useSchema()
 const def = computed(() => findCollection(schema.value, collection) ?? null)
+const hasCapability = computed(() => capabilities.hasVerb(collection, id === 'new' ? 'create' : 'readAny'))
 const workflow = computed(() => def.value?.workflow)
 const singular = computed(() => resolveLocalized(def.value?.label?.singular, lang.value) ?? collection)
 const plural = computed(() => resolveLocalized(def.value?.label?.plural, lang.value) ?? collection)
@@ -77,10 +76,10 @@ const deleteOps = {
 const canDeleteTranslation = computed(() => def.value?.translatable === true && def.value?.mode === 'multi' && id !== 'new')
 const currentLocale = computed(() => editorRef.value?.locale ?? localeParam.value ?? primaryLocale.value)
 
-const { has: hasFeature } = useFeatures()
 const historyOpen = ref(false)
-const canManage = computed(() => can(`${collection}.manage`))
-const showHistory = computed(() => hasFeature('revisions') && id !== 'new' && def.value?.mode === 'multi' && canManage.value)
+const showHistory = computed(() => id !== 'new' && capabilities.hasVerb(collection, 'revisions'))
+const canLabel = computed(() => capabilities.hasVerb(collection, 'labelRevision'))
+const canRestore = computed(() => capabilities.hasVerb(collection, 'restoreRevision'))
 
 const fieldLabels = computed(() =>
   Object.fromEntries(
@@ -127,7 +126,7 @@ async function toList() {
 }
 
 async function onDelete() {
-  const r = await runAction(previewDeleteRecord, { deps, collection, ids: [id], allowed: can('pages.manage') })
+  const r = await runAction(previewDeleteRecord, { deps, collection, ids: [id], capability: def.value?.capabilities.referrers })
   toastUnexpected(deps, r)
   deleteReport.value = r.ok ? (r.result ?? null) : null
   deleteOpen.value = true
@@ -165,6 +164,8 @@ async function confirmDeleteTranslation() {
 
 <template>
   <section class="record">
+    <p v-if="!hasCapability" class="record__missing">{{ t('capability.unavailable') }}</p>
+    <template v-else>
     <div class="record__head">
       <NuxtLink :to="listPath" class="record__back">
         <KestrelUiIcon name="arrow-left" :size="16" />
@@ -218,7 +219,8 @@ async function confirmDeleteTranslation() {
       :collection="collection"
       :id="id"
       :locale="currentLocale"
-      :can-write="can(`${collection}.write`)"
+      :can-label="canLabel"
+      :can-restore="canRestore"
       :dirty="editorRef?.dirty ?? false"
       :values="editorRef?.values ?? {}"
       :field-keys="editorRef?.fieldKeys ?? []"
@@ -227,6 +229,7 @@ async function confirmDeleteTranslation() {
       @update:open="historyOpen = $event"
       @restored="onRestored"
     />
+    </template>
   </section>
 </template>
 
@@ -237,6 +240,10 @@ async function confirmDeleteTranslation() {
   gap: var(--space-2);
 
   overflow: hidden;
+
+  &__missing {
+    color: var(--color-text-muted);
+  }
 
   &__back {
     display: inline-flex;

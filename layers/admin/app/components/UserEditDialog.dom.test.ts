@@ -1,13 +1,26 @@
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { readBody } from 'h3'
-import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { nextTick } from 'vue'
 import { boundaryCast } from '#kestrel/cast'
-import type { User } from '#kestrel-admin/types/api'
+import type { AdminSchema, User } from '#kestrel-admin/types/api'
 import { en } from '#kestrel-admin/i18n/en'
+import { useSchema } from '../composables/useSchema'
 import UserEditDialog from './UserEditDialog.vue'
 
 const user: User = { id: 'u1', username: 'bob', roles: ['editor'], active: true, createdAt: 0 }
+
+const schema: AdminSchema = {
+  locales: { all: ['en'], primary: 'en', prefixPrimary: false },
+  collections: [],
+  features: [],
+  capabilities: {
+    updateUser: { method: 'PATCH', path: '/users/:id' },
+    setPassword: { method: 'PUT', path: '/users/:id/password' },
+    activateUser: { method: 'POST', path: '/users/:id/activate' },
+    deactivateUser: { method: 'POST', path: '/users/:id/deactivate' },
+  },
+}
 
 function setInputValue(input: HTMLInputElement, value: string) {
   input.value = value
@@ -23,8 +36,14 @@ function submitForm() {
 describe('UserEditDialog', () => {
   const unregisterAll: (() => void)[] = []
 
+  beforeEach(async () => {
+    unregisterAll.push(registerEndpoint('/api/admin/schema', { method: 'GET', handler: () => schema }))
+    await useSchema().load()
+  })
+
   afterEach(() => {
     unregisterAll.splice(0).forEach((unregister) => unregister())
+    useSchema().clear()
   })
 
   it('offers every known role as a checkbox and patches the ones that are ticked', async () => {

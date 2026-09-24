@@ -25,15 +25,16 @@ const isSelectedItem = (i: LibraryItem) => (props.pick && props.multiple
 
 const { t } = useT()
 const toast = useToast()
-const api = useApi()
-const { can } = useAuth()
+const api = useAdminApi()
+const capabilities = useCapabilities()
+const { schema } = useSchema()
 
 const mediaRefresh: RefreshPort = () => { void lib.fetchLibrary(); lib.clear() }
 const opsBusy = ref(false)
 const opError = ref<string | null>(null)
 const opConflict = ref<ReferenceTo[] | null>(null)
 
-const mediaDeps = (): ActionDeps => ({ api, t, toast })
+const mediaDeps = (): ActionDeps => ({ api, t, toast, capabilities })
 const opsPort: BusyPort = {
   setBusy: (on) => { opsBusy.value = on },
   busy: () => opsBusy.value,
@@ -186,7 +187,7 @@ async function askDelete(opItems: OpItem[], origin: 'menu' | 'viewer' = 'menu') 
   deleteInfo.value = deleteSummary(resolved, opItems, [], nonEmptyFolders)
   deleteOpen.value = true
   const d = mediaDeps()
-  const r = await runAction(previewDeleteItems, { deps: d, fileIds: resolved.map((f) => f.id), allowed: can('pages.manage') })
+  const r = await runAction(previewDeleteItems, { deps: d, fileIds: resolved.map((f) => f.id), capability: schema.value?.capabilities.mediaReferrers })
   toastUnexpected(d, r)
   deleteInfo.value = deleteSummary(resolved, opItems, r.ok ? (r.result ?? []) : [], nonEmptyFolders)
 }

@@ -12,7 +12,8 @@ const props = defineProps<{
   busy: boolean
   isHead: boolean
   branch: number
-  canWrite: boolean
+  canLabel: boolean
+  canRestore: boolean
   dirty: boolean
   values: Record<string, unknown>
   fieldKeys: readonly string[]
@@ -92,7 +93,7 @@ function onLabel(): void {
         </template>
       </section>
 
-      <section v-if="canWrite" class="history-details__section">
+      <section v-if="canLabel" class="history-details__section">
         <KestrelUiField :label="t('revisions.labelField')" :hint="t('revisions.labelHint')">
           <template #default="f">
             <KestrelUiTextInput v-model="labelDraft" :disabled="busy" maxlength="200" v-bind="f" />
@@ -107,7 +108,7 @@ function onLabel(): void {
         <KestrelUiButton
           variant="primary"
           icon="history"
-          :disabled="busy || summary.skipped || !canWrite || isHead"
+          :disabled="busy || summary.skipped || !canRestore || isHead"
           @click="emit('restore')"
         >
           {{ t('revisions.restoreAction') }}

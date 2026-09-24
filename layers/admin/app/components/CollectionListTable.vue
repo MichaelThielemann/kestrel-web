@@ -33,6 +33,9 @@ const emit = defineEmits<{
 }>()
 
 const { t, lang } = useT()
+const capabilities = useCapabilities()
+const canEdit = computed(() => capabilities.hasVerb(props.collection, 'readAny'))
+const canDelete = computed(() => capabilities.hasVerb(props.collection, 'delete'))
 
 const colLabel = (col: ListColumn) => columnLabel(col, t)
 
@@ -97,8 +100,8 @@ function ariaSort(field: string): 'ascending' | 'descending' | 'none' {
         </td>
         <td class="ui-table__col--actions">
           <div class="ui-table__actions">
-            <KestrelUiButton :to="`/admin/${collection}/${row.id}${localeQuery}`" variant="ghost" size="sm" icon="pencil" :aria-label="t('list.rowEdit', { name: rowLabel(row) })" />
-            <KestrelUiButton variant="danger-ghost" size="sm" icon="trash" :disabled="busy" :aria-label="t('list.rowDelete', { name: rowLabel(row) })" @click="emit('delete', [String(row.id)])" />
+            <KestrelUiButton v-if="canEdit" :to="`/admin/${collection}/${row.id}${localeQuery}`" variant="ghost" size="sm" icon="pencil" :aria-label="t('list.rowEdit', { name: rowLabel(row) })" />
+            <KestrelUiButton v-if="canDelete" variant="danger-ghost" size="sm" icon="trash" :disabled="busy" :aria-label="t('list.rowDelete', { name: rowLabel(row) })" @click="emit('delete', [String(row.id)])" />
           </div>
         </td>
         <td v-for="c in columns" :key="c.key">
