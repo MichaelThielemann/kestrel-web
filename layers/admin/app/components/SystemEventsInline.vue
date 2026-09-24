@@ -16,13 +16,18 @@ let inFlight = false
 async function load() {
   if (inFlight) return
   inFlight = true
-  loadError.value = null
-  notFound.value = false
   try {
     status.value = await api<EventDeliveryStatus>('/admin/events/delivery')
+    notFound.value = false
+    loadError.value = null
   } catch (e) {
-    if (apiErrorCode(e) === 'NOT_FOUND') notFound.value = true
-    else loadError.value = apiErrorMessage(e)
+    if (apiErrorCode(e) === 'NOT_FOUND') {
+      notFound.value = true
+      loadError.value = null
+    } else {
+      notFound.value = false
+      loadError.value = apiErrorMessage(e)
+    }
   } finally {
     inFlight = false
   }
