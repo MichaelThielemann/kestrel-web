@@ -91,7 +91,7 @@ describe("definePreset relay pipeline selection", () => {
     );
   });
 
-  it("rejects an override naming a schedule for the wrong pipeline set once publishPage is overridden away", () => {
+  it("rejects overriding and excluding the same relayed pipeline at once, the preset's existing conflict check", () => {
     const features: Feature[] = ["eventsQueue", "delivery"];
     const modules = relayModules(features);
     expect(() =>
@@ -138,6 +138,29 @@ describe("definePreset relay pipeline selection", () => {
       definePreset({ modules, features, collections: relayCollections, exclude: ["restorePageRevision"] }),
     ).toThrow(/relay pipeline "restorePageRevision"/);
   });
+
+  const collectionsWithNews = {
+    pages: { kind: "multi", fields: { slug: { type: "slug" }, title: {}, body: {}, status: {} } },
+    news: { kind: "multi", fields: { title: {}, body: {} } },
+  } satisfies Record<string, CollectionModel>;
+
+  it("rejects a relay selection naming a generic collection's revision pipeline when the revisions feature is off", () => {
+    const features: Feature[] = ["eventsQueue", "delivery"];
+    const modules = relayModules(features).map((entry) =>
+      entry.use === "@michaelthielemann/kestrel-events-queue" ? { ...entry, config: { relayPipelines: ["restoreNewsRevision"] } } : entry,
+    );
+    expect(() => definePreset({ modules, features, collections: collectionsWithNews })).toThrow(/relay pipeline "restoreNewsRevision"/);
+  });
+
+  it("rejects a relay selection naming a generic collection's revision pipeline dropped by exclude", () => {
+    const features: Feature[] = ["eventsQueue", "revisions"];
+    const modules = [...relayModules(features), { use: "@michaelthielemann/kestrel-revisions-default" }].map((entry) =>
+      entry.use === "@michaelthielemann/kestrel-events-queue" ? { ...entry, config: { relayPipelines: ["newsRevisions"] } } : entry,
+    );
+    expect(() =>
+      definePreset({ modules, features, collections: collectionsWithNews, exclude: ["newsRevisions"] }),
+    ).toThrow(/relay pipeline "newsRevisions"/);
+  });
 });
 
 describe("definePreset relay pipeline selection over feature combinations", () => {
@@ -162,7 +185,7 @@ describe("definePreset relay pipeline selection over feature combinations", () =
     return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === "string") : undefined;
   }
 
-  it.each(subsets(triggerFeatures).map((subset) => [subset] as const))("with eventsQueue and %j composes a relay selection that is a subset of publishPage/unpublishPage and boots cleanly", (extra) => {
+  it.each(subsets(triggerFeatures).map((subset) => [subset] as const))("with eventsQueue and %j composes a relay selection that is a subset of publishPage/unpublishPage, without the preset throwing", (extra) => {
     const features: Feature[] = ["eventsQueue", ...extra];
     const modules = [
       ...presetModuleConfig({

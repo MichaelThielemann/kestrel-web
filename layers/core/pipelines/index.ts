@@ -27,7 +27,7 @@ import migrations from "./features/migrations";
 import insights from "./features/insights";
 import audit, { AUDIT_MODULE, AUDIT_PRUNE_PIPELINE, AUDIT_RETENTION_KEY } from "./features/audit";
 import eventsQueue from "./features/eventsQueue";
-import revisions from "./features/revisions";
+import revisions, { revisionPipelineNames } from "./features/revisions";
 
 export type { CollectionModel } from "./collections";
 export type { PresetEntry } from "./compose";
@@ -219,6 +219,13 @@ export function definePreset<C extends Record<string, CollectionModel> = Record<
     const generated = collectionPipelines(name, model, options.collectionsUi?.[name], customFields[name]);
     for (const pipelineName of Object.keys(generated)) composablePipelineNames.add(pipelineName);
     pipelines = mergePipelines(pipelines, generated, name, "collection");
+    if (model.kind === "multi") {
+      const names = revisionPipelineNames(name);
+      composablePipelineNames.add(names.list);
+      composablePipelineNames.add(names.read);
+      composablePipelineNames.add(names.label);
+      composablePipelineNames.add(names.restore);
+    }
   }
 
   const featureTriggers: TriggerConfig[] = [];
