@@ -364,12 +364,6 @@ export function definePreset<C extends Record<string, CollectionModel> = Record<
 
   triggers = applySchedules(triggers, options.schedules ?? {});
 
-  if (enabledFeatures.has("eventsQueue") && !triggers.some((trigger) => "event" in trigger)) {
-    throw new Error(
-      'preset: feature "eventsQueue" needs at least one event trigger – the queue would be written but never consumed',
-    );
-  }
-
   const pipelineDefs = Object.keys(pipelines)
     .sort()
     .map((name) => defineRawPipeline({ name, steps: pipelines[name] ?? [] }));

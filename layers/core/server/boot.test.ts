@@ -205,6 +205,48 @@ describe("boot", () => {
     }, 10000);
   });
 
+  describe("playground config with the eventsQueue feature and no event-triggering feature", () => {
+    let appRoot: string;
+
+    beforeAll(() => {
+      appRoot = mkdtempSync(join(tmpdir(), "kestrel-web-boot-idle-queue-"));
+      process.env.KESTREL_APP_ROOT = appRoot;
+    });
+
+    afterAll(() => {
+      delete process.env.KESTREL_APP_ROOT;
+      rmSync(appRoot, { recursive: true, force: true });
+    });
+
+    it("boots and starts with an empty warning list, the queue idle from the start", async () => {
+      const collections = { settings: { kind: "single" as const, fields: { title: { type: "text" } } } };
+      const modules = presetModuleConfig({
+        dataDir: appRoot,
+        blobstore: { use: "@michaelthielemann/kestrel-blobstore-filesystem", config: { root: resolve(appRoot, "blobs") } },
+        model: { types: collections },
+        features: ["eventsQueue"],
+        roles: { roles: { admin: ["*"] }, anonymous: [] },
+        bootstrap: { username: "admin", passwordHash: "scrypt$522f4ac87bfe4bcd100ba47a7d2aaec2$dbfc3f2d6cc38a76b21973d7c6f6d310a09506581c665f1f6601fd8fb3fa9bc3959689aea3e389f4d53eb8c7e70791ad4065e308763dd44609904134f0f5ee98" },
+      });
+      const preset = definePreset({ modules, features: ["eventsQueue"], collections });
+      expect(preset.triggers.some((trigger) => "event" in trigger)).toBe(false);
+
+      const config = defineConfig({ modules, triggers: preset.triggers, http: null });
+      const bootedModules = presetModules(config.modules);
+      const logger = collectingLogger();
+
+      const kestrel = await boot({ config: { ...config, http: null }, modules: bootedModules, pipelines: preset.pipelines, logger });
+      expect(logger.entries.filter((entry) => entry.level !== "info")).toEqual([]);
+      expect(kestrel.warnings, `unexpected boot warnings: ${JSON.stringify(kestrel.warnings)}`).toEqual([]);
+
+      try {
+        await kestrel.start();
+      } finally {
+        await kestrel.stop();
+      }
+    }, 10000);
+  });
+
   describe("atomic group: a forced failure inside the group leaves nothing stored", () => {
     let appRoot: string;
 

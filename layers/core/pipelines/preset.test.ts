@@ -596,14 +596,14 @@ describe("definePreset eventsQueue feature", () => {
     expect(preset.triggers).toContainEqual({ cron: "15 4 * * *", pipeline: "purgeEvents" });
   });
 
-  it("throws when enabled but the final trigger list has no event trigger", () => {
+  it("boots with no event trigger at all, an idle queue being a valid configuration", () => {
     expect(() =>
       definePreset({
         modules,
         features: ["eventsQueue", "images"],
         exclude: ["generateImageVariants"],
       }),
-    ).toThrow('preset: feature "eventsQueue" needs at least one event trigger – the queue would be written but never consumed');
+    ).not.toThrow();
   });
 });
 
