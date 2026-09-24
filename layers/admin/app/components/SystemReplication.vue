@@ -10,6 +10,7 @@ const { t, lang } = useT()
 const deps = useActionDeps()
 const canSnapshot = computed(() => deps.capabilities.has('replicationSnapshot'))
 const canRestore = computed(() => deps.capabilities.has('replicationRestore'))
+const canPoints = computed(() => deps.capabilities.has('replicationPoints'))
 
 const status = ref<ReplicationStatus | null>(null)
 const points = ref<ReplicationPoint[]>([])
@@ -27,7 +28,7 @@ async function load() {
   try {
     const [s, p] = await Promise.all([
       deps.api<ReplicationStatus>(deps.capabilities.route('replicationStatus')),
-      deps.api<ReplicationPoint[]>(deps.capabilities.route('replicationPoints')),
+      canPoints.value ? deps.api<ReplicationPoint[]>(deps.capabilities.route('replicationPoints')) : Promise.resolve([]),
     ])
     status.value = s
     points.value = p
@@ -133,7 +134,7 @@ function relative(ms: number | null): string { return ms === null ? '—' : huma
         </div>
       </div>
 
-      <div class="u-scroll">
+      <div v-if="canPoints" class="u-scroll">
         <KestrelUiTable>
           <template #head>
             <th>{{ t('replication.colWhen') }}</th>

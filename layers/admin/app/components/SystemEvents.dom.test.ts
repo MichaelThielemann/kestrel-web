@@ -51,4 +51,18 @@ describe('SystemEvents', () => {
     expect(row.text()).toContain('run-1')
     wrapper.unmount()
   })
+
+  it('shows the queue status without an error when the caller lacks eventsDead', async () => {
+    const splitSchema: AdminSchema = { ...schema, capabilities: { eventsQueueStatus: { method: 'GET', path: '/admin/events/status' } } }
+    unregisterAll.push(registerEndpoint('/api/admin/schema', { method: 'GET', handler: () => splitSchema }))
+    unregisterAll.push(registerEndpoint('/api/admin/events/status', { method: 'GET', handler: () => status }))
+    await useSchema().load()
+
+    const wrapper = await mountSuspended(SystemEvents)
+
+    expect(wrapper.find('.ui-alert--error').exists()).toBe(false)
+    expect(wrapper.text()).toContain(String(status.pending))
+    expect(wrapper.find('.u-scroll').exists()).toBe(false)
+    wrapper.unmount()
+  })
 })

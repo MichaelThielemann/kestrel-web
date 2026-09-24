@@ -7,6 +7,7 @@ const { t, lang } = useT()
 const deps = useActionDeps()
 const canRetryAll = computed(() => deps.capabilities.has('eventsRetryDead'))
 const canRetryOne = computed(() => deps.capabilities.has('eventsRetryOne'))
+const canDead = computed(() => deps.capabilities.has('eventsDead'))
 
 const status = ref<EventsQueueStatus | null>(null)
 const dead = ref<DeadEvent[]>([])
@@ -26,7 +27,7 @@ async function load() {
   try {
     const [s, d] = await Promise.all([
       deps.api<EventsQueueStatus>(deps.capabilities.route('eventsQueueStatus')),
-      deps.api<{ items: DeadEvent[] }>(deps.capabilities.route('eventsDead'), { query: { limit: 100 } }),
+      canDead.value ? deps.api<{ items: DeadEvent[] }>(deps.capabilities.route('eventsDead'), { query: { limit: 100 } }) : Promise.resolve({ items: [] }),
     ])
     status.value = s
     dead.value = d.items
@@ -124,7 +125,7 @@ function relative(ms: number | null): string { return ms === null ? '—' : huma
         </KestrelUiButton>
       </div>
 
-      <div class="u-scroll">
+      <div v-if="canDead" class="u-scroll">
         <KestrelUiTable>
           <template #head>
             <th>{{ t('events.colEvent') }}</th>
