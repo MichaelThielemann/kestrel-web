@@ -142,10 +142,9 @@ const EVENTS_DIRECT_MODULE = "@michaelthielemann/kestrel-events-direct";
 export const RELAY_CANDIDATE_PIPELINES = ["publishPage", "unpublishPage"] as const;
 
 /**
- * The `relayPipelines` the queue's relay should keep in the request: the candidates the preset actually
- * composes as event-triggered pipelines. `delivery` is the only feature that registers a candidate today,
- * so this is `[]` without it; a feature added later that also wants a head start names its own pipelines
- * here.
+ * The `relayPipelines` that `presetModuleConfig()` gives the queue's relay: `RELAY_CANDIDATE_PIPELINES` when
+ * `features` includes `delivery`, otherwise `[]`. It reads only the feature list, not the composed pipelines;
+ * `definePreset()` checks the configured names against what it composes.
  */
 export function relayPipelinesFor(features: readonly Feature[]): string[] {
   return features.includes("delivery") ? [...RELAY_CANDIDATE_PIPELINES] : [];
