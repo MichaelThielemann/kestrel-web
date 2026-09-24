@@ -602,9 +602,57 @@ describe('userDelete', () => {
     const result = await runAction(userDelete, { deps, userId: 'u1', reassignTo: 'u2', confirmed: true, ops, refresh })
 
     expect(result.ok).toBe(true)
-    expect(result.ok && result.result).toEqual({ reassignTo: { id: 'u2', name: 'berta' } })
+    expect(result.ok && result.result).toEqual({ reassignTo: { id: 'u2', name: 'berta' }, events: null })
     expect(calls).toEqual([{ path: '/users/u1', method: 'DELETE', body: { reassignTo: 'u2' }, query: undefined }])
     expect(toast.success).toHaveBeenCalledWith('users.deletedReassigned:{"username":"berta"}')
+  })
+
+  it('reports a failed follow-up task after deleting a user', async () => {
+    const events = {
+      status: 'error',
+      pipelines: [
+        { event: 'user.deleted', pipeline: 'reassignRevisionAuthor', status: 'error', attempts: 1, dead: true, error: 'user u2 not found' },
+        { event: 'user.deleted', pipeline: 'anonymizeAuditUser', status: 'done', attempts: 1, dead: false, error: null },
+      ],
+    }
+    const { deps, toast } = fakeDeps([{ ok: true, reassignTo: null, _events: events }])
+    const { ops } = fakeOps()
+    const { refresh } = fakeRefresh()
+
+    const result = await runAction(userDelete, { deps, userId: 'u1', reassignTo: null, confirmed: true, ops, refresh })
+
+    expect(result.ok).toBe(true)
+    expect(toast.error).toHaveBeenCalledWith(
+      'users.deletedFollowUpFailed:{"pipelines":"reassignRevisionAuthor"}users.followUpSeeEvents:{"tab":"system.tabs.events"}',
+    )
+    expect(toast.success).not.toHaveBeenCalled()
+  })
+
+  it('reports follow-up tasks still running after deleting a user', async () => {
+    const events = { status: 'pending', pipelines: [{ event: 'user.deleted', pipeline: 'reassignRevisionAuthor', status: 'pending', attempts: 0, dead: false, error: null }] }
+    const { deps, toast } = fakeDeps([{ ok: true, reassignTo: null, _events: events }])
+    const { ops } = fakeOps()
+    const { refresh } = fakeRefresh()
+
+    const result = await runAction(userDelete, { deps, userId: 'u1', reassignTo: null, confirmed: true, ops, refresh })
+
+    expect(result.ok).toBe(true)
+    expect(toast.info).toHaveBeenCalledWith('users.deletedFollowUpPending')
+    expect(toast.success).not.toHaveBeenCalled()
+  })
+
+  it('confirms a user deletion whose follow-up tasks are done', async () => {
+    const events = { status: 'done', pipelines: [{ event: 'user.deleted', pipeline: 'anonymizeAuditUser', status: 'done', attempts: 1, dead: false, error: null }] }
+    const { deps, toast } = fakeDeps([{ ok: true, reassignTo: null, _events: events }])
+    const { ops } = fakeOps()
+    const { refresh } = fakeRefresh()
+
+    const result = await runAction(userDelete, { deps, userId: 'u1', reassignTo: null, confirmed: true, ops, refresh })
+
+    expect(result.ok).toBe(true)
+    expect(toast.success).toHaveBeenCalledWith('users.deletedAnonymized')
+    expect(toast.error).not.toHaveBeenCalled()
+    expect(toast.info).not.toHaveBeenCalled()
   })
 
   it('shows the self-protection message and skips the reload', async () => {
