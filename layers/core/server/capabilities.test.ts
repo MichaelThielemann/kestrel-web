@@ -180,6 +180,7 @@ describe("kestrel.describe() on a real boot with a customized trigger table", ()
   let appRoot: string;
   let kestrel: Kestrel;
   let adminToken: string;
+  let editorToken: string;
 
   beforeAll(async () => {
     appRoot = mkdtempSync(join(tmpdir(), "kestrel-web-capabilities-boot-"));
@@ -187,7 +188,15 @@ describe("kestrel.describe() on a real boot with a customized trigger table", ()
     process.env.KESTREL_BLOCK_SCHEMA = fileURLToPath(new URL("../pipelines/__fixtures__/pages.body.json", import.meta.url));
 
     const { default: config } = await import("../../../playground/kestrel.config");
-    const preset = definePreset({ modules: config.modules, features, collections: contentTypes, collectionsUi, fieldTypes, exclude: ["deleteUser"] });
+    const preset = definePreset({
+      modules: config.modules,
+      features,
+      collections: contentTypes,
+      collectionsUi,
+      fieldTypes,
+      exclude: ["deleteUser"],
+      overrides: { listUsers: ["authn.requireUser", "authn.listUsers"] },
+    });
     const rerouted = preset.triggers.filter((trigger) => !("http" in trigger) || trigger.pipeline !== "listUsers");
     rerouted.push({ http: "GET /staff/directory", pipeline: "listUsers" });
 
@@ -202,6 +211,16 @@ describe("kestrel.describe() on a real boot with a customized trigger table", ()
     const login = await kestrel.run("login", { trigger: { kind: "http", name: "POST /login" }, body: { username: "admin", password: "change-me" } });
     if (login.status !== 200) throw new Error(`admin login failed: ${JSON.stringify(login)}`);
     adminToken = tokenOf(login.result);
+
+    const createEditor = await kestrel.run("createUser", {
+      trigger: { kind: "http", name: "POST /users" },
+      headers: { authorization: `Bearer ${adminToken}` },
+      body: { username: "boot-editor", password: "change-me-too", roles: ["editor"] },
+    });
+    if (createEditor.status !== 200) throw new Error(`editor creation failed: ${JSON.stringify(createEditor)}`);
+    const editorLogin = await kestrel.run("login", { trigger: { kind: "http", name: "POST /login" }, body: { username: "boot-editor", password: "change-me-too" } });
+    if (editorLogin.status !== 200) throw new Error(`editor login failed: ${JSON.stringify(editorLogin)}`);
+    editorToken = tokenOf(editorLogin.result);
   }, 20000);
 
   afterAll(async () => {
@@ -230,6 +249,17 @@ describe("kestrel.describe() on a real boot with a customized trigger table", ()
     const schema = schemaFromRun(run, schemaSources(kestrel.describe().triggers.http));
     if (schema.status !== 200) throw new Error(`unexpected schema error: ${JSON.stringify(schema.body)}`);
     expect(schema.body.capabilities.deleteUser).toBeUndefined();
+    expect(schema.body.capabilities.listUsers).toEqual({ method: "GET", path: "/staff/directory" });
+  });
+
+  it("keeps listUsers present for an editor once the override drops its authz.require step", async () => {
+    const run = await kestrel.run("adminSchemaModel", {
+      trigger: { kind: "http", name: "GET /admin/schema" },
+      headers: { authorization: `Bearer ${editorToken}` },
+    });
+    expect(run.status).toBe(200);
+    const schema = schemaFromRun(run, schemaSources(kestrel.describe().triggers.http));
+    if (schema.status !== 200) throw new Error(`unexpected schema error: ${JSON.stringify(schema.body)}`);
     expect(schema.body.capabilities.listUsers).toEqual({ method: "GET", path: "/staff/directory" });
   });
 });

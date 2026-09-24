@@ -1,3 +1,4 @@
+import type { Kestrel } from "@michaelthielemann/kestrel";
 import { ADMIN_BOOTSTRAP_ROUTES } from "../../fixed-routes";
 
 export interface BootstrapHttpTrigger {
@@ -21,4 +22,9 @@ export function adminBootstrapProblem(http: readonly BootstrapHttpTrigger[]): st
     return `admin: pipeline "${pipeline}" must be reachable at "${route.method} ${route.path}" (found: ${found}) – the admin calls it before it can read its capabilities`;
   }
   return undefined;
+}
+
+export function assertAdminBootstrapRoutes(kestrel: Kestrel): void {
+  const problem = adminBootstrapProblem(kestrel.describe().triggers.http);
+  if (problem !== undefined) throw new Error(problem);
 }

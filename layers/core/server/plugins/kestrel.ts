@@ -16,7 +16,7 @@ import { uploadLimits } from "../utils/limits";
 import { applyBundledSchemas } from "../utils/bundled-schemas";
 import { moduleConfigForStep } from "../utils/modules";
 import { contentCollections, statusFilterFailure, statusFilterProblems } from "../utils/status-filter";
-import { adminBootstrapProblem } from "../utils/admin-bootstrap";
+import { assertAdminBootstrapRoutes } from "../utils/admin-bootstrap";
 import { bootFailure } from "../utils/boot-failure";
 import type { KestrelState, KestrelStatus } from "../utils/boot-failure";
 import { accessLists } from "./access";
@@ -40,11 +40,6 @@ function assertStatusFilters(kestrel: Kestrel): void {
   const shapes = pipelines.map((pipeline) => ({ name: pipeline.name, steps: pipeline.steps }));
   const failure = statusFilterFailure(statusFilterProblems(contentCollections(content), collectionsUi, shapes));
   if (failure !== undefined) throw new Error(failure);
-}
-
-function assertAdminBootstrapRoutes(kestrel: Kestrel): void {
-  const problem = adminBootstrapProblem(kestrel.describe().triggers.http);
-  if (problem !== undefined) throw new Error(problem);
 }
 
 async function registerImageSizes(kestrel: Kestrel): Promise<void> {
