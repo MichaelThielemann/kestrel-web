@@ -116,6 +116,15 @@ function definedPipelineNames(source: string): string[] {
   return names;
 }
 
+function definesPresetOverrides(source: string): boolean {
+  const root = parseTs(source);
+  for (const call of findCalls(root, "definePreset")) {
+    const options = firstArgument(call);
+    if (options !== undefined && objectProperty(options, "overrides") !== undefined) return true;
+  }
+  return false;
+}
+
 function scratchUnique(scratch: string, aliasValue: string, filename: string): string {
   if (aliasValue.startsWith(`${scratch}/`) || aliasValue === scratch) return aliasValue;
   const dir = join(scratch, ".kestrel-upgrade-capture");
@@ -175,7 +184,6 @@ export async function loadLayerProject(scratch: string): Promise<LoadResult> {
     let pipelines: PipelineDefinition[] = [];
     const pipelinesPath = aliases["#kestrel/consumer-pipelines"]!;
     const projectPipelinesFile = resolve(scratch, "pipelines/index.ts");
-    const pipelinesFile = pipelinesPath === projectPipelinesFile ? projectPipelinesFile : configFile;
     try {
       const pipelinesModule = await jiti.import<{ pipelines: PipelineDefinition[] }>(pathToFileURL(pipelinesPath).href);
       pipelines = pipelinesModule.pipelines;
@@ -195,13 +203,25 @@ export async function loadLayerProject(scratch: string): Promise<LoadResult> {
     });
 
     const overriddenNames = Object.keys(boundaryCast<Record<string, unknown>>(capture.captured.last?.options.overrides ?? {}, "host"));
-    const pipelineFiles: PipelineFile[] = [];
-    if (overriddenNames.length > 0) pipelineFiles.push({ file: pipelinesFile, pipelines: overriddenNames });
-    if (pipelinesPath === projectPipelinesFile) {
-      const ownSource = existsSync(projectPipelinesFile) ? readFileSync(projectPipelinesFile, "utf8") : undefined;
-      const ownNames = ownSource === undefined ? [] : definedPipelineNames(ownSource).filter((name) => !overriddenNames.includes(name));
-      if (ownNames.length > 0) pipelineFiles.push({ file: projectPipelinesFile, pipelines: ownNames });
-    }
+    const hasOwnPipelinesFile = pipelinesPath === projectPipelinesFile;
+    const ownSource = hasOwnPipelinesFile && existsSync(projectPipelinesFile) ? readFileSync(projectPipelinesFile, "utf8") : undefined;
+    const configSource = existsSync(configFile) ? readFileSync(configFile, "utf8") : undefined;
+    const overridesFile =
+      configSource !== undefined && definesPresetOverrides(configSource)
+        ? configFile
+        : ownSource !== undefined && definesPresetOverrides(ownSource)
+          ? projectPipelinesFile
+          : configFile;
+    const ownNames = ownSource === undefined ? [] : definedPipelineNames(ownSource).filter((name) => !overriddenNames.includes(name));
+
+    const pipelineFilesByFile = new Map<string, string[]>();
+    const addToPipelineFiles = (file: string, names: readonly string[]): void => {
+      if (names.length === 0) return;
+      pipelineFilesByFile.set(file, [...(pipelineFilesByFile.get(file) ?? []), ...names]);
+    };
+    if (overriddenNames.length > 0) addToPipelineFiles(overridesFile, overriddenNames);
+    addToPipelineFiles(projectPipelinesFile, ownNames);
+    const pipelineFiles: PipelineFile[] = [...pipelineFilesByFile].map(([file, names]) => ({ file, pipelines: names }));
 
     const data: LayerProjectData = { presetProblems, ...(capture.captured.last === undefined ? {} : { presetOptions: capture.captured.last.options }) };
 

@@ -18,4 +18,10 @@ describe("loadDataModel", () => {
     const model = await loadDataModel(resolve(FIXTURES, "does-not-exist"));
     expect(model).toBeUndefined();
   });
+
+  it("sets file to shared/model.ts under the root it was called with, not a scratch path", async () => {
+    const root = resolve(FIXTURES, "site-2.0");
+    const model = await loadDataModel(root);
+    expect(model?.file).toBe(resolve(root, "shared", "model.ts"));
+  });
 });
