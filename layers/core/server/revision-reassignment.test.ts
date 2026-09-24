@@ -55,7 +55,7 @@ describe("reassignRevisionAuthor and retryReassignRevisionAuthor verify the targ
       features,
       collectionsUi,
       fieldTypes,
-      roles: { roles: { admin: ["*"] }, anonymous: [] },
+      roles: { roles: { admin: ["*"] }, anonymous: ["media.read"] },
       bootstrap: { username: "admin", passwordHash: PASSWORD_HASH },
     });
     const preset = definePreset({ modules: moduleConfig, features, collections: contentTypes, collectionsUi, fieldTypes });

@@ -15,25 +15,18 @@ import { inlineTypesFor } from "../utils/inline-types";
 import { uploadLimits } from "../utils/limits";
 import { applyBundledSchemas } from "../utils/bundled-schemas";
 import { moduleConfigForStep } from "../utils/modules";
+import { assertMediaPaths } from "../utils/media-paths";
+import { publicMediaRoutes } from "../utils/public-media";
 import { contentCollections, statusFilterFailure, statusFilterProblems } from "../utils/status-filter";
 import { bootWithAdminBootstrapCheck } from "../utils/admin-bootstrap";
 import { bootFailure } from "../utils/boot-failure";
 import type { KestrelState, KestrelStatus } from "../utils/boot-failure";
 import { accessLists } from "./access";
 
-const IMAGES_REGISTER_STEP = "images.register";
 const IMAGES_REGISTER_PIPELINE = "registerImageSizesBoot";
 const CONTENT_LIST_STEP = "content.list";
 
 export type { KestrelState, KestrelStatus };
-
-function warnIfImagesPublicPathMismatched(kestrel: Kestrel): void {
-  const images = moduleConfigForStep(modules, config.modules, kestrel.steps.owner(IMAGES_REGISTER_STEP));
-  if (images === undefined) return;
-  const raw = typeof images === "object" && images !== null ? (images as { publicPath?: unknown }).publicPath : undefined;
-  const publicPath = typeof raw === "string" ? raw : "/media";
-  if (publicPath !== MOUNT_PATH && !publicPath.startsWith(`${MOUNT_PATH}/`)) consoleLogger.error(`images: publicPath "${publicPath}" is not served under the mount path "${MOUNT_PATH}" — variant URLs will 404`);
-}
 
 function assertStatusFilters(kestrel: Kestrel): void {
   const content = moduleConfigForStep(modules, config.modules, kestrel.steps.owner(CONTENT_LIST_STEP));
@@ -82,7 +75,7 @@ export function getKestrel(): Promise<Kestrel> {
       const kestrel = await bootWithAdminBootstrapCheck({ config: { ...config, modules: applyBundledSchemas(config.modules, bundledSchemas) }, modules, pipelines, logger: consoleLogger });
       await kestrel.start();
       assertStatusFilters(kestrel);
-      warnIfImagesPublicPathMismatched(kestrel);
+      assertMediaPaths(kestrel, modules, config.modules);
       await registerImageSizes(kestrel);
       state = "ready";
       return kestrel;
@@ -122,6 +115,22 @@ export default defineNitroPlugin((nitro) => {
       });
     });
   boundaryCast<{ kestrelHandler: Promise<EventHandler> }>(nitro, "host").kestrelHandler = handler;
+
+  const publicMediaHandler: Promise<EventHandler> = getKestrel()
+    .then((kestrel) => {
+      const { trustProxy, proxyHops, trustedHeader } = accessLists().policy;
+      return createKestrelHandler(
+        { run: kestrel.run.bind(kestrel), triggers: { http: publicMediaRoutes(kestrel.triggers.http), events: [], crons: [] } },
+        { mountPath: "", trustProxy, proxyHops, ...(trustedHeader === "" ? {} : { trustedHeader }) },
+      );
+    })
+    .catch((err: unknown) => {
+      if (getKestrelState().state !== "failed") recordBootFailure(err);
+      return defineEventHandler(() => {
+        throw createError(bootFailure(getKestrelState()));
+      });
+    });
+  boundaryCast<{ publicMediaHandler: Promise<EventHandler> }>(nitro, "host").publicMediaHandler = publicMediaHandler;
 
   nitro.hooks.hook("close", async () => {
     if (getKestrelState().state === "failed") return;

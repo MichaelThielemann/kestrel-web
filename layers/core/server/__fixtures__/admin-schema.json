@@ -734,6 +734,10 @@
       "method": "POST",
       "path": "/admin/publish-all/pages"
     },
+    "repairPublicMedia": {
+      "method": "POST",
+      "path": "/admin/media/repair-public"
+    },
     "brokenReferences": {
       "method": "GET",
       "path": "/admin/references/broken"
@@ -813,6 +817,10 @@
     "serveImageVariant": {
       "method": "GET",
       "path": "/media/:id/variants/:file"
+    },
+    "serveMediaFile": {
+      "method": "GET",
+      "path": "/media/:id/:name"
     },
     "updateMedia": {
       "method": "PATCH",

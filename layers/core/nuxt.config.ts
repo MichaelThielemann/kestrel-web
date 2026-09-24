@@ -1,5 +1,6 @@
 import { fileURLToPath } from "node:url";
 import { boundaryCast } from "@michaelthielemann/kestrel/cast";
+import { MEDIA_PUBLIC_PATH } from "./mount-path";
 
 const PIPELINES_VIRTUAL_ID = "#kestrel/pipelines";
 const PIPELINES_ENTRY = fileURLToPath(new URL("./pipelines/index.ts", import.meta.url));
@@ -15,6 +16,9 @@ const CORE_LAYER_ALIAS = "#kestrel-core";
 const CORE_LAYER_DIR = fileURLToPath(new URL(".", import.meta.url)).replace(/\/$/, "");
 
 export default defineNuxtConfig({
+  serverHandlers: [
+    { route: `${MEDIA_PUBLIC_PATH}/**`, method: "get", handler: fileURLToPath(new URL("./server/handlers/public-media.ts", import.meta.url)) },
+  ],
   modules: [
     fileURLToPath(new URL("./modules/blocks/index.ts", import.meta.url)),
     fileURLToPath(new URL("./modules/migrations/index.ts", import.meta.url)),

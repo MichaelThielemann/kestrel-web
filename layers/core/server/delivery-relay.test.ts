@@ -88,7 +88,7 @@ describe("delivery is an event pipeline, delivered by events.relay", () => {
       collectionsUi,
       fieldTypes,
       audit: { retentionDays: 365 },
-      roles: { roles: { admin: ["*"], editor: ["pages.*"] }, anonymous: [] },
+      roles: { roles: { admin: ["*"], editor: ["pages.*"] }, anonymous: ["media.read"] },
       bootstrap: { username: "admin", passwordHash: PASSWORD_HASH },
     });
     const preset = definePreset({ modules: moduleConfig, features: activeFeatures, collections: contentTypes, collectionsUi, fieldTypes });
@@ -329,7 +329,7 @@ describe("a delete is not served after the response, with a working relay", () =
       collectionsUi,
       fieldTypes,
       audit: { retentionDays: 365 },
-      roles: { roles: { admin: ["*"] }, anonymous: [] },
+      roles: { roles: { admin: ["*"] }, anonymous: ["media.read"] },
       bootstrap: { username: "admin", passwordHash: PASSWORD_HASH },
     });
     const preset = definePreset({ modules: moduleConfig, features: activeFeatures, collections: contentTypes, collectionsUi, fieldTypes });

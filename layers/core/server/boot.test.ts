@@ -155,7 +155,7 @@ describe("boot", () => {
         audit: { retentionDays: 365 },
         roles: {
           roles: { admin: ["*"] },
-          anonymous: [],
+          anonymous: ["media.read"],
         },
         bootstrap: { username: "admin", passwordHash: "scrypt$522f4ac87bfe4bcd100ba47a7d2aaec2$dbfc3f2d6cc38a76b21973d7c6f6d310a09506581c665f1f6601fd8fb3fa9bc3959689aea3e389f4d53eb8c7e70791ad4065e308763dd44609904134f0f5ee98" },
       });
@@ -192,7 +192,7 @@ describe("boot", () => {
         collectionsUi,
         fieldTypes,
         audit: { retentionDays: 365 },
-        roles: { roles: { admin: ["*"] }, anonymous: [] },
+        roles: { roles: { admin: ["*"] }, anonymous: ["media.read"] },
         bootstrap: { username: "admin", passwordHash: "scrypt$522f4ac87bfe4bcd100ba47a7d2aaec2$dbfc3f2d6cc38a76b21973d7c6f6d310a09506581c665f1f6601fd8fb3fa9bc3959689aea3e389f4d53eb8c7e70791ad4065e308763dd44609904134f0f5ee98" },
       });
       const preset = definePreset({ modules, features: eventsQueueFeatures, collections: contentTypes, collectionsUi, fieldTypes });
@@ -284,7 +284,7 @@ describe("boot", () => {
         features,
         collectionsUi,
         fieldTypes,
-        roles: { roles: { admin: ["*"] }, anonymous: [] },
+        roles: { roles: { admin: ["*"] }, anonymous: ["media.read"] },
         bootstrap: { username: "admin", passwordHash: "scrypt$522f4ac87bfe4bcd100ba47a7d2aaec2$dbfc3f2d6cc38a76b21973d7c6f6d310a09506581c665f1f6601fd8fb3fa9bc3959689aea3e389f4d53eb8c7e70791ad4065e308763dd44609904134f0f5ee98" },
       });
       const preset = definePreset({ modules, features, collections: contentTypes, collectionsUi, fieldTypes });
@@ -413,7 +413,7 @@ describe("boot", () => {
         collectionsUi,
         fieldTypes,
         audit: { retentionDays: 365 },
-        roles: { roles: { admin: ["*"] }, anonymous: [] },
+        roles: { roles: { admin: ["*"] }, anonymous: ["media.read"] },
         bootstrap: { username: "admin", passwordHash: "scrypt$522f4ac87bfe4bcd100ba47a7d2aaec2$dbfc3f2d6cc38a76b21973d7c6f6d310a09506581c665f1f6601fd8fb3fa9bc3959689aea3e389f4d53eb8c7e70791ad4065e308763dd44609904134f0f5ee98" },
       });
       const preset = definePreset({ modules: moduleConfig, features: eventsQueueFeatures, collections: contentTypes, collectionsUi, fieldTypes });

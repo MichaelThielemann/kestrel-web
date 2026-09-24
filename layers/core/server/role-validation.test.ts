@@ -44,7 +44,7 @@ describe("createUser and updateUser reject an unknown role name before writing a
       features,
       collectionsUi,
       fieldTypes,
-      roles: { roles: { admin: ["*"], editor: ["pages.*"] }, anonymous: [] },
+      roles: { roles: { admin: ["*"], editor: ["pages.*"] }, anonymous: ["media.read"] },
       bootstrap: { username: "admin", passwordHash: PASSWORD_HASH },
     });
     const preset = definePreset({ modules: moduleConfig, features, collections: contentTypes, collectionsUi, fieldTypes });
