@@ -5,11 +5,12 @@ import { execFile } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import { createJiti } from "jiti";
+import { findCalls, firstArgument, objectProperty, parseTs, stringValue } from "@michaelthielemann/kestrel-upgrade/codemods";
 import { boundaryCast } from "@michaelthielemann/kestrel/cast";
 import type { KestrelConfigInput } from "@michaelthielemann/kestrel";
 import type { ModuleDefinition } from "@michaelthielemann/kestrel/defineModule";
 import type { PipelineDefinition } from "@michaelthielemann/kestrel/definePipeline";
-import type { DataContentField, DataContentModel, DataContentType, LoadedProject, LoadIssue, LoadResult } from "@michaelthielemann/kestrel-upgrade/plugin";
+import type { DataContentField, DataContentModel, DataContentType, LoadedProject, LoadIssue, LoadResult, PipelineFile } from "@michaelthielemann/kestrel-upgrade/plugin";
 import { kestrelAliases } from "./aliases";
 import type { CapturedPreset } from "./pipelinesCapture";
 
@@ -104,6 +105,17 @@ export async function prepareLayerProject(root: string, scratch: string, cache: 
   if (existsSync(nuxtDir)) cache.set(cacheKey, { scratch, files: snapshotDir(nuxtDir) });
 }
 
+function definedPipelineNames(source: string): string[] {
+  const root = parseTs(source);
+  const names: string[] = [];
+  for (const call of findCalls(root, "definePipeline")) {
+    const options = firstArgument(call);
+    const name = options === undefined ? undefined : stringValue(objectProperty(options, "name"));
+    if (name !== undefined) names.push(name);
+  }
+  return names;
+}
+
 function scratchUnique(scratch: string, aliasValue: string, filename: string): string {
   if (aliasValue.startsWith(`${scratch}/`) || aliasValue === scratch) return aliasValue;
   const dir = join(scratch, ".kestrel-upgrade-capture");
@@ -136,7 +148,7 @@ export async function loadLayerProject(scratch: string): Promise<LoadResult> {
     "~~/": `${scratch}/`,
     "@@/": `${scratch}/`,
   };
-  const jiti = createJiti(pathToFileURL(configFile).href, { alias: aliases, moduleCache: true, interopDefault: true });
+  const jiti = createJiti(pathToFileURL(configFile).href, { alias: aliases, moduleCache: true, fsCache: false, interopDefault: true });
 
   const previousAppRoot = process.env.KESTREL_APP_ROOT;
   process.env.KESTREL_APP_ROOT = scratch;
@@ -182,9 +194,14 @@ export async function loadLayerProject(scratch: string): Promise<LoadResult> {
       if (file !== undefined) moduleFiles.set(mod.name, file);
     });
 
-    const pipelineFiles = new Map<string, string>();
     const overriddenNames = Object.keys(boundaryCast<Record<string, unknown>>(capture.captured.last?.options.overrides ?? {}, "host"));
-    for (const name of overriddenNames) pipelineFiles.set(name, pipelinesFile);
+    const pipelineFiles: PipelineFile[] = [];
+    if (overriddenNames.length > 0) pipelineFiles.push({ file: pipelinesFile, pipelines: overriddenNames });
+    if (pipelinesPath === projectPipelinesFile) {
+      const ownSource = existsSync(projectPipelinesFile) ? readFileSync(projectPipelinesFile, "utf8") : undefined;
+      const ownNames = ownSource === undefined ? [] : definedPipelineNames(ownSource).filter((name) => !overriddenNames.includes(name));
+      if (ownNames.length > 0) pipelineFiles.push({ file: projectPipelinesFile, pipelines: ownNames });
+    }
 
     const data: LayerProjectData = { presetProblems, ...(capture.captured.last === undefined ? {} : { presetOptions: capture.captured.last.options }) };
 
@@ -226,7 +243,7 @@ function dataContentModelOf(value: unknown): DataContentModel | undefined {
     types[typeName] = { fields };
   }
   const locales = value.locales;
-  return { types, ...(Array.isArray(locales) ? { locales: locales.filter((l): l is string => typeof l === "string") } : {}) };
+  return { types, use: "shared/model.ts", ...(Array.isArray(locales) ? { locales: locales.filter((l): l is string => typeof l === "string") } : {}) };
 }
 
 /**

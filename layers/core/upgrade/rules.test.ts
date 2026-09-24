@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { BootCheck } from "@michaelthielemann/kestrel";
 import type { Edit, LoadedProject, RuleContext } from "@michaelthielemann/kestrel-upgrade/plugin";
-import { overrideDeliveryRule, overrideGroupRule, underscoreFieldOverrideRule } from "./rules";
+import { overrideDeliveryRule, overrideGroupRule, ownPipelineDeliveryRule } from "./rules";
 
 const FILE = "/fake/kestrel.config.ts";
 
@@ -51,13 +51,17 @@ const presetOptions = {
 
 function contextFor(options: { answer?: string; bootErrors?: BootCheck["errors"]; notChecked?: BootCheck["notChecked"] }): RuleContext {
   const answers = new Map<string, string>(options.answer === undefined ? [] : [[`override-group:updatePage`, options.answer]]);
-  const previewBoot = vi.fn(async (_edits: readonly Edit[]): Promise<BootCheck | undefined> => ({ errors: options.bootErrors ?? [], warnings: [], notChecked: options.notChecked ?? [] }));
+  const verifyEdits = vi.fn(async (_edits: readonly Edit[], verifyOptions?: { pipelines?: readonly string[] }) => {
+    const pipelines = verifyOptions?.pipelines ?? [];
+    const unchecked = (options.notChecked ?? []).filter((n) => n.kind === "pipeline" && pipelines.includes(n.name)).map((n) => n.name);
+    return { verified: unchecked.length === 0, newErrors: options.bootErrors ?? [], unchecked };
+  });
   const project: LoadedProject = {
     input: { config: { modules: [], triggers: [{ pipeline: "updatePage", http: "PATCH /pages/:id" }], http: null }, modules: [], pipelines: [] },
     kind: "kestrel-web",
     configFile: FILE,
     moduleFiles: new Map(),
-    pipelineFiles: new Map([["updatePage", FILE]]),
+    pipelineFiles: [{ file: FILE, pipelines: ["updatePage"] }],
     data: {
       presetProblems: [{ code: "preset/override-drops-atomic-group", pipeline: "updatePage", message: 'preset: override for "updatePage" drops the atomic group around "references.check:pages"' }],
       presetOptions,
@@ -71,7 +75,7 @@ function contextFor(options: { answer?: string; bootErrors?: BootCheck["errors"]
     readFile: (file) => (file === FILE ? OVERRIDE_SOURCE : undefined),
     answers,
     ownsPackages: [],
-    previewBoot,
+    verifyEdits,
   };
 }
 
@@ -177,7 +181,7 @@ export const preset = definePreset({
       kind: "kestrel-web",
       configFile: FILE,
       moduleFiles: new Map(),
-      pipelineFiles: new Map([[pipeline, FILE]]),
+      pipelineFiles: [{ file: FILE, pipelines: [pipeline] }],
       data: {
         presetProblems: [{ code: "preset/override-drops-atomic-group", pipeline, message: `preset: override for "${pipeline}" drops the atomic group around "${members[0]}"` }],
         presetOptions: { ...presetOptions, overrides: { [pipeline]: [] } },
@@ -271,7 +275,7 @@ export const preset = definePreset({
       kind: "kestrel-web",
       configFile: FILE,
       moduleFiles: new Map(),
-      pipelineFiles: new Map([["updatePage", FILE]]),
+      pipelineFiles: [{ file: FILE, pipelines: ["updatePage"] }],
       data: { presetProblems: [], presetOptions: { ...presetOptions, overrides: { updatePage: [] } } },
     };
     return {
@@ -309,135 +313,86 @@ export const preset = definePreset({
   });
 });
 
-describe("underscoreFieldOverrideRule: verified-auto from a data report's counts", () => {
-  const TYPE = "settings";
-  const FIELD = "_legacyNote";
-  const MODEL_FILE = "/fake/shared/model.ts";
-  const MODEL_SOURCE = `
-export const contentTypes = {
-  settings: {
-    kind: "single",
-    fields: {
-      _legacyNote: { type: "text" },
-    },
-  },
-};
+describe("ownPipelineDeliveryRule: an own pipeline still running delivery inline while emitting a page event", () => {
+  const PIPELINES_FILE = "/fake/pipelines/index.ts";
+  const OWN_SOURCE = `
+export const pipelines = [
+  definePipeline({
+    name: "customUpdatePage",
+    steps: [
+      "authn.requireUser",
+      "content.update:pages",
+      "delivery.publish:pages",
+      "delivery.exportLlms",
+      "events.emit:page.updated",
+    ],
+  }),
+];
 `;
+  const OWN_STEPS = ["authn.requireUser", "content.update:pages", "delivery.publish:pages", "delivery.exportLlms", "events.emit:page.updated"];
 
-  function underscoreContextFor(options: { answer?: string; dataReport?: Record<string, unknown> }): RuleContext {
-    const answers = new Map<string, string>(options.answer === undefined ? [] : [[`underscore-field:${TYPE}.${FIELD}`, options.answer]]);
+  function ownContextFor(options: { answer?: string; overridden?: boolean }): RuleContext {
+    const answers = new Map<string, string>(options.answer === undefined ? [] : [["own-pipeline-delivery:customUpdatePage", options.answer]]);
     const project: LoadedProject = {
-      input: { config: { modules: [], triggers: [], http: null }, modules: [], pipelines: [] },
-      kind: "kestrel-web",
-      configFile: "/fake/kestrel.config.ts",
-      moduleFiles: new Map(),
-      pipelineFiles: new Map(),
-      data: {
-        presetProblems: [],
-        presetOptions: { modules: [], features: [], collections: { [TYPE]: { kind: "single", fields: { [FIELD]: { type: "text" } } } } },
+      input: {
+        config: { modules: [], triggers: [{ pipeline: "publishPage", event: "page.updated" }], http: null },
+        modules: [],
+        pipelines: [
+          { name: "customUpdatePage", steps: OWN_STEPS },
+          { name: "publishPage", steps: ["delivery.publish:pages", "delivery.exportLlms"] },
+        ],
       },
-      ...(options.dataReport === undefined ? {} : { dataReport: options.dataReport }),
+      kind: "kestrel-web",
+      configFile: FILE,
+      moduleFiles: new Map(),
+      pipelineFiles: [{ file: PIPELINES_FILE, pipelines: ["customUpdatePage"] }],
+      data: { presetProblems: [], presetOptions: { ...presetOptions, overrides: options.overridden ? { customUpdatePage: [] } : {} } },
     };
     return {
       root: "/fake",
       scratch: "/fake",
       project,
       bootCheck: { errors: [], warnings: [], notChecked: [] },
-      readFile: (file) => (file === MODEL_FILE ? MODEL_SOURCE : undefined),
+      readFile: (file) => (file === PIPELINES_FILE ? OWN_SOURCE : undefined),
       answers,
       ownsPackages: [],
     };
   }
 
-  it("asks with no default when no data report is supplied", async () => {
-    const ctx = underscoreContextFor({});
-    const [finding] = await underscoreFieldOverrideRule.check(ctx);
-    expect(finding?.fix).toMatchObject({ kind: "ask", question: `underscore-field:${TYPE}.${FIELD}`, choices: ["legacyNote", "remove"] });
-    expect(finding?.fix as { defaultValue?: string }).not.toHaveProperty("defaultValue");
-    if (finding?.fix.kind !== "ask") throw new Error("expected ask");
-    expect(finding.fix.prompt).toContain("no data report");
+  it("asks, defaulting to remove, when an own pipeline double-publishes", async () => {
+    const [finding] = await ownPipelineDeliveryRule.check(ownContextFor({}));
+    expect(finding?.fix).toMatchObject({ kind: "ask", question: "own-pipeline-delivery:customUpdatePage", choices: ["remove", "keep"], defaultValue: "remove" });
   });
 
-  it("renames automatically when a data report counts zero stored values in every locale", async () => {
-    const ctx = underscoreContextFor({ dataReport: { underscoreFields: { [`${TYPE}.${FIELD}`]: { unlocalized: 0 } } } });
-    const [finding] = await underscoreFieldOverrideRule.check(ctx);
+  it('removes the delivery steps automatically once answered "remove"', async () => {
+    const [finding] = await ownPipelineDeliveryRule.check(ownContextFor({ answer: "remove" }));
     expect(finding?.fix.kind).toBe("auto");
     if (finding?.fix.kind !== "auto") throw new Error("expected auto");
-    expect(finding.fix.edits).toHaveLength(1);
-    const edit = finding.fix.edits[0]!;
-    const patched = MODEL_SOURCE.slice(0, edit.start) + edit.text + MODEL_SOURCE.slice(edit.end);
-    expect(patched).toContain("legacyNote:");
-    expect(patched).not.toContain("_legacyNote");
+    let patched = OWN_SOURCE;
+    for (const edit of [...finding.fix.edits].sort((a, b) => b.start - a.start)) patched = patched.slice(0, edit.start) + edit.text + patched.slice(edit.end);
+    expect(patched).not.toContain("delivery.publish:pages");
+    expect(patched).not.toContain("delivery.exportLlms");
+    expect(patched).toContain("events.emit:page.updated");
   });
 
-  it("still asks, with no default, when a data report counts a stored value", async () => {
-    const ctx = underscoreContextFor({ dataReport: { underscoreFields: { [`${TYPE}.${FIELD}`]: { unlocalized: 3 } } } });
-    const [finding] = await underscoreFieldOverrideRule.check(ctx);
-    expect(finding?.fix).toMatchObject({ kind: "ask", question: `underscore-field:${TYPE}.${FIELD}`, choices: ["legacyNote", "remove"] });
-    expect(finding?.fix as { defaultValue?: string }).not.toHaveProperty("defaultValue");
-    expect(finding?.message).toContain("3 stored value");
+  it('keeps it, as information only, once answered "keep"', async () => {
+    const [finding] = await ownPipelineDeliveryRule.check(ownContextFor({ answer: "keep" }));
+    expect(finding?.fix.kind).toBe("none");
   });
 
-  it("renames on an explicit answer even with stored values, but only as a warning, never proven safe", async () => {
-    const ctx = underscoreContextFor({ answer: "legacyNote", dataReport: { underscoreFields: { [`${TYPE}.${FIELD}`]: { unlocalized: 3 } } } });
-    const [finding] = await underscoreFieldOverrideRule.check(ctx);
-    expect(finding?.severity).toBe("warning");
-    expect(finding?.fix.kind).toBe("auto");
-    expect(finding?.suggestion).toContain("not a proving zero count");
-  });
-
-  it('"remove" leaves it for manual review instead of renaming, even with zero counts', async () => {
-    const ctx = underscoreContextFor({ answer: "remove", dataReport: { underscoreFields: { [`${TYPE}.${FIELD}`]: { unlocalized: 0 } } } });
-    const [finding] = await underscoreFieldOverrideRule.check(ctx);
-    expect(finding?.fix.kind).toBe("ask");
-  });
-});
-
-describe("underscoreFieldOverrideRule: the orphaned-column warning persists after an unproven rename", () => {
-  const TYPE = "pages";
-  const RENAMED_FIELD = "legacyNote";
-  const ORPHAN_FIELD = "_legacyNote";
-
-  function orphanContextFor(dataReport?: Record<string, unknown>): RuleContext {
-    const project: LoadedProject = {
-      input: { config: { modules: [], triggers: [], http: null }, modules: [], pipelines: [] },
-      kind: "kestrel-web",
-      configFile: "/fake/kestrel.config.ts",
-      moduleFiles: new Map(),
-      pipelineFiles: new Map(),
-      data: {
-        presetProblems: [],
-        presetOptions: { modules: [], features: [], collections: { [TYPE]: { kind: "multi", fields: { [RENAMED_FIELD]: { type: "text" } } } } },
-      },
-      ...(dataReport === undefined ? {} : { dataReport }),
-    };
-    return {
-      root: "/fake",
-      scratch: "/fake",
-      project,
-      bootCheck: { errors: [], warnings: [], notChecked: [] },
-      readFile: () => undefined,
-      answers: new Map(),
-      ownsPackages: [],
-    };
-  }
-
-  it("says nothing once the field is renamed and no data report exists yet", async () => {
-    const findings = await underscoreFieldOverrideRule.check(orphanContextFor());
+  it("says nothing about a pipeline of the same name once it is an override (preset/override-delivery's job instead)", async () => {
+    const findings = await ownPipelineDeliveryRule.check(ownContextFor({ overridden: true }));
     expect(findings).toEqual([]);
   });
 
-  it("says nothing once the shadow column is counted empty", async () => {
-    const findings = await underscoreFieldOverrideRule.check(orphanContextFor({ underscoreFields: { [`${TYPE}.${ORPHAN_FIELD}`]: { unlocalized: 0 } } }));
+  it("does nothing when no relayed pipeline actually runs delivery (nothing would double-publish)", async () => {
+    const ctx = ownContextFor({});
+    ctx.project.input.pipelines = [
+      { name: "customUpdatePage", steps: OWN_STEPS },
+      { name: "publishPage", steps: ["authn.requireUser"] },
+    ];
+    const findings = await ownPipelineDeliveryRule.check(ctx);
     expect(findings).toEqual([]);
   });
-
-  it("warns, on every check, while the old column still has stored data after the rename", async () => {
-    const findings = await underscoreFieldOverrideRule.check(orphanContextFor({ underscoreFields: { [`${TYPE}.${ORPHAN_FIELD}`]: { unlocalized: 1, de: 1 } } }));
-    expect(findings).toHaveLength(1);
-    expect(findings[0]?.severity).toBe("warning");
-    expect(findings[0]?.fix.kind).toBe("none");
-    expect(findings[0]?.message).toContain(`"${ORPHAN_FIELD}"`);
-    expect(findings[0]?.message).toContain(`"${RENAMED_FIELD}"`);
-  });
 });
+

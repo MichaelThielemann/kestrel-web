@@ -1,6 +1,5 @@
-import { insertStepAfterEmitOutsideGroup, parseTs, renameContentField } from "@michaelthielemann/kestrel-upgrade/codemods";
+import { insertStepAfterEmitOutsideGroup, parseTs } from "@michaelthielemann/kestrel-upgrade/codemods";
 import type { Edit, Finding, Rule, RuleContext } from "@michaelthielemann/kestrel-upgrade/plugin";
-import type { BootProblem } from "@michaelthielemann/kestrel";
 import { pipelineSteps } from "@michaelthielemann/kestrel/definePipeline";
 import type { PipelineDefinition, PipelineEntry } from "@michaelthielemann/kestrel/definePipeline";
 import { checkPreset } from "../pipelines/checkPreset";
@@ -8,8 +7,8 @@ import type { PresetOptions } from "../pipelines/checkPreset";
 import { addModuleEntryConfigProperty, bumpPackageJsonDependency, removeStepsFromArray, wrapAtomicGroup, wrapRange } from "./edits";
 import type { SourceRange } from "./edits";
 import { layerProjectData } from "./load";
-import { layerLocateModelFields, layerLocateSteps } from "./locators";
-import { autoFinding, docsAnchor, manualFinding, packageJsonPath, presetOptionsCast, sharedModelFile } from "./ruleHelpers";
+import { layerLocateSteps } from "./locators";
+import { autoFinding, docsAnchor, fileForPipeline, manualFinding, packageJsonPath, presetOptionsCast } from "./ruleHelpers";
 
 const LAYER_RANGE = "^3.0.0";
 const LAYER_PACKAGE = "@michaelthielemann/kestrel-web";
@@ -199,7 +198,7 @@ export const overrideDeliveryRule: Rule = {
       const where = { pipeline: pipelineName };
       const docs = docsAnchor("preset-override-delivery");
       const message = `override for "${pipelineName}" still runs ${deliverySteps.map((s) => `"${s}"`).join(", ")}, which the 3.0 default moved to the pipeline its event relays to — publishing twice`;
-      const file = ctx.project.pipelineFiles.get(pipelineName);
+      const file = fileForPipeline(ctx, pipelineName);
       const source = file === undefined ? undefined : ctx.readFile(file);
       if (file === undefined || source === undefined) {
         findings.push(manualFinding(id, "preset/override-delivery", where, message, `remove ${deliverySteps.map((s) => `"${s}"`).join(", ")} from the override yourself`, docs));
@@ -218,6 +217,71 @@ export const overrideDeliveryRule: Rule = {
   },
 };
 
+/**
+ * A pipeline defined directly in `pipelines/index.ts` (not an override) that still runs
+ * `delivery.publish`/`unpublish`/`exportLlms` while emitting an event a relay pipeline runs the same
+ * steps for also publishes twice. Asks rather than auto-applying, since this is the consumer's own pipeline
+ * rather than a known 2.x default shape — but the same provably-correct condition `preset/override-delivery`
+ * requires before acting gates the question here too, so "remove" is a safe default.
+ */
+export const ownPipelineDeliveryRule: Rule = {
+  id: "preset/own-pipeline-delivery",
+  check(ctx) {
+    const cast = presetOptionsCast(ctx);
+    if (cast === undefined) return [];
+    const overrideNames = new Set(Object.keys(cast.overrides ?? {}));
+    const ownNames = ctx.project.pipelineFiles.flatMap((pf) => pf.pipelines).filter((name) => !overrideNames.has(name));
+    if (ownNames.length === 0) return [];
+    const locate = ctx.locateSteps ?? layerLocateSteps;
+    const findings: Finding[] = [];
+    for (const pipelineName of ownNames) {
+      const def = ctx.project.input.pipelines.find((p) => p.name === pipelineName);
+      if (def === undefined) continue;
+      const ownSteps = pipelineSteps(def.steps);
+      const deliverySteps = ownSteps.filter(isDeliveryStep);
+      if (deliverySteps.length === 0) continue;
+      if (!relayedPipelineRunsDelivery(ctx, emittedEventsOf(ownSteps))) continue;
+
+      const id = `preset/own-pipeline-delivery:${pipelineName}`;
+      const rule = "preset/own-pipeline-delivery";
+      const where = { pipeline: pipelineName };
+      const docs = docsAnchor("preset-own-pipeline-delivery");
+      const stepList = deliverySteps.map((s) => `"${s}"`).join(", ");
+      const message = `pipeline "${pipelineName}" still runs ${stepList} while emitting an event that also triggers a relay pipeline running them — publishing twice`;
+      const questionId = `own-pipeline-delivery:${pipelineName}`;
+      const answer = ctx.answers.get(questionId);
+
+      if (answer === "keep") {
+        findings.push({ id, rule, severity: "info", tier: "source", where, message, suggestion: "kept as answered; review whether this pipeline should still publish inline", fix: { kind: "none" }, docs });
+        continue;
+      }
+      if (answer === "remove") {
+        const file = fileForPipeline(ctx, pipelineName);
+        const source = file === undefined ? undefined : ctx.readFile(file);
+        const edits = file !== undefined && source !== undefined ? locate(parseTs(source), pipelineName).flatMap((array) => removeStepsFromArray(file, source, array, isDeliveryStep)) : [];
+        findings.push(
+          edits.length > 0
+            ? autoFinding(id, rule, where, message, `removes ${stepList}; the relayed pipeline already runs them`, edits, docs)
+            : manualFinding(id, rule, where, message, `remove ${stepList} from the pipeline yourself`, docs),
+        );
+        continue;
+      }
+      findings.push({
+        id,
+        rule,
+        severity: "error",
+        tier: "source",
+        where,
+        message,
+        suggestion: "the relayed pipeline already runs these steps; keep them here only if this pipeline must publish synchronously",
+        fix: { kind: "ask", question: questionId, prompt: `remove ${stepList} from "${pipelineName}", or keep them?`, choices: ["remove", "keep"], defaultValue: "remove" },
+        docs,
+      });
+    }
+    return findings;
+  },
+};
+
 function atomicGroupOf(def: PipelineDefinition | undefined): string[] | undefined {
   for (const entry of def?.steps ?? []) {
     if (typeof entry === "object" && entry !== null && "atomic" in entry) return [...(entry as { atomic: readonly string[] }).atomic];
@@ -225,22 +289,17 @@ function atomicGroupOf(def: PipelineDefinition | undefined): string[] | undefine
   return undefined;
 }
 
-function errKey(e: BootProblem): string {
-  return [e.code, e.owner, e.reason, e.module, e.pipeline, e.step, e.path].join(":");
-}
-
 type IncludeResult = { kind: "safe"; edit: Edit } | { kind: "unsafe"; reason: string };
 
 async function verifiedInclude(ctx: RuleContext, file: string, source: string, pipelineName: string, range: SourceRange): Promise<IncludeResult> {
   const edit = wrapRange(file, source, range);
-  if (!ctx.previewBoot) return { kind: "unsafe", reason: "could not verify: no boot check ran; upgrade @michaelthielemann/kestrel to 6 first" };
-  const preview = await ctx.previewBoot([edit]);
-  if (preview === undefined) return { kind: "unsafe", reason: "could not verify: the edited copy could not be reloaded" };
-  const uncheckedPipeline = preview.notChecked.find((n) => n.kind === "pipeline" && n.name === pipelineName);
-  if (uncheckedPipeline !== undefined) return { kind: "unsafe", reason: `the preview did not check pipeline "${pipelineName}" (${uncheckedPipeline.because}); run with --run-setup for the step's own module first` };
-  const baseline = new Set(ctx.bootCheck.errors.map(errKey));
-  const newErrors = preview.errors.filter((e) => !baseline.has(errKey(e)));
-  if (newErrors.length > 0) return { kind: "unsafe", reason: newErrors.map((e) => e.reason).join("; ") };
+  if (!ctx.verifyEdits) return { kind: "unsafe", reason: "could not verify: no boot check ran; upgrade @michaelthielemann/kestrel to 6 first" };
+  const result = await ctx.verifyEdits([edit], { pipelines: [pipelineName] });
+  if (!result.verified) {
+    if (result.unchecked.length > 0) return { kind: "unsafe", reason: `the preview did not check pipeline "${pipelineName}"; run with --run-setup for the step's own module first` };
+    return { kind: "unsafe", reason: "could not verify: no boot check ran, or the edited copy could not be reloaded" };
+  }
+  if (result.newErrors.length > 0) return { kind: "unsafe", reason: result.newErrors.map((e) => e.reason).join("; ") };
   return { kind: "safe", edit };
 }
 
@@ -283,7 +342,7 @@ export const overrideGroupRule: Rule = {
       const rule = "preset/override-group";
       const docs = docsAnchor("preset-override-group");
       const members = atomicGroupOf(defaultPipelineOf(cast, pipelineName));
-      const file = ctx.project.pipelineFiles.get(pipelineName);
+      const file = fileForPipeline(ctx, pipelineName);
       const source = file === undefined ? undefined : ctx.readFile(file);
       if (members === undefined || file === undefined || source === undefined) {
         findings.push(manualFinding(id, rule, where, problem.message, "could not locate the override or the 3.0 default's atomic group; wrap the write steps in { atomic: [...] } yourself", docs));
@@ -359,7 +418,7 @@ export const overrideRelayRule: Rule = {
       const pipelineName = problem.pipeline!;
       const id = `preset/override-relay:${pipelineName}`;
       const where = { pipeline: pipelineName };
-      const file = ctx.project.pipelineFiles.get(pipelineName);
+      const file = fileForPipeline(ctx, pipelineName);
       const source = file === undefined ? undefined : ctx.readFile(file);
       const def = ctx.project.input.pipelines.find((p) => p.name === pipelineName);
       const emitStep = def === undefined ? undefined : pipelineSteps(def.steps).filter((s) => s.startsWith("events.emit:")).at(-1);
@@ -374,140 +433,4 @@ export const overrideRelayRule: Rule = {
   },
 };
 
-function underscoreQuestionId(typeName: string, field: string): string {
-  return `underscore-field:${typeName}.${field}`;
-}
-
-function underscoreStoredCounts(ctx: RuleContext, typeName: string, field: string): Record<string, number | null> | undefined {
-  const underscoreFields = ctx.project.dataReport?.underscoreFields;
-  if (typeof underscoreFields !== "object" || underscoreFields === null) return undefined;
-  const counts = (underscoreFields as Record<string, unknown>)[`${typeName}.${field}`];
-  if (typeof counts !== "object" || counts === null) return undefined;
-  const out: Record<string, number | null> = {};
-  for (const [locale, n] of Object.entries(counts)) if (typeof n === "number" || n === null) out[locale] = n;
-  return out;
-}
-
-function describeUnderscoreCounts(counts: Record<string, number | null>): string {
-  return Object.entries(counts)
-    .map(([locale, n]) => {
-      if (n === null) return locale === "unlocalized" ? "not counted" : `not counted in "${locale}"`;
-      return locale === "unlocalized" ? `${n} stored value(s)` : `${n} in "${locale}"`;
-    })
-    .join(", ");
-}
-
-function underscoreFieldEdit(ctx: RuleContext, typeName: string, field: string, to: string): Edit | undefined {
-  const file = sharedModelFile(ctx);
-  const source = ctx.readFile(file);
-  return source === undefined ? undefined : renameContentField(file, source, { use: "", typeName, from: field, to, locateModelFields: ctx.locateModelFields ?? layerLocateModelFields });
-}
-
-/**
- * Replaces kestrel's own `model/underscore-field` for a layer project: the built-in rule reads
- * `config.types.<typeName>.fields` on a module-list entry in `kestrel.config.ts`, which a layer project's
- * content model never has — it lives in `shared/model.ts`, wired in by `presetModuleConfig()` at runtime,
- * and `dataModel()` (the layer's own hook) supplies it to `data --db` too. This version reads the
- * collections the captured preset options carry, edits `shared/model.ts` with `locateModelFields`, and
- * reads its counts from `ctx.project.dataReport.underscoreFields` exactly as kestrel's built-in rule does:
- * a data report counting zero stored values in every locale renames automatically, one counting any renames
- * only on an explicit answer (never proven safe), and no report at all asks with no default. It also warns
- * about an orphaned shadow column: for a field whose name does not start with "_", if its `_`-prefixed
- * counterpart is not declared, a data report counting stored values there is a warning, judged fresh on
- * every `check --data-report` against the model's current fields until a report counts that column empty.
- */
-export const underscoreFieldOverrideRule: Rule = {
-  id: "model/underscore-field",
-  check(ctx) {
-    const cast = presetOptionsCast(ctx);
-    if (cast === undefined) return [];
-    const collections = cast.collections ?? {};
-    const findings: Finding[] = [];
-    for (const [typeName, model] of Object.entries(collections)) {
-      const declaredFields = new Set(Object.keys(model.fields ?? {}));
-      for (const field of declaredFields) {
-        if (!field.startsWith("_")) {
-          const orphanField = `_${field}`;
-          if (declaredFields.has(orphanField)) continue;
-          const orphanCounts = underscoreStoredCounts(ctx, typeName, orphanField);
-          if (orphanCounts === undefined || Object.values(orphanCounts).every((n) => n === 0)) continue;
-          findings.push({
-            id: `model/underscore-field:${typeName}.${orphanField}`,
-            rule: "model/underscore-field",
-            severity: "warning",
-            tier: "source",
-            where: { path: `types.${typeName}.fields.${field}` },
-            message: `the old column "${orphanField}" on content type "${typeName}" still has stored data (${describeUnderscoreCounts(orphanCounts)}); the current field is named "${field}"`,
-            suggestion: `add a migration on the running 5.8.x instance (defineMigration) copying "${orphanField}" to "${field}", then run \`kestrel-web-upgrade data\` again to confirm "${orphanField}" is empty`,
-            fix: { kind: "none" },
-            docs: docsAnchor("model-underscore-field"),
-          });
-          continue;
-        }
-        const id = `model/underscore-field:${typeName}.${field}`;
-        const where = { path: `types.${typeName}.fields.${field}` };
-        const questionId = underscoreQuestionId(typeName, field);
-        const target = field.replace(/^_+/, "");
-        const counts = underscoreStoredCounts(ctx, typeName, field);
-        const verifiedEmpty = counts !== undefined && Object.values(counts).every((n) => n === 0);
-        const hasStoredData = counts !== undefined && Object.values(counts).some((n) => n !== null && n > 0);
-        const answer = ctx.answers.get(questionId);
-        const autoTarget = answer === "remove" ? undefined : (answer ?? (verifiedEmpty ? target : undefined));
-
-        if (verifiedEmpty && autoTarget !== undefined) {
-          const edit = underscoreFieldEdit(ctx, typeName, field, autoTarget);
-          findings.push({
-            id,
-            rule: "model/underscore-field",
-            severity: "error",
-            tier: "source",
-            where,
-            message: `"${field}" on content type "${typeName}" starts with "_"; a data report counted zero stored values (${describeUnderscoreCounts(counts!)})`,
-            suggestion: edit === undefined ? `could not locate "shared/model.ts"'s content type; rename "${field}" to "${autoTarget}" by hand` : `renamed to "${autoTarget}"`,
-            fix: edit === undefined ? { kind: "manual" } : { kind: "auto", edits: [edit] },
-            docs: docsAnchor("model-underscore-field"),
-          });
-          continue;
-        }
-        if (answer !== undefined && answer !== "remove") {
-          const edit = underscoreFieldEdit(ctx, typeName, field, answer);
-          const proof = counts === undefined ? "no data report was supplied" : `a data report counted stored values (${describeUnderscoreCounts(counts)})`;
-          findings.push({
-            id,
-            rule: "model/underscore-field",
-            severity: "warning",
-            tier: "source",
-            where,
-            message: `"${field}" on content type "${typeName}" starts with "_"`,
-            suggestion:
-              edit === undefined
-                ? `could not locate "shared/model.ts"'s content type; rename "${field}" to "${answer}" by hand`
-                : `renamed to "${answer}" — ${proof}, not a proving zero count; the old field "${field}" on "${typeName}" may still hold data`,
-            fix: edit === undefined ? { kind: "manual" } : { kind: "auto", edits: [edit] },
-            docs: docsAnchor("model-underscore-field"),
-          });
-          continue;
-        }
-        findings.push({
-          id,
-          rule: "model/underscore-field",
-          severity: "error",
-          tier: "source",
-          where,
-          message: hasStoredData
-            ? `"${field}" on content type "${typeName}" starts with "_", which fails boot on 6.0.0; a data report counted stored values (${describeUnderscoreCounts(counts!)})`
-            : `"${field}" on content type "${typeName}" starts with "_", which fails boot on 6.0.0`,
-          suggestion:
-            counts === undefined
-              ? "run `kestrel-web-upgrade data --db <file> --out <report>.json` against a copy of the store, then check again with --data-report <report>.json"
-              : "a stored value exists in at least one locale; add a migration on the running 5.8.x instance (defineMigration) copying it to the new key before upgrading",
-          fix: { kind: "ask", question: questionId, prompt: counts === undefined ? `rename "${field}" on "${typeName}" to (no data report supplied; run \`kestrel-web-upgrade data\` first)` : `rename "${field}" on "${typeName}" to`, choices: [target, "remove"] },
-          docs: docsAnchor("model-underscore-field"),
-        });
-      }
-    }
-    return findings;
-  },
-};
-
-export const layerRules: readonly Rule[] = [layerRangeRule, relayScopeRule, presetProblemsRule, overrideDriftRule, overrideDeliveryRule, overrideGroupRule, overrideRelayRule];
+export const layerRules: readonly Rule[] = [layerRangeRule, relayScopeRule, presetProblemsRule, overrideDriftRule, overrideDeliveryRule, ownPipelineDeliveryRule, overrideGroupRule, overrideRelayRule];

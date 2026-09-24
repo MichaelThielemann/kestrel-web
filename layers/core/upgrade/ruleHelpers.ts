@@ -27,6 +27,10 @@ export function findFeaturesArrayFile(ctx: RuleContext): string | undefined {
   return ctx.readFile(candidate) === undefined ? undefined : candidate;
 }
 
+export function fileForPipeline(ctx: RuleContext, pipelineName: string): string | undefined {
+  return ctx.project.pipelineFiles.find((f) => f.pipelines.includes(pipelineName))?.file;
+}
+
 export function autoFinding(id: string, rule: string, where: Finding["where"], message: string, suggestion: string, edits: Edit[], docs: string): Finding {
   return { id, rule, severity: "error", tier: "source", where, message, suggestion, fix: { kind: "auto", edits }, docs };
 }

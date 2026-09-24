@@ -57,7 +57,7 @@ afterEach(() => {
 });
 
 describe("dataModel() and model/underscore-field, verified against a real data report", () => {
-  it("data --db counts zero stored values; check then renames automatically", async () => {
+  it("data --db counts zero stored values; check proves it safe, but the rename comes out manual (kestrel's built-in rename always targets kestrel.config.ts, not shared/model.ts)", async () => {
     const dir = await prepare();
     const dbFile = await seedDb(dir, undefined);
     const outFile = join(dir, "report.json");
@@ -67,7 +67,8 @@ describe("dataModel() and model/underscore-field, verified against a real data r
 
     const report = await checkWithReport(dir, outFile);
     const finding = report.findings.find((f) => f.rule === "model/underscore-field");
-    expect(finding?.fix.kind).toBe("auto");
+    expect(finding?.message).toContain("zero stored values");
+    expect(finding?.fix.kind).toBe("manual");
   }, 60_000);
 
   it("data --db counts a stored value; check still asks, with no default", async () => {

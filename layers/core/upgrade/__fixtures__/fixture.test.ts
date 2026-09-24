@@ -110,30 +110,28 @@ describe("site-2.0 (create-kestrel template shape, presetModuleConfig, no overri
 
   it("fix --write --answers switch-to-queue:yes switches delivery; the switched project still boots and logs in", async () => {
     const dir = await prepare("site-2.0");
+    const eventPipelines = ["generateImageVariants", "publishPage", "unpublishPage", "reassignRevisionAuthor"];
     const answersFile = join(dir, "answers.json");
     const { writeFileSync } = await import("node:fs");
-    writeFileSync(answersFile, JSON.stringify({ "switch-to-queue": "yes" }));
-    // --write refuses without --yes or a TTY even with --answers supplied (consent to write is separate
-    // from supplying an answer); --yes only fills in undecided questions here, since switch-to-queue is
-    // already answered by the file.
+    writeFileSync(answersFile, JSON.stringify({ "switch-to-queue": "yes", ...Object.fromEntries(eventPipelines.map((p) => [`idempotent:${p}`, "yes"])) }));
     await runUpgradeCli(["fix", "--root", dir, "--write", "--yes", "--answers", answersFile], { plugins: [createLayerPlugin()], stdout: () => undefined, stderr: () => undefined, forceInstalledMajor: 6 });
 
     const model = readFileSync(join(dir, "shared", "model.ts"), "utf8");
     expect(model).toMatch(/"eventsQueue"/);
 
-    const project = await loadProject(dir);
-    const box = sandboxBootInput(project.input, { dir });
+    const fixedProject = await loadProject(dir);
+    const box = sandboxBootInput(fixedProject.input, { dir });
     const bootCheck = await checkBoot(box.input, { setup: box.setup });
     expect(bootCheck.errors).toEqual([]);
-    expect(project.input.modules.some((m) => m.name === "events/queue")).toBe(true);
+    expect(fixedProject.input.modules.some((m) => m.name === "events/queue")).toBe(true);
 
-    const status = await bootAndLogin({ ...project.input, root: dir });
+    const status = await bootAndLogin({ ...fixedProject.input, root: dir });
     expect(status).toBe(200);
   }, 60_000);
 });
 
 describe("site-2.0-custom (hand-written module list, eventsQueue already on, a 2.x-shaped override)", () => {
-  it("check finds the range bump, the missing relayPipelines and the forward-port for deletePage; the offer says it is already on the queue", async () => {
+  it("check finds the range bump, the missing relayPipelines and the forward-port for deletePage; the offer says nothing since it is already on the queue", async () => {
     const dir = await prepare("site-2.0-custom");
     const report = await check(dir);
 
@@ -141,8 +139,7 @@ describe("site-2.0-custom (hand-written module list, eventsQueue already on, a 2
     expect(relayScope?.fix.kind).toBe("auto");
     expect(relayScope?.suggestion).toContain("relayPipelines");
 
-    const offer = report.findings.find((f) => f.rule === "offer/event-queue");
-    expect(offer?.message).toContain("already on the queue");
+    expect(report.findings.find((f) => f.rule === "offer/event-queue")).toBeUndefined();
 
     const layerRange = report.findings.find((f) => f.rule === "deps/layer-range");
     expect(layerRange?.fix.kind).toBe("auto");
