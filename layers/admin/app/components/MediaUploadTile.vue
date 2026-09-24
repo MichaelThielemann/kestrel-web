@@ -14,13 +14,16 @@ const { t } = useT()
 
 const ready = computed(() => props.item.status === 'done')
 const failed = computed(() => props.item.status === 'failed')
-const progressValue = computed(() => (props.item.status === 'queued' ? 0 : props.item.status === 'uploading' ? props.item.progress : undefined))
+const progressValue = computed(() => {
+  if (props.item.status === 'queued') return 0
+  if (props.item.status === 'uploading') return props.item.totalKnown ? props.item.progress : undefined
+  return undefined
+})
 const progressText = computed(() => {
   if (props.item.status === 'queued') return t('media.tile.queued')
-  if (props.item.status === 'uploading') return t('media.tile.percent', { percent: props.item.progress })
+  if (props.item.status === 'uploading' && props.item.totalKnown) return t('media.tile.percent', { percent: props.item.progress })
   return t('media.tile.processing')
 })
-const chipId = computed(() => `media-upload-tile-chip-${props.item.id}`)
 </script>
 
 <template>
@@ -29,6 +32,7 @@ const chipId = computed(() => `media-upload-tile-chip-${props.item.id}`)
       <span class="media-upload-tile__thumb-wrap">
         <span class="media-upload-tile__badge" aria-hidden="true"><KestrelUiIcon name="triangle-alert" :size="24" /></span>
       </span>
+      <p class="media-upload-tile__name">{{ item.filename }}</p>
       <p class="media-upload-tile__message">{{ item.message }}</p>
       <KestrelUiButton
         type="button"
@@ -40,12 +44,11 @@ const chipId = computed(() => `media-upload-tile-chip-${props.item.id}`)
       />
     </div>
     <template v-else>
-      <span class="media-upload-tile__thumb-wrap" :aria-describedby="chipState ? chipId : undefined">
+      <span class="media-upload-tile__thumb-wrap">
         <img v-if="preview" :src="preview" alt="" aria-hidden="true" class="media-upload-tile__thumb">
-        <span v-else class="media-upload-tile__badge" aria-hidden="true">{{ t('media.tile.noPreview') }}</span>
+        <span v-else class="media-upload-tile__badge" aria-hidden="true"><KestrelUiIcon name="file-text" :size="32" /></span>
         <KestrelMediaVariantChip
           v-if="ready && chipState"
-          :id="chipId"
           class="media-upload-tile__chip"
           :state="chipState"
           :done="chipDone"
