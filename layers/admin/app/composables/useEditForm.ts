@@ -17,7 +17,7 @@ import {
  pruneBlockProps, writeKeys } from '../utils/edit-form'
 import { copyTranslation as copyTranslationAction, saveRecord, setStatus as setStatusAction } from '../actions/editor'
 import { toastUnexpected } from '../actions/steps/notify'
-import type { ActionDeps, EditFormPort } from '../actions/types'
+import type { EditFormPort } from '../actions/types'
 import type { BlockRow } from '../utils/block-tree'
 import type { RowErrorMap } from '../utils/row-errors'
 
@@ -41,10 +41,8 @@ function snapshot(values: Record<string, unknown>): Record<string, unknown> {
 
 export function useEditForm(opts: UseEditFormOptions) {
   const { collection, id } = opts
-  const { t } = useT()
-  const api = useAdminApi()
-  const toast = useToast()
-  const capabilities = useCapabilities()
+  const deps = useActionDeps()
+  const { api, capabilities } = deps
   const { schema } = useSchema()
   const { locales: contentLocales, primary: primaryLocale } = useContentLocales()
   const locale = ref(opts.locale?.trim() || primaryLocale.value)
@@ -149,7 +147,11 @@ export function useEditForm(opts: UseEditFormOptions) {
   )
   const showCopyTranslation = computed(() => missingTranslation.value && !copied.value && copySourceLocales.value.length > 0)
 
-  const canSave = computed(() => !stored.value || missingTranslation.value || dirty.value)
+  const canWrite = computed(() => {
+    const writeVerb = mode.value === 'single' ? 'set' : id === 'new' ? 'create' : 'update'
+    return capabilities.hasVerb(collection, writeVerb)
+  })
+  const canSave = computed(() => canWrite.value && (!stored.value || missingTranslation.value || dirty.value))
 
   function fieldKeys() {
     return Object.keys(fields.value)
@@ -335,10 +337,6 @@ export function useEditForm(opts: UseEditFormOptions) {
     revealErrorFn?.()
   }
 
-  function deps(): ActionDeps {
-    return { api, t, toast, capabilities }
-  }
-
   function port(): EditFormPort {
     return {
       collection,
@@ -392,23 +390,20 @@ export function useEditForm(opts: UseEditFormOptions) {
   }
 
   async function submit(): Promise<SubmitResult> {
-    const d = deps()
-    const result = await runAction(saveRecord, { deps: d, form: port(), eventsQueue: useFeatures().has('eventsQueue') })
-    toastUnexpected(d, result)
+    const result = await runAction(saveRecord, { deps, form: port(), eventsQueue: useFeatures().has('eventsQueue') })
+    toastUnexpected(deps, result)
     return toSubmitResult(result)
   }
 
   async function setStatus(next: string): Promise<SubmitResult> {
-    const d = deps()
-    const result = await runAction(setStatusAction, { deps: d, form: port(), status: next, eventsQueue: useFeatures().has('eventsQueue') })
-    toastUnexpected(d, result)
+    const result = await runAction(setStatusAction, { deps, form: port(), status: next, eventsQueue: useFeatures().has('eventsQueue') })
+    toastUnexpected(deps, result)
     return toSubmitResult(result)
   }
 
   async function copyTranslation(source: string, confirmed: boolean): Promise<boolean> {
-    const d = deps()
-    const result = await runAction(copyTranslationAction, { deps: d, form: port(), fields: fields.value, source, confirmed })
-    toastUnexpected(d, result)
+    const result = await runAction(copyTranslationAction, { deps, form: port(), fields: fields.value, source, confirmed })
+    toastUnexpected(deps, result)
     if (result.ok) copied.value = true
     return result.ok
   }
@@ -446,6 +441,7 @@ export function useEditForm(opts: UseEditFormOptions) {
     formError,
     dirty,
     canSave,
+    canWrite,
     savedStatus,
     saving,
     ready,

@@ -12,6 +12,8 @@ const capabilities = useCapabilities()
 
 const collection = computed(() => props.schema.name)
 const canCreate = computed(() => capabilities.hasVerb(collection.value, 'create'))
+const canBulkUpdate = computed(() => capabilities.hasVerb(collection.value, 'update'))
+const canBulkDelete = computed(() => capabilities.hasVerb(collection.value, 'delete'))
 const label = computed(() => resolveLocalized(props.schema.label?.singular, lang.value) ?? props.schema.name)
 
 const newLabel = computed(() => resolveLocalized(props.schema.label?.new, lang.value) ?? t('common.new', { label: label.value }))
@@ -84,6 +86,8 @@ await fetchRows()
         v-if="selected.size"
         :count="selected.size"
         :has-workflow="!!workflow"
+        :can-update="canBulkUpdate"
+        :can-delete="canBulkDelete"
         :busy="opsBusy"
         @set-status="(live) => setStatus([...selected], live, locale)"
         @delete="askDelete([...selected])"

@@ -27,8 +27,14 @@ const { schema } = vi.hoisted(() => {
     fieldLayout: [{ kind: 'row', fields: ['title'], tracks: [1] }],
     capabilities: {
       readAny: { method: 'GET', path: '/admin/widgets/:id' },
+      create: { method: 'POST', path: '/widgets' },
       update: { method: 'PATCH', path: '/widgets/:id' },
     },
+  }
+  const readonlyWidgetsCollection: AdminSchema['collections'][number] = {
+    ...widgetsCollection,
+    name: 'readonlyWidgets',
+    capabilities: { readAny: { method: 'GET', path: '/admin/readonlyWidgets/:id' } },
   }
   const rulesField: SerializedField = { type: 'json', required: false, unique: false, localized: false, label: 'Rules' }
   const redirectsCollection: AdminSchema['collections'][number] = {
@@ -50,9 +56,14 @@ const { schema } = vi.hoisted(() => {
       set: { method: 'PUT', path: '/redirects' },
     },
   }
+  const readonlyRedirectsCollection: AdminSchema['collections'][number] = {
+    ...redirectsCollection,
+    name: 'readonlyRedirects',
+    capabilities: { get: { method: 'GET', path: '/readonlyRedirects' } },
+  }
   const schema: AdminSchema = {
     locales: { all: ['en'], primary: 'en', prefixPrimary: false },
-    collections: [widgetsCollection, redirectsCollection],
+    collections: [widgetsCollection, readonlyWidgetsCollection, redirectsCollection, readonlyRedirectsCollection],
     features: [],
     capabilities: {},
   }
@@ -188,5 +199,35 @@ describe('CollectionEditor', () => {
     const wrapper = await mountSuspended(CollectionEditor, { props: { collection: 'widgets', id: 'new', actions: true } })
 
     expect(wrapper.get('button[type="submit"]').attributes('disabled')).toBeUndefined()
+  })
+
+  it('keeps an existing record read-only and its save disabled without the update capability', async () => {
+    unregisterAll.push(registerEndpoint('/api/admin/readonlyWidgets/w1', { method: 'GET', handler: () => baseRecord() }))
+
+    const wrapper = await mountSuspended(CollectionEditor, { props: { collection: 'readonlyWidgets', id: 'w1', actions: true } })
+
+    expect(wrapper.get('button[type="submit"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.get('input').attributes('disabled')).toBeDefined()
+
+    await wrapper.get('input').setValue('Attempted edit')
+    expect(wrapper.get('button[type="submit"]').attributes('disabled')).toBeDefined()
+  })
+
+  it('offers no save for a new record without the create capability', async () => {
+    const wrapper = await mountSuspended(CollectionEditor, { props: { collection: 'readonlyWidgets', id: 'new', actions: true } })
+
+    expect(wrapper.get('button[type="submit"]').attributes('disabled')).toBeDefined()
+  })
+
+  it('keeps the singleton form read-only and its save disabled without the set capability', async () => {
+    unregisterAll.push(registerEndpoint('/api/readonlyRedirects', {
+      method: 'GET',
+      handler: () => ({ id: 'readonlyRedirects', rules: [], createdAt: 0, updatedAt: 0 }),
+    }))
+
+    const wrapper = await mountSuspended(CollectionEditor, { props: { collection: 'readonlyRedirects', id: 'single', actions: true } })
+
+    expect(wrapper.get('button[type="submit"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.get('textarea').attributes('disabled')).toBeDefined()
   })
 })

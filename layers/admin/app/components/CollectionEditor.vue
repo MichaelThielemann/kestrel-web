@@ -15,7 +15,7 @@ const { t } = useT()
 const f = useEditForm({ collection: props.collection, id: props.id, locale: props.localeParam })
 
 const {
-  formError, saving, submit, dirty, canSave, editorType, workflow, savedStatus, undo, redo, canUndo, canRedo, pageLike, delivery, deliveryLoading,
+  formError, saving, submit, dirty, canSave, canWrite, editorType, workflow, savedStatus, undo, redo, canUndo, canRedo, pageLike, delivery, deliveryLoading,
   locale, showCopyTranslation, copySourceLocales, copySourceDefault, blockErrors, revealError,
 } = f
 
@@ -32,7 +32,7 @@ const heading = computed(() => recordTitle(renderable.value, f.values))
 const pageFieldsBindings = computed(() => ({
   translatable: f.translatable.value, collection: props.collection, id: props.id, mode: f.mode.value,
   locale: f.locale.value, fields: renderable.value, fieldLayout: f.fieldLayout.value,
-  values: f.values, errors: f.errors, rowErrors: f.rowErrors, disabled: f.saving.value, translations: f.translations.value,
+  values: f.values, errors: f.errors, rowErrors: f.rowErrors, disabled: f.saving.value || !canWrite.value, translations: f.translations.value,
 }))
 
 const pageFieldsHandlers = { update: f.setField }
@@ -53,7 +53,7 @@ provide(editorFormContextKey, {
 })
 
 defineExpose({
-  dirty, canSave, saving, undo, redo, canUndo, canRedo, workflow, status, savedStatus, setStatus,
+  dirty, canSave, canWrite, saving, undo, redo, canUndo, canRedo, workflow, status, savedStatus, setStatus,
   recordTitle: heading,
   missingTranslation: f.missingTranslation, primaryTitle: f.primaryTitle, primaryLocale,
   locale: f.locale, translations: f.translations,

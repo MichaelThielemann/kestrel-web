@@ -6,6 +6,8 @@ export interface EditorExpose {
 
   canSave: boolean
 
+  canWrite: boolean
+
   saving: boolean
   canUndo: boolean
   canRedo: boolean

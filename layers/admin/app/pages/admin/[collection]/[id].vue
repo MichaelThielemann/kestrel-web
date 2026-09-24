@@ -56,7 +56,7 @@ const translationNote = computed(() =>
 )
 
 const published = computed(() => workflow.value !== undefined && editorRef.value?.savedStatus === workflow.value.live)
-const canPublish = computed(() => workflow.value !== undefined && id !== 'new')
+const canPublish = computed(() => workflow.value !== undefined && id !== 'new' && (editorRef.value?.canWrite ?? false))
 
 const publishBlocked = computed(() => editorRef.value?.missingTranslation === true)
 
@@ -73,7 +73,10 @@ const deleteOps = {
   setError: (message: string | null) => { deleteError.value = message },
 }
 
-const canDeleteTranslation = computed(() => def.value?.translatable === true && def.value?.mode === 'multi' && id !== 'new')
+const canDelete = computed(() => id !== 'new' && capabilities.hasVerb(collection, 'delete'))
+const canDeleteTranslation = computed(() =>
+  def.value?.translatable === true && def.value?.mode === 'multi' && id !== 'new' && capabilities.hasVerb(collection, 'deleteTranslation'),
+)
 const currentLocale = computed(() => editorRef.value?.locale ?? localeParam.value ?? primaryLocale.value)
 
 const historyOpen = ref(false)
@@ -164,7 +167,10 @@ async function confirmDeleteTranslation() {
 
 <template>
   <section class="record">
-    <p v-if="!hasCapability" class="record__missing">{{ t('capability.unavailable') }}</p>
+    <template v-if="!hasCapability">
+      <h1 class="record__title">{{ plural }}</h1>
+      <p class="record__missing">{{ t('capability.unavailable') }}</p>
+    </template>
     <template v-else>
     <div class="record__head">
       <NuxtLink :to="listPath" class="record__back">
@@ -179,7 +185,7 @@ async function confirmDeleteTranslation() {
         :can-undo="editorRef?.canUndo ?? false"
         :can-redo="editorRef?.canRedo ?? false"
         :can-save="canSave"
-        :can-delete="id !== 'new'"
+        :can-delete="canDelete"
         :deleting="deleting"
         :form-id="EDITOR_FORM_ID"
         :workflow="workflow"
