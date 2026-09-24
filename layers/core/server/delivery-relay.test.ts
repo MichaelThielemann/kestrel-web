@@ -88,7 +88,7 @@ describe("delivery is an event pipeline, delivered by events.relay", () => {
       collectionsUi,
       fieldTypes,
       audit: { retentionDays: 365 },
-      roles: { roles: { admin: ["*"] }, anonymous: [] },
+      roles: { roles: { admin: ["*"], editor: ["pages.*"] }, anonymous: [] },
       bootstrap: { username: "admin", passwordHash: PASSWORD_HASH },
     });
     const preset = definePreset({ modules: moduleConfig, features: activeFeatures, collections: contentTypes, collectionsUi, fieldTypes });
@@ -264,6 +264,36 @@ describe("delivery is an event pipeline, delivered by events.relay", () => {
     try {
       const status = await kestrel.run("eventsDeliveryStatus", { trigger: { kind: "http", name: "GET /admin/events/delivery" } });
       expect(status.status).toBe(401);
+    } finally {
+      await kestrel.stop();
+    }
+  }, 20000);
+
+  it("an editor request for the delivery status is refused", async () => {
+    const { kestrel, token } = await bootWithFailingPublish(false);
+    try {
+      const createEditor = await kestrel.run("createUser", {
+        trigger: { kind: "http", name: "POST /users" },
+        headers: { authorization: `Bearer ${token}` },
+        body: { username: "editor-only", password: "change-me-too", roles: ["editor"] },
+      });
+      expect(createEditor.status).toBe(200);
+
+      const editorLogin = await kestrel.run("login", {
+        trigger: { kind: "http", name: "POST /login" },
+        body: { username: "editor-only", password: "change-me-too" },
+      });
+      expect(editorLogin.status).toBe(200);
+      if (editorLogin.result === undefined || typeof editorLogin.result !== "object" || !("token" in editorLogin.result)) {
+        throw new Error("expected the editor login run to produce a token");
+      }
+      const editorToken = String(editorLogin.result.token);
+
+      const status = await kestrel.run("eventsDeliveryStatus", {
+        trigger: { kind: "http", name: "GET /admin/events/delivery" },
+        headers: { authorization: `Bearer ${editorToken}` },
+      });
+      expect(status.status).toBe(403);
     } finally {
       await kestrel.stop();
     }
