@@ -2,6 +2,7 @@ import type { TriggerConfig } from "@michaelthielemann/kestrel/defineConfig";
 import type { PresetStep } from "../module-registry";
 import { resolveWorkflow } from "../collections-ui/workflow";
 import type { WorkflowUi } from "../collections-ui/workflow";
+import type { CollectionVerb, MultiVerb, SingleVerb } from "./capabilities";
 import type { PresetEntry } from "./compose";
 
 export interface CollectionModel {
@@ -56,71 +57,98 @@ export function statusQueryFor(name: string, model: CollectionModel, ui?: Workfl
 }
 
 export function publicCollectionSteps(name: string, model: CollectionModel, ui?: WorkflowUi): PublicCollectionStep[] {
-  const { plural, singular } = collectionNames(name);
+  const pipelines = collectionPipelines(name, model, ui);
   const query = statusQueryFor(name, model, ui);
-  return [
-    { pipeline: `list${plural}`, base: `content.list:${name}`, step: `content.list:${name}${query}` },
-    { pipeline: `read${singular}`, base: `content.get:${name}`, step: `content.get:${name}${query}` },
-  ];
+  const steps: PublicCollectionStep[] = [];
+  if (pipelines.list) steps.push({ pipeline: pipelines.list.name, base: `content.list:${name}`, step: `content.list:${name}${query}` });
+  if (pipelines.read) steps.push({ pipeline: pipelines.read.name, base: `content.get:${name}`, step: `content.get:${name}${query}` });
+  return steps;
 }
 
 export function customFieldChecks(name: string, customFields: Record<string, string> | undefined): PresetStep[] {
   return Object.keys(customFields ?? {}).sort().map((field): PresetStep => `validate.check:${name}.${field}`);
 }
 
-export function multiCollectionPipelines(name: string, model: CollectionModel, ui?: WorkflowUi, customFields?: Record<string, string>): Record<string, PresetEntry<PresetStep>[]> {
+/** One pipeline a collection composer names, keyed by verb elsewhere; not a pipeline definition on its own. */
+export interface CollectionPipeline {
+  name: string;
+  steps: PresetEntry<PresetStep>[];
+}
+
+/** Flattens a verb-keyed collection pipeline map into the plain `name -> steps` shape `mergePipelines` takes. */
+export function pipelinesByName(pipelines: Partial<Record<CollectionVerb, CollectionPipeline>>): Record<string, PresetEntry<PresetStep>[]> {
+  const result: Record<string, PresetEntry<PresetStep>[]> = {};
+  for (const pipeline of Object.values(pipelines)) {
+    if (pipeline !== undefined) result[pipeline.name] = pipeline.steps;
+  }
+  return result;
+}
+
+export function multiCollectionPipelines(name: string, model: CollectionModel, ui?: WorkflowUi, customFields?: Record<string, string>): Partial<Record<MultiVerb, CollectionPipeline>> {
   const { plural, singular, event } = collectionNames(name);
   const statusQuery = statusQueryFor(name, model, ui);
   const bodySteps: PresetStep[] = "body" in model.fields ? [`validate.check:${name}.body`, `validate.sanitize:${name}.body`, `validate.check:${name}.body`] : [];
   const customSteps = customFieldChecks(name, customFields);
-  const pipelines: Record<string, PresetEntry<PresetStep>[]> = {
-    [`list${plural}`]: ["authn.identifyUser", `authz.require:${name}.read`, `content.list:${name}${statusQuery}`],
-    [`listAll${plural}`]: ["authn.requireUser", `authz.require:${name}.manage`, `content.list:${name}`],
-    [`read${singular}`]: ["authn.identifyUser", `authz.require:${name}.read`, `content.get:${name}${statusQuery}`],
-    [`readAny${singular}`]: ["authn.requireUser", `authz.require:${name}.manage`, `content.get:${name}`],
-    [`create${singular}`]: [
-      "authn.requireUser",
-      `authz.require:${name}.write`,
-      ...bodySteps,
-      ...customSteps,
-      { atomic: [`content.create:${name}`] },
-      `events.emit:${event}.created`,
-    ],
-    [`update${singular}`]: [
-      "authn.requireUser",
-      `authz.require:${name}.write`,
-      ...bodySteps,
-      ...customSteps,
-      { atomic: [`content.update:${name}`] },
-      `events.emit:${event}.updated`,
-    ],
-    [`delete${singular}`]: [
-      "authn.requireUser",
-      `authz.require:${name}.delete`,
-      { atomic: [`content.remove:${name}`] },
-      `events.emit:${event}.deleted`,
-    ],
+  const pipelines: Partial<Record<MultiVerb, CollectionPipeline>> = {
+    list: { name: `list${plural}`, steps: ["authn.identifyUser", `authz.require:${name}.read`, `content.list:${name}${statusQuery}`] },
+    listAll: { name: `listAll${plural}`, steps: ["authn.requireUser", `authz.require:${name}.manage`, `content.list:${name}`] },
+    read: { name: `read${singular}`, steps: ["authn.identifyUser", `authz.require:${name}.read`, `content.get:${name}${statusQuery}`] },
+    readAny: { name: `readAny${singular}`, steps: ["authn.requireUser", `authz.require:${name}.manage`, `content.get:${name}`] },
+    create: {
+      name: `create${singular}`,
+      steps: [
+        "authn.requireUser",
+        `authz.require:${name}.write`,
+        ...bodySteps,
+        ...customSteps,
+        { atomic: [`content.create:${name}`] },
+        `events.emit:${event}.created`,
+      ],
+    },
+    update: {
+      name: `update${singular}`,
+      steps: [
+        "authn.requireUser",
+        `authz.require:${name}.write`,
+        ...bodySteps,
+        ...customSteps,
+        { atomic: [`content.update:${name}`] },
+        `events.emit:${event}.updated`,
+      ],
+    },
+    delete: {
+      name: `delete${singular}`,
+      steps: [
+        "authn.requireUser",
+        `authz.require:${name}.delete`,
+        { atomic: [`content.remove:${name}`] },
+        `events.emit:${event}.deleted`,
+      ],
+    },
   };
   if (hasLocalizedField(model)) {
-    pipelines[`delete${singular}Translation`] = [
-      "authn.requireUser",
-      `authz.require:${name}.write`,
-      { atomic: [`content.removeTranslation:${name}`] },
-      `events.emit:${event}.translationRemoved`,
-    ];
+    pipelines.deleteTranslation = {
+      name: `delete${singular}Translation`,
+      steps: [
+        "authn.requireUser",
+        `authz.require:${name}.write`,
+        { atomic: [`content.removeTranslation:${name}`] },
+        `events.emit:${event}.translationRemoved`,
+      ],
+    };
   }
   return pipelines;
 }
 
-export function singleCollectionPipelines(name: string, customFields?: Record<string, string>): Record<string, PresetEntry<PresetStep>[]> {
+export function singleCollectionPipelines(name: string, customFields?: Record<string, string>): Partial<Record<SingleVerb, CollectionPipeline>> {
   const { plural } = collectionNames(name);
   return {
-    [`get${plural}`]: ["authn.identifyUser", `authz.require:${name}.read`, `content.get:${name}`],
-    [`set${plural}`]: ["authn.requireUser", `authz.require:${name}.write`, ...customFieldChecks(name, customFields), `content.set:${name}`],
+    get: { name: `get${plural}`, steps: ["authn.identifyUser", `authz.require:${name}.read`, `content.get:${name}`] },
+    set: { name: `set${plural}`, steps: ["authn.requireUser", `authz.require:${name}.write`, ...customFieldChecks(name, customFields), `content.set:${name}`] },
   };
 }
 
-export function collectionPipelines(name: string, model: CollectionModel, ui?: WorkflowUi, customFields?: Record<string, string>): Record<string, PresetEntry<PresetStep>[]> {
+export function collectionPipelines(name: string, model: CollectionModel, ui?: WorkflowUi, customFields?: Record<string, string>): Partial<Record<CollectionVerb, CollectionPipeline>> {
   return model.kind === "multi" ? multiCollectionPipelines(name, model, ui, customFields) : singleCollectionPipelines(name, customFields);
 }
 
@@ -132,34 +160,31 @@ export function buildCollectionPipelines(
   const result: Record<string, PresetEntry<PresetStep>[]> = {};
   for (const [name, model] of Object.entries(collections)) {
     if (!isGenericCollection(name)) continue;
-    Object.assign(result, collectionPipelines(name, model, collectionsUi?.[name], customFields?.[name]));
+    Object.assign(result, pipelinesByName(collectionPipelines(name, model, collectionsUi?.[name], customFields?.[name])));
   }
   return result;
 }
 
 export function multiCollectionTriggers(name: string, model: CollectionModel): TriggerConfig[] {
-  const { plural, singular } = collectionNames(name);
-  const triggers: TriggerConfig[] = [
-    { http: `GET /${name}`, pipeline: `list${plural}` },
-    { http: `GET /admin/${name}`, pipeline: `listAll${plural}` },
-    { http: `GET /admin/${name}/:id`, pipeline: `readAny${singular}` },
-    { http: `GET /${name}/:id`, pipeline: `read${singular}` },
-    { http: `POST /${name}`, pipeline: `create${singular}` },
-    { http: `PATCH /${name}/:id`, pipeline: `update${singular}` },
-    { http: `DELETE /${name}/:id`, pipeline: `delete${singular}` },
-  ];
-  if (hasLocalizedField(model)) {
-    triggers.push({ http: `DELETE /${name}/:id/translations/:locale`, pipeline: `delete${singular}Translation` });
-  }
+  const pipelines = multiCollectionPipelines(name, model);
+  const triggers: TriggerConfig[] = [];
+  if (pipelines.list) triggers.push({ http: `GET /${name}`, pipeline: pipelines.list.name });
+  if (pipelines.listAll) triggers.push({ http: `GET /admin/${name}`, pipeline: pipelines.listAll.name });
+  if (pipelines.readAny) triggers.push({ http: `GET /admin/${name}/:id`, pipeline: pipelines.readAny.name });
+  if (pipelines.read) triggers.push({ http: `GET /${name}/:id`, pipeline: pipelines.read.name });
+  if (pipelines.create) triggers.push({ http: `POST /${name}`, pipeline: pipelines.create.name });
+  if (pipelines.update) triggers.push({ http: `PATCH /${name}/:id`, pipeline: pipelines.update.name });
+  if (pipelines.delete) triggers.push({ http: `DELETE /${name}/:id`, pipeline: pipelines.delete.name });
+  if (pipelines.deleteTranslation) triggers.push({ http: `DELETE /${name}/:id/translations/:locale`, pipeline: pipelines.deleteTranslation.name });
   return triggers;
 }
 
 export function singleCollectionTriggers(name: string): TriggerConfig[] {
-  const { plural } = collectionNames(name);
-  return [
-    { http: `GET /${name}`, pipeline: `get${plural}` },
-    { http: `PUT /${name}`, pipeline: `set${plural}` },
-  ];
+  const pipelines = singleCollectionPipelines(name);
+  const triggers: TriggerConfig[] = [];
+  if (pipelines.get) triggers.push({ http: `GET /${name}`, pipeline: pipelines.get.name });
+  if (pipelines.set) triggers.push({ http: `PUT /${name}`, pipeline: pipelines.set.name });
+  return triggers;
 }
 
 export function collectionTriggers(name: string, model: CollectionModel): TriggerConfig[] {

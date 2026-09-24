@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { definePreset, featureOrder, staticPipelineNames } from "./index";
 import type { Feature } from "./index";
-import { DEFAULT_COLLECTIONS, collectionPipelines, isGenericCollection } from "./collections";
+import { DEFAULT_COLLECTIONS, collectionPipelines, isGenericCollection, pipelinesByName } from "./collections";
 
 const allFeaturesRecord = {
   ratelimit: 1,
@@ -61,7 +61,7 @@ describe("staticPipelineNames", () => {
 
     for (const [name, model] of Object.entries(DEFAULT_COLLECTIONS)) {
       if (KEEPS_HISTORICAL_NAMES.has(name) || !isGenericCollection(name)) continue;
-      for (const pipelineName of Object.keys(collectionPipelines(name, model))) generated.delete(pipelineName);
+      for (const pipelineName of Object.keys(pipelinesByName(collectionPipelines(name, model)))) generated.delete(pipelineName);
     }
 
     expect(generated).toEqual(new Set(staticPipelineNames));

@@ -1,4 +1,15 @@
 import type { ImageSize } from '../utils/define-image-sizes'
+import type { CollectionVerb } from '#kestrel/pipelines'
+
+export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
+
+export interface Capability {
+  method: HttpMethod
+  /** Relative to the API mount path. `:name` and a trailing `*name` are placeholders, as in the HTTP trigger. */
+  path: string
+}
+
+export type CollectionCapabilities = Partial<Record<CollectionVerb, Capability>>
 
 export type FieldType =
   | 'text' | 'slug' | 'richtext' | 'number' | 'boolean' | 'datetime'
@@ -132,6 +143,11 @@ export interface SerializedCollection {
   editorOwned?: string[]
   workflow?: Workflow
   actions?: SerializedAction[]
+}
+
+export interface AdminCollection extends SerializedCollection {
+  /** The verbs the caller can use on this collection; a missing verb means hide the control. */
+  capabilities: CollectionCapabilities
 }
 
 export interface SerializedBlock {

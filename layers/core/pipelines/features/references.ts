@@ -2,6 +2,8 @@ import type { PresetContext } from "../base";
 import { ATOMIC_END } from "../compose";
 import type { FeatureModule } from "../index";
 
+export const PAGE_REFERENCE_PIPELINES = { referrers: "pageReferrers", referrersMany: "pageReferrersMany" } as const;
+
 export default function references(context: PresetContext): FeatureModule {
   const translationPatches: FeatureModule["patches"] = context.pagesTranslatable
     ? [{ pipeline: "deletePageTranslation", steps: ["references.index:pages"], at: "before", anchor: ATOMIC_END }]
@@ -10,8 +12,8 @@ export default function references(context: PresetContext): FeatureModule {
     modules: ["@michaelthielemann/kestrel-references-default"],
     pipelines: {
       brokenReferences: ["authn.requireUser", "authz.require:pages.manage", "references.report"],
-      pageReferrers: ["authn.requireUser", "authz.require:pages.manage", "references.referrers:pages"],
-      pageReferrersMany: ["authn.requireUser", "authz.require:pages.manage", "references.referrersMany:pages"],
+      [PAGE_REFERENCE_PIPELINES.referrers]: ["authn.requireUser", "authz.require:pages.manage", "references.referrers:pages"],
+      [PAGE_REFERENCE_PIPELINES.referrersMany]: ["authn.requireUser", "authz.require:pages.manage", "references.referrersMany:pages"],
       mediaReferrers: ["authn.requireUser", "authz.require:pages.manage", "references.referrers:media"],
       mediaReferrersMany: ["authn.requireUser", "authz.require:pages.manage", "references.referrersMany:media"],
       rebuildReferences: ["authn.requireUser", "authz.require:pages.manage", "references.rebuild"],

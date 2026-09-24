@@ -158,7 +158,7 @@
                 "default": [],
                 "label": {
                   "en": "Sub items",
-                  "de": "Untereintr\u00e4ge"
+                  "de": "Untereinträge"
                 },
                 "options": {
                   "fields": {
@@ -290,7 +290,17 @@
           ]
         }
       ],
-      "actions": []
+      "actions": [],
+      "capabilities": {
+        "get": {
+          "method": "GET",
+          "path": "/settings"
+        },
+        "set": {
+          "method": "PUT",
+          "path": "/settings"
+        }
+      }
     },
     {
       "name": "redirects",
@@ -405,7 +415,17 @@
           ]
         }
       ],
-      "actions": []
+      "actions": [],
+      "capabilities": {
+        "get": {
+          "method": "GET",
+          "path": "/redirects"
+        },
+        "set": {
+          "method": "PUT",
+          "path": "/redirects"
+        }
+      }
     },
     {
       "name": "pages",
@@ -500,7 +520,7 @@
                 "value": "published",
                 "label": {
                   "en": "Published",
-                  "de": "Ver\u00f6ffentlicht"
+                  "de": "Veröffentlicht"
                 }
               }
             ],
@@ -583,7 +603,69 @@
         "draft": "draft",
         "done": "finished"
       },
-      "actions": []
+      "actions": [],
+      "capabilities": {
+        "list": {
+          "method": "GET",
+          "path": "/pages"
+        },
+        "listAll": {
+          "method": "GET",
+          "path": "/admin/pages"
+        },
+        "read": {
+          "method": "GET",
+          "path": "/pages/:id"
+        },
+        "readAny": {
+          "method": "GET",
+          "path": "/admin/pages/:id"
+        },
+        "create": {
+          "method": "POST",
+          "path": "/pages"
+        },
+        "update": {
+          "method": "PATCH",
+          "path": "/pages/:id"
+        },
+        "delete": {
+          "method": "DELETE",
+          "path": "/pages/:id"
+        },
+        "deleteTranslation": {
+          "method": "DELETE",
+          "path": "/pages/:id/translations/:locale"
+        },
+        "revisions": {
+          "method": "GET",
+          "path": "/admin/pages/:id/revisions"
+        },
+        "revision": {
+          "method": "GET",
+          "path": "/admin/pages/:id/revisions/:revisionId"
+        },
+        "labelRevision": {
+          "method": "PATCH",
+          "path": "/admin/pages/:id/revisions/:revisionId"
+        },
+        "restoreRevision": {
+          "method": "POST",
+          "path": "/admin/pages/:id/revisions/:revisionId/restore"
+        },
+        "publishStatus": {
+          "method": "GET",
+          "path": "/admin/publish-status/pages/:id"
+        },
+        "referrers": {
+          "method": "GET",
+          "path": "/admin/references/to/pages/:id"
+        },
+        "referrersMany": {
+          "method": "GET",
+          "path": "/admin/references/to/pages"
+        }
+      }
     }
   ],
   "features": [
@@ -598,5 +680,203 @@
     "sanitizeSvg",
     "insights",
     "revisions"
-  ]
+  ],
+  "capabilities": {
+    "login": {
+      "method": "POST",
+      "path": "/login"
+    },
+    "logout": {
+      "method": "POST",
+      "path": "/logout"
+    },
+    "me": {
+      "method": "GET",
+      "path": "/me"
+    },
+    "changePassword": {
+      "method": "POST",
+      "path": "/me/password"
+    },
+    "listUsers": {
+      "method": "GET",
+      "path": "/users"
+    },
+    "createUser": {
+      "method": "POST",
+      "path": "/users"
+    },
+    "getUser": {
+      "method": "GET",
+      "path": "/users/:id"
+    },
+    "updateUser": {
+      "method": "PATCH",
+      "path": "/users/:id"
+    },
+    "setPassword": {
+      "method": "PUT",
+      "path": "/users/:id/password"
+    },
+    "deleteUser": {
+      "method": "DELETE",
+      "path": "/users/:id"
+    },
+    "deactivateUser": {
+      "method": "POST",
+      "path": "/users/:id/deactivate"
+    },
+    "activateUser": {
+      "method": "POST",
+      "path": "/users/:id/activate"
+    },
+    "publishAllPages": {
+      "method": "POST",
+      "path": "/admin/publish-all/pages"
+    },
+    "brokenReferences": {
+      "method": "GET",
+      "path": "/admin/references/broken"
+    },
+    "mediaReferrersMany": {
+      "method": "GET",
+      "path": "/admin/references/to/media"
+    },
+    "mediaReferrers": {
+      "method": "GET",
+      "path": "/admin/references/to/media/:id"
+    },
+    "rebuildReferences": {
+      "method": "POST",
+      "path": "/admin/references/rebuild"
+    },
+    "brokenLinks": {
+      "method": "GET",
+      "path": "/admin/links/broken"
+    },
+    "rebuildLinks": {
+      "method": "POST",
+      "path": "/admin/links/rebuild"
+    },
+    "renderRedirects": {
+      "method": "GET",
+      "path": "/redirects.json"
+    },
+    "resolvePage": {
+      "method": "GET",
+      "path": "/site/*path"
+    },
+    "uploadMedia": {
+      "method": "POST",
+      "path": "/media"
+    },
+    "exportMedia": {
+      "method": "POST",
+      "path": "/admin/media/export"
+    },
+    "reconcileMediaReport": {
+      "method": "POST",
+      "path": "/admin/media/reconcile"
+    },
+    "reconcileMediaDelete": {
+      "method": "POST",
+      "path": "/admin/media/reconcile/delete"
+    },
+    "listMediaFolders": {
+      "method": "GET",
+      "path": "/media/folders"
+    },
+    "createMediaFolder": {
+      "method": "POST",
+      "path": "/media/folders"
+    },
+    "renameMediaFolder": {
+      "method": "PATCH",
+      "path": "/media/folders/*path"
+    },
+    "deleteMediaFolder": {
+      "method": "DELETE",
+      "path": "/media/folders/*path"
+    },
+    "listMedia": {
+      "method": "GET",
+      "path": "/media"
+    },
+    "getMedia": {
+      "method": "GET",
+      "path": "/media/:id"
+    },
+    "downloadMedia": {
+      "method": "GET",
+      "path": "/media/:id/file"
+    },
+    "serveImageVariant": {
+      "method": "GET",
+      "path": "/media/:id/variants/:file"
+    },
+    "updateMedia": {
+      "method": "PATCH",
+      "path": "/media/:id"
+    },
+    "deleteMedia": {
+      "method": "DELETE",
+      "path": "/media/:id"
+    },
+    "registerImageSizes": {
+      "method": "PUT",
+      "path": "/admin/images/sizes"
+    },
+    "listImageSizes": {
+      "method": "GET",
+      "path": "/admin/images/sizes"
+    },
+    "syncImages": {
+      "method": "POST",
+      "path": "/admin/images/sync"
+    },
+    "pruneImages": {
+      "method": "POST",
+      "path": "/admin/images/prune"
+    },
+    "retryFailedImages": {
+      "method": "POST",
+      "path": "/admin/images/retry-failed"
+    },
+    "imagesStatus": {
+      "method": "GET",
+      "path": "/admin/images/status"
+    },
+    "replicationStatus": {
+      "method": "GET",
+      "path": "/admin/replication/status"
+    },
+    "replicationPoints": {
+      "method": "GET",
+      "path": "/admin/replication/points"
+    },
+    "replicationSnapshot": {
+      "method": "POST",
+      "path": "/admin/replication/snapshot"
+    },
+    "replicationRestore": {
+      "method": "POST",
+      "path": "/admin/replication/restore"
+    },
+    "insightsManifest": {
+      "method": "GET",
+      "path": "/admin/insights/manifest"
+    },
+    "insightsStats": {
+      "method": "GET",
+      "path": "/admin/insights/stats"
+    },
+    "retryAnonymizeAuditUser": {
+      "method": "POST",
+      "path": "/admin/users/:id/audit/anonymize"
+    },
+    "retryReassignRevisionAuthor": {
+      "method": "POST",
+      "path": "/admin/users/:id/revisions/reassign"
+    }
+  }
 }

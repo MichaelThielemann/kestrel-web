@@ -2,12 +2,14 @@ import { customFieldChecks } from "../collections";
 import type { PresetContext } from "../base";
 import type { FeatureModule } from "../index";
 
+export const REDIRECTS_PIPELINES = { get: "getRedirects", set: "setRedirects" } as const;
+
 export default function redirects({ homeSlug, customFields }: PresetContext): FeatureModule {
   return {
     modules: ["@michaelthielemann/kestrel-redirects-default"],
     pipelines: {
-      getRedirects: ["authn.identifyUser", "authz.require:redirects.read", "content.get:redirects"],
-      setRedirects: [
+      [REDIRECTS_PIPELINES.get]: ["authn.identifyUser", "authz.require:redirects.read", "content.get:redirects"],
+      [REDIRECTS_PIPELINES.set]: [
         "authn.requireUser",
         "authz.require:redirects.write",
         "validate.check:redirects.rules",

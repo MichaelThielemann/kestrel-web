@@ -4,7 +4,7 @@ import type { Ok } from '@michaelthielemann/kestrel/result'
 import type { RestoreReport, Revision, RevisionAuthor, RevisionKind, RevisionPage, RevisionSummary } from '@michaelthielemann/kestrel-contracts/revisions'
 import type { Feature } from '#kestrel/pipelines'
 import type { operations } from './openapi.generated'
-import type { SerializedCollection } from './kestrel'
+import type { AdminCollection, Capability } from './kestrel'
 
 export type { RestoreReport, Revision, RevisionAuthor, RevisionKind, RevisionPage, RevisionSummary }
 
@@ -330,6 +330,8 @@ export interface AdminSchemaLocales { all: string[]; primary: string; prefixPrim
 
 export interface AdminSchema {
   locales: AdminSchemaLocales
-  collections: SerializedCollection[]
+  collections: AdminCollection[]
   features: Feature[]
+  /** Pipelines outside any collection verb that the caller can reach and is not denied, by pipeline name; includes the consumer's own pipelines. */
+  capabilities: Record<string, Capability>
 }

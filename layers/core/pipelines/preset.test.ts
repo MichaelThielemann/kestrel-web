@@ -805,6 +805,31 @@ describe("definePreset event module invariants", () => {
   });
 });
 
+describe("definePreset admin schema access guard", () => {
+  it("rejects an adminSchemaModel override without authz.describePipelineAccess", () => {
+    expect(() =>
+      definePreset({
+        modules: baseModules,
+        features: [],
+        overrides: { adminSchemaModel: ["authn.requireUser", "content.describeModel"] },
+      }),
+    ).toThrow('preset: override for "adminSchemaModel" drops "authz.describePipelineAccess"');
+  });
+
+  it("accepts an adminSchemaModel override that keeps authz.describePipelineAccess", () => {
+    const preset = definePreset({
+      modules: baseModules,
+      features: [],
+      overrides: { adminSchemaModel: ["authn.requireUser", "content.describeModel", "authz.describePipelineAccess"] },
+    });
+    expect(preset.pipelines.find((pipeline) => pipeline.name === "adminSchemaModel")?.steps).toEqual([
+      "authn.requireUser",
+      "content.describeModel",
+      "authz.describePipelineAccess",
+    ]);
+  });
+});
+
 describe("definePreset collection name validation", () => {
   it.each(["my-collection", "1collection", "MyCollection", "newsItem"])(
     "throws for an invalid collection name %s",

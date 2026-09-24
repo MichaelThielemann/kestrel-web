@@ -10,6 +10,8 @@ export interface PresetModuleEntry {
   config?: unknown;
 }
 
+export const SETTINGS_PIPELINES = { get: "getSettings", set: "setSettings" } as const;
+
 export interface PresetContext {
   exportDir: string;
   homeSlug: string;
@@ -30,7 +32,7 @@ export function basePipelines(
     login: ["authn.login", "events.emit:auth.loggedIn"],
     logout: ["authn.requireUser", "authn.logout", "events.emit:auth.loggedOut"],
     me: ["authn.requireUser", "authn.loadIdentity"],
-    adminSchemaModel: ["authn.requireUser", "content.describeModel"],
+    adminSchemaModel: ["authn.requireUser", "content.describeModel", "authz.describePipelineAccess"],
     changePassword: ["authn.requireUser", "authn.changePassword"],
     listUsers: ["authn.requireUser", "authz.require:users.manage", "authn.listUsers"],
     createUser: [
@@ -55,13 +57,13 @@ export function basePipelines(
     deactivateUser: ["authn.requireUser", "authz.require:users.manage", "authn.deactivateUser", "events.emit:user.deactivated"],
     activateUser: ["authn.requireUser", "authz.require:users.manage", "authn.activateUser"],
     cleanupSessions: ["authn.cleanupSessions"],
-    getSettings: [
+    [SETTINGS_PIPELINES.get]: [
       "authn.identifyUser",
       "authz.require:settings.read",
       "content.get:settings",
       `site.resolveLinks:settings?home=${homeSlug}&status=published&fallback=true`,
     ],
-    setSettings: [
+    [SETTINGS_PIPELINES.set]: [
       "authn.requireUser",
       "authz.require:settings.write",
       "validate.check:settings.navigation",

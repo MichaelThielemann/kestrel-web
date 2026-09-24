@@ -12,16 +12,16 @@ export const REVISIONS_REASSIGN_PIPELINE = "reassignRevisionAuthor";
 export const REVISIONS_REASSIGN_RETRY_PIPELINE = "retryReassignRevisionAuthor";
 
 export interface RevisionPipelineNames {
-  list: string;
-  read: string;
-  label: string;
-  restore: string;
+  revisions: string;
+  revision: string;
+  labelRevision: string;
+  restoreRevision: string;
 }
 
 export function revisionPipelineNames(name: string): RevisionPipelineNames {
   const { singular } = collectionNames(name);
   const lower = uncapitalize(singular);
-  return { list: `${lower}Revisions`, read: `${lower}Revision`, label: `label${singular}Revision`, restore: `restore${singular}Revision` };
+  return { revisions: `${lower}Revisions`, revision: `${lower}Revision`, labelRevision: `label${singular}Revision`, restoreRevision: `restore${singular}Revision` };
 }
 
 function revisionedCollections(collections: Record<string, CollectionModel>): [string, CollectionModel][] {
@@ -31,10 +31,10 @@ function revisionedCollections(collections: Record<string, CollectionModel>): [s
 function revisionTriggers(name: string): TriggerConfig[] {
   const names = revisionPipelineNames(name);
   return [
-    { http: `GET /admin/${name}/:id/revisions`, pipeline: names.list },
-    { http: `GET /admin/${name}/:id/revisions/:revisionId`, pipeline: names.read },
-    { http: `PATCH /admin/${name}/:id/revisions/:revisionId`, pipeline: names.label },
-    { http: `POST /admin/${name}/:id/revisions/:revisionId/restore`, pipeline: names.restore },
+    { http: `GET /admin/${name}/:id/revisions`, pipeline: names.revisions },
+    { http: `GET /admin/${name}/:id/revisions/:revisionId`, pipeline: names.revision },
+    { http: `PATCH /admin/${name}/:id/revisions/:revisionId`, pipeline: names.labelRevision },
+    { http: `POST /admin/${name}/:id/revisions/:revisionId/restore`, pipeline: names.restoreRevision },
   ];
 }
 
@@ -72,9 +72,9 @@ export default function revisions(context: PresetContext): FeatureModule {
   for (const [name, model] of entries) {
     const { singular } = collectionNames(name);
     const names = revisionPipelineNames(name);
-    pipelines[names.list] = ["authn.requireUser", `authz.require:${name}.manage`, `revisions.list:${name}`];
-    pipelines[names.read] = ["authn.requireUser", `authz.require:${name}.manage`, `revisions.read:${name}`];
-    pipelines[names.label] = ["authn.requireUser", `authz.require:${name}.write`, `revisions.label:${name}`];
+    pipelines[names.revisions] = ["authn.requireUser", `authz.require:${name}.manage`, `revisions.list:${name}`];
+    pipelines[names.revision] = ["authn.requireUser", `authz.require:${name}.manage`, `revisions.read:${name}`];
+    pipelines[names.labelRevision] = ["authn.requireUser", `authz.require:${name}.write`, `revisions.label:${name}`];
     patches.push(
       { pipeline: `create${singular}`, steps: [`revisions.record:${name}`], at: "after", anchor: `content.create:${name}` },
       { pipeline: `update${singular}`, steps: [`revisions.record:${name}`], at: "after", anchor: `content.update:${name}` },
@@ -101,7 +101,7 @@ export default function revisions(context: PresetContext): FeatureModule {
       for (const [name] of entries) {
         const update = composed[`update${collectionNames(name).singular}`];
         if (update === undefined) continue;
-        derived[revisionPipelineNames(name).restore] = restorePipeline(name, update);
+        derived[revisionPipelineNames(name).restoreRevision] = restorePipeline(name, update);
       }
       return derived;
     },

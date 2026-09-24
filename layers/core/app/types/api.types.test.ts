@@ -24,9 +24,9 @@ interface ExpectedMediaItem {
   updatedAt: number
   variantCounts: {
     done: number
-    pending: number
     error: number
     failed: number
+    pending: number
   }
   variants: {
     bytes: number

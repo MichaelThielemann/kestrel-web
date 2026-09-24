@@ -2,6 +2,8 @@ import type { TriggerConfig } from "@michaelthielemann/kestrel/defineConfig";
 import type { PresetContext } from "../base";
 import type { FeatureModule } from "../index";
 
+export const PAGE_DELIVERY_PIPELINES = { publishStatus: "pagePublishStatus" } as const;
+
 export default function delivery(context: PresetContext): FeatureModule {
   const triggers: TriggerConfig[] = [
     { event: "page.created", pipeline: "publishPage" },
@@ -17,7 +19,7 @@ export default function delivery(context: PresetContext): FeatureModule {
     pipelines: {
       publishPage: ["delivery.publish:pages", "delivery.exportLlms"],
       unpublishPage: ["delivery.unpublish:pages", "delivery.exportLlms"],
-      pagePublishStatus: ["authn.requireUser", "authz.require:pages.manage", "delivery.readStatus:pages"],
+      [PAGE_DELIVERY_PIPELINES.publishStatus]: ["authn.requireUser", "authz.require:pages.manage", "delivery.readStatus:pages"],
       publishAllPages: ["authn.requireUser", "authz.require:pages.manage", "delivery.publishAll:pages"],
     },
     patches: [

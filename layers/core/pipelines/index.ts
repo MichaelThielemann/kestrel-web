@@ -13,7 +13,7 @@ import type { GroupSignature, Patch, PresetEntry } from "./compose";
 import { basePipelines } from "./base";
 import type { PresetContext } from "./base";
 import { canonicalTriggers } from "./triggers";
-import { collectionPipelines, hasLocalizedField, insertCollectionTriggers, isGenericCollection, DEFAULT_COLLECTIONS } from "./collections";
+import { collectionPipelines, hasLocalizedField, insertCollectionTriggers, isGenericCollection, pipelinesByName, DEFAULT_COLLECTIONS } from "./collections";
 import type { CollectionModel, CollectionPipelineName } from "./collections";
 import ratelimit from "./features/ratelimit";
 import sanitizeSvg from "./features/sanitizeSvg";
@@ -31,6 +31,8 @@ import revisions, { revisionPipelineNames } from "./features/revisions";
 
 export type { CollectionModel } from "./collections";
 export type { PresetEntry } from "./compose";
+export { collectionVerbs, MULTI_VERBS, SINGLE_VERBS } from "./capabilities";
+export type { CollectionVerb, MultiVerb, SingleVerb } from "./capabilities";
 export type { Workflow } from "../app/types/kestrel";
 export type { PresetStep } from "../module-registry";
 export { presetModuleConfig } from "./config";
@@ -216,14 +218,14 @@ export function definePreset<C extends Record<string, CollectionModel> = Record<
   for (const [name, model] of Object.entries(collections)) {
     if (!isGenericCollection(name)) continue;
     const generated = collectionPipelines(name, model, options.collectionsUi?.[name], customFields[name]);
-    for (const pipelineName of Object.keys(generated)) composablePipelineNames.add(pipelineName);
-    pipelines = mergePipelines(pipelines, generated, name, "collection");
+    for (const pipeline of Object.values(generated)) composablePipelineNames.add(pipeline.name);
+    pipelines = mergePipelines(pipelines, pipelinesByName(generated), name, "collection");
     if (model.kind === "multi") {
       const names = revisionPipelineNames(name);
-      composablePipelineNames.add(names.list);
-      composablePipelineNames.add(names.read);
-      composablePipelineNames.add(names.label);
-      composablePipelineNames.add(names.restore);
+      composablePipelineNames.add(names.revisions);
+      composablePipelineNames.add(names.revision);
+      composablePipelineNames.add(names.labelRevision);
+      composablePipelineNames.add(names.restoreRevision);
     }
   }
 
@@ -354,6 +356,11 @@ export function definePreset<C extends Record<string, CollectionModel> = Record<
         `preset: override for "${name}" drops "events.relay" – append it after the pipeline's events.emit: step, or exclude the pipeline and define your own`,
       );
     }
+  }
+
+  const adminSchemaModel = pipelines.adminSchemaModel;
+  if (adminSchemaModel !== undefined && !pipelineSteps(adminSchemaModel).includes("authz.describePipelineAccess")) {
+    throw new Error('preset: override for "adminSchemaModel" drops "authz.describePipelineAccess" – the admin reads the caller\'s pipeline access from it');
   }
 
   const excluded = applyExclude(pipelines, triggers, options.exclude ?? []);
