@@ -4,7 +4,7 @@ import { boundaryCast } from '#kestrel/cast'
 import { LAYER_ROUTES } from '#kestrel-core/fixed-routes'
 import type { ApiClient } from '../actions/types'
 import type { ApiRoute } from '../utils/capabilities'
-import { loadSchemaInto, type SchemaState } from './useSchema'
+import { loadSchemaInto, refreshSchemaInto, type SchemaOutcome, type SchemaState } from './useSchema'
 
 const schema: AdminSchema = {
   locales: { all: ['en'], primary: 'en', prefixPrimary: false },
@@ -12,6 +12,8 @@ const schema: AdminSchema = {
   features: ['delivery'],
   capabilities: {},
 }
+
+const updatedSchema: AdminSchema = { ...schema, features: ['delivery', 'references'] }
 
 function fakeState(generation = 0): { value: SchemaState } {
   return { value: { schema: null, error: null, generation } }
@@ -136,6 +138,100 @@ describe('loadSchemaInto', () => {
     state.value = { schema: null, error: null, generation: state.value.generation + 1 }
     release(schema)
     await load
+
+    expect(state.value.schema).toBeNull()
+  })
+})
+
+describe('refreshSchemaInto', () => {
+  it('keeps the current schema until the new answer arrives, then swaps it in one assignment', async () => {
+    const state = fakeState()
+    state.value = { schema, error: null, generation: 0 }
+    const here = scope()
+    let release: (value: AdminSchema) => void = () => {}
+    const api: ApiClient = <T>(): Promise<T> => new Promise<AdminSchema>((resolve) => { release = resolve }).then((value) => boundaryCast<T>(value, 'json'))
+
+    const refresh = refreshSchemaInto(state, api, here)
+    expect(state.value.schema).toEqual(schema)
+
+    release(updatedSchema)
+    expect(await refresh).toBe('ok')
+    expect(state.value.schema).toEqual(updatedSchema)
+  })
+
+  it('joins one in-flight refresh instead of firing a second request, and both callers see its answer', async () => {
+    const state = fakeState()
+    state.value = { schema, error: null, generation: 0 }
+    const here = scope()
+    const { api, routes } = fakeApi(updatedSchema)
+
+    const [first, second] = await Promise.all([refreshSchemaInto(state, api, here), refreshSchemaInto(state, api, here)])
+
+    expect(first).toBe('ok')
+    expect(second).toBe('ok')
+    expect(routes).toEqual([LAYER_ROUTES.schema])
+    expect(state.value.schema).toEqual(updatedSchema)
+  })
+
+  it('does not refetch again within the throttle window, so a repeated 403 cannot loop unbounded', async () => {
+    const state = fakeState()
+    state.value = { schema, error: null, generation: 0 }
+    const here = scope()
+    const { api, routes } = fakeApi(updatedSchema)
+
+    await refreshSchemaInto(state, api, here)
+    await refreshSchemaInto(state, api, here)
+    await refreshSchemaInto(state, api, here)
+
+    expect(routes).toEqual([LAYER_ROUTES.schema])
+  })
+
+  it('keeps serving the stale schema when the refetch fails', async () => {
+    const state = fakeState()
+    state.value = { schema, error: null, generation: 0 }
+    const here = scope()
+    const { api } = fakeApi(apiError(503, 'database is busy'))
+
+    expect(await refreshSchemaInto(state, api, here)).toBe('failed')
+    expect(state.value.schema).toEqual(schema)
+    expect(state.value.error).toBeNull()
+  })
+
+  it('clears the schema on a genuine 401, since the session itself is gone', async () => {
+    const state = fakeState()
+    state.value = { schema, error: null, generation: 0 }
+    const here = scope()
+    const { api } = fakeApi(apiError(401, 'unauthenticated'))
+
+    expect(await refreshSchemaInto(state, api, here)).toBe('unauthenticated')
+    expect(state.value.schema).toBeNull()
+  })
+
+  it('bounds a burst of refetch triggers the way a repeated 403 from a gate outside authz.require would produce', async () => {
+    const state = fakeState()
+    state.value = { schema, error: null, generation: 0 }
+    const here = scope()
+    const { api, routes } = fakeApi(updatedSchema)
+
+    const outcomes: SchemaOutcome[] = []
+    for (let i = 0; i < 50; i++) outcomes.push(await refreshSchemaInto(state, api, here))
+
+    expect(outcomes.every((outcome) => outcome === 'ok')).toBe(true)
+    expect(routes.length).toBeLessThanOrEqual(2)
+    expect(state.value.schema).toEqual(updatedSchema)
+  })
+
+  it('discards an answer for a generation that clear() has already moved past', async () => {
+    const state = fakeState()
+    state.value = { schema, error: null, generation: 0 }
+    const here = scope()
+    let release: (value: AdminSchema) => void = () => {}
+    const api: ApiClient = <T>(): Promise<T> => new Promise<AdminSchema>((resolve) => { release = resolve }).then((value) => boundaryCast<T>(value, 'json'))
+
+    const refresh = refreshSchemaInto(state, api, here)
+    state.value = { schema: null, error: null, generation: state.value.generation + 1 }
+    release(updatedSchema)
+    await refresh
 
     expect(state.value.schema).toBeNull()
   })
