@@ -101,7 +101,7 @@ useHead(() => {
   const seo = page.value?.seo ?? {}
   const title = seo.title || page.value?.title || ''
   const description = metaDescription(seo.description, siteSettings.value?.description)
-  const image = page.value?.shareImage ? `${siteUrl}${mediaFileUrl(page.value.shareImage)}` : ''
+  const image = page.value?.shareImage ? `${siteUrl}/api/media/${encodeURIComponent(page.value.shareImage)}/file` : ''
   return {
     htmlAttrs: { lang: locale.value },
     titleTemplate: siteTitleTemplate(siteSettings.value?.title, siteSettings.value?.titleSeparator, siteSettings.value?.titlePosition),
