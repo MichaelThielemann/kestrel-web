@@ -1,10 +1,10 @@
 import { resolve } from "node:path";
-import { MOUNT_PATH } from "../mount-path";
+import { MEDIA_PUBLIC_PATH, MOUNT_PATH, RESERVED_PAGE_SEGMENTS } from "../mount-path";
 import { resolveWorkflow } from "../collections-ui/workflow";
 import type { WorkflowUi } from "../collections-ui/workflow";
 import { resolveStorageTypes } from "../field-types";
 import type { FieldTypes } from "../field-types";
-import { isGenericCollection } from "./collections";
+import { isGenericCollection, isPageLikeCollection } from "./collections";
 import type { CollectionModel } from "./collections";
 import { presetSchemas, relayPipelinesFor } from "./index";
 import type { Feature } from "./index";
@@ -101,14 +101,13 @@ export interface PresetModuleConfigOptions {
 
 type ReferenceTarget = { content: string } | { collection: string };
 
-const MEDIA_PUBLIC_PATH = `${MOUNT_PATH}/media`;
 const MEDIA_PREFIX = "media/";
 const SITE_PREFIX = "site/";
 const DATABASE_FILE = "kestrel.db";
+const IMAGE_VARIANT_LANE = { variants: ["generateImageVariants"] };
 const MEDIA_REFERENCE_TARGET = "media";
 const MEDIA_REFERENCE_COLLECTION = "media_items";
 const PAGES_COLLECTION = "pages";
-const PAGE_LIKE_FIELDS = ["slug", "status", "body"];
 
 const DEFAULT_MEDIA_MAX_BYTES = 5 * 1024 * 1024;
 const DEFAULT_MEDIA_ALLOWED_TYPES = ["image/*", "application/pdf"];
@@ -144,14 +143,10 @@ function referenceTargets(types: Record<string, CollectionModel>): Record<string
   return targets;
 }
 
-function isPageLike(name: string, model: CollectionModel): boolean {
-  return isGenericCollection(name) && model.kind === "multi" && PAGE_LIKE_FIELDS.every((field) => field in model.fields);
-}
-
 function deliveryTypes(types: Record<string, CollectionModel>): Record<string, Record<string, never>> {
   const delivered: Record<string, Record<string, never>> = {};
   for (const [name, model] of Object.entries(types)) {
-    if (isPageLike(name, model)) delivered[name] = {};
+    if (isPageLikeCollection(name, model)) delivered[name] = {};
   }
   return delivered;
 }
@@ -214,10 +209,17 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
   const fieldTypes = options.fieldTypes ?? {};
   const types: Record<string, CollectionModel> = resolveStorageTypes(declaredTypes, fieldTypes, "presetModuleConfig");
 
+  for (const locale of [...(model.locales ?? []), ...(model.defaultLocale === undefined ? [] : [model.defaultLocale])]) {
+    if ((RESERVED_PAGE_SEGMENTS as readonly string[]).includes(locale)) {
+      throw new Error(`presetModuleConfig: locale "${locale}" is reserved (it would put pages under /${locale}/, which the server uses for ${locale})`);
+    }
+  }
+
   const enabled = new Set<Feature>(features);
   const databaseFile = resolve(dataDir, DATABASE_FILE);
   const session = { ...DEFAULT_SESSION, ...options.session };
   const siteUrl = siteUrlOf(options.llms);
+  const publicCopy = enabled.has("delivery") ? { publicCopy: { prefix: SITE_PREFIX } } : {};
 
   const modules: ModuleEntry[] = [{ use: blobstore.use, config: blobstore.config }];
 
@@ -229,15 +231,19 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
     use: "@michaelthielemann/kestrel-media-default",
     config: {
       prefix: MEDIA_PREFIX,
+      publicPath: MEDIA_PUBLIC_PATH,
       allowedTypes: options.media?.allowedTypes ?? DEFAULT_MEDIA_ALLOWED_TYPES,
       deniedTypes: options.media?.deniedTypes ?? DEFAULT_MEDIA_DENIED_TYPES,
       maxBytes: options.media?.maxBytes ?? DEFAULT_MEDIA_MAX_BYTES,
       ...(model.locales === undefined ? {} : { locales: [...model.locales] }),
       ...(model.defaultLocale === undefined ? {} : { defaultLocale: model.defaultLocale }),
+      ...publicCopy,
     },
   });
 
-  if (enabled.has("images")) modules.push({ use: "@michaelthielemann/kestrel-images-default", config: { publicPath: MEDIA_PUBLIC_PATH } });
+  if (enabled.has("images")) {
+    modules.push({ use: "@michaelthielemann/kestrel-images-default", config: { publicPath: MEDIA_PUBLIC_PATH, ...publicCopy } });
+  }
 
   modules.push({
     use: "@michaelthielemann/kestrel-authn-multi",
@@ -274,7 +280,7 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
       config: {
         types: deliveryTypes(types),
         prefix: SITE_PREFIX,
-        media: { publicPath: MEDIA_PUBLIC_PATH },
+        reservedPaths: [MOUNT_PATH, "/admin", MEDIA_PUBLIC_PATH],
         llms: {
           full: options.llms?.full ?? true,
           headings: options.llms?.headings ?? { ...DEFAULT_LLMS_HEADINGS },
@@ -308,7 +314,14 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
   modules.push({ use: "@michaelthielemann/kestrel-events-inmemory", config: {} });
   modules.push(
     enabled.has("eventsQueue")
-      ? { use: "@michaelthielemann/kestrel-events-queue", config: { ...options.eventsQueue, relayPipelines: relayPipelinesFor(features) } }
+      ? {
+          use: "@michaelthielemann/kestrel-events-queue",
+          config: {
+            ...options.eventsQueue,
+            relayPipelines: relayPipelinesFor(features),
+            ...(enabled.has("images") ? { lanes: IMAGE_VARIANT_LANE } : {}),
+          },
+        }
       : { use: "@michaelthielemann/kestrel-events-direct", config: {} },
   );
   if (enabled.has("ratelimit")) {

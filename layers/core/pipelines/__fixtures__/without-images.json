@@ -47,6 +47,7 @@
       "validate.check:pages.body",
       "validate.sanitize:pages.body",
       "validate.check:pages.body",
+      "validate.check:pages.slug",
       "validate.check:pages.accent",
       {
         "atomic": [
@@ -88,7 +89,9 @@
       "authz.require:media.delete",
       "media.listFolderItems",
       "references.guardAll:media",
-      "media.removeFolder"
+      "media.removeFolder",
+      "events.emit:media.deleted",
+      "events.relay"
     ],
     "deletePage": [
       "authn.requireUser",
@@ -188,7 +191,7 @@
       "media.list"
     ],
     "listMediaFolders": [
-      "authn.identifyUser",
+      "authn.requireUser",
       "authz.require:media.read",
       "media.listFolders"
     ],
@@ -315,6 +318,11 @@
     "renderRedirects": [
       "redirects.render"
     ],
+    "repairPublicMedia": [
+      "authn.requireUser",
+      "authz.require:media.manage",
+      "media.syncPublic"
+    ],
     "replicate": [
       "replication.sync"
     ],
@@ -352,6 +360,7 @@
       "validate.check:pages.body",
       "validate.sanitize:pages.body",
       "validate.check:pages.body",
+      "validate.check:pages.slug",
       "validate.check:pages.accent",
       {
         "atomic": [
@@ -380,6 +389,11 @@
     "scanReferences": [
       "references.scan"
     ],
+    "serveMediaFile": [
+      "authn.identifyUser",
+      "authz.require:media.read",
+      "media.serve"
+    ],
     "setPassword": [
       "authn.requireUser",
       "authz.require:users.manage",
@@ -403,6 +417,9 @@
     "sweepRateLimits": [
       "ratelimit.sweep"
     ],
+    "syncPublicMedia": [
+      "media.syncPublic"
+    ],
     "unpublishPage": [
       "delivery.unpublish:pages",
       "delivery.exportLlms"
@@ -420,6 +437,7 @@
       "validate.check:pages.body",
       "validate.sanitize:pages.body",
       "validate.check:pages.body",
+      "validate.check:pages.slug",
       "validate.check:pages.accent",
       {
         "atomic": [
@@ -506,6 +524,10 @@
     {
       "http": "POST /admin/publish-all/pages",
       "pipeline": "publishAllPages"
+    },
+    {
+      "http": "POST /admin/media/repair-public",
+      "pipeline": "repairPublicMedia"
     },
     {
       "http": "GET /admin/references/broken",
@@ -640,6 +662,10 @@
       "pipeline": "downloadMedia"
     },
     {
+      "http": "GET /media/:id/:name",
+      "pipeline": "serveMediaFile"
+    },
+    {
       "http": "PATCH /media/:id",
       "pipeline": "updateMedia"
     },
@@ -694,6 +720,10 @@
     {
       "cron": "30 3 * * *",
       "pipeline": "reconcileMedia"
+    },
+    {
+      "cron": "45 3 * * *",
+      "pipeline": "syncPublicMedia"
     },
     {
       "cron": "* * * * *",

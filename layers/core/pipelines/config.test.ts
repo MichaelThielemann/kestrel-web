@@ -51,14 +51,16 @@ describe("presetModuleConfig with the playground inputs", () => {
         use: "@michaelthielemann/kestrel-media-default",
         config: {
           prefix: "media/",
+          publicPath: "/media",
           allowedTypes: ["image/*", "application/pdf"],
           deniedTypes: ["text/html", "application/xhtml+xml"],
           maxBytes: 5242880,
           locales: ["de", "en"],
           defaultLocale: "de",
+          publicCopy: { prefix: "site/" },
         },
       },
-      { use: "@michaelthielemann/kestrel-images-default", config: { publicPath: "/api/media" } },
+      { use: "@michaelthielemann/kestrel-images-default", config: { publicPath: "/media", publicCopy: { prefix: "site/" } } },
       {
         use: "@michaelthielemann/kestrel-authn-multi",
         config: {
@@ -89,7 +91,7 @@ describe("presetModuleConfig with the playground inputs", () => {
       { use: "@michaelthielemann/kestrel-renderer-nuxt", config: {} },
       {
         use: "@michaelthielemann/kestrel-delivery-static",
-        config: { types: { pages: {} }, prefix: "site/", media: { publicPath: "/api/media" }, llms: { full: true, headings: { pages: "Pages" } } },
+        config: { types: { pages: {} }, prefix: "site/", reservedPaths: ["/api", "/admin", "/media"], llms: { full: true, headings: { pages: "Pages" } } },
       },
       { use: "@michaelthielemann/kestrel-revisions-default", config: { statusField: "status", liveStatuses: ["published"] } },
       { use: "@michaelthielemann/kestrel-redirects-default", config: { prefix: "site/" } },
@@ -137,7 +139,7 @@ describe("derived delivery types", () => {
     const modules = presetModuleConfig({ ...playgroundOptions(), model: { types }, features: ["delivery"] });
     const delivery = configFor(modules, "delivery-static");
 
-    expect(delivery).toEqual({ types: { pages: {}, news: {} }, prefix: "site/", media: { publicPath: "/api/media" }, llms: { full: true, headings: { pages: "Pages" } } });
+    expect(delivery).toEqual({ types: { pages: {}, news: {} }, prefix: "site/", reservedPaths: ["/api", "/admin", "/media"], llms: { full: true, headings: { pages: "Pages" } } });
   });
 });
 
@@ -147,11 +149,13 @@ describe("derived media locales", () => {
 
     expect(configFor(modules, "media-default")).toEqual({
       prefix: "media/",
+      publicPath: "/media",
       allowedTypes: ["image/*", "application/pdf"],
       deniedTypes: ["text/html", "application/xhtml+xml"],
       maxBytes: 5242880,
       locales: ["fr", "it"],
       defaultLocale: "it",
+      publicCopy: { prefix: "site/" },
     });
   });
 
@@ -160,10 +164,47 @@ describe("derived media locales", () => {
 
     expect(configFor(modules, "media-default")).toEqual({
       prefix: "media/",
+      publicPath: "/media",
       allowedTypes: ["image/*", "application/pdf"],
       deniedTypes: ["text/html", "application/xhtml+xml"],
       maxBytes: 5242880,
+      publicCopy: { prefix: "site/" },
     });
+  });
+
+  it("throws naming a reserved locale", () => {
+    expect(() => presetModuleConfig({ ...playgroundOptions(), model: { locales: ["de", "media"], defaultLocale: "de", types: contentTypes } })).toThrow(
+      'presetModuleConfig: locale "media" is reserved (it would put pages under /media/, which the server uses for media)',
+    );
+    expect(() => presetModuleConfig({ ...playgroundOptions(), model: { locales: ["de"], defaultLocale: "api", types: contentTypes } })).toThrow(
+      'presetModuleConfig: locale "api" is reserved (it would put pages under /api/, which the server uses for api)',
+    );
+  });
+});
+
+describe("public media copies", () => {
+  it("omits publicCopy from media-default and images-default without the delivery feature", () => {
+    const modules = presetModuleConfig({ ...playgroundOptions(), features: ["images"] });
+    expect(configFor(modules, "media-default")).not.toHaveProperty("publicCopy");
+    expect(configFor(modules, "images-default")).toEqual({ publicPath: "/media" });
+  });
+
+  it("sets publicCopy on media-default alone when images is not enabled", () => {
+    const modules = presetModuleConfig({ ...playgroundOptions(), features: ["delivery"] });
+    expect(configFor(modules, "media-default")).toMatchObject({ publicCopy: { prefix: "site/" } });
+    expect(configFor(modules, "images-default")).toBeUndefined();
+  });
+});
+
+describe("events-queue lanes", () => {
+  it("puts generateImageVariants in its own lane when eventsQueue and images are both on", () => {
+    const modules = presetModuleConfig({ ...playgroundOptions(), features: ["eventsQueue", "images"] });
+    expect(configFor(modules, "events-queue")).toEqual({ relayPipelines: [], lanes: { variants: ["generateImageVariants"] } });
+  });
+
+  it("has no lanes without images", () => {
+    const modules = presetModuleConfig({ ...playgroundOptions(), features: ["eventsQueue"] });
+    expect(configFor(modules, "events-queue")).toEqual({ relayPipelines: [] });
   });
 });
 
@@ -255,7 +296,7 @@ describe("feature gating", () => {
 
   it("selects no relay pipelines for the queue without delivery", () => {
     const withoutDelivery = configFor(presetModuleConfig({ ...playgroundOptions(), features: ["eventsQueue", "images"] }), "events-queue");
-    expect(withoutDelivery).toEqual({ relayPipelines: [] });
+    expect(withoutDelivery).toEqual({ relayPipelines: [], lanes: { variants: ["generateImageVariants"] } });
   });
 
   it("passes the relay budget through next to the derived relay selection", () => {
@@ -288,7 +329,7 @@ describe("llms", () => {
     expect(configFor(modules, "delivery-static")).toEqual({
       types: { pages: {} },
       prefix: "site/",
-      media: { publicPath: "/api/media" },
+      reservedPaths: ["/api", "/admin", "/media"],
       llms: { full: false, headings: { pages: "Seiten" }, siteUrl: "https://example.test" },
     });
   });
@@ -300,7 +341,7 @@ describe("llms", () => {
     expect(configFor(modules, "delivery-static")).toEqual({
       types: { pages: {} },
       prefix: "site/",
-      media: { publicPath: "/api/media" },
+      reservedPaths: ["/api", "/admin", "/media"],
       llms: { full: true, headings: { pages: "Pages" }, siteUrl: "https://from-env.test" },
     });
   });
@@ -318,11 +359,13 @@ describe("options", () => {
 
     expect(configFor(modules, "media-default")).toEqual({
       prefix: "media/",
+      publicPath: "/media",
       allowedTypes: ["image/*", "video/*"],
       deniedTypes: ["text/html"],
       maxBytes: 20971520,
       locales: ["de", "en"],
       defaultLocale: "de",
+      publicCopy: { prefix: "site/" },
     });
     expect(configFor(modules, "ratelimit-memory")).toEqual({ buckets: { login: { limit: 3, windowSeconds: 120 } } });
     expect(configFor(modules, "authn-multi")).toEqual({

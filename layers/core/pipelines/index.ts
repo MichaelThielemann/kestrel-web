@@ -8,12 +8,13 @@ import type { PresetStep } from "../module-registry";
 import type { Workflow } from "../app/types/kestrel";
 import { customFieldTypes, fieldTypeSchemas } from "../field-types";
 import type { FieldTypes } from "../field-types";
+import { RESERVED_PAGE_SEGMENTS } from "../mount-path";
 import { appendRelay, applyExclude, applyFeaturePatches, applyOverrides, applySchedules, foldTrailingEmit, groupSignatureOf, mergePipelines } from "./compose";
 import type { GroupSignature, Patch, PresetEntry } from "./compose";
 import { basePipelines } from "./base";
 import type { PresetContext } from "./base";
 import { canonicalTriggers } from "./triggers";
-import { collectionPipelines, hasLocalizedField, insertCollectionTriggers, isGenericCollection, pipelinesByName, DEFAULT_COLLECTIONS } from "./collections";
+import { collectionPipelines, hasLocalizedField, insertCollectionTriggers, isGenericCollection, isPageLikeCollection, pipelinesByName, DEFAULT_COLLECTIONS } from "./collections";
 import type { CollectionModel, CollectionPipelineName } from "./collections";
 import ratelimit from "./features/ratelimit";
 import sanitizeSvg from "./features/sanitizeSvg";
@@ -70,13 +71,14 @@ export const staticPipelineNames = [
   "cleanupSessions", "getSettings", "setSettings", "listPages", "listAllPages", "readPage", "readAnyPage", "resolvePage", "createPage", "updatePage",
   "deletePage", "uploadMedia", "exportMedia", "listMediaFolders", "createMediaFolder", "renameMediaFolder", "deleteMediaFolder",
   "listMedia", "getMedia", "downloadMedia", "updateMedia", "deleteMedia", "reconcileMedia", "reconcileMediaReport", "reconcileMediaDelete",
+  "serveMediaFile", "repairPublicMedia", "syncPublicMedia",
   "eventsDeliveryStatus",
   "sweepRateLimits",
   "brokenReferences", "pageReferrers", "pageReferrersMany", "mediaReferrers", "mediaReferrersMany", "rebuildReferences", "scanReferences",
   "brokenLinks", "rebuildLinks", "checkLinks",
   "publishPage", "unpublishPage", "pagePublishStatus", "publishAllPages",
   "getRedirects", "setRedirects", "renderRedirects",
-  "serveImageVariant", "registerImageSizes", "registerImageSizesBoot", "listImageSizes", "syncImages", "pruneImages", "retryFailedImages", "imagesStatus", "generateImageVariants", "resumeImages",
+  "serveImageVariant", "registerImageSizes", "registerImageSizesBoot", "listImageSizes", "syncImages", "pruneImages", "retryFailedImages", "imagesStatus", "planImageVariants", "generateImageVariants", "resumeImages",
   "replicate", "replicationStatus", "replicationPoints", "replicationSnapshot", "replicationRestore",
   "listMigrations", "applyMigrations",
   "auditAuth", "anonymizeAuditUser", "retryAnonymizeAuditUser", "pruneAudit",
@@ -92,7 +94,7 @@ export type PresetPipelineName<C extends Record<string, CollectionModel> = Recor
   | StaticPipelineName
   | CollectionPipelineName<C>;
 
-export type CronPipelineName = "cleanupSessions" | "sweepRateLimits" | "scanReferences" | "checkLinks" | "resumeImages" | "replicate" | "reconcileMedia" | "purgeEvents" | "pruneRevisions" | "pruneAudit";
+export type CronPipelineName = "cleanupSessions" | "sweepRateLimits" | "scanReferences" | "checkLinks" | "resumeImages" | "replicate" | "reconcileMedia" | "syncPublicMedia" | "purgeEvents" | "pruneRevisions" | "pruneAudit";
 
 export interface PresetOptions<C extends Record<string, CollectionModel> = Record<string, CollectionModel>, S extends string = PresetStep> {
   modules: readonly { use: string; config?: unknown }[];
@@ -161,6 +163,14 @@ function configuredRelayPipelines(modules: readonly { use: string; config?: unkn
   if (typeof config !== "object" || config === null || !("relayPipelines" in config)) return undefined;
   const value = Reflect.get(config, "relayPipelines");
   return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === "string") : undefined;
+}
+
+function configuredLaneMembers(modules: readonly { use: string; config?: unknown }[]): string[] | undefined {
+  const config = modules.find((entry) => entry.use === EVENTS_QUEUE_MODULE)?.config;
+  if (typeof config !== "object" || config === null || !("lanes" in config)) return undefined;
+  const lanes = Reflect.get(config, "lanes");
+  if (typeof lanes !== "object" || lanes === null) return undefined;
+  return Object.values(lanes).flatMap((entry) => (Array.isArray(entry) ? entry.filter((step): step is string => typeof step === "string") : []));
 }
 
 function hasRedirectsRulesSchema(config: unknown): boolean {
@@ -363,6 +373,28 @@ export function definePreset<C extends Record<string, CollectionModel> = Record<
     throw new Error('preset: override for "adminSchemaModel" drops "authz.describePipelineAccess" – the admin reads the caller\'s pipeline access from it');
   }
 
+  const generateImageVariants = pipelines.generateImageVariants;
+  if (enabledFeatures.has("eventsQueue")) {
+    const planImageVariants = pipelines.planImageVariants;
+    if (planImageVariants !== undefined) {
+      const steps = pipelineSteps(planImageVariants);
+      if (steps[0] !== "images.plan" || steps[1] !== "events.emit:images.planned") {
+        throw new Error('preset: override for "planImageVariants" must run "images.plan" and emit "images.planned" – items would stay unavailable until the repair pass');
+      }
+    }
+    if (generateImageVariants !== undefined && pipelineSteps(generateImageVariants).includes("images.plan")) {
+      throw new Error('preset: override for "generateImageVariants" must not place – placing runs in the main lane');
+    }
+    if (generateImageVariants !== undefined && enabledFeatures.has("images")) {
+      const laneMembers = configuredLaneMembers(options.modules);
+      if (laneMembers !== undefined && !laneMembers.includes("generateImageVariants")) {
+        throw new Error(`preset: module "${EVENTS_QUEUE_MODULE}" must run "generateImageVariants" in a lane of its own – a render must never block placing new items`);
+      }
+    }
+  } else if (generateImageVariants !== undefined && pipelineSteps(generateImageVariants).includes("images.plan")) {
+    throw new Error('preset: override for "generateImageVariants" runs "images.plan" inline – placeholders are never written in the upload request');
+  }
+
   const excluded = applyExclude(pipelines, triggers, options.exclude ?? []);
   pipelines = excluded.pipelines;
   triggers = excluded.triggers;
@@ -408,6 +440,10 @@ export function presetSchemas({
     if (model.kind !== "multi" || !("body" in model.fields)) continue;
     schemas[`${name}.body`] =
       name === "pages" ? process.env.KESTREL_BLOCK_SCHEMA ?? resolve(appRoot, ".nuxt/kestrel/pages.body.json") : resolve(appRoot, `schemas/${name}.body.json`);
+  }
+  for (const [name, model] of Object.entries(resolved)) {
+    if (!isPageLikeCollection(name, model)) continue;
+    schemas[`${name}.slug`] = { type: ["string", "null"], not: { enum: [...RESERVED_PAGE_SEGMENTS] } };
   }
   if (features.includes("redirects")) {
     schemas["redirects.rules"] = process.env.KESTREL_REDIRECTS_SCHEMA ?? fileURLToPath(new URL("../schemas/redirects.rules.json", import.meta.url));

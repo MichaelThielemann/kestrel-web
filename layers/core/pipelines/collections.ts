@@ -45,6 +45,13 @@ export function hasLocalizedField(model: CollectionModel): boolean {
   return Object.values(model.fields).some((field) => typeof field === "object" && field !== null && (field as { localized?: unknown }).localized === true);
 }
 
+const PAGE_LIKE_FIELDS = ["slug", "status", "body"];
+
+/** Whether a collection has the shape `deliveryTypes()` exports: a multi collection carrying `slug`, `status` and `body`. Its slug reaches a top-level URL through `resolvePage`, delivery or not, so its value is checked against the server's reserved path segments. */
+export function isPageLikeCollection(name: string, model: CollectionModel): boolean {
+  return isGenericCollection(name) && model.kind === "multi" && PAGE_LIKE_FIELDS.every((field) => field in model.fields);
+}
+
 export interface PublicCollectionStep {
   pipeline: string;
   step: string;
@@ -88,6 +95,7 @@ export function multiCollectionPipelines(name: string, model: CollectionModel, u
   const { plural, singular, event } = collectionNames(name);
   const statusQuery = statusQueryFor(name, model, ui);
   const bodySteps: PresetStep[] = "body" in model.fields ? [`validate.check:${name}.body`, `validate.sanitize:${name}.body`, `validate.check:${name}.body`] : [];
+  const slugSteps: PresetStep[] = isPageLikeCollection(name, model) ? [`validate.check:${name}.slug`] : [];
   const customSteps = customFieldChecks(name, customFields);
   const pipelines: Partial<Record<MultiVerb, CollectionPipeline>> = {
     list: { name: `list${plural}`, steps: ["authn.identifyUser", `authz.require:${name}.read`, `content.list:${name}${statusQuery}`] },
@@ -100,6 +108,7 @@ export function multiCollectionPipelines(name: string, model: CollectionModel, u
         "authn.requireUser",
         `authz.require:${name}.write`,
         ...bodySteps,
+        ...slugSteps,
         ...customSteps,
         { atomic: [`content.create:${name}`] },
         `events.emit:${event}.created`,
@@ -111,6 +120,7 @@ export function multiCollectionPipelines(name: string, model: CollectionModel, u
         "authn.requireUser",
         `authz.require:${name}.write`,
         ...bodySteps,
+        ...slugSteps,
         ...customSteps,
         { atomic: [`content.update:${name}`] },
         `events.emit:${event}.updated`,

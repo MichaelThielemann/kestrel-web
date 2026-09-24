@@ -659,13 +659,13 @@ describe("definePreset step ordering", () => {
 describe("presetSchemas", () => {
   it("returns pages.body and settings.navigation without the redirects feature", () => {
     const schemas = presetSchemas({ features: [] });
-    expect(Object.keys(schemas).sort()).toEqual(["pages.body", "settings.navigation"]);
+    expect(Object.keys(schemas).sort()).toEqual(["pages.body", "pages.slug", "settings.navigation"]);
     expect(schemas["settings.navigation"]).toMatch(/schemas\/settings\.navigation\.json$/);
   });
 
   it("adds redirects.rules with the redirects feature", () => {
     const schemas = presetSchemas({ features: ["redirects"] });
-    expect(Object.keys(schemas).sort()).toEqual(["pages.body", "redirects.rules", "settings.navigation"]);
+    expect(Object.keys(schemas).sort()).toEqual(["pages.body", "pages.slug", "redirects.rules", "settings.navigation"]);
     expect(schemas["redirects.rules"]).toMatch(/redirects\.rules\.json$/);
   });
 
@@ -677,6 +677,16 @@ describe("presetSchemas", () => {
   it("registers a body schema for a multi-kind collection", () => {
     const schemas = presetSchemas({ features: [], collections: { news: { kind: "multi", fields: { title: {}, body: {} } } } });
     expect(schemas["news.body"]).toMatch(/schemas[/\\]news\.body\.json$/);
+  });
+
+  it("registers a page-like collection's slug schema rejecting the reserved segments, nullable", () => {
+    const schemas = presetSchemas({ features: [] });
+    expect(schemas["pages.slug"]).toEqual({ type: ["string", "null"], not: { enum: ["api", "admin", "media"] } });
+  });
+
+  it("registers no slug schema for a collection missing status or body", () => {
+    const schemas = presetSchemas({ features: [], collections: { news: { kind: "multi", fields: { slug: {}, title: {}, body: {} } } } });
+    expect(schemas["news.slug"]).toBeUndefined();
   });
 
   it("respects KESTREL_BLOCK_SCHEMA and KESTREL_REDIRECTS_SCHEMA overrides", () => {

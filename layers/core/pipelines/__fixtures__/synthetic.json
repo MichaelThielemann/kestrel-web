@@ -47,6 +47,7 @@
       "validate.check:pages.body",
       "validate.sanitize:pages.body",
       "validate.check:pages.body",
+      "validate.check:pages.slug",
       {
         "atomic": [
           "content.create:pages"
@@ -81,7 +82,9 @@
       "authn.requireUser",
       "authz.require:media.delete",
       "media.listFolderItems",
-      "media.removeFolder"
+      "media.removeFolder",
+      "events.emit:media.deleted",
+      "events.relay"
     ],
     "deleteNews": [
       "authn.requireUser",
@@ -196,7 +199,7 @@
       "media.list"
     ],
     "listMediaFolders": [
-      "authn.identifyUser",
+      "authn.requireUser",
       "authz.require:media.read",
       "media.listFolders"
     ],
@@ -283,6 +286,11 @@
       "site.resolve:pages?home=home&status=published&fallback=true",
       "site.resolveLinks:pages?home=home&status=published&fallback=true"
     ],
+    "serveMediaFile": [
+      "authn.identifyUser",
+      "authz.require:media.read",
+      "media.serve"
+    ],
     "setNotifications": [
       "authn.requireUser",
       "authz.require:notifications.write",
@@ -339,6 +347,7 @@
       "validate.check:pages.body",
       "validate.sanitize:pages.body",
       "validate.check:pages.body",
+      "validate.check:pages.slug",
       {
         "atomic": [
           "content.update:pages"
@@ -511,6 +520,10 @@
     {
       "http": "GET /media/:id/file",
       "pipeline": "downloadMedia"
+    },
+    {
+      "http": "GET /media/:id/:name",
+      "pipeline": "serveMediaFile"
     },
     {
       "http": "PATCH /media/:id",

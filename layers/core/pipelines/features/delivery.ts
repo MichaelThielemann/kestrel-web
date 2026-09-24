@@ -21,10 +21,14 @@ export default function delivery(context: PresetContext): FeatureModule {
       unpublishPage: ["delivery.unpublish:pages", "delivery.exportLlms"],
       [PAGE_DELIVERY_PIPELINES.publishStatus]: ["authn.requireUser", "authz.require:pages.manage", "delivery.readStatus:pages"],
       publishAllPages: ["authn.requireUser", "authz.require:pages.manage", "delivery.publishAll:pages"],
+      repairPublicMedia: ["authn.requireUser", "authz.require:media.manage", "media.syncPublic"],
+      syncPublicMedia: ["media.syncPublic"],
     },
     patches: [
       { pipeline: "setSettings", steps: ["delivery.exportLlms"], at: "end" },
       { pipeline: "publishAllPages", steps: ["delivery.exportLlms"], at: "end" },
+      { pipeline: "repairPublicMedia", steps: ["images.syncPublic"], at: "end", when: "images" },
+      { pipeline: "syncPublicMedia", steps: ["images.syncPublic"], at: "end", when: "images" },
     ],
     triggers,
   };

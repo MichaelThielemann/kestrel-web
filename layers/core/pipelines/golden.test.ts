@@ -164,7 +164,15 @@ describe("golden: images without references", () => {
     const features = allFeatures.filter((feature) => feature !== "references");
     const preset = definePreset({ modules, features, exportDir: EXPORT_DIR });
     const deleteMediaFolder = preset.pipelines.find((pipeline) => pipeline.name === "deleteMediaFolder");
-    expect(deleteMediaFolder?.steps).toEqual(["authn.requireUser", "authz.require:media.delete", "media.listFolderItems", "images.removeMany", "media.removeFolder"]);
+    expect(deleteMediaFolder?.steps).toEqual([
+      "authn.requireUser",
+      "authz.require:media.delete",
+      "media.listFolderItems",
+      "media.removeFolder",
+      "images.removeMany",
+      "events.emit:media.deleted",
+      "events.relay",
+    ]);
   });
 });
 

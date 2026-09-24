@@ -47,6 +47,7 @@
       "validate.check:pages.body",
       "validate.sanitize:pages.body",
       "validate.check:pages.body",
+      "validate.check:pages.slug",
       "validate.check:pages.accent",
       {
         "atomic": [
@@ -79,8 +80,8 @@
       "authn.requireUser",
       "authz.require:media.delete",
       "references.guard:media",
-      "images.remove",
       "media.remove",
+      "images.remove",
       "events.emit:media.deleted",
       "events.relay"
     ],
@@ -89,8 +90,10 @@
       "authz.require:media.delete",
       "media.listFolderItems",
       "references.guardAll:media",
+      "media.removeFolder",
       "images.removeMany",
-      "media.removeFolder"
+      "events.emit:media.deleted",
+      "events.relay"
     ],
     "deletePage": [
       "authn.requireUser",
@@ -230,7 +233,7 @@
       "images.attach"
     ],
     "listMediaFolders": [
-      "authn.identifyUser",
+      "authn.requireUser",
       "authz.require:media.read",
       "media.listFolders"
     ],
@@ -294,6 +297,11 @@
       "authn.requireUser",
       "authz.require:pages.manage",
       "revisions.list:pages"
+    ],
+    "planImageVariants": [
+      "images.plan",
+      "events.emit:images.planned",
+      "events.relay"
     ],
     "pruneAudit": [
       "audit.prune"
@@ -373,6 +381,12 @@
     "renderRedirects": [
       "redirects.render"
     ],
+    "repairPublicMedia": [
+      "authn.requireUser",
+      "authz.require:media.manage",
+      "media.syncPublic",
+      "images.syncPublic"
+    ],
     "replicate": [
       "replication.sync"
     ],
@@ -410,6 +424,7 @@
       "validate.check:pages.body",
       "validate.sanitize:pages.body",
       "validate.check:pages.body",
+      "validate.check:pages.slug",
       "validate.check:pages.accent",
       {
         "atomic": [
@@ -451,6 +466,11 @@
       "authz.require:media.read",
       "images.serve"
     ],
+    "serveMediaFile": [
+      "authn.identifyUser",
+      "authz.require:media.read",
+      "media.serve"
+    ],
     "setPassword": [
       "authn.requireUser",
       "authz.require:users.manage",
@@ -479,6 +499,10 @@
       "authz.require:images.manage",
       "images.sync"
     ],
+    "syncPublicMedia": [
+      "media.syncPublic",
+      "images.syncPublic"
+    ],
     "unpublishPage": [
       "delivery.unpublish:pages",
       "delivery.exportLlms"
@@ -496,6 +520,7 @@
       "validate.check:pages.body",
       "validate.sanitize:pages.body",
       "validate.check:pages.body",
+      "validate.check:pages.slug",
       "validate.check:pages.accent",
       {
         "atomic": [
@@ -582,6 +607,10 @@
     {
       "http": "POST /admin/publish-all/pages",
       "pipeline": "publishAllPages"
+    },
+    {
+      "http": "POST /admin/media/repair-public",
+      "pipeline": "repairPublicMedia"
     },
     {
       "http": "GET /admin/references/broken",
@@ -720,6 +749,10 @@
       "pipeline": "serveImageVariant"
     },
     {
+      "http": "GET /media/:id/:name",
+      "pipeline": "serveMediaFile"
+    },
+    {
       "http": "PATCH /media/:id",
       "pipeline": "updateMedia"
     },
@@ -820,6 +853,10 @@
       "pipeline": "reconcileMedia"
     },
     {
+      "cron": "45 3 * * *",
+      "pipeline": "syncPublicMedia"
+    },
+    {
       "cron": "* * * * *",
       "pipeline": "replicate"
     },
@@ -830,10 +867,6 @@
     {
       "cron": "15 3 * * *",
       "pipeline": "pruneRevisions"
-    },
-    {
-      "event": "media.uploaded",
-      "pipeline": "generateImageVariants"
     },
     {
       "event": "auth.loggedIn",
@@ -862,6 +895,14 @@
     {
       "event": "page.translationRemoved",
       "pipeline": "publishPage"
+    },
+    {
+      "event": "media.uploaded",
+      "pipeline": "planImageVariants"
+    },
+    {
+      "event": "images.planned",
+      "pipeline": "generateImageVariants"
     },
     {
       "http": "POST /admin/users/:id/audit/anonymize",

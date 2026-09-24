@@ -1,4 +1,5 @@
 import type { TriggerConfig } from "@michaelthielemann/kestrel/defineConfig";
+import { MEDIA_PUBLIC_PATH } from "../mount-path";
 import type { Feature } from "./index";
 
 export interface TriggerEntry {
@@ -21,6 +22,7 @@ export const canonicalTriggers: readonly TriggerEntry[] = [
   { trigger: { http: "POST /users/:id/activate", pipeline: "activateUser" } },
   { trigger: { http: "GET /admin/publish-status/pages/:id", pipeline: "pagePublishStatus" }, feature: "delivery" },
   { trigger: { http: "POST /admin/publish-all/pages", pipeline: "publishAllPages" }, feature: "delivery" },
+  { trigger: { http: "POST /admin/media/repair-public", pipeline: "repairPublicMedia" }, feature: "delivery" },
   { trigger: { http: "GET /admin/references/broken", pipeline: "brokenReferences" }, feature: "references" },
   { trigger: { http: "GET /admin/references/to/pages", pipeline: "pageReferrersMany" }, feature: "references" },
   { trigger: { http: "GET /admin/references/to/pages/:id", pipeline: "pageReferrers" }, feature: "references" },
@@ -46,7 +48,8 @@ export const canonicalTriggers: readonly TriggerEntry[] = [
   { trigger: { http: "GET /media", pipeline: "listMedia" } },
   { trigger: { http: "GET /media/:id", pipeline: "getMedia" } },
   { trigger: { http: "GET /media/:id/file", pipeline: "downloadMedia" } },
-  { trigger: { http: "GET /media/:id/variants/:file", pipeline: "serveImageVariant" }, feature: "images" },
+  { trigger: { http: `GET ${MEDIA_PUBLIC_PATH}/:id/variants/:file`, pipeline: "serveImageVariant" }, feature: "images" },
+  { trigger: { http: `GET ${MEDIA_PUBLIC_PATH}/:id/:name`, pipeline: "serveMediaFile" } },
   { trigger: { http: "PATCH /media/:id", pipeline: "updateMedia" } },
   { trigger: { http: "DELETE /media/:id", pipeline: "deleteMedia" } },
   { trigger: { http: "PUT /admin/images/sizes", pipeline: "registerImageSizes" }, feature: "images" },
@@ -74,10 +77,10 @@ export const canonicalTriggers: readonly TriggerEntry[] = [
   { trigger: { cron: "*/5 * * * *", pipeline: "sweepRateLimits" }, feature: "ratelimit" },
   { trigger: { cron: "*/5 * * * *", pipeline: "resumeImages" }, feature: "images" },
   { trigger: { cron: "30 3 * * *", pipeline: "reconcileMedia" } },
+  { trigger: { cron: "45 3 * * *", pipeline: "syncPublicMedia" }, feature: "delivery" },
   { trigger: { cron: "* * * * *", pipeline: "replicate" }, feature: "replication" },
   { trigger: { cron: "15 4 * * *", pipeline: "purgeEvents" }, feature: "eventsQueue" },
   { trigger: { cron: "15 3 * * *", pipeline: "pruneRevisions" }, feature: "revisions" },
-  { trigger: { event: "media.uploaded", pipeline: "generateImageVariants" }, feature: "images" },
   { trigger: { event: "auth.loggedIn", pipeline: "auditAuth" }, feature: "audit" },
   { trigger: { event: "auth.loggedOut", pipeline: "auditAuth" }, feature: "audit" },
 ];
