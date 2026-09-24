@@ -70,7 +70,7 @@ export interface PageDocument extends Document {
   layout?: string | null
 }
 
-export interface RedirectHit { to: string; status: number }
+export type RedirectHit = Extract<ResponseOf<'resolvePage', 200>, { redirect: unknown }>['redirect']
 
 export type SiteResponse = PageDocument | { redirect: RedirectHit }
 

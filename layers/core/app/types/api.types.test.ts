@@ -1,5 +1,5 @@
 import { describe, expectTypeOf, it } from 'vitest'
-import type { DeadEvent, EventDeliveryStatus, EventRelayStatus, MediaItem, ReplicationSnapshotResult, ReplicationStatus, RevisionRestoreResponse } from './api'
+import type { DeadEvent, EventDeliveryStatus, EventRelayStatus, MediaItem, RedirectHit, ReplicationSnapshotResult, ReplicationStatus, RevisionRestoreResponse } from './api'
 
 interface ExpectedMediaItem {
   alt: string | null
@@ -113,5 +113,9 @@ describe('the public API types keep exactly their published shape', () => {
 
   it('RevisionRestoreResponse extends the document with the restore report and the relay status', () => {
     expectTypeOf<Pick<RevisionRestoreResponse, 'restore' | '_events'>>().toEqualTypeOf<{ restore?: import('./api').RestoreReport, _events?: EventRelayStatus }>()
+  })
+
+  it('RedirectHit narrows status to the codes a redirect rule can compile to', () => {
+    expectTypeOf<RedirectHit>().toEqualTypeOf<{ status: 301 | 302 | 307 | 308, to: string }>()
   })
 })
