@@ -12,7 +12,7 @@ import { runUpgradeCli } from "@michaelthielemann/kestrel-upgrade/plugin";
 import type { UpgradeReport } from "@michaelthielemann/kestrel-upgrade";
 import { detectLayerProject, loadLayerProject } from "../load";
 import { createLayerPlugin } from "../plugin";
-import { materializeFixture } from "./materialize";
+import { cleanupAllFixtures, materializeFixture } from "./materialize";
 
 const execFileAsync = promisify(execFile);
 const runningKestrels: Kestrel[] = [];
@@ -65,6 +65,7 @@ async function bootAndLogin(input: BootInput): Promise<number> {
 }
 
 afterEach(async () => {
+  cleanupAllFixtures();
   while (runningKestrels.length > 0) await runningKestrels.pop()?.stop();
 });
 
