@@ -106,6 +106,22 @@ describe('useUploadPreview', () => {
     expect(previewFor('u1')).toBeUndefined()
   })
 
+  it('skips decoding a file that was released before its turn in the queue', async () => {
+    const decode = vi.fn().mockResolvedValue({ width: 10, height: 10, close: vi.fn() })
+    vi.stubGlobal('createImageBitmap', decode)
+    stubCanvas(new Blob(['x']))
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:preview')
+
+    const { generate, previewFor, release } = useUploadPreview()
+    const first = generate('u1', new File(['x'], 'a.png'))
+    const second = generate('u2', new File(['x'], 'b.png'))
+    release('u2')
+    await Promise.all([first, second])
+
+    expect(decode).toHaveBeenCalledTimes(1)
+    expect(previewFor('u2')).toBeUndefined()
+  })
+
   it('releaseAll revokes every held URL', async () => {
     vi.stubGlobal('createImageBitmap', vi.fn().mockResolvedValue({ width: 10, height: 10, close: vi.fn() }))
     stubCanvas(new Blob(['x']))

@@ -33,6 +33,7 @@ export function useUploadPreview() {
     releasedIds.delete(id)
     chain = chain.then(async () => {
       if (!import.meta.client) return
+      if (disposed || releasedIds.has(id)) return
       const url = await drawPreview(file)
       if (!url) return
       if (disposed || releasedIds.has(id)) { URL.revokeObjectURL(url); return }
