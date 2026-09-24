@@ -28,10 +28,10 @@ const { t } = useT()
       </div>
 
       <KestrelUiProgress
-        v-else
-        :value="item.status === 'uploading' ? item.progress : undefined"
+        v-else-if="item.status !== 'done'"
+        :value="item.status === 'queued' ? 0 : item.status === 'uploading' && item.totalKnown ? item.progress : undefined"
         :label="t('media.upload.progressLabel', { name: item.filename })"
-        :value-text="item.status === 'uploading' ? `${item.progress} %` : t('media.tile.processing')"
+        :value-text="item.status === 'queued' ? t('media.tile.queued') : item.status === 'uploading' && item.totalKnown ? t('media.tile.percent', { percent: item.progress }) : t('media.tile.processing')"
       />
     </li>
   </ul>

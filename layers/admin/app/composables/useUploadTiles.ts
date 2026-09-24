@@ -1,25 +1,32 @@
-import { computed, onUnmounted, watch, type Ref } from 'vue'
-import type { MediaItem } from '#kestrel-admin/types/api'
+import { computed, onUnmounted, ref, watch, watchEffect, type Ref } from 'vue'
 import type { UploadItem } from './useMediaUpload'
 import type { useUploadPreview } from './useUploadPreview'
 
 export interface UseUploadTilesOptions {
   queue: Ref<UploadItem[]>
-  files: Ref<MediaItem[]>
   view: Ref<'grid' | 'table'>
   folder: Ref<string>
   preview: ReturnType<typeof useUploadPreview>
   dismiss: (id: string) => void
 }
 
-function isPromoted(item: UploadItem, files: MediaItem[]): boolean {
-  return item.result !== undefined && files.some((f) => f.id === item.result!.id)
-}
-
 export function useUploadTiles(options: UseUploadTilesOptions) {
-  const { queue, files, view, folder, preview, dismiss } = options
+  const { queue, view, folder, preview, dismiss } = options
+  const promoted = ref<Set<string>>(new Set())
 
-  const trackedUploads = computed(() => queue.value.filter((i) => i.status === 'failed' || !isPromoted(i, files.value)))
+  function markSettled(settledFolder: string) {
+    for (const item of queue.value) {
+      if (item.status === 'done' && item.folder === settledFolder) promoted.value.add(item.id)
+    }
+  }
+
+  watchEffect(() => {
+    for (const item of queue.value) {
+      if (item.status === 'done' && item.folder !== folder.value) promoted.value.add(item.id)
+    }
+  })
+
+  const trackedUploads = computed(() => queue.value.filter((i) => i.status === 'failed' || !promoted.value.has(i.id)))
   const gridTileUploads = computed(() => (view.value === 'grid' ? trackedUploads.value.filter((i) => i.folder === folder.value) : []))
   const queueRows = computed(() => (view.value === 'grid' ? trackedUploads.value.filter((i) => i.folder !== folder.value) : trackedUploads.value))
 
@@ -35,5 +42,5 @@ export function useUploadTiles(options: UseUploadTilesOptions) {
     dismiss(id)
   }
 
-  return { gridTileUploads, queueRows, onDismissUpload }
+  return { gridTileUploads, queueRows, markSettled, onDismissUpload }
 }

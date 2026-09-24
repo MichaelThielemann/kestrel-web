@@ -17,9 +17,8 @@ function mediaItem(id: string): MediaItem {
   }
 }
 
-async function setup(initial: { queue: UploadItem[]; files: MediaItem[]; view: 'grid' | 'table'; folder: string }) {
+async function setup(initial: { queue: UploadItem[]; view: 'grid' | 'table'; folder: string }) {
   const queue = ref(initial.queue)
-  const files = ref(initial.files)
   const view = ref(initial.view)
   const folder = ref(initial.folder)
   const release = vi.fn()
@@ -30,25 +29,25 @@ async function setup(initial: { queue: UploadItem[]; files: MediaItem[]; view: '
   let api: ReturnType<typeof useUploadTiles> | undefined
   const Probe = defineComponent({
     setup() {
-      api = useUploadTiles({ queue, files, view, folder, preview, dismiss })
+      api = useUploadTiles({ queue, view, folder, preview, dismiss })
       return () => h('div')
     },
   })
   const wrapper = await mountSuspended(Probe)
   if (!api) throw new Error('expected useUploadTiles to run during setup')
-  return { wrapper, api, queue, files, view, folder, release, releaseAll, dismiss }
+  return { wrapper, api, queue, view, folder, release, releaseAll, dismiss }
 }
 
 describe('useUploadTiles', () => {
   it('puts an in-progress upload for the open folder into the grid tiles, not the queue', async () => {
-    const { api } = await setup({ queue: [uploadItem({ folder: '' })], files: [], view: 'grid', folder: '' })
+    const { api } = await setup({ queue: [uploadItem({ folder: '' })], view: 'grid', folder: '' })
 
     expect(api.gridTileUploads.value).toHaveLength(1)
     expect(api.queueRows.value).toHaveLength(0)
   })
 
   it('puts an upload for another folder into the queue, not the grid tiles', async () => {
-    const { api } = await setup({ queue: [uploadItem({ folder: 'other' })], files: [], view: 'grid', folder: '' })
+    const { api } = await setup({ queue: [uploadItem({ folder: 'other' })], view: 'grid', folder: '' })
 
     expect(api.gridTileUploads.value).toHaveLength(0)
     expect(api.queueRows.value).toHaveLength(1)
@@ -57,7 +56,6 @@ describe('useUploadTiles', () => {
   it('in table view, every active upload is a queue row and none are grid tiles', async () => {
     const { api } = await setup({
       queue: [uploadItem({ id: 'u1', folder: '' }), uploadItem({ id: 'u2', folder: 'other' })],
-      files: [],
       view: 'table',
       folder: '',
     })
@@ -66,42 +64,67 @@ describe('useUploadTiles', () => {
     expect(api.queueRows.value).toHaveLength(2)
   })
 
-  it('stops tracking an upload once a list refresh contains its id', async () => {
+  it('keeps a done upload for the open folder visible as a tile until its folder settles', async () => {
     const done = uploadItem({ id: 'u1', status: 'done', result: mediaItem('f1') })
-    const { api } = await setup({ queue: [done], files: [mediaItem('f1')], view: 'grid', folder: '' })
+    const { api } = await setup({ queue: [done], view: 'grid', folder: '' })
+
+    expect(api.gridTileUploads.value).toHaveLength(1)
+  })
+
+  it('drops a done upload once its own folder settles', async () => {
+    const done = uploadItem({ id: 'u1', status: 'done', result: mediaItem('f1') })
+    const { api } = await setup({ queue: [done], view: 'grid', folder: '' })
+
+    api.markSettled('')
 
     expect(api.gridTileUploads.value).toHaveLength(0)
     expect(api.queueRows.value).toHaveLength(0)
   })
 
-  it('keeps a done upload visible until the list actually contains it', async () => {
-    const done = uploadItem({ id: 'u1', status: 'done', result: mediaItem('f1') })
-    const { api } = await setup({ queue: [done], files: [], view: 'grid', folder: '' })
+  it('does not resurrect a promoted upload when the user navigates to a folder with no listing yet', async () => {
+    const done = uploadItem({ id: 'u1', folder: '', status: 'done', result: mediaItem('f1') })
+    const { api, folder } = await setup({ queue: [done], view: 'grid', folder: '' })
 
-    expect(api.gridTileUploads.value).toHaveLength(1)
+    api.markSettled('')
+    expect(api.gridTileUploads.value).toHaveLength(0)
+
+    folder.value = 'sub'
+    expect(api.gridTileUploads.value).toHaveLength(0)
+    expect(api.queueRows.value).toHaveLength(0)
+
+    folder.value = ''
+    expect(api.gridTileUploads.value).toHaveLength(0)
+    expect(api.queueRows.value).toHaveLength(0)
+  })
+
+  it('promotes a done upload into another folder immediately, without waiting for a settle call', async () => {
+    const done = uploadItem({ id: 'u1', folder: 'sub', status: 'done', result: mediaItem('f1') })
+    const { api } = await setup({ queue: [done], view: 'grid', folder: '' })
+
+    expect(api.queueRows.value).toHaveLength(0)
+    expect(api.gridTileUploads.value).toHaveLength(0)
   })
 
   it('keeps a failed upload tracked even without a result', async () => {
     const failed = uploadItem({ id: 'u1', status: 'failed', message: 'boom' })
-    const { api } = await setup({ queue: [failed], files: [], view: 'grid', folder: '' })
+    const { api } = await setup({ queue: [failed], view: 'grid', folder: '' })
 
     expect(api.gridTileUploads.value).toHaveLength(1)
   })
 
   it('releases the preview once an upload stops being tracked', async () => {
     const item = uploadItem({ id: 'u1', status: 'done', result: mediaItem('f1') })
-    const { api, queue, files, release } = await setup({ queue: [item], files: [], view: 'grid', folder: '' })
+    const { api, release } = await setup({ queue: [item], view: 'grid', folder: '' })
     expect(api.gridTileUploads.value).toHaveLength(1)
 
-    files.value = [mediaItem('f1')]
-    queue.value = [...queue.value]
+    api.markSettled('')
     await Promise.resolve()
 
     expect(release).toHaveBeenCalledWith('u1')
   })
 
   it('releases the preview and dismisses the item on dismiss', async () => {
-    const { api, dismiss, release } = await setup({ queue: [uploadItem({ id: 'u1', status: 'failed' })], files: [], view: 'grid', folder: '' })
+    const { api, dismiss, release } = await setup({ queue: [uploadItem({ id: 'u1', status: 'failed' })], view: 'grid', folder: '' })
 
     api.onDismissUpload('u1')
 
@@ -110,7 +133,7 @@ describe('useUploadTiles', () => {
   })
 
   it('releases every preview on unmount', async () => {
-    const { wrapper, releaseAll } = await setup({ queue: [], files: [], view: 'grid', folder: '' })
+    const { wrapper, releaseAll } = await setup({ queue: [], view: 'grid', folder: '' })
 
     wrapper.unmount()
 
