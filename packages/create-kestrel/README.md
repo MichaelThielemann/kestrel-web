@@ -20,8 +20,12 @@ verifies and written to `.env` as `KESTREL_ADMIN_PASSWORD_HASH`; no clear-text p
 credential ever reaches a scaffolded file. `.env.example` carries placeholders only.
 
 Preselected features: `references`, `links`, `delivery`, `redirects`, `images`, `insights`,
-`revisions`. The rest of what the preset knows can be switched on: `ratelimit`, `sanitizeSvg`,
-`replication`, `migrations`, `audit`, `eventsQueue`.
+`eventsQueue`, `revisions`. The rest of what the preset knows can be switched on: `ratelimit`,
+`sanitizeSvg`, `replication`, `migrations`, `audit`.
+
+With `eventsQueue`, work that follows a write runs in a background worker: an upload answers as soon as
+the file is stored and its image variants follow shortly after; publishing a page still completes before
+the save returns.
 
 ## Flags
 

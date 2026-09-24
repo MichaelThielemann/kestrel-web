@@ -141,6 +141,11 @@
   field it carries.
 - Deleting a user reports a failed follow-up task (revision reassignment, audit anonymisation) instead
   of a success message, and a still-running one as pending.
+- The `eventsQueue` feature now boots with no event trigger in the manifest at all — an idle queue is a
+  valid configuration, not an error; `presetModuleConfig()` + `definePreset()` no longer throw for it.
+- `create-kestrel`: new projects enable `eventsQueue` by default, so an upload answers as soon as the
+  file is stored and its image variants render in the background worker; existing projects keep their
+  mode.
 
 - `deleteMediaFolder` now calls `media.listFolderItems` instead of the deprecated `media.folderItems`;
   behaviour is unchanged.

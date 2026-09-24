@@ -41,7 +41,7 @@ describe("the feature list", () => {
   });
 
   it("preselects the default feature set", () => {
-    expect(DEFAULT_FEATURES).toEqual(["references", "links", "delivery", "redirects", "images", "insights", "revisions"]);
+    expect(DEFAULT_FEATURES).toEqual(["references", "links", "delivery", "redirects", "images", "insights", "eventsQueue", "revisions"]);
   });
 });
 
