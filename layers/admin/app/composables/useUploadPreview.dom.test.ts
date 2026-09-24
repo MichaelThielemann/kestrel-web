@@ -1,0 +1,72 @@
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { boundaryCast } from '#kestrel/cast'
+import { useUploadPreview } from './useUploadPreview'
+
+function stubCanvas(blob: Blob | null) {
+  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(boundaryCast<CanvasRenderingContext2D>({ drawImage: vi.fn() }, 'dom'))
+  vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation((cb) => cb(blob))
+}
+
+describe('useUploadPreview', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('draws a resized bitmap and exposes an object URL, closing the bitmap afterwards', async () => {
+    const close = vi.fn()
+    const bitmap = { width: 320, height: 200, close }
+    vi.stubGlobal('createImageBitmap', vi.fn().mockResolvedValue(bitmap))
+    const blob = new Blob(['x'])
+    stubCanvas(blob)
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:preview-1')
+
+    const { generate, previewFor } = useUploadPreview()
+    await generate('u1', new File(['x'], 'a.png', { type: 'image/png' }))
+
+    expect(createImageBitmap).toHaveBeenCalledWith(expect.any(File), { resizeWidth: 320 })
+    expect(close).toHaveBeenCalledTimes(1)
+    expect(previewFor('u1')).toBe('blob:preview-1')
+  })
+
+  it('falls back to no preview when the browser cannot decode the file', async () => {
+    vi.stubGlobal('createImageBitmap', vi.fn().mockRejectedValue(new Error('unsupported')))
+
+    const { generate, previewFor } = useUploadPreview()
+    await generate('u1', new File(['x'], 'a.heic', { type: 'image/heic' }))
+
+    expect(previewFor('u1')).toBeUndefined()
+  })
+
+  it('processes uploads one at a time in call order', async () => {
+    const order: string[] = []
+    vi.stubGlobal('createImageBitmap', vi.fn().mockImplementation(async (file: File) => {
+      order.push(`start:${file.name}`)
+      await Promise.resolve()
+      order.push(`end:${file.name}`)
+      return { width: 10, height: 10, close: vi.fn() }
+    }))
+    stubCanvas(new Blob(['x']))
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:preview')
+
+    const { generate } = useUploadPreview()
+    const first = generate('u1', new File(['x'], 'a.png'))
+    const second = generate('u2', new File(['x'], 'b.png'))
+    await Promise.all([first, second])
+
+    expect(order).toEqual(['start:a.png', 'end:a.png', 'start:b.png', 'end:b.png'])
+  })
+
+  it('revokes the object URL on release', async () => {
+    vi.stubGlobal('createImageBitmap', vi.fn().mockResolvedValue({ width: 10, height: 10, close: vi.fn() }))
+    stubCanvas(new Blob(['x']))
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:preview')
+    const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+
+    const { generate, previewFor, release } = useUploadPreview()
+    await generate('u1', new File(['x'], 'a.png'))
+    release('u1')
+
+    expect(revoke).toHaveBeenCalledWith('blob:preview')
+    expect(previewFor('u1')).toBeUndefined()
+  })
+})
