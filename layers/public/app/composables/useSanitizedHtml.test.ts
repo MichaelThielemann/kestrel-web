@@ -40,4 +40,8 @@ describe('sanitizedHtmlKey', () => {
   it('differs for different input', () => {
     expect(sanitizedHtmlKey('<p>Hello</p>')).not.toBe(sanitizedHtmlKey('<p>Goodbye</p>'))
   })
+
+  it('differs for two same-length inputs that collide under a 32-bit FNV-1a hash', () => {
+    expect(sanitizedHtmlKey('9jsNIwfg')).not.toBe(sanitizedHtmlKey('uTyiFUWx'))
+  })
 })
