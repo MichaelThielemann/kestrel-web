@@ -26,7 +26,7 @@ export function pickImageSources(
 ): ImageSources | null {
   if (item === null) return null
 
-  const named = item.variants.find((v) => v.size === size)
+  const named = item.variants.find((v) => v.size === size && v.width > 0 && v.height > 0)
   const src = named ? named.path : item.path
   const width = named ? named.width : item.width
   const height = named ? named.height : item.height

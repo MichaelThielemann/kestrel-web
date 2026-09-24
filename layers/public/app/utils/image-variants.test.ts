@@ -169,6 +169,19 @@ describe('pickImageSources', () => {
     expect(sources?.srcset).toBe('/media/m1/variants/thumb.webp 320w, /media/m1/variants/content.webp 1200w')
   })
 
+  it('falls back to the original when the named variant could not be decoded (0×0)', () => {
+    const media = item({
+      width: 1200,
+      height: 900,
+      variants: [variant({ size: 'content', width: 0, height: 0, state: 'failed', path: '/media/m1/variants/content.jpg' })],
+    })
+    const sources = pickImageSources(media, 'content')
+    expect(sources?.src).toBe(media.path)
+    expect(sources?.width).toBe(1200)
+    expect(sources?.height).toBe(900)
+    expect(sources?.variant).toBe(false)
+  })
+
   it('never returns a URL containing "api"', () => {
     const media = item({
       variants: [variant({ size: 'content', width: 1200, height: 900, path: '/media/m1/variants/content.webp' })],
