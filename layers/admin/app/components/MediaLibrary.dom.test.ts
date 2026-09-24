@@ -133,6 +133,7 @@ describe('MediaLibrary viewer delete flow', () => {
       title: null,
       description: null,
       variants: [],
+      variantCounts: { done: 0, pending: 0, error: 0, failed: 0 },
     }
     let deleteCalls = 0
     const emptyFolders: MediaFolder[] = []

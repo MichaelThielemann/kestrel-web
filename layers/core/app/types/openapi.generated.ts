@@ -36,6 +36,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/events/delivery": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Require a valid session → Requires permission system.manage → Dead-letter rows of the queue across every process: deliveries that used up maxAttempts and wait for events.retryDead */
+        get: operations["eventsDeliveryStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/events/retry": {
         parameters: {
             query?: never;
@@ -163,7 +180,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Require a valid session → Requires permission insights.read → The static manifest of this instance: modules, contracts, config schemas, steps, pipelines, triggers */
+        /** Require a valid session → Requires permission insights.read → The static manifest of this instance: modules, contracts, config schemas, steps, pipelines, triggers and boot warnings */
         get: operations["insightsManifest"];
         put?: never;
         post?: never;
@@ -625,7 +642,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Require a valid session → Requires permission users.manage → Verify the user reference at payload.reassignTo: it must be a user id, { id }, or null. Writes its canonical { id, name } to verifiedUser, or null when there was none to verify. authn.verifyUser:reassignTo reads payload.reassignTo; authn.verifyUser:result.reassignTo reads payload.result.reassignTo, the shape an event hands over → Replace the author of every revision written by the user in `params.id` or the event payload's `id`. A preceding step's `verifiedUser` (e.g. `authn.verifyUser`'s verified target) is used when present; without one, falls back to the unverified `reassignTo` from the payload or the event hand-over, a user id or `{ id }`. Without any target, the anonymous author `{ id: null, name: null }` */
+        /** Require a valid session → Requires permission users.manage → Verify the user reference at payload.reassignTo: it must be a user id, { id }, or null. Writes its canonical { id, name } to verifiedUser, or null when there was none to verify. authn.verifyUser:reassignTo reads payload.reassignTo; authn.verifyUser:result.reassignTo reads payload.result.reassignTo, the shape an event hands over → Replace the author of every revision written by the user in `params.id` or the event payload's `id`, with the canonical `{ id, name }` a preceding step's `verifiedUser` (e.g. `authn.verifyUser`) verified. Without a target, the anonymous author `{ id: null, name: null }` */
         post: operations["retryReassignRevisionAuthor"];
         delete?: never;
         options?: never;
@@ -708,7 +725,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Identify the caller if a valid token is present → Requires permission media.read → List media, newest first → Add variants[] to a media item or list (result.id or result.items) */
+        /** Identify the caller if a valid token is present → Requires permission media.read → List media, newest first → Add variants[] and variantCounts (done/pending/error/failed over the effective sizes) to a media item or list (result.id or result.items) */
         get: operations["listMedia"];
         put?: never;
         /** Require a valid session → Requires permission media.write → Sanitize uploaded SVG files (scripts, handlers, external references removed) → Upload one or more files (multipart field `file`, repeatable). A single file returns the item; multiple files return per-file results. Idempotent: same folder, same filename and same bytes return the item that is already there, and the step then ends the pipeline itself (200), so no following step – notably events.emit:media.uploaded – runs for an upload that stored nothing → Queue event "media.uploaded" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
@@ -726,7 +743,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Identify the caller if a valid token is present → Requires permission media.read → Media metadata → Add variants[] to a media item or list (result.id or result.items) */
+        /** Identify the caller if a valid token is present → Requires permission media.read → Media metadata → Add variants[] and variantCounts (done/pending/error/failed over the effective sizes) to a media item or list (result.id or result.items) */
         get: operations["getMedia"];
         put?: never;
         post?: never;
@@ -800,7 +817,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Require a valid session → Requires permission media.delete → Item ids in a folder, for use with references.guardAll:media before removeFolder → Refuse while any of result.ids of media is referenced → Delete variants for every id in result.ids (from media.folderItems) → Delete a folder and everything in it */
+        /** Require a valid session → Requires permission media.delete → Item ids in a folder, for use with references.guardAll:media before removeFolder → Refuse while any of result.ids of media is referenced → Delete variants for every id in result.ids (from media.listFolderItems) → Delete a folder and everything in it */
         delete: operations["deleteMediaFolder"];
         options?: never;
         head?: never;
@@ -922,7 +939,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Identify the caller if a valid token is present → Requires permission pages.read → Answer { redirect: { to, status } } and end the pipeline when the request path matches a rule → Resolve a site path to a pages document (default locale unprefixed) → Replace internal kestrel:<type>:<id> references in the pages document with public paths (_links map added) */
+        /** Identify the caller if a valid token is present → Requires permission pages.read → End the pipeline with { redirect: { to, status } } when the request path matches a rule; pass through otherwise → Resolve a site path to a pages document (default locale unprefixed) → Replace internal kestrel:<type>:<id> references in the pages document with public paths (_links map added) */
         get: operations["resolvePage"];
         put?: never;
         post?: never;
@@ -1184,6 +1201,70 @@ export interface operations {
                 };
             };
             /** @description temporarily unavailable; retry after the Retry-After header */
+            503: {
+                headers: {
+                    /** @description seconds until the client may retry */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    eventsDeliveryStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description ok */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        dead: number;
+                        lastDeadAt: number | null;
+                        /** @enum {string} */
+                        scope: "store" | "process";
+                        since: number | null;
+                    };
+                };
+            };
+            /** @description not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description missing permission system.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description the queue could not be read */
             503: {
                 headers: {
                     /** @description seconds until the client may retry */
@@ -1942,22 +2023,36 @@ export interface operations {
                             steps: {
                                 atomic?: number;
                                 description: {
+                                    atomicSafe?: boolean;
                                     binary?: boolean;
                                     errors?: {
                                         [key: string]: string;
                                     };
-                                    extendsItems?: Record<string, never>;
-                                    extendsOutput?: Record<string, never>;
-                                    input?: Record<string, never>;
+                                    extendsItems?: {
+                                        [key: string]: unknown;
+                                    };
+                                    extendsOutput?: {
+                                        [key: string]: unknown;
+                                    };
+                                    input?: {
+                                        [key: string]: unknown;
+                                    };
                                     multipart?: boolean;
-                                    output?: Record<string, never>;
+                                    output?: {
+                                        [key: string]: unknown;
+                                    };
                                     query?: {
-                                        [key: string]: Record<string, never>;
+                                        [key: string]: {
+                                            [key: string]: unknown;
+                                        };
                                     };
                                     reads: string[];
                                     /** @enum {string} */
                                     security?: "required" | "optional";
                                     summary: string;
+                                    terminalOutput?: {
+                                        [key: string]: unknown;
+                                    };
                                     writes: string[];
                                 };
                                 module: string;
@@ -1967,22 +2062,36 @@ export interface operations {
                         }[];
                         steps: {
                             description: {
+                                atomicSafe?: boolean;
                                 binary?: boolean;
                                 errors?: {
                                     [key: string]: string;
                                 };
-                                extendsItems?: Record<string, never>;
-                                extendsOutput?: Record<string, never>;
-                                input?: Record<string, never>;
+                                extendsItems?: {
+                                    [key: string]: unknown;
+                                };
+                                extendsOutput?: {
+                                    [key: string]: unknown;
+                                };
+                                input?: {
+                                    [key: string]: unknown;
+                                };
                                 multipart?: boolean;
-                                output?: Record<string, never>;
+                                output?: {
+                                    [key: string]: unknown;
+                                };
                                 query?: {
-                                    [key: string]: Record<string, never>;
+                                    [key: string]: {
+                                        [key: string]: unknown;
+                                    };
                                 };
                                 reads: string[];
                                 /** @enum {string} */
                                 security?: "required" | "optional";
                                 summary: string;
+                                terminalOutput?: {
+                                    [key: string]: unknown;
+                                };
                                 writes: string[];
                             };
                             factory: boolean;
@@ -2004,6 +2113,13 @@ export interface operations {
                                 pipeline: string;
                             }[];
                         };
+                        warnings: ({
+                            /** @description The check that produced it; a minor release may add codes */
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: string;
+                        })[];
                     };
                 };
             };
@@ -3228,10 +3344,10 @@ export interface operations {
                                 event: string;
                                 pipeline: string;
                                 /** @enum {string} */
-                                status: "done" | "error" | "pending";
+                                status: "done" | "error" | "pending" | "queued";
                             }[];
                             /** @enum {string} */
-                            status: "done" | "error" | "pending";
+                            status: "done" | "error" | "pending" | "queued";
                         };
                         /** @description origin locale per field, only with fallback */
                         _locales?: {
@@ -4334,7 +4450,7 @@ export interface operations {
                     };
                 };
             };
-            /** @description no user id, or an invalid `reassignTo` (the unverified fallback requires `{ id, name }` or null), or the former author again */
+            /** @description no user id, or the former author again */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -4424,10 +4540,10 @@ export interface operations {
                                 event: string;
                                 pipeline: string;
                                 /** @enum {string} */
-                                status: "done" | "error" | "pending";
+                                status: "done" | "error" | "pending" | "queued";
                             }[];
                             /** @enum {string} */
-                            status: "done" | "error" | "pending";
+                            status: "done" | "error" | "pending" | "queued";
                         };
                         identity: {
                             claims: {
@@ -4514,10 +4630,10 @@ export interface operations {
                                 event: string;
                                 pipeline: string;
                                 /** @enum {string} */
-                                status: "done" | "error" | "pending";
+                                status: "done" | "error" | "pending" | "queued";
                             }[];
                             /** @enum {string} */
-                            status: "done" | "error" | "pending";
+                            status: "done" | "error" | "pending" | "queued";
                         };
                         ok: boolean;
                     };
@@ -4737,6 +4853,12 @@ export interface operations {
                             status: "uploading" | "ready" | "failed";
                             title: string | null;
                             updatedAt: number;
+                            variantCounts: {
+                                done: number;
+                                error: number;
+                                failed: number;
+                                pending: number;
+                            };
                             variants: {
                                 bytes: number;
                                 format: string;
@@ -4827,7 +4949,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
+                    "application/json": ({
                         _events: {
                             pipelines: {
                                 attempts: number;
@@ -4836,12 +4958,160 @@ export interface operations {
                                 event: string;
                                 pipeline: string;
                                 /** @enum {string} */
-                                status: "done" | "error" | "pending";
+                                status: "done" | "error" | "pending" | "queued";
                             }[];
                             /** @enum {string} */
-                            status: "done" | "error" | "pending";
+                            status: "done" | "error" | "pending" | "queued";
                         };
-                    };
+                        alt: string | null;
+                        /** @description sha256 of the uploaded bytes, hex; null for items uploaded before checksums were recorded */
+                        checksum: string | null;
+                        contentType: string;
+                        createdAt: number;
+                        description: string | null;
+                        filename: string;
+                        folder: string;
+                        height: number | null;
+                        id: string;
+                        key: string;
+                        /** @description who made the file; anything but human is flagged on download (X-Content-Provenance); an upload without provenance is recorded as unknown */
+                        provenance: {
+                            at?: number;
+                            model?: string;
+                            /** @enum {string} */
+                            origin: "human" | "ai" | "mixed" | "unknown";
+                            tool?: string;
+                        };
+                        size: number;
+                        /**
+                         * @description only ready items are listed, readable and downloadable
+                         * @enum {string}
+                         */
+                        status: "uploading" | "ready" | "failed";
+                        title: string | null;
+                        updatedAt: number;
+                        width: number | null;
+                    } | {
+                        _events: {
+                            pipelines: {
+                                attempts: number;
+                                dead: boolean;
+                                error: string | null;
+                                event: string;
+                                pipeline: string;
+                                /** @enum {string} */
+                                status: "done" | "error" | "pending" | "queued";
+                            }[];
+                            /** @enum {string} */
+                            status: "done" | "error" | "pending" | "queued";
+                        };
+                        errors: {
+                            code: string;
+                            filename: string;
+                            message: string;
+                            status: number;
+                        }[];
+                        /** @description the newly stored items only; an unchanged re-upload is in `items` but not here, and is not announced as an event */
+                        ids: string[];
+                        items: {
+                            alt: string | null;
+                            /** @description sha256 of the uploaded bytes, hex; null for items uploaded before checksums were recorded */
+                            checksum: string | null;
+                            contentType: string;
+                            createdAt: number;
+                            description: string | null;
+                            filename: string;
+                            folder: string;
+                            height: number | null;
+                            id: string;
+                            key: string;
+                            /** @description who made the file; anything but human is flagged on download (X-Content-Provenance); an upload without provenance is recorded as unknown */
+                            provenance: {
+                                at?: number;
+                                model?: string;
+                                /** @enum {string} */
+                                origin: "human" | "ai" | "mixed" | "unknown";
+                                tool?: string;
+                            };
+                            size: number;
+                            /**
+                             * @description only ready items are listed, readable and downloadable
+                             * @enum {string}
+                             */
+                            status: "uploading" | "ready" | "failed";
+                            title: string | null;
+                            updatedAt: number;
+                            width: number | null;
+                        }[];
+                    }) | ({
+                        alt: string | null;
+                        /** @description sha256 of the uploaded bytes, hex; null for items uploaded before checksums were recorded */
+                        checksum: string | null;
+                        contentType: string;
+                        createdAt: number;
+                        description: string | null;
+                        filename: string;
+                        folder: string;
+                        height: number | null;
+                        id: string;
+                        key: string;
+                        /** @description who made the file; anything but human is flagged on download (X-Content-Provenance); an upload without provenance is recorded as unknown */
+                        provenance: {
+                            at?: number;
+                            model?: string;
+                            /** @enum {string} */
+                            origin: "human" | "ai" | "mixed" | "unknown";
+                            tool?: string;
+                        };
+                        size: number;
+                        /**
+                         * @description only ready items are listed, readable and downloadable
+                         * @enum {string}
+                         */
+                        status: "uploading" | "ready" | "failed";
+                        title: string | null;
+                        updatedAt: number;
+                        width: number | null;
+                    } | {
+                        errors: {
+                            code: string;
+                            filename: string;
+                            message: string;
+                            status: number;
+                        }[];
+                        /** @description the newly stored items only; an unchanged re-upload is in `items` but not here, and is not announced as an event */
+                        ids: string[];
+                        items: {
+                            alt: string | null;
+                            /** @description sha256 of the uploaded bytes, hex; null for items uploaded before checksums were recorded */
+                            checksum: string | null;
+                            contentType: string;
+                            createdAt: number;
+                            description: string | null;
+                            filename: string;
+                            folder: string;
+                            height: number | null;
+                            id: string;
+                            key: string;
+                            /** @description who made the file; anything but human is flagged on download (X-Content-Provenance); an upload without provenance is recorded as unknown */
+                            provenance: {
+                                at?: number;
+                                model?: string;
+                                /** @enum {string} */
+                                origin: "human" | "ai" | "mixed" | "unknown";
+                                tool?: string;
+                            };
+                            size: number;
+                            /**
+                             * @description only ready items are listed, readable and downloadable
+                             * @enum {string}
+                             */
+                            status: "uploading" | "ready" | "failed";
+                            title: string | null;
+                            updatedAt: number;
+                            width: number | null;
+                        }[];
+                    });
                 };
             };
             /** @description no file or invalid folder/provenance (per-file for a multi-file request) */
@@ -4967,6 +5237,12 @@ export interface operations {
                         status: "uploading" | "ready" | "failed";
                         title: string | null;
                         updatedAt: number;
+                        variantCounts: {
+                            done: number;
+                            error: number;
+                            failed: number;
+                            pending: number;
+                        };
                         variants: {
                             bytes: number;
                             format: string;
@@ -5065,10 +5341,10 @@ export interface operations {
                                 event: string;
                                 pipeline: string;
                                 /** @enum {string} */
-                                status: "done" | "error" | "pending";
+                                status: "done" | "error" | "pending" | "queued";
                             }[];
                             /** @enum {string} */
-                            status: "done" | "error" | "pending";
+                            status: "done" | "error" | "pending" | "queued";
                         };
                         ok: boolean;
                     };
@@ -5179,10 +5455,10 @@ export interface operations {
                                 event: string;
                                 pipeline: string;
                                 /** @enum {string} */
-                                status: "done" | "error" | "pending";
+                                status: "done" | "error" | "pending" | "queued";
                             }[];
                             /** @enum {string} */
-                            status: "done" | "error" | "pending";
+                            status: "done" | "error" | "pending" | "queued";
                         };
                         alt: string | null;
                         /** @description sha256 of the uploaded bytes, hex; null for items uploaded before checksums were recorded */
@@ -5894,10 +6170,10 @@ export interface operations {
                                 event: string;
                                 pipeline: string;
                                 /** @enum {string} */
-                                status: "done" | "error" | "pending";
+                                status: "done" | "error" | "pending" | "queued";
                             }[];
                             /** @enum {string} */
-                            status: "done" | "error" | "pending";
+                            status: "done" | "error" | "pending" | "queued";
                         };
                         /** @description origin locale per field, only with fallback */
                         _locales?: {
@@ -6105,10 +6381,10 @@ export interface operations {
                                 event: string;
                                 pipeline: string;
                                 /** @enum {string} */
-                                status: "done" | "error" | "pending";
+                                status: "done" | "error" | "pending" | "queued";
                             }[];
                             /** @enum {string} */
-                            status: "done" | "error" | "pending";
+                            status: "done" | "error" | "pending" | "queued";
                         };
                         ok: boolean;
                     };
@@ -6215,10 +6491,10 @@ export interface operations {
                                 event: string;
                                 pipeline: string;
                                 /** @enum {string} */
-                                status: "done" | "error" | "pending";
+                                status: "done" | "error" | "pending" | "queued";
                             }[];
                             /** @enum {string} */
-                            status: "done" | "error" | "pending";
+                            status: "done" | "error" | "pending" | "queued";
                         };
                         /** @description origin locale per field, only with fallback */
                         _locales?: {
@@ -6329,10 +6605,10 @@ export interface operations {
                                 event: string;
                                 pipeline: string;
                                 /** @enum {string} */
-                                status: "done" | "error" | "pending";
+                                status: "done" | "error" | "pending" | "queued";
                             }[];
                             /** @enum {string} */
-                            status: "done" | "error" | "pending";
+                            status: "done" | "error" | "pending" | "queued";
                         };
                         /** @description origin locale per field, only with fallback */
                         _locales?: {
@@ -6886,6 +7162,12 @@ export interface operations {
                         status?: ("draft" | "finished" | "published") | null;
                         title?: string | null;
                         updatedAt: number;
+                    } | {
+                        redirect: {
+                            /** @enum {integer} */
+                            status: 301 | 302 | 307 | 308;
+                            to: string;
+                        };
                     };
                 };
             };
@@ -7034,10 +7316,10 @@ export interface operations {
                                 event: string;
                                 pipeline: string;
                                 /** @enum {string} */
-                                status: "done" | "error" | "pending";
+                                status: "done" | "error" | "pending" | "queued";
                             }[];
                             /** @enum {string} */
-                            status: "done" | "error" | "pending";
+                            status: "done" | "error" | "pending" | "queued";
                         };
                         active: boolean;
                         createdAt: number;
@@ -7212,10 +7494,10 @@ export interface operations {
                                 event: string;
                                 pipeline: string;
                                 /** @enum {string} */
-                                status: "done" | "error" | "pending";
+                                status: "done" | "error" | "pending" | "queued";
                             }[];
                             /** @enum {string} */
-                            status: "done" | "error" | "pending";
+                            status: "done" | "error" | "pending" | "queued";
                         };
                         ok: boolean;
                         reassignTo: {
@@ -7325,10 +7607,10 @@ export interface operations {
                                 event: string;
                                 pipeline: string;
                                 /** @enum {string} */
-                                status: "done" | "error" | "pending";
+                                status: "done" | "error" | "pending" | "queued";
                             }[];
                             /** @enum {string} */
-                            status: "done" | "error" | "pending";
+                            status: "done" | "error" | "pending" | "queued";
                         };
                         active: boolean;
                         createdAt: number;
@@ -7511,10 +7793,10 @@ export interface operations {
                                 event: string;
                                 pipeline: string;
                                 /** @enum {string} */
-                                status: "done" | "error" | "pending";
+                                status: "done" | "error" | "pending" | "queued";
                             }[];
                             /** @enum {string} */
-                            status: "done" | "error" | "pending";
+                            status: "done" | "error" | "pending" | "queued";
                         };
                         ok: boolean;
                     };

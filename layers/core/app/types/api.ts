@@ -38,7 +38,7 @@ export interface LoginResponse { token: string; identity: Identity }
 export interface User { id: string; username: string; roles: string[]; active: boolean; createdAt: number }
 
 export interface UserReassignTarget { id: string; name: string }
-export interface UserDeleteResponse { ok: boolean; reassignTo: UserReassignTarget | null }
+export interface UserDeleteResponse { ok: boolean; reassignTo: UserReassignTarget | null; _events: EventRelayStatus }
 
 export interface ListPage<T> { items: T[]; total: number }
 
@@ -149,6 +149,8 @@ export type DeliveryState = PublishStatusEntry['state']
 export type DeliveryEntry = Omit<PublishStatusEntry, 'updatedAt'>
 
 export type EventRelayStatus = ResponseOf<'createPage', 200>['_events']
+
+export type EventDeliveryStatus = ResponseOf<'eventsDeliveryStatus', 200>
 
 export interface RevisionDetail extends Revision {
   restore?: RestoreReport
@@ -268,6 +270,8 @@ export interface InsightsHttpTrigger { method: string; path: string; pipeline: s
 export interface InsightsEventTrigger { event: string; pipeline: string }
 export interface InsightsCronTrigger { expression: string; pipeline: string }
 
+export interface InsightsBootWarning { code: string; message: string; [field: string]: string }
+
 export interface InsightsManifest {
   generatedAt: number
   core: { version: string }
@@ -276,6 +280,7 @@ export interface InsightsManifest {
   steps: InsightsStep[]
   pipelines: InsightsPipeline[]
   triggers: { http: InsightsHttpTrigger[]; events: InsightsEventTrigger[]; crons: InsightsCronTrigger[] }
+  warnings: InsightsBootWarning[]
 }
 
 export interface InsightsPipelineStats { name: string; count: number; failed: number; errors: number; p50Ms: number; p95Ms: number; lastAt: number | null }

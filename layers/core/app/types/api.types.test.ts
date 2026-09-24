@@ -1,5 +1,5 @@
 import { describe, expectTypeOf, it } from 'vitest'
-import type { DeadEvent, EventRelayStatus, MediaItem, ReplicationSnapshotResult, ReplicationStatus, RevisionRestoreResponse } from './api'
+import type { DeadEvent, EventDeliveryStatus, EventRelayStatus, MediaItem, ReplicationSnapshotResult, ReplicationStatus, RevisionRestoreResponse } from './api'
 
 interface ExpectedMediaItem {
   alt: string | null
@@ -31,6 +31,12 @@ interface ExpectedMediaItem {
     state: 'pending' | 'done' | 'error' | 'failed'
     width: number
   }[]
+  variantCounts: {
+    done: number
+    pending: number
+    error: number
+    failed: number
+  }
   width: number | null
 }
 
@@ -62,15 +68,22 @@ interface ExpectedDeadEvent {
 }
 
 interface ExpectedEventRelayStatus {
-  status: 'done' | 'error' | 'pending'
+  status: 'done' | 'error' | 'pending' | 'queued'
   pipelines: {
     event: string
     pipeline: string
-    status: 'done' | 'error' | 'pending'
+    status: 'done' | 'error' | 'pending' | 'queued'
     attempts: number
     dead: boolean
     error: string | null
   }[]
+}
+
+interface ExpectedEventDeliveryStatus {
+  dead: number
+  scope: 'store' | 'process'
+  since: number | null
+  lastDeadAt: number | null
 }
 
 describe('the public API types keep exactly their published shape', () => {
@@ -92,6 +105,10 @@ describe('the public API types keep exactly their published shape', () => {
 
   it('EventRelayStatus, the `_events` member events.relay adds to a write response', () => {
     expectTypeOf<EventRelayStatus>().toEqualTypeOf<ExpectedEventRelayStatus>()
+  })
+
+  it('EventDeliveryStatus, the deliveries a delivery module gave up on', () => {
+    expectTypeOf<EventDeliveryStatus>().toEqualTypeOf<ExpectedEventDeliveryStatus>()
   })
 
   it('RevisionRestoreResponse extends the document with the restore report and the relay status', () => {

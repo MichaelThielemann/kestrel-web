@@ -25,6 +25,7 @@ function item(over: Partial<MediaItem> = {}): MediaItem {
     title: null,
     description: null,
     variants: [],
+    variantCounts: { done: 0, pending: 0, error: 0, failed: 0 },
     ...over,
   }
 }

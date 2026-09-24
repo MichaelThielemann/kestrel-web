@@ -23,6 +23,7 @@ const file: MediaItem = {
   title: null,
   description: null,
   variants: [],
+  variantCounts: { done: 0, pending: 0, error: 0, failed: 0 },
 }
 
 const viewerSource = readFileSync(resolve(process.cwd(), 'layers/admin/app/components/MediaViewer.vue'), 'utf-8')

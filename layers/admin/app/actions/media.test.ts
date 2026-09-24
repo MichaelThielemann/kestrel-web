@@ -218,6 +218,7 @@ describe('deleteItems', () => {
     checksum: null, status: 'ready' as const,
     createdAt: 1, updatedAt: 1, width: null, height: null, alt: null, title: null, description: null,
     variants: [],
+    variantCounts: { done: 0, pending: 0, error: 0, failed: 0 },
   })
 
   it('does nothing when the dialog was not confirmed', async () => {

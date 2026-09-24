@@ -18,6 +18,7 @@ const manifest: InsightsManifest = {
     events: [{ event: 'media.viewed', pipeline: 'media.get' }],
     crons: [],
   },
+  warnings: [],
 }
 
 const stats: InsightsStats = {
