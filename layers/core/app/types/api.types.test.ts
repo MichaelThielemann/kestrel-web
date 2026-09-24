@@ -37,12 +37,6 @@ interface ExpectedMediaItem {
     state: 'pending' | 'done' | 'error' | 'failed'
     width: number
   }[]
-  variantCounts: {
-    done: number
-    pending: number
-    error: number
-    failed: number
-  }
   width: number | null
 }
 
