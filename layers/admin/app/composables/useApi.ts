@@ -55,19 +55,19 @@ export const retryableMessage = (t: Translate, details?: ApiErrorDetails): strin
 
 export function useApi() {
   const token = useApiToken()
-  const client = $fetch.create({
-    baseURL: MOUNT_PATH,
-    retry: 0,
-    onRequest({ options }) {
-      const t = token.value
-      if (t) {
-        const headers = new Headers(options.headers)
-        headers.set('authorization', `Bearer ${t}`)
-        options.headers = headers
-      }
-    },
-  })
-  return async <T>(path: string, options: Parameters<typeof client>[1] = {}): Promise<T> => {
+  return async <T>(path: string, options: Parameters<typeof $fetch>[1] = {}): Promise<T> => {
+    const client = globalThis.$fetch.create({
+      baseURL: MOUNT_PATH,
+      retry: 0,
+      onRequest({ options: requestOptions }) {
+        const t = token.value
+        if (t) {
+          const headers = new Headers(requestOptions.headers)
+          headers.set('authorization', `Bearer ${t}`)
+          requestOptions.headers = headers
+        }
+      },
+    })
     try {
       return boundaryCast<T>(await client(path, options), 'json')
     } catch (e) {
@@ -75,7 +75,5 @@ export function useApi() {
     }
   }
 }
-
-export const mediaFileUrl = (id: string): string => `/api/media/${encodeURIComponent(id)}/file`
 
 export const mediaVariantUrl = (path: string): string => path

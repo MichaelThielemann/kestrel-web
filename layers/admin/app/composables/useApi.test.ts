@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
+import * as useApiModule from './useApi'
 import { ApiError, apiErrorCode, apiErrorMessage, apiErrorRetryable, apiErrorRunId, apiErrorStatus, retryableMessage, toApiError } from './useApi'
+
+describe('useApi.ts exports', () => {
+  it('never exports mediaFileUrl, which would build a download URL without the downloadMedia capability', () => {
+    expect('mediaFileUrl' in useApiModule).toBe(false)
+  })
+})
 
 describe('toApiError', () => {
   it('extracts status, message and runId from a fetch error body', () => {
