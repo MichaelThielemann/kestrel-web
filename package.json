@@ -9,12 +9,16 @@
     "url": "git+https://github.com/MichaelThielemann/kestrel-web.git"
   },
   "engines": {
-    "node": ">=22.13.0"
+    "node": ">=22.18.0"
   },
   "packageManager": "pnpm@11.2.2",
   "main": "./nuxt.config.ts",
+  "bin": {
+    "kestrel-web-upgrade": "./bin/kestrel-web-upgrade.mjs"
+  },
   "files": [
     "nuxt.config.ts",
+    "bin",
     "layers",
     "!layers/**/*.test.ts",
     "!layers/**/__fixtures__",
@@ -69,6 +73,7 @@
     "@michaelthielemann/kestrel-revisions-default": "^5.8.0",
     "@michaelthielemann/kestrel-sanitize-svg": "^5.8.0",
     "@michaelthielemann/kestrel-site-default": "^5.8.0",
+    "@michaelthielemann/kestrel-upgrade": "^5.8.0",
     "@michaelthielemann/kestrel-validate-jsonschema": "^5.8.0",
     "@nuxt/kit": "^4.5.2",
     "@tiptap/extension-highlight": "^3.30.5",
@@ -83,6 +88,7 @@
     "devalue": "^5.9.1",
     "dompurify": "^3.4.14",
     "h3": "^1.15.11",
+    "jiti": "^2.7.0",
     "reka-ui": "^2.10.1",
     "sanitize-html": "^2.17.7",
     "sass": "^1.102.0",
