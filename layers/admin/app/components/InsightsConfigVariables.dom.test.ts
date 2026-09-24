@@ -71,12 +71,34 @@ describe('InsightsConfigVariables', () => {
 
   it('lets its columns size to their content instead of forcing a fixed layout that collapses at phone width', () => {
     expect(source).not.toMatch(/\.insights-table\s*{[^}]*table-layout:\s*fixed/)
-    expect(source).toMatch(/__path\s*{[^}]*white-space:\s*nowrap/)
   })
 
   it('scrolls the table horizontally rather than shrinking it, like every other admin table', async () => {
     const wrapper = await mountSuspended(InsightsConfigVariables, { props: { variables } })
     const scrollAncestor = wrapper.get('table').element.closest('.u-scroll')
     expect(scrollAncestor).not.toBeNull()
+  })
+
+  it('keeps path, type, required and status on one line each, so the status dot never wraps away from its label', () => {
+    const nowrapBlock = source.match(/&__path,[\s\S]*?{\s*white-space:\s*nowrap;\s*}/)
+    expect(nowrapBlock).not.toBeNull()
+    expect(nowrapBlock![0]).toContain('__nowrap')
+    expect(nowrapBlock![0]).toContain('__status')
+  })
+
+  it('renders the status dot and its label inside the same cell, never split across a line break', async () => {
+    const wrapper = await mountSuspended(InsightsConfigVariables, { props: { variables } })
+    const statusCell = wrapper.findAll('tbody tr')[0]!.get('.insights-config__status')
+    const dot = statusCell.get('.insights-config__dot')
+    expect(dot.element.parentElement).toBe(statusCell.element)
+  })
+
+  it('bounds the value and default cells to a fixed character width and lets long values wrap inside it, instead of forcing the table wider', () => {
+    const valueBlock = source.match(/&__value\s*{[\s\S]*?\.insights-value__text\s*{([^}]*)}/)
+    expect(valueBlock).not.toBeNull()
+    const declarations = valueBlock![1]!
+    expect(declarations).toMatch(/max-width:\s*40ch/)
+    expect(declarations).toMatch(/overflow-wrap:\s*anywhere/)
+    expect(declarations).not.toMatch(/white-space:\s*nowrap/)
   })
 })

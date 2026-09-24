@@ -36,11 +36,11 @@ function statusLabel(v: InsightsConfigVariable): string {
         <template #body>
           <tr v-for="v in variables" :key="v.path">
             <td class="insights-config__path"><code>{{ v.path }}</code></td>
-            <td>{{ v.type }}</td>
-            <td>{{ v.required ? t('insights.required') : t('insights.optional') }}</td>
-            <td><KestrelInsightsConfigValue :variable="v" /></td>
-            <td><KestrelInsightsConfigValue :variable="v" field="default" /></td>
-            <td>
+            <td class="insights-config__nowrap">{{ v.type }}</td>
+            <td class="insights-config__nowrap">{{ v.required ? t('insights.required') : t('insights.optional') }}</td>
+            <td class="insights-config__value"><KestrelInsightsConfigValue :variable="v" /></td>
+            <td class="insights-config__value"><KestrelInsightsConfigValue :variable="v" field="default" /></td>
+            <td class="insights-config__status">
               <span
                 class="insights-config__dot"
                 :class="statusDotClass(v)"
@@ -74,8 +74,21 @@ function statusLabel(v: InsightsConfigVariable): string {
     width: 8rem;
   }
 
-  &__path {
+  &__path,
+  &__nowrap,
+  &__status {
     white-space: nowrap;
+  }
+
+  &__value {
+    .insights-value__text {
+      display: inline-block;
+      max-width: 40ch;
+      overflow: visible;
+      white-space: normal;
+      overflow-wrap: anywhere;
+      text-overflow: clip;
+    }
   }
 
   &__empty {
