@@ -697,11 +697,10 @@ that request's rows itself instead of waiting for the worker — a page publish 
 goes out, not on the worker's next tick. It has `relayMs` (default 5000) to do so, configured on the
 `eventsQueue` module: `presetModuleConfig({ eventsQueue: { relayMs: 8000 } })`. Whatever the relay does not
 reach within that budget stays `pending` and is picked up by the worker, exactly like today's deferred
-delivery. Setting `relayMs: 0` disables the relay entirely — every subscriber runs on the worker, the
-previous behaviour, useful when an instance's subscribers are too slow to run inline. Because the relay
-runs every subscriber of the emitting run and not only delivery, subscribers that used to be worker-only
-work — `anonymizeAuditUser`, `reassignRevisionAuthor` on `user.deleted`, `generateImageVariants` on
-`media.uploaded` — now run inside the request too, bounded by the same budget.
+delivery. Setting `relayMs: 0` disables the relay entirely — every subscriber the preset relays runs on
+the worker instead, useful when an instance's own relayed subscribers are too slow to run inline. The
+relay only ever claims the rows named in `relayPipelines` (below); it is not every subscriber of the
+emitting run.
 
 **`eventsQueue` and relay selection:** the preset narrows the relay to `publishPage` and `unpublishPage`
 — the pipelines behind `delivery` — whenever that feature is on, and to nothing otherwise;

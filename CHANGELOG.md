@@ -99,13 +99,15 @@
   before — the write response no longer carries it. `SaveResponse<T>` is gone from the exported API
   types; `RevisionRestoreResponse` is the document plus `restore?` and `_events?`.
 
-  **What now runs inside the request that used to be deferred.** With the `eventsQueue` feature the
-  relay delivers every subscriber of the emitting run, not only delivery: `deleteUser` runs
-  `anonymizeAuditUser` and `reassignRevisionAuthor` inside the `DELETE` request, `login`/`logout` run
-  `auditAuth`, and `uploadMedia` runs `generateImageVariants`. All of them were deferred work before.
-  They are bounded by the new `eventsQueue.relayMs` config key (default 5000) — the relay starts no
-  further delivery once the budget is spent, and the worker finishes the rest. Set `relayMs: 0` to get
-  the previous behaviour, in which every subscriber runs in the worker.
+  **Only publishing keeps its head start with the queue.** `presetModuleConfig()` sets the new
+  `eventsQueue.relayPipelines` to `publishPage`/`unpublishPage` when `delivery` is on, `[]` otherwise —
+  the queue's relay claims only those rows, bounded by the new `eventsQueue.relayMs` config key (default
+  5000), so a page publish or unpublish still completes before the response goes out. Every other
+  event-triggered pipeline — `anonymizeAuditUser` and `reassignRevisionAuthor` on `user.deleted`,
+  `auditAuth` on `login`/`logout`, `generateImageVariants` on `uploadMedia` — is left to the worker from
+  the moment the request returns; `_events` reports it as `"queued"` instead of `"done"`/`"error"`. Pass
+  `overrides` naming the `kestrel-events-queue` module to relay a wider or narrower set, or `"all"` for
+  the previous behaviour of every subscriber running inline, bounded by the same budget.
 
   **A content field name must not start with `_`.** That namespace belongs to the members the system
   merges onto a document — `_locale`, `_links` and `_translations` already, `_delivery` and `_events`
