@@ -45,10 +45,7 @@ watch(ids, async (list) => {
     const page = await api<ListPage<MediaItem>>(capabilities.route('listMedia'), { query: { ids: missing.join(','), locale: props.locale } })
     for (const item of page.items) {
       meta.value[item.id] = item
-      if (!isInsertable(item) && ids.value.includes(item.id)) {
-        removeId(item.id)
-        processingError.value = t('field.media.processing')
-      }
+      if (!isInsertable(item) && ids.value.includes(item.id)) processingError.value = t('field.media.processing')
     }
   } catch {
     return
@@ -61,8 +58,21 @@ const initialFolder = computed(() => commonFolder(resolved.value.map((r) => r.it
 
 const nameOf = (id: string, item: MediaItem | null, i: number) => item?.filename ?? t('field.media.itemAt', { pos: i + 1 })
 
-function onConfirm(picked: string[]) {
+async function onConfirm(picked: string[]) {
   processingError.value = ''
+  const newIds = picked.filter((id) => !ids.value.includes(id))
+  if (newIds.length && capabilities.has('listMedia')) {
+    try {
+      const page = await api<ListPage<MediaItem>>(capabilities.route('listMedia'), { query: { ids: newIds.join(','), locale: props.locale } })
+      for (const item of page.items) meta.value[item.id] = item
+    } catch {
+      return
+    }
+    if (newIds.some((id) => !isInsertable(meta.value[id] ?? { available: true }))) {
+      processingError.value = t('field.media.processing')
+      return
+    }
+  }
   if (multiple.value) model.value = [...new Set(picked)]
   else model.value = picked[0] ?? null
 }
