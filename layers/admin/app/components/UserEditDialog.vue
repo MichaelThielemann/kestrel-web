@@ -9,6 +9,7 @@ const emit = defineEmits<{ 'update:user': [User | null], saved: [] }>()
 
 const { t } = useT()
 const deps = useActionDeps()
+const auth = useAuth()
 
 const knownRoles = computed<readonly string[]>(() => props.knownRoles)
 const {
@@ -38,7 +39,9 @@ async function submit() {
     refresh: () => emit('saved'),
   })
   toastUnexpected(deps, result)
-  if (result.ok) close()
+  if (!result.ok) return
+  if (props.self) await auth.refreshAccess()
+  close()
 }
 </script>
 

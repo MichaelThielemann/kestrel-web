@@ -4,6 +4,7 @@ import type { Translate } from '../actions/types'
 import { apiErrorMessage, apiErrorStatus } from './useApi'
 import { useAdminApi } from './useAdminApi'
 import { useCapabilities } from './useCapabilities'
+import { clearInsightsState } from './useInsights'
 
 interface AuthState {
   identity: Identity | null
@@ -58,7 +59,7 @@ export function useAuth() {
     try {
       const me = await api<Identity>(ADMIN_BOOTSTRAP_ROUTES.me)
       state.value = { identity: me, checked: true, error: null }
-      if (previousId !== undefined && previousId !== me.id) schema.clear()
+      if (previousId !== undefined && previousId !== me.id) { schema.clear(); clearInsightsState() }
     } catch (e) {
       const outcome = sessionStateFor(e)
       if (outcome.clearToken) token.value = null
@@ -74,6 +75,7 @@ export function useAuth() {
 
   async function login(username: string, password: string) {
     schema.clear()
+    clearInsightsState()
     const r = await api<LoginResponse>(ADMIN_BOOTSTRAP_ROUTES.login, { body: { username, password } })
     token.value = r.token
     state.value = { identity: r.identity, checked: true, error: null }
@@ -84,6 +86,7 @@ export function useAuth() {
     token.value = null
     state.value = { identity: null, checked: true, error: null }
     schema.clear()
+    clearInsightsState()
   }
 
   async function logout() {

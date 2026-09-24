@@ -116,3 +116,42 @@ describe('UserEditDialog', () => {
     expect(hint?.textContent).toBe(en['users.selfActiveHint'])
   })
 })
+
+describe('UserEditDialog own-role refresh', () => {
+  const unregisterAll: (() => void)[] = []
+  let schemaRequests = 0
+
+  beforeEach(async () => {
+    schemaRequests = 0
+    unregisterAll.push(registerEndpoint('/api/admin/schema', { method: 'GET', handler: () => { schemaRequests += 1; return schema } }))
+    unregisterAll.push(registerEndpoint('/api/users/u1', { method: 'PATCH', handler: () => user }))
+    await useSchema().load()
+    schemaRequests = 0
+  })
+
+  afterEach(() => {
+    unregisterAll.splice(0).forEach((unregister) => unregister())
+    useSchema().clear()
+  })
+
+  it('refetches the schema after saving the signed-in user\'s own roles', async () => {
+    const wrapper = await mountSuspended(UserEditDialog, { props: { user, self: true }, attachTo: document.body })
+    onTestFinished(() => wrapper.unmount())
+
+    await vi.waitFor(() => expect(document.body.querySelector('form')).toBeTruthy())
+    submitForm()
+
+    await vi.waitFor(() => expect(schemaRequests).toBe(1))
+  })
+
+  it('does not refetch the schema after saving a different user\'s roles', async () => {
+    const wrapper = await mountSuspended(UserEditDialog, { props: { user, self: false }, attachTo: document.body })
+    onTestFinished(() => wrapper.unmount())
+
+    await vi.waitFor(() => expect(document.body.querySelector('form')).toBeTruthy())
+    submitForm()
+
+    await vi.waitFor(() => expect(wrapper.emitted('update:user')).toBeTruthy())
+    expect(schemaRequests).toBe(0)
+  })
+})
