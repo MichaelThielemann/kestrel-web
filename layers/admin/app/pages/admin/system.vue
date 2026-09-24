@@ -24,6 +24,7 @@ const canDeliver = computed(() => capabilities.has('publishAllPages'))
 const canReplication = computed(() => capabilities.has('replicationStatus'))
 const canMigrations = computed(() => capabilities.has('listMigrations'))
 const canEvents = computed(() => capabilities.has('eventsDeliveryStatus'))
+const canEventsQueue = computed(() => capabilities.has('eventsQueueStatus'))
 const canImages = computed(() => capabilities.has('imagesStatus'))
 const localeParam = computed(() => (typeof route.query.locale === 'string' ? route.query.locale.trim() || undefined : undefined))
 
@@ -78,6 +79,13 @@ let pendingTab: string | null = null
 
 const tabItems = computed(() => visibleTabs.value.map((id) => ({ id, label: tabTitle(id) })))
 
+const titleRef = ref<HTMLElement | null>(null)
+
+watch(activeTab, (next, previous) => {
+  if (previous === undefined || next === previous || visibleTabs.value.includes(previous)) return
+  titleRef.value?.focus()
+})
+
 const navigate: NavigatePort = async (d) => (d.kind === 'path' ? navigateTo(d.to) : router.replace({ query: d.query }))
 
 async function setTab(value: unknown) {
@@ -103,7 +111,7 @@ async function setTab(value: unknown) {
 
 <template>
   <section class="system">
-    <h1 class="system__title">{{ t('system.title') }}</h1>
+    <h1 ref="titleRef" class="system__title" tabindex="-1">{{ t('system.title') }}</h1>
 
     <div v-if="visibleTabs.length" class="system__tabs">
       <KestrelUiTabList
@@ -122,7 +130,7 @@ async function setTab(value: unknown) {
           <KestrelSystemDelivery v-else-if="tab === 'delivery'" />
           <KestrelSystemReplication v-else-if="tab === 'replication'" />
           <KestrelSystemMigrations v-else-if="tab === 'migrations'" />
-          <KestrelSystemEvents v-else-if="tab === 'events' && has('eventsQueue')" />
+          <KestrelSystemEvents v-else-if="tab === 'events' && canEventsQueue" />
           <KestrelSystemEventsInline v-else-if="tab === 'events'" />
           <KestrelSystemImages v-else-if="tab === 'images'" />
           <KestrelSingletonEditor v-else-if="tabDef(tab)" :collection="tab" :title="tabTitle(tab)" :locale-param="tabDef(tab)?.translatable ? localeParam : undefined" />
