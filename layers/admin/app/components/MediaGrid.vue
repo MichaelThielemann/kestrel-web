@@ -1,10 +1,29 @@
 <script setup lang="ts">
 import type { MediaItem } from '#kestrel-admin/types/api'
+import type { UploadItem } from '../composables/useMediaUpload'
+import type { VariantWatchEntry } from '../composables/useVariantWatch'
 import { itemKey, humanizeSize, type LibraryItem } from '../utils/library'
 import { isDisclosed, provenanceLabelKey, provenanceOrigin } from '../utils/provenance'
+import { variantChipState, variantTotal } from '../utils/variant-state'
 
-defineProps<{ items: LibraryItem[]; isSelected: (item: LibraryItem) => boolean; dropTargetPath?: string | null; parentPath?: string | null; upLabel?: string }>()
-const emit = defineEmits<{ navigate: [string]; select: [LibraryItem, { toggle: boolean; range: boolean }]; open: [LibraryItem]; dragstart: [LibraryItem, DragEvent]; dragend: [] }>()
+const props = defineProps<{
+  items: LibraryItem[]
+  isSelected: (item: LibraryItem) => boolean
+  dropTargetPath?: string | null
+  parentPath?: string | null
+  upLabel?: string
+  uploads?: readonly UploadItem[]
+  uploadPreview?: (id: string) => string | undefined
+  variantOverride?: ReadonlyMap<string, VariantWatchEntry>
+}>()
+const emit = defineEmits<{
+  navigate: [string]
+  select: [LibraryItem, { toggle: boolean; range: boolean }]
+  open: [LibraryItem]
+  dragstart: [LibraryItem, DragEvent]
+  dragend: []
+  dismissUpload: [string]
+}>()
 const { t } = useT()
 const mods = (e: MouseEvent) => ({ toggle: e.ctrlKey || e.metaKey, range: e.shiftKey })
 
@@ -15,6 +34,20 @@ function onFolder(item: LibraryItem, path: string, e: MouseEvent) {
 function onFile(item: LibraryItem, e: MouseEvent) { emit('select', item, mods(e)) }
 const ext = (filename: string) => (filename.split('.').pop() ?? '').toUpperCase()
 const badge = (f: MediaItem) => t(provenanceLabelKey(provenanceOrigin(f.provenance)))
+
+const ZERO_VARIANT_COUNTS = { done: 0, pending: 0, error: 0, failed: 0 }
+
+function fileVariants(file: MediaItem) {
+  return props.variantOverride?.get(file.id)?.variants ?? file.variants ?? []
+}
+function chipFor(file: MediaItem) {
+  const counts = props.variantOverride?.get(file.id)?.variantCounts ?? file.variantCounts ?? ZERO_VARIANT_COUNTS
+  const state = variantChipState(counts)
+  return state ? { state, done: counts.done, total: variantTotal(counts) } : null
+}
+function uploadChipFor(upload: UploadItem) {
+  return upload.result ? chipFor(upload.result) : null
+}
 </script>
 
 <template>
@@ -30,45 +63,70 @@ const badge = (f: MediaItem) => t(provenanceLabelKey(provenanceOrigin(f.provenan
         <span class="media-grid__name">..</span>
       </KestrelUiButton>
     </li>
-    <li v-for="item in items" :key="itemKey(item)" class="media-grid__cell">
-      <KestrelUiButton v-if="item.type === 'folder'" variant="bare" class="media-grid__tile media-grid__tile--folder"
-        :data-test="`folder-${item.folder.path}`" :aria-pressed="isSelected(item)"
-        :data-drop-folder="item.folder.path"
-        :class="{ 'is-selected': isSelected(item), 'is-drop-target': item.folder.path === dropTargetPath }"
-        draggable="true"
-        @click="onFolder(item, item.folder.path, $event)"
-        @keydown.space.prevent="emit('select', item, { toggle: true, range: false })"
-        @dragstart="(e: DragEvent) => emit('dragstart', item, e)"
-        @dragend="emit('dragend')">
-        <span class="media-grid__thumb-wrap">
-          <span class="media-grid__thumb media-grid__thumb--folder" aria-hidden="true"><KestrelUiIcon name="folder" :size="40" /></span>
-        </span>
-        <span class="media-grid__name">{{ item.folder.name }}</span>
-      </KestrelUiButton>
-      <KestrelUiButton v-else variant="bare" class="media-grid__tile media-grid__tile--file"
-        :data-test="`file-${item.file.id}`" :aria-pressed="isSelected(item)"
-        :data-file-id="item.file.id"
-        :class="{ 'is-selected': isSelected(item) }"
-        draggable="true"
-        @click="onFile(item, $event)"
-        @dblclick="emit('open', item)"
-        @keydown.enter.prevent="emit('open', item)"
-        @dragstart="(e: DragEvent) => emit('dragstart', item, e)"
-        @dragend="emit('dragend')">
-        <span class="media-grid__thumb-wrap">
-          <KestrelMediaThumb
-            v-if="item.file.contentType.startsWith('image/')"
-            :id="item.file.id"
-            class="media-grid__thumb"
-            :content-type="item.file.contentType"
-            :alt="item.file.alt ?? item.file.filename" />
-          <span v-else class="media-grid__badge" aria-hidden="true">{{ ext(item.file.filename) }}</span>
-          <span v-if="isDisclosed(item.file.provenance)" class="media-grid__ai">{{ badge(item.file) }}</span>
-          <span class="media-grid__meta" aria-hidden="true">{{ humanizeSize(item.file.size) }}</span>
-        </span>
-        <span class="media-grid__name">{{ item.file.filename }}</span>
-      </KestrelUiButton>
+    <template v-for="item in items" :key="itemKey(item)">
+      <li v-if="item.type === 'folder'" class="media-grid__cell">
+        <KestrelUiButton variant="bare" class="media-grid__tile media-grid__tile--folder"
+          :data-test="`folder-${item.folder.path}`" :aria-pressed="isSelected(item)"
+          :data-drop-folder="item.folder.path"
+          :class="{ 'is-selected': isSelected(item), 'is-drop-target': item.folder.path === dropTargetPath }"
+          draggable="true"
+          @click="onFolder(item, item.folder.path, $event)"
+          @keydown.space.prevent="emit('select', item, { toggle: true, range: false })"
+          @dragstart="(e: DragEvent) => emit('dragstart', item, e)"
+          @dragend="emit('dragend')">
+          <span class="media-grid__thumb-wrap">
+            <span class="media-grid__thumb media-grid__thumb--folder" aria-hidden="true"><KestrelUiIcon name="folder" :size="40" /></span>
+          </span>
+          <span class="media-grid__name">{{ item.folder.name }}</span>
+        </KestrelUiButton>
+      </li>
+    </template>
+    <li v-for="upload in uploads" :key="`upload:${upload.id}`" class="media-grid__cell">
+      <KestrelMediaUploadTile
+        :item="upload"
+        :preview="uploadPreview?.(upload.id)"
+        :chip-state="uploadChipFor(upload)?.state"
+        :chip-done="uploadChipFor(upload)?.done"
+        :chip-total="uploadChipFor(upload)?.total"
+        @dismiss="emit('dismissUpload', $event)"
+      />
     </li>
+    <template v-for="item in items" :key="itemKey(item)">
+      <li v-if="item.type === 'file'" class="media-grid__cell">
+        <KestrelUiButton variant="bare" class="media-grid__tile media-grid__tile--file"
+          :data-test="`file-${item.file.id}`" :aria-pressed="isSelected(item)"
+          :data-file-id="item.file.id"
+          :class="{ 'is-selected': isSelected(item) }"
+          draggable="true"
+          @click="onFile(item, $event)"
+          @dblclick="emit('open', item)"
+          @keydown.enter.prevent="emit('open', item)"
+          @dragstart="(e: DragEvent) => emit('dragstart', item, e)"
+          @dragend="emit('dragend')">
+          <span class="media-grid__thumb-wrap" :aria-describedby="chipFor(item.file) ? `media-grid-chip-${item.file.id}` : undefined">
+            <KestrelMediaThumb
+              v-if="item.file.contentType.startsWith('image/')"
+              :id="item.file.id"
+              class="media-grid__thumb"
+              :content-type="item.file.contentType"
+              :alt="item.file.alt ?? item.file.filename"
+              :variants="fileVariants(item.file)" />
+            <span v-else class="media-grid__badge" aria-hidden="true">{{ ext(item.file.filename) }}</span>
+            <span v-if="isDisclosed(item.file.provenance)" class="media-grid__ai">{{ badge(item.file) }}</span>
+            <KestrelMediaVariantChip
+              v-if="chipFor(item.file)"
+              :id="`media-grid-chip-${item.file.id}`"
+              class="media-grid__variant-chip"
+              :state="chipFor(item.file)!.state"
+              :done="chipFor(item.file)!.done"
+              :total="chipFor(item.file)!.total"
+            />
+            <span v-else class="media-grid__meta" aria-hidden="true">{{ humanizeSize(item.file.size) }}</span>
+          </span>
+          <span class="media-grid__name">{{ item.file.filename }}</span>
+        </KestrelUiButton>
+      </li>
+    </template>
   </ul>
 </template>
 
@@ -118,5 +176,10 @@ const badge = (f: MediaItem) => t(provenanceLabelKey(provenanceOrigin(f.provenan
 }
 .media-grid__tile:hover .media-grid__meta,
 .media-grid__tile:focus-visible .media-grid__meta { opacity: 1; }
+.media-grid__variant-chip {
+  position: absolute;
+  inset-inline: var(--space-1);
+  bottom: var(--space-1);
+}
 .media-grid__name { font-size: var(--text-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 </style>
