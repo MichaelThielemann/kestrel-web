@@ -165,7 +165,12 @@
   `@michaelthielemann/kestrel-authz-roles` with `authz.describePipelineAccess`.
 
   Visible behaviour: a collection whose list pipeline the caller may not run no longer appears in the
-  rail and fails on open; before, it did. The images tab now appears with `images.read` instead of
+  rail; before, it appeared and failed on open. Every control gated on a verb the schema does not grant
+  is hidden the same way — a collection's own update/delete/translation-delete, the bulk bar's
+  publish/unpublish/delete, the singleton form's save (the form is read-only without `set`), every media
+  write control (upload, new folder, rename, move, delete) and the media viewer's save/delete, and the
+  `/admin/media` and `/admin/insights` pages themselves — instead of rendering an enabled control that
+  fails on click with a generic error. The images tab now appears with `images.read` instead of
   `images.manage`, with its manage buttons hidden rather than disabled; the redirects tab follows
   `redirects.read` instead of the `admin` role; the users, replication, migrations and events tabs
   follow their own `*.manage` permission instead of the role name `admin`.
@@ -174,6 +179,21 @@
   passed to the admin API client, a hand-built `{ method, path }` route object, a raw `/api` URL outside
   `apiUrl()`, and any admin call to `useApi()` outside `useAdminApi()`; admin page routes
   (`navigateTo`, `NuxtLink`) are unaffected.
+
+- `referencesPrecheck`'s `allowed`/`target` options are replaced by a single `capability: (ctx) =>
+  Capability | undefined`, taken directly from the schema instead of resolved separately; the same
+  change applies to `PreviewDeleteInput.allowed` and `PreviewMediaDeleteInput.allowed`, both now
+  `capability`. `PrecheckReport` and `BatchDeleteReport` gain a required `verifiable: boolean`, true
+  once a reference check was actually attempted (as opposed to skipped because the collection has no
+  reference route at all) — anything constructing either type by hand needs it.
+
+- `useSchema()`'s state gains a required `generation: number`, bumped only by `clear()` (logout, login,
+  an identity change), used to discard an answer that arrives after a newer `clear()` superseded it;
+  `refresh()` no longer clears the schema first — it keeps serving the current one until the new answer
+  replaces it in one assignment, so a 403-triggered refresh cannot blank a still-valid schema mid-flight
+  or unmount an open editor. `SCHEMA_PATH`, previously an auto-imported global in
+  `composables/useSchema.ts`, is gone; `utils/reauth.ts` builds its own local schema-route path from
+  `LAYER_ROUTES.schema` instead.
 
 ### Added
 
@@ -197,6 +217,17 @@
   image variant instead of always fetching the original. Reads `images.attach`'s `variantCounts` field; the
   admin never checks which delivery mode generated the variants. New reusable `KestrelUiProgress` component
   replaces the upload queue's own progress bar.
+- `layers/admin/app/utils/capabilities.ts`: `ApiRoute`, `RouteParams`, `PipelineName`, `fillPath`,
+  `routeFrom`, `apiUrl`, `MissingCapabilityError`, `CapabilityResolver`, `capabilityResolver`.
+- `composables/useCapabilities.ts`, `useAdminApi.ts`, `useActionDeps.ts`, `useMediaCapabilities.ts`.
+- `layers/core/fixed-routes.ts`: `ADMIN_BOOTSTRAP_ROUTES`, `LAYER_ROUTES`.
+- `layers/core/pipelines`: `collectionVerbs`, `MULTI_VERBS`, `SINGLE_VERBS` and the `CollectionVerb`,
+  `MultiVerb`, `SingleVerb` types, re-exported from `#kestrel/pipelines`.
+- `layers/core/app/types/kestrel.ts`: `HttpMethod`, `Capability`, `CollectionCapabilities`,
+  `AdminCollection`.
+- `useAuth().refreshAccess()`: re-checks the session and refetches the schema; called after the
+  signed-in user edits their own roles.
+- The `kestrel/admin-api-routes` ESLint rule (see Breaking above).
 
 ### Changed
 
@@ -283,7 +314,10 @@
 
 - Deleting a record of a collection with no references route (anything other than pages) no longer
   shows "References could not be verified" on every delete; the precheck now runs only for a collection
-  that actually has one, and reports a genuine lookup failure separately from "not applicable here".
+  that actually has one, and reports a genuine lookup failure separately from "not applicable here". A
+  caller without the reference-check capability on a collection that does have one (for example a role
+  missing `pages.manage`) now sees no warning either, since the check cannot run for them — the server's
+  own `references.guard:pages` step still refuses the delete regardless of what the dialog showed.
 
 ## 2.0.1 – 2026-09-21
 
