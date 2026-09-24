@@ -625,7 +625,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Require a valid session → Requires permission users.manage → Replace the author of every revision written by the user in `params.id` or the event payload's `id`. A preceding step's `verifiedUser` (e.g. `authn.verifyUser`'s verified target) is used when present; without one, falls back to the unverified `reassignTo` from the payload or the event hand-over, a user id or `{ id }`. Without any target, the anonymous author `{ id: null, name: null }` */
+        /** Require a valid session → Requires permission users.manage → Verify the user reference at payload.reassignTo: it must be a user id, { id }, or null. Writes its canonical { id, name } to verifiedUser, or null when there was none to verify. authn.verifyUser:reassignTo reads payload.reassignTo; authn.verifyUser:result.reassignTo reads payload.result.reassignTo, the shape an event hands over → Replace the author of every revision written by the user in `params.id` or the event payload's `id`. A preceding step's `verifiedUser` (e.g. `authn.verifyUser`'s verified target) is used when present; without one, falls back to the unverified `reassignTo` from the payload or the event hand-over, a user id or `{ id }`. Without any target, the anonymous author `{ id: null, name: null }` */
         post: operations["retryReassignRevisionAuthor"];
         delete?: never;
         options?: never;
@@ -800,7 +800,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Require a valid session → Requires permission media.delete → Deprecated, use media.listFolderItems: Item ids in a folder, for use with references.guardAll:media before removeFolder → Refuse while any of result.ids of media is referenced → Delete variants for every id in result.ids (from media.folderItems) → Delete a folder and everything in it */
+        /** Require a valid session → Requires permission media.delete → Item ids in a folder, for use with references.guardAll:media before removeFolder → Refuse while any of result.ids of media is referenced → Delete variants for every id in result.ids (from media.folderItems) → Delete a folder and everything in it */
         delete: operations["deleteMediaFolder"];
         options?: never;
         head?: never;
@@ -942,7 +942,7 @@ export interface paths {
         /** Require a valid session → Requires permission users.manage → List users */
         get: operations["listUsers"];
         put?: never;
-        /** Require a valid session → Requires permission users.manage → Create a user → Queue event "user.created" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
+        /** Require a valid session → Requires permission users.manage → Validate the role names at payload.roles against the configured roles; an absent value passes. authz.validateRoles:roles reads payload.roles, the shape authn.createUser and authn.updateUser accept → Create a user → Queue event "user.created" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
         post: operations["createUser"];
         delete?: never;
         options?: never;
@@ -965,7 +965,7 @@ export interface paths {
         delete: operations["deleteUser"];
         options?: never;
         head?: never;
-        /** Require a valid session → Requires permission users.manage → Rename a user or set their roles (a role change ends their sessions) → Queue event "user.updated" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
+        /** Require a valid session → Requires permission users.manage → Validate the role names at payload.roles against the configured roles; an absent value passes. authz.validateRoles:roles reads payload.roles, the shape authn.createUser and authn.updateUser accept → Rename a user or set their roles (a role change ends their sessions) → Queue event "user.updated" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
         patch: operations["updateUser"];
         trace?: never;
     };
@@ -4314,8 +4314,6 @@ export interface operations {
                         id: string;
                         name?: string;
                     } | null;
-                } & {
-                    [key: string]: unknown;
                 };
             };
         };
@@ -4356,6 +4354,15 @@ export interface operations {
             };
             /** @description missing permission users.manage */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description user not found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
