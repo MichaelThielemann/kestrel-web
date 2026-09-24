@@ -45,8 +45,7 @@ export const bulkSetStatus = defineAction<BulkStatusInput, EachReport<unknown>>(
     apiEach<BulkStatusInput, EachReport<unknown>>('api.each', {
       items: (ctx) => ctx.input.ids,
       call: (ctx, id) => ({
-        path: `/${ctx.input.collection}/${id}`,
-        method: 'PATCH',
+        route: ctx.input.deps.capabilities.verbRoute(ctx.input.collection, 'update', { id }),
         body: statusBody(ctx.input),
       }),
       policy: 'continue',
@@ -76,7 +75,7 @@ export const bulkDelete = defineAction<BulkDeleteInput, EachReport<unknown>>({
     opsBusy<BulkDeleteInput, EachReport<unknown>>(true),
     apiEach<BulkDeleteInput, EachReport<unknown>>('api.each', {
       items: (ctx) => ctx.input.ids,
-      call: (ctx, id) => ({ path: `/${ctx.input.collection}/${id}`, method: 'DELETE' }),
+      call: (ctx, id) => ({ route: ctx.input.deps.capabilities.verbRoute(ctx.input.collection, 'delete', { id }) }),
       policy: 'continue',
       onItemError: (ctx, item) => {
         if (item.code === 'CONFLICT') {

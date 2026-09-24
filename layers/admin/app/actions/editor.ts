@@ -159,7 +159,7 @@ export const deleteRecord = defineAction<DeleteRecordInput, DeleteReport>({
     opsBusy<DeleteRecordInput, DeleteReport>(true),
     apiEach<DeleteRecordInput, DeleteReport, DeleteResponse>('api.each', {
       items: (ctx) => ctx.input.ids,
-      call: (ctx, id) => ({ path: `/${ctx.input.collection}/${id}`, method: 'DELETE' }),
+      call: (ctx, id) => ({ route: ctx.input.deps.capabilities.verbRoute(ctx.input.collection, 'delete', { id }) }),
       policy: 'continue',
       onItemError: (ctx, item) => {
         if (item.message) ctx.input.deps.toast.error(item.message)
@@ -183,7 +183,7 @@ export const deleteTranslation = defineAction<DeleteTranslationInput, undefined>
     dialogConfirm<DeleteTranslationInput, undefined>((ctx) => ctx.input.confirmed),
     opsBusy<DeleteTranslationInput, undefined>(true),
     apiRequest<DeleteTranslationInput, undefined, unknown>('api.request', {
-      call: (ctx) => ({ path: `/${ctx.input.collection}/${ctx.input.id}/translations/${ctx.input.locale}`, method: 'DELETE' }),
+      call: (ctx) => ({ route: ctx.input.deps.capabilities.verbRoute(ctx.input.collection, 'deleteTranslation', { id: ctx.input.id, locale: ctx.input.locale }) }),
       onSuccess: () => {},
       onError: (ctx, err) => {
         ctx.input.deps.toast.error(err.message)
@@ -202,7 +202,7 @@ export const copyTranslation = defineAction<CopyTranslationInput, undefined>({
   steps: [
     dialogConfirm<CopyTranslationInput, undefined>((ctx) => ctx.input.confirmed),
     apiRequest<CopyTranslationInput, undefined, Record<string, unknown>>('api.request', {
-      call: (ctx) => ({ path: `/admin/${ctx.input.form.collection}/${ctx.input.form.id}`, query: { locale: ctx.input.source } }),
+      call: (ctx) => ({ route: ctx.input.deps.capabilities.verbRoute(ctx.input.form.collection, 'readAny', { id: ctx.input.form.id }), query: { locale: ctx.input.source } }),
       onSuccess: (ctx, doc) => {
         const values = translationSourceValues(ctx.input.fields, doc)
         for (const [name, value] of Object.entries(values)) ctx.input.form.setField(name, value)

@@ -1,27 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
-import { boundaryCast } from '#kestrel/cast'
 import { defineAction, runAction } from '#kestrel-core/app/utils/actions'
-import type { ActionDeps, ApiRequestOptions, BusyPort, EachReport, WithDeps } from '../types'
+import type { BusyPort, EachReport, WithDeps } from '../types'
+import { fakeDeps as sharedFakeDeps } from '../__fixtures__/fake-deps'
 import { dialogConfirm } from './guard'
 import { opsBusy, opsError, toastError, toastSuccess, toastSummary } from './notify'
 
-interface Call { path: string, method: string, body?: unknown, query?: unknown }
-
-function fakeApi(responses: Array<unknown | Error>) {
-  const calls: Call[] = []
-  function api<T>(path: string, options?: ApiRequestOptions): Promise<T> {
-    calls.push({ path, method: options?.method ?? 'GET', body: options?.body, query: options?.query })
-    const next = responses.shift()
-    return next instanceof Error ? Promise.reject(next) : Promise.resolve(boundaryCast<T>(next, 'json'))
-  }
-  return { api, calls }
-}
-
 function fakeDeps(responses: Array<unknown | Error> = []) {
-  const { api } = fakeApi(responses)
-  const toast = { success: vi.fn(), error: vi.fn(), info: vi.fn() }
-  const t = vi.fn((key: string, params?: Record<string, unknown>) => (params ? `${key}:${JSON.stringify(params)}` : key))
-  const deps: ActionDeps = { api, t, toast }
+  const { deps, toast, t } = sharedFakeDeps(responses)
   return { deps, toast, t }
 }
 

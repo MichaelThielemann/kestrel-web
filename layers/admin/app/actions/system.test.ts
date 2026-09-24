@@ -1,6 +1,5 @@
-import type { ApiErrorDetails } from '#kestrel-admin/types/api'
+import type { ApiErrorDetails, AdminSchema } from '#kestrel-admin/types/api'
 import { describe, expect, it, vi } from 'vitest'
-import { boundaryCast } from '#kestrel/cast'
 import { runAction } from '#kestrel-core/app/utils/actions'
 import { humanizeSize } from '../utils/library'
 import {
@@ -25,19 +24,9 @@ import {
   userToggle,
   userUpdate,
 } from './system'
-import type { ActionDeps, ApiRequestOptions, BusyPort } from './types'
-
-interface Call { path: string, method: string, body?: unknown, query?: unknown }
-
-function fakeApi(responses: Array<unknown | Error>) {
-  const calls: Call[] = []
-  function api<T>(path: string, options?: ApiRequestOptions): Promise<T> {
-    calls.push({ path, method: options?.method ?? 'GET', body: options?.body, query: options?.query })
-    const next = responses.shift()
-    return next instanceof Error ? Promise.reject(next) : Promise.resolve(boundaryCast<T>(next, 'json'))
-  }
-  return { api, calls }
-}
+import type { BusyPort } from './types'
+import { capabilityResolver } from '../utils/capabilities'
+import { fakeDeps as sharedFakeDeps } from './__fixtures__/fake-deps'
 
 const CODE_OF: Record<number, string> = {
   400: 'VALIDATION', 401: 'UNAUTHENTICATED', 403: 'FORBIDDEN', 404: 'NOT_FOUND', 409: 'CONFLICT',
@@ -50,12 +39,24 @@ const apiError = (status: number, message: string, details?: ApiErrorDetails) =>
   data: { error: message, code: CODE_OF[status] ?? 'INTERNAL', retryable: status === 429 || status === 503, ...(details ? { details } : {}) },
 })
 
+const migrationsAndEventsSchema: AdminSchema = {
+  locales: { all: ['en'], primary: 'en', prefixPrimary: false },
+  features: [],
+  collections: [],
+  capabilities: {
+    applyMigrations: { method: 'POST', path: '/admin/migrations/apply' },
+    eventsRetryDead: { method: 'POST', path: '/admin/events/retry' },
+    eventsRetryOne: { method: 'POST', path: '/admin/events/dead/:id/retry' },
+  },
+}
+const migrationsAndEventsCapabilities = capabilityResolver(migrationsAndEventsSchema)
+
 function fakeDeps(responses: Array<unknown | Error> = []) {
-  const { api, calls } = fakeApi(responses)
-  const toast = { success: vi.fn(), error: vi.fn(), info: vi.fn() }
-  const t = vi.fn((key: string, params?: Record<string, unknown>) => (params ? `${key}:${JSON.stringify(params)}` : key))
-  const deps: ActionDeps = { api, t, toast }
-  return { deps, calls, toast, t }
+  return sharedFakeDeps(responses)
+}
+
+function fakeMigrationsOrEventsDeps(responses: Array<unknown | Error> = []) {
+  return sharedFakeDeps(responses, migrationsAndEventsCapabilities)
 }
 
 function fakeOps() {
@@ -84,7 +85,7 @@ describe('publishAll', () => {
     const result = await runAction(publishAll, { deps, ops })
 
     expect(result.ok).toBe(true)
-    expect(calls).toEqual([{ path: '/admin/publish-all/pages', method: 'POST', body: undefined, query: undefined }])
+    expect(calls).toEqual([{ route: { method: 'POST', path: '/admin/publish-all/pages' }, body: undefined, query: undefined }])
     expect(toast.success).toHaveBeenCalledWith('delivery.done:{"documents":3,"live":3,"errors":0}')
     expect(busyLog).toEqual([true, false])
     expect(result.ok && result.result?.redirects).toEqual({ rules: 2, skipped: 1 })
@@ -120,7 +121,7 @@ describe('exportMedia', () => {
     const result = await runAction(exportMedia, { deps, ops })
 
     expect(result.ok).toBe(true)
-    expect(calls).toEqual([{ path: '/admin/media/export', method: 'POST', body: undefined, query: undefined }])
+    expect(calls).toEqual([{ route: { method: 'POST', path: '/admin/media/export' }, body: undefined, query: undefined }])
     expect(toast.success).toHaveBeenCalledWith('delivery.exportDone:{"written":4,"skipped":1,"missing":0,"conflicts":2,"variantsWritten":6,"variantsSkipped":3}')
   })
 
@@ -156,7 +157,7 @@ describe('replicationSnapshot', () => {
     const result = await runAction(replicationSnapshot, { deps, ops, onNotFound, refresh })
 
     expect(result.ok).toBe(true)
-    expect(calls).toEqual([{ path: '/admin/replication/snapshot', method: 'POST', body: undefined, query: undefined }])
+    expect(calls).toEqual([{ route: { method: 'POST', path: '/admin/replication/snapshot' }, body: undefined, query: undefined }])
     expect(toast.success).toHaveBeenCalledWith(`replication.snapshotDone:{"bytes":"${humanizeSize(123456)}"}`)
     expect(refreshCalls.length).toBe(1)
   })
@@ -209,7 +210,7 @@ describe('replicationRestore', () => {
 
     await runAction(replicationRestore, { deps, point: { generation: 'g7' }, ops, refresh })
 
-    expect(calls).toEqual([{ path: '/admin/replication/restore', method: 'POST', body: { generation: 'g7' }, query: undefined }])
+    expect(calls).toEqual([{ route: { method: 'POST', path: '/admin/replication/restore' }, body: { generation: 'g7' }, query: undefined }])
   })
 
   it('restores by time and carries restartRequired, then reloads', async () => {
@@ -219,7 +220,7 @@ describe('replicationRestore', () => {
 
     const result = await runAction(replicationRestore, { deps, point: { at: 1000 }, ops, refresh })
 
-    expect(calls).toEqual([{ path: '/admin/replication/restore', method: 'POST', body: { at: 1000 }, query: undefined }])
+    expect(calls).toEqual([{ route: { method: 'POST', path: '/admin/replication/restore' }, body: { at: 1000 }, query: undefined }])
     expect(result.ok && result.result?.restartRequired).toBe(true)
     expect(refreshCalls.length).toBe(1)
   })
@@ -248,17 +249,17 @@ describe('replicationRestore', () => {
 
 describe('migrationsDryRun', () => {
   it('posts dry: true and carries the result, without a reload', async () => {
-    const { deps, calls } = fakeDeps([{ dry: true, changes: [{ id: '2026-09-02-example', documents: 3 }] }])
+    const { deps, calls } = fakeMigrationsOrEventsDeps([{ dry: true, changes: [{ id: '2026-09-02-example', documents: 3 }] }])
     const { ops } = fakeOps()
 
     const result = await runAction(migrationsDryRun, { deps, ops })
 
-    expect(calls).toEqual([{ path: '/admin/migrations/apply', method: 'POST', body: { dry: true }, query: undefined }])
+    expect(calls).toEqual([{ route: { method: 'POST', path: '/admin/migrations/apply' }, body: { dry: true }, query: undefined }])
     expect(result.ok && result.result?.changes).toEqual([{ id: '2026-09-02-example', documents: 3 }])
   })
 
   it('toasts and fails on error', async () => {
-    const { deps, toast } = fakeDeps([apiError(500, 'boom')])
+    const { deps, toast } = fakeMigrationsOrEventsDeps([apiError(500, 'boom')])
     const { ops } = fakeOps()
 
     const result = await runAction(migrationsDryRun, { deps, ops })
@@ -270,7 +271,7 @@ describe('migrationsDryRun', () => {
 
 describe('migrationsApply', () => {
   it('fails the dialog guard and makes no request when not confirmed', async () => {
-    const { deps, calls } = fakeDeps([])
+    const { deps, calls } = fakeMigrationsOrEventsDeps([])
     const { ops } = fakeOps()
     const { refresh, calls: refreshCalls } = fakeRefresh()
 
@@ -282,20 +283,20 @@ describe('migrationsApply', () => {
   })
 
   it('applies, toasts the count, and reloads', async () => {
-    const { deps, calls, toast } = fakeDeps([{ applied: [{ id: '2026-09-02-example', appliedAt: 1000, documents: 3, durationMs: 12 }] }])
+    const { deps, calls, toast } = fakeMigrationsOrEventsDeps([{ applied: [{ id: '2026-09-02-example', appliedAt: 1000, documents: 3, durationMs: 12 }] }])
     const { ops } = fakeOps()
     const { refresh, calls: refreshCalls } = fakeRefresh()
 
     const result = await runAction(migrationsApply, { deps, confirmed: true, ops, refresh })
 
-    expect(calls).toEqual([{ path: '/admin/migrations/apply', method: 'POST', body: { dry: false }, query: undefined }])
+    expect(calls).toEqual([{ route: { method: 'POST', path: '/admin/migrations/apply' }, body: { dry: false }, query: undefined }])
     expect(toast.success).toHaveBeenCalledWith('migrations.applyDone:{"count":1}')
     expect(result.ok && result.result?.applied.length).toBe(1)
     expect(refreshCalls.length).toBe(1)
   })
 
   it('toasts and skips the reload on error', async () => {
-    const { deps, toast } = fakeDeps([apiError(500, 'boom')])
+    const { deps, toast } = fakeMigrationsOrEventsDeps([apiError(500, 'boom')])
     const { ops } = fakeOps()
     const { refresh, calls: refreshCalls } = fakeRefresh()
 
@@ -352,7 +353,7 @@ describe('userCreate', () => {
     const result = await runAction(userCreate, { deps, username: '  bob  ', password: 'longenough', passwordConfirm: 'longenough', roles: ['editor'], ops, refresh })
 
     expect(result.ok).toBe(true)
-    expect(calls).toEqual([{ path: '/users', method: 'POST', body: { username: 'bob', password: 'longenough', roles: ['editor'] }, query: undefined }])
+    expect(calls).toEqual([{ route: { method: 'POST', path: '/users' }, body: { username: 'bob', password: 'longenough', roles: ['editor'] }, query: undefined }])
     expect(toast.success).toHaveBeenCalledWith('users.created')
     expect(refreshCalls.length).toBe(1)
   })
@@ -381,7 +382,7 @@ describe('referencesRebuild', () => {
     const result = await runAction(referencesRebuild, { deps, ops, refresh })
 
     expect(result.ok).toBe(true)
-    expect(calls).toEqual([{ path: '/admin/references/rebuild', method: 'POST', body: undefined, query: undefined }])
+    expect(calls).toEqual([{ route: { method: 'POST', path: '/admin/references/rebuild' }, body: undefined, query: undefined }])
     expect(toast.success).toHaveBeenCalledWith('refs.rebuildDone:{"documents":5,"entries":12}')
     expect(busyLog).toEqual([true, false])
     expect(refreshCalls.length).toBe(1)
@@ -410,7 +411,7 @@ describe('linksRebuild', () => {
     const result = await runAction(linksRebuild, { deps, ops, refresh })
 
     expect(result.ok).toBe(true)
-    expect(calls).toEqual([{ path: '/admin/links/rebuild', method: 'POST', body: undefined, query: undefined }])
+    expect(calls).toEqual([{ route: { method: 'POST', path: '/admin/links/rebuild' }, body: undefined, query: undefined }])
     expect(toast.success).toHaveBeenCalledWith('references.links.rebuildDone:{"documents":2,"entries":9}')
     expect(busyLog).toEqual([true, false])
     expect(refreshCalls.length).toBe(1)
@@ -445,7 +446,7 @@ describe('userToggle', () => {
     const result = await runAction(userToggle, { deps, userId: 'u1', active: true, ops: trackedOps, refresh })
 
     expect(result.ok).toBe(true)
-    expect(calls).toEqual([{ path: '/users/u1/deactivate', method: 'POST', body: undefined, query: undefined }])
+    expect(calls).toEqual([{ route: { method: 'POST', path: '/users/u1/deactivate' }, body: undefined, query: undefined }])
     expect(busyLog).toEqual([true, false])
     expect(order).toEqual(['refresh', 'busy:off'])
   })
@@ -457,7 +458,7 @@ describe('userToggle', () => {
 
     await runAction(userToggle, { deps, userId: 'u1', active: false, ops, refresh })
 
-    expect(calls).toEqual([{ path: '/users/u1/activate', method: 'POST', body: undefined, query: undefined }])
+    expect(calls).toEqual([{ route: { method: 'POST', path: '/users/u1/activate' }, body: undefined, query: undefined }])
   })
 
   it('toasts the error, skips the reload, and still clears busy', async () => {
@@ -508,7 +509,7 @@ describe('userUpdate', () => {
     const result = await runAction(userUpdate, { deps, userId: 'u1', username: '  ada  ', roles: ['editor'], active: true, password: '', passwordConfirm: '', initial, ops, refresh })
 
     expect(result.ok).toBe(true)
-    expect(calls).toEqual([{ path: '/users/u1', method: 'PATCH', body: { username: 'ada' }, query: undefined }])
+    expect(calls).toEqual([{ route: { method: 'PATCH', path: '/users/u1' }, body: { username: 'ada' }, query: undefined }])
     expect(toast.success).toHaveBeenCalledWith('users.saved')
     expect(refreshCalls.length).toBe(1)
   })
@@ -521,9 +522,9 @@ describe('userUpdate', () => {
     await runAction(userUpdate, { deps, userId: 'u1', username: 'bob', roles: ['admin', 'editor'], active: false, password: 'longenough', passwordConfirm: 'longenough', initial, ops, refresh })
 
     expect(calls).toEqual([
-      { path: '/users/u1', method: 'PATCH', body: { roles: ['admin', 'editor'] }, query: undefined },
-      { path: '/users/u1/deactivate', method: 'POST', body: undefined, query: undefined },
-      { path: '/users/u1/password', method: 'PUT', body: { password: 'longenough' }, query: undefined },
+      { route: { method: 'PATCH', path: '/users/u1' }, body: { roles: ['admin', 'editor'] }, query: undefined },
+      { route: { method: 'POST', path: '/users/u1/deactivate' }, body: undefined, query: undefined },
+      { route: { method: 'PUT', path: '/users/u1/password' }, body: { password: 'longenough' }, query: undefined },
     ])
   })
 
@@ -588,7 +589,7 @@ describe('userDelete', () => {
     const result = await runAction(userDelete, { deps, userId: 'u1', reassignTo: null, confirmed: true, ops, refresh })
 
     expect(result.ok).toBe(true)
-    expect(calls).toEqual([{ path: '/users/u1', method: 'DELETE', body: { reassignTo: null }, query: undefined }])
+    expect(calls).toEqual([{ route: { method: 'DELETE', path: '/users/u1' }, body: { reassignTo: null }, query: undefined }])
     expect(toast.success).toHaveBeenCalledWith('users.deletedAnonymized')
     expect(refreshCalls.length).toBe(1)
     expect(busyLog).toEqual([true, false])
@@ -603,7 +604,7 @@ describe('userDelete', () => {
 
     expect(result.ok).toBe(true)
     expect(result.ok && result.result).toEqual({ reassignTo: { id: 'u2', name: 'berta' }, events: null })
-    expect(calls).toEqual([{ path: '/users/u1', method: 'DELETE', body: { reassignTo: 'u2' }, query: undefined }])
+    expect(calls).toEqual([{ route: { method: 'DELETE', path: '/users/u1' }, body: { reassignTo: 'u2' }, query: undefined }])
     expect(toast.success).toHaveBeenCalledWith('users.deletedReassigned:{"username":"berta"}')
   })
 
@@ -700,7 +701,7 @@ describe('previewPrune', () => {
 
     expect(result.ok).toBe(true)
     expect(result.ok && result.result).toEqual({ sizes: ['old-size'], variants: 5 })
-    expect(calls).toEqual([{ path: '/admin/images/status', method: 'GET', body: undefined, query: undefined }])
+    expect(calls).toEqual([{ route: { method: 'GET', path: '/admin/images/status' }, body: undefined, query: undefined }])
   })
 
   it('fails at guard.selection on an empty orphan set, so no dialog opens', async () => {
@@ -730,7 +731,7 @@ describe('prune', () => {
     const result = await runAction(prune, { deps, sizes: ['old-size', 'stale'], confirmed: true, ops, refresh })
 
     expect(result.ok).toBe(true)
-    expect(calls).toEqual([{ path: '/admin/images/prune', method: 'POST', body: { sizes: ['old-size', 'stale'] }, query: undefined }])
+    expect(calls).toEqual([{ route: { method: 'POST', path: '/admin/images/prune' }, body: { sizes: ['old-size', 'stale'] }, query: undefined }])
     expect(toast.success).toHaveBeenCalledWith('images.pruneDone')
     expect(refreshCalls.length).toBe(1)
     expect(busyLog).toEqual([true, false])
@@ -779,7 +780,7 @@ describe('imagesRetryFailed', () => {
     const result = await runAction(imagesRetryFailed, { deps, variants: 4, confirmed: true, ops, refresh })
 
     expect(result.ok).toBe(true)
-    expect(calls).toEqual([{ path: '/admin/images/retry-failed', method: 'POST', body: undefined, query: undefined }])
+    expect(calls).toEqual([{ route: { method: 'POST', path: '/admin/images/retry-failed' }, body: undefined, query: undefined }])
     expect(toast.success).toHaveBeenCalledWith('images.retryFailedDone:{"variants":4,"media":2}')
     expect(refreshCalls.length).toBe(1)
     expect(busyLog).toEqual([true, false])
@@ -811,7 +812,7 @@ describe('mediaReconcile', () => {
     const result = await runAction(mediaReconcile, { deps, ops })
 
     expect(result.ok && result.result).toEqual(report)
-    expect(calls).toEqual([{ path: '/admin/media/reconcile', method: 'POST', body: undefined, query: undefined }])
+    expect(calls).toEqual([{ route: { method: 'POST', path: '/admin/media/reconcile' }, body: undefined, query: undefined }])
     expect(busyLog).toEqual([true, false])
   })
 
@@ -855,7 +856,7 @@ describe('mediaReconcileDelete', () => {
     const result = await runAction(mediaReconcileDelete, { deps, orphans: 1, confirmed: true, ops })
 
     expect(result.ok).toBe(true)
-    expect(calls).toEqual([{ path: '/admin/media/reconcile/delete', method: 'POST', body: undefined, query: undefined }])
+    expect(calls).toEqual([{ route: { method: 'POST', path: '/admin/media/reconcile/delete' }, body: undefined, query: undefined }])
     expect(toast.success).toHaveBeenCalledWith('media.reconcile.deleteDone:{"count":1}')
     expect(busyLog).toEqual([true, false])
   })
@@ -875,8 +876,8 @@ describe('imagesRegisterAndSync', () => {
 
     expect(result.ok).toBe(true)
     expect(calls).toEqual([
-      { path: '/admin/images/sizes', method: 'PUT', body: { sizes: declaredSizes }, query: undefined },
-      { path: '/admin/images/sync', method: 'POST', body: undefined, query: undefined },
+      { route: { method: 'PUT', path: '/admin/images/sizes' }, body: { sizes: declaredSizes }, query: undefined },
+      { route: { method: 'POST', path: '/admin/images/sync' }, body: undefined, query: undefined },
     ])
     expect(result.ok && result.result).toEqual(job)
     expect(toast.success).toHaveBeenCalledWith('images.syncStarted')
@@ -894,7 +895,7 @@ describe('imagesRegisterAndSync', () => {
 
     expect(result.ok).toBe(true)
     expect(calls.length).toBe(2)
-    expect(calls[1]).toEqual({ path: '/admin/images/sync', method: 'POST', body: undefined, query: undefined })
+    expect(calls[1]).toEqual({ route: { method: 'POST', path: '/admin/images/sync' }, body: undefined, query: undefined })
     expect(result.ok && result.result).toEqual(job)
     expect(toast.error).not.toHaveBeenCalled()
     expect(refreshCalls.length).toBe(1)
@@ -908,7 +909,7 @@ describe('imagesRegisterAndSync', () => {
     const result = await runAction(imagesRegisterAndSync, { deps, sizes: [], ops, refresh })
 
     expect(result.ok).toBe(true)
-    expect(calls).toEqual([{ path: '/admin/images/sync', method: 'POST', body: undefined, query: undefined }])
+    expect(calls).toEqual([{ route: { method: 'POST', path: '/admin/images/sync' }, body: undefined, query: undefined }])
     expect(result.ok && result.result).toEqual(job)
   })
 
@@ -942,21 +943,21 @@ describe('imagesRegisterAndSync', () => {
 
 describe('eventsRetryAll', () => {
   it('retries all, toasts the count and reloads', async () => {
-    const { deps, calls, toast } = fakeDeps([{ retried: 3 }])
+    const { deps, calls, toast } = fakeMigrationsOrEventsDeps([{ retried: 3 }])
     const { ops, busyLog } = fakeOps()
     const { refresh, calls: refreshCalls } = fakeRefresh()
 
     const result = await runAction(eventsRetryAll, { deps, ops, refresh, count: 3 })
 
     expect(result.ok).toBe(true)
-    expect(calls).toEqual([{ path: '/admin/events/retry', method: 'POST', body: undefined, query: undefined }])
+    expect(calls).toEqual([{ route: { method: 'POST', path: '/admin/events/retry' }, body: undefined, query: undefined }])
     expect(toast.success).toHaveBeenCalledWith('events.retriedAll:{"count":3}')
     expect(refreshCalls.length).toBe(1)
     expect(busyLog).toEqual([true, false])
   })
 
   it('fails the dialog guard and makes no request when count is 0', async () => {
-    const { deps, calls } = fakeDeps([])
+    const { deps, calls } = fakeMigrationsOrEventsDeps([])
     const { ops } = fakeOps()
     const { refresh, calls: refreshCalls } = fakeRefresh()
 
@@ -968,7 +969,7 @@ describe('eventsRetryAll', () => {
   })
 
   it('toasts the raw error message and skips the reload', async () => {
-    const { deps, toast } = fakeDeps([apiError(500, 'boom')])
+    const { deps, toast } = fakeMigrationsOrEventsDeps([apiError(500, 'boom')])
     const { ops } = fakeOps()
     const { refresh, calls: refreshCalls } = fakeRefresh()
 
@@ -982,20 +983,20 @@ describe('eventsRetryAll', () => {
 
 describe('eventsRetryOne', () => {
   it('retries one event, toasts and reloads', async () => {
-    const { deps, calls, toast } = fakeDeps([{ retried: 1 }])
+    const { deps, calls, toast } = fakeMigrationsOrEventsDeps([{ retried: 1 }])
     const { ops } = fakeOps()
     const { refresh, calls: refreshCalls } = fakeRefresh()
 
     const result = await runAction(eventsRetryOne, { deps, ops, refresh, id: 'evt-1' })
 
     expect(result.ok).toBe(true)
-    expect(calls).toEqual([{ path: '/admin/events/dead/evt-1/retry', method: 'POST', body: undefined, query: undefined }])
+    expect(calls).toEqual([{ route: { method: 'POST', path: '/admin/events/dead/evt-1/retry' }, body: undefined, query: undefined }])
     expect(toast.success).toHaveBeenCalledWith('events.retriedOne')
     expect(refreshCalls.length).toBe(1)
   })
 
   it('toasts events.retryNotFound on a 404 and skips the reload', async () => {
-    const { deps, toast } = fakeDeps([apiError(404, 'nope')])
+    const { deps, toast } = fakeMigrationsOrEventsDeps([apiError(404, 'nope')])
     const { ops } = fakeOps()
     const { refresh, calls: refreshCalls } = fakeRefresh()
 
@@ -1007,7 +1008,7 @@ describe('eventsRetryOne', () => {
   })
 
   it('toasts the raw error message on any other error', async () => {
-    const { deps, toast } = fakeDeps([apiError(500, 'boom')])
+    const { deps, toast } = fakeMigrationsOrEventsDeps([apiError(500, 'boom')])
     const { ops } = fakeOps()
     const { refresh, calls: refreshCalls } = fakeRefresh()
 

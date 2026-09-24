@@ -1,6 +1,6 @@
 import blockTags from '#kestrel/consumer-block-tags'
 import type { AdminSchema } from '#kestrel-admin/types/api'
-import type { SerializedCollection } from '#kestrel-admin/types/kestrel'
+import type { AdminCollection } from '#kestrel-admin/types/kestrel'
 import { LAYOUT_FIELD } from '#kestrel/collections-ui'
 import { resolveLocalized } from './localized'
 
@@ -15,9 +15,9 @@ export interface ContentLocales {
 
 export const blockTagLabel = (tag: string, lang: string): string => resolveLocalized(blockTags[tag], lang) ?? tag
 
-export const collections = (schema: AdminSchema | null): SerializedCollection[] => schema?.collections ?? []
+export const collections = (schema: AdminSchema | null): AdminCollection[] => schema?.collections ?? []
 
-export const findCollection = (schema: AdminSchema | null, name: string): SerializedCollection | undefined =>
+export const findCollection = (schema: AdminSchema | null, name: string): AdminCollection | undefined =>
   collections(schema).find((c) => c.name === name)
 
 export const editorOwnedFields = (schema: AdminSchema | null, name: string): string[] => {

@@ -153,7 +153,7 @@ export const publishAll = defineAction<PublishAllInput, PublishAllReport>({
   steps: [
     opsBusy<PublishAllInput, PublishAllReport>(true),
     apiRequest<PublishAllInput, PublishAllReport, PublishAllReport>('api.request', {
-      call: () => ({ path: '/admin/publish-all/pages', method: 'POST' }),
+      call: (ctx) => ({ route: ctx.input.deps.capabilities.route('publishAllPages') }),
       onSuccess: (ctx, value) => {
         ctx.result = value
         ctx.input.deps.toast.success(ctx.input.deps.t('delivery.done', { documents: value.documents, live: value.live, errors: value.errors }))
@@ -172,7 +172,7 @@ export const exportMedia = defineAction<ExportMediaInput, MediaExportReport>({
   steps: [
     opsBusy<ExportMediaInput, MediaExportReport>(true),
     apiRequest<ExportMediaInput, MediaExportReport, MediaExportReport>('api.request', {
-      call: () => ({ path: '/admin/media/export', method: 'POST' }),
+      call: (ctx) => ({ route: ctx.input.deps.capabilities.route('exportMedia') }),
       onSuccess: (ctx, value) => {
         ctx.result = value
         ctx.input.deps.toast.success(ctx.input.deps.t('delivery.exportDone', {
@@ -198,7 +198,7 @@ export const replicationSnapshot = defineAction<SnapshotInput, ReplicationSnapsh
   steps: [
     opsBusy<SnapshotInput, ReplicationSnapshotResult>(true),
     apiRequest<SnapshotInput, ReplicationSnapshotResult, ReplicationSnapshotResult>('api.request', {
-      call: () => ({ path: '/admin/replication/snapshot', method: 'POST' }),
+      call: (ctx) => ({ route: ctx.input.deps.capabilities.route('replicationSnapshot') }),
       onSuccess: (ctx, value) => {
         ctx.result = value
         ctx.input.deps.toast.success(ctx.input.deps.t('replication.snapshotDone', { bytes: humanizeSize(value.bytes) }))
@@ -220,7 +220,7 @@ export const replicationRestore = defineAction<RestoreInput, ReplicationRestoreR
     dialogConfirm<RestoreInput, ReplicationRestoreResult>((ctx) => ctx.input.point !== null),
     opsBusy<RestoreInput, ReplicationRestoreResult>(true),
     apiRequest<RestoreInput, ReplicationRestoreResult, ReplicationRestoreResult>('api.request', {
-      call: (ctx) => ({ path: '/admin/replication/restore', method: 'POST', body: ctx.input.point ?? undefined }),
+      call: (ctx) => ({ route: ctx.input.deps.capabilities.route('replicationRestore'), body: ctx.input.point ?? undefined }),
       onSuccess: (ctx, value) => { ctx.result = value },
       onError: (ctx, err) => {
         if (err.code === 'NOT_FOUND') ctx.input.deps.toast.error(ctx.input.deps.t('replication.restoreNotFound'))
@@ -238,7 +238,7 @@ export const migrationsDryRun = defineAction<MigrationsDryRunInput, MigrationsDr
   steps: [
     opsBusy<MigrationsDryRunInput, MigrationsDryRunResult>(true),
     apiRequest<MigrationsDryRunInput, MigrationsDryRunResult, MigrationsDryRunResult>('api.request', {
-      call: () => ({ path: '/admin/migrations/apply', method: 'POST', body: { dry: true } }),
+      call: (ctx) => ({ route: ctx.input.deps.capabilities.route('applyMigrations'), body: { dry: true } }),
       onSuccess: (ctx, value) => { ctx.result = value },
       onError: (ctx, err) => {
         ctx.input.deps.toast.error(withRunId(err.message, err.status, err.runId))
@@ -255,7 +255,7 @@ export const migrationsApply = defineAction<MigrationsApplyInput, MigrationsAppl
     dialogConfirm<MigrationsApplyInput, MigrationsApplyResult>((ctx) => ctx.input.confirmed),
     opsBusy<MigrationsApplyInput, MigrationsApplyResult>(true),
     apiRequest<MigrationsApplyInput, MigrationsApplyResult, MigrationsApplyResult>('api.request', {
-      call: () => ({ path: '/admin/migrations/apply', method: 'POST', body: { dry: false } }),
+      call: (ctx) => ({ route: ctx.input.deps.capabilities.route('applyMigrations'), body: { dry: false } }),
       onSuccess: (ctx, value) => {
         ctx.result = value
         ctx.input.deps.toast.success(ctx.input.deps.t('migrations.applyDone', { count: value.applied.length }))
@@ -284,8 +284,7 @@ export const userCreate = defineAction<UserCreateInput, undefined>({
     opsBusy<UserCreateInput, undefined>(true),
     apiRequest<UserCreateInput, undefined, unknown>('api.request', {
       call: (ctx) => ({
-        path: '/users',
-        method: 'POST',
+        route: ctx.input.deps.capabilities.route('createUser'),
         body: { username: ctx.input.username.trim(), password: ctx.input.password, roles: ctx.input.roles },
       }),
       onSuccess: (ctx) => { ctx.input.deps.toast.success(ctx.input.deps.t('users.created')) },
@@ -301,9 +300,7 @@ export const userToggle = defineAction<UserToggleInput, undefined>({
   steps: [
     opsBusy<UserToggleInput, undefined>(true),
     apiRequest<UserToggleInput, undefined, unknown>('api.request', {
-      call: (ctx) => (ctx.input.active
-        ? { path: `/users/${ctx.input.userId}/deactivate`, method: 'POST' }
-        : { path: `/users/${ctx.input.userId}/activate`, method: 'POST' }),
+      call: (ctx) => ({ route: ctx.input.deps.capabilities.route(ctx.input.active ? 'deactivateUser' : 'activateUser', { id: ctx.input.userId }) }),
       onSuccess: () => {},
       onError: (ctx, err) => {
         const message = userErrorMessage(ctx.input.deps.t, ctx.input.active ? 'deactivate' : 'activate', err)
@@ -318,7 +315,7 @@ export const userToggle = defineAction<UserToggleInput, undefined>({
 
 async function callUser<I extends WithDeps & { ops: BusyPort }>(ctx: ActionContext<I, undefined>, operation: UserOperation, call: ApiCall): Promise<void> {
   try {
-    await ctx.input.deps.api(call.path, { method: call.method, ...(call.body === undefined ? {} : { body: call.body }) })
+    await ctx.input.deps.api(call.route, { ...(call.body === undefined ? {} : { body: call.body }) })
   } catch (e) {
     const message = userErrorMessage(ctx.input.deps.t, operation, { status: apiErrorStatus(e), code: apiErrorCode(e), message: apiErrorMessage(e) })
     ctx.input.ops.setError?.(message)
@@ -338,26 +335,25 @@ const userUpdateValidate: ActionStep<UserUpdateInput, undefined> = defineUiStep(
 })
 
 const userUpdatePatch: ActionStep<UserUpdateInput, undefined> = defineUiStep('user.patch', async (ctx) => {
-  const { userId, username, roles, initial } = ctx.input
+  const { userId, username, roles, initial, deps } = ctx.input
   const name = username.trim()
   const renamed = name !== initial.username
   const rerolled = rolesChanged(roles, initial.roles)
   if (!renamed && !rerolled) return
   const body = { ...(renamed ? { username: name } : {}), ...(rerolled ? { roles: [...roles] } : {}) }
-  await callUser(ctx, 'update', { path: `/users/${userId}`, method: 'PATCH', body })
+  await callUser(ctx, 'update', { route: deps.capabilities.route('updateUser', { id: userId }), body })
 })
 
 const userUpdateActive: ActionStep<UserUpdateInput, undefined> = defineUiStep('user.active', async (ctx) => {
-  const { userId, active, initial } = ctx.input
+  const { userId, active, initial, deps } = ctx.input
   if (active === initial.active) return
-  const path = active ? `/users/${userId}/activate` : `/users/${userId}/deactivate`
-  await callUser(ctx, active ? 'activate' : 'deactivate', { path, method: 'POST' })
+  await callUser(ctx, active ? 'activate' : 'deactivate', { route: deps.capabilities.route(active ? 'activateUser' : 'deactivateUser', { id: userId }) })
 })
 
 const userUpdatePassword: ActionStep<UserUpdateInput, undefined> = defineUiStep('user.password', async (ctx) => {
-  const { userId, password } = ctx.input
+  const { userId, password, deps } = ctx.input
   if (password.length === 0) return
-  await callUser(ctx, 'password', { path: `/users/${userId}/password`, method: 'PUT', body: { password } })
+  await callUser(ctx, 'password', { route: deps.capabilities.route('setPassword', { id: userId }), body: { password } })
 })
 
 export const userUpdate = defineAction<UserUpdateInput, undefined>({
@@ -377,7 +373,7 @@ export const userUpdate = defineAction<UserUpdateInput, undefined>({
 const userDeleteRequest: ActionStep<UserDeleteInput, UserDeleteOutcome> = defineUiStep('user.delete', async (ctx) => {
   const { deps, userId, reassignTo, ops } = ctx.input
   try {
-    const value = await deps.api<UserDeleteResponse>(`/users/${userId}`, { method: 'DELETE', body: { reassignTo } })
+    const value = await deps.api<UserDeleteResponse>(deps.capabilities.route('deleteUser', { id: userId }), { body: { reassignTo } })
     ctx.result = { reassignTo: value.reassignTo, events: value._events ?? null }
   } catch (e) {
     const failure = { status: apiErrorStatus(e), code: apiErrorCode(e), message: apiErrorMessage(e) }
@@ -420,7 +416,7 @@ export const referencesRebuild = defineAction<ReferencesRebuildInput, RebuildRep
   steps: [
     opsBusy<ReferencesRebuildInput, RebuildReport>(true),
     apiRequest<ReferencesRebuildInput, RebuildReport, RebuildReport>('api.request', {
-      call: () => ({ path: '/admin/references/rebuild', method: 'POST' }),
+      call: (ctx) => ({ route: ctx.input.deps.capabilities.route('rebuildReferences') }),
       onSuccess: (ctx, value) => {
         ctx.result = value
         ctx.input.deps.toast.success(ctx.input.deps.t('refs.rebuildDone', { documents: value.documents, entries: value.entries }))
@@ -440,7 +436,7 @@ export const linksRebuild = defineAction<LinksRebuildInput, RebuildReport>({
   steps: [
     opsBusy<LinksRebuildInput, RebuildReport>(true),
     apiRequest<LinksRebuildInput, RebuildReport, RebuildReport>('api.request', {
-      call: () => ({ path: '/admin/links/rebuild', method: 'POST' }),
+      call: (ctx) => ({ route: ctx.input.deps.capabilities.route('rebuildLinks') }),
       onSuccess: (ctx, value) => {
         ctx.result = value
         ctx.input.deps.toast.success(ctx.input.deps.t('references.links.rebuildDone', { documents: value.documents, entries: value.entries }))
@@ -459,7 +455,7 @@ export const previewPrune = defineAction<PreviewPruneInput, PrunePreview>({
   name: 'previewPrune',
   steps: [
     apiRequest<PreviewPruneInput, PrunePreview, ImagesStatus>('api.request', {
-      call: () => ({ path: '/admin/images/status' }),
+      call: (ctx) => ({ route: ctx.input.deps.capabilities.route('imagesStatus') }),
       onSuccess: (ctx, value) => {
         ctx.result = { sizes: [...value.orphaned.sizes], variants: value.orphaned.variants }
       },
@@ -478,7 +474,7 @@ export const prune = defineAction<ImagesPruneInput, ImagesPruneResult>({
     dialogConfirm<ImagesPruneInput, ImagesPruneResult>((ctx) => ctx.input.confirmed && ctx.input.sizes.length > 0),
     opsBusy<ImagesPruneInput, ImagesPruneResult>(true),
     apiRequest<ImagesPruneInput, ImagesPruneResult, ImagesPruneResult>('api.request', {
-      call: (ctx) => ({ path: '/admin/images/prune', method: 'POST', body: { sizes: [...ctx.input.sizes] } }),
+      call: (ctx) => ({ route: ctx.input.deps.capabilities.route('pruneImages'), body: { sizes: [...ctx.input.sizes] } }),
       onSuccess: (ctx, value) => {
         ctx.result = value
         ctx.input.deps.toast.success(ctx.input.deps.t('images.pruneDone'))
@@ -501,7 +497,7 @@ export const imagesRetryFailed = defineAction<ImagesRetryFailedInput, ImagesRetr
     dialogConfirm<ImagesRetryFailedInput, ImagesRetryFailedResult>((ctx) => ctx.input.confirmed && ctx.input.variants > 0),
     opsBusy<ImagesRetryFailedInput, ImagesRetryFailedResult>(true),
     apiRequest<ImagesRetryFailedInput, ImagesRetryFailedResult, ImagesRetryFailedResult>('api.request', {
-      call: () => ({ path: '/admin/images/retry-failed', method: 'POST' }),
+      call: (ctx) => ({ route: ctx.input.deps.capabilities.route('retryFailedImages') }),
       onSuccess: (ctx, value) => {
         ctx.result = value
         ctx.input.deps.toast.success(ctx.input.deps.t('images.retryFailedDone', { variants: value.variants, media: value.media }))
@@ -523,7 +519,7 @@ export const mediaReconcile = defineAction<MediaReconcileInput, MediaReconcileRe
   steps: [
     opsBusy<MediaReconcileInput, MediaReconcileReport>(true),
     apiRequest<MediaReconcileInput, MediaReconcileReport, MediaReconcileReport>('api.request', {
-      call: () => ({ path: '/admin/media/reconcile', method: 'POST' }),
+      call: (ctx) => ({ route: ctx.input.deps.capabilities.route('reconcileMediaReport') }),
       onSuccess: (ctx, value) => {
         ctx.result = value
       },
@@ -544,7 +540,7 @@ export const mediaReconcileDelete = defineAction<MediaReconcileDeleteInput, Medi
     dialogConfirm<MediaReconcileDeleteInput, MediaReconcileReport>((ctx) => ctx.input.confirmed && ctx.input.orphans > 0),
     opsBusy<MediaReconcileDeleteInput, MediaReconcileReport>(true),
     apiRequest<MediaReconcileDeleteInput, MediaReconcileReport, MediaReconcileReport>('api.request', {
-      call: () => ({ path: '/admin/media/reconcile/delete', method: 'POST' }),
+      call: (ctx) => ({ route: ctx.input.deps.capabilities.route('reconcileMediaDelete') }),
       onSuccess: (ctx, value) => {
         ctx.result = value
         ctx.input.deps.toast.success(ctx.input.deps.t('media.reconcile.deleteDone', { count: value.blobsWithoutRow.length }))
@@ -563,7 +559,7 @@ export const mediaReconcileDelete = defineAction<MediaReconcileDeleteInput, Medi
 const registerSizes: ActionStep<ImagesRegisterInput, ImagesJob> = defineUiStep('api.request:register', async (ctx) => {
   if (ctx.input.sizes.length === 0) return
   try {
-    await ctx.input.deps.api('/admin/images/sizes', { method: 'PUT', body: { sizes: [...ctx.input.sizes] } })
+    await ctx.input.deps.api(ctx.input.deps.capabilities.route('registerImageSizes'), { body: { sizes: [...ctx.input.sizes] } })
   } catch (e) {
     if (apiErrorCode(e) === 'CONFLICT') return
     const message = apiErrorMessage(e)
@@ -573,7 +569,7 @@ const registerSizes: ActionStep<ImagesRegisterInput, ImagesJob> = defineUiStep('
 })
 
 const syncAfterRegister: ActionStep<ImagesRegisterInput, ImagesJob> = apiRequest<ImagesRegisterInput, ImagesJob, ImagesJob>('api.request:sync', {
-  call: () => ({ path: '/admin/images/sync', method: 'POST' }),
+  call: (ctx) => ({ route: ctx.input.deps.capabilities.route('syncImages') }),
   onSuccess: (ctx, value) => {
     ctx.result = value
     ctx.input.deps.toast.success(ctx.input.deps.t('images.syncStarted'))
@@ -602,7 +598,7 @@ export const eventsRetryAll = defineAction<EventsRetryAllInput, EventsRetryResul
     dialogConfirm<EventsRetryAllInput, EventsRetryResult>((ctx) => ctx.input.count > 0),
     opsBusy<EventsRetryAllInput, EventsRetryResult>(true),
     apiRequest<EventsRetryAllInput, EventsRetryResult, EventsRetryResult>('api.request', {
-      call: () => ({ path: '/admin/events/retry', method: 'POST' }),
+      call: (ctx) => ({ route: ctx.input.deps.capabilities.route('eventsRetryDead') }),
       onSuccess: (ctx, value) => {
         ctx.result = value
         ctx.input.deps.toast.success(ctx.input.deps.t('events.retriedAll', { count: value.retried }))
@@ -622,7 +618,7 @@ export const eventsRetryOne = defineAction<EventsRetryOneInput, EventsRetryResul
   steps: [
     opsBusy<EventsRetryOneInput, EventsRetryResult>(true),
     apiRequest<EventsRetryOneInput, EventsRetryResult, EventsRetryResult>('api.request', {
-      call: (ctx) => ({ path: `/admin/events/dead/${encodeURIComponent(ctx.input.id)}/retry`, method: 'POST' }),
+      call: (ctx) => ({ route: ctx.input.deps.capabilities.route('eventsRetryOne', { id: ctx.input.id }) }),
       onSuccess: (ctx, value) => {
         ctx.result = value
         ctx.input.deps.toast.success(ctx.input.deps.t('events.retriedOne'))

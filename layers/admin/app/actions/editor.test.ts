@@ -5,20 +5,9 @@ import { runAction } from '#kestrel-core/app/utils/actions'
 import type { BlockRow } from '../utils/block-tree'
 import type { SerializedField } from '#kestrel-admin/types/kestrel'
 import { copyTranslation, deleteRecord, deleteTranslation, discardRecord, leaveEditor, previewDeleteRecord, saveRecord, setStatus, switchSystemTab } from './editor'
-import type { ActionDeps, ApiRequestOptions, EditFormPort } from './types'
+import type { ActionDeps, EditFormPort } from './types'
 import type { RowErrorMap } from '../utils/row-errors'
-
-interface Call { path: string, method: string, body?: unknown, query?: unknown }
-
-function fakeApi(responses: Array<unknown | Error>) {
-  const calls: Call[] = []
-  function api<T>(path: string, options?: ApiRequestOptions): Promise<T> {
-    calls.push({ path, method: options?.method ?? 'GET', body: options?.body, query: options?.query })
-    const next = responses.shift()
-    return next instanceof Error ? Promise.reject(next) : Promise.resolve(boundaryCast<T>(next, 'json'))
-  }
-  return { api, calls }
-}
+import { fakeDeps } from './__fixtures__/fake-deps'
 
 const CODE_OF: Record<number, string> = {
   400: 'VALIDATION', 401: 'UNAUTHENTICATED', 403: 'FORBIDDEN', 404: 'NOT_FOUND', 409: 'CONFLICT',
@@ -31,13 +20,7 @@ const apiError = (status: number, message: string, details?: ApiErrorDetails) =>
   data: { error: message, code: CODE_OF[status] ?? 'INTERNAL', retryable: status === 429 || status === 503, ...(details ? { details } : {}) },
 })
 
-function fakeDeps(responses: Array<unknown | Error> = []) {
-  const { api, calls } = fakeApi(responses)
-  const toast = { success: vi.fn(), error: vi.fn(), info: vi.fn() }
-  const t = vi.fn((key: string, params?: Record<string, unknown>) => (params ? `${key}:${JSON.stringify(params)}` : key))
-  const deps: ActionDeps = { api, t, toast }
-  return { deps, calls, toast, t }
-}
+const pagesReferrers = { method: 'GET' as const, path: '/admin/references/to/pages/:id' }
 
 interface FormState {
   formError: string
@@ -111,7 +94,7 @@ describe('saveRecord', () => {
     const result = await runAction(saveRecord, { deps, form })
 
     expect(result.ok).toBe(true)
-    expect(calls).toEqual([{ path: '/pages', method: 'POST', body: { title: 'A', slug: undefined, status: 'draft', body: undefined }, query: undefined }])
+    expect(calls).toEqual([{ route: { method: 'POST', path: '/pages' }, body: { title: 'A', slug: undefined, status: 'draft', body: undefined }, query: undefined }])
     expect(state.applied).toEqual([doc()])
     expect(toast.success).toHaveBeenCalledWith('toast.saved')
     expect(state.savingLog).toEqual([true, false])
@@ -123,7 +106,7 @@ describe('saveRecord', () => {
 
     await runAction(saveRecord, { deps, form })
 
-    expect(calls[0]).toMatchObject({ path: '/pages/p1', method: 'PATCH', body: { title: 'A' } })
+    expect(calls[0]).toMatchObject({ route: { method: 'PATCH', path: '/pages/p1' }, body: { title: 'A' } })
   })
 
   it('puts every field key in single mode', async () => {
@@ -132,7 +115,7 @@ describe('saveRecord', () => {
 
     await runAction(saveRecord, { deps, form })
 
-    expect(calls[0]).toMatchObject({ path: '/settings', method: 'PUT', body: { title: 'A' } })
+    expect(calls[0]).toMatchObject({ route: { method: 'PUT', path: '/settings' }, body: { title: 'A' } })
   })
 
   it('stops at a client validation failure without a request', async () => {
@@ -173,25 +156,25 @@ describe('saveRecord', () => {
   })
 
   it('maps a 400 row error onto the repeater field', async () => {
-    const { deps } = fakeDeps([apiError(400, 'redirects: Row 2: from is required')])
-    const { form, state } = fakeForm({ collection: 'redirects', blocksField: () => '', repeaterField: () => 'rules' })
+    const { deps } = fakeDeps([apiError(400, 'pages: Row 2: from is required')])
+    const { form, state } = fakeForm({ collection: 'pages', blocksField: () => '', repeaterField: () => 'rules' })
 
     await runAction(saveRecord, { deps, form })
 
     expect(state.rowErrors).toEqual({ rules: { 1: 'from is required' } })
-    expect(state.formError).toBe('redirects: Row 2: from is required')
+    expect(state.formError).toBe('pages: Row 2: from is required')
   })
 
   it('maps a generic 400 json-schema error onto the repeater field, nested arbitrarily deep', async () => {
-    const { deps } = fakeDeps([apiError(400, 'sections.blocks: /0/items/1/label must NOT have fewer than 1 characters')])
-    const { form, state } = fakeForm({ collection: 'sections', blocksField: () => '', repeaterField: () => 'blocks' })
+    const { deps } = fakeDeps([apiError(400, 'pages.blocks: /0/items/1/label must NOT have fewer than 1 characters')])
+    const { form, state } = fakeForm({ collection: 'pages', blocksField: () => '', repeaterField: () => 'blocks' })
 
     await runAction(saveRecord, { deps, form })
 
     expect(state.rowErrors).toEqual({
       blocks: { 0: { fields: { items: { rows: { 1: { fields: { label: 'Enter at least 1 characters.' } } } } } } },
     })
-    expect(state.formError).toBe('sections.blocks: /0/items/1/label must NOT have fewer than 1 characters')
+    expect(state.formError).toBe('pages.blocks: /0/items/1/label must NOT have fewer than 1 characters')
   })
 
   it('maps a plain 400 onto a field and the form error', async () => {
@@ -335,7 +318,7 @@ describe('setStatus', () => {
 
     expect(result.ok).toBe(true)
     expect(state.values.status).toBe('published')
-    expect(calls[0]).toMatchObject({ path: '/pages/p1', method: 'PATCH', body: { status: 'published' } })
+    expect(calls[0]).toMatchObject({ route: { method: 'PATCH', path: '/pages/p1' }, body: { status: 'published' } })
   })
 
   it('leaves a running save alone', async () => {
@@ -380,16 +363,16 @@ describe('previewDeleteRecord', () => {
   it('checks the references of every id', async () => {
     const { deps, calls } = fakeDeps([[{ type: 'pages', field: 'body', id: 'x' }]])
 
-    const result = await runAction(previewDeleteRecord, { deps, collection: 'pages', ids: ['p1'], allowed: true })
+    const result = await runAction(previewDeleteRecord, { deps, collection: 'pages', ids: ['p1'], capability: pagesReferrers })
 
-    expect(calls).toEqual([{ path: '/admin/references/to/pages/p1', method: 'GET', body: undefined, query: undefined }])
+    expect(calls).toEqual([{ route: { method: 'GET', path: '/admin/references/to/pages/p1' }, body: undefined, query: undefined }])
     expect(result).toMatchObject({ ok: true, result: { checked: true, count: 1, referencedCount: 1 } })
   })
 
-  it('skips the lookup when the user may not check', async () => {
+  it('skips the lookup when the collection has no referrers route', async () => {
     const { deps, calls } = fakeDeps([])
 
-    const result = await runAction(previewDeleteRecord, { deps, collection: 'pages', ids: ['p1'], allowed: false })
+    const result = await runAction(previewDeleteRecord, { deps, collection: 'pages', ids: ['p1'], capability: undefined })
 
     expect(calls).toEqual([])
     expect(result).toMatchObject({ ok: true, result: { checked: false } })
@@ -398,7 +381,7 @@ describe('previewDeleteRecord', () => {
   it('discards the partial result on a 403', async () => {
     const { deps } = fakeDeps([apiError(403, 'forbidden')])
 
-    const result = await runAction(previewDeleteRecord, { deps, collection: 'pages', ids: ['p1'], allowed: true })
+    const result = await runAction(previewDeleteRecord, { deps, collection: 'pages', ids: ['p1'], capability: pagesReferrers })
 
     expect(result).toMatchObject({ ok: true, result: { checked: false, references: [], referencedCount: 0 } })
   })
@@ -406,7 +389,7 @@ describe('previewDeleteRecord', () => {
   it('keeps what it already read when a lookup fails otherwise', async () => {
     const { deps, calls } = fakeDeps([[{ type: 'pages', field: 'body', id: 'x' }], apiError(500, 'boom')])
 
-    const result = await runAction(previewDeleteRecord, { deps, collection: 'pages', ids: ['a', 'b', 'c'], allowed: true })
+    const result = await runAction(previewDeleteRecord, { deps, collection: 'pages', ids: ['a', 'b', 'c'], capability: pagesReferrers })
 
     expect(calls).toHaveLength(2)
     expect(result).toMatchObject({ ok: true, result: { checked: false, count: 3, referencedCount: 1 } })
@@ -440,7 +423,7 @@ describe('deleteRecord', () => {
     const result = await runAction(deleteRecord, input)
 
     expect(result.ok).toBe(true)
-    expect(calls).toEqual([{ path: '/pages/p1', method: 'DELETE', body: undefined, query: undefined }])
+    expect(calls).toEqual([{ route: { method: 'DELETE', path: '/pages/p1' }, body: undefined, query: undefined }])
     expect(bypassGuard).toHaveBeenCalled()
     expect(navigate).toHaveBeenCalledWith({ kind: 'path', to: '/admin/pages' })
     expect(toast.success).toHaveBeenCalledWith('toast.deleted')
@@ -523,7 +506,7 @@ describe('deleteTranslation', () => {
     const result = await runAction(deleteTranslation, input)
 
     expect(result.ok).toBe(true)
-    expect(calls).toEqual([{ path: '/pages/p1/translations/en', method: 'DELETE', body: undefined, query: undefined }])
+    expect(calls).toEqual([{ route: { method: 'DELETE', path: '/pages/p1/translations/en' }, body: undefined, query: undefined }])
     expect(bypassGuard).toHaveBeenCalled()
     expect(navigate).toHaveBeenCalledWith({ kind: 'path', to: '/admin/pages/p1?locale=de' })
     expect(toast.success).toHaveBeenCalledWith('toast.translationDeleted')
@@ -566,7 +549,7 @@ describe('copyTranslation', () => {
     const result = await runAction(copyTranslation, { deps, form, fields, source: 'de', confirmed: true })
 
     expect(result.ok).toBe(true)
-    expect(calls).toEqual([{ path: '/admin/pages/p1', method: 'GET', body: undefined, query: { locale: 'de' } }])
+    expect(calls).toEqual([{ route: { method: 'GET', path: '/admin/pages/p1' }, body: undefined, query: { locale: 'de' } }])
     expect(state.values.title).toBe('Über uns')
     expect(state.values.slug).toBe('about-us')
     expect(state.values.status).toBe('draft')

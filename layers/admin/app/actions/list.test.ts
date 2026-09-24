@@ -1,22 +1,9 @@
-import type { ApiErrorDetails } from '#kestrel-admin/types/api'
 import { describe, expect, it, vi } from 'vitest'
-import { boundaryCast } from '#kestrel/cast'
 import { runAction } from '#kestrel-core/app/utils/actions'
 import type { Workflow } from '#kestrel-admin/types/kestrel'
+import type { ApiErrorDetails } from '#kestrel-admin/types/api'
+import { fakeDeps } from './__fixtures__/fake-deps'
 import { bulkDelete, bulkSetStatus, previewBulkDelete } from './list'
-import type { ActionDeps, ApiRequestOptions } from './types'
-
-interface Call { path: string, method: string, body?: unknown, query?: unknown }
-
-function fakeApi(responses: Array<unknown | Error>) {
-  const calls: Call[] = []
-  function api<T>(path: string, options?: ApiRequestOptions): Promise<T> {
-    calls.push({ path, method: options?.method ?? 'GET', body: options?.body, query: options?.query })
-    const next = responses.shift()
-    return next instanceof Error ? Promise.reject(next) : Promise.resolve(boundaryCast<T>(next, 'json'))
-  }
-  return { api, calls }
-}
 
 const CODE_OF: Record<number, string> = {
   400: 'VALIDATION', 401: 'UNAUTHENTICATED', 403: 'FORBIDDEN', 404: 'NOT_FOUND', 409: 'CONFLICT',
@@ -28,14 +15,6 @@ const apiError = (status: number, message: string, details?: ApiErrorDetails) =>
   name: 'ApiError',
   data: { error: message, code: CODE_OF[status] ?? 'INTERNAL', retryable: status === 429 || status === 503, ...(details ? { details } : {}) },
 })
-
-function fakeDeps(responses: Array<unknown | Error> = []) {
-  const { api, calls } = fakeApi(responses)
-  const toast = { success: vi.fn(), error: vi.fn(), info: vi.fn() }
-  const t = vi.fn((key: string, params?: Record<string, unknown>) => (params ? `${key}:${JSON.stringify(params)}` : key))
-  const deps: ActionDeps = { api, t, toast }
-  return { deps, calls, toast, t }
-}
 
 function fakeOps() {
   let busy = false
@@ -49,6 +28,7 @@ function fakeOps() {
 }
 
 const DEFAULT_WORKFLOW: Workflow = { field: 'status', live: 'published', draft: 'draft', done: 'finished' }
+const pagesReferrers = { method: 'GET' as const, path: '/admin/references/to/pages/:id' }
 
 describe('bulkSetStatus', () => {
   it('publishes every id and toasts once', async () => {
@@ -60,9 +40,9 @@ describe('bulkSetStatus', () => {
 
     expect(result.ok).toBe(true)
     expect(calls).toEqual([
-      { path: '/pages/a', method: 'PATCH', body: { status: 'published' }, query: undefined },
-      { path: '/pages/b', method: 'PATCH', body: { status: 'published' }, query: undefined },
-      { path: '/pages/c', method: 'PATCH', body: { status: 'published' }, query: undefined },
+      { route: { method: 'PATCH', path: '/pages/a' }, body: { status: 'published' }, query: undefined },
+      { route: { method: 'PATCH', path: '/pages/b' }, body: { status: 'published' }, query: undefined },
+      { route: { method: 'PATCH', path: '/pages/c' }, body: { status: 'published' }, query: undefined },
     ])
     expect(toast.success).toHaveBeenCalledWith('toast.published')
     expect(ops.errorLog).toEqual([null])
@@ -147,16 +127,16 @@ describe('previewBulkDelete', () => {
   it('checks the references of every id', async () => {
     const { deps, calls } = fakeDeps([[{ type: 'pages', field: 'body', id: 'x' }]])
 
-    const result = await runAction(previewBulkDelete, { deps, collection: 'pages', ids: ['p1'], allowed: true })
+    const result = await runAction(previewBulkDelete, { deps, collection: 'pages', ids: ['p1'], capability: pagesReferrers })
 
-    expect(calls).toEqual([{ path: '/admin/references/to/pages/p1', method: 'GET', body: undefined, query: undefined }])
+    expect(calls).toEqual([{ route: { method: 'GET', path: '/admin/references/to/pages/p1' }, body: undefined, query: undefined }])
     expect(result).toMatchObject({ ok: true, result: { checked: true, count: 1, referencedCount: 1 } })
   })
 
   it('fails on an empty selection before any request', async () => {
     const { deps, calls } = fakeDeps([])
 
-    const result = await runAction(previewBulkDelete, { deps, collection: 'pages', ids: [], allowed: true })
+    const result = await runAction(previewBulkDelete, { deps, collection: 'pages', ids: [], capability: pagesReferrers })
 
     expect(result).toEqual({ ok: false, error: 'guard.selection' })
     expect(calls).toEqual([])
@@ -165,9 +145,18 @@ describe('previewBulkDelete', () => {
   it('degrades to an unchecked report on a 403', async () => {
     const { deps } = fakeDeps([apiError(403, 'forbidden')])
 
-    const result = await runAction(previewBulkDelete, { deps, collection: 'pages', ids: ['p1'], allowed: true })
+    const result = await runAction(previewBulkDelete, { deps, collection: 'pages', ids: ['p1'], capability: pagesReferrers })
 
     expect(result).toMatchObject({ ok: true, result: { checked: false, references: [], referencedCount: 0 } })
+  })
+
+  it('skips the reference check for a collection without a referrers route', async () => {
+    const { deps, calls } = fakeDeps([])
+
+    const result = await runAction(previewBulkDelete, { deps, collection: 'news', ids: ['p1'], capability: undefined })
+
+    expect(calls).toEqual([])
+    expect(result).toMatchObject({ ok: true, result: { checked: false, referencedCount: 0 } })
   })
 })
 
@@ -195,6 +184,7 @@ describe('bulkDelete', () => {
 
     expect(result.ok).toBe(true)
     expect(calls).toHaveLength(3)
+    expect(calls[0]).toMatchObject({ route: { method: 'DELETE', path: '/pages/a' } })
     expect(toast.success).toHaveBeenCalledWith('toast.deleted')
     expect(order).toEqual(['refresh', 'toast'])
   })

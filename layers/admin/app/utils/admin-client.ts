@@ -10,11 +10,13 @@ function isKestrelOwned(node: Element): boolean {
 
 function installReauth(): void {
   const auth = useAuth()
+  const schema = useSchema()
   const router = useRouter()
   const onResponseError = makeReauthInterceptor({
     currentPath: () => router.currentRoute.value.fullPath,
     reset: () => auth.reset(),
     navigate: (to) => { void navigateTo(to) },
+    refreshSchema: () => { void schema.refresh() },
   })
   globalThis.$fetch = globalThis.$fetch.create({ onResponseError })
 }

@@ -1,14 +1,16 @@
 import { describe, expect, it, vi } from 'vitest'
 import { defineAction, runAction, type ActionContext } from '#kestrel-core/app/utils/actions'
 import { ApiError } from '../../composables/useApi'
-import type { ActionDeps, ApiClient, ApiRequestOptions, EditFormPort, SaveFailure, SaveOutcome, WithDeps } from '../types'
+import type { ActionDeps, ApiClient, EditFormPort, SaveFailure, SaveOutcome, WithDeps } from '../types'
+import type { ApiRoute } from '../../utils/capabilities'
+import { fullAccessCapabilities } from '../__fixtures__/fake-deps'
 import { apiWrite } from './api'
 import { formMapErrors, formReset } from './form'
 
 type Input = WithDeps & { form: EditFormPort }
 
 function fakeApiClient(): ApiClient {
-  function api<T>(_path: string, _options?: ApiRequestOptions): Promise<T> {
+  function api<T>(_route: ApiRoute): Promise<T> {
     throw new Error('fakeForm: api should not be called')
   }
   return api
@@ -49,7 +51,7 @@ function fakeForm() {
 
 function runMapErrors(failure: SaveFailure | null) {
   const { form, state } = fakeForm()
-  const deps: ActionDeps = { api: fakeApiClient(), t: vi.fn((key: string) => key), toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() } }
+  const deps: ActionDeps = { api: fakeApiClient(), t: vi.fn((key: string) => key), toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() }, capabilities: fullAccessCapabilities }
   const ctx: ActionContext<Input, SaveOutcome> = {
     input: { deps, form },
     result: { record: null, events: null, failure, failed: failure !== null },
@@ -139,7 +141,7 @@ describe('api.write to form.mapErrors', () => {
   it('carries details.fields from a 400 through the outcome onto the fields', async () => {
     const { form, state } = fakeForm()
     const api = (() => Promise.reject(new ApiError(400, 'pages: title is required', 'VALIDATION', false, 'run-9', 'content.save', { fields: [{ field: 'title', message: 'is required' }] }))) as ApiClient
-    const deps: ActionDeps = { api, t: vi.fn((key: string) => key), toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() } }
+    const deps: ActionDeps = { api, t: vi.fn((key: string) => key), toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() }, capabilities: fullAccessCapabilities }
     const action = defineAction<WithDeps & { form: EditFormPort }, SaveOutcome>({
       name: 'save',
       steps: [formReset(), apiWrite(), formMapErrors()],

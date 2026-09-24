@@ -1,23 +1,15 @@
 import type { ApiErrorDetails } from '#kestrel-admin/types/api'
+import type { Capability } from '#kestrel-admin/types/kestrel'
 import { describe, expect, it, vi } from 'vitest'
 import { boundaryCast } from '#kestrel/cast'
 import { runAction } from '#kestrel-core/app/utils/actions'
 import { createFolder, deleteItems, previewDeleteItems, renameOrMove, setMediaMeta, setMediaProvenance, upload } from './media'
-import type { ActionDeps, ApiRequestOptions } from './types'
 import type { UploadItem } from '../composables/useMediaUpload'
 import type { UploadProgress, UploadTransport } from '../composables/useUploadTransport'
+import type { ApiRoute } from '../utils/capabilities'
+import { fakeDeps } from './__fixtures__/fake-deps'
 
-interface Call { path: string, method: string, body?: unknown, query?: unknown }
-
-function fakeApi(responses: Array<unknown | Error>) {
-  const calls: Call[] = []
-  function api<T>(path: string, options?: ApiRequestOptions): Promise<T> {
-    calls.push({ path, method: options?.method ?? 'GET', body: options?.body, query: options?.query })
-    const next = responses.shift()
-    return next instanceof Error ? Promise.reject(next) : Promise.resolve(boundaryCast<T>(next, 'json'))
-  }
-  return { api, calls }
-}
+const MEDIA_REFERRERS: Capability = { method: 'GET', path: '/admin/references/to/media/:id' }
 
 const CODE_OF: Record<number, string> = {
   400: 'VALIDATION', 401: 'UNAUTHENTICATED', 403: 'FORBIDDEN', 404: 'NOT_FOUND', 409: 'CONFLICT',
@@ -29,14 +21,6 @@ const apiError = (status: number, message: string, details?: ApiErrorDetails) =>
   name: 'ApiError',
   data: { error: message, code: CODE_OF[status] ?? 'INTERNAL', retryable: status === 429 || status === 503, ...(details ? { details } : {}) },
 })
-
-function fakeDeps(responses: Array<unknown | Error> = []) {
-  const { api, calls } = fakeApi(responses)
-  const toast = { success: vi.fn(), error: vi.fn(), info: vi.fn() }
-  const t = vi.fn((key: string, params?: Record<string, unknown>) => (params ? `${key}:${JSON.stringify(params)}` : key))
-  const deps: ActionDeps = { api, t, toast }
-  return { deps, calls, toast, t }
-}
 
 function fakeOps() {
   let busy = false
@@ -52,7 +36,7 @@ describe('createFolder', () => {
     const result = await runAction(createFolder, { deps, path: 'a/b', ops, refresh })
 
     expect(result).toEqual({ ok: true, result: { folder: 'a/b', count: 0 } })
-    expect(calls).toEqual([{ path: '/media/folders', method: 'POST', body: { path: 'a/b' }, query: undefined }])
+    expect(calls).toEqual([{ route: { method: 'POST', path: '/media/folders' }, body: { path: 'a/b' }, query: undefined }])
     expect(refresh).toHaveBeenCalledTimes(1)
     expect(ops.setBusy.mock.calls).toEqual([[true], [false]])
   })
@@ -99,7 +83,7 @@ describe('renameOrMove', () => {
     })
 
     expect(result.ok).toBe(true)
-    expect(calls).toEqual([{ path: '/media/f1', method: 'PATCH', body: { filename: 'new.jpg' }, query: undefined }])
+    expect(calls).toEqual([{ route: { method: 'PATCH', path: '/media/f1' }, body: { filename: 'new.jpg' }, query: undefined }])
   })
 
   it('surfaces a raw 409 message for a file rename', async () => {
@@ -135,7 +119,7 @@ describe('renameOrMove', () => {
       deps, target: { kind: 'folder-rename', path: 'a/b', name: 'renamed' }, notify: 'inline', ops, refresh: vi.fn(() => undefined),
     })
 
-    expect(calls).toEqual([{ path: '/media/folders/a/b', method: 'PATCH', body: { path: 'a/renamed' }, query: undefined }])
+    expect(calls).toEqual([{ route: { method: 'PATCH', path: '/media/folders/a/b' }, body: { path: 'a/renamed' }, query: undefined }])
     expect(result.ok).toBe(false)
     expect(ops.setError).toHaveBeenCalledWith('media.folderConflict')
   })
@@ -155,8 +139,8 @@ describe('renameOrMove', () => {
 
     expect(result).toEqual({ ok: true, result: { moved: 2, failed: false, message: null, status: 0, code: '', retryable: false } })
     expect(calls).toEqual([
-      { path: '/media/f1', method: 'PATCH', body: { folder: 'dst' }, query: undefined },
-      { path: '/media/f2', method: 'PATCH', body: { folder: 'dst' }, query: undefined },
+      { route: { method: 'PATCH', path: '/media/f1' }, body: { folder: 'dst' }, query: undefined },
+      { route: { method: 'PATCH', path: '/media/f2' }, body: { folder: 'dst' }, query: undefined },
     ])
     expect(refresh).toHaveBeenCalledTimes(1)
   })
@@ -217,6 +201,7 @@ describe('deleteItems', () => {
     id, filename, size: 1, key: id, contentType: 'image/png', folder: '', provenance: { origin: 'human' as const },
     checksum: null, status: 'ready' as const,
     createdAt: 1, updatedAt: 1, width: null, height: null, alt: null, title: null, description: null,
+    variantCounts: { done: 0, pending: 0, error: 0, failed: 0 },
     variants: [],
     variantCounts: { done: 0, pending: 0, error: 0, failed: 0 },
   })
@@ -244,8 +229,8 @@ describe('deleteItems', () => {
 
     expect(result.ok).toBe(true)
     expect(calls).toEqual([
-      { path: '/media/f1', method: 'DELETE', body: undefined, query: undefined },
-      { path: '/media/f2', method: 'DELETE', body: undefined, query: undefined },
+      { route: { method: 'DELETE', path: '/media/f1' }, body: undefined, query: undefined },
+      { route: { method: 'DELETE', path: '/media/f2' }, body: undefined, query: undefined },
     ])
     expect(toast.success).toHaveBeenCalledWith('media.deleted:{"n":2}')
     expect(refresh).toHaveBeenCalledTimes(1)
@@ -314,7 +299,7 @@ describe('deleteItems', () => {
     })
 
     expect(result.ok).toBe(false)
-    expect(calls).toEqual([{ path: '/media/f1', method: 'DELETE', body: undefined, query: undefined }])
+    expect(calls).toEqual([{ route: { method: 'DELETE', path: '/media/f1' }, body: undefined, query: undefined }])
     expect(ops.setError).toHaveBeenCalledWith('media.deleteBlocked:{"name":"a.png","reason":"in use"}')
     expect(refresh).toHaveBeenCalledTimes(1)
     expect(toast.success).not.toHaveBeenCalled()
@@ -328,7 +313,7 @@ describe('deleteItems', () => {
     })
 
     expect(result.ok).toBe(true)
-    expect(calls).toEqual([{ path: '/media/folders/a/b', method: 'DELETE', body: undefined, query: { recursive: true } }])
+    expect(calls).toEqual([{ route: { method: 'DELETE', path: '/media/folders/a/b' }, body: undefined, query: { recursive: true } }])
     expect(refresh).toHaveBeenCalledTimes(1)
   })
 
@@ -347,30 +332,30 @@ describe('deleteItems', () => {
 })
 
 describe('previewDeleteItems', () => {
-  it('skips the lookup when not allowed', async () => {
+  it('skips the lookup when the collection has no referrers route', async () => {
     const { deps, calls } = fakeDeps([])
-    const result = await runAction(previewDeleteItems, { deps, fileIds: ['f1'], allowed: false })
+    const result = await runAction(previewDeleteItems, { deps, fileIds: ['f1'], capability: undefined })
     expect(calls).toEqual([])
     expect(result).toEqual({ ok: true, result: [] })
   })
 
   it('returns nothing and stops on a 403', async () => {
     const { deps, calls } = fakeDeps([apiError(403, 'forbidden')])
-    const result = await runAction(previewDeleteItems, { deps, fileIds: ['f1', 'f2'], allowed: true })
+    const result = await runAction(previewDeleteItems, { deps, fileIds: ['f1', 'f2'], capability: MEDIA_REFERRERS })
     expect(calls).toHaveLength(1)
     expect(result).toEqual({ ok: true, result: [] })
   })
 
   it('skips a failed file and keeps the references of the others', async () => {
     const { deps, calls } = fakeDeps([apiError(500, 'boom'), [{ type: 'pages', field: 'body', id: 'p1' }], []])
-    const result = await runAction(previewDeleteItems, { deps, fileIds: ['f1', 'f2', 'f3'], allowed: true })
+    const result = await runAction(previewDeleteItems, { deps, fileIds: ['f1', 'f2', 'f3'], capability: MEDIA_REFERRERS })
     expect(calls).toHaveLength(3)
     expect(result).toEqual({ ok: true, result: [{ type: 'pages', field: 'body', id: 'p1' }] })
   })
 })
 
 describe('upload', () => {
-  interface TransportCall { path: string, body: FormData }
+  interface TransportCall { route: ApiRoute, body: FormData }
 
   function uploadItem(overrides: Partial<UploadItem> = {}): UploadItem {
     return { id: 'u1', file: new File(['x'], 'a.png'), filename: 'a.png', folder: '', status: 'queued', progress: 0, ...overrides }
@@ -378,8 +363,8 @@ describe('upload', () => {
 
   function fakeTransport(responses: Array<unknown | Error>) {
     const calls: TransportCall[] = []
-    const transport: UploadTransport = <T>(path: string, body: FormData) => {
-      calls.push({ path, body })
+    const transport: UploadTransport = <T>(route: ApiRoute, body: FormData) => {
+      calls.push({ route, body })
       const next = responses.shift()
       return next instanceof Error ? Promise.reject(next) : Promise.resolve(boundaryCast<T>(next, 'json'))
     }
@@ -403,7 +388,7 @@ describe('upload', () => {
     expect(item.status).toBe('done')
     expect(item.progress).toBe(100)
     expect(calls).toHaveLength(1)
-    expect(calls[0]?.path).toBe('/media')
+    expect(calls[0]?.route).toEqual({ method: 'POST', path: '/media' })
     const body = calls[0]!.body
     expect(body.get('folder')).toBe('a/b')
     expect(JSON.parse(formDataString(body, 'provenance'))).toEqual({ origin: 'ai', model: 'gpt' })
@@ -464,7 +449,7 @@ describe('upload', () => {
     const item = uploadItem()
     let sawProcessingBeforeSettling = false
     let deliver: (value: { id: string }) => void = () => {}
-    const transport: UploadTransport = <T>(_path: string, _body: FormData, onProgress?: (progress: UploadProgress) => void) => {
+    const transport: UploadTransport = <T>(_route: ApiRoute, _body: FormData, onProgress?: (progress: UploadProgress) => void) => {
       onProgress?.({ loaded: 5, total: 10, percent: 50 })
       return new Promise<T>((resolve) => {
         deliver = (value) => {
@@ -559,7 +544,7 @@ describe('setMediaMeta', () => {
     const result = await runAction(setMediaMeta, { deps, id: 'f1', locale: 'en', fields: { alt: 'a photo' }, ops, refresh })
 
     expect(result).toEqual({ ok: true, result: { id: 'f1' } })
-    expect(calls).toEqual([{ path: '/media/f1', method: 'PATCH', body: { locale: 'en', alt: 'a photo' }, query: undefined }])
+    expect(calls).toEqual([{ route: { method: 'PATCH', path: '/media/f1' }, body: { locale: 'en', alt: 'a photo' }, query: undefined }])
     expect(refresh).toHaveBeenCalledTimes(1)
     expect(ops.setBusy.mock.calls).toEqual([[true], [false]])
   })
@@ -586,7 +571,7 @@ describe('setMediaProvenance', () => {
     const result = await runAction(setMediaProvenance, { deps, id: 'f1', provenance: { origin: 'ai', model: 'gpt' }, ops, refresh })
 
     expect(result).toEqual({ ok: true, result: { id: 'f1' } })
-    expect(calls).toEqual([{ path: '/media/f1', method: 'PATCH', body: { provenance: { origin: 'ai', model: 'gpt' } }, query: undefined }])
+    expect(calls).toEqual([{ route: { method: 'PATCH', path: '/media/f1' }, body: { provenance: { origin: 'ai', model: 'gpt' } }, query: undefined }])
     expect(refresh).toHaveBeenCalledTimes(1)
   })
 

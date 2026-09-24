@@ -1,4 +1,5 @@
 import type { ApiErrorDetails, MediaFolder, MediaFolderRenameResponse, MediaItem, Provenance, ReferenceTo } from '#kestrel-admin/types/api'
+import type { Capability } from '#kestrel-admin/types/kestrel'
 import { defineAction, type ActionContext, type ActionStep } from '#kestrel-core/app/utils/actions'
 import { ApiError, apiErrorCode, apiErrorDetails, apiErrorMessage, apiErrorRetryable, apiErrorRunId, apiErrorStatus, retryableMessage, withRunId } from '../composables/useApi'
 import type { UploadItem } from '../composables/useMediaUpload'
@@ -59,17 +60,13 @@ export interface DeleteItemsResult {
 
 export interface PreviewMediaDeleteInput extends WithDeps {
   fileIds: readonly string[]
-  allowed: boolean
+  capability: Capability | undefined
 }
 
 export interface UploadInput extends WithDeps {
   item: UploadItem
   provenance?: Provenance
   transport: UploadTransport
-}
-
-function encodeFolderPath(path: string): string {
-  return path.split('/').map(encodeURIComponent).join('/')
 }
 
 function mapFolderError(code: string, message: string, t: Translate): string {
@@ -83,7 +80,7 @@ export const createFolder = defineAction<CreateFolderInput, MediaFolder>({
   steps: [
     opsBusy<CreateFolderInput, MediaFolder>(true),
     apiRequest<CreateFolderInput, MediaFolder, MediaFolder>('api.request', {
-      call: (ctx) => ({ path: '/media/folders', method: 'POST', body: { path: ctx.input.path } }),
+      call: (ctx) => ({ route: ctx.input.deps.capabilities.route('createMediaFolder'), body: { path: ctx.input.path } }),
       onSuccess: (ctx, value) => { ctx.result = value },
       onError: (ctx, err) => {
         const message = mapFolderError(err.code, err.message, ctx.input.deps.t)
@@ -98,7 +95,7 @@ export const createFolder = defineAction<CreateFolderInput, MediaFolder>({
 
 async function patchFolder(deps: ActionDeps, path: string, to: string): Promise<MediaFolderRenameResponse> {
   try {
-    return await deps.api<MediaFolderRenameResponse>(`/media/folders/${encodeFolderPath(path)}`, { method: 'PATCH', body: { path: to } })
+    return await deps.api<MediaFolderRenameResponse>(deps.capabilities.route('renameMediaFolder', { path }), { body: { path: to } })
   } catch (e) {
     throw new ApiError(
       apiErrorStatus(e),
@@ -118,7 +115,7 @@ const applyTargets = defineUiStep<RenameOrMoveInput, RenameOrMoveResult>('media.
   ctx.result = result
   try {
     if (target.kind === 'file-rename') {
-      await deps.api<MediaItem>(`/media/${encodeURIComponent(target.id)}`, { method: 'PATCH', body: { filename: target.filename } })
+      await deps.api<MediaItem>(deps.capabilities.route('updateMedia', { id: target.id }), { body: { filename: target.filename } })
       result.moved = 1
     } else if (target.kind === 'folder-rename') {
       const parent = parentFolder(target.path) ?? ''
@@ -128,7 +125,7 @@ const applyTargets = defineUiStep<RenameOrMoveInput, RenameOrMoveResult>('media.
     } else {
       for (const item of target.targets) {
         if (item.type === 'file') {
-          await deps.api<MediaItem>(`/media/${encodeURIComponent(item.id)}`, { method: 'PATCH', body: { folder: target.dest } })
+          await deps.api<MediaItem>(deps.capabilities.route('updateMedia', { id: item.id }), { body: { folder: target.dest } })
           result.moved++
           continue
         }
@@ -198,7 +195,7 @@ export const deleteItems = defineAction<DeleteItemsInput, DeleteItemsResult>({
     opsBusy<DeleteItemsInput, DeleteItemsResult>(true),
     apiEach<DeleteItemsInput, DeleteItemsResult, unknown>('media.each:files', {
       items: (ctx) => ctx.input.files.map((f) => f.id),
-      call: (ctx, id) => ({ path: `/media/${encodeURIComponent(id)}`, method: 'DELETE' }),
+      call: (ctx, id) => ({ route: ctx.input.deps.capabilities.route('deleteMedia', { id }) }),
       policy: 'stop',
       onItemError: (ctx, item) => {
         if (item.code === 'CONFLICT') {
@@ -219,7 +216,7 @@ export const deleteItems = defineAction<DeleteItemsInput, DeleteItemsResult>({
     filesDeletedGuard,
     apiEach<DeleteItemsInput, DeleteItemsResult, unknown>('media.each:folders', {
       items: (ctx) => ctx.input.folderPaths,
-      call: (ctx, path) => ({ path: `/media/folders/${encodeFolderPath(path)}`, method: 'DELETE', query: ctx.input.recursive ? { recursive: true } : undefined }),
+      call: (ctx, path) => ({ route: ctx.input.deps.capabilities.route('deleteMediaFolder', { path }), query: ctx.input.recursive ? { recursive: true } : undefined }),
       policy: 'stop',
       onItemError: (ctx, item) => {
         ctx.input.ops.setError?.(item.message ?? '')
@@ -243,8 +240,7 @@ export const previewDeleteItems = defineAction<PreviewMediaDeleteInput, Referenc
   name: 'previewDeleteItems',
   steps: [
     referencesPrecheck<PreviewMediaDeleteInput, ReferenceTo[]>('references.precheck', {
-      allowed: (ctx) => ctx.input.allowed,
-      target: () => 'media',
+      capability: (ctx) => ctx.input.capability,
       ids: (ctx) => ctx.input.fileIds,
       onError: 'skip',
       onDone: (ctx, report) => {
@@ -283,7 +279,7 @@ const uploadBegin = defineUiStep<UploadInput, UploadItem>('upload.begin', (ctx) 
 const uploadRequest = defineUiStep<UploadInput, UploadItem>('upload.request', async (ctx) => {
   const { item, provenance, transport, deps } = ctx.input
   try {
-    item.result = await transport<MediaItem>('/media', buildUploadBody(item, provenance), (progress) => {
+    item.result = await transport<MediaItem>(deps.capabilities.route('uploadMedia'), buildUploadBody(item, provenance), (progress) => {
       item.progress = progress.percent
       item.totalKnown = progress.total > 0
       if (progress.percent >= 100 && item.status === 'uploading') item.status = 'processing'
@@ -325,7 +321,7 @@ export const setMediaMeta = defineAction<SetMediaMetaInput, MediaItem>({
   steps: [
     opsBusy<SetMediaMetaInput, MediaItem>(true),
     apiRequest<SetMediaMetaInput, MediaItem, MediaItem>('api.request', {
-      call: (ctx) => ({ path: `/media/${encodeURIComponent(ctx.input.id)}`, method: 'PATCH', body: { locale: ctx.input.locale, ...ctx.input.fields } }),
+      call: (ctx) => ({ route: ctx.input.deps.capabilities.route('updateMedia', { id: ctx.input.id }), body: { locale: ctx.input.locale, ...ctx.input.fields } }),
       onSuccess: (ctx, value) => { ctx.result = value },
       onError: (ctx, err) => {
         ctx.input.ops.setError?.(err.message)
@@ -342,7 +338,7 @@ export const setMediaProvenance = defineAction<SetMediaProvenanceInput, MediaIte
   steps: [
     opsBusy<SetMediaProvenanceInput, MediaItem>(true),
     apiRequest<SetMediaProvenanceInput, MediaItem, MediaItem>('api.request', {
-      call: (ctx) => ({ path: `/media/${encodeURIComponent(ctx.input.id)}`, method: 'PATCH', body: { provenance: ctx.input.provenance } }),
+      call: (ctx) => ({ route: ctx.input.deps.capabilities.route('updateMedia', { id: ctx.input.id }), body: { provenance: ctx.input.provenance } }),
       onSuccess: (ctx, value) => { ctx.result = value },
       onError: (ctx, err) => {
         ctx.input.ops.setError?.(err.message)

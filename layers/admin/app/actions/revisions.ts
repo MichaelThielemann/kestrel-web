@@ -36,15 +36,14 @@ export interface LabelRevisionInput extends RevisionScope {
   ops: BusyPort
 }
 
-function base(input: RevisionScope): string {
-  return `/admin/${input.collection}/${encodeURIComponent(input.id)}/revisions`
-}
-
 export const loadRevisions = defineAction<LoadRevisionsInput, RevisionPage>({
   name: 'loadRevisions',
   steps: [
     apiRequest<LoadRevisionsInput, RevisionPage, RevisionPage>('api.request:revisions', {
-      call: (ctx) => ({ path: base(ctx.input), query: { locale: ctx.input.locale, limit: ctx.input.limit, offset: ctx.input.offset } }),
+      call: (ctx) => ({
+        route: ctx.input.deps.capabilities.verbRoute(ctx.input.collection, 'revisions', { id: ctx.input.id }),
+        query: { locale: ctx.input.locale, limit: ctx.input.limit, offset: ctx.input.offset },
+      }),
       onSuccess: (ctx, page) => {
         ctx.result = page
       },
@@ -57,7 +56,10 @@ export const readRevision = defineAction<ReadRevisionInput, RevisionDetail>({
   name: 'readRevision',
   steps: [
     apiRequest<ReadRevisionInput, RevisionDetail, RevisionDetail>('api.request:revision', {
-      call: (ctx) => ({ path: `${base(ctx.input)}/${encodeURIComponent(ctx.input.revisionId)}`, query: { locale: ctx.input.locale } }),
+      call: (ctx) => ({
+        route: ctx.input.deps.capabilities.verbRoute(ctx.input.collection, 'revision', { id: ctx.input.id, revisionId: ctx.input.revisionId }),
+        query: { locale: ctx.input.locale },
+      }),
       onSuccess: (ctx, revision) => {
         ctx.result = revision
       },
@@ -73,8 +75,7 @@ export const restoreRevision = defineAction<RestoreRevisionInput, RestoreReport 
     opsBusy<RestoreRevisionInput, RestoreReport | null>(true),
     apiRequest<RestoreRevisionInput, RestoreReport | null, RevisionRestoreResponse>('api.request:restore', {
       call: (ctx) => ({
-        path: `${base(ctx.input)}/${encodeURIComponent(ctx.input.revisionId)}/restore`,
-        method: 'POST',
+        route: ctx.input.deps.capabilities.verbRoute(ctx.input.collection, 'restoreRevision', { id: ctx.input.id, revisionId: ctx.input.revisionId }),
         query: { locale: ctx.input.locale },
       }),
       onSuccess: (ctx, response) => {
@@ -105,8 +106,7 @@ export const labelRevision = defineAction<LabelRevisionInput, RevisionSummary>({
     opsBusy<LabelRevisionInput, RevisionSummary>(true),
     apiRequest<LabelRevisionInput, RevisionSummary, RevisionSummary>('api.request:label', {
       call: (ctx) => ({
-        path: `${base(ctx.input)}/${encodeURIComponent(ctx.input.revisionId)}`,
-        method: 'PATCH',
+        route: ctx.input.deps.capabilities.verbRoute(ctx.input.collection, 'labelRevision', { id: ctx.input.id, revisionId: ctx.input.revisionId }),
         body: { label: ctx.input.label },
         query: { locale: ctx.input.locale },
       }),

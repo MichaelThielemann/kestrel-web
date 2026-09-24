@@ -1,11 +1,9 @@
 import type { ApiErrorDetails } from '#kestrel-admin/types/api'
 import { describe, expect, it, vi } from 'vitest'
-import { boundaryCast } from '#kestrel/cast'
 import { runAction } from '#kestrel-core/app/utils/actions'
 import { labelRevision, loadRevisions, readRevision, restoreRevision } from './revisions'
-import type { ActionDeps, ApiRequestOptions, BusyPort } from './types'
-
-interface Call { path: string, method: string, body?: unknown, query?: unknown }
+import type { BusyPort } from './types'
+import { fakeDeps } from './__fixtures__/fake-deps'
 
 const CODE_OF: Record<number, string> = { 400: 'VALIDATION', 404: 'NOT_FOUND', 409: 'CONFLICT', 500: 'INTERNAL' }
 
@@ -14,19 +12,6 @@ const apiError = (status: number, message: string, details?: ApiErrorDetails) =>
   name: 'ApiError',
   data: { error: message, code: CODE_OF[status] ?? 'INTERNAL', retryable: false, ...(details ? { details } : {}) },
 })
-
-function fakeDeps(responses: Array<unknown | Error> = []) {
-  const calls: Call[] = []
-  function api<T>(path: string, options?: ApiRequestOptions): Promise<T> {
-    calls.push({ path, method: options?.method ?? 'GET', body: options?.body, query: options?.query })
-    const next = responses.shift()
-    return next instanceof Error ? Promise.reject(next) : Promise.resolve(boundaryCast<T>(next, 'json'))
-  }
-  const toast = { success: vi.fn(), error: vi.fn(), info: vi.fn() }
-  const t = vi.fn((key: string, params?: Record<string, unknown>) => (params ? `${key}:${JSON.stringify(params)}` : key))
-  const deps: ActionDeps = { api, t, toast }
-  return { deps, calls, toast }
-}
 
 function fakeOps() {
   const errors: (string | null)[] = []
@@ -48,7 +33,7 @@ describe('loadRevisions', () => {
     const result = await runAction(loadRevisions, { deps, ...scope, limit: 50, offset: 100 })
 
     expect(result.ok).toBe(true)
-    expect(calls).toEqual([{ path: '/admin/pages/p%201/revisions', method: 'GET', body: undefined, query: { locale: 'de', limit: 50, offset: 100 } }])
+    expect(calls).toEqual([{ route: { method: 'GET', path: '/admin/pages/p%201/revisions' }, body: undefined, query: { locale: 'de', limit: 50, offset: 100 } }])
   })
 
   it('fails with the server message when the history cannot be read', async () => {
@@ -65,7 +50,7 @@ describe('readRevision', () => {
     const result = await runAction(readRevision, { deps, ...scope, revisionId: 'r1' })
 
     expect(result.ok).toBe(true)
-    expect(calls[0]?.path).toBe('/admin/pages/p%201/revisions/r1')
+    expect(calls[0]?.route.path).toBe('/admin/pages/p%201/revisions/r1')
   })
 })
 
@@ -77,7 +62,7 @@ describe('restoreRevision', () => {
     const result = await runAction(restoreRevision, { deps, ...scope, revisionId: 'r1', confirmed: true, fieldLabels: LABELS, ops, refresh })
 
     expect(result).toEqual({ ok: true, result: null })
-    expect(calls[0]).toEqual({ path: '/admin/pages/p%201/revisions/r1/restore', method: 'POST', body: undefined, query: { locale: 'de' } })
+    expect(calls[0]).toEqual({ route: { method: 'POST', path: '/admin/pages/p%201/revisions/r1/restore' }, body: undefined, query: { locale: 'de' } })
     expect(refresh).toHaveBeenCalledOnce()
     expect(toast.success).toHaveBeenCalledWith('revisions.restored')
   })
@@ -130,7 +115,7 @@ describe('labelRevision', () => {
     const result = await runAction(labelRevision, { deps, ...scope, revisionId: 'r1', label: 'Before the relaunch', ops })
 
     expect(result).toEqual({ ok: true, result: { id: 'r1', label: 'Before the relaunch' } })
-    expect(calls[0]).toEqual({ path: '/admin/pages/p%201/revisions/r1', method: 'PATCH', body: { label: 'Before the relaunch' }, query: { locale: 'de' } })
+    expect(calls[0]).toEqual({ route: { method: 'PATCH', path: '/admin/pages/p%201/revisions/r1' }, body: { label: 'Before the relaunch' }, query: { locale: 'de' } })
     expect(toast.success).toHaveBeenCalledWith('revisions.labelSaved')
   })
 
