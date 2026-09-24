@@ -340,6 +340,12 @@
 - `sitePath()` and `toPublicMedia()`/`PublicMediaItem` (`layers/public/app/utils/`), and the
   `@michaelthielemann/kestrel-renderer-nuxt/static-marker` subpath with the attribute names
   (`DELIVERY_ATTRIBUTE`, `STATIC_DELIVERY`, `BUILD_ATTRIBUTE`), which UI code may import.
+- `kestrel-web-upgrade`, a bin of this package: `check`, `fix` and `data` list and, where mechanical, fix
+  the layer-specific breaks of the 6.0.0 major (module lists, preset overrides, the underscore-field
+  rename, the event-queue offer), delegating everything else to `@michaelthielemann/kestrel-upgrade`. See
+  `docs/consuming-kestrel-web.md` §11.
+- `#kestrel/pipelines` exports `checkPreset(options)`, which composes a preset like `definePreset()` but
+  collects every problem instead of throwing at the first.
 
 ### Changed
 

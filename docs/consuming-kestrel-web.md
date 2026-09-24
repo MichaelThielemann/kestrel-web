@@ -1624,6 +1624,54 @@ it is an ordinary dependency and needs no attention unless you pinned it yoursel
   `EditorExpose` carry `workflow: Workflow | undefined` in place of `hasStatus: boolean`, and
   `bulkSetStatus` takes `{ workflow, live }` in place of `status: 'published' | 'draft'`.
 
+### 2.x → 3.0
+
+`kestrel-web-upgrade`, the layer's own bin, lists every known 5.8/2.0 → 6.0/3.0 break with its location and
+a suggestion, and applies the mechanical ones with a preview:
+
+1. `pnpm add @michaelthielemann/kestrel-web@^3` in a branch.
+2. `npx kestrel-web-upgrade check` — with the project's own `@michaelthielemann/kestrel*` packages still at
+   5.x, this sees only what a static read of your files can tell (dependency ranges, module lists,
+   overrides); it always reports `deps/mixed-majors` at this point too, since the layer and the backend
+   packages are on different major lines by design — that finding is expected here and does not block
+   anything.
+3. `npx kestrel-web-upgrade fix` bumps every out-of-range `@michaelthielemann/kestrel*` dependency
+   (`^6.0.0`) and `@michaelthielemann/kestrel-web` itself (`^3.0.0`); run it with `--write`, then
+   `pnpm install`.
+4. `npx kestrel-web-upgrade check` again for the full report, `fix --write` to apply what it can, and fix
+   the rest by hand.
+5. `nuxt typecheck`, `nuxt build`, boot it once, log in.
+
+What changes:
+
+- A hand-written `modules` list needs `events-inmemory` plus exactly one of `events-direct`/`events-queue`;
+  a project built with `presetModuleConfig()` already has this and needs no change.
+- An `overrides` entry of a write pipeline must keep the atomic group around its content write, and keep
+  `events.relay` when it keeps an `events.emit:` step; the tool reports which pipeline and step.
+- `media.folderItems` is renamed to `media.listFolderItems`.
+- `revisions.reassignAuthor` now requires `verifiedUser`, written by a preceding
+  `authn.verifyUser:<path>`.
+- Write responses carry the document plus `_events` (a `DELETE` answers `{ _events }`), not
+  `{ document, delivery, llms }`; a custom client reading the old shape needs updating.
+- `GET /api/ready` and `GET /api/health` read the module's `health()`; a custom health probe reading the
+  old shape needs updating.
+- With the `eventsQueue` feature, `relayPipelines` decides which subscribers still answer inside the
+  request: `presetModuleConfig()` sets it to the pipelines that publish or unpublish content, so a page
+  edit's response still carries the delivery outcome; every other subscriber (image variants, the login
+  audit, a deleted user's follow-ups) moves to the worker and answers moments later. A hand-written
+  `events-queue` module entry without `relayPipelines` gets one added by `fix`.
+- A content field name may not start with `_`; renaming an existing one needs a data migration on the
+  running 5.8.x version first (`kestrel-web-upgrade check` explains the two-phase procedure when it finds
+  one).
+
+**The queue offer.** A project still on inline delivery is offered a one-line switch: `fix` asks whether to
+add `"eventsQueue"` to `shared/model.ts`'s `features` array. It only offers this when there is an event to
+move, nothing suggests the process exits between requests, and the switch does not introduce a boot error.
+Accepting it means uploads and other requests answer at once while image variants, the login audit and
+similar subscribers run in the worker moments later (retried with backoff on failure), and an event may
+reach a pipeline more than once — the prompt explains the consequences before asking. The default is no;
+nothing switches unless you say yes.
+
 ## Keeping your styles out of the admin
 
 The admin and your site share one document: Nuxt merges every layer's and your app's `css: []` into one
