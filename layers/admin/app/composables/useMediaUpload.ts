@@ -1,7 +1,7 @@
 import { ref, computed } from 'vue'
-import type { Provenance } from '#kestrel-admin/types/api'
+import type { MediaItem, Provenance } from '#kestrel-admin/types/api'
 import { upload } from '#kestrel-admin/actions/media'
-import type { ActionDeps } from '#kestrel-admin/actions/types'
+import type { ActionDeps, Translate } from '#kestrel-admin/actions/types'
 import { toastUnexpected } from '#kestrel-admin/actions/steps/notify'
 import type { PendingUpload } from '../utils/dnd'
 import { humanizeSize } from '../utils/library'
@@ -16,9 +16,14 @@ export interface UploadItem {
   status: UploadStatus
   progress: number
   message?: string
+  result?: MediaItem
 }
 
 export interface UploadCallbacks {
+  onQueued?: (item: UploadItem) => void
+
+  onReady?: (item: UploadItem) => void
+
   onSettled?: () => void
 
   onError?: (item: UploadItem) => void
@@ -26,6 +31,19 @@ export interface UploadCallbacks {
 
 export function uploadFailed(item: Pick<UploadItem, 'status' | 'message'>): boolean {
   return item.status === 'failed' && item.message !== undefined
+}
+
+export interface UploadStatusInputs { active: boolean; done: number; failed: number; processing: boolean; variantsPending: boolean }
+
+export function uploadStatusLine(inputs: UploadStatusInputs, t: Translate): string {
+  const parts: string[] = []
+  if (inputs.active) {
+    const failed = inputs.failed ? `, ${inputs.failed} ${t('media.uploadFailed')}` : ''
+    parts.push(`${t('media.uploading')}${inputs.done} ${t('media.uploadUploaded')}${failed}`)
+  }
+  if (inputs.processing) parts.push(t('media.tile.processing'))
+  else if (inputs.variantsPending) parts.push(t('media.upload.processing'))
+  return parts.join(' · ')
 }
 
 export interface UploadLimitState {
@@ -91,6 +109,7 @@ export function useMediaUpload(cb: UploadCallbacks = {}) {
     const result = await runAction(upload, { deps: d, item, provenance, transport })
     toastUnexpected(d, result)
     if (uploadFailed(item)) cb.onError?.(item)
+    else cb.onReady?.(item)
   }
 
   async function enqueueUploads(uploads: PendingUpload[], provenance?: Provenance) {
@@ -105,6 +124,7 @@ export function useMediaUpload(cb: UploadCallbacks = {}) {
       }
       queue.value.push(item)
       added.push(queue.value[queue.value.length - 1]!)
+      cb.onQueued?.(item)
     }
     for (const item of added) {
       if (item.status === 'queued') await uploadItem(item, provenance)

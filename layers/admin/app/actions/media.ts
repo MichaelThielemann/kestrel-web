@@ -283,7 +283,7 @@ const uploadBegin = defineUiStep<UploadInput, UploadItem>('upload.begin', (ctx) 
 const uploadRequest = defineUiStep<UploadInput, UploadItem>('upload.request', async (ctx) => {
   const { item, provenance, transport, deps } = ctx.input
   try {
-    await transport<MediaItem>('/media', buildUploadBody(item, provenance), (progress) => {
+    item.result = await transport<MediaItem>('/media', buildUploadBody(item, provenance), (progress) => {
       item.progress = progress.percent
       if (progress.percent >= 100 && item.status === 'uploading') item.status = 'processing'
     })

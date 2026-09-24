@@ -409,6 +409,26 @@ describe('upload', () => {
     expect(JSON.parse(formDataString(body, 'provenance'))).toEqual({ origin: 'ai', model: 'gpt' })
   })
 
+  it('keeps the response body on the upload entry', async () => {
+    const { deps } = fakeDeps()
+    const { transport } = fakeTransport([{ id: 'f1', filename: 'a.png' }])
+    const item = uploadItem()
+
+    await runAction(upload, { deps, item, transport })
+
+    expect(item.result).toEqual({ id: 'f1', filename: 'a.png' })
+  })
+
+  it('leaves the response unset on a failed upload', async () => {
+    const { deps } = fakeDeps()
+    const { transport } = fakeTransport([apiError(500, 'boom')])
+    const item = uploadItem()
+
+    await runAction(upload, { deps, item, transport })
+
+    expect(item.result).toBeUndefined()
+  })
+
   it('omits the folder field when there is none', async () => {
     const { deps } = fakeDeps()
     const { transport, calls } = fakeTransport([{ id: 'f1' }])
