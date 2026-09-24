@@ -43,6 +43,7 @@ export const de: Record<CatalogKey, string> = {
   'dash.lede': 'Wähle eine Collection, um ihre Inhalte zu verwalten.',
   'dash.empty.title': 'Noch keine Collections',
   'dash.empty.desc': 'Definiere eine Collection, um Inhalte zu verwalten.',
+  'dash.empty.unavailable.title': 'Nichts verfügbar',
   'dash.mode.singleton': 'Singleton',
   'dash.mode.collection': 'Collection',
 

@@ -41,6 +41,7 @@ export const en = {
   'dash.lede': 'Choose a collection to manage its content.',
   'dash.empty.title': 'No collections yet',
   'dash.empty.desc': 'Define a collection to start managing content.',
+  'dash.empty.unavailable.title': 'Nothing available',
   'dash.mode.singleton': 'Singleton',
   'dash.mode.collection': 'Collection',
 

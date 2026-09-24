@@ -62,3 +62,47 @@ describe('admin dashboard for a role without users.manage', () => {
     wrapper.unmount()
   })
 })
+
+describe('admin dashboard empty state', () => {
+  const unregisterAll: (() => void)[] = []
+
+  afterEach(() => {
+    unregisterAll.splice(0).forEach((unregister) => unregister())
+    useSchema().clear()
+  })
+
+  it('tells a role with no verb on any collection that nothing is available, not to define one', async () => {
+    const invisibleSchema: AdminSchema = {
+      locales: { all: ['en'], primary: 'en', prefixPrimary: false },
+      collections: [{ ...pagesCollection, capabilities: {} }],
+      features: [],
+      capabilities: {},
+    }
+    unregisterAll.push(registerEndpoint('/api/admin/schema', { method: 'GET', handler: () => invisibleSchema }))
+    await useSchema().load()
+
+    const wrapper = await mountSuspended(DashboardPage)
+
+    expect(wrapper.text()).toContain(en['dash.empty.unavailable.title'])
+    expect(wrapper.text()).toContain(en['capability.unavailable'])
+    expect(wrapper.text()).not.toContain(en['dash.empty.title'])
+    wrapper.unmount()
+  })
+
+  it('tells a role with no collections defined at all to define one', async () => {
+    const emptySchema: AdminSchema = {
+      locales: { all: ['en'], primary: 'en', prefixPrimary: false },
+      collections: [],
+      features: [],
+      capabilities: {},
+    }
+    unregisterAll.push(registerEndpoint('/api/admin/schema', { method: 'GET', handler: () => emptySchema }))
+    await useSchema().load()
+
+    const wrapper = await mountSuspended(DashboardPage)
+
+    expect(wrapper.text()).toContain(en['dash.empty.title'])
+    expect(wrapper.text()).not.toContain(en['dash.empty.unavailable.title'])
+    wrapper.unmount()
+  })
+})
