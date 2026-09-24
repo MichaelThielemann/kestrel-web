@@ -1,11 +1,8 @@
-
-
-const FILE_PATH = /\.[a-z0-9]{1,8}$/i;
-const PASS = /^\/(api|_nuxt|__nuxt|_ipx)\//;
+import { isMissingAsset } from "../utils/asset-404";
 
 export default defineEventHandler((event) => {
   const path = getRequestURL(event).pathname;
-  if (!FILE_PATH.test(path) || PASS.test(path) || path.endsWith(".html")) return;
+  if (!isMissingAsset(path)) return;
   setResponseStatus(event, 404);
   return "";
 });

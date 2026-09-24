@@ -5,6 +5,8 @@ export interface ImageSources {
   srcset: string | null
   width: number | null
   height: number | null
+  /** Whether `src` links a named variant rather than the original: the box must be forced to this size, since the placeholder (the original) may have a different aspect than the render will. */
+  variant: boolean
 }
 
 const RATIO_TOLERANCE = 0.01
@@ -25,27 +27,24 @@ export function pickImageSources(
   if (item === null) return null
 
   const named = item.variants.find((v) => v.size === size)
-  const useNamed = named?.state === 'done' && named.width > 0 && named.height > 0
+  const src = named ? named.path : item.path
+  const width = named ? named.width : item.width
+  const height = named ? named.height : item.height
 
-  const src = named ? named.path : `/api/media/${encodeURIComponent(item.id)}/file`
-  const width = useNamed ? named.width : item.width
-  const height = useNamed ? named.height : item.height
-
-  const referenceRatio = useNamed
+  const referenceRatio = named
     ? ratioOf(named)
     : item.width && item.height
       ? ratioOf({ width: item.width, height: item.height })
       : null
 
-  const done = item.variants.filter((v) => v.state === 'done' && v.width > 0 && v.height > 0)
-  const candidates = referenceRatio === null ? [] : restrict(done, referenceRatio, only)
+  const candidates = referenceRatio === null ? [] : restrict(item.variants, referenceRatio, only)
   const srcset = candidates.length === 0 ? null : candidates.map((v) => `${v.path} ${v.width}w`).join(', ')
 
-  return { src, srcset, width, height }
+  return { src, srcset, width, height, variant: named !== undefined }
 }
 
-function restrict(done: MediaVariant[], referenceRatio: number, only?: readonly string[]): MediaVariant[] {
-  const filtered = done.filter((v) => sameRatio(ratioOf(v), referenceRatio) && (!only || only.includes(v.size)))
+function restrict(variants: readonly MediaVariant[], referenceRatio: number, only?: readonly string[]): MediaVariant[] {
+  const filtered = variants.filter((v) => v.width > 0 && v.height > 0 && sameRatio(ratioOf(v), referenceRatio) && (!only || only.includes(v.size)))
   const byWidth = new Map<number, MediaVariant>()
   for (const v of filtered) if (!byWidth.has(v.width)) byWidth.set(v.width, v)
   return [...byWidth.values()].sort((a, b) => a.width - b.width)

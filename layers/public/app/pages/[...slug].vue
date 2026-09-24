@@ -92,11 +92,12 @@ watchEffect(() => {
 
 const siteUrl = useRuntimeConfig().public.siteUrl
 const { data: siteSettings } = await useSiteSettings(locale)
+const { data: shareItem } = await useMediaItem(() => page.value?.shareImage ?? null, locale)
 useHead(() => {
   const seo = page.value?.seo ?? {}
   const title = seo.title || page.value?.title || ''
   const description = metaDescription(seo.description, siteSettings.value?.description)
-  const image = page.value?.shareImage ? `${siteUrl}/api/media/${encodeURIComponent(page.value.shareImage)}/file` : ''
+  const image = shareItem.value ? `${siteUrl}${shareItem.value.path}` : ''
   return {
     htmlAttrs: { lang: locale.value },
     titleTemplate: siteTitleTemplate(siteSettings.value?.title, siteSettings.value?.titleSeparator, siteSettings.value?.titlePosition),
