@@ -6,7 +6,7 @@ import { useVariantWatch } from './useVariantWatch'
 
 const { schema, apiCalls, apiHandler } = vi.hoisted(() => {
   const schema: AdminSchema = { locales: { all: ['en'], primary: 'en', prefixPrimary: false }, collections: [], features: ['images'] }
-  const apiCalls: unknown[] = []
+  const apiCalls: { path: string, options?: { query?: { ids?: string, locale?: string } } }[] = []
   const apiHandler = { fn: (_path: string, _options?: unknown): Promise<unknown> => Promise.resolve({ items: [], total: 0 }) }
   return { schema, apiCalls, apiHandler }
 })
@@ -18,7 +18,7 @@ mockNuxtImport('useSchema', () => () => ({
   clear: () => {},
 }))
 
-mockNuxtImport('useApi', () => () => (path: string, options?: unknown) => {
+mockNuxtImport('useApi', () => () => (path: string, options?: { query?: { ids?: string, locale?: string } }) => {
   apiCalls.push({ path, options })
   return apiHandler.fn(path, options)
 })
@@ -180,6 +180,29 @@ describe('useVariantWatch', () => {
     wrapper.unmount()
   })
 
+  it('does not restart polling when a request in flight at unmount finishes afterwards', async () => {
+    vi.useFakeTimers()
+    let call = 0
+    let resolveFetch: ((value: unknown) => void) | undefined
+    apiHandler.fn = () => {
+      call++
+      return new Promise((resolve) => { resolveFetch = resolve })
+    }
+
+    const { wrapper, api } = await mountProbe()
+    api.track('f1')
+    await vi.advanceTimersByTimeAsync(0)
+    expect(call).toBe(1)
+
+    wrapper.unmount()
+    resolveFetch?.({ items: [mediaItem({ variantCounts: { done: 0, pending: 1, error: 0, failed: 0 } })], total: 1 })
+    await vi.advanceTimersByTimeAsync(0)
+
+    const callsRightAfterUnmount = call
+    await vi.advanceTimersByTimeAsync(60000)
+    expect(call).toBe(callsRightAfterUnmount)
+  })
+
   it('stops polling and marks an id stalled after ten minutes without a count change', async () => {
     vi.useFakeTimers()
     apiHandler.fn = () => Promise.resolve({ items: [mediaItem({ variantCounts: { done: 0, pending: 1, error: 0, failed: 0 } })], total: 1 })
@@ -192,9 +215,79 @@ describe('useVariantWatch', () => {
     await vi.advanceTimersByTimeAsync(11 * 60 * 1000)
 
     expect(api.isStalled('f1')).toBe(true)
+    expect(api.hasPending.value).toBe(false)
     const callsAtStall = apiCalls.length
     await vi.advanceTimersByTimeAsync(60000)
     expect(apiCalls.length).toBe(callsAtStall)
+
+    wrapper.unmount()
+  })
+
+  it('calls onReady exactly once when pending reaches zero with no errors', async () => {
+    vi.useFakeTimers()
+    apiHandler.fn = () => Promise.resolve({ items: [mediaItem({ variantCounts: { done: 1, pending: 0, error: 0, failed: 0 } })], total: 1 })
+    const onReady = vi.fn()
+    const onFailed = vi.fn()
+
+    const { wrapper, api } = await mountProbe()
+    api.track('f1', { onReady, onFailed })
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(onReady).toHaveBeenCalledTimes(1)
+    expect(onFailed).not.toHaveBeenCalled()
+
+    await vi.advanceTimersByTimeAsync(20000)
+    expect(onReady).toHaveBeenCalledTimes(1)
+
+    wrapper.unmount()
+  })
+
+  it('calls onFailed exactly once when pending reaches zero with a failed variant', async () => {
+    vi.useFakeTimers()
+    apiHandler.fn = () => Promise.resolve({ items: [mediaItem({ variantCounts: { done: 1, pending: 0, error: 0, failed: 1 } })], total: 1 })
+    const onReady = vi.fn()
+    const onFailed = vi.fn()
+
+    const { wrapper, api } = await mountProbe()
+    api.track('f1', { onReady, onFailed })
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(onFailed).toHaveBeenCalledTimes(1)
+    expect(onReady).not.toHaveBeenCalled()
+
+    wrapper.unmount()
+  })
+
+  it('sends at most 200 ids in a single call', async () => {
+    vi.useFakeTimers()
+    apiHandler.fn = () => Promise.resolve({ items: [], total: 0 })
+
+    const { wrapper, api } = await mountProbe()
+    for (let i = 0; i < 250; i++) api.track(`f${i}`)
+    await vi.advanceTimersByTimeAsync(0)
+
+    const ids = apiCalls[0]?.options?.query?.ids ?? ''
+    expect(ids.split(',')).toHaveLength(200)
+
+    wrapper.unmount()
+  })
+
+  it('stops tracking on a 401 instead of retrying', async () => {
+    vi.useFakeTimers()
+    let call = 0
+    apiHandler.fn = () => {
+      call++
+      return Promise.reject(Object.assign(new Error('nope'), { status: 401, name: 'ApiError', data: { error: 'nope', code: 'UNAUTHENTICATED' } }))
+    }
+
+    const { wrapper, api } = await mountProbe()
+    api.track('f1')
+    await vi.advanceTimersByTimeAsync(0)
+    expect(call).toBe(1)
+    expect(api.hasPending.value).toBe(false)
+
+    await vi.advanceTimersByTimeAsync(60000)
+    expect(call).toBe(1)
 
     wrapper.unmount()
   })

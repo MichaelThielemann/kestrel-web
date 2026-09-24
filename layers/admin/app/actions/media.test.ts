@@ -488,6 +488,34 @@ describe('upload', () => {
     expect(item.progress).toBe(100)
   })
 
+  it('marks the total unknown when the transport cannot compute progress', async () => {
+    const { deps } = fakeDeps()
+    const { transport } = fakeTransport([{ id: 'f1' }])
+    const item = uploadItem()
+    const originalTransport = transport
+    const nonComputable: UploadTransport = <T>(path: string, body: FormData, onProgress?: (progress: UploadProgress) => void) => {
+      onProgress?.({ loaded: 5, total: 0, percent: 0 })
+      return originalTransport<T>(path, body, onProgress)
+    }
+
+    await runAction(upload, { deps, item, transport: nonComputable })
+
+    expect(item.totalKnown).toBe(false)
+  })
+
+  it('marks the total known once the transport reports a real total', async () => {
+    const { deps } = fakeDeps()
+    const item = uploadItem()
+    const transport: UploadTransport = <T>(_path: string, _body: FormData, onProgress?: (progress: UploadProgress) => void) => {
+      onProgress?.({ loaded: 5, total: 10, percent: 50 })
+      return Promise.resolve(boundaryCast<T>({ id: 'f1' }, 'json'))
+    }
+
+    await runAction(upload, { deps, item, transport })
+
+    expect(item.totalKnown).toBe(true)
+  })
+
   it('humanises byte counts in the 413 message', async () => {
     const { deps } = fakeDeps()
     const { transport } = fakeTransport([apiError(413, 'file exceeds 5242880 bytes')])

@@ -69,4 +69,57 @@ describe('useUploadPreview', () => {
     expect(revoke).toHaveBeenCalledWith('blob:preview')
     expect(previewFor('u1')).toBeUndefined()
   })
+
+  it('revokes a preview whose decode finishes after release() already ran', async () => {
+    let resolveBitmap: ((bitmap: unknown) => void) | undefined
+    vi.stubGlobal('createImageBitmap', vi.fn().mockImplementation(() => new Promise((resolve) => { resolveBitmap = resolve })))
+    stubCanvas(new Blob(['x']))
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:preview')
+    const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+
+    const { generate, previewFor, release } = useUploadPreview()
+    const pending = generate('u1', new File(['x'], 'a.png'))
+    await vi.waitFor(() => expect(resolveBitmap).toBeDefined())
+    release('u1')
+    resolveBitmap?.({ width: 10, height: 10, close: vi.fn() })
+    await pending
+
+    expect(revoke).toHaveBeenCalledWith('blob:preview')
+    expect(previewFor('u1')).toBeUndefined()
+  })
+
+  it('revokes a preview whose decode finishes after releaseAll() already ran', async () => {
+    let resolveBitmap: ((bitmap: unknown) => void) | undefined
+    vi.stubGlobal('createImageBitmap', vi.fn().mockImplementation(() => new Promise((resolve) => { resolveBitmap = resolve })))
+    stubCanvas(new Blob(['x']))
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:preview')
+    const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+
+    const { generate, previewFor, releaseAll } = useUploadPreview()
+    const pending = generate('u1', new File(['x'], 'a.png'))
+    await vi.waitFor(() => expect(resolveBitmap).toBeDefined())
+    releaseAll()
+    resolveBitmap?.({ width: 10, height: 10, close: vi.fn() })
+    await pending
+
+    expect(revoke).toHaveBeenCalledWith('blob:preview')
+    expect(previewFor('u1')).toBeUndefined()
+  })
+
+  it('releaseAll revokes every held URL', async () => {
+    vi.stubGlobal('createImageBitmap', vi.fn().mockResolvedValue({ width: 10, height: 10, close: vi.fn() }))
+    stubCanvas(new Blob(['x']))
+    vi.spyOn(URL, 'createObjectURL').mockReturnValueOnce('blob:one').mockReturnValueOnce('blob:two')
+    const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+
+    const { generate, previewFor, releaseAll } = useUploadPreview()
+    await generate('u1', new File(['x'], 'a.png'))
+    await generate('u2', new File(['x'], 'b.png'))
+    releaseAll()
+
+    expect(revoke).toHaveBeenCalledWith('blob:one')
+    expect(revoke).toHaveBeenCalledWith('blob:two')
+    expect(previewFor('u1')).toBeUndefined()
+    expect(previewFor('u2')).toBeUndefined()
+  })
 })

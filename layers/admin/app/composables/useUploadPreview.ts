@@ -25,13 +25,18 @@ async function drawPreview(file: File): Promise<string | null> {
 
 export function useUploadPreview() {
   const previews = ref<Map<string, string>>(new Map())
+  const releasedIds = new Set<string>()
+  let disposed = false
   let chain: Promise<void> = Promise.resolve()
 
   function generate(id: string, file: File): Promise<void> {
+    releasedIds.delete(id)
     chain = chain.then(async () => {
       if (!import.meta.client) return
       const url = await drawPreview(file)
-      if (url) previews.value.set(id, url)
+      if (!url) return
+      if (disposed || releasedIds.has(id)) { URL.revokeObjectURL(url); return }
+      previews.value.set(id, url)
     })
     return chain
   }
@@ -41,6 +46,7 @@ export function useUploadPreview() {
   }
 
   function release(id: string) {
+    releasedIds.add(id)
     const url = previews.value.get(id)
     if (url === undefined) return
     URL.revokeObjectURL(url)
@@ -48,6 +54,7 @@ export function useUploadPreview() {
   }
 
   function releaseAll() {
+    disposed = true
     for (const url of previews.value.values()) URL.revokeObjectURL(url)
     previews.value.clear()
   }

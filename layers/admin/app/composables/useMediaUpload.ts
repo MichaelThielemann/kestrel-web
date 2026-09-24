@@ -15,6 +15,7 @@ export interface UploadItem {
   id: string; file: File; filename: string; folder: string
   status: UploadStatus
   progress: number
+  totalKnown?: boolean
   message?: string
   result?: MediaItem
 }
@@ -124,7 +125,7 @@ export function useMediaUpload(cb: UploadCallbacks = {}) {
       }
       queue.value.push(item)
       added.push(queue.value[queue.value.length - 1]!)
-      cb.onQueued?.(item)
+      if (item.status === 'queued') cb.onQueued?.(item)
     }
     for (const item of added) {
       if (item.status === 'queued') await uploadItem(item, provenance)
