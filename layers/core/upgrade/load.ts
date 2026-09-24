@@ -233,7 +233,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-function dataContentModelOf(value: unknown): DataContentModel | undefined {
+function dataContentModelOf(value: unknown, file: string): DataContentModel | undefined {
   if (!isRecord(value) || !isRecord(value.types)) return undefined;
   const types: Record<string, DataContentType> = {};
   for (const [typeName, type] of Object.entries(value.types)) {
@@ -243,14 +243,16 @@ function dataContentModelOf(value: unknown): DataContentModel | undefined {
     types[typeName] = { fields };
   }
   const locales = value.locales;
-  return { types, use: "shared/model.ts", ...(Array.isArray(locales) ? { locales: locales.filter((l): l is string => typeof l === "string") } : {}) };
+  return { types, use: "shared/model.ts", file, ...(Array.isArray(locales) ? { locales: locales.filter((l): l is string => typeof l === "string") } : {}) };
 }
 
 /**
  * Supplies `UpgradePlugin.dataModel(root)`: loads `shared/model.ts` at `root` (not a scratch copy — the
  * `data` command never runs `nuxt prepare`) through jiti with the same `#kestrel/*` aliases as
- * `loadLayerProject`, then reads its `contentModel` export. `undefined` on any load or shape failure, which
- * skips underscore-field counting for this run without failing the rest of `data`.
+ * `loadLayerProject`, then reads its `contentModel` export. `file` points `model/underscore-field`'s rename
+ * at `shared/model.ts` itself instead of the built-in default (`LoadedProject.configFile`, which never has
+ * the layer's content model inline). `undefined` on any load or shape failure, which skips underscore-field
+ * counting for this run without failing the rest of `data`.
  */
 export async function loadDataModel(root: string): Promise<DataContentModel | undefined> {
   const file = sharedModelFile(root);
@@ -259,7 +261,7 @@ export async function loadDataModel(root: string): Promise<DataContentModel | un
   const jiti = createJiti(pathToFileURL(file).href, { alias: aliases, moduleCache: false, interopDefault: true });
   try {
     const mod = await jiti.import<{ contentModel?: unknown }>(pathToFileURL(file).href);
-    return dataContentModelOf(mod.contentModel);
+    return dataContentModelOf(mod.contentModel, file);
   } catch {
     return undefined;
   }

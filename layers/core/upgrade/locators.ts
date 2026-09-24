@@ -13,18 +13,6 @@ function overridesArray(root: AstNode, pipelineName: string): AstNode | undefine
   return undefined;
 }
 
-function definePipelineArray(root: AstNode, pipelineName: string): AstNode | undefined {
-  for (const call of findCalls(root, "definePipeline")) {
-    const options = firstArgument(call);
-    if (options === undefined) continue;
-    const name = objectProperty(options, "name");
-    if (stringValue(name) !== pipelineName) continue;
-    const steps = objectProperty(options, "steps");
-    if (isArrayExpression(steps)) return steps;
-  }
-  return undefined;
-}
-
 function atomicSubArrays(top: AstNode): AstNode[] {
   const arrays = [top];
   const elements = Array.isArray(top.elements) ? top.elements : [];
@@ -37,17 +25,37 @@ function atomicSubArrays(top: AstNode): AstNode[] {
 }
 
 /**
- * Locates a pipeline's step array either inside a `definePreset({ overrides: { <pipeline>: [...] } })`
- * call or, for a pipeline defined directly in `pipelines/index.ts`, a literal `definePipeline({ name:
- * "<pipeline>", steps: [...] })` call — including an atomic group's own sub-array in both cases. Supplying
- * `locateSteps` at all replaces the built-in `definePipeline({ name, steps })` search entirely rather than
- * running alongside it, so this locator has to cover that shape itself or an own pipeline's steps become
- * unreachable to every rule that edits a step list, not only the layer's own.
+ * Locates a pipeline's step array inside a `definePreset({ overrides: { <pipeline>: [...] } })` call,
+ * including an atomic group's own sub-array; `[]` for anything else, including a plain `definePipeline({
+ * name, steps })` call — the built-in search runs per pipeline name whenever this locator returns nothing
+ * for it, so a pipeline defined directly in `pipelines/index.ts` needs no locator of its own here.
  */
 export const layerLocateSteps: StepListLocator = (root, pipelineName) => {
-  const array = overridesArray(root, pipelineName) ?? definePipelineArray(root, pipelineName);
+  const array = overridesArray(root, pipelineName);
   return array === undefined ? [] : atomicSubArrays(array);
 };
+
+function ownPipelineArray(root: AstNode, pipelineName: string): AstNode | undefined {
+  for (const call of findCalls(root, "definePipeline")) {
+    const options = firstArgument(call);
+    if (options === undefined) continue;
+    const name = objectProperty(options, "name");
+    if (stringValue(name) !== pipelineName) continue;
+    const steps = objectProperty(options, "steps");
+    if (isArrayExpression(steps)) return steps;
+  }
+  return undefined;
+}
+
+/**
+ * Locates a pipeline's step array in a literal `definePipeline({ name, steps })` call, for a plugin's own
+ * rule that edits a step list through a primitive without the exported primitives' own per-target fallback
+ * to this same shape (`layerLocateSteps` deliberately leaves it to that fallback instead).
+ */
+export function ownPipelineSteps(root: AstNode, pipelineName: string): readonly AstNode[] {
+  const array = ownPipelineArray(root, pipelineName);
+  return array === undefined ? [] : atomicSubArrays(array);
+}
 
 /**
  * Locates a content type's `fields` object literal by structure, not by name: any object literal with

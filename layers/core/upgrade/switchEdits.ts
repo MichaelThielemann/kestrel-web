@@ -1,12 +1,14 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { objectProperty, parseTs, stringValue, walk } from "@michaelthielemann/kestrel-upgrade/codemods";
+import { objectProperty, parseTs, replaceModuleListEntry, stringValue, walk } from "@michaelthielemann/kestrel-upgrade/codemods";
 import type { Edit, RuleContext, SwitchEditsResult } from "@michaelthielemann/kestrel-upgrade/plugin";
+import { relayPipelinesFor } from "../pipelines/checkPreset";
 import { addStringToNamedExportArray } from "./edits";
-import { findFeaturesArrayFile, packageJsonPath } from "./ruleHelpers";
+import { findFeaturesArrayFile, packageJsonPath, presetOptionsCast } from "./ruleHelpers";
 
 const SERVERLESS_MARKER_FILES = ["vercel.json", "netlify.toml", "wrangler.toml", "serverless.yml", "template.yaml"];
 const EVENTS_DIRECT_PACKAGE = "@michaelthielemann/kestrel-events-direct";
+const EVENTS_QUEUE_PACKAGE = "@michaelthielemann/kestrel-events-queue";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -65,9 +67,17 @@ function deploymentBlockers(ctx: RuleContext): string[] {
   return blockers;
 }
 
-function importsEventsDirectLiteral(ctx: RuleContext): boolean {
+function importsEventsDirectLiteral(source: string): boolean {
+  return source.includes(`"${EVENTS_DIRECT_PACKAGE}"`) || source.includes(`'${EVENTS_DIRECT_PACKAGE}'`);
+}
+
+function handWrittenModuleListEdit(ctx: RuleContext): Edit | undefined {
   const source = ctx.readFile(ctx.project.configFile);
-  return source !== undefined && (source.includes(`"${EVENTS_DIRECT_PACKAGE}"`) || source.includes(`'${EVENTS_DIRECT_PACKAGE}'`));
+  if (source === undefined || !importsEventsDirectLiteral(source)) return undefined;
+  const cast = presetOptionsCast(ctx);
+  const relayPipelines = relayPipelinesFor(cast?.features ?? []);
+  const config = `{ relayPipelines: [${relayPipelines.map((p) => `"${p}"`).join(", ")}] }`;
+  return replaceModuleListEntry(ctx.project.configFile, source, { use: EVENTS_DIRECT_PACKAGE, newUse: EVENTS_QUEUE_PACKAGE, config });
 }
 
 /**
@@ -76,20 +86,22 @@ function importsEventsDirectLiteral(ctx: RuleContext): boolean {
  * hook for the edits and any extra deployment markers. `presetModuleConfig()` derives the module list,
  * including `relayPipelines`, from `features` at runtime, so the only edit a `presetModuleConfig()`
  * project needs is adding `"eventsQueue"` to `shared/model.ts`'s `features` array. A hand-written module
- * list that names `@michaelthielemann/kestrel-events-direct` literally in `kestrel.config.ts` needs a
- * second edit this hook does not yet build (replacing that entry with `events-queue` and the layer's own
- * `relayPipelinesFor(features)`); it is reported as a missing part instead of guessed at, which makes the
- * whole switch manual and names the file.
+ * list that names `@michaelthielemann/kestrel-events-direct` literally in `kestrel.config.ts` also gets
+ * that entry replaced with `events-queue` and the layer's own `relayPipelinesFor(features)`, as a second,
+ * independent all-or-nothing part — either edit failing to locate makes the whole switch manual and names
+ * which one.
  */
 export async function layerSwitchEdits(ctx: RuleContext, _relayPipelines: readonly string[]): Promise<SwitchEditsResult> {
   const file = findFeaturesArrayFile(ctx);
   const source = file === undefined ? undefined : ctx.readFile(file);
-  const edit = file !== undefined && source !== undefined ? addStringToNamedExportArray(file, source, "features", "eventsQueue") : undefined;
+  const featuresEdit = file !== undefined && source !== undefined ? addStringToNamedExportArray(file, source, "features", "eventsQueue") : undefined;
   const parts: Record<string, Edit[] | undefined> = {
-    "shared/model.ts's features array": edit === undefined ? undefined : [edit],
+    "shared/model.ts's features array": featuresEdit === undefined ? undefined : [featuresEdit],
   };
-  if (importsEventsDirectLiteral(ctx)) {
-    parts["kestrel.config.ts's hand-written events-direct entry"] = undefined;
+  const configSource = ctx.readFile(ctx.project.configFile);
+  if (configSource !== undefined && importsEventsDirectLiteral(configSource)) {
+    const moduleListEdit = handWrittenModuleListEdit(ctx);
+    parts["kestrel.config.ts's hand-written events-direct entry"] = moduleListEdit === undefined ? undefined : [moduleListEdit];
   }
   return { parts, blockers: deploymentBlockers(ctx) };
 }

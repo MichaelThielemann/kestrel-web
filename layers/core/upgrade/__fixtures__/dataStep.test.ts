@@ -3,11 +3,14 @@ import { execFile } from "node:child_process";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { afterEach, describe, expect, it } from "vitest";
+import { checkBoot } from "@michaelthielemann/kestrel";
 import { createPersistenceSqlite } from "@michaelthielemann/kestrel-persistence-sqlite/impl";
 import { silentLogger } from "@michaelthielemann/kestrel/logger";
 import { runUpgradeCli } from "@michaelthielemann/kestrel-upgrade/plugin";
+import { sandboxBootInput } from "@michaelthielemann/kestrel-upgrade/sandbox";
 import type { UpgradeReport } from "@michaelthielemann/kestrel-upgrade";
 import { createLayerPlugin } from "../plugin";
+import { loadLayerProject } from "../load";
 import { cleanupAllFixtures, materializeFixture } from "./materialize";
 
 const execFileAsync = promisify(execFile);
@@ -52,12 +55,16 @@ async function checkWithReport(dir: string, reportFile: string): Promise<Upgrade
   return JSON.parse(lines.join("\n"));
 }
 
+async function fixWithReport(dir: string, reportFile: string): Promise<number> {
+  return runUpgradeCli(["fix", "--root", dir, "--write", "--yes", "--data-report", reportFile], { plugins: [createLayerPlugin()], stdout: () => undefined, stderr: () => undefined, forceInstalledMajor: 6 });
+}
+
 afterEach(() => {
   cleanupAllFixtures();
 });
 
 describe("dataModel() and model/underscore-field, verified against a real data report", () => {
-  it("data --db counts zero stored values; check proves it safe, but the rename comes out manual (kestrel's built-in rename always targets kestrel.config.ts, not shared/model.ts)", async () => {
+  it("data --db counts zero stored values; check proves it safe, fix --write renames shared/model.ts automatically, the fixed project still boots", async () => {
     const dir = await prepare();
     const dbFile = await seedDb(dir, undefined);
     const outFile = join(dir, "report.json");
@@ -68,7 +75,18 @@ describe("dataModel() and model/underscore-field, verified against a real data r
     const report = await checkWithReport(dir, outFile);
     const finding = report.findings.find((f) => f.rule === "model/underscore-field");
     expect(finding?.message).toContain("zero stored values");
-    expect(finding?.fix.kind).toBe("manual");
+    expect(finding?.fix.kind).toBe("auto");
+
+    await fixWithReport(dir, outFile);
+    const model = readFileSync(join(dir, "shared", "model.ts"), "utf8");
+    expect(model).toContain("titlePosition:");
+    expect(model).not.toContain("_titlePosition");
+
+    const { project } = await loadLayerProject(dir);
+    if (project === undefined) throw new Error("project failed to load after the rename");
+    const box = sandboxBootInput(project.input, { dir });
+    const bootCheck = await checkBoot(box.input, { setup: box.setup });
+    expect(bootCheck.errors).toEqual([]);
   }, 60_000);
 
   it("data --db counts a stored value; check still asks, with no default", async () => {

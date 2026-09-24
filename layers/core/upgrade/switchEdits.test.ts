@@ -12,13 +12,20 @@ const MODEL_FILE = "/fake/shared/model.ts";
 const MODEL_SOURCE = `export const features = ["references"] as const satisfies readonly Feature[];\n`;
 const CONFIG_FILE = "/fake/kestrel.config.ts";
 
-function contextFor(options: { files?: Record<string, string>; existingFiles?: string[] }): RuleContext {
+function contextFor(options: { files?: Record<string, string>; existingFiles?: string[]; features?: string[] }): RuleContext {
   const files = new Map<string, string>([[MODEL_FILE, MODEL_SOURCE], ...Object.entries(options.files ?? {})]);
   vi.mocked(existsSync).mockImplementation((p) => (options.existingFiles ?? []).includes(String(p)));
   return {
     root: "/fake",
     scratch: "/fake",
-    project: { input: { config: { modules: [], triggers: [], http: null }, modules: [], pipelines: [] }, kind: "kestrel-web", configFile: CONFIG_FILE, moduleFiles: new Map(), pipelineFiles: [] },
+    project: {
+      input: { config: { modules: [], triggers: [], http: null }, modules: [], pipelines: [] },
+      kind: "kestrel-web",
+      configFile: CONFIG_FILE,
+      moduleFiles: new Map(),
+      pipelineFiles: [],
+      data: { presetProblems: [], presetOptions: { modules: [], features: options.features ?? [], collections: {} } },
+    },
     bootCheck: { errors: [], warnings: [], notChecked: [] },
     readFile: (file) => files.get(file),
     answers: new Map(),
@@ -52,9 +59,29 @@ describe("layerSwitchEdits", () => {
     expect(result.blockers.some((b) => b.includes("NITRO_PRESET"))).toBe(true);
   });
 
-  it("reports a hand-written events-direct entry as a missing part, not a guessed edit", async () => {
+  it("replaces a hand-written events-direct entry with events-queue and relayPipelines from the layer's own constant", async () => {
+    const source = `import { defineConfig } from "@michaelthielemann/kestrel/defineConfig";\nexport default defineConfig({ modules: [{ use: "@michaelthielemann/kestrel-events-direct" }], triggers: [], http: null });\n`;
+    const result = await layerSwitchEdits(contextFor({ files: { [CONFIG_FILE]: source }, features: ["delivery"] }), []);
+    const edits = result.parts["kestrel.config.ts's hand-written events-direct entry"];
+    expect(edits).toHaveLength(1);
+    const edit = edits![0]!;
+    const patched = source.slice(0, edit.start) + edit.text + source.slice(edit.end);
+    expect(patched).toContain('"@michaelthielemann/kestrel-events-queue"');
+    expect(patched).not.toContain("kestrel-events-direct");
+    expect(patched).toMatch(/relayPipelines:\s*\["publishPage",\s*"unpublishPage"\]/);
+  });
+
+  it("omits relayPipelines candidates when the delivery feature is off", async () => {
     const source = `import { defineConfig } from "@michaelthielemann/kestrel/defineConfig";\nexport default defineConfig({ modules: [{ use: "@michaelthielemann/kestrel-events-direct" }], triggers: [], http: null });\n`;
     const result = await layerSwitchEdits(contextFor({ files: { [CONFIG_FILE]: source } }), []);
-    expect(result.parts["kestrel.config.ts's hand-written events-direct entry"]).toBeUndefined();
+    const edits = result.parts["kestrel.config.ts's hand-written events-direct entry"];
+    const edit = edits![0]!;
+    const patched = source.slice(0, edit.start) + edit.text + source.slice(edit.end);
+    expect(patched).toMatch(/relayPipelines:\s*\[\]/);
+  });
+
+  it("does not add a hand-written-module-list part at all when events-direct is not named literally", async () => {
+    const result = await layerSwitchEdits(contextFor({}), []);
+    expect(result.parts).not.toHaveProperty("kestrel.config.ts's hand-written events-direct entry");
   });
 });

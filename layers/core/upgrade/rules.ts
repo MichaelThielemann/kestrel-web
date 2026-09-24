@@ -7,7 +7,7 @@ import type { PresetOptions } from "../pipelines/checkPreset";
 import { addModuleEntryConfigProperty, bumpPackageJsonDependency, removeStepsFromArray, wrapAtomicGroup, wrapRange } from "./edits";
 import type { SourceRange } from "./edits";
 import { layerProjectData } from "./load";
-import { layerLocateSteps } from "./locators";
+import { layerLocateSteps, ownPipelineSteps } from "./locators";
 import { autoFinding, docsAnchor, fileForPipeline, manualFinding, packageJsonPath, presetOptionsCast } from "./ruleHelpers";
 
 const LAYER_RANGE = "^3.0.0";
@@ -258,7 +258,13 @@ export const ownPipelineDeliveryRule: Rule = {
       if (answer === "remove") {
         const file = fileForPipeline(ctx, pipelineName);
         const source = file === undefined ? undefined : ctx.readFile(file);
-        const edits = file !== undefined && source !== undefined ? locate(parseTs(source), pipelineName).flatMap((array) => removeStepsFromArray(file, source, array, isDeliveryStep)) : [];
+        let edits: Edit[] = [];
+        if (file !== undefined && source !== undefined) {
+          const root = parseTs(source);
+          const located = locate(root, pipelineName);
+          const arrays = located.length > 0 ? located : ownPipelineSteps(root, pipelineName);
+          edits = arrays.flatMap((array) => removeStepsFromArray(file, source, array, isDeliveryStep));
+        }
         findings.push(
           edits.length > 0
             ? autoFinding(id, rule, where, message, `removes ${stepList}; the relayed pipeline already runs them`, edits, docs)
