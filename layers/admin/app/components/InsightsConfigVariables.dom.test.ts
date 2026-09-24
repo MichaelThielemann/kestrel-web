@@ -1,8 +1,12 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import { describe, expect, it } from 'vitest'
 import type { InsightsConfigVariable } from '#kestrel-admin/types/api'
 import { en } from '#kestrel-admin/i18n/en'
 import InsightsConfigVariables from './InsightsConfigVariables.vue'
+
+const source = readFileSync(resolve(process.cwd(), 'layers/admin/app/components/InsightsConfigVariables.vue'), 'utf-8')
 
 const variables: InsightsConfigVariable[] = [
   { path: 'set.explicit', type: 'string', required: true, secret: false, set: true, status: 'set' },
@@ -63,5 +67,16 @@ describe('InsightsConfigVariables', () => {
     const wrapper = await mountSuspended(InsightsConfigVariables, { props: { variables, labelledBy: 'heading-id', scroll: false } })
 
     expect(wrapper.get('table').attributes('aria-labelledby')).toBe('heading-id')
+  })
+
+  it('lets its columns size to their content instead of forcing a fixed layout that collapses at phone width', () => {
+    expect(source).not.toMatch(/\.insights-table\s*{[^}]*table-layout:\s*fixed/)
+    expect(source).toMatch(/__path\s*{[^}]*white-space:\s*nowrap/)
+  })
+
+  it('scrolls the table horizontally rather than shrinking it, like every other admin table', async () => {
+    const wrapper = await mountSuspended(InsightsConfigVariables, { props: { variables } })
+    const scrollAncestor = wrapper.get('table').element.closest('.u-scroll')
+    expect(scrollAncestor).not.toBeNull()
   })
 })

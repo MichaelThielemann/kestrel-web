@@ -58,10 +58,6 @@ function statusLabel(v: InsightsConfigVariable): string {
 
 <style lang="scss">
 .insights-config {
-  .insights-table {
-    table-layout: fixed;
-  }
-
   &__col-path {
     width: 22%;
   }
@@ -79,7 +75,7 @@ function statusLabel(v: InsightsConfigVariable): string {
   }
 
   &__path {
-    overflow-wrap: anywhere;
+    white-space: nowrap;
   }
 
   &__empty {
