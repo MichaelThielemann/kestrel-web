@@ -84,6 +84,8 @@ async function loadBroken() {
 }
 
 await Promise.all([loadCounts(), loadBroken()])
+
+const hasAnyCard = computed(() => cards.value.length > 0 || capabilities.has('listMedia') || capabilities.has('listUsers'))
 </script>
 
 <template>
@@ -98,8 +100,9 @@ await Promise.all([loadCounts(), loadBroken()])
       <KestrelUiIcon name="triangle-alert" :size="18" />
       <span>{{ t('refs.dashAlert', { n: brokenCount }) }}</span>
     </NuxtLink>
-    <KestrelDashDeliveryAlert v-if="isAdmin" />
-    <ul class="dash__grid">
+    <KestrelDashDeliveryAlert v-if="capabilities.has('eventsDeliveryStatus')" />
+    <KestrelUiEmptyState v-if="!hasAnyCard" icon="layout-grid" :title="t('dash.empty.title')" :description="t('dash.empty.desc')" />
+    <ul v-else class="dash__grid">
       <li v-for="c in cards" :key="c.name">
         <NuxtLink :to="c.placement === 'system' ? `/admin/system?tab=${c.name}` : `/admin/${c.name}`" class="dash__card">
           <KestrelUiIcon :name="c.icon" class="dash__icon" size="1.5rem" />

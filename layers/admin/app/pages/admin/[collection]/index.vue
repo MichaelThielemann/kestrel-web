@@ -32,8 +32,14 @@ if (def.value?.mode === 'single' && def.value.placement === 'system') {
 
 <template>
   <section class="collection">
-    <p v-if="!def" class="collection__missing">{{ t('collection.unknown', { name: collection }) }}</p>
-    <p v-else-if="!hasCapability" class="collection__missing">{{ t('capability.unavailable') }}</p>
+    <template v-if="!def">
+      <h1 class="collection__title">{{ collection }}</h1>
+      <p class="collection__missing">{{ t('collection.unknown', { name: collection }) }}</p>
+    </template>
+    <template v-else-if="!hasCapability">
+      <h1 class="collection__title">{{ resolveLocalized(def.label?.plural, lang) ?? collection }}</h1>
+      <p class="collection__missing">{{ t('capability.unavailable') }}</p>
+    </template>
 
     <template v-else-if="def.mode === 'single'">
       <KestrelSingletonEditor v-if="def.placement !== 'system'" :collection="collection" :title="singletonTitle" :locale-param="def.translatable ? localeParam : undefined" />
