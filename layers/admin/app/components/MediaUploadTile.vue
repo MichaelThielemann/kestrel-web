@@ -14,6 +14,7 @@ const { t } = useT()
 
 const ready = computed(() => props.item.status === 'done')
 const failed = computed(() => props.item.status === 'failed')
+const fallbackIcon = computed(() => (props.item.file.type.startsWith('image/') ? 'image' : 'file-text'))
 const progressValue = computed(() => {
   if (props.item.status === 'queued') return 0
   if (props.item.status === 'uploading') return props.item.totalKnown ? props.item.progress : undefined
@@ -46,7 +47,7 @@ const progressText = computed(() => {
     <template v-else>
       <span class="media-upload-tile__thumb-wrap">
         <img v-if="preview" :src="preview" alt="" aria-hidden="true" class="media-upload-tile__thumb">
-        <span v-else class="media-upload-tile__badge" aria-hidden="true"><KestrelUiIcon name="file-text" :size="32" /></span>
+        <span v-else class="media-upload-tile__badge" aria-hidden="true"><KestrelUiIcon :name="fallbackIcon" :size="32" /></span>
         <KestrelMediaVariantChip
           v-if="ready && chipState"
           class="media-upload-tile__chip"

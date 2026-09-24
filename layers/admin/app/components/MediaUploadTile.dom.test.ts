@@ -24,7 +24,6 @@ describe('MediaUploadTile', () => {
     expect(bar.attributes('aria-valuetext')).toBe('Processing…')
   })
 
-
   it('names the file on the failed tile, not only in the dismiss button label', async () => {
     const wrapper = await mountSuspended(MediaUploadTile, { props: { item: item({ status: 'failed', message: 'boom' }) } })
 
@@ -51,6 +50,14 @@ describe('MediaUploadTile', () => {
 
     expect(wrapper.text()).not.toContain('No preview')
     expect(wrapper.find('.media-upload-tile__badge svg').exists()).toBe(true)
+  })
+
+  it('shows a neutral image icon, not the generic file icon, for an image upload with no local preview yet', async () => {
+    const wrapper = await mountSuspended(MediaUploadTile, {
+      props: { item: item({ status: 'uploading', file: new File(['x'], 'a.png', { type: 'image/png' }) }) },
+    })
+
+    expect(wrapper.get('.media-upload-tile__badge').html()).toContain('circle')
   })
 
   it('has no dangling aria-describedby on the thumbnail wrapper', async () => {
