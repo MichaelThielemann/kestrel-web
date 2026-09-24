@@ -97,6 +97,7 @@ await Promise.all([loadCounts(), loadBroken()])
       <KestrelUiIcon name="triangle-alert" :size="18" />
       <span>{{ t('refs.dashAlert', { n: brokenCount }) }}</span>
     </NuxtLink>
+    <KestrelDashDeliveryAlert v-if="isAdmin" />
     <ul class="dash__grid">
       <li v-for="c in cards" :key="c.name">
         <NuxtLink :to="c.placement === 'system' ? `/admin/system?tab=${c.name}` : `/admin/${c.name}`" class="dash__card">
