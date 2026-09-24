@@ -13,8 +13,10 @@ function keyOf(warning: InsightsBootWarning): string {
 <template>
   <details v-if="props.warnings.length" class="insights-warnings" open>
     <summary class="insights-warnings__summary">
-      <KestrelUiIcon name="triangle-alert" :size="16" />
-      {{ t('insights.bootWarnings.title', { count: props.warnings.length }) }}
+      <span class="insights-warnings__summary-label">
+        <KestrelUiIcon name="triangle-alert" :size="16" />
+        {{ t('insights.bootWarnings.title', { count: props.warnings.length }) }}
+      </span>
     </summary>
     <p class="insights-warnings__hint">{{ t('insights.bootWarnings.hint') }}</p>
     <ul class="insights-warnings__list">
@@ -40,15 +42,18 @@ function keyOf(warning: InsightsBootWarning): string {
 
   &__summary {
     cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
     font-weight: var(--weight-medium);
 
     &:focus-visible {
       outline: 2px solid var(--color-focus);
       outline-offset: 2px;
     }
+  }
+
+  &__summary-label {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
   }
 
   &__hint {
@@ -69,7 +74,12 @@ function keyOf(warning: InsightsBootWarning): string {
   &__item {
     display: flex;
     flex-direction: column;
+    align-items: flex-start;
     gap: var(--space-1);
+
+    .insights-badge {
+      margin-inline-start: 0;
+    }
   }
 
   &__message {
