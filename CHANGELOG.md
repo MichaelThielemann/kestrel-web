@@ -100,9 +100,9 @@
   before — the write response no longer carries it. `SaveResponse<T>` is gone from the exported API
   types; `RevisionRestoreResponse` is the document plus `restore?` and `_events?`.
 
-  **Only publishing keeps its head start with the queue.** `presetModuleConfig()` sets the new
-  `eventsQueue.relayPipelines` to `publishPage`/`unpublishPage` when `delivery` is on, `[]` otherwise —
-  the queue's relay claims only those rows, bounded by the new `eventsQueue.relayMs` config key (default
+  **Only publishing keeps its head start with the queue.** `presetModuleConfig()` derives the
+  events-queue module's `relayPipelines` as `publishPage`/`unpublishPage` when `delivery` is on, `[]`
+  otherwise — the queue's relay claims only those rows, bounded by the new `eventsQueue.relayMs` config key (default
   5000), so a page publish or unpublish still completes before the response goes out. Every other
   event-triggered pipeline — `anonymizeAuditUser` and `reassignRevisionAuthor` on `user.deleted`,
   `auditAuth` on `login`/`logout`, `generateImageVariants` on `uploadMedia` — is left to the worker from
@@ -147,11 +147,12 @@
 - `EventDeliveryStatus` (`layers/core/app/types/api.ts`), the type of `GET /admin/events/delivery`'s
   response.
 - `InsightsBootWarning`, and `InsightsManifest.warnings` (see the new base pipeline above).
-- `definePreset()` gains an error for a queue relay selection that names a pipeline the preset itself
-  used to compose but no longer does after `exclude` and `overrides`: `preset: module
-  "@michaelthielemann/kestrel-events-queue" is configured to relay pipeline "<name>", which the preset
-  does not compose – …`. A name the preset never defines passes through; the `eventsQueue` module's own
-  boot check still rejects an unknown pipeline once every pipeline is resolved.
+- `definePreset()` gains an error for a queue relay selection that names a pipeline from the preset's own
+  vocabulary (a static, feature or generic-collection pipeline name) that this configuration does not
+  currently compose — because its feature is off, its collection is absent, or `exclude`/`overrides`
+  dropped it: `preset: module "@michaelthielemann/kestrel-events-queue" is configured to relay pipeline
+  "<name>", which the preset does not compose – …`. A name outside that vocabulary passes through; the
+  `eventsQueue` module's own boot check still rejects an unknown pipeline once every pipeline is resolved.
 
 ### Changed
 
@@ -169,6 +170,10 @@
 - `create-kestrel`: new projects enable `eventsQueue` by default, so an upload answers as soon as the
   file is stored and its image variants render in the background worker; existing projects keep their
   mode.
+- `presetModuleConfig()` no longer sets `persistence-sqlite.acquireTimeoutMs` to a fixed `15000`; left
+  unset, the module derives it as `busyTimeoutMs` plus a 10 second margin (`15000` with every default in
+  place), so raising `busyTimeoutMs` through `overrides` no longer risks a value at or below the fixed
+  `acquireTimeoutMs`, which would have failed to boot.
 
 - `deleteMediaFolder` now calls `media.listFolderItems` instead of the deprecated `media.folderItems`;
   behaviour is unchanged.
@@ -191,6 +196,11 @@
   scaffold collection and has no effect on any exported type.
 
 ### Fixed
+
+- The insights configuration table no longer collapses into a one-character-wide path column with
+  overlapping header labels at phone width. It sizes its columns to their content and scrolls
+  horizontally instead of shrinking; a long value or default now wraps within a bounded width rather than
+  forcing every column to nearly nothing.
 
 - The insights graph and the admin sidebar now work at phone width: the sidebar collapses to icons
   below 640px and expands as a dismissible overlay instead of covering the page, and the interactive

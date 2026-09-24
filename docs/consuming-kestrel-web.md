@@ -328,16 +328,18 @@ rather than booting with something plausible.
   outside production.
 - **The conventions** — `media/` for the media prefix, `site/` for delivery and redirects, the empty
   configs of the modules that take none.
-- **`persistence-sqlite.acquireTimeoutMs`** — set to `15000`. An atomic write group (§4) holds the
-  database's single connection for its duration; `acquireTimeoutMs` bounds how long a second request
-  waits for its turn before it is answered `503`, and `persistence-sqlite` refuses to boot unless it is
-  greater than `busyTimeoutMs` (default `5000`) — an equal pair fails exactly when the wait would have
+- **`persistence-sqlite.acquireTimeoutMs`** — left unset, so the module derives it itself: `busyTimeoutMs`
+  (default `5000`) plus a 10 second margin, `15000` with every default in place. An atomic write group (§4)
+  holds the database's single connection for its duration; `acquireTimeoutMs` bounds how long a second
+  request waits for its turn before it is answered `503`, and `persistence-sqlite` refuses to boot if it is
+  set to a value at or below `busyTimeoutMs` — an equal pair fails exactly when the wait would have
   succeeded, because the connection is held synchronously while SQLite waits out `busyTimeoutMs` and no
   timer can fire during that block. A request that has to wait experiences that wait, then either
   proceeds once the lock frees or gets `503` at the `acquireTimeoutMs` deadline; the client's own
-  retry, if any, sees the same `Retry-After` handling as any other `503`. Change either number through
-  `overrides: { "@michaelthielemann/kestrel-persistence-sqlite": { acquireTimeoutMs, busyTimeoutMs } }`,
-  keeping `acquireTimeoutMs` above `busyTimeoutMs`.
+  retry, if any, sees the same `Retry-After` handling as any other `503`. Raise `busyTimeoutMs` through
+  `overrides: { "@michaelthielemann/kestrel-persistence-sqlite": { busyTimeoutMs } }` and the derived
+  margin follows it; set `acquireTimeoutMs` explicitly there only if you need a different margin, and keep
+  it above `busyTimeoutMs`.
 
 Anything the builder doesn't expose goes through `overrides`, keyed by package name and shallow-merged
 onto that module's derived config with your keys winning — e.g.
@@ -354,7 +356,7 @@ only if you need a module `presetModuleConfig()` doesn't emit — `definePreset`
 const modules = [
   { use: "@michaelthielemann/kestrel-blobstore-filesystem", config: { root: resolve(dataDir, "blobs") } },
   { use: "@michaelthielemann/kestrel-replication-sqlite", config: { file: resolve(dataDir, "kestrel.db") } },
-  { use: "@michaelthielemann/kestrel-persistence-sqlite", config: { file: resolve(dataDir, "kestrel.db"), acquireTimeoutMs: 15000 } },
+  { use: "@michaelthielemann/kestrel-persistence-sqlite", config: { file: resolve(dataDir, "kestrel.db") } },
   { use: "@michaelthielemann/kestrel-sanitize-svg", config: {} },
   { use: "@michaelthielemann/kestrel-media-default", config: { prefix: "media/", allowedTypes: ["image/*", "application/pdf"], deniedTypes: ["text/html", "application/xhtml+xml"], maxBytes: 5242880, locales: ["de", "en"], defaultLocale: "de" } },
   { use: "@michaelthielemann/kestrel-images-default", config: { publicPath: "/api/media" } },

@@ -244,9 +244,10 @@ restartRequired }`; `persistence-sqlite` is the shipped example, reporting the s
 
 A write that touches an atomic group (creating, updating or deleting a page, deleting a user) holds
 SQLite's single connection for the group's duration; a second such request arriving while it is open
-waits, up to `persistence-sqlite`'s `acquireTimeoutMs` (`presetModuleConfig()` sets `15000`), before it
-is answered `503 { retryable: true }` with a `Retry-After` header on the request itself — the same
-shape as any other transient failure. Neither probe reflects this: it is ordinary contention, not a
+waits, up to `persistence-sqlite`'s `acquireTimeoutMs` (left unset by `presetModuleConfig()`, so the
+module derives it as `busyTimeoutMs` plus a 10 second margin — `15000` with every default in place),
+before it is answered `503 { retryable: true }` with a `Retry-After` header on the request itself — the
+same shape as any other transient failure. Neither probe reflects this: it is ordinary contention, not a
 health condition, and both `/api/health` and `/api/ready` keep answering normally while it happens.
 
 ## 9. Backups

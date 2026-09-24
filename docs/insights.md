@@ -27,8 +27,9 @@ The effective value (`value` on a config variable) is what the config sets, othe
 default. The backend serialises it as a JSON snapshot:
 functions, class instances and Buffers become type labels such as `"[function]"`, a `Date` its ISO
 string, and long strings, wide arrays, deep nesting and cycles are truncated with a marker. The
-admin renders that snapshot with `JSON.stringify`, truncates it to one line with the full text in
-`title`, and offers a copy button from 24 characters on.
+admin renders that snapshot with `JSON.stringify`, carries the full text in `title`, and offers a copy
+button from 24 characters on; in the Value and Default columns of the config table, a long snapshot
+wraps onto further lines within a bounded width instead of forcing the column wider.
 
 A variable that is redacted — `redacted: true` from the backend, or `secret` in the schema — shows a
 lock icon and the word "redacted" and never a value, neither in the Value nor in the Default column,
