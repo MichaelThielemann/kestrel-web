@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { boot, defineConfig, isOk } from "@michaelthielemann/kestrel";
 import { boundaryCast } from "@michaelthielemann/kestrel/cast";
 import { PERSISTENCE } from "@michaelthielemann/kestrel-contracts/persistence";
+import { EVENTS } from "@michaelthielemann/kestrel-contracts/events";
 import insights from "@michaelthielemann/kestrel-insights";
 import { presetModules } from "#kestrel/modules";
 import { definePreset, presetModuleConfig } from "#kestrel/pipelines";
@@ -183,6 +184,30 @@ describe("reassignRevisionAuthor and retryReassignRevisionAuthor verify the targ
         payload: { result: { reassignTo: "not-a-real-user-id" } },
       });
       expect(reassign.status).toBe(404);
+
+      expect(await authorIdsFor(kestrel, pageId)).toEqual(before);
+    } finally {
+      await kestrel.stop();
+    }
+  });
+
+  it("a user.deleted event whose reassignment target is gone by the time the listener runs is counted as a failed delivery and shows up among recent failures", async () => {
+    const { kestrel, headers, pageId } = await bootWithPage();
+    try {
+      const before = await authorIdsFor(kestrel, pageId);
+
+      const events = kestrel.contracts.find(EVENTS);
+      if (events === undefined) throw new Error("expected the booted instance to provide events@1");
+      await events.emit("user.deleted", { id: "vanished-user", result: { reassignTo: "vanished-user" } });
+
+      const status = await kestrel.run("eventsDeliveryStatus", { trigger: { kind: "http", name: "GET /admin/events/delivery" }, headers });
+      expect(status.status).toBe(200);
+      expect(boundaryCast<{ dead: number, scope: string }>(status.result, "host")).toMatchObject({ dead: 1, scope: "process" });
+
+      const stats = await kestrel.run("insightsStats", { trigger: { kind: "http", name: "GET /admin/insights/stats" }, headers });
+      expect(stats.status).toBe(200);
+      const recentFailures = boundaryCast<{ recentFailures?: { pipeline: string, code?: string, step?: string }[] }>(stats.result, "host").recentFailures ?? [];
+      expect(recentFailures).toContainEqual(expect.objectContaining({ pipeline: "reassignRevisionAuthor", code: "NOT_FOUND", step: "authn.verifyUser:result.reassignTo" }));
 
       expect(await authorIdsFor(kestrel, pageId)).toEqual(before);
     } finally {
