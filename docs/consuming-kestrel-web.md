@@ -1632,9 +1632,7 @@ a suggestion, and applies the mechanical ones with a preview:
 1. `pnpm add @michaelthielemann/kestrel-web@^3` in a branch.
 2. `npx kestrel-web-upgrade check` — with the project's own `@michaelthielemann/kestrel*` packages still at
    5.x, this sees only what a static read of your files can tell (dependency ranges, module lists,
-   overrides); it always reports `deps/mixed-majors` at this point too, since the layer and the backend
-   packages are on different major lines by design — that finding is expected here and does not block
-   anything.
+   overrides).
 3. `npx kestrel-web-upgrade fix` bumps every out-of-range `@michaelthielemann/kestrel*` dependency
    (`^6.0.0`) and `@michaelthielemann/kestrel-web` itself (`^3.0.0`); run it with `--write`, then
    `pnpm install`.
@@ -1647,7 +1645,10 @@ What changes:
 - A hand-written `modules` list needs `events-inmemory` plus exactly one of `events-direct`/`events-queue`;
   a project built with `presetModuleConfig()` already has this and needs no change.
 - An `overrides` entry of a write pipeline must keep the atomic group around its content write, and keep
-  `events.relay` when it keeps an `events.emit:` step; the tool reports which pipeline and step.
+  `events.relay` when it keeps an `events.emit:` step. `fix` forward-ports the common shape itself — the
+  2.x default's write and its trailing emit as plain steps — into the 3.0 group and relay; it asks first
+  when your own steps sit in the same window, and only falls back to naming the pipeline and step when it
+  cannot locate the override's own step list at all.
 - `media.folderItems` is renamed to `media.listFolderItems`.
 - `revisions.reassignAuthor` now requires `verifiedUser`, written by a preceding
   `authn.verifyUser:<path>`.
@@ -1660,9 +1661,9 @@ What changes:
   edit's response still carries the delivery outcome; every other subscriber (image variants, the login
   audit, a deleted user's follow-ups) moves to the worker and answers moments later. A hand-written
   `events-queue` module entry without `relayPipelines` gets one added by `fix`.
-- A content field name may not start with `_`; renaming an existing one needs a data migration on the
-  running 5.8.x version first (`kestrel-web-upgrade check` explains the two-phase procedure when it finds
-  one).
+- A content field name may not start with `_`. `fix` asks for the new name (or to remove the field) and
+  renames it in `shared/model.ts`; answer only once a migration on the running 5.8.x instance has copied
+  any stored value to the new key, since nothing here proves whether one exists.
 
 **The queue offer.** A project still on inline delivery is offered a one-line switch: `fix` asks whether to
 add `"eventsQueue"` to `shared/model.ts`'s `features` array. It only offers this when there is an event to
