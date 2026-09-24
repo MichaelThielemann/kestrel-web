@@ -56,9 +56,9 @@ export interface CapabilityResolver {
 }
 
 export function capabilityResolver(schema: AdminSchema | null): CapabilityResolver {
-  const capabilityOf = (pipeline: string): Capability | undefined => schema?.capabilities[pipeline]
+  const capabilityOf = (pipeline: string): Capability | undefined => schema?.capabilities?.[pipeline]
   const collectionCapabilityOf = (collection: string, verb: CollectionVerb): Capability | undefined =>
-    schema?.collections.find((entry) => entry.name === collection)?.capabilities[verb]
+    schema?.collections.find((entry) => entry.name === collection)?.capabilities?.[verb]
 
   return {
     has: (pipeline) => capabilityOf(pipeline) !== undefined,
