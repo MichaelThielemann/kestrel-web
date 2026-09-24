@@ -331,8 +331,10 @@ rather than booting with something plausible.
   A `to` pointing at neither is left out.
 - **`delivery.types`** — every page-like collection, i.e. every `multi` type carrying `slug`, `status`
   and `body`, as `{}` so the module's own field defaults apply.
-- **Both `publicPath` values** — `images-default`'s and `delivery-static`'s `media.publicPath` — from the
-  `/api` mount path, so variant URLs and exported media stay under it (§6).
+- **`publicPath` on both media modules** — `media-default`'s and `images-default`'s — set to `/media`, the
+  path the Node server answers media on directly (see "Media URLs"). With the `delivery` feature, both
+  modules also get `publicCopy: { prefix: "site/" }`, and `delivery-static` gets `reservedPaths: ["/api",
+  "/admin", "/media"]` instead of a `media` option, which the module no longer accepts.
 - **`validate-jsonschema.schemas`** — `presetSchemas({ features, collections })`, with `watch` on
   outside production.
 - **The conventions** — `media/` for the media prefix, `site/` for delivery and redirects, the empty
@@ -367,8 +369,8 @@ const modules = [
   { use: "@michaelthielemann/kestrel-replication-sqlite", config: { file: resolve(dataDir, "kestrel.db") } },
   { use: "@michaelthielemann/kestrel-persistence-sqlite", config: { file: resolve(dataDir, "kestrel.db") } },
   { use: "@michaelthielemann/kestrel-sanitize-svg", config: {} },
-  { use: "@michaelthielemann/kestrel-media-default", config: { prefix: "media/", allowedTypes: ["image/*", "application/pdf"], deniedTypes: ["text/html", "application/xhtml+xml"], maxBytes: 5242880, locales: ["de", "en"], defaultLocale: "de" } },
-  { use: "@michaelthielemann/kestrel-images-default", config: { publicPath: "/api/media" } },
+  { use: "@michaelthielemann/kestrel-media-default", config: { prefix: "media/", publicPath: "/media", allowedTypes: ["image/*", "application/pdf"], deniedTypes: ["text/html", "application/xhtml+xml"], maxBytes: 5242880, locales: ["de", "en"], defaultLocale: "de", publicCopy: { prefix: "site/" } } },
+  { use: "@michaelthielemann/kestrel-images-default", config: { publicPath: "/media", publicCopy: { prefix: "site/" } } },
   { use: "@michaelthielemann/kestrel-authn-multi", config: { identifier: "username", minPasswordLength: 8, sessionTtlSeconds: 86400, bootstrap: { username: "admin", passwordHash: adminPasswordHash(), roles: ["admin"] } } },
   { use: "@michaelthielemann/kestrel-authz-roles", config: { roles: { admin: ["*"], editor: ["pages.*", "media.*", "images.read", "settings.read", "redirects.*"] }, anonymous: ["pages.read", "settings.read", "media.read"] } },
   { use: "@michaelthielemann/kestrel-content-default", config: contentModel },
@@ -377,7 +379,7 @@ const modules = [
   { use: "@michaelthielemann/kestrel-links-default", config: { timeoutMs: 10000, concurrency: 4, recheckAfterSeconds: 21600 } },
   { use: "@michaelthielemann/kestrel-validate-jsonschema", config: { schemas: presetSchemas({ features, collections: contentTypes }), watch: process.env.NODE_ENV !== "production" } },
   { use: "@michaelthielemann/kestrel-renderer-nuxt", config: {} },
-  { use: "@michaelthielemann/kestrel-delivery-static", config: { types: { pages: {} }, prefix: "site/", media: { publicPath: "/api/media" }, llms: { full: true, headings: { pages: "Pages" } } } },
+  { use: "@michaelthielemann/kestrel-delivery-static", config: { types: { pages: {} }, prefix: "site/", reservedPaths: ["/api", "/admin", "/media"], llms: { full: true, headings: { pages: "Pages" } } } },
   { use: "@michaelthielemann/kestrel-redirects-default", config: { prefix: "site/" } },
   { use: "@michaelthielemann/kestrel-audit-persistence", config: {} },
   { use: "@michaelthielemann/kestrel-events-inmemory", config: {} },
@@ -674,9 +676,16 @@ also keeps the dead-letter list and its retry actions.
 **`images` details:** routes `listImageSizes`, `syncImages`, `pruneImages`, `retryFailedImages`,
 `imagesStatus`; boot step `registerImageSizesBoot` (no trigger — the Nitro plugin runs it at boot to
 register the sizes declared by blocks and layers); pipeline `registerImageSizes` (`PUT
-/admin/images/sizes`); event `generateImageVariants`; cron `resumeImages`; route `serveImageVariant`;
-and attach/remove/removeMany/export steps in `getMedia`, `listMedia`, `deleteMedia`,
-`deleteMediaFolder`, `exportMedia`.
+/admin/images/sizes`); cron `resumeImages`; route `serveImageVariant` at `/media/:id/variants/:file`,
+served directly on Node next to `/api`; and attach/remove/removeMany/export steps in `getMedia`,
+`listMedia`, `deleteMedia`, `deleteMediaFolder`, `exportMedia`.
+Placing an image's variant paths and rendering them are two separate pipelines: without `eventsQueue`,
+`generateImageVariants` (on `media.uploaded`) does both inline, as before. With `eventsQueue`,
+`planImageVariants` (on `media.uploaded`, the main lane) decides every size's path and writes its
+placeholder, which is what makes the item `available`; `generateImageVariants` (on the `images.planned`
+event it raises) then renders each size in the queue's `variants` lane, so a batch of uploads becomes
+usable file by file without waiting for the renders behind it. Every media module always answers its
+public URL directly: base pipeline `serveMediaFile` (`/media/:id/:name`) alongside `serveImageVariant`.
 
 **`delivery` details:** the three delivery steps are not steps of a page write pipeline any more.
 `createPage`, `updatePage`, `deletePage`, `deletePageTranslation` and `restorePageRevision` only emit
@@ -691,6 +700,11 @@ below), and each entry names the event, the pipeline, its attempts, whether it i
 its error. A delivery failure therefore never fails the write request — the response is still 200, and
 `_events.status` says so. `GET /admin/publish-status/pages/:id` remains the authoritative per-locale
 publish status; the write response's `_events` is about the delivery *run*, not the page's live state.
+With `images`, `delivery` also gains `repairPublicMedia` (`POST /admin/media/repair-public`,
+`media.manage`, exposed in the admin as "Repair public media copies") and the nightly cron
+`syncPublicMedia` (`45 3 * * *`): both reconcile the static export's media copies with the stored items —
+writing what is missing, removing what no longer exists — and are the backstop for §6's media URLs, not
+something a normal deployment needs to run by hand.
 
 **`eventsQueue` requirement:** delivery is at-least-once, so your event listeners must be idempotent, and
 no ordering is guaranteed between the pipelines subscribed to one event. Every event a pipeline receives
@@ -718,10 +732,12 @@ emitting run.
 `presetModuleConfig()` derives this with the exported `relayPipelinesFor(features)` and passes it as the
 `eventsQueue` module's `relayPipelines`. `relayPipelinesFor` picks from the exported
 `RELAY_CANDIDATE_PIPELINES` (`#kestrel/pipelines`), today just `publishPage`/`unpublishPage`. Every other
-event-triggered pipeline (`generateImageVariants`, `auditAuth`, `reassignRevisionAuthor`, …) is left to the
+event-triggered pipeline (`planImageVariants`, `auditAuth`, `reassignRevisionAuthor`, …) is left to the
 worker: its row is due immediately, and `_events` reports it as `"queued"`, not `"pending"`. A page publish
 or unpublish therefore still completes before the write's response, while heavier or slower subscribers
-never share the request's time budget.
+never share the request's time budget. `generateImageVariants` runs in the queue's own `variants` lane
+(set on the `eventsQueue` module's `lanes`, not through `relayPipelines`): a render never blocks placing
+the next upload, and the relay never claims a lane row regardless of `relayPipelines`.
 
 A hand-written module list that never calls `presetModuleConfig()` keeps the `eventsQueue` module's own
 default, `relayPipelines: "all"` — every subscriber runs inline, bounded by `relayMs`. Call
@@ -1171,19 +1187,21 @@ app, fails the build. Both sources are scanned the same way `app/blocks/*.vue` i
 `.nuxt/kestrel/image-sizes.json` — generated, **never hand-edited**, same rule as
 `.nuxt/kestrel/pages.body.json`.
 
-**Wiring the images module** is already done for you: `presetModuleConfig()` (§3) adds
-`images-default` with `publicPath: "/api/media"` as soon as the `images` feature is on, and gives
-`delivery-static` the same value under `media.publicPath` so exported media matches. Both come from
-kestrel-web's `/api` mount path — the module's own default (`/media`) 404s in the browser. Hand-written
-`modules` lists need both spelled out:
+**Wiring the images module** is already done for you: `presetModuleConfig()` (§3) sets `publicPath:
+"/media"` on both `media-default` and `images-default` as soon as the `images` feature is on, and, with
+`delivery`, adds `publicCopy: { prefix: "site/" }` to both instead of a `media` option on
+`delivery-static` (which the module no longer accepts). `/media` is served directly by kestrel-web's Node
+server, next to the `/api` mount, not under it. Hand-written `modules` lists need it spelled out:
 
 ```ts
-{ use: "@michaelthielemann/kestrel-images-default", config: { publicPath: "/api/media" } },
-{ use: "@michaelthielemann/kestrel-delivery-static", config: { types: { pages: {} }, prefix: "site/", media: { publicPath: "/api/media" } } }
+{ use: "@michaelthielemann/kestrel-media-default", config: { publicPath: "/media", publicCopy: { prefix: "site/" } } },
+{ use: "@michaelthielemann/kestrel-images-default", config: { publicPath: "/media", publicCopy: { prefix: "site/" } } },
+{ use: "@michaelthielemann/kestrel-delivery-static", config: { types: { pages: {} }, prefix: "site/", reservedPaths: ["/api", "/admin", "/media"] } }
 ```
 
-A mismatch here logs a boot-time error (`images: publicPath "…" is not served under the mount path
-"/api"`) rather than failing the build, so don't rely on silence to confirm it's right.
+A mismatch here — a wrong `publicPath`, a missing `publicCopy`, a trigger table that doesn't reach
+`media.serve`/`images.serve` at `/media`, or `reservedPaths` missing one of `/api`, `/admin`, `/media` —
+fails the boot outright, naming the problem.
 
 **Register and sync**: declaring a size only gets it into `.nuxt/kestrel/image-sizes.json` and into
 `#kestrel/blocks`' `imageSizes` — the backend doesn't know about it yet. There is no boot-time
@@ -1194,9 +1212,14 @@ one action (`imagesRegisterAndSync`), gated by the `images.write` and `images.ma
 that click happens, `KestrelImage` keeps serving the original file for that size — nothing breaks, the
 tab just shows it as not yet registered.
 
-**What kestrel-web does not do**: rewrite `src`/`srcset` for a static export. Those come verbatim from
-`variants[].path`; turning a live variant path into the filename `delivery-static`'s media export writes
-is backend work, not covered here.
+**Every media URL comes from the API as data.** A media item's `path`, and each of its `variants[].path`,
+is the file's one public URL — build none of it from an id yourself. `pickImageSources` links whichever
+variant a size names, in any state, since a listed path always resolves; there is nothing to rewrite for
+a static export, so `delivery-static` stores rendered output byte for byte. Reference an item in content
+only once its `available` is not `false` (an unavailable item has no variant paths yet, so a page would
+link only the original). Reading a media item anonymously is by id only — `GET /api/media/:id` or
+`GET /api/media?ids=…` — listing the library or its folders needs a signed-in caller and answers `401`
+to a public request.
 
 See `docs/architecture.md#image-variants` for the validation rules, the discovery/registration split and
 the `<KestrelImage>` prop and fallback rules in full.
@@ -1284,9 +1307,12 @@ Add `@michaelthielemann/kestrel-delivery-static` (renders published pages to the
 to static HTML rather than served live. See `docs/architecture.md#static-delivery--renderer-contract`.
 
 What a publish writes under the `delivery-static` `prefix` (default `site/`): the page HTML
-(`<path>/index.html`), exported media (`media` config of `delivery-static`, §6), `redirects.json` (§9) and the complete Nuxt build assets
-directory (`_nuxt/…`, respecting `app.baseURL`/`app.buildAssetsDir`), so a plain static server can
-deliver the site with styles, scripts and hydration. Rules that follow from that:
+(`<path>/index.html`), `redirects.json` (§9) and the complete Nuxt build assets directory (`_nuxt/…`,
+respecting `app.baseURL`/`app.buildAssetsDir`), so a plain static server can deliver the site with
+styles, scripts and hydration. Media is not part of a page publish: with the `delivery` feature,
+`media-default` and `images-default` each keep their own public copy under the same prefix
+(`publicCopy: { prefix: "site/" }`, §6) as soon as a file is stored or a variant is placed, independently
+of any page referencing it. Rules that follow from that:
 
 - **Publish from a production build only** (`nuxt build`, then `node .output/server/index.mjs`). A publish
   from `nuxt dev` fails with `renderer/nuxt: publishing requires a production build …` — the editor's
@@ -1311,9 +1337,34 @@ Minimal nginx location for a filesystem blobstore (`root` = `<blobstore root>/si
 
 ```nginx
 location /_nuxt/ { expires 1y; add_header Cache-Control "public, immutable"; }
-location ~ \.meta\.json$ { return 404; }
+location ~ \.(meta\.json|kestrel-tmp)$ { return 404; }
+location ^~ /media/ {
+    root <blobstore root>/site;
+    add_header X-Content-Type-Options nosniff always;
+    add_header Content-Security-Policy "default-src 'none'; sandbox" always;
+    add_header Cache-Control "public, max-age=31536000, immutable" always;
+    location ~ ^/media/[^/]+/variants/ {
+        root <blobstore root>/site;
+        add_header X-Content-Type-Options nosniff always;
+        add_header Content-Security-Policy "default-src 'none'; sandbox" always;
+        add_header Cache-Control "no-cache" always;
+    }
+}
 location / { try_files $uri $uri/index.html =404; }
 ```
+
+The two security headers on `/media/` are mandatory whenever it shares an origin with `/admin`. Every
+file an anonymous visitor may read — SVGs included — is served there; unless the `sanitizeSvg` feature is
+on, an SVG is stored as uploaded, and opened directly it would run its script on the site origin, where
+the admin's session cookie is readable by script. `nosniff` stops a file from being taken for another
+type, and the CSP `sandbox` stops any script it holds from running. The Node server sends both on every
+file at `/media/**` already; this block matches that when serving the export from a filesystem blobstore
+instead. An original's URL never changes content once written and may be cached for a year; a variant
+path holds the original's bytes until its render replaces them at the same URL, so it must revalidate
+(`no-cache`) rather than being cached long. Deleting a file does not reach a cache that already holds it
+— purge a CDN in front of the host when a file must disappear at once. `.kestrel-tmp` is the filesystem
+blobstore's temporary-file suffix during an atomic replace; it is never a real key and must never be
+served.
 
 **What a failed publish or unpublish means.** Publishing and unpublishing are event pipelines now
 (`publishPage`, `unpublishPage`), delivered by `events.relay` before the response — see the `delivery`
@@ -1444,6 +1495,25 @@ named, not silently.
 
 `@michaelthielemann/kestrel-renderer-nuxt` is versioned separately but released together with the layer;
 it is an ordinary dependency and needs no attention unless you pinned it yourself.
+
+### 2.x → 3.0
+
+- Media items carry one public URL, `path`, next to `variants[].path`; both now come from the API as
+  data. Remove any code that built `/api/media/<id>/file` or a variant URL from an id and read `path`
+  from the item instead. `mediaFileUrl` and `mediaVariantUrl` are gone from the admin composables, and
+  `KestrelMediaThumb` takes `path` instead of `id`.
+- `presetModuleConfig()` sets `publicPath: "/media"` on `media-default` and `images-default` (it was
+  `/api/media` on `images-default`), and, with `delivery`, `publicCopy: { prefix: "site/" }` on both
+  instead of a `media` option on `delivery-static`, which no longer accepts one. A hand-written module
+  list needs the same edits — see "Wiring the images module" (§6).
+  The server now answers `/media/**` itself; `/api/media` still exists unchanged.
+- Listing media or its folders (`GET /api/media` without `ids`, `GET /api/media/folders`) now requires a
+  signed-in caller and answers `401` to a public request; reading one item by id stays anonymous.
+- Page slugs `api`, `admin` and `media`, and locales of those names, are rejected.
+- An uploaded image can be put into content only once its `available` field is not `false`; the admin's
+  media picker already enforces this.
+- Run the release's kestrel-side upgrade first (`kestrel-upgrade`, see the backend's own changelog); it
+  rewrites `delivery-static.media`, the image-variant event pipeline and the media delete order for you.
 
 ### 1.x → 2.0
 

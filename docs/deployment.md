@@ -202,11 +202,16 @@ Points that matter:
   the edge. An invalid allowlist entry stops the server at start
   (`ip allowlist: invalid entry "…"`), it is not skipped.
 - **Paths.** Everything is one origin: `/` is the site, `/admin` the editorial UI, `/api` the backend,
-  `/api/media/…` the media and image variants, `/_nuxt/…` the hashed build assets. Do not split them
-  across upstreams; the admin talks to `/api` relative to its own origin.
+  `/media/…` every media file's one public URL (an original or an image variant, served directly, not
+  under `/api`), `/_nuxt/…` the hashed build assets. `api`, `admin` and `media` are reserved: a page slug
+  or a locale of one of those names is rejected. Do not split these across upstreams; the admin talks to
+  `/api` relative to its own origin.
 - **Timeouts.** **Publish all** (System → Delivery) renders every page in the request, and a media
   export walks the whole library. A 60 s proxy timeout is too short for a site of any size.
-- **Nothing to cache by default.** Backend answers carry `cache-control: no-store`. Cache `/_nuxt/`
+- **Almost nothing to cache by default.** Backend answers carry `cache-control: no-store`, except
+  `/media/…`: an original is `public, max-age=31536000, immutable` (its bytes never change at that URL);
+  a variant path is `no-store` on Node, since a placeholder there is replaced by the render at the same
+  URL — see `docs/consuming-kestrel-web.md` §8 for the equivalent static-host headers. Cache `/_nuxt/`
   (hashed, immutable) and leave the rest to the origin.
 
 `/api/health` and `/api/ready` are in the `site` allowlist scope, not the `admin` one, so a

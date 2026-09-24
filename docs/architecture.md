@@ -242,7 +242,8 @@ not by package name. Four places rely on this:
 - The upload limit (`server/utils/limits.ts`) looks up the module that registers `media.upload`.
 - The inline-SVG check (`http.inlineTypes`, `server/utils/inline-types.ts`) looks up the module that
   registers `sanitize.svg`.
-- The `publicPath` check looks up the module that registers `images.register`.
+- The media-paths boot check (`assertMediaPaths`, `server/utils/media-paths.ts`) looks up the modules
+  that register `media.upload`, `images.attach` and `delivery.exportLlms`.
 - The readiness probe looks up the module that registers `content.create`.
 
 The owning module name comes from the booted instance's `kestrel.steps.owner(step)` — the real step
@@ -314,9 +315,11 @@ ratelimit?, llms?, migrations?, session? }`. It emits the base modules plus exac
 features require — the same feature→module mapping `definePreset` checks (`pipelines/features/*.ts`) — in
 the canonical order, and derives from the model what is derivable: `media.locales`/`defaultLocale`,
 `references.targets` (`pages` plus every `ref` field's `to`), `delivery.types` (every `multi` collection
-with `slug`, `status` and `body`), `validate-jsonschema.schemas` via `presetSchemas()`, and both
-`publicPath` values from `MOUNT_PATH`. That constant lives in `layers/core/mount-path.ts`, shared with
-`server/plugins/kestrel.ts`, which mounts the backend there — the two cannot drift.
+with `slug`, `status` and `body`), `validate-jsonschema.schemas` via `presetSchemas()`, `publicPath` on
+both media modules from `MEDIA_PUBLIC_PATH`, and, with `delivery`, `publicCopy: { prefix }` on both from
+`SITE_PREFIX`. Both constants live in `layers/core/mount-path.ts` (`MEDIA_PUBLIC_PATH`) and
+`pipelines/config.ts` (`SITE_PREFIX`), shared with `server/plugins/kestrel.ts` and the media-paths boot
+check — nothing can drift.
 
 `layers/core/config/` (`#kestrel/config`) is the environment half, deliberately free of preset types:
 `kestrelDataDir()`, `requiredEnv(name)`, `adminPasswordHash()` and `envBlobstore(dataDir)`. Production
@@ -1465,62 +1468,78 @@ defineBlock({ label: "Image", imageSizes: [{ name: "content", width: 1200 }] })
 ```
 
 Props: `media` (a media id string, or an already-fetched `MediaItem` — the component only fetches
-`GET /media/:id` when given a string id and no inline item), `size` (the declared size name to prefer),
-`sizes` (the `<img sizes>` attribute, only rendered when a `srcset` is present), `only` (restrict the
-`srcset` candidates to specific size names), `alt`, `loading`/`decoding`/`fetchpriority` (defaulting to
-`lazy`/`async`).
+`GET /api/media/:id` through `useMediaItem` when given a string id and no inline item), `size` (the
+declared size name to prefer), `sizes` (the `<img sizes>` attribute, only rendered when a `srcset` is
+present), `only` (restrict the `srcset` candidates to specific size names), `alt`,
+`loading`/`decoding`/`fetchpriority` (defaulting to `lazy`/`async`).
 
 `layers/public/app/utils/image-variants.ts` (`pickImageSources`) implements the rules:
-- **`src`/`srcset` come only from `variants[].path`, never constructed** — the one exception is the
-  fallback when no variant is picked: `` `/api/media/${id}/file` ``, the original file. This is the only
-  URL kestrel-web builds itself; every variant path is served exactly as the backend reports it.
-- **A variant that is not `done` may still feed `src`, but never `srcset`.** The variant named by
-  `size` is looked up regardless of its `state`; if found, its `path` becomes `src` unconditionally
-  (state `pending`/`error` included). `srcset` candidates are drawn only from variants with
-  `state === "done"` and both `width > 0` and `height > 0`, deduped by width and sorted ascending — so
-  a page never advertises a `srcset` candidate that isn't actually renderable, or one whose aspect
-  ratio is unknown.
-- **`srcset` candidates are further filtered to the reference aspect ratio.** Only `done` variants whose
-  `width/height` matches a reference ratio within 1% (relative to the reference) survive into `srcset`;
-  the reference is the named variant's own ratio when it is `done`, otherwise the original media's
-  `width`/`height` when both are known — if neither is available, `srcset` is empty (`null`), not
-  partially filled from whatever ratio happens to be present. This exists because the candidates in a
-  `w`-descriptor `srcset` must be the same image at different widths: a `cover` crop has a different
-  aspect ratio than the original, and mixing it into the same `srcset` would let the browser pick it
-  purely for viewport size or pixel density and render it into a box built for a different ratio — a
-  visibly wrong crop, e.g. a content image picking up both `avatar` (96×96, square) and `teaser`
-  (480×320, 3:2) in one `srcset`. Consequence for a consumer
-  declaring its own sizes: a `cover` size forms its own `srcset` family and is never mixed with
-  `inside` sizes, even when both are named through `only`.
-- **`width`/`height` come from the variant, not the original**, but only when that named variant is
-  `done` and has both `width > 0` and `height > 0`; otherwise they fall back to the original media's
-  `width`/`height`. This matters because `fit: "cover"` variants can have a different aspect ratio than
-  the source — using the variant's own dimensions is what keeps the `<img width height>` pair correct
-  and avoids layout shift; falling back to the original's dimensions while the variant isn't ready yet
-  is a reasonable approximation, not a broken state.
+- **`src`/`srcset` come only from the item's `path` and `variants[].path`, never constructed.** Every
+  media URL is data the API returned; kestrel-web builds none of it from an id. This holds regardless of
+  a variant's `state`: an item can be referenced in content only once every declared variant path exists
+  (`available`, checked by the admin at insertion time, §**Media availability**), so a listed path always
+  resolves, on Node and on a static export alike.
+- **The variant named by `size` is looked up regardless of its state.** If found, its `path` becomes
+  `src` and its planned `width`/`height` are used, whatever state it is in — `pending`, `done`, `error`
+  or `failed` all answer at that path (the original's bytes until a render replaces them, or after one
+  fails for good). If the item carries no matching variant (no `images` feature, a non-image file, or a
+  format the module does not generate variants for), `src` is the item's own `path` and there is no
+  `srcset`.
+- **`srcset` candidates are every variant sharing the reference aspect ratio**, deduped by width and
+  sorted ascending — the reference is the named variant's own ratio, or the original media's
+  `width`/`height` when there is no named variant; `null` (no `srcset`) only when neither is known. This
+  exists because the candidates in a `w`-descriptor `srcset` must be the same image at different widths:
+  a `cover` crop has a different aspect ratio than the original, and mixing it into the same `srcset`
+  would let the browser pick it purely for viewport size or pixel density and render it into a box built
+  for a different ratio — a visibly wrong crop, e.g. a content image picking up both `avatar` (96×96,
+  square) and `teaser` (480×320, 3:2) in one `srcset`. Consequence for a consumer declaring its own
+  sizes: a `cover` size forms its own `srcset` family and is never mixed with `inside` sizes, even when
+  both are named through `only`.
+- **`width`/`height` come from the named variant's planned dimensions**, decided from the original at
+  plan time and identical to what the eventual render produces — never the original's own dimensions
+  while a variant is still pending, so `<img width height>` and the `cover`/`inside` box are correct from
+  the first render. `KestrelImage` also sets the inline style `aspect-ratio: <width> / <height>;
+  object-fit: cover` whenever `src` links a variant, so the placeholder (the original, at its own aspect)
+  fills the box the eventual crop will have; an item without variants gets neither style, since its `src`
+  is the original at its native aspect.
 - **`alt=""` stays possible**: the prop is `alt?: string | null`, and the template's `altText` is
   `props.alt ?? item.value?.alt ?? ''` — an explicit empty string from the block (a purely decorative
   image) is not coalesced away, only `undefined`/`null` fall through to the media's own alt text and
   then to `''`.
 
-### `publicPath`
-`layers/core` mounts the entire Kestrel backend under `/api` (`MOUNT_PATH`, `layers/core/mount-path.ts`,
-used by `server/plugins/kestrel.ts`). `@michaelthielemann/kestrel-images-default` builds variant paths as
-`` `${publicPath}/${mediaId}/variants/${size}${extension}` ``, and its own config default for
-`publicPath` is `"/media"` — a path the browser would request directly, 404ing, because nothing in
-kestrel-web serves anything outside `/api`. `presetModuleConfig()` therefore sets `publicPath` to
-`` `${MOUNT_PATH}/media` `` on both `images-default` and `delivery-static`'s `media`, from the same
-constant the mount uses: it has to resolve under the same mount path everything else does.
+### Media URLs
+Every media file has exactly one public URL, generated by the module that stores it and returned as data
+— `path` on the item, `path` on each entry of `variants[]` — never built from an id anywhere in
+`layers/public` or `layers/admin`. `presetModuleConfig()` sets `publicPath: "/media"`
+(`MEDIA_PUBLIC_PATH`, `layers/core/mount-path.ts`) on both `media-default` and `images-default`; the Node
+server answers it directly, next to the `/api` mount `layers/core` uses for everything else. A base
+pipeline `serveMediaFile` runs `media.serve` at `${MEDIA_PUBLIC_PATH}/:id/:name`; the `images` feature's
+`serveImageVariant` runs `images.serve` at `${MEDIA_PUBLIC_PATH}/:id/variants/:file`. `server/plugins/kestrel.ts`
+builds a second `createKestrelHandler` from the same booted instance, its trigger table filtered to
+exactly those two patterns (`server/utils/public-media.ts`, `publicMediaRoutes`) and mounted with no
+prefix (`mountPath: ""`); `layers/core/nuxt.config.ts` registers it as a Nitro server handler on
+`${MEDIA_PUBLIC_PATH}/**`. The API's own media routes (`GET /api/media/:id`, `/api/media/folders`, …) stay
+reachable only under `/api`.
 
-`warnIfImagesPublicPathMismatched` in `server/plugins/kestrel.ts` runs once at boot, after `kestrel.start()`,
-and logs an error (not a hard failure) when the configured `publicPath` is neither `/api` nor prefixed
-with `/api/` — a safety net for exactly this misconfiguration, not a substitute for setting it right.
+With the `delivery` feature, both media modules also get `publicCopy: { prefix: "site/" }`, so the static
+export holds a copy of every file at the same URL the live site uses — nothing to rewrite, so
+`delivery-static` stores rendered output byte for byte. `assertMediaPaths`
+(`server/utils/media-paths.ts`) runs once at boot, after `kestrel.start()`, and **fails the boot** —
+not a warning — when either module's `publicPath` is not `/media`, when the trigger table cannot reach
+`media.serve`/`images.serve` there, or, with `delivery-static`, when a loaded media module has no
+`publicCopy` under the export's own prefix or `delivery-static.reservedPaths` is missing `/api`, `/admin`
+or `/media`.
 
-### Not in scope: static export
-`src`/`srcset` carry `variants[].path` verbatim. There is no rewriter that turns those live
-`/api/media/:id/variants/:file` paths into the filenames `delivery-static`'s media export writes
-(`<folder>/<filename>.<size>.webp`) — that translation is backend work, tracked separately. Nothing in
-`layers/public` or `layers/admin` attempts it.
+### Media availability
+`images.attach` adds `available: boolean` to a media item: `false` while an eligible image still lacks
+one of its declared variant paths, `true` otherwise (including for a file with no variants at all — an
+SVG, a PDF, `images` not enabled). No item output ever lists a variant path without an object behind it,
+so a page links what exists and needs no republish once a pending variant renders — only its `srcset`
+width may change on the next render. The admin uses `available` to gate **insertion**: `MediaLibrary` in
+picker mode, and `field/Media.vue` for a restored value, refuse an unavailable item
+(`layers/admin/app/utils/media-insert.ts`, `isInsertable`), so a page's first render already links an
+item's full set of variant paths. `KestrelMediaThumb` and the rest of the admin's media UI read `path`
+from the item like the public layer does; nothing there builds a media URL from an id either.
 
 ## Static delivery / renderer contract
 `delivery-static` (a backend module) renders every published locale of a page through whatever module

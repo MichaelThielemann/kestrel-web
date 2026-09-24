@@ -211,6 +211,56 @@
   `GET /site/{path}` instead of hand-written; its `status` narrows to `301 | 302 | 307 | 308` instead of
   `number`.
 
+- **Media have one URL on every host: `/media/<id>/<name>`.** Media items carry it as `path`, next to
+  `variants[].path`, plus `available` (whether the item may be put into content yet), and no longer carry
+  `key`, `checksum` or `status` (the `MediaStatus` type is removed). `presetModuleConfig()` sets
+  `publicPath: "/media"` on `media-default` and `images-default` (`images-default` used `/api/media`);
+  with the `delivery` feature both modules also keep public copies under `site/media/`, so the static
+  export holds every media file an anonymous visitor may read, at the same URL as the live site. The
+  server answers `/media/**` itself, next to the `/api` mount; the API under `/api/media` is unchanged.
+
+  - Build no media URL from an id. `pickImageSources` returns `item.path` for an item with no matching
+    variant and otherwise links the named variant's `path` and planned dimensions whatever its state —
+    it used to build `/api/media/<id>/file` and link only a `done` variant. An item can be inserted into
+    content only once its variant paths exist, so a page never needs a republish for a variant to appear.
+    `KestrelImage` sets `aspect-ratio`/`object-fit: cover` on a linked variant. A page's `og:image` now
+    comes from its share image's `path` (`useMediaItem`, a stable `media:<id>:<locale>` key, a 404
+    resolving quietly to no image). The admin's `useCapabilities().mediaFileUrl` and `useApi().mediaVariantUrl`
+    are removed, and `KestrelMediaThumb` takes `path` instead of `id`. Code that built
+    `/api/media/<id>/file` itself must read `path` from the item instead.
+  - Listing media or its folders (`GET /api/media` without `ids`, `GET /api/media/folders`) now requires
+    a signed-in caller and answers `401` to a public request; reading one item by id stays anonymous.
+  - The media picker and the media field refuse to insert an item whose `available` is `false`
+    (`isInsertable`, `layers/admin/app/utils/media-insert.ts`); the picker shows it as not selectable and
+    keeps polling until it settles, without reopening the dialog, and the upload tile shows "Processing…"
+    until then. A media field holding an id that turns out unavailable (a restored draft) reverts to its
+    previous value with a message instead of keeping it.
+  - With `eventsQueue`, placing an upload's variant paths (`planImageVariants`, main lane) and rendering
+    them (`generateImageVariants`) are two pipelines connected by the new event `images.planned`;
+    `generateImageVariants` runs in the queue's own `variants` lane (`events-queue`'s `lanes` config), so
+    a render never blocks placing the next upload and a batch of uploads becomes insertable file by file
+    without waiting for the renders behind it. Without `eventsQueue`, `generateImageVariants` still runs
+    inline in the upload request. Deleting a medium removes the file before its image variants
+    (`deleteMedia`, `deleteMediaFolder`); an override of either pipeline must keep that order.
+  - `deleteMediaFolder` now ends by raising `media.deleted` with the ids of the removed items (`id` is
+    `null`); a pipeline of yours triggered by `media.deleted` now also runs for a folder deletion.
+  - `listMediaFolders` now requires a signed-in caller (`authn.requireUser`, was `authn.identifyUser`).
+  - With `delivery`, anonymous visitors must be granted `media.read` (the playground config and the
+    project template already do) or the server refuses to start.
+  - Page slugs `api`, `admin` and `media`, and locales of those names, are rejected.
+  - The Node boot check that used to log a mismatched `images-default.publicPath` now fails the boot
+    outright (`assertMediaPaths`), and checks more: both media modules answer on `/media`, the trigger
+    table can reach `media.serve`/`images.serve` there, and, with `delivery-static`, both modules have a
+    `publicCopy` under its export prefix and its `reservedPaths` contains `/api`, `/admin` and `/media`.
+    For a hand-written module list: set `publicPath: "/media"` on both media modules, add
+    `publicCopy: { prefix: "site/" }` to both and `reservedPaths: ["/api", "/admin", "/media"]` to
+    `delivery-static`, and remove its `media` option, which the module no longer accepts.
+  - System → Delivery gains "Repair public media copies" next to "Re-render all pages", backed by the new
+    `repairPublicMedia` pipeline; the copies are also checked by a nightly cron, `syncPublicMedia`.
+  - Static hosting: route `/media/` to the site export like the pages, with the security headers and the
+    cache rules `docs/consuming-kestrel-web.md` §8 spells out (an original is cached for a year, a variant
+    path revalidates on every request until its render replaces the placeholder there).
+
 ### Added
 
 - `#kestrel/pipelines` exports `relayPipelinesFor(features)` and `RELAY_CANDIDATE_PIPELINES`, the helper
