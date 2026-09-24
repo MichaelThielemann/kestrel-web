@@ -42,6 +42,14 @@ describe("isRedirectResponse", () => {
   it("is false for a shape that is neither a page nor a redirect hit", () => {
     expect(isRedirectResponse(boundaryCast<SiteResponse>({}, "json"))).toBe(false);
   });
+
+  it.each([
+    ["a string", "not a hit"],
+    ["a hit without a target", { status: 301 }],
+    ["a hit with a status that is not a redirect", { to: "/neu", status: 200 }],
+  ])("is false for a redirect key holding %s", (_label, redirect) => {
+    expect(isRedirectResponse(boundaryCast<SiteResponse>({ redirect }, "json"))).toBe(false);
+  });
 });
 
 describe("isPageResponse", () => {

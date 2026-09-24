@@ -1,7 +1,13 @@
 import type { PageDocument, RedirectHit, SiteResponse } from "#kestrel-core/app/types/api";
 
+const REDIRECT_STATUSES: readonly unknown[] = [301, 302, 307, 308];
+
 export function isRedirectResponse(value: SiteResponse): value is { redirect: RedirectHit } {
-  return !("id" in value) && "redirect" in value;
+  if ("id" in value || !("redirect" in value)) return false;
+  const hit: unknown = value.redirect;
+  return typeof hit === "object" && hit !== null
+    && "to" in hit && typeof hit.to === "string"
+    && "status" in hit && REDIRECT_STATUSES.includes(hit.status);
 }
 
 export function isPageResponse(value: SiteResponse): value is PageDocument {

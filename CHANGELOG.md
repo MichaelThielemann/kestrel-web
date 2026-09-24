@@ -207,6 +207,10 @@
   `composables/useSchema.ts`, is gone; `utils/reauth.ts` builds its own local schema-route path from
   `LAYER_ROUTES.schema` instead.
 
+- `RedirectHit` (`layers/core/app/types/api.ts`) is now derived from the generated 200 response of
+  `GET /site/{path}` instead of hand-written; its `status` narrows to `301 | 302 | 307 | 308` instead of
+  `number`.
+
 ### Added
 
 - `#kestrel/pipelines` exports `relayPipelinesFor(features)` and `RELAY_CANDIDATE_PIPELINES`, the helper
@@ -281,10 +285,6 @@
   instead of a near-duplicate of it, so the collection names behind the generated types (for example
   `pages`, which decides `PublishStatusEntry`) have one source; this drops the script's unused `news`
   scaffold collection and has no effect on any exported type.
-
-- `RedirectHit` (`layers/core/app/types/api.ts`) is now derived from the generated 200 response of
-  `GET /site/{path}` instead of hand-written; its `status` narrows to `301 | 302 | 307 | 308` instead of
-  `number`.
 
 ### Fixed
 
