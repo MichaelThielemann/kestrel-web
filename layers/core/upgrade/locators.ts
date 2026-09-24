@@ -13,15 +13,6 @@ function overridesArray(root: AstNode, pipelineName: string): AstNode | undefine
   return undefined;
 }
 
-/** Locates the options object of the first `definePreset({ ... })` call in the file. */
-export function definePresetOptionsNode(root: AstNode): AstNode | undefined {
-  for (const call of findCalls(root, "definePreset")) {
-    const options = firstArgument(call);
-    if (options !== undefined) return options;
-  }
-  return undefined;
-}
-
 function atomicSubArrays(top: AstNode): AstNode[] {
   const arrays = [top];
   const elements = Array.isArray(top.elements) ? top.elements : [];

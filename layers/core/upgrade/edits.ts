@@ -99,16 +99,27 @@ export interface StepWindowOptions {
   locateSteps: (root: AstNode, pipelineName: string) => readonly AstNode[];
 }
 
+export interface SourceRange {
+  start: number;
+  end: number;
+}
+
 export type StepWindowResult =
   | { kind: "wrapped"; edit: Edit }
-  | { kind: "ambiguous"; extra: readonly string[]; window: readonly string[] }
+  | { kind: "ambiguous"; extra: readonly string[]; window: readonly string[]; range: SourceRange }
   | { kind: "not-found" };
 
+/** Wraps the literal source text of `range` in `{ atomic: [...] }`, verbatim — never reconstructed from labels, so nothing inside it is dropped or reordered. */
+export function wrapRange(file: string, source: string, range: SourceRange): Edit {
+  return { file, start: range.start, end: range.end, text: `{ atomic: [${source.slice(range.start, range.end)}] }` };
+}
+
 /**
- * Finds the smallest contiguous run of a located step array containing every one of `members`, in order,
- * and wraps it in `{ atomic: [...] }` when the run contains only those members. A run with the consumer's
- * own steps interspersed is reported `ambiguous` (naming them) instead of guessed at; no locatable array
- * at all is `not-found`.
+ * Finds the smallest contiguous run of a located step array containing every one of `members`, and wraps
+ * it in `{ atomic: [...] }` (via `wrapRange`, keeping the run's own source text) when the run holds exactly
+ * those members, in that order, and nothing else — a spread or any other non-string entry, an extra step,
+ * or the same steps in a different order are all reported `ambiguous` (never silently dropped or
+ * reordered) instead of guessed at; no locatable array at all is `not-found`.
  */
 export function wrapAtomicGroup(file: string, source: string, options: StepWindowOptions): StepWindowResult {
   const root = parseTs(source);
@@ -122,59 +133,46 @@ export function wrapAtomicGroup(file: string, source: string, options: StepWindo
     const end = Math.max(...indices);
     const window = elements.slice(start, end + 1);
     const windowValues = values.slice(start, end + 1);
-    const extra = windowValues.filter((v): v is string => v !== undefined && !options.members.includes(v));
-    if (extra.length > 0) return { kind: "ambiguous", extra, window: windowValues.filter((v): v is string => v !== undefined) };
-    const quote = window.length > 0 && source[span(window[0]!).start] === "'" ? "'" : '"';
-    const literal = `{ atomic: [${options.members.map((m) => `${quote}${m}${quote}`).join(", ")}] }`;
-    const { start: rangeStart } = span(window[0]!);
-    const { end: rangeEnd } = span(window[window.length - 1]!);
-    return { kind: "wrapped", edit: { file, start: rangeStart, end: rangeEnd, text: literal } };
+    const range = { start: span(window[0]!).start, end: span(window[window.length - 1]!).end };
+    const matchesExactly = windowValues.length === options.members.length && windowValues.every((v, i) => v === options.members[i]);
+    if (!matchesExactly) {
+      const display = window.map((el, i) => windowValues[i] ?? source.slice(span(el).start, span(el).end));
+      const extra = display.filter((v) => !options.members.includes(v));
+      return { kind: "ambiguous", extra, window: display, range };
+    }
+    return { kind: "wrapped", edit: wrapRange(file, source, range) };
   }
   return { kind: "not-found" };
 }
 
 /**
- * Removes a property from an object literal (its key, value and one adjacent comma), so the literal stays
- * syntactically valid; `undefined` when the object has no such property.
+ * Removes every array element whose string value satisfies `matches` (a non-string element is never a
+ * match), one edit per contiguous run so the literal stays syntactically valid; `[]` when nothing matches.
  */
-export function removeObjectProperty(file: string, source: string, obj: AstNode, key: string): Edit | undefined {
-  const props = Array.isArray(obj.properties) ? obj.properties.filter((p): p is AstNode => isAstNode(p) && p.type === "ObjectProperty") : [];
-  const idx = props.findIndex((p) => {
-    const k = p.key;
-    return isAstNode(k) && ((k.type === "Identifier" && k.name === key) || stringValue(k) === key);
-  });
-  if (idx === -1) return undefined;
-  const prop = props[idx]!;
-  const { start: propStart, end: propEnd } = span(prop);
-  if (props.length === 1) return { file, start: propStart, end: propEnd, text: "" };
-  if (idx < props.length - 1) {
-    const { start: nextStart } = span(props[idx + 1]!);
-    return { file, start: propStart, end: nextStart, text: "" };
+export function removeStepsFromArray(file: string, source: string, array: AstNode, matches: (value: string) => boolean): Edit[] {
+  const elements = arrayElements(array);
+  const values = elements.map((el) => stringValue(el));
+  const remove = values.map((v) => v !== undefined && matches(v));
+  const edits: Edit[] = [];
+  let i = 0;
+  while (i < elements.length) {
+    if (!remove[i]) {
+      i++;
+      continue;
+    }
+    let j = i;
+    while (j < elements.length && remove[j]) j++;
+    const runStart = span(elements[i]!).start;
+    const runEnd = span(elements[j - 1]!).end;
+    if (j < elements.length) {
+      edits.push({ file, start: runStart, end: span(elements[j]!).start, text: "" });
+    } else if (i > 0) {
+      edits.push({ file, start: span(elements[i - 1]!).end, end: runEnd, text: "" });
+    } else {
+      edits.push({ file, start: runStart, end: runEnd, text: "" });
+    }
+    i = j;
   }
-  const { end: prevEnd } = span(props[idx - 1]!);
-  return { file, start: prevEnd, end: propEnd, text: "" };
+  return edits;
 }
 
-/**
- * Adds a string to an array-valued property of an object literal, creating the property (`key: ["value"]`)
- * when the object has none; `undefined` when the property exists but is not an array literal, or already
- * has the value.
- */
-export function addStringToArrayProperty(file: string, source: string, obj: AstNode, key: string, value: string): Edit | undefined {
-  const existing = objectProperty(obj, key);
-  if (existing === undefined) {
-    const { end } = span(obj);
-    const insertAt = end - 1;
-    const hasProperties = Array.isArray(obj.properties) && obj.properties.length > 0;
-    return { file, start: insertAt, end: insertAt, text: `${hasProperties ? ", " : ""}${key}: ["${value}"]` };
-  }
-  if (!isArrayExpression(existing)) return undefined;
-  const elements = arrayElements(existing);
-  if (elements.some((el) => stringValue(el) === value)) return undefined;
-  const quote = elements.length > 0 && source[span(elements[0]!).start] === "'" ? "'" : '"';
-  const literal = `${quote}${value}${quote}`;
-  const { start, end } = span(existing);
-  if (elements.length === 0) return { file, start: start + 1, end: end - 1, text: literal };
-  const lastEnd = span(elements[elements.length - 1]!).end;
-  return { file, start: lastEnd, end: lastEnd, text: `, ${literal}` };
-}
