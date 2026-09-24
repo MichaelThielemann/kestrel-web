@@ -6,7 +6,11 @@ const props = defineProps<{ id?: string; state: 'pending' | 'stalled' | 'failed'
 const { t } = useT()
 
 const icon = computed<IconName>(() => (props.state === 'failed' ? 'triangle-alert' : 'clock'))
-const text = computed(() => {
+const shortText = computed(() => {
+  if (props.state === 'pending') return `${props.done ?? 0}/${props.total ?? 0}`
+  return t(props.state === 'failed' ? 'media.tile.variantsFailedShort' : 'media.tile.variantsStalledShort')
+})
+const fullText = computed(() => {
   if (props.state === 'failed') return t('media.tile.variantsFailed')
   if (props.state === 'stalled') return t('media.tile.variantsStalled')
   return t('media.tile.variantsPending', { done: props.done ?? 0, total: props.total ?? 0 })
@@ -16,27 +20,33 @@ const text = computed(() => {
 <template>
   <span :id="id" class="media-variant-chip" :class="`media-variant-chip--${state}`">
     <KestrelUiIcon :name="icon" :size="14" aria-hidden="true" />
-    <span class="media-variant-chip__text">{{ text }}</span>
+    <span class="media-variant-chip__text" aria-hidden="true">{{ shortText }}</span>
+    <span class="media-variant-chip__full">{{ fullText }}</span>
   </span>
 </template>
 
 <style lang="scss">
+@use '../assets/scss/mixins';
+
 .media-variant-chip {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
   padding: 2px var(--space-1);
   border-radius: var(--radius-sm);
-  background: var(--color-scrim);
-  color: var(--color-on-primary);
+  background: #1f2937;
+  color: #fff;
   font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
   line-height: 1.35;
   max-width: 100%;
 }
 
 .media-variant-chip__text {
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.media-variant-chip__full {
+  @include mixins.sr-only;
 }
 </style>

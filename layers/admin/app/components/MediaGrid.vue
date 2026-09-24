@@ -15,6 +15,7 @@ const props = defineProps<{
   uploads?: readonly UploadItem[]
   uploadPreview?: (id: string) => string | undefined
   variantOverride?: ReadonlyMap<string, VariantWatchEntry>
+  stalledIds?: ReadonlySet<string>
 }>()
 const emit = defineEmits<{
   navigate: [string]
@@ -35,15 +36,15 @@ function onFile(item: LibraryItem, e: MouseEvent) { emit('select', item, mods(e)
 const ext = (filename: string) => (filename.split('.').pop() ?? '').toUpperCase()
 const badge = (f: MediaItem) => t(provenanceLabelKey(provenanceOrigin(f.provenance)))
 
-const ZERO_VARIANT_COUNTS = { done: 0, pending: 0, error: 0, failed: 0 }
-
 function fileVariants(file: MediaItem) {
   return props.variantOverride?.get(file.id)?.variants ?? file.variants ?? []
 }
 function chipFor(file: MediaItem) {
-  const counts = props.variantOverride?.get(file.id)?.variantCounts ?? file.variantCounts ?? ZERO_VARIANT_COUNTS
-  const state = variantChipState(counts)
-  return state ? { state, done: counts.done, total: variantTotal(counts) } : null
+  const entry = props.variantOverride?.get(file.id)
+  if (!entry) return null
+  if (props.stalledIds?.has(file.id)) return { state: 'stalled' as const, done: entry.variantCounts.done, total: variantTotal(entry.variantCounts) }
+  const state = variantChipState(entry.variantCounts)
+  return state ? { state, done: entry.variantCounts.done, total: variantTotal(entry.variantCounts) } : null
 }
 function uploadChipFor(upload: UploadItem) {
   return upload.result ? chipFor(upload.result) : null
@@ -103,19 +104,19 @@ function uploadChipFor(upload: UploadItem) {
           @keydown.enter.prevent="emit('open', item)"
           @dragstart="(e: DragEvent) => emit('dragstart', item, e)"
           @dragend="emit('dragend')">
-          <span class="media-grid__thumb-wrap" :aria-describedby="chipFor(item.file) ? `media-grid-chip-${item.file.id}` : undefined">
+          <span class="media-grid__thumb-wrap">
             <KestrelMediaThumb
               v-if="item.file.contentType.startsWith('image/')"
               :id="item.file.id"
               class="media-grid__thumb"
               :content-type="item.file.contentType"
               :alt="item.file.alt ?? item.file.filename"
-              :variants="fileVariants(item.file)" />
+              :variants="fileVariants(item.file)"
+              :pending="chipFor(item.file)?.state === 'pending'" />
             <span v-else class="media-grid__badge" aria-hidden="true">{{ ext(item.file.filename) }}</span>
             <span v-if="isDisclosed(item.file.provenance)" class="media-grid__ai">{{ badge(item.file) }}</span>
             <KestrelMediaVariantChip
               v-if="chipFor(item.file)"
-              :id="`media-grid-chip-${item.file.id}`"
               class="media-grid__variant-chip"
               :state="chipFor(item.file)!.state"
               :done="chipFor(item.file)!.done"
