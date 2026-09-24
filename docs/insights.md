@@ -58,6 +58,22 @@ table.
 The field is optional in `InsightsStats`, so an admin built against an older backend that answers
 without `recentFailures` renders the empty state instead of failing.
 
+## Boot warnings
+`manifest.warnings` is the static list of non-fatal conditions the instance's boot found — the same
+entries as the core's `kestrel.warnings` — visible above the tabs on every one, for anyone with
+`insights.read`. Each entry is `{ code, message, ...context }`, where every context field besides `code`
+and `message` is a string (a pipeline name, an event, a step, a key). `InsightsBootWarnings.vue` renders
+nothing for an empty list; otherwise a code chip, the message, and a definition list of the context
+fields, in the fixed order `pipeline`, `event`, `step`, `key` with a translated label, followed by any
+other field alphabetically under its raw key. This is deliberate: a boot check a later minor adds needs no
+admin change to show up correctly, known field or not.
+
+## Recent failures vs. boot warnings
+A boot warning is static and about configuration; a recent failure is a run that actually happened. A
+delivery an event-delivery module gave up on (a queue dead letter, a failed inline listener) is neither: it
+never reaches `stats()` or `manifest.warnings`, only `events.readDeliveryStatus` and, for the process that
+ran it, `recentFailures`. See the dashboard link and the System → Events tab.
+
 ## Enabling it
 - Install `@michaelthielemann/kestrel-insights` — it is an optional peer dependency of kestrel-web, so
   it is not there by default. `@vue-flow/core` and `@dagrejs/dagre` are needed for the graph tab only.

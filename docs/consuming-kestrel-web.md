@@ -650,8 +650,15 @@ or a retry actually runs.
 | `migrations` | kestrel-migrations-default | `listMigrations`, `applyMigrations` (`GET /admin/migrations`, `POST /admin/migrations/apply`) |
 | `audit` | kestrel-audit-persistence | `auditAuth` (on `auth.loggedIn`/`auth.loggedOut`), `anonymizeAuditUser` (on `user.deleted`), `retryAnonymizeAuditUser` (`POST /admin/users/:id/audit/anonymize`, `users.manage`), and `pruneAudit` (cron `45 3 * * *`) as soon as `audit: { retentionDays }` is configured |
 | `insights` | kestrel-insights (optional peer) | `insightsManifest`, `insightsStats` (`GET /admin/insights/manifest`, `GET /admin/insights/stats`, `insights.read`); the `/admin/insights` page |
-| `eventsQueue` | kestrel-events-queue (instead of kestrel-events-direct) | Adds `eventsQueueStatus`, `eventsDead`, `eventsRetryDead`, `eventsRetryOne` (`/admin/events/*`, `system.manage`), the System → Events tab, and `purgeEvents` (cron) — see the note below the table |
+| `eventsQueue` | kestrel-events-queue (instead of kestrel-events-direct) | Adds `eventsQueueStatus`, `eventsDead`, `eventsRetryDead`, `eventsRetryOne` (`/admin/events/*`, `system.manage`), and `purgeEvents` (cron) — see the note below the table |
 | `revisions` | kestrel-revisions-default | Per-collection revision pipelines, routes and the history dialog in the record editor — see the list below the table |
+
+**Event delivery status (every instance):** `GET /admin/events/delivery` (`system.manage`) answers
+`{ dead, scope, since, lastDeadAt }`, the deliveries the active delivery module gave up on — `scope:
+"store"` with `eventsQueue` (a count across every process), `scope: "process"` with the default inline
+delivery (this process only, since it started). It needs neither module's feature flag, so the dashboard
+link and the System → Events tab work the same whichever module is configured; with `eventsQueue`, Events
+also keeps the dead-letter list and its retry actions.
 
 **`images` details:** routes `listImageSizes`, `syncImages`, `pruneImages`, `retryFailedImages`,
 `imagesStatus`; boot step `registerImageSizesBoot` (no trigger — the Nitro plugin runs it at boot to
@@ -668,7 +675,8 @@ Every preset pipeline that ends in an `events.emit:` step — a write pipeline a
 last step (`restorePageRevision` still ends `…, revisions.reportRestore` after the relay). The relay
 delivers this request's events before the response and adds `_events: { status, pipelines[] }` to the
 result: `status` is `"done"`, `"error"` or
-`"pending"`, and each entry names the event, the pipeline, its attempts, whether it is dead-lettered and
+`"pending"` (with `eventsQueue`, a pipeline left out of `relayPipelines` reports `"queued"` instead, see
+below), and each entry names the event, the pipeline, its attempts, whether it is dead-lettered and
 its error. A delivery failure therefore never fails the write request — the response is still 200, and
 `_events.status` says so. `GET /admin/publish-status/pages/:id` remains the authoritative per-locale
 publish status; the write response's `_events` is about the delivery *run*, not the page's live state.
@@ -694,6 +702,15 @@ previous behaviour, useful when an instance's subscribers are too slow to run in
 runs every subscriber of the emitting run and not only delivery, subscribers that used to be worker-only
 work — `anonymizeAuditUser`, `reassignRevisionAuthor` on `user.deleted`, `generateImageVariants` on
 `media.uploaded` — now run inside the request too, bounded by the same budget.
+
+**`eventsQueue` and relay selection:** the preset narrows the relay to `publishPage` and `unpublishPage`
+— the pipelines behind `delivery` — whenever that feature is on, and to nothing otherwise;
+`presetModuleConfig()` derives this and passes it as the `eventsQueue` module's `relayPipelines`. Every
+other event-triggered pipeline (`generateImageVariants`, `auditAuth`, `reassignRevisionAuthor`, …) is left
+to the worker: its row is due immediately, and `_events` reports it as `"queued"`, not `"pending"`. A page
+publish or unpublish therefore still completes before the write's response, while heavier or slower
+subscribers never share the request's time budget. `overrides` naming the events-queue module directly
+replaces this selection.
 
 **`revisions` details:** per `multi` collection `<c>`: `<c>Revisions`, `<c>Revision`,
 `label<C>Revision`, `restore<C>Revision` (`/admin/<c>/:id/revisions…`, `<c>.manage` to read, `<c>.write`

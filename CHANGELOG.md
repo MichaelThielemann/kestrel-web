@@ -123,7 +123,22 @@
   toasts the same way when unpublishing a deleted page failed. The events tab's dead-letter table gains
   a Run column next to the Pipeline column the previous release added.
 
+- A new base pipeline `eventsDeliveryStatus` answers `GET /admin/events/delivery` (permission
+  `system.manage`), the deliveries the active event-delivery module gave up on; it collides with a
+  consumer pipeline or route of that name. `InsightsManifest` gains a required `warnings`,
+  `UserDeleteResponse` a required `_events`.
+
 ### Changed
+
+- The dashboard shows how many event deliveries failed for good and links to System → Events: the
+  queue's dead letters, or with inline delivery the failed deliveries of the process that served the
+  page. `/api/ready` and `/api/health` answer as before.
+- System → Events is available with inline delivery too; it shows the failed deliveries of this process,
+  since when, and a pointer to Insights → Live.
+- The insights page lists the boot warnings of the instance above its tabs, each with every context
+  field it carries.
+- Deleting a user reports a failed follow-up task (revision reassignment, audit anonymisation) instead
+  of a success message, and a still-running one as pending.
 
 - `deleteMediaFolder` now calls `media.listFolderItems` instead of the deprecated `media.folderItems`;
   behaviour is unchanged.
