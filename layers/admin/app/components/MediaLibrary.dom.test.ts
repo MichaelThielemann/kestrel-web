@@ -1,6 +1,6 @@
 import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { getQuery } from 'h3'
-import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { computed, nextTick } from 'vue'
 import { boundaryCast } from '#kestrel/cast'
 import { en } from '#kestrel-admin/i18n/en'
@@ -350,7 +350,6 @@ describe('MediaLibrary viewer delete flow', () => {
       description: null,
       variantCounts: { done: 0, pending: 0, error: 0, failed: 0 },
       variants: [],
-      variantCounts: { done: 0, pending: 0, error: 0, failed: 0 },
     }
     let deleteCalls = 0
     const emptyFolders: MediaFolder[] = []
@@ -390,24 +389,18 @@ describe('MediaLibrary viewer delete flow', () => {
 
 describe('MediaLibrary read-only capabilities', () => {
   const unregisterAll: (() => void)[] = []
-  const readonlySchema: AdminSchema = {
-    locales: { all: ['en'], primary: 'en', prefixPrimary: false },
-    collections: [],
-    features: [],
-    capabilities: {
+  const fullCapabilities = { ...schema.capabilities }
+
+  beforeEach(() => {
+    schema.capabilities = {
       listMediaFolders: { method: 'GET', path: '/media/folders' },
       listMedia: { method: 'GET', path: '/media' },
-    },
-  }
-
-  beforeEach(async () => {
-    unregisterAll.push(registerEndpoint('/api/admin/schema', { method: 'GET', handler: () => readonlySchema }))
-    await useSchema().load()
+    }
   })
 
   afterEach(() => {
     unregisterAll.splice(0).forEach((unregister) => unregister())
-    useSchema().clear()
+    schema.capabilities = fullCapabilities
   })
 
   it('offers no upload, new folder, rename, move or delete without their capabilities', async () => {

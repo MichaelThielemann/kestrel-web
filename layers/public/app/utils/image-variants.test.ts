@@ -27,7 +27,6 @@ function item(over: Partial<MediaItem> = {}): MediaItem {
     variants: [],
     variantCounts: { done: 0, pending: 0, error: 0, failed: 0 },
     ...over,
-    variantCounts: over.variantCounts ?? { done: 0, pending: 0, error: 0, failed: 0 },
   }
 }
 

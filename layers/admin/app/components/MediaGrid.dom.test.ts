@@ -1,9 +1,24 @@
-import { mountSuspended } from '@nuxt/test-utils/runtime'
+import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
+import { computed } from 'vue'
 import { describe, expect, it } from 'vitest'
-import type { MediaItem } from '#kestrel-admin/types/api'
+import type { AdminSchema, MediaItem } from '#kestrel-admin/types/api'
 import type { VariantWatchEntry } from '../composables/useVariantWatch'
 import type { LibraryItem } from '../utils/library'
 import MediaGrid from './MediaGrid.vue'
+
+const schema: AdminSchema = {
+  locales: { all: ['en'], primary: 'en', prefixPrimary: false },
+  collections: [],
+  features: [],
+  capabilities: { downloadMedia: { method: 'GET', path: '/media/:id/file' } },
+}
+
+mockNuxtImport('useSchema', () => () => ({
+  schema: computed(() => schema),
+  error: computed(() => null),
+  load: () => Promise.resolve('ok' as const),
+  clear: () => {},
+}))
 
 function file(over: Partial<MediaItem> = {}): MediaItem {
   return {

@@ -13,6 +13,7 @@ const manifest: InsightsManifest = {
   steps: [],
   pipelines: [],
   triggers: { http: [], events: [], crons: [] },
+  warnings: [],
 }
 
 const schema: AdminSchema = {

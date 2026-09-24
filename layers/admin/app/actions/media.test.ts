@@ -203,7 +203,6 @@ describe('deleteItems', () => {
     createdAt: 1, updatedAt: 1, width: null, height: null, alt: null, title: null, description: null,
     variantCounts: { done: 0, pending: 0, error: 0, failed: 0 },
     variants: [],
-    variantCounts: { done: 0, pending: 0, error: 0, failed: 0 },
   })
 
   it('does nothing when the dialog was not confirmed', async () => {
@@ -478,9 +477,9 @@ describe('upload', () => {
     const { transport } = fakeTransport([{ id: 'f1' }])
     const item = uploadItem()
     const originalTransport = transport
-    const nonComputable: UploadTransport = <T>(path: string, body: FormData, onProgress?: (progress: UploadProgress) => void) => {
+    const nonComputable: UploadTransport = <T>(route: ApiRoute, body: FormData, onProgress?: (progress: UploadProgress) => void) => {
       onProgress?.({ loaded: 5, total: 0, percent: 0 })
-      return originalTransport<T>(path, body, onProgress)
+      return originalTransport<T>(route, body, onProgress)
     }
 
     await runAction(upload, { deps, item, transport: nonComputable })
@@ -491,7 +490,7 @@ describe('upload', () => {
   it('marks the total known once the transport reports a real total', async () => {
     const { deps } = fakeDeps()
     const item = uploadItem()
-    const transport: UploadTransport = <T>(_path: string, _body: FormData, onProgress?: (progress: UploadProgress) => void) => {
+    const transport: UploadTransport = <T>(_route: ApiRoute, _body: FormData, onProgress?: (progress: UploadProgress) => void) => {
       onProgress?.({ loaded: 5, total: 10, percent: 50 })
       return Promise.resolve(boundaryCast<T>({ id: 'f1' }, 'json'))
     }
