@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { exportMedia, publishAll } from '#kestrel-admin/actions/system'
+import { exportMedia, publishAll, repairPublicMedia } from '#kestrel-admin/actions/system'
 import { toastUnexpected } from '#kestrel-admin/actions/steps/notify'
 
 const { t } = useT()
@@ -7,6 +7,7 @@ const deps = useActionDeps()
 
 const busy = ref(false)
 const exporting = ref(false)
+const repairing = ref(false)
 
 async function onPublishAll() {
   const result = await runAction(publishAll, { deps, ops: { setBusy: (on) => { busy.value = on }, busy: () => busy.value } })
@@ -15,6 +16,11 @@ async function onPublishAll() {
 
 async function onExportMedia() {
   const result = await runAction(exportMedia, { deps, ops: { setBusy: (on) => { exporting.value = on }, busy: () => exporting.value } })
+  toastUnexpected(deps, result)
+}
+
+async function onRepairPublicMedia() {
+  const result = await runAction(repairPublicMedia, { deps, ops: { setBusy: (on) => { repairing.value = on }, busy: () => repairing.value } })
   toastUnexpected(deps, result)
 }
 </script>
@@ -27,6 +33,13 @@ async function onExportMedia() {
         <KestrelUiButton type="button" size="sm" variant="secondary" :loading="busy" @click="onPublishAll">{{ t('delivery.publishAll') }}</KestrelUiButton>
       </div>
       <p class="delivery__desc">{{ t('delivery.desc') }}</p>
+    </div>
+    <div v-if="deps.capabilities.has('repairPublicMedia')" class="delivery__section">
+      <div class="delivery__section-head">
+        <h2 class="delivery__section-title">{{ t('delivery.repairPublic') }}</h2>
+        <KestrelUiButton type="button" size="sm" variant="secondary" :loading="repairing" @click="onRepairPublicMedia">{{ t('delivery.repairPublic') }}</KestrelUiButton>
+      </div>
+      <p class="delivery__desc">{{ t('delivery.repairPublicDesc') }}</p>
     </div>
     <div v-if="deps.capabilities.has('exportMedia')" class="delivery__section">
       <div class="delivery__section-head">

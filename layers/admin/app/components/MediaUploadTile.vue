@@ -8,6 +8,7 @@ const props = defineProps<{
   chipState?: 'pending' | 'stalled' | 'failed'
   chipDone?: number
   chipTotal?: number
+  processing?: boolean
 }>()
 const emit = defineEmits<{ dismiss: [id: string] }>()
 const { t } = useT()
@@ -48,8 +49,9 @@ const progressText = computed(() => {
       <span class="media-upload-tile__thumb-wrap">
         <img v-if="preview" :src="preview" alt="" aria-hidden="true" class="media-upload-tile__thumb">
         <span v-else class="media-upload-tile__badge" aria-hidden="true"><KestrelUiIcon :name="fallbackIcon" :size="32" /></span>
+        <span v-if="ready && processing" class="media-upload-tile__processing">{{ t('media.tile.processing') }}</span>
         <KestrelMediaVariantChip
-          v-if="ready && chipState"
+          v-else-if="ready && chipState"
           class="media-upload-tile__chip"
           :state="chipState"
           :done="chipDone"
@@ -110,6 +112,22 @@ const progressText = computed(() => {
   position: absolute;
   inset-inline: var(--space-1);
   bottom: var(--space-1);
+}
+
+.media-upload-tile__processing {
+  position: absolute;
+  inset-inline: var(--space-1);
+  bottom: var(--space-1);
+  padding: 2px var(--space-1);
+  font-size: var(--text-xs);
+  line-height: 1.35;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--color-on-primary);
+  background: var(--color-scrim);
+  border-radius: var(--radius-sm);
 }
 
 .media-upload-tile__name {

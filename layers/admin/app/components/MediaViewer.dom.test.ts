@@ -12,9 +12,8 @@ const file: MediaItem = {
   folder: '',
   contentType: 'application/pdf',
   size: 1024,
-  key: 'f1',
-  checksum: null,
-  status: 'ready',
+  path: '/media/f1/report.pdf',
+  available: true,
   createdAt: Date.now(),
   updatedAt: Date.now(),
   provenance: { origin: 'human' },
@@ -103,6 +102,16 @@ describe('MediaViewer layout', () => {
     const fields = metaFields()
     expect(fields.length).toBeGreaterThan(0)
     expect(fields.some((el) => el.disabled)).toBe(false)
+
+    wrapper.unmount()
+  })
+
+  it('previews an image straight from its path, with no URL built from the id', async () => {
+    const image: MediaItem = { ...file, contentType: 'image/jpeg', filename: 'photo.jpg', path: '/media/f1/photo.jpg' }
+    const wrapper = await mountSuspended(MediaViewer, { props: { open: true, file: image, canSave: true, canDelete: true }, attachTo: document.body })
+
+    const img = document.body.querySelector<HTMLImageElement>('.media-viewer__preview img')
+    expect(img?.getAttribute('src')).toBe('/media/f1/photo.jpg')
 
     wrapper.unmount()
   })

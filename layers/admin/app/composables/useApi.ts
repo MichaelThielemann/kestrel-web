@@ -75,5 +75,3 @@ export function useApi() {
     }
   }
 }
-
-export const mediaVariantUrl = (path: string): string => path

@@ -6,7 +6,6 @@ import { useSchema } from './useSchema'
 export interface CapabilitiesApi extends CapabilityResolver {
   /** Builds an absolute URL for a route already resolved via `route()`/`verbRoute()`, for a consumer that needs the URL itself rather than a fetch through `useAdminApi()` (an `<a href>`, a download link, …). */
   url: (route: ApiRoute) => string
-  mediaFileUrl: (id: string) => string | null
 }
 
 export function useCapabilities(): CapabilitiesApi {
@@ -19,6 +18,5 @@ export function useCapabilities(): CapabilitiesApi {
     hasVerb: (collection: string, verb: CollectionVerb) => resolver.value.hasVerb(collection, verb),
     verbRoute: (collection: string, verb: CollectionVerb, params?: RouteParams) => resolver.value.verbRoute(collection, verb, params),
     url: apiUrl,
-    mediaFileUrl: (id: string): string | null => (resolver.value.has('downloadMedia') ? apiUrl(resolver.value.route('downloadMedia', { id })) : null),
   }
 }

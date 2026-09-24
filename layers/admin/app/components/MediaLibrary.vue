@@ -11,6 +11,7 @@ import type { DropResult } from '../composables/useMediaDnd'
 import type { UploadItem } from '../composables/useMediaUpload'
 import type { MediaViewerSave } from '../utils/media-meta'
 import { toOpItem, effectiveTargets, type OpItem } from '../utils/ops'
+import { isInsertable } from '../utils/media-insert'
 
 const props = defineProps<{ pick?: boolean; multiple?: boolean; accept?: 'image' | 'any'; initialFolder?: string; initialSelected?: string[] }>()
 const emit = defineEmits<{ confirm: [string[]]; cancel: [] }>()
@@ -128,6 +129,10 @@ const selectedFileIds = computed(() => (props.pick && props.multiple
   : items.value
     .filter((i): i is Extract<LibraryItem, { type: 'file' }> => i.type === 'file' && isSelected(i))
     .map((i) => i.file.id)))
+const hasBlockedSelection = computed(() => selectedFileIds.value.some((id) => {
+  const found = items.value.find((i): i is Extract<LibraryItem, { type: 'file' }> => i.type === 'file' && i.file.id === id)
+  return found !== undefined && !isInsertable(found.file)
+}))
 function onConfirmPick() { emit('confirm', selectedFileIds.value) }
 
 function queueUploads(pending: PendingUpload[]) {
@@ -249,7 +254,7 @@ const localizedMenu = computed(() => menuItems.value.map((s) => ({
       <div class="media-library__items" @contextmenu.capture="onContextMenu">
         <KestrelUiAlert v-if="error" variant="error">{{ error }}</KestrelUiAlert>
         <p v-else-if="!loading && !items.length && !(view === 'grid' && gridTileUploads.length)" class="media-library__empty">{{ t('media.folderEmpty') }}</p>
-        <KestrelMediaGrid v-else-if="view === 'grid'" :items="items" :is-selected="isSelectedItem" :drop-target-path="dropFolder" :parent-path="parentPath" :up-label="t('media.parentFolder')"
+        <KestrelMediaGrid v-else-if="view === 'grid'" :items="items" :is-selected="isSelectedItem" :drop-target-path="dropFolder" :parent-path="parentPath" :up-label="t('media.parentFolder')" :pick="pick"
           :uploads="gridTileUploads" :upload-preview="previewFor" :variant-override="variantResults" :stalled-ids="stalledIds"
           @navigate="lib.navigate" @select="onSelect" @open="onOpenItem" @dragstart="onItemDragStart" @dragend="onItemDragEnd" @dismiss-upload="onDismissUpload" />
         <KestrelMediaTable v-else :items="items" :is-selected="isSelectedItem" :drop-target-path="dropFolder" :sort="sort" :parent-path="parentPath" :up-label="t('media.parentFolder')" @navigate="lib.navigate" @select="onSelect" @open="onOpenItem" @sort="lib.setSort" @dragstart="onItemDragStart" @dragend="onItemDragEnd" />
@@ -268,7 +273,7 @@ const localizedMenu = computed(() => menuItems.value.map((s) => ({
     <KestrelUiAlert v-if="limitError" variant="error">{{ limitError }}</KestrelUiAlert>
     <div v-if="pick" class="media-library__pickbar">
       <span>{{ selectedFileIds.length }} {{ t('media.selected') }}</span>
-      <KestrelUiButton variant="primary" :disabled="!selectedFileIds.length" @click="onConfirmPick">{{ t('media.useSelected') }}</KestrelUiButton>
+      <KestrelUiButton variant="primary" :disabled="!selectedFileIds.length || hasBlockedSelection" @click="onConfirmPick">{{ t('media.useSelected') }}</KestrelUiButton>
       <KestrelUiButton variant="ghost" @click="emit('cancel')">{{ t('common.cancel') }}</KestrelUiButton>
     </div>
     <KestrelMediaUploadDialog

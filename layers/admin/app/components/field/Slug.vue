@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { slugify } from '#kestrel-admin/utils/kestrel'
 import { fieldIs } from '#kestrel-admin/types/kestrel'
+import { RESERVED_PAGE_SEGMENTS } from '#kestrel-core/mount-path'
 import type { FieldComponentProps } from '../../utils/field-component'
 import { editorFormContextKey } from '../../utils/editor-form-context'
 
@@ -29,6 +30,9 @@ const prefix = computed(() => (props.locale === primary.value && !prefixPrimary.
 const rootPlaceholder = computed(() => (model.value ? undefined : t('field.slug.rootPlaceholder')))
 const rootHint = computed(() => (model.value ? undefined : t('pageSettings.slugHomeHint')))
 
+const reserved = computed(() => typeof model.value === 'string' && (RESERVED_PAGE_SEGMENTS as readonly string[]).includes(model.value))
+const displayError = computed(() => (reserved.value ? t('field.slug.reserved', { slug: model.value ?? '' }) : (props.error ?? undefined)))
+
 function onBlur() {
   const cur = model.value ?? ''
   if (!cur.trim()) return
@@ -42,7 +46,7 @@ function onFocus(event: FocusEvent) {
 </script>
 
 <template>
-  <KestrelUiField :id="id" :label="name" :hint="rootHint" :error="error ?? undefined">
+  <KestrelUiField :id="id" :label="name" :hint="rootHint" :error="displayError">
     <template #default="f">
       <div class="field-slug">
         <span class="field-slug__prefix">{{ prefix }}</span>

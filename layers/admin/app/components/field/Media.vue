@@ -5,6 +5,7 @@ import type { FieldComponentProps } from '../../utils/field-component'
 import { fieldIs } from '#kestrel-admin/types/kestrel'
 import { commonFolder } from '#kestrel-admin/utils/library'
 import { isDisclosed, provenanceLabelKey, provenanceOrigin } from '#kestrel-admin/utils/provenance'
+import { isInsertable } from '#kestrel-admin/utils/media-insert'
 
 const props = defineProps<FieldComponentProps>()
 const model = defineModel<string | string[] | null>()
@@ -28,6 +29,13 @@ const ids = computed<string[]>(() => {
 })
 
 const meta = ref<Record<string, MediaItem | null>>({})
+const processingError = ref('')
+
+function removeId(id: string) {
+  if (multiple.value) model.value = (Array.isArray(model.value) ? model.value : []).filter((x) => x !== id)
+  else model.value = null
+}
+
 watch(ids, async (list) => {
   const missing = list.filter((id) => !(id in meta.value))
   if (!missing.length) return
@@ -35,7 +43,13 @@ watch(ids, async (list) => {
   if (!capabilities.has('listMedia')) return
   try {
     const page = await api<ListPage<MediaItem>>(capabilities.route('listMedia'), { query: { ids: missing.join(','), locale: props.locale } })
-    for (const item of page.items) meta.value[item.id] = item
+    for (const item of page.items) {
+      meta.value[item.id] = item
+      if (!isInsertable(item) && ids.value.includes(item.id)) {
+        removeId(item.id)
+        processingError.value = t('field.media.processing')
+      }
+    }
   } catch {
     return
   }
@@ -48,12 +62,9 @@ const initialFolder = computed(() => commonFolder(resolved.value.map((r) => r.it
 const nameOf = (id: string, item: MediaItem | null, i: number) => item?.filename ?? t('field.media.itemAt', { pos: i + 1 })
 
 function onConfirm(picked: string[]) {
+  processingError.value = ''
   if (multiple.value) model.value = [...new Set(picked)]
   else model.value = picked[0] ?? null
-}
-function removeId(id: string) {
-  if (multiple.value) model.value = (Array.isArray(model.value) ? model.value : []).filter((x) => x !== id)
-  else model.value = null
 }
 </script>
 
@@ -61,9 +72,10 @@ function removeId(id: string) {
   <KestrelUiField :id="id" :label="name" :error="error" :required="required">
     <template #default="f">
       <div class="field-media">
+        <KestrelUiAlert v-if="processingError" variant="error">{{ processingError }}</KestrelUiAlert>
         <ul v-if="resolved.length" class="field-media__items">
           <li v-for="(r, i) in resolved" :key="r.id" class="field-media__item">
-            <KestrelMediaThumb :id="r.id" class="field-media__thumb" :content-type="r.item?.contentType" :alt="r.item?.alt ?? r.item?.filename ?? ''" />
+            <KestrelMediaThumb :path="r.item?.path ?? null" class="field-media__thumb" :content-type="r.item?.contentType" :alt="r.item?.alt ?? r.item?.filename ?? ''" />
             <span class="field-media__filename">{{ nameOf(r.id, r.item, i) }}</span>
             <span v-if="isDisclosed(r.item?.provenance)" class="field-media__ai">{{ t(provenanceLabelKey(provenanceOrigin(r.item?.provenance))) }}</span>
             <KestrelUiButton v-if="!disabled" variant="icon" class="field-media__remove" :aria-label="t('field.media.remove', { name: nameOf(r.id, r.item, i) })" @click="removeId(r.id)"><KestrelUiIcon name="x" size="1rem" /></KestrelUiButton>

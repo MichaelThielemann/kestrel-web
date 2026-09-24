@@ -22,8 +22,8 @@ mockNuxtImport('useSchema', () => () => ({
 
 function file(over: Partial<MediaItem> = {}): MediaItem {
   return {
-    id: 'f1', filename: 'a.jpg', folder: '', contentType: 'image/jpeg', size: 1, key: 'f1', checksum: null,
-    status: 'ready', createdAt: 1, updatedAt: 1, provenance: { origin: 'human' }, width: null, height: null,
+    id: 'f1', filename: 'a.jpg', folder: '', contentType: 'image/jpeg', size: 1, path: '/media/f1/a.jpg', available: true,
+    createdAt: 1, updatedAt: 1, provenance: { origin: 'human' }, width: null, height: null,
     alt: null, title: null, description: null, variants: [], variantCounts: { done: 0, pending: 1, error: 0, failed: 0 },
     ...over,
   }
@@ -85,5 +85,47 @@ describe('MediaGrid variant chip', () => {
     })
 
     expect(wrapper.find('.media-variant-chip').exists()).toBe(false)
+  })
+})
+
+describe('MediaGrid pick-mode gating', () => {
+  it('ignores a click on an unavailable file and shows the processing label', async () => {
+    const wrapper = await mountSuspended(MediaGrid, {
+      props: { items: [libraryItem(file({ available: false }))], isSelected: () => false, pick: true },
+    })
+
+    await wrapper.get('[data-test="file-f1"]').trigger('click')
+    expect(wrapper.emitted('select')).toBeUndefined()
+    expect(wrapper.get('[data-test="file-f1"]').attributes('aria-disabled')).toBe('true')
+    expect(wrapper.get('.media-grid__processing').text()).toBe('Still processing – available in a moment')
+  })
+
+  it('ignores a double click and the Enter key on an unavailable file', async () => {
+    const wrapper = await mountSuspended(MediaGrid, {
+      props: { items: [libraryItem(file({ available: false }))], isSelected: () => false, pick: true },
+    })
+
+    await wrapper.get('[data-test="file-f1"]').trigger('dblclick')
+    await wrapper.get('[data-test="file-f1"]').trigger('keydown.enter')
+    expect(wrapper.emitted('open')).toBeUndefined()
+  })
+
+  it('selects an unavailable file normally outside pick mode', async () => {
+    const wrapper = await mountSuspended(MediaGrid, {
+      props: { items: [libraryItem(file({ available: false }))], isSelected: () => false },
+    })
+
+    await wrapper.get('[data-test="file-f1"]').trigger('click')
+    expect(wrapper.emitted('select')).toBeDefined()
+    expect(wrapper.get('[data-test="file-f1"]').attributes('aria-disabled')).toBeUndefined()
+  })
+
+  it('still selects an available file in pick mode', async () => {
+    const wrapper = await mountSuspended(MediaGrid, {
+      props: { items: [libraryItem(file({ available: true }))], isSelected: () => false, pick: true },
+    })
+
+    await wrapper.get('[data-test="file-f1"]').trigger('click')
+    expect(wrapper.emitted('select')).toBeDefined()
   })
 })

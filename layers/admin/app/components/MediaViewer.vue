@@ -11,7 +11,7 @@ const { t, lang } = useT()
 const { locales, primary } = useContentLocales()
 const api = useAdminApi()
 const capabilities = useCapabilities()
-const mediaUrl = computed(() => (props.file ? capabilities.mediaFileUrl(props.file.id) : null))
+const mediaUrl = computed(() => props.file?.path ?? null)
 
 const isImage = computed(() => props.file?.contentType.startsWith('image/') ?? false)
 const ext = computed(() => (props.file?.filename.split('.').pop() ?? '').toUpperCase())

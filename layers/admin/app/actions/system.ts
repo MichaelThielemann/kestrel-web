@@ -1,4 +1,4 @@
-import type { EventRelayStatus, EventsRetryResult, ImagesJob, ImagesPruneResult, ImagesRetryFailedResult, ImagesStatus, MediaExportReport, MediaReconcileReport, MigrationsApplyResult, MigrationsDryRunResult, PublishAllReport, RebuildReport, ReplicationRestoreResult, ReplicationSnapshotResult, UserDeleteResponse, UserReassignTarget } from '#kestrel-admin/types/api'
+import type { EventRelayStatus, EventsRetryResult, ImagesJob, ImagesPruneResult, ImagesRetryFailedResult, ImagesStatus, MediaExportReport, MediaReconcileReport, MediaRepairPublicReport, MigrationsApplyResult, MigrationsDryRunResult, PublishAllReport, RebuildReport, ReplicationRestoreResult, ReplicationSnapshotResult, UserDeleteResponse, UserReassignTarget } from '#kestrel-admin/types/api'
 import { defineAction, type ActionContext, type ActionStep } from '#kestrel-core/app/utils/actions'
 import { apiErrorCode, apiErrorMessage, apiErrorRunId, apiErrorStatus, withRunId } from '../composables/useApi'
 import { humanizeSize } from '../utils/library'
@@ -114,6 +114,8 @@ export interface ImagesRetryFailedInput extends WithDeps {
 export interface MediaReconcileInput extends WithDeps {
   ops: BusyPort
 }
+
+export interface RepairPublicMediaInput extends WithDeps { ops: BusyPort }
 
 export interface MediaReconcileDeleteInput extends WithDeps {
   orphans: number
@@ -554,6 +556,28 @@ export const mediaReconcileDelete = defineAction<MediaReconcileDeleteInput, Medi
     }),
   ],
   always: [opsBusy<MediaReconcileDeleteInput, MediaReconcileReport>(false)],
+})
+
+export const repairPublicMedia = defineAction<RepairPublicMediaInput, MediaRepairPublicReport>({
+  name: 'repairPublicMedia',
+  steps: [
+    opsBusy<RepairPublicMediaInput, MediaRepairPublicReport>(true),
+    apiRequest<RepairPublicMediaInput, MediaRepairPublicReport, MediaRepairPublicReport>('api.request', {
+      call: (ctx) => ({ route: ctx.input.deps.capabilities.route('repairPublicMedia') }),
+      onSuccess: (ctx, value) => {
+        ctx.result = value
+        const written = value._publicMedia.written + (value._publicVariants?.written ?? 0)
+        const removed = value._publicMedia.removed + (value._publicVariants?.removed ?? 0)
+        const missing = value._publicMedia.missing + (value._publicVariants?.missing ?? 0)
+        ctx.input.deps.toast.success(ctx.input.deps.t('delivery.repairPublicDone', { written, removed, missing }))
+      },
+      onError: (ctx, err) => {
+        ctx.input.deps.toast.error(err.message ? withRunId(err.message, err.status, err.runId) : ctx.input.deps.t('delivery.repairPublicFailed'))
+        ctx.fail(err.message || 'delivery.repairPublicFailed')
+      },
+    }),
+  ],
+  always: [opsBusy<RepairPublicMediaInput, MediaRepairPublicReport>(false)],
 })
 
 const registerSizes: ActionStep<ImagesRegisterInput, ImagesJob> = defineUiStep('api.request:register', async (ctx) => {

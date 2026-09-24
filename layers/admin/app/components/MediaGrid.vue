@@ -4,6 +4,7 @@ import type { UploadItem } from '../composables/useMediaUpload'
 import type { VariantWatchEntry } from '../composables/useVariantWatch'
 import { itemKey, humanizeSize, type LibraryItem } from '../utils/library'
 import { isDisclosed, provenanceLabelKey, provenanceOrigin } from '../utils/provenance'
+import { isInsertable } from '../utils/media-insert'
 import { variantChipState, variantTotal } from '../utils/variant-state'
 
 const props = defineProps<{
@@ -16,6 +17,7 @@ const props = defineProps<{
   uploadPreview?: (id: string) => string | undefined
   variantOverride?: ReadonlyMap<string, VariantWatchEntry>
   stalledIds?: ReadonlySet<string>
+  pick?: boolean
 }>()
 const emit = defineEmits<{
   navigate: [string]
@@ -32,7 +34,17 @@ function onFolder(item: LibraryItem, path: string, e: MouseEvent) {
   if (e.ctrlKey || e.metaKey || e.shiftKey) emit('select', item, mods(e))
   else emit('navigate', path)
 }
-function onFile(item: LibraryItem, e: MouseEvent) { emit('select', item, mods(e)) }
+function blockedFile(item: LibraryItem): boolean {
+  return props.pick === true && item.type === 'file' && !isInsertable(item.file)
+}
+function onFile(item: LibraryItem, e: MouseEvent) {
+  if (blockedFile(item)) return
+  emit('select', item, mods(e))
+}
+function onFileOpen(item: LibraryItem) {
+  if (blockedFile(item)) return
+  emit('open', item)
+}
 const ext = (filename: string) => (filename.split('.').pop() ?? '').toUpperCase()
 const badge = (f: MediaItem) => t(provenanceLabelKey(provenanceOrigin(f.provenance)))
 
@@ -43,11 +55,18 @@ function chipFor(file: MediaItem) {
   const entry = props.variantOverride?.get(file.id)
   if (!entry) return null
   if (props.stalledIds?.has(file.id)) return { state: 'stalled' as const, done: entry.variantCounts.done, total: variantTotal(entry.variantCounts) }
-  const state = variantChipState(entry.variantCounts)
+  const state = variantChipState(entry.variantCounts, entry.available)
   return state ? { state, done: entry.variantCounts.done, total: variantTotal(entry.variantCounts) } : null
 }
 function uploadChipFor(upload: UploadItem) {
   return upload.result ? chipFor(upload.result) : null
+}
+const { has: hasFeature } = useFeatures()
+function uploadProcessing(upload: UploadItem): boolean {
+  const result = upload.result
+  if (upload.status !== 'done' || !result) return false
+  if (!hasFeature('images') || !result.contentType.startsWith('image/')) return false
+  return props.variantOverride?.get(result.id)?.available !== true
 }
 </script>
 
@@ -89,6 +108,7 @@ function uploadChipFor(upload: UploadItem) {
         :chip-state="uploadChipFor(upload)?.state"
         :chip-done="uploadChipFor(upload)?.done"
         :chip-total="uploadChipFor(upload)?.total"
+        :processing="uploadProcessing(upload)"
         @dismiss="emit('dismissUpload', $event)"
       />
     </li>
@@ -96,18 +116,19 @@ function uploadChipFor(upload: UploadItem) {
       <li v-if="item.type === 'file'" class="media-grid__cell">
         <KestrelUiButton variant="bare" class="media-grid__tile media-grid__tile--file"
           :data-test="`file-${item.file.id}`" :aria-pressed="isSelected(item)"
+          :aria-disabled="blockedFile(item) || undefined"
           :data-file-id="item.file.id"
-          :class="{ 'is-selected': isSelected(item) }"
+          :class="{ 'is-selected': isSelected(item), 'is-blocked': blockedFile(item) }"
           draggable="true"
           @click="onFile(item, $event)"
-          @dblclick="emit('open', item)"
-          @keydown.enter.prevent="emit('open', item)"
+          @dblclick="onFileOpen(item)"
+          @keydown.enter.prevent="onFileOpen(item)"
           @dragstart="(e: DragEvent) => emit('dragstart', item, e)"
           @dragend="emit('dragend')">
           <span class="media-grid__thumb-wrap">
             <KestrelMediaThumb
               v-if="item.file.contentType.startsWith('image/')"
-              :id="item.file.id"
+              :path="item.file.path"
               class="media-grid__thumb"
               :content-type="item.file.contentType"
               :alt="item.file.alt ?? item.file.filename"
@@ -115,8 +136,9 @@ function uploadChipFor(upload: UploadItem) {
               :pending="chipFor(item.file)?.state === 'pending'" />
             <span v-else class="media-grid__badge" aria-hidden="true">{{ ext(item.file.filename) }}</span>
             <span v-if="isDisclosed(item.file.provenance)" class="media-grid__ai">{{ badge(item.file) }}</span>
+            <span v-if="pick && blockedFile(item)" class="media-grid__processing">{{ t('media.pick.processing') }}</span>
             <KestrelMediaVariantChip
-              v-if="chipFor(item.file)"
+              v-else-if="chipFor(item.file)"
               class="media-grid__variant-chip"
               :state="chipFor(item.file)!.state"
               :done="chipFor(item.file)!.done"
@@ -138,6 +160,7 @@ function uploadChipFor(upload: UploadItem) {
 
 .media-grid__tile.is-selected { border-color: var(--color-primary); box-shadow: inset 0 0 0 1px var(--color-primary); }
 .media-grid__tile.is-drop-target { outline: 2px dashed var(--color-primary); outline-offset: -2px; background: var(--color-surface); }
+.media-grid__tile.is-blocked { cursor: not-allowed; opacity: 0.6; }
 .media-grid__tile:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -2px; }
 .media-grid__thumb-wrap { position: relative; width: 100%; }
 .media-grid__thumb { aspect-ratio: 1; width: 100%; object-fit: cover; border-radius: var(--radius-sm); background: var(--color-bg); display: block; }
@@ -178,6 +201,21 @@ function uploadChipFor(upload: UploadItem) {
 }
 .media-grid__tile:hover .media-grid__meta,
 .media-grid__tile:focus-visible .media-grid__meta { opacity: 1; }
+.media-grid__processing {
+  position: absolute;
+  inset-inline: var(--space-1);
+  bottom: var(--space-1);
+  padding: 2px var(--space-1);
+  font-size: var(--text-xs);
+  line-height: 1.35;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--color-on-primary);
+  background: var(--color-scrim);
+  border-radius: var(--radius-sm);
+}
 .media-grid__variant-chip {
   position: absolute;
   inset-inline: var(--space-1);

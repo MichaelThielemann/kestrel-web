@@ -198,8 +198,8 @@ describe('renameOrMove', () => {
 
 describe('deleteItems', () => {
   const file = (id: string, filename: string) => ({
-    id, filename, size: 1, key: id, contentType: 'image/png', folder: '', provenance: { origin: 'human' as const },
-    checksum: null, status: 'ready' as const,
+    id, filename, size: 1, path: `/media/${id}/${filename}`, contentType: 'image/png', folder: '', provenance: { origin: 'human' as const },
+    available: true,
     createdAt: 1, updatedAt: 1, width: null, height: null, alt: null, title: null, description: null,
     variantCounts: { done: 0, pending: 0, error: 0, failed: 0 },
     variants: [],

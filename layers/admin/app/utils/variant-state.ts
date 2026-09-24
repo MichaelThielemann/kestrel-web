@@ -4,7 +4,8 @@ export type VariantChipState = 'pending' | 'failed' | null
 
 const MIN_THUMB_WIDTH = 256
 
-export function variantChipState(counts: MediaVariantCounts): VariantChipState {
+export function variantChipState(counts: MediaVariantCounts, available?: boolean): VariantChipState {
+  if (available === false) return 'pending'
   if (counts.pending > 0) return 'pending'
   if (counts.error + counts.failed > 0) return 'failed'
   return null

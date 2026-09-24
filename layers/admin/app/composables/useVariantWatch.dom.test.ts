@@ -30,8 +30,8 @@ mockNuxtImport('useAdminApi', () => () => (route: { path: string, method: string
 
 function mediaItem(over: Partial<MediaItem> = {}): MediaItem {
   return {
-    id: 'f1', filename: 'a.jpg', folder: '', contentType: 'image/jpeg', size: 1, key: 'f1', checksum: null,
-    status: 'ready', createdAt: 1, updatedAt: 1, provenance: { origin: 'human' }, width: null, height: null,
+    id: 'f1', filename: 'a.jpg', folder: '', contentType: 'image/jpeg', size: 1, path: '/media/f1/a.jpg', available: true,
+    createdAt: 1, updatedAt: 1, provenance: { origin: 'human' }, width: null, height: null,
     alt: null, title: null, description: null, variants: [], variantCounts: { done: 0, pending: 1, error: 0, failed: 0 },
     ...over,
   }
@@ -273,6 +273,38 @@ describe('useVariantWatch', () => {
 
     const ids = apiCalls[0]?.options?.query?.ids ?? ''
     expect(ids.split(',')).toHaveLength(200)
+
+    wrapper.unmount()
+  })
+
+  it('keeps polling while available is false even with pending at zero, and stops once both settle', async () => {
+    vi.useFakeTimers()
+    let call = 0
+    apiHandler.fn = () => {
+      call++
+      const available = call >= 3
+      return Promise.resolve({ items: [mediaItem({ available, variantCounts: { done: 0, pending: 0, error: 0, failed: 0 } })], total: 1 })
+    }
+
+    const { wrapper, api } = await mountProbe()
+    api.track('f1')
+
+    await vi.advanceTimersByTimeAsync(0)
+    expect(call).toBe(1)
+    expect(api.entryFor('f1')?.available).toBe(false)
+    expect(api.hasPending.value).toBe(true)
+
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(call).toBe(2)
+    expect(api.hasPending.value).toBe(true)
+
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(call).toBe(3)
+    expect(api.entryFor('f1')?.available).toBe(true)
+    expect(api.hasPending.value).toBe(false)
+
+    await vi.advanceTimersByTimeAsync(20000)
+    expect(call).toBe(3)
 
     wrapper.unmount()
   })

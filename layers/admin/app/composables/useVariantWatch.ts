@@ -2,7 +2,7 @@ import { computed, onUnmounted, ref } from 'vue'
 import type { MediaItem, MediaVariant, MediaVariantCounts } from '#kestrel-admin/types/api'
 import { apiErrorStatus } from './useApi'
 
-export interface VariantWatchEntry { variants: readonly MediaVariant[]; variantCounts: MediaVariantCounts }
+export interface VariantWatchEntry { variants: readonly MediaVariant[]; variantCounts: MediaVariantCounts; available?: boolean }
 
 export interface VariantTrackCallbacks { onReady?: () => void; onFailed?: () => void }
 
@@ -57,9 +57,10 @@ export function useVariantWatch() {
       let changed = false
       for (const item of page.items) {
         const previous = results.value.get(item.id)
-        if (!previous || previous.variantCounts.pending !== item.variantCounts.pending) changed = true
-        results.value.set(item.id, { variants: item.variants, variantCounts: item.variantCounts })
-        if (item.variantCounts.pending === 0) {
+        if (!previous || previous.variantCounts.pending !== item.variantCounts.pending || previous.available !== item.available) changed = true
+        results.value.set(item.id, { variants: item.variants, variantCounts: item.variantCounts, available: item.available })
+        const settled = item.available !== false && item.variantCounts.pending === 0
+        if (settled) {
           tracked.value.delete(item.id)
           const cbs = callbacks.get(item.id)
           callbacks.delete(item.id)
