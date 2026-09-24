@@ -42,34 +42,41 @@ describe('makeReauthInterceptor', () => {
     const resets: number[] = []
     const navigations: string[] = []
     const refreshes: number[] = []
+    const order: string[] = []
     const interceptor = makeReauthInterceptor({
       currentPath: () => '/admin/users',
-      reset: () => resets.push(1),
-      navigate: (to) => navigations.push(to),
+      reset: () => { resets.push(1); order.push('reset') },
+      navigate: (to) => { navigations.push(to); order.push('navigate'); return Promise.resolve() },
       refreshSchema: () => refreshes.push(1),
     })
-    return { interceptor, resets, navigations, refreshes }
+    return { interceptor, resets, navigations, refreshes, order }
   }
 
-  it('refreshes the schema on a 403 from a kestrel route, without resetting the session', () => {
+  it('refreshes the schema on a 403 from a kestrel route, without resetting the session', async () => {
     const { interceptor, resets, navigations, refreshes } = fakeDeps()
-    interceptor({ request: '/api/users', response: { status: 403 } })
+    await interceptor({ request: '/api/users', response: { status: 403 } })
     expect(refreshes).toHaveLength(1)
     expect(resets).toHaveLength(0)
     expect(navigations).toHaveLength(0)
   })
 
-  it('does not refresh the schema on a 403 from the schema route', () => {
+  it('does not refresh the schema on a 403 from the schema route', async () => {
     const { interceptor, refreshes } = fakeDeps()
-    interceptor({ request: '/api/admin/schema', response: { status: 403 } })
+    await interceptor({ request: '/api/admin/schema', response: { status: 403 } })
     expect(refreshes).toHaveLength(0)
   })
 
-  it('resets and navigates on a 401, without refreshing the schema', () => {
+  it('resets and navigates on a 401, without refreshing the schema', async () => {
     const { interceptor, resets, navigations, refreshes } = fakeDeps()
-    interceptor({ request: '/api/users', response: { status: 401 } })
+    await interceptor({ request: '/api/users', response: { status: 401 } })
     expect(resets).toHaveLength(1)
     expect(navigations).toEqual(['/admin/login?redirect=%2Fadmin%2Fusers'])
     expect(refreshes).toHaveLength(0)
+  })
+
+  it('waits for the navigation to settle before resetting the session', async () => {
+    const { interceptor, order } = fakeDeps()
+    await interceptor({ request: '/api/users', response: { status: 401 } })
+    expect(order).toEqual(['navigate', 'reset'])
   })
 })

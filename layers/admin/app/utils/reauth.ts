@@ -34,10 +34,10 @@ export interface ReauthContext {
 export function makeReauthInterceptor(deps: {
   currentPath: () => string
   reset: () => void
-  navigate: (to: string) => void
+  navigate: (to: string) => Promise<void>
   refreshSchema: () => void
 }) {
-  return (ctx: ReauthContext): void => {
+  return async (ctx: ReauthContext): Promise<void> => {
     const status = ctx.response?.status ?? 0
     const url = requestUrl(ctx.request)
 
@@ -45,8 +45,8 @@ export function makeReauthInterceptor(deps: {
 
     const target = reauthTarget({ status, url, currentPath: deps.currentPath() })
     if (!target) return
+    await deps.navigate(target)
     deps.reset()
-    deps.navigate(target)
   }
 }
 
