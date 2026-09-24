@@ -196,14 +196,16 @@ The `kestrel/admin-api-routes` ESLint rule (`playground/eslint.config.mjs`) keep
 from growing a second, hard-coded way to reach the backend: it bans a path literal passed to the admin
 API client, a hand-built `{ method, path }` route object (including one built by spreading an existing
 route and overriding `path`), a raw `/api` URL outside `apiUrl()`, importing `useApi` under any name,
-and calling `useApi()`, `$fetch`, `useFetch()` or `new XMLHttpRequest()` directly — everything goes
-through `useAdminApi()`/`useUploadTransport()` with a route from `useCapabilities()`. `useApi.ts`,
+and calling `useApi()`, `$fetch`, `useFetch()`, `fetch()`, `globalThis.$fetch` (directly or through
+`.create()`) or `new XMLHttpRequest()` directly — everything goes through
+`useAdminApi()`/`useUploadTransport()` with a route from `useCapabilities()`. `useApi.ts`,
 `useAdminApi.ts`, `useUploadTransport.ts`, `utils/capabilities.ts`, `utils/admin-client.ts` and
 `utils/reauth.ts` are exempt, since they are the routing primitives everything else is built on. Being
 an AST-only rule, it does not see a bypass written as a Vue `<template>` expression (`@click="api({
-method: 'DELETE', path: '/users/x' })"`) or reached through `$fetch.create({ baseURL: MOUNT_PATH })`
-inside a renamed import — the server still authorizes every call regardless, so these are a maintenance
-gap, not a security one.
+method: 'DELETE', path: '/users/x' })"`), a route object assembled through a computed key
+(`{ method: 'GET', [key]: '/users' }`) or `Object.assign({ method }, { path })`, or reached through a
+renamed import of `$fetch`/`fetch` — the server still authorizes every call regardless, so these are a
+maintenance gap, not a security one.
 
 Three routes the admin needs before it can read a schema at all — `login`, `logout`, `me` — are fixed
 regardless of the consumer's trigger list (`ADMIN_BOOTSTRAP_ROUTES`, `layers/core/fixed-routes.ts`):

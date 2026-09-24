@@ -56,8 +56,8 @@ const ADMIN_ROUTE_SELECTORS = [
 
 const ADMIN_FETCH_SELECTORS = [
   {
-    selector: ":matches(CallExpression[callee.name=/^(\\$fetch|useFetch)$/], CallExpression[callee.object.name='$fetch'], NewExpression[callee.name='XMLHttpRequest'])",
-    message: 'Admin code calls the API through useAdminApi()/useUploadTransport(), never $fetch, useFetch() or XMLHttpRequest directly.',
+    selector: ":matches(CallExpression[callee.name=/^(\\$fetch|useFetch|fetch)$/], CallExpression[callee.object.name='$fetch'], CallExpression[callee.object.type='MemberExpression'][callee.object.object.name='globalThis'][callee.object.property.name='$fetch'], CallExpression[callee.type='MemberExpression'][callee.object.name='globalThis'][callee.property.name='$fetch'], NewExpression[callee.name='XMLHttpRequest'])",
+    message: 'Admin code calls the API through useAdminApi()/useUploadTransport(), never $fetch, useFetch(), fetch(), globalThis.$fetch or XMLHttpRequest directly.',
   },
 ]
 
