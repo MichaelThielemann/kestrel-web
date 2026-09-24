@@ -1,16 +1,16 @@
 <script setup lang="ts">
 import { ref, computed, nextTick, onUnmounted } from 'vue'
 import type { MediaItem, Provenance, ReferenceTo } from '#kestrel-admin/types/api'
-import { createFolder, deleteItems, previewDeleteItems, renameOrMove, setMediaMeta, setMediaProvenance, type RenameOrMoveTarget } from '#kestrel-admin/actions/media'
+import { createFolder, renameOrMove, setMediaMeta, setMediaProvenance, type RenameOrMoveTarget } from '#kestrel-admin/actions/media'
 import type { ActionDeps, BusyPort, RefreshPort } from '#kestrel-admin/actions/types'
 import { toastUnexpected } from '#kestrel-admin/actions/steps/notify'
 import type { LibraryItem } from '../utils/library'
-import { folderIsEmpty, joinFolder } from '../utils/library'
+import { joinFolder } from '../utils/library'
 import type { PendingUpload } from '../utils/dnd'
 import type { DropResult } from '../composables/useMediaDnd'
 import type { UploadItem } from '../composables/useMediaUpload'
 import type { MediaViewerSave } from '../utils/media-meta'
-import { deleteSummary, toOpItem, effectiveTargets, resolveFileTargets, type DeleteSummary, type OpItem } from '../utils/ops'
+import { toOpItem, effectiveTargets, type OpItem } from '../utils/ops'
 
 const props = defineProps<{ pick?: boolean; multiple?: boolean; accept?: 'image' | 'any'; initialFolder?: string; initialSelected?: string[] }>()
 const emit = defineEmits<{ confirm: [string[]]; cancel: [] }>()
@@ -28,6 +28,7 @@ const toast = useToast()
 const api = useAdminApi()
 const capabilities = useCapabilities()
 const { schema } = useSchema()
+const mediaCaps = useMediaCapabilities()
 
 const mediaRefresh: RefreshPort = () => { void lib.fetchLibrary(); lib.clear() }
 const opsBusy = ref(false)
@@ -61,6 +62,25 @@ const viewerOpen = ref(false)
 const viewerFile = ref<MediaItem | null>(null)
 const viewerBusy = ref(false)
 const viewerError = ref('')
+
+const { deleteOpen, deleteInfo, askDelete, onConfirmDelete, close: closeDelete } = useMediaDelete({
+  deps: mediaDeps,
+  ops: opsPort,
+  refresh: mediaRefresh,
+  files,
+  folderCounts,
+  schema,
+  canDeleteTargets: (targets) => mediaCaps.canDeleteTargets(targets),
+  onDeletedFromViewer: () => {
+    viewerOpen.value = false
+    viewerFile.value = null
+    void nextTick().then(() => {
+      if (focusReturnTimer) clearTimeout(focusReturnTimer)
+      focusReturnTimer = setTimeout(() => { mediaLibraryRef.value?.focus() }, 0)
+    })
+  },
+})
+
 function onOpenItem(item: LibraryItem) {
   if (item.type !== 'file') return
   if (props.pick) { onSelect(item, { toggle: false, range: false }); return }
@@ -115,7 +135,7 @@ const selectedFileIds = computed(() => (props.pick && props.multiple
 function onConfirmPick() { emit('confirm', selectedFileIds.value) }
 
 function queueUploads(pending: PendingUpload[]) {
-  if (error.value || !pending.length) return
+  if (error.value || !pending.length || !mediaCaps.canUpload.value) return
   mediaUploads.reset()
   pendingUploads.value = pending
   uploadOpen.value = true
@@ -131,7 +151,7 @@ function onConfirmUpload(provenance: Provenance) {
 }
 
 async function onCreateFolder(name: string) {
-  if (error.value) return
+  if (error.value || !mediaCaps.canCreateFolder.value) return
   const d = mediaDeps()
   const r = await runAction(createFolder, { deps: d, path: joinFolder(folder.value, name), ops: opsPort, refresh: mediaRefresh })
   toastUnexpected(d, r)
@@ -140,6 +160,7 @@ async function onCreateFolder(name: string) {
 
 async function onDropResult({ uploads, folders }: DropResult) {
   if (error.value) return
+  if (folders.length && !mediaCaps.canCreateFolder.value) return
   for (const path of folders) {
     const d = mediaDeps()
     const r = await runAction(createFolder, { deps: d, path, ops: opsPort, refresh: mediaRefresh })
@@ -152,6 +173,7 @@ async function onDropResult({ uploads, folders }: DropResult) {
 const draggedItems = ref<OpItem[]>([])
 function onItemDragStart(item: LibraryItem, e: DragEvent) {
   const set = effectiveTargets(item, lib.isSelected, items.value.filter((i) => lib.isSelected(i)))
+  if (!mediaCaps.canMoveTargets(set)) { e.preventDefault(); return }
   draggedItems.value = set.map(toOpItem)
   if (!e.dataTransfer) return
   e.dataTransfer.setData('application/x-kestrel-media', '1')
@@ -165,58 +187,11 @@ const { dragActive, dropFolder, onDragEnter, onDragOver, onDragLeave, onDrop } =
   onDrop: (result) => { void onDropResult(result) },
   draggedItems: () => draggedItems.value,
   onMove: (opItems, dest) => {
+    if (!mediaCaps.canMoveTargets(opItems)) return
     const d = mediaDeps()
     void runAction(renameOrMove, { deps: d, target: { kind: 'move', targets: opItems, dest }, notify: 'toast', ops: opsPort, refresh: mediaRefresh }).then((result) => toastUnexpected(d, result))
   },
 })
-
-const deleteOpen = ref(false)
-const deleteTargets = ref<OpItem[]>([])
-const deleteFiles = ref<MediaItem[]>([])
-const deleteInfo = ref<DeleteSummary | null>(null)
-const deleteFromViewer = ref(false)
-async function askDelete(opItems: OpItem[], origin: 'menu' | 'viewer' = 'menu') {
-  opError.value = null
-  deleteFromViewer.value = origin === 'viewer'
-  deleteTargets.value = opItems
-  const resolved = resolveFileTargets(opItems, files.value)
-  deleteFiles.value = resolved
-  const nonEmptyFolders = opItems
-    .filter((t): t is Extract<OpItem, { type: 'folder' }> => t.type === 'folder' && !folderIsEmpty(t.path, folderCounts.value))
-    .map((t) => t.path)
-  deleteInfo.value = deleteSummary(resolved, opItems, [], nonEmptyFolders)
-  deleteOpen.value = true
-  const d = mediaDeps()
-  const r = await runAction(previewDeleteItems, { deps: d, fileIds: resolved.map((f) => f.id), capability: schema.value?.capabilities.mediaReferrers })
-  toastUnexpected(d, r)
-  deleteInfo.value = deleteSummary(resolved, opItems, r.ok ? (r.result ?? []) : [], nonEmptyFolders)
-}
-async function onConfirmDelete(recursive: boolean) {
-  const targets = deleteTargets.value
-  const folderPaths = targets.filter((t): t is Extract<OpItem, { type: 'folder' }> => t.type === 'folder').map((t) => t.path)
-  const d = mediaDeps()
-  const r = await runAction(deleteItems, {
-    deps: d,
-    files: deleteFiles.value,
-    folderPaths,
-    recursive,
-    confirmed: true,
-    ops: opsPort,
-    refresh: mediaRefresh,
-  })
-  toastUnexpected(d, r)
-  if (!r.ok) return
-  deleteOpen.value = false
-  deleteTargets.value = []
-  if (deleteFromViewer.value) {
-    deleteFromViewer.value = false
-    viewerOpen.value = false
-    viewerFile.value = null
-    await nextTick()
-    if (focusReturnTimer) clearTimeout(focusReturnTimer)
-    focusReturnTimer = setTimeout(() => { mediaLibraryRef.value?.focus() }, 0)
-  }
-}
 
 function onViewerDelete() {
   const f = viewerFile.value
@@ -233,7 +208,7 @@ const renameName = computed(() => {
 })
 async function onConfirmRename(name: string) {
   const target = renameTarget.value
-  if (!target) return
+  if (!target || !mediaCaps.canRenameTarget(target)) return
   const rtarget: RenameOrMoveTarget = target.type === 'file'
     ? { kind: 'file-rename', id: target.file.id, filename: name }
     : { kind: 'folder-rename', path: target.folder.path, name }
@@ -251,6 +226,8 @@ const { menuItems, onContextMenu, onSelect: onMenuSelect } = useMediaContextMenu
   select: lib.select,
   onDelete: (opItems) => { void askDelete(opItems) },
   onRename: (item) => { opError.value = null; renameTarget.value = item; renameOpen.value = true },
+  canRename: (item) => mediaCaps.canRenameTarget(item),
+  canDelete: (targets) => mediaCaps.canDeleteTargets(targets),
 })
 
 const localizedMenu = computed(() => menuItems.value.map((s) => ({
@@ -268,6 +245,8 @@ const localizedMenu = computed(() => menuItems.value.map((s) => ({
       :search="search"
       :status="mediaUploads.status.value"
       :disabled="!!error"
+      :can-upload="mediaCaps.canUpload.value"
+      :can-create-folder="mediaCaps.canCreateFolder.value"
       @update:view="lib.setView"
       @update:search="lib.setSearch"
       @upload="onUpload"
@@ -308,7 +287,17 @@ const localizedMenu = computed(() => menuItems.value.map((s) => ({
       @update:open="(v) => { if (!v) { uploadOpen = false; pendingUploads = [] } }"
     />
     <KestrelMediaNewFolderDialog v-model:open="newFolderOpen" :busy="opsBusy" :error="opError" @create="onCreateFolder" />
-    <KestrelMediaViewer :open="viewerOpen" :file="viewerFile" :busy="viewerBusy" :error="viewerError" @update:open="(v) => { viewerOpen = v }" @save="onSaveViewer" @delete="onViewerDelete" />
+    <KestrelMediaViewer
+      :open="viewerOpen"
+      :file="viewerFile"
+      :can-save="mediaCaps.canRenameFile.value"
+      :can-delete="mediaCaps.canDeleteFile.value"
+      :busy="viewerBusy"
+      :error="viewerError"
+      @update:open="(v) => { viewerOpen = v }"
+      @save="onSaveViewer"
+      @delete="onViewerDelete"
+    />
     <KestrelUiAlert v-if="opError && !deleteOpen && !renameOpen && !viewerOpen && !newFolderOpen" variant="error">{{ opError }}</KestrelUiAlert>
     <KestrelMediaDeleteDialog
       :open="deleteOpen"
@@ -317,7 +306,7 @@ const localizedMenu = computed(() => menuItems.value.map((s) => ({
       :error="opError"
       :conflict="opConflict"
       @confirm="onConfirmDelete"
-      @update:open="(v) => { if (!v) { deleteOpen = false; deleteInfo = null; deleteTargets = []; deleteFiles = []; opConflict = null; deleteFromViewer = false } }"
+      @update:open="(v) => { if (!v) { closeDelete(); opConflict = null } }"
     />
     <KestrelMediaRenameDialog
       :open="renameOpen"
@@ -328,7 +317,7 @@ const localizedMenu = computed(() => menuItems.value.map((s) => ({
       @rename="onConfirmRename"
       @update:open="(v) => { if (!v) { renameOpen = false; renameTarget = null } }"
     />
-    <div v-if="dragActive && !dropFolder && !error" class="media-library__dropzone" aria-hidden="true">{{ t('media.dropToUpload') }}</div>
+    <div v-if="dragActive && !dropFolder && !error && mediaCaps.canUpload.value" class="media-library__dropzone" aria-hidden="true">{{ t('media.dropToUpload') }}</div>
   </section>
 </template>
 

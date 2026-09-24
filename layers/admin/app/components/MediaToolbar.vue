@@ -4,7 +4,7 @@ import type { IconName } from '#kestrel-admin/utils/icons'
 
 type View = 'grid' | 'table'
 
-const props = defineProps<{ view: View; search: string; status?: string; disabled?: boolean }>()
+const props = defineProps<{ view: View; search: string; status?: string; disabled?: boolean; canUpload: boolean; canCreateFolder: boolean }>()
 const emit = defineEmits<{
   'update:view': [View]
   'update:search': [string]
@@ -47,10 +47,14 @@ const fileInput = ref<{ open: () => void } | null>(null)
 
     <div class="media-toolbar__actions">
       <KestrelUiButtonGroup v-model="viewModel" :options="VIEW_OPTIONS" :aria-label="t('mediaToolbar.viewAriaLabel')" />
-      <span class="media-toolbar__divider" aria-hidden="true"></span>
-      <KestrelUiFileInput ref="fileInput" multiple @select="(files) => emit('upload', files)" />
-      <KestrelUiButton :disabled="disabled" @click="fileInput?.open()"><KestrelUiIcon name="upload" :size="16" /> {{ t('mediaToolbar.upload') }}</KestrelUiButton>
-      <KestrelUiButton :disabled="disabled" @click="emit('new-folder')"><KestrelUiIcon name="folder-plus" :size="16" /> {{ t('mediaToolbar.newFolder') }}</KestrelUiButton>
+      <template v-if="canUpload || canCreateFolder">
+        <span class="media-toolbar__divider" aria-hidden="true"></span>
+        <template v-if="canUpload">
+          <KestrelUiFileInput ref="fileInput" multiple @select="(files) => emit('upload', files)" />
+          <KestrelUiButton :disabled="disabled" @click="fileInput?.open()"><KestrelUiIcon name="upload" :size="16" /> {{ t('mediaToolbar.upload') }}</KestrelUiButton>
+        </template>
+        <KestrelUiButton v-if="canCreateFolder" :disabled="disabled" @click="emit('new-folder')"><KestrelUiIcon name="folder-plus" :size="16" /> {{ t('mediaToolbar.newFolder') }}</KestrelUiButton>
+      </template>
     </div>
   </div>
 </template>

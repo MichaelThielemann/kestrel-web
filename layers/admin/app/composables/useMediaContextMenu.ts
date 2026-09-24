@@ -8,10 +8,16 @@ export function useMediaContextMenu(opts: {
   select: (i: LibraryItem) => void
   onDelete: (items: OpItem[]) => void
   onRename: (item: LibraryItem) => void
+  canRename: (item: LibraryItem) => boolean
+  canDelete: (items: LibraryItem[]) => boolean
 }) {
   const targets = ref<LibraryItem[]>([])
 
-  const menuItems = computed<MenuItemSpec[]>(() => buildMenuItems({ targetCount: targets.value.length }))
+  const menuItems = computed<MenuItemSpec[]>(() => buildMenuItems({
+    targetCount: targets.value.length,
+    canRename: targets.value.length === 1 && targets.value[0] !== undefined && opts.canRename(targets.value[0]),
+    canDelete: opts.canDelete(targets.value),
+  }))
 
   function onContextMenu(e: MouseEvent) {
     const all = opts.items()

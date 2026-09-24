@@ -1,8 +1,9 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { mountSuspended } from '@nuxt/test-utils/runtime'
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import type { MediaItem } from '#kestrel-admin/types/api'
+import { en } from '#kestrel-admin/i18n/en'
 import MediaViewer from './MediaViewer.vue'
 
 const file: MediaItem = {
@@ -31,8 +32,10 @@ const viewerSource = readFileSync(resolve(process.cwd(), 'layers/admin/app/compo
 const dialogSource = readFileSync(resolve(process.cwd(), 'layers/admin/app/components/ui/Dialog.vue'), 'utf-8')
 
 describe('MediaViewer layout', () => {
+  beforeEach(() => { document.body.innerHTML = '' })
+
   it('keeps the footer outside the scrolling body, in a fixed dialog footer', async () => {
-    const wrapper = await mountSuspended(MediaViewer, { props: { open: true, file }, attachTo: document.body })
+    const wrapper = await mountSuspended(MediaViewer, { props: { open: true, file, canSave: true, canDelete: true }, attachTo: document.body })
 
     const body = document.body.querySelector('.ui-dialog__body')
     const footer = document.body.querySelector('.ui-dialog__footer')
@@ -53,12 +56,25 @@ describe('MediaViewer layout', () => {
   })
 
   it('renders a danger delete action alongside close and save', async () => {
-    const wrapper = await mountSuspended(MediaViewer, { props: { open: true, file }, attachTo: document.body })
+    const wrapper = await mountSuspended(MediaViewer, { props: { open: true, file, canSave: true, canDelete: true }, attachTo: document.body })
 
     const footer = document.body.querySelector('.ui-dialog__footer')
     const deleteButton = footer?.querySelector('.media-viewer__delete')
     expect(deleteButton).toBeTruthy()
     expect(deleteButton?.classList.contains('ui-button--danger')).toBe(true)
+    const footerLabels = Array.from(footer?.querySelectorAll('button') ?? []).map((b) => b.textContent?.trim())
+    expect(footerLabels).toContain(en['common.save'])
+
+    wrapper.unmount()
+  })
+
+  it('hides delete and save without their capabilities', async () => {
+    const wrapper = await mountSuspended(MediaViewer, { props: { open: true, file, canSave: false, canDelete: false }, attachTo: document.body })
+
+    const footer = document.body.querySelector('.ui-dialog__footer')
+    expect(footer?.querySelector('.media-viewer__delete')).toBeNull()
+    const footerLabels = Array.from(footer?.querySelectorAll('button') ?? []).map((b) => b.textContent?.trim())
+    expect(footerLabels).not.toContain(en['common.save'])
 
     wrapper.unmount()
   })

@@ -387,3 +387,72 @@ describe('MediaLibrary viewer delete flow', () => {
     await vi.waitFor(() => expect(wrapper.find('[data-test="file-f1"]').exists()).toBe(false))
   })
 })
+
+describe('MediaLibrary read-only capabilities', () => {
+  const unregisterAll: (() => void)[] = []
+  const readonlySchema: AdminSchema = {
+    locales: { all: ['en'], primary: 'en', prefixPrimary: false },
+    collections: [],
+    features: [],
+    capabilities: {
+      listMediaFolders: { method: 'GET', path: '/media/folders' },
+      listMedia: { method: 'GET', path: '/media' },
+    },
+  }
+
+  beforeEach(async () => {
+    unregisterAll.push(registerEndpoint('/api/admin/schema', { method: 'GET', handler: () => readonlySchema }))
+    await useSchema().load()
+  })
+
+  afterEach(() => {
+    unregisterAll.splice(0).forEach((unregister) => unregister())
+    useSchema().clear()
+  })
+
+  it('offers no upload, new folder, rename, move or delete without their capabilities', async () => {
+    const file: MediaItem = {
+      id: 'f1',
+      filename: 'report.pdf',
+      folder: '',
+      contentType: 'application/pdf',
+      size: 1024,
+      key: 'f1',
+      checksum: null,
+      status: 'ready',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      provenance: { origin: 'human' },
+      width: null,
+      height: null,
+      alt: null,
+      title: null,
+      description: null,
+      variantCounts: { done: 0, pending: 0, error: 0, failed: 0 },
+      variants: [],
+    }
+    const emptyFolders: MediaFolder[] = []
+    const oneFile: ListPage<MediaItem> = { items: [file], total: 1 }
+
+    unregisterAll.push(registerEndpoint('/api/media/folders', { method: 'GET', handler: () => emptyFolders }))
+    unregisterAll.push(registerEndpoint('/api/media', { method: 'GET', handler: () => oneFile }))
+
+    const wrapper = await mountSuspended(MediaLibrary, { attachTo: document.body })
+    onTestFinished(() => wrapper.unmount())
+
+    await vi.waitFor(() => expect(wrapper.find('[data-test="file-f1"]').exists()).toBe(true))
+
+    const toolbarLabels = wrapper.findAll('button').map((b) => b.text())
+    expect(toolbarLabels).not.toContain(en['mediaToolbar.upload'])
+    expect(toolbarLabels).not.toContain(en['mediaToolbar.newFolder'])
+    expect(wrapper.find('input[type="file"]').exists()).toBe(false)
+
+    await wrapper.get('[data-test="file-f1"]').trigger('dblclick')
+    await vi.waitFor(() => expect(document.body.querySelector('.media-viewer')).toBeTruthy())
+    const viewerContent = document.body.querySelector('.ui-dialog__content--xl')
+    if (!viewerContent) throw new Error('expected the viewer dialog to render')
+    const viewerLabels = Array.from(viewerContent.querySelectorAll('button')).map((b) => b.textContent?.trim())
+    expect(viewerLabels).not.toContain(en['common.delete'])
+    expect(viewerLabels).not.toContain(en['common.save'])
+  })
+})

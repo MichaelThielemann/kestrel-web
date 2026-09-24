@@ -51,13 +51,14 @@ export function deleteSummary(files: MediaItem[], targets: OpItem[], references:
   }
 }
 
-export function buildMenuItems(ctx: { targetCount: number }): MenuItemSpec[] {
+export function buildMenuItems(ctx: { targetCount: number; canRename: boolean; canDelete: boolean }): MenuItemSpec[] {
   if (ctx.targetCount === 0) return []
-  if (ctx.targetCount === 1) {
-    return [
-      { labelKey: 'media.menu.rename', value: 'rename' },
-      { labelKey: 'media.menu.delete', value: 'delete', danger: true },
-    ]
+  const items: MenuItemSpec[] = []
+  if (ctx.targetCount === 1 && ctx.canRename) items.push({ labelKey: 'media.menu.rename', value: 'rename' })
+  if (ctx.canDelete) {
+    items.push(ctx.targetCount === 1
+      ? { labelKey: 'media.menu.delete', value: 'delete', danger: true }
+      : { labelKey: 'media.menu.deleteN', count: ctx.targetCount, value: 'delete', danger: true })
   }
-  return [{ labelKey: 'media.menu.deleteN', count: ctx.targetCount, value: 'delete', danger: true }]
+  return items
 }
