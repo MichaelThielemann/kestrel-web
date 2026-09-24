@@ -1,6 +1,7 @@
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { EventDeliveryStatus } from '#kestrel-admin/types/api'
+import { en } from '#kestrel-admin/i18n/en'
 import DashDeliveryAlert from './DashDeliveryAlert.vue'
 
 describe('DashDeliveryAlert', () => {
@@ -27,7 +28,8 @@ describe('DashDeliveryAlert', () => {
     const wrapper = await mountSuspended(DashDeliveryAlert)
     const link = wrapper.get('a')
     expect(link.attributes('href')).toBe('/admin/system?tab=events')
-    expect(link.text()).toContain('3')
+    expect(link.text()).toBe(en['events.dashDead'].replace('{n}', '3'))
+    expect(link.text()).not.toContain('this process')
     wrapper.unmount()
   })
 
@@ -36,7 +38,7 @@ describe('DashDeliveryAlert', () => {
     unregisterAll.push(registerEndpoint('/api/admin/events/delivery', { method: 'GET', handler: () => status }))
 
     const wrapper = await mountSuspended(DashDeliveryAlert)
-    expect(wrapper.get('a').text()).toContain('2')
+    expect(wrapper.get('a').text()).toBe(en['events.dashFailedInline'].replace('{n}', '2'))
     wrapper.unmount()
   })
 
