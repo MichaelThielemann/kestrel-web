@@ -2,7 +2,7 @@
 import { ref, computed, nextTick, onUnmounted } from 'vue'
 import type { MediaItem, Provenance, ReferenceTo } from '#kestrel-admin/types/api'
 import { createFolder, renameOrMove, setMediaMeta, setMediaProvenance, type RenameOrMoveTarget } from '#kestrel-admin/actions/media'
-import type { ActionDeps, BusyPort, RefreshPort } from '#kestrel-admin/actions/types'
+import type { BusyPort, RefreshPort } from '#kestrel-admin/actions/types'
 import { toastUnexpected } from '#kestrel-admin/actions/steps/notify'
 import type { LibraryItem } from '../utils/library'
 import { joinFolder } from '../utils/library'
@@ -25,8 +25,7 @@ const isSelectedItem = (i: LibraryItem) => (props.pick && props.multiple
 
 const { t } = useT()
 const toast = useToast()
-const api = useAdminApi()
-const capabilities = useCapabilities()
+const deps = useActionDeps()
 const { schema } = useSchema()
 const mediaCaps = useMediaCapabilities()
 
@@ -35,7 +34,6 @@ const opsBusy = ref(false)
 const opError = ref<string | null>(null)
 const opConflict = ref<ReferenceTo[] | null>(null)
 
-const mediaDeps = (): ActionDeps => ({ api, t, toast, capabilities })
 const opsPort: BusyPort = {
   setBusy: (on) => { opsBusy.value = on },
   busy: () => opsBusy.value,
@@ -64,7 +62,7 @@ const viewerBusy = ref(false)
 const viewerError = ref('')
 
 const { deleteOpen, deleteInfo, askDelete, onConfirmDelete, close: closeDelete } = useMediaDelete({
-  deps: mediaDeps,
+  deps: () => deps,
   ops: opsPort,
   refresh: mediaRefresh,
   files,
@@ -95,15 +93,13 @@ async function onSaveViewer(save: MediaViewerSave) {
   viewerError.value = ''
   let ok = true
   if (save.provenance) {
-    const d = mediaDeps()
-    const result = await runAction(setMediaProvenance, { deps: d, id: f.id, provenance: save.provenance, ops: opsPort, refresh: mediaRefresh })
-    toastUnexpected(d, result)
+    const result = await runAction(setMediaProvenance, { deps, id: f.id, provenance: save.provenance, ops: opsPort, refresh: mediaRefresh })
+    toastUnexpected(deps, result)
     ok = result.ok
   }
   if (ok && save.meta) {
-    const d = mediaDeps()
-    const result = await runAction(setMediaMeta, { deps: d, id: f.id, locale: save.meta.locale, fields: save.meta.fields, ops: opsPort, refresh: mediaRefresh })
-    toastUnexpected(d, result)
+    const result = await runAction(setMediaMeta, { deps, id: f.id, locale: save.meta.locale, fields: save.meta.fields, ops: opsPort, refresh: mediaRefresh })
+    toastUnexpected(deps, result)
     ok = result.ok
   }
   viewerBusy.value = false
@@ -152,9 +148,8 @@ function onConfirmUpload(provenance: Provenance) {
 
 async function onCreateFolder(name: string) {
   if (error.value || !mediaCaps.canCreateFolder.value) return
-  const d = mediaDeps()
-  const r = await runAction(createFolder, { deps: d, path: joinFolder(folder.value, name), ops: opsPort, refresh: mediaRefresh })
-  toastUnexpected(d, r)
+  const r = await runAction(createFolder, { deps, path: joinFolder(folder.value, name), ops: opsPort, refresh: mediaRefresh })
+  toastUnexpected(deps, r)
   if (r.ok) newFolderOpen.value = false
 }
 
@@ -162,9 +157,8 @@ async function onDropResult({ uploads, folders }: DropResult) {
   if (error.value) return
   if (folders.length && !mediaCaps.canCreateFolder.value) return
   for (const path of folders) {
-    const d = mediaDeps()
-    const r = await runAction(createFolder, { deps: d, path, ops: opsPort, refresh: mediaRefresh })
-    toastUnexpected(d, r)
+    const r = await runAction(createFolder, { deps, path, ops: opsPort, refresh: mediaRefresh })
+    toastUnexpected(deps, r)
     if (!r.ok) return
   }
   queueUploads(uploads)
@@ -188,8 +182,7 @@ const { dragActive, dropFolder, onDragEnter, onDragOver, onDragLeave, onDrop } =
   draggedItems: () => draggedItems.value,
   onMove: (opItems, dest) => {
     if (!mediaCaps.canMoveTargets(opItems)) return
-    const d = mediaDeps()
-    void runAction(renameOrMove, { deps: d, target: { kind: 'move', targets: opItems, dest }, notify: 'toast', ops: opsPort, refresh: mediaRefresh }).then((result) => toastUnexpected(d, result))
+    void runAction(renameOrMove, { deps, target: { kind: 'move', targets: opItems, dest }, notify: 'toast', ops: opsPort, refresh: mediaRefresh }).then((result) => toastUnexpected(deps, result))
   },
 })
 
@@ -212,9 +205,8 @@ async function onConfirmRename(name: string) {
   const rtarget: RenameOrMoveTarget = target.type === 'file'
     ? { kind: 'file-rename', id: target.file.id, filename: name }
     : { kind: 'folder-rename', path: target.folder.path, name }
-  const d = mediaDeps()
-  const r = await runAction(renameOrMove, { deps: d, target: rtarget, notify: 'inline', ops: opsPort, refresh: mediaRefresh })
-  toastUnexpected(d, r)
+  const r = await runAction(renameOrMove, { deps, target: rtarget, notify: 'inline', ops: opsPort, refresh: mediaRefresh })
+  toastUnexpected(deps, r)
   if (!r.ok) return
   renameOpen.value = false
   renameTarget.value = null

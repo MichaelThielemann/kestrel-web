@@ -4,6 +4,7 @@ import type { ApiRoute, CapabilityResolver, PipelineName, RouteParams } from '..
 import { useSchema } from './useSchema'
 
 export interface CapabilitiesApi extends CapabilityResolver {
+  /** Builds an absolute URL for a route already resolved via `route()`/`verbRoute()`, for a consumer that needs the URL itself rather than a fetch through `useAdminApi()` (an `<a href>`, a download link, …). */
   url: (route: ApiRoute) => string
   mediaFileUrl: (id: string) => string | null
 }
