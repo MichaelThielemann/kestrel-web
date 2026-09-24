@@ -34,6 +34,12 @@ async function fixWriteYes(dir: string): Promise<number> {
   return runUpgradeCli(["fix", "--root", dir, "--write", "--yes"], { plugins: [createLayerPlugin()], stdout: () => undefined, stderr: () => undefined, forceInstalledMajor: 6 });
 }
 
+async function loadProject(dir: string): Promise<import("@michaelthielemann/kestrel-upgrade/plugin").LoadedProject> {
+  const { project, issues } = await loadLayerProject(dir);
+  if (project === undefined) throw new Error(`project failed to load: ${issues.map((i) => i.message).join("; ")}`);
+  return project;
+}
+
 /** Boots the fixed project for real and answers `POST /api/login` through the layer's own h3 handler. */
 async function bootAndLogin(input: BootInput): Promise<number> {
   const { bootWithAdminBootstrapCheck } = await import("../../server/utils/admin-bootstrap");
@@ -63,29 +69,22 @@ afterEach(async () => {
 });
 
 describe("site-2.0 (create-kestrel template shape, presetModuleConfig, no overrides)", () => {
-  it("check finds only the range bumps and the queue offer; the boot tier itself is unreachable through check", async () => {
+  it("check finds only the range bump and the queue offer; the boot tier runs", async () => {
     const dir = await prepare("site-2.0");
     const report = await check(dir);
-    // `@michaelthielemann/kestrel-web` always carries a different major than the project's kestrel*
-    // backend packages by design (2.x with 5.x, 3.x with 6.x); kestrel-upgrade's own installedVersions()
-    // treats every "@michaelthielemann/kestrel*"-named dependency uniformly, so `mixedMajors` is
-    // permanently true for a layer project and `check`'s load/boot tier gate
-    // (`kestrelMajor === 6 && !mixedMajors`) never opens through the standard command, even with
-    // forceInstalledMajor. checkBoot cleanliness is instead verified directly, below and in the other
-    // tests in this file.
-    expect(report.tiers.boot).toBe("not-run");
+    expect(report.tiers.boot).toBe("done");
 
     const errorRules = new Set(report.findings.filter((f) => f.severity === "error").map((f) => f.rule));
-    expect(errorRules).toEqual(new Set(["deps/kestrel-range", "deps/layer-range", "deps/mixed-majors"]));
+    expect(errorRules).toEqual(new Set(["deps/kestrel-range", "deps/layer-range"]));
 
     const layerRange = report.findings.find((f) => f.rule === "deps/layer-range");
     expect(layerRange?.fix.kind).toBe("auto");
 
-    const offer = report.findings.find((f) => f.rule === "preset/event-queue-offer");
+    const offer = report.findings.find((f) => f.rule === "offer/event-queue");
     expect(offer?.message).toBe("can switch to the queue");
     expect(offer?.fix).toMatchObject({ kind: "ask", question: "switch-to-queue", defaultValue: "no" });
 
-    const project = await loadLayerProject(dir);
+    const project = await loadProject(dir);
     const box = sandboxBootInput(project.input, { dir });
     const bootCheck = await checkBoot(box.input, { setup: box.setup });
     expect(bootCheck.errors).toEqual([]);
@@ -93,16 +92,13 @@ describe("site-2.0 (create-kestrel template shape, presetModuleConfig, no overri
 
   it("fix --write --yes bumps the ranges; the fixed project boots and answers POST /api/login 200", async () => {
     const dir = await prepare("site-2.0");
-    // fix's own exit code still reflects the findings check() saw before the write (kestrel's own
-    // documented behaviour); the real proof of success is the clean boot and the login below.
     await fixWriteYes(dir);
 
     const pkg = JSON.parse(readFileSync(join(dir, "package.json"), "utf8"));
     expect(pkg.dependencies["@michaelthielemann/kestrel-web"]).toBe("^3.0.0");
-    expect(pkg.dependencies["@michaelthielemann/kestrel"]).toBe("^6.0.0");
 
     expect(await detectLayerProject(dir)).toBe(true);
-    const project = await loadLayerProject(dir);
+    const project = await loadProject(dir);
     const box = sandboxBootInput(project.input, { dir });
     const bootCheck = await checkBoot(box.input, { setup: box.setup });
     expect(bootCheck.errors).toEqual([]);
@@ -124,7 +120,7 @@ describe("site-2.0 (create-kestrel template shape, presetModuleConfig, no overri
     const model = readFileSync(join(dir, "shared", "model.ts"), "utf8");
     expect(model).toMatch(/"eventsQueue"/);
 
-    const project = await loadLayerProject(dir);
+    const project = await loadProject(dir);
     const box = sandboxBootInput(project.input, { dir });
     const bootCheck = await checkBoot(box.input, { setup: box.setup });
     expect(bootCheck.errors).toEqual([]);
@@ -135,8 +131,8 @@ describe("site-2.0 (create-kestrel template shape, presetModuleConfig, no overri
   }, 60_000);
 });
 
-describe("site-2.0-custom (hand-written module list, eventsQueue already on)", () => {
-  it("check finds the range bump and the missing relayPipelines; the offer says it is already on the queue", async () => {
+describe("site-2.0-custom (hand-written module list, eventsQueue already on, a 2.x-shaped override)", () => {
+  it("check finds the range bump, the missing relayPipelines and the forward-port for deletePage; the offer says it is already on the queue", async () => {
     const dir = await prepare("site-2.0-custom");
     const report = await check(dir);
 
@@ -144,21 +140,28 @@ describe("site-2.0-custom (hand-written module list, eventsQueue already on)", (
     expect(relayScope?.fix.kind).toBe("auto");
     expect(relayScope?.suggestion).toContain("relayPipelines");
 
-    const offer = report.findings.find((f) => f.rule === "preset/event-queue-offer");
+    const offer = report.findings.find((f) => f.rule === "offer/event-queue");
     expect(offer?.message).toContain("already on the queue");
 
     const layerRange = report.findings.find((f) => f.rule === "deps/layer-range");
     expect(layerRange?.fix.kind).toBe("auto");
+
+    const group = report.findings.find((f) => f.rule === "preset/override-group");
+    expect(group?.fix.kind).toBe("auto");
+    const relay = report.findings.find((f) => f.rule === "preset/override-relay");
+    expect(relay?.fix.kind).toBe("auto");
   }, 60_000);
 
-  it("fix --write --yes adds relayPipelines and bumps ranges; the fixed project boots and answers POST /api/login 200", async () => {
+  it("fix --write --yes forward-ports deletePage's override, adds relayPipelines and bumps ranges; the fixed project boots and answers POST /api/login 200", async () => {
     const dir = await prepare("site-2.0-custom");
     await fixWriteYes(dir);
 
     const config = readFileSync(join(dir, "kestrel.config.ts"), "utf8");
     expect(config).toMatch(/relayPipelines:\s*\["publishPage",\s*"unpublishPage"\]/);
+    expect(config).toMatch(/\{\s*atomic:\s*\[\s*"references\.guard:pages",\s*"content\.remove:pages",\s*"references\.unindex:pages",\s*"links\.unextract:pages",\s*"events\.emit:page\.deleted"\s*\]\s*\}/);
+    expect(config).toMatch(/events\.emit:page\.deleted"\s*\]\s*\},\s*"events\.relay"/);
 
-    const project = await loadLayerProject(dir);
+    const project = await loadProject(dir);
     const box = sandboxBootInput(project.input, { dir });
     const bootCheck = await checkBoot(box.input, { setup: box.setup });
     expect(bootCheck.errors).toEqual([]);
@@ -167,22 +170,13 @@ describe("site-2.0-custom (hand-written module list, eventsQueue already on)", (
     expect(status).toBe(200);
   }, 60_000);
 
-  it("a second fix repeats no edit of its own; kestrel-web's range is the one documented exception", async () => {
+  it("a second fix makes no further edit at all (fully idempotent)", async () => {
     const dir = await prepare("site-2.0-custom");
     await fixWriteYes(dir);
-    const before = readFileSync(join(dir, "kestrel.config.ts"), "utf8");
-    const beforePkg = JSON.parse(readFileSync(join(dir, "package.json"), "utf8"));
+    const beforeConfig = readFileSync(join(dir, "kestrel.config.ts"), "utf8");
+    const beforePkg = readFileSync(join(dir, "package.json"), "utf8");
     await fixWriteYes(dir);
-    expect(readFileSync(join(dir, "kestrel.config.ts"), "utf8")).toBe(before);
-    const afterPkg = JSON.parse(readFileSync(join(dir, "package.json"), "utf8"));
-    // Every dependency this rule set touches is idempotent except kestrel-web's own range: kestrel's
-    // generic deps/kestrel-range (in DEFAULT_RULES) matches any "@michaelthielemann/kestrel*" name,
-    // including "-web", and re-asserts ^6.0.0 on a run where the layer's own deps/layer-range rule (which
-    // wants ^3.0.0) has nothing left to fix and stays silent — see layerRangeRule's own comment.
-    for (const [name, range] of Object.entries(beforePkg.dependencies)) {
-      if (name === "@michaelthielemann/kestrel-web") continue;
-      expect(afterPkg.dependencies[name]).toBe(range);
-    }
-    expect(afterPkg.dependencies["@michaelthielemann/kestrel-web"]).toBe("^6.0.0");
+    expect(readFileSync(join(dir, "kestrel.config.ts"), "utf8")).toBe(beforeConfig);
+    expect(readFileSync(join(dir, "package.json"), "utf8")).toBe(beforePkg);
   }, 60_000);
 });

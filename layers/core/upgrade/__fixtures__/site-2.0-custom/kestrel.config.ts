@@ -30,6 +30,26 @@ const modules = [
   { use: "@michaelthielemann/kestrel-events-queue", config: {} },
 ];
 
-export const preset = definePreset({ modules, features, collections: contentTypes, collectionsUi });
+/**
+ * A 2.x-shaped override of `deletePage`: the write, its reference/link bookkeeping and its trailing emit
+ * as plain steps, without the atomic group or the relay the 3.0 default wraps them in.
+ */
+export const preset = definePreset({
+  modules,
+  features,
+  collections: contentTypes,
+  collectionsUi,
+  overrides: {
+    deletePage: [
+      "authn.requireUser",
+      "authz.require:pages.delete",
+      "references.guard:pages",
+      "content.remove:pages",
+      "references.unindex:pages",
+      "links.unextract:pages",
+      "events.emit:page.deleted",
+    ],
+  },
+});
 
 export default defineConfig({ modules, triggers: preset.triggers, http: null });
