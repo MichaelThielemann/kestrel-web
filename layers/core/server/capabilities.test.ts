@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { boot, type Kestrel } from "@michaelthielemann/kestrel";
+import { boot, defineConfig, type Kestrel } from "@michaelthielemann/kestrel";
 import insights from "@michaelthielemann/kestrel-insights";
 import persistenceSqlite from "@michaelthielemann/kestrel-persistence-sqlite";
 import replicationSqlite from "@michaelthielemann/kestrel-replication-sqlite";
@@ -173,5 +173,63 @@ describe("buildAdminSchema capability placement, composed from a real preset", (
     const triggers = bootedTriggers(undefined);
     const { global } = buildCapabilities({ triggers, access: { changePassword: "unknown" }, verbs: {} });
     expect(global.changePassword).toEqual({ method: "POST", path: "/me/password" });
+  });
+});
+
+describe("kestrel.describe() on a real boot with a customized trigger table", () => {
+  let appRoot: string;
+  let kestrel: Kestrel;
+  let adminToken: string;
+
+  beforeAll(async () => {
+    appRoot = mkdtempSync(join(tmpdir(), "kestrel-web-capabilities-boot-"));
+    process.env.KESTREL_APP_ROOT = appRoot;
+    process.env.KESTREL_BLOCK_SCHEMA = fileURLToPath(new URL("../pipelines/__fixtures__/pages.body.json", import.meta.url));
+
+    const { default: config } = await import("../../../playground/kestrel.config");
+    const preset = definePreset({ modules: config.modules, features, collections: contentTypes, collectionsUi, fieldTypes, exclude: ["deleteUser"] });
+    const rerouted = preset.triggers.filter((trigger) => !("http" in trigger) || trigger.pipeline !== "listUsers");
+    rerouted.push({ http: "GET /staff/directory", pipeline: "listUsers" });
+
+    const modules = presetModules(config.modules, {
+      "@michaelthielemann/kestrel-insights": insights,
+      "@michaelthielemann/kestrel-replication-sqlite": replicationSqlite,
+      "@michaelthielemann/kestrel-persistence-sqlite": persistenceSqlite,
+    });
+    kestrel = await boot({ config: defineConfig({ modules: config.modules, triggers: rerouted, http: null }), modules, pipelines: preset.pipelines });
+    await kestrel.start();
+
+    const login = await kestrel.run("login", { trigger: { kind: "http", name: "POST /login" }, body: { username: "admin", password: "change-me" } });
+    if (login.status !== 200) throw new Error(`admin login failed: ${JSON.stringify(login)}`);
+    adminToken = tokenOf(login.result);
+  }, 20000);
+
+  afterAll(async () => {
+    await kestrel.stop();
+    delete process.env.KESTREL_APP_ROOT;
+    delete process.env.KESTREL_BLOCK_SCHEMA;
+    rmSync(appRoot, { recursive: true, force: true });
+  });
+
+  it("omits an excluded pipeline's trigger from the booted descriptor", () => {
+    const http = kestrel.describe().triggers.http;
+    expect(http.some((trigger) => trigger.pipeline === "deleteUser")).toBe(false);
+  });
+
+  it("reports a pipeline at the path a consumer's own trigger list gives it, not the preset default", () => {
+    const http = kestrel.describe().triggers.http;
+    expect(http.find((trigger) => trigger.pipeline === "listUsers")).toEqual({ method: "GET", path: "/staff/directory", pipeline: "listUsers" });
+  });
+
+  it("carries both the exclude and the reroute through to the admin schema's capabilities", async () => {
+    const run = await kestrel.run("adminSchemaModel", {
+      trigger: { kind: "http", name: "GET /admin/schema" },
+      headers: { authorization: `Bearer ${adminToken}` },
+    });
+    expect(run.status).toBe(200);
+    const schema = schemaFromRun(run, schemaSources(kestrel.describe().triggers.http));
+    if (schema.status !== 200) throw new Error(`unexpected schema error: ${JSON.stringify(schema.body)}`);
+    expect(schema.body.capabilities.deleteUser).toBeUndefined();
+    expect(schema.body.capabilities.listUsers).toEqual({ method: "GET", path: "/staff/directory" });
   });
 });
