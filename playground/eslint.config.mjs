@@ -4,6 +4,48 @@ import withNuxt from './.nuxt/eslint.config.mjs'
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url))
 
+const LAYER_BOUNDARY_SELECTORS = [
+  {
+    selector: "TSAsExpression > TSAsExpression.expression[typeAnnotation.type='TSUnknownKeyword']",
+    message: '`as unknown as T` is banned; use boundaryCast<T>(value, boundary) from #kestrel/cast at a JSON, AST, DOM or host boundary.',
+  },
+  {
+    selector: "TSAsExpression[typeAnnotation.type='TSAnyKeyword']",
+    message: '`as any` is banned.',
+  },
+  {
+    selector: ":matches(ImportDeclaration, ExportNamedDeclaration, ExportAllDeclaration, ImportExpression)[source.value=/^(\\.\\.\\/)+(core|admin|public)\\//]",
+    message: 'Relative imports must not cross a layer; use #kestrel-core/... or #kestrel-admin/... instead.',
+  },
+  {
+    selector: ":matches(ImportDeclaration, ExportNamedDeclaration, ExportAllDeclaration, ImportExpression)[source.value=/^~~\\/layers\\/(core|admin|public)\\//]",
+    message: 'Absolute `~~/layers/...` imports must not cross a layer; use #kestrel-core/... or #kestrel-admin/... instead.',
+  },
+]
+
+const ADMIN_ROUTE_SELECTORS = [
+  {
+    selector: "CallExpression[callee.name='useApi']",
+    message: 'Admin code calls the API through useAdminApi() with a route from useCapabilities().',
+  },
+  {
+    selector: "CallExpression:matches([callee.name=/^(api|transport)$/], [callee.property.name=/^(api|transport)$/]) > :matches(Literal, TemplateLiteral)",
+    message: 'Pass a route from useCapabilities(), not a path literal.',
+  },
+  {
+    selector: "ObjectExpression > Property[key.name='path'] ~ Property[key.name='method']",
+    message: 'Routes come from useCapabilities() or ADMIN_BOOTSTRAP_ROUTES/LAYER_ROUTES, not from an object literal.',
+  },
+  {
+    selector: "ObjectExpression > Property[key.name='method'] ~ Property[key.name='path']",
+    message: 'Routes come from useCapabilities() or ADMIN_BOOTSTRAP_ROUTES/LAYER_ROUTES, not from an object literal.',
+  },
+  {
+    selector: ":matches(Literal[value=/^\\/api(\\/|$)/], TemplateElement[value.raw=/^\\/api(\\/|$)/])",
+    message: 'API URLs come from apiUrl() in utils/capabilities.ts.',
+  },
+]
+
 export default withNuxt(
   { ignores: ['!**/layers/public/**'] },
   { name: 'kestrel/lint-fixtures-ignore', ignores: ['**/__lint_fixtures__/**', 'layers/core/lint-fixture-type-aware.ts'] },
@@ -36,25 +78,15 @@ export default withNuxt(
     name: 'kestrel/layer-boundaries',
     files: ['layers/**/*.{ts,vue}', 'packages/**/*.{ts,vue}', 'playground/**/*.{ts,vue}'],
     rules: {
-      'no-restricted-syntax': [
-        'error',
-        {
-          selector: "TSAsExpression > TSAsExpression.expression[typeAnnotation.type='TSUnknownKeyword']",
-          message: '`as unknown as T` is banned; use boundaryCast<T>(value, boundary) from #kestrel/cast at a JSON, AST, DOM or host boundary.',
-        },
-        {
-          selector: "TSAsExpression[typeAnnotation.type='TSAnyKeyword']",
-          message: '`as any` is banned.',
-        },
-        {
-          selector: ":matches(ImportDeclaration, ExportNamedDeclaration, ExportAllDeclaration, ImportExpression)[source.value=/^(\\.\\.\\/)+(core|admin|public)\\//]",
-          message: 'Relative imports must not cross a layer; use #kestrel-core/... or #kestrel-admin/... instead.',
-        },
-        {
-          selector: ":matches(ImportDeclaration, ExportNamedDeclaration, ExportAllDeclaration, ImportExpression)[source.value=/^~~\\/layers\\/(core|admin|public)\\//]",
-          message: 'Absolute `~~/layers/...` imports must not cross a layer; use #kestrel-core/... or #kestrel-admin/... instead.',
-        },
-      ],
+      'no-restricted-syntax': ['error', ...LAYER_BOUNDARY_SELECTORS],
+    },
+  },
+  {
+    name: 'kestrel/admin-api-routes',
+    files: ['layers/admin/app/**/*.{ts,vue}'],
+    ignores: ['**/*.test.ts', '**/__fixtures__/**', 'layers/admin/app/utils/capabilities.ts', 'layers/admin/app/composables/useAdminApi.ts'],
+    rules: {
+      'no-restricted-syntax': ['error', ...LAYER_BOUNDARY_SELECTORS, ...ADMIN_ROUTE_SELECTORS],
     },
   },
   {

@@ -150,4 +150,29 @@ const raw = "<b>x</b>"
     const messages = await lintFixtureFile("layers/core/lint-fixture-type-aware.ts");
     expectMessage(messages, "@typescript-eslint/no-floating-promises", "");
   });
+
+  it("kestrel/admin-api-routes: bans a path literal passed to the admin API client", async () => {
+    const messages = await lintVirtual("const api = useAdminApi();\nawait api('/users');\n", "layers/admin/app/composables/probe.ts");
+    expectMessage(messages, "no-restricted-syntax", "not a path literal");
+  });
+
+  it("kestrel/admin-api-routes: bans a hand-built route object", async () => {
+    const messages = await lintVirtual("export const call = { path: `/users/${'x'}`, method: 'DELETE' };\n", "layers/admin/app/actions/probe.ts");
+    expectMessage(messages, "no-restricted-syntax", "not from an object literal");
+  });
+
+  it("kestrel/admin-api-routes: bans a raw /api URL", async () => {
+    const messages = await lintVirtual("export const src = (id: string) => `/api/media/${id}/file`;\n", "layers/admin/app/components/probe.ts");
+    expectMessage(messages, "no-restricted-syntax", "apiUrl()");
+  });
+
+  it("kestrel/admin-api-routes: bans useApi() outside useAdminApi", async () => {
+    const messages = await lintVirtual("const api = useApi();\n", "layers/admin/app/components/probe.ts");
+    expectMessage(messages, "no-restricted-syntax", "useAdminApi()");
+  });
+
+  it("kestrel/admin-api-routes: leaves admin page routes alone", async () => {
+    const messages = await lintVirtual("await navigateTo('/admin/login');\nawait navigateTo({ path: '/admin/system', query: {} });\n", "layers/admin/app/pages/probe.ts");
+    expect(messages.filter((m) => m.ruleId === "no-restricted-syntax")).toEqual([]);
+  });
 });
