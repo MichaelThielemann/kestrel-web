@@ -25,7 +25,6 @@ const file: MediaItem = {
   description: null,
   variantCounts: { done: 0, pending: 0, error: 0, failed: 0 },
   variants: [],
-  variantCounts: { done: 0, pending: 0, error: 0, failed: 0 },
 }
 
 const viewerSource = readFileSync(resolve(process.cwd(), 'layers/admin/app/components/MediaViewer.vue'), 'utf-8')
@@ -75,6 +74,35 @@ describe('MediaViewer layout', () => {
     expect(footer?.querySelector('.media-viewer__delete')).toBeNull()
     const footerLabels = Array.from(footer?.querySelectorAll('button') ?? []).map((b) => b.textContent?.trim())
     expect(footerLabels).not.toContain(en['common.save'])
+
+    wrapper.unmount()
+  })
+
+  function metaFields(): (HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement)[] {
+    const meta = document.body.querySelector('.media-viewer__meta')
+    const provenance = document.body.querySelector('.media-viewer__provenance')
+    return [
+      ...(meta?.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('input, textarea') ?? []),
+      ...(provenance?.querySelectorAll<HTMLInputElement | HTMLSelectElement>('input, select') ?? []),
+    ]
+  }
+
+  it('disables every metadata input for a role without the save capability', async () => {
+    const wrapper = await mountSuspended(MediaViewer, { props: { open: true, file, canSave: false, canDelete: false }, attachTo: document.body })
+
+    const fields = metaFields()
+    expect(fields.length).toBeGreaterThan(0)
+    expect(fields.every((el) => el.disabled)).toBe(true)
+
+    wrapper.unmount()
+  })
+
+  it('keeps the metadata inputs enabled with the save capability', async () => {
+    const wrapper = await mountSuspended(MediaViewer, { props: { open: true, file, canSave: true, canDelete: false }, attachTo: document.body })
+
+    const fields = metaFields()
+    expect(fields.length).toBeGreaterThan(0)
+    expect(fields.some((el) => el.disabled)).toBe(false)
 
     wrapper.unmount()
   })

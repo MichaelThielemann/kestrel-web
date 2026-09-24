@@ -138,17 +138,17 @@ function save() {
           <KestrelUiAlert v-if="metaError" variant="error">{{ metaError }}</KestrelUiAlert>
           <KestrelUiField :label="t('mediaViewer.alt')" :hint="t('mediaViewer.altHint')">
             <template #default="f">
-              <KestrelUiTextInput v-model="alt" :placeholder="altPlaceholder" :disabled="metaLoading" v-bind="f" @keydown.enter="save" />
+              <KestrelUiTextInput v-model="alt" :placeholder="altPlaceholder" :disabled="metaLoading || !canSave" v-bind="f" @keydown.enter="save" />
             </template>
           </KestrelUiField>
           <KestrelUiField :label="t('mediaViewer.titleLabel')">
             <template #default="f">
-              <KestrelUiTextInput v-model="title" :placeholder="titlePlaceholder" :disabled="metaLoading" v-bind="f" @keydown.enter="save" />
+              <KestrelUiTextInput v-model="title" :placeholder="titlePlaceholder" :disabled="metaLoading || !canSave" v-bind="f" @keydown.enter="save" />
             </template>
           </KestrelUiField>
           <KestrelUiField :label="t('mediaViewer.descriptionLabel')">
             <template #default="f">
-              <KestrelUiTextarea v-model="description" :placeholder="descriptionPlaceholder" :disabled="metaLoading" v-bind="f" />
+              <KestrelUiTextarea v-model="description" :placeholder="descriptionPlaceholder" :disabled="metaLoading || !canSave" v-bind="f" />
             </template>
           </KestrelUiField>
         </div>
@@ -156,17 +156,17 @@ function save() {
         <div class="media-viewer__provenance">
           <KestrelUiField :label="t('mediaViewer.originLabel')" :hint="t('mediaViewer.originHint')">
             <template #default="f">
-              <KestrelUiSelect v-model="originModel" :options="originOptions" v-bind="f" />
+              <KestrelUiSelect v-model="originModel" :options="originOptions" :disabled="!canSave" v-bind="f" />
             </template>
           </KestrelUiField>
           <KestrelUiField :label="t('mediaViewer.tool')" :hint="t('mediaViewer.toolHint')">
             <template #default="f">
-              <KestrelUiTextInput v-model="tool" v-bind="f" @keydown.enter="save" />
+              <KestrelUiTextInput v-model="tool" :disabled="!canSave" v-bind="f" @keydown.enter="save" />
             </template>
           </KestrelUiField>
           <KestrelUiField :label="t('mediaViewer.model')">
             <template #default="f">
-              <KestrelUiTextInput v-model="model" v-bind="f" @keydown.enter="save" />
+              <KestrelUiTextInput v-model="model" :disabled="!canSave" v-bind="f" @keydown.enter="save" />
             </template>
           </KestrelUiField>
         </div>
