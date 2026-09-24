@@ -870,6 +870,10 @@
       "method": "GET",
       "path": "/admin/insights/stats"
     },
+    "eventsDeliveryStatus": {
+      "method": "GET",
+      "path": "/admin/events/delivery"
+    },
     "retryAnonymizeAuditUser": {
       "method": "POST",
       "path": "/admin/users/:id/audit/anonymize"
