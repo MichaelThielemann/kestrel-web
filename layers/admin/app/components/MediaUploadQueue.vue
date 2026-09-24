@@ -27,17 +27,12 @@ const { t } = useT()
         />
       </div>
 
-      <div
+      <KestrelUiProgress
         v-else
-        class="media-upload-queue__progress"
-        role="progressbar"
-        :aria-label="t('media.upload.progressLabel', { name: item.filename })"
-        :aria-valuenow="item.progress"
-        aria-valuemin="0"
-        aria-valuemax="100"
-      >
-        <span class="media-upload-queue__bar" :style="{ width: `${item.progress}%` }" />
-      </div>
+        :value="item.status === 'uploading' ? item.progress : undefined"
+        :label="t('media.upload.progressLabel', { name: item.filename })"
+        :value-text="item.status === 'uploading' ? `${item.progress} %` : t('media.tile.processing')"
+      />
     </li>
   </ul>
 </template>
@@ -78,20 +73,6 @@ const { t } = useT()
   color: var(--color-text-muted);
 }
 
-.media-upload-queue__progress {
-  height: 0.375rem;
-  border-radius: var(--radius-full);
-  background: var(--color-surface-2);
-  overflow: hidden;
-}
-
-.media-upload-queue__bar {
-  display: block;
-  height: 100%;
-  background: var(--color-primary);
-  transition: width var(--motion-fast) var(--ease-standard);
-}
-
 .media-upload-queue__failed {
   display: flex;
   align-items: center;
@@ -103,11 +84,5 @@ const { t } = useT()
 .media-upload-queue__message {
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .media-upload-queue__bar {
-    transition: none;
-  }
 }
 </style>
