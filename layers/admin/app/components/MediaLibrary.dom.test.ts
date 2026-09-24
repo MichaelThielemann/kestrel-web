@@ -1,10 +1,19 @@
 import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
+import { getQuery } from 'h3'
 import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
-import { nextTick } from 'vue'
+import { computed, nextTick } from 'vue'
 import { boundaryCast } from '#kestrel/cast'
 import { en } from '#kestrel-admin/i18n/en'
-import type { ListPage, MediaFolder, MediaItem } from '#kestrel-admin/types/api'
+import type { AdminSchema, ListPage, MediaFolder, MediaItem } from '#kestrel-admin/types/api'
 import MediaLibrary from './MediaLibrary.vue'
+
+const schema: AdminSchema = { locales: { all: ['en'], primary: 'en', prefixPrimary: false }, collections: [], features: [] }
+mockNuxtImport('useSchema', () => () => ({
+  schema: computed(() => schema),
+  error: computed(() => null),
+  load: () => Promise.resolve('ok' as const),
+  clear: () => {},
+}))
 
 const uploadControl = vi.hoisted(() => {
   const state: {
@@ -36,6 +45,7 @@ describe('MediaLibrary upload status', () => {
 
   afterEach(() => {
     unregisterAll.splice(0).forEach((unregister) => unregister())
+    schema.features = []
   })
 
   it('shows progress while uploading and clears the status line once the file is done', async () => {
@@ -96,14 +106,73 @@ describe('MediaLibrary upload status', () => {
       data: { error: 'type application/octet-stream is not allowed', code: 'UNSUPPORTED', retryable: false },
     }))
 
-    await vi.waitFor(() => expect(wrapper.find('.media-upload-queue__failed').exists()).toBe(true))
+    await vi.waitFor(() => expect(wrapper.find('.media-upload-tile__failed').exists()).toBe(true))
     expect(wrapper.get('[role="status"]').text()).toBe('')
-    expect(wrapper.get('.media-upload-queue__failed').text()).toContain('File type is not allowed')
+    expect(wrapper.get('.media-upload-tile__failed').text()).toContain('File type is not allowed')
 
     const dismissButton = wrapper.get(`[aria-label="${en['media.upload.dismiss'].replace('{name}', 'bad.exe')}"]`)
     await dismissButton.trigger('click')
 
-    expect(wrapper.find('.media-upload-queue__row').exists()).toBe(false)
+    expect(wrapper.find('.media-upload-tile').exists()).toBe(false)
+  })
+
+  it('shows a variant-pending chip once the upload response arrives', async () => {
+    schema.features = ['images']
+    unregisterAll.push(registerEndpoint('/api/media/folders', { method: 'GET', handler: () => [] }))
+    unregisterAll.push(registerEndpoint('/api/media', {
+      method: 'GET',
+      handler: (event) => {
+        const query = getQuery(event)
+        if (typeof query.ids === 'string') {
+          return {
+            items: [{
+              id: 'f1', filename: 'photo.jpg', folder: '', contentType: 'image/jpeg', size: 10, key: 'f1', checksum: null,
+              status: 'ready', createdAt: 1, updatedAt: 1, provenance: { origin: 'human' }, width: null, height: null,
+              alt: null, title: null, description: null, variants: [],
+              variantCounts: { done: 2, pending: 3, error: 0, failed: 0 },
+            }],
+            total: 1,
+          }
+        }
+        return { items: [], total: 0 }
+      },
+    }))
+    unregisterAll.push(registerEndpoint('/api/limits', { method: 'GET', handler: () => ({ maxUploadBytes: null }) }))
+
+    const wrapper = await mountSuspended(MediaLibrary, { attachTo: document.body })
+    onTestFinished(() => wrapper.unmount())
+
+    const fileInput = wrapper.get('input[type="file"]')
+    selectFile(boundaryCast<HTMLInputElement>(fileInput.element, 'dom'), new File(['x'], 'photo.jpg', { type: 'image/jpeg' }))
+    await vi.waitFor(() => expect(document.body.querySelector('.ui-dialog__content')).toBeTruthy())
+    const dialog = document.body.querySelector('.ui-dialog__content')
+    if (!dialog) throw new Error('expected the upload dialog to render')
+    const confirmButton = Array.from(dialog.querySelectorAll('button')).find((b) => b.textContent?.trim() === en['mediaToolbar.upload'])
+    if (!confirmButton) throw new Error('expected the upload dialog to render a confirm button')
+    confirmButton.click()
+    await nextTick()
+
+    await vi.waitFor(() => expect(uploadControl.state.deliver).not.toBeNull())
+    uploadControl.state.deliver?.({ id: 'f1' })
+    await vi.waitFor(() => expect(wrapper.find('.media-variant-chip').exists()).toBe(true))
+    expect(wrapper.get('.media-variant-chip').text()).toContain('2/5')
+  })
+})
+
+describe('media components do not branch on the delivery mode', () => {
+  it('never reads has(\'eventsQueue\')', async () => {
+    const fs = await import('node:fs/promises')
+    const path = await import('node:path')
+    const dir = path.resolve(import.meta.dirname, '.')
+    const composablesDir = path.resolve(dir, '../composables')
+    const files = [
+      ...(await fs.readdir(dir)).filter((f) => /^Media.*\.vue$/.test(f)).map((f) => path.join(dir, f)),
+      ...(await fs.readdir(composablesDir)).filter((f) => /^use(Media|Upload|Variant).*\.ts$/.test(f) && !f.endsWith('.test.ts')).map((f) => path.join(composablesDir, f)),
+    ]
+    for (const file of files) {
+      const content = await fs.readFile(file, 'utf-8')
+      expect(content, file).not.toMatch(/has\(\s*['"]eventsQueue['"]\s*\)/)
+    }
   })
 })
 

@@ -8,6 +8,8 @@ import type { LibraryItem } from '../utils/library'
 import { folderIsEmpty, joinFolder } from '../utils/library'
 import type { PendingUpload } from '../utils/dnd'
 import type { DropResult } from '../composables/useMediaDnd'
+import type { UploadItem } from '../composables/useMediaUpload'
+import { uploadStatusLine } from '../composables/useMediaUpload'
 import type { MediaViewerSave } from '../utils/media-meta'
 import { deleteSummary, toOpItem, effectiveTargets, resolveFileTargets, type DeleteSummary, type OpItem } from '../utils/ops'
 
@@ -40,21 +42,27 @@ const opsPort: BusyPort = {
   setConflict: (refs) => { opConflict.value = refs },
 }
 
+const preview = useUploadPreview()
+const variantWatch = useVariantWatch()
+const { results: variantResults, hasPending: variantsPending } = variantWatch
+
+const onUploadError = (item: UploadItem) => toast.error(t('media.uploadError', { name: item.filename, reason: item.message || t('media.uploadFailedReason') }))
 const upload = useMediaUpload({
+  onQueued: (item) => { void preview.generate(item.id, item.file) },
+  onReady: (item) => { if (item.result) variantWatch.track(item.result.id) },
   onSettled: () => { void lib.fetchLibrary() },
-  onError: (item) => toast.error(t('media.uploadError', { name: item.filename, reason: item.message || t('media.uploadFailedReason') })),
+  onError: onUploadError,
 })
 const { active, counts, limitError, dismiss } = upload
-const queueRows = computed(() => upload.queue.value.filter((i) => i.status !== 'done' && i.status !== 'processing'))
-const uploadStatus = computed(() => {
-  const parts: string[] = []
-  if (active.value) {
-    const failed = counts.value.failed ? `, ${counts.value.failed} ${t('media.uploadFailed')}` : ''
-    parts.push(`${t('media.uploading')}${counts.value.done} ${t('media.uploadUploaded')}${failed}`)
-  }
-  if (upload.queue.value.some((i) => i.status === 'processing')) parts.push(t('media.upload.processing'))
-  return parts.join(' · ')
-})
+const { gridTileUploads, queueRows, onDismissUpload } = useUploadTiles({ queue: upload.queue, files, view, folder, preview, dismiss })
+
+const uploadStatus = computed(() => uploadStatusLine({
+  active: active.value,
+  done: counts.value.done,
+  failed: counts.value.failed,
+  processing: upload.queue.value.some((i) => i.status === 'processing'),
+  variantsPending: variantsPending.value,
+}, t))
 
 const newFolderOpen = ref(false)
 const uploadOpen = ref(false)
@@ -283,8 +291,10 @@ const localizedMenu = computed(() => menuItems.value.map((s) => ({
 
       <div class="media-library__items" @contextmenu.capture="onContextMenu">
         <KestrelUiAlert v-if="error" variant="error">{{ error }}</KestrelUiAlert>
-        <p v-else-if="!loading && !items.length" class="media-library__empty">{{ t('media.folderEmpty') }}</p>
-        <KestrelMediaGrid v-else-if="view === 'grid'" :items="items" :is-selected="isSelectedItem" :drop-target-path="dropFolder" :parent-path="parentPath" :up-label="t('media.parentFolder')" @navigate="lib.navigate" @select="onSelect" @open="onOpenItem" @dragstart="onItemDragStart" @dragend="onItemDragEnd" />
+        <p v-else-if="!loading && !items.length && !(view === 'grid' && gridTileUploads.length)" class="media-library__empty">{{ t('media.folderEmpty') }}</p>
+        <KestrelMediaGrid v-else-if="view === 'grid'" :items="items" :is-selected="isSelectedItem" :drop-target-path="dropFolder" :parent-path="parentPath" :up-label="t('media.parentFolder')"
+          :uploads="gridTileUploads" :upload-preview="preview.previewFor" :variant-override="variantResults"
+          @navigate="lib.navigate" @select="onSelect" @open="onOpenItem" @dragstart="onItemDragStart" @dragend="onItemDragEnd" @dismiss-upload="onDismissUpload" />
         <KestrelMediaTable v-else :items="items" :is-selected="isSelectedItem" :drop-target-path="dropFolder" :sort="sort" :parent-path="parentPath" :up-label="t('media.parentFolder')" @navigate="lib.navigate" @select="onSelect" @open="onOpenItem" @sort="lib.setSort" @dragstart="onItemDragStart" @dragend="onItemDragEnd" />
       </div>
     </KestrelUiMenu>
@@ -297,7 +307,7 @@ const localizedMenu = computed(() => menuItems.value.map((s) => ({
       @update:page="lib.setPage"
       @update:per-page="lib.setPerPage"
     />
-    <KestrelMediaUploadQueue v-if="queueRows.length" :items="queueRows" @dismiss="dismiss" />
+    <KestrelMediaUploadQueue v-if="queueRows.length" :items="queueRows" @dismiss="onDismissUpload" />
     <KestrelUiAlert v-if="limitError" variant="error">{{ limitError }}</KestrelUiAlert>
     <div v-if="pick" class="media-library__pickbar">
       <span>{{ selectedFileIds.length }} {{ t('media.selected') }}</span>
