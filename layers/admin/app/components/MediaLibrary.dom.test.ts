@@ -164,6 +164,51 @@ describe('MediaLibrary upload status', () => {
     await vi.waitFor(() => expect(wrapper.find('.media-variant-chip').exists()).toBe(false), { timeout: 3000 })
   })
 
+  it('announces when variants finish generating, not just the initial chip', async () => {
+    schema.features = ['images']
+    let uploaded = false
+    let idsCalls = 0
+    const withVariantCounts = (pending: number) => ({
+      id: 'f1', filename: 'photo.jpg', folder: '', contentType: 'image/jpeg', size: 10, key: 'f1', checksum: null,
+      status: 'ready', createdAt: 1, updatedAt: 1, provenance: { origin: 'human' }, width: null, height: null,
+      alt: null, title: null, description: null, variants: [],
+      variantCounts: { done: 5 - pending, pending, error: 0, failed: 0 },
+    })
+    unregisterAll.push(registerEndpoint('/api/media/folders', { method: 'GET', handler: () => [] }))
+    unregisterAll.push(registerEndpoint('/api/media', {
+      method: 'GET',
+      handler: (event) => {
+        const query = getQuery(event)
+        if (typeof query.ids === 'string') {
+          idsCalls++
+          return { items: [withVariantCounts(idsCalls === 1 ? 3 : 0)], total: 1 }
+        }
+        if (uploaded) return { items: [withVariantCounts(idsCalls === 0 ? 3 : 0)], total: 1 }
+        return { items: [], total: 0 }
+      },
+    }))
+    unregisterAll.push(registerEndpoint('/api/limits', { method: 'GET', handler: () => ({ maxUploadBytes: null }) }))
+
+    const wrapper = await mountSuspended(MediaLibrary, { attachTo: document.body })
+    onTestFinished(() => wrapper.unmount())
+
+    const fileInput = wrapper.get('input[type="file"]')
+    selectFile(boundaryCast<HTMLInputElement>(fileInput.element, 'dom'), new File(['x'], 'photo.jpg', { type: 'image/jpeg' }))
+    await vi.waitFor(() => expect(document.body.querySelector('.ui-dialog__content')).toBeTruthy())
+    const dialog = document.body.querySelector('.ui-dialog__content')
+    if (!dialog) throw new Error('expected the upload dialog to render')
+    const confirmButton = Array.from(dialog.querySelectorAll('button')).find((b) => b.textContent?.trim() === en['mediaToolbar.upload'])
+    if (!confirmButton) throw new Error('expected the upload dialog to render a confirm button')
+    confirmButton.click()
+    await nextTick()
+
+    await vi.waitFor(() => expect(uploadControl.state.deliver).not.toBeNull())
+    uploaded = true
+    uploadControl.state.deliver?.({ id: 'f1', contentType: 'image/jpeg' })
+
+    await vi.waitFor(() => expect(wrapper.get('[role="status"]').text()).toContain('Variants ready: photo.jpg'), { timeout: 8000 })
+  }, 10000)
+
   it('does not bring a finished upload back as a stuck processing tile after navigating to another folder', async () => {
     let uploaded = false
     unregisterAll.push(registerEndpoint('/api/media/folders', { method: 'GET', handler: () => [{ folder: 'sub', count: 0 }] }))
