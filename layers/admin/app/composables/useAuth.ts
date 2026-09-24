@@ -1,6 +1,9 @@
+import { ADMIN_BOOTSTRAP_ROUTES } from '#kestrel-core/fixed-routes'
 import type { Identity, LoginResponse } from '#kestrel-admin/types/api'
 import type { Translate } from '../actions/types'
 import { apiErrorMessage, apiErrorStatus } from './useApi'
+import { useAdminApi } from './useAdminApi'
+import { useCapabilities } from './useCapabilities'
 
 interface AuthState {
   identity: Identity | null
@@ -27,12 +30,6 @@ export async function logoutAndReset(deps: LogoutDeps): Promise<void> {
   await deps.navigate('/admin/login')
 }
 
-export function canWithRoles(roles: string[], permission: string): boolean {
-  if (roles.includes('admin')) return true
-  if (roles.includes('editor')) return /^(pages|media|redirects)\./.test(permission) || permission === 'settings.read' || permission === 'images.read'
-  return false
-}
-
 export interface SessionCheckOutcome {
   clearToken: boolean
   state: AuthState
@@ -46,19 +43,22 @@ export function sessionStateFor(error: unknown): SessionCheckOutcome {
 export function useAuth() {
   const state = useState<AuthState>('kestrel-auth', () => ({ identity: null, checked: false, error: null }))
   const token = useApiToken()
-  const api = useApi()
+  const api = useAdminApi()
   const { t } = useT()
   const toast = useToast()
   const schema = useSchema()
+  const capabilities = useCapabilities()
 
   async function checkSession() {
     if (!token.value) {
       state.value = { identity: null, checked: true, error: null }
       return false
     }
+    const previousId = state.value.identity?.id
     try {
-      const me = await api<Identity>('/me')
+      const me = await api<Identity>(ADMIN_BOOTSTRAP_ROUTES.me)
       state.value = { identity: me, checked: true, error: null }
+      if (previousId !== undefined && previousId !== me.id) schema.clear()
     } catch (e) {
       const outcome = sessionStateFor(e)
       if (outcome.clearToken) token.value = null
@@ -73,7 +73,8 @@ export function useAuth() {
   }
 
   async function login(username: string, password: string) {
-    const r = await api<LoginResponse>('/login', { method: 'POST', body: { username, password } })
+    schema.clear()
+    const r = await api<LoginResponse>(ADMIN_BOOTSTRAP_ROUTES.login, { body: { username, password } })
     token.value = r.token
     state.value = { identity: r.identity, checked: true, error: null }
     return r
@@ -87,7 +88,7 @@ export function useAuth() {
 
   async function logout() {
     await logoutAndReset({
-      call: () => api('/logout', { method: 'POST' }),
+      call: () => api(ADMIN_BOOTSTRAP_ROUTES.logout),
       reset,
       navigate: (to) => navigateTo(to),
       toast,
@@ -95,26 +96,26 @@ export function useAuth() {
     })
   }
 
-  async function changePassword(currentPassword: string, newPassword: string) {
-    await api('/me/password', { method: 'POST', body: { currentPassword, newPassword } })
+  async function refreshAccess() {
+    await checkSession()
+    await schema.refresh()
   }
 
-  const roles = computed(() => state.value.identity?.claims.roles ?? [])
-  const can = (permission: string) => canWithRoles(roles.value, permission)
+  async function changePassword(currentPassword: string, newPassword: string) {
+    await api(capabilities.route('changePassword'), { body: { currentPassword, newPassword } })
+  }
 
   return {
     identity: computed(() => state.value.identity),
     authenticated: computed(() => state.value.identity !== null && !!token.value),
     username: computed(() => state.value.identity?.claims.username ?? ''),
     error: computed(() => state.value.error),
-    roles,
-    isAdmin: computed(() => roles.value.includes('admin')),
-    can,
     checkSession,
     ensureSession,
     login,
     logout,
     reset,
+    refreshAccess,
     changePassword,
   }
 }

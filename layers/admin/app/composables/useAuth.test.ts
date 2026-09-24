@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { canWithRoles, logoutAndReset, sessionStateFor } from './useAuth'
+import { logoutAndReset, sessionStateFor } from './useAuth'
 
 function fakeLogoutDeps() {
   const toast = { error: vi.fn() }
@@ -74,23 +74,5 @@ describe('sessionStateFor', () => {
     const outcome = sessionStateFor(new Error('fetch failed'))
     expect(outcome.clearToken).toBe(false)
     expect(outcome.state.error).toBe('fetch failed')
-  })
-})
-
-describe('canWithRoles', () => {
-  it('grants admin every permission', () => {
-    expect(canWithRoles(['admin'], 'anything.at.all')).toBe(true)
-  })
-
-  it('mirrors the editor role from playground/kestrel.config.ts for the permissions the admin UI actually gates on', () => {
-    expect(canWithRoles(['editor'], 'pages.manage')).toBe(true)
-    expect(canWithRoles(['editor'], 'redirects.write')).toBe(true)
-    expect(canWithRoles(['editor'], 'images.manage')).toBe(false)
-    expect(canWithRoles(['editor'], 'images.write')).toBe(false)
-  })
-
-  it('denies everything for a role with no rules', () => {
-    expect(canWithRoles(['viewer'], 'pages.manage')).toBe(false)
-    expect(canWithRoles([], 'pages.manage')).toBe(false)
   })
 })
