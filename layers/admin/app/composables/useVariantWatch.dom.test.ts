@@ -1,0 +1,201 @@
+import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { computed, defineComponent, h } from 'vue'
+import type { AdminSchema, MediaItem } from '#kestrel-admin/types/api'
+import { useVariantWatch } from './useVariantWatch'
+
+const { schema, apiCalls, apiHandler } = vi.hoisted(() => {
+  const schema: AdminSchema = { locales: { all: ['en'], primary: 'en', prefixPrimary: false }, collections: [], features: ['images'] }
+  const apiCalls: unknown[] = []
+  const apiHandler = { fn: (_path: string, _options?: unknown): Promise<unknown> => Promise.resolve({ items: [], total: 0 }) }
+  return { schema, apiCalls, apiHandler }
+})
+
+mockNuxtImport('useSchema', () => () => ({
+  schema: computed(() => schema),
+  error: computed(() => null),
+  load: () => Promise.resolve('ok' as const),
+  clear: () => {},
+}))
+
+mockNuxtImport('useApi', () => () => (path: string, options?: unknown) => {
+  apiCalls.push({ path, options })
+  return apiHandler.fn(path, options)
+})
+
+function mediaItem(over: Partial<MediaItem> = {}): MediaItem {
+  return {
+    id: 'f1', filename: 'a.jpg', folder: '', contentType: 'image/jpeg', size: 1, key: 'f1', checksum: null,
+    status: 'ready', createdAt: 1, updatedAt: 1, provenance: { origin: 'human' }, width: null, height: null,
+    alt: null, title: null, description: null, variants: [], variantCounts: { done: 0, pending: 1, error: 0, failed: 0 },
+    ...over,
+  }
+}
+
+async function mountProbe() {
+  let api: ReturnType<typeof useVariantWatch> | undefined
+  const Probe = defineComponent({
+    setup() {
+      api = useVariantWatch()
+      return () => h('div')
+    },
+  })
+  const wrapper = await mountSuspended(Probe, { attachTo: document.body })
+  if (!api) throw new Error('expected useVariantWatch to run during setup')
+  return { wrapper, api }
+}
+
+describe('useVariantWatch', () => {
+  afterEach(() => {
+    apiCalls.splice(0)
+    schema.features = ['images']
+    vi.useRealTimers()
+    vi.restoreAllMocks()
+  })
+
+  it('polls with backoff until pending reaches zero, then stops', async () => {
+    vi.useFakeTimers()
+    let call = 0
+    apiHandler.fn = () => {
+      call++
+      const pending = call < 3 ? 1 : 0
+      return Promise.resolve({ items: [mediaItem({ variantCounts: { done: call, pending, error: 0, failed: 0 } })], total: 1 })
+    }
+
+    const { wrapper, api } = await mountProbe()
+    api.track('f1')
+
+    await vi.advanceTimersByTimeAsync(0)
+    expect(call).toBe(1)
+    expect(api.entryFor('f1')?.variantCounts.pending).toBe(1)
+
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(call).toBe(2)
+    expect(api.entryFor('f1')?.variantCounts.pending).toBe(1)
+
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(call).toBe(3)
+    expect(api.entryFor('f1')?.variantCounts.pending).toBe(0)
+
+    await vi.advanceTimersByTimeAsync(20000)
+    expect(call).toBe(3)
+
+    expect(apiCalls[0]).toMatchObject({ path: '/media', options: { query: { ids: 'f1', locale: 'en' } } })
+    wrapper.unmount()
+  })
+
+  it('resets the backoff to 1s when a new id joins', async () => {
+    vi.useFakeTimers()
+    let call = 0
+    apiHandler.fn = () => {
+      call++
+      return Promise.resolve({ items: [mediaItem({ id: 'f1' }), mediaItem({ id: 'f2' })], total: 2 })
+    }
+
+    const { wrapper, api } = await mountProbe()
+    api.track('f1')
+    await vi.advanceTimersByTimeAsync(0)
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(call).toBe(2)
+
+    api.track('f2')
+    await vi.advanceTimersByTimeAsync(0)
+    expect(call).toBe(3)
+
+    wrapper.unmount()
+  })
+
+  it('does nothing when the images feature is off', async () => {
+    schema.features = []
+    vi.useFakeTimers()
+    let called = false
+    apiHandler.fn = () => { called = true; return Promise.resolve({ items: [], total: 0 }) }
+
+    const { wrapper, api } = await mountProbe()
+    api.track('f1')
+    await vi.advanceTimersByTimeAsync(5000)
+
+    expect(called).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('pauses while the document is hidden and resumes when visible', async () => {
+    vi.useFakeTimers()
+    let call = 0
+    apiHandler.fn = () => { call++; return Promise.resolve({ items: [mediaItem({ variantCounts: { done: 1, pending: 1, error: 0, failed: 0 } })], total: 1 }) }
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => true })
+
+    const { wrapper, api } = await mountProbe()
+    api.track('f1')
+    await vi.advanceTimersByTimeAsync(5000)
+    expect(call).toBe(0)
+
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => false })
+    document.dispatchEvent(new Event('visibilitychange'))
+    await vi.advanceTimersByTimeAsync(0)
+    expect(call).toBe(1)
+
+    wrapper.unmount()
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => false })
+  })
+
+  it('clears its timer and listener on unmount', async () => {
+    vi.useFakeTimers()
+    const removeSpy = vi.spyOn(document, 'removeEventListener')
+    apiHandler.fn = () => Promise.resolve({ items: [mediaItem({ variantCounts: { done: 0, pending: 1, error: 0, failed: 0 } })], total: 1 })
+
+    const { wrapper, api } = await mountProbe()
+    api.track('f1')
+    await vi.advanceTimersByTimeAsync(0)
+    expect(api.entryFor('f1')).toBeDefined()
+    const callsBeforeUnmount = apiCalls.length
+
+    wrapper.unmount()
+
+    expect(removeSpy).toHaveBeenCalledWith('visibilitychange', expect.any(Function))
+    await vi.advanceTimersByTimeAsync(60000)
+    expect(apiCalls.length).toBe(callsBeforeUnmount)
+  })
+
+  it('reports pending while tracking and clears once every count reaches zero', async () => {
+    vi.useFakeTimers()
+    let call = 0
+    apiHandler.fn = () => {
+      call++
+      return Promise.resolve({ items: [mediaItem({ variantCounts: { done: call, pending: call < 2 ? 1 : 0, error: 0, failed: 0 } })], total: 1 })
+    }
+
+    const { wrapper, api } = await mountProbe()
+    expect(api.hasPending.value).toBe(false)
+
+    api.track('f1')
+    expect(api.hasPending.value).toBe(true)
+
+    await vi.advanceTimersByTimeAsync(0)
+    expect(api.hasPending.value).toBe(true)
+
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(api.hasPending.value).toBe(false)
+
+    wrapper.unmount()
+  })
+
+  it('stops polling and marks an id stalled after ten minutes without a count change', async () => {
+    vi.useFakeTimers()
+    apiHandler.fn = () => Promise.resolve({ items: [mediaItem({ variantCounts: { done: 0, pending: 1, error: 0, failed: 0 } })], total: 1 })
+
+    const { wrapper, api } = await mountProbe()
+    api.track('f1')
+    await vi.advanceTimersByTimeAsync(0)
+    expect(api.isStalled('f1')).toBe(false)
+
+    await vi.advanceTimersByTimeAsync(11 * 60 * 1000)
+
+    expect(api.isStalled('f1')).toBe(true)
+    const callsAtStall = apiCalls.length
+    await vi.advanceTimersByTimeAsync(60000)
+    expect(apiCalls.length).toBe(callsAtStall)
+
+    wrapper.unmount()
+  })
+})
