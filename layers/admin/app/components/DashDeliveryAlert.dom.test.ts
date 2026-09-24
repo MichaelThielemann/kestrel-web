@@ -1,8 +1,23 @@
-import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
+import { computed } from 'vue'
+import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { afterEach, describe, expect, it } from 'vitest'
-import type { EventDeliveryStatus } from '#kestrel-admin/types/api'
+import type { AdminSchema, EventDeliveryStatus } from '#kestrel-admin/types/api'
 import { en } from '#kestrel-admin/i18n/en'
 import DashDeliveryAlert from './DashDeliveryAlert.vue'
+
+const schema: AdminSchema = {
+  locales: { all: ['en'], primary: 'en', prefixPrimary: false },
+  collections: [],
+  features: [],
+  capabilities: { eventsDeliveryStatus: { method: 'GET', path: '/admin/events/delivery' } },
+}
+
+mockNuxtImport('useSchema', () => () => ({
+  schema: computed(() => schema),
+  error: computed(() => null),
+  load: () => Promise.resolve('ok' as const),
+  clear: () => {},
+}))
 
 describe('DashDeliveryAlert', () => {
   const unregisterAll: (() => void)[] = []

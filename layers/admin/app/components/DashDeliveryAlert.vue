@@ -2,14 +2,15 @@
 import type { EventDeliveryStatus } from '#kestrel-admin/types/api'
 
 const { t } = useT()
-const api = useApi()
+const api = useAdminApi()
+const capabilities = useCapabilities()
 
 const status = ref<EventDeliveryStatus | null>(null)
 const notFound = ref(false)
 const loadError = ref<string | null>(null)
 
 try {
-  status.value = await api<EventDeliveryStatus>('/admin/events/delivery')
+  status.value = await api<EventDeliveryStatus>(capabilities.route('eventsDeliveryStatus'))
 } catch (e) {
   if (apiErrorCode(e) === 'NOT_FOUND') notFound.value = true
   else loadError.value = apiErrorMessage(e)
