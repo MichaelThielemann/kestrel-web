@@ -22,6 +22,12 @@ interface ExpectedMediaItem {
   status: 'uploading' | 'ready' | 'failed'
   title: string | null
   updatedAt: number
+  variantCounts: {
+    done: number
+    pending: number
+    error: number
+    failed: number
+  }
   variants: {
     bytes: number
     format: string

@@ -105,6 +105,8 @@ export type ProvenanceOrigin = Provenance['origin']
 
 export type MediaVariant = MediaItemResponse['variants'][number]
 
+export type MediaVariantCounts = MediaItemResponse['variantCounts']
+
 export type MediaStatus = MediaItemResponse['status']
 
 export type MediaItem = MediaItemResponse
