@@ -260,6 +260,10 @@
   - Static hosting: route `/media/` to the site export like the pages, with the security headers and the
     cache rules `docs/consuming-kestrel-web.md` §8 spells out (an original is cached for a year, a variant
     path revalidates on every request until its render replaces the placeholder there).
+  - `presetModuleConfig()` refuses to build when a media module has `publicCopy` set and
+    `media.allowedTypes` allows `image/svg+xml` without the `sanitizeSvg` feature enabled: an unsanitized
+    SVG is public at the same origin as the admin. Add `sanitizeSvg` to `features` or deny the type in
+    `media.deniedTypes`. `create-kestrel`'s default feature set now includes `sanitizeSvg`.
 
 ### Added
 
