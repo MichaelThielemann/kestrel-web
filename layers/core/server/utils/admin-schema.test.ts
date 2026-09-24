@@ -153,4 +153,10 @@ describe("schemaFromRun", () => {
     const result = schemaFromRun(run, sources);
     expect(result.status).toBe(500);
   });
+
+  it("answers 500 when pipelineAccess is an array instead of a verdict map", () => {
+    const run = { runId: "r4", status: 200, result: { ...describedModel, pipelineAccess: [] } };
+    const result = schemaFromRun(run, sources);
+    expect(result.status).toBe(500);
+  });
 });

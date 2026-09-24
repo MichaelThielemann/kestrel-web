@@ -49,6 +49,26 @@ describe('fillPath', () => {
   it('encodes each part of a wildcard parameter', () => {
     expect(fillPath('/media/folders/*path', { path: 'a b/c d' })).toBe('/media/folders/a%20b/c%20d')
   })
+
+  it('throws on a ".." named parameter, which would retarget the request', () => {
+    expect(() => fillPath('/users/:id', { id: '..' })).toThrow('path "/users/:id" got a "." or ".." segment in parameter "id"')
+  })
+
+  it('throws on a "." named parameter', () => {
+    expect(() => fillPath('/users/:id', { id: '.' })).toThrow('path "/users/:id" got a "." or ".." segment in parameter "id"')
+  })
+
+  it('throws on a percent-encoded ".." named parameter', () => {
+    expect(() => fillPath('/users/:id', { id: '%2e%2e' })).toThrow('path "/users/:id" got a "." or ".." segment in parameter "id"')
+  })
+
+  it('throws on a ".." segment inside a wildcard parameter', () => {
+    expect(() => fillPath('/media/folders/*path', { path: 'a/../b' })).toThrow('path "/media/folders/*path" got a "." or ".." segment in parameter "path"')
+  })
+
+  it('throws on a "." segment inside a wildcard parameter', () => {
+    expect(() => fillPath('/media/folders/*path', { path: 'a/./b' })).toThrow('path "/media/folders/*path" got a "." or ".." segment in parameter "path"')
+  })
 })
 
 describe('routeFrom', () => {

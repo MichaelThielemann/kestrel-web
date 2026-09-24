@@ -10,7 +10,13 @@ export type PipelineName = StaticPipelineName | (string & Record<never, never>)
 
 const PARAM_PATTERN = /:([a-zA-Z_][a-zA-Z0-9_]*)|\*([a-zA-Z_][a-zA-Z0-9_]*)/g
 
-/** Fills `:name` with the encoded value and a trailing `*name` with each `/`-separated part encoded. Throws on a missing, empty or unused parameter. */
+function assertNoDotSegment(pattern: string, name: string, segment: string): void {
+  let decoded = segment
+  try { decoded = decodeURIComponent(segment) } catch { decoded = segment }
+  if (decoded === '.' || decoded === '..') throw new Error(`path "${pattern}" got a "." or ".." segment in parameter "${name}"`)
+}
+
+/** Fills `:name` with the encoded value and a trailing `*name` with each `/`-separated part encoded. Throws on a missing, empty, unused or path-traversing parameter. */
 export function fillPath(pattern: string, params: RouteParams = {}): string {
   const used = new Set<string>()
   const path = pattern.replace(PARAM_PATTERN, (match, named: string | undefined, wildcard: string | undefined) => {
@@ -20,7 +26,11 @@ export function fillPath(pattern: string, params: RouteParams = {}): string {
     if (value === undefined) throw new Error(`path "${pattern}" needs parameter "${name}"`)
     if (value === '') throw new Error(`path "${pattern}" got an empty "${name}"`)
     used.add(name)
-    return named !== undefined ? encodeURIComponent(value) : value.split('/').map((part) => encodeURIComponent(part)).join('/')
+    if (named !== undefined) {
+      assertNoDotSegment(pattern, name, value)
+      return encodeURIComponent(value)
+    }
+    return value.split('/').map((part) => { assertNoDotSegment(pattern, name, part); return encodeURIComponent(part) }).join('/')
   })
   for (const name of Object.keys(params)) {
     if (!used.has(name)) throw new Error(`path "${pattern}" has no parameter "${name}"`)
