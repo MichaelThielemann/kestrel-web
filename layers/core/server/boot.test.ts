@@ -321,6 +321,55 @@ describe("boot", () => {
     }, 15000);
   });
 
+  describe("persistence-sqlite's acquireTimeoutMs is derived from busyTimeoutMs", () => {
+    let appRoot: string;
+
+    beforeAll(() => {
+      appRoot = mkdtempSync(join(tmpdir(), "kestrel-web-boot-acquire-timeout-"));
+      process.env.KESTREL_APP_ROOT = appRoot;
+    });
+
+    afterAll(() => {
+      delete process.env.KESTREL_APP_ROOT;
+      rmSync(appRoot, { recursive: true, force: true });
+    });
+
+    async function bootWithBusyTimeoutMs(busyTimeoutMs?: number) {
+      const collections = { settings: { kind: "single" as const, fields: { title: { type: "text" } } } };
+      const modules = presetModuleConfig({
+        dataDir: appRoot,
+        blobstore: { use: "@michaelthielemann/kestrel-blobstore-filesystem", config: { root: resolve(appRoot, "blobs") } },
+        model: { types: collections },
+        features: [],
+        roles: { roles: { admin: ["*"] }, anonymous: [] },
+        bootstrap: { username: "admin", passwordHash: "scrypt$522f4ac87bfe4bcd100ba47a7d2aaec2$dbfc3f2d6cc38a76b21973d7c6f6d310a09506581c665f1f6601fd8fb3fa9bc3959689aea3e389f4d53eb8c7e70791ad4065e308763dd44609904134f0f5ee98" },
+        ...(busyTimeoutMs === undefined ? {} : { overrides: { "@michaelthielemann/kestrel-persistence-sqlite": { busyTimeoutMs } } }),
+      });
+      const preset = definePreset({ modules, features: [], collections });
+      const config = defineConfig({ modules, triggers: preset.triggers, http: null });
+      const bootedModules = presetModules(config.modules);
+      return boot({ config: { ...config, http: null }, modules: bootedModules, pipelines: preset.pipelines });
+    }
+
+    it("boots with the preset's persistence-sqlite config, which no longer sets acquireTimeoutMs", async () => {
+      const kestrel = await bootWithBusyTimeoutMs();
+      try {
+        await kestrel.start();
+      } finally {
+        await kestrel.stop();
+      }
+    });
+
+    it("boots when a consumer raises busyTimeoutMs through overrides, since acquireTimeoutMs is derived from it", async () => {
+      const kestrel = await bootWithBusyTimeoutMs(20000);
+      try {
+        await kestrel.start();
+      } finally {
+        await kestrel.stop();
+      }
+    });
+  });
+
   describe("atomic group: a forced failure inside the group leaves nothing stored", () => {
     let appRoot: string;
 

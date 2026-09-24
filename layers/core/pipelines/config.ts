@@ -222,7 +222,7 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
   const modules: ModuleEntry[] = [{ use: blobstore.use, config: blobstore.config }];
 
   if (enabled.has("replication")) modules.push({ use: "@michaelthielemann/kestrel-replication-sqlite", config: { file: databaseFile } });
-  modules.push({ use: "@michaelthielemann/kestrel-persistence-sqlite", config: { file: databaseFile, acquireTimeoutMs: 15000 } });
+  modules.push({ use: "@michaelthielemann/kestrel-persistence-sqlite", config: { file: databaseFile } });
   if (enabled.has("sanitizeSvg")) modules.push({ use: "@michaelthielemann/kestrel-sanitize-svg", config: {} });
 
   modules.push({
