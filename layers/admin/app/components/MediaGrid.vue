@@ -35,7 +35,7 @@ function onFolder(item: LibraryItem, path: string, e: MouseEvent) {
   else emit('navigate', path)
 }
 function blockedFile(item: LibraryItem): boolean {
-  return props.pick === true && item.type === 'file' && !isInsertable(item.file)
+  return props.pick === true && item.type === 'file' && !isInsertable(props.variantOverride?.get(item.file.id) ?? item.file)
 }
 function onFile(item: LibraryItem, e: MouseEvent) {
   if (blockedFile(item)) return

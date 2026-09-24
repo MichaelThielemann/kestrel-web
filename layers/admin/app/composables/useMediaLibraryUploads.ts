@@ -55,6 +55,7 @@ export function useMediaLibraryUploads(options: UseMediaLibraryUploadsOptions) {
     previewFor: preview.previewFor,
     variantResults: variantWatch.results,
     stalledIds: variantWatch.stalled,
+    track: variantWatch.track,
     status: computed(() => announcement.value || uploadStatus.value),
   }
 }

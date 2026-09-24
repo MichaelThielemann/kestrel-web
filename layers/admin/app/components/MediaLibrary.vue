@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, computed, nextTick, onUnmounted } from 'vue'
-import type { MediaItem, Provenance, ReferenceTo } from '#kestrel-admin/types/api'
+import { ref, computed, watch, nextTick, onUnmounted } from 'vue'
+import type { ListPage, MediaItem, Provenance, ReferenceTo } from '#kestrel-admin/types/api'
 import { createFolder, renameOrMove, setMediaMeta, setMediaProvenance, type RenameOrMoveTarget } from '#kestrel-admin/actions/media'
 import type { BusyPort, RefreshPort } from '#kestrel-admin/actions/types'
 import { toastUnexpected } from '#kestrel-admin/actions/steps/notify'
@@ -19,6 +19,8 @@ const emit = defineEmits<{ confirm: [string[]]; cancel: [] }>()
 const lib = useMediaLibrary({ urlSync: !props.pick, accept: props.accept, initialFolder: props.pick ? props.initialFolder : undefined })
 const { folder, view, search, sort, items, files, parentPath, isSelected, loading, error, allFolderPaths, counts: folderCounts, page, perPage, total, totalPages } = lib
 
+const seenItems = ref<Map<string, MediaItem>>(new Map())
+
 const picked = ref<Set<string>>(new Set(props.pick && props.multiple ? props.initialSelected ?? [] : []))
 const isSelectedItem = (i: LibraryItem) => (props.pick && props.multiple
   ? i.type === 'file' && picked.value.has(i.file.id)
@@ -29,6 +31,9 @@ const toast = useToast()
 const deps = useActionDeps()
 const { schema } = useSchema()
 const mediaCaps = useMediaCapabilities()
+const api = useAdminApi()
+const capabilities = useCapabilities()
+const { primary: pickLocale } = useContentLocales()
 
 const mediaRefresh: RefreshPort = () => { void lib.fetchLibrary(); lib.clear() }
 const opsBusy = ref(false)
@@ -44,7 +49,14 @@ const opsPort: BusyPort = {
 
 const onUploadError = (item: UploadItem) => toast.error(t('media.uploadError', { name: item.filename, reason: item.message || t('media.uploadFailedReason') }))
 const mediaUploads = useMediaLibraryUploads({ folder, view, fetchLibrary: lib.fetchLibrary, onError: onUploadError, t })
-const { gridTileUploads, queueRows, onDismissUpload: dismissUpload, previewFor, variantResults, stalledIds, limitError } = mediaUploads
+const { gridTileUploads, queueRows, onDismissUpload: dismissUpload, previewFor, variantResults, stalledIds, limitError, track } = mediaUploads
+
+watch(files, (list) => {
+  for (const f of list) {
+    seenItems.value.set(f.id, f)
+    if (props.pick && !isInsertable(f)) track(f.id)
+  }
+}, { immediate: true })
 function onDismissUpload(id: string) {
   dismissUpload(id)
   void nextTick(() => mediaLibraryRef.value?.focus())
@@ -130,10 +142,23 @@ const selectedFileIds = computed(() => (props.pick && props.multiple
     .filter((i): i is Extract<LibraryItem, { type: 'file' }> => i.type === 'file' && isSelected(i))
     .map((i) => i.file.id)))
 const hasBlockedSelection = computed(() => selectedFileIds.value.some((id) => {
-  const found = items.value.find((i): i is Extract<LibraryItem, { type: 'file' }> => i.type === 'file' && i.file.id === id)
-  return found !== undefined && !isInsertable(found.file)
+  const known = variantResults.value.get(id) ?? seenItems.value.get(id)
+  return known !== undefined && !isInsertable(known)
 }))
-function onConfirmPick() { emit('confirm', selectedFileIds.value) }
+async function onConfirmPick() {
+  const ids = selectedFileIds.value
+  if (!ids.length) return
+  if (capabilities.has('listMedia')) {
+    try {
+      const page = await api<ListPage<MediaItem>>(capabilities.route('listMedia'), { query: { ids: ids.join(','), locale: pickLocale.value } })
+      for (const item of page.items) seenItems.value.set(item.id, item)
+      if (page.items.some((item) => !isInsertable(item))) return
+    } catch {
+      return
+    }
+  }
+  emit('confirm', ids)
+}
 
 function queueUploads(pending: PendingUpload[]) {
   if (error.value || !pending.length || !mediaCaps.canUpload.value) return
@@ -257,7 +282,7 @@ const localizedMenu = computed(() => menuItems.value.map((s) => ({
         <KestrelMediaGrid v-else-if="view === 'grid'" :items="items" :is-selected="isSelectedItem" :drop-target-path="dropFolder" :parent-path="parentPath" :up-label="t('media.parentFolder')" :pick="pick"
           :uploads="gridTileUploads" :upload-preview="previewFor" :variant-override="variantResults" :stalled-ids="stalledIds"
           @navigate="lib.navigate" @select="onSelect" @open="onOpenItem" @dragstart="onItemDragStart" @dragend="onItemDragEnd" @dismiss-upload="onDismissUpload" />
-        <KestrelMediaTable v-else :items="items" :is-selected="isSelectedItem" :drop-target-path="dropFolder" :sort="sort" :parent-path="parentPath" :up-label="t('media.parentFolder')" @navigate="lib.navigate" @select="onSelect" @open="onOpenItem" @sort="lib.setSort" @dragstart="onItemDragStart" @dragend="onItemDragEnd" />
+        <KestrelMediaTable v-else :items="items" :is-selected="isSelectedItem" :drop-target-path="dropFolder" :sort="sort" :parent-path="parentPath" :up-label="t('media.parentFolder')" :pick="pick" :variant-override="variantResults" @navigate="lib.navigate" @select="onSelect" @open="onOpenItem" @sort="lib.setSort" @dragstart="onItemDragStart" @dragend="onItemDragEnd" />
       </div>
     </KestrelUiMenu>
     <KestrelCollectionListPager

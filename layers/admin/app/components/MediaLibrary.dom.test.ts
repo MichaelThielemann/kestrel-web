@@ -300,6 +300,86 @@ describe('MediaLibrary upload status', () => {
   })
 })
 
+describe('MediaLibrary pick-mode availability polling', () => {
+  const unregisterAll: (() => void)[] = []
+
+  beforeEach(async () => {
+    unregisterAll.push(registerEndpoint('/api/admin/schema', { method: 'GET', handler: () => schema }))
+    await useSchema().load()
+  })
+
+  afterEach(() => {
+    unregisterAll.splice(0).forEach((unregister) => unregister())
+    schema.features = []
+  })
+
+  it('polls a file that was already unavailable when the library listed it, and unblocks it without reopening', async () => {
+    schema.features = ['images']
+    let idsCalls = 0
+    const withAvailability = (available: boolean) => ({
+      id: 'f1', filename: 'photo.jpg', folder: '', contentType: 'image/jpeg', size: 10,
+      path: '/media/f1/photo.jpg', available, createdAt: 1, updatedAt: 1, provenance: { origin: 'human' },
+      width: null, height: null, alt: null, title: null, description: null, variants: [],
+      variantCounts: { done: 0, pending: 1, error: 0, failed: 0 },
+    })
+    unregisterAll.push(registerEndpoint('/api/media/folders', { method: 'GET', handler: () => [] }))
+    unregisterAll.push(registerEndpoint('/api/media', {
+      method: 'GET',
+      handler: (event) => {
+        const query = getQuery(event)
+        if (typeof query.ids === 'string') {
+          idsCalls++
+          return { items: [withAvailability(idsCalls > 1)], total: 1 }
+        }
+        return { items: [withAvailability(false)], total: 1 }
+      },
+    }))
+    unregisterAll.push(registerEndpoint('/api/limits', { method: 'GET', handler: () => ({ maxUploadBytes: null }) }))
+
+    const wrapper = await mountSuspended(MediaLibrary, { props: { pick: true }, attachTo: document.body })
+    onTestFinished(() => wrapper.unmount())
+
+    await vi.waitFor(() => expect(wrapper.find('[data-test="file-f1"]').exists()).toBe(true))
+    expect(wrapper.get('[data-test="file-f1"]').attributes('aria-disabled')).toBe('true')
+
+    await vi.waitFor(() => expect(idsCalls).toBeGreaterThan(0), { timeout: 3000 })
+    await vi.waitFor(() => expect(wrapper.get('[data-test="file-f1"]').attributes('aria-disabled')).toBeUndefined(), { timeout: 5000 })
+  }, 10000)
+
+  it('refuses to confirm a pre-selected id from another folder once a fresh check finds it unavailable', async () => {
+    unregisterAll.push(registerEndpoint('/api/media/folders', { method: 'GET', handler: () => [{ folder: 'sub', count: 1 }] }))
+    unregisterAll.push(registerEndpoint('/api/media', {
+      method: 'GET',
+      handler: (event) => {
+        const query = getQuery(event)
+        if (typeof query.ids === 'string') {
+          return {
+            items: [{
+              id: 'f1', filename: 'a.jpg', folder: 'sub', contentType: 'image/jpeg', size: 10,
+              path: '/media/f1/a.jpg', available: false, createdAt: 1, updatedAt: 1, provenance: { origin: 'human' },
+              width: null, height: null, alt: null, title: null, description: null, variants: [],
+              variantCounts: { done: 0, pending: 1, error: 0, failed: 0 },
+            }],
+            total: 1,
+          }
+        }
+        return { items: [], total: 0 }
+      },
+    }))
+    unregisterAll.push(registerEndpoint('/api/limits', { method: 'GET', handler: () => ({ maxUploadBytes: null }) }))
+
+    const wrapper = await mountSuspended(MediaLibrary, { props: { pick: true, multiple: true, initialSelected: ['f1'] }, attachTo: document.body })
+    onTestFinished(() => wrapper.unmount())
+
+    await vi.waitFor(() => expect(wrapper.find('.media-library__empty').exists()).toBe(true))
+    const useSelected = wrapper.findAll('button').find((b) => b.text() === en['media.useSelected'])
+    if (!useSelected) throw new Error('expected a "Use selected" button')
+    await useSelected.trigger('click')
+
+    await vi.waitFor(() => expect(wrapper.emitted('confirm')).toBeUndefined())
+  })
+})
+
 describe('media components do not branch on the delivery mode', () => {
   it('never reads has(\'eventsQueue\')', async () => {
     const fs = await import('node:fs/promises')

@@ -128,4 +128,18 @@ describe('MediaGrid pick-mode gating', () => {
     await wrapper.get('[data-test="file-f1"]').trigger('click')
     expect(wrapper.emitted('select')).toBeDefined()
   })
+
+  it('unblocks a file once the poll reports it available, even though the listing is still stale', async () => {
+    const override = new Map<string, VariantWatchEntry>([
+      ['f1', { variants: [], variantCounts: { done: 3, pending: 0, error: 0, failed: 0 }, available: true }],
+    ])
+    const wrapper = await mountSuspended(MediaGrid, {
+      props: { items: [libraryItem(file({ available: false }))], isSelected: () => false, pick: true, variantOverride: override },
+    })
+
+    await wrapper.get('[data-test="file-f1"]').trigger('click')
+    expect(wrapper.emitted('select')).toBeDefined()
+    expect(wrapper.get('[data-test="file-f1"]').attributes('aria-disabled')).toBeUndefined()
+    expect(wrapper.find('.media-grid__processing').exists()).toBe(false)
+  })
 })
