@@ -77,4 +77,4 @@ export function useApi() {
 
 export const mediaFileUrl = (id: string): string => `/api/media/${encodeURIComponent(id)}/file`
 
-export const mediaVariantUrl = (path: string): string => `/api${path}`
+export const mediaVariantUrl = (path: string): string => path
