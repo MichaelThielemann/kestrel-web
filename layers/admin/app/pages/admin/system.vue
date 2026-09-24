@@ -26,7 +26,7 @@ const canDeliver = computed(() => has('delivery') && can('pages.manage'))
 const canRedirects = computed(() => has('redirects') && (isAdmin.value || can('redirects.write')))
 const canReplication = computed(() => has('replication') && isAdmin.value)
 const canMigrations = computed(() => has('migrations') && isAdmin.value)
-const canEvents = computed(() => has('eventsQueue') && isAdmin.value)
+const canEvents = computed(() => isAdmin.value)
 const canImages = computed(() => has('images') && can('images.manage'))
 const localeParam = computed(() => (typeof route.query.locale === 'string' ? route.query.locale.trim() || undefined : undefined))
 
@@ -126,7 +126,8 @@ async function setTab(value: unknown) {
           <KestrelSystemDelivery v-else-if="tab === 'delivery'" />
           <KestrelSystemReplication v-else-if="tab === 'replication'" />
           <KestrelSystemMigrations v-else-if="tab === 'migrations'" />
-          <KestrelSystemEvents v-else-if="tab === 'events'" />
+          <KestrelSystemEvents v-else-if="tab === 'events' && has('eventsQueue')" />
+          <KestrelSystemEventsInline v-else-if="tab === 'events'" />
           <KestrelSystemImages v-else-if="tab === 'images'" />
           <KestrelSingletonEditor v-else-if="tabDef(tab)" :collection="tab" :title="tabTitle(tab)" :locale-param="tabDef(tab)?.translatable ? localeParam : undefined" />
         </template>
