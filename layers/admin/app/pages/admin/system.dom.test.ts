@@ -2,6 +2,7 @@ import { computed, nextTick, reactive } from 'vue'
 import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { AdminSchema, EventDeliveryStatus, EventsQueueStatus } from '#kestrel-admin/types/api'
+import { en } from '#kestrel-admin/i18n/en'
 import SystemPage from './system.vue'
 
 const { rawSchemaState } = vi.hoisted(() => {
@@ -96,6 +97,21 @@ describe('the system page tabs after a capability is lost', () => {
     await nextTick()
 
     expect(document.activeElement).not.toBe(wrapper.get('.system__title').element)
+    wrapper.unmount()
+  })
+})
+
+describe('a direct visit to /admin/system with no visible tab', () => {
+  afterEach(() => {
+    schemaState.capabilities = { eventsDeliveryStatus: { method: 'GET', path: '/admin/events/delivery' } }
+  })
+
+  it('shows the same capability-unavailable text other gated pages use, not an empty-tabs message', async () => {
+    schemaState.capabilities = {}
+
+    const wrapper = await mountSuspended(SystemPage, { route: { path: '/admin/system', query: {} } })
+    expect(wrapper.find('.system__tabs').exists()).toBe(false)
+    expect(wrapper.get('.system__missing').text()).toBe(en['capability.unavailable'])
     wrapper.unmount()
   })
 })

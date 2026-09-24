@@ -690,7 +690,6 @@ export const en = {
   'nav.system': 'System',
   'system.title': 'System',
   'system.tabsLabel': 'System sections',
-  'system.empty': 'No sections available.',
   'system.tabs.users': 'Users',
   'system.tabs.references': 'Broken references',
 

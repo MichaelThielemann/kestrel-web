@@ -692,7 +692,6 @@ export const de: Record<CatalogKey, string> = {
   'nav.system': 'System',
   'system.title': 'System',
   'system.tabsLabel': 'System-Bereiche',
-  'system.empty': 'Keine Bereiche verfügbar.',
   'system.tabs.users': 'Benutzer',
   'system.tabs.references': 'Defekte Referenzen',
 

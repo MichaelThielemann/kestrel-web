@@ -7,6 +7,7 @@ installAdminClient()
 useAdminBodyClass()
 const { authenticated } = useAuth()
 const capabilities = useCapabilities()
+const { hasAccess: hasSystemAccess } = useSystemTabs()
 const { collapsed: cookieCollapsed, toggle: toggleCookieCollapsed } = useRailCollapsed()
 const isPhone = useIsPhone()
 const { theme } = useTheme()
@@ -81,6 +82,7 @@ useHead(() => ({
           <span class="rail__label">{{ t('nav.insights') }}</span>
         </NuxtLink>
         <NuxtLink
+          v-if="hasSystemAccess"
           to="/admin/system"
           class="rail__item"
           :class="{ 'router-link-active': isNavItemActive(route.path, '/admin/system') }"

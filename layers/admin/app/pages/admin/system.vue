@@ -3,77 +3,31 @@ import { resolveLocalized } from '#kestrel-admin/utils/localized'
 import { switchSystemTab } from '#kestrel-admin/actions/editor'
 import type { NavigatePort } from '#kestrel-admin/actions/types'
 import { toastUnexpected } from '#kestrel-admin/actions/steps/notify'
+import { isSystemFeatureTab, useSystemTabs } from '../../composables/useSystemTabs'
 
 definePageMeta({ layout: 'admin', middleware: 'admin-auth' })
-
-const FEATURE_TAB_IDS = ['users', 'references', 'delivery', 'replication', 'migrations', 'events', 'images'] as const
-type FeatureTabId = typeof FEATURE_TAB_IDS[number]
-
-function isFeatureTab(id: string): id is FeatureTabId {
-  return (FEATURE_TAB_IDS as readonly string[]).includes(id)
-}
 
 const route = useRoute()
 const router = useRouter()
 const { t, lang } = useT()
 const deps = useActionDeps()
-const capabilities = deps.capabilities
-const { collections } = useCollections()
-const hasReferences = computed(() => capabilities.has('brokenReferences') || capabilities.has('brokenLinks'))
-const canDeliver = computed(() => capabilities.has('publishAllPages'))
-const canReplication = computed(() => capabilities.has('replicationStatus'))
-const canMigrations = computed(() => capabilities.has('listMigrations'))
-const canEvents = computed(() => capabilities.has('eventsDeliveryStatus'))
-const canEventsQueue = computed(() => capabilities.has('eventsQueueStatus'))
-const canImages = computed(() => capabilities.has('imagesStatus'))
+const { tabIds: TAB_IDS, visibleTabs, hasAccess, systemCollections, canEventsQueue } = useSystemTabs()
 const localeParam = computed(() => (typeof route.query.locale === 'string' ? route.query.locale.trim() || undefined : undefined))
-
-const systemCollections = computed(() => collections.value.filter((entry) => entry.mode === 'single' && entry.placement === 'system'))
-const collectionTabIds = computed(() => {
-  const names = systemCollections.value.map((entry) => entry.name)
-  const rest = names.filter((name) => name !== 'settings')
-  return names.includes('settings') ? ['settings', ...rest] : rest
-})
-
-function collectionVisible(name: string): boolean {
-  return capabilities.hasVerb(name, 'get')
-}
-
-const TAB_IDS = computed(() => [...collectionTabIds.value, ...FEATURE_TAB_IDS])
 
 function tabDef(name: string) {
   return systemCollections.value.find((c) => c.name === name) ?? null
 }
 
 function tabTitle(tab: string): string {
-  if (isFeatureTab(tab)) return t(`system.tabs.${tab}`)
+  if (isSystemFeatureTab(tab)) return t(`system.tabs.${tab}`)
   return resolveLocalized(tabDef(tab)?.label?.singular, lang.value) ?? tab
 }
-
-const visibleTabs = computed<string[]>(() => TAB_IDS.value.filter((id) => {
-  if (id === 'users') return capabilities.has('listUsers')
-  if (id === 'references') return hasReferences.value
-  if (id === 'delivery') return canDeliver.value
-  if (id === 'replication') return canReplication.value
-  if (id === 'migrations') return canMigrations.value
-  if (id === 'events') return canEvents.value
-  if (id === 'images') return canImages.value
-  return collectionVisible(id)
-}))
 
 const activeTab = computed<string>(() => {
   const fallback = visibleTabs.value[0] ?? ''
   const raw = typeof route.query.tab === 'string' ? route.query.tab : ''
   const id = TAB_IDS.value.includes(raw) ? raw : fallback
-  if (id === 'users' && !capabilities.has('listUsers')) return fallback
-  if (id === 'references' && !hasReferences.value) return fallback
-  if (id === 'delivery' && !canDeliver.value) return fallback
-  if (id === 'replication' && !canReplication.value) return fallback
-  if (id === 'migrations' && !canMigrations.value) return fallback
-  if (id === 'events' && !canEvents.value) return fallback
-  if (id === 'images' && !canImages.value) return fallback
-  if (!isFeatureTab(id) && !collectionVisible(id)) return fallback
-  return id
+  return visibleTabs.value.includes(id) ? id : fallback
 })
 let pendingTab: string | null = null
 
@@ -113,7 +67,7 @@ async function setTab(value: unknown) {
   <section class="system">
     <h1 ref="titleRef" class="system__title" tabindex="-1">{{ t('system.title') }}</h1>
 
-    <div v-if="visibleTabs.length" class="system__tabs">
+    <div v-if="hasAccess" class="system__tabs">
       <KestrelUiTabList
         class="system__tablist"
         :tabs="tabItems"
@@ -137,7 +91,7 @@ async function setTab(value: unknown) {
         </template>
       </div>
     </div>
-    <p v-else class="system__empty">{{ t('system.empty') }}</p>
+    <p v-else class="system__missing">{{ t('capability.unavailable') }}</p>
   </section>
 </template>
 
@@ -185,7 +139,7 @@ async function setTab(value: unknown) {
     }
   }
 
-  &__empty {
+  &__missing {
     color: var(--color-text-muted);
   }
 }
