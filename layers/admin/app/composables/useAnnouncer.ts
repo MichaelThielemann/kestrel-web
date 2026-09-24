@@ -11,9 +11,10 @@ export function useAnnouncer() {
 
   function announce(text: string) {
     queue.push(text)
+    if (message.value) message.value = ''
     if (flushTimer) return
     flushTimer = setTimeout(() => {
-      message.value = queue.join(' ')
+      message.value = queue.join('. ')
       queue = []
       flushTimer = null
       if (clearTimer) clearTimeout(clearTimer)

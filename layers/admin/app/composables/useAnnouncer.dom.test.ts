@@ -27,7 +27,26 @@ describe('useAnnouncer', () => {
     expect(api.message.value).toBe('')
 
     await vi.advanceTimersByTimeAsync(500)
-    expect(api.message.value).toBe('a.png uploaded b.png uploaded')
+    expect(api.message.value).toBe('a.png uploaded. b.png uploaded')
+
+    wrapper.unmount()
+    vi.useRealTimers()
+  })
+
+  it('re-announces a message identical to the one still displayed, instead of dropping it', async () => {
+    vi.useFakeTimers()
+    const { wrapper, api } = await mountProbe()
+
+    api.announce('c.png uploaded')
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(api.message.value).toBe('c.png uploaded')
+
+    api.announce('c.png uploaded')
+    await vi.advanceTimersByTimeAsync(0)
+    expect(api.message.value).toBe('')
+
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(api.message.value).toBe('c.png uploaded')
 
     wrapper.unmount()
     vi.useRealTimers()
