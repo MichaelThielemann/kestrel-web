@@ -30,6 +30,8 @@ function onTabSelect(id: string) {
       <p v-if="manifest" class="insights__meta">{{ t('insights.coreVersion', { version: manifest.core.version }) }} · {{ t('insights.moduleCount', { count: manifest.modules.length }) }} · {{ t('insights.pipelineCount', { count: manifest.pipelines.length }) }}</p>
     </header>
 
+    <KestrelInsightsBootWarnings v-if="manifest" :warnings="manifest.warnings" />
+
     <KestrelUiAlert v-if="availability === 'notFound'" variant="info">{{ t('insights.notAvailable') }}</KestrelUiAlert>
     <KestrelUiAlert v-else-if="availability === 'forbidden'" variant="warning">{{ t('insights.forbidden') }}</KestrelUiAlert>
     <KestrelUiAlert v-else-if="availability === 'error'" variant="error">{{ error }}</KestrelUiAlert>
