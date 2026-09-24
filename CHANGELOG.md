@@ -93,8 +93,9 @@
   necessarily as the pipeline's very last step; `restorePageRevision` still ends `…, revisions.reportRestore`
   after the relay, since that step reads the group's result outside the group — which reports, and with
   `kestrel-events-queue` performs, that run's delivery. The response of a page write is the saved
-  document plus `_events: { status: "done" | "error" | "pending", pipelines: [{ event, pipeline,
-  status, attempts, dead, error }] }`; it used to be `{ document, delivery, llms }`. `DELETE` answers
+  document plus `_events: { status, pipelines: [{ event, pipeline, status, attempts, dead, error }] }`
+  (both `status` fields `"done" | "error" | "pending" | "queued"`, see below); it used to be
+  `{ document, delivery, llms }`. `DELETE` answers
   `{ _events }`. Read the publish status per locale from `GET /admin/publish-status/pages/:id` as
   before — the write response no longer carries it. `SaveResponse<T>` is gone from the exported API
   types; `RevisionRestoreResponse` is the document plus `restore?` and `_events?`.
@@ -130,6 +131,28 @@
   consumer pipeline or route of that name. `InsightsManifest` gains a required `warnings`,
   `UserDeleteResponse` a required `_events`.
 
+- `EventRelayStatus`'s `status` and `pipelines[].status` gain a fourth value, `"queued"`, for a
+  subscriber the queue's relay selection leaves to the worker (see relay selection above). An
+  exhaustive `switch` over either union needs a case for it.
+
+- `MediaItem` (`layers/core/app/types/api.ts`, generated from the backend's OpenAPI document) gains a
+  required `variantCounts: { done, pending, error, failed }`. Code that builds a `MediaItem` by hand
+  now needs the field.
+
+### Added
+
+- `#kestrel/pipelines` exports `relayPipelinesFor(features)` and `RELAY_CANDIDATE_PIPELINES`, the helper
+  and the candidate list `presetModuleConfig()` uses to derive the `eventsQueue` module's relay selection;
+  call it yourself for a hand-written module list.
+- `EventDeliveryStatus` (`layers/core/app/types/api.ts`), the type of `GET /admin/events/delivery`'s
+  response.
+- `InsightsBootWarning`, and `InsightsManifest.warnings` (see the new base pipeline above).
+- `definePreset()` gains an error for a queue relay selection that names a pipeline the preset itself
+  used to compose but no longer does after `exclude` and `overrides`: `preset: module
+  "@michaelthielemann/kestrel-events-queue" is configured to relay pipeline "<name>", which the preset
+  does not compose – …`. A name the preset never defines passes through; the `eventsQueue` module's own
+  boot check still rejects an unknown pipeline once every pipeline is resolved.
+
 ### Changed
 
 - The dashboard shows how many event deliveries failed for good and links to System → Events: the
@@ -153,14 +176,16 @@
 - `layers/core/app/types/api.ts`: `MediaItem`, `ReplicationStatus` and `ReplicationSnapshotResult` are
   now plain aliases of the generated OpenAPI response types instead of widening a subset of fields to
   required — the backend now declares those fields required itself, so the widening is redundant. The
-  published field optionality is unchanged.
+  published field optionality is unchanged for `ReplicationStatus` and `ReplicationSnapshotResult`;
+  `MediaItem` gains the new required `variantCounts` field described under Breaking.
 
 - `layers/core/app/types/api.ts` no longer imports types from a backend package's `impl` subpath; the
   types it used to take from there (media, images status, delivery status, replication) are now aliases
   of `layers/core/app/types/openapi.generated.ts`, generated from the preset's OpenAPI document with
   `pnpm generate:api-types`. `pnpm test` fails if the generated file is stale. The exported field
-  optionality of `MediaItem`, `ReplicationStatus` and `ReplicationSnapshotResult` is unchanged from the
-  previous release. `scripts/generate-api-types.ts` now boots the same content model as `playground/`
+  optionality of `ReplicationStatus` and `ReplicationSnapshotResult` is unchanged from the previous
+  release; `MediaItem` gains the new required `variantCounts` field described under Breaking.
+  `scripts/generate-api-types.ts` now boots the same content model as `playground/`
   instead of a near-duplicate of it, so the collection names behind the generated types (for example
   `pages`, which decides `PublishStatusEntry`) have one source; this drops the script's unused `news`
   scaffold collection and has no effect on any exported type.

@@ -69,10 +69,12 @@ other field alphabetically under its raw key. This is deliberate: a boot check a
 admin change to show up correctly, known field or not.
 
 ## Recent failures vs. boot warnings
-A boot warning is static and about configuration; a recent failure is a run that actually happened. A
-delivery an event-delivery module gave up on (a queue dead letter, a failed inline listener) is neither: it
-never reaches `stats()` or `manifest.warnings`, only `events.readDeliveryStatus` and, for the process that
-ran it, `recentFailures`. See the dashboard link and the System → Events tab.
+A boot warning is static and about configuration; a recent failure is a run that actually happened. Each
+attempt at a delivery is a run like any other, so it counts in `stats()` of the process that ran it —
+`recentFailures` and `pipelines[].failed` both see it. What never reaches `stats()` or `manifest.warnings`
+is the *delivery* itself, the fact that a queue row or an inline listener gave up for good after its last
+attempt: that count lives only in `events.readDeliveryStatus`, which folds every attempt of one delivery
+into a single dead/not-dead outcome. See the dashboard link and the System → Events tab.
 
 ## Enabling it
 - Install `@michaelthielemann/kestrel-insights` — it is an optional peer dependency of kestrel-web, so

@@ -704,12 +704,22 @@ emitting run.
 
 **`eventsQueue` and relay selection:** the preset narrows the relay to `publishPage` and `unpublishPage`
 — the pipelines behind `delivery` — whenever that feature is on, and to nothing otherwise;
-`presetModuleConfig()` derives this and passes it as the `eventsQueue` module's `relayPipelines`. Every
-other event-triggered pipeline (`generateImageVariants`, `auditAuth`, `reassignRevisionAuthor`, …) is left
-to the worker: its row is due immediately, and `_events` reports it as `"queued"`, not `"pending"`. A page
-publish or unpublish therefore still completes before the write's response, while heavier or slower
-subscribers never share the request's time budget. `overrides` naming the events-queue module directly
-replaces this selection.
+`presetModuleConfig()` derives this with the exported `relayPipelinesFor(features)` and passes it as the
+`eventsQueue` module's `relayPipelines`. `relayPipelinesFor` picks from the exported
+`RELAY_CANDIDATE_PIPELINES` (`#kestrel/pipelines`), today just `publishPage`/`unpublishPage`. Every other
+event-triggered pipeline (`generateImageVariants`, `auditAuth`, `reassignRevisionAuthor`, …) is left to the
+worker: its row is due immediately, and `_events` reports it as `"queued"`, not `"pending"`. A page publish
+or unpublish therefore still completes before the write's response, while heavier or slower subscribers
+never share the request's time budget.
+
+A hand-written module list that never calls `presetModuleConfig()` keeps the `eventsQueue` module's own
+default, `relayPipelines: "all"` — every subscriber runs inline, bounded by `relayMs`. Call
+`relayPipelinesFor(features)` yourself to get the same selection, or name an explicit list. `overrides`
+naming the events-queue module directly replaces whichever of the two produced it; `definePreset()` then
+checks every name in that list against what it actually composed once `exclude` and `overrides` are
+applied, and rejects a name that used to be one of its own pipelines but no longer is. A name it never
+defines — your own pipeline appended after `definePreset()` returns — passes through unchecked here; the
+`eventsQueue` module itself refuses an unknown pipeline name once every pipeline is resolved at boot.
 
 **`revisions` details:** per `multi` collection `<c>`: `<c>Revisions`, `<c>Revision`,
 `label<C>Revision`, `restore<C>Revision` (`/admin/<c>/:id/revisions…`, `<c>.manage` to read, `<c>.write`
