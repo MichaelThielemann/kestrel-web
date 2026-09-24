@@ -1,18 +1,18 @@
 import type { ApiErrorDetails, Document, EventRelayStatus, ReferenceTo } from '#kestrel-admin/types/api'
-import type { Workflow } from '#kestrel-admin/types/kestrel'
+import type { HttpMethod, Workflow } from '#kestrel-admin/types/kestrel'
 import type { BlockErrors } from '../composables/useEditForm'
+import type { ApiRoute, CapabilityResolver } from '../utils/capabilities'
 import type { BlockRow } from '../utils/block-tree'
 import type { RowErrorMap } from '../utils/row-errors'
 
-export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
+export type { HttpMethod }
 
 export interface ApiRequestOptions {
-  method?: HttpMethod
   body?: Record<string, unknown> | FormData
   query?: Record<string, unknown>
 }
 
-export type ApiClient = <T>(path: string, options?: ApiRequestOptions) => Promise<T>
+export type ApiClient = <T>(route: ApiRoute, options?: ApiRequestOptions) => Promise<T>
 
 export type Translate = (key: string, params?: Record<string, unknown>) => string
 
@@ -38,6 +38,7 @@ export interface ActionDeps {
   api: ApiClient
   t: Translate
   toast: ToastPort
+  capabilities: CapabilityResolver
 }
 
 export interface WithDeps { deps: ActionDeps }
@@ -88,8 +89,7 @@ export interface ApiFailure {
 }
 
 export interface ApiCall {
-  path: string
-  method?: HttpMethod
+  route: ApiRoute
   body?: Record<string, unknown> | FormData
   query?: Record<string, unknown>
 }
@@ -118,6 +118,7 @@ export interface PrecheckReport {
   byId: Map<string, ReferenceTo[]>
   checked: boolean
   forbidden: boolean
+  verifiable: boolean
 }
 
 export interface SaveFailure {

@@ -16,4 +16,14 @@ describe('buildDeleteReport self references', () => {
     const refs = new Map([['a', [{ type: 'pages', id: 'a', field: 'body' }]]])
     expect(buildDeleteReport(['a'], refs, true).referencedCount).toBe(1)
   })
+
+  it('skips the reference check for a collection without a referrers route', () => {
+    const report = buildDeleteReport(['a'], new Map(), false, 'news', false)
+    expect(report).toMatchObject({ checked: false, verifiable: false })
+  })
+
+  it('reports unverified references when the referrers route fails', () => {
+    const report = buildDeleteReport(['a'], new Map(), false, 'pages', true)
+    expect(report).toMatchObject({ checked: false, verifiable: true })
+  })
 })

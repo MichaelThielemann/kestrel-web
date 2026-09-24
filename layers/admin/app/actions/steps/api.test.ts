@@ -1,21 +1,10 @@
-import type { ApiErrorDetails } from '#kestrel-admin/types/api'
 import { describe, expect, it, vi } from 'vitest'
-import { boundaryCast } from '#kestrel/cast'
 import { defineAction, runAction } from '#kestrel-core/app/utils/actions'
-import type { ActionDeps, ApiFailure, ApiRequestOptions, EachReport, PrecheckReport, WithDeps } from '../types'
+import type { ApiFailure, EachReport, PrecheckReport, WithDeps } from '../types'
+import type { Capability } from '#kestrel-admin/types/kestrel'
+import type { ApiErrorDetails } from '#kestrel-admin/types/api'
+import { fakeDeps } from '../__fixtures__/fake-deps'
 import { apiEach, apiRequest, referencesPrecheck } from './api'
-
-interface Call { path: string, method: string, body?: unknown, query?: unknown }
-
-function fakeApi(responses: Array<unknown | Error>) {
-  const calls: Call[] = []
-  function api<T>(path: string, options?: ApiRequestOptions): Promise<T> {
-    calls.push({ path, method: options?.method ?? 'GET', body: options?.body, query: options?.query })
-    const next = responses.shift()
-    return next instanceof Error ? Promise.reject(next) : Promise.resolve(boundaryCast<T>(next, 'json'))
-  }
-  return { api, calls }
-}
 
 const CODE_OF: Record<number, string> = {
   400: 'VALIDATION', 401: 'UNAUTHENTICATED', 403: 'FORBIDDEN', 404: 'NOT_FOUND', 409: 'CONFLICT',
@@ -28,28 +17,20 @@ const apiError = (status: number, message: string, details?: ApiErrorDetails) =>
   data: { error: message, code: CODE_OF[status] ?? 'INTERNAL', retryable: status === 429 || status === 503, ...(details ? { details } : {}) },
 })
 
-function fakeDeps(responses: Array<unknown | Error> = []) {
-  const { api, calls } = fakeApi(responses)
-  const toast = { success: vi.fn(), error: vi.fn(), info: vi.fn() }
-  const t = vi.fn((key: string, params?: Record<string, unknown>) => (params ? `${key}:${JSON.stringify(params)}` : key))
-  const deps: ActionDeps = { api, t, toast }
-  return { deps, calls, toast, t }
-}
-
 describe('api.request', () => {
   it('hands the response to onSuccess', async () => {
     const { deps, calls } = fakeDeps([{ ok: 1 }])
     const action = defineAction<WithDeps, unknown>({
       name: 'request',
       steps: [apiRequest<WithDeps, unknown, { ok: number }>('api.request', {
-        call: () => ({ path: '/admin/publish-all/pages', method: 'POST' }),
+        call: () => ({ route: { method: 'POST', path: '/admin/publish-all/pages' } }),
         onSuccess: (ctx, value) => { ctx.result = value },
       })],
     })
 
     const result = await runAction(action, { deps })
 
-    expect(calls).toEqual([{ path: '/admin/publish-all/pages', method: 'POST', body: undefined, query: undefined }])
+    expect(calls).toEqual([{ route: { method: 'POST', path: '/admin/publish-all/pages' }, body: undefined, query: undefined }])
     expect(result).toEqual({ ok: true, result: { ok: 1 } })
   })
 
@@ -59,7 +40,7 @@ describe('api.request', () => {
     const action = defineAction<WithDeps, unknown>({
       name: 'request',
       steps: [apiRequest<WithDeps, unknown>('api.request', {
-        call: () => ({ path: '/x' }),
+        call: () => ({ route: { method: 'GET', path: '/x' } }),
         onSuccess: () => {},
         onError: (_ctx, err) => { seen.push(err) },
       })],
@@ -76,7 +57,7 @@ describe('api.request', () => {
     const error = vi.spyOn(console, 'error').mockImplementation(() => {})
     const action = defineAction<WithDeps, unknown>({
       name: 'request',
-      steps: [apiRequest<WithDeps, unknown>('api.request', { call: () => ({ path: '/x' }), onSuccess: () => {} })],
+      steps: [apiRequest<WithDeps, unknown>('api.request', { call: () => ({ route: { method: 'GET', path: '/x' } }), onSuccess: () => {} })],
     })
 
     const result = await runAction(action, { deps })
@@ -92,7 +73,7 @@ describe('api.each', () => {
       name: 'each',
       steps: [apiEach<WithDeps & { ids: string[] }, EachReport<unknown>>('api.each', {
         items: (ctx) => ctx.input.ids,
-        call: (_ctx, id) => ({ path: `/pages/${id}`, method: 'DELETE' }),
+        call: (_ctx, id) => ({ route: { method: 'DELETE', path: `/pages/${id}` } }),
         policy,
         onItemError: (_ctx, item) => { itemErrors.push(item.message ?? '') },
         onDone: (ctx, report) => { ctx.result = report },
@@ -138,7 +119,7 @@ describe('api.each', () => {
       name: 'each',
       steps: [apiEach<WithDeps, EachReport<unknown>>('api.each', {
         items: () => ['docs'],
-        call: (_ctx, path) => ({ path: `/media/folders/${path}`, method: 'DELETE', query: { recursive: true } }),
+        call: (_ctx, path) => ({ route: { method: 'DELETE', path: `/media/folders/${path}` }, query: { recursive: true } }),
         policy: 'stop',
         onDone: (ctx, report) => { ctx.result = report },
       })],
@@ -146,17 +127,18 @@ describe('api.each', () => {
 
     await runAction(action, { deps })
 
-    expect(calls[0]).toMatchObject({ path: '/media/folders/docs', query: { recursive: true } })
+    expect(calls[0]).toMatchObject({ route: { method: 'DELETE', path: '/media/folders/docs' }, query: { recursive: true } })
   })
 })
 
 describe('references.precheck', () => {
-  function precheckAction(onError: 'stop' | 'skip', allowed = true) {
+  const mediaReferrers: Capability = { method: 'GET', path: '/admin/references/to/media/:id' }
+
+  function precheckAction(onError: 'stop' | 'skip', capability: Capability | undefined) {
     return defineAction<WithDeps & { ids: string[] }, PrecheckReport>({
       name: 'precheck',
       steps: [referencesPrecheck<WithDeps & { ids: string[] }, PrecheckReport>('references.precheck', {
-        allowed: () => allowed,
-        target: () => 'media',
+        capability: () => capability,
         ids: (ctx) => ctx.input.ids,
         onError,
         onDone: (ctx, report) => { ctx.result = report },
@@ -167,27 +149,28 @@ describe('references.precheck', () => {
   it('encodes the id in the lookup path', async () => {
     const { deps, calls } = fakeDeps([[]])
 
-    await runAction(precheckAction('skip'), { deps, ids: ['a b/c'] })
+    await runAction(precheckAction('skip', mediaReferrers), { deps, ids: ['a b/c'] })
 
-    expect(calls[0]?.path).toBe('/admin/references/to/media/a%20b%2Fc')
+    expect(calls[0]?.route).toEqual({ method: 'GET', path: '/admin/references/to/media/a%20b%2Fc' })
   })
 
   it('skips a failed lookup and keeps going', async () => {
     const { deps, calls } = fakeDeps([apiError(500, 'boom'), [{ type: 'pages', field: 'body', id: 'p' }], []])
 
-    const result = await runAction(precheckAction('skip'), { deps, ids: ['a', 'b', 'c'] })
+    const result = await runAction(precheckAction('skip', mediaReferrers), { deps, ids: ['a', 'b', 'c'] })
     if (!result.ok || result.result === undefined) throw new Error('expected ok with a result')
 
     expect(calls).toHaveLength(3)
     const report = result.result
     expect(report.checked).toBe(false)
+    expect(report.verifiable).toBe(true)
     expect([...report.byId.keys()]).toEqual(['b', 'c'])
   })
 
   it('stops at a failed lookup and keeps the partial map', async () => {
     const { deps, calls } = fakeDeps([[], apiError(500, 'boom'), []])
 
-    const result = await runAction(precheckAction('stop'), { deps, ids: ['a', 'b', 'c'] })
+    const result = await runAction(precheckAction('stop', mediaReferrers), { deps, ids: ['a', 'b', 'c'] })
     if (!result.ok || result.result === undefined) throw new Error('expected ok with a result')
 
     expect(calls).toHaveLength(2)
@@ -199,7 +182,7 @@ describe('references.precheck', () => {
   it('discards everything on a 403', async () => {
     const { deps, calls } = fakeDeps([[], apiError(403, 'forbidden'), []])
 
-    const result = await runAction(precheckAction('skip'), { deps, ids: ['a', 'b', 'c'] })
+    const result = await runAction(precheckAction('skip', mediaReferrers), { deps, ids: ['a', 'b', 'c'] })
     if (!result.ok || result.result === undefined) throw new Error('expected ok with a result')
 
     expect(calls).toHaveLength(2)
@@ -207,12 +190,12 @@ describe('references.precheck', () => {
     expect(result.result.byId.size).toBe(0)
   })
 
-  it('never asks when the check is not allowed', async () => {
+  it('skips the reference check for a collection without a referrers route', async () => {
     const { deps, calls } = fakeDeps([])
 
-    const result = await runAction(precheckAction('skip', false), { deps, ids: ['a'] })
+    const result = await runAction(precheckAction('skip', undefined), { deps, ids: ['a'] })
 
     expect(calls).toEqual([])
-    expect(result).toMatchObject({ ok: true, result: { checked: false, forbidden: false } })
+    expect(result).toMatchObject({ ok: true, result: { checked: false, forbidden: false, verifiable: false } })
   })
 })

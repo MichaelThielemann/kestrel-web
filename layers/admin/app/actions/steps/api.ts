@@ -1,5 +1,7 @@
 import type { Document, EventRelayStatus, ReferenceTo } from '#kestrel-admin/types/api'
+import type { Capability } from '#kestrel-admin/types/kestrel'
 import type { ActionContext, ActionStep } from '#kestrel-core/app/utils/actions'
+import { routeFrom } from '../../utils/capabilities'
 import { apiErrorCode, apiErrorDetails, apiErrorMessage, apiErrorRetryable, apiErrorRunId, apiErrorStatus, apiErrorStep } from '../../composables/useApi'
 import { defineUiStep } from '../define'
 import { saveOutcome } from './form'
@@ -14,12 +16,11 @@ export function apiWrite<I extends WithDeps & { form: EditFormPort }>(): ActionS
     const out = saveOutcome(ctx, 'api.write')
     const single = form.mode === 'single'
     const create = form.id === 'new'
-    const path = single || create ? `/${form.collection}` : `/${form.collection}/${form.id}`
-    const method = single ? 'PUT' : create ? 'POST' : 'PATCH'
+    const route = single ? deps.capabilities.verbRoute(form.collection, 'set') : create ? deps.capabilities.verbRoute(form.collection, 'create') : deps.capabilities.verbRoute(form.collection, 'update', { id: form.id })
     const body = single || create ? form.bodyFor(form.fieldKeys()) : form.bodyFor(form.dirtyKeys())
 
     try {
-      const res = await deps.api<WriteResponse>(path, { method, body })
+      const res = await deps.api<WriteResponse>(route, { body })
       out.record = res
       out.events = res._events ?? null
     } catch (e) {
@@ -45,7 +46,7 @@ export function apiRequest<I extends WithDeps, R = unknown, T = unknown>(name: U
   return defineUiStep<I, R>(name, async (ctx) => {
     const call = opts.call(ctx)
     try {
-      const value = await ctx.input.deps.api<T>(call.path, { method: call.method, body: call.body, query: call.query })
+      const value = await ctx.input.deps.api<T>(call.route, { body: call.body, query: call.query })
       opts.onSuccess(ctx, value)
     } catch (e) {
       if (!opts.onError) throw e
@@ -78,7 +79,7 @@ export function apiEach<I extends WithDeps, R = unknown, T = unknown>(name: UiSt
     for (const id of opts.items(ctx)) {
       const call = opts.call(ctx, id)
       try {
-        const value = await ctx.input.deps.api<T>(call.path, { method: call.method, body: call.body, query: call.query })
+        const value = await ctx.input.deps.api<T>(call.route, { body: call.body, query: call.query })
         results.push({ id, ok: true, value })
         succeeded++
       } catch (e) {
@@ -106,35 +107,34 @@ export function apiEach<I extends WithDeps, R = unknown, T = unknown>(name: UiSt
 }
 
 export function referencesPrecheck<I extends WithDeps, R = unknown>(name: UiStepName, opts: {
-  allowed: (ctx: ActionContext<I, R>) => boolean
-  target: (ctx: ActionContext<I, R>) => string
+  capability: (ctx: ActionContext<I, R>) => Capability | undefined
   ids: (ctx: ActionContext<I, R>) => readonly string[]
   onError: 'stop' | 'skip'
   onDone: (ctx: ActionContext<I, R>, report: PrecheckReport) => void
 }): ActionStep<I, R> {
   return defineUiStep<I, R>(name, async (ctx) => {
-    if (!opts.allowed(ctx)) {
-      opts.onDone(ctx, { byId: new Map(), checked: false, forbidden: false })
+    const capability = opts.capability(ctx)
+    if (capability === undefined) {
+      opts.onDone(ctx, { byId: new Map(), checked: false, forbidden: false, verifiable: false })
       return
     }
 
-    const target = opts.target(ctx)
     const byId = new Map<string, ReferenceTo[]>()
     let checked = true
 
     for (const id of opts.ids(ctx)) {
       try {
-        byId.set(id, await ctx.input.deps.api<ReferenceTo[]>(`/admin/references/to/${target}/${encodeURIComponent(id)}`))
+        byId.set(id, await ctx.input.deps.api<ReferenceTo[]>(routeFrom(capability, { id })))
       } catch (e) {
         checked = false
         if (apiErrorCode(e) === 'FORBIDDEN') {
-          opts.onDone(ctx, { byId: new Map(), checked: false, forbidden: true })
+          opts.onDone(ctx, { byId: new Map(), checked: false, forbidden: true, verifiable: true })
           return
         }
         if (opts.onError === 'stop') break
       }
     }
 
-    opts.onDone(ctx, { byId, checked, forbidden: false })
+    opts.onDone(ctx, { byId, checked, forbidden: false, verifiable: true })
   })
 }

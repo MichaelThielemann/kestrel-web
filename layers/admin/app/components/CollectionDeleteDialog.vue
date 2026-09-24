@@ -42,7 +42,7 @@ const allLocalesLabel = computed(() => allLocales.value.map((locale) => locale.t
       <p v-if="extraRefs > 0" class="collection-delete__more">{{ t('refs.referencedByMore', { n: extraRefs }) }}</p>
     </div>
 
-    <KestrelUiAlert v-if="report && report.checked === false" variant="warning" class="collection-delete__caution">
+    <KestrelUiAlert v-if="report && report.verifiable && report.checked === false" variant="warning" class="collection-delete__caution">
       {{ t('list.deleteRefsUnverified') }}
     </KestrelUiAlert>
     <KestrelUiAlert v-if="error" variant="error">{{ error }}</KestrelUiAlert>

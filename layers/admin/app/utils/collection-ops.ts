@@ -7,9 +7,10 @@ export interface BatchDeleteReport {
   referenced: { id: string; referrers: number }[]
   references: ReferenceTo[]
   checked: boolean
+  verifiable: boolean
 }
 
-export function buildDeleteReport(ids: string[], referencesById: Map<string, ReferenceTo[]> = new Map(), checked = false, collection?: string): BatchDeleteReport {
+export function buildDeleteReport(ids: string[], referencesById: Map<string, ReferenceTo[]> = new Map(), checked = false, collection?: string, verifiable = true): BatchDeleteReport {
   const deleting = new Set(ids)
   const external = (id: string) => (referencesById.get(id) ?? []).filter((r) => !(collection && r.type === collection && deleting.has(r.id)))
   const referenced = ids
@@ -21,5 +22,6 @@ export function buildDeleteReport(ids: string[], referencesById: Map<string, Ref
     referenced,
     references: ids.flatMap((id) => external(id)),
     checked,
+    verifiable,
   }
 }
