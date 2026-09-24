@@ -12,7 +12,8 @@ const STALL_AFTER_MS = 10 * 60 * 1000
 const MAX_IDS_PER_CALL = 200
 
 export function useVariantWatch() {
-  const api = useApi()
+  const api = useAdminApi()
+  const capabilities = useCapabilities()
   const { has } = useFeatures()
   const { primary } = useContentLocales()
 
@@ -48,9 +49,10 @@ export function useVariantWatch() {
 
   async function poll(): Promise<void> {
     if (tracked.value.size === 0) return
+    if (!capabilities.has('listMedia')) return
     const ids = [...tracked.value].slice(0, MAX_IDS_PER_CALL)
     try {
-      const page = await api<{ items: MediaItem[] }>('/media', { query: { ids: ids.join(','), locale: primary.value } })
+      const page = await api<{ items: MediaItem[] }>(capabilities.route('listMedia'), { query: { ids: ids.join(','), locale: primary.value } })
       if (disposed) return
       let changed = false
       for (const item of page.items) {

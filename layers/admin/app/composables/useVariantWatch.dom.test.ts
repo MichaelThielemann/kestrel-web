@@ -5,7 +5,12 @@ import type { AdminSchema, MediaItem } from '#kestrel-admin/types/api'
 import { useVariantWatch } from './useVariantWatch'
 
 const { schema, apiCalls, apiHandler } = vi.hoisted(() => {
-  const schema: AdminSchema = { locales: { all: ['en'], primary: 'en', prefixPrimary: false }, collections: [], features: ['images'] }
+  const schema: AdminSchema = {
+    locales: { all: ['en'], primary: 'en', prefixPrimary: false },
+    collections: [],
+    features: ['images'],
+    capabilities: { listMedia: { method: 'GET', path: '/media' } },
+  }
   const apiCalls: { path: string, options?: { query?: { ids?: string, locale?: string } } }[] = []
   const apiHandler = { fn: (_path: string, _options?: unknown): Promise<unknown> => Promise.resolve({ items: [], total: 0 }) }
   return { schema, apiCalls, apiHandler }
@@ -18,9 +23,9 @@ mockNuxtImport('useSchema', () => () => ({
   clear: () => {},
 }))
 
-mockNuxtImport('useApi', () => () => (path: string, options?: { query?: { ids?: string, locale?: string } }) => {
-  apiCalls.push({ path, options })
-  return apiHandler.fn(path, options)
+mockNuxtImport('useAdminApi', () => () => (route: { path: string, method: string }, options?: { query?: { ids?: string, locale?: string } }) => {
+  apiCalls.push({ path: route.path, options })
+  return apiHandler.fn(route.path, options)
 })
 
 function mediaItem(over: Partial<MediaItem> = {}): MediaItem {
