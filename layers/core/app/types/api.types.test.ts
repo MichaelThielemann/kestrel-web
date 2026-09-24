@@ -3,7 +3,7 @@ import type { DeadEvent, EventDeliveryStatus, EventRelayStatus, MediaItem, Redir
 
 interface ExpectedMediaItem {
   alt: string | null
-  checksum: string | null
+  available: boolean
   contentType: string
   createdAt: number
   description: string | null
@@ -11,7 +11,7 @@ interface ExpectedMediaItem {
   folder: string
   height: number | null
   id: string
-  key: string
+  path: string
   provenance: {
     at?: number
     model?: string
@@ -19,7 +19,6 @@ interface ExpectedMediaItem {
     tool?: string
   }
   size: number
-  status: 'uploading' | 'ready' | 'failed'
   title: string | null
   updatedAt: number
   variantCounts: {

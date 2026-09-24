@@ -107,8 +107,6 @@ export type MediaVariant = MediaItemResponse['variants'][number]
 
 export type MediaVariantCounts = MediaItemResponse['variantCounts']
 
-export type MediaStatus = MediaItemResponse['status']
-
 export type MediaItem = MediaItemResponse
 
 export interface MediaFolder { folder: string; count: number }
@@ -199,6 +197,10 @@ export interface ImagesPruneResult { sizes: number; variants: number }
 export interface ImagesRetryFailedResult { variants: number; media: number; job: ImagesJob | null }
 
 export interface MediaReconcileReport { blobsWithoutRow: string[]; rowsWithoutBlob: string[] }
+
+export interface MediaPublicSync { written: number; removed: number; missing: number }
+
+export interface MediaRepairPublicReport { _publicMedia: MediaPublicSync; _publicVariants?: MediaPublicSync & { planned: number } }
 
 export type { LedgerEntry as MigrationLedgerEntry, PendingMigration } from '@michaelthielemann/kestrel-contracts/migrations'
 export type MigrationsListResult = Returns<Migrations['list']>

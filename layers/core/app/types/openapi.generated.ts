@@ -77,7 +77,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Require a valid session → Requires permission system.manage → Queue counters per state, the oldest pending event and the worker state of this process */
+        /** Require a valid session → Requires permission system.manage → Queue counters per state, the oldest pending event, the worker state of this process, and pending/running/oldestPendingAt per configured lane */
         get: operations["eventsQueueStatus"];
         put?: never;
         post?: never;
@@ -96,7 +96,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Require a valid session → Requires permission images.manage → Delete the variants of sizes that are no longer declared */
+        /** Require a valid session → Requires permission images.manage → Retire the variants of sizes that are no longer declared: their paths keep answering with the original's bytes until the item is deleted */
         post: operations["pruneImages"];
         delete?: never;
         options?: never;
@@ -292,6 +292,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/media/repair-public": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Require a valid session → Requires permission media.manage → Reconcile the public copies of every ready item's original with the stored items: fail abandoned uploads, write missing or mismatched copies, and remove copies of failed or deleted items and foreign files (adds _publicMedia: { written, removed, missing } to the result) → Reconcile the public copies of every ready item's variants and retired paths with the stored rows: place missing sizes, write missing or mismatched copies, and remove copies of deleted items and foreign files (adds _publicVariants: { written, removed, planned, missing } to the result) */
+        post: operations["repairPublicMedia"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/migrations": {
         parameters: {
             query?: never;
@@ -404,7 +421,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Require a valid session → Requires permission pages.write → Put a pages revision's snapshot into the body, so the steps behind it save it like any other write and branch the history at that revision; fields the model has dropped since are left out → Validate payload field pages.body against its JSON Schema → Sanitize HTML at format:"html" positions of payload field pages.body → Validate payload field pages.body against its JSON Schema → Validate payload field pages.accent against its JSON Schema → Referenced ids of pages must exist → Update a pages → Record the saved pages document from the result as a revision; its parent is the head, or the revision a restore put on the context → Index the references of a pages document → Index external links of pages → Queue event "page.restored" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) → Add what the restore of this run left out to the result as `restore`; without a known content model the result stays as it is */
+        /** Require a valid session → Requires permission pages.write → Put a pages revision's snapshot into the body, so the steps behind it save it like any other write and branch the history at that revision; fields the model has dropped since are left out → Validate payload field pages.body against its JSON Schema → Sanitize HTML at format:"html" positions of payload field pages.body → Validate payload field pages.body against its JSON Schema → Validate payload field pages.slug against its JSON Schema → Validate payload field pages.accent against its JSON Schema → Referenced ids of pages must exist → Update a pages → Record the saved pages document from the result as a revision; its parent is the head, or the revision a restore put on the context → Index the references of a pages document → Index external links of pages → Queue event "page.restored" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) → Add what the restore of this run left out to the result as `restore`; without a known content model the result stays as it is */
         post: operations["restorePageRevision"];
         delete?: never;
         options?: never;
@@ -725,7 +742,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Identify the caller if a valid token is present → Requires permission media.read → List media, newest first → Add variants[] and variantCounts (done/pending/error/failed over the effective sizes) to a media item or list (result.id or result.items) */
+        /** Identify the caller if a valid token is present → Requires permission media.read → List media, newest first; anonymous callers may only fetch by ids → Add available, variants[] and variantCounts to a media item or list (result.id or result.items); a variant whose path has no object yet is never listed */
         get: operations["listMedia"];
         put?: never;
         /** Require a valid session → Requires permission media.write → Sanitize uploaded SVG files (scripts, handlers, external references removed) → Upload one or more files (multipart field `file`, repeatable). A single file returns the item; multiple files return per-file results. Idempotent: same folder, same filename and same bytes return the item that is already there, and the step then ends the pipeline itself (200), so no following step – notably events.emit:media.uploaded – runs for an upload that stored nothing → Queue event "media.uploaded" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
@@ -743,16 +760,33 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Identify the caller if a valid token is present → Requires permission media.read → Media metadata → Add variants[] and variantCounts (done/pending/error/failed over the effective sizes) to a media item or list (result.id or result.items) */
+        /** Identify the caller if a valid token is present → Requires permission media.read → Media metadata → Add available, variants[] and variantCounts to a media item or list (result.id or result.items); a variant whose path has no object yet is never listed */
         get: operations["getMedia"];
         put?: never;
         post?: never;
-        /** Require a valid session → Requires permission media.delete → Refuse deletion while media is referenced → Delete one media item's variants (blob + rows) → Delete file and metadata → Queue event "media.deleted" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
+        /** Require a valid session → Requires permission media.delete → Refuse deletion while media is referenced → Delete file and metadata (copy, blob, row, then a final sweep) → Delete one media item's variants and retired paths (blob + rows) → Queue event "media.deleted" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
         delete: operations["deleteMedia"];
         options?: never;
         head?: never;
-        /** Require a valid session → Requires permission media.write → Rename, move, set provenance or texts (alt/title/description per locale) → Queue event "media.updated" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
+        /** Require a valid session → Requires permission media.write → Rename, move, set provenance or texts (alt/title/description per locale); the file's key and path never change → Queue event "media.updated" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
         patch: operations["updateMedia"];
+        trace?: never;
+    };
+    "/media/{id}/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Identify the caller if a valid token is present → Requires permission media.read → The file at its public URL (params.id, params.name); the name must be the one it was uploaded under */
+        get: operations["serveMediaFile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/media/{id}/file": {
@@ -779,7 +813,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Identify the caller if a valid token is present → Requires permission media.read → Binary variant, or the original with x-kestrel-variant: pending while it isn't ready yet */
+        /** Identify the caller if a valid token is present → Requires permission media.read → The variant at its public URL (params.id, params.file), or the original's bytes when no render is at that path yet; x-kestrel-variant: original marks the fallback */
         get: operations["serveImageVariant"];
         put?: never;
         post?: never;
@@ -796,7 +830,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Identify the caller if a valid token is present → Requires permission media.read → Folders (persistent and implied) with item counts */
+        /** Require a valid session → Requires permission media.read → Folders (persistent and implied) with item counts; anonymous callers are refused */
         get: operations["listMediaFolders"];
         put?: never;
         /** Require a valid session → Requires permission media.write → Create a folder (idempotent: an existing folder is returned unchanged) */
@@ -817,11 +851,11 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Require a valid session → Requires permission media.delete → Item ids in a folder, for use with references.guardAll:media before removeFolder → Refuse while any of result.ids of media is referenced → Delete variants for every id in result.ids (from media.listFolderItems) → Delete a folder and everything in it */
+        /** Require a valid session → Requires permission media.delete → Item ids in a folder, for use with references.guardAll:media before removeFolder → Refuse while any of result.ids of media is referenced → Delete a folder and everything in it (each item as media.remove) → Delete variants for every id in result.ids (from media.listFolderItems or media.removeFolder) → Queue event "media.deleted" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
         delete: operations["deleteMediaFolder"];
         options?: never;
         head?: never;
-        /** Require a valid session → Requires permission media.write → Rename or move a folder, moving its blobs */
+        /** Require a valid session → Requires permission media.write → Rename or move a folder (metadata only: keys and paths do not change) */
         patch: operations["renameMediaFolder"];
         trace?: never;
     };
@@ -835,7 +869,7 @@ export interface paths {
         /** Identify the caller if a valid token is present → Requires permission pages.read → List pages */
         get: operations["listPages"];
         put?: never;
-        /** Require a valid session → Requires permission pages.write → Validate payload field pages.body against its JSON Schema → Sanitize HTML at format:"html" positions of payload field pages.body → Validate payload field pages.body against its JSON Schema → Validate payload field pages.accent against its JSON Schema → Referenced ids of pages must exist → Create a pages → Record the saved pages document from the result as a revision; its parent is the head, or the revision a restore put on the context → Index the references of a pages document → Index external links of pages → Queue event "page.created" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
+        /** Require a valid session → Requires permission pages.write → Validate payload field pages.body against its JSON Schema → Sanitize HTML at format:"html" positions of payload field pages.body → Validate payload field pages.body against its JSON Schema → Validate payload field pages.slug against its JSON Schema → Validate payload field pages.accent against its JSON Schema → Referenced ids of pages must exist → Create a pages → Record the saved pages document from the result as a revision; its parent is the head, or the revision a restore put on the context → Index the references of a pages document → Index external links of pages → Queue event "page.created" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
         post: operations["createPage"];
         delete?: never;
         options?: never;
@@ -858,7 +892,7 @@ export interface paths {
         delete: operations["deletePage"];
         options?: never;
         head?: never;
-        /** Require a valid session → Requires permission pages.write → Validate payload field pages.body against its JSON Schema → Sanitize HTML at format:"html" positions of payload field pages.body → Validate payload field pages.body against its JSON Schema → Validate payload field pages.accent against its JSON Schema → Referenced ids of pages must exist → Update a pages → Record the saved pages document from the result as a revision; its parent is the head, or the revision a restore put on the context → Index the references of a pages document → Index external links of pages → Queue event "page.updated" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
+        /** Require a valid session → Requires permission pages.write → Validate payload field pages.body against its JSON Schema → Sanitize HTML at format:"html" positions of payload field pages.body → Validate payload field pages.body against its JSON Schema → Validate payload field pages.slug against its JSON Schema → Validate payload field pages.accent against its JSON Schema → Referenced ids of pages must exist → Update a pages → Record the saved pages document from the result as a revision; its parent is the head, or the revision a restore put on the context → Index the references of a pages document → Index external links of pages → Queue event "page.updated" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
         patch: operations["updatePage"];
         trace?: never;
     };
@@ -1364,6 +1398,13 @@ export interface operations {
                     "application/json": {
                         dead: number;
                         done24h: number;
+                        lanes: {
+                            [key: string]: {
+                                oldestPendingAt: number | null;
+                                pending: number;
+                                running: number;
+                            };
+                        };
                         oldestPendingAt: number | null;
                         pending: number;
                         running: number;
@@ -2023,6 +2064,8 @@ export interface operations {
                             steps: {
                                 atomic?: number;
                                 description: {
+                                    /** @enum {string} */
+                                    anonymous?: "required";
                                     atomicSafe?: boolean;
                                     binary?: boolean;
                                     errors?: {
@@ -2062,6 +2105,8 @@ export interface operations {
                         }[];
                         steps: {
                             description: {
+                                /** @enum {string} */
+                                anonymous?: "required";
                                 atomicSafe?: boolean;
                                 binary?: boolean;
                                 errors?: {
@@ -2587,6 +2632,85 @@ export interface operations {
                     "application/json": {
                         blobsWithoutRow: string[];
                         rowsWithoutBlob: string[];
+                    };
+                };
+            };
+            /** @description invalid body */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description missing permission media.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description temporarily unavailable; retry after the Retry-After header */
+            503: {
+                headers: {
+                    /** @description seconds until the client may retry */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    repairPublicMedia: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description ok */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        _publicMedia: {
+                            missing: number;
+                            removed: number;
+                            written: number;
+                        };
+                        _publicVariants: {
+                            missing: number;
+                            planned: number;
+                            removed: number;
+                            written: number;
+                        };
                     };
                 };
             };
@@ -4827,8 +4951,7 @@ export interface operations {
                     "application/json": {
                         items: {
                             alt: string | null;
-                            /** @description sha256 of the uploaded bytes, hex; null for items uploaded before checksums were recorded */
-                            checksum: string | null;
+                            available: boolean;
                             contentType: string;
                             createdAt: number;
                             description: string | null;
@@ -4836,7 +4959,8 @@ export interface operations {
                             folder: string;
                             height: number | null;
                             id: string;
-                            key: string;
+                            /** @description the file's one public URL, <publicPath>/<id>/<name>; the name is fixed at upload, so renaming or moving the item never changes it */
+                            path: string;
                             /** @description who made the file; anything but human is flagged on download (X-Content-Provenance); an upload without provenance is recorded as unknown */
                             provenance: {
                                 at?: number;
@@ -4846,11 +4970,6 @@ export interface operations {
                                 tool?: string;
                             };
                             size: number;
-                            /**
-                             * @description only ready items are listed, readable and downloadable
-                             * @enum {string}
-                             */
-                            status: "uploading" | "ready" | "failed";
                             title: string | null;
                             updatedAt: number;
                             variantCounts: {
@@ -4884,7 +5003,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description not authenticated */
+            /** @description no identity and no ids (unless anonymousList is "all") */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -4964,8 +5083,6 @@ export interface operations {
                             status: "done" | "error" | "pending" | "queued";
                         };
                         alt: string | null;
-                        /** @description sha256 of the uploaded bytes, hex; null for items uploaded before checksums were recorded */
-                        checksum: string | null;
                         contentType: string;
                         createdAt: number;
                         description: string | null;
@@ -4973,7 +5090,8 @@ export interface operations {
                         folder: string;
                         height: number | null;
                         id: string;
-                        key: string;
+                        /** @description the file's one public URL, <publicPath>/<id>/<name>; the name is fixed at upload, so renaming or moving the item never changes it */
+                        path: string;
                         /** @description who made the file; anything but human is flagged on download (X-Content-Provenance); an upload without provenance is recorded as unknown */
                         provenance: {
                             at?: number;
@@ -4983,11 +5101,6 @@ export interface operations {
                             tool?: string;
                         };
                         size: number;
-                        /**
-                         * @description only ready items are listed, readable and downloadable
-                         * @enum {string}
-                         */
-                        status: "uploading" | "ready" | "failed";
                         title: string | null;
                         updatedAt: number;
                         width: number | null;
@@ -5015,8 +5128,6 @@ export interface operations {
                         ids: string[];
                         items: {
                             alt: string | null;
-                            /** @description sha256 of the uploaded bytes, hex; null for items uploaded before checksums were recorded */
-                            checksum: string | null;
                             contentType: string;
                             createdAt: number;
                             description: string | null;
@@ -5024,7 +5135,8 @@ export interface operations {
                             folder: string;
                             height: number | null;
                             id: string;
-                            key: string;
+                            /** @description the file's one public URL, <publicPath>/<id>/<name>; the name is fixed at upload, so renaming or moving the item never changes it */
+                            path: string;
                             /** @description who made the file; anything but human is flagged on download (X-Content-Provenance); an upload without provenance is recorded as unknown */
                             provenance: {
                                 at?: number;
@@ -5034,19 +5146,12 @@ export interface operations {
                                 tool?: string;
                             };
                             size: number;
-                            /**
-                             * @description only ready items are listed, readable and downloadable
-                             * @enum {string}
-                             */
-                            status: "uploading" | "ready" | "failed";
                             title: string | null;
                             updatedAt: number;
                             width: number | null;
                         }[];
                     }) | ({
                         alt: string | null;
-                        /** @description sha256 of the uploaded bytes, hex; null for items uploaded before checksums were recorded */
-                        checksum: string | null;
                         contentType: string;
                         createdAt: number;
                         description: string | null;
@@ -5054,7 +5159,8 @@ export interface operations {
                         folder: string;
                         height: number | null;
                         id: string;
-                        key: string;
+                        /** @description the file's one public URL, <publicPath>/<id>/<name>; the name is fixed at upload, so renaming or moving the item never changes it */
+                        path: string;
                         /** @description who made the file; anything but human is flagged on download (X-Content-Provenance); an upload without provenance is recorded as unknown */
                         provenance: {
                             at?: number;
@@ -5064,11 +5170,6 @@ export interface operations {
                             tool?: string;
                         };
                         size: number;
-                        /**
-                         * @description only ready items are listed, readable and downloadable
-                         * @enum {string}
-                         */
-                        status: "uploading" | "ready" | "failed";
                         title: string | null;
                         updatedAt: number;
                         width: number | null;
@@ -5083,8 +5184,6 @@ export interface operations {
                         ids: string[];
                         items: {
                             alt: string | null;
-                            /** @description sha256 of the uploaded bytes, hex; null for items uploaded before checksums were recorded */
-                            checksum: string | null;
                             contentType: string;
                             createdAt: number;
                             description: string | null;
@@ -5092,7 +5191,8 @@ export interface operations {
                             folder: string;
                             height: number | null;
                             id: string;
-                            key: string;
+                            /** @description the file's one public URL, <publicPath>/<id>/<name>; the name is fixed at upload, so renaming or moving the item never changes it */
+                            path: string;
                             /** @description who made the file; anything but human is flagged on download (X-Content-Provenance); an upload without provenance is recorded as unknown */
                             provenance: {
                                 at?: number;
@@ -5102,11 +5202,6 @@ export interface operations {
                                 tool?: string;
                             };
                             size: number;
-                            /**
-                             * @description only ready items are listed, readable and downloadable
-                             * @enum {string}
-                             */
-                            status: "uploading" | "ready" | "failed";
                             title: string | null;
                             updatedAt: number;
                             width: number | null;
@@ -5141,7 +5236,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description filename already exists in that folder with different bytes, `details.field: "key"` (per-file for a multi-file request); the same bytes again are idempotent, not a conflict */
+            /** @description the folder already has a file with that name, `details.field: "location"` (per-file for a multi-file request); the same bytes again are idempotent, not a conflict */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -5211,8 +5306,7 @@ export interface operations {
                 content: {
                     "application/json": {
                         alt: string | null;
-                        /** @description sha256 of the uploaded bytes, hex; null for items uploaded before checksums were recorded */
-                        checksum: string | null;
+                        available: boolean;
                         contentType: string;
                         createdAt: number;
                         description: string | null;
@@ -5220,7 +5314,8 @@ export interface operations {
                         folder: string;
                         height: number | null;
                         id: string;
-                        key: string;
+                        /** @description the file's one public URL, <publicPath>/<id>/<name>; the name is fixed at upload, so renaming or moving the item never changes it */
+                        path: string;
                         /** @description who made the file; anything but human is flagged on download (X-Content-Provenance); an upload without provenance is recorded as unknown */
                         provenance: {
                             at?: number;
@@ -5230,11 +5325,6 @@ export interface operations {
                             tool?: string;
                         };
                         size: number;
-                        /**
-                         * @description only ready items are listed, readable and downloadable
-                         * @enum {string}
-                         */
-                        status: "uploading" | "ready" | "failed";
                         title: string | null;
                         updatedAt: number;
                         variantCounts: {
@@ -5461,8 +5551,6 @@ export interface operations {
                             status: "done" | "error" | "pending" | "queued";
                         };
                         alt: string | null;
-                        /** @description sha256 of the uploaded bytes, hex; null for items uploaded before checksums were recorded */
-                        checksum: string | null;
                         contentType: string;
                         createdAt: number;
                         description: string | null;
@@ -5470,7 +5558,8 @@ export interface operations {
                         folder: string;
                         height: number | null;
                         id: string;
-                        key: string;
+                        /** @description the file's one public URL, <publicPath>/<id>/<name>; the name is fixed at upload, so renaming or moving the item never changes it */
+                        path: string;
                         /** @description who made the file; anything but human is flagged on download (X-Content-Provenance); an upload without provenance is recorded as unknown */
                         provenance: {
                             at?: number;
@@ -5480,11 +5569,6 @@ export interface operations {
                             tool?: string;
                         };
                         size: number;
-                        /**
-                         * @description only ready items are listed, readable and downloadable
-                         * @enum {string}
-                         */
-                        status: "uploading" | "ready" | "failed";
                         title: string | null;
                         updatedAt: number;
                         width: number | null;
@@ -5527,7 +5611,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description filename already exists in that folder */
+            /** @description the folder already has a file with that name, `details.field: "location"` */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -5546,6 +5630,76 @@ export interface operations {
                 };
             };
             /** @description the event could not be persisted */
+            503: {
+                headers: {
+                    /** @description seconds until the client may retry */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    serveMediaFile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description the file */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": string;
+                };
+            };
+            /** @description not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description missing permission media.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not found, not ready, or not the name the file was uploaded under */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description temporarily unavailable; retry after the Retry-After header */
             503: {
                 headers: {
                     /** @description seconds until the client may retry */
@@ -5675,7 +5829,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description media item or size not found, or the variant gave up after maxAttempts */
+            /** @description media item not found, not ready, or the file is neither a current nor a retired size */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -5727,7 +5881,7 @@ export interface operations {
                     }[];
                 };
             };
-            /** @description not authenticated */
+            /** @description no identity (unless anonymousList is "all") */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -5864,6 +6018,20 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        _events: {
+                            pipelines: {
+                                attempts: number;
+                                dead: boolean;
+                                error: string | null;
+                                event: string;
+                                pipeline: string;
+                                /** @enum {string} */
+                                status: "done" | "error" | "pending" | "queued";
+                            }[];
+                            /** @enum {string} */
+                            status: "done" | "error" | "pending" | "queued";
+                        };
+                        ids: string[];
                         ok: boolean;
                         removed: number;
                     };
@@ -5923,7 +6091,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description temporarily unavailable; retry after the Retry-After header */
+            /** @description the event could not be persisted */
             503: {
                 headers: {
                     /** @description seconds until the client may retry */
