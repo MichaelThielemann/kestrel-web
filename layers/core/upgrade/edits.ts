@@ -133,6 +133,52 @@ export function wrapAtomicGroup(file: string, source: string, options: StepWindo
   return { kind: "not-found" };
 }
 
+/**
+ * Removes a property from an object literal (its key, value and one adjacent comma), so the literal stays
+ * syntactically valid; `undefined` when the object has no such property.
+ */
+export function removeObjectProperty(file: string, source: string, obj: AstNode, key: string): Edit | undefined {
+  const props = Array.isArray(obj.properties) ? obj.properties.filter((p): p is AstNode => isAstNode(p) && p.type === "ObjectProperty") : [];
+  const idx = props.findIndex((p) => {
+    const k = p.key;
+    return isAstNode(k) && ((k.type === "Identifier" && k.name === key) || stringValue(k) === key);
+  });
+  if (idx === -1) return undefined;
+  const prop = props[idx]!;
+  const { start: propStart, end: propEnd } = span(prop);
+  if (props.length === 1) return { file, start: propStart, end: propEnd, text: "" };
+  if (idx < props.length - 1) {
+    const { start: nextStart } = span(props[idx + 1]!);
+    return { file, start: propStart, end: nextStart, text: "" };
+  }
+  const { end: prevEnd } = span(props[idx - 1]!);
+  return { file, start: prevEnd, end: propEnd, text: "" };
+}
+
+/**
+ * Adds a string to an array-valued property of an object literal, creating the property (`key: ["value"]`)
+ * when the object has none; `undefined` when the property exists but is not an array literal, or already
+ * has the value.
+ */
+export function addStringToArrayProperty(file: string, source: string, obj: AstNode, key: string, value: string): Edit | undefined {
+  const existing = objectProperty(obj, key);
+  if (existing === undefined) {
+    const { end } = span(obj);
+    const insertAt = end - 1;
+    const hasProperties = Array.isArray(obj.properties) && obj.properties.length > 0;
+    return { file, start: insertAt, end: insertAt, text: `${hasProperties ? ", " : ""}${key}: ["${value}"]` };
+  }
+  if (!isArrayExpression(existing)) return undefined;
+  const elements = arrayElements(existing);
+  if (elements.some((el) => stringValue(el) === value)) return undefined;
+  const quote = elements.length > 0 && source[span(elements[0]!).start] === "'" ? "'" : '"';
+  const literal = `${quote}${value}${quote}`;
+  const { start, end } = span(existing);
+  if (elements.length === 0) return { file, start: start + 1, end: end - 1, text: literal };
+  const lastEnd = span(elements[elements.length - 1]!).end;
+  return { file, start: lastEnd, end: lastEnd, text: `, ${literal}` };
+}
+
 export interface InsertAfterEmitOptions {
   pipelineName: string;
   newStep: string;

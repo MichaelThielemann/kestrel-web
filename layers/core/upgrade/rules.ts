@@ -1,11 +1,13 @@
-import { renameContentField } from "@michaelthielemann/kestrel-upgrade/codemods";
-import type { Finding, Rule } from "@michaelthielemann/kestrel-upgrade/plugin";
+import { combineEditParts, objectProperty, parseTs, renameContentField } from "@michaelthielemann/kestrel-upgrade/codemods";
+import type { StepListLocator } from "@michaelthielemann/kestrel-upgrade/codemods";
+import type { Edit, Finding, Rule, RuleContext } from "@michaelthielemann/kestrel-upgrade/plugin";
+import type { BootProblem } from "@michaelthielemann/kestrel";
 import type { PipelineDefinition, PipelineEntry } from "@michaelthielemann/kestrel/definePipeline";
 import { checkPreset } from "../pipelines/checkPreset";
 import type { PresetOptions } from "../pipelines/checkPreset";
-import { addModuleEntryConfigProperty, bumpPackageJsonDependency, insertStepAfterLastEmit, wrapAtomicGroup } from "./edits";
+import { addModuleEntryConfigProperty, addStringToArrayProperty, bumpPackageJsonDependency, insertStepAfterLastEmit, removeObjectProperty, wrapAtomicGroup } from "./edits";
 import { layerProjectData } from "./load";
-import { layerLocateModelFields, layerLocateSteps } from "./locators";
+import { definePresetOptionsNode, layerLocateModelFields, layerLocateSteps } from "./locators";
 import { autoFinding, docsAnchor, manualFinding, packageJsonPath, presetOptionsCast, sharedModelFile } from "./ruleHelpers";
 
 const LAYER_RANGE = "^3.0.0";
@@ -153,15 +155,56 @@ function atomicGroupOf(def: PipelineDefinition | undefined): string[] | undefine
   return undefined;
 }
 
+function errKey(e: BootProblem): string {
+  return [e.code, e.owner, e.reason, e.module, e.pipeline, e.step, e.path].join(":");
+}
+
+async function newBootErrors(ctx: RuleContext, edits: readonly Edit[]): Promise<readonly BootProblem[] | undefined> {
+  if (!ctx.previewBoot) return undefined;
+  const preview = await ctx.previewBoot(edits);
+  if (preview === undefined) return undefined;
+  const baseline = new Set(ctx.bootCheck.errors.map(errKey));
+  return preview.errors.filter((e) => !baseline.has(errKey(e)));
+}
+
+type IncludeResult = { kind: "safe"; edit: Edit } | { kind: "unsafe"; reason: string };
+
+async function verifiedInclude(ctx: RuleContext, file: string, source: string, pipelineName: string, window: readonly string[], locate: StepListLocator): Promise<IncludeResult> {
+  const wide = wrapAtomicGroup(file, source, { pipelineName, members: window, locateSteps: locate });
+  if (wide.kind !== "wrapped") return { kind: "unsafe", reason: "could not locate the override's own step array" };
+  const newErrors = await newBootErrors(ctx, [wide.edit]);
+  if (newErrors === undefined) return { kind: "unsafe", reason: "could not verify: no boot check ran, or the edited copy could not be reloaded" };
+  if (newErrors.length > 0) return { kind: "unsafe", reason: newErrors.map((e) => e.reason).join("; ") };
+  return { kind: "safe", edit: wide.edit };
+}
+
+type ExcludeResult = { kind: "ok"; edits: Edit[] } | { kind: "missing"; parts: readonly string[] };
+
+function excludeEdits(file: string, source: string, pipelineName: string): ExcludeResult {
+  const root = parseTs(source);
+  const options = definePresetOptionsNode(root);
+  const overridesObj = options === undefined ? undefined : objectProperty(options, "overrides");
+  const removeEdit = overridesObj === undefined ? undefined : removeObjectProperty(file, source, overridesObj, pipelineName);
+  const excludeEdit = options === undefined ? undefined : addStringToArrayProperty(file, source, options, "exclude", pipelineName);
+  const { edits, missing } = combineEditParts({
+    "the override entry": removeEdit === undefined ? undefined : [removeEdit],
+    "the exclude array": excludeEdit === undefined ? undefined : [excludeEdit],
+  });
+  return missing.length > 0 ? { kind: "missing", parts: missing } : { kind: "ok", edits };
+}
+
 /**
  * Wraps the write steps a layer preset override drops the atomic group around, using `locateSteps` to
  * find the override's own step array inside `definePreset({ overrides })`: auto when the smallest window
- * containing the default group's members has nothing else in it, a question when the consumer's own steps
- * sit in the same window, manual when the override or the default group cannot be located at all.
+ * containing the default group's members has nothing else in it. Otherwise a question with spec's three
+ * choices and no default — include the consumer's own steps too (offered only once a preview shows no new
+ * boot error, which is where an unsafe, non-`atomicSafe` step would surface), exclude the pipeline from
+ * the preset via `exclude: [...]`, or leave it for manual review. Manual, naming the reason, when the
+ * override, the default group, or the file structure `exclude`/`include` needs cannot be located at all.
  */
 export const overrideGroupRule: Rule = {
   id: "preset/override-group",
-  check(ctx) {
+  async check(ctx) {
     const cast = presetOptionsCast(ctx);
     const data = layerProjectData(ctx.project);
     if (cast === undefined || data === undefined) return [];
@@ -173,44 +216,60 @@ export const overrideGroupRule: Rule = {
       const pipelineName = problem.pipeline!;
       const id = `preset/override-group:${pipelineName}`;
       const where = { pipeline: pipelineName };
+      const rule = "preset/override-group";
+      const docs = docsAnchor("preset-override-group");
       const members = atomicGroupOf(defaultPipelineOf(cast, pipelineName));
       const file = ctx.project.pipelineFiles.get(pipelineName);
       const source = file === undefined ? undefined : ctx.readFile(file);
       if (members === undefined || file === undefined || source === undefined) {
-        findings.push(manualFinding(id, "preset/override-group", where, problem.message, "could not locate the override or the 3.0 default's atomic group; wrap the write steps in { atomic: [...] } yourself", docsAnchor("preset-override-group")));
+        findings.push(manualFinding(id, rule, where, problem.message, "could not locate the override or the 3.0 default's atomic group; wrap the write steps in { atomic: [...] } yourself", docs));
         continue;
       }
       const result = wrapAtomicGroup(file, source, { pipelineName, members, locateSteps: locate });
       if (result.kind === "wrapped") {
-        findings.push(autoFinding(id, "preset/override-group", where, problem.message, `wraps ${members.map((m) => `"${m}"`).join(", ")} in an atomic group, matching the 3.0 default`, [result.edit], docsAnchor("preset-override-group")));
+        findings.push(autoFinding(id, rule, where, problem.message, `wraps ${members.map((m) => `"${m}"`).join(", ")} in an atomic group, matching the 3.0 default`, [result.edit], docs));
         continue;
       }
       if (result.kind === "not-found") {
-        findings.push(manualFinding(id, "preset/override-group", where, problem.message, "could not locate the override's own step array; wrap the write steps in { atomic: [...] } yourself", docsAnchor("preset-override-group")));
+        findings.push(manualFinding(id, rule, where, problem.message, "could not locate the override's own step array; wrap the write steps in { atomic: [...] } yourself", docs));
         continue;
       }
       const answer = ctx.answers.get(`override-group:${pipelineName}`);
       if (answer === "include") {
-        const wide = wrapAtomicGroup(file, source, { pipelineName, members: result.window, locateSteps: locate });
-        if (wide.kind === "wrapped") {
-          findings.push(autoFinding(id, "preset/override-group", where, problem.message, `wraps ${result.window.map((m) => `"${m}"`).join(", ")} in an atomic group, including this override's own steps`, [wide.edit], docsAnchor("preset-override-group")));
-          continue;
-        }
-      }
-      if (answer !== undefined) {
-        findings.push(manualFinding(id, "preset/override-group", where, problem.message, "wrap the write steps in { atomic: [...] } yourself", docsAnchor("preset-override-group")));
+        const include = await verifiedInclude(ctx, file, source, pipelineName, result.window, locate);
+        findings.push(
+          include.kind === "safe"
+            ? autoFinding(id, rule, where, problem.message, `wraps ${result.window.map((m) => `"${m}"`).join(", ")} in an atomic group, including this override's own steps`, [include.edit], docs)
+            : manualFinding(id, rule, where, problem.message, `"include" could not be applied (${include.reason}); wrap the write steps yourself, or exclude the pipeline`, docs),
+        );
         continue;
       }
+      if (answer === "exclude") {
+        const excluded = excludeEdits(file, source, pipelineName);
+        findings.push(
+          excluded.kind === "ok"
+            ? autoFinding(id, rule, where, problem.message, `excludes "${pipelineName}" from the preset; define it as your own pipeline`, excluded.edits, docs)
+            : manualFinding(id, rule, where, problem.message, `could not exclude the pipeline by hand; could not locate: ${excluded.parts.join(", ")}`, docs),
+        );
+        continue;
+      }
+      if (answer === "manual" || answer !== undefined) {
+        findings.push(manualFinding(id, rule, where, problem.message, "wrap the write steps in { atomic: [...] } yourself, or exclude the pipeline", docs));
+        continue;
+      }
+      const include = await verifiedInclude(ctx, file, source, pipelineName, result.window, locate);
+      const choices = include.kind === "safe" ? ["include", "exclude", "manual"] : ["exclude", "manual"];
+      const unsafeNote = include.kind === "safe" ? "" : ` ("include" is not offered: ${include.reason})`;
       findings.push({
         id,
-        rule: "preset/override-group",
+        rule,
         severity: "error",
         tier: "source",
         where,
         message: `override for "${pipelineName}" drops the atomic group around ${members.map((m) => `"${m}"`).join(", ")}, and its own steps sit in the same window (${result.extra.map((m) => `"${m}"`).join(", ")})`,
-        suggestion: "each included step must be declared atomicSafe by its own module",
-        fix: { kind: "ask", question: `override-group:${pipelineName}`, prompt: `include ${result.extra.join(", ")} in the atomic group around "${pipelineName}"'s write, or leave this for manual review?`, choices: ["manual", "include"] },
-        docs: docsAnchor("preset-override-group"),
+        suggestion: "each step entering the group must be declared atomicSafe by its own module, verified by a preview boot before this is offered",
+        fix: { kind: "ask", question: `override-group:${pipelineName}`, prompt: `include ${result.extra.join(", ")} in the atomic group around "${pipelineName}"'s write, exclude the pipeline from the preset, or leave this for manual review?${unsafeNote}`, choices },
+        docs,
       });
     }
     return findings;
