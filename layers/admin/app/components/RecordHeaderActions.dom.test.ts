@@ -13,6 +13,7 @@ const baseProps = {
   canUndo: true,
   canRedo: true,
   canSave: true,
+  canWrite: true,
   canDelete: true,
   deleting: false,
   formId: 'test-form',
@@ -103,5 +104,15 @@ describe('RecordHeaderActions', () => {
 
     expect(wrapper.classes()).not.toContain('u-overflow-hidden')
     expect(wrapper.attributes('style') ?? '').not.toContain('overflow')
+  })
+
+  it('hides save, and its "no changes" hint, without the write verb', async () => {
+    stubMatchMedia(false)
+    const wrapper = await mountSuspended(RecordHeaderActions, { props: { ...baseProps, canWrite: false, canSave: false }, attachTo: document.body })
+    onTestFinished(() => wrapper.unmount())
+    await nextTick()
+
+    expect(wrapper.find('button[type="submit"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain(en['editor.noChangesToSave'])
   })
 })

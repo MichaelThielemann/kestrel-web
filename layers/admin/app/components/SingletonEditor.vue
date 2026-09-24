@@ -22,18 +22,20 @@ useUnsavedGuard(() => editorRef.value?.dirty ?? false, () => t('editor.discardCo
       <div class="singleton__actions">
         <KestrelUiButton type="button" variant="ghost" size="sm" icon="undo" :disabled="saving || !editorRef?.canUndo" :title="t('history.undo')" :aria-label="t('history.undo')" @click="editorRef?.undo()" />
         <KestrelUiButton type="button" variant="ghost" size="sm" icon="redo" :disabled="saving || !editorRef?.canRedo" :title="t('history.redo')" :aria-label="t('history.redo')" @click="editorRef?.redo()" />
-        <KestrelUiButton
-          type="submit"
-          :form="EDITOR_FORM_ID"
-          variant="primary"
-          size="sm"
-          icon="check"
-          :loading="saving"
-          :disabled="!canSave"
-          :title="canSave ? undefined : t('editor.noChangesToSave')"
-          :aria-describedby="canSave ? undefined : NO_CHANGES_ID"
-        >{{ t('common.save') }}</KestrelUiButton>
-        <span :id="NO_CHANGES_ID" class="singleton__hint">{{ t('editor.noChangesToSave') }}</span>
+        <template v-if="editorRef?.canWrite ?? false">
+          <KestrelUiButton
+            type="submit"
+            :form="EDITOR_FORM_ID"
+            variant="primary"
+            size="sm"
+            icon="check"
+            :loading="saving"
+            :disabled="!canSave"
+            :title="canSave ? undefined : t('editor.noChangesToSave')"
+            :aria-describedby="canSave ? undefined : NO_CHANGES_ID"
+          >{{ t('common.save') }}</KestrelUiButton>
+          <span :id="NO_CHANGES_ID" class="singleton__hint">{{ t('editor.noChangesToSave') }}</span>
+        </template>
         <KestrelEditorStatus class="singleton__ampel" :dirty="editorRef?.dirty ?? false" :saving="saving" :workflow="editorRef?.workflow" :status="editorRef?.savedStatus" />
       </div>
     </div>

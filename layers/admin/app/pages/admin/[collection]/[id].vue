@@ -185,6 +185,7 @@ async function confirmDeleteTranslation() {
         :can-undo="editorRef?.canUndo ?? false"
         :can-redo="editorRef?.canRedo ?? false"
         :can-save="canSave"
+        :can-write="editorRef?.canWrite ?? false"
         :can-delete="canDelete"
         :deleting="deleting"
         :form-id="EDITOR_FORM_ID"

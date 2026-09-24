@@ -9,6 +9,7 @@ const props = defineProps<{
   canUndo: boolean
   canRedo: boolean
   canSave: boolean
+  canWrite: boolean
   canDelete: boolean
   deleting: boolean
   formId: string
@@ -83,18 +84,20 @@ function onOverflowSelect(value: string) {
 
     <KestrelUiButton type="button" variant="secondary" size="sm" icon="x" :disabled="saving" @click="emit('cancel')">{{ t('common.cancel') }}</KestrelUiButton>
     <KestrelUiButton v-if="canDelete" variant="danger" size="sm" icon="trash" :loading="deleting" @click="emit('delete')">{{ t('common.delete') }}</KestrelUiButton>
-    <KestrelUiButton
-      type="submit"
-      :form="formId"
-      variant="primary"
-      size="sm"
-      icon="check"
-      :loading="saving"
-      :disabled="!canSave"
-      :title="canSave ? undefined : t('editor.noChangesToSave')"
-      :aria-describedby="canSave ? undefined : NO_CHANGES_ID"
-    >{{ t('common.save') }}</KestrelUiButton>
-    <span :id="NO_CHANGES_ID" class="record-actions__hint">{{ t('editor.noChangesToSave') }}</span>
+    <template v-if="canWrite">
+      <KestrelUiButton
+        type="submit"
+        :form="formId"
+        variant="primary"
+        size="sm"
+        icon="check"
+        :loading="saving"
+        :disabled="!canSave"
+        :title="canSave ? undefined : t('editor.noChangesToSave')"
+        :aria-describedby="canSave ? undefined : NO_CHANGES_ID"
+      >{{ t('common.save') }}</KestrelUiButton>
+      <span :id="NO_CHANGES_ID" class="record-actions__hint">{{ t('editor.noChangesToSave') }}</span>
+    </template>
 
     <template v-if="!isPhone">
       <KestrelUiButton v-if="workflow && canPublish && !published" type="button" variant="secondary" size="sm" icon="upload" :disabled="saving || publishBlocked" :title="publishBlocked ? t('editor.publishNeedsTranslation') : undefined" @click="emit('publish')">{{ t('common.publish') }}</KestrelUiButton>
