@@ -346,6 +346,8 @@
   `docs/consuming-kestrel-web.md` §11.
 - `#kestrel/pipelines` exports `checkPreset(options)`, which composes a preset like `definePreset()` but
   collects every problem instead of throwing at the first.
+- `GET /admin/events/status`'s response gains `lanes`: per configured named lane, `pending`, `running` and
+  `oldestPendingAt`, alongside the existing per-state totals.
 
 ### Changed
 
