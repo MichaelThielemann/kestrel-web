@@ -1,5 +1,5 @@
 import type { UpgradePlugin } from "@michaelthielemann/kestrel-upgrade/plugin";
-import { detectLayerProject, loadLayerProject, prepareLayerProject } from "./load";
+import { detectLayerProject, loadDataModel, loadLayerProject, prepareLayerProject } from "./load";
 import { layerLocateModelFields, layerLocateSteps } from "./locators";
 import { layerRules, underscoreFieldOverrideRule } from "./rules";
 import { queueOfferRule } from "./ruleQueueOffer";
@@ -30,5 +30,6 @@ export function createLayerPlugin(): UpgradePlugin {
     },
     locateSteps: layerLocateSteps,
     locateModelFields: layerLocateModelFields,
+    dataModel: loadDataModel,
   };
 }

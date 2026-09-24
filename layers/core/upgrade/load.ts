@@ -9,7 +9,7 @@ import { boundaryCast } from "@michaelthielemann/kestrel/cast";
 import type { KestrelConfigInput } from "@michaelthielemann/kestrel";
 import type { ModuleDefinition } from "@michaelthielemann/kestrel/defineModule";
 import type { PipelineDefinition } from "@michaelthielemann/kestrel/definePipeline";
-import type { LoadedProject, LoadIssue, LoadResult } from "@michaelthielemann/kestrel-upgrade/plugin";
+import type { DataContentField, DataContentModel, DataContentType, LoadedProject, LoadIssue, LoadResult } from "@michaelthielemann/kestrel-upgrade/plugin";
 import { kestrelAliases } from "./aliases";
 import type { CapturedPreset } from "./pipelinesCapture";
 
@@ -197,4 +197,40 @@ export function layerProjectData(project: LoadedProject): LayerProjectData | und
 
 export function sharedModelFile(scratch: string): string {
   return join(scratch, "shared", "model.ts");
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function dataContentModelOf(value: unknown): DataContentModel | undefined {
+  if (!isRecord(value) || !isRecord(value.types)) return undefined;
+  const types: Record<string, DataContentType> = {};
+  for (const [typeName, type] of Object.entries(value.types)) {
+    if (!isRecord(type) || !isRecord(type.fields)) continue;
+    const fields: Record<string, DataContentField> = {};
+    for (const [field, def] of Object.entries(type.fields)) fields[field] = { localized: isRecord(def) && def.localized === true };
+    types[typeName] = { fields };
+  }
+  const locales = value.locales;
+  return { types, ...(Array.isArray(locales) ? { locales: locales.filter((l): l is string => typeof l === "string") } : {}) };
+}
+
+/**
+ * Supplies `UpgradePlugin.dataModel(root)`: loads `shared/model.ts` at `root` (not a scratch copy — the
+ * `data` command never runs `nuxt prepare`) through jiti with the same `#kestrel/*` aliases as
+ * `loadLayerProject`, then reads its `contentModel` export. `undefined` on any load or shape failure, which
+ * skips underscore-field counting for this run without failing the rest of `data`.
+ */
+export async function loadDataModel(root: string): Promise<DataContentModel | undefined> {
+  const file = sharedModelFile(root);
+  if (!existsSync(file)) return undefined;
+  const aliases = kestrelAliases(root, join(root, ".nuxt"));
+  const jiti = createJiti(pathToFileURL(file).href, { alias: aliases, moduleCache: false, interopDefault: true });
+  try {
+    const mod = await jiti.import<{ contentModel?: unknown }>(pathToFileURL(file).href);
+    return dataContentModelOf(mod.contentModel);
+  } catch {
+    return undefined;
+  }
 }

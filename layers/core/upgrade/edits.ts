@@ -178,35 +178,3 @@ export function addStringToArrayProperty(file: string, source: string, obj: AstN
   const lastEnd = span(elements[elements.length - 1]!).end;
   return { file, start: lastEnd, end: lastEnd, text: `, ${literal}` };
 }
-
-export interface InsertAfterEmitOptions {
-  pipelineName: string;
-  newStep: string;
-  locateSteps: (root: AstNode, pipelineName: string) => readonly AstNode[];
-}
-
-/**
- * Inserts `newStep` right after the top-level entry carrying the pipeline's last `events.emit:` step —
- * a bare entry, or the atomic group it ends — using a plugin's own `locateSteps` (the first array it
- * returns is treated as the pipeline's top-level step list). `undefined` when no array is found, no
- * `events.emit:` step is in it, or `newStep` is already there.
- */
-export function insertStepAfterLastEmit(file: string, source: string, options: InsertAfterEmitOptions): Edit | undefined {
-  const root = parseTs(source);
-  const arrays = options.locateSteps(root, options.pipelineName);
-  const top = arrays[0];
-  if (top === undefined) return undefined;
-  const elements = arrayElements(top);
-  for (let i = elements.length - 1; i >= 0; i--) {
-    const el = elements[i]!;
-    const value = stringValue(el);
-    const isEmit = value?.startsWith("events.emit:") ?? (isArrayExpression(objectProperty(el, "atomic")) && arrayElements(objectProperty(el, "atomic")!).some((s) => stringValue(s)?.startsWith("events.emit:")));
-    if (!isEmit) continue;
-    const next = elements[i + 1];
-    if (stringValue(next) === options.newStep) return undefined;
-    const quote = source[span(el).start] === "'" ? "'" : '"';
-    const { end } = span(el);
-    return { file, start: end, end, text: `, ${quote}${options.newStep}${quote}` };
-  }
-  return undefined;
-}

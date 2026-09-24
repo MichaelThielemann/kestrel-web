@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { BootCheck } from "@michaelthielemann/kestrel";
 import type { Edit, LoadedProject, RuleContext } from "@michaelthielemann/kestrel-upgrade/plugin";
-import { overrideGroupRule } from "./rules";
+import { overrideGroupRule, underscoreFieldOverrideRule } from "./rules";
 
 const FILE = "/fake/kestrel.config.ts";
 
@@ -128,5 +128,89 @@ describe("overrideGroupRule: the ambiguous window (a consumer step sits inside t
     const ctx = contextFor({ answer: "manual" });
     const [finding] = await overrideGroupRule.check(ctx);
     expect(finding?.fix.kind).toBe("manual");
+  });
+});
+
+describe("underscoreFieldOverrideRule: verified-auto from a data report's counts", () => {
+  const TYPE = "settings";
+  const FIELD = "_legacyNote";
+  const MODEL_FILE = "/fake/shared/model.ts";
+  const MODEL_SOURCE = `
+export const contentTypes = {
+  settings: {
+    kind: "single",
+    fields: {
+      _legacyNote: { type: "text" },
+    },
+  },
+};
+`;
+
+  function underscoreContextFor(options: { answer?: string; dataReport?: Record<string, unknown> }): RuleContext {
+    const answers = new Map<string, string>(options.answer === undefined ? [] : [[`underscore-field:${TYPE}.${FIELD}`, options.answer]]);
+    const project: LoadedProject = {
+      input: { config: { modules: [], triggers: [], http: null }, modules: [], pipelines: [] },
+      kind: "kestrel-web",
+      configFile: "/fake/kestrel.config.ts",
+      moduleFiles: new Map(),
+      pipelineFiles: new Map(),
+      data: {
+        presetProblems: [],
+        presetOptions: { modules: [], features: [], collections: { [TYPE]: { kind: "single", fields: { [FIELD]: { type: "text" } } } } },
+      },
+      ...(options.dataReport === undefined ? {} : { dataReport: options.dataReport }),
+    };
+    return {
+      root: "/fake",
+      scratch: "/fake",
+      project,
+      bootCheck: { errors: [], warnings: [], notChecked: [] },
+      readFile: (file) => (file === MODEL_FILE ? MODEL_SOURCE : undefined),
+      answers,
+      ownsPackages: [],
+    };
+  }
+
+  it("asks with no default when no data report is supplied", async () => {
+    const ctx = underscoreContextFor({});
+    const [finding] = await underscoreFieldOverrideRule.check(ctx);
+    expect(finding?.fix).toMatchObject({ kind: "ask", question: `underscore-field:${TYPE}.${FIELD}`, choices: ["legacyNote", "remove"] });
+    expect(finding?.fix as { defaultValue?: string }).not.toHaveProperty("defaultValue");
+    if (finding?.fix.kind !== "ask") throw new Error("expected ask");
+    expect(finding.fix.prompt).toContain("no data report");
+  });
+
+  it("renames automatically when a data report counts zero stored values in every locale", async () => {
+    const ctx = underscoreContextFor({ dataReport: { underscoreFields: { [`${TYPE}.${FIELD}`]: { unlocalized: 0 } } } });
+    const [finding] = await underscoreFieldOverrideRule.check(ctx);
+    expect(finding?.fix.kind).toBe("auto");
+    if (finding?.fix.kind !== "auto") throw new Error("expected auto");
+    expect(finding.fix.edits).toHaveLength(1);
+    const edit = finding.fix.edits[0]!;
+    const patched = MODEL_SOURCE.slice(0, edit.start) + edit.text + MODEL_SOURCE.slice(edit.end);
+    expect(patched).toContain("legacyNote:");
+    expect(patched).not.toContain("_legacyNote");
+  });
+
+  it("still asks, with no default, when a data report counts a stored value", async () => {
+    const ctx = underscoreContextFor({ dataReport: { underscoreFields: { [`${TYPE}.${FIELD}`]: { unlocalized: 3 } } } });
+    const [finding] = await underscoreFieldOverrideRule.check(ctx);
+    expect(finding?.fix).toMatchObject({ kind: "ask", question: `underscore-field:${TYPE}.${FIELD}`, choices: ["legacyNote", "remove"] });
+    expect(finding?.fix as { defaultValue?: string }).not.toHaveProperty("defaultValue");
+    expect(finding?.message).toContain("3 stored value");
+  });
+
+  it("renames on an explicit answer even with stored values, but only as a warning, never proven safe", async () => {
+    const ctx = underscoreContextFor({ answer: "legacyNote", dataReport: { underscoreFields: { [`${TYPE}.${FIELD}`]: { unlocalized: 3 } } } });
+    const [finding] = await underscoreFieldOverrideRule.check(ctx);
+    expect(finding?.severity).toBe("warning");
+    expect(finding?.fix.kind).toBe("auto");
+    expect(finding?.suggestion).toContain("not a proving zero count");
+  });
+
+  it('"remove" leaves it for manual review instead of renaming, even with zero counts', async () => {
+    const ctx = underscoreContextFor({ answer: "remove", dataReport: { underscoreFields: { [`${TYPE}.${FIELD}`]: { unlocalized: 0 } } } });
+    const [finding] = await underscoreFieldOverrideRule.check(ctx);
+    expect(finding?.fix.kind).toBe("ask");
   });
 });

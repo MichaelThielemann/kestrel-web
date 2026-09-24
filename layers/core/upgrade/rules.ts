@@ -1,11 +1,12 @@
-import { combineEditParts, objectProperty, parseTs, renameContentField } from "@michaelthielemann/kestrel-upgrade/codemods";
+import { combineEditParts, insertStepAfterEmitOutsideGroup, objectProperty, parseTs, renameContentField } from "@michaelthielemann/kestrel-upgrade/codemods";
 import type { StepListLocator } from "@michaelthielemann/kestrel-upgrade/codemods";
 import type { Edit, Finding, Rule, RuleContext } from "@michaelthielemann/kestrel-upgrade/plugin";
 import type { BootProblem } from "@michaelthielemann/kestrel";
+import { pipelineSteps } from "@michaelthielemann/kestrel/definePipeline";
 import type { PipelineDefinition, PipelineEntry } from "@michaelthielemann/kestrel/definePipeline";
 import { checkPreset } from "../pipelines/checkPreset";
 import type { PresetOptions } from "../pipelines/checkPreset";
-import { addModuleEntryConfigProperty, addStringToArrayProperty, bumpPackageJsonDependency, insertStepAfterLastEmit, removeObjectProperty, wrapAtomicGroup } from "./edits";
+import { addModuleEntryConfigProperty, addStringToArrayProperty, bumpPackageJsonDependency, removeObjectProperty, wrapAtomicGroup } from "./edits";
 import { layerProjectData } from "./load";
 import { definePresetOptionsNode, layerLocateModelFields, layerLocateSteps } from "./locators";
 import { autoFinding, docsAnchor, manualFinding, packageJsonPath, presetOptionsCast, sharedModelFile } from "./ruleHelpers";
@@ -277,8 +278,9 @@ export const overrideGroupRule: Rule = {
 };
 
 /**
- * Appends `events.relay` after the last `events.emit:` step a layer preset override keeps, using
- * `locateSteps`; manual when the override's own step array cannot be located.
+ * Appends `events.relay` after the pipeline's own last `events.emit:` step (the loaded, overridden
+ * pipeline's own step list, not the 3.0 default's) via kestrel's `insertStepAfterEmitOutsideGroup` and
+ * `locateSteps`; manual when the pipeline has no `events.emit:` step or the step array cannot be located.
  */
 export const overrideRelayRule: Rule = {
   id: "preset/override-relay",
@@ -294,7 +296,12 @@ export const overrideRelayRule: Rule = {
       const where = { pipeline: pipelineName };
       const file = ctx.project.pipelineFiles.get(pipelineName);
       const source = file === undefined ? undefined : ctx.readFile(file);
-      const edit = file !== undefined && source !== undefined ? insertStepAfterLastEmit(file, source, { pipelineName, newStep: "events.relay", locateSteps: locate }) : undefined;
+      const def = ctx.project.input.pipelines.find((p) => p.name === pipelineName);
+      const emitStep = def === undefined ? undefined : pipelineSteps(def.steps).filter((s) => s.startsWith("events.emit:")).at(-1);
+      const edit =
+        file !== undefined && source !== undefined && emitStep !== undefined
+          ? insertStepAfterEmitOutsideGroup(file, source, { pipelineName, emitStep, newStep: "events.relay", locateSteps: locate })
+          : undefined;
       return edit === undefined
         ? manualFinding(id, "preset/override-relay", where, problem.message, "append events.relay after the pipeline's events.emit: step yourself", docsAnchor("preset-override-relay"))
         : autoFinding(id, "preset/override-relay", where, problem.message, "appends events.relay after the pipeline's last events.emit: step", [edit], docsAnchor("preset-override-relay"));
@@ -302,13 +309,44 @@ export const overrideRelayRule: Rule = {
   },
 };
 
+function underscoreQuestionId(typeName: string, field: string): string {
+  return `underscore-field:${typeName}.${field}`;
+}
+
+function underscoreStoredCounts(ctx: RuleContext, typeName: string, field: string): Record<string, number | null> | undefined {
+  const underscoreFields = ctx.project.dataReport?.underscoreFields;
+  if (typeof underscoreFields !== "object" || underscoreFields === null) return undefined;
+  const counts = (underscoreFields as Record<string, unknown>)[`${typeName}.${field}`];
+  if (typeof counts !== "object" || counts === null) return undefined;
+  const out: Record<string, number | null> = {};
+  for (const [locale, n] of Object.entries(counts)) if (typeof n === "number" || n === null) out[locale] = n;
+  return out;
+}
+
+function describeUnderscoreCounts(counts: Record<string, number | null>): string {
+  return Object.entries(counts)
+    .map(([locale, n]) => {
+      if (n === null) return locale === "unlocalized" ? "not counted" : `not counted in "${locale}"`;
+      return locale === "unlocalized" ? `${n} stored value(s)` : `${n} in "${locale}"`;
+    })
+    .join(", ");
+}
+
+function underscoreFieldEdit(ctx: RuleContext, typeName: string, field: string, to: string): Edit | undefined {
+  const file = sharedModelFile(ctx);
+  const source = ctx.readFile(file);
+  return source === undefined ? undefined : renameContentField(file, source, { use: "", typeName, from: field, to, locateModelFields: ctx.locateModelFields ?? layerLocateModelFields });
+}
+
 /**
  * Replaces kestrel's own `model/underscore-field` for a layer project: the built-in rule reads
  * `config.types.<typeName>.fields` on a module-list entry in `kestrel.config.ts`, which a layer project's
- * content model never has — it lives in `shared/model.ts`, wired in by `presetModuleConfig()` at runtime.
- * This version reads the collections the captured preset options carry and edits that file directly, with
- * `locateModelFields` finding its `fields` object by structure. No data step exists for a layer project
- * yet, so a rename is never auto-applied as "proven safe" — always an explicit answer.
+ * content model never has — it lives in `shared/model.ts`, wired in by `presetModuleConfig()` at runtime,
+ * and `dataModel()` (the layer's own hook) supplies it to `data --db` too. This version reads the
+ * collections the captured preset options carry, edits `shared/model.ts` with `locateModelFields`, and
+ * reads its counts from `ctx.project.dataReport.underscoreFields` exactly as kestrel's built-in rule does:
+ * a data report counting zero stored values in every locale renames automatically, one counting any renames
+ * only on an explicit answer (never proven safe), and no report at all asks with no default.
  */
 export const underscoreFieldOverrideRule: Rule = {
   id: "model/underscore-field",
@@ -322,36 +360,62 @@ export const underscoreFieldOverrideRule: Rule = {
         if (!field.startsWith("_")) continue;
         const id = `model/underscore-field:${typeName}.${field}`;
         const where = { path: `types.${typeName}.fields.${field}` };
-        const questionId = `underscore-field:${typeName}.${field}`;
+        const questionId = underscoreQuestionId(typeName, field);
         const target = field.replace(/^_+/, "");
+        const counts = underscoreStoredCounts(ctx, typeName, field);
+        const verifiedEmpty = counts !== undefined && Object.values(counts).every((n) => n === 0);
+        const hasStoredData = counts !== undefined && Object.values(counts).some((n) => n !== null && n > 0);
         const answer = ctx.answers.get(questionId);
-        if (answer === undefined) {
+        const autoTarget = answer === "remove" ? undefined : (answer ?? (verifiedEmpty ? target : undefined));
+
+        if (verifiedEmpty && autoTarget !== undefined) {
+          const edit = underscoreFieldEdit(ctx, typeName, field, autoTarget);
           findings.push({
             id,
             rule: "model/underscore-field",
             severity: "error",
             tier: "source",
             where,
-            message: `"${field}" on content type "${typeName}" starts with "_", which fails boot on 6.0.0`,
-            suggestion: "no data step exists yet to prove no stored value exists; add a migration on the running 5.8.x instance first if data may exist, then answer to rename",
-            fix: { kind: "ask", question: questionId, prompt: `rename "${field}" on "${typeName}" to`, choices: [target, "remove"] },
+            message: `"${field}" on content type "${typeName}" starts with "_"; a data report counted zero stored values (${describeUnderscoreCounts(counts!)})`,
+            suggestion: edit === undefined ? `could not locate "shared/model.ts"'s content type; rename "${field}" to "${autoTarget}" by hand` : `renamed to "${autoTarget}"`,
+            fix: edit === undefined ? { kind: "manual" } : { kind: "auto", edits: [edit] },
             docs: docsAnchor("model-underscore-field"),
           });
           continue;
         }
-        if (answer === "remove") continue;
-        const file = sharedModelFile(ctx);
-        const source = ctx.readFile(file);
-        const edit = source === undefined ? undefined : renameContentField(file, source, { use: "", typeName, from: field, to: answer, locateModelFields: ctx.locateModelFields ?? layerLocateModelFields });
+        if (answer !== undefined && answer !== "remove") {
+          const edit = underscoreFieldEdit(ctx, typeName, field, answer);
+          const proof = counts === undefined ? "no data report was supplied" : `a data report counted stored values (${describeUnderscoreCounts(counts)})`;
+          findings.push({
+            id,
+            rule: "model/underscore-field",
+            severity: "warning",
+            tier: "source",
+            where,
+            message: `"${field}" on content type "${typeName}" starts with "_"`,
+            suggestion:
+              edit === undefined
+                ? `could not locate "shared/model.ts"'s content type; rename "${field}" to "${answer}" by hand`
+                : `renamed to "${answer}" — ${proof}, not a proving zero count; the old field "${field}" on "${typeName}" may still hold data`,
+            fix: edit === undefined ? { kind: "manual" } : { kind: "auto", edits: [edit] },
+            docs: docsAnchor("model-underscore-field"),
+          });
+          continue;
+        }
         findings.push({
           id,
           rule: "model/underscore-field",
-          severity: "warning",
+          severity: "error",
           tier: "source",
           where,
-          message: `"${field}" on content type "${typeName}" starts with "_"`,
-          suggestion: edit === undefined ? `could not locate "shared/model.ts"'s content type; rename "${field}" to "${answer}" by hand` : `renamed to "${answer}" — not proven safe; add a migration on the running 5.8.x instance first if data may exist`,
-          fix: edit === undefined ? { kind: "manual" } : { kind: "auto", edits: [edit] },
+          message: hasStoredData
+            ? `"${field}" on content type "${typeName}" starts with "_", which fails boot on 6.0.0; a data report counted stored values (${describeUnderscoreCounts(counts!)})`
+            : `"${field}" on content type "${typeName}" starts with "_", which fails boot on 6.0.0`,
+          suggestion:
+            counts === undefined
+              ? "run `kestrel-web-upgrade data --db <file> --out <report>.json` against a copy of the store, then check again with --data-report <report>.json"
+              : "a stored value exists in at least one locale; add a migration on the running 5.8.x instance (defineMigration) copying it to the new key before upgrading",
+          fix: { kind: "ask", question: questionId, prompt: counts === undefined ? `rename "${field}" on "${typeName}" to (no data report supplied; run \`kestrel-web-upgrade data\` first)` : `rename "${field}" on "${typeName}" to`, choices: [target, "remove"] },
           docs: docsAnchor("model-underscore-field"),
         });
       }
