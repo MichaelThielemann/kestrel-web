@@ -138,9 +138,29 @@ const EVENTS_BUS_MODULE = "@michaelthielemann/kestrel-events-inmemory";
 const EVENTS_QUEUE_MODULE = "@michaelthielemann/kestrel-events-queue";
 const EVENTS_DIRECT_MODULE = "@michaelthielemann/kestrel-events-direct";
 
+/** The event-triggered pipelines the `eventsQueue` module's relay may keep in the request; see `relayPipelinesFor`. */
+export const RELAY_CANDIDATE_PIPELINES = ["publishPage", "unpublishPage"] as const;
+
+/**
+ * The `relayPipelines` the queue's relay should keep in the request: the candidates the preset actually
+ * composes as event-triggered pipelines. `delivery` is the only feature that registers a candidate today,
+ * so this is `[]` without it; a feature added later that also wants a head start names its own pipelines
+ * here.
+ */
+export function relayPipelinesFor(features: readonly Feature[]): string[] {
+  return features.includes("delivery") ? [...RELAY_CANDIDATE_PIPELINES] : [];
+}
+
 const CONDITIONAL_CRON_HINTS: Record<string, string> = {
   [AUDIT_PRUNE_PIPELINE]: `module "${AUDIT_MODULE}" has no "${AUDIT_RETENTION_KEY}", so there is nothing to prune – pass audit: { ${AUDIT_RETENTION_KEY} } to presetModuleConfig()`,
 };
+
+function configuredRelayPipelines(modules: readonly { use: string; config?: unknown }[]): string[] | undefined {
+  const config = modules.find((entry) => entry.use === EVENTS_QUEUE_MODULE)?.config;
+  if (typeof config !== "object" || config === null || !("relayPipelines" in config)) return undefined;
+  const value = Reflect.get(config, "relayPipelines");
+  return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === "string") : undefined;
+}
 
 function hasRedirectsRulesSchema(config: unknown): boolean {
   if (typeof config !== "object" || config === null || !("schemas" in config)) return false;
@@ -330,6 +350,17 @@ export function definePreset<C extends Record<string, CollectionModel> = Record<
   const excluded = applyExclude(pipelines, triggers, options.exclude ?? []);
   pipelines = excluded.pipelines;
   triggers = excluded.triggers;
+
+  const configuredRelay = configuredRelayPipelines(options.modules);
+  if (configuredRelay !== undefined) {
+    for (const name of configuredRelay) {
+      if (!(name in pipelines)) {
+        throw new Error(
+          `preset: module "${EVENTS_QUEUE_MODULE}" is configured to relay pipeline "${name}", which the preset does not compose – exclude it from relayPipelines too, or keep the pipeline`,
+        );
+      }
+    }
+  }
 
   triggers = applySchedules(triggers, options.schedules ?? {});
 

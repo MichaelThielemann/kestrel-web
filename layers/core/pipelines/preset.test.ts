@@ -6,7 +6,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import { definePipeline, definePreset, presetSchemas } from "./index";
-import type { CollectionModel, PresetStep } from "./index";
+import type { CollectionModel, Feature, PresetStep } from "./index";
+import { presetModuleConfig } from "./config";
 
 const baseModules = [
   { use: "@michaelthielemann/kestrel-authn-multi" },
@@ -43,6 +44,44 @@ describe("definePreset eventsDeliveryStatus", () => {
   it("routes GET /admin/events/delivery to it, without needing the eventsQueue feature", () => {
     const preset = definePreset({ modules: baseModules, features: [] });
     expect(preset.triggers).toContainEqual({ http: "GET /admin/events/delivery", pipeline: "eventsDeliveryStatus" });
+  });
+});
+
+describe("definePreset relay pipeline selection", () => {
+  const relayCollections: Record<string, CollectionModel> = {
+    pages: { kind: "multi", fields: { slug: { type: "slug" }, title: {}, body: {}, status: {} } },
+  };
+
+  function relayModules(features: readonly Feature[]): { use: string; config?: unknown }[] {
+    return presetModuleConfig({
+      dataDir: "/tmp/relay-selection",
+      blobstore: { use: "@michaelthielemann/kestrel-blobstore-filesystem", config: { root: "/tmp/relay-selection/blobs" } },
+      model: { types: relayCollections },
+      features,
+      roles: { roles: { admin: ["*"] }, anonymous: [] },
+      bootstrap: { username: "admin", passwordHash: "x" },
+    });
+  }
+
+  it("boots with relayPipelines naming publishPage and unpublishPage when delivery is composed", () => {
+    const features: Feature[] = ["eventsQueue", "delivery"];
+    const modules = relayModules(features);
+    const preset = definePreset({ modules, features, collections: relayCollections });
+    expect(preset.pipelines.map((pipeline) => pipeline.name)).toEqual(expect.arrayContaining(["publishPage", "unpublishPage"]));
+  });
+
+  it("boots with an empty relay selection when delivery is off, on another event trigger", () => {
+    const features: Feature[] = ["eventsQueue", "audit"];
+    const modules = relayModules(features);
+    expect(() => definePreset({ modules, features, collections: relayCollections })).not.toThrow();
+  });
+
+  it("rejects an exclude that drops a pipeline the queue's relay still names", () => {
+    const features: Feature[] = ["eventsQueue", "delivery"];
+    const modules = relayModules(features);
+    expect(() => definePreset({ modules, features, collections: relayCollections, exclude: ["publishPage"] })).toThrow(
+      /relay pipeline "publishPage"/,
+    );
   });
 });
 

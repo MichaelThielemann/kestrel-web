@@ -244,8 +244,18 @@ describe("feature gating", () => {
     expect(names).toContain("@michaelthielemann/kestrel-events-queue");
     expect(names).toContain("@michaelthielemann/kestrel-events-inmemory");
     expect(names).not.toContain("@michaelthielemann/kestrel-events-direct");
-    expect(configFor(presetModuleConfig({ ...playgroundOptions(), features: ["eventsQueue"], eventsQueue: { pollMs: 200, maxAttempts: 3 } }), "events-queue")).toEqual({ pollMs: 200, maxAttempts: 3 });
-    expect(configFor(presetModuleConfig({ ...playgroundOptions(), features: ["eventsQueue"] }), "events-queue")).toEqual({});
+    expect(configFor(presetModuleConfig({ ...playgroundOptions(), features: ["eventsQueue"], eventsQueue: { pollMs: 200, maxAttempts: 3 } }), "events-queue")).toEqual({ pollMs: 200, maxAttempts: 3, relayPipelines: [] });
+    expect(configFor(presetModuleConfig({ ...playgroundOptions(), features: ["eventsQueue"] }), "events-queue")).toEqual({ relayPipelines: [] });
+  });
+
+  it("selects publishPage and unpublishPage for the queue's relay when delivery is enabled", () => {
+    const withDelivery = configFor(presetModuleConfig({ ...playgroundOptions(), features: ["eventsQueue", "delivery"] }), "events-queue");
+    expect(withDelivery).toEqual({ relayPipelines: ["publishPage", "unpublishPage"] });
+  });
+
+  it("selects no relay pipelines for the queue without delivery", () => {
+    const withoutDelivery = configFor(presetModuleConfig({ ...playgroundOptions(), features: ["eventsQueue", "images"] }), "events-queue");
+    expect(withoutDelivery).toEqual({ relayPipelines: [] });
   });
 
   it("appends migrations-default with the migrations the option carries", () => {

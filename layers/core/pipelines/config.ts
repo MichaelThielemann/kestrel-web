@@ -6,7 +6,7 @@ import { resolveStorageTypes } from "../field-types";
 import type { FieldTypes } from "../field-types";
 import { isGenericCollection } from "./collections";
 import type { CollectionModel } from "./collections";
-import { presetSchemas } from "./index";
+import { presetSchemas, relayPipelinesFor } from "./index";
 import type { Feature } from "./index";
 
 export interface ModuleEntry {
@@ -307,7 +307,7 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
   modules.push({ use: "@michaelthielemann/kestrel-events-inmemory", config: {} });
   modules.push(
     enabled.has("eventsQueue")
-      ? { use: "@michaelthielemann/kestrel-events-queue", config: { ...options.eventsQueue } }
+      ? { use: "@michaelthielemann/kestrel-events-queue", config: { ...options.eventsQueue, relayPipelines: relayPipelinesFor(features) } }
       : { use: "@michaelthielemann/kestrel-events-direct", config: {} },
   );
   if (enabled.has("ratelimit")) {
