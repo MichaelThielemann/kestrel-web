@@ -273,6 +273,11 @@ function dataContentModelOf(value: unknown, file: string): DataContentModel | un
  * at `shared/model.ts` itself instead of the built-in default (`LoadedProject.configFile`, which never has
  * the layer's content model inline). `undefined` on any load or shape failure, which skips underscore-field
  * counting for this run without failing the rest of `data`.
+ *
+ * Runs in place, against `root` itself, on every `check`/`fix` round too: `dataModel(root)` has no scratch
+ * copy to import from (unlike `load(root, scratch, cache)`), and whether any field actually needs the
+ * underscore-field rule can only be told by reading the model — there is no cheaper, safe pre-check, so
+ * skipping this would risk missing a genuine orphaned-column warning instead of an unnecessary import.
  */
 export async function loadDataModel(root: string): Promise<DataContentModel | undefined> {
   const file = sharedModelFile(root);

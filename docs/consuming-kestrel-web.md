@@ -1648,7 +1648,14 @@ What changes:
   `events.relay` when it keeps an `events.emit:` step. `fix` forward-ports the common shape itself — the
   2.x default's write and its trailing emit as plain steps — into the 3.0 group and relay; it asks first
   when your own steps sit in the same window, and only falls back to naming the pipeline and step when it
-  cannot locate the override's own step list at all.
+  cannot locate the override's own step list at all. Keeping the pipeline out of the preset entirely
+  (`exclude`) is never done for you: `fix` only names the trigger or route excluding it would lose, since
+  moving the override into `pipelines/index.ts` as your own pipeline, with the same trigger, is your call.
+- An override that still runs `delivery.publish:<collection>`, `delivery.unpublish:<collection>` or
+  `delivery.exportLlms` inline, once the 3.0 default moved that publish to the pipeline its event relays
+  to, publishes twice. `fix` removes exactly those steps once it can prove the relayed pipeline already
+  runs the same step for the same collection; an own pipeline in `pipelines/index.ts` with the same shape
+  is asked instead, defaulting to remove.
 - `media.folderItems` is renamed to `media.listFolderItems`.
 - `revisions.reassignAuthor` now requires `verifiedUser`, written by a preceding
   `authn.verifyUser:<path>`.
@@ -1661,17 +1668,26 @@ What changes:
   edit's response still carries the delivery outcome; every other subscriber (image variants, the login
   audit, a deleted user's follow-ups) moves to the worker and answers moments later. A hand-written
   `events-queue` module entry without `relayPipelines` gets one added by `fix`.
-- A content field name may not start with `_`. `fix` asks for the new name (or to remove the field) and
-  renames it in `shared/model.ts`; answer only once a migration on the running 5.8.x instance has copied
-  any stored value to the new key, since nothing here proves whether one exists.
+- A content field name may not start with `_`. Run `kestrel-web-upgrade data --db <file> --out <report>`
+  against your production database first, then `check --data-report <report>`: a field whose old,
+  underscored column holds zero stored values renames automatically in `shared/model.ts`; one that still
+  holds a value asks for the new name (or to remove the field) with no default, so you only confirm once a
+  migration has copied it to the new key. Without a data report it still asks, with no default. A rename
+  answered and written without proving the count keeps warning on every later `check` while the old column
+  still holds a stored value, until a migration clears it.
 
 **The queue offer.** A project still on inline delivery is offered a one-line switch: `fix` asks whether to
-add `"eventsQueue"` to `shared/model.ts`'s `features` array. It only offers this when there is an event to
-move, nothing suggests the process exits between requests, and the switch does not introduce a boot error.
-Accepting it means uploads and other requests answer at once while image variants, the login audit and
-similar subscribers run in the worker moments later (retried with backoff on failure), and an event may
-reach a pipeline more than once — the prompt explains the consequences before asking. The default is no;
-nothing switches unless you say yes.
+add `"eventsQueue"` to `shared/model.ts`'s `features` array — a hand-written module list that names
+`@michaelthielemann/kestrel-events-direct` literally gets that entry replaced too, with `relayPipelines`
+set from your answer below. It only offers this once a boot preview can verify the switch, when there is
+an event to move, nothing suggests the process exits between requests, and the switch introduces no new
+boot error. Accepting it asks two more questions: `relay-pipelines`, which pipelines should still deliver
+inside the write request (defaulting to the ones that publish or unpublish content, so a page edit's
+response still carries the outcome), and, for every other consumer event pipeline, whether it is safe to
+run twice for one event or deduplicates by `eventId` — answering no for any of them withdraws the whole
+switch, since at-least-once delivery may run it more than once. Once switched, uploads and other requests
+answer at once while everything else runs in the worker moments later, retried with backoff on failure.
+The default throughout is no; nothing switches unless you say yes to all of it.
 
 ## Keeping your styles out of the admin
 

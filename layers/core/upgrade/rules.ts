@@ -2,7 +2,7 @@ import { insertStepAfterEmitOutsideGroup, parseTs } from "@michaelthielemann/kes
 import type { Edit, Finding, Rule, RuleContext } from "@michaelthielemann/kestrel-upgrade/plugin";
 import { pipelineSteps } from "@michaelthielemann/kestrel/definePipeline";
 import type { PipelineDefinition, PipelineEntry } from "@michaelthielemann/kestrel/definePipeline";
-import { checkPreset } from "../pipelines/checkPreset";
+import { checkPreset, relayPipelinesFor } from "../pipelines/checkPreset";
 import type { PresetOptions } from "../pipelines/checkPreset";
 import { addModuleEntryConfigProperty, bumpPackageJsonDependency, removeStepsFromArray, wrapAtomicGroup, wrapRange } from "./edits";
 import type { SourceRange } from "./edits";
@@ -62,7 +62,7 @@ export const relayScopeRule: Rule = {
     const entry = (cast.modules ?? []).find((m) => m.use === EVENTS_QUEUE_MODULE);
     if (entry === undefined || hasRelayPipelinesKey(entry)) return [];
     const source = ctx.readFile(ctx.project.configFile);
-    const relay = cast.features?.includes("delivery") ? '["publishPage", "unpublishPage"]' : "[]";
+    const relay = `[${relayPipelinesFor(cast.features ?? []).map((p) => `"${p}"`).join(", ")}]`;
     const edit = source === undefined ? undefined : addModuleEntryConfigProperty(ctx.project.configFile, source, EVENTS_QUEUE_MODULE, "relayPipelines", `relayPipelines: ${relay}`);
     return [
       {
@@ -159,12 +159,17 @@ function emittedEventsOf(steps: readonly string[]): string[] {
   return steps.filter((s) => s.startsWith("events.emit:")).map((s) => s.slice("events.emit:".length).split("?")[0]!);
 }
 
-function relayedPipelineRunsDelivery(ctx: RuleContext, events: readonly string[]): boolean {
+function relayedPipelineRunsStep(ctx: RuleContext, events: readonly string[], step: string): boolean {
   const triggered = new Set(ctx.project.input.config.triggers.filter((t) => "event" in t && events.includes(t.event)).map((t) => t.pipeline));
   return [...triggered].some((name) => {
     const def = ctx.project.input.pipelines.find((p) => p.name === name);
-    return def !== undefined && pipelineSteps(def.steps).some(isDeliveryStep);
+    return def !== undefined && pipelineSteps(def.steps).includes(step);
   });
+}
+
+function removableDeliverySteps(ctx: RuleContext, ownSteps: readonly string[]): string[] {
+  const events = emittedEventsOf(ownSteps);
+  return ownSteps.filter(isDeliveryStep).filter((step) => relayedPipelineRunsStep(ctx, events, step));
 }
 
 /**
@@ -189,28 +194,28 @@ export const overrideDeliveryRule: Rule = {
       const def = ctx.project.input.pipelines.find((p) => p.name === pipelineName);
       if (def === undefined) continue;
       const ownSteps = pipelineSteps(def.steps);
-      const deliverySteps = ownSteps.filter(isDeliveryStep);
-      if (deliverySteps.length === 0) continue;
+      if (!ownSteps.some(isDeliveryStep)) continue;
       const defaultSteps = pipelineSteps(defaultPipelineOf(cast, pipelineName)?.steps ?? []);
       if (defaultSteps.some(isDeliveryStep)) continue;
-      if (!relayedPipelineRunsDelivery(ctx, emittedEventsOf(ownSteps))) continue;
+      const removable = removableDeliverySteps(ctx, ownSteps);
+      if (removable.length === 0) continue;
       const id = `preset/override-delivery:${pipelineName}`;
       const where = { pipeline: pipelineName };
       const docs = docsAnchor("preset-override-delivery");
-      const message = `override for "${pipelineName}" still runs ${deliverySteps.map((s) => `"${s}"`).join(", ")}, which the 3.0 default moved to the pipeline its event relays to — publishing twice`;
+      const message = `override for "${pipelineName}" still runs ${removable.map((s) => `"${s}"`).join(", ")}, which the 3.0 default moved to the pipeline its event relays to — publishing twice`;
       const file = fileForPipeline(ctx, pipelineName);
       const source = file === undefined ? undefined : ctx.readFile(file);
       if (file === undefined || source === undefined) {
-        findings.push(manualFinding(id, "preset/override-delivery", where, message, `remove ${deliverySteps.map((s) => `"${s}"`).join(", ")} from the override yourself`, docs));
+        findings.push(manualFinding(id, "preset/override-delivery", where, message, `remove ${removable.map((s) => `"${s}"`).join(", ")} from the override yourself`, docs));
         continue;
       }
       const root = parseTs(source);
       const arrays = locate(root, pipelineName);
-      const edits = arrays.flatMap((array) => removeStepsFromArray(file, source, array, isDeliveryStep));
+      const edits = arrays.flatMap((array) => removeStepsFromArray(file, source, array, (step) => removable.includes(step)));
       findings.push(
         edits.length > 0
-          ? autoFinding(id, "preset/override-delivery", where, message, `removes ${deliverySteps.map((s) => `"${s}"`).join(", ")}; the relayed pipeline already runs them`, edits, docs)
-          : manualFinding(id, "preset/override-delivery", where, message, `remove ${deliverySteps.map((s) => `"${s}"`).join(", ")} from the override yourself`, docs),
+          ? autoFinding(id, "preset/override-delivery", where, message, `removes ${removable.map((s) => `"${s}"`).join(", ")}; the relayed pipeline already runs them`, edits, docs)
+          : manualFinding(id, "preset/override-delivery", where, message, `remove ${removable.map((s) => `"${s}"`).join(", ")} from the override yourself`, docs),
       );
     }
     return findings;
@@ -238,15 +243,15 @@ export const ownPipelineDeliveryRule: Rule = {
       const def = ctx.project.input.pipelines.find((p) => p.name === pipelineName);
       if (def === undefined) continue;
       const ownSteps = pipelineSteps(def.steps);
-      const deliverySteps = ownSteps.filter(isDeliveryStep);
-      if (deliverySteps.length === 0) continue;
-      if (!relayedPipelineRunsDelivery(ctx, emittedEventsOf(ownSteps))) continue;
+      if (!ownSteps.some(isDeliveryStep)) continue;
+      const removable = removableDeliverySteps(ctx, ownSteps);
+      if (removable.length === 0) continue;
 
       const id = `preset/own-pipeline-delivery:${pipelineName}`;
       const rule = "preset/own-pipeline-delivery";
       const where = { pipeline: pipelineName };
       const docs = docsAnchor("preset-own-pipeline-delivery");
-      const stepList = deliverySteps.map((s) => `"${s}"`).join(", ");
+      const stepList = removable.map((s) => `"${s}"`).join(", ");
       const message = `pipeline "${pipelineName}" still runs ${stepList} while emitting an event that also triggers a relay pipeline running them — publishing twice`;
       const questionId = `own-pipeline-delivery:${pipelineName}`;
       const answer = ctx.answers.get(questionId);
@@ -263,7 +268,7 @@ export const ownPipelineDeliveryRule: Rule = {
           const root = parseTs(source);
           const located = locate(root, pipelineName);
           const arrays = located.length > 0 ? located : ownPipelineSteps(root, pipelineName);
-          edits = arrays.flatMap((array) => removeStepsFromArray(file, source, array, isDeliveryStep));
+          edits = arrays.flatMap((array) => removeStepsFromArray(file, source, array, (step) => removable.includes(step)));
         }
         findings.push(
           edits.length > 0
@@ -361,6 +366,10 @@ export const overrideGroupRule: Rule = {
       }
       if (result.kind === "not-found") {
         findings.push(manualFinding(id, rule, where, problem.message, "could not locate the override's own step array; wrap the write steps in { atomic: [...] } yourself", docs));
+        continue;
+      }
+      if (result.extra.length === 0) {
+        findings.push(manualFinding(id, rule, where, problem.message, "the window already holds exactly the 3.0 default's group members, only in a different order; wrap them in { atomic: [...] } yourself, in that order", docs));
         continue;
       }
       const triggers = pipelineTriggerLabels(ctx, pipelineName);

@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import type { BootCheck } from "@michaelthielemann/kestrel";
 import type { Edit, LoadedProject, RuleContext } from "@michaelthielemann/kestrel-upgrade/plugin";
-import { overrideDeliveryRule, overrideGroupRule, ownPipelineDeliveryRule } from "./rules";
+import { applyEdits } from "@michaelthielemann/kestrel-upgrade/codemods";
+import { overrideDeliveryRule, overrideGroupRule, overrideRelayRule, ownPipelineDeliveryRule, relayScopeRule } from "./rules";
 
 const FILE = "/fake/kestrel.config.ts";
 
@@ -209,10 +210,13 @@ export const preset = definePreset({
     expect(finding.fix.prompt).toContain("extraCleanup");
   });
 
-  it("treats a different step order as ambiguous, never silently reordering", async () => {
+  it("treats a different step order as manual, never silently reordering, without an empty include question", async () => {
     const ctx = groupContextFor(REORDERED_SOURCE, "updatePage", UPDATE_MEMBERS);
     const [finding] = await overrideGroupRule.check(ctx);
-    expect(finding?.fix.kind).toBe("ask");
+    expect(finding?.fix.kind).toBe("manual");
+    if (finding?.fix.kind !== "manual") throw new Error("expected manual");
+    expect(finding.suggestion).not.toContain("()");
+    expect(finding.suggestion).not.toContain("include  in");
   });
 
   it("wraps verbatim, byte for byte, when the window matches the default's members and order exactly", async () => {
@@ -311,6 +315,33 @@ export const preset = definePreset({
     const findings = await overrideDeliveryRule.check(ctx);
     expect(findings).toEqual([]);
   });
+
+  it("removes only the delivery step the relayed pipeline actually runs, never another collection's", async () => {
+    const source = `
+export const preset = definePreset({
+  overrides: {
+    updatePage: [
+      "authn.requireUser",
+      "delivery.publish:pages",
+      "delivery.publish:media",
+      "events.emit:page.updated",
+    ],
+  },
+});
+`;
+    const ctx = deliveryContextFor(source);
+    ctx.project.input.pipelines = [
+      { name: "updatePage", steps: ["authn.requireUser", "delivery.publish:pages", "delivery.publish:media", "events.emit:page.updated"] },
+      { name: "publishPage", steps: ["delivery.publish:pages"] },
+    ];
+    const [finding] = await overrideDeliveryRule.check(ctx);
+    expect(finding?.fix.kind).toBe("auto");
+    if (finding?.fix.kind !== "auto") throw new Error("expected auto");
+    let patched = source;
+    for (const edit of [...finding.fix.edits].sort((a, b) => b.start - a.start)) patched = patched.slice(0, edit.start) + edit.text + patched.slice(edit.end);
+    expect(patched).not.toContain("delivery.publish:pages");
+    expect(patched).toContain("delivery.publish:media");
+  });
 });
 
 describe("ownPipelineDeliveryRule: an own pipeline still running delivery inline while emitting a page event", () => {
@@ -393,6 +424,124 @@ export const pipelines = [
     ];
     const findings = await ownPipelineDeliveryRule.check(ctx);
     expect(findings).toEqual([]);
+  });
+
+  it("does nothing when the relayed pipeline delivers a different collection (not the same step)", async () => {
+    const ctx = ownContextFor({});
+    ctx.project.input.pipelines = [
+      { name: "customUpdatePage", steps: OWN_STEPS },
+      { name: "publishPage", steps: ["delivery.publish:media"] },
+    ];
+    const findings = await ownPipelineDeliveryRule.check(ctx);
+    expect(findings).toEqual([]);
+  });
+});
+
+describe("relayScopeRule", () => {
+  const RELAY_SOURCE = `
+export const preset = definePreset({
+  modules: [{ use: "@michaelthielemann/kestrel-events-queue", config: {} }],
+});
+`;
+
+  function relayContextFor(features: string[]): RuleContext {
+    const project: LoadedProject = {
+      input: { config: { modules: [], triggers: [], http: null }, modules: [], pipelines: [] },
+      kind: "kestrel-web",
+      configFile: FILE,
+      moduleFiles: new Map(),
+      pipelineFiles: [],
+      data: { presetProblems: [], presetOptions: { ...presetOptions, features, modules: [{ use: "@michaelthielemann/kestrel-events-queue", config: {} }] } },
+    };
+    return {
+      root: "/fake",
+      scratch: "/fake",
+      project,
+      bootCheck: { errors: [], warnings: [], notChecked: [] },
+      readFile: (file) => (file === FILE ? RELAY_SOURCE : undefined),
+      answers: new Map(),
+      ownsPackages: [],
+    };
+  }
+
+  it("suggests the layer's own relayPipelinesFor(features) candidates, not a hardcoded literal", async () => {
+    const [finding] = await relayScopeRule.check(relayContextFor(["delivery"]));
+    expect(finding?.suggestion).toContain('relayPipelines: ["publishPage", "unpublishPage"]');
+  });
+
+  it("suggests an empty relayPipelines when the delivery feature is off", async () => {
+    const [finding] = await relayScopeRule.check(relayContextFor([]));
+    expect(finding?.suggestion).toContain("relayPipelines: []");
+  });
+});
+
+describe("override edits for the same pipeline compose without a conflict (no silently dropped edit)", () => {
+  const COMBINED_SOURCE = `
+export const preset = definePreset({
+  overrides: {
+    updatePage: [
+      "authn.requireUser",
+      "references.check:pages",
+      "content.update:pages",
+      "references.index:pages",
+      "links.extract:pages",
+      "delivery.publish:pages",
+      "delivery.exportLlms",
+      "events.emit:page.updated",
+    ],
+  },
+});
+`;
+  const COMBINED_STEPS = ["authn.requireUser", "references.check:pages", "content.update:pages", "references.index:pages", "links.extract:pages", "delivery.publish:pages", "delivery.exportLlms", "events.emit:page.updated"];
+
+  function combinedContextFor(): RuleContext {
+    const project: LoadedProject = {
+      input: {
+        config: { modules: [], triggers: [{ pipeline: "publishPage", event: "page.updated" }], http: null },
+        modules: [],
+        pipelines: [
+          { name: "updatePage", steps: COMBINED_STEPS },
+          { name: "publishPage", steps: ["delivery.publish:pages", "delivery.exportLlms"] },
+        ],
+      },
+      kind: "kestrel-web",
+      configFile: FILE,
+      moduleFiles: new Map(),
+      pipelineFiles: [{ file: FILE, pipelines: ["updatePage"] }],
+      data: {
+        presetProblems: [
+          { code: "preset/override-drops-atomic-group", pipeline: "updatePage", message: 'preset: override for "updatePage" drops the atomic group around "references.check:pages"' },
+          { code: "preset/override-drops-relay", pipeline: "updatePage", message: 'preset: override for "updatePage" drops the relay after its emit' },
+        ],
+        presetOptions: { ...presetOptions, overrides: { updatePage: [] } },
+      },
+    };
+    return {
+      root: "/fake",
+      scratch: "/fake",
+      project,
+      bootCheck: { errors: [], warnings: [], notChecked: [] },
+      readFile: (file) => (file === FILE ? COMBINED_SOURCE : undefined),
+      answers: new Map(),
+      ownsPackages: [],
+    };
+  }
+
+  it("group-wrap, events.relay and the double-publish delivery-step removal all land as auto edits that apply together with nothing conflicted", async () => {
+    const ctx = combinedContextFor();
+    const groupFindings = await overrideGroupRule.check(ctx);
+    const relayFindings = await overrideRelayRule.check(ctx);
+    const deliveryFindings = await overrideDeliveryRule.check(ctx);
+    const allFindings = [...groupFindings, ...relayFindings, ...deliveryFindings];
+    expect(allFindings.every((f) => f.fix.kind === "auto")).toBe(true);
+    const allEdits = allFindings.flatMap((f) => (f.fix.kind === "auto" ? f.fix.edits : []));
+    expect(allEdits.length).toBeGreaterThanOrEqual(3);
+    const { conflicted, text } = applyEdits(COMBINED_SOURCE, allEdits);
+    expect(conflicted).toEqual([]);
+    expect(text).toContain("{ atomic: [");
+    expect(text).toContain("events.relay");
+    expect(text).not.toContain("delivery.publish:pages");
+    expect(text).not.toContain("delivery.exportLlms");
   });
 });
 
