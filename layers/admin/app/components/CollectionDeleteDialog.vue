@@ -8,13 +8,14 @@ export interface TranslationScope {
   defaultLocale: string
 }
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   open: boolean
   report: BatchDeleteReport | null
   busy?: boolean
   error?: string | null
   translation?: TranslationScope
-}>()
+  canDeleteAll?: boolean
+}>(), { canDeleteAll: true })
 const emit = defineEmits<{ confirm: []; confirmTranslation: []; 'update:open': [boolean] }>()
 
 const { t } = useT()
@@ -52,11 +53,11 @@ const allLocalesLabel = computed(() => allLocales.value.map((locale) => locale.t
         <KestrelUiButton variant="danger" :disabled="busy" @click="emit('confirmTranslation')">
           {{ t('list.deleteTranslationOnly', { locale: localeLabel }) }}
         </KestrelUiButton>
-        <KestrelUiButton variant="danger-ghost" :disabled="busy" @click="emit('confirm')">
+        <KestrelUiButton v-if="canDeleteAll" variant="danger-ghost" :disabled="busy" @click="emit('confirm')">
           {{ t('list.deleteAllLocales', { locales: allLocalesLabel }) }}
         </KestrelUiButton>
       </template>
-      <KestrelUiButton v-else variant="danger" :disabled="busy" @click="emit('confirm')">{{ t('common.delete') }}</KestrelUiButton>
+      <KestrelUiButton v-else-if="canDeleteAll" variant="danger" :disabled="busy" @click="emit('confirm')">{{ t('common.delete') }}</KestrelUiButton>
     </template>
   </KestrelUiDialog>
 </template>

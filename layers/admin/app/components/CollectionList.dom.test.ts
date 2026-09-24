@@ -63,4 +63,47 @@ describe('CollectionList bulk bar', () => {
 
     wrapper.unmount()
   })
+
+  describe('bulk publish gate', () => {
+    const workflowCollection: SerializedCollection = { ...widgetsCollection, workflow: { field: 'status', live: 'published', draft: 'draft' } }
+
+    afterEach(() => {
+      schema.collections[0]!.capabilities = { listAll: { method: 'GET', path: '/admin/widgets' }, update: { method: 'PATCH', path: '/widgets/:id' } }
+    })
+
+    it('offers no bulk publish without the update capability', async () => {
+      schema.collections[0]!.capabilities = { listAll: { method: 'GET', path: '/admin/widgets' } }
+      unregisterAll.push(registerEndpoint('/api/admin/widgets', {
+        method: 'GET',
+        handler: (): ListPage<unknown> => ({ items: [{ id: 'w1', title: 'One', updatedAt: 0 }], total: 1 }),
+      }))
+
+      const wrapper = await mountSuspended(CollectionList, { props: { schema: workflowCollection } })
+
+      await wrapper.get('thead input[type="checkbox"]').setValue(true)
+
+      const toolbar = wrapper.get('[role="toolbar"]')
+      expect(toolbar.text()).not.toContain(en['list.bulkPublish'])
+      expect(toolbar.text()).not.toContain(en['list.bulkUnpublish'])
+
+      wrapper.unmount()
+    })
+
+    it('offers bulk publish with the update capability', async () => {
+      unregisterAll.push(registerEndpoint('/api/admin/widgets', {
+        method: 'GET',
+        handler: (): ListPage<unknown> => ({ items: [{ id: 'w1', title: 'One', updatedAt: 0 }], total: 1 }),
+      }))
+
+      const wrapper = await mountSuspended(CollectionList, { props: { schema: workflowCollection } })
+
+      await wrapper.get('thead input[type="checkbox"]').setValue(true)
+
+      const toolbar = wrapper.get('[role="toolbar"]')
+      expect(toolbar.text()).toContain(en['list.bulkPublish'])
+      expect(toolbar.text()).toContain(en['list.bulkUnpublish'])
+
+      wrapper.unmount()
+    })
+  })
 })

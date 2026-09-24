@@ -73,10 +73,11 @@ const deleteOps = {
   setError: (message: string | null) => { deleteError.value = message },
 }
 
-const canDelete = computed(() => id !== 'new' && capabilities.hasVerb(collection, 'delete'))
+const canDeleteWhole = computed(() => id !== 'new' && capabilities.hasVerb(collection, 'delete'))
 const canDeleteTranslation = computed(() =>
   def.value?.translatable === true && def.value?.mode === 'multi' && id !== 'new' && capabilities.hasVerb(collection, 'deleteTranslation'),
 )
+const canDelete = computed(() => canDeleteWhole.value || canDeleteTranslation.value)
 const currentLocale = computed(() => editorRef.value?.locale ?? localeParam.value ?? primaryLocale.value)
 
 const historyOpen = ref(false)
@@ -216,6 +217,7 @@ async function confirmDeleteTranslation() {
       :busy="deleting"
       :error="deleteError"
       :translation="translationScope"
+      :can-delete-all="canDeleteWhole"
       @update:open="deleteOpen = $event"
       @confirm="confirmDelete"
       @confirm-translation="confirmDeleteTranslation"

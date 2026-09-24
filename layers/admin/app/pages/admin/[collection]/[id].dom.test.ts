@@ -50,6 +50,7 @@ const { rawSchemaState } = vi.hoisted(() => {
   return {
     rawSchemaState: {
       collection: collection({ readAny: { method: 'GET', path: '/admin/widgets/:id' }, update: { method: 'PATCH', path: '/widgets/:id' } }),
+      locales: ['en'] as string[],
     },
   }
 })
@@ -63,7 +64,7 @@ mockNuxtImport('useRoute', () => () => ({
 }))
 
 mockNuxtImport('useSchema', () => () => ({
-  schema: computed<AdminSchema>(() => ({ locales: { all: ['en'], primary: 'en', prefixPrimary: false }, collections: [schemaState.collection], features: [], capabilities: {} })),
+  schema: computed<AdminSchema>(() => ({ locales: { all: schemaState.locales, primary: 'en', prefixPrimary: false }, collections: [schemaState.collection], features: [], capabilities: {} })),
   error: computed(() => null),
   load: () => Promise.resolve('ok' as const),
   clear: () => {},
@@ -78,7 +79,8 @@ describe('the record page delete gate', () => {
 
   afterEach(() => {
     unregisterAll.splice(0).forEach((unregister) => unregister())
-    schemaState.collection = { ...schemaState.collection, capabilities: widgetsCapabilities(false) }
+    schemaState.collection = { ...schemaState.collection, capabilities: widgetsCapabilities(false), workflow: undefined }
+    schemaState.locales = ['en']
   })
 
   it('offers no delete without the delete capability', async () => {
@@ -99,6 +101,73 @@ describe('the record page delete gate', () => {
     await vi.waitFor(() => expect(wrapper.find('input').exists()).toBe(true))
 
     expect(wrapper.text()).toContain(en['common.delete'])
+    wrapper.unmount()
+  })
+
+  it('keeps offering delete with deleteTranslation alone, without the delete capability', async () => {
+    schemaState.locales = ['en', 'de']
+    schemaState.collection = {
+      ...schemaState.collection,
+      capabilities: {
+        readAny: { method: 'GET', path: '/admin/widgets/:id' },
+        update: { method: 'PATCH', path: '/widgets/:id' },
+        deleteTranslation: { method: 'DELETE', path: '/widgets/:id/translations/:locale' },
+      },
+    }
+    unregisterAll.push(registerEndpoint('/api/admin/widgets/w1', {
+      method: 'GET',
+      handler: () => ({ id: 'w1', title: 'A widget', createdAt: 0, updatedAt: 0, _translations: { en: true, de: true } }),
+    }))
+
+    const wrapper = await mountSuspended(RecordPage, { attachTo: document.body })
+    await vi.waitFor(() => expect(wrapper.find('input').exists()).toBe(true))
+
+    expect(wrapper.text()).toContain(en['common.delete'])
+
+    const deleteButton = wrapper.findAll('button').find((b) => b.text() === en['common.delete'])
+    await deleteButton?.trigger('click')
+    await vi.waitFor(() => expect(document.body.textContent).toContain(en['list.deleteTranslationOnly'].replace('{locale}', 'EN')))
+
+    expect(document.body.textContent).not.toContain(en['list.deleteAllLocales'].replace('{locales}', 'EN, DE'))
+    wrapper.unmount()
+  })
+})
+
+describe('the record page publish gate', () => {
+  const unregisterAll: (() => void)[] = []
+
+  afterEach(() => {
+    unregisterAll.splice(0).forEach((unregister) => unregister())
+    schemaState.collection = { ...schemaState.collection, capabilities: widgetsCapabilities(false), workflow: undefined }
+  })
+
+  it('hides publish on an existing record without the update capability', async () => {
+    schemaState.collection = {
+      ...schemaState.collection,
+      workflow: { field: 'status', live: 'published', draft: 'draft' },
+      capabilities: { readAny: { method: 'GET', path: '/admin/widgets/:id' } },
+    }
+    unregisterAll.push(registerEndpoint('/api/admin/widgets/w1', { method: 'GET', handler: () => baseRecord() }))
+
+    const wrapper = await mountSuspended(RecordPage)
+    await vi.waitFor(() => expect(wrapper.find('input').exists()).toBe(true))
+
+    expect(wrapper.text()).not.toContain(en['common.publish'])
+    wrapper.unmount()
+  })
+
+  it('offers publish on an existing record with the update capability', async () => {
+    schemaState.collection = {
+      ...schemaState.collection,
+      workflow: { field: 'status', live: 'published', draft: 'draft' },
+      capabilities: widgetsCapabilities(false),
+    }
+    unregisterAll.push(registerEndpoint('/api/admin/widgets/w1', { method: 'GET', handler: () => baseRecord() }))
+
+    const wrapper = await mountSuspended(RecordPage)
+    await vi.waitFor(() => expect(wrapper.find('input').exists()).toBe(true))
+
+    expect(wrapper.text()).toContain(en['common.publish'])
     wrapper.unmount()
   })
 })

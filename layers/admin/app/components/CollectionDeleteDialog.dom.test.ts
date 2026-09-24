@@ -48,4 +48,36 @@ describe('CollectionDeleteDialog', () => {
 
     expect(document.body.textContent).not.toContain(en['list.deleteRefsUnverified'])
   })
+
+  it('keeps the translation-only delete option when the whole record cannot be deleted', async () => {
+    const wrapper = await mountSuspended(CollectionDeleteDialog, {
+      props: {
+        open: true,
+        report: reportOf({}),
+        translation: { locale: 'en', others: ['de'], defaultLocale: 'en' },
+        canDeleteAll: false,
+      },
+      attachTo: document.body,
+    })
+    onTestFinished(() => wrapper.unmount())
+
+    expect(document.body.textContent).toContain(en['list.deleteTranslationOnly'].replace('{locale}', 'EN'))
+    expect(document.body.textContent).not.toContain(en['list.deleteAllLocales'].replace('{locales}', 'EN, DE'))
+  })
+
+  it('still offers deleting all locales when the whole record can be deleted', async () => {
+    const wrapper = await mountSuspended(CollectionDeleteDialog, {
+      props: {
+        open: true,
+        report: reportOf({}),
+        translation: { locale: 'en', others: ['de'], defaultLocale: 'en' },
+        canDeleteAll: true,
+      },
+      attachTo: document.body,
+    })
+    onTestFinished(() => wrapper.unmount())
+
+    expect(document.body.textContent).toContain(en['list.deleteTranslationOnly'].replace('{locale}', 'EN'))
+    expect(document.body.textContent).toContain(en['list.deleteAllLocales'].replace('{locales}', 'EN, DE'))
+  })
 })
