@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
 import { execFile } from "node:child_process";
@@ -9,7 +9,7 @@ import { boundaryCast } from "@michaelthielemann/kestrel/cast";
 import type { KestrelConfigInput } from "@michaelthielemann/kestrel";
 import type { ModuleDefinition } from "@michaelthielemann/kestrel/defineModule";
 import type { PipelineDefinition } from "@michaelthielemann/kestrel/definePipeline";
-import type { LoadedProject } from "@michaelthielemann/kestrel-upgrade/plugin";
+import type { LoadedProject, LoadIssue, LoadResult } from "@michaelthielemann/kestrel-upgrade/plugin";
 import { kestrelAliases } from "./aliases";
 import type { CapturedPreset } from "./pipelinesCapture";
 
@@ -17,14 +17,7 @@ const execFileAsync = promisify(execFile);
 
 const CAPTURE_WRAPPER = fileURLToPath(new URL("./pipelinesCapture.ts", import.meta.url));
 
-export interface LoadIssue {
-  file?: string;
-  use?: string;
-  message: string;
-}
-
 export interface LayerProjectData {
-  loadIssues: LoadIssue[];
   presetOptions?: unknown;
   presetProblems: Array<{ code: string; pipeline?: string; message: string }>;
 }
@@ -55,16 +48,47 @@ function resolveModuleFile(root: string, use: string): string | undefined {
   }
 }
 
+function snapshotDir(dir: string): Map<string, Buffer> {
+  const files = new Map<string, Buffer>();
+  const walkDir = (current: string, relBase: string): void => {
+    for (const entry of readdirSync(current, { withFileTypes: true })) {
+      const abs = join(current, entry.name);
+      const rel = relBase === "" ? entry.name : join(relBase, entry.name);
+      if (entry.isDirectory()) walkDir(abs, rel);
+      else if (entry.isFile()) files.set(rel, readFileSync(abs));
+    }
+  };
+  walkDir(dir, "");
+  return files;
+}
+
+function restoreDir(files: ReadonlyMap<string, Buffer>, dir: string): void {
+  for (const [rel, content] of files) {
+    const target = join(dir, rel);
+    mkdirSync(dirname(target), { recursive: true });
+    writeFileSync(target, content);
+  }
+}
+
 /**
  * Runs `nuxt prepare` in the scratch copy so the migrations and optional-modules templates exist at the
- * paths `kestrelAliases()` predicts, unless `.nuxt/kestrel/` is already there (a caller-provided scratch
- * copy that was prepared once already, or `--no-prepare`).
+ * paths `kestrelAliases()` predicts. Its output depends only on the project's own blocks and content
+ * model, neither of which any rule in this plugin edits, so the first run's `.nuxt` is snapshotted into
+ * `cache` (keyed by `root`, the one project this whole `check`/`fix` invocation loads) and replayed by a
+ * plain file copy for every later scratch copy of the same project instead of rerunning the command.
  */
-export async function prepareLayerProject(root: string, skip: boolean): Promise<void> {
-  if (skip && existsSync(join(root, ".nuxt", "kestrel"))) return;
-  const nuxtBin = join(root, "node_modules", ".bin", "nuxt");
+export async function prepareLayerProject(root: string, scratch: string, cache: Map<string, unknown>): Promise<void> {
+  const nuxtDir = join(scratch, ".nuxt");
+  const cacheKey = `kestrel-web:nuxt-prepare:${root}`;
+  const cached = cache.get(cacheKey);
+  if (cached instanceof Map) {
+    restoreDir(cached as Map<string, Buffer>, nuxtDir);
+    return;
+  }
+  const nuxtBin = join(scratch, "node_modules", ".bin", "nuxt");
   const bin = existsSync(nuxtBin) ? nuxtBin : "nuxt";
-  await execFileAsync(bin, ["prepare", root], { cwd: root, env: { ...process.env, NUXT_TELEMETRY_DISABLED: "1" } });
+  await execFileAsync(bin, ["prepare", scratch], { cwd: scratch, env: { ...process.env, NUXT_TELEMETRY_DISABLED: "1" } });
+  if (existsSync(nuxtDir)) cache.set(cacheKey, snapshotDir(nuxtDir));
 }
 
 function scratchUnique(scratch: string, aliasValue: string, filename: string): string {
@@ -79,10 +103,13 @@ function scratchUnique(scratch: string, aliasValue: string, filename: string): s
 /**
  * Loads a layer project's config, modules and pipelines through jiti with the same `#kestrel/*` aliases
  * Nuxt resolves, substituting a capture wrapper for `#kestrel/pipelines` so `checkPreset()` composes the
- * preset instead of `definePreset()`. Returns a `LoadedProject` even when a config, module or pipeline
- * file fails to import; each such failure is recorded in the returned project's `data.loadIssues`.
+ * preset instead of `definePreset()`. Every fixed-path fallback file (a bundled default, the capture
+ * wrapper itself) is copied into this call's own `scratch` first, so jiti's module cache never answers a
+ * later call — for a different project, or a different edit preview of this one — from an earlier one's
+ * cached module. `project` is absent only when `kestrel.config.ts` itself fails to import; a module or
+ * pipeline file failing becomes an `issues` entry instead.
  */
-export async function loadLayerProject(scratch: string): Promise<LoadedProject> {
+export async function loadLayerProject(scratch: string): Promise<LoadResult> {
   const buildDir = join(scratch, ".nuxt");
   const configFile = join(scratch, "kestrel.config.ts");
   const baseAliases = kestrelAliases(scratch, buildDir);
@@ -101,10 +128,15 @@ export async function loadLayerProject(scratch: string): Promise<LoadedProject> 
   const previousAppRoot = process.env.KESTREL_APP_ROOT;
   process.env.KESTREL_APP_ROOT = scratch;
   try {
-    const configModule = await jiti.import<{ default: KestrelConfigInput }>(pathToFileURL(configFile).href);
-    const config = boundaryCast<KestrelConfigInput>(configModule.default, "host");
+    let config: KestrelConfigInput;
+    try {
+      const configModule = await jiti.import<{ default: KestrelConfigInput }>(pathToFileURL(configFile).href);
+      config = boundaryCast<KestrelConfigInput>(configModule.default, "host");
+    } catch (err) {
+      return { issues: [{ file: "kestrel.config.ts", message: err instanceof Error ? err.message : String(err) }] };
+    }
 
-    const loadIssues: LoadIssue[] = [];
+    const issues: LoadIssue[] = [];
 
     let modules: ModuleDefinition[] = [];
     try {
@@ -112,7 +144,7 @@ export async function loadLayerProject(scratch: string): Promise<LoadedProject> 
       const modulesModule = await jiti.import<{ default: ModuleDefinition[] }>(pathToFileURL(modulesPath).href);
       modules = modulesModule.default;
     } catch (err) {
-      loadIssues.push({ file: "kestrel.modules.ts", message: err instanceof Error ? err.message : String(err) });
+      issues.push({ file: "kestrel.modules.ts", message: err instanceof Error ? err.message : String(err) });
     }
 
     let pipelines: PipelineDefinition[] = [];
@@ -123,7 +155,7 @@ export async function loadLayerProject(scratch: string): Promise<LoadedProject> 
       const pipelinesModule = await jiti.import<{ pipelines: PipelineDefinition[] }>(pathToFileURL(pipelinesPath).href);
       pipelines = pipelinesModule.pipelines;
     } catch (err) {
-      loadIssues.push({ file: pipelinesPath === projectPipelinesFile ? "pipelines/index.ts" : "kestrel.config.ts", message: err instanceof Error ? err.message : String(err) });
+      issues.push({ file: pipelinesPath === projectPipelinesFile ? "pipelines/index.ts" : "kestrel.config.ts", message: err instanceof Error ? err.message : String(err) });
     }
 
     const capture = await jiti.import<{ captured: { last?: CapturedPreset } }>(pathToFileURL(aliases["#kestrel/pipelines"]!).href);
@@ -141,9 +173,9 @@ export async function loadLayerProject(scratch: string): Promise<LoadedProject> 
     const overriddenNames = Object.keys(boundaryCast<Record<string, unknown>>(capture.captured.last?.options.overrides ?? {}, "host"));
     for (const name of overriddenNames) pipelineFiles.set(name, pipelinesFile);
 
-    const data: LayerProjectData = { loadIssues, presetProblems, ...(capture.captured.last === undefined ? {} : { presetOptions: capture.captured.last.options }) };
+    const data: LayerProjectData = { presetProblems, ...(capture.captured.last === undefined ? {} : { presetOptions: capture.captured.last.options }) };
 
-    return {
+    const project: LoadedProject = {
       input: { config, modules, pipelines, root: scratch },
       kind: "kestrel-web",
       configFile,
@@ -151,6 +183,7 @@ export async function loadLayerProject(scratch: string): Promise<LoadedProject> 
       pipelineFiles,
       data: boundaryCast<Record<string, unknown>>(data, "host"),
     };
+    return { project, issues };
   } finally {
     if (previousAppRoot === undefined) delete process.env.KESTREL_APP_ROOT;
     else process.env.KESTREL_APP_ROOT = previousAppRoot;
@@ -160,4 +193,8 @@ export async function loadLayerProject(scratch: string): Promise<LoadedProject> 
 export function layerProjectData(project: LoadedProject): LayerProjectData | undefined {
   if (project.data === undefined) return undefined;
   return boundaryCast<LayerProjectData>(project.data, "host");
+}
+
+export function sharedModelFile(scratch: string): string {
+  return join(scratch, "shared", "model.ts");
 }

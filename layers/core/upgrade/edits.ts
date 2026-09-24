@@ -1,5 +1,5 @@
-import { parse } from "@babel/parser";
-import type { Edit } from "@michaelthielemann/kestrel-upgrade/plugin";
+import { arrayElements, isArrayExpression, isAstNode, objectProperty, parseTs, span, stringValue, walk } from "@michaelthielemann/kestrel-upgrade/codemods";
+import type { AstNode, Edit } from "@michaelthielemann/kestrel-upgrade/codemods";
 
 /**
  * Splices a dependency's version range in a `package.json` source, wherever `"name": "range"` first
@@ -15,22 +15,11 @@ export function bumpPackageJsonDependency(file: string, source: string, name: st
   return { file, start: valueStart, end: valueStart + value.length, text: range };
 }
 
-interface ArrayLiteral {
-  start: number;
-  end: number;
-  elements: Array<{ start: number; end: number; value: unknown }>;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-function unwrapTsWrapper(node: unknown): unknown {
+function unwrapTsWrapper(node: unknown): AstNode | undefined {
   let current = node;
   for (;;) {
-    if (!isRecord(current)) return current;
-    const type = current.type;
-    if (type === "TSAsExpression" || type === "TSSatisfiesExpression" || type === "TSNonNullExpression") {
+    if (!isAstNode(current)) return undefined;
+    if (current.type === "TSAsExpression" || current.type === "TSSatisfiesExpression" || current.type === "TSNonNullExpression") {
       current = current.expression;
       continue;
     }
@@ -38,23 +27,23 @@ function unwrapTsWrapper(node: unknown): unknown {
   }
 }
 
+interface ArrayLiteral {
+  node: AstNode;
+  elements: AstNode[];
+}
+
 /** Locates the array literal initializing `export const <name> = [...]`, looking through `as const`/`satisfies` wrappers. */
 export function namedExportArray(source: string, name: string): ArrayLiteral | undefined {
-  const ast = parse(source, { sourceType: "module", plugins: ["typescript"] });
-  for (const node of ast.program.body) {
-    if (node.type !== "ExportNamedDeclaration" || node.declaration?.type !== "VariableDeclaration") continue;
-    for (const decl of node.declaration.declarations) {
-      if (decl.id.type !== "Identifier" || decl.id.name !== name) continue;
-      const init = unwrapTsWrapper(decl.init);
-      if (init === null || typeof init !== "object" || (init as { type?: string }).type !== "ArrayExpression") continue;
-      const array = init as { start: number; end: number; elements: unknown[] };
-      const elements = array.elements
-        .filter((el): el is { start: number; end: number; value: unknown } => el !== null && typeof el === "object" && "value" in el)
-        .map((el) => ({ start: (el as { start: number }).start, end: (el as { end: number }).end, value: (el as { value: unknown }).value }));
-      return { start: array.start, end: array.end, elements };
-    }
-  }
-  return undefined;
+  const root = parseTs(source);
+  let found: ArrayLiteral | undefined;
+  walk(root, (node) => {
+    if (found !== undefined || node.type !== "VariableDeclarator") return;
+    const id = node.id;
+    if (!isAstNode(id) || id.type !== "Identifier" || id.name !== name) return;
+    const array = unwrapTsWrapper(node.init);
+    if (array !== undefined && isArrayExpression(array)) found = { node: array, elements: arrayElements(array) };
+  });
+  return found;
 }
 
 /**
@@ -65,33 +54,13 @@ export function namedExportArray(source: string, name: string): ArrayLiteral | u
 export function addStringToNamedExportArray(file: string, source: string, name: string, value: string): Edit | undefined {
   const array = namedExportArray(source, name);
   if (array === undefined) return undefined;
-  if (array.elements.some((el) => el.value === value)) return undefined;
-  const quote = array.elements.length > 0 && source[array.elements[0]!.start] === "'" ? "'" : '"';
+  if (array.elements.some((el) => stringValue(el) === value)) return undefined;
+  const quote = array.elements.length > 0 && source[span(array.elements[0]!).start] === "'" ? "'" : '"';
   const literal = `${quote}${value}${quote}`;
-  if (array.elements.length === 0) return { file, start: array.start + 1, end: array.end - 1, text: literal };
-  const last = array.elements[array.elements.length - 1]!;
-  return { file, start: last.end, end: last.end, text: `, ${literal}` };
-}
-
-interface ObjectNode {
-  start: number;
-  end: number;
-  properties: unknown[];
-}
-
-function asObjectNode(node: unknown): ObjectNode | undefined {
-  if (!isRecord(node) || node.type !== "ObjectExpression" || typeof node.start !== "number" || typeof node.end !== "number" || !Array.isArray(node.properties)) return undefined;
-  return { start: node.start, end: node.end, properties: node.properties };
-}
-
-function objectProperty(obj: ObjectNode, key: string): unknown {
-  for (const prop of obj.properties) {
-    if (!isRecord(prop) || prop.type !== "ObjectProperty") continue;
-    const propKey = prop.key;
-    const name = isRecord(propKey) && typeof propKey.name === "string" ? propKey.name : isRecord(propKey) && typeof propKey.value === "string" ? propKey.value : undefined;
-    if (name === key) return prop.value;
-  }
-  return undefined;
+  const { start, end } = span(array.node);
+  if (array.elements.length === 0) return { file, start: start + 1, end: end - 1, text: literal };
+  const lastEnd = span(array.elements[array.elements.length - 1]!).end;
+  return { file, start: lastEnd, end: lastEnd, text: `, ${literal}` };
 }
 
 /**
@@ -101,38 +70,97 @@ function objectProperty(obj: ObjectNode, key: string): unknown {
  * entry, or a non-object `config`, is found.
  */
 export function addModuleEntryConfigProperty(file: string, source: string, use: string, propertyKey: string, propertyText: string): Edit | undefined {
-  const ast = parse(source, { sourceType: "module", plugins: ["typescript"] });
-  let found: ObjectNode | undefined;
-  function visit(node: unknown): void {
-    if (found !== undefined || !isRecord(node)) return;
-    if (Array.isArray(node)) {
-      for (const el of node) visit(el);
-      return;
-    }
-    const obj = asObjectNode(node);
-    if (obj !== undefined) {
-      const useValue = objectProperty(obj, "use");
-      if (isRecord(useValue) && useValue.value === use) {
-        found = obj;
-        return;
-      }
-    }
-    for (const value of Object.values(node)) {
-      if (typeof value === "object" && value !== null) visit(value);
-    }
-  }
-  visit(ast.program.body);
+  const root = parseTs(source);
+  let found: AstNode | undefined;
+  walk(root, (node) => {
+    if (found !== undefined || node.type !== "ObjectExpression") return;
+    const useValue = objectProperty(node, "use");
+    if (stringValue(useValue) === use) found = node;
+  });
   if (found === undefined) return undefined;
   const config = objectProperty(found, "config");
-  const configObj = asObjectNode(config);
-  if (config !== undefined && configObj === undefined) return undefined;
-  if (configObj === undefined) {
-    const insertAt = found.end - 1;
-    const needsComma = found.properties.length > 0;
-    return { file, start: insertAt, end: insertAt, text: `${needsComma ? ", " : ""}config: { ${propertyText} } ` };
+  if (config !== undefined && config.type !== "ObjectExpression") return undefined;
+  if (config === undefined) {
+    const { end } = span(found);
+    const insertAt = end - 1;
+    const hasProperties = Array.isArray(found.properties) && found.properties.length > 0;
+    return { file, start: insertAt, end: insertAt, text: `${hasProperties ? ", " : ""}config: { ${propertyText} } ` };
   }
-  if (objectProperty(configObj, propertyKey) !== undefined) return undefined;
-  const insertAt = configObj.end - 1;
-  const needsComma = configObj.properties.length > 0;
-  return { file, start: insertAt, end: insertAt, text: `${needsComma ? ", " : ""}${propertyText} ` };
+  if (objectProperty(config, propertyKey) !== undefined) return undefined;
+  const { end } = span(config);
+  const insertAt = end - 1;
+  const hasProperties = Array.isArray(config.properties) && config.properties.length > 0;
+  return { file, start: insertAt, end: insertAt, text: `${hasProperties ? ", " : ""}${propertyText} ` };
+}
+
+export interface StepWindowOptions {
+  pipelineName: string;
+  members: readonly string[];
+  locateSteps: (root: AstNode, pipelineName: string) => readonly AstNode[];
+}
+
+export type StepWindowResult =
+  | { kind: "wrapped"; edit: Edit }
+  | { kind: "ambiguous"; extra: readonly string[]; window: readonly string[] }
+  | { kind: "not-found" };
+
+/**
+ * Finds the smallest contiguous run of a located step array containing every one of `members`, in order,
+ * and wraps it in `{ atomic: [...] }` when the run contains only those members. A run with the consumer's
+ * own steps interspersed is reported `ambiguous` (naming them) instead of guessed at; no locatable array
+ * at all is `not-found`.
+ */
+export function wrapAtomicGroup(file: string, source: string, options: StepWindowOptions): StepWindowResult {
+  const root = parseTs(source);
+  const arrays = options.locateSteps(root, options.pipelineName);
+  for (const array of arrays) {
+    const elements = arrayElements(array);
+    const values = elements.map((el) => stringValue(el));
+    const indices = options.members.map((m) => values.indexOf(m));
+    if (indices.some((i) => i === -1)) continue;
+    const start = Math.min(...indices);
+    const end = Math.max(...indices);
+    const window = elements.slice(start, end + 1);
+    const windowValues = values.slice(start, end + 1);
+    const extra = windowValues.filter((v): v is string => v !== undefined && !options.members.includes(v));
+    if (extra.length > 0) return { kind: "ambiguous", extra, window: windowValues.filter((v): v is string => v !== undefined) };
+    const quote = window.length > 0 && source[span(window[0]!).start] === "'" ? "'" : '"';
+    const literal = `{ atomic: [${options.members.map((m) => `${quote}${m}${quote}`).join(", ")}] }`;
+    const { start: rangeStart } = span(window[0]!);
+    const { end: rangeEnd } = span(window[window.length - 1]!);
+    return { kind: "wrapped", edit: { file, start: rangeStart, end: rangeEnd, text: literal } };
+  }
+  return { kind: "not-found" };
+}
+
+export interface InsertAfterEmitOptions {
+  pipelineName: string;
+  newStep: string;
+  locateSteps: (root: AstNode, pipelineName: string) => readonly AstNode[];
+}
+
+/**
+ * Inserts `newStep` right after the top-level entry carrying the pipeline's last `events.emit:` step —
+ * a bare entry, or the atomic group it ends — using a plugin's own `locateSteps` (the first array it
+ * returns is treated as the pipeline's top-level step list). `undefined` when no array is found, no
+ * `events.emit:` step is in it, or `newStep` is already there.
+ */
+export function insertStepAfterLastEmit(file: string, source: string, options: InsertAfterEmitOptions): Edit | undefined {
+  const root = parseTs(source);
+  const arrays = options.locateSteps(root, options.pipelineName);
+  const top = arrays[0];
+  if (top === undefined) return undefined;
+  const elements = arrayElements(top);
+  for (let i = elements.length - 1; i >= 0; i--) {
+    const el = elements[i]!;
+    const value = stringValue(el);
+    const isEmit = value?.startsWith("events.emit:") ?? (isArrayExpression(objectProperty(el, "atomic")) && arrayElements(objectProperty(el, "atomic")!).some((s) => stringValue(s)?.startsWith("events.emit:")));
+    if (!isEmit) continue;
+    const next = elements[i + 1];
+    if (stringValue(next) === options.newStep) return undefined;
+    const quote = source[span(el).start] === "'" ? "'" : '"';
+    const { end } = span(el);
+    return { file, start: end, end, text: `, ${quote}${options.newStep}${quote}` };
+  }
+  return undefined;
 }

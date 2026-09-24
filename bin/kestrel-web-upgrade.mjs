@@ -7,14 +7,9 @@ const jiti = createJiti(import.meta.url, { interopDefault: true });
 const pluginModule = fileURLToPath(new URL("../layers/core/upgrade/plugin.ts", import.meta.url));
 const { createLayerPlugin } = await jiti.import(pluginModule);
 
-const argv = process.argv.slice(2);
-const noPrepareIndex = argv.indexOf("--no-prepare");
-const skipPrepareWhenReady = noPrepareIndex !== -1;
-if (skipPrepareWhenReady) argv.splice(noPrepareIndex, 1);
+const plugin = createLayerPlugin();
 
-const plugin = createLayerPlugin({ skipPrepareWhenReady });
-
-runUpgradeCli(argv, { plugins: [plugin] })
+runUpgradeCli(process.argv.slice(2), { plugins: [plugin] })
   .then((code) => {
     process.exitCode = code;
   })

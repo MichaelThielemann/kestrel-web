@@ -1,26 +1,21 @@
-import { existsSync } from "node:fs";
-import { join } from "node:path";
-import { boundaryCast } from "@michaelthielemann/kestrel/cast";
+import { renameContentField } from "@michaelthielemann/kestrel-upgrade/codemods";
+import type { Finding, Rule } from "@michaelthielemann/kestrel-upgrade/plugin";
 import type { PipelineDefinition, PipelineEntry } from "@michaelthielemann/kestrel/definePipeline";
-import type { AskFix, Edit, Finding, Rule, RuleContext } from "@michaelthielemann/kestrel-upgrade/plugin";
 import { checkPreset } from "../pipelines/checkPreset";
-import type { Feature, PresetOptions } from "../pipelines/checkPreset";
-import { addModuleEntryConfigProperty, addStringToNamedExportArray, bumpPackageJsonDependency } from "./edits";
+import type { PresetOptions } from "../pipelines/checkPreset";
+import { addModuleEntryConfigProperty, bumpPackageJsonDependency, insertStepAfterLastEmit, wrapAtomicGroup } from "./edits";
 import { layerProjectData } from "./load";
+import { layerLocateModelFields, layerLocateSteps } from "./locators";
+import { autoFinding, docsAnchor, manualFinding, packageJsonPath, presetOptionsCast, sharedModelFile } from "./ruleHelpers";
 
 const LAYER_RANGE = "^3.0.0";
 const LAYER_PACKAGE = "@michaelthielemann/kestrel-web";
-const SERVERLESS_MARKERS = ["vercel.json", "netlify.toml", "wrangler.toml", "serverless.yml", "template.yaml"];
+const EVENTS_QUEUE_MODULE = "@michaelthielemann/kestrel-events-queue";
 
-function packageJsonPath(ctx: RuleContext): string {
-  return join(ctx.root, "package.json");
-}
-
-function docsAnchor(anchor: string): string {
-  return `docs/consuming-kestrel-web.md#${anchor}`;
-}
-
-/** Bumps `@michaelthielemann/kestrel-web` to `^3.0.0` in the project's `package.json`. */
+/**
+ * Bumps `@michaelthielemann/kestrel-web` to `^3.0.0` in the project's `package.json`. The layer declares
+ * this package under `ownsPackages`, so kestrel's own `deps/kestrel-range` never touches it.
+ */
 export const layerRangeRule: Rule = {
   id: "deps/layer-range",
   check(ctx) {
@@ -47,19 +42,6 @@ export const layerRangeRule: Rule = {
   },
 };
 
-interface CapturedOptions {
-  features?: readonly Feature[];
-  modules?: readonly { use: string; config?: unknown }[];
-}
-
-function presetOptionsOf(ctx: RuleContext): CapturedOptions | undefined {
-  const data = layerProjectData(ctx.project);
-  if (data?.presetOptions === undefined) return undefined;
-  return boundaryCast<CapturedOptions>(data.presetOptions, "host");
-}
-
-const EVENTS_QUEUE_MODULE = "@michaelthielemann/kestrel-events-queue";
-
 function hasRelayPipelinesKey(entry: { use: string; config?: unknown }): boolean {
   return typeof entry.config === "object" && entry.config !== null && "relayPipelines" in entry.config;
 }
@@ -73,12 +55,12 @@ function hasRelayPipelinesKey(entry: { use: string; config?: unknown }): boolean
 export const relayScopeRule: Rule = {
   id: "preset/relay-scope",
   check(ctx) {
-    const options = presetOptionsOf(ctx);
-    if (options === undefined) return [];
-    const entry = (options.modules ?? []).find((m) => m.use === EVENTS_QUEUE_MODULE);
+    const cast = presetOptionsCast(ctx);
+    if (cast === undefined) return [];
+    const entry = (cast.modules ?? []).find((m) => m.use === EVENTS_QUEUE_MODULE);
     if (entry === undefined || hasRelayPipelinesKey(entry)) return [];
     const source = ctx.readFile(ctx.project.configFile);
-    const relay = options.features?.includes("delivery") ? '["publishPage", "unpublishPage"]' : "[]";
+    const relay = cast.features?.includes("delivery") ? '["publishPage", "unpublishPage"]' : "[]";
     const edit = source === undefined ? undefined : addModuleEntryConfigProperty(ctx.project.configFile, source, EVENTS_QUEUE_MODULE, "relayPipelines", `relayPipelines: ${relay}`);
     return [
       {
@@ -99,189 +81,224 @@ export const relayScopeRule: Rule = {
   },
 };
 
-function loadIssuesRule(): Rule {
-  return {
-    id: "load/failed",
-    check(ctx) {
-      const data = layerProjectData(ctx.project);
-      if (data === undefined) return [];
-      return data.loadIssues.map(
-        (issue, i): Finding => ({
-          id: `load/failed:${issue.file ?? issue.use ?? i}`,
-          rule: "load/failed",
-          severity: "error",
-          tier: "source",
-          where: issue.file !== undefined ? { file: issue.file } : issue.use !== undefined ? { module: issue.use } : {},
-          message: issue.message,
-          suggestion: "fix the file so it loads, then run check again",
-          fix: { kind: "manual" },
-          docs: docsAnchor("load"),
-        }),
-      );
-    },
-  };
-}
+const OWNED_PROBLEM_CODES = new Set(["preset/override-drops-atomic-group", "preset/override-drops-relay"]);
 
-const PRESET_PROBLEM_RULES: Record<string, { rule: string; docs: string }> = {
-  "preset/override-drops-atomic-group": { rule: "preset/override-group", docs: docsAnchor("preset-override-group") },
-  "preset/override-drops-relay": { rule: "preset/override-relay", docs: docsAnchor("preset-override-relay") },
-  "preset/override-unknown-pipeline": { rule: "preset/override-unknown-pipeline", docs: docsAnchor("preset-override-unknown-pipeline") },
-};
-
-function presetProblemsRule(): Rule {
-  return {
-    id: "preset/problem",
-    check(ctx) {
-      const data = layerProjectData(ctx.project);
-      if (data === undefined) return [];
-      return data.presetProblems.map((problem, i): Finding => {
-        const known = PRESET_PROBLEM_RULES[problem.code];
-        return {
-          id: `${known?.rule ?? `preset/${problem.code}`}:${problem.pipeline ?? i}`,
-          rule: known?.rule ?? `preset/${problem.code}`,
+/** Every `checkPreset()` problem not already owned by a more specific rule, one manual finding each. */
+export const presetProblemsRule: Rule = {
+  id: "preset/problem",
+  check(ctx) {
+    const data = layerProjectData(ctx.project);
+    if (data === undefined) return [];
+    return data.presetProblems
+      .filter((problem) => !OWNED_PROBLEM_CODES.has(problem.code))
+      .map(
+        (problem, i): Finding => ({
+          id: `preset/${problem.code}:${problem.pipeline ?? i}`,
+          rule: `preset/${problem.code}`,
           severity: "error",
           tier: "source",
           where: problem.pipeline === undefined ? {} : { pipeline: problem.pipeline },
           message: problem.message,
           suggestion: "resolve the override or configuration that causes this, then run check again",
           fix: { kind: "manual" },
-          docs: known?.docs ?? docsAnchor("preset-problem"),
-        };
+          docs: docsAnchor("preset-problem"),
+        }),
+      );
+  },
+};
+
+function flatSteps(def: PipelineDefinition | undefined): string[] {
+  return (def?.steps ?? []).filter((s: PipelineEntry): s is string => typeof s === "string");
+}
+
+function defaultPipelineOf(cast: PresetOptions, name: string): PipelineDefinition | undefined {
+  const { preset } = checkPreset({ ...cast, overrides: {} });
+  return preset.pipelines.find((p) => p.name === name);
+}
+
+/** An override lacks a step the 3.0 default of that pipeline runs — information only, never changed automatically. */
+export const overrideDriftRule: Rule = {
+  id: "preset/override-drift",
+  check(ctx) {
+    const cast = presetOptionsCast(ctx);
+    if (cast === undefined) return [];
+    const overrideNames = Object.keys(cast.overrides ?? {});
+    if (overrideNames.length === 0) return [];
+    const findings: Finding[] = [];
+    for (const name of overrideNames) {
+      const defaultSteps = flatSteps(defaultPipelineOf(cast, name));
+      const overriddenSteps = new Set(flatSteps(ctx.project.input.pipelines.find((p) => p.name === name)));
+      const missing = defaultSteps.filter((s) => !overriddenSteps.has(s));
+      if (missing.length === 0) continue;
+      findings.push({
+        id: `preset/override-drift:${name}`,
+        rule: "preset/override-drift",
+        severity: "info",
+        tier: "source",
+        where: { pipeline: name },
+        message: `override for "${name}" lacks ${missing.map((s) => `"${s}"`).join(", ")}, which the 3.0 default runs`,
+        suggestion: "review whether the override should include it too; never changed automatically",
+        fix: { kind: "none" },
+        docs: docsAnchor("preset-override-drift"),
       });
-    },
-  };
+    }
+    return findings;
+  },
+};
+
+function atomicGroupOf(def: PipelineDefinition | undefined): string[] | undefined {
+  for (const entry of def?.steps ?? []) {
+    if (typeof entry === "object" && entry !== null && "atomic" in entry) return [...(entry as { atomic: readonly string[] }).atomic];
+  }
+  return undefined;
 }
 
-function overrideDriftRule(): Rule {
-  return {
-    id: "preset/override-drift",
-    check(ctx) {
-      const data = layerProjectData(ctx.project);
-      const options = data?.presetOptions;
-      if (options === undefined) return [];
-      const cast = boundaryCast<PresetOptions>(options, "host");
-      const overrideNames = Object.keys(cast.overrides ?? {});
-      if (overrideNames.length === 0) return [];
-      const { preset: defaultPreset } = checkPreset({ ...cast, overrides: {} });
-      const findings: Finding[] = [];
-      const flatSteps = (def: PipelineDefinition | undefined): string[] => (def?.steps ?? []).filter((s: PipelineEntry): s is string => typeof s === "string");
-      for (const name of overrideNames) {
-        const defaultSteps = flatSteps(defaultPreset.pipelines.find((p: PipelineDefinition) => p.name === name));
-        const overriddenSteps = new Set(flatSteps(ctx.project.input.pipelines.find((p: PipelineDefinition) => p.name === name)));
-        const missing = defaultSteps.filter((s) => !overriddenSteps.has(s));
-        if (missing.length === 0) continue;
-        findings.push({
-          id: `preset/override-drift:${name}`,
-          rule: "preset/override-drift",
-          severity: "info",
-          tier: "source",
-          where: { pipeline: name },
-          message: `override for "${name}" lacks ${missing.map((s) => `"${s}"`).join(", ")}, which the 3.0 default runs`,
-          suggestion: "review whether the override should include it too; never changed automatically",
-          fix: { kind: "none" },
-          docs: docsAnchor("preset-override-drift"),
-        });
+/**
+ * Wraps the write steps a layer preset override drops the atomic group around, using `locateSteps` to
+ * find the override's own step array inside `definePreset({ overrides })`: auto when the smallest window
+ * containing the default group's members has nothing else in it, a question when the consumer's own steps
+ * sit in the same window, manual when the override or the default group cannot be located at all.
+ */
+export const overrideGroupRule: Rule = {
+  id: "preset/override-group",
+  check(ctx) {
+    const cast = presetOptionsCast(ctx);
+    const data = layerProjectData(ctx.project);
+    if (cast === undefined || data === undefined) return [];
+    const problems = data.presetProblems.filter((p) => p.code === "preset/override-drops-atomic-group" && p.pipeline !== undefined);
+    if (problems.length === 0) return [];
+    const locate = ctx.locateSteps ?? layerLocateSteps;
+    const findings: Finding[] = [];
+    for (const problem of problems) {
+      const pipelineName = problem.pipeline!;
+      const id = `preset/override-group:${pipelineName}`;
+      const where = { pipeline: pipelineName };
+      const members = atomicGroupOf(defaultPipelineOf(cast, pipelineName));
+      const file = ctx.project.pipelineFiles.get(pipelineName);
+      const source = file === undefined ? undefined : ctx.readFile(file);
+      if (members === undefined || file === undefined || source === undefined) {
+        findings.push(manualFinding(id, "preset/override-group", where, problem.message, "could not locate the override or the 3.0 default's atomic group; wrap the write steps in { atomic: [...] } yourself", docsAnchor("preset-override-group")));
+        continue;
       }
-      return findings;
-    },
-  };
-}
-
-function featuresOf(ctx: RuleContext): { features: readonly Feature[]; file?: string } | undefined {
-  const options = presetOptionsOf(ctx);
-  if (options?.features === undefined) return undefined;
-  return { features: options.features };
-}
-
-function findFeaturesArrayFile(ctx: RuleContext): string | undefined {
-  const candidate = join(ctx.root, "shared", "model.ts");
-  return ctx.readFile(candidate) === undefined ? undefined : candidate;
-}
-
-const OFFER_ID = "preset/event-queue-offer";
-const CONSEQUENCES = "uploads and other requests answer at once; image variants, the login audit and any other subscriber not published inline run in the worker moments later, retried with backoff; a failing subscriber no longer fails the request that emitted the event; every event may reach a pipeline more than once; the queue lives in the database and switching back later needs it drained first";
-
-function offerUnmetConditions(ctx: RuleContext): string[] {
-  const unmet: string[] = [];
-  const features = featuresOf(ctx)?.features;
-  if (features === undefined) return ["could not read the project's own features list"];
-  if (features.includes("eventsQueue")) return ["already on the queue"];
-  if (!ctx.project.input.config.triggers.some((t) => "event" in t)) unmet.push("no event trigger to move to the queue");
-  const marker = SERVERLESS_MARKERS.find((m) => existsSync(join(ctx.root, m)));
-  if (marker !== undefined) unmet.push(`"${marker}" suggests the process does not stay alive between requests`);
-  return unmet;
-}
-
-function switchEdits(ctx: RuleContext): { edits: Edit[]; missing: string | undefined } {
-  const file = findFeaturesArrayFile(ctx);
-  if (file === undefined) return { edits: [], missing: "shared/model.ts (the project's features array)" };
-  const source = ctx.readFile(file);
-  if (source === undefined) return { edits: [], missing: "shared/model.ts (the project's features array)" };
-  const edit = addStringToNamedExportArray(file, source, "features", "eventsQueue");
-  if (edit === undefined) return { edits: [], missing: "shared/model.ts's features array" };
-  return { edits: [edit], missing: undefined };
-}
-
-function queueOfferRule(): Rule {
-  return {
-    id: OFFER_ID,
-    async check(ctx) {
-      const unmet = offerUnmetConditions(ctx);
-      if (unmet.length > 0) {
-        return [
-          {
-            id: OFFER_ID,
-            rule: OFFER_ID,
-            severity: "info",
-            tier: "source",
-            where: {},
-            message: `cannot switch to the queue: ${unmet.join("; ")}`,
-            suggestion: "resolve the conditions above and run check again",
-            fix: { kind: "none" },
-            docs: docsAnchor("preset-event-queue-offer"),
-          },
-        ];
+      const result = wrapAtomicGroup(file, source, { pipelineName, members, locateSteps: locate });
+      if (result.kind === "wrapped") {
+        findings.push(autoFinding(id, "preset/override-group", where, problem.message, `wraps ${members.map((m) => `"${m}"`).join(", ")} in an atomic group, matching the 3.0 default`, [result.edit], docsAnchor("preset-override-group")));
+        continue;
       }
-      const answer = ctx.answers.get("switch-to-queue");
-      if (answer === undefined) {
-        const fix: AskFix = { kind: "ask", question: "switch-to-queue", prompt: `switch event delivery to the queue? ${CONSEQUENCES}`, choices: ["no", "yes"], defaultValue: "no" };
-        return [{ id: OFFER_ID, rule: OFFER_ID, severity: "info", tier: "source", where: {}, message: "can switch to the queue", suggestion: "run fix to be asked; check never decides this on its own", fix, docs: docsAnchor("preset-event-queue-offer") }];
+      if (result.kind === "not-found") {
+        findings.push(manualFinding(id, "preset/override-group", where, problem.message, "could not locate the override's own step array; wrap the write steps in { atomic: [...] } yourself", docsAnchor("preset-override-group")));
+        continue;
       }
-      if (answer !== "yes") return [];
-      const { edits, missing } = switchEdits(ctx);
-      if (ctx.previewBoot && edits.length > 0) {
-        const preview = await ctx.previewBoot(edits);
-        if (preview === undefined || preview.errors.length > 0) {
-          return [
-            {
-              id: OFFER_ID,
-              rule: OFFER_ID,
-              severity: "info",
-              tier: "source",
-              where: {},
-              message: preview === undefined ? "could not verify the switch: the edited copy could not be reloaded" : `the switch fails to boot: ${preview.errors.map((e) => e.reason).join("; ")}`,
-              suggestion: "run fix again to re-verify, or resolve the boot error above",
-              fix: { kind: "manual" },
-              docs: docsAnchor("preset-event-queue-offer"),
-            },
-          ];
+      const answer = ctx.answers.get(`override-group:${pipelineName}`);
+      if (answer === "include") {
+        const wide = wrapAtomicGroup(file, source, { pipelineName, members: result.window, locateSteps: locate });
+        if (wide.kind === "wrapped") {
+          findings.push(autoFinding(id, "preset/override-group", where, problem.message, `wraps ${result.window.map((m) => `"${m}"`).join(", ")} in an atomic group, including this override's own steps`, [wide.edit], docsAnchor("preset-override-group")));
+          continue;
         }
       }
-      return [
-        {
-          id: OFFER_ID,
-          rule: OFFER_ID,
-          severity: "info",
-          tier: "source",
-          where: {},
-          message: "switching event delivery to the queue",
-          suggestion: missing !== undefined ? `add "eventsQueue" to the features array by hand; could not locate: ${missing}` : `adds "eventsQueue" to the features array; presetModuleConfig() takes it from there. run pnpm install afterwards`,
-          fix: edits.length > 0 ? { kind: "auto", edits } : { kind: "manual" },
-          docs: docsAnchor("preset-event-queue-offer"),
-        },
-      ];
-    },
-  };
-}
+      if (answer !== undefined) {
+        findings.push(manualFinding(id, "preset/override-group", where, problem.message, "wrap the write steps in { atomic: [...] } yourself", docsAnchor("preset-override-group")));
+        continue;
+      }
+      findings.push({
+        id,
+        rule: "preset/override-group",
+        severity: "error",
+        tier: "source",
+        where,
+        message: `override for "${pipelineName}" drops the atomic group around ${members.map((m) => `"${m}"`).join(", ")}, and its own steps sit in the same window (${result.extra.map((m) => `"${m}"`).join(", ")})`,
+        suggestion: "each included step must be declared atomicSafe by its own module",
+        fix: { kind: "ask", question: `override-group:${pipelineName}`, prompt: `include ${result.extra.join(", ")} in the atomic group around "${pipelineName}"'s write, or leave this for manual review?`, choices: ["manual", "include"] },
+        docs: docsAnchor("preset-override-group"),
+      });
+    }
+    return findings;
+  },
+};
 
-export const layerRules: readonly Rule[] = [layerRangeRule, relayScopeRule, loadIssuesRule(), presetProblemsRule(), overrideDriftRule(), queueOfferRule()];
+/**
+ * Appends `events.relay` after the last `events.emit:` step a layer preset override keeps, using
+ * `locateSteps`; manual when the override's own step array cannot be located.
+ */
+export const overrideRelayRule: Rule = {
+  id: "preset/override-relay",
+  check(ctx) {
+    const data = layerProjectData(ctx.project);
+    if (data === undefined) return [];
+    const problems = data.presetProblems.filter((p) => p.code === "preset/override-drops-relay" && p.pipeline !== undefined);
+    if (problems.length === 0) return [];
+    const locate = ctx.locateSteps ?? layerLocateSteps;
+    return problems.map((problem): Finding => {
+      const pipelineName = problem.pipeline!;
+      const id = `preset/override-relay:${pipelineName}`;
+      const where = { pipeline: pipelineName };
+      const file = ctx.project.pipelineFiles.get(pipelineName);
+      const source = file === undefined ? undefined : ctx.readFile(file);
+      const edit = file !== undefined && source !== undefined ? insertStepAfterLastEmit(file, source, { pipelineName, newStep: "events.relay", locateSteps: locate }) : undefined;
+      return edit === undefined
+        ? manualFinding(id, "preset/override-relay", where, problem.message, "append events.relay after the pipeline's events.emit: step yourself", docsAnchor("preset-override-relay"))
+        : autoFinding(id, "preset/override-relay", where, problem.message, "appends events.relay after the pipeline's last events.emit: step", [edit], docsAnchor("preset-override-relay"));
+    });
+  },
+};
+
+/**
+ * Replaces kestrel's own `model/underscore-field` for a layer project: the built-in rule reads
+ * `config.types.<typeName>.fields` on a module-list entry in `kestrel.config.ts`, which a layer project's
+ * content model never has — it lives in `shared/model.ts`, wired in by `presetModuleConfig()` at runtime.
+ * This version reads the collections the captured preset options carry and edits that file directly, with
+ * `locateModelFields` finding its `fields` object by structure. No data step exists for a layer project
+ * yet, so a rename is never auto-applied as "proven safe" — always an explicit answer.
+ */
+export const underscoreFieldOverrideRule: Rule = {
+  id: "model/underscore-field",
+  check(ctx) {
+    const cast = presetOptionsCast(ctx);
+    if (cast === undefined) return [];
+    const collections = cast.collections ?? {};
+    const findings: Finding[] = [];
+    for (const [typeName, model] of Object.entries(collections)) {
+      for (const field of Object.keys(model.fields ?? {})) {
+        if (!field.startsWith("_")) continue;
+        const id = `model/underscore-field:${typeName}.${field}`;
+        const where = { path: `types.${typeName}.fields.${field}` };
+        const questionId = `underscore-field:${typeName}.${field}`;
+        const target = field.replace(/^_+/, "");
+        const answer = ctx.answers.get(questionId);
+        if (answer === undefined) {
+          findings.push({
+            id,
+            rule: "model/underscore-field",
+            severity: "error",
+            tier: "source",
+            where,
+            message: `"${field}" on content type "${typeName}" starts with "_", which fails boot on 6.0.0`,
+            suggestion: "no data step exists yet to prove no stored value exists; add a migration on the running 5.8.x instance first if data may exist, then answer to rename",
+            fix: { kind: "ask", question: questionId, prompt: `rename "${field}" on "${typeName}" to`, choices: [target, "remove"] },
+            docs: docsAnchor("model-underscore-field"),
+          });
+          continue;
+        }
+        if (answer === "remove") continue;
+        const file = sharedModelFile(ctx);
+        const source = ctx.readFile(file);
+        const edit = source === undefined ? undefined : renameContentField(file, source, { use: "", typeName, from: field, to: answer, locateModelFields: ctx.locateModelFields ?? layerLocateModelFields });
+        findings.push({
+          id,
+          rule: "model/underscore-field",
+          severity: "warning",
+          tier: "source",
+          where,
+          message: `"${field}" on content type "${typeName}" starts with "_"`,
+          suggestion: edit === undefined ? `could not locate "shared/model.ts"'s content type; rename "${field}" to "${answer}" by hand` : `renamed to "${answer}" — not proven safe; add a migration on the running 5.8.x instance first if data may exist`,
+          fix: edit === undefined ? { kind: "manual" } : { kind: "auto", edits: [edit] },
+          docs: docsAnchor("model-underscore-field"),
+        });
+      }
+    }
+    return findings;
+  },
+};
+
+export const layerRules: readonly Rule[] = [layerRangeRule, relayScopeRule, presetProblemsRule, overrideDriftRule, overrideGroupRule, overrideRelayRule];
