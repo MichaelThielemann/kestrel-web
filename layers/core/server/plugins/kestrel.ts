@@ -85,9 +85,9 @@ export function getKestrel(): Promise<Kestrel> {
   instance ??= (async () => {
     try {
       const kestrel = await boot({ config: { ...config, modules: applyBundledSchemas(config.modules, bundledSchemas) }, modules, pipelines, logger: consoleLogger });
+      assertAdminBootstrapRoutes(kestrel);
       await kestrel.start();
       assertStatusFilters(kestrel);
-      assertAdminBootstrapRoutes(kestrel);
       warnIfImagesPublicPathMismatched(kestrel);
       await registerImageSizes(kestrel);
       state = "ready";
