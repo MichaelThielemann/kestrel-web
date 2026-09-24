@@ -1,34 +1,14 @@
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { definePipeline as defineRawPipeline, pipelineDefiner, isAtomicGroup, pipelineSteps } from "@michaelthielemann/kestrel/definePipeline";
-import type { PipelineDefinition } from "@michaelthielemann/kestrel/definePipeline";
-import type { TriggerConfig } from "@michaelthielemann/kestrel/defineConfig";
+import { pipelineDefiner } from "@michaelthielemann/kestrel/definePipeline";
 import type { PresetStep } from "../module-registry";
-import type { Workflow } from "../app/types/kestrel";
-import { customFieldTypes, fieldTypeSchemas } from "../field-types";
+import { fieldTypeSchemas } from "../field-types";
 import type { FieldTypes } from "../field-types";
 import { RESERVED_PAGE_SEGMENTS } from "../mount-path";
-import { appendRelay, applyExclude, applyFeaturePatches, applyOverrides, applySchedules, foldTrailingEmit, groupSignatureOf, mergePipelines } from "./compose";
-import type { GroupSignature, Patch, PresetEntry } from "./compose";
-import { basePipelines } from "./base";
-import type { PresetContext } from "./base";
-import { canonicalTriggers } from "./triggers";
-import { collectionPipelines, hasLocalizedField, insertCollectionTriggers, isGenericCollection, isPageLikeCollection, pipelinesByName, DEFAULT_COLLECTIONS } from "./collections";
-import type { CollectionModel, CollectionPipelineName } from "./collections";
-import ratelimit from "./features/ratelimit";
-import sanitizeSvg from "./features/sanitizeSvg";
-import references from "./features/references";
-import links from "./features/links";
-import delivery from "./features/delivery";
-import redirects from "./features/redirects";
-import images from "./features/images";
-import replication from "./features/replication";
-import migrations from "./features/migrations";
-import insights from "./features/insights";
-import audit, { AUDIT_MODULE, AUDIT_PRUNE_PIPELINE, AUDIT_RETENTION_KEY } from "./features/audit";
-import eventsQueue from "./features/eventsQueue";
-import revisions, { revisionPipelineNames } from "./features/revisions";
+import { buildPreset, throwSink } from "./checkPreset";
+import type { CollectionModel, Feature, Preset, PresetOptions } from "./checkPreset";
+import { DEFAULT_COLLECTIONS, isPageLikeCollection } from "./collections";
 
 export type { CollectionModel } from "./collections";
 export type { PresetEntry } from "./compose";
@@ -53,371 +33,35 @@ export type {
   PresetRoles,
   PresetSession,
 } from "./config";
+export {
+  checkPreset,
+  featureOrder,
+  RELAY_CANDIDATE_PIPELINES,
+  relayPipelinesFor,
+  staticPipelineNames,
+} from "./checkPreset";
+export type {
+  CheckPresetResult,
+  CronPipelineName,
+  Feature,
+  FeatureModule,
+  Preset,
+  PresetOptions,
+  PresetPipelineName,
+  PresetProblem,
+  StaticPipelineName,
+} from "./checkPreset";
 
 export const definePipeline = pipelineDefiner<PresetStep>();
 
-export type Feature = "ratelimit" | "sanitizeSvg" | "references" | "links" | "delivery" | "redirects" | "images" | "replication" | "migrations" | "audit" | "insights" | "eventsQueue" | "revisions";
-
-export interface FeatureModule {
-  modules: string[];
-  pipelines: Record<string, PresetEntry<PresetStep>[]>;
-  patches: readonly Patch<Feature, PresetStep>[];
-  triggers?: readonly TriggerConfig[];
-  derive?: (pipelines: Record<string, readonly PresetEntry[]>) => Record<string, PresetEntry[]>;
-}
-
-export const staticPipelineNames = [
-  "login", "logout", "me", "changePassword", "adminSchemaModel", "listUsers", "createUser", "getUser", "updateUser", "deleteUser", "setPassword", "deactivateUser", "activateUser",
-  "cleanupSessions", "getSettings", "setSettings", "listPages", "listAllPages", "readPage", "readAnyPage", "resolvePage", "createPage", "updatePage",
-  "deletePage", "uploadMedia", "exportMedia", "listMediaFolders", "createMediaFolder", "renameMediaFolder", "deleteMediaFolder",
-  "listMedia", "getMedia", "downloadMedia", "updateMedia", "deleteMedia", "reconcileMedia", "reconcileMediaReport", "reconcileMediaDelete",
-  "serveMediaFile", "repairPublicMedia", "syncPublicMedia",
-  "eventsDeliveryStatus",
-  "sweepRateLimits",
-  "brokenReferences", "pageReferrers", "pageReferrersMany", "mediaReferrers", "mediaReferrersMany", "rebuildReferences", "scanReferences",
-  "brokenLinks", "rebuildLinks", "checkLinks",
-  "publishPage", "unpublishPage", "pagePublishStatus", "publishAllPages",
-  "getRedirects", "setRedirects", "renderRedirects",
-  "serveImageVariant", "registerImageSizes", "registerImageSizesBoot", "listImageSizes", "syncImages", "pruneImages", "retryFailedImages", "imagesStatus", "planImageVariants", "generateImageVariants", "resumeImages",
-  "replicate", "replicationStatus", "replicationPoints", "replicationSnapshot", "replicationRestore",
-  "listMigrations", "applyMigrations",
-  "auditAuth", "anonymizeAuditUser", "retryAnonymizeAuditUser", "pruneAudit",
-  "insightsManifest", "insightsStats",
-  "eventsQueueStatus", "eventsDead", "eventsRetryDead", "eventsRetryOne", "purgeEvents",
-  "pageRevisions", "pageRevision", "labelPageRevision", "restorePageRevision", "pruneRevisions",
-  "reassignRevisionAuthor", "retryReassignRevisionAuthor",
-] as const;
-
-export type StaticPipelineName = (typeof staticPipelineNames)[number];
-
-export type PresetPipelineName<C extends Record<string, CollectionModel> = Record<string, CollectionModel>> =
-  | StaticPipelineName
-  | CollectionPipelineName<C>;
-
-export type CronPipelineName = "cleanupSessions" | "sweepRateLimits" | "scanReferences" | "checkLinks" | "resumeImages" | "replicate" | "reconcileMedia" | "syncPublicMedia" | "purgeEvents" | "pruneRevisions" | "pruneAudit";
-
-export interface PresetOptions<C extends Record<string, CollectionModel> = Record<string, CollectionModel>, S extends string = PresetStep> {
-  modules: readonly { use: string; config?: unknown }[];
-  features: readonly Feature[];
-  collections?: C;
-  collectionsUi?: Record<string, { workflow?: Workflow }>;
-  fieldTypes?: FieldTypes;
-  overrides?: Partial<Record<PresetPipelineName<C>, readonly PresetEntry<NoInfer<S>>[]>>;
-  exclude?: readonly PresetPipelineName<C>[];
-  schedules?: Partial<Record<CronPipelineName, string>>;
-  exportDir?: string;
-  homeSlug?: string;
-}
-
-export interface Preset {
-  pipelines: PipelineDefinition[];
-  triggers: TriggerConfig[];
-}
-
-const featureFactories: Record<Feature, (context: PresetContext) => FeatureModule> = {
-  ratelimit,
-  sanitizeSvg,
-  references,
-  links,
-  delivery,
-  redirects,
-  images,
-  replication,
-  migrations,
-  audit,
-  insights,
-  eventsQueue,
-  revisions,
-};
-
-function featureKeys(factories: Record<Feature, unknown>): readonly Feature[] {
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Object.keys always returns string[]; factories is declared Record<Feature, unknown> so its keys are exactly Feature
-  return Object.keys(factories) as Feature[];
-}
-
-export const featureOrder: readonly Feature[] = featureKeys(featureFactories);
-
-const VALIDATE_JSONSCHEMA_MODULE = "@michaelthielemann/kestrel-validate-jsonschema";
-const EVENTS_BUS_MODULE = "@michaelthielemann/kestrel-events-inmemory";
-const EVENTS_QUEUE_MODULE = "@michaelthielemann/kestrel-events-queue";
-const EVENTS_DIRECT_MODULE = "@michaelthielemann/kestrel-events-direct";
-
-/** The event-triggered pipelines the `eventsQueue` module's relay may keep in the request; see `relayPipelinesFor`. */
-export const RELAY_CANDIDATE_PIPELINES = ["publishPage", "unpublishPage"] as const;
-
 /**
- * The `relayPipelines` that `presetModuleConfig()` gives the queue's relay: `RELAY_CANDIDATE_PIPELINES` when
- * `features` includes `delivery`, otherwise `[]`. It reads only the feature list, not the composed pipelines;
- * `definePreset()` checks the configured names against what it composes.
+ * Composes a preset, throwing at the first problem — the same engine, messages and order as
+ * `checkPreset()`, which instead collects every problem it finds.
  */
-export function relayPipelinesFor(features: readonly Feature[]): string[] {
-  return features.includes("delivery") ? [...RELAY_CANDIDATE_PIPELINES] : [];
-}
-
-const CONDITIONAL_CRON_HINTS: Record<string, string> = {
-  [AUDIT_PRUNE_PIPELINE]: `module "${AUDIT_MODULE}" has no "${AUDIT_RETENTION_KEY}", so there is nothing to prune – pass audit: { ${AUDIT_RETENTION_KEY} } to presetModuleConfig()`,
-};
-
-function configuredRelayPipelines(modules: readonly { use: string; config?: unknown }[]): string[] | undefined {
-  const config = modules.find((entry) => entry.use === EVENTS_QUEUE_MODULE)?.config;
-  if (typeof config !== "object" || config === null || !("relayPipelines" in config)) return undefined;
-  const value = Reflect.get(config, "relayPipelines");
-  return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === "string") : undefined;
-}
-
-function configuredLaneMembers(modules: readonly { use: string; config?: unknown }[]): string[] | undefined {
-  const config = modules.find((entry) => entry.use === EVENTS_QUEUE_MODULE)?.config;
-  if (typeof config !== "object" || config === null || !("lanes" in config)) return undefined;
-  const lanes = Reflect.get(config, "lanes");
-  if (typeof lanes !== "object" || lanes === null) return undefined;
-  return Object.values(lanes).flatMap((entry) => (Array.isArray(entry) ? entry.filter((step): step is string => typeof step === "string") : []));
-}
-
-function hasRedirectsRulesSchema(config: unknown): boolean {
-  if (typeof config !== "object" || config === null || !("schemas" in config)) return false;
-  const schemas = (config as { schemas?: unknown }).schemas;
-  return typeof schemas === "object" && schemas !== null && "redirects.rules" in schemas;
-}
-
-const PAGE_REQUIRING_FEATURES: readonly Feature[] = ["references", "links", "delivery"];
-
-const COLLECTION_NAME_PATTERN = /^[a-z][a-z0-9_]*$/;
-const RESERVED_COLLECTION_NAMES = new Set(["site", "media", "users", "health", "login", "logout", "me", "admin"]);
-
-function validateCollectionNames(collections: Record<string, CollectionModel>): void {
-  for (const name of Object.keys(collections)) {
-    if (!COLLECTION_NAME_PATTERN.test(name)) {
-      throw new Error(
-        `preset: collection name "${name}" must match ${COLLECTION_NAME_PATTERN} (lowercase letters, digits and underscores, starting with a letter)`
-        + " – kestrel-content-default and kestrel-validate-jsonschema reject anything else at boot",
-      );
-    }
-    if (RESERVED_COLLECTION_NAMES.has(name)) {
-      throw new Error(`preset: collection name "${name}" is reserved`);
-    }
-  }
-}
-
 export function definePreset<C extends Record<string, CollectionModel> = Record<string, CollectionModel>, S extends string = PresetStep>(
   options: PresetOptions<C, S>,
 ): Preset {
-  const exportDir = options.exportDir ?? resolve(process.env.KESTREL_APP_ROOT ?? process.cwd(), "data/export");
-  const homeSlug = options.homeSlug ?? "home";
-  const collections: Record<string, CollectionModel> = options.collections ?? DEFAULT_COLLECTIONS;
-  validateCollectionNames(collections);
-  const customFields = customFieldTypes(collections, options.fieldTypes ?? {});
-  const context: PresetContext = { exportDir, homeSlug, collections, customFields, modules: options.modules, ...(options.collectionsUi === undefined ? {} : { collectionsUi: options.collectionsUi }) };
-
-  const pagesModel = collections.pages;
-  context.pagesTranslatable = pagesModel !== undefined && pagesModel.kind === "multi" && hasLocalizedField(pagesModel);
-
-  const enabledFeatures = new Set<Feature>(options.features);
-  const configuredModules = new Set(options.modules.map((entry) => entry.use));
-  context.eventsQueued = enabledFeatures.has("eventsQueue");
-
-  if (!("pages" in collections)) {
-    for (const feature of PAGE_REQUIRING_FEATURES) {
-      if (enabledFeatures.has(feature)) {
-        throw new Error(`preset: feature "${feature}" requires a "pages" collection`);
-      }
-    }
-  }
-
-  let pipelines: Record<string, PresetEntry[]> = basePipelines(context, collections);
-  const composablePipelineNames = new Set<string>([...staticPipelineNames, ...RELAY_CANDIDATE_PIPELINES]);
-  for (const [name, model] of Object.entries(collections)) {
-    if (!isGenericCollection(name)) continue;
-    const generated = collectionPipelines(name, model, options.collectionsUi?.[name], customFields[name]);
-    for (const pipeline of Object.values(generated)) composablePipelineNames.add(pipeline.name);
-    pipelines = mergePipelines(pipelines, pipelinesByName(generated), name, "collection");
-    if (model.kind === "multi") {
-      const names = revisionPipelineNames(name);
-      composablePipelineNames.add(names.revisions);
-      composablePipelineNames.add(names.revision);
-      composablePipelineNames.add(names.labelRevision);
-      composablePipelineNames.add(names.restoreRevision);
-    }
-  }
-
-  const featureTriggers: TriggerConfig[] = [];
-  for (const feature of featureOrder) {
-    const module = featureFactories[feature](context);
-    if (enabledFeatures.has(feature)) {
-      for (const use of module.modules) {
-        if (!configuredModules.has(use)) {
-          throw new Error(`preset: feature "${feature}" requires module "${use}"`);
-        }
-      }
-      pipelines = mergePipelines(pipelines, module.pipelines, feature);
-      pipelines = applyFeaturePatches(pipelines, feature, module.patches, enabledFeatures);
-      if (module.derive) pipelines = mergePipelines(pipelines, module.derive(pipelines), feature);
-      featureTriggers.push(...(module.triggers ?? []));
-    } else {
-      for (const use of module.modules) {
-        if (configuredModules.has(use) && feature !== "eventsQueue") {
-          console.warn(`preset: module "${use}" is configured but feature "${feature}" is not enabled – its pipelines and steps are not wired`);
-        }
-      }
-    }
-  }
-
-  const folded: Record<string, PresetEntry[]> = {};
-  for (const [name, entries] of Object.entries(pipelines)) {
-    const withEmitPlaced = enabledFeatures.has("eventsQueue") ? foldTrailingEmit(name, entries) : entries;
-    folded[name] = appendRelay(withEmitPlaced);
-  }
-  pipelines = folded;
-
-  const groupedSignatures = new Map<string, GroupSignature>();
-  const relayedPipelines = new Set<string>();
-  for (const [name, entries] of Object.entries(pipelines)) {
-    for (const entry of entries) {
-      if (!isAtomicGroup(entry)) continue;
-      const signature = groupSignatureOf(entry);
-      if (signature !== undefined) groupedSignatures.set(name, signature);
-    }
-    if (pipelineSteps(entries).includes("events.relay")) relayedPipelines.add(name);
-  }
-
-  if (enabledFeatures.has("redirects")) {
-    const validateModule = options.modules.find((entry) => entry.use === VALIDATE_JSONSCHEMA_MODULE);
-    if (validateModule === undefined) {
-      throw new Error(`preset: feature "redirects" needs module "${VALIDATE_JSONSCHEMA_MODULE}" with schema "redirects.rules" – use presetSchemas()`);
-    }
-    if (!hasRedirectsRulesSchema(validateModule.config)) {
-      throw new Error('preset: feature "redirects" needs schema "redirects.rules" in validate-jsonschema config – use presetSchemas()');
-    }
-  }
-
-  if (!configuredModules.has(EVENTS_BUS_MODULE)) {
-    throw new Error(`preset: every instance needs module "${EVENTS_BUS_MODULE}" – it provides events@1 – use presetModuleConfig()`);
-  }
-  const delivery = [EVENTS_QUEUE_MODULE, EVENTS_DIRECT_MODULE].filter((use) => configuredModules.has(use));
-  if (delivery.length !== 1) {
-    throw new Error(
-      `preset: configure exactly one event delivery module, "${EVENTS_QUEUE_MODULE}" or "${EVENTS_DIRECT_MODULE}" – found ${
-        delivery.length === 0 ? "none" : delivery.map((use) => `"${use}"`).join(" and ")
-      }`,
-    );
-  }
-  if (!enabledFeatures.has("eventsQueue") && configuredModules.has(EVENTS_QUEUE_MODULE)) {
-    throw new Error(`preset: module "${EVENTS_QUEUE_MODULE}" is configured but feature "eventsQueue" is not enabled – use presetModuleConfig()`);
-  }
-
-  let triggers: TriggerConfig[] = canonicalTriggers
-    .filter((entry) => entry.feature === undefined || enabledFeatures.has(entry.feature))
-    .filter((entry) => !("http" in entry.trigger) || entry.trigger.pipeline !== "resolvePage" || "pages" in collections)
-    .map((entry) => entry.trigger);
-  triggers = [...insertCollectionTriggers(triggers, collections), ...featureTriggers];
-
-  const overrideNames = new Set(Object.keys(options.overrides ?? {}));
-  const excludeNames = new Set<string>(options.exclude ?? []);
-  for (const name of excludeNames) {
-    if (overrideNames.has(name)) {
-      throw new Error(`preset: pipeline "${name}" is both overridden and excluded`);
-    }
-  }
-
-  const cronPipelineNames = new Set(triggers.filter((trigger) => "cron" in trigger).map((trigger) => trigger.pipeline));
-  const cronPipelineFeatures = new Map(
-    canonicalTriggers.filter((entry) => "cron" in entry.trigger).map((entry) => [entry.trigger.pipeline, entry.feature]),
-  );
-  for (const [name, cron] of Object.entries(options.schedules ?? {})) {
-    if (cron === undefined) continue;
-    if (!cronPipelineNames.has(name)) {
-      const hint = CONDITIONAL_CRON_HINTS[name];
-      if (hint !== undefined) {
-        throw new Error(`preset: schedule for pipeline "${name}" – ${hint}`);
-      }
-      const gatingFeature = cronPipelineFeatures.get(name);
-      if (gatingFeature !== undefined) {
-        throw new Error(`preset: schedule for pipeline "${name}" – feature "${gatingFeature}" is not enabled`);
-      }
-      throw new Error(`preset: schedule for unknown cron pipeline "${name}"`);
-    }
-    if (excludeNames.has(name)) {
-      throw new Error(`preset: pipeline "${name}" is both excluded and rescheduled`);
-    }
-  }
-
-  pipelines = applyOverrides(pipelines, options.overrides ?? {});
-
-  for (const [name, signature] of groupedSignatures) {
-    const entries = pipelines[name];
-    if (entries === undefined) continue;
-    const stillGrouped = entries.some((entry) => {
-      if (!isAtomicGroup(entry)) return false;
-      const overridden = groupSignatureOf(entry);
-      if (overridden === undefined) return false;
-      return signature.target !== undefined ? overridden.target === signature.target : overridden.step === signature.step;
-    });
-    if (!stillGrouped) {
-      throw new Error(
-        `preset: override for "${name}" drops the atomic group around "${signature.step}" – wrap the write steps in { atomic: [...] } or exclude the pipeline`,
-      );
-    }
-  }
-
-  for (const name of relayedPipelines) {
-    const entries = pipelines[name];
-    if (entries === undefined) continue;
-    if (!pipelineSteps(entries).includes("events.relay")) {
-      throw new Error(
-        `preset: override for "${name}" drops "events.relay" – append it after the pipeline's events.emit: step, or exclude the pipeline and define your own`,
-      );
-    }
-  }
-
-  const adminSchemaModel = pipelines.adminSchemaModel;
-  if (adminSchemaModel !== undefined && !pipelineSteps(adminSchemaModel).includes("authz.describePipelineAccess")) {
-    throw new Error('preset: override for "adminSchemaModel" drops "authz.describePipelineAccess" – the admin reads the caller\'s pipeline access from it');
-  }
-
-  const generateImageVariants = pipelines.generateImageVariants;
-  if (enabledFeatures.has("eventsQueue")) {
-    const planImageVariants = pipelines.planImageVariants;
-    if (planImageVariants !== undefined) {
-      const steps = pipelineSteps(planImageVariants);
-      if (steps[0] !== "images.plan" || steps[1] !== "events.emit:images.planned") {
-        throw new Error('preset: override for "planImageVariants" must run "images.plan" and emit "images.planned" – items would stay unavailable until the repair pass');
-      }
-    }
-    if (generateImageVariants !== undefined && pipelineSteps(generateImageVariants).includes("images.plan")) {
-      throw new Error('preset: override for "generateImageVariants" must not place – placing runs in the main lane');
-    }
-    if (generateImageVariants !== undefined && enabledFeatures.has("images")) {
-      const laneMembers = configuredLaneMembers(options.modules);
-      if (laneMembers !== undefined && !laneMembers.includes("generateImageVariants")) {
-        throw new Error(`preset: module "${EVENTS_QUEUE_MODULE}" must run "generateImageVariants" in a lane of its own – a render must never block placing new items`);
-      }
-    }
-  } else if (generateImageVariants !== undefined && pipelineSteps(generateImageVariants).includes("images.plan")) {
-    throw new Error('preset: override for "generateImageVariants" runs "images.plan" inline – placeholders are never written in the upload request');
-  }
-
-  const excluded = applyExclude(pipelines, triggers, options.exclude ?? []);
-  pipelines = excluded.pipelines;
-  triggers = excluded.triggers;
-
-  const configuredRelay = configuredRelayPipelines(options.modules);
-  if (configuredRelay !== undefined) {
-    for (const name of configuredRelay) {
-      if (!composablePipelineNames.has(name)) continue;
-      if (!Object.hasOwn(pipelines, name)) {
-        throw new Error(
-          `preset: module "${EVENTS_QUEUE_MODULE}" is configured to relay pipeline "${name}", which the preset does not compose – exclude it from relayPipelines too, or keep the pipeline`,
-        );
-      }
-    }
-  }
-
-  triggers = applySchedules(triggers, options.schedules ?? {});
-
-  const pipelineDefs = Object.keys(pipelines)
-    .sort()
-    .map((name) => defineRawPipeline({ name, steps: pipelines[name] ?? [] }));
-
-  return { pipelines: pipelineDefs, triggers };
+  return buildPreset(options, throwSink());
 }
 
 export function presetSchemas({
