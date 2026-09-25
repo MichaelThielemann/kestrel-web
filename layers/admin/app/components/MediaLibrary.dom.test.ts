@@ -42,7 +42,8 @@ const uploadControl = vi.hoisted(() => {
       state.fail = (error) => reject(error)
     })
   }
-  return { state, transport }
+  const reset = () => { state.deliver = null; state.fail = null }
+  return { state, transport, reset }
 })
 
 mockNuxtImport('useUploadTransport', () => () => uploadControl.transport)
@@ -207,7 +208,7 @@ describe('MediaLibrary upload status', () => {
     }))
     unregisterAll.push(registerEndpoint('/api/limits', { method: 'GET', handler: () => ({ maxUploadBytes: null }) }))
 
-    uploadControl.state.deliver = null
+    uploadControl.reset()
     const wrapper = await mountSuspended(MediaLibrary, { attachTo: document.body })
     onTestFinished(() => wrapper.unmount())
 
