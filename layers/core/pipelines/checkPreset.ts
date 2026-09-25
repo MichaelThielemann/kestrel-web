@@ -541,15 +541,6 @@ export function buildPreset<C extends Record<string, CollectionModel> = Record<s
         pipeline: name,
         message: `preset: override for "${name}" places "events.relay" before the entry carrying its events.emit: step – a relay reported before the emit runs answers "done" before delivery starts; move it after that entry`,
       });
-      continue;
-    }
-    const emitEntry = entries[emitIndex];
-    if (enabledFeatures.has("eventsQueue") && emitEntry !== undefined && !isAtomicGroup(emitEntry) && entries.some(isAtomicGroup)) {
-      sink.report({
-        code: "preset/override-emit-outside-group",
-        pipeline: name,
-        message: `preset: override for "${name}" keeps its events.emit: step outside the atomic group with the "eventsQueue" feature – the outbox write is then not atomic with the document; move the emit inside { atomic: [...] }`,
-      });
     }
   }
 

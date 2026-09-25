@@ -1021,8 +1021,7 @@ stay checked alongside your addition.
 - An `overrides` entry that drops the atomic group of a preset write pipeline → throws, naming the
   pipeline and the `content.*` step whose group it removed (see the `overrides` bullet above).
 - An `overrides` entry that keeps `events.relay` but places it before the entry carrying the pipeline's
-  own `events.emit:` step, or that keeps that emit outside the atomic group with the `eventsQueue`
-  feature → throws, naming the pipeline.
+  own `events.emit:` step → throws, naming the pipeline.
 
 ### Consumer-side prerequisites the preset cannot check
 

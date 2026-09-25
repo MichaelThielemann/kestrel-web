@@ -196,12 +196,11 @@ describe("checkPreset: dependent re-rendering and queue lanes", () => {
     expect(checkPreset(testOptions).preset.pipelines.find((p) => p.name === "deletePage")?.steps).toEqual(override);
   });
 
-  it("collects an override that keeps the eventsQueue feature's emit outside the atomic group it should join", () => {
+  it("accepts an eventsQueue override that keeps events.emit outside the group but relay correctly after it: the upgrade tool's own rule offers moving it in, checkPreset does not block it", () => {
     const features = ["eventsQueue"];
     const override = ["authn.requireUser", "authz.require:pages.manage", { atomic: ["content.remove:pages"] }, "events.emit:page.deleted", "events.relay"];
     const testOptions = options({ modules: modules(features), features, collections, overrides: { deletePage: override } });
-    expectParity(testOptions, "preset/override-emit-outside-group", "deletePage");
-    expect(checkPreset(testOptions).preset.pipelines.find((p) => p.name === "deletePage")?.steps).toEqual(override);
+    expect(checkPreset(testOptions).problems).toEqual([]);
   });
 
   it("collects a queue entry without lanes when images renders variants, since they would run in the main lane", () => {
