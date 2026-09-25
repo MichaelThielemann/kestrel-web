@@ -449,6 +449,12 @@
   - Override edits also find overrides in a pipeline changes object a `definePreset()` call spreads.
   - `site/private-fields` also reports a page's timestamps read off `useSitePage()`, a `site:` data key or a
     value typed `PageDocument`.
+  - `site/media-url-from-id` reports a hand-built media URL (`` `/api/media/${id}/file` ``, `"/api/media/" +
+    id`), in a script or a `<template>` binding alike: production has no `/api` route, so the file 404s once
+    the page is exported. Read the item's own public `path` instead.
+  - `site/media-paths` runs the publicPath/publicCopy/reservedPaths part of the layer's own boot-time media
+    check against the configured module list, so a config `check` accepted but the real boot refuses (a
+    `publicPath: "/api/media"` suggestion, say) is now caught before it boots.
 
 ### Changed
 
@@ -513,6 +519,20 @@
   `kestrel.start()` instead of after. A failure used to leave crons and, with the `eventsQueue` feature,
   the queue worker running while `/api/*` answered 503; it now stops the process from starting them at
   all.
+
+- `kestrel-web-upgrade`:
+  - A `checkPreset()` problem code (already prefixed `preset/` at the source) no longer gets a second
+    `preset/` prepended onto its finding id and rule when no more specific rule owns it (`preset/preset/…`).
+  - `addModuleEntryConfigProperty` no longer doubles a comma when the object it inserts into already ends
+    in a trailing one (`llms: {…},` followed by the new property landed as `llms: {…},\n  , newProperty`).
+  - `static/unstable-key` also catches a `watch` on a variable bound to `useSiteLocale()`'s own result
+    (`const locale = useSiteLocale(); …; watch: [locale]`), not only an inline `watch: [useSiteLocale()]`
+    call; its message now names a project-relative path instead of the scratch directory's absolute one
+    (`responses/delivery-async` and `static/server-cache` had the same leak and are fixed the same way).
+  - `ops/publish-all` no longer depends on the layer's package.json range: it used to go silent the moment
+    that range was bumped to `^3.0.0`, which the docs' own upgrade steps do before the rest of the
+    migration is done, hiding the note exactly while it still mattered. It now fires whenever `delivery`
+    is on, regardless of any package.json range.
 
 - `sanitizedHtmlKey` is no longer auto-imported into consumer server or app code — it moved out of
   `layers/public/app/composables` into a plain module `useSanitizedHtml` imports, since nothing but its
