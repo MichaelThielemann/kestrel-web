@@ -46,9 +46,27 @@ describe('readPageData', () => {
     expect(result).toEqual({ ok: true, page: { path: '/about', data: { 'site:/about': { id: 'p1', title: 'About' }, 'site:settings:de': { title: 'Site' } } } })
   })
 
-  it('accepts a page rendered under a base URL', () => {
+  it('accepts a page rendered under a base URL, whose payload path carries no base', () => {
+    const html = exportedPage({ path: '/about', data: { 'site:/about': { id: 'p1' } } })
+    expect(readPageData(html, '/about', { ...context, baseURL: '/sub/' })).toMatchObject({ ok: true })
+  })
+
+  it('accepts a payload path that carries the base URL', () => {
     const html = exportedPage({ path: '/sub/about', data: { 'site:/about': { id: 'p1' } } })
     expect(readPageData(html, '/about', { ...context, baseURL: '/sub/' })).toMatchObject({ ok: true })
+  })
+
+  it('strips the base URL only at a segment boundary', () => {
+    const subway = exportedPage({ path: '/subway', data: { 'site:/subway': { id: 'p2' } } })
+    expect(readPageData(subway, '/subway', { ...context, baseURL: '/sub/' })).toMatchObject({ ok: true })
+    const sub = exportedPage({ path: '/sub', data: { 'site:/sub': { id: 'p3' } } })
+    expect(readPageData(sub, '/sub', { ...context, baseURL: '/sub/' })).toMatchObject({ ok: true })
+    expect(readPageData(subway, '/way', { ...context, baseURL: '/sub/' })).toEqual({ ok: false, reason: 'it was rendered for /subway' })
+  })
+
+  it('refuses the file behind an index.html link, which was rendered for its site path', () => {
+    const html = exportedPage({ path: '/about' })
+    expect(readPageData(html, '/about/index.html', context)).toEqual({ ok: false, reason: 'it was rendered for /about' })
   })
 
   it('reads the home page', () => {
@@ -71,6 +89,18 @@ describe('readPageData', () => {
     const result = readPageData(html, '/about', context)
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.reason).toMatch(reason)
+  })
+
+  it('refuses a payload holding a server component without running the island reviver', () => {
+    class Island {
+      constructor(readonly key: string) {}
+    }
+    const payload = { data: { 'site:/about': { id: 'p1', teaser: new Island('teaser-1') } }, state: {}, _errors: {}, path: '/about' }
+    const text = stringify(payload, { Island: (value: unknown) => value instanceof Island && { key: value.key, params: {}, result: {} } })
+    const island = vi.fn((value: unknown) => value)
+    const result = readPageData(exportedPage({ payloadText: text }), '/about', { ...context, revivers: { Island: island } })
+    expect(result).toEqual({ ok: false, reason: 'its payload holds a server component (island)' })
+    expect(island).not.toHaveBeenCalled()
   })
 
   it('revives through the revivers it is given', () => {

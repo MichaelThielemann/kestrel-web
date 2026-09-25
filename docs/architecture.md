@@ -1612,18 +1612,22 @@ already carries in `window.__NUXT__.config`.
 
 With the marker present, `layers/public/app/plugins/static-delivery.client.ts` registers one global
 route middleware. It skips the navigation that hydrates the page and any navigation that stays on the
-same site path (`sitePath()`: `/about/` and `/about/index.html` stand for `/about`). For every other
+same site path (`sitePath()`: `/about/` stands for `/about`). For every other
 navigation it fetches the target's exported document (`<app.baseURL><path>`, `redirect: "error"`,
 `Accept: text/html`), parses it with `DOMParser` (scripts in a parsed document never run), revives the
-`__NUXT_DATA__` payload with devalue and Nuxt's payload revivers (`nuxtApp._payloadRevivers`), and writes
-the payload's `data` into `nuxtApp.static.data`, where `useAsyncData`'s default `getCachedData` looks
-outside hydration, the same way Nuxt's own payload loader does. The keys the previous navigation added
-are removed first. The target's `state`, `once` and `_errors` are not applied.
+`__NUXT_DATA__` payload with devalue and Nuxt's payload revivers (`nuxtApp._payloadRevivers`, without
+the `Island` reviver, so reading a page never fetches `/__nuxt_island/…`), and writes the payload's `data`
+into `nuxtApp.static.data`, where `useAsyncData`'s default `getCachedData` looks outside hydration, the
+same way Nuxt's own payload loader does. The keys the previous navigation added are removed first. The
+target's `state`, `once` and `_errors` are not applied. A navigation that a newer one has superseded
+(another click, Back, a hash link) while its fetch was pending does nothing when the fetch settles: it
+neither writes data nor leaves for a document load.
 
 The fetched document is used only when the request succeeds without a redirect, the status is 2xx, the
 content type is `text/html`, `<html>` carries the marker and the running build's id, the payload is
 embedded (no `data-src`), was rendered on the server (no `data-ssr="false"`), is a devalue array that
-revives, names the target's site path as its `path` (taken without `app.baseURL`), and holds
+revives and holds no server component (island), names the target's site path as its `path` (Nitro records
+it without `app.baseURL`; a base in front of it is removed only at a segment boundary), and holds
 `site:<path>`. Otherwise the navigation becomes one document load of the target URL: `location.assign`
 after a click, `location.reload` when the browser already shows the target (Back and Forward). The
 console gets one warning per path naming the reason, and the host, or the edge in front of it, answers
@@ -1637,6 +1641,11 @@ HTML, which the HTTP cache keeps for a later reload of the same page.
 The static host must not answer an unknown path with another page's HTML (an SPA fallback such as
 `try_files … /index.html`): the path check turns that into a document load, and the wrong page then
 hydrates into a client-side error page.
+
+`/about/index.html` is a file path, not a page path: the Node server answers it with 404, as the API
+does. On the static host the file exists; a document load of it hydrates as `/about`, because Nuxt
+takes the route from the path the page was rendered for, and a client-side link to it fails the path
+check and becomes a document load.
 
 ### `useApi()` on a static page
 
@@ -1701,7 +1710,7 @@ carries one, so llms.txt lists absolute URLs rather than paths.
 `app/pages/[...slug].vue` resolves `/api/site<path>` through `useApi()` (in-process `localFetch` during
 SSR), renders the document with `KestrelBlockRenderer` and sets `<head>` from `seo`. Its data keys are
 deterministic, so a server-rendered key is found again on client navigation of a static page: the page
-under `site:<site path>` (`sitePath()` maps `/about/` and `/about/index.html` to `/about`), its locale
+under `site:<site path>` (`sitePath()` maps `/about/` to `/about`), its locale
 links under `site:locales:<id>:<locale>`, the site settings under `site:settings:<locale>`
 (`useSiteSettings()`, shared with the layout) and media items under `media:<id>:<locale>`
 (`useMediaItem()`). A key that depends on the locale carries it instead of watching it, since inside a

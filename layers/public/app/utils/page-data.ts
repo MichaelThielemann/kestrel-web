@@ -31,10 +31,17 @@ function rejected(reason: string): PageDataResult {
 
 function withoutBase(path: string, baseURL: string): string {
   const base = baseURL.replace(/\/+$/, '')
-  if (base === '' || !path.startsWith(base)) return path
-  const rest = path.slice(base.length)
-  return rest.startsWith('/') ? rest : `/${rest}`
+  if (base === '') return path
+  if (path === base) return '/'
+  return path.startsWith(`${base}/`) ? path.slice(base.length) : path
 }
+
+function renderedFor(payloadPath: string, path: string, baseURL: string): string {
+  const rendered = sitePath(payloadPath.split(/[?#]/)[0] ?? '')
+  return rendered === path ? rendered : sitePath(withoutBase(rendered, baseURL))
+}
+
+const ISLAND_REVIVER = 'Island'
 
 /** The URL of a site path's exported document under the app's base URL. */
 export function pageDataUrl(baseURL: string, path: string): string {
@@ -49,14 +56,17 @@ function revive(text: string, revivers: PageDataContext['revivers']): { ok: true
     return { ok: false, reason: 'its payload is not JSON' }
   }
   if (!Array.isArray(parsed)) return { ok: false, reason: 'its payload is not a devalue array' }
+  const withoutIslands = Object.fromEntries(Object.entries(revivers).filter(([name]) => name !== ISLAND_REVIVER))
   try {
-    return { ok: true, value: unflatten(parsed, revivers) }
+    return { ok: true, value: unflatten(parsed, withoutIslands) }
   } catch (e) {
-    return { ok: false, reason: `its payload does not revive (${e instanceof Error ? e.message : String(e)})` }
+    const message = e instanceof Error ? e.message : String(e)
+    if (message === `Unknown type ${ISLAND_REVIVER}`) return { ok: false, reason: 'its payload holds a server component (island)' }
+    return { ok: false, reason: `its payload does not revive (${message})` }
   }
 }
 
-/** Reads the page data out of an exported page's HTML, or names why it cannot be used for `path`. Scripts in the parsed document never run. */
+/** Reads the page data out of an exported page's HTML, or names why it cannot be used for `path`. Scripts in the parsed document never run, and a payload holding a server component (island) is refused without reviving it. */
 export function readPageData(html: string, path: string, context: PageDataContext): PageDataResult {
   const doc = new DOMParser().parseFromString(html, 'text/html')
   const root = doc.documentElement
@@ -73,7 +83,7 @@ export function readPageData(html: string, path: string, context: PageDataContex
   const payload = revived.value
   if (!isRecord(payload) || typeof payload.path !== 'string') return rejected('its payload names no path')
 
-  const renderedPath = sitePath(withoutBase(payload.path.split(/[?#]/)[0] ?? '', context.baseURL))
+  const renderedPath = renderedFor(payload.path, path, context.baseURL)
   if (renderedPath !== path) return rejected(`it was rendered for ${renderedPath}`)
   const data = payload.data
   if (!isRecord(data) || data[`site:${path}`] === undefined) return rejected(`it holds no page data for ${path}`)
