@@ -452,6 +452,10 @@
 
 ### Fixed
 
+- `useReferrerLabels` now logs a lookup failure instead of silently falling back to the raw reference
+  key the same way it does when the caller simply has no `readAny` capability for that collection. The
+  fallback text is unchanged; only a genuine failure is now visible in the console.
+
 - The editor's delivery-retry toast now names the Events or Delivery tab from the save or delete
   answer's own relay status (`pending`/`queued` only ever come from the events queue) instead of a
   separate `useFeatures().has('eventsQueue')` check. A delivery that fails outright still names the

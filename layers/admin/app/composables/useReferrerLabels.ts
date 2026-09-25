@@ -13,7 +13,10 @@ export function useReferrerLabels(refs: Ref<ReferenceTo[]>) {
     const missing = list.filter((r) => !(referrerKey(r) in labels.value))
     await Promise.all(missing.map(async (r) => {
       const doc = capabilities.hasVerb(r.type, 'readAny')
-        ? await api<Record<string, unknown>>(capabilities.verbRoute(r.type, 'readAny', { id: r.id })).catch(() => null)
+        ? await api<Record<string, unknown>>(capabilities.verbRoute(r.type, 'readAny', { id: r.id })).catch((e: unknown) => {
+            console.error(`useReferrerLabels: could not load ${referrerKey(r)}`, e)
+            return null
+          })
         : null
       labels.value = { ...labels.value, [referrerKey(r)]: referrerLabel(r, doc, findCollection(schema.value, r.type)?.fields) }
     }))
