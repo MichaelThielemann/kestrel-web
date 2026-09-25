@@ -154,7 +154,7 @@ describe("site-2.0 (create-kestrel template shape, presetModuleConfig, no overri
   it("fix --write --answers switch-to-queue:yes switches delivery; the switched project still boots and logs in", async () => {
     const dir = await prepare("site-2.0");
     await fixWriteYes(dir); // unblocks the project's own load first (bumps ranges, adds sanitizeSvg)
-    const eventPipelines = ["generateImageVariants", "publishPage", "unpublishPage", "reassignRevisionAuthor"];
+    const eventPipelines = ["generateImageVariants", "publishPage", "unpublishPage", "reassignRevisionAuthor", "pageDependents", "settingsDependents", "mediaDependents"];
     const answersFile = join(dir, "answers.json");
     const { writeFileSync } = await import("node:fs");
     writeFileSync(answersFile, JSON.stringify({ "switch-to-queue": "yes", ...Object.fromEntries(eventPipelines.map((p) => [`idempotent:${p}`, "yes"])) }));
