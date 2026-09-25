@@ -104,8 +104,8 @@ export function useMediaUpload(cb: UploadCallbacks = {}) {
   async function uploadItem(item: UploadItem, provenance?: Provenance) {
     const result = await runAction(upload, { deps, item, provenance, transport })
     toastUnexpected(deps, result)
-    if (uploadFailed(item)) cb.onError?.(item)
-    else cb.onReady?.(item)
+    if (item.status === 'done') cb.onReady?.(item)
+    else if (uploadFailed(item)) cb.onError?.(item)
   }
 
   async function enqueueUploads(uploads: PendingUpload[], provenance?: Provenance) {

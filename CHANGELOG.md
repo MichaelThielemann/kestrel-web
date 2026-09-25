@@ -507,6 +507,11 @@
 
 ### Fixed
 
+- The media library upload tile no longer announces "uploaded" to screen readers when a session
+  expires mid-upload. `useMediaUpload` now fires its `onReady` callback only once an item's status
+  reaches `done`; a failed upload (including the swallowed 401) shows its failed state without a
+  false success announcement.
+
 - `useReferrerLabels` now logs a lookup failure instead of silently falling back to the raw reference
   key the same way it does when the caller simply has no `readAny` capability for that collection. The
   fallback text is unchanged; only a genuine failure is now visible in the console.
