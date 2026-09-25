@@ -18,6 +18,7 @@ import { contentCollections, statusFilterFailure, statusFilterProblems } from ".
 import { bootWithAdminBootstrapCheck } from "../utils/admin-bootstrap";
 import type { KestrelState, KestrelStatus } from "../utils/boot-failure";
 import { rendererTarget } from "../utils/renderer-target";
+import { checkDeliveryBuild } from "../utils/build-check";
 import { accessLists } from "./access";
 
 const IMAGES_REGISTER_PIPELINE = "registerImageSizesBoot";
@@ -40,6 +41,7 @@ async function registerImageSizes(kestrel: Kestrel): Promise<void> {
 }
 
 let instance: Promise<Kestrel> | undefined;
+let runningBuild: string | undefined;
 let state: KestrelState = "booting";
 let bootError: string | undefined;
 
@@ -74,6 +76,7 @@ export function getKestrel(): Promise<Kestrel> {
       assertStatusFilters(kestrel);
       assertMediaPaths(kestrel, modules, config.modules);
       await registerImageSizes(kestrel);
+      await checkDeliveryBuild(kestrel, { build: runningBuild, dev: import.meta.dev, pipelines, logger: consoleLogger });
       state = "ready";
       return kestrel;
     } catch (err) {
@@ -85,7 +88,9 @@ export function getKestrel(): Promise<Kestrel> {
 }
 
 export default defineNitroPlugin((nitro) => {
-  setNuxtRenderer(rendererTarget(nitro, useRuntimeConfig().app, buildAssets, import.meta.dev));
+  const app = useRuntimeConfig().app;
+  runningBuild = app.buildId;
+  setNuxtRenderer(rendererTarget(nitro, app, buildAssets, import.meta.dev));
 
   const handlers = kestrelHandlers(getKestrel(), {
     policy: () => accessLists().policy,
