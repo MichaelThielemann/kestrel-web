@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { applyEdits } from "@michaelthielemann/kestrel-upgrade/codemods";
 import type { Finding, LoadedProject, RuleContext, SourceRuleContext } from "@michaelthielemann/kestrel-upgrade/plugin";
-import { deliveryAsyncRule, deliveryDependenciesRule, mediaEventIdsRule, queueLanesRule, serverCacheRule, settingsLlmsRule } from "./dependentsRules";
+import { deliveryAsyncRule, deliveryDependenciesRule, mediaEventIdsRule, mediaPathsRule, queueLanesRule, serverCacheRule, settingsLlmsRule } from "./dependentsRules";
 import { definePipeline } from "@michaelthielemann/kestrel/definePipeline";
 import type { PipelineEntry } from "@michaelthielemann/kestrel/definePipeline";
 import { checkPreset } from "../pipelines/checkPreset";
@@ -143,6 +143,49 @@ describe("the delivery dependencies of a hand-written module list", () => {
   });
 });
 
+describe("the layer's own media-path wiring (the publicPath/publicCopy/reservedPaths subset of assertMediaPaths)", () => {
+  const MEDIA_DEFAULT = "@michaelthielemann/kestrel-media-default";
+  const IMAGES_DEFAULT = "@michaelthielemann/kestrel-images-default";
+
+  it("flags a config check accepts but the real boot refuses: publicPath still /api/media, reservedPaths still just /api/media", async () => {
+    const ctx = contextFor({
+      source: "",
+      modules: [
+        { use: MEDIA_DEFAULT, config: { publicPath: "/api/media", publicCopy: { prefix: "site/" } } },
+        { use: IMAGES_DEFAULT, config: { publicPath: "/api/media", publicCopy: { prefix: "site/" } } },
+        { use: DELIVERY_STATIC, config: { prefix: "site/", reservedPaths: ["/api/media"] } },
+      ],
+      features: ["delivery", "images"],
+    });
+    const findings = await mediaPathsRule.check(ctx);
+    expect(findings).toHaveLength(1);
+    expect(findings[0]?.severity).toBe("error");
+    expect(findings[0]?.fix.kind).toBe("manual");
+    expect(findings[0]?.message).toContain('publicPath "/api/media" is not "/media"');
+    expect(findings[0]?.message).toContain("reservedPaths must contain");
+    expect(findings[0]?.suggestion).toContain('publicPath: "/media"');
+  });
+
+  it("says nothing once the wiring matches what the boot requires", async () => {
+    const ctx = contextFor({
+      source: "",
+      modules: [
+        { use: MEDIA_DEFAULT, config: { publicPath: "/media", publicCopy: { prefix: "site/" } } },
+        { use: IMAGES_DEFAULT, config: { publicPath: "/media", publicCopy: { prefix: "site/" } } },
+        { use: DELIVERY_STATIC, config: { prefix: "site/", reservedPaths: ["/api", "/admin", "/media"] } },
+      ],
+      features: ["delivery", "images"],
+    });
+    expect(await mediaPathsRule.check(ctx)).toEqual([]);
+  });
+
+  it("says nothing without either media module, and without delivery-static does not require reservedPaths or publicCopy", async () => {
+    expect(await mediaPathsRule.check(contextFor({ source: "", modules: [{ use: DELIVERY_STATIC, config: {} }], features: ["delivery"] }))).toEqual([]);
+    const noDelivery = await mediaPathsRule.check(contextFor({ source: "", modules: [{ use: MEDIA_DEFAULT, config: { publicPath: "/media" } }], features: [] }));
+    expect(noDelivery).toEqual([]);
+  });
+});
+
 describe("the lanes of a hand-written queue entry", () => {
   const lanes = '{ pages: ["republishOutput", "refreshLlms"], variants: ["generateImageVariants"] }';
 
@@ -190,7 +233,10 @@ describe("the lanes of a hand-written queue entry", () => {
         { code: "preset/lane-pipeline-unknown", pipeline: "refreshLlms", message: "e" },
       ],
     });
-    expect((await presetProblemsRule.check(ctx)).map((f) => f.message)).toEqual(["e"]);
+    const findings = await presetProblemsRule.check(ctx);
+    expect(findings.map((f) => f.message)).toEqual(["e"]);
+    expect(findings[0]?.rule).toBe("preset/lane-pipeline-unknown");
+    expect(findings[0]?.id).toBe("preset/lane-pipeline-unknown:refreshLlms");
   });
 });
 
@@ -329,6 +375,7 @@ describe("clients reading the old delivery answers", () => {
     expect(findings.find((f) => f.message.includes("_llms"))?.where.file).toContain("useSettingsSave.ts");
     expect(findings.find((f) => f.message.includes("Publish all"))?.message).toContain("documents, errors");
     expect(findings.every((f) => f.severity === "info" && f.fix.kind === "none")).toBe(true);
+    expect(findings.every((f) => !f.message.includes(ctx.root))).toBe(true);
   });
 });
 
@@ -342,10 +389,11 @@ describe("server caches near API reads", () => {
     });
     const findings = await serverCacheRule.check(ctx);
     expect(findings).toHaveLength(3);
-    expect(findings[0]?.message).toMatch(/useLineup\.ts uses useStorage;/);
-    expect(findings[1]?.message).toMatch(/speakers\.ts uses defineCachedFunction;/);
+    expect(findings[0]?.message).toMatch(/^app\/composables\/useLineup\.ts uses useStorage;/);
+    expect(findings[1]?.message).toMatch(/^server\/utils\/speakers\.ts uses defineCachedFunction;/);
     expect(findings[2]?.where.path).toBe("/api/speakers/**");
     expect(findings.every((f) => f.severity === "info")).toBe(true);
+    expect(findings.every((f) => !f.message.includes(ctx.root))).toBe(true);
   });
 
   it("says nothing without delivery", async () => {

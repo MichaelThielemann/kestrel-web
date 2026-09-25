@@ -1,4 +1,4 @@
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { findCalls, firstArgument, isAstNode, objectProperty, parseTs, propertyKeyName, stringValue, walk } from "@michaelthielemann/kestrel-upgrade/codemods";
 import type { AstNode } from "@michaelthielemann/kestrel-upgrade/codemods";
 import type { Finding, Rule, RuleContext, SourceRule, SourceRuleContext } from "@michaelthielemann/kestrel-upgrade/plugin";
@@ -10,11 +10,17 @@ import { QUEUE_DEFAULT_BACKOFF_SECONDS, QUEUE_DEFAULT_MAX_ATTEMPTS } from "../pi
 import { addModuleEntryConfigProperty, hasModuleEntry, setDependenciesRender, setModuleEntryConfigProperties, setPresetModuleConfigOverride } from "./edits";
 import type { PropertyText } from "./edits";
 import { layerProjectData } from "./load";
+import { MEDIA_PUBLIC_PATH, MOUNT_PATH } from "../mount-path";
+import type { HttpTriggerEntry } from "../server/utils/admin-capabilities";
+import { mediaPathProblems } from "../server/utils/media-paths";
+import type { DeliveryConfig, PipelineStepsEntry } from "../server/utils/media-paths";
 import { deliveryEnabled, docsAnchor, presetOptionsCast } from "./ruleHelpers";
 
 const DELIVERY_STATIC_MODULE = "@michaelthielemann/kestrel-delivery-static";
 const RENDERER_NUXT_MODULE = "@michaelthielemann/kestrel-renderer-nuxt";
 const EVENTS_QUEUE_MODULE = "@michaelthielemann/kestrel-events-queue";
+const MEDIA_MODULE = "@michaelthielemann/kestrel-media-default";
+const IMAGES_MODULE = "@michaelthielemann/kestrel-images-default";
 
 /** The `checkPreset()` problem codes the rules below report themselves, so the generic preset problem rule leaves them out. */
 export const DEPENDENTS_PROBLEM_CODES: ReadonlySet<string> = new Set([
@@ -99,6 +105,54 @@ export function renderDependenciesText(render: "events" | "background", queueCon
   const backoff = Array.isArray(queueConfig?.backoffSeconds) ? queueConfig.backoffSeconds : QUEUE_DEFAULT_BACKOFF_SECONDS;
   return `dependencies: { render: "events", rendererReadsDocument: true, maxAttempts: ${maxAttempts}, backoffSeconds: [${backoff.map(String).join(", ")}] }`;
 }
+
+const ASSUMED_TRIGGERS: readonly HttpTriggerEntry[] = [
+  { method: "GET", path: `${MEDIA_PUBLIC_PATH}/:id/:name`, pipeline: "media.serve" },
+  { method: "GET", path: `${MEDIA_PUBLIC_PATH}/:id/variants/:file`, pipeline: "images.serve" },
+];
+const ASSUMED_PIPELINES: readonly PipelineStepsEntry[] = [
+  { name: "media.serve", steps: [{ name: "media.serve" }] },
+  { name: "images.serve", steps: [{ name: "images.serve" }] },
+];
+
+function mediaModuleConfig(cast: { modules?: readonly { use: string; config?: unknown }[] }, use: string): Record<string, unknown> | undefined {
+  return configOf((cast.modules ?? []).find((m) => m.use === use));
+}
+
+/**
+ * The publicPath/publicCopy/reservedPaths subset of the layer's own boot-time media-path check
+ * (`assertMediaPaths`, `layers/core/server/utils/media-paths.ts`), run statically against the configured
+ * module list, so `check` reports what the real boot would refuse (a `publicPath: "/api/media"` suggestion,
+ * say) instead of passing it. The trigger-binding half of that check needs a live, started instance
+ * (`kestrel.describe()`, `kestrel.steps.owner()`) no rule context has access to, so this always feeds
+ * `mediaPathProblems()` an assumed-correct route table for that half and never reports on it; a project
+ * whose own pipelines actually break that binding still only fails at boot.
+ */
+export const mediaPathsRule: Rule = {
+  id: "site/media-paths",
+  check(ctx) {
+    const cast = presetOptionsCast(ctx);
+    if (cast === undefined) return [];
+    const media = mediaModuleConfig(cast, MEDIA_MODULE);
+    const images = mediaModuleConfig(cast, IMAGES_MODULE);
+    if (media === undefined && images === undefined) return [];
+    const delivery: DeliveryConfig | undefined = mediaModuleConfig(cast, DELIVERY_STATIC_MODULE);
+    const problems = mediaPathProblems({ media, images, delivery, triggers: ASSUMED_TRIGGERS, pipelines: ASSUMED_PIPELINES });
+    if (problems.length === 0) return [];
+    const rule = "site/media-paths";
+    return [
+      finding(
+        rule,
+        rule,
+        "error",
+        { module: MEDIA_MODULE, file: ctx.project.configFile },
+        problems.join("; "),
+        `see consuming-kestrel-web.md's media wiring (§6): publicPath: "${MEDIA_PUBLIC_PATH}" and publicCopy: { prefix: ... } on both media modules, reservedPaths: ["${MOUNT_PATH}", "/admin", "${MEDIA_PUBLIC_PATH}"] on delivery-static`,
+        { kind: "manual" },
+      ),
+    ];
+  },
+};
 
 function lanesLiteral(lanes: Record<string, string[]>): string {
   return `{ ${Object.entries(lanes).map(([lane, members]) => `${lane}: [${members.map((m) => `"${m}"`).join(", ")}]`).join(", ")} }`;
@@ -245,14 +299,15 @@ export const deliveryAsyncRule: SourceRule = {
     const findings: Finding[] = [];
     const rule = "responses/delivery-async";
     for (const { file, root } of consumerScripts(ctx, ["app", "server"])) {
+      const relativeFile = relative(ctx.root, file);
       const members = memberNames(root);
       if (members.has("_llms")) {
-        findings.push(finding(rule, `${rule}:${file}:_llms`, "info", { file }, `${file} reads _llms, which settings and page saves no longer answer with`, "llms.txt is written in the background after the re-renders; stop reading _llms", { kind: "none" }));
+        findings.push(finding(rule, `${rule}:${file}:_llms`, "info", { file }, `${relativeFile} reads _llms, which settings and page saves no longer answer with`, "llms.txt is written in the background after the re-renders; stop reading _llms", { kind: "none" }));
       }
       const old = OLD_PUBLISH_ALL_FIELDS.filter((field) => members.has(field));
       if (old.length > 0 && mentionsString(root, PUBLISH_ALL_MARKERS)) {
         findings.push(
-          finding(rule, `${rule}:${file}:publish-all`, "info", { file }, `${file} calls Publish all and reads ${old.join(", ")}, which it no longer answers with`, "Publish all answers { marked } at once; read the progress from GET /admin/publish-status/pages", { kind: "none" }),
+          finding(rule, `${rule}:${file}:publish-all`, "info", { file }, `${relativeFile} calls Publish all and reads ${old.join(", ")}, which it no longer answers with`, "Publish all answers { marked } at once; read the progress from GET /admin/publish-status/pages", { kind: "none" }),
         );
       }
     }
@@ -298,7 +353,7 @@ export const serverCacheRule: SourceRule = {
     for (const { file, root } of consumerScripts(ctx, ["app", "server"])) {
       const used = CACHE_FUNCTIONS.filter((fn) => findCalls(root, fn).length > 0);
       if (used.length === 0) continue;
-      findings.push(finding(rule, `${rule}:${file}`, "info", { file }, `${file} uses ${used.join(", ")}; a page that shows data answered from such a cache is not re-rendered when that data changes`, suggestion, { kind: "none" }));
+      findings.push(finding(rule, `${rule}:${file}`, "info", { file }, `${relative(ctx.root, file)} uses ${used.join(", ")}; a page that shows data answered from such a cache is not re-rendered when that data changes`, suggestion, { kind: "none" }));
     }
     for (const pattern of apiRouteCaches(ctx)) {
       findings.push(finding(rule, `${rule}:${pattern}`, "info", { file: join(ctx.root, "nuxt.config.ts"), path: pattern }, `routeRules["${pattern}"] caches API answers; a page that reads them is not re-rendered when the data changes`, suggestion, { kind: "none" }));
@@ -307,4 +362,4 @@ export const serverCacheRule: SourceRule = {
   },
 };
 
-export const dependentsRules: readonly Rule[] = [deliveryDependenciesRule, queueLanesRule, settingsLlmsRule, mediaEventIdsRule, deliveryAsyncRule, serverCacheRule];
+export const dependentsRules: readonly Rule[] = [deliveryDependenciesRule, queueLanesRule, settingsLlmsRule, mediaEventIdsRule, deliveryAsyncRule, serverCacheRule, mediaPathsRule];

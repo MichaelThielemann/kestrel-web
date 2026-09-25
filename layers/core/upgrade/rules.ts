@@ -163,8 +163,8 @@ export const presetProblemsRule: Rule = {
       .filter((problem) => !OWNED_PROBLEM_CODES.has(problem.code))
       .map(
         (problem, i): Finding => ({
-          id: `preset/${problem.code}:${problem.pipeline ?? i}`,
-          rule: `preset/${problem.code}`,
+          id: `${problem.code}:${problem.pipeline ?? i}`,
+          rule: problem.code,
           severity: "error",
           tier: "source",
           where: problem.pipeline === undefined ? {} : { pipeline: problem.pipeline },
