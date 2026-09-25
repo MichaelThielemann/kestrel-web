@@ -3,13 +3,21 @@ import type { Document as PersistedDocument } from '@michaelthielemann/kestrel-c
 import type { Ok } from '@michaelthielemann/kestrel/result'
 import type { RestoreReport, Revision, RevisionAuthor, RevisionKind, RevisionPage, RevisionSummary } from '@michaelthielemann/kestrel-contracts/revisions'
 import type { Feature } from '#kestrel/pipelines'
-import type { operations } from './openapi.generated'
+import type { components, operations } from './openapi.generated'
 import type { AdminCollection, Capability } from './kestrel'
 
 export type { RestoreReport, Revision, RevisionAuthor, RevisionKind, RevisionPage, RevisionSummary }
 
 type ResponseOf<Operation extends keyof operations, Status extends keyof operations[Operation]['responses']> =
   operations[Operation]['responses'][Status] extends { content: { 'application/json': infer Body } } ? Body : never
+
+type Schemas = components['schemas']
+
+/** The documented answer of an operation to a caller whose roles keep every field. */
+export type FullOf<Operation extends keyof Schemas & keyof operations> = Schemas[Operation]
+
+/** The documented answer of an operation to a caller without a session: only the fields the anonymous grant keeps. */
+export type AnonymousOf<Operation extends keyof operations & string> = Schemas[`${Operation}.anonymous` & keyof Schemas]
 
 type OkValue<T> = T extends Ok<infer V> ? V : never
 
@@ -42,13 +50,16 @@ export type UserReassignTarget = NonNullable<UserDeleteResponse['reassignTo']>
 
 export interface ListPage<T> { items: T[]; total: number }
 
-export interface Document extends PersistedDocument {
-  createdAt: number
-  updatedAt: number
-
+/** A stored document as a caller without a session receives it: no timestamps. */
+export interface PublicDocument extends PersistedDocument {
   _locales?: Record<string, string>
 
   _translations?: Record<string, boolean>
+}
+
+export interface Document extends PublicDocument {
+  createdAt: number
+  updatedAt: number
 }
 
 export type PageStatus = 'draft' | 'finished' | 'published'
@@ -59,7 +70,7 @@ export interface PageSeo {
   noindex?: boolean
 }
 
-export interface PageDocument extends Document {
+interface PublicPageFields extends PublicDocument {
   slug: string | null
   title: string | null
   body: BlockNode[] | null
@@ -70,9 +81,30 @@ export interface PageDocument extends Document {
   layout?: string | null
 }
 
-export type RedirectHit = Extract<ResponseOf<'resolvePage', 200>, { redirect: unknown }>['redirect']
+type NamedKeys<T> = keyof { [K in keyof T as string extends K ? never : number extends K ? never : K]: T[K] }
+
+type AnonymousPage = Exclude<AnonymousOf<'resolvePage'>, { redirect: unknown }>
+
+type MatchesAnonymousPage<T> = [Exclude<NamedKeys<T>, keyof AnonymousPage>] extends [never] ? ([Extract<'createdAt' | 'updatedAt', keyof AnonymousPage>] extends [never] ? T : never) : never
+
+/**
+ * A page as a public page's data carries it for every visitor, signed in or not: the page without its
+ * timestamps. It is `never` when a field it names is missing from the anonymous `resolvePage` answer the API
+ * documents, or when that answer carries the timestamps.
+ */
+export type PublicPageDocument = MatchesAnonymousPage<PublicPageFields>
+
+export interface PageDocument extends PublicPageFields {
+  createdAt: number
+  updatedAt: number
+}
+
+export type RedirectHit = Extract<FullOf<'resolvePage'>, { redirect: unknown }>['redirect']
 
 export type SiteResponse = PageDocument | { redirect: RedirectHit }
+
+/** What the public layer keeps of a `/site/*` answer: a public page or a redirect hit. */
+export type PublicSiteResponse = PublicPageDocument | { redirect: RedirectHit }
 
 export interface RedirectRule { from: string; to: string; status?: string }
 
@@ -97,7 +129,7 @@ export interface BlockNode {
   slots?: Record<string, BlockNode[]>
 }
 
-type MediaItemResponse = ResponseOf<'getMedia', 200>
+type MediaItemResponse = FullOf<'getMedia'>
 
 export type Provenance = MediaItemResponse['provenance']
 

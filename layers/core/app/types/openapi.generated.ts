@@ -776,7 +776,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Identify the caller if a valid token is present → Requires permission media.read → List media, newest first; anonymous callers may only fetch by ids → Add available, variants[] and variantCounts to a media item or list (result.id or result.items); a variant whose path has no object yet is never listed */
+        /** Identify the caller if a valid token is present → Requires permission media.read → List media, newest first; anonymous callers may only fetch by ids → Add available, variants[] and variantCounts to a media item or list (result.id or result.items); a variant whose path has no object yet is never listed → Keep only the media fields the caller may see: anonymousFields.media without an identity or a configured role; otherwise everything when one of its roles has no field grant for media, else the union of its roles' grants and the anonymous one */
         get: operations["listMedia"];
         put?: never;
         /** Require a valid session → Requires permission media.write → Sanitize uploaded SVG files (scripts, handlers, external references removed) → Upload one or more files (multipart field `file`, repeatable). A single file returns the item; multiple files return per-file results. Idempotent: same folder, same filename and same bytes return the item that is already there, and the step then ends the pipeline itself (200), so no following step – notably events.emit:media.uploaded – runs for an upload that stored nothing → Queue event "media.uploaded" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
@@ -794,7 +794,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Identify the caller if a valid token is present → Requires permission media.read → Media metadata → Add available, variants[] and variantCounts to a media item or list (result.id or result.items); a variant whose path has no object yet is never listed */
+        /** Identify the caller if a valid token is present → Requires permission media.read → Media metadata → Add available, variants[] and variantCounts to a media item or list (result.id or result.items); a variant whose path has no object yet is never listed → Keep only the media fields the caller may see: anonymousFields.media without an identity or a configured role; otherwise everything when one of its roles has no field grant for media, else the union of its roles' grants and the anonymous one */
         get: operations["getMedia"];
         put?: never;
         post?: never;
@@ -813,7 +813,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Identify the caller if a valid token is present → Requires permission media.read → The file at its public URL (params.id, params.name); the name must be the one it was uploaded under */
+        /** Identify the caller if a valid token is present → Requires permission media.read → The file at its public URL (params.id, params.name); the name must be the one it was uploaded under → Keep only the mediaFile fields the caller may see: anonymousFields.mediaFile without an identity or a configured role; otherwise everything when one of its roles has no field grant for mediaFile, else the union of its roles' grants and the anonymous one */
         get: operations["serveMediaFile"];
         put?: never;
         post?: never;
@@ -830,7 +830,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Identify the caller if a valid token is present → Requires permission media.read → The file itself */
+        /** Identify the caller if a valid token is present → Requires permission media.read → The file itself → Keep only the mediaFile fields the caller may see: anonymousFields.mediaFile without an identity or a configured role; otherwise everything when one of its roles has no field grant for mediaFile, else the union of its roles' grants and the anonymous one */
         get: operations["downloadMedia"];
         put?: never;
         post?: never;
@@ -847,7 +847,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Identify the caller if a valid token is present → Requires permission media.read → The variant at its public URL (params.id, params.file), or the original's bytes when no render is at that path yet; x-kestrel-variant: original marks the fallback */
+        /** Identify the caller if a valid token is present → Requires permission media.read → The variant at its public URL (params.id, params.file), or the original's bytes when no render is at that path yet; x-kestrel-variant: original marks the fallback → Keep only the mediaFile fields the caller may see: anonymousFields.mediaFile without an identity or a configured role; otherwise everything when one of its roles has no field grant for mediaFile, else the union of its roles' grants and the anonymous one */
         get: operations["serveImageVariant"];
         put?: never;
         post?: never;
@@ -900,7 +900,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Identify the caller if a valid token is present → Requires permission pages.read → List pages */
+        /** Identify the caller if a valid token is present → Requires permission pages.read → List pages → Keep only the pages fields the caller may see: anonymousFields.pages without an identity or a configured role; otherwise everything when one of its roles has no field grant for pages, else the union of its roles' grants and the anonymous one */
         get: operations["listPages"];
         put?: never;
         /** Require a valid session → Requires permission pages.write → Validate payload field pages.body against its JSON Schema → Sanitize HTML at format:"html" positions of payload field pages.body → Validate payload field pages.body against its JSON Schema → Validate payload field pages.slug against its JSON Schema → Validate payload field pages.accent against its JSON Schema → Referenced ids of pages must exist → Create a pages → Record the saved pages document from the result as a revision; its parent is the head, or the revision a restore put on the context → Index the references of a pages document → Index external links of pages → Queue event "page.created" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
@@ -918,7 +918,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Identify the caller if a valid token is present → Requires permission pages.read → One pages document */
+        /** Identify the caller if a valid token is present → Requires permission pages.read → One pages document → Keep only the pages fields the caller may see: anonymousFields.pages without an identity or a configured role; otherwise everything when one of its roles has no field grant for pages, else the union of its roles' grants and the anonymous one */
         get: operations["readPage"];
         put?: never;
         post?: never;
@@ -954,7 +954,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Identify the caller if a valid token is present → Requires permission redirects.read → One redirects document */
+        /** Identify the caller if a valid token is present → Requires permission redirects.read → One redirects document → Keep only the redirects fields the caller may see: anonymousFields.redirects without an identity or a configured role; otherwise everything when one of its roles has no field grant for redirects, else the union of its roles' grants and the anonymous one */
         get: operations["getRedirects"];
         /** Require a valid session → Requires permission redirects.write → Validate payload field redirects.rules against its JSON Schema → Compile the redirect rules of the payload; VALIDATION names the offending row → Replace the redirects document → Write redirects.json to the blobstore (adds `redirects: { rules, skipped }` to the result) */
         put: operations["setRedirects"];
@@ -972,7 +972,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** The compiled redirect list (same content as redirects.json) */
+        /** The compiled redirect list (same content as redirects.json) → Keep only the redirectRules fields the caller may see: anonymousFields.redirectRules without an identity or a configured role; otherwise everything when one of its roles has no field grant for redirectRules, else the union of its roles' grants and the anonymous one */
         get: operations["renderRedirects"];
         put?: never;
         post?: never;
@@ -989,7 +989,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Identify the caller if a valid token is present → Requires permission settings.read → One settings document → Replace internal kestrel:<type>:<id> references in the settings document with public paths (_links map added) */
+        /** Identify the caller if a valid token is present → Requires permission settings.read → One settings document → Replace internal kestrel:<type>:<id> references in the settings document with public paths (_links map added) → Keep only the settings fields the caller may see: anonymousFields.settings without an identity or a configured role; otherwise everything when one of its roles has no field grant for settings, else the union of its roles' grants and the anonymous one */
         get: operations["getSettings"];
         /** Require a valid session → Requires permission settings.write → Validate payload field settings.navigation against its JSON Schema → Replace the settings document → Queue event "settings.updated" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
         put: operations["setSettings"];
@@ -1007,7 +1007,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Identify the caller if a valid token is present → Requires permission pages.read → End the pipeline with { redirect: { to, status } } when the request path matches a rule; pass through otherwise → Resolve a site path to a pages document (default locale unprefixed) → Replace internal kestrel:<type>:<id> references in the pages document with public paths (_links map added) */
+        /** Identify the caller if a valid token is present → Requires permission pages.read → End the pipeline with { redirect: { to, status } } when the request path matches a rule; pass through otherwise → Resolve a site path to a pages document (default locale unprefixed) → Replace internal kestrel:<type>:<id> references in the pages document with public paths (_links map added) → Keep only the pages fields the caller may see: anonymousFields.pages without an identity or a configured role; otherwise everything when one of its roles has no field grant for pages, else the union of its roles' grants and the anonymous one */
         get: operations["resolvePage"];
         put?: never;
         post?: never;
@@ -1120,6 +1120,396 @@ export interface components {
             runId: string;
             step?: string;
         };
+        getMedia: {
+            alt: string | null;
+            available: boolean;
+            contentType: string;
+            createdAt: number;
+            description: string | null;
+            filename: string;
+            folder: string;
+            height: number | null;
+            id: string;
+            /** @description the file's one public URL, <publicPath>/<id>/<name>; the name is fixed at upload, so renaming or moving the item never changes it */
+            path: string;
+            /** @description who made the file; anything but human is flagged on download (X-Content-Provenance); an upload without provenance is recorded as unknown */
+            provenance: {
+                at?: number;
+                model?: string;
+                /** @enum {string} */
+                origin: "human" | "ai" | "mixed" | "unknown";
+                tool?: string;
+            };
+            size: number;
+            title: string | null;
+            updatedAt: number;
+            variantCounts: {
+                done: number;
+                error: number;
+                failed: number;
+                pending: number;
+            };
+            variants: {
+                bytes: number;
+                format: string;
+                height: number;
+                path: string;
+                size: string;
+                /** @enum {string} */
+                state: "pending" | "done" | "error" | "failed";
+                width: number;
+            }[];
+            width: number | null;
+        };
+        "getMedia.anonymous": {
+            alt: string | null;
+            contentType: string;
+            description: string | null;
+            filename: string;
+            height: number | null;
+            id: string;
+            /** @description the file's one public URL, <publicPath>/<id>/<name>; the name is fixed at upload, so renaming or moving the item never changes it */
+            path: string;
+            /** @description who made the file; anything but human is flagged on download (X-Content-Provenance); an upload without provenance is recorded as unknown */
+            provenance: {
+                at?: number;
+                model?: string;
+                /** @enum {string} */
+                origin: "human" | "ai" | "mixed" | "unknown";
+                tool?: string;
+            };
+            size: number;
+            title: string | null;
+            variants: {
+                format: string;
+                height: number;
+                path: string;
+                size: string;
+                width: number;
+            }[];
+            width: number | null;
+        };
+        getRedirects: {
+            /** @description origin locale per field, only with fallback */
+            _locales?: {
+                [key: string]: string;
+            };
+            /** @description per locale: required localized fields present */
+            _translations?: {
+                [key: string]: boolean;
+            };
+            createdAt: number;
+            id: string;
+            rules?: unknown | null;
+            updatedAt: number;
+        };
+        "getRedirects.anonymous": {
+            /** @description origin locale per field, only with fallback */
+            _locales?: {
+                [key: string]: string;
+            };
+            /** @description per locale: required localized fields present */
+            _translations?: {
+                [key: string]: boolean;
+            };
+            id: string;
+            rules?: unknown | null;
+        };
+        getSettings: {
+            /** @description internal references by target id after site.resolveLinks; absent when the document has no internal references to resolve */
+            _links?: {
+                [key: string]: {
+                    broken?: boolean;
+                    locale?: string;
+                    path?: string;
+                };
+            };
+            /** @description origin locale per field, only with fallback */
+            _locales?: {
+                [key: string]: string;
+            };
+            /** @description per locale: required localized fields present */
+            _translations?: {
+                [key: string]: boolean;
+            };
+            createdAt: number;
+            description?: string | null;
+            id: string;
+            navigation?: unknown | null;
+            title?: string | null;
+            titlePosition?: ("suffix" | "prefix") | null;
+            titleSeparator?: string | null;
+            updatedAt: number;
+        };
+        "getSettings.anonymous": {
+            /** @description internal references by target id after site.resolveLinks; absent when the document has no internal references to resolve */
+            _links?: {
+                [key: string]: {
+                    broken?: boolean;
+                    locale?: string;
+                    path?: string;
+                };
+            };
+            /** @description origin locale per field, only with fallback */
+            _locales?: {
+                [key: string]: string;
+            };
+            /** @description per locale: required localized fields present */
+            _translations?: {
+                [key: string]: boolean;
+            };
+            description?: string | null;
+            id: string;
+            navigation?: unknown | null;
+            title?: string | null;
+            titlePosition?: ("suffix" | "prefix") | null;
+            titleSeparator?: string | null;
+        };
+        listMedia: {
+            items: {
+                alt: string | null;
+                available: boolean;
+                contentType: string;
+                createdAt: number;
+                description: string | null;
+                filename: string;
+                folder: string;
+                height: number | null;
+                id: string;
+                /** @description the file's one public URL, <publicPath>/<id>/<name>; the name is fixed at upload, so renaming or moving the item never changes it */
+                path: string;
+                /** @description who made the file; anything but human is flagged on download (X-Content-Provenance); an upload without provenance is recorded as unknown */
+                provenance: {
+                    at?: number;
+                    model?: string;
+                    /** @enum {string} */
+                    origin: "human" | "ai" | "mixed" | "unknown";
+                    tool?: string;
+                };
+                size: number;
+                title: string | null;
+                updatedAt: number;
+                variantCounts: {
+                    done: number;
+                    error: number;
+                    failed: number;
+                    pending: number;
+                };
+                variants: {
+                    bytes: number;
+                    format: string;
+                    height: number;
+                    path: string;
+                    size: string;
+                    /** @enum {string} */
+                    state: "pending" | "done" | "error" | "failed";
+                    width: number;
+                }[];
+                width: number | null;
+            }[];
+            total: number;
+        };
+        "listMedia.anonymous": {
+            items: {
+                alt: string | null;
+                contentType: string;
+                description: string | null;
+                filename: string;
+                height: number | null;
+                id: string;
+                /** @description the file's one public URL, <publicPath>/<id>/<name>; the name is fixed at upload, so renaming or moving the item never changes it */
+                path: string;
+                /** @description who made the file; anything but human is flagged on download (X-Content-Provenance); an upload without provenance is recorded as unknown */
+                provenance: {
+                    at?: number;
+                    model?: string;
+                    /** @enum {string} */
+                    origin: "human" | "ai" | "mixed" | "unknown";
+                    tool?: string;
+                };
+                size: number;
+                title: string | null;
+                variants: {
+                    format: string;
+                    height: number;
+                    path: string;
+                    size: string;
+                    width: number;
+                }[];
+                width: number | null;
+            }[];
+            total: number;
+        };
+        listPages: {
+            items: {
+                /** @description origin locale per field, only with fallback */
+                _locales?: {
+                    [key: string]: string;
+                };
+                /** @description per locale: required localized fields present */
+                _translations?: {
+                    [key: string]: boolean;
+                };
+                accent?: string | null;
+                body?: unknown | null;
+                createdAt: number;
+                id: string;
+                layout?: string | null;
+                seo?: unknown | null;
+                shareImage?: string | null;
+                slug?: string | null;
+                status?: ("draft" | "finished" | "published") | null;
+                title?: string | null;
+                updatedAt: number;
+            }[];
+            total: number;
+        };
+        "listPages.anonymous": {
+            items: {
+                /** @description origin locale per field, only with fallback */
+                _locales?: {
+                    [key: string]: string;
+                };
+                /** @description per locale: required localized fields present */
+                _translations?: {
+                    [key: string]: boolean;
+                };
+                accent?: string | null;
+                body?: unknown | null;
+                id: string;
+                layout?: string | null;
+                seo?: unknown | null;
+                shareImage?: string | null;
+                slug?: string | null;
+                status?: ("draft" | "finished" | "published") | null;
+                title?: string | null;
+            }[];
+            total: number;
+        };
+        readPage: {
+            /** @description origin locale per field, only with fallback */
+            _locales?: {
+                [key: string]: string;
+            };
+            /** @description per locale: required localized fields present */
+            _translations?: {
+                [key: string]: boolean;
+            };
+            accent?: string | null;
+            body?: unknown | null;
+            createdAt: number;
+            id: string;
+            layout?: string | null;
+            seo?: unknown | null;
+            shareImage?: string | null;
+            slug?: string | null;
+            status?: ("draft" | "finished" | "published") | null;
+            title?: string | null;
+            updatedAt: number;
+        };
+        "readPage.anonymous": {
+            /** @description origin locale per field, only with fallback */
+            _locales?: {
+                [key: string]: string;
+            };
+            /** @description per locale: required localized fields present */
+            _translations?: {
+                [key: string]: boolean;
+            };
+            accent?: string | null;
+            body?: unknown | null;
+            id: string;
+            layout?: string | null;
+            seo?: unknown | null;
+            shareImage?: string | null;
+            slug?: string | null;
+            status?: ("draft" | "finished" | "published") | null;
+            title?: string | null;
+        };
+        renderRedirects: {
+            pattern: string;
+            /** @enum {integer} */
+            status: 301 | 302 | 307 | 308;
+            target: string;
+        }[];
+        "renderRedirects.anonymous": {
+            pattern: string;
+            /** @enum {integer} */
+            status: 301 | 302 | 307 | 308;
+            target: string;
+        }[];
+        resolvePage: {
+            /** @description internal references by target id after site.resolveLinks; absent when the document has no internal references to resolve */
+            _links?: {
+                [key: string]: {
+                    broken?: boolean;
+                    locale?: string;
+                    path?: string;
+                };
+            };
+            /** @description effective locale of a site-resolved document */
+            _locale?: string;
+            /** @description origin locale per field, only with fallback */
+            _locales?: {
+                [key: string]: string;
+            };
+            /** @description per locale: required localized fields present */
+            _translations?: {
+                [key: string]: boolean;
+            };
+            accent?: string | null;
+            body?: unknown | null;
+            createdAt: number;
+            id: string;
+            layout?: string | null;
+            seo?: unknown | null;
+            shareImage?: string | null;
+            slug?: string | null;
+            status?: ("draft" | "finished" | "published") | null;
+            title?: string | null;
+            updatedAt: number;
+        } | {
+            redirect: {
+                /** @enum {integer} */
+                status: 301 | 302 | 307 | 308;
+                to: string;
+            };
+        };
+        "resolvePage.anonymous": {
+            /** @description internal references by target id after site.resolveLinks; absent when the document has no internal references to resolve */
+            _links?: {
+                [key: string]: {
+                    broken?: boolean;
+                    locale?: string;
+                    path?: string;
+                };
+            };
+            /** @description effective locale of a site-resolved document */
+            _locale?: string;
+            /** @description origin locale per field, only with fallback */
+            _locales?: {
+                [key: string]: string;
+            };
+            /** @description per locale: required localized fields present */
+            _translations?: {
+                [key: string]: boolean;
+            };
+            accent?: string | null;
+            body?: unknown | null;
+            id: string;
+            layout?: string | null;
+            seo?: unknown | null;
+            shareImage?: string | null;
+            slug?: string | null;
+            status?: ("draft" | "finished" | "published") | null;
+            title?: string | null;
+        } | {
+            redirect: {
+                /** @enum {integer} */
+                status: 301 | 302 | 307 | 308;
+                to: string;
+            };
+        };
     };
     responses: never;
     parameters: never;
@@ -1128,6 +1518,22 @@ export interface components {
     pathItems: never;
 }
 export type SchemaError = components['schemas']['Error'];
+export type SchemaGetMedia = components['schemas']['getMedia'];
+export type SchemaGetMediaAnonymous = components['schemas']['getMedia.anonymous'];
+export type SchemaGetRedirects = components['schemas']['getRedirects'];
+export type SchemaGetRedirectsAnonymous = components['schemas']['getRedirects.anonymous'];
+export type SchemaGetSettings = components['schemas']['getSettings'];
+export type SchemaGetSettingsAnonymous = components['schemas']['getSettings.anonymous'];
+export type SchemaListMedia = components['schemas']['listMedia'];
+export type SchemaListMediaAnonymous = components['schemas']['listMedia.anonymous'];
+export type SchemaListPages = components['schemas']['listPages'];
+export type SchemaListPagesAnonymous = components['schemas']['listPages.anonymous'];
+export type SchemaReadPage = components['schemas']['readPage'];
+export type SchemaReadPageAnonymous = components['schemas']['readPage.anonymous'];
+export type SchemaRenderRedirects = components['schemas']['renderRedirects'];
+export type SchemaRenderRedirectsAnonymous = components['schemas']['renderRedirects.anonymous'];
+export type SchemaResolvePage = components['schemas']['resolvePage'];
+export type SchemaResolvePageAnonymous = components['schemas']['resolvePage.anonymous'];
 export type $defs = Record<string, never>;
 export interface operations {
     eventsDead: {
@@ -2115,6 +2521,13 @@ export interface operations {
                                         [key: string]: unknown;
                                     };
                                     multipart?: boolean;
+                                    narrows?: {
+                                        answers: {
+                                            [key: string]: string[];
+                                        };
+                                        /** @enum {string} */
+                                        shape: "item" | "list" | "array" | "file";
+                                    };
                                     output?: {
                                         [key: string]: unknown;
                                     };
@@ -2156,6 +2569,13 @@ export interface operations {
                                     [key: string]: unknown;
                                 };
                                 multipart?: boolean;
+                                narrows?: {
+                                    answers: {
+                                        [key: string]: string[];
+                                    };
+                                    /** @enum {string} */
+                                    shape: "item" | "list" | "array" | "file";
+                                };
                                 output?: {
                                     [key: string]: unknown;
                                 };
@@ -5109,56 +5529,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description ok */
+            /** @description ok; x-kestrel-answers names the answer each audience receives */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        items: {
-                            alt: string | null;
-                            available: boolean;
-                            contentType: string;
-                            createdAt: number;
-                            description: string | null;
-                            filename: string;
-                            folder: string;
-                            height: number | null;
-                            id: string;
-                            /** @description the file's one public URL, <publicPath>/<id>/<name>; the name is fixed at upload, so renaming or moving the item never changes it */
-                            path: string;
-                            /** @description who made the file; anything but human is flagged on download (X-Content-Provenance); an upload without provenance is recorded as unknown */
-                            provenance: {
-                                at?: number;
-                                model?: string;
-                                /** @enum {string} */
-                                origin: "human" | "ai" | "mixed" | "unknown";
-                                tool?: string;
-                            };
-                            size: number;
-                            title: string | null;
-                            updatedAt: number;
-                            variantCounts: {
-                                done: number;
-                                error: number;
-                                failed: number;
-                                pending: number;
-                            };
-                            variants: {
-                                bytes: number;
-                                format: string;
-                                height: number;
-                                path: string;
-                                size: string;
-                                /** @enum {string} */
-                                state: "pending" | "done" | "error" | "failed";
-                                width: number;
-                            }[];
-                            width: number | null;
-                        }[];
-                        total: number;
-                    };
+                    "application/json": components["schemas"]["listMedia"] | components["schemas"]["listMedia.anonymous"];
                 };
             };
             /** @description invalid folder or unknown locale */
@@ -5179,7 +5556,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description missing permission media.read */
+            /** @description no field grant on media for a caller without an identity or a configured role */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -5465,53 +5842,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description ok */
+            /** @description ok; x-kestrel-answers names the answer each audience receives */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        alt: string | null;
-                        available: boolean;
-                        contentType: string;
-                        createdAt: number;
-                        description: string | null;
-                        filename: string;
-                        folder: string;
-                        height: number | null;
-                        id: string;
-                        /** @description the file's one public URL, <publicPath>/<id>/<name>; the name is fixed at upload, so renaming or moving the item never changes it */
-                        path: string;
-                        /** @description who made the file; anything but human is flagged on download (X-Content-Provenance); an upload without provenance is recorded as unknown */
-                        provenance: {
-                            at?: number;
-                            model?: string;
-                            /** @enum {string} */
-                            origin: "human" | "ai" | "mixed" | "unknown";
-                            tool?: string;
-                        };
-                        size: number;
-                        title: string | null;
-                        updatedAt: number;
-                        variantCounts: {
-                            done: number;
-                            error: number;
-                            failed: number;
-                            pending: number;
-                        };
-                        variants: {
-                            bytes: number;
-                            format: string;
-                            height: number;
-                            path: string;
-                            size: string;
-                            /** @enum {string} */
-                            state: "pending" | "done" | "error" | "failed";
-                            width: number;
-                        }[];
-                        width: number | null;
-                    };
+                    "application/json": components["schemas"]["getMedia"] | components["schemas"]["getMedia.anonymous"];
                 };
             };
             /** @description unknown locale */
@@ -5532,7 +5869,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description missing permission media.read */
+            /** @description no field grant on media for a caller without an identity or a configured role */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -5839,7 +6176,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description missing permission media.read */
+            /** @description no field grant on mediaFile for a caller without an identity or a configured role */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -5908,7 +6245,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description missing permission media.read */
+            /** @description no field grant on mediaFile for a caller without an identity or a configured role */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -5987,7 +6324,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description missing permission media.read */
+            /** @description no field grant on mediaFile for a caller without an identity or a configured role */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -6382,36 +6719,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description ok */
+            /** @description ok; x-kestrel-answers names the answer each audience receives */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        items: {
-                            /** @description origin locale per field, only with fallback */
-                            _locales?: {
-                                [key: string]: string;
-                            };
-                            /** @description per locale: required localized fields present */
-                            _translations?: {
-                                [key: string]: boolean;
-                            };
-                            accent?: string | null;
-                            body?: unknown | null;
-                            createdAt: number;
-                            id: string;
-                            layout?: string | null;
-                            seo?: unknown | null;
-                            shareImage?: string | null;
-                            slug?: string | null;
-                            status?: ("draft" | "finished" | "published") | null;
-                            title?: string | null;
-                            updatedAt: number;
-                        }[];
-                        total: number;
-                    };
+                    "application/json": components["schemas"]["listPages"] | components["schemas"]["listPages.anonymous"];
                 };
             };
             /** @description invalid limit, offset, sort or locale */
@@ -6432,7 +6746,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description missing permission pages.read */
+            /** @description no field grant on pages for a caller without an identity or a configured role */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -6603,33 +6917,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description ok */
+            /** @description ok; x-kestrel-answers names the answer each audience receives */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        /** @description origin locale per field, only with fallback */
-                        _locales?: {
-                            [key: string]: string;
-                        };
-                        /** @description per locale: required localized fields present */
-                        _translations?: {
-                            [key: string]: boolean;
-                        };
-                        accent?: string | null;
-                        body?: unknown | null;
-                        createdAt: number;
-                        id: string;
-                        layout?: string | null;
-                        seo?: unknown | null;
-                        shareImage?: string | null;
-                        slug?: string | null;
-                        status?: ("draft" | "finished" | "published") | null;
-                        title?: string | null;
-                        updatedAt: number;
-                    };
+                    "application/json": components["schemas"]["readPage"] | components["schemas"]["readPage.anonymous"];
                 };
             };
             /** @description unknown locale */
@@ -6650,7 +6944,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description missing permission pages.read */
+            /** @description no field grant on pages for a caller without an identity or a configured role */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -7045,26 +7339,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description ok */
+            /** @description ok; x-kestrel-answers names the answer each audience receives */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        /** @description origin locale per field, only with fallback */
-                        _locales?: {
-                            [key: string]: string;
-                        };
-                        /** @description per locale: required localized fields present */
-                        _translations?: {
-                            [key: string]: boolean;
-                        };
-                        createdAt: number;
-                        id: string;
-                        rules?: unknown | null;
-                        updatedAt: number;
-                    };
+                    "application/json": components["schemas"]["getRedirects"] | components["schemas"]["getRedirects.anonymous"];
                 };
             };
             /** @description unknown locale */
@@ -7085,7 +7366,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description missing permission redirects.read */
+            /** @description no field grant on redirects for a caller without an identity or a configured role */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -7217,18 +7498,22 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description ok */
+            /** @description ok; x-kestrel-answers names the answer each audience receives */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        pattern: string;
-                        /** @enum {integer} */
-                        status: 301 | 302 | 307 | 308;
-                        target: string;
-                    }[];
+                    "application/json": components["schemas"]["renderRedirects"] | components["schemas"]["renderRedirects.anonymous"];
+                };
+            };
+            /** @description no field grant on redirectRules for a caller without an identity or a configured role */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
             /** @description internal error */
@@ -7264,38 +7549,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description ok */
+            /** @description ok; x-kestrel-answers names the answer each audience receives */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        /** @description internal references by target id after site.resolveLinks; absent when the document has no internal references to resolve */
-                        _links?: {
-                            [key: string]: {
-                                broken?: boolean;
-                                locale?: string;
-                                path?: string;
-                            };
-                        };
-                        /** @description origin locale per field, only with fallback */
-                        _locales?: {
-                            [key: string]: string;
-                        };
-                        /** @description per locale: required localized fields present */
-                        _translations?: {
-                            [key: string]: boolean;
-                        };
-                        createdAt: number;
-                        description?: string | null;
-                        id: string;
-                        navigation?: unknown | null;
-                        title?: string | null;
-                        titlePosition?: ("suffix" | "prefix") | null;
-                        titleSeparator?: string | null;
-                        updatedAt: number;
-                    };
+                    "application/json": components["schemas"]["getSettings"] | components["schemas"]["getSettings.anonymous"];
                 };
             };
             /** @description unknown locale */
@@ -7316,7 +7576,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description missing permission settings.read */
+            /** @description no field grant on settings for a caller without an identity or a configured role */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -7470,49 +7730,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description ok */
+            /** @description ok; x-kestrel-answers names the answer each audience receives */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        /** @description internal references by target id after site.resolveLinks; absent when the document has no internal references to resolve */
-                        _links?: {
-                            [key: string]: {
-                                broken?: boolean;
-                                locale?: string;
-                                path?: string;
-                            };
-                        };
-                        /** @description effective locale of a site-resolved document */
-                        _locale?: string;
-                        /** @description origin locale per field, only with fallback */
-                        _locales?: {
-                            [key: string]: string;
-                        };
-                        /** @description per locale: required localized fields present */
-                        _translations?: {
-                            [key: string]: boolean;
-                        };
-                        accent?: string | null;
-                        body?: unknown | null;
-                        createdAt: number;
-                        id: string;
-                        layout?: string | null;
-                        seo?: unknown | null;
-                        shareImage?: string | null;
-                        slug?: string | null;
-                        status?: ("draft" | "finished" | "published") | null;
-                        title?: string | null;
-                        updatedAt: number;
-                    } | {
-                        redirect: {
-                            /** @enum {integer} */
-                            status: 301 | 302 | 307 | 308;
-                            to: string;
-                        };
-                    };
+                    "application/json": components["schemas"]["resolvePage"] | components["schemas"]["resolvePage.anonymous"];
                 };
             };
             /** @description not authenticated */
@@ -7524,7 +7748,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description missing permission pages.read */
+            /** @description no field grant on pages for a caller without an identity or a configured role */
             403: {
                 headers: {
                     [name: string]: unknown;
