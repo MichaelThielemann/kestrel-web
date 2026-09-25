@@ -24,9 +24,9 @@ function walkFiles(dir: string, out: string[]): void {
   }
 }
 
-function consumerAppFiles(ctx: SourceRuleContext): string[] {
+function consumerFiles(ctx: SourceRuleContext, dirs: readonly string[]): string[] {
   const out: string[] = [];
-  walkFiles(join(ctx.root, "app"), out);
+  for (const dir of dirs) walkFiles(join(ctx.root, dir), out);
   return out;
 }
 
@@ -38,14 +38,16 @@ function scriptBlocks(source: string, isVue: boolean): string[] {
   return blocks;
 }
 
-interface ConsumerScript {
+/** One parsed script of a consumer's own code: a `.ts` file, or one `<script>` block of a `.vue` file. */
+export interface ConsumerScript {
   file: string;
   root: AstNode;
 }
 
-function consumerScripts(ctx: SourceRuleContext): ConsumerScript[] {
+/** Every script under the project's own `dirs` (default `app/`), skipping `node_modules` and build output; a block that does not parse is left out. */
+export function consumerScripts(ctx: SourceRuleContext, dirs: readonly string[] = ["app"]): ConsumerScript[] {
   const scripts: ConsumerScript[] = [];
-  for (const file of consumerAppFiles(ctx)) {
+  for (const file of consumerFiles(ctx, dirs)) {
     const source = ctx.readFile(file);
     if (source === undefined) continue;
     for (const block of scriptBlocks(source, file.endsWith(".vue"))) {
@@ -228,7 +230,7 @@ export const routeCacheRule: SourceRule = {
   },
 };
 
-/** A one-time reminder, gone once the layer range is at 3.x: 6.0/3.0 changes what an exported page carries, so a page published under the old release keeps navigating through `/api` until it is republished. */
+/** A one-time note, gone once the layer range is at 3.x: 3.0 changes what an exported page carries, and the first start of the upgraded build re-renders every published page in the background, so nothing needs running by hand. */
 export const publishAllRule: SourceRule = {
   id: "ops/publish-all",
   needs: "source",
@@ -239,12 +241,12 @@ export const publishAllRule: SourceRule = {
       {
         id: "ops/publish-all",
         rule: "ops/publish-all",
-        severity: "warning",
+        severity: "info",
         tier: "source",
         where: {},
         message: "this upgrade changes what an exported page carries (the static marker, the build id, several page-data keys)",
-        suggestion: "run Publish all once after the upgrade completes, so every already-published page picks up the change",
-        fix: { kind: "manual" },
+        suggestion: "nothing to run: the first start of the upgraded build re-renders every published page in the background; System › Static delivery shows the progress",
+        fix: { kind: "none" },
         docs: docsAnchor("ops-publish-all"),
       },
     ];

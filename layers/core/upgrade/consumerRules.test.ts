@@ -125,12 +125,14 @@ const OLD_LAYER_PACKAGE_JSON = '{ "dependencies": { "@michaelthielemann/kestrel-
 const NEW_LAYER_PACKAGE_JSON = '{ "dependencies": { "@michaelthielemann/kestrel-web": "^3.0.0" } }';
 
 describe("publishAllRule", () => {
-  it("reminds to publish all once delivery is on and the layer is still on its 2.x range", async () => {
+  it("tells, once delivery is on and the layer is still on its 2.x range, that the first start re-renders every page and nothing needs running", async () => {
     const ctx = projectWith({ "shared/model.ts": DELIVERY_MODEL, "package.json": OLD_LAYER_PACKAGE_JSON });
     const findings = await publishAllRule.check(ctx);
     expect(findings).toHaveLength(1);
-    expect(findings[0]?.suggestion).toContain("Publish all");
-    expect(findings[0]?.fix.kind).toBe("manual");
+    expect(findings[0]?.severity).toBe("info");
+    expect(findings[0]?.suggestion).toContain("the first start of the upgraded build re-renders every published page in the background");
+    expect(findings[0]?.suggestion).not.toContain("run Publish all");
+    expect(findings[0]?.fix.kind).toBe("none");
   });
 
   it("says nothing without the delivery feature", async () => {

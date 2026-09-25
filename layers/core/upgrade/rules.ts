@@ -7,6 +7,7 @@ import type { PipelineDefinition, PipelineEntry } from "@michaelthielemann/kestr
 import { checkPreset, relayPipelinesFor } from "../pipelines/checkPreset";
 import type { PresetOptions } from "../pipelines/checkPreset";
 import { consumerRules } from "./consumerRules";
+import { DEPENDENTS_PROBLEM_CODES, dependentsRules } from "./dependentsRules";
 import { addModuleEntryConfigProperty, addStringToNamedExportArray, bumpPackageJsonDependency, namedExportArray, removeStepsFromArray, wrapAtomicGroup, wrapRange } from "./edits";
 import type { SourceRange } from "./edits";
 import { layerProjectData } from "./load";
@@ -143,7 +144,7 @@ export const missingSanitizeSvgRule: SourceRule = {
   },
 };
 
-const OWNED_PROBLEM_CODES = new Set(["preset/override-drops-atomic-group", "preset/override-drops-relay"]);
+const OWNED_PROBLEM_CODES = new Set(["preset/override-drops-atomic-group", "preset/override-drops-relay", ...DEPENDENTS_PROBLEM_CODES]);
 
 /** Every `checkPreset()` problem not already owned by a more specific rule, one manual finding each. */
 export const presetProblemsRule: Rule = {
@@ -522,5 +523,6 @@ export const layerRules: readonly Rule[] = [
   ownPipelineDeliveryRule,
   overrideGroupRule,
   overrideRelayRule,
+  ...dependentsRules,
   ...consumerRules,
 ];

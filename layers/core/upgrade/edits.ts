@@ -176,3 +176,87 @@ export function removeStepsFromArray(file: string, source: string, array: AstNod
   return edits;
 }
 
+
+/** A property to add to an object literal: its key, and its whole source text (`lanes: { … }`). */
+export interface PropertyText {
+  key: string;
+  text: string;
+}
+
+function moduleEntry(root: AstNode, use: string): AstNode | undefined {
+  let found: AstNode | undefined;
+  walk(root, (node) => {
+    if (found !== undefined || node.type !== "ObjectExpression") return;
+    if (stringValue(objectProperty(node, "use")) === use) found = node;
+  });
+  return found;
+}
+
+/** Whether `source` holds a `{ use: "<use>", … }` object literal anywhere. */
+export function hasModuleEntry(source: string, use: string): boolean {
+  return moduleEntry(parseTs(source), use) !== undefined;
+}
+
+/** The string value of `dependencies.render` on the `{ use: "<use>", config: { … } }` entry, when it is a literal. */
+export function dependenciesRender(source: string, use: string): string | undefined {
+  const entry = moduleEntry(parseTs(source), use);
+  const config = entry === undefined ? undefined : objectProperty(entry, "config");
+  const dependencies = config === undefined || config.type !== "ObjectExpression" ? undefined : objectProperty(config, "dependencies");
+  const render = dependencies === undefined || dependencies.type !== "ObjectExpression" ? undefined : objectProperty(dependencies, "render");
+  return render === undefined ? undefined : stringValue(render);
+}
+
+function objectWith(file: string, source: string, node: AstNode, properties: readonly PropertyText[]): Edit | undefined {
+  const missing = properties.filter((p) => objectProperty(node, p.key) === undefined);
+  if (missing.length === 0) return undefined;
+  const { start, end } = span(node);
+  const inner = source.slice(start + 1, end - 1).trim().replace(/,$/, "");
+  const added = missing.map((p) => p.text).join(", ");
+  return { file, start, end, text: `{ ${inner}${inner === "" ? "" : ", "}${added} }` };
+}
+
+/**
+ * Adds every property of `properties` that the `config` object of the `{ use: "<use>", … }` entry lacks, as
+ * one edit rewriting that whole object with its own properties kept byte for byte and the missing ones
+ * appended; an entry without `config` gets one. Because the edit spans the whole object, a narrower edit of
+ * another rule inside it (adding one of the same properties) is superseded instead of conflicting.
+ * `undefined` when no such entry, or a non-object `config`, is found, or nothing is missing.
+ */
+export function setModuleEntryConfigProperties(file: string, source: string, use: string, properties: readonly PropertyText[]): Edit | undefined {
+  const entry = moduleEntry(parseTs(source), use);
+  if (entry === undefined) return undefined;
+  const config = objectProperty(entry, "config");
+  if (config === undefined) {
+    const inner = properties.map((p) => p.text).join(", ");
+    return objectWith(file, source, entry, [{ key: "config", text: `config: { ${inner} }` }]);
+  }
+  if (config.type !== "ObjectExpression") return undefined;
+  return objectWith(file, source, config, properties);
+}
+
+/**
+ * Sets `dependencies.render` of the `{ use: "<use>", config: { … } }` entry to `render`: replaces an
+ * existing `render` value, adds `render` to an existing `dependencies` object, or adds
+ * `dependencies: { render, rendererReadsDocument: true }` to the entry's config. `undefined` when no such
+ * entry is found, a `config` or `dependencies` is not an object literal, or `render` already has that value.
+ */
+export function setDependenciesRender(file: string, source: string, use: string, render: string): Edit | undefined {
+  const entry = moduleEntry(parseTs(source), use);
+  if (entry === undefined) return undefined;
+  const config = objectProperty(entry, "config");
+  const dependenciesText = `dependencies: { render: "${render}", rendererReadsDocument: true }`;
+  if (config === undefined) return objectWith(file, source, entry, [{ key: "config", text: `config: { ${dependenciesText} }` }]);
+  if (config.type !== "ObjectExpression") return undefined;
+  const dependencies = objectProperty(config, "dependencies");
+  if (dependencies === undefined) {
+    const { end } = span(config);
+    const hasProperties = Array.isArray(config.properties) && config.properties.length > 0;
+    return { file, start: end - 1, end: end - 1, text: `${hasProperties ? ", " : ""}${dependenciesText} ` };
+  }
+  if (dependencies.type !== "ObjectExpression") return undefined;
+  const current = objectProperty(dependencies, "render");
+  if (current === undefined) return objectWith(file, source, dependencies, [{ key: "render", text: `render: "${render}"` }]);
+  if (stringValue(current) === render) return undefined;
+  const { start, end } = span(current);
+  return { file, start, end, text: `"${render}"` };
+}

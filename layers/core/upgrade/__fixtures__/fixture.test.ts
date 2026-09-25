@@ -202,6 +202,11 @@ describe("site-2.0-custom (hand-written module list, eventsQueue already on, a 2
     expect(relayScope?.fix.kind).toBe("auto");
     expect(relayScope?.suggestion).toContain("relayPipelines");
 
+    expect(report.findings.find((f) => f.rule === "preset/queue-lanes")?.fix.kind).toBe("auto");
+    const dependencies = report.findings.find((f) => f.rule === "preset/delivery-dependencies");
+    expect(dependencies?.fix.kind).toBe("manual");
+    expect(dependencies?.message).toContain('dependencies.render "events"');
+
     expect(report.findings.find((f) => f.rule === "offer/event-queue")).toBeUndefined();
 
     const group = report.findings.find((f) => f.rule === "preset/override-group");
@@ -217,6 +222,7 @@ describe("site-2.0-custom (hand-written module list, eventsQueue already on, a 2
 
     const config = readFileSync(join(dir, "kestrel.config.ts"), "utf8");
     expect(config).toMatch(/relayPipelines:\s*\["publishPage",\s*"unpublishPage"\]/);
+    expect(config).toMatch(/lanes:\s*\{\s*pages:\s*\["republishOutput",\s*"refreshLlms"\],\s*variants:\s*\["generateImageVariants"\]\s*\}/);
     expect(config).toMatch(/\{\s*atomic:\s*\[\s*"references\.guard:pages",\s*"content\.remove:pages",\s*"references\.unindex:pages",\s*"links\.unextract:pages",\s*"events\.emit:page\.deleted"\s*\]\s*\}/);
     expect(config).toMatch(/events\.emit:page\.deleted"\s*\]\s*\},\s*"events\.relay"/);
 
@@ -297,8 +303,8 @@ describe("site-2.0-static-rules (the settings-key, route-cache and publish-all r
     expect(routeCache?.severity).toBe("info");
 
     const publishAll = report.findings.find((f) => f.rule === "ops/publish-all");
-    expect(publishAll?.suggestion).toContain("Publish all");
-    expect(publishAll?.severity).toBe("warning");
+    expect(publishAll?.suggestion).toContain("re-renders every published page in the background");
+    expect(publishAll?.severity).toBe("info");
   }, 60_000);
 });
 
@@ -310,5 +316,34 @@ describe("site-2.0-inline-features (features declared directly in kestrel.config
     const loadFailed = report.findings.find((f) => f.rule === "load/failed");
     expect(loadFailed?.where.file).toBe("kestrel.config.ts");
     expect(loadFailed?.message).toContain("kestrel.config.ts's features is missing");
+  }, 60_000);
+});
+
+describe("site-2.0-dependents (a literal delivery-static entry, a 2.x setSettings override, an own media trigger, a cached server read)", () => {
+  it("check finds the missing delivery dependencies, the setSettings override and the notes about media events, old answers and caches", async () => {
+    const dir = await prepare("site-2.0-dependents");
+    const report = await check(dir);
+    expect(report.tiers.load).toBe("done");
+
+    const dependencies = report.findings.find((f) => f.rule === "preset/delivery-dependencies");
+    expect(dependencies?.fix.kind).toBe("auto");
+    expect(dependencies?.severity).toBe("warning");
+
+    expect(report.findings.find((f) => f.rule === "preset/override-group" && f.where.pipeline === "setSettings")?.fix.kind).toBe("auto");
+    expect(report.findings.find((f) => f.rule === "preset/settings-llms")?.severity).toBe("info");
+    expect(report.findings.some((f) => f.message.includes('drops "events.emit:settings.updated"'))).toBe(true);
+
+    const mediaEvents = report.findings.find((f) => f.rule === "runtime/media-event-ids");
+    expect(mediaEvents?.where.pipeline).toBe("syncPublicMedia");
+    expect(report.findings.find((f) => f.rule === "responses/delivery-async")?.message).toContain("_llms");
+    expect(report.findings.find((f) => f.rule === "static/server-cache")?.message).toContain("defineCachedFunction");
+  }, 60_000);
+
+  it("fix --write --yes adds the background render dependencies and wraps the settings write in its group", async () => {
+    const dir = await prepare("site-2.0-dependents");
+    await fixWriteYes(dir);
+    const config = readFileSync(join(dir, "kestrel.config.ts"), "utf8");
+    expect(config).toContain('dependencies: { render: "background", rendererReadsDocument: true }');
+    expect(config).toMatch(/\{\s*atomic:\s*\["content\.set:settings"\]\s*\}/);
   }, 60_000);
 });

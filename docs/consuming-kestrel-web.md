@@ -1714,11 +1714,31 @@ What changes:
   this once, with `ops/publish-all`, whenever `delivery` is on.
 - Pages are re-rendered when content they show changes (§8, "Pages that show other content"). An override
   of `setSettings` or of a single collection's `set<Name>` must keep the new atomic group around its
-  `content.set:` step. A client that read `_llms` from `PUT /settings` or a page save, or `{ documents, live,
-  errors }` from **Publish all**, reads `{ marked }` and the stale status instead. A hand-written module list
-  needs `dependencies: { render, rendererReadsDocument: true }` on `kestrel-delivery-static` (`render:
+  `content.set:` step, and keep or gain its `events.emit:settings.updated` / `events.emit:<name>.updated`
+  followed by `events.relay`. A client that read `_llms` from `PUT /settings` or a page save, or `{ documents,
+  live, errors }` from **Publish all**, reads `{ marked }` and the stale status instead. A hand-written module
+  list needs `dependencies: { render, rendererReadsDocument: true }` on `kestrel-delivery-static` (`render:
   "events"` with `kestrel-events-queue`, `"background"` otherwise) and, with the queue, `lanes:
-  lanesFor(features)` on `kestrel-events-queue`.
+  lanesFor(features)` on `kestrel-events-queue`. The upgrade tool covers these:
+  - `preset/delivery-dependencies` adds the `dependencies` to a `kestrel-delivery-static` entry written in
+    `kestrel.config.ts` (`fix`), with the render mode of your event delivery; it is manual when the entry comes
+    from `presetModuleConfig()` with other features, or sets the wrong mode.
+  - `preset/queue-lanes` sets `lanes` (and a missing `relayPipelines`) on a `kestrel-events-queue` entry
+    written in `kestrel.config.ts` to what `lanesFor(features)` gives (`fix`); manual when the entry has lanes
+    that leave page renders or image variants out.
+  - `preset/override-group` wraps the settings write of a 2.x `setSettings` override in its group (`fix`);
+    the missing emit and relay are yours to add, and the preset names the override until they are there.
+    `preset/settings-llms` notes an override that still runs `delivery.exportLlms` inside the request.
+  - `runtime/media-event-ids` notes your own triggers on `media.updated`, `media.deleted` or
+    `images.variantsChanged`: a folder deletion and the events `images-default` raises itself arrive with
+    `id: null` and every affected id in `ids`.
+  - `responses/delivery-async` notes code in `app/` or `server/` that reads `_llms` or the old Publish all
+    counts; `static/server-cache` notes, with `delivery`, cached handlers, cached functions, `useStorage`
+    and cached `/api` route rules, whose answers a page's render does not record as reads.
+  - Switching to the queue through `fix` also sets `lanes` on the new `kestrel-events-queue` entry and
+    `dependencies.render: "events"` on a `kestrel-delivery-static` entry written in `kestrel.config.ts`; with
+    `delivery`, it asks whether `pageDependents`, `settingsDependents` and `mediaDependents` may run more than
+    once, as for every other event pipeline (they may: marking twice renders once).
 - Code on exported pages follows the rules in §8, "What an exported page requests": deterministic keys
   that carry the locale, never `useId()`, data transferred without `useState`. `useSiteSettings()` stores
   its data under `site:settings:<locale>`, and a media item the layer loads keeps its public fields only
