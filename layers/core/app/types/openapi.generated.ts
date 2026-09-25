@@ -3664,11 +3664,16 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        dependencies: number | null;
                         docId: string;
                         error?: string | null;
                         locale: string;
                         path?: string | null;
                         publishedAt?: number | null;
+                        stale: boolean;
+                        staleError: string | null;
+                        staleFailed: boolean;
+                        staleSince: number | null;
                         /** @enum {string} */
                         state: "live" | "error" | "draft";
                         type: string;
