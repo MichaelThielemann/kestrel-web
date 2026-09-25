@@ -43,7 +43,7 @@ async function main(): Promise<void> {
         audit: { retentionDays: 365 },
         migrations: { migrations: [] },
         eventsQueue: {},
-        roles: { roles: { admin: ["*"] }, anonymous: ["media.read"] },
+        roles: { roles: { admin: ["*"] }, anonymous: ["pages.read", "settings.read", "media.read", "redirects.read"] },
         bootstrap: {
           username: "admin",
           passwordHash: "scrypt$522f4ac87bfe4bcd100ba47a7d2aaec2$dbfc3f2d6cc38a76b21973d7c6f6d310a09506581c665f1f6601fd8fb3fa9bc3959689aea3e389f4d53eb8c7e70791ad4065e308763dd44609904134f0f5ee98",

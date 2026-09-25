@@ -89,7 +89,9 @@ optionality workaround: the backend packages' `describe().output` marks every fi
 published shape against a hand-written `Expected*` interface, so a field that becomes optional in a future
 generated document fails the test instead of silently widening the public type.
 
-The preset that `scripts/generate-api-types.ts` boots enables every `Feature` this layer defines, so the
+The preset that `scripts/generate-api-types.ts` boots grants anonymous callers every public read
+(`pages.read`, `settings.read`, `media.read`, `redirects.read`), so every read that ends with
+`authz.fields` gets its `.anonymous` answer documented. It enables every `Feature` this layer defines, so the
 generated document — and therefore `operations[...]` in `api.ts` — describes the full surface regardless
 of which features or collections a given consumer's own `definePreset` call enables; a route a consumer
 drops via `exclude` or narrows via `overrides` is missing at run time even though its type still exists.
