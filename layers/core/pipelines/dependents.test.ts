@@ -130,9 +130,10 @@ describe("dependents: marking the pages that read a change", () => {
     expect(eventsTriggering(preset, "venuesDependents")).toEqual(["venues.created", "venues.updated"]);
   });
 
-  it("keeps the media.updated trigger when images-default raises that event itself", () => {
-    const preset = compose(["delivery", "images"], { exclude: ["updateMedia"] });
-    expect(eventsTriggering(preset, "mediaDependents")).toEqual(["media.updated", "media.deleted"]);
+  it("also marks the readers of media whose image variants changed, when images-default raises that event", () => {
+    expect(eventsTriggering(compose(["delivery", "images"]), "mediaDependents")).toEqual(["media.updated", "media.deleted", "images.variantsChanged"]);
+    const withoutEdits = compose(["delivery", "images"], { exclude: ["updateMedia"] });
+    expect(eventsTriggering(withoutEdits, "mediaDependents")).toEqual(["media.deleted", "images.variantsChanged"]);
   });
 
   it("drops the triggers of an override that no longer emits, and of an excluded dependents pipeline", () => {

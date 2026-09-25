@@ -171,7 +171,7 @@ const PAGE_RENDER_LANE = "pages";
 const IMAGE_VARIANT_LANE = "variants";
 
 const MODULE_EMITS: Readonly<Record<string, readonly string[]>> = {
-  "@michaelthielemann/kestrel-images-default": ["media.updated"],
+  "@michaelthielemann/kestrel-images-default": ["images.variantsChanged"],
 };
 
 /** The event-triggered pipelines the `eventsQueue` module's relay may keep in the request; see `relayPipelinesFor`. */

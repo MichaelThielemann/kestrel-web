@@ -977,6 +977,10 @@
       "pipeline": "mediaDependents"
     },
     {
+      "event": "images.variantsChanged",
+      "pipeline": "mediaDependents"
+    },
+    {
       "event": "delivery.outputStale",
       "pipeline": "republishOutput"
     },

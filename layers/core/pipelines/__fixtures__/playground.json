@@ -919,6 +919,10 @@
       "pipeline": "mediaDependents"
     },
     {
+      "event": "images.variantsChanged",
+      "pipeline": "mediaDependents"
+    },
+    {
       "event": "media.uploaded",
       "pipeline": "generateImageVariants"
     },
