@@ -35,6 +35,7 @@ describe("the kestrel Nitro plugin's status-filter check", () => {
   it("throws before starting crons or the HTTP listener when a workflow never reached the pipelines that were composed", async () => {
     const listenSpy = vi.spyOn(Server.prototype, "listen");
     cleanups.push(() => listenSpy.mockRestore());
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- process.exit's signature returns never; the mock must not actually exit the test process
     const exitSpy = vi.spyOn(process, "exit").mockImplementation(() => undefined as never);
     cleanups.push(() => exitSpy.mockRestore());
 
