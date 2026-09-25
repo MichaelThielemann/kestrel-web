@@ -15,7 +15,8 @@
   "exports": {
     ".": "./index.ts",
     "./impl": "./impl.ts",
-    "./registry": "./registry.ts"
+    "./registry": "./registry.ts",
+    "./static-marker": "./static-marker.ts"
   },
   "publishConfig": {
     "access": "public",
@@ -31,6 +32,10 @@
       "./registry": {
         "types": "./dist/registry.d.ts",
         "default": "./dist/registry.js"
+      },
+      "./static-marker": {
+        "types": "./dist/static-marker.d.ts",
+        "default": "./dist/static-marker.js"
       }
     }
   },

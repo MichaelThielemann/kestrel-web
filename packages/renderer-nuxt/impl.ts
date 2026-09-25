@@ -1,6 +1,7 @@
 import { err, failure, ok, type Result } from "@michaelthielemann/kestrel-contracts/errors";
 import { renderFailed, type RenderAsset, type RenderInput, type RenderOutput, type Renderer, type RendererError } from "@michaelthielemann/kestrel-contracts/renderer";
 import { nuxtTarget, type NuxtBuildAssets, type NuxtTarget } from "./registry.ts";
+import { DELIVERY_ATTRIBUTE, STATIC_DELIVERY } from "./static-marker.ts";
 
 export interface Config {
   assets: boolean;
@@ -13,6 +14,10 @@ const DEV_ERROR = "renderer/nuxt: publishing requires a production build (nuxt b
 const EMPTY_MANIFEST_ERROR = "renderer/nuxt: the build assets manifest is empty - the Nuxt build did not run the build-assets module";
 
 const DEV_MARKUP = /\/@vite\/client|\/@fs\/|\/@id\//;
+
+const HTML_TAG = /<html(?=[\s>])/i;
+
+const PAYLOAD_TAG = /<script\b[^>]*\bid="__NUXT_DATA__"[^>]*>/;
 
 const FETCH_CONCURRENCY = 16;
 
@@ -88,6 +93,21 @@ async function fetchAll(target: NuxtTarget, buildAssets: NuxtBuildAssets): Promi
   return assets;
 }
 
+function checkPayload(html: string, path: string): void {
+  const tag = PAYLOAD_TAG.exec(html)?.[0];
+  if (tag === undefined) throw new Error(`renderer/nuxt: ${path} embeds no __NUXT_DATA__ payload, so it cannot hydrate on a static host`);
+  if (/\bdata-ssr="false"/.test(tag)) throw new Error(`renderer/nuxt: ${path} was not rendered on the server (ssr: false), so it cannot be exported`);
+  if (/\bdata-src=/.test(tag)) throw new Error(`renderer/nuxt: ${path} keeps its payload in a separate file (_payload.json, an isr or cache route rule), so it cannot hydrate on a static host`);
+}
+
+function markStatic(html: string, path: string): string {
+  const tag = HTML_TAG.exec(html);
+  if (tag === null) throw new Error(`renderer/nuxt: ${path} has no <html> element`);
+  checkPayload(html, path);
+  const at = tag.index + tag[0].length;
+  return `${html.slice(0, at)} ${DELIVERY_ATTRIBUTE}="${STATIC_DELIVERY}"${html.slice(at)}`;
+}
+
 const assetsCache = new WeakMap<NuxtTarget, Promise<RenderAsset[]>>();
 
 function syncBuildAssets(target: NuxtTarget, buildAssets: NuxtBuildAssets): Promise<RenderAsset[]> {
@@ -111,8 +131,9 @@ export function createRendererNuxt(config: Config, resolve: () => NuxtTarget = n
         ensureOk(response, `renderer/nuxt: ${input.path} responded ${response.status}`);
         const html = await response.text();
         if (DEV_MARKUP.test(html)) throw new Error(DEV_ERROR);
+        const marked = markStatic(html, input.path);
         const assets = config.assets && target.buildAssets ? await syncBuildAssets(target, target.buildAssets) : [];
-        return ok({ data: html, contentType: HTML, extension: "html", ...(assets.length > 0 ? { assets: assets.slice() } : {}) });
+        return ok({ data: marked, contentType: HTML, extension: "html", ...(assets.length > 0 ? { assets: assets.slice() } : {}) });
       } catch (cause) {
         if (cause instanceof RenderTransientError) return err(failure("TRANSIENT", cause.message, { cause }));
         return err(renderFailed(cause instanceof Error ? cause.message : String(cause), cause));
