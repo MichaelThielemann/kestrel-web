@@ -1,4 +1,7 @@
 // @vitest-environment jsdom
+import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { stringify } from 'devalue'
 import { describe, expect, it, vi } from 'vitest'
 import { fetchPageData, pageDataUrl, readPageData, type PageDataContext } from './page-data'
@@ -80,6 +83,33 @@ describe('readPageData', () => {
     const result = readPageData(exportedPage({ payloadText: text }), '/about', { ...context, revivers: { Failure: (value: unknown) => { seen.push(value); return value } } })
     expect(result.ok).toBe(true)
     expect(seen).toEqual([{ message: 'boom' }])
+  })
+})
+
+describe('readPageData on a page exported from a real render', () => {
+  const html = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '__fixtures__', 'exported-page.html'), 'utf8')
+  const buildId = /data-kestrel-build="([^"]+)"/.exec(html)?.[1] ?? ''
+  const identity = (value: unknown) => value
+  const nuxtRevivers = Object.fromEntries(['NuxtError', 'EmptyShallowRef', 'EmptyRef', 'ShallowRef', 'ShallowReactive', 'Ref', 'Reactive'].map((name) => [name, identity]))
+
+  it('reads the page, its settings and its locale links', () => {
+    const result = readPageData(html, '/ueber-uns', { baseURL: '/', buildId, revivers: nuxtRevivers })
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    const keys = Object.keys(result.page.data)
+    expect(keys).toContain('site:/ueber-uns')
+    expect(keys).toContain('site:settings:de')
+    expect(keys.some((key) => /^site:locales:[^:]+:de$/.test(key))).toBe(true)
+    expect(keys.some((key) => /^media:[^:]+:de$/.test(key))).toBe(true)
+  })
+
+  it('refuses it as the data of another path', () => {
+    expect(readPageData(html, '/en/about', { baseURL: '/', buildId, revivers: nuxtRevivers })).toEqual({ ok: false, reason: 'it was rendered for /ueber-uns' })
+  })
+
+  it('refuses it when Nuxt\'s revivers are missing', () => {
+    const result = readPageData(html, '/ueber-uns', { baseURL: '/', buildId, revivers: {} })
+    expect(result.ok).toBe(false)
   })
 })
 
