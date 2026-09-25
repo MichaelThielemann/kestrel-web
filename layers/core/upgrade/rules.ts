@@ -1,14 +1,15 @@
-import { insertStepAfterEmitOutsideGroup, parseTs } from "@michaelthielemann/kestrel-upgrade/codemods";
+import { insertStepAfterEmitOutsideGroup, isAstNode, parseTs, stringValue } from "@michaelthielemann/kestrel-upgrade/codemods";
+import type { AstNode } from "@michaelthielemann/kestrel-upgrade/codemods";
 import type { Edit, Finding, Rule, RuleContext } from "@michaelthielemann/kestrel-upgrade/plugin";
 import { pipelineSteps } from "@michaelthielemann/kestrel/definePipeline";
 import type { PipelineDefinition, PipelineEntry } from "@michaelthielemann/kestrel/definePipeline";
 import { checkPreset, relayPipelinesFor } from "../pipelines/checkPreset";
 import type { PresetOptions } from "../pipelines/checkPreset";
-import { addModuleEntryConfigProperty, bumpPackageJsonDependency, removeStepsFromArray, wrapAtomicGroup, wrapRange } from "./edits";
+import { addModuleEntryConfigProperty, addStringToNamedExportArray, bumpPackageJsonDependency, namedExportArray, removeStepsFromArray, wrapAtomicGroup, wrapRange } from "./edits";
 import type { SourceRange } from "./edits";
 import { layerProjectData } from "./load";
 import { layerLocateSteps, ownPipelineSteps } from "./locators";
-import { autoFinding, docsAnchor, fileForPipeline, manualFinding, packageJsonPath, presetOptionsCast } from "./ruleHelpers";
+import { autoFinding, docsAnchor, fileForPipeline, findFeaturesArrayFile, manualFinding, packageJsonPath, presetOptionsCast } from "./ruleHelpers";
 
 const LAYER_RANGE = "^3.0.0";
 const LAYER_PACKAGE = "@michaelthielemann/kestrel-web";
@@ -79,6 +80,64 @@ export const relayScopeRule: Rule = {
         fix: edit === undefined ? { kind: "manual" } : { kind: "auto", edits: [edit] },
         docs: docsAnchor("preset-relay-scope"),
       },
+    ];
+  },
+};
+
+const SANITIZE_SVG_PACKAGE = "@michaelthielemann/kestrel-sanitize-svg";
+
+function resolvedArrayValues(source: string, array: { elements: readonly AstNode[] }): string[] {
+  const values: string[] = [];
+  for (const el of array.elements) {
+    const value = stringValue(el);
+    if (value !== undefined) {
+      values.push(value);
+      continue;
+    }
+    if (el.type !== "SpreadElement") continue;
+    const arg = el.argument;
+    if (!isAstNode(arg) || arg.type !== "Identifier" || typeof arg.name !== "string") continue;
+    const spread = namedExportArray(source, arg.name);
+    if (spread !== undefined) values.push(...resolvedArrayValues(source, spread));
+  }
+  return values;
+}
+
+function featuresInsertionTarget(source: string, features: { elements: readonly AstNode[] }): string {
+  for (const el of features.elements) {
+    if (el.type !== "SpreadElement") continue;
+    const arg = el.argument;
+    if (isAstNode(arg) && arg.type === "Identifier" && typeof arg.name === "string" && namedExportArray(source, arg.name) !== undefined) return arg.name;
+  }
+  return "features";
+}
+
+/**
+ * `presetModuleConfig()` turns media's `publicCopy` on for the `delivery` feature and rejects that
+ * combination outright when SVG uploads are still allowed without `sanitizeSvg` — a 2.x project, built
+ * before that feature existed, always has this shape. Reads `shared/model.ts`'s `features` array directly
+ * rather than the loaded preset, so it still finds and fixes the gap on a project whose `kestrel.config.ts`
+ * this same condition would otherwise fail to load at all — following a `...presetFeatures`-style spread
+ * to the narrower array `presetModuleConfig()` actually receives, and inserting into that array instead of
+ * `features` itself when there is one.
+ */
+export const missingSanitizeSvgRule: Rule = {
+  id: "preset/missing-sanitize-svg",
+  check(ctx) {
+    const file = findFeaturesArrayFile(ctx);
+    const source = file === undefined ? undefined : ctx.readFile(file);
+    const features = source === undefined ? undefined : namedExportArray(source, "features");
+    if (file === undefined || source === undefined || features === undefined) return [];
+    const values = resolvedArrayValues(source, features);
+    if (!values.includes("delivery") || values.includes("sanitizeSvg")) return [];
+    const edit = addStringToNamedExportArray(file, source, featuresInsertionTarget(source, features), "sanitizeSvg");
+    const where = { file };
+    const message = `features has "delivery" (which turns on media's publicCopy) without "sanitizeSvg", which presetModuleConfig() requires once SVG uploads are allowed`;
+    const docs = docsAnchor("preset-missing-sanitize-svg");
+    return [
+      edit === undefined
+        ? manualFinding("preset/missing-sanitize-svg", "preset/missing-sanitize-svg", where, message, `add "sanitizeSvg" to features yourself, and ${SANITIZE_SVG_PACKAGE} to your dependencies`, docs)
+        : autoFinding("preset/missing-sanitize-svg", "preset/missing-sanitize-svg", where, message, `adds "sanitizeSvg" to features; add ${SANITIZE_SVG_PACKAGE} to your dependencies too`, [edit], docs),
     ];
   },
 };
@@ -452,4 +511,4 @@ export const overrideRelayRule: Rule = {
   },
 };
 
-export const layerRules: readonly Rule[] = [layerRangeRule, relayScopeRule, presetProblemsRule, overrideDriftRule, overrideDeliveryRule, ownPipelineDeliveryRule, overrideGroupRule, overrideRelayRule];
+export const layerRules: readonly Rule[] = [layerRangeRule, relayScopeRule, missingSanitizeSvgRule, presetProblemsRule, overrideDriftRule, overrideDeliveryRule, ownPipelineDeliveryRule, overrideGroupRule, overrideRelayRule];

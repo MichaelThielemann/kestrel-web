@@ -17,11 +17,6 @@ import { cleanupAllFixtures, materializeFixture } from "./materialize";
 const execFileAsync = promisify(execFile);
 const runningKestrels: Kestrel[] = [];
 
-/**
- * `forceInstalledMajor` still forces the boot tier as if a 6.x core were installed (kestrel-upgrade's
- * own test suite uses it too), but it moved out of `RunUpgradeCliOptions`'s public type into an
- * internal one, so this widens the type at the call site instead of narrowing to what is exported.
- */
 function runOptionsWithMajor6(options: Parameters<typeof runUpgradeCli>[1]): Parameters<typeof runUpgradeCli>[1] & { forceInstalledMajor: number } {
   return { ...options, forceInstalledMajor: 6 };
 }
@@ -79,16 +74,19 @@ afterEach(async () => {
 });
 
 describe("site-2.0 (create-kestrel template shape, presetModuleConfig, no overrides)", () => {
-  it("check finds only the range bump and the queue offer; the boot tier runs", async () => {
+  it("check finds the range bump, the missing sanitizeSvg feature and the queue offer; the boot tier runs", async () => {
     const dir = await prepare("site-2.0");
     const report = await check(dir);
     expect(report.tiers.boot).toBe("done");
 
     const errorRules = new Set(report.findings.filter((f) => f.severity === "error").map((f) => f.rule));
-    expect(errorRules).toEqual(new Set(["deps/kestrel-range", "deps/layer-range"]));
+    expect(errorRules).toEqual(new Set(["deps/kestrel-range", "deps/layer-range", "preset/missing-sanitize-svg"]));
 
     const layerRange = report.findings.find((f) => f.rule === "deps/layer-range");
     expect(layerRange?.fix.kind).toBe("auto");
+
+    const sanitizeSvg = report.findings.find((f) => f.rule === "preset/missing-sanitize-svg");
+    expect(sanitizeSvg?.fix.kind).toBe("auto");
 
     const offer = report.findings.find((f) => f.rule === "offer/event-queue");
     expect(offer?.message).toBe("can switch to the queue");
@@ -100,12 +98,15 @@ describe("site-2.0 (create-kestrel template shape, presetModuleConfig, no overri
     expect(bootCheck.errors).toEqual([]);
   }, 60_000);
 
-  it("fix --write --yes bumps the ranges; the fixed project boots and answers POST /api/login 200", async () => {
+  it("fix --write --yes bumps the ranges and adds sanitizeSvg; the fixed project boots and answers POST /api/login 200", async () => {
     const dir = await prepare("site-2.0");
     await fixWriteYes(dir);
 
     const pkg = JSON.parse(readFileSync(join(dir, "package.json"), "utf8"));
     expect(pkg.dependencies["@michaelthielemann/kestrel-web"]).toBe("^3.0.0");
+
+    const model = readFileSync(join(dir, "shared", "model.ts"), "utf8");
+    expect(model).toMatch(/"sanitizeSvg"/);
 
     expect(await detectLayerProject(dir)).toBe(true);
     const project = await loadProject(dir);

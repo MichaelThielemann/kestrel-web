@@ -49,6 +49,6 @@ export type ContentTypeName = keyof typeof contentTypes;
 export const contentModel = { locales: [...locales], defaultLocale, types: contentTypes };
 
 /** The features presetModuleConfig() sees; eventsQueue is added separately below, in the hand-written module list. */
-export const presetFeatures = ["references", "links", "delivery", "redirects", "images", "sanitizeSvg"] as const satisfies readonly Feature[];
+export const presetFeatures = ["references", "links", "delivery", "redirects", "images"] as const satisfies readonly Feature[];
 
 export const features = [...presetFeatures, "eventsQueue"] as const satisfies readonly Feature[];

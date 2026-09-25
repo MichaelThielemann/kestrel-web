@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { BootCheck } from "@michaelthielemann/kestrel";
 import type { Edit, LoadedProject, RuleContext } from "@michaelthielemann/kestrel-upgrade/plugin";
 import { applyEdits } from "@michaelthielemann/kestrel-upgrade/codemods";
-import { overrideDeliveryRule, overrideGroupRule, overrideRelayRule, ownPipelineDeliveryRule, relayScopeRule } from "./rules";
+import { missingSanitizeSvgRule, overrideDeliveryRule, overrideGroupRule, overrideRelayRule, ownPipelineDeliveryRule, relayScopeRule } from "./rules";
 
 const FILE = "/fake/kestrel.config.ts";
 
@@ -540,6 +540,69 @@ export const preset = definePreset({
     expect(text).toContain("events.relay");
     expect(text).not.toContain("delivery.publish:pages");
     expect(text).not.toContain("delivery.exportLlms");
+  });
+});
+
+describe("missingSanitizeSvgRule", () => {
+  const MODEL_FILE = "/fake/shared/model.ts";
+
+  function modelContextFor(source: string): RuleContext {
+    const project: LoadedProject = {
+      input: { config: { modules: [], triggers: [], http: null }, modules: [], pipelines: [] },
+      kind: "kestrel-web",
+      configFile: FILE,
+      moduleFiles: new Map(),
+      pipelineFiles: [],
+      data: { presetProblems: [], presetOptions },
+    };
+    return {
+      root: "/fake",
+      scratch: "/fake",
+      project,
+      bootCheck: { errors: [], warnings: [], notChecked: [] },
+      readFile: (file) => (file === MODEL_FILE ? source : undefined),
+      answers: new Map(),
+    };
+  }
+
+  it('adds "sanitizeSvg" automatically when features has "delivery" but not "sanitizeSvg"', async () => {
+    const source = 'export const features = ["delivery", "images"] as const satisfies readonly Feature[];\n';
+    const ctx = modelContextFor(source);
+    const [finding] = await missingSanitizeSvgRule.check(ctx);
+    expect(finding?.fix.kind).toBe("auto");
+    if (finding?.fix.kind !== "auto") throw new Error("expected auto");
+    const edit = finding.fix.edits[0]!;
+    const patched = source.slice(0, edit.start) + edit.text + source.slice(edit.end);
+    expect(patched).toMatch(/"delivery",\s*"images",\s*"sanitizeSvg"/);
+  });
+
+  it('does nothing when "sanitizeSvg" is already present', async () => {
+    const source = 'export const features = ["delivery", "images", "sanitizeSvg"] as const satisfies readonly Feature[];\n';
+    const findings = await missingSanitizeSvgRule.check(modelContextFor(source));
+    expect(findings).toEqual([]);
+  });
+
+  it('does nothing when "delivery" is not a feature', async () => {
+    const source = 'export const features = ["images"] as const satisfies readonly Feature[];\n';
+    const findings = await missingSanitizeSvgRule.check(modelContextFor(source));
+    expect(findings).toEqual([]);
+  });
+
+  it('inserts into the spread array presetModuleConfig() actually sees, when features is [...presetFeatures, "eventsQueue"]', async () => {
+    const source = 'export const presetFeatures = ["delivery", "images"] as const satisfies readonly Feature[];\nexport const features = [...presetFeatures, "eventsQueue"] as const satisfies readonly Feature[];\n';
+    const ctx = modelContextFor(source);
+    const [finding] = await missingSanitizeSvgRule.check(ctx);
+    expect(finding?.fix.kind).toBe("auto");
+    if (finding?.fix.kind !== "auto") throw new Error("expected auto");
+    const edit = finding.fix.edits[0]!;
+    const patched = source.slice(0, edit.start) + edit.text + source.slice(edit.end);
+    expect(patched).toMatch(/presetFeatures = \["delivery", "images", "sanitizeSvg"\]/);
+  });
+
+  it('does nothing when "sanitizeSvg" is already in the spread source array', async () => {
+    const source = 'export const presetFeatures = ["delivery", "images", "sanitizeSvg"] as const satisfies readonly Feature[];\nexport const features = [...presetFeatures, "eventsQueue"] as const satisfies readonly Feature[];\n';
+    const findings = await missingSanitizeSvgRule.check(modelContextFor(source));
+    expect(findings).toEqual([]);
   });
 });
 
