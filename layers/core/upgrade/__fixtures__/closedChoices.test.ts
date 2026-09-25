@@ -34,4 +34,18 @@ describe("a closed-choice question rejects an answer outside its choices", () =>
     expect(exitCode).toBe(2);
     expect(lines.join("\n")).toContain('"own-pipeline-delivery:publishesInline" is "sometimes"');
   }, 60_000);
+
+  it("override-group's include/exclude/manual question exits 2 for an answer that is none of those", async () => {
+    const dir = await prepare("site-2.0-double-publish");
+    const answersFile = join(dir, "answers.json");
+    writeFileSync(answersFile, JSON.stringify({ "override-group:deletePage": "sometimes" }));
+    const lines: string[] = [];
+    const exitCode = await runUpgradeCli(["fix", "--root", dir, "--answers", answersFile], {
+      plugins: [createLayerPlugin()],
+      stdout: (l) => lines.push(l),
+      stderr: (l) => lines.push(l),
+    });
+    expect(exitCode).toBe(2);
+    expect(lines.join("\n")).toContain('"override-group:deletePage" is "sometimes"');
+  }, 60_000);
 });

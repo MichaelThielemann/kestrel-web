@@ -32,7 +32,9 @@ const modules = [
 
 /**
  * A 2.x-shaped override of `deletePage`: the write, its reference/link bookkeeping and its trailing emit
- * as plain steps, without the atomic group or the relay the 3.0 default wraps them in.
+ * as plain steps, without the atomic group or the relay the 3.0 default wraps them in. A consumer step
+ * (`authn.requireUser`, run a second time) sits inside the write window, making the atomic-group wrap
+ * ambiguous instead of an automatic verbatim wrap.
  */
 export const preset = definePreset({
   modules,
@@ -45,6 +47,7 @@ export const preset = definePreset({
       "authz.require:pages.delete",
       "references.guard:pages",
       "content.remove:pages",
+      "authn.requireUser",
       "references.unindex:pages",
       "links.unextract:pages",
       "events.emit:page.deleted",
