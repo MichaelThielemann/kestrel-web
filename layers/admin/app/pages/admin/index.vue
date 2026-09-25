@@ -102,6 +102,7 @@ const noCollectionsDefined = computed(() => collections.value.length === 0)
       <span>{{ t('refs.dashAlert', { n: brokenCount }) }}</span>
     </NuxtLink>
     <KestrelDashDeliveryAlert v-if="capabilities.has('eventsDeliveryStatus')" />
+    <KestrelDashDeliveryStaleAlert v-if="capabilities.has('pagesStaleStatus')" />
     <KestrelUiEmptyState
       v-if="!hasAnyCard"
       icon="layout-grid"

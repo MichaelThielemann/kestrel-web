@@ -1,5 +1,6 @@
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import { describe, expect, it } from 'vitest'
+import type { DeliveryEntry } from '#kestrel-admin/types/api'
 import type { Workflow } from '#kestrel-admin/types/kestrel'
 import { en } from '#kestrel-admin/i18n/en'
 import EditorStatus from './EditorStatus.vue'
@@ -36,5 +37,52 @@ describe('EditorStatus with a custom workflow', () => {
 
   it('shows no status word at all without a workflow', async () => {
     expect(await light({ status: 'published' })).toEqual({ tone: 'green', word: en['editorStatus.word.saved'] })
+  })
+})
+
+function entry(over: Partial<DeliveryEntry> = {}): DeliveryEntry {
+  return {
+    type: 'pages', docId: 'p1', locale: 'en', state: 'live', path: '/about', error: null, publishedAt: 1,
+    stale: false, staleSince: null, staleFailed: false, staleError: null, dependencies: 12, ...over,
+  }
+}
+
+async function liveLamp(delivery: DeliveryEntry) {
+  const wrapper = await mountSuspended(EditorStatus, { props: { dirty: false, pageLike: true, locale: 'en', delivery: [delivery] } })
+  const node = wrapper.find('.editor-status-live')
+  const result = { tone: node.attributes('data-tone'), word: node.find('.editor-status-live__word').text(), label: node.attributes('aria-label') }
+  wrapper.unmount()
+  return result
+}
+
+describe('EditorStatus delivery line and dependent re-renders', () => {
+  it('says the page waits for its re-render when content it shows changed', async () => {
+    expect(await liveLamp(entry({ stale: true, staleSince: 2 }))).toEqual({
+      tone: 'amber',
+      word: en['editorStatus.word.waiting'],
+      label: `${en['editorStatus.word.waiting']} — ${en['editorStatus.delivery.stale']}`,
+    })
+  })
+
+  it('says the re-render failed and names the error', async () => {
+    expect(await liveLamp(entry({ staleFailed: true, staleError: 'render timed out' }))).toEqual({
+      tone: 'red',
+      word: en['editorStatus.word.staleFailed'],
+      label: `${en['editorStatus.word.staleFailed']} — ${en['editorStatus.delivery.staleFailed'].replace('{error}', 'render timed out')}`,
+    })
+  })
+
+  it('still offers the live page while it waits for its re-render', async () => {
+    const wrapper = await mountSuspended(EditorStatus, { props: { dirty: false, pageLike: true, locale: 'en', publicUrl: 'https://example.test/about', delivery: [entry({ stale: true })] } })
+    expect(wrapper.find('a.editor-status-open').attributes('href')).toBe('https://example.test/about')
+    wrapper.unmount()
+  })
+
+  it('keeps a draft a draft even when it was marked', async () => {
+    expect((await liveLamp(entry({ state: 'draft', path: null, stale: true }))).word).toBe(en['editorStatus.word.notLive'])
+  })
+
+  it('stays live without a mark', async () => {
+    expect((await liveLamp(entry())).word).toBe(en['editorStatus.word.live'])
   })
 })

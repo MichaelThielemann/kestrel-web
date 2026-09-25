@@ -35,7 +35,7 @@ const save = computed<{ tone: Tone; word: string; detail: string }>(() => {
   return { tone: 'green', word: t('editorStatus.word.saved'), detail: t('editorStatus.detail.saved') }
 })
 
-type LiveTone = 'green' | 'red' | 'blue' | 'neutral'
+type LiveTone = 'green' | 'red' | 'blue' | 'amber' | 'neutral'
 
 const publishedAtLabel = computed(() => {
   const entry = deliveryEntry.value
@@ -55,10 +55,14 @@ const live = computed<{ tone: LiveTone; word: string; detail: string; when?: str
       ? { tone: 'neutral', word: t('editorStatus.word.loading'), detail: t('editorStatus.live.unknown') }
       : { tone: 'neutral', word: t('editorStatus.word.unknown'), detail: t('editorStatus.live.unknown') }
   }
+  if (entry.state !== 'draft' && entry.staleFailed)
+    return { tone: 'red', word: t('editorStatus.word.staleFailed'), detail: t('editorStatus.delivery.staleFailed', { error: entry.staleError ?? '' }) }
   if (entry.state === 'error')
     return { tone: 'red', word: t('editorStatus.word.error'), detail: t('editorStatus.live.error'), error: entry.error ?? '' }
   if (entry.state === 'draft')
     return { tone: 'blue', word: t('editorStatus.word.notLive'), detail: t('editorStatus.live.draft') }
+  if (entry.stale)
+    return { tone: 'amber', word: t('editorStatus.word.waiting'), detail: t('editorStatus.delivery.stale') }
   return {
     tone: 'green',
     word: t('editorStatus.word.live'),
@@ -100,7 +104,7 @@ const live = computed<{ tone: LiveTone; word: string; detail: string; when?: str
       </template>
     </KestrelUiTooltip>
 
-    <a v-if="live?.tone === 'green' && publicUrl" class="editor-status-open" :href="publicUrl" target="_blank" rel="noopener">
+    <a v-if="deliveryEntry?.state === 'live' && publicUrl" class="editor-status-open" :href="publicUrl" target="_blank" rel="noopener">
       <KestrelUiIcon name="globe" :size="14" />
       <span>{{ t('editorStatus.openPage') }}</span>
     </a>
