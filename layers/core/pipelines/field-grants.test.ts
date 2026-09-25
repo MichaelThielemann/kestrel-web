@@ -126,6 +126,7 @@ const DATA_DIR = "/srv/kestrel/data";
 const PASSWORD_HASH = "scrypt$522f4ac87bfe4bcd100ba47a7d2aaec2$dbfc3f2d6cc38a76b21973d7c6f6d310a09506581c665f1f6601fd8fb3fa9bc3959689aea3e389f4d53eb8c7e70791ad4065e308763dd44609904134f0f5ee98";
 const MEDIA_FIELDS = ["id", "path", "filename", "contentType", "size", "width", "height", "alt", "title", "description", "provenance"];
 const VARIANT_FIELDS = ["variants[].size", "variants[].width", "variants[].height", "variants[].format", "variants[].path"];
+const PUBLIC_READS = ["pages.read", "settings.read", "media.read"];
 
 function authzConfig(options: { model?: PresetContentModel; features: readonly Feature[]; roles?: Record<string, unknown> }): Record<string, unknown> {
   const modules = presetModuleConfig({
@@ -144,10 +145,9 @@ function authzConfig(options: { model?: PresetContentModel; features: readonly F
 }
 
 describe("the anonymous field grants presetModuleConfig derives", () => {
-  it("grants the playground's model fields, the public media fields, the file headers and the redirect rules", () => {
+  it("grants the playground's anonymously readable model fields, the public media fields, the file headers and the redirect rules", () => {
     expect(authzConfig({ features: ["delivery", "sanitizeSvg", "images", "redirects"] }).anonymousFields).toEqual({
       settings: ["id", "title", "titlePosition", "titleSeparator", "description", "navigation", "_locales", "_translations", "_links"],
-      redirects: ["id", "rules", "_locales", "_translations"],
       pages: ["id", "slug", "title", "body", "seo", "status", "shareImage", "accent", "layout", "_locales", "_translations", "_locale", "_links", "redirect"],
       media: [...MEDIA_FIELDS, ...VARIANT_FIELDS],
       mediaFile: ["headers.cache-control", "headers.x-content-provenance", "headers.x-kestrel-variant"],
@@ -156,7 +156,7 @@ describe("the anonymous field grants presetModuleConfig derives", () => {
   });
 
   it("drops the variant fields and the variant header without images, and every redirect grant without redirects", () => {
-    const grants = anonymousFieldGrants(contentModel, []);
+    const grants = anonymousFieldGrants(contentModel, [], PUBLIC_READS);
     expect(grants.media).toEqual(MEDIA_FIELDS);
     expect(grants.mediaFile).toEqual(["headers.cache-control", "headers.x-content-provenance"]);
     expect(grants.pages).not.toContain("redirect");
@@ -168,21 +168,29 @@ describe("the anonymous field grants presetModuleConfig derives", () => {
       settings: { kind: "single", fields: { title: { type: "text" } } },
       pages: { kind: "multi", fields: { slug: { type: "slug" }, title: { type: "text" }, body: { type: "json" }, status: { type: "enum", options: ["draft", "published"] } } },
     };
-    const grants = anonymousFieldGrants({ types }, ["redirects"]);
+    const grants = anonymousFieldGrants({ types }, ["redirects"], PUBLIC_READS);
     expect(grants.settings).toEqual(["id", "title", "_links"]);
     expect(grants.pages).toEqual(["id", "slug", "title", "body", "status", "_links", "redirect"]);
   });
 
   it("grants every generic collection its model fields, with the locale members when the model has locales", () => {
-    const grants = anonymousFieldGrants({ locales: ["de", "en"], types: syntheticContentTypes }, ["redirects"]);
+    const grants = anonymousFieldGrants({ locales: ["de", "en"], types: syntheticContentTypes }, ["redirects"], ["*"]);
     expect(grants.news).toEqual(["id", "title", "body", "status", "_locales", "_translations"]);
     expect(grants.profile).toEqual(["id", "bio", "_locales", "_translations"]);
     expect(grants.notifications).toEqual(["id", "emailDigest", "_locales", "_translations"]);
-    expect(anonymousFieldGrants({ types: syntheticContentTypes }, []).news).toEqual(["id", "title", "body", "status"]);
+    expect(anonymousFieldGrants({ types: syntheticContentTypes }, [], ["news.read"]).news).toEqual(["id", "title", "body", "status"]);
+  });
+
+  it("grants only the resources whose read permission anonymous callers hold, matching wildcards as authz-roles does", () => {
+    const model = { locales: ["de", "en"], types: syntheticContentTypes };
+    expect(Object.keys(anonymousFieldGrants(model, ["redirects", "images"], ["pages.read", "media.read"])).sort()).toEqual(["media", "mediaFile", "pages", "redirectRules"]);
+    expect(Object.keys(anonymousFieldGrants(model, ["redirects"], ["news.*", "profile.read"])).sort()).toEqual(["news", "profile", "redirectRules"]);
+    expect(Object.keys(anonymousFieldGrants(model, ["redirects"], ["*"])).sort()).toEqual(["media", "mediaFile", "news", "notifications", "pages", "profile", "redirectRules", "redirects", "settings"]);
+    expect(anonymousFieldGrants(model, [], [])).toEqual({});
   });
 
   it("lets roles.anonymousFields replace a derived resource, leave the others alone and drop one with an empty list", () => {
-    const config = authzConfig({ features: ["images"], roles: { anonymousFields: { media: ["id", "path"], settings: [] } } });
+    const config = authzConfig({ features: ["images"], roles: { anonymous: PUBLIC_READS, anonymousFields: { media: ["id", "path"], settings: [] } } });
     const grants = config.anonymousFields;
     expect(grants).toMatchObject({ media: ["id", "path"], mediaFile: ["headers.cache-control", "headers.x-content-provenance", "headers.x-kestrel-variant"] });
     expect(grants).not.toHaveProperty("settings");
@@ -193,5 +201,59 @@ describe("the anonymous field grants presetModuleConfig derives", () => {
     const withFields = authzConfig({ features: [], roles: { roles: { admin: ["*"], reviewer: ["pages.read"] }, fields: { reviewer: { pages: ["createdAt"] } } } });
     expect(withFields.fields).toEqual({ reviewer: { pages: ["createdAt"] } });
     expect(authzConfig({ features: [] })).not.toHaveProperty("fields");
+  });
+});
+
+describe("the derived grants definePreset keeps", () => {
+  const types = {
+    settings: { kind: "single", fields: { title: { type: "text" } } },
+    redirects: { kind: "single", fields: { rules: { type: "json" } } },
+    pages: { kind: "multi", fields: { slug: { type: "slug" }, title: { type: "text" }, body: { type: "json" }, status: { type: "enum", options: ["draft", "published"] } } },
+    news: { kind: "multi", fields: { title: { type: "text" }, status: { type: "enum", options: ["draft", "published"] } } },
+  } satisfies Record<string, CollectionModel>;
+  const features: readonly Feature[] = ["redirects", "images"];
+
+  function compose(anonymous: string[], preset: { exclude?: string[]; overrides?: Record<string, string[]>; anonymousFields?: Record<string, string[]> } = {}): Record<string, unknown> {
+    const modules = presetModuleConfig({
+      dataDir: DATA_DIR,
+      blobstore: { use: "@michaelthielemann/kestrel-blobstore-filesystem", config: { root: resolve(DATA_DIR, "blobs") } },
+      model: { types },
+      features,
+      roles: { roles: { admin: ["*"] }, anonymous, ...(preset.anonymousFields === undefined ? {} : { anonymousFields: preset.anonymousFields }) },
+      bootstrap: { username: "admin", passwordHash: PASSWORD_HASH },
+    });
+    definePreset({ modules, features, collections: types, ...(preset.exclude === undefined ? {} : { exclude: preset.exclude }), ...(preset.overrides === undefined ? {} : { overrides: preset.overrides }) });
+    const config = modules.find((entry) => entry.use === "@michaelthielemann/kestrel-authz-roles")?.config;
+    const grants: unknown = typeof config === "object" && config !== null ? Reflect.get(config, "anonymousFields") : undefined;
+    if (typeof grants !== "object" || grants === null) throw new Error("expected anonymousFields");
+    return Object.fromEntries(Object.entries(grants));
+  }
+
+  it("keeps every derived grant a composed read ends with a cut for", () => {
+    expect(Object.keys(compose(["*"])).sort()).toEqual(["media", "mediaFile", "news", "pages", "redirectRules", "redirects", "settings"]);
+  });
+
+  it("drops the grant of a collection whose every read is excluded", () => {
+    expect(compose(["*"], { exclude: ["listNews", "readNews"] })).not.toHaveProperty("news");
+  });
+
+  it("drops the grant of a collection whose every read an override keeps private without the cut", () => {
+    const overrides = { listNews: ["authn.requireUser", "authz.require:news.read", "content.list:news"], readNews: ["authn.requireUser", "authz.require:news.read", "content.get:news"] };
+    expect(compose(["*"], { overrides })).not.toHaveProperty("news");
+  });
+
+  it("keeps the grant while one read of the resource still ends with its cut", () => {
+    expect(compose(["*"], { exclude: ["listNews"] })).toHaveProperty("news");
+  });
+
+  it("drops the redirects grant when getRedirects is excluded, and the file grant when every file route is", () => {
+    const grants = compose(["*"], { exclude: ["getRedirects", "downloadMedia", "serveMediaFile", "serveImageVariant"] });
+    expect(grants).not.toHaveProperty("redirects");
+    expect(grants).not.toHaveProperty("mediaFile");
+    expect(grants).toHaveProperty("media");
+  });
+
+  it("never drops a grant the consumer named in roles.anonymousFields", () => {
+    expect(compose(["*"], { exclude: ["listNews", "readNews"], anonymousFields: { news: ["id", "title"] } })).toEqual(expect.objectContaining({ news: ["id", "title"] }));
   });
 });

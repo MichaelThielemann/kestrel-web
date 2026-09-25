@@ -649,9 +649,10 @@ describe("missingSanitizeSvgRule", () => {
 
 
 describe("publicOverrideFieldStepRule", () => {
-  function overrideContextFor(overrides: Record<string, string[]>): RuleContext {
+  function overrideContextFor(overrides: Record<string, string[]>, anonymous: string[] = ["pages.read", "settings.read", "media.read"]): RuleContext {
+    const authz = { use: "@michaelthielemann/kestrel-authz-roles", config: { roles: { admin: ["*"] }, anonymous } };
     const project: LoadedProject = {
-      input: { config: { modules: [], triggers: [], http: null }, modules: [], pipelines: Object.entries(overrides).map(([name, steps]) => ({ name, steps })) },
+      input: { config: { modules: [authz], triggers: [], http: null }, modules: [], pipelines: Object.entries(overrides).map(([name, steps]) => ({ name, steps })) },
       kind: "kestrel-web",
       configFile: FILE,
       moduleFiles: new Map(),
@@ -661,10 +662,11 @@ describe("publicOverrideFieldStepRule", () => {
     return { root: "/fake", scratch: "/fake", project, bootCheck: { errors: [], warnings: [], notChecked: [] }, readFile: () => undefined, answers: new Map() };
   }
 
-  it("names an override of a public read that does not end with its field step, and the step to append", async () => {
+  it("names an override of a public read anonymous callers reach that does not end with its field step, and the step to append", async () => {
     const findings = await publicOverrideFieldStepRule.check(overrideContextFor({ getMedia: ["authn.identifyUser", "authz.require:media.read", "media.get"] }));
     expect(findings).toHaveLength(1);
     expect(findings[0]).toMatchObject({ rule: "pipelines/public-override-field-step", severity: "info", tier: "source", where: { pipeline: "getMedia", file: FILE }, fix: { kind: "none" } });
+    expect(findings[0]?.message).toContain("anonymous callers reach it, so the server does not start");
     expect(findings[0]?.suggestion).toContain('"authz.fields:media?shape=item"');
   });
 
@@ -673,12 +675,30 @@ describe("publicOverrideFieldStepRule", () => {
     expect(findings[0]?.suggestion).toContain('"authz.fields:pages?shape=list"');
   });
 
+  it("calls an override harmless while anonymous callers cannot reach it, naming what keeps them out", async () => {
+    const behindSession = await publicOverrideFieldStepRule.check(overrideContextFor({ listPages: ["authn.requireUser", "authz.require:pages.read", "content.list:pages"] }));
+    expect(behindSession[0]?.message).toContain("harmless while anonymous callers cannot reach it");
+    expect(behindSession[0]?.message).toContain("authn.requireUser");
+    const ungranted = await publicOverrideFieldStepRule.check(overrideContextFor({ getMedia: ["authn.identifyUser", "authz.require:media.read", "media.get"] }, ["pages.read"]));
+    expect(ungranted[0]?.message).toContain("harmless while anonymous callers cannot reach it");
+    expect(ungranted[0]?.message).toContain('"media.read"');
+    expect(ungranted[0]?.suggestion).toContain('"authz.fields:media?shape=item"');
+  });
+
+  it("names an override whose field step cuts another resource than the preset's", async () => {
+    const findings = await publicOverrideFieldStepRule.check(overrideContextFor({ getMedia: ["authn.identifyUser", "authz.require:media.read", "media.get", "authz.fields:pages?shape=item"] }));
+    expect(findings).toHaveLength(1);
+    expect(findings[0]?.message).toContain('ends with "authz.fields:pages?shape=item"');
+    expect(findings[0]?.message).toContain('the grant of "pages"');
+    expect(findings[0]?.suggestion).toContain('"authz.fields:media?shape=item"');
+  });
+
   it("is the only finding about the field step: override drift leaves it out", async () => {
     const ctx = overrideContextFor({ getMedia: ["authn.identifyUser", "authz.require:media.read", "media.get"] });
     expect(await overrideDriftRule.check(ctx)).toEqual([]);
   });
 
-  it("says nothing for an override that ends with a field step, or of a pipeline no anonymous caller reads", async () => {
+  it("says nothing for an override that ends with the preset's field step, or of a pipeline the preset does not cut", async () => {
     const findings = await publicOverrideFieldStepRule.check(
       overrideContextFor({
         getMedia: ["authn.identifyUser", "authz.require:media.read", "media.get", "authz.fields:media?shape=item"],
@@ -692,9 +712,16 @@ describe("publicOverrideFieldStepRule", () => {
 describe("fieldGrantsRule", () => {
   const CONTENT = { use: "@michaelthielemann/kestrel-content-default", config: { locales: ["de", "en"], defaultLocale: "de", types: { settings: { kind: "single", fields: { title: { type: "text" } } }, pages: presetOptions.collections.pages } } };
 
+  const CUT_PIPELINES = [
+    { name: "resolvePage", steps: ["authn.identifyUser", "authz.require:pages.read", "site.resolve:pages", "authz.fields:pages?shape=item"] },
+    { name: "getSettings", steps: ["authn.identifyUser", "authz.require:settings.read", "content.get:settings", "authz.fields:settings?shape=item"] },
+    { name: "getMedia", steps: ["authn.identifyUser", "authz.require:media.read", "media.get", "images.attach", "authz.fields:media?shape=item"] },
+    { name: "downloadMedia", steps: ["authn.identifyUser", "authz.require:media.read", "media.download", "authz.fields:mediaFile?shape=file"] },
+  ];
+
   function grantsContextFor(authz: Record<string, unknown>, layerRange: string): RuleContext {
     const project: LoadedProject = {
-      input: { config: { modules: [CONTENT, { use: "@michaelthielemann/kestrel-authz-roles", config: authz }], triggers: [], http: null }, modules: [], pipelines: [] },
+      input: { config: { modules: [CONTENT, { use: "@michaelthielemann/kestrel-authz-roles", config: authz }], triggers: [], http: null }, modules: [], pipelines: CUT_PIPELINES },
       kind: "kestrel-web",
       configFile: FILE,
       moduleFiles: new Map(),
@@ -705,12 +732,20 @@ describe("fieldGrantsRule", () => {
     return { root: "/fake", scratch: "/fake", project, bootCheck: { errors: [], warnings: [], notChecked: [] }, readFile: (file) => (file === "/fake/package.json" ? packageJson : undefined), answers: new Map() };
   }
 
-  it("shows a hand-written authz-roles entry without grants the grants the preset derives for its model", async () => {
-    const findings = await fieldGrantsRule.check(grantsContextFor({ roles: { admin: ["*"] }, anonymous: ["pages.read"] }, "^3.0.0"));
+  it("leaves out a resource no loaded pipeline cuts", async () => {
+    const findings = await fieldGrantsRule.check(grantsContextFor({ roles: { admin: ["*"] }, anonymous: ["*"] }, "^3.0.0"));
+    expect(findings[0]?.suggestion).toContain("settings:");
+    expect(findings[0]?.suggestion).not.toContain("redirects:");
+    expect(findings[0]?.suggestion).not.toContain("redirectRules:");
+  });
+
+  it("shows a hand-written authz-roles entry without grants the grants the preset derives for its model and anonymous permissions", async () => {
+    const findings = await fieldGrantsRule.check(grantsContextFor({ roles: { admin: ["*"] }, anonymous: ["pages.read", "media.read"] }, "^3.0.0"));
     expect(findings).toHaveLength(1);
     expect(findings[0]).toMatchObject({ rule: "preset/field-grants", severity: "info", fix: { kind: "none" } });
     expect(findings[0]?.suggestion).toContain('pages: ["id", "slug", "title", "body", "_locales", "_translations", "_locale", "_links"]');
     expect(findings[0]?.suggestion).toContain('"variants[].path"');
+    expect(findings[0]?.suggestion).not.toContain("settings:");
   });
 
   it("tells a presetModuleConfig() project on its 2.x range once what anonymous callers keep", async () => {

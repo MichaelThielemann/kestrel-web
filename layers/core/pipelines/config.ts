@@ -302,7 +302,7 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
     config: {
       roles: roles.roles,
       anonymous: roles.anonymous,
-      anonymousFields: withConsumerGrants(anonymousFieldGrants({ ...(model.locales === undefined ? {} : { locales: model.locales }), types }, features), roles.anonymousFields),
+      anonymousFields: withConsumerGrants(anonymousFieldGrants({ ...(model.locales === undefined ? {} : { locales: model.locales }), types }, features, roles.anonymous), roles.anonymousFields),
       ...(roles.fields === undefined ? {} : { fields: roles.fields }),
     },
   });

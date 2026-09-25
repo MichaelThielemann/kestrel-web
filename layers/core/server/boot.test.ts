@@ -657,6 +657,60 @@ describe("boot", () => {
       }
     }, 15000);
 
+    describe("a resource whose every read is excluded or kept private", () => {
+      const types = {
+        settings: { kind: "single", fields: { title: { type: "text" } } },
+        redirects: { kind: "single", fields: { rules: { type: "json" } } },
+        pages: { kind: "multi", fields: { slug: { type: "slug" }, title: { type: "text" }, body: { type: "json" }, status: { type: "enum", options: ["draft", "published"] } } },
+        news: { kind: "multi", fields: { title: { type: "text" }, status: { type: "enum", options: ["draft", "published"] } } },
+      } as const;
+      const privateNews = {
+        listNews: ["authn.requireUser", "authz.require:news.read", "content.list:news"],
+        readNews: ["authn.requireUser", "authz.require:news.read", "content.get:news"],
+      } as const;
+      const publicReads = ["pages.read", "settings.read", "media.read"];
+
+      async function bootPlain(anonymous: string[], preset: { exclude?: string[]; overrides?: Record<string, readonly string[]> }): Promise<void> {
+        const features = asFeatures(["redirects"]);
+        const modules = presetModuleConfig({
+          dataDir: appRoot,
+          blobstore: { use: "@michaelthielemann/kestrel-blobstore-filesystem", config: { root: resolve(appRoot, "blobs-private") } },
+          model: { types },
+          features,
+          roles: { roles: { admin: ["*"], editor: ["news.*"] }, anonymous },
+          bootstrap: { username: "admin", passwordHash: "scrypt$522f4ac87bfe4bcd100ba47a7d2aaec2$dbfc3f2d6cc38a76b21973d7c6f6d310a09506581c665f1f6601fd8fb3fa9bc3959689aea3e389f4d53eb8c7e70791ad4065e308763dd44609904134f0f5ee98" },
+          overrides: { "@michaelthielemann/kestrel-persistence-sqlite": { file: ":memory:" } },
+        });
+        const composed = definePreset({ modules, features, collections: types, ...(preset.exclude === undefined ? {} : { exclude: preset.exclude }), ...(preset.overrides === undefined ? {} : { overrides: preset.overrides }) });
+        const config = defineConfig({ modules, triggers: composed.triggers, http: null });
+        const kestrel = await boot({ config, modules: presetModules(config.modules), pipelines: composed.pipelines, logger: collectingLogger() });
+        await kestrel.stop();
+      }
+
+      it("boots with news reads overridden behind a session, while news.read is not anonymous", async () => {
+        await expect(bootPlain(publicReads, { overrides: privateNews })).resolves.toBeUndefined();
+      }, 15000);
+
+      it("boots with the news reads excluded, whether or not news.read is anonymous", async () => {
+        await expect(bootPlain(publicReads, { exclude: ["listNews", "readNews"] })).resolves.toBeUndefined();
+        await expect(bootPlain([...publicReads, "news.read"], { exclude: ["listNews", "readNews"] })).resolves.toBeUndefined();
+      }, 15000);
+
+      it("boots with getRedirects excluded under the redirects feature, whether or not redirects.read is anonymous", async () => {
+        await expect(bootPlain(publicReads, { exclude: ["getRedirects"] })).resolves.toBeUndefined();
+        await expect(bootPlain([...publicReads, "redirects.read"], { exclude: ["getRedirects"] })).resolves.toBeUndefined();
+      }, 15000);
+
+      it("boots with every media file route excluded", async () => {
+        await expect(bootPlain(publicReads, { exclude: ["downloadMedia", "serveMediaFile"] })).resolves.toBeUndefined();
+      }, 15000);
+
+      it("still refuses a news read anonymous callers reach that an override leaves without the cut", async () => {
+        const overrides = { listNews: ["authn.identifyUser", "authz.require:news.read", "content.list:news"] };
+        await expect(bootPlain([...publicReads, "news.read"], { overrides })).rejects.toThrow('pipeline "listNews" answers anonymous callers but does not end with authz.fields:<resource>?shape=list');
+      }, 15000);
+    });
+
     it("boots the playground with the grants the preset derives", async () => {
       await expect(bootPlayground({})).resolves.toBeUndefined();
     }, 15000);

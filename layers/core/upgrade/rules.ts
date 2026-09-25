@@ -7,7 +7,7 @@ import type { PipelineDefinition, PipelineEntry } from "@michaelthielemann/kestr
 import { checkPreset, relayPipelinesFor } from "../pipelines/checkPreset";
 import { DEFAULT_COLLECTIONS } from "../pipelines/collections";
 import type { CollectionModel } from "../pipelines/collections";
-import { anonymousFieldGrants, fieldCutSteps } from "../pipelines/field-grants";
+import { anonymousFieldGrants, anonymousHolds, cutResources, fieldCutSteps, fieldStepResource } from "../pipelines/field-grants";
 import type { FieldGrantModel, FieldGrants } from "../pipelines/field-grants";
 import type { PresetOptions } from "../pipelines/checkPreset";
 import { consumerRules } from "./consumerRules";
@@ -523,10 +523,27 @@ export const overrideRelayRule: Rule = {
   },
 };
 
+const AUTHZ_ROLES_MODULE = "@michaelthielemann/kestrel-authz-roles";
+const CONTENT_MODULE = "@michaelthielemann/kestrel-content-default";
+
+function anonymousPermissions(ctx: RuleContext): string[] {
+  const authz = ctx.project.input.config.modules.find((entry) => entry.use === AUTHZ_ROLES_MODULE)?.config;
+  const anonymous: unknown = typeof authz === "object" && authz !== null ? Reflect.get(authz, "anonymous") : undefined;
+  return Array.isArray(anonymous) ? anonymous.filter((permission): permission is string => typeof permission === "string") : [];
+}
+
+function anonymousBarrier(steps: readonly string[], anonymous: readonly string[]): string | undefined {
+  if (steps.includes("authn.requireUser")) return "it runs authn.requireUser";
+  const permission = steps.filter((step) => step.startsWith("authz.require:")).map((step) => step.slice("authz.require:".length)).find((p) => !anonymousHolds(anonymous, p));
+  return permission === undefined ? undefined : `anonymous callers do not hold "${permission}"`;
+}
+
 /**
  * An override of a read the preset ends with `authz.fields` replaces the whole step list, the field step
- * included; boot refuses it while an anonymous caller can reach it. Names the step to append — information
- * only, since kestrel's own `pipelines/field-step` offers the edit once boot reports it.
+ * included. Names the step to append when the override ends without it — worded by whether anonymous callers
+ * reach the override, since boot refuses it only then — and when it ends with a cut for another resource
+ * than the preset's, which answers visitors by that resource's grant. Information only, since kestrel's own
+ * `pipelines/field-step` offers the edit once boot reports it.
  */
 export const publicOverrideFieldStepRule: Rule = {
   id: "pipelines/public-override-field-step",
@@ -534,12 +551,23 @@ export const publicOverrideFieldStepRule: Rule = {
     const cast = presetOptionsCast(ctx);
     if (cast === undefined) return [];
     const cuts = fieldCutSteps(cast.collections ?? DEFAULT_COLLECTIONS);
+    const anonymous = anonymousPermissions(ctx);
     const findings: Finding[] = [];
     for (const name of Object.keys(cast.overrides ?? {})) {
       const step = cuts[name];
       if (step === undefined) continue;
       const steps = pipelineSteps(ctx.project.input.pipelines.find((p) => p.name === name)?.steps ?? []);
-      if (steps.at(-1)?.startsWith("authz.fields:") === true) continue;
+      const last = steps.at(-1);
+      const resource = fieldStepResource(step);
+      const lastResource = fieldStepResource(last);
+      if (lastResource !== undefined && lastResource === resource) continue;
+      const barrier = anonymousBarrier(steps, anonymous);
+      const message =
+        lastResource !== undefined
+          ? `override for "${name}" ends with "${last ?? ""}", which answers visitors with the grant of "${lastResource}"; the preset's default ends with "${step}"`
+          : barrier === undefined
+            ? `override for "${name}" does not end with "${step}", which the preset's default ends with; anonymous callers reach it, so the server does not start`
+            : `override for "${name}" does not end with "${step}", which the preset's default ends with; harmless while anonymous callers cannot reach it (${barrier}), and the server does not start once they can`;
       const file = fileForPipeline(ctx, name);
       findings.push({
         id: `pipelines/public-override-field-step:${name}`,
@@ -547,8 +575,11 @@ export const publicOverrideFieldStepRule: Rule = {
         severity: "info",
         tier: "source",
         where: file === undefined ? { pipeline: name } : { pipeline: name, file },
-        message: `override for "${name}" does not end with "${step}", which the preset's default ends with; the server does not start while anonymous callers can reach it`,
-        suggestion: `append "${step}" as the override's last step, so that a visitor without a session receives only the fields anonymousFields grants`,
+        message,
+        suggestion:
+          lastResource !== undefined
+            ? `end the override with "${step}" instead, unless the grant of "${lastResource}" is the one its visitors should get`
+            : `append "${step}" as the override's last step, so that a visitor without a session receives only the fields anonymousFields grants`,
         fix: { kind: "none" },
         docs: docsAnchor("pipelines-public-override-field-step"),
       });
@@ -556,9 +587,6 @@ export const publicOverrideFieldStepRule: Rule = {
     return findings;
   },
 };
-
-const AUTHZ_ROLES_MODULE = "@michaelthielemann/kestrel-authz-roles";
-const CONTENT_MODULE = "@michaelthielemann/kestrel-content-default";
 
 function recordOf(value: unknown): Record<string, unknown> | undefined {
   return typeof value === "object" && value !== null && !Array.isArray(value) ? Object.fromEntries(Object.entries(value)) : undefined;
@@ -581,8 +609,8 @@ function grantsLiteral(grants: FieldGrants): string {
 
 /**
  * What callers without a session keep of each answer. A hand-written `authz-roles` entry without
- * `anonymousFields` gets the grants `presetModuleConfig()` would derive for the loaded content model and
- * features, to copy; a project whose grants are set, while its layer range is still 2.x, is told once which
+ * `anonymousFields` gets the grants `presetModuleConfig()` would derive for the loaded content model, features
+ * and anonymous permissions, limited to the resources a loaded pipeline cuts, to copy; a project whose grants are set, while its layer range is still 2.x, is told once which
  * fields its visitors keep. Information only: `pipelines/field-step` writes the grants when answered.
  */
 export const fieldGrantsRule: Rule = {
@@ -595,7 +623,8 @@ export const fieldGrantsRule: Rule = {
     const where = { module: AUTHZ_ROLES_MODULE, file: ctx.project.configFile };
     const configured = recordOf(authz.anonymousFields);
     if (configured === undefined) {
-      const derived = anonymousFieldGrants(grantModel(ctx), cast.features ?? []);
+      const cut = cutResources(ctx.project.input.pipelines);
+      const derived = Object.fromEntries(Object.entries(anonymousFieldGrants(grantModel(ctx), cast.features ?? [], anonymousPermissions(ctx))).filter(([resource]) => cut.has(resource)));
       return [
         {
           id: "preset/field-grants",

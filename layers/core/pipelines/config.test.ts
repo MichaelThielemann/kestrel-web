@@ -84,7 +84,6 @@ describe("presetModuleConfig with the playground inputs", () => {
           anonymous: ["pages.read", "settings.read", "media.read"],
           anonymousFields: {
             settings: ["id", "title", "titlePosition", "titleSeparator", "description", "navigation", "_locales", "_translations", "_links"],
-            redirects: ["id", "rules", "_locales", "_translations"],
             pages: ["id", "slug", "title", "body", "seo", "status", "shareImage", "accent", "layout", "_locales", "_translations", "_locale", "_links", "redirect"],
             media: ["id", "path", "filename", "contentType", "size", "width", "height", "alt", "title", "description", "provenance", "variants[].size", "variants[].width", "variants[].height", "variants[].format", "variants[].path"],
             mediaFile: ["headers.cache-control", "headers.x-content-provenance", "headers.x-kestrel-variant"],

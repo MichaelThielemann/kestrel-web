@@ -1,3 +1,5 @@
+import { pipelineSteps } from "@michaelthielemann/kestrel/definePipeline";
+import type { PipelineEntry } from "@michaelthielemann/kestrel/definePipeline";
 import type { PresetStep } from "../module-registry";
 import { collectionPipelines, isGenericCollection } from "./collections";
 import type { CollectionModel } from "./collections";
@@ -16,6 +18,13 @@ const FILE_HEADERS = ["headers.cache-control", "headers.x-content-provenance"];
 const VARIANT_HEADER = "headers.x-kestrel-variant";
 const REDIRECT_RULE_FIELDS = ["pattern", "target", "status"];
 const LOCALE_MEMBERS = ["_locales", "_translations"];
+const MEDIA_READ = "media.read";
+const AUTHZ_ROLES_MODULE = "@michaelthielemann/kestrel-authz-roles";
+const FIELD_STEP = "authz.fields:";
+
+function holds(granted: readonly string[], permission: string): boolean {
+  return granted.some((grant) => grant === "*" || grant === permission || (grant.endsWith(".*") && permission.startsWith(grant.slice(0, -1))));
+}
 
 function cut(resource: string, shape: FieldCutShape): PresetStep {
   return `authz.fields:${resource}?shape=${shape}`;
@@ -63,13 +72,15 @@ export interface FieldGrantModel {
 }
 
 /**
- * The fields anonymous callers keep of each resource the preset's public reads cut: every model field of a
- * content type with its `id`, the locale members when the model has locales, the resolved links and the
- * redirect hit on pages, the resolved links on settings; the public media fields, with the variant fields
- * under `images`; the file headers; the redirect rules under `redirects`. Only members a read declares are
- * named, so every path passes `authz-roles`' boot check.
+ * The fields anonymous callers keep of each resource the preset's public reads cut, for the resources whose
+ * read permission `anonymous` holds (`<type>.read` for a content type, `media.read` for media and its files;
+ * the redirect rules, which no permission gates, under `redirects`): every model field of a content type with
+ * its `id`, the locale members when the model has locales, the resolved links and the redirect hit on pages,
+ * the resolved links on settings; the public media fields, with the variant fields under `images`; the file
+ * headers; the redirect rules' fields. Only members a read declares are named, so every path passes
+ * `authz-roles`' boot check.
  */
-export function anonymousFieldGrants(model: FieldGrantModel, features: readonly Feature[]): FieldGrants {
+export function anonymousFieldGrants(model: FieldGrantModel, features: readonly Feature[], anonymous: readonly string[]): FieldGrants {
   const images = features.includes("images");
   const redirects = features.includes("redirects");
   const localized = model.locales !== undefined;
@@ -77,13 +88,16 @@ export function anonymousFieldGrants(model: FieldGrantModel, features: readonly 
   const grants: FieldGrants = {};
   for (const [name, type] of Object.entries(model.types)) {
     if (name === "redirects" && !redirects) continue;
+    if (!holds(anonymous, `${name}.read`)) continue;
     const fields = ["id", ...Object.keys(type.fields), ...locale];
     if (name === "settings") fields.push("_links");
     if (name === "pages") fields.push(...(localized ? ["_locale"] : []), "_links", ...(redirects ? ["redirect"] : []));
     grants[name] = fields;
   }
-  grants.media = [...MEDIA_FIELDS, ...(images ? VARIANT_FIELDS : [])];
-  grants.mediaFile = [...FILE_HEADERS, ...(images ? [VARIANT_HEADER] : [])];
+  if (holds(anonymous, MEDIA_READ)) {
+    grants.media = [...MEDIA_FIELDS, ...(images ? VARIANT_FIELDS : [])];
+    grants.mediaFile = [...FILE_HEADERS, ...(images ? [VARIANT_HEADER] : [])];
+  }
   if (redirects) grants.redirectRules = [...REDIRECT_RULE_FIELDS];
   return grants;
 }
@@ -93,5 +107,42 @@ export function withConsumerGrants(derived: FieldGrants, consumer: Readonly<Reco
   const named = new Map(Object.entries(consumer ?? {}));
   const kept = Object.entries(derived).filter(([resource]) => !named.has(resource));
   const added = [...named].filter(([, paths]) => paths.length > 0).map(([resource, paths]): [string, string[]] => [resource, [...paths]]);
-  return Object.fromEntries([...kept, ...added]);
+  const grants: FieldGrants = Object.fromEntries([...kept, ...added]);
+  derivedGrants.set(grants, { grants, derived: new Set(kept.map(([resource]) => resource)) });
+  return grants;
+}
+
+const derivedGrants = new WeakMap<object, { grants: FieldGrants; derived: ReadonlySet<string> }>();
+
+/** The resource an `authz.fields:<resource>?shape=<shape>` step names; `undefined` for any other step. */
+export function fieldStepResource(step: string | undefined): string | undefined {
+  return step?.startsWith(FIELD_STEP) === true ? step.slice(FIELD_STEP.length).split("?")[0] : undefined;
+}
+
+/** The resources the given pipelines end with an `authz.fields` cut for. */
+export function cutResources(pipelines: readonly { steps: readonly PipelineEntry[] }[]): Set<string> {
+  const resources = pipelines.map((pipeline) => fieldStepResource(pipelineSteps(pipeline.steps).at(-1)));
+  return new Set(resources.filter((resource): resource is string => resource !== undefined));
+}
+
+/** Whether `anonymous` grants `permission`, with `authz-roles`' matching: `*`, the permission itself, or a `<prefix>.*` above it. */
+export function anonymousHolds(anonymous: readonly string[], permission: string): boolean {
+  return holds(anonymous, permission);
+}
+
+/**
+ * Removes, from the `authz-roles` entry of `modules` that `presetModuleConfig()` built, the derived grant of
+ * every resource no pipeline of `pipelines` ends with a cut for: a resource whose reads are all excluded or
+ * overridden without the field step. A grant the consumer named in `roles.anonymousFields`, and any grant of
+ * an entry written by hand, stays as it is.
+ */
+export function dropUncutGrants(modules: readonly { use: string; config?: unknown }[], pipelines: readonly { steps: readonly PipelineEntry[] }[]): void {
+  const config = modules.find((entry) => entry.use === AUTHZ_ROLES_MODULE)?.config;
+  const value: unknown = typeof config === "object" && config !== null ? Reflect.get(config, "anonymousFields") : undefined;
+  const record = typeof value === "object" && value !== null ? derivedGrants.get(value) : undefined;
+  if (record === undefined) return;
+  const cut = cutResources(pipelines);
+  for (const resource of record.derived) {
+    if (!cut.has(resource)) Reflect.deleteProperty(record.grants, resource);
+  }
 }
