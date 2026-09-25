@@ -40,6 +40,7 @@ export const ATOMIC_SAFE_STEPS: ReadonlySet<string> = new Set([
   "events.retryDead",
   "events.purgeDone",
   "delivery.readStatus",
+  "delivery.readStaleStatus",
   "authn.deleteUser",
   "authn.verifyUser",
 ]);
