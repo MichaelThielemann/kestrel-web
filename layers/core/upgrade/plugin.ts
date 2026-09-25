@@ -4,8 +4,6 @@ import { layerLocateModelFields, layerLocateSteps } from "./locators";
 import { layerRules } from "./rules";
 import { layerSwitchEdits } from "./switchEdits";
 
-const LAYER_PACKAGE = "@michaelthielemann/kestrel-web";
-
 /**
  * The layer's `UpgradePlugin`: detects a project built on this layer, loads its config, modules and
  * pipelines through jiti with the layer's own aliases, and adds the layer's rules to kestrel's own
@@ -25,7 +23,6 @@ export function createLayerPlugin(): UpgradePlugin {
     },
     sandbox: { "renderer-nuxt": (config) => config },
     rules: layerRules,
-    ownsPackages: [LAYER_PACKAGE],
     locateSteps: layerLocateSteps,
     locateModelFields: layerLocateModelFields,
     dataModel: loadDataModel,

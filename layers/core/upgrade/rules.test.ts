@@ -77,7 +77,6 @@ function contextFor(options: { answer?: string; bootErrors?: BootCheck["errors"]
     bootCheck: { errors: [], warnings: [], notChecked: [] },
     readFile: (file) => (file === FILE ? OVERRIDE_SOURCE : undefined),
     answers,
-    ownsPackages: [],
     verifyEdits,
   };
 }
@@ -199,7 +198,6 @@ export const preset = definePreset({
       bootCheck: { errors: [], warnings: [], notChecked: [] },
       readFile: (file) => (file === FILE ? source : undefined),
       answers: new Map(),
-      ownsPackages: [],
     };
   }
 
@@ -293,7 +291,6 @@ export const preset = definePreset({
       bootCheck: { errors: [], warnings: [], notChecked: [] },
       readFile: (file) => (file === FILE ? source : undefined),
       answers: new Map(),
-      ownsPackages: [],
     };
   }
 
@@ -390,7 +387,6 @@ export const pipelines = [
       bootCheck: { errors: [], warnings: [], notChecked: [] },
       readFile: (file) => (file === PIPELINES_FILE ? OWN_SOURCE : undefined),
       answers,
-      ownsPackages: [],
     };
   }
 
@@ -464,7 +460,6 @@ export const preset = definePreset({
       bootCheck: { errors: [], warnings: [], notChecked: [] },
       readFile: (file) => (file === FILE ? RELAY_SOURCE : undefined),
       answers: new Map(),
-      ownsPackages: [],
     };
   }
 
@@ -527,7 +522,6 @@ export const preset = definePreset({
       bootCheck: { errors: [], warnings: [], notChecked: [] },
       readFile: (file) => (file === FILE ? COMBINED_SOURCE : undefined),
       answers: new Map(),
-      ownsPackages: [],
     };
   }
 

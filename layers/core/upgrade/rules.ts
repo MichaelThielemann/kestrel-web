@@ -15,8 +15,8 @@ const LAYER_PACKAGE = "@michaelthielemann/kestrel-web";
 const EVENTS_QUEUE_MODULE = "@michaelthielemann/kestrel-events-queue";
 
 /**
- * Bumps `@michaelthielemann/kestrel-web` to `^3.0.0` in the project's `package.json`. The layer declares
- * this package under `ownsPackages`, so kestrel's own `deps/kestrel-range` never touches it.
+ * Bumps `@michaelthielemann/kestrel-web` to `^3.0.0` in the project's `package.json`. Kestrel's own
+ * `deps/kestrel-range` only ever looks at `@michaelthielemann/kestrel*` backend packages, never this one.
  */
 export const layerRangeRule: Rule = {
   id: "deps/layer-range",
@@ -285,7 +285,7 @@ export const ownPipelineDeliveryRule: Rule = {
         where,
         message,
         suggestion: "the relayed pipeline already runs these steps; keep them here only if this pipeline must publish synchronously",
-        fix: { kind: "ask", question: questionId, prompt: `remove ${stepList} from "${pipelineName}", or keep them?`, choices: ["remove", "keep"], defaultValue: "remove" },
+        fix: { kind: "ask", question: questionId, prompt: `remove ${stepList} from "${pipelineName}", or keep them?`, choices: ["remove", "keep"], closedChoices: true, defaultValue: "remove" },
         docs,
       });
     }
@@ -411,6 +411,7 @@ export const overrideGroupRule: Rule = {
           question: `override-group:${pipelineName}`,
           prompt: `include ${result.extra.join(", ")} in the atomic group around "${pipelineName}"'s write, exclude the pipeline from the preset (${excludeSuggestion}), or leave this for manual review?${unsafeNote}`,
           choices,
+          closedChoices: true,
         },
         docs,
       });

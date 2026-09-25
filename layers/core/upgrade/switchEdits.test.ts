@@ -29,7 +29,6 @@ function contextFor(options: { files?: Record<string, string>; existingFiles?: s
     bootCheck: { errors: [], warnings: [], notChecked: [] },
     readFile: (file) => files.get(file),
     answers: new Map(),
-    ownsPackages: [],
   };
 }
 
