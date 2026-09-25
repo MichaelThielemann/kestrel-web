@@ -179,7 +179,7 @@ describe("golden: images without references", () => {
 const queuedModules = allModules
   .filter((entry) => entry.use !== "@michaelthielemann/kestrel-events-direct")
   .map((entry) => (entry.use === "@michaelthielemann/kestrel-delivery-static" ? { ...entry, config: { dependencies: { render: "events" } } } : entry))
-  .concat([{ use: "@michaelthielemann/kestrel-events-queue" }]);
+  .concat([{ use: "@michaelthielemann/kestrel-events-queue", config: { lanes: { pages: ["republishOutput", "refreshLlms"], variants: ["generateImageVariants"] } } }]);
 const queuedFeatures = [...allFeatures, "eventsQueue"] as readonly Feature[];
 
 describe("golden: queued delivery", () => {

@@ -232,13 +232,12 @@ function configuredRenderMode(modules: readonly { use: string; config?: unknown 
   return Reflect.get(dependencies, "render");
 }
 
+function emitsOf(entries: readonly PresetEntry[]): string[] {
+  return pipelineSteps(entries).flatMap((step) => (step.startsWith("events.emit:") ? [step.slice("events.emit:".length).split("?")[0] ?? ""] : []));
+}
+
 function emittedEvents(pipelines: Record<string, readonly PresetEntry[]>, modules: readonly { use: string }[]): Set<string> {
-  const events = new Set<string>();
-  for (const entries of Object.values(pipelines)) {
-    for (const step of pipelineSteps(entries)) {
-      if (step.startsWith("events.emit:")) events.add(step.slice("events.emit:".length).split("?")[0] ?? "");
-    }
-  }
+  const events = new Set(Object.values(pipelines).flatMap(emitsOf));
   for (const entry of modules) for (const event of MODULE_EMITS[entry.use] ?? []) events.add(event);
   return events;
 }
@@ -471,6 +470,13 @@ export function buildPreset<C extends Record<string, CollectionModel> = Record<s
     validSchedules.push([name, cron]);
   }
 
+  const watchedEvents = new Set(
+    enabledFeatures.has("delivery")
+      ? triggers.flatMap((trigger) => ("event" in trigger && dependentsPipelineNames(collections).includes(trigger.pipeline) ? [trigger.event] : []))
+      : [],
+  );
+  const emitsBefore = new Map(Object.entries(pipelines).map(([name, entries]) => [name, emitsOf(entries).filter((event) => watchedEvents.has(event))]));
+
   const overrides: Partial<Record<string, readonly PresetEntry[]>> = options.overrides ?? {};
   const nextPipelines: Record<string, PresetEntry[]> = { ...pipelines };
   for (const [name, steps] of Object.entries(overrides)) {
@@ -482,6 +488,20 @@ export function buildPreset<C extends Record<string, CollectionModel> = Record<s
     nextPipelines[name] = [...steps];
   }
   pipelines = nextPipelines;
+
+  for (const name of Object.keys(overrides)) {
+    const entries = pipelines[name];
+    if (entries === undefined) continue;
+    const kept = new Set(emitsOf(entries));
+    const dropped = (emitsBefore.get(name) ?? []).find((event) => !kept.has(event));
+    if (dropped !== undefined) {
+      sink.report({
+        code: "preset/override-drops-watched-emit",
+        pipeline: name,
+        message: `preset: override for "${name}" drops "events.emit:${dropped}" – the pages that show what it writes would never be re-rendered; keep the emit, or exclude the pipeline and define your own`,
+      });
+    }
+  }
 
   for (const [name, signature] of groupedSignatures) {
     const entries = pipelines[name];
@@ -565,7 +585,7 @@ export function buildPreset<C extends Record<string, CollectionModel> = Record<s
     triggers = triggers.filter((trigger) => !("event" in trigger) || !dependents.has(trigger.pipeline) || emitted.has(trigger.event));
   }
 
-  const lanes = configuredLanes(options.modules);
+  const lanes = configuredLanes(options.modules) ?? (configuredModules.has(EVENTS_QUEUE_MODULE) ? new Map<string, string[]>() : undefined);
   if (lanes !== undefined) {
     for (const [lane, members] of lanes) {
       for (const name of members) {

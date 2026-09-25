@@ -39,7 +39,7 @@ const allModules = [
   { use: "@michaelthielemann/kestrel-redirects-default" },
   { use: "@michaelthielemann/kestrel-audit-persistence", config: { retentionDays: 365 } },
   { use: "@michaelthielemann/kestrel-events-inmemory" },
-  { use: "@michaelthielemann/kestrel-events-queue" },
+  { use: "@michaelthielemann/kestrel-events-queue", config: { lanes: { pages: ["republishOutput", "refreshLlms"], variants: ["generateImageVariants"] } } },
   { use: "@michaelthielemann/kestrel-ratelimit-memory" },
   { use: "@michaelthielemann/kestrel-migrations-default" },
   { use: "@michaelthielemann/kestrel-insights" },

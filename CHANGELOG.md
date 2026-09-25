@@ -323,8 +323,10 @@
     `definePreset()` refuses a mismatch, naming the key. With the queue it also needs the `lanes` of
     `lanesFor(features)` on `kestrel-events-queue` (`pages` for page renders and `llms.txt`, `variants` for
     image variants), so re-renders never delay uploads, publishing or the login audit; `definePreset()`
-    refuses a lanes config that keeps page renders out of a lane of their own or names a pipeline it does
-    not compose. `presetModuleConfig()` sets both.
+    refuses a queue entry without `lanes`, a lanes config that keeps page renders out of a lane of their own
+    and one that names a pipeline it does not compose. `presetModuleConfig()` sets both.
+  - With `delivery`, `definePreset()` refuses an override that drops an `events.emit:` step a dependents
+    pipeline listens to (`settings.updated`, `<name>.updated`, a page or media event), naming the pipeline.
   - A save response's `_events` also lists the dependents pipeline it started (`queued` with the queue, so
     `_events.status` becomes `"pending"`); read a page's own publishing from its `publishPage` or
     `unpublishPage` entry.

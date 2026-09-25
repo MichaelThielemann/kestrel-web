@@ -5,7 +5,7 @@ import type { PipelineEntry } from "@michaelthielemann/kestrel/definePipeline";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
-import { definePipeline, definePreset, featureOrder, presetSchemas } from "./index";
+import { definePipeline, definePreset, featureOrder, lanesFor, presetSchemas } from "./index";
 import type { CollectionModel, Feature, PresetStep } from "./index";
 import { presetModuleConfig } from "./config";
 
@@ -165,7 +165,7 @@ describe("definePreset relay pipeline selection", () => {
   it("accepts a relay selection naming a pipeline the preset itself never defines, leaving it to the module's own boot check", () => {
     const features: Feature[] = ["eventsQueue", "delivery"];
     const modules = relayModules(features).map((entry) =>
-      entry.use === "@michaelthielemann/kestrel-events-queue" ? { ...entry, config: { relayPipelines: ["publishPage", "unpublishPage", "notifyOwnPipeline"] } } : entry,
+      entry.use === "@michaelthielemann/kestrel-events-queue" ? { ...entry, config: { lanes: lanesFor(features), relayPipelines: ["publishPage", "unpublishPage", "notifyOwnPipeline"] } } : entry,
     );
     expect(() => definePreset({ modules, features, collections: relayCollections })).not.toThrow();
   });
@@ -173,7 +173,7 @@ describe("definePreset relay pipeline selection", () => {
   it("accepts a relay selection naming an inherited object property, leaving it to the module's own boot check", () => {
     const features: Feature[] = ["eventsQueue", "delivery"];
     const modules = relayModules(features).map((entry) =>
-      entry.use === "@michaelthielemann/kestrel-events-queue" ? { ...entry, config: { relayPipelines: ["toString", "hasOwnProperty"] } } : entry,
+      entry.use === "@michaelthielemann/kestrel-events-queue" ? { ...entry, config: { lanes: lanesFor(features), relayPipelines: ["toString", "hasOwnProperty"] } } : entry,
     );
     expect(() => definePreset({ modules, features, collections: relayCollections })).not.toThrow();
   });
@@ -181,7 +181,7 @@ describe("definePreset relay pipeline selection", () => {
   it("still rejects a relay selection naming a known preset pipeline that this configuration never composes", () => {
     const features: Feature[] = ["eventsQueue", "audit"];
     const modules = relayModules(features).map((entry) =>
-      entry.use === "@michaelthielemann/kestrel-events-queue" ? { ...entry, config: { relayPipelines: ["publishPage"] } } : entry,
+      entry.use === "@michaelthielemann/kestrel-events-queue" ? { ...entry, config: { lanes: lanesFor(features), relayPipelines: ["publishPage"] } } : entry,
     );
     expect(() => definePreset({ modules, features, collections: relayCollections })).toThrow(/relay pipeline "publishPage"/);
   });
@@ -189,7 +189,7 @@ describe("definePreset relay pipeline selection", () => {
   it("rejects a relay selection naming a collection pipeline dropped by exclude", () => {
     const features: Feature[] = ["eventsQueue", "revisions"];
     const modules = [...relayModules(features), { use: "@michaelthielemann/kestrel-revisions-default" }].map((entry) =>
-      entry.use === "@michaelthielemann/kestrel-events-queue" ? { ...entry, config: { relayPipelines: ["restorePageRevision"] } } : entry,
+      entry.use === "@michaelthielemann/kestrel-events-queue" ? { ...entry, config: { lanes: lanesFor(features), relayPipelines: ["restorePageRevision"] } } : entry,
     );
     expect(() =>
       definePreset({ modules, features, collections: relayCollections, exclude: ["restorePageRevision"] }),
@@ -204,7 +204,7 @@ describe("definePreset relay pipeline selection", () => {
   it("rejects a relay selection naming a generic collection's revision pipeline when the revisions feature is off", () => {
     const features: Feature[] = ["eventsQueue", "delivery"];
     const modules = relayModules(features).map((entry) =>
-      entry.use === "@michaelthielemann/kestrel-events-queue" ? { ...entry, config: { relayPipelines: ["restoreNewsRevision"] } } : entry,
+      entry.use === "@michaelthielemann/kestrel-events-queue" ? { ...entry, config: { lanes: lanesFor(features), relayPipelines: ["restoreNewsRevision"] } } : entry,
     );
     expect(() => definePreset({ modules, features, collections: collectionsWithNews })).toThrow(/relay pipeline "restoreNewsRevision"/);
   });
@@ -212,7 +212,7 @@ describe("definePreset relay pipeline selection", () => {
   it("rejects a relay selection naming a generic collection's revision pipeline dropped by exclude", () => {
     const features: Feature[] = ["eventsQueue", "revisions"];
     const modules = [...relayModules(features), { use: "@michaelthielemann/kestrel-revisions-default" }].map((entry) =>
-      entry.use === "@michaelthielemann/kestrel-events-queue" ? { ...entry, config: { relayPipelines: ["newsRevisions"] } } : entry,
+      entry.use === "@michaelthielemann/kestrel-events-queue" ? { ...entry, config: { lanes: lanesFor(features), relayPipelines: ["newsRevisions"] } } : entry,
     );
     expect(() =>
       definePreset({ modules, features, collections: collectionsWithNews, exclude: ["newsRevisions"] }),

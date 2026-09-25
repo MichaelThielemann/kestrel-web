@@ -136,9 +136,25 @@ describe("dependents: marking the pages that read a change", () => {
     expect(eventsTriggering(withoutEdits, "mediaDependents")).toEqual(["media.deleted", "images.variantsChanged"]);
   });
 
-  it("drops the triggers of an override that no longer emits, and of an excluded dependents pipeline", () => {
-    const withoutEmit = compose(["delivery"], { overrides: { setProfile: ["authn.requireUser", "authz.require:profile.write", { atomic: ["content.set:profile"] }, "events.relay"] } });
-    expect(eventsTriggering(withoutEmit, "profileDependents")).toEqual([]);
+  it("refuses an override that drops the emit a dependents pipeline listens to, naming the pipeline", () => {
+    expect(() =>
+      compose(["delivery"], { overrides: { setSettings: ["authn.requireUser", "authz.require:settings.write", "validate.check:settings.navigation", { atomic: ["content.set:settings"] }, "events.relay"] } }),
+    ).toThrow('preset: override for "setSettings" drops "events.emit:settings.updated" – the pages that show what it writes would never be re-rendered; keep the emit, or exclude the pipeline and define your own');
+    expect(() => compose(["delivery"], { overrides: { setProfile: ["authn.requireUser", "authz.require:profile.write", { atomic: ["content.set:profile"] }, "events.relay"] } })).toThrow(
+      'preset: override for "setProfile" drops "events.emit:profile.updated"',
+    );
+    expect(() => compose(["delivery"], { overrides: { updateSpeakers: ["authn.requireUser", "authz.require:speakers.write", { atomic: ["content.update:speakers"] }, "events.relay"] } })).toThrow(
+      'preset: override for "updateSpeakers" drops "events.emit:speakers.updated"',
+    );
+  });
+
+  it("accepts an override that keeps the emit, and one that drops it without delivery", () => {
+    const kept = compose(["delivery"], { overrides: { setProfile: ["authn.requireUser", { atomic: ["content.set:profile", "events.emit:profile.updated"] }, "events.relay"] } });
+    expect(eventsTriggering(kept, "profileDependents")).toEqual(["profile.updated"]);
+    expect(() => compose([], { overrides: { setProfile: ["authn.requireUser", "authz.require:profile.write", { atomic: ["content.set:profile"] }, "events.relay"] } })).not.toThrow();
+  });
+
+  it("drops the triggers of an excluded dependents pipeline", () => {
     const excluded = compose(["delivery"], { exclude: ["speakersDependents"] });
     expect(names(excluded).has("speakersDependents")).toBe(false);
     expect(excluded.triggers.some((trigger) => trigger.pipeline === "speakersDependents")).toBe(false);
@@ -252,6 +268,17 @@ describe("dependents: queue lanes", () => {
     expect(() => definePreset({ modules, features: ["eventsQueue"], collections })).toThrow(
       `preset: module "${EVENTS_QUEUE}" runs pipeline "republishOutput" in lane "pages", which the preset does not compose – remove it from lanes too, or keep the pipeline`,
     );
+  });
+
+  it("refuses a queue entry without lanes when delivery is on, since page renders would then run in the main lane", () => {
+    const features: Feature[] = ["eventsQueue", "delivery"];
+    const message = `preset: module "${EVENTS_QUEUE}" must run "republishOutput" and "refreshLlms" together in a lane of their own`;
+    for (const config of [undefined, {}, { relayPipelines: ["publishPage", "unpublishPage"] }]) {
+      const modules = modulesFor(features).map((entry) => (entry.use === EVENTS_QUEUE ? (config === undefined ? { use: EVENTS_QUEUE } : { use: EVENTS_QUEUE, config }) : entry));
+      expect(() => definePreset({ modules, features, collections }), JSON.stringify(config)).toThrow(message);
+    }
+    const withoutDelivery = modulesFor(["eventsQueue"]).map((entry) => (entry.use === EVENTS_QUEUE ? { use: EVENTS_QUEUE } : entry));
+    expect(() => definePreset({ modules: withoutDelivery, features: ["eventsQueue"], collections })).not.toThrow();
   });
 
   it("rejects a lanes config that leaves the page renders or the llms.txt export in the main lane, or splits them", () => {

@@ -727,7 +727,9 @@ it like this:
 
 - `setSettings` and every single collection's `set<Name>` write inside an atomic group and emit
   `settings.updated` / `<name>.updated`, with or without `delivery`. An override of either must keep the
-  group, like the write pipelines above.
+  group, like the write pipelines above. With `delivery`, an override of any pipeline must also keep every
+  `events.emit:` step a dependents pipeline listens to; `definePreset()` refuses one that drops it, naming
+  the pipeline and the event, since the pages showing what it writes would never be re-rendered.
 - One dependents pipeline per collection, `delivery.markDependents:<name>` (`pageDependents` for `pages`,
   `<name>Dependents` otherwise), runs on the collection's `created`, `updated`, `deleted`, `restored` and
   `translationRemoved` events; a single collection's on `<name>.updated`. `settingsDependents`
@@ -798,7 +800,8 @@ on the `eventsQueue` module's `lanes` by the exported `lanesFor(features)`: `rep
 has its own worker loop that runs one job at a time, so a site-wide re-render never delays an upload's
 placeholders, a relayed publish, the login audit or an image render, and the relay never claims a lane row
 regardless of `relayPipelines`. `definePreset()` refuses a lanes config that names a preset pipeline it no
-longer composes, or that does not keep `republishOutput` and `refreshLlms` together in a lane of their own.
+longer composes, or that does not keep `republishOutput` and `refreshLlms` together in a lane of their own;
+with `delivery`, a queue entry without `lanes` counts as `lanes: {}` and is refused too.
 
 A hand-written module list that never calls `presetModuleConfig()` keeps the `eventsQueue` module's own
 default, `relayPipelines: "all"` — every subscriber runs inline, bounded by `relayMs`. Call
