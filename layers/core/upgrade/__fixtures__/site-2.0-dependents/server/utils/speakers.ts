@@ -1,1 +1,1 @@
-export const cachedSpeakers = defineCachedFunction(async () => $fetch("/api/speakers"), { maxAge: 60 });
+export const cachedSpeakers = defineCachedFunction(async (): Promise<string[]> => ["Ada", "Grace"], { maxAge: 60 });
