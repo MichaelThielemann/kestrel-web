@@ -131,6 +131,9 @@
       "events.emit:user.deleted?with=result",
       "events.relay"
     ],
+    "deliveryBuildCheck": [
+      "delivery.checkBuild"
+    ],
     "downloadMedia": [
       "authn.identifyUser",
       "authz.require:media.read",
@@ -239,6 +242,9 @@
       "authn.requireUser",
       "authn.loadIdentity"
     ],
+    "mediaDependents": [
+      "delivery.markDependents:media"
+    ],
     "mediaReferrers": [
       "authn.requireUser",
       "authz.require:pages.manage",
@@ -248,6 +254,9 @@
       "authn.requireUser",
       "authz.require:pages.manage",
       "references.referrersMany:media"
+    ],
+    "pageDependents": [
+      "delivery.markDependents:pages"
     ],
     "pagePublishStatus": [
       "authn.requireUser",
@@ -274,6 +283,11 @@
       "authz.require:pages.manage",
       "revisions.list:pages"
     ],
+    "pagesStaleStatus": [
+      "authn.requireUser",
+      "authz.require:pages.manage",
+      "delivery.readStaleStatus"
+    ],
     "pruneAudit": [
       "audit.prune"
     ],
@@ -288,13 +302,12 @@
     "publishAllPages": [
       "authn.requireUser",
       "authz.require:pages.manage",
-      "delivery.publishAll:pages",
-      "delivery.exportLlms",
+      "delivery.markAll:pages",
       "redirects.export"
     ],
     "publishPage": [
       "delivery.publish:pages",
-      "delivery.exportLlms"
+      "delivery.requestLlms"
     ],
     "readAnyPage": [
       "authn.requireUser",
@@ -410,6 +423,9 @@
     "resumeImages": [
       "images.resume"
     ],
+    "resumeStalePages": [
+      "delivery.resumeStale"
+    ],
     "retryAnonymizeAuditUser": [
       "authn.requireUser",
       "authz.require:users.manage",
@@ -425,6 +441,11 @@
       "authz.require:users.manage",
       "authn.verifyUser:reassignTo",
       "revisions.reassignAuthor"
+    ],
+    "retryStalePages": [
+      "authn.requireUser",
+      "authz.require:pages.manage",
+      "delivery.retryStale"
     ],
     "scanReferences": [
       "references.scan"
@@ -456,8 +477,17 @@
       "authn.requireUser",
       "authz.require:settings.write",
       "validate.check:settings.navigation",
-      "content.set:settings",
-      "delivery.exportLlms"
+      {
+        "atomic": [
+          "content.set:settings"
+        ]
+      },
+      "events.emit:settings.updated",
+      "events.relay"
+    ],
+    "settingsDependents": [
+      "delivery.markDependents:settings",
+      "delivery.requestLlms"
     ],
     "sweepRateLimits": [
       "ratelimit.sweep"
@@ -473,7 +503,7 @@
     ],
     "unpublishPage": [
       "delivery.unpublish:pages",
-      "delivery.exportLlms"
+      "delivery.requestLlms"
     ],
     "updateMedia": [
       "authn.requireUser",
@@ -575,6 +605,14 @@
     {
       "http": "POST /admin/publish-all/pages",
       "pipeline": "publishAllPages"
+    },
+    {
+      "http": "GET /admin/publish-status/pages",
+      "pipeline": "pagesStaleStatus"
+    },
+    {
+      "http": "POST /admin/publish-stale/pages/retry",
+      "pipeline": "retryStalePages"
     },
     {
       "http": "POST /admin/media/repair-public",
@@ -809,6 +847,10 @@
       "pipeline": "syncPublicMedia"
     },
     {
+      "cron": "*/5 * * * *",
+      "pipeline": "resumeStalePages"
+    },
+    {
       "cron": "* * * * *",
       "pipeline": "replicate"
     },
@@ -843,6 +885,38 @@
     {
       "event": "page.translationRemoved",
       "pipeline": "publishPage"
+    },
+    {
+      "event": "page.created",
+      "pipeline": "pageDependents"
+    },
+    {
+      "event": "page.updated",
+      "pipeline": "pageDependents"
+    },
+    {
+      "event": "page.deleted",
+      "pipeline": "pageDependents"
+    },
+    {
+      "event": "page.restored",
+      "pipeline": "pageDependents"
+    },
+    {
+      "event": "page.translationRemoved",
+      "pipeline": "pageDependents"
+    },
+    {
+      "event": "settings.updated",
+      "pipeline": "settingsDependents"
+    },
+    {
+      "event": "media.updated",
+      "pipeline": "mediaDependents"
+    },
+    {
+      "event": "media.deleted",
+      "pipeline": "mediaDependents"
     },
     {
       "event": "media.uploaded",

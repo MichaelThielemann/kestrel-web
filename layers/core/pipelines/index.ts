@@ -36,6 +36,7 @@ export type {
 export {
   checkPreset,
   featureOrder,
+  lanesFor,
   RELAY_CANDIDATE_PIPELINES,
   relayPipelinesFor,
   staticPipelineNames,

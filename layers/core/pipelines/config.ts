@@ -7,7 +7,7 @@ import { resolveStorageTypes } from "../field-types";
 import type { FieldTypes } from "../field-types";
 import { isGenericCollection, isPageLikeCollection } from "./collections";
 import type { CollectionModel } from "./collections";
-import { presetSchemas, relayPipelinesFor } from "./index";
+import { lanesFor, presetSchemas, relayPipelinesFor } from "./index";
 import type { Feature } from "./index";
 
 export interface ModuleEntry {
@@ -105,7 +105,8 @@ type ReferenceTarget = { content: string } | { collection: string };
 const MEDIA_PREFIX = "media/";
 const SITE_PREFIX = "site/";
 const DATABASE_FILE = "kestrel.db";
-const IMAGE_VARIANT_LANE = { variants: ["generateImageVariants"] };
+const QUEUE_DEFAULT_MAX_ATTEMPTS = 5;
+const QUEUE_DEFAULT_BACKOFF_SECONDS = [5, 30, 120, 600];
 const MEDIA_REFERENCE_TARGET = "media";
 const MEDIA_REFERENCE_COLLECTION = "media_items";
 const PAGES_COLLECTION = "pages";
@@ -213,6 +214,16 @@ function applyModuleOverrides(modules: ModuleEntry[], overrides: Partial<Record<
   });
 }
 
+function renderDependencies(queued: boolean, queue: PresetEventsQueue | undefined): Record<string, unknown> {
+  if (!queued) return { render: "background", rendererReadsDocument: true };
+  return {
+    render: "events",
+    rendererReadsDocument: true,
+    maxAttempts: queue?.maxAttempts ?? QUEUE_DEFAULT_MAX_ATTEMPTS,
+    backoffSeconds: [...(queue?.backoffSeconds ?? QUEUE_DEFAULT_BACKOFF_SECONDS)],
+  };
+}
+
 function siteUrlOf(llms: PresetLlms | undefined): string | undefined {
   if (llms?.siteUrl !== undefined) return llms.siteUrl;
   const fromEnv = process.env.NUXT_PUBLIC_SITE_URL;
@@ -309,6 +320,7 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
           headings: options.llms?.headings ?? { ...DEFAULT_LLMS_HEADINGS },
           ...(siteUrl === undefined ? {} : { siteUrl }),
         },
+        dependencies: renderDependencies(enabled.has("eventsQueue"), options.eventsQueue),
       },
     });
   }
@@ -342,7 +354,7 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
           config: {
             ...options.eventsQueue,
             relayPipelines: relayPipelinesFor(features),
-            ...(enabled.has("images") ? { lanes: IMAGE_VARIANT_LANE } : {}),
+            lanes: lanesFor(features),
           },
         }
       : { use: "@michaelthielemann/kestrel-events-direct", config: {} },

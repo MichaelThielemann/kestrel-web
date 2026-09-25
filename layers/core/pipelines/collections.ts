@@ -151,10 +151,13 @@ export function multiCollectionPipelines(name: string, model: CollectionModel, u
 }
 
 export function singleCollectionPipelines(name: string, customFields?: Record<string, string>): Partial<Record<SingleVerb, CollectionPipeline>> {
-  const { plural } = collectionNames(name);
+  const { plural, event } = collectionNames(name);
   return {
     get: { name: `get${plural}`, steps: ["authn.identifyUser", `authz.require:${name}.read`, `content.get:${name}`] },
-    set: { name: `set${plural}`, steps: ["authn.requireUser", `authz.require:${name}.write`, ...customFieldChecks(name, customFields), `content.set:${name}`] },
+    set: {
+      name: `set${plural}`,
+      steps: ["authn.requireUser", `authz.require:${name}.write`, ...customFieldChecks(name, customFields), { atomic: [`content.set:${name}`] }, `events.emit:${event}.updated`],
+    },
   };
 }
 
@@ -233,9 +236,10 @@ export type MultiCollectionPipelineName<K extends string> =
   | `update${Capitalized<K>}`
   | `delete${Capitalized<K>}`
   | `delete${Capitalized<K>}Translation`
+  | `${K}Dependents`
   | RevisionPipelineName<K>;
 
-export type SingleCollectionPipelineName<K extends string> = `get${Capitalized<K>}` | `set${Capitalized<K>}`;
+export type SingleCollectionPipelineName<K extends string> = `get${Capitalized<K>}` | `set${Capitalized<K>}` | `${K}Dependents`;
 
 type GenericCollectionKeys<C extends Record<string, CollectionModel>> = Exclude<keyof C & string, "pages" | "settings" | "redirects">;
 

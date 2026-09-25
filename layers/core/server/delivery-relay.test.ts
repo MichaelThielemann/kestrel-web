@@ -124,7 +124,11 @@ describe("delivery is an event pipeline, delivered by events.relay", () => {
       expect(create.status).toBe(200);
       const relay = relayOf(create.result);
       expect(relay.status).toBe("error");
-      expect(relay.pipelines).toEqual([expect.objectContaining({ event: "page.created", pipeline: "publishPage", status: "error" })]);
+      expect(relay.pipelines).toEqual(expect.arrayContaining([
+        expect.objectContaining({ event: "page.created", pipeline: "publishPage", status: "error" }),
+        expect.objectContaining({ event: "page.created", pipeline: "pageDependents", status: "queued" }),
+      ]));
+      expect(relay.pipelines).toHaveLength(2);
 
       const persistence = kestrel.contracts.find(PERSISTENCE);
       if (persistence === undefined) throw new Error("expected the booted instance to provide persistence@1");
@@ -208,7 +212,11 @@ describe("delivery is an event pipeline, delivered by events.relay", () => {
       expect(create.status).toBe(200);
       const relay = relayOf(create.result);
       expect(relay.status).toBe("error");
-      expect(relay.pipelines).toEqual([expect.objectContaining({ event: "page.created", pipeline: "publishPage", status: "error", dead: true })]);
+      expect(relay.pipelines).toEqual(expect.arrayContaining([
+        expect.objectContaining({ event: "page.created", pipeline: "publishPage", status: "error", dead: true }),
+        expect.objectContaining({ event: "page.created", pipeline: "pageDependents", status: "done" }),
+      ]));
+      expect(relay.pipelines).toHaveLength(2);
     } finally {
       await kestrel.stop();
     }
@@ -356,8 +364,7 @@ describe("a delete is not served after the response, with a working relay", () =
       });
       expect(create.status).toBe(200);
       const created = boundaryCast<{ id: string }>(create.result, "host");
-      const relay = relayOf(create.result);
-      expect(relay.status).toBe("done");
+      expect(relayOf(create.result).pipelines).toContainEqual(expect.objectContaining({ pipeline: "publishPage", status: "done" }));
 
       const statusBefore = await kestrel.run("pagePublishStatus", {
         trigger: { kind: "http", name: "GET /admin/publish-status/pages/:id" },
@@ -373,8 +380,7 @@ describe("a delete is not served after the response, with a working relay", () =
         params: { id: created.id },
       });
       expect(del.status).toBe(200);
-      const delRelay = relayOf(del.result);
-      expect(delRelay.status).toBe("done");
+      expect(relayOf(del.result).pipelines).toContainEqual(expect.objectContaining({ pipeline: "unpublishPage", status: "done" }));
 
       const statusAfter = await kestrel.run("pagePublishStatus", {
         trigger: { kind: "http", name: "GET /admin/publish-status/pages/:id" },

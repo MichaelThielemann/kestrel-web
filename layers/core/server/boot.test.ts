@@ -314,7 +314,9 @@ describe("boot", () => {
         });
         expect(create.status).toBe(200);
         const events = create.result !== undefined && typeof create.result === "object" && "_events" in create.result ? create.result._events : undefined;
-        expect(events).toMatchObject({ status: "done", pipelines: [expect.objectContaining({ pipeline: "publishPage", status: "done" })] });
+        const pipelines: unknown = typeof events === "object" && events !== null ? Reflect.get(events, "pipelines") : undefined;
+        expect(pipelines).toContainEqual(expect.objectContaining({ pipeline: "publishPage", status: "done" }));
+        expect(pipelines).toContainEqual(expect.objectContaining({ pipeline: "pageDependents", status: "queued" }));
       } finally {
         await kestrel.stop();
       }

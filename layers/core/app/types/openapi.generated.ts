@@ -438,8 +438,42 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Require a valid session → Requires permission pages.manage → Re-render every pages → Write llms.txt (and llms-full.txt when `llms.full` is set) from the live output of every delivered type (adds `_llms: { entries, full }` to the result) → Write redirects.json to the blobstore (adds `redirects: { rules, skipped }` to the result) */
+        /** Require a valid session → Requires permission pages.manage → Mark every pages output for a re-render in the background, including documents that were never delivered (adds `marked` to the result) → Write redirects.json to the blobstore (adds `redirects: { rules, skipped }` to the result) */
         post: operations["publishAllPages"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/publish-stale/pages/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Require a valid session → Requires permission pages.manage → Reset the attempts of every output whose re-render failed maxAttempts times and start it again (adds `retried` to the result) */
+        post: operations["retryStalePages"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/publish-status/pages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Require a valid session → Requires permission pages.manage → How many outputs wait for a re-render, failed it, are rendering or have unknown dependencies, the oldest mark, and the renders this process abandoned at the timeout */
+        get: operations["pagesStaleStatus"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -957,7 +991,7 @@ export interface paths {
         };
         /** Identify the caller if a valid token is present → Requires permission settings.read → One settings document → Replace internal kestrel:<type>:<id> references in the settings document with public paths (_links map added) */
         get: operations["getSettings"];
-        /** Require a valid session → Requires permission settings.write → Validate payload field settings.navigation against its JSON Schema → Replace the settings document → Write llms.txt (and llms-full.txt when `llms.full` is set) from the live output of every delivered type (adds `_llms: { entries, full }` to the result) */
+        /** Require a valid session → Requires permission settings.write → Validate payload field settings.navigation against its JSON Schema → Replace the settings document → Queue event "settings.updated" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
         put: operations["setSettings"];
         post?: never;
         delete?: never;
@@ -3583,13 +3617,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        _llms: {
-                            entries: number;
-                            full: boolean;
-                        };
-                        documents: number;
-                        errors: number;
-                        live: number;
+                        marked: number;
                         redirects: {
                             rules: number;
                             skipped: string[];
@@ -3604,6 +3632,140 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description missing permission pages.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description the marks or their jobs could not be written */
+            503: {
+                headers: {
+                    /** @description seconds until the client may retry */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    retryStalePages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description ok */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        retried: number;
+                    };
+                };
+            };
+            /** @description invalid body */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description missing permission pages.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description temporarily unavailable; retry after the Retry-After header */
+            503: {
+                headers: {
+                    /** @description seconds until the client may retry */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    pagesStaleStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description ok */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        abandoned: number;
+                        failed: number;
+                        oldestStaleAt: number | null;
+                        rendering: number;
+                        stale: number;
+                        unknown: number;
+                    };
                 };
             };
             /** @description not authenticated */
@@ -7213,9 +7375,18 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        _llms: {
-                            entries: number;
-                            full: boolean;
+                        _events: {
+                            pipelines: {
+                                attempts: number;
+                                dead: boolean;
+                                error: string | null;
+                                event: string;
+                                pipeline: string;
+                                /** @enum {string} */
+                                status: "done" | "error" | "pending" | "queued";
+                            }[];
+                            /** @enum {string} */
+                            status: "done" | "error" | "pending" | "queued";
                         };
                         /** @description origin locale per field, only with fallback */
                         _locales?: {
@@ -7272,7 +7443,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description temporarily unavailable; retry after the Retry-After header */
+            /** @description the event could not be persisted */
             503: {
                 headers: {
                     /** @description seconds until the client may retry */

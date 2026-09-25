@@ -294,7 +294,13 @@
     "setNotifications": [
       "authn.requireUser",
       "authz.require:notifications.write",
-      "content.set:notifications"
+      {
+        "atomic": [
+          "content.set:notifications"
+        ]
+      },
+      "events.emit:notifications.updated",
+      "events.relay"
     ],
     "setPassword": [
       "authn.requireUser",
@@ -304,7 +310,13 @@
     "setProfile": [
       "authn.requireUser",
       "authz.require:profile.write",
-      "content.set:profile"
+      {
+        "atomic": [
+          "content.set:profile"
+        ]
+      },
+      "events.emit:profile.updated",
+      "events.relay"
     ],
     "setRedirects": [
       "authn.requireUser",
@@ -318,7 +330,13 @@
       "authn.requireUser",
       "authz.require:settings.write",
       "validate.check:settings.navigation",
-      "content.set:settings"
+      {
+        "atomic": [
+          "content.set:settings"
+        ]
+      },
+      "events.emit:settings.updated",
+      "events.relay"
     ],
     "updateMedia": [
       "authn.requireUser",

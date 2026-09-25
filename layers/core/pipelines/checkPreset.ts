@@ -17,7 +17,7 @@ import ratelimit from "./features/ratelimit";
 import sanitizeSvg from "./features/sanitizeSvg";
 import references from "./features/references";
 import links from "./features/links";
-import delivery from "./features/delivery";
+import delivery, { dependentsPipelineName, dependentsPipelineNames, REFRESH_LLMS_PIPELINE, REPUBLISH_OUTPUT_PIPELINE } from "./features/delivery";
 import redirects from "./features/redirects";
 import images from "./features/images";
 import replication from "./features/replication";
@@ -50,6 +50,7 @@ export const staticPipelineNames = [
   "brokenReferences", "pageReferrers", "pageReferrersMany", "mediaReferrers", "mediaReferrersMany", "rebuildReferences", "scanReferences",
   "brokenLinks", "rebuildLinks", "checkLinks",
   "publishPage", "unpublishPage", "pagePublishStatus", "publishAllPages",
+  "pageDependents", "settingsDependents", "mediaDependents", "republishOutput", "refreshLlms", "resumeStalePages", "deliveryBuildCheck", "retryStalePages", "pagesStaleStatus",
   "getRedirects", "setRedirects", "renderRedirects",
   "serveImageVariant", "registerImageSizes", "registerImageSizesBoot", "listImageSizes", "syncImages", "pruneImages", "retryFailedImages", "imagesStatus", "planImageVariants", "generateImageVariants", "resumeImages",
   "replicate", "replicationStatus", "replicationPoints", "replicationSnapshot", "replicationRestore",
@@ -67,7 +68,7 @@ export type PresetPipelineName<C extends Record<string, CollectionModel> = Recor
   | StaticPipelineName
   | CollectionPipelineName<C>;
 
-export type CronPipelineName = "cleanupSessions" | "sweepRateLimits" | "scanReferences" | "checkLinks" | "resumeImages" | "replicate" | "reconcileMedia" | "syncPublicMedia" | "purgeEvents" | "pruneRevisions" | "pruneAudit";
+export type CronPipelineName = "cleanupSessions" | "sweepRateLimits" | "scanReferences" | "checkLinks" | "resumeImages" | "replicate" | "reconcileMedia" | "syncPublicMedia" | "resumeStalePages" | "purgeEvents" | "pruneRevisions" | "pruneAudit";
 
 export interface PresetOptions<C extends Record<string, CollectionModel> = Record<string, CollectionModel>, S extends string = PresetStep> {
   modules: readonly { use: string; config?: unknown }[];
@@ -165,6 +166,13 @@ const VALIDATE_JSONSCHEMA_MODULE = "@michaelthielemann/kestrel-validate-jsonsche
 const EVENTS_BUS_MODULE = "@michaelthielemann/kestrel-events-inmemory";
 const EVENTS_QUEUE_MODULE = "@michaelthielemann/kestrel-events-queue";
 const EVENTS_DIRECT_MODULE = "@michaelthielemann/kestrel-events-direct";
+const DELIVERY_STATIC_MODULE = "@michaelthielemann/kestrel-delivery-static";
+const PAGE_RENDER_LANE = "pages";
+const IMAGE_VARIANT_LANE = "variants";
+
+const MODULE_EMITS: Readonly<Record<string, readonly string[]>> = {
+  "@michaelthielemann/kestrel-images-default": ["media.updated"],
+};
 
 /** The event-triggered pipelines the `eventsQueue` module's relay may keep in the request; see `relayPipelinesFor`. */
 export const RELAY_CANDIDATE_PIPELINES = ["publishPage", "unpublishPage"] as const;
@@ -178,6 +186,20 @@ export function relayPipelinesFor(features: readonly Feature[]): string[] {
   return features.includes("delivery") ? [...RELAY_CANDIDATE_PIPELINES] : [];
 }
 
+/**
+ * The `lanes` that `presetModuleConfig()` gives the queue: with `eventsQueue`, `pages` (`republishOutput`,
+ * `refreshLlms`) when `features` includes `delivery`, and `variants` (`generateImageVariants`) when it includes
+ * `images`; `{}` otherwise. Every pipeline it leaves out runs in the queue's main lane. `definePreset()` checks the
+ * configured lanes against what it composes.
+ */
+export function lanesFor(features: readonly Feature[]): Record<string, string[]> {
+  if (!features.includes("eventsQueue")) return {};
+  const lanes: Record<string, string[]> = {};
+  if (features.includes("delivery")) lanes[PAGE_RENDER_LANE] = [REPUBLISH_OUTPUT_PIPELINE, REFRESH_LLMS_PIPELINE];
+  if (features.includes("images")) lanes[IMAGE_VARIANT_LANE] = ["generateImageVariants"];
+  return lanes;
+}
+
 const CONDITIONAL_CRON_HINTS: Record<string, string> = {
   [AUDIT_PRUNE_PIPELINE]: `module "${AUDIT_MODULE}" has no "${AUDIT_RETENTION_KEY}", so there is nothing to prune – pass audit: { ${AUDIT_RETENTION_KEY} } to presetModuleConfig()`,
 };
@@ -189,12 +211,36 @@ function configuredRelayPipelines(modules: readonly { use: string; config?: unkn
   return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === "string") : undefined;
 }
 
-function configuredLaneMembers(modules: readonly { use: string; config?: unknown }[]): string[] | undefined {
+function configuredLanes(modules: readonly { use: string; config?: unknown }[]): Map<string, string[]> | undefined {
   const config = modules.find((entry) => entry.use === EVENTS_QUEUE_MODULE)?.config;
   if (typeof config !== "object" || config === null || !("lanes" in config)) return undefined;
-  const lanes = Reflect.get(config, "lanes");
+  const lanes: unknown = Reflect.get(config, "lanes");
   if (typeof lanes !== "object" || lanes === null) return undefined;
-  return Object.values(lanes).flatMap((entry) => (Array.isArray(entry) ? entry.filter((step): step is string => typeof step === "string") : []));
+  return new Map(Object.entries(lanes).map(([lane, entry]): [string, string[]] => [lane, Array.isArray(entry) ? entry.filter((name): name is string => typeof name === "string") : []]));
+}
+
+function configuredLaneMembers(modules: readonly { use: string; config?: unknown }[]): string[] | undefined {
+  const lanes = configuredLanes(modules);
+  return lanes === undefined ? undefined : [...lanes.values()].flat();
+}
+
+function configuredRenderMode(modules: readonly { use: string; config?: unknown }[]): unknown {
+  const config = modules.find((entry) => entry.use === DELIVERY_STATIC_MODULE)?.config;
+  if (typeof config !== "object" || config === null || !("dependencies" in config)) return "background";
+  const dependencies: unknown = Reflect.get(config, "dependencies");
+  if (typeof dependencies !== "object" || dependencies === null || !("render" in dependencies)) return "background";
+  return Reflect.get(dependencies, "render");
+}
+
+function emittedEvents(pipelines: Record<string, readonly PresetEntry[]>, modules: readonly { use: string }[]): Set<string> {
+  const events = new Set<string>();
+  for (const entries of Object.values(pipelines)) {
+    for (const step of pipelineSteps(entries)) {
+      if (step.startsWith("events.emit:")) events.add(step.slice("events.emit:".length).split("?")[0] ?? "");
+    }
+  }
+  for (const entry of modules) for (const event of MODULE_EMITS[entry.use] ?? []) events.add(event);
+  return events;
 }
 
 function hasRedirectsRulesSchema(config: unknown): boolean {
@@ -264,6 +310,7 @@ export function buildPreset<C extends Record<string, CollectionModel> = Record<s
     if (!isGenericCollection(name)) continue;
     const generated = collectionPipelines(name, model, options.collectionsUi?.[name], customFields[name]);
     for (const pipeline of Object.values(generated)) composablePipelineNames.add(pipeline.name);
+    composablePipelineNames.add(dependentsPipelineName(name));
     try {
       pipelines = mergePipelines(pipelines, pipelinesByName(generated), name, "collection");
     } catch (err) {
@@ -365,6 +412,21 @@ export function buildPreset<C extends Record<string, CollectionModel> = Record<s
   }
   if (!enabledFeatures.has("eventsQueue") && configuredModules.has(EVENTS_QUEUE_MODULE)) {
     sink.report({ code: "preset/event-queue-feature-off", message: `preset: module "${EVENTS_QUEUE_MODULE}" is configured but feature "eventsQueue" is not enabled – use presetModuleConfig()` });
+  }
+  if (enabledFeatures.has("delivery")) {
+    const render = configuredRenderMode(options.modules);
+    if (enabledFeatures.has("eventsQueue") && render !== "events") {
+      sink.report({
+        code: "preset/render-mode-needs-events",
+        message: `preset: module "${DELIVERY_STATIC_MODULE}" needs dependencies.render "events" with the "eventsQueue" feature – re-renders run as queue jobs; use presetModuleConfig()`,
+      });
+    }
+    if (!enabledFeatures.has("eventsQueue") && render === "events") {
+      sink.report({
+        code: "preset/render-mode-needs-queue",
+        message: `preset: module "${DELIVERY_STATIC_MODULE}" has dependencies.render "events", which needs the "eventsQueue" feature – use "background", or presetModuleConfig()`,
+      });
+    }
   }
 
   let triggers: TriggerConfig[] = canonicalTriggers
@@ -496,6 +558,37 @@ export function buildPreset<C extends Record<string, CollectionModel> = Record<s
   const excludeSet = new Set<string>(validExcludes);
   pipelines = Object.fromEntries(Object.entries(pipelines).filter(([name]) => !excludeSet.has(name)));
   triggers = triggers.filter((trigger) => !excludeSet.has(trigger.pipeline));
+
+  if (enabledFeatures.has("delivery")) {
+    const emitted = emittedEvents(pipelines, options.modules);
+    const dependents = new Set(dependentsPipelineNames(collections));
+    triggers = triggers.filter((trigger) => !("event" in trigger) || !dependents.has(trigger.pipeline) || emitted.has(trigger.event));
+  }
+
+  const lanes = configuredLanes(options.modules);
+  if (lanes !== undefined) {
+    for (const [lane, members] of lanes) {
+      for (const name of members) {
+        if (!composablePipelineNames.has(name) || Object.hasOwn(pipelines, name)) continue;
+        sink.report({
+          code: "preset/lane-pipeline-unknown",
+          pipeline: name,
+          message: `preset: module "${EVENTS_QUEUE_MODULE}" runs pipeline "${name}" in lane "${lane}", which the preset does not compose – remove it from lanes too, or keep the pipeline`,
+        });
+      }
+    }
+    const renders = [REPUBLISH_OUTPUT_PIPELINE, REFRESH_LLMS_PIPELINE].filter((name) => Object.hasOwn(pipelines, name));
+    const laneOf = (name: string): string | undefined => [...lanes].find(([, members]) => members.includes(name))?.[0];
+    const renderLanes = new Set(renders.map(laneOf));
+    const [renderLane] = renderLanes;
+    const shared = renderLane !== undefined && (lanes.get(renderLane) ?? []).some((name) => name !== REPUBLISH_OUTPUT_PIPELINE && name !== REFRESH_LLMS_PIPELINE);
+    if (renders.length > 0 && (renderLanes.size !== 1 || renderLane === undefined || shared)) {
+      sink.report({
+        code: "preset/page-renders-lane",
+        message: `preset: module "${EVENTS_QUEUE_MODULE}" must run "${REPUBLISH_OUTPUT_PIPELINE}" and "${REFRESH_LLMS_PIPELINE}" together in a lane of their own – re-renders must never delay other queued work, and the export must follow them`,
+      });
+    }
+  }
 
   const configuredRelay = configuredRelayPipelines(options.modules);
   if (configuredRelay !== undefined) {

@@ -26,7 +26,7 @@ import fieldTypes from "../../../playground/shared/field-types";
 
 const EXPORT_DIR = "<exportDir>";
 
-const HOST_RUN_PIPELINES = new Set(["registerImageSizesBoot", "adminSchemaModel"]);
+const HOST_RUN_PIPELINES = new Set(["registerImageSizesBoot", "adminSchemaModel", "deliveryBuildCheck"]);
 
 interface Fixture {
   pipelines: Record<string, PresetEntry<string>[]>;
@@ -178,6 +178,7 @@ describe("golden: images without references", () => {
 
 const queuedModules = allModules
   .filter((entry) => entry.use !== "@michaelthielemann/kestrel-events-direct")
+  .map((entry) => (entry.use === "@michaelthielemann/kestrel-delivery-static" ? { ...entry, config: { dependencies: { render: "events" } } } : entry))
   .concat([{ use: "@michaelthielemann/kestrel-events-queue" }]);
 const queuedFeatures = [...allFeatures, "eventsQueue"] as readonly Feature[];
 

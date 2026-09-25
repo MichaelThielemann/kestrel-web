@@ -734,6 +734,14 @@
       "method": "POST",
       "path": "/admin/publish-all/pages"
     },
+    "pagesStaleStatus": {
+      "method": "GET",
+      "path": "/admin/publish-status/pages"
+    },
+    "retryStalePages": {
+      "method": "POST",
+      "path": "/admin/publish-stale/pages/retry"
+    },
     "repairPublicMedia": {
       "method": "POST",
       "path": "/admin/media/repair-public"

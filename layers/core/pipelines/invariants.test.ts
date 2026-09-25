@@ -35,7 +35,7 @@ const allModules = [
   { use: "@michaelthielemann/kestrel-links-default" },
   { use: "@michaelthielemann/kestrel-validate-jsonschema", config: { schemas: { "pages.body": "x", "redirects.rules": "y" } } },
   { use: "@michaelthielemann/kestrel-renderer-nuxt" },
-  { use: "@michaelthielemann/kestrel-delivery-static" },
+  { use: "@michaelthielemann/kestrel-delivery-static", config: { dependencies: { render: "events" } } },
   { use: "@michaelthielemann/kestrel-redirects-default" },
   { use: "@michaelthielemann/kestrel-audit-persistence", config: { retentionDays: 365 } },
   { use: "@michaelthielemann/kestrel-events-inmemory" },
