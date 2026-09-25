@@ -63,7 +63,8 @@ describe('field/Media load watch', () => {
     await vi.waitFor(() => expect(wrapper.find('.field-media__item').exists()).toBe(true))
 
     expect(wrapper.emitted('update:modelValue')).toBeUndefined()
-    expect(wrapper.text()).toContain(en['field.media.processing'])
+    expect(wrapper.text()).toContain(en['field.media.storedProcessing'])
+    expect(wrapper.text()).not.toContain(en['field.media.processing'])
     expect(wrapper.find('.field-media__item').exists()).toBe(true)
   })
 
@@ -77,6 +78,7 @@ describe('field/Media load watch', () => {
 
     expect(wrapper.emitted('update:modelValue')).toBeUndefined()
     expect(wrapper.text()).not.toContain(en['field.media.processing'])
+    expect(wrapper.text()).not.toContain(en['field.media.storedProcessing'])
   })
 })
 

@@ -43,16 +43,14 @@ watch(ids, async (list) => {
   if (!capabilities.has('listMedia')) return
   try {
     const page = await api<ListPage<MediaItem>>(capabilities.route('listMedia'), { query: { ids: missing.join(','), locale: props.locale } })
-    for (const item of page.items) {
-      meta.value[item.id] = item
-      if (!isInsertable(item) && ids.value.includes(item.id)) processingError.value = t('field.media.processing')
-    }
+    for (const item of page.items) meta.value[item.id] = item
   } catch {
     return
   }
 }, { immediate: true })
 
 const resolved = computed(() => ids.value.map((id) => ({ id, item: meta.value[id] ?? null })))
+const storedHint = computed(() => (resolved.value.some((r) => r.item !== null && !isInsertable(r.item)) ? t('field.media.storedProcessing') : ''))
 
 const initialFolder = computed(() => commonFolder(resolved.value.map((r) => r.item?.folder ?? '')))
 
@@ -83,6 +81,7 @@ async function onConfirm(picked: string[]) {
     <template #default="f">
       <div class="field-media">
         <KestrelUiAlert v-if="processingError" variant="error">{{ processingError }}</KestrelUiAlert>
+        <KestrelUiAlert v-else-if="storedHint" variant="info">{{ storedHint }}</KestrelUiAlert>
         <ul v-if="resolved.length" class="field-media__items">
           <li v-for="(r, i) in resolved" :key="r.id" class="field-media__item">
             <KestrelMediaThumb :path="r.item?.path ?? null" class="field-media__thumb" :content-type="r.item?.contentType" :alt="r.item?.alt ?? r.item?.filename ?? ''" />

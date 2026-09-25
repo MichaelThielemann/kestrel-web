@@ -546,6 +546,7 @@ export const en = {
   'field.media.move_later': 'Move {name} later',
   'field.media.moved': 'Moved {name} to position {pos} of {total}',
   'field.media.processing': 'This file is still being processed. Choose it again in a moment.',
+  'field.media.storedProcessing': 'A file in this field is still being processed. It stays here; until then the page shows its original.',
 
   'combobox.moved': 'Moved {label} to position {pos} of {total}',
   'combobox.move_earlier': 'Move {label} earlier',

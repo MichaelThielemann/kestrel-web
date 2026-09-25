@@ -548,6 +548,7 @@ export const de: Record<CatalogKey, string> = {
   'field.media.move_later': '{name} nach hinten verschieben',
   'field.media.moved': '{name} an Position {pos} von {total} verschoben',
   'field.media.processing': 'Diese Datei wird noch verarbeitet. Bitte gleich noch einmal auswählen.',
+  'field.media.storedProcessing': 'Eine Datei in diesem Feld wird noch verarbeitet. Sie bleibt hier; bis dahin zeigt die Seite ihr Original.',
 
   'combobox.moved': '{label} an Position {pos} von {total} verschoben',
   'combobox.move_earlier': '{label} nach vorne verschieben',
