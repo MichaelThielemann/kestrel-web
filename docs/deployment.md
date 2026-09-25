@@ -206,8 +206,8 @@ Points that matter:
   under `/api`), `/_nuxt/…` the hashed build assets. `api`, `admin` and `media` are reserved: a page slug
   or a locale of one of those names is rejected. Do not split these across upstreams; the admin talks to
   `/api` relative to its own origin.
-- **Timeouts.** **Publish all** (System → Delivery) renders every page in the request, and a media
-  export walks the whole library. A 60 s proxy timeout is too short for a site of any size.
+- **Timeouts.** A media export walks the whole library in the request; a 60 s proxy timeout is too short
+  for a library of any size. **Publish all** only queues the pages and answers at once.
 - **Almost nothing to cache by default.** Backend answers carry `cache-control: no-store`, except
   `/media/…`: an original is `public, max-age=31536000, immutable` (its bytes never change at that URL);
   a variant path is `no-store` on Node, since a placeholder there is replaced by the render at the same
@@ -297,8 +297,32 @@ static delivery (§8 of the consuming guide): with `delivery`/`renderer-nuxt` on
 rendered to the blobstore and a plain static server delivers the public site, which then stays up
 across the admin process's restart. Editing is unavailable while the process is down either way.
 
-After a new build, run **Publish all** once so the exported pages reference the new asset hashes; a
-page of the old build is loaded as a document instead of by client navigation until then.
+After a new build, the first start re-renders every page in the background, so the exported pages
+reference the new asset hashes; a page of the old build is loaded as a document instead of by client
+navigation until its turn comes.
+
+### Re-rendering in the background
+
+With static delivery, a page is rendered again whenever content it shows changes: settings, an entry a
+block references, a linked page's path, a media item. The renders start at once and never inside the save
+request:
+
+- **Without `eventsQueue`**, the process that saved the change renders the affected pages in a background
+  loop of its own, one at a time, and writes `llms.txt` once nothing is left to render.
+- **With `eventsQueue`**, every affected page and language is one queue job in the queue's `pages` lane;
+  `llms.txt` is written by a job in the same lane after the renders queued before it. Image variants render
+  in the `variants` lane and everything else (an upload's placeholders, relayed publishes, the login
+  audit, marking) in the main lane. A lane's loop never runs another lane's jobs, so a site-wide re-render
+  does not delay any of them; the lanes share the process's CPU, and each lane runs one job per process at
+  a time.
+- **Every deploy re-renders the site.** At start, a production server compares the running build with the
+  one it rendered last and, on a change, marks every page before it reports ready; the pages then render in
+  the background as above. A site of 1000 pages at about 0.2 s per page takes three to four minutes, during
+  which a visit can show pages of both builds.
+- A render that fails keeps the page's previous output and is retried; after the last attempt it counts as
+  failed under System → Delivery, which offers **Retry failed re-renders**. A render that hangs is given up
+  after `dependencies.renderTimeoutSeconds` (60 s).
+- `resumeStalePages` runs every five minutes and picks up what a stopped process left marked.
 
 The static host needs no `/api`: an exported page navigates by reading the target page's HTML. Serve page
 HTML with `Cache-Control: no-cache` and `/_nuxt/` as immutable, and answer an unknown path with 404, never

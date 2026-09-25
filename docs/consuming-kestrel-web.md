@@ -309,7 +309,7 @@ calls them before it has read a schema at all.
 | `llms` | no | `{ full: true, headings: { pages: "Pages" } }`; `siteUrl` falls back to `NUXT_PUBLIC_SITE_URL` |
 | `migrations` | with the `migrations` feature | — `{ migrations, mode? }`, the `#kestrel/migrations` list (§10); the feature without it throws |
 | `session` | no | `{ identifier: "username", minPasswordLength: 8, sessionTtlSeconds: 86400 }` |
-| `eventsQueue` | no | `{}` — the `events-queue` module config (`pollMs`, `batch`, `maxAttempts`, `backoffSeconds`, `lockTtlSeconds`, `retentionDays`), used only with the `eventsQueue` feature |
+| `eventsQueue` | no | `{}` — the `events-queue` module config (`pollMs`, `batch`, `maxAttempts`, `backoffSeconds`, `lockTtlSeconds`, `retentionDays`, `relayMs`), used only with the `eventsQueue` feature; `relayPipelines` and `lanes` are derived, and `maxAttempts`/`backoffSeconds` also set how often `delivery-static` retries a failed re-render |
 | `revisions` | no | — `{ keep?, maxSnapshotBytes?, pruneOnWrite?, maxLimit? }`, passed through to `revisions-default`; used only with the `revisions` feature (§4) |
 | `audit` | no | — `{ retentionDays? }`, passed through to `audit-persistence`; used only with the `audit` feature. It is what turns the `pruneAudit` cron on (§4) |
 | `overrides` | no | — per-module escape hatch, keyed by package name, shallow-merged onto that module's derived config |
@@ -336,6 +336,11 @@ rather than booting with something plausible.
   path the Node server answers media on directly (see "Media URLs"). With the `delivery` feature, both
   modules also get `publicCopy: { prefix: "site/" }`, and `delivery-static` gets `reservedPaths: ["/api",
   "/admin", "/media"]` instead of a `media` option, which the module no longer accepts.
+- **`delivery-static.dependencies`** — `{ render: "background", rendererReadsDocument: true }`; with
+  `eventsQueue`, `render: "events"` plus the queue's `maxAttempts` and `backoffSeconds` (§4, "`delivery`
+  and the pages that show a change").
+- **`events-queue.relayPipelines` and `lanes`** — `relayPipelinesFor(features)` and `lanesFor(features)`
+  (§4).
 - **`validate-jsonschema.schemas`** — `presetSchemas({ features, collections })`, with `watch` on
   outside production.
 - **The conventions** — `media/` for the media prefix, `site/` for delivery and redirects, the empty
@@ -380,7 +385,7 @@ const modules = [
   { use: "@michaelthielemann/kestrel-links-default", config: { timeoutMs: 10000, concurrency: 4, recheckAfterSeconds: 21600 } },
   { use: "@michaelthielemann/kestrel-validate-jsonschema", config: { schemas: presetSchemas({ features, collections: contentTypes }), watch: process.env.NODE_ENV !== "production" } },
   { use: "@michaelthielemann/kestrel-renderer-nuxt", config: {} },
-  { use: "@michaelthielemann/kestrel-delivery-static", config: { types: { pages: {} }, prefix: "site/", reservedPaths: ["/api", "/admin", "/media"], llms: { full: true, headings: { pages: "Pages" } } } },
+  { use: "@michaelthielemann/kestrel-delivery-static", config: { types: { pages: {} }, prefix: "site/", reservedPaths: ["/api", "/admin", "/media"], llms: { full: true, headings: { pages: "Pages" } }, dependencies: { render: "background", rendererReadsDocument: true } } },
   { use: "@michaelthielemann/kestrel-redirects-default", config: { prefix: "site/" } },
   { use: "@michaelthielemann/kestrel-audit-persistence", config: {} },
   { use: "@michaelthielemann/kestrel-events-inmemory", config: {} },
@@ -657,7 +662,7 @@ or a retry actually runs.
 | `sanitizeSvg` | kestrel-sanitize-svg | SVG sanitize step before the upload step in `uploadMedia`; only with this module configured does `layers/core` serve SVG inline (`inlineTypes`), otherwise SVGs are delivered as attachments. Required with `delivery` unless `image/svg+xml` is denied — see the note below the table |
 | `references` | kestrel-references-default | `brokenReferences`, `pageReferrers(Many)`, `mediaReferrers(Many)`, `rebuildReferences`, `scanReferences` (cron); check/index/guard/unindex steps in `createPage`, `updatePage`, `deletePage`, `deleteMedia`, `deleteMediaFolder`, and a re-index step in `deletePageTranslation` when it exists |
 | `links` | kestrel-links-default | `brokenLinks`, `rebuildLinks`, `checkLinks` (cron); extract/unextract steps in `createPage`, `updatePage`, `deletePage`, and a re-extract step in `deletePageTranslation` when it exists |
-| `delivery` | kestrel-delivery-static + kestrel-renderer-nuxt | `pagePublishStatus`, `publishAllPages`, plus two event pipelines: `publishPage` (triggered by `page.created`, `page.updated`, `page.restored`, and `page.translationRemoved` when the model is translatable) and `unpublishPage` (triggered by `page.deleted`) — see the note below the table |
+| `delivery` | kestrel-delivery-static + kestrel-renderer-nuxt | `pagePublishStatus`, `publishAllPages`, `pagesStaleStatus`, `retryStalePages`, `resumeStalePages` (cron), `deliveryBuildCheck` (run at start), two event pipelines that publish the saved page: `publishPage` (triggered by `page.created`, `page.updated`, `page.restored`, and `page.translationRemoved` when the model is translatable) and `unpublishPage` (triggered by `page.deleted`), and the dependents pipelines that re-render the pages showing a change: `pageDependents`, one `<name>Dependents` per collection, `settingsDependents`, `mediaDependents`, with `eventsQueue` also `republishOutput` and `refreshLlms` — see the notes below the table |
 | `redirects` | kestrel-redirects-default | `getRedirects`, `setRedirects`, `renderRedirects`; redirect-lookup step in `resolvePage`; export step at the end of `publishAllPages` (only when `delivery` is also on) |
 | `images` | kestrel-images-default | Routes, an event and a cron job for image variants, plus boot-time size registration — see the list below the table |
 | `replication` | kestrel-replication-sqlite | `replicate` (cron), `replicationStatus`, `replicationPoints`, `replicationSnapshot`, `replicationRestore` |
@@ -716,6 +721,48 @@ With `images`, `delivery` also gains `repairPublicMedia` (`POST /admin/media/rep
 writing what is missing, removing what no longer exists — and are the backstop for §6's media URLs, not
 something a normal deployment needs to run by hand.
 
+**`delivery` and the pages that show a change:** every published page is rendered again when content it
+shows changes, without the page itself being saved (§8, "Pages that show other content"). The preset wires
+it like this:
+
+- `setSettings` and every single collection's `set<Name>` write inside an atomic group and emit
+  `settings.updated` / `<name>.updated`, with or without `delivery`. An override of either must keep the
+  group, like the write pipelines above.
+- One dependents pipeline per collection, `delivery.markDependents:<name>` (`pageDependents` for `pages`,
+  `<name>Dependents` otherwise), runs on the collection's `created`, `updated`, `deleted`, `restored` and
+  `translationRemoved` events; a single collection's on `<name>.updated`. `settingsDependents`
+  (`delivery.markDependents:settings`, `delivery.requestLlms`) runs on `settings.updated`, and
+  `mediaDependents` (`delivery.markDependents:media`) on `media.updated`, `media.deleted` and
+  `images.variantsChanged`. A dependents trigger is composed only for an event that a composed pipeline
+  emits or a configured module raises, after `exclude` and `overrides` are applied: excluding
+  `updateMedia` drops the `media.updated` trigger.
+- Marking only records which pages need a render. With `eventsQueue`, every marked page and language becomes
+  one `delivery.outputStale` job, rendered by `republishOutput` in the queue's `pages` lane; at most one
+  job per page and language waits at a time. Without it, `delivery-static` renders them in a background
+  loop of the process that marked them. Neither runs inside the save request.
+- `publishPage`, `unpublishPage` and `settingsDependents` ask for an `llms.txt` export
+  (`delivery.requestLlms`) instead of writing it. With `eventsQueue`, `refreshLlms` writes it in the
+  `pages` lane after the renders queued before it; without it, the background loop writes it once no
+  render is due. Neither a save response nor the settings response carries `_llms` any more.
+- **Publish all** (`publishAllPages`: `authn.requireUser`, `authz.require:pages.manage`,
+  `delivery.markAll:pages`, plus `redirects.export` with `redirects`) marks every page and answers at once
+  with `{ marked }`; the pages render in the background. It no longer repairs media copies; that is
+  `repairPublicMedia` and the nightly `syncPublicMedia`.
+- `resumeStalePages` (`delivery.resumeStale`, cron `*/5 * * * *`) is a recovery net: it releases claims a
+  stopped process left, removes old unpublish records and starts renders a lost job left marked.
+  `pagesStaleStatus` (`GET /admin/publish-status/pages`) answers `{ stale, failed, rendering, unknown,
+  oldestStaleAt, abandoned }`; `retryStalePages` (`POST /admin/publish-stale/pages/retry`) gives the pages
+  whose re-render failed every attempt new attempts. Both need `pages.manage`.
+- `deliveryBuildCheck` (`delivery.checkBuild`) has no trigger: the layer runs it once after start in a
+  production server, with the running build's id. A new build marks every page, so each deploy re-renders
+  the site in the background with the code that is now running.
+
+`presetModuleConfig()` sets `delivery-static`'s `dependencies` to `{ render: "events",
+rendererReadsDocument: true, maxAttempts, backoffSeconds }` with `eventsQueue` (the queue's own attempts
+and backoff, so a failed render is retried on the same schedule it reports), and to `{ render:
+"background", rendererReadsDocument: true }` without it. `definePreset()` refuses `render: "events"`
+without the `eventsQueue` feature and anything else with it.
+
 **`eventsQueue` requirement:** delivery is at-least-once, so your event listeners must be idempotent, and
 no ordering is guaranteed between the pipelines subscribed to one event. Every event a pipeline receives
 carries `eventId` — use it as the dedup key. Events stored while switching to `eventsQueue` (or stored by
@@ -745,13 +792,19 @@ emitting run.
 event-triggered pipeline (`planImageVariants`, `auditAuth`, `reassignRevisionAuthor`, …) is left to the
 worker: its row is due immediately, and `_events` reports it as `"queued"`, not `"pending"`. A page publish
 or unpublish therefore still completes before the write's response, while heavier or slower subscribers
-never share the request's time budget. `generateImageVariants` runs in the queue's own `variants` lane
-(set on the `eventsQueue` module's `lanes`, not through `relayPipelines`): a render never blocks placing
-the next upload, and the relay never claims a lane row regardless of `relayPipelines`.
+never share the request's time budget. Page re-renders and image renders run in lanes of their own, set
+on the `eventsQueue` module's `lanes` by the exported `lanesFor(features)`: `republishOutput` and
+`refreshLlms` in `pages` (with `delivery`), `generateImageVariants` in `variants` (with `images`). Each lane
+has its own worker loop that runs one job at a time, so a site-wide re-render never delays an upload's
+placeholders, a relayed publish, the login audit or an image render, and the relay never claims a lane row
+regardless of `relayPipelines`. `definePreset()` refuses a lanes config that names a preset pipeline it no
+longer composes, or that does not keep `republishOutput` and `refreshLlms` together in a lane of their own.
 
 A hand-written module list that never calls `presetModuleConfig()` keeps the `eventsQueue` module's own
 default, `relayPipelines: "all"` — every subscriber runs inline, bounded by `relayMs`. Call
-`relayPipelinesFor(features)` yourself to get the same selection, or name an explicit list. `overrides`
+`relayPipelinesFor(features)` yourself to get the same selection, or name an explicit list, and set
+`lanes: lanesFor(features)`; without lanes, re-renders and image renders share the main lane and delay
+every other queued job. `overrides`
 naming the events-queue module directly replaces whichever of the two produced it; `definePreset()` then
 checks every name in that list against what it actually composed once `exclude` and `overrides` are
 applied, and rejects a name that used to be one of its own pipelines but no longer is. A name it never
@@ -933,7 +986,7 @@ entirely — their pipelines and routes are hand-written in the preset.
   `unpublishPage` event pipelines the `delivery` feature registers, triggered by the events a write
   pipeline emits. `events.relay`, which delivers or reports those pipelines before the response, is
   deliberately outside every group: the database stays consistent, and the published artefact may lag
-  only when the relay itself fails, which `publishAllPages` then repairs.
+  only when the relay itself fails, which **Publish all** then repairs in the background.
 - `exclude` removes a preset pipeline **and** its trigger(s) — same for collection-derived names.
 - `schedules` changes a cron pipeline's schedule.
 - `exportDir` — media/image export directory (default `<KESTREL_APP_ROOT>/data/export`; `KESTREL_APP_ROOT` is the app root in dev and the environment variable or process cwd of a production server).
@@ -1327,15 +1380,17 @@ of any page referencing it. Rules that follow from that:
 - **Publish from a production build only** (`nuxt build`, then `node .output/server/index.mjs`). A publish
   from `nuxt dev` fails with `renderer/nuxt: publishing requires a production build …` — the editor's
   live traffic light turns red with that message on every save in dev; that is expected.
-- After a new build, run **Publish all** once (System → Delivery) so the pages reference the new hashes;
-  the assets of the new build are synced with the first publish of the process.
+- After a new build, the first start of a production server re-renders every page in the background, so
+  the pages reference the new hashes; the assets of the new build are synced with the first render of the
+  process.
 - `app.cdnURL` set → the markup points at the CDN and no `_nuxt/` is written; `renderer-nuxt` config
   `assets: false` skips the sync when you serve `.output/public/_nuxt` yourself.
 - Files from your `public/` directory (favicon, fonts, `robots.txt`) are not exported — serve
   `.output/public` next to `site/`, or put such files in the media library.
 
-**llms.txt / llms-full.txt (GEO).** Every publish, unpublish, settings save and publish-all also writes
-`<prefix>llms.txt` (the preset appends `delivery.exportLlms` to those pipelines): an index in the format of
+**llms.txt / llms-full.txt (GEO).** Every publish, unpublish, re-render and settings save leads to a new
+`<prefix>llms.txt`, written in the background once the pending re-renders are done (see the `delivery`
+notes in §4): an index in the format of
 https://llmstxt.org — H1 = `settings.title`, blockquote = `settings.description` (§3.5), then one section per
 delivered type listing every live page with its `seo.title`/`title`, URL and `seo.description`; pages with
 `seo.noindex` are left out, drafts never appear. Configure it under the delivery-static `llms` key:
@@ -1393,8 +1448,8 @@ stale state with the error in its tooltip. A failed *unpublish* is the sharper c
 rolled back — but the rendered page **stays reachable** until the retry runs. The admin says so
 explicitly ("The page was deleted, but it is still online.") and points at System → Events with the
 queue, or at System → Delivery without it. **`publishAllPages` does not repair this case**: it re-renders
-every live page and never removes an artefact whose document is already gone, so reach for the queue's
-retry (or, without the queue, re-run the delivery module's own removal) instead of Publish All.
+every page that still exists and never removes an artefact whose document is already gone, so reach for the
+queue's retry (or, without the queue, re-run the delivery module's own removal) instead of Publish All.
 
 ### What an exported page requests
 
@@ -1405,10 +1460,10 @@ hydrates from. When the target cannot be used (missing, redirected, rendered by 
 loads it as a document and your host answers: the page, a redirect from your edge, or its 404. The design
 is in `docs/architecture.md`, "Client navigation on a static page".
 
-Each exported page is a snapshot of its last publish, including the settings, navigation and language
+Each exported page is a snapshot of its last render, including the settings, navigation and language
 links it embeds. Within one visit the header stays the one of the page the visitor entered on. A settings
-change reaches exported pages when they are published again (**Publish all**); until then a visit can show
-pages of different ages.
+change re-renders every page in the background; until the last of them is done, a visit can show pages of
+different ages.
 
 The layer guarantees, for your own code as well as its own: every `useAsyncData`/`useFetch` whose key the
 server rendered for a page is found again on client navigation, and every read through `useApi()` that the
@@ -1447,6 +1502,38 @@ other means. Code that runs on exported pages follows these rules:
     from `useAsyncData` results (a `computed`, or a `watchEffect` as `[...slug].vue` does for
     `useSiteLocaleLinks()` and `useSitePage()`); an initializer that fetches, reads the request or depends on
     server-only values produces a different value after a navigation than after a full load.
+
+### Pages that show other content
+
+A page shows more than its own document: the settings, the entries its blocks reference, lists, the paths
+of the pages it links to, media. `delivery-static` records what each render read, per page and language,
+and a change to any of it renders that page again, without the page being saved:
+
+- A block that shows an entry of another collection (a lineup that lists speakers, a teaser of another page)
+  is re-rendered when that entry changes, and so is a page that reads an entry through another one: a page
+  whose lineup block reads the lineup and then its speakers depends on all of them. A draft entry the render
+  read becomes visible in the export as soon as it is published.
+- A change to the settings re-renders every page that reads them, which with the layer's site layout is
+  every page. A media item's change (alt text, title, deletion, new variants) re-renders the pages that
+  show it. A page whose path changes re-renders the pages that link to it.
+- A page renders once per change, also when pages show each other; drafts are never rendered.
+
+The rule for your own code: **what a page reads through `useApi()` during server rendering is what it
+depends on.** Reads of your own backend's data made in another way are not tracked: a request to another
+server, a cache you keep across requests (`defineCachedFunction`, `useStorage` and the like), or `$fetch`
+with an absolute URL. Such a page is re-rendered only on its own save, a change to something else it reads,
+or a deploy. A list bounded by time ("upcoming events", `date >= now`) changes without any write; set
+`dependencies.maxAgeSeconds` on `kestrel-delivery-static` (through `overrides` of `presetModuleConfig()`) to
+re-render every page older than that from the five-minute recovery job.
+
+A consumer override that lets anonymous callers write a collection also lets them start re-renders of the
+pages that show it; with the default inline event delivery, the marking runs inside their request.
+
+The admin shows the state: System → Delivery counts the pages that wait for a re-render, those whose
+re-render failed every attempt (with **Retry failed re-renders**) and those rendered before their
+dependencies were recorded (a page from before this release, until its next render). The page editor's
+delivery line says when its page waits or failed, and the dashboard links to System → Delivery when
+re-renders failed.
 
 **Hybrid: forwarding `/api/` to the origin.** A static host may forward the API:
 
@@ -1615,11 +1702,18 @@ What changes:
 - Page slugs `api`, `admin` and `media`, and locales of those names, are rejected.
 - An uploaded image can be put into content only once its `available` field is not `false`; the admin's
   media picker already enforces this.
-- A statically delivered site navigates without `/api` (§8). Run **Publish all** after upgrading so every
-  exported page carries the static marker and the build id. A page exported by an earlier release keeps
-  calling `/api` on navigation until it is published again; forwarding `/api/` to the origin (§8, hybrid)
-  keeps such a site working in the meantime. `check`/`fix` reminds you of this once, with `ops/publish-all`,
-  whenever `delivery` is on.
+- A statically delivered site navigates without `/api` (§8). The first start after upgrading re-renders
+  every page in the background, which gives every exported page the static marker and the build id. A page
+  exported by an earlier release keeps calling `/api` on navigation until it is rendered again; forwarding
+  `/api/` to the origin (§8, hybrid) keeps such a site working in the meantime. `check`/`fix` reminds you of
+  this once, with `ops/publish-all`, whenever `delivery` is on.
+- Pages are re-rendered when content they show changes (§8, "Pages that show other content"). An override
+  of `setSettings` or of a single collection's `set<Name>` must keep the new atomic group around its
+  `content.set:` step. A client that read `_llms` from `PUT /settings` or a page save, or `{ documents, live,
+  errors }` from **Publish all**, reads `{ marked }` and the stale status instead. A hand-written module list
+  needs `dependencies: { render, rendererReadsDocument: true }` on `kestrel-delivery-static` (`render:
+  "events"` with `kestrel-events-queue`, `"background"` otherwise) and, with the queue, `lanes:
+  lanesFor(features)` on `kestrel-events-queue`.
 - Code on exported pages follows the rules in §8, "What an exported page requests": deterministic keys
   that carry the locale, never `useId()`, data transferred without `useState`. `useSiteSettings()` stores
   its data under `site:settings:<locale>`, and a media item the layer loads keeps its public fields only

@@ -462,11 +462,12 @@ the relay sits between the group and that trailing step, which is correct becaus
 independent members to the result.
 
 `delivery` (`features/delivery.ts`) contributes `publishPage` (`delivery.publish:pages`,
-`delivery.exportLlms`) and `unpublishPage` (`delivery.unpublish:pages`, `delivery.exportLlms`) as plain
+`delivery.requestLlms`) and `unpublishPage` (`delivery.unpublish:pages`, `delivery.requestLlms`) as plain
 event pipelines with no relay of their own — they run as the payload of another pipeline's relay — and
 five event triggers tagged with the `delivery` feature: `page.created`/`page.updated`/`page.restored`/
 `page.translationRemoved` (the last one only when `context.pagesTranslatable`) → `publishPage`,
-`page.deleted` → `unpublishPage`.
+`page.deleted` → `unpublishPage`. Its dependents pipelines and their triggers are described under "Dependent
+re-rendering" below.
 
 An `overrides` entry for a pipeline that had a group is rejected at compose time if it drops the group
 around the `content.*` write — a flat replacement loses atomicity silently otherwise. The override may
@@ -1070,7 +1071,8 @@ untouched — a document with extra sibling members (`_locales`, `_translations`
 | `upload` | `actions/media.ts` | `upload.begin`, `api.request`, `upload.settle` | `useMediaUpload`, once per queued file |
 | `setMediaMeta` | `actions/media.ts` | `ops.busy:on`, `api.request` (inline error only on failure, no toast either way), `data.reload`; always `ops.busy:off` | `MediaLibrary.vue`, media viewer save |
 | `setMediaProvenance` | `actions/media.ts` | `ops.busy:on`, `api.request` (inline error only on failure, no toast either way), `data.reload`; always `ops.busy:off` | `MediaLibrary.vue`, media viewer save |
-| `publishAll` | `actions/system.ts` | `ops.busy:on`, `api.request` (toasts and fails on error; toasts on success); always `ops.busy:off` | `SystemDelivery.vue` |
+| `publishAll` | `actions/system.ts` | `ops.busy:on`, `api.request` (toasts and fails on error; toasts how many pages it queued); always `ops.busy:off` | `SystemDeliveryStale.vue` |
+| `retryStale` | `actions/system.ts` | `ops.busy:on`, `api.request` (toasts and fails on error; toasts how many pages it queued again); always `ops.busy:off` | `SystemDeliveryStale.vue` |
 | `exportMedia` | `actions/system.ts` | `ops.busy:on`, `api.request` (toasts and fails on error; toasts on success); always `ops.busy:off` | `SystemDelivery.vue` |
 | `replicationSnapshot` | `actions/system.ts` | `ops.busy:on`, `api.request` (toasts on success; on error toasts unless the status is 404 — then calls `onNotFound` instead — and always fails), `data.reload`; always `ops.busy:off` | `SystemReplication.vue` |
 | `replicationRestore` | `actions/system.ts` | `dialog.confirm`, `ops.busy:on`, `api.request` (no success toast; toasts and fails on error), `data.reload`; always `ops.busy:off` | `SystemReplication.vue` |
@@ -1144,7 +1146,8 @@ Where a message lands is part of the behaviour, not a detail:
 - media folder create, rename and delete, media meta and provenance edits, and user create and
   set-password — the inline dialog error only, no toast; a success toast only on success;
 - media drag-and-drop move, media upload (except a 401, which the reauth interceptor owns), user toggle,
-  publish-all, media export, snapshot and restore, references rebuild and links rebuild — toast only;
+  publish-all, retrying failed re-renders, media export, snapshot and restore, references rebuild and
+  links rebuild — toast only;
 - replication `notFound` — the inline alert, no toast;
 - `imagesRegisterAndSync` — toast only on either half's failure; a 409 on either half (a name collision
   on register, or a sync already running) is not a failure at all — the step returns without a toast or
@@ -1569,7 +1572,7 @@ Nitro plugin registers it as `buildAssets: { dir: app.buildAssetsDir, paths }` p
 `NuxtTarget`, unless `app.cdnURL` is set (the markup then points at the CDN and nothing is synced). The
 renderer fetches every path through `localFetch` under the baseURL once per process (16 at a time), keeps
 the bytes in memory and returns them with every render under site-relative keys; `delivery-static` writes
-each key once (`<prefix>_nuxt/…`) and re-writes them on `publishAll`. An empty manifest is a publish
+each key once per process (`<prefix>_nuxt/…`). An empty manifest is a publish
 error, never a page without assets. `.gz`/`.br` siblings (`compressPublicAssets`) and `.map` files are
 not exported. Old hashes are never deleted from the blobstore. Files in the consumer's `public/`
 directory (favicons, fonts, `robots.txt`) are **not** part of `site/`; serve them next to it.
@@ -1664,11 +1667,12 @@ Each exported page is a snapshot of its last publish, including the shared data 
 navigation, locale links, resolved link paths and media metadata. Client navigation reads the same
 snapshot a full load of the target shows. Within one visit the header and navigation come from the page
 the visitor entered on, since every new layout instance reuses the settings key that is still alive, and
-the content comes from each target page. A settings change reaches exported pages only when they are
-published again (**Publish all**). Until then one visit can show pages of different ages, a locale switch
-reads the target's settings as last published, and a link to a renamed page answers 404 through a
-document load; no redirect is created automatically. After a new build, pages not yet published again
-carry the old build id, and navigating to them is a document load until **Publish all** runs.
+the content comes from each target page. A settings change, a renamed page or any other change a page
+shows renders the affected pages again in the background (see "Dependent re-rendering"). Until the last of
+them is done, one visit can show pages of different ages, a locale switch reads the target's settings as
+last rendered, and a link to a renamed page answers 404 through a document load; no redirect is created
+automatically. After a new build, pages not yet rendered again carry the old build id, and navigating to
+them is a document load until their background render has run.
 
 ### Only public data in an exported page
 
@@ -1691,12 +1695,46 @@ media field, no user or audit data. Four things keep it so.
 4. **A test that fails on a leak.** `layers/public/static-export.e2e.test.ts` (run with
    `KESTREL_STATIC_E2E=1`) builds the playground, publishes a German page whose English translation is a
    draft, a draft page, a media item in its own folder and an English page whose German original is a
-   draft, runs Publish all as a second user, and checks that none of their marker strings reaches any
-   exported file, that every payload key keeps its public shape, and that an exported payload equals an
-   anonymous render of the same path.
+   draft, runs Publish all as a second user and waits for its background renders, and checks that none of
+   their marker strings reaches any exported file, that every payload key keeps its public shape, and that
+   an exported payload equals an anonymous render of the same path.
 
 A consumer's own `useAsyncData` results are exported the same way; `docs/consuming-kestrel-web.md` §8
 lists the rules for them.
+
+### Dependent re-rendering
+
+An exported page is refreshed when content it shows changes. The recording and the marking are
+`delivery-static`'s (its README, "Dependent outputs"); the layer supplies what they need:
+
+- **Reads happen where they can be seen.** A render is `nitro.localFetch(path)` in the process and async
+  context of the publish; every `useApi()` read of the page, its layout and its blocks goes through the
+  in-memory Nitro handler to the kestrel instance, whose providers note what they answer. The layer keeps
+  no server-side cache of `/api` answers, which would hide such a read. `presetModuleConfig()` sets
+  `rendererReadsDocument: true`, so a render that did not read its own page (a lost read scope) is stored
+  with unknown dependencies and re-rendered on every change instead of going stale.
+- **Every change raises an event.** Collection writes already emit `<event>.created|updated|deleted|…`;
+  `setSettings` and every single collection's `set<Name>` gain an atomic group and emit
+  `settings.updated` / `<name>.updated`. `features/delivery.ts` composes one dependents pipeline per
+  collection plus `settingsDependents` and `mediaDependents`; `definePreset()` drops each dependents trigger
+  whose event neither a composed pipeline (after `exclude` and `overrides`) nor a configured module
+  (`MODULE_EMITS`: `images-default` raises `images.variantsChanged`) emits, so boot has no trigger without
+  an emitter.
+- **Renders run outside the request.** With `eventsQueue`, `delivery-static` raises `delivery.outputStale`
+  per marked page and language (`render: "events"`), `republishOutput` renders it and `refreshLlms` writes
+  `llms.txt` after a coalesced `delivery.llmsStale`; both run in the queue's `pages` lane (`lanesFor`).
+  Without the queue, `render: "background"`: the module's own loop renders in the marking process.
+  `definePreset()` refuses a render mode that does not match the event delivery module, and a lanes config
+  that leaves the two pipelines out of a lane of their own.
+- **A deploy re-renders.** The Nitro plugin runs `deliveryBuildCheck` after `start()` with
+  `useRuntimeConfig().app.buildId` (`server/utils/build-check.ts`), except in dev, before it reports ready. A
+  new build marks every output, so every page is rendered, and its dependencies recorded, by the deployed
+  code.
+- **The admin reads the backlog.** `pagesStaleStatus` feeds `useStaleStatus()` (polled every two seconds
+  while pages wait, paused while the document is hidden) for System › Static delivery and
+  `DashDeliveryStaleAlert.vue`; the publish status rows carry `stale`, `staleFailed` and `staleError` for
+  the editor's delivery line. The save and delete messages fold only the `publishPage`/`unpublishPage`
+  entries of `_events` (`ownDeliveryStatus()`), since a save now also queues marking work.
 
 ## `NUXT_PUBLIC_SITE_URL`
 `layers/admin` reads `runtimeConfig.public.siteUrl` (env `NUXT_PUBLIC_SITE_URL`) for anything that needs

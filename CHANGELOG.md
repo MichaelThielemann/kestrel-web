@@ -301,7 +301,51 @@
   `cache` rule) or that is not rendered on the server, with `RENDER_FAILED` naming the cause. Such pages could not
   hydrate on a static host.
 
+- **Pages are re-rendered as soon as content they show changes.** With `delivery`, saving the settings, an
+  entry of any collection, a page or a media item marks every published page whose last render read it, and
+  a media item whose image variants changed does the same; marked pages are rendered right away — with
+  `eventsQueue` by the queue's worker, one job per page and language, otherwise by a background loop in the
+  same process. A save never waits for them; the saved page itself is still published before the response.
+  - `setSettings` and every single collection's `set<Name>` write inside an atomic group and emit
+    `settings.updated` / `<name>.updated`, with or without `delivery`; an override must keep the group.
+  - `llms.txt` is rewritten in the background after the pages it summarizes: `PUT /settings` and page saves
+    answer without `_llms`, and neither the save nor the queue's main work waits for the export.
+  - **Re-render all pages** (`POST /admin/publish-all/pages`) queues every page and answers at once with
+    `{ marked }` instead of `{ documents, live, errors }`; System › Static delivery shows the progress.
+    `PublishAllReport` is `{ marked }`. It no longer repairs media copies; use **Repair media copies**, which
+    the nightly job also runs.
+  - After every deploy, the first start re-renders every page in the background; "Publish all" after a
+    deploy is no longer needed.
+  - What a page reads during server rendering through `/api` is what it depends on; data from other servers
+    or from a cache kept across requests is not tracked.
+  - A hand-written module list needs `dependencies: { render, rendererReadsDocument: true }` on
+    `kestrel-delivery-static` (`render: "events"` with `kestrel-events-queue`, `"background"` otherwise);
+    `definePreset()` refuses a mismatch, naming the key. With the queue it also needs the `lanes` of
+    `lanesFor(features)` on `kestrel-events-queue` (`pages` for page renders and `llms.txt`, `variants` for
+    image variants), so re-renders never delay uploads, publishing or the login audit; `definePreset()`
+    refuses a lanes config that keeps page renders out of a lane of their own or names a pipeline it does
+    not compose. `presetModuleConfig()` sets both.
+  - A save response's `_events` also lists the dependents pipeline it started (`queued` with the queue, so
+    `_events.status` becomes `"pending"`); read a page's own publishing from its `publishPage` or
+    `unpublishPage` entry.
+
+- `presetModuleConfig()` derives the references target of a `ref` field with `to: "media"` as
+  `{ media: true }`, the files `media-default` serves through `media@1`, instead of
+  `{ collection: "media_items" }`.
+
 ### Added
+
+- System › Static delivery shows how many pages wait to be re-rendered, how many failed and how many were
+  rendered before changes were tracked, with the progress of "Re-render all pages" and "Retry failed
+  re-renders". The page editor shows when a page waits for or failed its re-render; the dashboard warns about
+  failed re-renders. New pipelines: `pageDependents`, `settingsDependents`, `mediaDependents`, one
+  `<name>Dependents` per collection, `republishOutput` and `refreshLlms` (with `eventsQueue`),
+  `resumeStalePages` (every five minutes, a recovery net), `deliveryBuildCheck` (run at start),
+  `retryStalePages` (`POST /admin/publish-stale/pages/retry`) and `pagesStaleStatus`
+  (`GET /admin/publish-status/pages`).
+- `#kestrel/pipelines` exports `lanesFor(features)`, the queue lanes `presetModuleConfig()` sets.
+- `StaleStatus` and `RetryStaleReport` (`layers/core/app/types/api.ts`); `PublishStatusEntry` carries
+  `stale`, `staleSince`, `staleFailed`, `staleError` and `dependencies`.
 
 - `#kestrel/pipelines` exports `relayPipelinesFor(features)` and `RELAY_CANDIDATE_PIPELINES`, the helper
   and the candidate list `presetModuleConfig()` uses to derive the `eventsQueue` module's relay selection;
@@ -356,6 +400,8 @@
 
 ### Changed
 
+- The editor's save and delete messages report only the publishing of the page itself, not other background
+  work started by the same save.
 - The dashboard shows how many event deliveries failed for good and links to System → Events: the
   queue's dead letters, or with inline delivery the failed deliveries of the process that served the
   page. `/api/ready` and `/api/health` answer as before.
