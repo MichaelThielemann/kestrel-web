@@ -34,7 +34,7 @@ export function useSitePage() {
 export function useSiteSettings(locale: Ref<string>) {
   const api = useApi()
   return useAsyncData<SiteSettings>(
-    'site:settings',
+    () => `site:settings:${locale.value}`,
     async () => {
       try {
         return toSiteSettings(await api<SettingsDocument>('/settings', { query: { locale: locale.value } }))
@@ -43,6 +43,6 @@ export function useSiteSettings(locale: Ref<string>) {
         return emptySiteSettings()
       }
     },
-    { watch: [locale], default: emptySiteSettings },
+    { default: emptySiteSettings },
   )
 }

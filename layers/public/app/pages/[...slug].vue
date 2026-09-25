@@ -7,6 +7,7 @@ import { localePath } from '#kestrel-core/app/utils/locale-path'
 import { isFallbackDocument, primaryPathOf } from '../utils/untranslated'
 import { resolvePageLayout } from '../utils/page-layout'
 import { isPageResponse, isRedirectResponse, redirectNavigation } from '../utils/site-redirect'
+import { sitePath } from '../utils/site-path'
 import type { PageDocument, SiteResponse } from '#kestrel-core/app/types/api'
 import { boundaryCast } from '#kestrel/cast'
 
@@ -21,8 +22,8 @@ const locale = useSiteLocale()
 const api = useApi()
 
 const { data, error } = await useAsyncData(
-  () => `site:${route.path}`,
-  () => api<SiteResponse>(`/site${route.path}`),
+  () => `site:${sitePath(route.path)}`,
+  () => api<SiteResponse>(`/site${sitePath(route.path)}`),
 )
 const response = boundaryCast<Ref<SiteResponse | null | undefined>>(data, 'host')
 const redirectHit = response.value && isRedirectResponse(response.value) ? response.value.redirect : null
@@ -55,7 +56,7 @@ if (page.value && isFallbackDocument(page.value, locale.value)) {
 }
 
 const { data: localeLinks } = await useAsyncData<SiteLocaleLink[]>(
-  () => `site:locales:${page.value?.id ?? ''}`,
+  () => `site:locales:${page.value?.id ?? ''}:${locale.value}`,
   async () => {
     const doc = page.value
     if (!doc) return []
