@@ -5,6 +5,7 @@ import type { Edit, RuleContext, SwitchEditsResult } from "@michaelthielemann/ke
 import { lanesFor } from "../pipelines/checkPreset";
 import type { Feature } from "../pipelines/checkPreset";
 import { addStringToNamedExportArray, dependenciesRender, hasModuleEntry, setDependenciesRender } from "./edits";
+import { renderDependenciesText } from "./dependentsRules";
 import { findFeaturesArrayFile, packageJsonPath, presetOptionsCast } from "./ruleHelpers";
 
 const SERVERLESS_MARKER_FILES = ["vercel.json", "netlify.toml", "wrangler.toml", "serverless.yml", "template.yaml"];
@@ -121,7 +122,7 @@ export async function layerSwitchEdits(ctx: RuleContext, relayPipelines: readonl
     parts["kestrel.config.ts's hand-written events-direct entry"] = moduleListEdit === undefined ? undefined : [moduleListEdit];
   }
   if (configSource !== undefined && hasModuleEntry(configSource, DELIVERY_STATIC_PACKAGE) && dependenciesRender(configSource, DELIVERY_STATIC_PACKAGE) !== "events") {
-    const renderEdit = setDependenciesRender(ctx.project.configFile, configSource, DELIVERY_STATIC_PACKAGE, "events");
+    const renderEdit = setDependenciesRender(ctx.project.configFile, configSource, DELIVERY_STATIC_PACKAGE, "events", renderDependenciesText("events"));
     parts["kestrel.config.ts's delivery-static render mode"] = renderEdit === undefined ? undefined : [renderEdit];
   }
   return { parts, blockers: deploymentBlockers(ctx) };

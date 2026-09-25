@@ -105,8 +105,10 @@ type ReferenceTarget = { content: string } | { media: true };
 const MEDIA_PREFIX = "media/";
 const SITE_PREFIX = "site/";
 const DATABASE_FILE = "kestrel.db";
-const QUEUE_DEFAULT_MAX_ATTEMPTS = 5;
-const QUEUE_DEFAULT_BACKOFF_SECONDS = [5, 30, 120, 600];
+/** The `maxAttempts` of `kestrel-events-queue` when its config names none; delivery-static retries a failed re-render as often. */
+export const QUEUE_DEFAULT_MAX_ATTEMPTS = 5;
+/** The `backoffSeconds` of `kestrel-events-queue` when its config names none; delivery-static waits as long between re-render attempts. */
+export const QUEUE_DEFAULT_BACKOFF_SECONDS: readonly number[] = [5, 30, 120, 600];
 const MEDIA_REFERENCE_TARGET = "media";
 const PAGES_COLLECTION = "pages";
 

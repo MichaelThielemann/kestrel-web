@@ -123,7 +123,8 @@ describe("layerSwitchEdits", () => {
     const result = await layerSwitchEdits(contextFor({ files: { [CONFIG_FILE]: source }, features: ["delivery"] }), []);
     const edit = result.parts["kestrel.config.ts's delivery-static render mode"]![0]!;
     const patched = source.slice(0, edit.start) + edit.text + source.slice(edit.end);
-    expect(patched).toContain('dependencies: { render: "events", rendererReadsDocument: true }');
+    expect(patched).toContain('config: { types: { pages: {} }, dependencies: { render: "events", rendererReadsDocument: true, maxAttempts: 5, backoffSeconds: [5, 30, 120, 600] } }');
+    expect(source.slice(edit.start, edit.end)).toBe("{ types: { pages: {} } }");
   });
 
   it("adds no delivery-static part when the entry is not a literal in the config", async () => {

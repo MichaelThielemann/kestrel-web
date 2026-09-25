@@ -1,4 +1,4 @@
-import { arrayElements, isArrayExpression, isAstNode, objectProperty, parseTs, span, stringValue, walk } from "@michaelthielemann/kestrel-upgrade/codemods";
+import { arrayElements, findCalls, firstArgument, isArrayExpression, isAstNode, objectProperty, parseTs, span, stringValue, walk } from "@michaelthielemann/kestrel-upgrade/codemods";
 import type { AstNode, Edit } from "@michaelthielemann/kestrel-upgrade/codemods";
 
 /**
@@ -236,27 +236,45 @@ export function setModuleEntryConfigProperties(file: string, source: string, use
 
 /**
  * Sets `dependencies.render` of the `{ use: "<use>", config: { … } }` entry to `render`: replaces an
- * existing `render` value, adds `render` to an existing `dependencies` object, or adds
- * `dependencies: { render, rendererReadsDocument: true }` to the entry's config. `undefined` when no such
- * entry is found, a `config` or `dependencies` is not an object literal, or `render` already has that value.
+ * existing `render` value, adds `render` to an existing `dependencies` object, or adds `dependenciesText`
+ * (the whole `dependencies: { … }` property) to the entry's config. Adding rewrites the whole `config`
+ * object, so a narrower insertion of another rule into the same object is superseded instead of writing
+ * the key twice. `undefined` when no such entry is found, a `config` or `dependencies` is not an object
+ * literal, or `render` already has that value.
  */
-export function setDependenciesRender(file: string, source: string, use: string, render: string): Edit | undefined {
+export function setDependenciesRender(file: string, source: string, use: string, render: string, dependenciesText: string): Edit | undefined {
   const entry = moduleEntry(parseTs(source), use);
   if (entry === undefined) return undefined;
   const config = objectProperty(entry, "config");
-  const dependenciesText = `dependencies: { render: "${render}", rendererReadsDocument: true }`;
   if (config === undefined) return objectWith(file, source, entry, [{ key: "config", text: `config: { ${dependenciesText} }` }]);
   if (config.type !== "ObjectExpression") return undefined;
   const dependencies = objectProperty(config, "dependencies");
-  if (dependencies === undefined) {
-    const { end } = span(config);
-    const hasProperties = Array.isArray(config.properties) && config.properties.length > 0;
-    return { file, start: end - 1, end: end - 1, text: `${hasProperties ? ", " : ""}${dependenciesText} ` };
-  }
+  if (dependencies === undefined) return objectWith(file, source, config, [{ key: "dependencies", text: dependenciesText }]);
   if (dependencies.type !== "ObjectExpression") return undefined;
   const current = objectProperty(dependencies, "render");
   if (current === undefined) return objectWith(file, source, dependencies, [{ key: "render", text: `render: "${render}"` }]);
   if (stringValue(current) === render) return undefined;
   const { start, end } = span(current);
   return { file, start, end, text: `"${render}"` };
+}
+
+/**
+ * Gives the only `presetModuleConfig({ … })` call in `source` an `overrides` entry for module `use` with
+ * `propertyText` (e.g. `dependencies: { … }`): adds `overrides`, adds the module's key to it, or adds the
+ * property to the module's existing entry. `undefined` when there is not exactly one such call with an
+ * object literal argument, `overrides` or the module's entry is not an object literal, or the entry already
+ * has `propertyKey`.
+ */
+export function setPresetModuleConfigOverride(file: string, source: string, use: string, propertyKey: string, propertyText: string): Edit | undefined {
+  const calls = findCalls(parseTs(source), "presetModuleConfig");
+  const options = calls.length === 1 ? firstArgument(calls[0]!) : undefined;
+  if (options === undefined || options.type !== "ObjectExpression") return undefined;
+  const moduleText = `"${use}": { ${propertyText} }`;
+  const overrides = objectProperty(options, "overrides");
+  if (overrides === undefined) return objectWith(file, source, options, [{ key: "overrides", text: `overrides: { ${moduleText} }` }]);
+  if (overrides.type !== "ObjectExpression") return undefined;
+  const entry = objectProperty(overrides, use);
+  if (entry === undefined) return objectWith(file, source, overrides, [{ key: use, text: moduleText }]);
+  if (entry.type !== "ObjectExpression") return undefined;
+  return objectWith(file, source, entry, [{ key: propertyKey, text: propertyText }]);
 }

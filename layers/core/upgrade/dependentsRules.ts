@@ -6,7 +6,8 @@ import { pipelineSteps } from "@michaelthielemann/kestrel/definePipeline";
 import { lanesFor, relayPipelinesFor } from "../pipelines/checkPreset";
 import type { Feature } from "../pipelines/checkPreset";
 import { consumerScripts } from "./consumerRules";
-import { addModuleEntryConfigProperty, setModuleEntryConfigProperties } from "./edits";
+import { QUEUE_DEFAULT_BACKOFF_SECONDS, QUEUE_DEFAULT_MAX_ATTEMPTS } from "../pipelines/config";
+import { addModuleEntryConfigProperty, hasModuleEntry, setDependenciesRender, setModuleEntryConfigProperties, setPresetModuleConfigOverride } from "./edits";
 import type { PropertyText } from "./edits";
 import { layerProjectData } from "./load";
 import { deliveryEnabled, docsAnchor, presetOptionsCast } from "./ruleHelpers";
@@ -56,17 +57,28 @@ export const deliveryDependenciesRule: Rule = {
     const modules = cast.modules ?? [];
     const entry = modules.find((m) => m.use === DELIVERY_STATIC_MODULE);
     if (entry === undefined || !modules.some((m) => m.use === RENDERER_NUXT_MODULE)) return [];
-    const render = modules.some((m) => m.use === EVENTS_QUEUE_MODULE) ? "events" : "background";
+    const queue = modules.find((m) => m.use === EVENTS_QUEUE_MODULE);
+    const render = queue !== undefined ? "events" : "background";
     const problems = problemsOf(ctx, ["preset/render-mode-needs-events", "preset/render-mode-needs-queue"]);
     const rule = "preset/delivery-dependencies";
     const where = { module: DELIVERY_STATIC_MODULE, file: ctx.project.configFile };
-    const wanted = `dependencies: { render: "${render}", rendererReadsDocument: true }`;
+    const wanted = renderDependenciesText(render, configOf(queue));
     const dependencies = configOf(entry)?.dependencies;
+    const source = ctx.readFile(ctx.project.configFile);
     if (dependencies !== undefined) {
       if (problems.length === 0) return [];
-      return [finding(rule, rule, "error", where, problems.join("; "), `set dependencies.render to "${render}" on ${DELIVERY_STATIC_MODULE}`, { kind: "manual" })];
+      const literal = source !== undefined && hasModuleEntry(source, DELIVERY_STATIC_MODULE);
+      const edit =
+        source === undefined
+          ? undefined
+          : literal
+            ? setDependenciesRender(ctx.project.configFile, source, DELIVERY_STATIC_MODULE, render, wanted)
+            : setPresetModuleConfigOverride(ctx.project.configFile, source, DELIVERY_STATIC_MODULE, "dependencies", wanted);
+      const how = literal ? `sets dependencies.render to "${render}" on the ${DELIVERY_STATIC_MODULE} entry` : `gives presetModuleConfig() an override for ${DELIVERY_STATIC_MODULE}: ${wanted}`;
+      return edit === undefined
+        ? [finding(rule, rule, "error", where, problems.join("; "), `set dependencies.render to "${render}" on ${DELIVERY_STATIC_MODULE}, through presetModuleConfig({ overrides }) when that call builds the entry`, { kind: "manual" })]
+        : [finding(rule, rule, "error", where, problems.join("; "), how, { kind: "auto", edits: [edit] })];
     }
-    const source = ctx.readFile(ctx.project.configFile);
     const edit = source === undefined ? undefined : addModuleEntryConfigProperty(ctx.project.configFile, source, DELIVERY_STATIC_MODULE, "dependencies", wanted);
     const message = problems.length > 0 ? problems.join("; ") : `${DELIVERY_STATIC_MODULE} has no dependencies config, so pages are re-rendered without checking that each render read its own page`;
     const severity = problems.length > 0 ? "error" : "warning";
@@ -75,6 +87,18 @@ export const deliveryDependenciesRule: Rule = {
       : [finding(rule, rule, severity, where, message, `adds ${wanted} to ${DELIVERY_STATIC_MODULE}'s config`, { kind: "auto", edits: [edit] })];
   },
 };
+
+/**
+ * The `dependencies` property `presetModuleConfig()` gives `kestrel-delivery-static` for `render`: with
+ * `"events"`, also the queue's own `maxAttempts` and `backoffSeconds` (its defaults when `queueConfig` names
+ * none), so a failed re-render is retried on the schedule the queue reports.
+ */
+export function renderDependenciesText(render: "events" | "background", queueConfig?: Record<string, unknown>): string {
+  if (render === "background") return `dependencies: { render: "background", rendererReadsDocument: true }`;
+  const maxAttempts = typeof queueConfig?.maxAttempts === "number" ? queueConfig.maxAttempts : QUEUE_DEFAULT_MAX_ATTEMPTS;
+  const backoff = Array.isArray(queueConfig?.backoffSeconds) ? queueConfig.backoffSeconds : QUEUE_DEFAULT_BACKOFF_SECONDS;
+  return `dependencies: { render: "events", rendererReadsDocument: true, maxAttempts: ${maxAttempts}, backoffSeconds: [${backoff.map(String).join(", ")}] }`;
+}
 
 function lanesLiteral(lanes: Record<string, string[]>): string {
   return `{ ${Object.entries(lanes).map(([lane, members]) => `${lane}: [${members.map((m) => `"${m}"`).join(", ")}]`).join(", ")} }`;
@@ -118,13 +142,14 @@ export const queueLanesRule: Rule = {
   },
 };
 
-/** An override of `setSettings` that still runs `delivery.exportLlms` writes `llms.txt` inside the settings request; the preset requests the export after the re-renders instead. Information only. */
+/** An override of `setSettings` that still runs `delivery.exportLlms` writes `llms.txt` inside the settings request; the preset requests the export after the re-renders instead. Information only; an override that also lacks the emit is left to `preset/override-emit`, which drops the export. */
 export const settingsLlmsRule: Rule = {
   id: "preset/settings-llms",
   check(ctx) {
     const cast = presetOptionsCast(ctx);
     const override = cast?.overrides?.setSettings;
     if (override === undefined || !pipelineSteps(override).includes("delivery.exportLlms")) return [];
+    if (problemsOf(ctx, ["preset/override-drops-watched-emit"]).length > 0) return [];
     const rule = "preset/settings-llms";
     return [
       finding(
