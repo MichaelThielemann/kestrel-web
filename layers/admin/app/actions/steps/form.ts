@@ -1,7 +1,7 @@
 import type { ApiErrorDetails } from '#kestrel-admin/types/api'
 import type { ActionContext, ActionStep } from '#kestrel-core/app/utils/actions'
 import { retryableMessage, withRunId } from '../../composables/useApi'
-import type { BlockErrors } from '../../composables/useEditForm'
+import type { BlockErrors } from '../../composables/useEditFormValidation'
 import { blockErrorFromPointer, fieldErrorsFromDetails, fieldFromErrorMessage, hasAdditionalPropertiesProblem, parseBodyErrors, parseRowErrors } from '../../utils/edit-form'
 import { parseSchemaRowErrors } from '../../utils/row-errors'
 import { defineUiStep } from '../define'

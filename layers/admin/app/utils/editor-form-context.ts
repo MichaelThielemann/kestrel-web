@@ -1,6 +1,6 @@
 import type { ComputedRef, InjectionKey, Ref } from 'vue'
 import type { FieldDef, LayoutNode } from '#kestrel-admin/types/kestrel'
-import type { BlockErrors } from '../composables/useEditForm'
+import type { BlockErrors } from '../composables/useEditFormValidation'
 import type { RowErrorMap } from './row-errors'
 
 export interface PageFieldsBindings {

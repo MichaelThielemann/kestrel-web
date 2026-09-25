@@ -1,6 +1,6 @@
 import type { ApiErrorDetails, Document, EventRelayStatus, ReferenceTo } from '#kestrel-admin/types/api'
 import type { HttpMethod, Workflow } from '#kestrel-admin/types/kestrel'
-import type { BlockErrors } from '../composables/useEditForm'
+import type { BlockErrors } from '../composables/useEditFormValidation'
 import type { ApiRoute, CapabilityResolver } from '../utils/capabilities'
 import type { BlockRow } from '../utils/block-tree'
 import type { RowErrorMap } from '../utils/row-errors'

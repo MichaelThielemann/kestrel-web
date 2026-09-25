@@ -1,32 +1,15 @@
 import type { LayoutNode, SerializedField, Workflow } from '#kestrel-admin/types/kestrel'
-import type { Document, DeliveryEntry, PublishStatusEntry } from '#kestrel-admin/types/api'
+import type { Document } from '#kestrel-admin/types/api'
 import { boundaryCast } from '#kestrel/cast'
-import { isFieldVisible, slugify, validateField } from '#kestrel-admin/utils/kestrel'
-import { BLOCKS_FIELD, editorOwnedFields, findCollection } from '#kestrel-admin/utils/collections'
-import {
-  asFieldDef,
-  buildBody,
-  derivedSlugFields,
-  initialValues,
-  mergeInFlightEdits,
-  slugFromWire,
-  stripLinkResolution,
-  toSubmitResult,
-  valuesEqual,
-  type SubmitResult,
- pruneBlockProps, writeKeys } from '../utils/edit-form'
-import { copyTranslation as copyTranslationAction, saveRecord, setStatus as setStatusAction } from '../actions/editor'
-import { toastUnexpected } from '../actions/steps/notify'
-import type { EditFormPort } from '../actions/types'
-import type { BlockRow } from '../utils/block-tree'
-import type { RowErrorMap } from '../utils/row-errors'
-
-export type BlockErrors = Map<string, { field?: string; message: string; path?: string[] }[]>
-export type RowErrors = Record<string, RowErrorMap>
-
-function blocksOf(values: Record<string, unknown>, blocksField: string): BlockRow[] {
-  return blocksField ? (boundaryCast<BlockRow[] | undefined>(values[blocksField], 'json') ?? []) : []
-}
+import { isFieldVisible, slugify } from '#kestrel-admin/utils/kestrel'
+import { BLOCKS_FIELD } from '#kestrel-admin/utils/collections'
+import { buildBody, derivedSlugFields, pruneBlockProps, valuesEqual, writeKeys } from '../utils/edit-form'
+import { useEditFormHistory } from './useEditFormHistory'
+import { useEditFormDelivery } from './useEditFormDelivery'
+import { useEditFormLocale } from './useEditFormLocale'
+import { useEditFormValidation } from './useEditFormValidation'
+import { useEditFormLoad } from './useEditFormLoad'
+import { useEditFormActions } from './useEditFormActions'
 
 export interface UseEditFormOptions {
   collection: string
@@ -35,14 +18,10 @@ export interface UseEditFormOptions {
   locale?: string
 }
 
-function snapshot(values: Record<string, unknown>): Record<string, unknown> {
-  return boundaryCast<Record<string, unknown>>(JSON.parse(JSON.stringify(values)), 'json')
-}
-
 export function useEditForm(opts: UseEditFormOptions) {
   const { collection, id } = opts
   const deps = useActionDeps()
-  const { api, capabilities } = deps
+  const { capabilities } = deps
   const { schema } = useSchema()
   const { locales: contentLocales, primary: primaryLocale } = useContentLocales()
   const locale = ref(opts.locale?.trim() || primaryLocale.value)
@@ -51,33 +30,52 @@ export function useEditForm(opts: UseEditFormOptions) {
   const fieldLayout = ref<LayoutNode[] | undefined>(undefined)
   const mode = ref<'multi' | 'single'>('multi')
   const translatable = ref(false)
-
   const pageLike = ref(false)
-
-  const delivery = ref<DeliveryEntry[] | null>(null)
-  const deliveryLoading = ref(false)
   const blocksEnabled = ref(false)
   const blocksAllowed = ref<string[] | undefined>(undefined)
   const workflow = ref<Workflow | undefined>(undefined)
   const editorType = ref('fields')
   const editorOwned = ref<string[]>([])
-
-  const translations = ref<Record<string, boolean>>({})
-  const copied = ref(false)
-
-  const primaryTitle = ref('')
+  const stored = ref(false)
+  const baseline = ref<Record<string, unknown>>({})
 
   const values = reactive<Record<string, unknown>>({})
-  const errors = reactive<Record<string, string>>({})
   const formError = ref('')
   const saving = ref(false)
-  const baseline = ref<Record<string, unknown>>({})
-  const blockErrors = ref<BlockErrors>(new Map())
-  const rowErrors = reactive<RowErrors>({})
 
   const blocksField = computed(() => (blocksEnabled.value ? BLOCKS_FIELD : ''))
+  const slugKeys = computed(() => Object.keys(fields.value).filter((k) => fields.value[k]?.type === 'slug'))
+  const derived = computed(() => derivedSlugFields(fields.value))
+  const following = reactive<Record<string, boolean>>({})
 
-  const stored = ref(false)
+  const { errors, blockErrors, rowErrors, validateOne, validateAll, validateBlocksClientSide } = useEditFormValidation({
+    fields,
+    values,
+    blocksField,
+  })
+
+  const {
+    translations, primaryTitle,
+    missingTranslation, copySourceLocales, copySourceDefault, showCopyTranslation,
+    setTranslations, loadPrimaryTitle, markCopied,
+  } = useEditFormLocale({ deps, collection, id, mode, translatable, locale, primaryLocale, contentLocales })
+
+  const { delivery, deliveryLoading, loadDelivery } = useEditFormDelivery({ deps, collection, id, pageLike })
+
+  const { canUndo, canRedo, recordHistory, undo, redo, resetHistory } = useEditFormHistory({
+    values,
+    onRestore: () => {
+      for (const k of Object.keys(errors)) Reflect.deleteProperty(errors, k)
+      formError.value = ''
+    },
+  })
+
+  const { fieldKeys, rebaseline, reload, init, setInFlightSnapshot } = useEditFormLoad({
+    deps, schema, collection, id, locale, values, fields, fieldLayout, mode, translatable,
+    pageLike, blocksEnabled, blocksAllowed, workflow, editorType, editorOwned, stored, baseline,
+    blocksField, slugKeys, derived, following, blockErrors, rowErrors, resetHistory,
+    setTranslations, loadPrimaryTitle, loadDelivery,
+  })
 
   const dirty = computed(() => !valuesEqual(values, baseline.value))
   const dirtyKeys = computed(() => fieldKeys().filter((k) => !valuesEqual(values[k], baseline.value[k])))
@@ -87,175 +85,15 @@ export function useEditForm(opts: UseEditFormOptions) {
     statusField.value ? (boundaryCast<string | undefined>(baseline.value[statusField.value], 'json') ?? '') : '',
   )
 
-  const past = ref<Record<string, unknown>[]>([])
-  const future = ref<Record<string, unknown>[]>([])
-  const canUndo = computed(() => past.value.length > 0)
-  const canRedo = computed(() => future.value.length > 0)
-  let coalesceKey = ''
-  let coalesceAt = 0
-  const COALESCE_MS = 600
-  const HISTORY_LIMIT = 100
-
-  function recordHistory(name: string) {
-    const now = Date.now()
-    const coalesce = name === coalesceKey && now - coalesceAt < COALESCE_MS
-    coalesceKey = name
-    coalesceAt = now
-    if (coalesce) return
-    past.value.push(snapshot(values))
-    if (past.value.length > HISTORY_LIMIT) past.value.shift()
-    future.value = []
-  }
-
-  function restore(snap: Record<string, unknown>) {
-    const fresh = snapshot(snap)
-    for (const k of Object.keys(fresh)) values[k] = fresh[k]
-    for (const k of Object.keys(values)) if (!(k in fresh)) Reflect.deleteProperty(values, k)
-    for (const k of Object.keys(errors)) Reflect.deleteProperty(errors, k)
-    formError.value = ''
-    coalesceKey = ''
-  }
-
-  function undo() {
-    if (!past.value.length) return
-    future.value.push(snapshot(values))
-    restore(past.value.pop()!)
-  }
-  function redo() {
-    if (!future.value.length) return
-    past.value.push(snapshot(values))
-    restore(future.value.pop()!)
-  }
-
   const renderableFields = computed<Record<string, SerializedField>>(() =>
     Object.fromEntries(Object.entries(fields.value).filter(([k]) => !editorOwned.value.includes(k))),
   )
-
-  const derived = computed(() => derivedSlugFields(fields.value))
-  const following = reactive<Record<string, boolean>>({})
-  const slugKeys = computed(() => Object.keys(fields.value).filter((k) => fields.value[k]?.type === 'slug'))
-
-  const missingTranslation = computed(
-    () => mode.value === 'multi' && id !== 'new' && translatable.value && translations.value[locale.value] === false,
-  )
-
-  const copySourceLocales = computed(() =>
-    contentLocales.value.filter((l) => l !== locale.value && translations.value[l] === true),
-  )
-  const copySourceDefault = computed(() =>
-    copySourceLocales.value.includes(primaryLocale.value) ? primaryLocale.value : (copySourceLocales.value[0] ?? ''),
-  )
-  const showCopyTranslation = computed(() => missingTranslation.value && !copied.value && copySourceLocales.value.length > 0)
 
   const canWrite = computed(() => {
     const writeVerb = mode.value === 'single' ? 'set' : id === 'new' ? 'create' : 'update'
     return capabilities.hasVerb(collection, writeVerb)
   })
   const canSave = computed(() => canWrite.value && (!stored.value || missingTranslation.value || dirty.value))
-
-  function fieldKeys() {
-    return Object.keys(fields.value)
-  }
-
-  let inFlightSnapshot: Record<string, unknown> | null = null
-
-  function rebaseline(source: Record<string, unknown> | null) {
-    stored.value = source !== null
-    const next = initialValues(fields.value)
-    if (source) {
-      for (const k of fieldKeys()) {
-        if (source[k] != null) next[k] = stripLinkResolution(source[k])
-      }
-    }
-    if (blocksField.value) next[blocksField.value] ??= []
-
-    for (const k of slugKeys.value) next[k] = slugFromWire(next[k])
-
-    const merged = inFlightSnapshot ? mergeInFlightEdits(next, inFlightSnapshot, snapshot(values)) : next
-    for (const k of Object.keys(merged)) values[k] = merged[k]
-
-    for (const target of Object.keys(derived.value)) following[target] = source?.[target] == null
-    baseline.value = snapshot(next)
-
-    past.value = []
-    future.value = []
-    coalesceKey = ''
-    blockErrors.value = new Map()
-    for (const k of Object.keys(rowErrors)) Reflect.deleteProperty(rowErrors, k)
-  }
-
-  async function loadRow(): Promise<Document | null> {
-    if (mode.value === 'single') {
-      try {
-        return await api<Document>(capabilities.verbRoute(collection, 'get'), { query: { locale: locale.value } })
-      } catch (e) {
-        if (apiErrorCode(e) !== 'NOT_FOUND') throw e
-        return null
-      }
-    }
-    return id === 'new' ? null : await api<Document>(capabilities.verbRoute(collection, 'readAny', { id }), { query: { locale: locale.value } })
-  }
-
-  async function reload() {
-    inFlightSnapshot = null
-    const row = await loadRow()
-    translations.value = readTranslations(row)
-    rebaseline(row)
-    await Promise.all([loadPrimaryTitle(), loadDelivery()])
-  }
-
-  async function init() {
-    const def = findCollection(schema.value, collection)
-    if (!def) throw createError({ statusCode: 404, statusMessage: `Unknown collection: ${collection}` })
-    fields.value = def.fields
-    fieldLayout.value = def.fieldLayout
-    mode.value = def.mode
-    translatable.value = def.translatable
-    pageLike.value = def.pageLike ?? false
-    blocksEnabled.value = def.blocks?.enabled ?? false
-    blocksAllowed.value = def.blocks?.allowed
-    workflow.value = def.workflow
-    editorType.value = def.editor || (def.blocks?.enabled ? 'blocks' : 'fields')
-    editorOwned.value = editorOwnedFields(schema.value, collection)
-
-    const row = await loadRow()
-    translations.value = readTranslations(row)
-    rebaseline(row)
-    await Promise.all([loadPrimaryTitle(), loadDelivery()])
-  }
-
-  async function loadDelivery() {
-    if (!pageLike.value || id === 'new' || !capabilities.hasVerb(collection, 'publishStatus')) return
-    deliveryLoading.value = true
-    try {
-      delivery.value = await api<PublishStatusEntry[]>(capabilities.verbRoute(collection, 'publishStatus', { id }))
-    } catch {
-      delivery.value = null
-    } finally {
-      deliveryLoading.value = false
-    }
-  }
-
-  function readTranslations(row: Document | null): Record<string, boolean> {
-    if (!row) return {}
-    return row._translations ? { ...row._translations } : { [locale.value]: row.title != null }
-  }
-
-  async function loadPrimaryTitle() {
-    primaryTitle.value = ''
-    if (mode.value !== 'multi' || id === 'new' || !translatable.value || locale.value === primaryLocale.value) return
-    try {
-      const row = await api<Document>(capabilities.verbRoute(collection, 'readAny', { id }), { query: { locale: primaryLocale.value } })
-      primaryTitle.value = typeof row.title === 'string' ? row.title : ''
-    } catch {
-      primaryTitle.value = ''
-    }
-  }
-
-  function validateOne(name: string) {
-    const field = fields.value[name]
-    if (field) errors[name] = isFieldVisible(field, values) ? (validateField(asFieldDef(field), values[name]) ?? '') : ''
-  }
 
   function setField(name: string, value: unknown, coalesceAs: string = name) {
     recordHistory(coalesceAs)
@@ -284,39 +122,6 @@ export function useEditForm(opts: UseEditFormOptions) {
     for (const [n, f] of Object.entries(fields.value)) if (!isFieldVisible(f, values)) errors[n] = ''
   }
 
-  function validateAll(): boolean {
-    let ok = true
-    for (const [name, field] of Object.entries(fields.value)) {
-      if (!isFieldVisible(field, values)) { errors[name] = ''; continue }
-      const msg = validateField(asFieldDef(field), values[name])
-      errors[name] = msg ?? ''
-      if (msg) ok = false
-    }
-    return ok
-  }
-
-  function validateBlocksClientSide(): boolean {
-    if (!blocksField.value) return true
-    const { blocks: defs } = useBlocks()
-    const byName = Object.fromEntries(defs.value.map((d) => [d.name, d]))
-    const map: BlockErrors = new Map()
-    function walk(arr: BlockRow[]) {
-      for (const b of arr) {
-        const def = byName[b.type]
-        const list: { field?: string; message: string }[] = []
-        for (const [name, field] of Object.entries(def?.fields ?? {})) {
-          const msg = validateField(asFieldDef(field), b.props?.[name])
-          if (msg) list.push({ field: name, message: msg })
-        }
-        if (list.length) map.set(b.id, list)
-        if (b.slots) for (const sub of Object.values(b.slots)) if (Array.isArray(sub)) walk(boundaryCast<BlockRow[]>(sub, 'json'))
-      }
-    }
-    walk(blocksOf(values, blocksField.value))
-    blockErrors.value = map
-    return map.size === 0
-  }
-
   function bodyFor(dirty: string[]): Record<string, unknown> {
     const keys = writeKeys(dirty, fields.value, missingTranslation.value)
     const body = buildBody(keys, values, slugKeys.value, translatable.value, locale.value)
@@ -327,86 +132,38 @@ export function useEditForm(opts: UseEditFormOptions) {
     return body
   }
 
-  let revealErrorFn: (() => void) | null = null
-
-  function registerRevealError(fn: () => void) {
-    revealErrorFn = fn
+  function applySaved(record: Document) {
+    setTranslations(record)
+    rebaseline(record)
   }
 
-  function revealError() {
-    revealErrorFn?.()
-  }
-
-  function port(): EditFormPort {
-    return {
-      collection,
-      id,
-      mode: mode.value,
-      pageLike: pageLike.value,
-      workflow: () => workflow.value,
-      status: () => (statusField.value ? boundaryCast<string | undefined>(values[statusField.value], 'json') ?? '' : ''),
-      saving: () => saving.value,
-      blocksField: () => blocksField.value,
-      fieldKeys,
-      dirtyKeys: () => dirtyKeys.value,
-      bodyFor,
-      blocks: () => blocksOf(values, blocksField.value),
-      repeaterField: () => Object.keys(fields.value).find((name) => fields.value[name]?.type === 'repeater') ?? null,
-      formError: () => formError.value,
-      setField: (name, value) => setField(name, value),
-      clearErrors: () => {
-        formError.value = ''
-        for (const k of Object.keys(errors)) Reflect.deleteProperty(errors, k)
-        for (const k of Object.keys(rowErrors)) Reflect.deleteProperty(rowErrors, k)
-      },
-      setFieldError: (name, message) => {
-        errors[name] = message
-      },
-      setRowErrors: (field, map) => {
-        rowErrors[field] = map
-      },
-      setBlockErrors: (map) => {
-        blockErrors.value = map
-      },
-      setFormError: (message) => {
-        formError.value = message
-      },
-      setSaving: (on) => {
-        saving.value = on
-        inFlightSnapshot = on ? snapshot(values) : null
-      },
-      validateAll,
-      validateBlocks: () => {
-        validateBlocksClientSide()
-        return blockErrors.value.size
-      },
-      applySaved: (record) => {
-        translations.value = readTranslations(record)
-        rebaseline(record)
-      },
-      loadDelivery,
-      revealError,
-    }
-  }
-
-  async function submit(): Promise<SubmitResult> {
-    const result = await runAction(saveRecord, { deps, form: port() })
-    toastUnexpected(deps, result)
-    return toSubmitResult(result)
-  }
-
-  async function setStatus(next: string): Promise<SubmitResult> {
-    const result = await runAction(setStatusAction, { deps, form: port(), status: next })
-    toastUnexpected(deps, result)
-    return toSubmitResult(result)
-  }
-
-  async function copyTranslation(source: string, confirmed: boolean): Promise<boolean> {
-    const result = await runAction(copyTranslationAction, { deps, form: port(), fields: fields.value, source, confirmed })
-    toastUnexpected(deps, result)
-    if (result.ok) copied.value = true
-    return result.ok
-  }
+  const { submit, setStatus, copyTranslation, revealError, registerRevealError } = useEditFormActions({
+    deps,
+    collection,
+    id,
+    mode,
+    pageLike,
+    workflow,
+    statusField,
+    values,
+    saving,
+    blocksField,
+    fields,
+    formError,
+    errors,
+    rowErrors,
+    blockErrors,
+    fieldKeys,
+    dirtyKeys: () => dirtyKeys.value,
+    bodyFor,
+    setField,
+    validateAll,
+    validateBlocksClientSide,
+    applySaved,
+    loadDelivery,
+    setInFlightSnapshot,
+    onTranslationCopied: markCopied,
+  })
 
   const ready = init()
 

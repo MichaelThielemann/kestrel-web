@@ -273,3 +273,11 @@ export function buildBody(
   for (const k of keys) body[k] = slugKeys.includes(k) ? slugToWire(values[k]) : values[k]
   return body
 }
+
+export function blocksOf(values: Record<string, unknown>, blocksField: string): BlockRow[] {
+  return blocksField ? (boundaryCast<BlockRow[] | undefined>(values[blocksField], 'json') ?? []) : []
+}
+
+export function snapshotValues(values: Record<string, unknown>): Record<string, unknown> {
+  return boundaryCast<Record<string, unknown>>(JSON.parse(JSON.stringify(values)), 'json')
+}
