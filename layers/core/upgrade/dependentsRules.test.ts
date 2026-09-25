@@ -73,7 +73,7 @@ describe("the delivery dependencies of a hand-written module list", () => {
     const findings = await deliveryDependenciesRule.check(ctx);
     expect(findings).toHaveLength(1);
     expect(findings[0]?.severity).toBe("warning");
-    expect(patched(source, findings)).toContain(`{ use: "${DELIVERY_STATIC}", config: { types: { pages: {} } , dependencies: { render: "background", rendererReadsDocument: true } } }`);
+    expect(patched(source, findings)).toContain(`{ use: "${DELIVERY_STATIC}", config: { types: { pages: {} }, dependencies: { render: "background", rendererReadsDocument: true } } }`);
   });
 
   it("adds dependencies with the events render mode next to the queue, as the error the preset reports", async () => {

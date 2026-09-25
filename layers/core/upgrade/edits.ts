@@ -63,8 +63,30 @@ export function addStringToNamedExportArray(file: string, source: string, name: 
   return { file, start: lastEnd, end: lastEnd, text: `, ${literal}` };
 }
 
-function needsSeparatorComma(source: string, insertAt: number, hasProperties: boolean): boolean {
-  return hasProperties && !/,\s*$/.test(source.slice(0, insertAt));
+function objectProperties(node: AstNode): AstNode[] {
+  return (Array.isArray(node.properties) ? node.properties : []).filter(isAstNode);
+}
+
+function propertyInsertion(source: string, node: AstNode, propertyTexts: readonly string[]): { start: number; end: number; text: string } {
+  const { start, end } = span(node);
+  const insertAt = end - 1;
+  const inner = source.slice(start + 1, insertAt);
+  const multiline = inner.includes("\n");
+  const properties = objectProperties(node);
+  const closeIndent = multiline ? source.slice(source.lastIndexOf("\n", insertAt - 1) + 1, insertAt) : "";
+  const propertyIndent = /^[ \t]*$/.test(closeIndent) ? `${closeIndent}  ` : "  ";
+  if (properties.length === 0) {
+    if (!multiline) return { start: insertAt, end: insertAt, text: `${inner.trim() === "" ? " " : ""}${propertyTexts.join(", ")} ` };
+    const lines = propertyTexts.map((t) => `${propertyIndent}${t},`).join("\n");
+    return { start: insertAt, end: insertAt, text: `${lines}\n${closeIndent}` };
+  }
+  const lastEnd = span(properties[properties.length - 1]!).end;
+  const hasTrailingComma = source[lastEnd] === ",";
+  const insertPoint = hasTrailingComma ? lastEnd + 1 : lastEnd;
+  const comma = hasTrailingComma ? "" : ",";
+  if (!multiline) return { start: insertPoint, end: insertAt, text: `${comma} ${propertyTexts.join(", ")} ` };
+  const lines = propertyTexts.map((t) => `${propertyIndent}${t},`).join("\n");
+  return { start: insertPoint, end: insertAt, text: `${comma}\n${lines}\n${closeIndent}` };
 }
 
 /**
@@ -85,18 +107,12 @@ export function addModuleEntryConfigProperty(file: string, source: string, use: 
   const config = objectProperty(found, "config");
   if (config !== undefined && config.type !== "ObjectExpression") return undefined;
   if (config === undefined) {
-    const { end } = span(found);
-    const insertAt = end - 1;
-    const hasProperties = Array.isArray(found.properties) && found.properties.length > 0;
-    const comma = needsSeparatorComma(source, insertAt, hasProperties) ? ", " : "";
-    return { file, start: insertAt, end: insertAt, text: `${comma}config: { ${propertyText} } ` };
+    const insertion = propertyInsertion(source, found, [`config: { ${propertyText} }`]);
+    return { file, ...insertion };
   }
   if (objectProperty(config, propertyKey) !== undefined) return undefined;
-  const { end } = span(config);
-  const insertAt = end - 1;
-  const hasProperties = Array.isArray(config.properties) && config.properties.length > 0;
-  const comma = needsSeparatorComma(source, insertAt, hasProperties) ? ", " : "";
-  return { file, start: insertAt, end: insertAt, text: `${comma}${propertyText} ` };
+  const insertion = propertyInsertion(source, config, [propertyText]);
+  return { file, ...insertion };
 }
 
 export interface StepWindowOptions {
@@ -216,9 +232,9 @@ function objectWith(file: string, source: string, node: AstNode, properties: rea
   const missing = properties.filter((p) => objectProperty(node, p.key) === undefined);
   if (missing.length === 0) return undefined;
   const { start, end } = span(node);
-  const inner = source.slice(start + 1, end - 1).trim().replace(/,$/, "");
-  const added = missing.map((p) => p.text).join(", ");
-  return { file, start, end, text: `{ ${inner}${inner === "" ? "" : ", "}${added} }` };
+  const insertion = propertyInsertion(source, node, missing.map((p) => p.text));
+  const text = source.slice(start, insertion.start) + insertion.text + source.slice(insertion.end, end);
+  return { file, start, end, text };
 }
 
 /**
