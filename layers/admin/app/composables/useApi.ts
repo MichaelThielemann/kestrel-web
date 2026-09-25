@@ -1,6 +1,7 @@
 import type { ApiErrorBody, ApiErrorDetails } from '#kestrel-admin/types/api'
 import { boundaryCast } from '#kestrel/cast'
 import { MOUNT_PATH } from '#kestrel-core/mount-path'
+import { isStaticDelivery } from '#kestrel-core/app/utils/static-delivery'
 import type { Translate } from '../actions/types'
 
 export class ApiError extends Error {
@@ -53,6 +54,19 @@ export const retryableMessage = (t: Translate, details?: ApiErrorDetails): strin
   return typeof seconds === 'number' && seconds > 0 ? t('editor.retryableIn', { seconds }) : t('editor.retryable')
 }
 
+const STATIC_SITE_READS = new Set(['GET', 'HEAD'])
+const warnedStaticReads = new Set<string>()
+
+function refusedOnStaticSite(method: string, path: string): ApiError {
+  const request = `${method} ${MOUNT_PATH}${path}`
+  const message = `${request} is not available on the static site; a page's data comes from its HTML`
+  if (!warnedStaticReads.has(request)) {
+    warnedStaticReads.add(request)
+    console.warn(message)
+  }
+  return new ApiError(404, message, 'STATIC_DELIVERY')
+}
+
 export function useApi() {
   const token = useApiToken()
   const client = $fetch.create({
@@ -68,6 +82,8 @@ export function useApi() {
     },
   })
   return async <T>(path: string, options: Parameters<typeof client>[1] = {}): Promise<T> => {
+    const method = (options.method ?? 'GET').toUpperCase()
+    if (STATIC_SITE_READS.has(method) && isStaticDelivery()) throw refusedOnStaticSite(method, path)
     try {
       return boundaryCast<T>(await client(path, options), 'json')
     } catch (e) {
