@@ -29,4 +29,21 @@ describe('the site page', () => {
     expect(useNuxtData('site:/about/').data.value).toBeUndefined()
     expect(useNuxtData('site:locales:p1:de').data.value).toEqual([{ locale: 'de', path: '/about/', current: true }])
   })
+
+  it('reads /about/index.html as that path, so the site answers it as before instead of as /about', async () => {
+    const requested: string[] = []
+    const record = (event: { path: string }) => {
+      requested.push(event.path)
+      return { id: 'p1', createdAt: 0, updatedAt: 0, slug: 'about', title: 'About', status: 'published', body: [], _locale: 'de', _translations: { de: true } }
+    }
+    unregisterAll.push(registerEndpoint('/api/site/about', { method: 'GET', handler: record }))
+    unregisterAll.push(registerEndpoint('/api/site/about/index.html', { method: 'GET', handler: record }))
+    unregisterAll.push(registerEndpoint('/api/settings', { method: 'GET', handler: () => ({ id: 's1', createdAt: 0, updatedAt: 0, title: 'Site' }) }))
+
+    await mountSuspended(SitePage, { route: '/about/index.html' })
+
+    expect(requested.length).toBeGreaterThan(0)
+    for (const path of requested) expect(path).toMatch(/\/api\/site\/about\/index\.html(\?|$)/)
+    expect(useNuxtData('site:/about').data.value).toBeUndefined()
+  })
 })

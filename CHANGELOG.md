@@ -288,7 +288,7 @@
 
 - `useSiteSettings()` stores its data per locale under `site:settings:<locale>`. Replace
   `refreshNuxtData('site:settings')` and similar calls with the locale key. The page's own data is keyed by its
-  site path (`site:/about` whether the browser opened `/about`, `/about/` or `/about/index.html`), and its
+  site path (`site:/about` whether the browser opened `/about` or `/about/`), and its
   language links by page id and locale (`site:locales:<id>:<locale>`).
 
 - A media item the public layer loads for display keeps its public fields only (`id`, `path`, `filename`,
