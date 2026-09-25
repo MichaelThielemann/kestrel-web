@@ -571,6 +571,97 @@ describe("boot", () => {
     });
   });
 
+  describe("the field step and the field grants", () => {
+    let appRoot: string;
+
+    beforeAll(() => {
+      appRoot = mkdtempSync(join(tmpdir(), "kestrel-web-boot-field-grants-"));
+      process.env.KESTREL_APP_ROOT = appRoot;
+      process.env.KESTREL_BLOCK_SCHEMA = fileURLToPath(new URL("../pipelines/__fixtures__/pages.body.json", import.meta.url));
+    });
+
+    afterAll(() => {
+      delete process.env.KESTREL_APP_ROOT;
+      delete process.env.KESTREL_BLOCK_SCHEMA;
+      rmSync(appRoot, { recursive: true, force: true });
+    });
+
+    async function bootPlayground(options: { overrides?: Record<string, readonly string[]>; anonymousFields?: Record<string, string[]> }): Promise<void> {
+      const { contentModel, contentTypes, features } = await import("../../../playground/shared/model");
+      const { default: collectionsUi } = await import("../../../playground/shared/collections-ui");
+      const { default: fieldTypes } = await import("../../../playground/shared/field-types");
+      const modules = presetModuleConfig({
+        dataDir: appRoot,
+        blobstore: { use: "@michaelthielemann/kestrel-blobstore-filesystem", config: { root: resolve(appRoot, "blobs") } },
+        model: contentModel,
+        features,
+        collectionsUi,
+        fieldTypes,
+        audit: { retentionDays: 365 },
+        roles: { roles: { admin: ["*"] }, anonymous: ["pages.read", "settings.read", "media.read"], ...(options.anonymousFields === undefined ? {} : { anonymousFields: options.anonymousFields }) },
+        bootstrap: { username: "admin", passwordHash: "scrypt$522f4ac87bfe4bcd100ba47a7d2aaec2$dbfc3f2d6cc38a76b21973d7c6f6d310a09506581c665f1f6601fd8fb3fa9bc3959689aea3e389f4d53eb8c7e70791ad4065e308763dd44609904134f0f5ee98" },
+      });
+      const preset = definePreset({ modules, features, collections: contentTypes, collectionsUi, fieldTypes, ...(options.overrides === undefined ? {} : { overrides: options.overrides }) });
+      const config = defineConfig({ modules, triggers: preset.triggers, http: null });
+      const kestrel = await boot({ config, modules: presetModules(config.modules, { "@michaelthielemann/kestrel-insights": insights }), pipelines: preset.pipelines, logger: collectingLogger() });
+      await kestrel.stop();
+    }
+
+    it("refuses an override of a public read that drops the field step, naming the pipeline", async () => {
+      const boot = bootPlayground({ overrides: { getMedia: ["authn.identifyUser", "authz.require:media.read", "media.get", "images.attach"] } });
+      await expect(boot).rejects.toThrow(KestrelBootError);
+      await expect(boot).rejects.toThrow('pipeline "getMedia" answers anonymous callers but does not end with authz.fields:<resource>?shape=item');
+    }, 15000);
+
+    it("refuses a grant naming a field no public read declares, naming the grant and the field", async () => {
+      const boot = bootPlayground({ anonymousFields: { media: ["id", "path", "folderr"] } });
+      await expect(boot).rejects.toThrow(KestrelBootError);
+      await expect(boot).rejects.toThrow('anonymousFields.media names "folderr", which no pipeline ending with authz.fields:media declares');
+    }, 15000);
+
+    it("boots a model without locales and without images whose collections anonymous callers read, and answers them only the granted fields", async () => {
+      const types = {
+        settings: { kind: "single", fields: { title: { type: "text" } } },
+        redirects: { kind: "single", fields: { rules: { type: "json" } } },
+        pages: { kind: "multi", fields: { slug: { type: "slug" }, title: { type: "text" }, body: { type: "json" }, status: { type: "enum", options: ["draft", "published"] } } },
+        news: { kind: "multi", fields: { title: { type: "text" }, status: { type: "enum", options: ["draft", "published"] } } },
+        profile: { kind: "single", fields: { bio: { type: "text" } } },
+      } as const;
+      const features = asFeatures(["redirects"]);
+      const modules = presetModuleConfig({
+        dataDir: appRoot,
+        blobstore: { use: "@michaelthielemann/kestrel-blobstore-filesystem", config: { root: resolve(appRoot, "blobs-plain") } },
+        model: { types },
+        features,
+        roles: { roles: { admin: ["*"] }, anonymous: ["pages.read", "settings.read", "media.read", "news.read", "profile.read", "redirects.read"] },
+        bootstrap: { username: "admin", passwordHash: "scrypt$522f4ac87bfe4bcd100ba47a7d2aaec2$dbfc3f2d6cc38a76b21973d7c6f6d310a09506581c665f1f6601fd8fb3fa9bc3959689aea3e389f4d53eb8c7e70791ad4065e308763dd44609904134f0f5ee98" },
+        overrides: { "@michaelthielemann/kestrel-persistence-sqlite": { file: ":memory:" } },
+      });
+      const preset = definePreset({ modules, features, collections: types });
+      const config = defineConfig({ modules, triggers: preset.triggers, http: null });
+      const kestrel = await boot({ config, modules: presetModules(config.modules), pipelines: preset.pipelines, logger: collectingLogger() });
+      try {
+        await kestrel.start();
+        const login = await kestrel.run("login", { trigger: { kind: "http", name: "POST /login" }, body: { username: "admin", password: "change-me" } });
+        const token = login.result !== undefined && typeof login.result === "object" && "token" in login.result ? String(login.result.token) : "";
+        const created = await kestrel.run("createNews", { trigger: { kind: "http", name: "POST /news" }, headers: { authorization: `Bearer ${token}` }, body: { title: "Hello", status: "published" } });
+        expect(created.status).toBe(200);
+        const anonymous = await kestrel.run("listNews", { trigger: { kind: "http", name: "GET /news" } });
+        expect(anonymous.status).toBe(200);
+        expect(anonymous.result).toEqual({ items: [expect.objectContaining({ title: "Hello", status: "published" })], total: 1 });
+        const items: unknown = anonymous.result !== undefined && typeof anonymous.result === "object" && "items" in anonymous.result ? anonymous.result.items : undefined;
+        const first: unknown = Array.isArray(items) ? items[0] : undefined;
+        expect(typeof first === "object" && first !== null ? Object.keys(first).sort() : []).toEqual(["id", "status", "title"]);
+      } finally {
+        await kestrel.stop();
+      }
+    }, 15000);
+
+    it("boots the playground with the grants the preset derives", async () => {
+      await expect(bootPlayground({})).resolves.toBeUndefined();
+    }, 15000);
+  });
+
   it("rejects boot with a KestrelBootError naming a mistyped step", async () => {
     const config = defineConfig({ modules: [], triggers: [], http: null });
     const pipelines = [definePipeline({ name: "broken", steps: ["totally.not.a.step"] })];

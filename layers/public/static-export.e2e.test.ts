@@ -18,7 +18,7 @@ const SENTINELS = ["SENTINEL-EN-DRAFT", "SENTINEL-DRAFT-PAGE", "sentinel-folder"
 const PUBLISHED_PATHS = ["/", "/en", "/ueber-uns", "/en/about", "/kontakt", "/projekte", "/en/press"];
 const UNPUBLISHED_TRANSLATIONS: Record<string, string> = { "/projekte": "en", "/en/press": "de" };
 
-const PAGE_FIELDS = new Set(["id", "createdAt", "updatedAt", "_locale", "_locales", "_links", "_translations", "slug", "title", "body", "seo", "status", "shareImage", "accent", "layout"]);
+const PAGE_FIELDS = new Set(["id", "_locale", "_locales", "_links", "_translations", "slug", "title", "body", "seo", "status", "shareImage", "accent", "layout"]);
 const LOCALE_LINK_FIELDS = ["current", "locale", "path"];
 const SETTINGS_FIELDS = ["description", "navigation", "title", "titlePosition", "titleSeparator"];
 const MEDIA_FIELDS = ["alt", "contentType", "description", "filename", "height", "id", "path", "provenance", "size", "title", "variants", "width"];
@@ -368,6 +368,31 @@ describe.skipIf(!ENABLED)("a static export of the playground", () => {
       if (unknown.length > 0) console.info(`payload keys outside the layer's public shapes: ${[...new Set(unknown)].join(", ")}`);
       expect(existsSync(page("/entwurf"))).toBe(false);
     });
+
+    it("renders every published page on the Node origin the same for a visitor, a signed-in editor and an editor who logged out", async () => {
+      if (seeded === null) throw new Error("expected the seed to have run");
+      const editorName = `parity-editor-${mode}`;
+      await admin().call("POST", "/users", { username: editorName, password: "parity-passphrase", roles: ["editor"] });
+      const editor = await new Api(base).login(editorName, "parity-passphrase");
+      const loggedOut = await new Api(base).login(editorName, "parity-passphrase");
+      await loggedOut.call("POST", "/logout");
+      const render = async (path: string, token: string | null): Promise<{ body: string; payload: Json }> => {
+        const html = await (await fetch(`${base}${path}`, { headers: token === null ? {} : { cookie: `kestrel_token=${token}` } })).text();
+        return { body: /<body[\s\S]*<\/body>/.exec(html)?.[0] ?? "", payload: payloadOf(html) };
+      };
+      for (const path of PUBLISHED_PATHS) {
+        const visitor = await render(path, null);
+        expect(visitor.body, path).not.toBe("");
+        expect(await render(path, editor.token), `${path} signed in`).toEqual(visitor);
+        expect(await render(path, loggedOut.token), `${path} after logging out`).toEqual(visitor);
+        const page = record(record(visitor.payload.data, "data")[`site:${path}`], "page");
+        expect(page, path).not.toHaveProperty("createdAt");
+        expect(page, path).not.toHaveProperty("updatedAt");
+      }
+      const about = await render("/ueber-uns", null);
+      expect(about.body).toContain(`/media/${seeded.photo}/variants/`);
+      expect(about.body).toContain('href="/en/about"');
+    }, 180_000);
 
     it("re-renders every published page after a settings change, without any page being saved", async () => {
       if (seeded === null) throw new Error("expected the seed to have run");
