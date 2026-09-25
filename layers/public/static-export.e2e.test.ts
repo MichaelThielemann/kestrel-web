@@ -126,11 +126,22 @@ async function waitForVariants(api: Api, id: string): Promise<void> {
   throw new Error(`media ${id} never became available`);
 }
 
+async function settled(api: Api): Promise<void> {
+  for (let attempt = 0; attempt < 480; attempt += 1) {
+    const status = await api.call("GET", "/admin/publish-status/pages");
+    if (status.stale === 0 && status.rendering === 0) return;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  throw new Error("the pages marked for a re-render were not rendered within two minutes");
+}
+
 const prose = (id: string, html: string) => ({ id, type: "prose", props: { body: html } });
 const image = (id: string, media: unknown, alt: string) => ({ id, type: "image", props: { image: String(media), alt } });
 const internal = (label: string, id: unknown) => ({ label, link: { type: "internal", collection: "pages", id: String(id) } });
 
-async function seed(base: string): Promise<void> {
+interface Seeded { admin: Api; photo: string; contact: string; navigation: Json[] }
+
+async function seed(base: string): Promise<Seeded> {
   const api = await new Api(base).login("admin", "change-me");
   const photo = await api.upload("landscape.png", gradientPng(1200, 700));
   const archive = await api.upload("archive.png", gradientPng(600, 400), "sentinel-folder");
@@ -151,13 +162,17 @@ async function seed(base: string): Promise<void> {
   const press = await create({ locale: "de", slug: "presse", title: "Presse", status: "draft", seo: { title: "SENTINEL-DE-DRAFT", description: "SENTINEL-DE-DRAFT" }, body: [prose("r1", "<p>Pressetext</p>")] });
   await translate(press.id, { locale: "en", slug: "press", title: "Press", status: "published", seo: {}, body: [prose("r1", "<p>Press kit</p>")] });
 
-  await api.call("PUT", "/settings", { locale: "de", title: "Kestrel Beispiel", navigation: [internal("Start", home.id), internal("Über uns", about.id), internal("Kontakt", contact.id), { label: "Fehlt", link: { type: "external", url: "/fehlt" } }] });
+  const navigation = [internal("Start", home.id), internal("Über uns", about.id), internal("Kontakt", contact.id), { label: "Fehlt", link: { type: "external", url: "/fehlt" } }];
+  await api.call("PUT", "/settings", { locale: "de", title: "Kestrel Beispiel", navigation });
   await api.call("PUT", "/settings", { locale: "en", title: "Kestrel Example", navigation: [internal("Home", home.id), internal("About us", about.id), internal("Press", press.id)] });
   await api.call("PUT", "/redirects", { rules: [{ from: "/alt", to: "/ueber-uns", status: "301" }] });
 
   await api.call("POST", "/users", { username: "sentinel-user", password: "sentinel-passphrase", roles: ["admin"] });
   const publisher = await new Api(base).login("sentinel-user", "sentinel-passphrase");
-  await publisher.call("POST", "/admin/publish-all/pages");
+  const queued = await publisher.call("POST", "/admin/publish-all/pages");
+  expect(queued.marked).toBeGreaterThanOrEqual(PUBLISHED_PATHS.length);
+  await settled(api);
+  return { admin: api, photo: String(photo.id), contact: String(contact.id), navigation };
 }
 
 const REVIVERS: Record<string, (value: unknown) => unknown> = Object.fromEntries(
@@ -217,6 +232,7 @@ let workDir: string | null = null;
 let server: ChildProcess | null = null;
 let base = "";
 let buildId = "";
+let seeded: Seeded | null = null;
 
 function productionEnv(extra: Record<string, string>): NodeJS.ProcessEnv {
   const env = Object.fromEntries(Object.entries(process.env).filter(([name]) => !name.startsWith("VITEST") && name !== "TEST" && name !== "NODE_ENV"));
@@ -242,7 +258,7 @@ describe.skipIf(!ENABLED)("a static export of the playground", () => {
     expect(buildId).toMatch(/^[0-9a-f-]{36}$/);
 
     workDir = mkdtempSync(join(tmpdir(), "kestrel-static-export-"));
-    const port = await freePort(3010);
+    const port = await freePort(Number(process.env.KESTREL_STATIC_E2E_PORT ?? 3010));
     base = `http://127.0.0.1:${port}`;
     const log = openSync(join(workDir, "server.log"), "w");
     server = spawn(process.execPath, [join(OUTPUT, "server", "index.mjs")], {
@@ -258,7 +274,7 @@ describe.skipIf(!ENABLED)("a static export of the playground", () => {
       if (Date.now() > deadline) throw new Error(`the server did not become ready\n${readFileSync(join(workDir, "server.log"), "utf8").slice(-4000)}`);
       await new Promise((resolve) => setTimeout(resolve, 500));
     }
-    await seed(base);
+    seeded = await seed(base);
   }, SUITE_TIMEOUT_MS);
 
   afterAll(() => {
@@ -312,4 +328,37 @@ describe.skipIf(!ENABLED)("a static export of the playground", () => {
     if (unknown.length > 0) console.info(`payload keys outside the layer's public shapes: ${[...new Set(unknown)].join(", ")}`);
     expect(existsSync(exportedFile(siteRoot(), "/entwurf"))).toBe(false);
   });
+
+  it("re-renders every published page after a settings change, without any page being saved", async () => {
+    if (seeded === null) throw new Error("expected the seed to have run");
+    const before = new Map(PUBLISHED_PATHS.map((path) => [path, statSync(exportedFile(siteRoot(), path)).mtimeMs]));
+    await seeded.admin.call("PUT", "/settings", { locale: "de", title: "Kestrel Beispiel Zwei", navigation: seeded.navigation });
+    await settled(seeded.admin);
+    for (const path of PUBLISHED_PATHS) {
+      expect(statSync(exportedFile(siteRoot(), path)).mtimeMs, path).not.toBe(before.get(path));
+      if (!path.startsWith("/en")) expect(readFileSync(exportedFile(siteRoot(), path), "utf8"), path).toContain("Kestrel Beispiel Zwei");
+    }
+  }, 180_000);
+
+  it("re-renders only the pages that show a media item after its alt text changes", async () => {
+    if (seeded === null) throw new Error("expected the seed to have run");
+    const untouched = exportedFile(siteRoot(), "/kontakt");
+    const untouchedBefore = statSync(untouched).mtimeMs;
+    await seeded.admin.call("PATCH", `/media/${seeded.photo}`, { locale: "de", alt: "Ein neuer Alternativtext" });
+    await settled(seeded.admin);
+    expect(readFileSync(exportedFile(siteRoot(), "/ueber-uns"), "utf8")).toContain("Ein neuer Alternativtext");
+    expect(statSync(untouched).mtimeMs).toBe(untouchedBefore);
+  }, 180_000);
+
+  it("re-renders the pages that link to a page whose path changed, and removes the old path", async () => {
+    if (seeded === null) throw new Error("expected the seed to have run");
+    await seeded.admin.call("PATCH", `/pages/${seeded.contact}`, { locale: "de", slug: "kontakt-neu" });
+    await settled(seeded.admin);
+    expect(existsSync(exportedFile(siteRoot(), "/kontakt"))).toBe(false);
+    for (const path of ["/", "/ueber-uns", "/kontakt-neu"]) {
+      const html = readFileSync(exportedFile(siteRoot(), path), "utf8");
+      expect(html, path).toContain('href="/kontakt-neu"');
+      expect(html, path).not.toContain('href="/kontakt"');
+    }
+  }, 180_000);
 });
