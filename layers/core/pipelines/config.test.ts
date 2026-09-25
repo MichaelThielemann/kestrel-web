@@ -89,7 +89,7 @@ describe("presetModuleConfig with the playground inputs", () => {
         config: { ...contentModel, types: resolveStorageTypes(contentTypes, fieldTypes, "presetModuleConfig") },
       },
       { use: "@michaelthielemann/kestrel-site-default", config: {} },
-      { use: "@michaelthielemann/kestrel-references-default", config: { targets: { pages: { content: "pages" }, media: { collection: "media_items" } } } },
+      { use: "@michaelthielemann/kestrel-references-default", config: { targets: { pages: { content: "pages" }, media: { media: true } } } },
       { use: "@michaelthielemann/kestrel-links-default", config: { timeoutMs: 10000, concurrency: 4, recheckAfterSeconds: 21600 } },
       {
         use: "@michaelthielemann/kestrel-validate-jsonschema",
@@ -118,7 +118,7 @@ describe("presetModuleConfig with the playground inputs", () => {
 });
 
 describe("derived references targets", () => {
-  it("maps pages to its content type, a media ref to the media_items collection and a ref to another collection to that content type", () => {
+  it("maps pages to its content type, a media ref to the media@1 files and a ref to another collection to that content type", () => {
     const types: Record<string, CollectionModel> = {
       pages: { kind: "multi", fields: { slug: {}, status: {}, body: {}, shareImage: { type: "ref", to: "media" } } },
       news: { kind: "multi", fields: { slug: {}, status: {}, body: {}, author: { type: "ref", to: "people" }, cover: { type: "ref", to: "media" } } },
@@ -127,7 +127,7 @@ describe("derived references targets", () => {
     const modules = presetModuleConfig({ ...playgroundOptions(), model: { types }, features: ["references"] });
 
     expect(configFor(modules, "references-default")).toEqual({
-      targets: { pages: { content: "pages" }, media: { collection: "media_items" }, people: { content: "people" } },
+      targets: { pages: { content: "pages" }, media: { media: true }, people: { content: "people" } },
     });
   });
 

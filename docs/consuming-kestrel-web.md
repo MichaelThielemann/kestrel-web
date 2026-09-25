@@ -327,7 +327,8 @@ rather than booting with something plausible.
 - **`media.locales` / `media.defaultLocale`** — from `model.locales` / `model.defaultLocale`, so the
   media library can't drift from the content model.
 - **`references.targets`** — `pages` when the model has it, plus one entry per `ref` field: `to: "media"`
-  becomes `{ collection: "media_items" }`, a `to` naming another collection becomes `{ content: <name> }`.
+  becomes `{ media: true }` (the files `media-default` serves through `media@1`), a `to` naming another
+  collection becomes `{ content: <name> }`.
   A `to` pointing at neither is left out.
 - **`delivery.types`** — every page-like collection, i.e. every `multi` type carrying `slug`, `status`
   and `body`, as `{}` so the module's own field defaults apply.
@@ -375,7 +376,7 @@ const modules = [
   { use: "@michaelthielemann/kestrel-authz-roles", config: { roles: { admin: ["*"], editor: ["pages.*", "media.*", "images.read", "settings.read", "redirects.*"] }, anonymous: ["pages.read", "settings.read", "media.read"] } },
   { use: "@michaelthielemann/kestrel-content-default", config: contentModel },
   { use: "@michaelthielemann/kestrel-site-default", config: {} },
-  { use: "@michaelthielemann/kestrel-references-default", config: { targets: { pages: { content: "pages" }, media: { collection: "media_items" } } } },
+  { use: "@michaelthielemann/kestrel-references-default", config: { targets: { pages: { content: "pages" }, media: { media: true } } } },
   { use: "@michaelthielemann/kestrel-links-default", config: { timeoutMs: 10000, concurrency: 4, recheckAfterSeconds: 21600 } },
   { use: "@michaelthielemann/kestrel-validate-jsonschema", config: { schemas: presetSchemas({ features, collections: contentTypes }), watch: process.env.NODE_ENV !== "production" } },
   { use: "@michaelthielemann/kestrel-renderer-nuxt", config: {} },
@@ -860,7 +861,7 @@ instead of the graph, and they stay out of your bundle and your Vite `optimizeDe
 
 Base pipelines — always present, no feature needed: auth (`login`, `logout`, `me`, `changePassword`, user
 management), `getSettings`/`setSettings`, media CRUD + folders, and `reconcileMedia` (cron `30 3 * * *`,
-report-only: it compares the blobs under the media prefix with the `media_items` rows and returns
+report-only: it compares the blobs under the media prefix with the stored media items and returns
 `{ blobsWithoutRow, rowsWithoutBlob }` without deleting anything). The same comparison is available to
 the admin as `reconcileMediaReport` (`POST /admin/media/reconcile`) and `reconcileMediaDelete`
 (`POST /admin/media/reconcile/delete`, deletes the blobs no row points at, never rows); both need

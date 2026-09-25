@@ -100,7 +100,7 @@ export interface PresetModuleConfigOptions {
   overrides?: Partial<Record<string, Record<string, unknown>>>;
 }
 
-type ReferenceTarget = { content: string } | { collection: string };
+type ReferenceTarget = { content: string } | { media: true };
 
 const MEDIA_PREFIX = "media/";
 const SITE_PREFIX = "site/";
@@ -108,7 +108,6 @@ const DATABASE_FILE = "kestrel.db";
 const QUEUE_DEFAULT_MAX_ATTEMPTS = 5;
 const QUEUE_DEFAULT_BACKOFF_SECONDS = [5, 30, 120, 600];
 const MEDIA_REFERENCE_TARGET = "media";
-const MEDIA_REFERENCE_COLLECTION = "media_items";
 const PAGES_COLLECTION = "pages";
 
 const DEFAULT_MEDIA_MAX_BYTES = 5 * 1024 * 1024;
@@ -158,7 +157,7 @@ function referenceTargets(types: Record<string, CollectionModel>): Record<string
     for (const field of Object.values(model.fields)) {
       const to = refTargetOf(field);
       if (to === undefined) continue;
-      if (to === MEDIA_REFERENCE_TARGET) targets[to] = { collection: MEDIA_REFERENCE_COLLECTION };
+      if (to === MEDIA_REFERENCE_TARGET) targets[to] = { media: true };
       else if (to in types) targets[to] = { content: to };
     }
   }
