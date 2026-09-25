@@ -250,7 +250,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Require a valid session → Requires permission media.manage → Copy every media item to /var/lib/kestrel/export/<folder>/<filename> → Copy every done variant to /var/lib/kestrel/export/<folder>/<filename>.<size>.<ext> */
+        /** Require a valid session → Requires permission media.manage → Copy every ready media item to /var/lib/kestrel/export/<folder>/<filename> → Copy every done variant of a ready media item to /var/lib/kestrel/export/<folder>/<filename>.<size>.<ext> */
         post: operations["exportMedia"];
         delete?: never;
         options?: never;
@@ -301,7 +301,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Require a valid session → Requires permission media.manage → Reconcile the public copies of every ready item's original with the stored items: fail abandoned uploads, write missing or mismatched copies, and remove copies of failed or deleted items and foreign files (adds _publicMedia: { written, removed, missing } to the result) → Reconcile the public copies of every ready item's variants and retired paths with the stored rows: place missing sizes, write missing or mismatched copies, and remove copies of deleted items and foreign files (adds _publicVariants: { written, removed, planned, missing } to the result) */
+        /** Require a valid session → Requires permission media.manage → Reconcile the public copies of every ready item's original with the stored items: fail abandoned uploads, finish interrupted deletes, write missing or mismatched copies, and remove copies of failed or deleted items and foreign files (adds _publicMedia: { written, removed, missing } to the result) → Reconcile the public copies of every ready item's variants and retired paths with the stored rows: place missing sizes, write missing or mismatched copies, and remove copies of deleted items and foreign files (adds _publicVariants: { written, removed, planned, missing } to the result) */
         post: operations["repairPublicMedia"];
         delete?: never;
         options?: never;
@@ -764,7 +764,7 @@ export interface paths {
         get: operations["getMedia"];
         put?: never;
         post?: never;
-        /** Require a valid session → Requires permission media.delete → Refuse deletion while media is referenced → Delete file and metadata (copy, blob, row, then a final sweep) → Delete one media item's variants and retired paths (blob + rows) → Queue event "media.deleted" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
+        /** Require a valid session → Requires permission media.delete → Refuse deletion while media is referenced → Delete file and metadata: end the item's readiness, then remove copy, blob and row, then a final sweep → Delete one media item's variants and retired paths (blob + rows) → Queue event "media.deleted" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
         delete: operations["deleteMedia"];
         options?: never;
         head?: never;
@@ -1598,7 +1598,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description media item not found */
+            /** @description media item not found or not ready */
             404: {
                 headers: {
                     [name: string]: unknown;
