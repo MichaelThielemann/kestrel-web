@@ -452,6 +452,11 @@
 
 ### Fixed
 
+- The status-filter check that boot runs against every workflow-bearing collection now runs before
+  `kestrel.start()` instead of after. A failure used to leave crons and, with the `eventsQueue` feature,
+  the queue worker running while `/api/*` answered 503; it now stops the process from starting them at
+  all.
+
 - `sanitizedHtmlKey` is no longer auto-imported into consumer server or app code — it moved out of
   `layers/public/app/composables` into a plain module `useSanitizedHtml` imports, since nothing but its
   own test called it as a global.
