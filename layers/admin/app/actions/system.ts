@@ -1,4 +1,4 @@
-import type { EventRelayStatus, EventsRetryResult, ImagesJob, ImagesPruneResult, ImagesRetryFailedResult, ImagesStatus, MediaExportReport, MediaReconcileReport, MediaRepairPublicReport, MigrationsApplyResult, MigrationsDryRunResult, PublishAllReport, RebuildReport, ReplicationRestoreResult, ReplicationSnapshotResult, UserDeleteResponse, UserReassignTarget } from '#kestrel-admin/types/api'
+import type { EventRelayStatus, EventsRetryResult, ImagesJob, ImagesPruneResult, ImagesRetryFailedResult, ImagesStatus, MediaExportReport, MediaReconcileReport, MediaRepairPublicReport, MigrationsApplyResult, MigrationsDryRunResult, PublishAllReport, RebuildReport, ReplicationRestoreResult, ReplicationSnapshotResult, RetryStaleReport, UserDeleteResponse, UserReassignTarget } from '#kestrel-admin/types/api'
 import { defineAction, type ActionContext, type ActionStep } from '#kestrel-core/app/utils/actions'
 import { apiErrorCode, apiErrorMessage, apiErrorRunId, apiErrorStatus, withRunId } from '../composables/useApi'
 import { humanizeSize } from '../utils/library'
@@ -12,6 +12,7 @@ import { dataReload } from './steps/route'
 import type { ApiCall, BusyPort, RefreshPort, WithDeps } from './types'
 
 export interface PublishAllInput extends WithDeps { ops: BusyPort }
+export interface RetryStaleInput extends WithDeps { ops: BusyPort }
 export interface ExportMediaInput extends WithDeps { ops: BusyPort }
 
 export interface SnapshotInput extends WithDeps {
@@ -158,7 +159,7 @@ export const publishAll = defineAction<PublishAllInput, PublishAllReport>({
       call: (ctx) => ({ route: ctx.input.deps.capabilities.route('publishAllPages') }),
       onSuccess: (ctx, value) => {
         ctx.result = value
-        ctx.input.deps.toast.success(ctx.input.deps.t('delivery.done', { documents: value.documents, live: value.live, errors: value.errors }))
+        ctx.input.deps.toast.success(ctx.input.deps.t('delivery.queued', { marked: value.marked }))
       },
       onError: (ctx, err) => {
         ctx.input.deps.toast.error(err.message ? withRunId(err.message, err.status, err.runId) : ctx.input.deps.t('delivery.failed'))
@@ -167,6 +168,25 @@ export const publishAll = defineAction<PublishAllInput, PublishAllReport>({
     }),
   ],
   always: [opsBusy<PublishAllInput, PublishAllReport>(false)],
+})
+
+export const retryStale = defineAction<RetryStaleInput, RetryStaleReport>({
+  name: 'retryStale',
+  steps: [
+    opsBusy<RetryStaleInput, RetryStaleReport>(true),
+    apiRequest<RetryStaleInput, RetryStaleReport, RetryStaleReport>('api.request', {
+      call: (ctx) => ({ route: ctx.input.deps.capabilities.route('retryStalePages') }),
+      onSuccess: (ctx, value) => {
+        ctx.result = value
+        ctx.input.deps.toast.success(ctx.input.deps.t('delivery.retried', { retried: value.retried }))
+      },
+      onError: (ctx, err) => {
+        ctx.input.deps.toast.error(err.message ? withRunId(err.message, err.status, err.runId) : ctx.input.deps.t('delivery.failed'))
+        ctx.fail(err.message || 'delivery.failed')
+      },
+    }),
+  ],
+  always: [opsBusy<RetryStaleInput, RetryStaleReport>(false)],
 })
 
 export const exportMedia = defineAction<ExportMediaInput, MediaExportReport>({

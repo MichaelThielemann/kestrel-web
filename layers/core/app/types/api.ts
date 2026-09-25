@@ -158,12 +158,13 @@ export interface RevisionDetail extends Revision {
 
 export type RevisionRestoreResponse = Document & { restore?: RestoreReport; _events?: EventRelayStatus }
 
-export interface PublishAllReport {
-  documents: number
-  live: number
-  errors: number
-  redirects: { rules: number, skipped: number }
-}
+/** What "Re-render all pages" answers: how many page outputs it marked for a re-render in the background. */
+export interface PublishAllReport { marked: number }
+
+/** The static delivery's re-render backlog: `stale` outputs wait, `failed` gave up after every attempt, `unknown` were rendered before their dependencies were recorded. */
+export type StaleStatus = ResponseOf<'pagesStaleStatus', 200>
+
+export interface RetryStaleReport { retried: number }
 
 export type ReplicationStatus = ResponseOf<'replicationStatus', 200>
 

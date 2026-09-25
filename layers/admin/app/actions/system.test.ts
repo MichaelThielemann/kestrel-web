@@ -19,6 +19,7 @@ import {
   referencesRebuild,
   replicationRestore,
   replicationSnapshot,
+  retryStale,
   userCreate,
   userDelete,
   userToggle,
@@ -78,17 +79,17 @@ function fakeRefresh() {
 }
 
 describe('publishAll', () => {
-  it('publishes and toasts the report, keeping the redirects field', async () => {
-    const { deps, calls, toast } = fakeDeps([{ documents: 3, live: 3, errors: 0, redirects: { rules: 2, skipped: 1 } }])
+  it('queues every page for a re-render and reports how many it marked', async () => {
+    const { deps, calls, toast } = fakeDeps([{ marked: 12 }])
     const { ops, busyLog } = fakeOps()
 
     const result = await runAction(publishAll, { deps, ops })
 
     expect(result.ok).toBe(true)
     expect(calls).toEqual([{ route: { method: 'POST', path: '/admin/publish-all/pages' }, body: undefined, query: undefined }])
-    expect(toast.success).toHaveBeenCalledWith('delivery.done:{"documents":3,"live":3,"errors":0}')
+    expect(toast.success).toHaveBeenCalledWith('delivery.queued:{"marked":12}')
     expect(busyLog).toEqual([true, false])
-    expect(result.ok && result.result?.redirects).toEqual({ rules: 2, skipped: 1 })
+    expect(result.ok && result.result?.marked).toBe(12)
   })
 
   it('toasts the raw error message and fails the action', async () => {
@@ -110,6 +111,32 @@ describe('publishAll', () => {
 
     expect(result.ok).toBe(false)
     expect(toast.error).toHaveBeenCalledWith('delivery.failed')
+  })
+})
+
+describe('retryStale', () => {
+  it('queues the failed re-renders again and reports how many', async () => {
+    const { deps, calls, toast } = fakeDeps([{ retried: 3 }])
+    const { ops, busyLog } = fakeOps()
+
+    const result = await runAction(retryStale, { deps, ops })
+
+    expect(result.ok).toBe(true)
+    expect(calls).toEqual([{ route: { method: 'POST', path: '/admin/publish-stale/pages/retry' }, body: undefined, query: undefined }])
+    expect(toast.success).toHaveBeenCalledWith('delivery.retried:{"retried":3}')
+    expect(busyLog).toEqual([true, false])
+    expect(result.ok && result.result?.retried).toBe(3)
+  })
+
+  it('toasts the error and fails the action', async () => {
+    const { deps, toast } = fakeDeps([apiError(503, 'store busy')])
+    const { ops, busyLog } = fakeOps()
+
+    const result = await runAction(retryStale, { deps, ops })
+
+    expect(result.ok).toBe(false)
+    expect(toast.error).toHaveBeenCalled()
+    expect(busyLog).toEqual([true, false])
   })
 })
 

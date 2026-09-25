@@ -1,5 +1,5 @@
 import { describe, expectTypeOf, it } from 'vitest'
-import type { DeadEvent, EventDeliveryStatus, EventRelayStatus, MediaItem, RedirectHit, ReplicationSnapshotResult, ReplicationStatus, RevisionRestoreResponse } from './api'
+import type { DeadEvent, EventDeliveryStatus, EventRelayStatus, MediaItem, PublishStatusEntry, RedirectHit, ReplicationSnapshotResult, ReplicationStatus, RevisionRestoreResponse, StaleStatus } from './api'
 
 interface ExpectedMediaItem {
   alt: string | null
@@ -85,6 +85,15 @@ interface ExpectedEventDeliveryStatus {
   lastDeadAt: number | null
 }
 
+interface ExpectedStaleStatus {
+  stale: number
+  failed: number
+  rendering: number
+  unknown: number
+  oldestStaleAt: number | null
+  abandoned: number
+}
+
 describe('the public API types keep exactly their published shape', () => {
   it('MediaItem', () => {
     expectTypeOf<MediaItem>().toEqualTypeOf<ExpectedMediaItem>()
@@ -112,6 +121,20 @@ describe('the public API types keep exactly their published shape', () => {
 
   it('RevisionRestoreResponse extends the document with the restore report and the relay status', () => {
     expectTypeOf<Pick<RevisionRestoreResponse, 'restore' | '_events'>>().toEqualTypeOf<{ restore?: import('./api').RestoreReport, _events?: EventRelayStatus }>()
+  })
+
+  it('StaleStatus, the re-render backlog of the static delivery', () => {
+    expectTypeOf<StaleStatus>().toEqualTypeOf<ExpectedStaleStatus>()
+  })
+
+  it('PublishStatusEntry carries whether the output waits for or failed its re-render', () => {
+    expectTypeOf<Pick<PublishStatusEntry, 'stale' | 'staleSince' | 'staleFailed' | 'staleError' | 'dependencies'>>().toEqualTypeOf<{
+      stale: boolean
+      staleSince: number | null
+      staleFailed: boolean
+      staleError: string | null
+      dependencies: number | null
+    }>()
   })
 
   it('RedirectHit narrows status to the codes a redirect rule can compile to', () => {
