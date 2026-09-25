@@ -7,11 +7,11 @@ import { layerSwitchEdits } from "./switchEdits";
 /**
  * The layer's `UpgradePlugin`: detects a project built on this layer, loads its config, modules and
  * pipelines through jiti with the layer's own aliases, and adds the layer's rules to kestrel's own
- * `DEFAULT_RULES`. `kestrel-renderer-nuxt` is not in kestrel's sandbox table, so it is declared
- * known-safe here: its `setup()` only registers the `renderer@1` contract kestrel-web itself provides
- * at request time, nothing at boot. `dataModel` and `switchEdits` are hooks the built-in `model/
- * underscore-field` and `offer/event-queue` rules consult directly; this plugin does not replace either
- * rule.
+ * `DEFAULT_RULES`. `@michaelthielemann/kestrel-renderer-nuxt` is not in kestrel's sandbox table, so it
+ * is declared known-safe here: its `setup()` only registers the `renderer@1` contract kestrel-web
+ * itself provides at request time, nothing at boot. `dataModel` and `switchEdits` are hooks the
+ * built-in `model/underscore-field` and `offer/event-queue` rules consult directly; this plugin does
+ * not replace either rule.
  */
 export function createLayerPlugin(): UpgradePlugin {
   return {
@@ -21,7 +21,7 @@ export function createLayerPlugin(): UpgradePlugin {
       await prepareLayerProject(root, scratch, cache);
       return loadLayerProject(scratch);
     },
-    sandbox: { "renderer-nuxt": (config) => config },
+    sandbox: { "@michaelthielemann/kestrel-renderer-nuxt": (config) => config },
     rules: layerRules,
     locateSteps: layerLocateSteps,
     locateModelFields: layerLocateModelFields,
