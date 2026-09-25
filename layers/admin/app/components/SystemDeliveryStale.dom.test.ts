@@ -2,16 +2,16 @@ import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { VueWrapper } from '@vue/test-utils'
 import type { AdminSchema, StaleStatus } from '#kestrel-admin/types/api'
+import type { Capability } from '#kestrel-admin/types/kestrel'
 import { en } from '#kestrel-admin/i18n/en'
 import { useSchema } from '../composables/useSchema'
 import { useToast } from '../composables/useToast'
 import SystemDeliveryStale from './SystemDeliveryStale.vue'
 
-const fullCapabilities: AdminSchema['capabilities'] = {
-  publishAllPages: { method: 'POST', path: '/admin/publish-all/pages' },
-  pagesStaleStatus: { method: 'GET', path: '/admin/publish-status/pages' },
-  retryStalePages: { method: 'POST', path: '/admin/publish-stale/pages/retry' },
-}
+const publishAllPages: Capability = { method: 'POST', path: '/admin/publish-all/pages' }
+const pagesStaleStatus: Capability = { method: 'GET', path: '/admin/publish-status/pages' }
+const retryStalePages: Capability = { method: 'POST', path: '/admin/publish-stale/pages/retry' }
+const fullCapabilities: AdminSchema['capabilities'] = { publishAllPages, pagesStaleStatus, retryStalePages }
 
 const schema: AdminSchema = {
   locales: { all: ['en'], primary: 'en', prefixPrimary: false },
@@ -119,7 +119,7 @@ describe('SystemDeliveryStale', () => {
     unregisterAll.splice(0).forEach((unregister) => unregister())
     useSchema().clear()
 
-    schema.capabilities = { publishAllPages: fullCapabilities.publishAllPages, pagesStaleStatus: fullCapabilities.pagesStaleStatus }
+    schema.capabilities = { publishAllPages, pagesStaleStatus }
     const withoutRetry = await mountWith(staleStatus({ failed: 2 }))
     await vi.waitFor(() => expect(withoutRetry.text()).toContain(text('delivery.failedRenders', { n: 2 })))
     expect(withoutRetry.findAll('button').some((button) => button.text() === en['delivery.retryFailed'])).toBe(false)
@@ -127,7 +127,7 @@ describe('SystemDeliveryStale', () => {
   })
 
   it('shows only the re-render button when the stale status is not offered', async () => {
-    schema.capabilities = { publishAllPages: fullCapabilities.publishAllPages }
+    schema.capabilities = { publishAllPages }
     const wrapper = await mountWith(staleStatus())
     expect(wrapper.find('[role="status"]').exists()).toBe(false)
     expect(buttonNamed(wrapper, en['delivery.publishAll']).exists()).toBe(true)

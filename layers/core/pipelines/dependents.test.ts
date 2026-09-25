@@ -2,19 +2,19 @@ import { pipelineSteps } from "@michaelthielemann/kestrel/definePipeline";
 import type { TriggerConfig } from "@michaelthielemann/kestrel/defineConfig";
 import { describe, expect, it } from "vitest";
 import { definePreset, lanesFor } from "./index";
-import type { CollectionModel, Feature, Preset } from "./index";
+import type { CollectionModel, Feature, Preset, PresetOptions } from "./index";
 
 const DELIVERY_STATIC = "@michaelthielemann/kestrel-delivery-static";
 const EVENTS_QUEUE = "@michaelthielemann/kestrel-events-queue";
 const EVENTS_DIRECT = "@michaelthielemann/kestrel-events-direct";
 
-const collections: Record<string, CollectionModel> = {
+const collections = {
   settings: { kind: "single", fields: { title: { type: "text", localized: true } } },
   pages: { kind: "multi", fields: { slug: { type: "slug", localized: true }, title: { type: "text", localized: true }, body: { type: "json", localized: true }, status: { type: "enum", localized: true } } },
   speakers: { kind: "multi", fields: { name: { type: "text", localized: true }, status: { type: "enum" } } },
   venues: { kind: "multi", fields: { name: { type: "text" } } },
   profile: { kind: "single", fields: { bio: { type: "text" } } },
-};
+} as const satisfies Record<string, CollectionModel>;
 
 type ModuleList = { use: string; config?: unknown }[];
 
@@ -39,7 +39,7 @@ function modulesFor(features: readonly Feature[], render?: "events" | "backgroun
   return modules;
 }
 
-function compose(features: readonly Feature[], extra: Partial<Parameters<typeof definePreset>[0]> = {}): Preset {
+function compose(features: readonly Feature[], extra: Partial<PresetOptions<typeof collections>> = {}): Preset {
   return definePreset({ modules: modulesFor(features), features, collections, ...extra });
 }
 
