@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, onUnmounted } from 'vue'
-import type { ListPage, MediaItem, Provenance, ReferenceTo } from '#kestrel-admin/types/api'
-import { createFolder, renameOrMove, setMediaMeta, setMediaProvenance, type RenameOrMoveTarget } from '#kestrel-admin/actions/media'
+import { ref, computed, nextTick, onUnmounted } from 'vue'
+import type { Provenance, ReferenceTo } from '#kestrel-admin/types/api'
+import { createFolder, renameOrMove } from '#kestrel-admin/actions/media'
 import type { BusyPort, RefreshPort } from '#kestrel-admin/actions/types'
 import { toastUnexpected } from '#kestrel-admin/actions/steps/notify'
 import type { LibraryItem } from '../utils/library'
@@ -9,9 +9,7 @@ import { joinFolder } from '../utils/library'
 import type { PendingUpload } from '../utils/dnd'
 import type { DropResult } from '../composables/useMediaDnd'
 import type { UploadItem } from '../composables/useMediaUpload'
-import type { MediaViewerSave } from '../utils/media-meta'
 import { toOpItem, effectiveTargets, type OpItem } from '../utils/ops'
-import { isInsertable } from '../utils/media-insert'
 
 const props = defineProps<{ pick?: boolean; multiple?: boolean; accept?: 'image' | 'any'; initialFolder?: string; initialSelected?: string[] }>()
 const emit = defineEmits<{ confirm: [string[]]; cancel: [] }>()
@@ -19,21 +17,11 @@ const emit = defineEmits<{ confirm: [string[]]; cancel: [] }>()
 const lib = useMediaLibrary({ urlSync: !props.pick, accept: props.accept, initialFolder: props.pick ? props.initialFolder : undefined })
 const { folder, view, search, sort, items, files, parentPath, isSelected, loading, error, allFolderPaths, counts: folderCounts, page, perPage, total, totalPages } = lib
 
-const seenItems = ref<Map<string, MediaItem>>(new Map())
-
-const picked = ref<Set<string>>(new Set(props.pick && props.multiple ? props.initialSelected ?? [] : []))
-const isSelectedItem = (i: LibraryItem) => (props.pick && props.multiple
-  ? i.type === 'file' && picked.value.has(i.file.id)
-  : isSelected(i))
-
 const { t } = useT()
 const toast = useToast()
 const deps = useActionDeps()
 const { schema } = useSchema()
 const mediaCaps = useMediaCapabilities()
-const api = useAdminApi()
-const capabilities = useCapabilities()
-const { primary: pickLocale } = useContentLocales()
 
 const mediaRefresh: RefreshPort = () => { void lib.fetchLibrary(); lib.clear() }
 const opsBusy = ref(false)
@@ -51,12 +39,12 @@ const onUploadError = (item: UploadItem) => toast.error(t('media.uploadError', {
 const mediaUploads = useMediaLibraryUploads({ folder, view, fetchLibrary: lib.fetchLibrary, onError: onUploadError, t })
 const { gridTileUploads, queueRows, onDismissUpload: dismissUpload, previewFor, variantResults, stalledIds, limitError, track } = mediaUploads
 
-watch(files, (list) => {
-  for (const f of list) {
-    seenItems.value.set(f.id, f)
-    if (props.pick && !isInsertable(f)) track(f.id)
-  }
-}, { immediate: true })
+const pickState = useMediaPick({
+  pick: props.pick === true, multiple: props.multiple === true, initialSelected: props.initialSelected ?? [],
+  items, files, isSelected, select: lib.select, fresh: variantResults, track, onConfirm: (ids) => emit('confirm', ids),
+})
+const { isSelectedItem, selectedFileIds, hasBlockedSelection, confirming, refusal, storedIds } = pickState
+
 function onDismissUpload(id: string) {
   dismissUpload(id)
   void nextTick(() => mediaLibraryRef.value?.focus())
@@ -69,10 +57,9 @@ const pendingUploads = ref<PendingUpload[]>([])
 const mediaLibraryRef = ref<HTMLElement | null>(null)
 let focusReturnTimer: ReturnType<typeof setTimeout> | null = null
 onUnmounted(() => { if (focusReturnTimer) clearTimeout(focusReturnTimer) })
-const viewerOpen = ref(false)
-const viewerFile = ref<MediaItem | null>(null)
-const viewerBusy = ref(false)
-const viewerError = ref('')
+const { viewerOpen, viewerFile, viewerBusy, viewerError, openViewer, closeViewer, onSaveViewer } = useMediaViewerState({
+  deps, ops: opsPort, refresh: mediaRefresh, opError, saveFailed: () => t('mediaViewer.saveFailed'),
+})
 
 const { deleteOpen, deleteInfo, askDelete, onConfirmDelete, close: closeDelete } = useMediaDelete({
   deps: () => deps,
@@ -83,8 +70,7 @@ const { deleteOpen, deleteInfo, askDelete, onConfirmDelete, close: closeDelete }
   schema,
   canDeleteTargets: (targets) => mediaCaps.canDeleteTargets(targets),
   onDeletedFromViewer: () => {
-    viewerOpen.value = false
-    viewerFile.value = null
+    closeViewer()
     void nextTick().then(() => {
       if (focusReturnTimer) clearTimeout(focusReturnTimer)
       focusReturnTimer = setTimeout(() => { mediaLibraryRef.value?.focus() }, 0)
@@ -95,69 +81,14 @@ const { deleteOpen, deleteInfo, askDelete, onConfirmDelete, close: closeDelete }
 function onOpenItem(item: LibraryItem) {
   if (item.type !== 'file') return
   if (props.pick) { onSelect(item, { toggle: false, range: false }); return }
-  viewerFile.value = item.file
-  viewerError.value = ''
-  viewerOpen.value = true
-}
-async function onSaveViewer(save: MediaViewerSave) {
-  const f = viewerFile.value
-  if (!f) return
-  viewerBusy.value = true
-  viewerError.value = ''
-  let ok = true
-  if (save.provenance) {
-    const result = await runAction(setMediaProvenance, { deps, id: f.id, provenance: save.provenance, ops: opsPort, refresh: mediaRefresh })
-    toastUnexpected(deps, result)
-    ok = result.ok
-  }
-  if (ok && save.meta) {
-    const result = await runAction(setMediaMeta, { deps, id: f.id, locale: save.meta.locale, fields: save.meta.fields, ops: opsPort, refresh: mediaRefresh })
-    toastUnexpected(deps, result)
-    ok = result.ok
-  }
-  viewerBusy.value = false
-  if (ok) { viewerOpen.value = false; return }
-  viewerError.value = opError.value ?? t('mediaViewer.saveFailed')
+  openViewer(item.file)
 }
 
 function onSelect(item: LibraryItem, mods: { toggle: boolean; range: boolean }) {
-  if (props.pick && props.multiple) {
-    if (item.type !== 'file') return
-    const s = new Set(picked.value)
-    if (s.has(item.file.id)) s.delete(item.file.id)
-    else s.add(item.file.id)
-    picked.value = s
-    return
-  }
-
-  if (props.pick) { lib.select(item); return }
+  if (props.pick) { pickState.select(item); return }
   if (mods.range) lib.range(item)
   else if (mods.toggle) lib.toggle(item)
   else lib.select(item)
-}
-
-const selectedFileIds = computed(() => (props.pick && props.multiple
-  ? [...picked.value]
-  : items.value
-    .filter((i): i is Extract<LibraryItem, { type: 'file' }> => i.type === 'file' && isSelected(i))
-    .map((i) => i.file.id)))
-const hasBlockedSelection = computed(() => selectedFileIds.value.some((id) => {
-  const known = variantResults.value.get(id) ?? seenItems.value.get(id)
-  return known !== undefined && !isInsertable(known)
-}))
-async function onConfirmPick() {
-  const ids = selectedFileIds.value
-  if (!ids.length) return
-  if (capabilities.has('listMedia')) {
-    try {
-      const page = await api<ListPage<MediaItem>>(capabilities.route('listMedia'), { query: { ids: ids.join(','), locale: pickLocale.value } })
-      for (const item of page.items) seenItems.value.set(item.id, item)
-      if (page.items.some((item) => !isInsertable(item))) return
-    } catch {
-      return
-    }
-  }
-  emit('confirm', ids)
 }
 
 function queueUploads(pending: PendingUpload[]) {
@@ -222,32 +153,19 @@ function onViewerDelete() {
   void askDelete([{ type: 'file', id: f.id }], 'viewer')
 }
 
-const renameOpen = ref(false)
-const renameTarget = ref<LibraryItem | null>(null)
-const renameName = computed(() => {
-  const target = renameTarget.value
-  if (!target) return ''
-  return target.type === 'file' ? target.file.filename : target.folder.name
+const { renameOpen, renameTarget, renameName, openRename, closeRename, onConfirmRename } = useMediaRename({
+  deps,
+  ops: opsPort,
+  refresh: mediaRefresh,
+  canRename: (item) => mediaCaps.canRenameTarget(item),
 })
-async function onConfirmRename(name: string) {
-  const target = renameTarget.value
-  if (!target || !mediaCaps.canRenameTarget(target)) return
-  const rtarget: RenameOrMoveTarget = target.type === 'file'
-    ? { kind: 'file-rename', id: target.file.id, filename: name }
-    : { kind: 'folder-rename', path: target.folder.path, name }
-  const r = await runAction(renameOrMove, { deps, target: rtarget, notify: 'inline', ops: opsPort, refresh: mediaRefresh })
-  toastUnexpected(deps, r)
-  if (!r.ok) return
-  renameOpen.value = false
-  renameTarget.value = null
-}
 
 const { menuItems, onContextMenu, onSelect: onMenuSelect } = useMediaContextMenu({
   items: () => items.value,
   isSelected: lib.isSelected,
   select: lib.select,
   onDelete: (opItems) => { void askDelete(opItems) },
-  onRename: (item) => { opError.value = null; renameTarget.value = item; renameOpen.value = true },
+  onRename: openRename,
   canRename: (item) => mediaCaps.canRenameTarget(item),
   canDelete: (targets) => mediaCaps.canDeleteTargets(targets),
 })
@@ -280,9 +198,9 @@ const localizedMenu = computed(() => menuItems.value.map((s) => ({
         <KestrelUiAlert v-if="error" variant="error">{{ error }}</KestrelUiAlert>
         <p v-else-if="!loading && !items.length && !(view === 'grid' && gridTileUploads.length)" class="media-library__empty">{{ t('media.folderEmpty') }}</p>
         <KestrelMediaGrid v-else-if="view === 'grid'" :items="items" :is-selected="isSelectedItem" :drop-target-path="dropFolder" :parent-path="parentPath" :up-label="t('media.parentFolder')" :pick="pick"
-          :uploads="gridTileUploads" :upload-preview="previewFor" :variant-override="variantResults" :stalled-ids="stalledIds"
+          :uploads="gridTileUploads" :upload-preview="previewFor" :variant-override="variantResults" :stalled-ids="stalledIds" :stored-ids="storedIds"
           @navigate="lib.navigate" @select="onSelect" @open="onOpenItem" @dragstart="onItemDragStart" @dragend="onItemDragEnd" @dismiss-upload="onDismissUpload" />
-        <KestrelMediaTable v-else :items="items" :is-selected="isSelectedItem" :drop-target-path="dropFolder" :sort="sort" :parent-path="parentPath" :up-label="t('media.parentFolder')" :pick="pick" :variant-override="variantResults" @navigate="lib.navigate" @select="onSelect" @open="onOpenItem" @sort="lib.setSort" @dragstart="onItemDragStart" @dragend="onItemDragEnd" />
+        <KestrelMediaTable v-else :items="items" :is-selected="isSelectedItem" :drop-target-path="dropFolder" :sort="sort" :parent-path="parentPath" :up-label="t('media.parentFolder')" :pick="pick" :variant-override="variantResults" :stored-ids="storedIds" @navigate="lib.navigate" @select="onSelect" @open="onOpenItem" @sort="lib.setSort" @dragstart="onItemDragStart" @dragend="onItemDragEnd" />
       </div>
     </KestrelUiMenu>
     <KestrelCollectionListPager
@@ -296,11 +214,7 @@ const localizedMenu = computed(() => menuItems.value.map((s) => ({
     />
     <KestrelMediaUploadQueue v-if="queueRows.length" :items="queueRows" @dismiss="onDismissUpload" />
     <KestrelUiAlert v-if="limitError" variant="error">{{ limitError }}</KestrelUiAlert>
-    <div v-if="pick" class="media-library__pickbar">
-      <span>{{ selectedFileIds.length }} {{ t('media.selected') }}</span>
-      <KestrelUiButton variant="primary" :disabled="!selectedFileIds.length || hasBlockedSelection" @click="onConfirmPick">{{ t('media.useSelected') }}</KestrelUiButton>
-      <KestrelUiButton variant="ghost" @click="emit('cancel')">{{ t('common.cancel') }}</KestrelUiButton>
-    </div>
+    <KestrelMediaPickBar v-if="pick" :count="selectedFileIds.length" :blocked="hasBlockedSelection" :confirming="confirming" :refusal="refusal" @confirm="pickState.confirm" @cancel="emit('cancel')" />
     <KestrelMediaUploadDialog
       :open="uploadOpen"
       :uploads="pendingUploads"
@@ -337,7 +251,7 @@ const localizedMenu = computed(() => menuItems.value.map((s) => ({
       :busy="opsBusy"
       :error="opError"
       @rename="onConfirmRename"
-      @update:open="(v) => { if (!v) { renameOpen = false; renameTarget = null } }"
+      @update:open="(v) => { if (!v) closeRename() }"
     />
     <div v-if="dragActive && !dropFolder && !error && mediaCaps.canUpload.value" class="media-library__dropzone" aria-hidden="true">{{ t('media.dropToUpload') }}</div>
   </section>
@@ -381,14 +295,5 @@ const localizedMenu = computed(() => menuItems.value.map((s) => ({
   font-size: var(--text-base);
   padding: var(--space-6) 0;
   text-align: center;
-}
-
-.media-library__pickbar {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  justify-content: flex-end;
-  border-top: 1px solid var(--color-border);
-  padding-top: var(--space-3);
 }
 </style>

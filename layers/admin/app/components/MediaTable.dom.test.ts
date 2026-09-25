@@ -77,4 +77,26 @@ describe('MediaTable pick-mode gating', () => {
     expect(wrapper.emitted('select')).toBeDefined()
     expect(wrapper.get('[data-test="row-file-f1"]').attributes('aria-disabled')).toBeUndefined()
   })
+
+  it('never gates a file the field already holds, even while it is unavailable', async () => {
+    const wrapper = await mountSuspended(MediaTable, {
+      props: { items: [libraryItem(file({ available: false }))], isSelected: () => false, pick: true, storedIds: new Set(['f1']) },
+    })
+
+    await wrapper.get('[data-test="row-file-f1"]').trigger('click')
+    expect(wrapper.emitted('select')).toBeDefined()
+    expect(wrapper.get('[data-test="row-file-f1"]').attributes('aria-disabled')).toBeUndefined()
+    expect(wrapper.find('.media-table__processing').exists()).toBe(false)
+  })
+
+  it('lets a selected unavailable file be deselected, still labelled as processing', async () => {
+    const wrapper = await mountSuspended(MediaTable, {
+      props: { items: [libraryItem(file({ available: false }))], isSelected: () => true, pick: true },
+    })
+
+    await wrapper.get('[data-test="row-file-f1"]').trigger('click')
+    expect(wrapper.emitted('select')).toBeDefined()
+    expect(wrapper.get('[data-test="row-file-f1"]').attributes('aria-disabled')).toBeUndefined()
+    expect(wrapper.find('.media-table__processing').exists()).toBe(true)
+  })
 })

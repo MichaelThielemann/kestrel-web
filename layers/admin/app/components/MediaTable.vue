@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { humanizeSize, itemKey, type LibraryItem } from '../utils/library'
 import { isDisclosed, provenanceLabelKey, provenanceOrigin } from '../utils/provenance'
-import { isInsertable } from '../utils/media-insert'
+import { isPickGated } from '../utils/media-insert'
 import type { MediaItem } from '#kestrel-admin/types/api'
 import type { VariantWatchEntry } from '../composables/useVariantWatch'
 
@@ -15,6 +15,7 @@ const props = defineProps<{
   upLabel?: string
   pick?: boolean
   variantOverride?: ReadonlyMap<string, VariantWatchEntry>
+  storedIds?: ReadonlySet<string>
 }>()
 const emit = defineEmits<{ navigate: [string]; select: [LibraryItem, { toggle: boolean; range: boolean }]; open: [LibraryItem]; dragstart: [LibraryItem, DragEvent]; dragend: []; sort: [string] }>()
 const ariaSort = (field: string): 'ascending' | 'descending' | 'none' => (props.sort === field ? 'ascending' : props.sort === `-${field}` ? 'descending' : 'none')
@@ -24,8 +25,11 @@ function onFolder(item: LibraryItem, path: string, e: MouseEvent | KeyboardEvent
   if (e.ctrlKey || e.metaKey || e.shiftKey) emit('select', item, mods(e))
   else emit('navigate', path)
 }
+function gatedFile(item: LibraryItem): boolean {
+  return props.pick === true && item.type === 'file' && isPickGated(item.file.id, props.variantOverride?.get(item.file.id) ?? item.file, props.storedIds)
+}
 function blockedFile(item: LibraryItem): boolean {
-  return props.pick === true && item.type === 'file' && !isInsertable(props.variantOverride?.get(item.file.id) ?? item.file)
+  return gatedFile(item) && !props.isSelected(item)
 }
 function onFile(item: LibraryItem, e: MouseEvent | KeyboardEvent) {
   if (blockedFile(item)) return
@@ -78,7 +82,7 @@ const dimensions = (f: MediaItem) => (f.width != null && f.height != null ? `${f
           <td>
             {{ item.file.filename }}
             <span v-if="isDisclosed(item.file.provenance)" class="media-table__ai">{{ badge(item.file) }}</span>
-            <span v-if="pick && blockedFile(item)" class="media-table__processing">{{ t('media.pick.processing') }}</span>
+            <span v-if="gatedFile(item)" class="media-table__processing">{{ t('media.pick.processing') }}</span>
           </td>
           <td>{{ item.file.contentType }}</td>
           <td>{{ humanizeSize(item.file.size) }}</td>

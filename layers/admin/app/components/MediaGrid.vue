@@ -4,7 +4,7 @@ import type { UploadItem } from '../composables/useMediaUpload'
 import type { VariantWatchEntry } from '../composables/useVariantWatch'
 import { itemKey, humanizeSize, type LibraryItem } from '../utils/library'
 import { isDisclosed, provenanceLabelKey, provenanceOrigin } from '../utils/provenance'
-import { isInsertable } from '../utils/media-insert'
+import { isPickGated } from '../utils/media-insert'
 import { variantChipState, variantTotal } from '../utils/variant-state'
 
 const props = defineProps<{
@@ -17,6 +17,7 @@ const props = defineProps<{
   uploadPreview?: (id: string) => string | undefined
   variantOverride?: ReadonlyMap<string, VariantWatchEntry>
   stalledIds?: ReadonlySet<string>
+  storedIds?: ReadonlySet<string>
   pick?: boolean
 }>()
 const emit = defineEmits<{
@@ -34,8 +35,11 @@ function onFolder(item: LibraryItem, path: string, e: MouseEvent) {
   if (e.ctrlKey || e.metaKey || e.shiftKey) emit('select', item, mods(e))
   else emit('navigate', path)
 }
+function gatedFile(item: LibraryItem): boolean {
+  return props.pick === true && item.type === 'file' && isPickGated(item.file.id, props.variantOverride?.get(item.file.id) ?? item.file, props.storedIds)
+}
 function blockedFile(item: LibraryItem): boolean {
-  return props.pick === true && item.type === 'file' && !isInsertable(props.variantOverride?.get(item.file.id) ?? item.file)
+  return gatedFile(item) && !props.isSelected(item)
 }
 function onFile(item: LibraryItem, e: MouseEvent) {
   if (blockedFile(item)) return
@@ -136,7 +140,7 @@ function uploadProcessing(upload: UploadItem): boolean {
               :pending="chipFor(item.file)?.state === 'pending'" />
             <span v-else class="media-grid__badge" aria-hidden="true">{{ ext(item.file.filename) }}</span>
             <span v-if="isDisclosed(item.file.provenance)" class="media-grid__ai">{{ badge(item.file) }}</span>
-            <span v-if="pick && blockedFile(item)" class="media-grid__processing">{{ t('media.pick.processing') }}</span>
+            <span v-if="gatedFile(item)" class="media-grid__processing">{{ t('media.pick.processing') }}</span>
             <KestrelMediaVariantChip
               v-else-if="chipFor(item.file)"
               class="media-grid__variant-chip"

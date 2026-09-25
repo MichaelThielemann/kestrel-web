@@ -406,6 +406,8 @@ export const en = {
   'media.selected': 'selected',
   'media.useSelected': 'Use selected',
   'media.pick.processing': 'Still processing – available in a moment',
+  'media.pick.refused': 'Still processing, not added yet: {names}. Deselect or try again in a moment.',
+  'media.pick.checkFailed': 'The selection could not be checked. Try again.',
   'media.dropToUpload': 'Drop files to upload',
   'media.conflicts.title': 'Resolve upload conflicts',
   'media.conflicts.desc': '{count} file(s) already exist. Choose how to resolve each.',

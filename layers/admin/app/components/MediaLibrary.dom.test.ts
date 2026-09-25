@@ -2,6 +2,7 @@ import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-uti
 import { getQuery } from 'h3'
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { computed, nextTick } from 'vue'
+import type { VueWrapper } from '@vue/test-utils'
 import { boundaryCast } from '#kestrel/cast'
 import { en } from '#kestrel-admin/i18n/en'
 import type { AdminSchema, ListPage, MediaFolder, MediaItem } from '#kestrel-admin/types/api'
@@ -345,38 +346,184 @@ describe('MediaLibrary pick-mode availability polling', () => {
     await vi.waitFor(() => expect(idsCalls).toBeGreaterThan(0), { timeout: 3000 })
     await vi.waitFor(() => expect(wrapper.get('[data-test="file-f1"]').attributes('aria-disabled')).toBeUndefined(), { timeout: 5000 })
   }, 10000)
+})
 
-  it('refuses to confirm a pre-selected id from another folder once a fresh check finds it unavailable', async () => {
-    unregisterAll.push(registerEndpoint('/api/media/folders', { method: 'GET', handler: () => [{ folder: 'sub', count: 1 }] }))
+function pickItem(id: string, filename: string, folder: string, available: boolean): MediaItem {
+  return {
+    id, filename, folder, contentType: 'image/jpeg', size: 10, path: `/media/${id}/${filename}`, available,
+    createdAt: 1, updatedAt: 1, provenance: { origin: 'human' }, width: null, height: null, alt: null, title: null,
+    description: null, variants: [], variantCounts: { done: 0, pending: available ? 0 : 1, error: 0, failed: 0 },
+  }
+}
+
+function useSelectedButton(wrapper: Pick<VueWrapper, 'findAll'>) {
+  const button = wrapper.findAll('button').find((b) => b.text() === en['media.useSelected'])
+  if (!button) throw new Error('expected a "Use selected" button')
+  return button
+}
+
+describe('MediaLibrary multi-pick with ids the field already holds', () => {
+  const unregisterAll: (() => void)[] = []
+  const idsQueries: string[] = []
+
+  beforeEach(async () => {
+    idsQueries.length = 0
+    unregisterAll.push(registerEndpoint('/api/admin/schema', { method: 'GET', handler: () => schema }))
+    unregisterAll.push(registerEndpoint('/api/limits', { method: 'GET', handler: () => ({ maxUploadBytes: null }) }))
+    await useSchema().load()
+  })
+
+  afterEach(() => {
+    unregisterAll.splice(0).forEach((unregister) => unregister())
+    schema.features = []
+  })
+
+  function serve(listing: Record<string, MediaItem[]>, byId: (id: string) => MediaItem | undefined) {
+    unregisterAll.push(registerEndpoint('/api/media/folders', { method: 'GET', handler: () => Object.keys(listing).filter((f) => f !== '').map((folder) => ({ folder, count: listing[folder]?.length ?? 0 })) }))
     unregisterAll.push(registerEndpoint('/api/media', {
       method: 'GET',
       handler: (event) => {
         const query = getQuery(event)
         if (typeof query.ids === 'string') {
-          return {
-            items: [{
-              id: 'f1', filename: 'a.jpg', folder: 'sub', contentType: 'image/jpeg', size: 10,
-              path: '/media/f1/a.jpg', available: false, createdAt: 1, updatedAt: 1, provenance: { origin: 'human' },
-              width: null, height: null, alt: null, title: null, description: null, variants: [],
-              variantCounts: { done: 0, pending: 1, error: 0, failed: 0 },
-            }],
-            total: 1,
-          }
+          idsQueries.push(query.ids)
+          const items = query.ids.split(',').map(byId).filter((item): item is MediaItem => item !== undefined)
+          return { items, total: items.length }
         }
-        return { items: [], total: 0 }
+        const items = listing[typeof query.folder === 'string' ? query.folder : ''] ?? []
+        return { items, total: items.length }
       },
     }))
-    unregisterAll.push(registerEndpoint('/api/limits', { method: 'GET', handler: () => ({ maxUploadBytes: null }) }))
+  }
+
+  it('confirms a new pick next to a stored unavailable file in the same folder, and lets the stored tile be deselected', async () => {
+    const f1 = pickItem('f1', 'stored.jpg', '', false)
+    const f2 = pickItem('f2', 'new.jpg', '', true)
+    serve({ '': [f1, f2] }, (id) => ({ f1, f2 })[id])
 
     const wrapper = await mountSuspended(MediaLibrary, { props: { pick: true, multiple: true, initialSelected: ['f1'] }, attachTo: document.body })
     onTestFinished(() => wrapper.unmount())
 
-    await vi.waitFor(() => expect(wrapper.find('.media-library__empty').exists()).toBe(true))
-    const useSelected = wrapper.findAll('button').find((b) => b.text() === en['media.useSelected'])
-    if (!useSelected) throw new Error('expected a "Use selected" button')
-    await useSelected.trigger('click')
+    await vi.waitFor(() => expect(wrapper.find('[data-test="file-f2"]').exists()).toBe(true))
+    expect(wrapper.get('[data-test="file-f1"]').attributes('aria-disabled')).toBeUndefined()
+    expect(wrapper.get('[data-test="file-f1"]').attributes('aria-pressed')).toBe('true')
+    expect(useSelectedButton(wrapper).attributes('disabled')).toBeUndefined()
 
-    await vi.waitFor(() => expect(wrapper.emitted('confirm')).toBeUndefined())
+    await wrapper.get('[data-test="file-f2"]').trigger('click')
+    await useSelectedButton(wrapper).trigger('click')
+
+    await vi.waitFor(() => expect(wrapper.emitted('confirm')).toEqual([[['f1', 'f2']]]))
+    expect(idsQueries).toEqual(['f2'])
+
+    await wrapper.get('[data-test="file-f1"]').trigger('click')
+    expect(wrapper.get('[data-test="file-f1"]').attributes('aria-pressed')).toBe('false')
+    await wrapper.get('[data-test="file-f1"]').trigger('click')
+    expect(wrapper.get('[data-test="file-f1"]').attributes('aria-pressed')).toBe('true')
+  })
+
+  it('confirms a new pick next to a stored unavailable file that lives in another folder', async () => {
+    const f1 = pickItem('f1', 'stored.jpg', 'sub', false)
+    const f2 = pickItem('f2', 'new.jpg', '', true)
+    serve({ '': [f2], sub: [f1] }, (id) => ({ f1, f2 })[id])
+
+    const wrapper = await mountSuspended(MediaLibrary, { props: { pick: true, multiple: true, initialSelected: ['f1'] }, attachTo: document.body })
+    onTestFinished(() => wrapper.unmount())
+
+    await vi.waitFor(() => expect(wrapper.find('[data-test="file-f2"]').exists()).toBe(true))
+    await wrapper.get('[data-test="file-f2"]').trigger('click')
+    await useSelectedButton(wrapper).trigger('click')
+
+    await vi.waitFor(() => expect(wrapper.emitted('confirm')).toEqual([[['f1', 'f2']]]))
+    expect(idsQueries).toEqual(['f2'])
+  })
+
+  it('refuses a new pick the confirm check finds unavailable, names it, disables "Use selected" until it is deselected, then confirms the rest', async () => {
+    schema.features = ['images']
+    const f1 = pickItem('f1', 'stored.jpg', '', false)
+    const f2Listed = pickItem('f2', 'late.jpg', '', true)
+    const f2Fresh = pickItem('f2', 'late.jpg', '', false)
+    serve({ '': [f1, f2Listed] }, (id) => ({ f1, f2: f2Fresh })[id])
+
+    const wrapper = await mountSuspended(MediaLibrary, { props: { pick: true, multiple: true, initialSelected: ['f1'] }, attachTo: document.body })
+    onTestFinished(() => wrapper.unmount())
+
+    await vi.waitFor(() => expect(wrapper.find('[data-test="file-f2"]').exists()).toBe(true))
+    await wrapper.get('[data-test="file-f2"]').trigger('click')
+    await useSelectedButton(wrapper).trigger('click')
+
+    await vi.waitFor(() => expect(wrapper.get('.media-pick-bar [role="alert"]').text()).toContain('late.jpg'))
+    expect(idsQueries).toContain('f2')
+    expect(wrapper.emitted('confirm')).toBeUndefined()
+
+    await vi.waitFor(() => expect(useSelectedButton(wrapper).attributes('disabled')).toBeDefined(), { timeout: 3000 })
+    expect(wrapper.get('[data-test="file-f2"]').attributes('aria-disabled')).toBeUndefined()
+
+    await wrapper.get('[data-test="file-f2"]').trigger('click')
+    expect(wrapper.get('[data-test="file-f2"]').attributes('aria-pressed')).toBe('false')
+    expect(wrapper.find('.media-pick-bar [role="alert"]').exists()).toBe(false)
+    expect(useSelectedButton(wrapper).attributes('disabled')).toBeUndefined()
+
+    await useSelectedButton(wrapper).trigger('click')
+    await vi.waitFor(() => expect(wrapper.emitted('confirm')).toEqual([[['f1']]]))
+  }, 10000)
+
+  it('refuses a new pick from another folder, disables "Use selected" while it is unavailable, and enables it again once it becomes available', async () => {
+    schema.features = ['images']
+    let f2Available = false
+    const f1 = pickItem('f1', 'stored.jpg', '', true)
+    const f2Listed = pickItem('f2', 'late.jpg', 'sub', true)
+    serve({ '': [f1], sub: [f2Listed] }, (id) => (id === 'f2' ? pickItem('f2', 'late.jpg', 'sub', f2Available) : id === 'f1' ? f1 : undefined))
+
+    const wrapper = await mountSuspended(MediaLibrary, { props: { pick: true, multiple: true, initialSelected: ['f1'] }, attachTo: document.body })
+    onTestFinished(() => wrapper.unmount())
+
+    await vi.waitFor(() => expect(wrapper.find('[data-test="folder-sub"]').exists()).toBe(true))
+    await wrapper.get('[data-test="folder-sub"]').trigger('click')
+    await vi.waitFor(() => expect(wrapper.find('[data-test="file-f2"]').exists()).toBe(true))
+    await wrapper.get('[data-test="file-f2"]').trigger('click')
+    await wrapper.get('[data-test="folder-up"]').trigger('click')
+    await vi.waitFor(() => expect(wrapper.find('[data-test="file-f2"]').exists()).toBe(false))
+
+    await useSelectedButton(wrapper).trigger('click')
+    await vi.waitFor(() => expect(wrapper.get('.media-pick-bar [role="alert"]').text()).toContain('late.jpg'))
+    expect(wrapper.emitted('confirm')).toBeUndefined()
+    await vi.waitFor(() => expect(useSelectedButton(wrapper).attributes('disabled')).toBeDefined(), { timeout: 3000 })
+
+    f2Available = true
+    await vi.waitFor(() => expect(useSelectedButton(wrapper).attributes('disabled')).toBeUndefined(), { timeout: 6000 })
+    await useSelectedButton(wrapper).trigger('click')
+    await vi.waitFor(() => expect(wrapper.emitted('confirm')).toEqual([[['f1', 'f2']]]))
+  }, 12000)
+
+  it('sends one check per confirm and keeps "Use selected" busy while it runs', async () => {
+    const f2 = pickItem('f2', 'new.jpg', '', true)
+    let release: () => void = () => {}
+    const gate = new Promise<void>((resolve) => { release = resolve })
+    unregisterAll.push(registerEndpoint('/api/media/folders', { method: 'GET', handler: () => [] }))
+    unregisterAll.push(registerEndpoint('/api/media', {
+      method: 'GET',
+      handler: async (event) => {
+        const query = getQuery(event)
+        if (typeof query.ids !== 'string') return { items: [f2], total: 1 }
+        idsQueries.push(query.ids)
+        await gate
+        return { items: [f2], total: 1 }
+      },
+    }))
+
+    const wrapper = await mountSuspended(MediaLibrary, { props: { pick: true, multiple: true }, attachTo: document.body })
+    onTestFinished(() => wrapper.unmount())
+
+    await vi.waitFor(() => expect(wrapper.find('[data-test="file-f2"]').exists()).toBe(true))
+    await wrapper.get('[data-test="file-f2"]').trigger('click')
+    await useSelectedButton(wrapper).trigger('click')
+    await vi.waitFor(() => expect(idsQueries).toHaveLength(1))
+    expect(useSelectedButton(wrapper).attributes('aria-busy')).toBe('true')
+    await useSelectedButton(wrapper).trigger('click')
+    useSelectedButton(wrapper).element.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+
+    release()
+    await vi.waitFor(() => expect(wrapper.emitted('confirm')).toEqual([[['f2']]]))
+    expect(idsQueries).toHaveLength(1)
   })
 })
 

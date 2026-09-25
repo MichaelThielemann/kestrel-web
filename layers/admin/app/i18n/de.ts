@@ -408,6 +408,8 @@ export const de: Record<CatalogKey, string> = {
   'media.selected': 'ausgewählt',
   'media.useSelected': 'Auswahl verwenden',
   'media.pick.processing': 'Wird noch verarbeitet – gleich verfügbar',
+  'media.pick.refused': 'Wird noch verarbeitet, noch nicht übernommen: {names}. Auswahl aufheben oder gleich noch einmal versuchen.',
+  'media.pick.checkFailed': 'Die Auswahl konnte nicht geprüft werden. Bitte noch einmal versuchen.',
   'media.dropToUpload': 'Dateien zum Hochladen ablegen',
   'media.conflicts.title': 'Upload-Konflikte auflösen',
   'media.conflicts.desc': '{count} Datei(en) existiert bereits. Wähle, wie jede aufgelöst werden soll.',
