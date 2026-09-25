@@ -1,4 +1,15 @@
 
+body.site-body {
+  margin: 0;
+  background: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+  body.site-body {
+    background: #14161b;
+  }
+}
+
 .site {
   --site-max: 68rem;
   --site-bg: #ffffff;

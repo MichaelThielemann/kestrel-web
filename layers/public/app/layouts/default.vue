@@ -14,6 +14,8 @@ const CHROME: Record<string, Chrome> = {
   de: { skip: 'Zum Inhalt springen', navigation: 'Hauptnavigation', language: 'Sprache' },
 }
 
+useSiteBodyClass()
+
 const route = useRoute()
 const locale = useSiteLocale()
 const { data: settings } = await useSiteSettings(locale)

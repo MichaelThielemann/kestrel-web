@@ -451,6 +451,11 @@
 - A statically delivered page opened with a trailing slash (`/about/`) no longer requests `/api` while it
   hydrates.
 
+- The public site's default layout no longer leaves the browser's 8px body margin around the page, which
+  showed as a light frame in dark mode. The layout marks `<body>` with a `site-body` class while it is
+  mounted (`useSiteBodyClass()`), and `site.css` zeroes the margin and paints the body in the site's
+  background colour under that class; the admin is unaffected.
+
 ## 2.0.1 – 2026-09-21
 
 ### Changed
