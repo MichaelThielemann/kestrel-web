@@ -9,6 +9,7 @@ import type { FieldTypes } from "../field-types";
 import { appendRelay, applyFeaturePatches, emitEntryIndex, foldTrailingEmit, groupSignatureOf, mergePipelines } from "./compose";
 import type { GroupSignature, Patch, PresetEntry } from "./compose";
 import { basePipelines } from "./base";
+import { appendFieldCut, fieldCutSteps } from "./field-grants";
 import type { PresetContext } from "./base";
 import { canonicalTriggers } from "./triggers";
 import { collectionPipelines, hasLocalizedField, insertCollectionTriggers, isGenericCollection, pipelinesByName, DEFAULT_COLLECTIONS } from "./collections";
@@ -375,7 +376,11 @@ export function buildPreset<C extends Record<string, CollectionModel> = Record<s
     }
     folded[name] = appendRelay(withEmitPlaced);
   }
-  pipelines = folded;
+  const fieldCuts = fieldCutSteps(collections);
+  pipelines = Object.fromEntries(Object.entries(folded).map(([name, entries]) => {
+    const step = fieldCuts[name];
+    return [name, step === undefined ? entries : appendFieldCut(entries, step)];
+  }));
 
   const groupedSignatures = new Map<string, GroupSignature>();
   const relayedPipelines = new Set<string>();

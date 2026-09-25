@@ -1,0 +1,197 @@
+import { resolve } from "node:path";
+import { pipelineSteps } from "@michaelthielemann/kestrel/definePipeline";
+import { describe, expect, it } from "vitest";
+import { anonymousFieldGrants, definePreset, featureOrder, presetModuleConfig } from "./index";
+import type { CollectionModel, Feature, PresetContentModel } from "./index";
+import { syntheticContentTypes } from "./__fixtures__/synthetic-collections";
+import { contentModel, contentTypes } from "../../../playground/shared/model";
+import fieldTypes from "../../../playground/shared/field-types";
+
+const EXPORT_DIR = "<exportDir>";
+
+const allModules: { use: string; config?: unknown }[] = [
+  { use: "@michaelthielemann/kestrel-blobstore-filesystem" },
+  { use: "@michaelthielemann/kestrel-replication-sqlite" },
+  { use: "@michaelthielemann/kestrel-persistence-sqlite" },
+  { use: "@michaelthielemann/kestrel-sanitize-svg" },
+  { use: "@michaelthielemann/kestrel-media-default" },
+  { use: "@michaelthielemann/kestrel-images-default" },
+  { use: "@michaelthielemann/kestrel-authn-multi" },
+  { use: "@michaelthielemann/kestrel-authz-roles" },
+  { use: "@michaelthielemann/kestrel-content-default" },
+  { use: "@michaelthielemann/kestrel-references-default" },
+  { use: "@michaelthielemann/kestrel-links-default" },
+  { use: "@michaelthielemann/kestrel-validate-jsonschema", config: { schemas: { "pages.body": "x", "redirects.rules": "y" } } },
+  { use: "@michaelthielemann/kestrel-renderer-nuxt" },
+  { use: "@michaelthielemann/kestrel-delivery-static" },
+  { use: "@michaelthielemann/kestrel-redirects-default" },
+  { use: "@michaelthielemann/kestrel-audit-persistence", config: { retentionDays: 365 } },
+  { use: "@michaelthielemann/kestrel-events-inmemory" },
+  { use: "@michaelthielemann/kestrel-events-direct" },
+  { use: "@michaelthielemann/kestrel-ratelimit-memory" },
+  { use: "@michaelthielemann/kestrel-insights" },
+  { use: "@michaelthielemann/kestrel-revisions-default" },
+];
+const allFeatures: readonly Feature[] = featureOrder.filter((feature) => feature !== "migrations" && feature !== "eventsQueue");
+const queuedModules = allModules
+  .filter((entry) => entry.use !== "@michaelthielemann/kestrel-events-direct")
+  .map((entry) => (entry.use === "@michaelthielemann/kestrel-delivery-static" ? { ...entry, config: { dependencies: { render: "events" } } } : entry))
+  .concat([{ use: "@michaelthielemann/kestrel-events-queue", config: { lanes: { pages: ["republishOutput", "refreshLlms"], variants: ["generateImageVariants"] } } }]);
+
+const PUBLIC_READS_WITH_IMAGES: Record<string, string> = {
+  resolvePage: "authz.fields:pages?shape=item",
+  readPage: "authz.fields:pages?shape=item",
+  listPages: "authz.fields:pages?shape=list",
+  getSettings: "authz.fields:settings?shape=item",
+  getMedia: "authz.fields:media?shape=item",
+  listMedia: "authz.fields:media?shape=list",
+  downloadMedia: "authz.fields:mediaFile?shape=file",
+  serveMediaFile: "authz.fields:mediaFile?shape=file",
+  serveImageVariant: "authz.fields:mediaFile?shape=file",
+  renderRedirects: "authz.fields:redirectRules?shape=array",
+  getRedirects: "authz.fields:redirects?shape=item",
+};
+
+function cutSteps(preset: ReturnType<typeof definePreset>): Record<string, string> {
+  const cuts: Record<string, string> = {};
+  for (const pipeline of preset.pipelines) {
+    const steps = pipelineSteps(pipeline.steps);
+    const index = steps.findIndex((step) => step.startsWith("authz.fields:"));
+    if (index === -1) continue;
+    expect(index, `${pipeline.name}: authz.fields is not its last step`).toBe(steps.length - 1);
+    cuts[pipeline.name] = steps[index] ?? "";
+  }
+  return cuts;
+}
+
+describe("the preset's field cut on public reads", () => {
+  it("ends exactly the public reads of the playground composition with authz.fields, and nothing else", () => {
+    const preset = definePreset({ modules: allModules, features: allFeatures, collections: contentTypes, fieldTypes, exportDir: EXPORT_DIR });
+    expect(cutSteps(preset)).toEqual(PUBLIC_READS_WITH_IMAGES);
+  });
+
+  it("does the same with queued event delivery", () => {
+    const preset = definePreset({ modules: queuedModules, features: [...allFeatures, "eventsQueue"], collections: contentTypes, fieldTypes, exportDir: EXPORT_DIR });
+    expect(cutSteps(preset)).toEqual(PUBLIC_READS_WITH_IMAGES);
+  });
+
+  it("cuts after images.attach and after the redirect lookup's page read", () => {
+    const preset = definePreset({ modules: allModules, features: allFeatures, collections: contentTypes, fieldTypes, exportDir: EXPORT_DIR });
+    const steps = (name: string) => pipelineSteps(preset.pipelines.find((pipeline) => pipeline.name === name)?.steps ?? []);
+    expect(steps("getMedia").slice(-2)).toEqual(["images.attach", "authz.fields:media?shape=item"]);
+    expect(steps("listMedia").slice(-2)).toEqual(["images.attach", "authz.fields:media?shape=list"]);
+    expect(steps("resolvePage")).toEqual([
+      "authn.identifyUser",
+      "authz.require:pages.read",
+      "redirects.lookup",
+      "site.resolve:pages?home=home&status=published&fallback=true",
+      "site.resolveLinks:pages?home=home&status=published&fallback=true",
+      "authz.fields:pages?shape=item",
+    ]);
+  });
+
+  it("leaves serveImageVariant, renderRedirects and getRedirects out without their features", () => {
+    const modules = allModules.filter((entry) => entry.use !== "@michaelthielemann/kestrel-images-default" && entry.use !== "@michaelthielemann/kestrel-redirects-default");
+    const features = allFeatures.filter((feature) => feature !== "images" && feature !== "redirects");
+    const preset = definePreset({ modules, features, collections: contentTypes, fieldTypes, exportDir: EXPORT_DIR });
+    const { serveImageVariant: _variant, renderRedirects: _rules, getRedirects: _redirects, ...expected } = PUBLIC_READS_WITH_IMAGES;
+    expect(cutSteps(preset)).toEqual(expected);
+  });
+
+  it("ends every collection's public list, read and get with a cut named after the collection", () => {
+    const modules = [
+      { use: "@michaelthielemann/kestrel-redirects-default" },
+      { use: "@michaelthielemann/kestrel-validate-jsonschema", config: { schemas: { "redirects.rules": "y" } } },
+      { use: "@michaelthielemann/kestrel-events-inmemory" },
+      { use: "@michaelthielemann/kestrel-events-direct" },
+    ];
+    const preset = definePreset({ modules, features: ["redirects"], collections: syntheticContentTypes, exportDir: EXPORT_DIR });
+    const cuts = cutSteps(preset);
+    expect(cuts.listNews).toBe("authz.fields:news?shape=list");
+    expect(cuts.readNews).toBe("authz.fields:news?shape=item");
+    expect(cuts.getProfile).toBe("authz.fields:profile?shape=item");
+    expect(cuts.getNotifications).toBe("authz.fields:notifications?shape=item");
+    expect(cuts.listAllNews).toBeUndefined();
+    expect(cuts.readAnyNews).toBeUndefined();
+  });
+
+  it("keeps a consumer's override exactly as written, without appending the cut", () => {
+    const override = ["authn.identifyUser", "authz.require:media.read", "media.get"] as const;
+    const preset = definePreset({ modules: allModules, features: allFeatures, collections: contentTypes, fieldTypes, exportDir: EXPORT_DIR, overrides: { getMedia: override } });
+    expect(preset.pipelines.find((pipeline) => pipeline.name === "getMedia")?.steps).toEqual([...override]);
+  });
+});
+
+const DATA_DIR = "/srv/kestrel/data";
+const PASSWORD_HASH = "scrypt$522f4ac87bfe4bcd100ba47a7d2aaec2$dbfc3f2d6cc38a76b21973d7c6f6d310a09506581c665f1f6601fd8fb3fa9bc3959689aea3e389f4d53eb8c7e70791ad4065e308763dd44609904134f0f5ee98";
+const MEDIA_FIELDS = ["id", "path", "filename", "contentType", "size", "width", "height", "alt", "title", "description", "provenance"];
+const VARIANT_FIELDS = ["variants[].size", "variants[].width", "variants[].height", "variants[].format", "variants[].path"];
+
+function authzConfig(options: { model?: PresetContentModel; features: readonly Feature[]; roles?: Record<string, unknown> }): Record<string, unknown> {
+  const modules = presetModuleConfig({
+    dataDir: DATA_DIR,
+    blobstore: { use: "@michaelthielemann/kestrel-blobstore-filesystem", config: { root: resolve(DATA_DIR, "blobs") } },
+    model: options.model ?? contentModel,
+    features: options.features,
+    fieldTypes,
+    roles: { roles: { admin: ["*"] }, anonymous: ["pages.read", "settings.read", "media.read"], ...options.roles },
+    bootstrap: { username: "admin", passwordHash: PASSWORD_HASH },
+    ...(options.features.includes("migrations") ? { migrations: { migrations: [] } } : {}),
+  });
+  const config = modules.find((entry) => entry.use === "@michaelthielemann/kestrel-authz-roles")?.config;
+  if (typeof config !== "object" || config === null) throw new Error("expected an authz-roles entry");
+  return Object.fromEntries(Object.entries(config));
+}
+
+describe("the anonymous field grants presetModuleConfig derives", () => {
+  it("grants the playground's model fields, the public media fields, the file headers and the redirect rules", () => {
+    expect(authzConfig({ features: ["delivery", "sanitizeSvg", "images", "redirects"] }).anonymousFields).toEqual({
+      settings: ["id", "title", "titlePosition", "titleSeparator", "description", "navigation", "_locales", "_translations", "_links"],
+      redirects: ["id", "rules", "_locales", "_translations"],
+      pages: ["id", "slug", "title", "body", "seo", "status", "shareImage", "accent", "layout", "_locales", "_translations", "_locale", "_links", "redirect"],
+      media: [...MEDIA_FIELDS, ...VARIANT_FIELDS],
+      mediaFile: ["headers.cache-control", "headers.x-content-provenance", "headers.x-kestrel-variant"],
+      redirectRules: ["pattern", "target", "status"],
+    });
+  });
+
+  it("drops the variant fields and the variant header without images, and every redirect grant without redirects", () => {
+    const grants = anonymousFieldGrants(contentModel, []);
+    expect(grants.media).toEqual(MEDIA_FIELDS);
+    expect(grants.mediaFile).toEqual(["headers.cache-control", "headers.x-content-provenance"]);
+    expect(grants.pages).not.toContain("redirect");
+    expect(Object.keys(grants).sort()).toEqual(["media", "mediaFile", "pages", "settings"]);
+  });
+
+  it("grants no locale members for a model without locales, but keeps the resolved links", () => {
+    const types: Record<string, CollectionModel> = {
+      settings: { kind: "single", fields: { title: { type: "text" } } },
+      pages: { kind: "multi", fields: { slug: { type: "slug" }, title: { type: "text" }, body: { type: "json" }, status: { type: "enum", options: ["draft", "published"] } } },
+    };
+    const grants = anonymousFieldGrants({ types }, ["redirects"]);
+    expect(grants.settings).toEqual(["id", "title", "_links"]);
+    expect(grants.pages).toEqual(["id", "slug", "title", "body", "status", "_links", "redirect"]);
+  });
+
+  it("grants every generic collection its model fields, with the locale members when the model has locales", () => {
+    const grants = anonymousFieldGrants({ locales: ["de", "en"], types: syntheticContentTypes }, ["redirects"]);
+    expect(grants.news).toEqual(["id", "title", "body", "status", "_locales", "_translations"]);
+    expect(grants.profile).toEqual(["id", "bio", "_locales", "_translations"]);
+    expect(grants.notifications).toEqual(["id", "emailDigest", "_locales", "_translations"]);
+    expect(anonymousFieldGrants({ types: syntheticContentTypes }, []).news).toEqual(["id", "title", "body", "status"]);
+  });
+
+  it("lets roles.anonymousFields replace a derived resource, leave the others alone and drop one with an empty list", () => {
+    const config = authzConfig({ features: ["images"], roles: { anonymousFields: { media: ["id", "path"], settings: [] } } });
+    const grants = config.anonymousFields;
+    expect(grants).toMatchObject({ media: ["id", "path"], mediaFile: ["headers.cache-control", "headers.x-content-provenance", "headers.x-kestrel-variant"] });
+    expect(grants).not.toHaveProperty("settings");
+    expect(grants).toHaveProperty("pages");
+  });
+
+  it("passes roles.fields through and sets no fields key without it", () => {
+    const withFields = authzConfig({ features: [], roles: { roles: { admin: ["*"], reviewer: ["pages.read"] }, fields: { reviewer: { pages: ["createdAt"] } } } });
+    expect(withFields.fields).toEqual({ reviewer: { pages: ["createdAt"] } });
+    expect(authzConfig({ features: [] })).not.toHaveProperty("fields");
+  });
+});

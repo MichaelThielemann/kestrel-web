@@ -140,7 +140,8 @@
     "downloadMedia": [
       "authn.identifyUser",
       "authz.require:media.read",
-      "media.download"
+      "media.download",
+      "authz.fields:mediaFile?shape=file"
     ],
     "eventsDeliveryStatus": [
       "authn.requireUser",
@@ -155,28 +156,33 @@
     "getMedia": [
       "authn.identifyUser",
       "authz.require:media.read",
-      "media.get"
+      "media.get",
+      "authz.fields:media?shape=item"
     ],
     "getNotifications": [
       "authn.identifyUser",
       "authz.require:notifications.read",
-      "content.get:notifications"
+      "content.get:notifications",
+      "authz.fields:notifications?shape=item"
     ],
     "getProfile": [
       "authn.identifyUser",
       "authz.require:profile.read",
-      "content.get:profile"
+      "content.get:profile",
+      "authz.fields:profile?shape=item"
     ],
     "getRedirects": [
       "authn.identifyUser",
       "authz.require:redirects.read",
-      "content.get:redirects"
+      "content.get:redirects",
+      "authz.fields:redirects?shape=item"
     ],
     "getSettings": [
       "authn.identifyUser",
       "authz.require:settings.read",
       "content.get:settings",
-      "site.resolveLinks:settings?home=home&status=published&fallback=true"
+      "site.resolveLinks:settings?home=home&status=published&fallback=true",
+      "authz.fields:settings?shape=item"
     ],
     "getUser": [
       "authn.requireUser",
@@ -196,7 +202,8 @@
     "listMedia": [
       "authn.identifyUser",
       "authz.require:media.read",
-      "media.list"
+      "media.list",
+      "authz.fields:media?shape=list"
     ],
     "listMediaFolders": [
       "authn.requireUser",
@@ -211,12 +218,14 @@
     "listNews": [
       "authn.identifyUser",
       "authz.require:news.read",
-      "content.list:news?status=published"
+      "content.list:news?status=published",
+      "authz.fields:news?shape=list"
     ],
     "listPages": [
       "authn.identifyUser",
       "authz.require:pages.read",
-      "content.list:pages?status=published"
+      "content.list:pages?status=published",
+      "authz.fields:pages?shape=list"
     ],
     "listUsers": [
       "authn.requireUser",
@@ -251,12 +260,14 @@
     "readNews": [
       "authn.identifyUser",
       "authz.require:news.read",
-      "content.get:news?status=published"
+      "content.get:news?status=published",
+      "authz.fields:news?shape=item"
     ],
     "readPage": [
       "authn.identifyUser",
       "authz.require:pages.read",
-      "content.get:pages?status=published"
+      "content.get:pages?status=published",
+      "authz.fields:pages?shape=item"
     ],
     "reconcileMedia": [
       "media.reconcile"
@@ -277,19 +288,22 @@
       "media.renameFolder"
     ],
     "renderRedirects": [
-      "redirects.render"
+      "redirects.render",
+      "authz.fields:redirectRules?shape=array"
     ],
     "resolvePage": [
       "authn.identifyUser",
       "authz.require:pages.read",
       "redirects.lookup",
       "site.resolve:pages?home=home&status=published&fallback=true",
-      "site.resolveLinks:pages?home=home&status=published&fallback=true"
+      "site.resolveLinks:pages?home=home&status=published&fallback=true",
+      "authz.fields:pages?shape=item"
     ],
     "serveMediaFile": [
       "authn.identifyUser",
       "authz.require:media.read",
-      "media.serve"
+      "media.serve",
+      "authz.fields:mediaFile?shape=file"
     ],
     "setNotifications": [
       "authn.requireUser",

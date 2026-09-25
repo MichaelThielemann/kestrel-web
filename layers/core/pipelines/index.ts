@@ -17,6 +17,8 @@ export type { CollectionVerb, MultiVerb, SingleVerb } from "./capabilities";
 export type { Workflow } from "../app/types/kestrel";
 export type { PresetStep } from "../module-registry";
 export { presetModuleConfig } from "./config";
+export { anonymousFieldGrants, fieldCutSteps } from "./field-grants";
+export type { FieldCutShape, FieldGrantModel, FieldGrants } from "./field-grants";
 export { defineFieldTypes } from "../field-types";
 export type { CustomFieldTypes, FieldTypeDefinition, FieldTypes, StorageFieldType } from "../field-types";
 export type {

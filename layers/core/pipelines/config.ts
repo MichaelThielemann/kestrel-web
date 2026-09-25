@@ -6,6 +6,7 @@ import type { WorkflowUi } from "../collections-ui/workflow";
 import { resolveStorageTypes } from "../field-types";
 import type { FieldTypes } from "../field-types";
 import { isGenericCollection, isPageLikeCollection } from "./collections";
+import { anonymousFieldGrants, withConsumerGrants } from "./field-grants";
 import type { CollectionModel } from "./collections";
 import { lanesFor, presetSchemas, relayPipelinesFor } from "./index";
 import type { Feature } from "./index";
@@ -24,6 +25,13 @@ export interface PresetContentModel {
 export interface PresetRoles {
   roles: Record<string, string[]>;
   anonymous: string[];
+  /**
+   * Fields a caller without a session keeps, per resource, on top of the grants the preset derives from the
+   * content model and the features: a resource named here replaces the derived grant, an empty list removes it.
+   */
+  anonymousFields?: Record<string, string[]>;
+  /** Per role, the fields a caller holding it keeps of a resource; a role without a grant for a resource keeps everything. */
+  fields?: Record<string, Record<string, string[]>>;
 }
 
 export interface PresetBootstrap {
@@ -289,7 +297,15 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
       bootstrap: { username: bootstrap.username, passwordHash: bootstrap.passwordHash, roles: bootstrap.roles ?? ["admin"] },
     },
   });
-  modules.push({ use: "@michaelthielemann/kestrel-authz-roles", config: { roles: roles.roles, anonymous: roles.anonymous } });
+  modules.push({
+    use: "@michaelthielemann/kestrel-authz-roles",
+    config: {
+      roles: roles.roles,
+      anonymous: roles.anonymous,
+      anonymousFields: withConsumerGrants(anonymousFieldGrants({ ...(model.locales === undefined ? {} : { locales: model.locales }), types }, features), roles.anonymousFields),
+      ...(roles.fields === undefined ? {} : { fields: roles.fields }),
+    },
+  });
   modules.push({
     use: "@michaelthielemann/kestrel-content-default",
     config: {

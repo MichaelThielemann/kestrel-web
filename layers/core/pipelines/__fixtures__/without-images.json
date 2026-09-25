@@ -135,7 +135,8 @@
     "downloadMedia": [
       "authn.identifyUser",
       "authz.require:media.read",
-      "media.download"
+      "media.download",
+      "authz.fields:mediaFile?shape=file"
     ],
     "eventsDeliveryStatus": [
       "authn.requireUser",
@@ -150,18 +151,21 @@
     "getMedia": [
       "authn.identifyUser",
       "authz.require:media.read",
-      "media.get"
+      "media.get",
+      "authz.fields:media?shape=item"
     ],
     "getRedirects": [
       "authn.identifyUser",
       "authz.require:redirects.read",
-      "content.get:redirects"
+      "content.get:redirects",
+      "authz.fields:redirects?shape=item"
     ],
     "getSettings": [
       "authn.identifyUser",
       "authz.require:settings.read",
       "content.get:settings",
-      "site.resolveLinks:settings?home=home&status=published&fallback=true"
+      "site.resolveLinks:settings?home=home&status=published&fallback=true",
+      "authz.fields:settings?shape=item"
     ],
     "getUser": [
       "authn.requireUser",
@@ -191,7 +195,8 @@
     "listMedia": [
       "authn.identifyUser",
       "authz.require:media.read",
-      "media.list"
+      "media.list",
+      "authz.fields:media?shape=list"
     ],
     "listMediaFolders": [
       "authn.requireUser",
@@ -201,7 +206,8 @@
     "listPages": [
       "authn.identifyUser",
       "authz.require:pages.read",
-      "content.list:pages?status=published"
+      "content.list:pages?status=published",
+      "authz.fields:pages?shape=list"
     ],
     "listUsers": [
       "authn.requireUser",
@@ -294,7 +300,8 @@
     "readPage": [
       "authn.identifyUser",
       "authz.require:pages.read",
-      "content.get:pages?status=published"
+      "content.get:pages?status=published",
+      "authz.fields:pages?shape=item"
     ],
     "reassignRevisionAuthor": [
       "authn.verifyUser:result.reassignTo",
@@ -329,7 +336,8 @@
       "media.renameFolder"
     ],
     "renderRedirects": [
-      "redirects.render"
+      "redirects.render",
+      "authz.fields:redirectRules?shape=array"
     ],
     "repairPublicMedia": [
       "authn.requireUser",
@@ -364,7 +372,8 @@
       "authz.require:pages.read",
       "redirects.lookup",
       "site.resolve:pages?home=home&status=published&fallback=true",
-      "site.resolveLinks:pages?home=home&status=published&fallback=true"
+      "site.resolveLinks:pages?home=home&status=published&fallback=true",
+      "authz.fields:pages?shape=item"
     ],
     "restorePageRevision": [
       "authn.requireUser",
@@ -413,7 +422,8 @@
     "serveMediaFile": [
       "authn.identifyUser",
       "authz.require:media.read",
-      "media.serve"
+      "media.serve",
+      "authz.fields:mediaFile?shape=file"
     ],
     "setPassword": [
       "authn.requireUser",
