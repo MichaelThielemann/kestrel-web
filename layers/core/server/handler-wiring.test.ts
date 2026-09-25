@@ -4,15 +4,13 @@ import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterAll, afterEach, describe, expect, it } from "vitest";
-import { createApp, createError, defineEventHandler, toNodeListener } from "h3";
+import { createApp, defineEventHandler, toNodeListener } from "h3";
 import type { EventHandler } from "h3";
 import { boot, defineConfig, silentLogger } from "@michaelthielemann/kestrel";
 import { boundaryCast } from "@michaelthielemann/kestrel/cast";
-import { createKestrelHandler } from "@michaelthielemann/kestrel-h3";
 import { presetModules } from "#kestrel/modules";
 import { definePreset, presetModuleConfig } from "#kestrel/pipelines";
-import { publicMediaRoutes } from "./utils/public-media";
-import { bootFailure } from "./utils/boot-failure";
+import { kestrelHandlers, type KestrelHandlers } from "./utils/kestrel-handlers";
 
 const PASSWORD_HASH =
   "scrypt$522f4ac87bfe4bcd100ba47a7d2aaec2$dbfc3f2d6cc38a76b21973d7c6f6d310a09506581c665f1f6601fd8fb3fa9bc3959689aea3e389f4d53eb8c7e70791ad4065e308763dd44609904134f0f5ee98";
@@ -57,8 +55,28 @@ async function bootMediaKestrel() {
   return kestrel;
 }
 
-describe("the public /media handler, wired the way the Nitro plugin wires it", () => {
-  it("serves an uploaded file's own route with no mount prefix, and 404s every other media route the API answers", async () => {
+const OPEN_POLICY = { trustProxy: false, proxyHops: 1, trustedHeader: "" };
+
+function wiring(onBootFailure: (err: unknown) => void = () => {}) {
+  return {
+    policy: () => OPEN_POLICY,
+    inlineTypes: () => [],
+    maxBodyBytes: () => undefined,
+    onBootFailure,
+    status: () => ({ state: "failed" as const, error: "kestrel-media-default: boom" }),
+  };
+}
+
+function routed(handlers: KestrelHandlers): EventHandler {
+  return defineEventHandler(async (event) => {
+    const handler = event.path.startsWith("/api/") ? await handlers.kestrelHandler : await handlers.publicMediaHandler;
+    const response: unknown = await handler(event);
+    return response;
+  });
+}
+
+describe("the Nitro plugin's handlers (kestrelHandlers)", () => {
+  it("serves an uploaded file at its path on the site root, 404s every other media route there, and keeps the API under /api", async () => {
     const kestrel = await bootMediaKestrel();
     try {
       const login = await kestrel.run("login", { trigger: { kind: "http", name: "POST /login" }, body: { username: "admin", password: "change-me" } });
@@ -76,29 +94,32 @@ describe("the public /media handler, wired the way the Nitro plugin wires it", (
       const path = String(upload.result.path);
       const id = String(upload.result.id);
 
-      const handler = createKestrelHandler(
-        { run: kestrel.run.bind(kestrel), triggers: { http: publicMediaRoutes(kestrel.triggers.http), events: [], crons: [] } },
-        { mountPath: "" },
-      );
-      const base = await serve(handler);
+      const base = await serve(routed(kestrelHandlers(Promise.resolve(kestrel), wiring())));
 
-      const fileRes = await fetch(`${base}${path}`);
-      expect(fileRes.status).toBe(200);
-
+      expect((await fetch(`${base}${path}`)).status).toBe(200);
       expect((await fetch(`${base}/media/${id}`)).status).toBe(404);
       expect((await fetch(`${base}/media/folders`)).status).toBe(404);
       expect((await fetch(`${base}/media`)).status).toBe(404);
+      expect((await fetch(`${base}/media/${id}/file`)).status).toBe(404);
+
+      const apiItem = await fetch(`${base}/api/media/${id}`);
+      expect(apiItem.status).toBe(200);
+      expect(await apiItem.json()).toMatchObject({ id, path });
     } finally {
       await kestrel.stop();
     }
   }, 15000);
 
-  it("answers 503 once boot has failed, the same fallback the plugin installs", async () => {
-    const failing = defineEventHandler(() => {
-      throw createError(bootFailure({ state: "failed", error: "kestrel-media-default: boom" }));
-    });
-    const base = await serve(failing);
-    const res = await fetch(`${base}/media/anything/here`);
-    expect(res.status).toBe(503);
+  it("answers 503 with the boot status on both handlers once boot has failed, and reports the error", async () => {
+    const failures: unknown[] = [];
+    const boom = new Error("boom");
+    const base = await serve(routed(kestrelHandlers(Promise.reject(boom), wiring((err) => failures.push(err)))));
+
+    const media = await fetch(`${base}/media/anything/here`);
+    expect(media.status).toBe(503);
+    const api = await fetch(`${base}/api/media`);
+    expect(api.status).toBe(503);
+    expect(await api.json()).toMatchObject({ data: { state: "failed", error: "kestrel-media-default: boom" } });
+    expect(failures).toEqual([boom, boom]);
   });
 });

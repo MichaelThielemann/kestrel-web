@@ -1,8 +1,6 @@
 import { consoleLogger, KestrelBootError, type Kestrel } from "@michaelthielemann/kestrel";
 import { boundaryCast } from "@michaelthielemann/kestrel/cast";
-import { createKestrelHandler } from "@michaelthielemann/kestrel-h3";
 import { setNuxtRenderer } from "@michaelthielemann/kestrel-renderer-nuxt";
-import type { EventHandler } from "h3";
 import buildAssets from "#kestrel/build-assets";
 import bundledSchemas from "#kestrel/schemas";
 import { pipelines } from "#kestrel/consumer-pipelines";
@@ -10,16 +8,14 @@ import { imageSizes } from "#kestrel/image-sizes";
 import modules from "#kestrel/consumer-modules";
 import config from "~~/kestrel.config";
 import collectionsUi from "~~/shared/collections-ui";
-import { MOUNT_PATH } from "../../mount-path";
 import { inlineTypesFor } from "../utils/inline-types";
 import { uploadLimits } from "../utils/limits";
 import { applyBundledSchemas } from "../utils/bundled-schemas";
 import { moduleConfigForStep } from "../utils/modules";
 import { assertMediaPaths } from "../utils/media-paths";
-import { publicMediaRoutes } from "../utils/public-media";
+import { kestrelHandlers, type KestrelHandlers } from "../utils/kestrel-handlers";
 import { contentCollections, statusFilterFailure, statusFilterProblems } from "../utils/status-filter";
 import { bootWithAdminBootstrapCheck } from "../utils/admin-bootstrap";
-import { bootFailure } from "../utils/boot-failure";
 import type { KestrelState, KestrelStatus } from "../utils/boot-failure";
 import { accessLists } from "./access";
 
@@ -96,41 +92,16 @@ export default defineNitroPlugin((nitro) => {
     ...(app.cdnURL ? {} : { buildAssets: { dir: app.buildAssetsDir, paths: buildAssets } }),
   });
 
-  const handler: Promise<EventHandler> = getKestrel()
-    .then((kestrel) => {
-      const { trustProxy, proxyHops, trustedHeader } = accessLists().policy;
-      return createKestrelHandler(kestrel, {
-        mountPath: MOUNT_PATH,
-        trustProxy,
-        proxyHops,
-        ...(trustedHeader === "" ? {} : { trustedHeader }),
-        inlineTypes: inlineTypesFor(kestrel, modules),
-        maxBodyBytes: uploadLimits(kestrel, modules, config.modules).maxBodyBytes,
-      });
-    })
-    .catch((err: unknown) => {
+  const handlers = kestrelHandlers(getKestrel(), {
+    policy: () => accessLists().policy,
+    inlineTypes: (kestrel) => inlineTypesFor(kestrel, modules),
+    maxBodyBytes: (kestrel) => uploadLimits(kestrel, modules, config.modules).maxBodyBytes,
+    onBootFailure: (err) => {
       if (getKestrelState().state !== "failed") recordBootFailure(err);
-      return defineEventHandler(() => {
-        throw createError(bootFailure(getKestrelState()));
-      });
-    });
-  boundaryCast<{ kestrelHandler: Promise<EventHandler> }>(nitro, "host").kestrelHandler = handler;
-
-  const publicMediaHandler: Promise<EventHandler> = getKestrel()
-    .then((kestrel) => {
-      const { trustProxy, proxyHops, trustedHeader } = accessLists().policy;
-      return createKestrelHandler(
-        { run: kestrel.run.bind(kestrel), triggers: { http: publicMediaRoutes(kestrel.triggers.http), events: [], crons: [] } },
-        { mountPath: "", trustProxy, proxyHops, ...(trustedHeader === "" ? {} : { trustedHeader }) },
-      );
-    })
-    .catch((err: unknown) => {
-      if (getKestrelState().state !== "failed") recordBootFailure(err);
-      return defineEventHandler(() => {
-        throw createError(bootFailure(getKestrelState()));
-      });
-    });
-  boundaryCast<{ publicMediaHandler: Promise<EventHandler> }>(nitro, "host").publicMediaHandler = publicMediaHandler;
+    },
+    status: getKestrelState,
+  });
+  Object.assign(boundaryCast<KestrelHandlers>(nitro, "host"), handlers);
 
   nitro.hooks.hook("close", async () => {
     if (getKestrelState().state === "failed") return;
