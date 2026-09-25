@@ -126,7 +126,10 @@ function mediaModuleConfig(cast: { modules?: readonly { use: string; config?: un
  * say) instead of passing it. The trigger-binding half of that check needs a live, started instance
  * (`kestrel.describe()`, `kestrel.steps.owner()`) no rule context has access to, so this always feeds
  * `mediaPathProblems()` an assumed-correct route table for that half and never reports on it; a project
- * whose own pipelines actually break that binding still only fails at boot.
+ * whose own pipelines actually break that binding still only fails at boot. Says nothing while
+ * `delivery-static` still has its old `media` option set: `modules/delivery-media` already reports (and,
+ * with `mediaWiring`, usually fixes) that same wiring, and a project in that state would otherwise see the
+ * same problem twice, with two different suggestions.
  */
 export const mediaPathsRule: Rule = {
   id: "site/media-paths",
@@ -136,7 +139,9 @@ export const mediaPathsRule: Rule = {
     const media = mediaModuleConfig(cast, MEDIA_MODULE);
     const images = mediaModuleConfig(cast, IMAGES_MODULE);
     if (media === undefined && images === undefined) return [];
-    const delivery: DeliveryConfig | undefined = mediaModuleConfig(cast, DELIVERY_STATIC_MODULE);
+    const deliveryConfig = mediaModuleConfig(cast, DELIVERY_STATIC_MODULE);
+    if (deliveryConfig !== undefined && isRecord(deliveryConfig.media)) return [];
+    const delivery: DeliveryConfig | undefined = deliveryConfig;
     const problems = mediaPathProblems({ media, images, delivery, triggers: ASSUMED_TRIGGERS, pipelines: ASSUMED_PIPELINES });
     if (problems.length === 0) return [];
     const rule = "site/media-paths";

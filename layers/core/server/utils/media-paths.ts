@@ -48,7 +48,7 @@ export function mediaPathProblems(input: MediaPathsInput): string[] {
 
   for (const [name, config] of [["media-default", input.media], ["images-default", input.images]] as const) {
     if (config === undefined) continue;
-    if (config.publicPath !== MEDIA_PUBLIC_PATH) {
+    if (config.publicPath !== undefined && config.publicPath !== MEDIA_PUBLIC_PATH) {
       problems.push(
         `media: ${name} publicPath "${String(config.publicPath)}" is not "${MEDIA_PUBLIC_PATH}", the path this server answers media on – remove the key or set it to "${MEDIA_PUBLIC_PATH}"`,
       );

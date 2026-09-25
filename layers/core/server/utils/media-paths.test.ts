@@ -30,6 +30,10 @@ describe("mediaPathProblems", () => {
     ]);
   });
 
+  it("does not report a missing publicPath: both modules default it to /media themselves", () => {
+    expect(mediaPathProblems(baseInput({ media: {}, images: {} }))).toEqual([]);
+  });
+
   it("reports images-default's publicPath when it is not /media", () => {
     const problems = mediaPathProblems(baseInput({ images: { publicPath: "/api/media" } }));
     expect(problems).toEqual([

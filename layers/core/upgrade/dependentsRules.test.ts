@@ -179,10 +179,36 @@ describe("the layer's own media-path wiring (the publicPath/publicCopy/reservedP
     expect(await mediaPathsRule.check(ctx)).toEqual([]);
   });
 
+  it("says nothing when media-default's publicPath is unset: the module defaults it to /media itself, which the real boot accepts", async () => {
+    const ctx = contextFor({
+      source: "",
+      modules: [
+        { use: MEDIA_DEFAULT, config: { publicCopy: { prefix: "site/" } } },
+        { use: IMAGES_DEFAULT, config: { publicPath: "/media", publicCopy: { prefix: "site/" } } },
+        { use: DELIVERY_STATIC, config: { prefix: "site/", reservedPaths: ["/api", "/admin", "/media"] } },
+      ],
+      features: ["delivery", "images"],
+    });
+    expect(await mediaPathsRule.check(ctx)).toEqual([]);
+  });
+
   it("says nothing without either media module, and without delivery-static does not require reservedPaths or publicCopy", async () => {
     expect(await mediaPathsRule.check(contextFor({ source: "", modules: [{ use: DELIVERY_STATIC, config: {} }], features: ["delivery"] }))).toEqual([]);
     const noDelivery = await mediaPathsRule.check(contextFor({ source: "", modules: [{ use: MEDIA_DEFAULT, config: { publicPath: "/media" } }], features: [] }));
     expect(noDelivery).toEqual([]);
+  });
+
+  it("defers entirely to modules/delivery-media while delivery-static still has its old media option: one finding for one problem, not two with different advice", async () => {
+    const ctx = contextFor({
+      source: "",
+      modules: [
+        { use: MEDIA_DEFAULT, config: { publicPath: "/api/media", publicCopy: { prefix: "site/" } } },
+        { use: IMAGES_DEFAULT, config: { publicPath: "/api/media", publicCopy: { prefix: "site/" } } },
+        { use: DELIVERY_STATIC, config: { prefix: "site/", media: { publicPath: "/api/media" } } },
+      ],
+      features: ["delivery", "images"],
+    });
+    expect(await mediaPathsRule.check(ctx)).toEqual([]);
   });
 });
 

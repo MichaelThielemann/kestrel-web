@@ -1873,10 +1873,12 @@ a suggestion, and applies the mechanical ones with a preview:
    `features` when `delivery` needs it (see below); run it with `--write`, then `pnpm install`.
 4. `npx kestrel-web-upgrade check` again for the full report, `fix --write` to apply what it can, and fix
    the rest by hand. This is the release's kestrel-side upgrade too: `kestrel-web-upgrade` already runs
-   kestrel's own rules through the plugin API (it rewrites `delivery-static.media`, the image-variant event
-   pipeline and the media delete order for you, among others). Do not run the standalone `kestrel-upgrade`
-   on a layer project — it cannot load `kestrel.config.ts` at all and only ever tells you to "fix the file
-   so it loads".
+   kestrel's own rules through the plugin API, with this layer's media wiring (§6) built in: it reports a
+   `delivery-static.media` still set with the exact `publicPath`/`publicCopy`/`reservedPaths` this project
+   needs, and rewrites it when the module list names `delivery-static` literally; with `presetModuleConfig()`
+   it stays manual. It also rewrites the image-variant event pipeline and the media delete order for you,
+   among others. Do not run the standalone `kestrel-upgrade` on a layer project — it cannot load
+   `kestrel.config.ts` at all and only ever tells you to "fix the file so it loads".
 5. `nuxt typecheck`, `nuxt build`, boot it once, log in.
 
 What changes:
