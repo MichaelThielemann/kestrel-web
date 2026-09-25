@@ -100,6 +100,16 @@ describe("layerSwitchEdits", () => {
     expect(result.parts["kestrel.config.ts's hand-written events-direct entry"]).toHaveLength(1);
   });
 
+  it("also replaces the literal when the module list is its own const modules = [...], not an inline array", async () => {
+    const source = `import { defineConfig } from "@michaelthielemann/kestrel/defineConfig";\nconst modules = [{ use: "@michaelthielemann/kestrel-events-direct" }];\nexport default defineConfig({ modules, triggers: [], http: null });\n`;
+    const result = await layerSwitchEdits(contextFor({ files: { [CONFIG_FILE]: source }, configModules: [{ use: "@michaelthielemann/kestrel-events-direct" }] }), ["updatePage"]);
+    const edits = result.parts["kestrel.config.ts's hand-written events-direct entry"];
+    expect(edits).toHaveLength(1);
+    const patched = source.slice(0, edits![0]!.start) + edits![0]!.text + source.slice(edits![0]!.end);
+    expect(patched).toContain("@michaelthielemann/kestrel-events-queue");
+    expect(patched).not.toContain("kestrel-events-direct");
+  });
+
   it("gives the replacing events-queue entry the lanes its features need once it runs on the queue", async () => {
     const source = `import { defineConfig } from "@michaelthielemann/kestrel/defineConfig";\nexport default defineConfig({ modules: [{ use: "@michaelthielemann/kestrel-events-direct" }], triggers: [], http: null });\n`;
     const result = await layerSwitchEdits(contextFor({ files: { [CONFIG_FILE]: source }, features: ["delivery", "images"] }), ["publishPage", "unpublishPage"]);
