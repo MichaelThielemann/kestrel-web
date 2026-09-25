@@ -13,6 +13,7 @@ import type { UpgradeReport } from "@michaelthielemann/kestrel-upgrade";
 import { detectLayerProject, loadLayerProject } from "../load";
 import { createLayerPlugin } from "../plugin";
 import { cleanupAllFixtures, materializeFixture } from "./materialize";
+import { configCompileErrors, realPresetError } from "./realPreset";
 
 const execFileAsync = promisify(execFile);
 const runningKestrels: Kestrel[] = [];
@@ -128,6 +129,7 @@ describe("site-2.0 (create-kestrel template shape, presetModuleConfig, no overri
 
     const model = readFileSync(join(dir, "shared", "model.ts"), "utf8");
     expect(model).toMatch(/"sanitizeSvg"/);
+    expect(await realPresetError(dir)).toBeUndefined();
 
     expect(await detectLayerProject(dir)).toBe(true);
     const project = await loadProject(dir);
@@ -162,6 +164,7 @@ describe("site-2.0 (create-kestrel template shape, presetModuleConfig, no overri
 
     const model = readFileSync(join(dir, "shared", "model.ts"), "utf8");
     expect(model).toMatch(/"eventsQueue"/);
+    expect(await realPresetError(dir)).toBeUndefined();
 
     const fixedProject = await loadProject(dir);
     const box = sandboxBootInput(fixedProject.input, { dir });
@@ -204,7 +207,7 @@ describe("site-2.0-custom (hand-written module list, eventsQueue already on, a 2
 
     expect(report.findings.find((f) => f.rule === "preset/queue-lanes")?.fix.kind).toBe("auto");
     const dependencies = report.findings.find((f) => f.rule === "preset/delivery-dependencies");
-    expect(dependencies?.fix.kind).toBe("manual");
+    expect(dependencies?.fix.kind).toBe("auto");
     expect(dependencies?.message).toContain('dependencies.render "events"');
 
     expect(report.findings.find((f) => f.rule === "offer/event-queue")).toBeUndefined();
@@ -223,6 +226,9 @@ describe("site-2.0-custom (hand-written module list, eventsQueue already on, a 2
     const config = readFileSync(join(dir, "kestrel.config.ts"), "utf8");
     expect(config).toMatch(/relayPipelines:\s*\["publishPage",\s*"unpublishPage"\]/);
     expect(config).toMatch(/lanes:\s*\{\s*pages:\s*\["republishOutput",\s*"refreshLlms"\],\s*variants:\s*\["generateImageVariants"\]\s*\}/);
+    expect(config).toContain('overrides: { "@michaelthielemann/kestrel-delivery-static": { dependencies: { render: "events", rendererReadsDocument: true, maxAttempts: 5, backoffSeconds: [5, 30, 120, 600] } } }');
+    expect(await realPresetError(dir)).toBeUndefined();
+    expect(configCompileErrors(join(dir, "kestrel.config.ts"))).toEqual([]);
     expect(config).toMatch(/\{\s*atomic:\s*\[\s*"references\.guard:pages",\s*"content\.remove:pages",\s*"references\.unindex:pages",\s*"links\.unextract:pages",\s*"events\.emit:page\.deleted"\s*\]\s*\}/);
     expect(config).toMatch(/events\.emit:page\.deleted"\s*\]\s*\},\s*"events\.relay"/);
 
@@ -330,8 +336,11 @@ describe("site-2.0-dependents (a literal delivery-static entry, a 2.x setSetting
     expect(dependencies?.severity).toBe("warning");
 
     expect(report.findings.find((f) => f.rule === "preset/override-group" && f.where.pipeline === "setSettings")?.fix.kind).toBe("auto");
-    expect(report.findings.find((f) => f.rule === "preset/settings-llms")?.severity).toBe("info");
-    expect(report.findings.some((f) => f.message.includes('drops "events.emit:settings.updated"'))).toBe(true);
+    const emit = report.findings.find((f) => f.rule === "preset/override-emit");
+    expect(emit?.fix.kind).toBe("auto");
+    expect(emit?.message).toContain('drops "events.emit:settings.updated"');
+    expect(report.findings.find((f) => f.rule === "preset/override-relay")).toBeUndefined();
+    expect(report.findings.find((f) => f.rule === "preset/settings-llms")).toBeUndefined();
 
     const mediaEvents = report.findings.find((f) => f.rule === "runtime/media-event-ids");
     expect(mediaEvents?.where.pipeline).toBe("syncPublicMedia");
@@ -339,11 +348,53 @@ describe("site-2.0-dependents (a literal delivery-static entry, a 2.x setSetting
     expect(report.findings.find((f) => f.rule === "static/server-cache")?.message).toContain("defineCachedFunction");
   }, 60_000);
 
-  it("fix --write --yes adds the background render dependencies and wraps the settings write in its group", async () => {
+  it("fix --write --yes leaves a project the real definePreset() accepts on the inline delivery: background render dependencies, the settings write grouped, emitted and relayed", async () => {
     const dir = await prepare("site-2.0-dependents");
     await fixWriteYes(dir);
     const config = readFileSync(join(dir, "kestrel.config.ts"), "utf8");
     expect(config).toContain('dependencies: { render: "background", rendererReadsDocument: true }');
-    expect(config).toMatch(/\{\s*atomic:\s*\["content\.set:settings"\]\s*\}/);
+    expect(config).toContain('{ atomic: ["content.set:settings"] }, "events.emit:settings.updated", "events.relay"');
+    expect(config).not.toContain('"delivery.exportLlms"');
+    expect(await realPresetError(dir)).toBeUndefined();
+    expect(configCompileErrors(join(dir, "kestrel.config.ts"))).toEqual([]);
   }, 60_000);
+
+  it("one fix --write run that also switches to the queue writes one dependencies key with queue renders, and the real definePreset() accepts it", async () => {
+    const dir = await prepare("site-2.0-dependents");
+    const eventPipelines = ["generateImageVariants", "publishPage", "unpublishPage", "reassignRevisionAuthor", "pageDependents", "mediaDependents", "syncPublicMedia"];
+    const answersFile = join(dir, "answers.json");
+    const { writeFileSync } = await import("node:fs");
+    writeFileSync(answersFile, JSON.stringify({ "switch-to-queue": "yes", ...Object.fromEntries(eventPipelines.map((p) => [`idempotent:${p}`, "yes"])) }));
+    await runUpgradeCli(["fix", "--root", dir, "--write", "--yes", "--answers", answersFile], runOptionsWithMajor6({ plugins: [createLayerPlugin()], stdout: () => undefined, stderr: () => undefined }));
+
+    expect(readFileSync(join(dir, "shared", "model.ts"), "utf8")).toMatch(/"eventsQueue"/);
+    const config = readFileSync(join(dir, "kestrel.config.ts"), "utf8");
+    expect(config.match(/dependencies:/g)).toHaveLength(1);
+    expect(config).toContain('dependencies: { render: "events", rendererReadsDocument: true, maxAttempts: 5, backoffSeconds: [5, 30, 120, 600] }');
+    expect(configCompileErrors(join(dir, "kestrel.config.ts"))).toEqual([]);
+    expect(await realPresetError(dir)).toBeUndefined();
+  }, 60_000);
+});
+
+describe("the real definePreset() after fix --write on hand-written queue lists built from presetModuleConfig()", () => {
+  it("site-2.0-own-pipelines: two passes leave a project the real definePreset() accepts", async () => {
+    const dir = await prepare("site-2.0-own-pipelines");
+    await fixWriteYes(dir);
+    await fixWriteYes(dir);
+    expect(readFileSync(join(dir, "kestrel.config.ts"), "utf8")).toContain('dependencies: { render: "events", rendererReadsDocument: true');
+    expect(await realPresetError(dir)).toBeUndefined();
+  }, 90_000);
+
+  it("site-2.0-double-publish: two passes fix the render mode; what the real definePreset() still refuses is the atomic group around a write window holding the consumer's own step, which the tool deliberately leaves to the user", async () => {
+    const dir = await prepare("site-2.0-double-publish");
+    await fixWriteYes(dir);
+    await fixWriteYes(dir);
+    expect(readFileSync(join(dir, "kestrel.config.ts"), "utf8")).toContain('dependencies: { render: "events", rendererReadsDocument: true');
+    expect(await realPresetError(dir)).toContain('override for "deletePage" drops the atomic group');
+
+    const report = await check(dir);
+    const group = report.findings.find((f) => f.rule === "preset/override-group" && f.where.pipeline === "deletePage");
+    expect(group?.fix.kind).toBe("ask");
+    expect(report.findings.some((f) => f.message.includes("render-mode") || f.message.includes('dependencies.render "events"'))).toBe(false);
+  }, 120_000);
 });

@@ -8,6 +8,7 @@ import { checkPreset, relayPipelinesFor } from "../pipelines/checkPreset";
 import type { PresetOptions } from "../pipelines/checkPreset";
 import { consumerRules } from "./consumerRules";
 import { DEPENDENTS_PROBLEM_CODES, dependentsRules } from "./dependentsRules";
+import { overrideEmitRule } from "./overrideEmit";
 import { addModuleEntryConfigProperty, addStringToNamedExportArray, bumpPackageJsonDependency, namedExportArray, removeStepsFromArray, wrapAtomicGroup, wrapRange } from "./edits";
 import type { SourceRange } from "./edits";
 import { layerProjectData } from "./load";
@@ -144,7 +145,8 @@ export const missingSanitizeSvgRule: SourceRule = {
   },
 };
 
-const OWNED_PROBLEM_CODES = new Set(["preset/override-drops-atomic-group", "preset/override-drops-relay", ...DEPENDENTS_PROBLEM_CODES]);
+const WATCHED_EMIT_PROBLEM = "preset/override-drops-watched-emit";
+const OWNED_PROBLEM_CODES = new Set(["preset/override-drops-atomic-group", "preset/override-drops-relay", WATCHED_EMIT_PROBLEM, ...DEPENDENTS_PROBLEM_CODES]);
 
 /** Every `checkPreset()` problem not already owned by a more specific rule, one manual finding each. */
 export const presetProblemsRule: Rule = {
@@ -485,13 +487,16 @@ export const overrideGroupRule: Rule = {
  * Appends `events.relay` after the pipeline's own last `events.emit:` step (the loaded, overridden
  * pipeline's own step list, not the 3.0 default's) via kestrel's `insertStepAfterEmitOutsideGroup` and
  * `locateSteps`; manual when the pipeline has no `events.emit:` step or the step array cannot be located.
+ * A pipeline that also dropped an emit a dependents pipeline listens to is left to `preset/override-emit`,
+ * which adds the emit and the relay together.
  */
 export const overrideRelayRule: Rule = {
   id: "preset/override-relay",
   check(ctx) {
     const data = layerProjectData(ctx.project);
     if (data === undefined) return [];
-    const problems = data.presetProblems.filter((p) => p.code === "preset/override-drops-relay" && p.pipeline !== undefined);
+    const emitOwned = new Set(data.presetProblems.filter((p) => p.code === WATCHED_EMIT_PROBLEM).map((p) => p.pipeline));
+    const problems = data.presetProblems.filter((p) => p.code === "preset/override-drops-relay" && p.pipeline !== undefined && !emitOwned.has(p.pipeline));
     if (problems.length === 0) return [];
     const locate = ctx.locateSteps ?? layerLocateSteps;
     return problems.map((problem): Finding => {
@@ -523,6 +528,7 @@ export const layerRules: readonly Rule[] = [
   ownPipelineDeliveryRule,
   overrideGroupRule,
   overrideRelayRule,
+  overrideEmitRule,
   ...dependentsRules,
   ...consumerRules,
 ];

@@ -5,7 +5,15 @@ import { afterEach, describe, expect, it } from "vitest";
 import { applyEdits } from "@michaelthielemann/kestrel-upgrade/codemods";
 import type { Finding, LoadedProject, RuleContext, SourceRuleContext } from "@michaelthielemann/kestrel-upgrade/plugin";
 import { deliveryAsyncRule, deliveryDependenciesRule, mediaEventIdsRule, queueLanesRule, serverCacheRule, settingsLlmsRule } from "./dependentsRules";
-import { overrideGroupRule, presetProblemsRule, relayScopeRule } from "./rules";
+import { definePipeline } from "@michaelthielemann/kestrel/definePipeline";
+import type { PipelineEntry } from "@michaelthielemann/kestrel/definePipeline";
+import { checkPreset } from "../pipelines/checkPreset";
+import { overrideEmitRule } from "./overrideEmit";
+import { overrideGroupRule, overrideRelayRule, presetProblemsRule, relayScopeRule } from "./rules";
+
+function stepsOf(value: unknown): PipelineEntry[] {
+  return Array.isArray(value) ? value.filter((entry): entry is PipelineEntry => typeof entry === "string" || (typeof entry === "object" && entry !== null)) : [];
+}
 
 const FILE = "/fake/kestrel.config.ts";
 const QUEUE = "@michaelthielemann/kestrel-events-queue";
@@ -22,7 +30,7 @@ interface ProjectShape {
 
 function contextFor(shape: ProjectShape): RuleContext {
   const project: LoadedProject = {
-    input: { config: { modules: [], triggers: [], http: null }, modules: [], pipelines: [] },
+    input: { config: { modules: [], triggers: [], http: null }, modules: [], pipelines: Object.entries(shape.overrides ?? {}).map(([name, steps]) => definePipeline({ name, steps: stepsOf(steps) })) },
     kind: "kestrel-web",
     configFile: FILE,
     moduleFiles: new Map(),
@@ -77,21 +85,53 @@ describe("the delivery dependencies of a hand-written module list", () => {
     const findings = await deliveryDependenciesRule.check(ctx);
     expect(findings[0]?.severity).toBe("error");
     expect(findings[0]?.message).toBe(message);
-    expect(patched(source, findings)).toContain('dependencies: { render: "events", rendererReadsDocument: true }');
+    expect(patched(source, findings)).toContain('dependencies: { render: "events", rendererReadsDocument: true, maxAttempts: 5, backoffSeconds: [5, 30, 120, 600] }');
   });
 
-  it("stays manual when the entry is not a literal in kestrel.config.ts, or sets the wrong render mode", async () => {
-    const derived = contextFor({ source: "const modules = presetModuleConfig({});\n", modules: [{ use: RENDERER }, { use: DELIVERY_STATIC, config: {} }, { use: QUEUE }], features: ["delivery", "eventsQueue"] });
-    expect((await deliveryDependenciesRule.check(derived))[0]?.fix.kind).toBe("manual");
-    const wrong = contextFor({
+  it("takes the queue's own attempts and backoff into the events render mode", async () => {
+    const ctx = contextFor({
       source,
+      modules: [{ use: RENDERER }, { use: DELIVERY_STATIC, config: { types: { pages: {} } } }, { use: QUEUE, config: { maxAttempts: 3, backoffSeconds: [1, 2] } }],
+      features: ["delivery", "eventsQueue"],
+    });
+    expect(patched(source, await deliveryDependenciesRule.check(ctx))).toContain("maxAttempts: 3, backoffSeconds: [1, 2] }");
+  });
+
+  it("sets the queue render mode on an entry presetModuleConfig() builds, through its overrides", async () => {
+    const problems = [{ code: "preset/render-mode-needs-events", message: "needs events" }];
+    const derivedModules = [{ use: RENDERER }, { use: DELIVERY_STATIC, config: { dependencies: { render: "background", rendererReadsDocument: true } } }, { use: QUEUE }];
+    const bare = "const presetModules = presetModuleConfig({ dataDir });\n";
+    const findings = await deliveryDependenciesRule.check(contextFor({ source: bare, modules: derivedModules, features: ["delivery", "eventsQueue"], problems }));
+    expect(findings[0]?.fix.kind).toBe("auto");
+    expect(patched(bare, findings)).toBe(`const presetModules = presetModuleConfig({ dataDir, overrides: { "${DELIVERY_STATIC}": { dependencies: { render: "events", rendererReadsDocument: true, maxAttempts: 5, backoffSeconds: [5, 30, 120, 600] } } } });\n`);
+
+    const withOverrides = `const presetModules = presetModuleConfig({ dataDir, overrides: { "${DELIVERY_STATIC}": { llms: { full: false } } } });\n`;
+    const merged = await deliveryDependenciesRule.check(contextFor({ source: withOverrides, modules: derivedModules, features: ["delivery", "eventsQueue"], problems }));
+    expect(patched(withOverrides, merged)).toContain(`"${DELIVERY_STATIC}": { llms: { full: false }, dependencies: { render: "events"`);
+  });
+
+  it("replaces a wrong render mode on a literal entry", async () => {
+    const literal = `const modules = [{ use: "${DELIVERY_STATIC}", config: { dependencies: { render: "background", rendererReadsDocument: true } } }];\n`;
+    const ctx = contextFor({
+      source: literal,
+      modules: [{ use: RENDERER }, { use: DELIVERY_STATIC, config: { dependencies: { render: "background", rendererReadsDocument: true } } }, { use: QUEUE }],
+      features: ["delivery", "eventsQueue"],
+      problems: [{ code: "preset/render-mode-needs-events", message: "needs events" }],
+    });
+    expect(patched(literal, await deliveryDependenciesRule.check(ctx))).toContain('dependencies: { render: "events", rendererReadsDocument: true }');
+  });
+
+  it("stays manual when the entry comes from more than one presetModuleConfig() call", async () => {
+    const twice = "const a = presetModuleConfig({ dataDir });\nconst b = presetModuleConfig({ dataDir });\n";
+    const ctx = contextFor({
+      source: twice,
       modules: [{ use: RENDERER }, { use: DELIVERY_STATIC, config: { dependencies: { render: "background" } } }, { use: QUEUE }],
       features: ["delivery", "eventsQueue"],
       problems: [{ code: "preset/render-mode-needs-events", message: "needs events" }],
     });
-    const findings = await deliveryDependenciesRule.check(wrong);
+    const findings = await deliveryDependenciesRule.check(ctx);
     expect(findings[0]?.fix.kind).toBe("manual");
-    expect(findings[0]?.suggestion).toContain('"events"');
+    expect(findings[0]?.suggestion).toContain("presetModuleConfig({ overrides })");
   });
 
   it("says nothing once the entry has dependencies that match, or without delivery-static or renderer-nuxt", async () => {
@@ -135,7 +175,7 @@ describe("the lanes of a hand-written queue entry", () => {
     expect(await queueLanesRule.check(contextFor({ source, modules: [{ use: QUEUE }], features: ["eventsQueue"] }))).toEqual([]);
   });
 
-  it("leaves the lane and render mode problems to these rules instead of the generic preset problem rule", async () => {
+  it("leaves the lane, render mode and dropped emit problems to their own rules instead of the generic preset problem rule", async () => {
     const ctx = contextFor({
       source: "",
       modules: [],
@@ -145,9 +185,10 @@ describe("the lanes of a hand-written queue entry", () => {
         { code: "preset/generate-image-variants-lane", pipeline: "generateImageVariants", message: "b" },
         { code: "preset/render-mode-needs-events", message: "c" },
         { code: "preset/override-drops-watched-emit", pipeline: "setSettings", message: "d" },
+        { code: "preset/lane-pipeline-unknown", pipeline: "refreshLlms", message: "e" },
       ],
     });
-    expect((await presetProblemsRule.check(ctx)).map((f) => f.message)).toEqual(["d"]);
+    expect((await presetProblemsRule.check(ctx)).map((f) => f.message)).toEqual(["e"]);
   });
 });
 
@@ -183,6 +224,44 @@ describe("an override of setSettings", () => {
     const findings = await overrideGroupRule.check(ctx);
     expect(findings[0]?.fix.kind).toBe("auto");
     expect(patched(source, findings)).toContain('{ atomic: ["content.set:settings"] }, "delivery.exportLlms"');
+  });
+
+  const multiLine = `export const preset = definePreset({\n  overrides: {\n    setSettings: [\n      "authn.requireUser",\n      "authz.require:settings.write",\n      "validate.check:settings.navigation",\n      "content.set:settings",\n      "delivery.exportLlms",\n    ],\n  },\n});\n`;
+  const problems = [
+    { code: "preset/override-drops-atomic-group", pipeline: "setSettings", message: "group" },
+    { code: "preset/override-drops-relay", pipeline: "setSettings", message: "relay" },
+    { code: "preset/override-drops-watched-emit", pipeline: "setSettings", message: 'preset: override for "setSettings" drops "events.emit:settings.updated"' },
+  ];
+
+  it("gets its group, emit and relay and loses its inline llms.txt export in one edit that supersedes the group wrap", async () => {
+    const ctx = contextFor({ source: multiLine, modules, features: ["delivery"], overrides: { setSettings: override }, problems });
+    const emit = await overrideEmitRule.check(ctx);
+    expect(emit[0]?.fix.kind).toBe("auto");
+    expect(await overrideRelayRule.check(ctx)).toEqual([]);
+    const text = patched(multiLine, [...(await overrideGroupRule.check(ctx)), ...emit]);
+    expect(text).toBe(`export const preset = definePreset({\n  overrides: {\n    setSettings: [\n      "authn.requireUser",\n      "authz.require:settings.write",\n      "validate.check:settings.navigation",\n      { atomic: ["content.set:settings"] },\n      "events.emit:settings.updated",\n      "events.relay",\n    ],\n  },\n});\n`);
+    expect(await settingsLlmsRule.check(ctx)).toEqual([]);
+  });
+
+  it("leaves an override the preset accepts in both delivery modes", () => {
+    const fixed: PipelineEntry[] = ["authn.requireUser", "authz.require:settings.write", "validate.check:settings.navigation", { atomic: ["content.set:settings"] }, "events.emit:settings.updated", "events.relay"];
+    const collections = { settings: { kind: "single" as const, fields: {} }, pages: { kind: "multi" as const, fields: { slug: {}, title: {}, body: {}, status: {} } } };
+    const direct = [...modules, { use: RENDERER }, { use: DELIVERY_STATIC, config: {} }];
+    expect(checkPreset({ modules: direct, features: ["delivery"], collections, overrides: { setSettings: fixed } }).problems).toEqual([]);
+    const queued = [...modules.filter((m) => m.use !== "@michaelthielemann/kestrel-events-direct"), { use: QUEUE, config: { lanes: { pages: ["republishOutput", "refreshLlms"] } } }, { use: RENDERER }, { use: DELIVERY_STATIC, config: { dependencies: { render: "events" } } }];
+    expect(checkPreset({ modules: queued, features: ["delivery", "eventsQueue"], collections, overrides: { setSettings: fixed } }).problems).toEqual([]);
+  });
+
+  it("stays manual when the write is not one exact run, and only names the problem", async () => {
+    const mixed = ["authn.requireUser", "content.set:settings", "authn.requireUser", "delivery.exportLlms"];
+    const source2 = `definePreset({ overrides: { setSettings: ["authn.requireUser", "content.set:settings", "authn.requireUser", "delivery.exportLlms"] } });\n`;
+    const withProblem = contextFor({ source: source2, modules, features: ["delivery"], overrides: { setSettings: mixed }, problems: problems.slice(2) });
+    expect((await overrideEmitRule.check(withProblem))[0]?.fix.kind).toBe("auto");
+    const split = ["authn.requireUser", "delivery.exportLlms"];
+    const source3 = `definePreset({ overrides: { setSettings: ["authn.requireUser", "delivery.exportLlms"] } });\n`;
+    const missingWrite = await overrideEmitRule.check(contextFor({ source: source3, modules, features: ["delivery"], overrides: { setSettings: split }, problems: problems.slice(2) }));
+    expect(missingWrite[0]?.fix.kind).toBe("manual");
+    expect(missingWrite[0]?.suggestion).toContain("one run");
   });
 });
 
