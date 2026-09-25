@@ -19,9 +19,10 @@ password. The password is hashed with scrypt in the format `@michaelthielemann/k
 verifies and written to `.env` as `KESTREL_ADMIN_PASSWORD_HASH`; no clear-text password and no
 credential ever reaches a scaffolded file. `.env.example` carries placeholders only.
 
-Preselected features: `references`, `links`, `delivery`, `redirects`, `images`, `insights`,
-`eventsQueue`, `revisions`. The rest of what the preset knows can be switched on: `ratelimit`,
-`sanitizeSvg`, `replication`, `migrations`, `audit`.
+Preselected features: `sanitizeSvg`, `references`, `links`, `delivery`, `redirects`, `images`,
+`insights`, `eventsQueue`, `revisions`. The rest of what the preset knows can be switched on:
+`ratelimit`, `replication`, `migrations`, `audit`. Choosing `delivery` always brings `sanitizeSvg`
+along, since every uploaded file is then published next to the site.
 
 With `eventsQueue`, work that follows a write runs in a background worker: an upload answers as soon as
 the file is stored and its image variants follow shortly after; publishing a page still completes before

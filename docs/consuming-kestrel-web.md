@@ -653,7 +653,7 @@ or a retry actually runs.
 | feature | required module(s) | adds |
 |---|---|---|
 | `ratelimit` | kestrel-ratelimit-memory | `sweepRateLimits` (cron); rate-limit check step at the start of `login` |
-| `sanitizeSvg` | kestrel-sanitize-svg | SVG sanitize step before the upload step in `uploadMedia`; only with this module configured does `layers/core` serve SVG inline (`inlineTypes`), otherwise SVGs are delivered as attachments |
+| `sanitizeSvg` | kestrel-sanitize-svg | SVG sanitize step before the upload step in `uploadMedia`; only with this module configured does `layers/core` serve SVG inline (`inlineTypes`), otherwise SVGs are delivered as attachments. Required with `delivery` unless `image/svg+xml` is denied — see the note below the table |
 | `references` | kestrel-references-default | `brokenReferences`, `pageReferrers(Many)`, `mediaReferrers(Many)`, `rebuildReferences`, `scanReferences` (cron); check/index/guard/unindex steps in `createPage`, `updatePage`, `deletePage`, `deleteMedia`, `deleteMediaFolder`, and a re-index step in `deletePageTranslation` when it exists |
 | `links` | kestrel-links-default | `brokenLinks`, `rebuildLinks`, `checkLinks` (cron); extract/unextract steps in `createPage`, `updatePage`, `deletePage`, and a re-extract step in `deletePageTranslation` when it exists |
 | `delivery` | kestrel-delivery-static + kestrel-renderer-nuxt | `pagePublishStatus`, `publishAllPages`, plus two event pipelines: `publishPage` (triggered by `page.created`, `page.updated`, `page.restored`, and `page.translationRemoved` when the model is translatable) and `unpublishPage` (triggered by `page.deleted`) — see the note below the table |
@@ -665,6 +665,13 @@ or a retry actually runs.
 | `insights` | kestrel-insights (optional peer) | `insightsManifest`, `insightsStats` (`GET /admin/insights/manifest`, `GET /admin/insights/stats`, `insights.read`); the `/admin/insights` page |
 | `eventsQueue` | kestrel-events-queue (instead of kestrel-events-direct) | Adds `eventsQueueStatus`, `eventsDead`, `eventsRetryDead`, `eventsRetryOne` (`/admin/events/*`, `system.manage`), and `purgeEvents` (cron) — see the note below the table |
 | `revisions` | kestrel-revisions-default | Per-collection revision pipelines, routes and the history dialog in the record editor — see the list below the table |
+
+**`sanitizeSvg` with `delivery`:** `delivery` publishes every uploaded file under `/media/` on the site
+origin, so `presetModuleConfig()` refuses a configuration in which `media-default` has `publicCopy` (which
+`delivery` sets) and accepts `image/svg+xml` while `sanitizeSvg` is off. It reads the configuration after
+`overrides` are applied, compares types in any letter case and counts `image/*`, `*/*` and `*` as
+accepting SVG. Turn `sanitizeSvg` on, or add `image/svg+xml` to `media.deniedTypes`. `create-kestrel`
+adds `sanitizeSvg` whenever `delivery` is chosen.
 
 **Event delivery status (every instance):** `GET /admin/events/delivery` (`system.manage`) answers
 `{ dead, scope, since, lastDeadAt }`, the deliveries the active delivery module gave up on — `scope:
@@ -1354,10 +1361,12 @@ location / { try_files $uri $uri/index.html =404; }
 ```
 
 The two security headers on `/media/` are mandatory whenever it shares an origin with `/admin`. Every
-file an anonymous visitor may read — SVGs included — is served there; unless the `sanitizeSvg` feature is
-on, an SVG is stored as uploaded, and opened directly it would run its script on the site origin, where
-the admin's session cookie is readable by script. `nosniff` stops a file from being taken for another
-type, and the CSP `sandbox` stops any script it holds from running. The Node server sends both on every
+file an anonymous visitor may read — SVGs included — is served there, and a file opened directly runs any
+script it holds on the site origin, where the admin's session cookie is readable by script. With
+`delivery`, the preset accepts SVG uploads only when `sanitizeSvg` strips their scripts or SVG is denied
+(see the note below the feature table in §4); a hand-written module list must ensure the same, and
+`media-default` refuses to boot otherwise. `nosniff` stops a file from being taken for another type, and
+the CSP `sandbox` stops any script it holds from running. The Node server sends both on every
 file at `/media/**` already; this block matches that when serving the export from a filesystem blobstore
 instead. An original's URL never changes content once written and may be cached for a year; a variant
 path holds the original's bytes until its render replaces them at the same URL, so it must revalidate

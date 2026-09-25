@@ -230,11 +230,13 @@
     `/api/media/<id>/file` itself must read `path` from the item instead.
   - Listing media or its folders (`GET /api/media` without `ids`, `GET /api/media/folders`) now requires
     a signed-in caller and answers `401` to a public request; reading one item by id stays anonymous.
-  - The media picker and the media field refuse to insert an item whose `available` is `false`
+  - The media picker and the media field refuse to add an item whose `available` is `false`
     (`isInsertable`, `layers/admin/app/utils/media-insert.ts`); the picker shows it as not selectable and
     keeps polling until it settles, without reopening the dialog, and the upload tile shows "Processing…"
-    until then. A media field holding an id that turns out unavailable (a restored draft) reverts to its
-    previous value with a message instead of keeping it.
+    until then. "Use selected" checks the newly picked items once more and, if one turned unavailable,
+    names it and adds nothing. Ids a field already holds are never gated: the field keeps a stored id
+    that is unavailable (with a hint), the picker lets it stay selected or be deselected, and it never
+    blocks adding other items.
   - With `eventsQueue`, placing an upload's variant paths (`planImageVariants`, main lane) and rendering
     them (`generateImageVariants`) are two pipelines connected by the new event `images.planned`;
     `generateImageVariants` runs in the queue's own `variants` lane (`events-queue`'s `lanes` config), so
@@ -260,10 +262,12 @@
   - Static hosting: route `/media/` to the site export like the pages, with the security headers and the
     cache rules `docs/consuming-kestrel-web.md` §8 spells out (an original is cached for a year, a variant
     path revalidates on every request until its render replaces the placeholder there).
-  - `presetModuleConfig()` refuses to build when a media module has `publicCopy` set and
-    `media.allowedTypes` allows `image/svg+xml` without the `sanitizeSvg` feature enabled: an unsanitized
-    SVG is public at the same origin as the admin. Add `sanitizeSvg` to `features` or deny the type in
-    `media.deniedTypes`. `create-kestrel`'s default feature set now includes `sanitizeSvg`.
+  - `presetModuleConfig()` refuses to build when `media-default` ends up with `publicCopy` set (the
+    `delivery` feature sets it) and allows `image/svg+xml` without the `sanitizeSvg` feature enabled: an
+    unsanitized SVG is public at the same origin as the admin. The check reads the configuration after
+    `overrides` are applied, compares types case-insensitively and counts `image/*`, `*/*` and `*` as
+    allowing SVG. Add `sanitizeSvg` to `features` or deny the type in `media.deniedTypes`.
+    `create-kestrel` preselects `sanitizeSvg` and adds it whenever `delivery` is chosen.
 
 ### Added
 
