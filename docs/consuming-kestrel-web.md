@@ -1617,11 +1617,19 @@ What changes:
 - A statically delivered site navigates without `/api` (§8). Run **Publish all** after upgrading so every
   exported page carries the static marker and the build id. A page exported by an earlier release keeps
   calling `/api` on navigation until it is published again; forwarding `/api/` to the origin (§8, hybrid)
-  keeps such a site working in the meantime.
+  keeps such a site working in the meantime. `check`/`fix` reminds you of this once, with `ops/publish-all`,
+  whenever `delivery` is on.
 - Code on exported pages follows the rules in §8, "What an exported page requests": deterministic keys
   that carry the locale, never `useId()`, data transferred without `useState`. `useSiteSettings()` stores
   its data under `site:settings:<locale>`, and a media item the layer loads keeps its public fields only
-  (`PublicMediaItem`).
+  (`PublicMediaItem`). The upgrade tool checks your own `app/` code for the shapes that break on a static
+  site: `site/settings-key` catches `refreshNuxtData`/`clearNuxtData`/`useNuxtData` still naming the old,
+  unscoped `"site:settings"` key (manual — the location and the locale key are yours to fill in);
+  `static/unstable-key` reports (never edits) a fetch key built from `useId()` or a fixed key next to a
+  `watch` on `useSiteLocale()`; `static/route-cache` reports an `isr`/`cache`/`swr` route rule on a page
+  route once `delivery` is on, since `delivery-static` cannot publish through it; `site/private-fields`
+  reports your own code reading a media item's `folder`, `createdAt`, `updatedAt`, `variantCounts` or a
+  variant's `state` — none of them survive into `PublicMediaItem`.
 - A hand-written `modules` list needs `events-inmemory` plus exactly one of `events-direct`/`events-queue`;
   a project built with `presetModuleConfig()` already has this and needs no change.
 - An `overrides` entry of a write pipeline must keep the atomic group around its content write, and keep

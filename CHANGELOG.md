@@ -346,6 +346,11 @@
   `docs/consuming-kestrel-web.md` §11.
 - `#kestrel/pipelines` exports `checkPreset(options)`, which composes a preset like `definePreset()` but
   collects every problem instead of throwing at the first.
+- `kestrel-web-upgrade` also checks the consumer's own `app/` code against the static-export contract
+  (§8): the old, unscoped `"site:settings"` key, a fetch key built from `useId()` or watching `useSiteLocale()`,
+  an `isr`/`cache`/`swr` route rule on a page route, and a read of a media item's private fields
+  (`folder`, `createdAt`, `updatedAt`, `variantCounts`, a variant's `state`); and reminds to run Publish
+  all once after the upgrade.
 - `GET /admin/events/status`'s response gains `lanes`: per configured named lane, `pending`, `running` and
   `oldestPendingAt`, alongside the existing per-state totals.
 
