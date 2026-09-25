@@ -405,6 +405,10 @@
   client reuses the server-rendered sanitized HTML instead of recomputing it against live data on a
   static export.
 
+- A block field of type `media` or `relation` with `multiple`/`many` set now validates and saves an array
+  of ids, matching the `choice` field's existing behaviour, instead of always requiring a single string
+  and rejecting every save of the field.
+
 ## 2.0.1 – 2026-09-21
 
 ### Changed

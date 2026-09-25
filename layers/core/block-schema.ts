@@ -12,9 +12,12 @@ function fieldSchema(field: SerializedField, fieldTypes: FieldTypes): Schema {
     case "richtext":
       return nullable({ type: "string", format: "html" });
     case "text":
-    case "media":
-    case "relation":
       return nullable({ type: "string" });
+    case "media":
+    case "relation": {
+      const multiple = field.type === "media" ? field.options?.multiple : field.relation?.many;
+      return multiple ? nullable({ type: "array", items: { type: "string" } }) : nullable({ type: "string" });
+    }
     case "slug":
       return nullable({ type: "string", pattern: "^[a-z0-9]+(-[a-z0-9]+)*$" });
     case "number":
