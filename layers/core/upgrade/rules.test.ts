@@ -5,6 +5,7 @@ import { applyEdits } from "@michaelthielemann/kestrel-upgrade/codemods";
 import { missingSanitizeSvgRule, overrideDeliveryRule, overrideGroupRule, overrideRelayRule, ownPipelineDeliveryRule, relayScopeRule } from "./rules";
 
 const FILE = "/fake/kestrel.config.ts";
+const SANITIZE_SVG_PACKAGE = "@michaelthielemann/kestrel-sanitize-svg";
 
 const OVERRIDE_SOURCE = `
 export const preset = definePreset({
@@ -603,6 +604,46 @@ describe("missingSanitizeSvgRule", () => {
     const source = 'export const presetFeatures = ["delivery", "images", "sanitizeSvg"] as const satisfies readonly Feature[];\nexport const features = [...presetFeatures, "eventsQueue"] as const satisfies readonly Feature[];\n';
     const findings = await missingSanitizeSvgRule.check(modelContextFor(source));
     expect(findings).toEqual([]);
+  });
+
+  function contextFor(files: Record<string, string>): RuleContext {
+    return { ...modelContextFor(""), readFile: (file) => files[file] };
+  }
+
+  it('stays silent when features is built by a function call, not a plain array literal (e.g. withDelivery([...]))', async () => {
+    const source = 'export const features = withDelivery(["images"]) satisfies readonly Feature[];\n';
+    const findings = await missingSanitizeSvgRule.check(contextFor({ [MODEL_FILE]: source }));
+    expect(findings).toEqual([]);
+  });
+
+  it("stays silent when the spread's array is not itself found in the same file (an imported array)", async () => {
+    const source = 'import { presetFeatures } from "./preset-features";\nexport const features = [...presetFeatures, "eventsQueue"] as const satisfies readonly Feature[];\n';
+    const findings = await missingSanitizeSvgRule.check(contextFor({ [MODEL_FILE]: source }));
+    expect(findings).toEqual([]);
+  });
+
+  it('stays silent when kestrel.config.ts already denies "image/svg+xml" via media.deniedTypes', async () => {
+    const modelSource = 'export const features = ["delivery", "images"] as const satisfies readonly Feature[];\n';
+    const configSource = 'const modules = presetModuleConfig({ dataDir, features, media: { deniedTypes: ["image/svg+xml"] } });\n';
+    const findings = await missingSanitizeSvgRule.check(contextFor({ [MODEL_FILE]: modelSource, [FILE]: configSource }));
+    expect(findings).toEqual([]);
+  });
+
+  it("does not omit the dependency suggestion when media.deniedTypes denies a different type", async () => {
+    const modelSource = 'export const features = ["delivery", "images"] as const satisfies readonly Feature[];\n';
+    const configSource = 'const modules = presetModuleConfig({ dataDir, features, media: { deniedTypes: ["text/html"] } });\n';
+    const [finding] = await missingSanitizeSvgRule.check(contextFor({ [MODEL_FILE]: modelSource, [FILE]: configSource }));
+    expect(finding?.fix.kind).toBe("auto");
+    expect(finding?.suggestion).toContain(SANITIZE_SVG_PACKAGE);
+  });
+
+  it("omits the dependency suggestion once package.json already lists kestrel-sanitize-svg", async () => {
+    const modelSource = 'export const features = ["delivery", "images"] as const satisfies readonly Feature[];\n';
+    const packageJson = `{ "dependencies": { "${SANITIZE_SVG_PACKAGE}": "^6.0.0" } }`;
+    const [finding] = await missingSanitizeSvgRule.check(contextFor({ [MODEL_FILE]: modelSource, "/fake/package.json": packageJson }));
+    expect(finding?.fix.kind).toBe("auto");
+    expect(finding?.suggestion).not.toContain("dependencies");
+    expect(finding?.suggestion).toBe('adds "sanitizeSvg" to features');
   });
 });
 

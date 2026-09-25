@@ -1,15 +1,17 @@
-import { insertStepAfterEmitOutsideGroup, isAstNode, parseTs, stringValue } from "@michaelthielemann/kestrel-upgrade/codemods";
+import { join } from "node:path";
+import { arrayElements, findCalls, firstArgument, insertStepAfterEmitOutsideGroup, isArrayExpression, isAstNode, objectProperty, parseTs, stringValue } from "@michaelthielemann/kestrel-upgrade/codemods";
 import type { AstNode } from "@michaelthielemann/kestrel-upgrade/codemods";
-import type { Edit, Finding, Rule, RuleContext } from "@michaelthielemann/kestrel-upgrade/plugin";
+import type { Edit, Finding, Rule, RuleContext, SourceRule, SourceRuleContext } from "@michaelthielemann/kestrel-upgrade/plugin";
 import { pipelineSteps } from "@michaelthielemann/kestrel/definePipeline";
 import type { PipelineDefinition, PipelineEntry } from "@michaelthielemann/kestrel/definePipeline";
 import { checkPreset, relayPipelinesFor } from "../pipelines/checkPreset";
 import type { PresetOptions } from "../pipelines/checkPreset";
+import { consumerRules } from "./consumerRules";
 import { addModuleEntryConfigProperty, addStringToNamedExportArray, bumpPackageJsonDependency, namedExportArray, removeStepsFromArray, wrapAtomicGroup, wrapRange } from "./edits";
 import type { SourceRange } from "./edits";
 import { layerProjectData } from "./load";
 import { layerLocateSteps, ownPipelineSteps } from "./locators";
-import { autoFinding, docsAnchor, fileForPipeline, findFeaturesArrayFile, manualFinding, packageJsonPath, presetOptionsCast } from "./ruleHelpers";
+import { autoFinding, docsAnchor, fileForPipeline, findFeaturesArrayFile, manualFinding, packageJsonPath, presetOptionsCast, resolvedArrayValues } from "./ruleHelpers";
 
 const LAYER_RANGE = "^3.0.0";
 const LAYER_PACKAGE = "@michaelthielemann/kestrel-web";
@@ -18,9 +20,12 @@ const EVENTS_QUEUE_MODULE = "@michaelthielemann/kestrel-events-queue";
 /**
  * Bumps `@michaelthielemann/kestrel-web` to `^3.0.0` in the project's `package.json`. Kestrel's own
  * `deps/kestrel-range` only ever looks at `@michaelthielemann/kestrel*` backend packages, never this one.
+ * A source rule, like `deps/kestrel-range` itself, so it still runs (and can still bump the range) on a
+ * project whose `kestrel.config.ts` fails to load for an unrelated reason.
  */
-export const layerRangeRule: Rule = {
+export const layerRangeRule: SourceRule = {
   id: "deps/layer-range",
+  needs: "source",
   check(ctx) {
     const file = packageJsonPath(ctx);
     const source = ctx.readFile(file);
@@ -86,23 +91,6 @@ export const relayScopeRule: Rule = {
 
 const SANITIZE_SVG_PACKAGE = "@michaelthielemann/kestrel-sanitize-svg";
 
-function resolvedArrayValues(source: string, array: { elements: readonly AstNode[] }): string[] {
-  const values: string[] = [];
-  for (const el of array.elements) {
-    const value = stringValue(el);
-    if (value !== undefined) {
-      values.push(value);
-      continue;
-    }
-    if (el.type !== "SpreadElement") continue;
-    const arg = el.argument;
-    if (!isAstNode(arg) || arg.type !== "Identifier" || typeof arg.name !== "string") continue;
-    const spread = namedExportArray(source, arg.name);
-    if (spread !== undefined) values.push(...resolvedArrayValues(source, spread));
-  }
-  return values;
-}
-
 function featuresInsertionTarget(source: string, features: { elements: readonly AstNode[] }): string {
   for (const el of features.elements) {
     if (el.type !== "SpreadElement") continue;
@@ -112,6 +100,23 @@ function featuresInsertionTarget(source: string, features: { elements: readonly 
   return "features";
 }
 
+function deniesSvg(ctx: SourceRuleContext): boolean {
+  const source = ctx.readFile(join(ctx.root, "kestrel.config.ts"));
+  if (source === undefined) return false;
+  for (const call of findCalls(parseTs(source), "presetModuleConfig")) {
+    const options = firstArgument(call);
+    const media = options === undefined ? undefined : objectProperty(options, "media");
+    const denied = media === undefined ? undefined : objectProperty(media, "deniedTypes");
+    if (denied !== undefined && isArrayExpression(denied) && arrayElements(denied).some((el) => stringValue(el) === "image/svg+xml")) return true;
+  }
+  return false;
+}
+
+function dependsOnSanitizeSvg(ctx: SourceRuleContext): boolean {
+  const source = ctx.readFile(join(ctx.root, "package.json"));
+  return source !== undefined && source.includes(`"${SANITIZE_SVG_PACKAGE}"`);
+}
+
 /**
  * `presetModuleConfig()` turns media's `publicCopy` on for the `delivery` feature and rejects that
  * combination outright when SVG uploads are still allowed without `sanitizeSvg` — a 2.x project, built
@@ -119,26 +124,26 @@ function featuresInsertionTarget(source: string, features: { elements: readonly 
  * rather than the loaded preset, so it still finds and fixes the gap on a project whose `kestrel.config.ts`
  * this same condition would otherwise fail to load at all — following a `...presetFeatures`-style spread
  * to the narrower array `presetModuleConfig()` actually receives, and inserting into that array instead of
- * `features` itself when there is one.
+ * `features` itself when there is one. Stays silent when `features` is not statically resolvable (a
+ * `withDelivery([...])` wrapper, a spread of an imported array) or when `media.deniedTypes` already denies
+ * SVG outright — `load()`'s own recognition of the preset's refusal message carries the manual finding then.
  */
-export const missingSanitizeSvgRule: Rule = {
+export const missingSanitizeSvgRule: SourceRule = {
   id: "preset/missing-sanitize-svg",
+  needs: "source",
   check(ctx) {
     const file = findFeaturesArrayFile(ctx);
     const source = file === undefined ? undefined : ctx.readFile(file);
     const features = source === undefined ? undefined : namedExportArray(source, "features");
     if (file === undefined || source === undefined || features === undefined) return [];
     const values = resolvedArrayValues(source, features);
-    if (!values.includes("delivery") || values.includes("sanitizeSvg")) return [];
+    if (!values.includes("delivery") || values.includes("sanitizeSvg") || deniesSvg(ctx)) return [];
     const edit = addStringToNamedExportArray(file, source, featuresInsertionTarget(source, features), "sanitizeSvg");
+    if (edit === undefined) return [];
     const where = { file };
     const message = `features has "delivery" (which turns on media's publicCopy) without "sanitizeSvg", which presetModuleConfig() requires once SVG uploads are allowed`;
-    const docs = docsAnchor("preset-missing-sanitize-svg");
-    return [
-      edit === undefined
-        ? manualFinding("preset/missing-sanitize-svg", "preset/missing-sanitize-svg", where, message, `add "sanitizeSvg" to features yourself, and ${SANITIZE_SVG_PACKAGE} to your dependencies`, docs)
-        : autoFinding("preset/missing-sanitize-svg", "preset/missing-sanitize-svg", where, message, `adds "sanitizeSvg" to features; add ${SANITIZE_SVG_PACKAGE} to your dependencies too`, [edit], docs),
-    ];
+    const suggestion = dependsOnSanitizeSvg(ctx) ? `adds "sanitizeSvg" to features` : `adds "sanitizeSvg" to features; add ${SANITIZE_SVG_PACKAGE} to your dependencies too`;
+    return [autoFinding("preset/missing-sanitize-svg", "preset/missing-sanitize-svg", where, message, suggestion, [edit], docsAnchor("preset-missing-sanitize-svg"))];
   },
 };
 
@@ -511,4 +516,15 @@ export const overrideRelayRule: Rule = {
   },
 };
 
-export const layerRules: readonly Rule[] = [layerRangeRule, relayScopeRule, missingSanitizeSvgRule, presetProblemsRule, overrideDriftRule, overrideDeliveryRule, ownPipelineDeliveryRule, overrideGroupRule, overrideRelayRule];
+export const layerRules: readonly Rule[] = [
+  layerRangeRule,
+  relayScopeRule,
+  missingSanitizeSvgRule,
+  presetProblemsRule,
+  overrideDriftRule,
+  overrideDeliveryRule,
+  ownPipelineDeliveryRule,
+  overrideGroupRule,
+  overrideRelayRule,
+  ...consumerRules,
+];
