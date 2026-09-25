@@ -271,6 +271,36 @@
     Add `sanitizeSvg` to `features` or deny the type in `media.deniedTypes`.
     `create-kestrel` preselects `sanitizeSvg` and adds it whenever `delivery` is chosen.
 
+- **A statically delivered site no longer calls `/api` after it loads.** The exported HTML carries
+  `data-kestrel-delivery="static"` on `<html>`. On such a page, following a link fetches the target page's HTML
+  from the static host and takes the page's data from it instead of calling `/api/site/…`; when that page is
+  missing, redirected, or from another build, the browser loads the target page as a document instead. Every
+  public page now carries `data-kestrel-build` on `<html>` for that check. Run **Publish all** after upgrading.
+  The live site is unaffected.
+
+- On a statically delivered page, `useApi()` no longer sends GET or HEAD requests. It rejects with an `ApiError`
+  (status 404, code `STATIC_DELIVERY`) and logs a warning naming the path. Data a page needs must come from
+  `useAsyncData`/`useFetch` with a key that does not change between server and browser — never `useId()` — and
+  that contains the locale when the data depends on it. Following a link carries over those results only;
+  `useState` values are computed again in the browser. Code that needs live data after load calls `$fetch`
+  against a route your static host forwards. Other methods are sent as before. The rules are listed in
+  `docs/consuming-kestrel-web.md` §8.
+
+- `useSiteSettings()` stores its data per locale under `site:settings:<locale>`. Replace
+  `refreshNuxtData('site:settings')` and similar calls with the locale key. The page's own data is keyed by its
+  site path (`site:/about` whether the browser opened `/about`, `/about/` or `/about/index.html`), and its
+  language links by page id and locale (`site:locales:<id>:<locale>`).
+
+- A media item the public layer loads for display keeps its public fields only (`id`, `path`, `filename`,
+  `contentType`, `size`, `width`, `height`, `alt`, `title`, `description`, `provenance`, and per variant `size`,
+  `width`, `height`, `format`, `path`). `useMediaItem()` returns that shape (`PublicMediaItem`), and
+  `KestrelImage` and `pickImageSources` accept it. Everything a page's data holds is published with the page, on
+  the live site and in the static export, so keep your own `useAsyncData` results to what visitors may see.
+
+- `renderer-nuxt` refuses to publish a page whose payload is not embedded in the HTML (a route with an `isr` or
+  `cache` rule) or that is not rendered on the server, with `RENDER_FAILED` naming the cause. Such pages could not
+  hydrate on a static host.
+
 ### Added
 
 - `#kestrel/pipelines` exports `relayPipelinesFor(features)` and `RELAY_CANDIDATE_PIPELINES`, the helper
@@ -304,6 +334,12 @@
 - `useAuth().refreshAccess()`: re-checks the session and refetches the schema; called after the
   signed-in user edits their own roles.
 - The `kestrel/admin-api-routes` ESLint rule (see Breaking above).
+- `isStaticDelivery()` (auto-imported from `layers/core/app/utils/static-delivery.ts`): whether the page in
+  this browser tab was exported for a static host. For event handlers and `onMounted` only; markup must not
+  depend on it.
+- `sitePath()` and `toPublicMedia()`/`PublicMediaItem` (`layers/public/app/utils/`), and the
+  `@michaelthielemann/kestrel-renderer-nuxt/static-marker` subpath with the attribute names
+  (`DELIVERY_ATTRIBUTE`, `STATIC_DELIVERY`, `BUILD_ATTRIBUTE`), which UI code may import.
 
 ### Changed
 
@@ -408,6 +444,12 @@
 - A block field of type `media` or `relation` with `multiple`/`many` set now validates and saves an array
   of ids, matching the `choice` field's existing behaviour, instead of always requiring a single string
   and rejecting every save of the field.
+
+- After switching the language, the header shows the site title and navigation of the new language, and the
+  language switch marks the new language as the current one.
+
+- A statically delivered page opened with a trailing slash (`/about/`) no longer requests `/api` while it
+  hydrates.
 
 ## 2.0.1 – 2026-09-21
 

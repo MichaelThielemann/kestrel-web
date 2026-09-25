@@ -297,4 +297,11 @@ static delivery (§8 of the consuming guide): with `delivery`/`renderer-nuxt` on
 rendered to the blobstore and a plain static server delivers the public site, which then stays up
 across the admin process's restart. Editing is unavailable while the process is down either way.
 
-After a new build, run **Publish all** once so the exported pages reference the new asset hashes.
+After a new build, run **Publish all** once so the exported pages reference the new asset hashes; a
+page of the old build is loaded as a document instead of by client navigation until then.
+
+The static host needs no `/api`: an exported page navigates by reading the target page's HTML. Serve page
+HTML with `Cache-Control: no-cache` and `/_nuxt/` as immutable, and answer an unknown path with 404, never
+with another page's HTML (no SPA fallback). §8 of the consuming guide has the nginx block. Forward `/api/`
+to the origin only for features of your own that need it after load (hybrid); those features then depend
+on the origin again, and the API's access list becomes the public boundary.

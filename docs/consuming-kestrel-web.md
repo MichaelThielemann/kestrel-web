@@ -1359,8 +1359,14 @@ location ^~ /media/ {
         add_header Cache-Control "no-cache" always;
     }
 }
-location / { try_files $uri $uri/index.html =404; }
+location / { add_header Cache-Control "no-cache"; try_files $uri $uri/index.html =404; }
 ```
+
+Page HTML revalidates on every request (`no-cache`; the host answers 304 from its ETag), so a republished
+page is seen at once, while `/_nuxt/` is hashed and immutable. Objects written by `delivery-static` carry no
+cache header of their own; the host sets them. Answer an unknown path with 404, never with another page's
+HTML: an SPA fallback such as `try_files $uri /index.html` breaks client navigation (see "What an exported
+page requests" below).
 
 The two security headers on `/media/` are mandatory whenever it shares an origin with `/admin`. Every
 file an anonymous visitor may read — SVGs included — is served there, and a file opened directly runs any
@@ -1388,6 +1394,71 @@ explicitly ("The page was deleted, but it is still online.") and points at Syste
 queue, or at System → Delivery without it. **`publishAllPages` does not repair this case**: it re-renders
 every live page and never removes an artefact whose document is already gone, so reach for the queue's
 retry (or, without the queue, re-run the delivery module's own removal) instead of Publish All.
+
+### What an exported page requests
+
+An exported page loads its HTML, `/_nuxt/**` and `/media/**` and nothing else of the layer's; it never
+calls `/api`. `<html>` carries `data-kestrel-delivery="static"`, and on such a page following a link fetches
+the target page's exported HTML and takes the page's data from it — the same data a full load of that page
+hydrates from. When the target cannot be used (missing, redirected, rendered by another build) the browser
+loads it as a document and your host answers: the page, a redirect from your edge, or its 404. The design
+is in `docs/architecture.md`, "Client navigation on a static page".
+
+Each exported page is a snapshot of its last publish, including the settings, navigation and language
+links it embeds. Within one visit the header stays the one of the page the visitor entered on. A settings
+change reaches exported pages when they are published again (**Publish all**); until then a visit can show
+pages of different ages.
+
+The layer guarantees, for your own code as well as its own: every `useAsyncData`/`useFetch` whose key the
+server rendered for a page is found again on client navigation, and every read through `useApi()` that the
+page's data does not cover fails locally — a 404 `ApiError` with code `STATIC_DELIVERY` and a console
+warning naming the path — without sending a request. It cannot guarantee anything your code requests by
+other means. Code that runs on exported pages follows these rules:
+
+1. **Deterministic keys.** Derive a key from its inputs, and include the locale when the value depends on
+   it. Never `useId()`, a random value or the time. A `watch` on the locale does not replace the locale in
+   the key: inside a page the route is fixed for that page's instance, so the watch never fires.
+2. **Fetch during server rendering.** `server: false`, `lazy` fetches after mount, `callOnce` and a manual
+   `refresh()` are not in the page's data; on a static page they need a route your host serves.
+3. **Read Kestrel through `useApi()`.** A raw `$fetch('/api/…')` bypasses the refusal above and reaches the
+   host. For media, use the file URLs an item carries (`path`, `variants[].path`); they resolve everywhere.
+   Read the item itself with `useMediaItem()` or your own `useAsyncData` keyed by ids and locale, during
+   server rendering, or pass inline `MediaItem`s. An item read only in the browser (a lightbox loading
+   another item on click) is refused on a static page and yields `null`.
+4. **Return a value.** Return `null` rather than `undefined`, and turn expected errors into values: a key
+   whose handler failed on the server is `undefined` in the page's data and is fetched again in the browser.
+5. **A custom `getCachedData` reads `nuxtApp.static.data`** outside hydration, as Nuxt's default does.
+6. **Do not render by target.** `isStaticDelivery()` is for event handlers and `onMounted`, never for
+   markup; the server renders every page as a live page.
+7. **No route caching and no server components on exported pages.** An `isr` or `cache` route rule makes
+   the publish fail with `RENDER_FAILED`; an island in a page's data would fetch `/__nuxt_island/…`.
+8. **Nuxt pages that are not page documents are not exported.** Model them as pages, or route them to the
+   origin.
+9. **Runtime integrations exist only on the origin.** A proxy route rule or a form endpoint must be routed
+   by the static host itself.
+10. **Only public data in a page's data.** Everything a page's `useAsyncData` returns is exported with the
+    page. Store the public shape (a `transform`), never whole API records with internal fields, and keep
+    editor-only data out of the page model. The layer does so for its own keys: a media item keeps only the
+    fields `toPublicMedia()` returns.
+11. **Following a link transfers data, not state.** On a static page a navigation applies the target
+    page's `useAsyncData`/`useFetch` results only. `useState` values the server set for the target page are
+    not transferred; their initializers run again in the browser, as on the live site. Derive such state
+    from `useAsyncData` results (a `computed`, or a `watchEffect` as `[...slug].vue` does for
+    `useSiteLocaleLinks()` and `useSitePage()`); an initializer that fetches, reads the request or depends on
+    server-only values produces a different value after a navigation than after a full load.
+
+**Hybrid: forwarding `/api/` to the origin.** A static host may forward the API:
+
+```nginx
+location /api/ { proxy_pass http://origin; }
+```
+
+Use it for features of your own that need the API after load (a form, a search). It changes nothing in the
+exported app: navigation still reads the target pages' HTML, and `useApi()` reads stay refused on static
+pages. It is not a replacement for static navigation: the public site would again depend on the origin
+being up, every visitor could reach the API, so its access list becomes the public boundary, and one visit
+would mix the published snapshot with live data. The admin needs its own routing and access list either
+way (`runtimeConfig.kestrel.access.admin`).
 
 ## 9. Optional: redirects
 
@@ -1525,6 +1596,14 @@ it is an ordinary dependency and needs no attention unless you pinned it yoursel
   media picker already enforces this.
 - Run the release's kestrel-side upgrade first (`kestrel-upgrade`, see the backend's own changelog); it
   rewrites `delivery-static.media`, the image-variant event pipeline and the media delete order for you.
+- A statically delivered site navigates without `/api` (§8). Run **Publish all** after upgrading so every
+  exported page carries the static marker and the build id. A page exported by an earlier release keeps
+  calling `/api` on navigation until it is published again; forwarding `/api/` to the origin (§8, hybrid)
+  keeps such a site working in the meantime.
+- Code on exported pages follows the rules in §8, "What an exported page requests": deterministic keys
+  that carry the locale, never `useId()`, data transferred without `useState`. `useSiteSettings()` stores
+  its data under `site:settings:<locale>`, and a media item the layer loads keeps its public fields only
+  (`PublicMediaItem`).
 
 ### 1.x → 2.0
 

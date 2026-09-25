@@ -1583,6 +1583,112 @@ Run `nuxt build` and `node .output/server/index.mjs` to publish.
 Site URL resolution: the primary locale is never prefixed (`/kontakt`), other locales are
 (`/en/kontakt`); the start page is the document with slug `home` (`/` → home).
 
+### What the export holds
+
+| Path on the static host | Written by | Lifecycle |
+|---|---|---|
+| `<path>/index.html`, the page; `<html>` carries `data-kestrel-delivery="static"` and `data-kestrel-build="<build id>"` | `delivery-static` through `renderer-nuxt` | per page and locale: written on publish, moved on a path change, removed on unpublish; replaced atomically on a filesystem store |
+| `_nuxt/**`, the build assets and the app manifest (`builds/`) | `renderer-nuxt` assets | written once per process, never removed |
+| `media/<id>/<name>`, `media/<id>/variants/<size>.<ext>` | `media-default`, `images-default` (`publicCopy`) | per media item, independent of page publishes; removed with the item |
+| `redirects.json`, `llms.txt`, `llms-full.txt` | `redirects-default`, `delivery-static` | on their own triggers; read by the edge and by crawlers, never by the app |
+
+There is no separate data file: the page HTML is both what a visitor loads and what client navigation
+reads. `/api` is not part of the static target. A deployment may forward it to the origin for features
+of its own, but the exported app never depends on that route.
+
+### How the browser tells an exported page from a live one
+
+`renderer-nuxt` inserts `data-kestrel-delivery="static"` into the `<html>` tag of every page it renders
+for delivery, after fetching it; no response of the Node server carries it. `isStaticDelivery()`
+(`layers/core/app/utils/static-delivery.ts`, auto-imported) reads it in the browser and is `false` on
+the server. Markup never depends on it, since the server renders every page as a live page and hydration
+would mismatch; it switches two behaviours only, client navigation and `useApi()` reads.
+
+`data-kestrel-build` is rendered by the app (`layers/public/app/plugins/build-attribute.ts`) on every
+public page, live or exported, with the value of `useRuntimeConfig().app.buildId`, which the page
+already carries in `window.__NUXT__.config`.
+
+### Client navigation on a static page
+
+With the marker present, `layers/public/app/plugins/static-delivery.client.ts` registers one global
+route middleware. It skips the navigation that hydrates the page and any navigation that stays on the
+same site path (`sitePath()`: `/about/` and `/about/index.html` stand for `/about`). For every other
+navigation it fetches the target's exported document (`<app.baseURL><path>`, `redirect: "error"`,
+`Accept: text/html`), parses it with `DOMParser` (scripts in a parsed document never run), revives the
+`__NUXT_DATA__` payload with devalue and Nuxt's payload revivers (`nuxtApp._payloadRevivers`), and writes
+the payload's `data` into `nuxtApp.static.data`, where `useAsyncData`'s default `getCachedData` looks
+outside hydration, the same way Nuxt's own payload loader does. The keys the previous navigation added
+are removed first. The target's `state`, `once` and `_errors` are not applied.
+
+The fetched document is used only when the request succeeds without a redirect, the status is 2xx, the
+content type is `text/html`, `<html>` carries the marker and the running build's id, the payload is
+embedded (no `data-src`), was rendered on the server (no `data-ssr="false"`), is a devalue array that
+revives, names the target's site path as its `path` (taken without `app.baseURL`), and holds
+`site:<path>`. Otherwise the navigation becomes one document load of the target URL: `location.assign`
+after a click, `location.reload` when the browser already shows the target (Back and Forward). The
+console gets one warning per path naming the reason, and the host, or the edge in front of it, answers
+the load with the page, a redirect or its 404. A link to a redirected path is therefore redirected by the
+edge, since the fetch refuses the redirect; a link to an unpublished page ends in the host's 404; a page
+of another build is loaded as a document. Requiring `site:<path>` keeps `[...slug].vue` from ever
+missing its own data on a static page; a Nuxt page of the consumer that is not a page document always
+takes the document load. Links are not prefetched, so a navigation costs exactly one request, the target's
+HTML, which the HTTP cache keeps for a later reload of the same page.
+
+The static host must not answer an unknown path with another page's HTML (an SPA fallback such as
+`try_files … /index.html`): the path check turns that into a document load, and the wrong page then
+hydrates into a client-side error page.
+
+### `useApi()` on a static page
+
+On a page with the marker, `useApi()` sends no `GET` or `HEAD`. It rejects with
+`ApiError(404, "GET /api<path> is not available on the static site; a page's data comes from its HTML",
+"STATIC_DELIVERY")` and warns once per request. The message names the full API path, so a refused
+`/api/media/<id>` read is not mistaken for the media file URL `/media/<id>/<name>`, which the static host
+does serve. Callers that treat a 404 as "nothing there", such as `useMediaItem()` and
+`useSiteSettings()`, stay quiet. Other methods are sent unchanged; they need the origin and work only
+where the static host forwards `/api/`. Reads stay refused even then: a static page shows its published
+snapshot and never mixes in live data.
+
+### Freshness of an exported site
+
+Each exported page is a snapshot of its last publish, including the shared data it embeds: settings,
+navigation, locale links, resolved link paths and media metadata. Client navigation reads the same
+snapshot a full load of the target shows. Within one visit the header and navigation come from the page
+the visitor entered on, since every new layout instance reuses the settings key that is still alive, and
+the content comes from each target page. A settings change reaches exported pages only when they are
+published again (**Publish all**). Until then one visit can show pages of different ages, a locale switch
+reads the target's settings as last published, and a link to a renamed page answers 404 through a
+document load; no redirect is created automatically. After a new build, pages not yet published again
+carry the old build id, and navigating to them is a document load until **Publish all** runs.
+
+### Only public data in an exported page
+
+An exported page, and therefore the data client navigation reads from it, holds only what an anonymous
+visitor may see on that published page: no draft, no preview, no unpublished translation, no internal
+media field, no user or audit data. Four things keep it so.
+
+1. **The render is anonymous.** `renderer-nuxt` calls `NuxtTarget.fetch(path)` with the path only, and the
+   layer's target (`layers/core/server/utils/renderer-target.ts`) is `nitro.localFetch(path)`: a new
+   in-process request without cookie, `Authorization` or forwarded headers, whatever request triggered the
+   publish. Every read during the render runs with the anonymous role's grants and the public status
+   filters. Previews never render on the server (`/_preview/**` is `ssr: false`).
+2. **Navigation data is the exported HTML.** Nothing reaches the browser by navigation that the page's
+   own HTML does not already hold.
+3. **The layer stores public shapes.** `site:<path>` is the document `resolvePage` gives anonymous
+   callers; `site:locales:<id>:<locale>` is `{ locale, path, current }[]` of published siblings;
+   `site:settings:<locale>` holds the five fields of `toSiteSettings`; `media:<id>:<locale>` holds what
+   `toPublicMedia()` (`layers/public/app/utils/public-shapes.ts`) keeps: no library folder, no timestamps,
+   no variant counts, no variant state.
+4. **A test that fails on a leak.** `layers/public/static-export.e2e.test.ts` (run with
+   `KESTREL_STATIC_E2E=1`) builds the playground, publishes a German page whose English translation is a
+   draft, a draft page, a media item in its own folder and an English page whose German original is a
+   draft, runs Publish all as a second user, and checks that none of their marker strings reaches any
+   exported file, that every payload key keeps its public shape, and that an exported payload equals an
+   anonymous render of the same path.
+
+A consumer's own `useAsyncData` results are exported the same way; `docs/consuming-kestrel-web.md` §8
+lists the rules for them.
+
 ## `NUXT_PUBLIC_SITE_URL`
 `layers/admin` reads `runtimeConfig.public.siteUrl` (env `NUXT_PUBLIC_SITE_URL`) for anything that needs
 the public site's absolute base URL — the editor status's "open page" link, shown once a page is live
@@ -1593,7 +1699,13 @@ carries one, so llms.txt lists absolute URLs rather than paths.
 
 ## Public site (`layers/public`)
 `app/pages/[...slug].vue` resolves `/api/site<path>` through `useApi()` (in-process `localFetch` during
-SSR), renders the document with `KestrelBlockRenderer` and sets `<head>` from `seo`.
+SSR), renders the document with `KestrelBlockRenderer` and sets `<head>` from `seo`. Its data keys are
+deterministic, so a server-rendered key is found again on client navigation of a static page: the page
+under `site:<site path>` (`sitePath()` maps `/about/` and `/about/index.html` to `/about`), its locale
+links under `site:locales:<id>:<locale>`, the site settings under `site:settings:<locale>`
+(`useSiteSettings()`, shared with the layout) and media items under `media:<id>:<locale>`
+(`useMediaItem()`). A key that depends on the locale carries it instead of watching it, since inside a
+page the route, and with it the locale, is fixed for that page's instance.
 `app/layouts/default.vue` draws header (site title + `settings.navigation`, resolved — see below),
 locale switch (`_translations` decides which locales exist) and footer; `app/assets/css/site.css` is
 imported only there, so admin and site styles never mix. Locale comes from the path (`/en/…`;
@@ -1711,8 +1823,12 @@ resolved document it loaded would round-trip back into `PUT /settings` and fail 
 
 ## Renderer (`packages/renderer-nuxt`)
 Kestrel module `renderer/nuxt` fulfilling `renderer@1`: `render({ path })` calls the running Nitro's
-`localFetch(path)` (under `app.baseURL`) and returns the SSR HTML plus the complete build assets
-directory; a dev server is refused — see "Static delivery / renderer contract" above. The core layer's
+`localFetch(path)` (under `app.baseURL`) and returns the SSR HTML, marked with
+`data-kestrel-delivery="static"`, plus the complete build assets directory; a dev server is refused — see
+"Static delivery / renderer contract" above. A page without an `<html>` element, without an embedded
+`__NUXT_DATA__` payload, rendered with `ssr: false`, or keeping its payload in a separate `_payload.json`
+(an `isr` or `cache` route rule) is refused with `RENDER_FAILED` naming the cause, since it could not
+hydrate on a static host. The core layer's
 Nitro plugin registers `localFetch`, `baseURL` and the build-assets manifest via `setNuxtRenderer()`
 before `boot()`, so `delivery-static` renders inside the same process when a page is published.
 `pnpm test` runs the `renderer.contract.test` against it.
