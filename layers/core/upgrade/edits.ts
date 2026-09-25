@@ -63,6 +63,10 @@ export function addStringToNamedExportArray(file: string, source: string, name: 
   return { file, start: lastEnd, end: lastEnd, text: `, ${literal}` };
 }
 
+function needsSeparatorComma(source: string, insertAt: number, hasProperties: boolean): boolean {
+  return hasProperties && !/,\s*$/.test(source.slice(0, insertAt));
+}
+
 /**
  * Finds a `{ use: "<use>", config: {...} }`-shaped object literal anywhere in the file (a module-list
  * entry, wherever the array holding it lives) and adds `propertyText` (e.g. `relayPipelines: []`) to its
@@ -84,13 +88,15 @@ export function addModuleEntryConfigProperty(file: string, source: string, use: 
     const { end } = span(found);
     const insertAt = end - 1;
     const hasProperties = Array.isArray(found.properties) && found.properties.length > 0;
-    return { file, start: insertAt, end: insertAt, text: `${hasProperties ? ", " : ""}config: { ${propertyText} } ` };
+    const comma = needsSeparatorComma(source, insertAt, hasProperties) ? ", " : "";
+    return { file, start: insertAt, end: insertAt, text: `${comma}config: { ${propertyText} } ` };
   }
   if (objectProperty(config, propertyKey) !== undefined) return undefined;
   const { end } = span(config);
   const insertAt = end - 1;
   const hasProperties = Array.isArray(config.properties) && config.properties.length > 0;
-  return { file, start: insertAt, end: insertAt, text: `${hasProperties ? ", " : ""}${propertyText} ` };
+  const comma = needsSeparatorComma(source, insertAt, hasProperties) ? ", " : "";
+  return { file, start: insertAt, end: insertAt, text: `${comma}${propertyText} ` };
 }
 
 export interface StepWindowOptions {
