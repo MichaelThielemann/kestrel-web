@@ -554,9 +554,9 @@ export function buildPreset<C extends Record<string, CollectionModel> = Record<s
     if (generateImageVariants !== undefined && pipelineSteps(generateImageVariants).includes("images.plan")) {
       sink.report({ code: "preset/generate-image-variants-places-inline", pipeline: "generateImageVariants", message: 'preset: override for "generateImageVariants" must not place – placing runs in the main lane' });
     }
-    if (generateImageVariants !== undefined && enabledFeatures.has("images")) {
-      const laneMembers = configuredLaneMembers(options.modules);
-      if (laneMembers !== undefined && !laneMembers.includes("generateImageVariants")) {
+    if (generateImageVariants !== undefined && enabledFeatures.has("images") && configuredModules.has(EVENTS_QUEUE_MODULE) && !excludeNames.has("generateImageVariants")) {
+      const laneMembers = configuredLaneMembers(options.modules) ?? [];
+      if (!laneMembers.includes("generateImageVariants")) {
         sink.report({
           code: "preset/generate-image-variants-lane",
           pipeline: "generateImageVariants",

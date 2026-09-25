@@ -800,8 +800,10 @@ on the `eventsQueue` module's `lanes` by the exported `lanesFor(features)`: `rep
 has its own worker loop that runs one job at a time, so a site-wide re-render never delays an upload's
 placeholders, a relayed publish, the login audit or an image render, and the relay never claims a lane row
 regardless of `relayPipelines`. `definePreset()` refuses a lanes config that names a preset pipeline it no
-longer composes, or that does not keep `republishOutput` and `refreshLlms` together in a lane of their own;
-with `delivery`, a queue entry without `lanes` counts as `lanes: {}` and is refused too.
+longer composes, or that does not keep `republishOutput` and `refreshLlms` together in a lane of their own
+(with `delivery`), or `generateImageVariants` in a lane (with `images`); a queue entry without `lanes`
+counts as `lanes: {}` and is refused the same way. `checkPreset()` reports each of these, and every other
+preset problem, as a `{ code, pipeline?, message }` entry instead of throwing.
 
 A hand-written module list that never calls `presetModuleConfig()` keeps the `eventsQueue` module's own
 default, `relayPipelines: "all"` — every subscriber runs inline, bounded by `relayMs`. Call

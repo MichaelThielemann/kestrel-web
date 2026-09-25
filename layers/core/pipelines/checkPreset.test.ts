@@ -123,3 +123,91 @@ describe("checkPreset parity with definePreset", () => {
     expect(preset.pipelines.find((p) => p.name === "deletePage")?.steps).toEqual(["authn.requireUser", "authz.require:pages.manage", "content.remove:pages"]);
   });
 });
+
+describe("checkPreset: dependent re-rendering and queue lanes", () => {
+  const queue = "@michaelthielemann/kestrel-events-queue";
+  const deliveryStatic = "@michaelthielemann/kestrel-delivery-static";
+  const collections = {
+    pages: { kind: "multi", fields: { slug: { type: "slug" }, title: {}, body: {}, status: {} } },
+    profile: { kind: "single", fields: { bio: {} } },
+  };
+
+  function modules(features: readonly string[], { render, lanes }: { render?: string; lanes?: unknown } = {}): { use: string; config?: unknown }[] {
+    const queued = features.includes("eventsQueue");
+    const list: { use: string; config?: unknown }[] = baseModules.filter((m) => !(queued && m.use === "@michaelthielemann/kestrel-events-direct"));
+    if (queued) list.push(lanes === undefined ? { use: queue } : { use: queue, config: { lanes } });
+    if (features.includes("delivery")) {
+      list.push({ use: "@michaelthielemann/kestrel-renderer-nuxt" });
+      list.push({ use: deliveryStatic, config: render === undefined ? {} : { dependencies: { render } } });
+    }
+    if (features.includes("images")) list.push({ use: "@michaelthielemann/kestrel-images-default" });
+    return list;
+  }
+
+  function thrownBy(testOptions: PresetOptions): string | undefined {
+    try {
+      definePreset(testOptions);
+    } catch (err) {
+      return err instanceof Error ? err.message : String(err);
+    }
+    return undefined;
+  }
+
+  function expectParity(testOptions: PresetOptions, code: string, pipeline?: string): void {
+    const thrown = thrownBy(testOptions);
+    expect(thrown, code).toBeDefined();
+    const { problems } = checkPreset(testOptions);
+    const problem = problems.find((p) => p.code === code);
+    expect(problem?.message).toBe(thrown);
+    if (pipeline !== undefined) expect(problem?.pipeline).toBe(pipeline);
+  }
+
+  it("collects a queue with delivery whose delivery-static renders in the background", () => {
+    const features = ["eventsQueue", "delivery"];
+    expectParity(options({ modules: modules(features, { render: "background", lanes: { pages: ["republishOutput", "refreshLlms"] } }), features, collections }), "preset/render-mode-needs-events");
+  });
+
+  it("collects render mode \"events\" without the queue", () => {
+    expectParity(options({ modules: modules(["delivery"], { render: "events" }), features: ["delivery"], collections }), "preset/render-mode-needs-queue");
+  });
+
+  it("collects a queue entry without lanes, and lanes that split the page renders from the llms.txt export", () => {
+    const features = ["eventsQueue", "delivery"];
+    expectParity(options({ modules: modules(features, { render: "events" }), features, collections }), "preset/page-renders-lane");
+    expectParity(options({ modules: modules(features, { render: "events", lanes: { pages: ["republishOutput"], llms: ["refreshLlms"] } }), features, collections }), "preset/page-renders-lane");
+  });
+
+  it("collects a lane naming a preset pipeline this configuration does not compose, naming it", () => {
+    const features = ["eventsQueue"];
+    expectParity(options({ modules: modules(features, { lanes: { pages: ["republishOutput"] } }), features, collections }), "preset/lane-pipeline-unknown", "republishOutput");
+  });
+
+  it("collects an override that drops an emit a dependents pipeline listens to, naming the pipeline, and still applies it", () => {
+    const override = ["authn.requireUser", "authz.require:profile.write", { atomic: ["content.set:profile"] }, "events.relay"];
+    const testOptions = options({ modules: modules(["delivery"]), features: ["delivery"], collections, overrides: { setProfile: override } });
+    expectParity(testOptions, "preset/override-drops-watched-emit", "setProfile");
+    expect(checkPreset(testOptions).preset.pipelines.find((p) => p.name === "setProfile")?.steps).toEqual(override);
+  });
+
+  it("collects a queue entry without lanes when images renders variants, since they would run in the main lane", () => {
+    const features = ["eventsQueue", "images"];
+    expectParity(options({ modules: modules(features), features }), "preset/generate-image-variants-lane", "generateImageVariants");
+    expect(checkPreset(options({ modules: modules(features, { lanes: { variants: ["generateImageVariants"] } }), features })).problems).toEqual([]);
+  });
+
+  it("collects every one of these problems in one call", () => {
+    const features = ["eventsQueue", "delivery", "images"];
+    const { problems } = checkPreset(options({
+      modules: modules(features, { render: "background" }),
+      features,
+      collections,
+      overrides: { setProfile: ["authn.requireUser", { atomic: ["content.set:profile"] }, "events.relay"] },
+    }));
+    expect(problems.map((p) => p.code).sort()).toEqual([
+      "preset/generate-image-variants-lane",
+      "preset/override-drops-watched-emit",
+      "preset/page-renders-lane",
+      "preset/render-mode-needs-events",
+    ]);
+  });
+});

@@ -19,8 +19,10 @@ const baseModules = [
   { use: "@michaelthielemann/kestrel-events-direct" },
 ];
 
-function withQueueInsteadOfDirect(modules: readonly { use: string; config?: unknown }[]): { use: string; config?: unknown }[] {
-  return [...modules.filter((entry) => entry.use !== "@michaelthielemann/kestrel-events-direct"), { use: "@michaelthielemann/kestrel-events-queue" }];
+const VARIANT_LANES = { variants: ["generateImageVariants"] };
+
+function withQueueInsteadOfDirect(modules: readonly { use: string; config?: unknown }[], lanes: Record<string, string[]> = {}): { use: string; config?: unknown }[] {
+  return [...modules.filter((entry) => entry.use !== "@michaelthielemann/kestrel-events-direct"), { use: "@michaelthielemann/kestrel-events-queue", config: { lanes } }];
 }
 
 describe("definePreset eventsDeliveryStatus", () => {
@@ -32,7 +34,7 @@ describe("definePreset eventsDeliveryStatus", () => {
       "events.readDeliveryStatus",
     ]);
 
-    const queued = [...withQueueInsteadOfDirect(baseModules), { use: "@michaelthielemann/kestrel-images-default" }];
+    const queued = [...withQueueInsteadOfDirect(baseModules, VARIANT_LANES), { use: "@michaelthielemann/kestrel-images-default" }];
     const queuedPreset = definePreset({ modules: queued, features: ["eventsQueue", "images"] });
     expect(queuedPreset.pipelines.find((pipeline) => pipeline.name === "eventsDeliveryStatus")?.steps).toEqual([
       "authn.requireUser",
@@ -82,6 +84,12 @@ describe("definePreset image-variant queue guards", () => {
     expect(() =>
       definePreset({ modules: queueModules({ other: ["some.step"] }), features: ["eventsQueue", "images"] }),
     ).toThrow('preset: module "@michaelthielemann/kestrel-events-queue" must run "generateImageVariants" in a lane of its own – a render must never block placing new items');
+  });
+
+  it("rejects a queue module without lanes, which would render variants in the main lane", () => {
+    expect(() => definePreset({ modules: queueModules(), features: ["eventsQueue", "images"] })).toThrow(
+      'preset: module "@michaelthielemann/kestrel-events-queue" must run "generateImageVariants" in a lane of its own – a render must never block placing new items',
+    );
   });
 
   it("accepts the default queue composition, generateImageVariants placed in its own lane", () => {
@@ -784,7 +792,7 @@ describe("presetSchemas", () => {
 });
 
 describe("definePreset eventsQueue feature", () => {
-  const modules = [...withQueueInsteadOfDirect(baseModules), { use: "@michaelthielemann/kestrel-images-default" }];
+  const modules = [...withQueueInsteadOfDirect(baseModules, VARIANT_LANES), { use: "@michaelthielemann/kestrel-images-default" }];
 
   it("wires the five pipelines and triggers when enabled with the queue module and an event trigger present", () => {
     const preset = definePreset({ modules, features: ["eventsQueue", "images"] });
@@ -820,7 +828,7 @@ describe("definePreset eventsQueue feature", () => {
   it("boots with no event trigger at all, an idle queue being a valid configuration", () => {
     expect(() =>
       definePreset({
-        modules,
+        modules: [...withQueueInsteadOfDirect(baseModules), { use: "@michaelthielemann/kestrel-images-default" }],
         features: ["eventsQueue", "images"],
         exclude: ["generateImageVariants"],
       }),
