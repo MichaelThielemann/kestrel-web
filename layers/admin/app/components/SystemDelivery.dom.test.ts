@@ -2,6 +2,7 @@ import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { AdminSchema, MediaRepairPublicReport } from '#kestrel-admin/types/api'
 import { useSchema } from '../composables/useSchema'
+import { useToast } from '../composables/useToast'
 import SystemDelivery from './SystemDelivery.vue'
 
 const schema: AdminSchema = {
@@ -37,7 +38,8 @@ describe('SystemDelivery repair action', () => {
   })
 
   it('calls repairPublicMedia and reports what it wrote, removed and found missing', async () => {
-    const report: MediaRepairPublicReport = { _publicMedia: { written: 2, removed: 1, missing: 0 } }
+    for (const toast of [...useToast().items]) useToast().dismiss(toast.id)
+    const report: MediaRepairPublicReport = { _publicMedia: { written: 2, removed: 1, missing: 3 } }
     const spy = vi.fn().mockResolvedValue(report)
     unregisterAll.push(registerEndpoint('/api/admin/schema', { method: 'GET', handler: () => schema }))
     unregisterAll.push(registerEndpoint('/api/admin/media/repair-public', { method: 'POST', handler: spy }))
@@ -48,6 +50,7 @@ describe('SystemDelivery repair action', () => {
     if (!button) throw new Error('expected a repair button')
     await button.trigger('click')
     await vi.waitFor(() => expect(spy).toHaveBeenCalledTimes(1))
+    await vi.waitFor(() => expect(useToast().items.map((toast) => toast.message)).toContain('2 copies written, 1 removed, 3 originals missing.'))
     wrapper.unmount()
   })
 })

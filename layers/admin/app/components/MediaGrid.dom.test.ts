@@ -1,7 +1,8 @@
 import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
 import { computed } from 'vue'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import type { AdminSchema, MediaItem } from '#kestrel-admin/types/api'
+import type { UploadItem } from '../composables/useMediaUpload'
 import type { VariantWatchEntry } from '../composables/useVariantWatch'
 import type { LibraryItem } from '../utils/library'
 import MediaGrid from './MediaGrid.vue'
@@ -163,5 +164,38 @@ describe('MediaGrid pick-mode gating', () => {
     expect(wrapper.emitted('select')).toBeDefined()
     expect(wrapper.get('[data-test="file-f1"]').attributes('aria-disabled')).toBeUndefined()
     expect(wrapper.find('.media-grid__processing').exists()).toBe(true)
+  })
+})
+
+describe('MediaGrid upload tile', () => {
+  afterEach(() => {
+    schema.features = []
+  })
+
+  function finishedUpload(): UploadItem {
+    return { id: 'u1', file: new File(['x'], 'a.jpg', { type: 'image/jpeg' }), filename: 'a.jpg', folder: '', status: 'done', progress: 100, result: file({ available: false }) }
+  }
+
+  it('shows "Processing…" on a finished image upload while the poll has not reported it available', async () => {
+    schema.features = ['images']
+    const pending = new Map<string, VariantWatchEntry>([
+      ['f1', { variants: [], variantCounts: { done: 0, pending: 1, error: 0, failed: 0 }, available: false }],
+    ])
+    for (const variantOverride of [undefined, pending]) {
+      const wrapper = await mountSuspended(MediaGrid, { props: { items: [], isSelected: () => false, uploads: [finishedUpload()], variantOverride } })
+      expect(wrapper.get('.media-upload-tile__processing').text()).toBe('Processing…')
+      expect(wrapper.find('.media-upload-tile .media-variant-chip').exists()).toBe(false)
+      wrapper.unmount()
+    }
+  })
+
+  it('swaps "Processing…" for the variants chip once the poll reports the upload available', async () => {
+    schema.features = ['images']
+    const available = new Map<string, VariantWatchEntry>([
+      ['f1', { variants: [], variantCounts: { done: 1, pending: 2, error: 0, failed: 0 }, available: true }],
+    ])
+    const wrapper = await mountSuspended(MediaGrid, { props: { items: [], isSelected: () => false, uploads: [finishedUpload()], variantOverride: available } })
+    expect(wrapper.find('.media-upload-tile__processing').exists()).toBe(false)
+    expect(wrapper.get('.media-upload-tile .media-variant-chip').text()).toContain('1/3')
   })
 })

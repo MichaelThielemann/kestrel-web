@@ -65,7 +65,7 @@ function serveStatic(root: string): Promise<string> {
 }
 
 describe("static export: a media file's public copy serves from plain disk, no backend", () => {
-  it("writes the original and every variant under site/ as soon as it is stored, servable by a plain file server once kestrel has stopped", async () => {
+  it("has an upload's original copy under site/ when the upload answers and every variant's once placed, and a plain file server serves them after kestrel has stopped", async () => {
     process.env.KESTREL_BLOCK_SCHEMA = fileURLToPath(new URL("../pipelines/__fixtures__/pages.body.json", import.meta.url));
     appRoot = mkdtempSync(join(tmpdir(), "kestrel-web-static-export-"));
     const blobsRoot = resolve(appRoot, "blobs");
@@ -107,11 +107,8 @@ describe("static export: a media file's public copy serves from plain disk, no b
         }),
       );
 
-      const pngCopy = resolve(siteRoot, String(png.path).replace(/^\//, ""));
-      const svgCopy = resolve(siteRoot, String(svg.path).replace(/^\//, ""));
-      await waitFor(() => existsSync(pngCopy) && existsSync(svgCopy));
-      expect(existsSync(pngCopy)).toBe(true);
-      expect(existsSync(svgCopy)).toBe(true);
+      expect(existsSync(resolve(siteRoot, String(png.path).replace(/^\//, "")))).toBe(true);
+      expect(existsSync(resolve(siteRoot, String(svg.path).replace(/^\//, "")))).toBe(true);
 
       let variants: unknown[] = [];
       for (let attempt = 0; attempt < 20 && variants.length === 0; attempt++) {
