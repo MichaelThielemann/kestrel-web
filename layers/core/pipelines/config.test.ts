@@ -199,7 +199,7 @@ describe("public media copies", () => {
 describe("svg sanitize guard", () => {
   it("throws when publicCopy is on, svg is allowed by default, and sanitizeSvg is not enabled", () => {
     expect(() => presetModuleConfig({ ...playgroundOptions(), features: ["delivery"] })).toThrow(
-      'presetModuleConfig: publicCopy is set and media.allowedTypes allows "image/svg+xml", but the "sanitizeSvg" feature is not enabled'
+      'presetModuleConfig: media-default has publicCopy set (the "delivery" feature sets it) and its allowedTypes allow "image/svg+xml", but the "sanitizeSvg" feature is not enabled'
       + ' – either add "sanitizeSvg" to features (it inserts sanitize.svg before media.upload) or deny "image/svg+xml" in media.deniedTypes',
     );
   });
@@ -226,6 +226,55 @@ describe("svg sanitize guard", () => {
 
   it("passes without the delivery feature, even with svg allowed and sanitizeSvg off", () => {
     expect(() => presetModuleConfig({ ...playgroundOptions(), features: ["images"] })).not.toThrow();
+  });
+
+  it("passes when overrides deny svg on media-default", () => {
+    expect(() =>
+      presetModuleConfig({
+        ...playgroundOptions(),
+        features: ["delivery"],
+        overrides: { "@michaelthielemann/kestrel-media-default": { deniedTypes: ["text/html", "image/svg+xml"] } },
+      }),
+    ).not.toThrow();
+  });
+
+  it("throws when overrides allow svg again after media.deniedTypes denied it", () => {
+    expect(() =>
+      presetModuleConfig({
+        ...playgroundOptions(),
+        features: ["delivery"],
+        media: { deniedTypes: ["image/svg+xml"] },
+        overrides: { "@michaelthielemann/kestrel-media-default": { deniedTypes: ["text/html"] } },
+      }),
+    ).toThrow(/sanitizeSvg/);
+  });
+
+  it("throws when overrides set publicCopy without the delivery feature", () => {
+    expect(() =>
+      presetModuleConfig({
+        ...playgroundOptions(),
+        features: ["images"],
+        overrides: { "@michaelthielemann/kestrel-media-default": { publicCopy: { prefix: "site/" } } },
+      }),
+    ).toThrow(/sanitizeSvg/);
+  });
+
+  it("compares types case-insensitively and ignores parameters", () => {
+    expect(() => presetModuleConfig({ ...playgroundOptions(), features: ["delivery"], media: { deniedTypes: ["Image/SVG+XML"] } })).not.toThrow();
+    expect(() => presetModuleConfig({ ...playgroundOptions(), features: ["delivery"], media: { deniedTypes: [" image/svg+xml; charset=utf-8"] } })).not.toThrow();
+    expect(() => presetModuleConfig({ ...playgroundOptions(), features: ["delivery"], media: { allowedTypes: ["IMAGE/*"] } })).toThrow(/sanitizeSvg/);
+    expect(() => presetModuleConfig({ ...playgroundOptions(), features: ["delivery"], media: { allowedTypes: ["Image/Svg+Xml"] } })).toThrow(/sanitizeSvg/);
+  });
+
+  it("treats image/*, */* and * as allowing svg, and as denying it", () => {
+    for (const pattern of ["image/*", "*/*", "*"]) {
+      expect(() => presetModuleConfig({ ...playgroundOptions(), features: ["delivery"], media: { allowedTypes: [pattern] } }), pattern).toThrow(/sanitizeSvg/);
+      expect(() => presetModuleConfig({ ...playgroundOptions(), features: ["delivery"], media: { deniedTypes: [pattern] } }), pattern).not.toThrow();
+    }
+  });
+
+  it("does not treat another type family's wildcard as svg", () => {
+    expect(() => presetModuleConfig({ ...playgroundOptions(), features: ["delivery"], media: { allowedTypes: ["application/*", "video/*"] } })).not.toThrow();
   });
 });
 

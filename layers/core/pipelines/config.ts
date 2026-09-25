@@ -113,6 +113,9 @@ const DEFAULT_MEDIA_MAX_BYTES = 5 * 1024 * 1024;
 const DEFAULT_MEDIA_ALLOWED_TYPES = ["image/*", "application/pdf"];
 const DEFAULT_MEDIA_DENIED_TYPES = ["text/html", "application/xhtml+xml"];
 const SVG_CONTENT_TYPE = "image/svg+xml";
+const SVG_PATTERNS: ReadonlySet<string> = new Set(["*", "*/*", "image/*", SVG_CONTENT_TYPE]);
+const MEDIA_MODULE = "@michaelthielemann/kestrel-media-default";
+const SANITIZE_SVG_MODULE = "@michaelthielemann/kestrel-sanitize-svg";
 const DEFAULT_LOGIN_BUCKET = { limit: 5, windowSeconds: 60 };
 const DEFAULT_LLMS_HEADINGS = { [PAGES_COLLECTION]: "Pages" };
 const DEFAULT_SESSION: Required<PresetSession> = { identifier: "username", minPasswordLength: 8, sessionTtlSeconds: 86400 };
@@ -123,8 +126,21 @@ function requireOption<T>(value: T | undefined, name: string): T {
   return value;
 }
 
-function typeAllowed(patterns: readonly string[], contentType: string): boolean {
-  return patterns.some((pattern) => pattern === "*" || pattern === contentType || (pattern.endsWith("/*") && contentType.startsWith(pattern.slice(0, -1))));
+function coversSvg(patterns: readonly unknown[]): boolean {
+  return patterns.some((pattern) => typeof pattern === "string" && SVG_PATTERNS.has((pattern.split(";")[0] ?? "").trim().toLowerCase()));
+}
+
+function assertSvgSanitized(modules: readonly ModuleEntry[]): void {
+  const media = modules.find((entry) => entry.use === MEDIA_MODULE)?.config;
+  if (typeof media !== "object" || media === null || !("publicCopy" in media) || media.publicCopy === undefined || media.publicCopy === null) return;
+  if (modules.some((entry) => entry.use === SANITIZE_SVG_MODULE)) return;
+  const allowed = "allowedTypes" in media && Array.isArray(media.allowedTypes) ? media.allowedTypes : DEFAULT_MEDIA_ALLOWED_TYPES;
+  const denied = "deniedTypes" in media && Array.isArray(media.deniedTypes) ? media.deniedTypes : [];
+  if (!coversSvg(allowed) || coversSvg(denied)) return;
+  throw new Error(
+    `presetModuleConfig: media-default has publicCopy set (the "delivery" feature sets it) and its allowedTypes allow "${SVG_CONTENT_TYPE}", but the "sanitizeSvg" feature is not enabled`
+    + ` – either add "sanitizeSvg" to features (it inserts sanitize.svg before media.upload) or deny "${SVG_CONTENT_TYPE}" in media.deniedTypes`,
+  );
 }
 
 function refTargetOf(field: unknown): string | undefined {
@@ -228,26 +244,14 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
   const mediaAllowedTypes = options.media?.allowedTypes ?? DEFAULT_MEDIA_ALLOWED_TYPES;
   const mediaDeniedTypes = options.media?.deniedTypes ?? DEFAULT_MEDIA_DENIED_TYPES;
 
-  if (
-    enabled.has("delivery")
-    && !enabled.has("sanitizeSvg")
-    && typeAllowed(mediaAllowedTypes, SVG_CONTENT_TYPE)
-    && !typeAllowed(mediaDeniedTypes, SVG_CONTENT_TYPE)
-  ) {
-    throw new Error(
-      `presetModuleConfig: publicCopy is set and media.allowedTypes allows "${SVG_CONTENT_TYPE}", but the "sanitizeSvg" feature is not enabled`
-      + ` – either add "sanitizeSvg" to features (it inserts sanitize.svg before media.upload) or deny "${SVG_CONTENT_TYPE}" in media.deniedTypes`,
-    );
-  }
-
   const modules: ModuleEntry[] = [{ use: blobstore.use, config: blobstore.config }];
 
   if (enabled.has("replication")) modules.push({ use: "@michaelthielemann/kestrel-replication-sqlite", config: { file: databaseFile } });
   modules.push({ use: "@michaelthielemann/kestrel-persistence-sqlite", config: { file: databaseFile } });
-  if (enabled.has("sanitizeSvg")) modules.push({ use: "@michaelthielemann/kestrel-sanitize-svg", config: {} });
+  if (enabled.has("sanitizeSvg")) modules.push({ use: SANITIZE_SVG_MODULE, config: {} });
 
   modules.push({
-    use: "@michaelthielemann/kestrel-media-default",
+    use: MEDIA_MODULE,
     config: {
       prefix: MEDIA_PREFIX,
       publicPath: MEDIA_PUBLIC_PATH,
@@ -358,5 +362,7 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
     });
   }
 
-  return applyModuleOverrides(modules, options.overrides);
+  const merged = applyModuleOverrides(modules, options.overrides);
+  assertSvgSanitized(merged);
+  return merged;
 }
