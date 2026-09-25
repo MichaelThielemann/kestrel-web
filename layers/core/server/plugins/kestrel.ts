@@ -16,6 +16,7 @@ import { assertMediaPaths } from "../utils/media-paths";
 import { kestrelHandlers, type KestrelHandlers } from "../utils/kestrel-handlers";
 import { contentCollections, statusFilterFailure, statusFilterProblems } from "../utils/status-filter";
 import { bootWithAdminBootstrapCheck } from "../utils/admin-bootstrap";
+import { withFieldGrantHint } from "../utils/field-grant-hint";
 import type { KestrelState, KestrelStatus } from "../utils/boot-failure";
 import { rendererTarget } from "../utils/renderer-target";
 import { checkDeliveryBuild } from "../utils/build-check";
@@ -80,8 +81,9 @@ export function getKestrel(): Promise<Kestrel> {
       state = "ready";
       return kestrel;
     } catch (err) {
-      recordBootFailure(err);
-      throw err;
+      const hinted = withFieldGrantHint(err);
+      recordBootFailure(hinted);
+      throw hinted;
     }
   })();
   return instance;

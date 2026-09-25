@@ -19,7 +19,6 @@ const VARIANT_HEADER = "headers.x-kestrel-variant";
 const REDIRECT_RULE_FIELDS = ["pattern", "target", "status"];
 const LOCALE_MEMBERS = ["_locales", "_translations"];
 const MEDIA_READ = "media.read";
-const AUTHZ_ROLES_MODULE = "@michaelthielemann/kestrel-authz-roles";
 const FIELD_STEP = "authz.fields:";
 
 function holds(granted: readonly string[], permission: string): boolean {
@@ -65,6 +64,34 @@ export function appendFieldCut<S extends string>(entries: readonly PresetEntry<S
   return [...entries, step];
 }
 
+/**
+ * The `exclude` and `overrides` a consumer gives `definePreset()`, which `presetModuleConfig()` takes as its
+ * `pipelines` option to derive grants only for resources a composed read still cuts.
+ */
+export interface PipelineChanges {
+  exclude?: readonly string[];
+  overrides?: Partial<Record<string, readonly PipelineEntry<string>[]>>;
+}
+
+const FEATURE_READS: Readonly<Record<string, Feature>> = { serveImageVariant: "images", getRedirects: "redirects", renderRedirects: "redirects" };
+
+/**
+ * The resources the preset's public reads end with a cut for once `changes` apply: a read that is excluded
+ * cuts nothing, an overridden one cuts what its last step cuts, and a read whose feature is off does not exist.
+ */
+export function presetCutResources(collections: Record<string, CollectionModel>, features: readonly Feature[], changes: PipelineChanges = {}): Set<string> {
+  const excluded = new Set(changes.exclude ?? []);
+  const resources = new Set<string>();
+  for (const [name, step] of Object.entries(fieldCutSteps(collections))) {
+    const feature = FEATURE_READS[name];
+    if (excluded.has(name) || (feature !== undefined && !features.includes(feature))) continue;
+    const override = changes.overrides?.[name];
+    const resource = fieldStepResource(override === undefined ? step : pipelineSteps(override).at(-1));
+    if (resource !== undefined) resources.add(resource);
+  }
+  return resources;
+}
+
 /** The part of a content model the grants are derived from. */
 export interface FieldGrantModel {
   locales?: readonly string[];
@@ -74,13 +101,15 @@ export interface FieldGrantModel {
 /**
  * The fields anonymous callers keep of each resource the preset's public reads cut, for the resources whose
  * read permission `anonymous` holds (`<type>.read` for a content type, `media.read` for media and its files;
- * the redirect rules, which no permission gates, under `redirects`): every model field of a content type with
+ * the redirect rules, which no permission gates, under `redirects`) and that a read still cuts once `changes`
+ * (the `exclude` and `overrides` given to `definePreset()`) apply: every model field of a content type with
  * its `id`, the locale members when the model has locales, the resolved links and the redirect hit on pages,
  * the resolved links on settings; the public media fields, with the variant fields under `images`; the file
  * headers; the redirect rules' fields. Only members a read declares are named, so every path passes
  * `authz-roles`' boot check.
  */
-export function anonymousFieldGrants(model: FieldGrantModel, features: readonly Feature[], anonymous: readonly string[]): FieldGrants {
+export function anonymousFieldGrants(model: FieldGrantModel, features: readonly Feature[], anonymous: readonly string[], changes: PipelineChanges = {}): FieldGrants {
+  const cut = presetCutResources(model.types, features, changes);
   const images = features.includes("images");
   const redirects = features.includes("redirects");
   const localized = model.locales !== undefined;
@@ -88,17 +117,15 @@ export function anonymousFieldGrants(model: FieldGrantModel, features: readonly 
   const grants: FieldGrants = {};
   for (const [name, type] of Object.entries(model.types)) {
     if (name === "redirects" && !redirects) continue;
-    if (!holds(anonymous, `${name}.read`)) continue;
+    if (!holds(anonymous, `${name}.read`) || !cut.has(name)) continue;
     const fields = ["id", ...Object.keys(type.fields), ...locale];
     if (name === "settings") fields.push("_links");
     if (name === "pages") fields.push(...(localized ? ["_locale"] : []), "_links", ...(redirects ? ["redirect"] : []));
     grants[name] = fields;
   }
-  if (holds(anonymous, MEDIA_READ)) {
-    grants.media = [...MEDIA_FIELDS, ...(images ? VARIANT_FIELDS : [])];
-    grants.mediaFile = [...FILE_HEADERS, ...(images ? [VARIANT_HEADER] : [])];
-  }
-  if (redirects) grants.redirectRules = [...REDIRECT_RULE_FIELDS];
+  if (holds(anonymous, MEDIA_READ) && cut.has("media")) grants.media = [...MEDIA_FIELDS, ...(images ? VARIANT_FIELDS : [])];
+  if (holds(anonymous, MEDIA_READ) && cut.has("mediaFile")) grants.mediaFile = [...FILE_HEADERS, ...(images ? [VARIANT_HEADER] : [])];
+  if (cut.has("redirectRules")) grants.redirectRules = [...REDIRECT_RULE_FIELDS];
   return grants;
 }
 
@@ -107,12 +134,8 @@ export function withConsumerGrants(derived: FieldGrants, consumer: Readonly<Reco
   const named = new Map(Object.entries(consumer ?? {}));
   const kept = Object.entries(derived).filter(([resource]) => !named.has(resource));
   const added = [...named].filter(([, paths]) => paths.length > 0).map(([resource, paths]): [string, string[]] => [resource, [...paths]]);
-  const grants: FieldGrants = Object.fromEntries([...kept, ...added]);
-  derivedGrants.set(grants, { grants, derived: new Set(kept.map(([resource]) => resource)) });
-  return grants;
+  return Object.fromEntries([...kept, ...added]);
 }
-
-const derivedGrants = new WeakMap<object, { grants: FieldGrants; derived: ReadonlySet<string> }>();
 
 /** The resource an `authz.fields:<resource>?shape=<shape>` step names; `undefined` for any other step. */
 export function fieldStepResource(step: string | undefined): string | undefined {
@@ -128,21 +151,4 @@ export function cutResources(pipelines: readonly { steps: readonly PipelineEntry
 /** Whether `anonymous` grants `permission`, with `authz-roles`' matching: `*`, the permission itself, or a `<prefix>.*` above it. */
 export function anonymousHolds(anonymous: readonly string[], permission: string): boolean {
   return holds(anonymous, permission);
-}
-
-/**
- * Removes, from the `authz-roles` entry of `modules` that `presetModuleConfig()` built, the derived grant of
- * every resource no pipeline of `pipelines` ends with a cut for: a resource whose reads are all excluded or
- * overridden without the field step. A grant the consumer named in `roles.anonymousFields`, and any grant of
- * an entry written by hand, stays as it is.
- */
-export function dropUncutGrants(modules: readonly { use: string; config?: unknown }[], pipelines: readonly { steps: readonly PipelineEntry[] }[]): void {
-  const config = modules.find((entry) => entry.use === AUTHZ_ROLES_MODULE)?.config;
-  const value: unknown = typeof config === "object" && config !== null ? Reflect.get(config, "anonymousFields") : undefined;
-  const record = typeof value === "object" && value !== null ? derivedGrants.get(value) : undefined;
-  if (record === undefined) return;
-  const cut = cutResources(pipelines);
-  for (const resource of record.derived) {
-    if (!cut.has(resource)) Reflect.deleteProperty(record.grants, resource);
-  }
 }

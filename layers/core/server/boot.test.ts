@@ -15,10 +15,12 @@ import persistenceSqlite from "@michaelthielemann/kestrel-persistence-sqlite";
 import replicationSqlite from "@michaelthielemann/kestrel-replication-sqlite";
 import { presetModules } from "#kestrel/modules";
 import { definePreset, featureOrder, presetModuleConfig } from "#kestrel/pipelines";
-import type { Feature } from "#kestrel/pipelines";
+import type { Feature, PresetPipelineChanges } from "#kestrel/pipelines";
 import { ATOMIC_SAFE_STEPS } from "../pipelines/atomic-safe";
 import { uploadLimits } from "./utils/limits";
 import { inlineTypesFor } from "./utils/inline-types";
+import { bootWithAdminBootstrapCheck } from "./utils/admin-bootstrap";
+import { withFieldGrantHint } from "./utils/field-grant-hint";
 
 interface CollectedLog {
   level: "info" | "warn" | "error";
@@ -670,21 +672,32 @@ describe("boot", () => {
       } as const;
       const publicReads = ["pages.read", "settings.read", "media.read"];
 
-      async function bootPlain(anonymous: string[], preset: { exclude?: string[]; overrides?: Record<string, readonly string[]> }): Promise<void> {
-        const features = asFeatures(["redirects"]);
-        const modules = presetModuleConfig({
+      type Changes = PresetPipelineChanges<typeof types>;
+
+      function modulesFor(anonymous: string[], pipelines: Changes) {
+        return presetModuleConfig({
           dataDir: appRoot,
           blobstore: { use: "@michaelthielemann/kestrel-blobstore-filesystem", config: { root: resolve(appRoot, "blobs-private") } },
           model: { types },
-          features,
+          features: asFeatures(["redirects"]),
           roles: { roles: { admin: ["*"], editor: ["news.*"] }, anonymous },
           bootstrap: { username: "admin", passwordHash: "scrypt$522f4ac87bfe4bcd100ba47a7d2aaec2$dbfc3f2d6cc38a76b21973d7c6f6d310a09506581c665f1f6601fd8fb3fa9bc3959689aea3e389f4d53eb8c7e70791ad4065e308763dd44609904134f0f5ee98" },
           overrides: { "@michaelthielemann/kestrel-persistence-sqlite": { file: ":memory:" } },
+          pipelines,
         });
-        const composed = definePreset({ modules, features, collections: types, ...(preset.exclude === undefined ? {} : { exclude: preset.exclude }), ...(preset.overrides === undefined ? {} : { overrides: preset.overrides }) });
+      }
+
+      async function bootComposed(modules: ReturnType<typeof modulesFor>, changes: Changes): Promise<void> {
+        const composed = definePreset({ modules, features: asFeatures(["redirects"]), collections: types, ...changes });
         const config = defineConfig({ modules, triggers: composed.triggers, http: null });
-        const kestrel = await boot({ config, modules: presetModules(config.modules), pipelines: composed.pipelines, logger: collectingLogger() });
+        const kestrel = await bootWithAdminBootstrapCheck({ config, modules: presetModules(config.modules), pipelines: composed.pipelines, logger: collectingLogger() }).catch((err: unknown) => {
+          throw withFieldGrantHint(err);
+        });
         await kestrel.stop();
+      }
+
+      function bootPlain(anonymous: string[], changes: Changes): Promise<void> {
+        return bootComposed(modulesFor(anonymous, changes), changes);
       }
 
       it("boots with news reads overridden behind a session, while news.read is not anonymous", async () => {
@@ -703,6 +716,26 @@ describe("boot", () => {
 
       it("boots with every media file route excluded", async () => {
         await expect(bootPlain(publicReads, { exclude: ["downloadMedia", "serveMediaFile"] })).resolves.toBeUndefined();
+      }, 15000);
+
+      it("boots when the module list is cloned before definePreset runs", async () => {
+        const changes: Changes = { exclude: ["listNews", "readNews"] };
+        await expect(bootComposed(structuredClone(modulesFor([...publicReads, "news.read"], changes)), changes)).resolves.toBeUndefined();
+      }, 15000);
+
+      it("boots the real preset after a draft preset composed from the same module list, in either order", async () => {
+        const modules = modulesFor([...publicReads, "news.read"], {});
+        definePreset({ modules, features: asFeatures(["redirects"]), collections: types, exclude: ["listNews", "readNews"] });
+        await expect(bootComposed(modules, {})).resolves.toBeUndefined();
+        definePreset({ modules, features: asFeatures(["redirects"]), collections: types, exclude: ["listNews", "readNews"] });
+        await expect(bootComposed(modules, {})).resolves.toBeUndefined();
+      }, 15000);
+
+      it("refuses to boot when presetModuleConfig was not given the exclude definePreset was, naming the resource and the fix", async () => {
+        const modules = modulesFor([...publicReads, "news.read"], {});
+        const boot = bootComposed(modules, { exclude: ["listNews", "readNews"] });
+        await expect(boot).rejects.toThrow('anonymousFields grants fields of "news", but no pipeline ends with authz.fields:news');
+        await expect(bootComposed(modules, { exclude: ["listNews", "readNews"] })).rejects.toThrow("pass the same exclude and overrides to presetModuleConfig({ pipelines }) and definePreset()");
       }, 15000);
 
       it("still refuses a news read anonymous callers reach that an override leaves without the cut", async () => {

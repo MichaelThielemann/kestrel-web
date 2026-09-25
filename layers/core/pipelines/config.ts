@@ -7,6 +7,7 @@ import { resolveStorageTypes } from "../field-types";
 import type { FieldTypes } from "../field-types";
 import { isGenericCollection, isPageLikeCollection } from "./collections";
 import { anonymousFieldGrants, withConsumerGrants } from "./field-grants";
+import type { PipelineChanges } from "./field-grants";
 import type { CollectionModel } from "./collections";
 import { lanesFor, presetSchemas, relayPipelinesFor } from "./index";
 import type { Feature } from "./index";
@@ -106,6 +107,11 @@ export interface PresetModuleConfigOptions {
   session?: PresetSession;
   eventsQueue?: PresetEventsQueue;
   overrides?: Partial<Record<string, Record<string, unknown>>>;
+  /**
+   * The `exclude` and `overrides` given to `definePreset()`, the same object: a resource whose every preset
+   * read they exclude or override without its `authz.fields` step gets no derived anonymous field grant.
+   */
+  pipelines?: PipelineChanges;
 }
 
 type ReferenceTarget = { content: string } | { media: true };
@@ -302,7 +308,7 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
     config: {
       roles: roles.roles,
       anonymous: roles.anonymous,
-      anonymousFields: withConsumerGrants(anonymousFieldGrants({ ...(model.locales === undefined ? {} : { locales: model.locales }), types }, features, roles.anonymous), roles.anonymousFields),
+      anonymousFields: withConsumerGrants(anonymousFieldGrants({ ...(model.locales === undefined ? {} : { locales: model.locales }), types }, features, roles.anonymous, options.pipelines), roles.anonymousFields),
       ...(roles.fields === undefined ? {} : { fields: roles.fields }),
     },
   });

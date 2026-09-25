@@ -9,7 +9,6 @@ import { RESERVED_PAGE_SEGMENTS } from "../mount-path";
 import { buildPreset, throwSink } from "./checkPreset";
 import type { CollectionModel, Feature, Preset, PresetOptions } from "./checkPreset";
 import { DEFAULT_COLLECTIONS, isPageLikeCollection } from "./collections";
-import { dropUncutGrants } from "./field-grants";
 
 export type { CollectionModel } from "./collections";
 export type { PresetEntry } from "./compose";
@@ -19,7 +18,7 @@ export type { Workflow } from "../app/types/kestrel";
 export type { PresetStep } from "../module-registry";
 export { presetModuleConfig } from "./config";
 export { anonymousFieldGrants, fieldCutSteps } from "./field-grants";
-export type { FieldCutShape, FieldGrantModel, FieldGrants } from "./field-grants";
+export type { FieldCutShape, FieldGrantModel, FieldGrants, PipelineChanges } from "./field-grants";
 export { defineFieldTypes } from "../field-types";
 export type { CustomFieldTypes, FieldTypeDefinition, FieldTypes, StorageFieldType } from "../field-types";
 export type {
@@ -60,18 +59,19 @@ export const definePipeline = pipelineDefiner<PresetStep>();
 
 /**
  * Composes a preset, throwing at the first problem — the same engine, messages and order as
- * `checkPreset()`, which instead collects every problem it finds. It also removes, from the `authz-roles`
- * entry `presetModuleConfig()` built, the derived anonymous grant of every resource no composed pipeline ends
- * with an `authz.fields` cut for, so excluding or privately overriding every read of a resource needs no
- * grant change.
+ * `checkPreset()`, which instead collects every problem it finds.
  */
 export function definePreset<C extends Record<string, CollectionModel> = Record<string, CollectionModel>, S extends string = PresetStep>(
   options: PresetOptions<C, S>,
 ): Preset {
-  const preset = buildPreset(options, throwSink());
-  dropUncutGrants(options.modules, preset.pipelines);
-  return preset;
+  return buildPreset(options, throwSink());
 }
+
+/**
+ * The `exclude` and `overrides` of `definePreset()`. Pass one object of this type to both functions:
+ * `presetModuleConfig({ …, pipelines: changes })` and `definePreset({ …, ...changes })`.
+ */
+export type PresetPipelineChanges<C extends Record<string, CollectionModel> = Record<string, CollectionModel>, S extends string = PresetStep> = Pick<PresetOptions<C, S>, "exclude" | "overrides">;
 
 export function presetSchemas({
   features,

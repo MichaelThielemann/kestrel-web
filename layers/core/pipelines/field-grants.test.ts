@@ -2,7 +2,7 @@ import { resolve } from "node:path";
 import { pipelineSteps } from "@michaelthielemann/kestrel/definePipeline";
 import { describe, expect, it } from "vitest";
 import { anonymousFieldGrants, definePreset, featureOrder, presetModuleConfig } from "./index";
-import type { CollectionModel, Feature, PresetContentModel, PresetOptions } from "./index";
+import type { CollectionModel, Feature, ModuleEntry, PresetContentModel, PresetPipelineChanges } from "./index";
 import { syntheticContentTypes } from "./__fixtures__/synthetic-collections";
 import { contentModel, contentTypes } from "../../../playground/shared/model";
 import fieldTypes from "../../../playground/shared/field-types";
@@ -204,7 +204,7 @@ describe("the anonymous field grants presetModuleConfig derives", () => {
   });
 });
 
-describe("the derived grants definePreset keeps", () => {
+describe("the grants presetModuleConfig derives from the same pipeline changes as definePreset", () => {
   const types = {
     settings: { kind: "single", fields: { title: { type: "text" } } },
     redirects: { kind: "single", fields: { rules: { type: "json" } } },
@@ -213,46 +213,77 @@ describe("the derived grants definePreset keeps", () => {
   } satisfies Record<string, CollectionModel>;
   const features: readonly Feature[] = ["redirects", "images"];
 
-  function compose(anonymous: string[], preset: Pick<PresetOptions<typeof types>, "exclude" | "overrides"> & { anonymousFields?: Record<string, string[]> } = {}): Record<string, unknown> {
-    const modules = presetModuleConfig({
+  function modulesFor(anonymous: string[], pipelines: PresetPipelineChanges<typeof types> = {}, anonymousFields?: Record<string, string[]>): ModuleEntry[] {
+    return presetModuleConfig({
       dataDir: DATA_DIR,
       blobstore: { use: "@michaelthielemann/kestrel-blobstore-filesystem", config: { root: resolve(DATA_DIR, "blobs") } },
       model: { types },
       features,
-      roles: { roles: { admin: ["*"] }, anonymous, ...(preset.anonymousFields === undefined ? {} : { anonymousFields: preset.anonymousFields }) },
+      roles: { roles: { admin: ["*"] }, anonymous, ...(anonymousFields === undefined ? {} : { anonymousFields }) },
       bootstrap: { username: "admin", passwordHash: PASSWORD_HASH },
+      pipelines,
     });
-    definePreset({ modules, features, collections: types, ...(preset.exclude === undefined ? {} : { exclude: preset.exclude }), ...(preset.overrides === undefined ? {} : { overrides: preset.overrides }) });
+  }
+
+  function grantsOf(modules: readonly ModuleEntry[]): Record<string, unknown> {
     const config = modules.find((entry) => entry.use === "@michaelthielemann/kestrel-authz-roles")?.config;
     const grants: unknown = typeof config === "object" && config !== null ? Reflect.get(config, "anonymousFields") : undefined;
     if (typeof grants !== "object" || grants === null) throw new Error("expected anonymousFields");
     return Object.fromEntries(Object.entries(grants));
   }
 
-  it("keeps every derived grant a composed read ends with a cut for", () => {
-    expect(Object.keys(compose(["*"])).sort()).toEqual(["media", "mediaFile", "news", "pages", "redirectRules", "redirects", "settings"]);
+  it("grants every resource a preset read still cuts", () => {
+    expect(Object.keys(grantsOf(modulesFor(["*"]))).sort()).toEqual(["media", "mediaFile", "news", "pages", "redirectRules", "redirects", "settings"]);
   });
 
-  it("drops the grant of a collection whose every read is excluded", () => {
-    expect(compose(["*"], { exclude: ["listNews", "readNews"] })).not.toHaveProperty("news");
+  it("grants nothing for a collection whose every read is excluded", () => {
+    expect(grantsOf(modulesFor(["*"], { exclude: ["listNews", "readNews"] }))).not.toHaveProperty("news");
   });
 
-  it("drops the grant of a collection whose every read an override keeps private without the cut", () => {
-    expect(compose(["*"], { overrides: { listNews: ["authn.requireUser", "authz.require:news.read", "content.list:news"], readNews: ["authn.requireUser", "authz.require:news.read", "content.get:news"] } })).not.toHaveProperty("news");
+  it("grants nothing for a collection whose every read is overridden without the cut", () => {
+    const pipelines: PresetPipelineChanges<typeof types> = {
+      overrides: { listNews: ["authn.requireUser", "authz.require:news.read", "content.list:news"], readNews: ["authn.requireUser", "authz.require:news.read", "content.get:news"] },
+    };
+    expect(grantsOf(modulesFor(["*"], pipelines))).not.toHaveProperty("news");
   });
 
-  it("keeps the grant while one read of the resource still ends with its cut", () => {
-    expect(compose(["*"], { exclude: ["listNews"] })).toHaveProperty("news");
+  it("keeps the grant while one read still ends with its cut, overridden or not", () => {
+    expect(grantsOf(modulesFor(["*"], { exclude: ["listNews"] }))).toHaveProperty("news");
+    const changes: PresetPipelineChanges<typeof types> = { exclude: ["listNews"], overrides: { readNews: ["authn.identifyUser", "authz.require:news.read", "content.get:news", "authz.fields:news?shape=item"] } };
+    expect(grantsOf(modulesFor(["*"], changes))).toHaveProperty("news");
   });
 
-  it("drops the redirects grant when getRedirects is excluded, and the file grant when every file route is", () => {
-    const grants = compose(["*"], { exclude: ["getRedirects", "downloadMedia", "serveMediaFile", "serveImageVariant"] });
+  it("grants nothing for redirects without getRedirects, and nothing for media files without a file route", () => {
+    const grants = grantsOf(modulesFor(["*"], { exclude: ["getRedirects", "downloadMedia", "serveMediaFile", "serveImageVariant"] }));
     expect(grants).not.toHaveProperty("redirects");
     expect(grants).not.toHaveProperty("mediaFile");
     expect(grants).toHaveProperty("media");
   });
 
-  it("never drops a grant the consumer named in roles.anonymousFields", () => {
-    expect(compose(["*"], { exclude: ["listNews", "readNews"], anonymousFields: { news: ["id", "title"] } })).toEqual(expect.objectContaining({ news: ["id", "title"] }));
+  it("counts serveImageVariant only with the images feature", () => {
+    const modules = presetModuleConfig({
+      dataDir: DATA_DIR,
+      blobstore: { use: "@michaelthielemann/kestrel-blobstore-filesystem", config: { root: resolve(DATA_DIR, "blobs") } },
+      model: { types },
+      features: ["redirects"],
+      roles: { roles: { admin: ["*"] }, anonymous: ["*"] },
+      bootstrap: { username: "admin", passwordHash: PASSWORD_HASH },
+      pipelines: { exclude: ["downloadMedia", "serveMediaFile"] },
+    });
+    expect(grantsOf(modules)).not.toHaveProperty("mediaFile");
+  });
+
+  it("keeps a grant the consumer named in roles.anonymousFields", () => {
+    expect(grantsOf(modulesFor(["*"], { exclude: ["listNews", "readNews"] }, { news: ["id", "title"] }))).toEqual(expect.objectContaining({ news: ["id", "title"] }));
+  });
+
+  it("derives the same grants however often it runs, and definePreset leaves them as they are", () => {
+    const changes: PresetPipelineChanges<typeof types> = { exclude: ["listNews", "readNews"] };
+    const modules = modulesFor(["*"], changes);
+    const before = structuredClone(modules);
+    expect(modulesFor(["*"], changes)).toEqual(modules);
+    definePreset({ modules, features, collections: types });
+    definePreset({ modules, features, collections: types, ...changes });
+    expect(modules).toEqual(before);
   });
 });

@@ -2,12 +2,15 @@ import { resolve } from "node:path";
 import { defineConfig } from "@michaelthielemann/kestrel/defineConfig";
 import { kestrelDataDir } from "#kestrel/config";
 import { definePreset, presetModuleConfig } from "#kestrel/pipelines";
+import type { PresetPipelineChanges } from "#kestrel/pipelines";
 import { contentModel, contentTypes, features as modelFeatures } from "./shared/model";
 import collectionsUi from "./shared/collections-ui";
 import fieldTypes from "./shared/field-types";
 
 const dataDir = kestrelDataDir();
 const features = process.env.KESTREL_PLAYGROUND_EVENTS_QUEUE === "1" ? [...modelFeatures, "eventsQueue" as const] : modelFeatures;
+
+const pipelineChanges: PresetPipelineChanges<typeof contentTypes> = {};
 
 const modules = presetModuleConfig({
   dataDir,
@@ -25,8 +28,9 @@ const modules = presetModuleConfig({
     username: "admin",
     passwordHash: "scrypt$522f4ac87bfe4bcd100ba47a7d2aaec2$dbfc3f2d6cc38a76b21973d7c6f6d310a09506581c665f1f6601fd8fb3fa9bc3959689aea3e389f4d53eb8c7e70791ad4065e308763dd44609904134f0f5ee98",
   },
+  pipelines: pipelineChanges,
 });
 
-export const preset = definePreset({ modules, features, collections: contentTypes, collectionsUi, fieldTypes });
+export const preset = definePreset({ modules, features, collections: contentTypes, collectionsUi, fieldTypes, ...pipelineChanges });
 
 export default defineConfig({ modules, triggers: preset.triggers, http: null });
