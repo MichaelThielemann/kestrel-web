@@ -454,6 +454,51 @@ describe("site-2.0-hand-written-direct (a literal events-direct entry and packag
   }, 90_000);
 });
 
+describe("site-2.0-hand-written-direct-shared-features (the same literal events-direct entry, but presetModuleConfig() and definePreset() share one features list)", () => {
+  it("switching to the queue removes the literal entry instead of renaming it: presetModuleConfig() already supplies events-queue once features has it, so renaming would list the module twice", async () => {
+    const dir = await prepare("site-2.0-hand-written-direct-shared-features");
+    await fixWriteYes(dir); // pass 1: unblocks the project's own load (range bumps, sanitizeSvg)
+
+    const beforeReport = await check(dir);
+    const offer = beforeReport.findings.find((f) => f.rule === "offer/event-queue");
+    expect(offer?.fix).toMatchObject({ kind: "ask", question: "switch-to-queue", defaultValue: "no" });
+
+    const beforePkg = JSON.parse(readFileSync(join(dir, "package.json"), "utf8"));
+    expect(beforePkg.dependencies).toHaveProperty("@michaelthielemann/kestrel-events-direct");
+    expect(beforePkg.dependencies).not.toHaveProperty("@michaelthielemann/kestrel-events-queue");
+
+    const answersFile = join(dir, "answers.json");
+    const { writeFileSync } = await import("node:fs");
+    writeFileSync(answersFile, JSON.stringify({ "switch-to-queue": "yes" }));
+    const exitCode = await runUpgradeCli(
+      ["fix", "--root", dir, "--write", "--yes", "--answers", answersFile],
+      runOptionsWithMajor6({ plugins: [createLayerPlugin()], stdout: () => undefined, stderr: () => undefined }),
+    );
+    expect(exitCode).toBe(0);
+
+    const pkg = JSON.parse(readFileSync(join(dir, "package.json"), "utf8"));
+    expect(pkg.dependencies).toHaveProperty("@michaelthielemann/kestrel-events-queue");
+    expect(pkg.dependencies).not.toHaveProperty("@michaelthielemann/kestrel-events-direct");
+
+    const config = readFileSync(join(dir, "kestrel.config.ts"), "utf8");
+    expect(config).not.toContain('{ use: "@michaelthielemann/kestrel-events-direct"');
+    expect(config.match(/"@michaelthielemann\/kestrel-events-queue"/g)).toBeNull();
+    expect(await realPresetError(dir)).toBeUndefined();
+    expect(configCompileErrors(join(dir, "kestrel.config.ts"))).toEqual([]);
+
+    const project = await loadProject(dir);
+    expect(project.input.config.modules.filter((m) => m.use === "@michaelthielemann/kestrel-events-queue")).toHaveLength(1);
+    expect(project.input.modules.filter((m) => m.name === "events/queue")).toHaveLength(1);
+    expect(project.input.modules.some((m) => m.name === "events/direct")).toBe(false);
+    const box = sandboxBootInput(project.input, { dir });
+    const bootCheck = await checkBoot(box.input, { setup: box.setup });
+    expect(bootCheck.errors).toEqual([]);
+
+    const status = await bootAndLogin({ ...project.input, root: dir });
+    expect(status).toBe(200);
+  }, 90_000);
+});
+
 describe("the real definePreset() after fix --write on hand-written queue lists built from presetModuleConfig()", () => {
   it("site-2.0-own-pipelines: two passes leave a project the real definePreset() accepts", async () => {
     const dir = await prepare("site-2.0-own-pipelines");

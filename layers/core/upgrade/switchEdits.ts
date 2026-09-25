@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { objectProperty, parseTs, replaceModuleListEntry, stringValue, walk } from "@michaelthielemann/kestrel-upgrade/codemods";
+import { findCalls, firstArgument, objectProperty, parseTs, replaceModuleListEntry, span, stringValue, walk } from "@michaelthielemann/kestrel-upgrade/codemods";
 import type { Edit, LoadedProject, RuleContext, SwitchEditsResult } from "@michaelthielemann/kestrel-upgrade/plugin";
 import { boundaryCast } from "@michaelthielemann/kestrel/cast";
 import { lanesFor } from "../pipelines/checkPreset";
@@ -84,9 +84,32 @@ function queuedLanes(ctx: RuleContext): string {
   return Object.entries(lanes).map(([lane, members]) => `${lane}: [${members.map((m) => `"${m}"`).join(", ")}]`).join(", ");
 }
 
+function presetModuleConfigReactsToFeatures(source: string): boolean {
+  const call = findCalls(parseTs(source), "presetModuleConfig")[0];
+  const options = call === undefined ? undefined : firstArgument(call);
+  const value = options === undefined ? undefined : objectProperty(options, "features");
+  return value !== undefined && value.type === "Identifier" && value.name === "features";
+}
+
+function removeModuleListEntry(file: string, source: string, use: string): Edit | undefined {
+  let found: ReturnType<typeof parseTs> | undefined;
+  walk(parseTs(source), (node) => {
+    if (found !== undefined || node.type !== "ObjectExpression") return;
+    if (stringValue(objectProperty(node, "use")) === use) found = node;
+  });
+  if (found === undefined) return undefined;
+  const { start, end } = span(found);
+  const after = /^\s*,\s*/.exec(source.slice(end));
+  if (after !== null) return { file, start, end: end + after[0].length, text: "" };
+  const before = /,\s*$/.exec(source.slice(0, start));
+  if (before !== null) return { file, start: start - before[0].length, end, text: "" };
+  return { file, start, end, text: "" };
+}
+
 function handWrittenModuleListEdit(ctx: RuleContext, relayPipelines: readonly string[]): Edit | undefined {
   const source = ctx.readFile(ctx.project.configFile);
   if (source === undefined || !importsEventsDirectLiteral(source)) return undefined;
+  if (presetModuleConfigReactsToFeatures(source)) return removeModuleListEntry(ctx.project.configFile, source, EVENTS_DIRECT_PACKAGE);
   const config = `{ relayPipelines: [${relayPipelines.map((p) => `"${p}"`).join(", ")}], lanes: { ${queuedLanes(ctx)} } }`;
   return replaceModuleListEntry(ctx.project.configFile, source, { use: EVENTS_DIRECT_PACKAGE, newUse: EVENTS_QUEUE_PACKAGE, config });
 }
@@ -103,7 +126,10 @@ function hasAtMostOneDeliveryModule(ctx: RuleContext): boolean {
  * from `features` at runtime, so the only edit a `presetModuleConfig()` project needs is adding
  * `"eventsQueue"` to `shared/model.ts`'s `features` array. A hand-written module list that names
  * `@michaelthielemann/kestrel-events-direct` literally in `kestrel.config.ts` also gets that entry
- * replaced with `events-queue` and `relayPipelines` set to the `relayPipelines` this hook receives — the
+ * edited: deleted outright when `presetModuleConfig()`'s own `features:` argument is the same `features`
+ * export the switch is adding `"eventsQueue"` to (it then supplies its own `events-queue` entry once that
+ * lands, and keeping the literal would list the module twice), otherwise replaced with `events-queue` and
+ * `relayPipelines` set to the `relayPipelines` this hook receives — the
  * value `offer/event-queue` already asked the `relay-pipelines` question for and verified — never a value
  * this hook computes on its own, as a second, independent all-or-nothing part: either edit failing to
  * locate makes the whole switch manual and names which one. That second part is left out entirely (not
