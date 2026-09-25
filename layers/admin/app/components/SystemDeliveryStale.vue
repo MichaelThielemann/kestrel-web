@@ -2,33 +2,19 @@
 import { publishAll, retryStale } from '#kestrel-admin/actions/system'
 import { toastUnexpected } from '#kestrel-admin/actions/steps/notify'
 import type { BusyPort } from '#kestrel-admin/actions/types'
-import type { IconName } from '../utils/icons'
-
-type Tone = 'waiting' | 'failed' | 'unknown' | 'current'
-
-interface StaleLine { tone: Tone, icon: IconName, text: string }
+import { staleLines, staleProgressText } from '../utils/stale-messages'
 
 const { t } = useT()
 const deps = useActionDeps()
 const stale = useStaleStatus()
-const { status, loadError, available, progress } = stale
+const { status, loadError, announcement, available, progress } = stale
 
 const publishing = ref(false)
 const retrying = ref(false)
 const canRetry = computed(() => deps.capabilities.has('retryStalePages'))
 
-const progressText = computed(() => (progress.value ? t('delivery.progressValue', { done: progress.value.done, total: progress.value.total }) : ''))
-
-const lines = computed<StaleLine[]>(() => {
-  const current = status.value
-  if (!current) return []
-  const result: StaleLine[] = []
-  if (current.stale > 0) result.push({ tone: 'waiting', icon: 'clock', text: t('delivery.waiting', { n: current.stale }) })
-  if (current.failed > 0) result.push({ tone: 'failed', icon: 'triangle-alert', text: t('delivery.failedRenders', { n: current.failed }) })
-  if (current.unknown > 0) result.push({ tone: 'unknown', icon: 'info', text: t('delivery.unknown', { n: current.unknown }) })
-  if (result.length === 0) result.push({ tone: 'current', icon: 'check', text: t('delivery.upToDate') })
-  return result
-})
+const progressText = computed(() => (progress.value ? staleProgressText(t, progress.value) : ''))
+const lines = computed(() => (status.value ? staleLines(t, status.value) : []))
 
 function busyPort(flag: Ref<boolean>): BusyPort {
   return { setBusy: (on) => { flag.value = on }, busy: () => flag.value }
@@ -55,8 +41,9 @@ async function onRetry() {
     </div>
     <p class="delivery__desc">{{ t('delivery.desc') }}</p>
     <template v-if="available">
-      <div class="delivery-stale" role="status" aria-live="polite">
-        <p v-if="loadError" class="delivery-stale__line" data-tone="failed">
+      <p class="delivery-stale__live" role="status" aria-live="polite">{{ announcement }}</p>
+      <div class="delivery-stale">
+        <p v-if="loadError" class="delivery-stale__line" data-tone="failed" role="alert">
           <KestrelUiIcon name="triangle-alert" :size="16" />
           <span>{{ t('delivery.staleLoadError') }} {{ loadError }}</span>
         </p>
@@ -75,6 +62,10 @@ async function onRetry() {
 </template>
 
 <style lang="scss">
+@use '../assets/scss/mixins';
+
+.delivery-stale__live { @include mixins.sr-only; }
+
 .delivery-stale {
   display: flex;
   flex-direction: column;

@@ -138,6 +138,59 @@ describe('useStaleStatus', () => {
     removed.mockRestore()
   })
 
+  it('never has two requests in flight, and loads once more after one that a toggle or a queue started meanwhile', async () => {
+    vi.useFakeTimers()
+    let inFlight = 0
+    let most = 0
+    const pending: (() => void)[] = []
+    apiHandler.fn = () => {
+      inFlight++
+      most = Math.max(most, inFlight)
+      return new Promise((resolve) => {
+        pending.push(() => {
+          inFlight--
+          resolve(staleStatus({ stale: 2 }))
+        })
+      })
+    }
+    const { wrapper, api } = await mountProbe()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(apiCalls).toHaveLength(1)
+
+    setHidden(true)
+    setHidden(false)
+    const queued = api.watch(5)
+    await vi.advanceTimersByTimeAsync(0)
+    expect(apiCalls).toHaveLength(1)
+
+    pending.shift()?.()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(apiCalls).toHaveLength(2)
+    pending.shift()?.()
+    await queued
+    expect(most).toBe(1)
+    expect(api.progress.value).toEqual({ done: 3, total: 5, percent: 60 })
+    wrapper.unmount()
+  })
+
+  it('announces only when pages start waiting and when the backlog ends, not on every poll', async () => {
+    vi.useFakeTimers()
+    answering(staleStatus(), staleStatus({ stale: 3 }), staleStatus({ stale: 2 }), staleStatus({ stale: 1 }), staleStatus())
+    const { wrapper, api } = await mountProbe()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(api.announcement.value).toBe('')
+
+    await api.watch(3)
+    expect(api.announcement.value).toBe('3 pages wait to be re-rendered because content they show changed.')
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(api.status.value?.stale).toBe(2)
+    expect(api.announcement.value).toBe('3 pages wait to be re-rendered because content they show changed.')
+    await vi.advanceTimersByTimeAsync(4000)
+    expect(api.status.value?.stale).toBe(0)
+    expect(api.announcement.value).toBe('Every published page shows its current content.')
+    wrapper.unmount()
+  })
+
   it('keeps the load error and requests nothing without the capability', async () => {
     vi.useFakeTimers()
     apiHandler.fn = () => Promise.reject(Object.assign(new Error('store busy'), { status: 503, data: { error: 'store busy', code: 'TRANSIENT', retryable: true } }))

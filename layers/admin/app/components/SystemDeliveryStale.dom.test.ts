@@ -52,20 +52,32 @@ describe('SystemDeliveryStale', () => {
     for (const toast of [...useToast().items]) useToast().dismiss(toast.id)
   })
 
-  it('announces the waiting, failed and untracked counts politely, each with an icon and its words', async () => {
+  it('shows the waiting, failed and untracked counts, each with an icon and its words, without reading them out on load', async () => {
     const wrapper = await mountWith(staleStatus({ stale: 4, failed: 2, unknown: 3 }))
     await vi.waitFor(() => expect(wrapper.text()).toContain(text('delivery.waiting', { n: 4 })))
+    const lines = wrapper.findAll('.delivery-stale__line')
+    expect(lines.map((line) => line.text())).toEqual([text('delivery.waiting', { n: 4 }), text('delivery.failedRenders', { n: 2 }), text('delivery.unknown', { n: 3 })])
+    for (const line of lines) expect(line.find('svg').exists()).toBe(true)
     const region = wrapper.get('[role="status"]')
     expect(region.attributes('aria-live')).toBe('polite')
-    expect(region.text()).toContain(text('delivery.failedRenders', { n: 2 }))
-    expect(region.text()).toContain(text('delivery.unknown', { n: 3 }))
-    for (const line of region.findAll('.delivery-stale__line')) expect(line.find('svg').exists()).toBe(true)
+    expect(region.text()).toBe('')
+    wrapper.unmount()
+  })
+
+  it('words a single waiting, failed or untracked page in the singular', async () => {
+    const wrapper = await mountWith(staleStatus({ stale: 1, failed: 1, unknown: 1 }))
+    await vi.waitFor(() => expect(wrapper.text()).toContain(text('delivery.waitingOne', { n: 1 })))
+    expect(wrapper.findAll('.delivery-stale__line').map((line) => line.text())).toEqual([
+      text('delivery.waitingOne', { n: 1 }),
+      text('delivery.failedRendersOne', { n: 1 }),
+      text('delivery.unknownOne', { n: 1 }),
+    ])
     wrapper.unmount()
   })
 
   it('says every page is current when nothing waits, failed or is untracked', async () => {
     const wrapper = await mountWith(staleStatus())
-    await vi.waitFor(() => expect(wrapper.get('[role="status"]').text()).toContain(en['delivery.upToDate']))
+    await vi.waitFor(() => expect(wrapper.text()).toContain(en['delivery.upToDate']))
     expect(wrapper.find('[role="progressbar"]').exists()).toBe(false)
     wrapper.unmount()
   })
@@ -83,7 +95,8 @@ describe('SystemDeliveryStale', () => {
     const bar = wrapper.get('[role="progressbar"]')
     expect(bar.attributes('aria-valuenow')).toBe('40')
     expect(bar.attributes('aria-valuetext')).toBe(text('delivery.progressValue', { done: 2, total: 5 }))
-    expect(wrapper.get('[role="status"]').text()).toContain(text('delivery.progressValue', { done: 2, total: 5 }))
+    expect(wrapper.text()).toContain(text('delivery.progressValue', { done: 2, total: 5 }))
+    expect(wrapper.get('[role="status"]').text()).toBe(text('delivery.waiting', { n: 3 }))
     wrapper.unmount()
   })
 
@@ -113,7 +126,7 @@ describe('SystemDeliveryStale', () => {
 
   it('offers no retry without failures or without the capability', async () => {
     const withoutFailures = await mountWith(staleStatus({ stale: 1 }))
-    await vi.waitFor(() => expect(withoutFailures.text()).toContain(text('delivery.waiting', { n: 1 })))
+    await vi.waitFor(() => expect(withoutFailures.text()).toContain(text('delivery.waitingOne', { n: 1 })))
     expect(withoutFailures.findAll('button').some((button) => button.text() === en['delivery.retryFailed'])).toBe(false)
     withoutFailures.unmount()
     unregisterAll.splice(0).forEach((unregister) => unregister())
