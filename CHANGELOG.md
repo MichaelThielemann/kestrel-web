@@ -395,8 +395,14 @@
 - `kestrel-web-upgrade` also checks the consumer's own `app/` code against the static-export contract
   (§8): the old, unscoped `"site:settings"` key, a fetch key built from `useId()` or watching `useSiteLocale()`,
   an `isr`/`cache`/`swr` route rule on a page route, and a read of a media item's private fields
-  (`folder`, `createdAt`, `updatedAt`, `variantCounts`, a variant's `state`); and reminds to run Publish
-  all once after the upgrade.
+  (`folder`, `createdAt`, `updatedAt`, `variantCounts`, a variant's `state`); and notes that the first start
+  of the upgraded build re-renders every published page in the background.
+- `kestrel-web-upgrade` carries a project to background re-rendering: it adds `dependencies` to a
+  hand-written `kestrel-delivery-static` entry and `lanes` to a hand-written `kestrel-events-queue` entry,
+  wraps a 2.x `setSettings` override's write in its group, gives a switch to the queue its lanes and queue
+  renders, and notes a `setSettings` override exporting `llms.txt`, own triggers on media events (which can
+  carry `id: null` and `ids`), code reading `_llms` or the old Publish all counts, and server caches near
+  `/api` reads.
 - `GET /admin/events/status`'s response gains `lanes`: per configured named lane, `pending`, `running` and
   `oldestPendingAt`, alongside the existing per-state totals.
 
