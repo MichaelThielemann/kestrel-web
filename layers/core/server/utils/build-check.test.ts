@@ -42,4 +42,11 @@ describe("checkDeliveryBuild", () => {
     expect(await checkDeliveryBuild(kestrel, { build: "b-2026", dev: false, pipelines: composed, logger: log })).toBe(true);
     expect(log.error).toHaveBeenCalledWith("delivery: the new build could not mark the published pages for a re-render", { status: 503, reason: "the marks could not be written" });
   });
+
+  it("logs a check whose run rejects instead of letting the rejection stop the start", async () => {
+    const kestrel = { run: vi.fn(() => Promise.reject(new Error("persistence closed"))) };
+    const log = logger();
+    await expect(checkDeliveryBuild(kestrel, { build: "b-2026", dev: false, pipelines: composed, logger: log })).resolves.toBe(true);
+    expect(log.error).toHaveBeenCalledWith("delivery: the new build could not mark the published pages for a re-render", { reason: "persistence closed" });
+  });
 });

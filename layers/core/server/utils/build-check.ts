@@ -1,6 +1,7 @@
 import type { Kestrel } from "@michaelthielemann/kestrel";
 
 const BUILD_CHECK_PIPELINE = "deliveryBuildCheck";
+const FAILED = "delivery: the new build could not mark the published pages for a re-render";
 
 /** The part of a booted instance the build check uses. */
 export type BuildCheckHost = Pick<Kestrel, "run">;
@@ -24,9 +25,13 @@ export interface BuildCheckOptions {
 export async function checkDeliveryBuild(kestrel: BuildCheckHost, options: BuildCheckOptions): Promise<boolean> {
   if (options.dev || options.build === undefined || options.build === "") return false;
   if (!options.pipelines.some((pipeline) => pipeline.name === BUILD_CHECK_PIPELINE)) return false;
-  const run = await kestrel.run(BUILD_CHECK_PIPELINE, { trigger: { kind: "event", name: "boot" }, payload: { build: options.build } });
-  if (run.status >= 400) {
-    options.logger.error("delivery: the new build could not mark the published pages for a re-render", { status: run.status, reason: run.error ?? "" });
+  try {
+    const run = await kestrel.run(BUILD_CHECK_PIPELINE, { trigger: { kind: "event", name: "boot" }, payload: { build: options.build } });
+    if (run.status >= 400) {
+      options.logger.error(FAILED, { status: run.status, reason: run.error ?? "" });
+    }
+  } catch (err) {
+    options.logger.error(FAILED, { reason: err instanceof Error ? err.message : String(err) });
   }
   return true;
 }
