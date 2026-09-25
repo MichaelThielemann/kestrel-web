@@ -455,6 +455,12 @@
   - `site/media-paths` runs the publicPath/publicCopy/reservedPaths part of the layer's own boot-time media
     check against the configured module list, so a config `check` accepted but the real boot refuses (a
     `publicPath: "/api/media"` suggestion, say) is now caught before it boots.
+  - The plugin now implements `idempotentPipelines`/`mediaWiring`: `offer/event-queue` skips its
+    `idempotent:<pipeline>` question for every event pipeline this preset's own modules already guarantee
+    safe to run twice (the dependents pipelines, `publishPage`/`unpublishPage`, `generateImageVariants`,
+    `republishOutput`, `refreshLlms`, `auditAuth`, `anonymizeAuditUser`), and `modules/delivery-media` gets
+    this layer's exact wiring (`publicPath: "/media"`, `publicCopy: { prefix: "site/" }`,
+    `reservedPaths: ["/api", "/admin", "/media"]`) instead of a generic guess.
 
 ### Changed
 
@@ -533,6 +539,14 @@
     that range was bumped to `^3.0.0`, which the docs' own upgrade steps do before the rest of the
     migration is done, hiding the note exactly while it still mattered. It now fires whenever `delivery`
     is on, regardless of any package.json range.
+  - `site/media-paths` no longer reports a missing `publicPath` on `media-default`/`images-default`: both
+    modules default it to `/media` themselves, which the real boot already accepted, so the finding was a
+    false positive against the raw, unparsed config. It also says nothing at all while `delivery-static`
+    still has its old `media` option set — `modules/delivery-media` already reports (and, with the layer's
+    `mediaWiring`, often fixes) that same wiring, so a project in that state no longer sees the same
+    problem reported twice, with two different suggestions.
+  - A multi-line module or preset-override config keeps its own indentation and comma style when an edit
+    adds a property to it, instead of collapsing onto the object's closing line or leaving a stray comma.
 
 - `sanitizedHtmlKey` is no longer auto-imported into consumer server or app code — it moved out of
   `layers/public/app/composables` into a plain module `useSanitizedHtml` imports, since nothing but its
