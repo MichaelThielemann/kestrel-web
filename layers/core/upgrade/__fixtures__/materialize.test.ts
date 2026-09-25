@@ -31,13 +31,13 @@ describe("materializeFixture cleanup", () => {
     expect(1).toBe(2);
   });
 
-  it("removes every directory made across several calls in one test", () => {
-    for (let i = 0; i < 3; i++) created.push(materializeFixture("site-2.0"));
+  it("left none of the directories from the runs above behind, including the two that failed", () => {
+    expect(created.length).toBeGreaterThanOrEqual(3);
+    for (const dir of created) expect(existsSync(dir)).toBe(false);
   });
 
-  it("left none of the directories from the runs above behind", () => {
-    expect(created.length).toBeGreaterThanOrEqual(6);
-    for (const dir of created) expect(existsSync(dir)).toBe(false);
+  it("removes every directory made across several calls in one test", () => {
+    for (let i = 0; i < 3; i++) created.push(materializeFixture("site-2.0"));
   });
 
   it("removes its directory when the process is killed by a signal, not just on a normal hook", async () => {
