@@ -2,6 +2,7 @@ import { defineComponent, h, ref } from 'vue'
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { describe, expect, it } from 'vitest'
 import type { MediaItem } from '#kestrel-core/app/types/api'
+import { toPublicMedia, type PublicMediaItem } from '../utils/public-shapes'
 import { useMediaItem } from './useMediaItem'
 
 function item(over: Partial<MediaItem> = {}): MediaItem {
@@ -28,7 +29,7 @@ function item(over: Partial<MediaItem> = {}): MediaItem {
 }
 
 async function mountProbe(id: () => string | null, locale: string) {
-  let result: MediaItem | null | undefined
+  let result: PublicMediaItem | null | undefined
   const localeRef = ref(locale)
   const Probe = defineComponent({
     async setup() {
@@ -42,13 +43,14 @@ async function mountProbe(id: () => string | null, locale: string) {
 }
 
 describe('useMediaItem', () => {
-  it('reads a media item by id, by GET /api/media/:id, never by listing', async () => {
+  it('reads a media item by id, by GET /api/media/:id, never by listing, and keeps its public fields only', async () => {
     const calls: string[] = []
-    registerEndpoint('/api/media/m1', { method: 'GET', handler: (event) => { calls.push(event.path); return item() } })
+    registerEndpoint('/api/media/m1', { method: 'GET', handler: (event) => { calls.push(event.path); return item({ folder: 'library/internal' }) } })
 
     const { result } = await mountProbe(() => 'm1', 'en')
 
-    expect(result()).toEqual(item())
+    expect(result()).toEqual(toPublicMedia(item()))
+    expect(result()).not.toHaveProperty('folder')
     expect(calls.some((call) => call.endsWith('/api/media/m1?locale=en'))).toBe(true)
   })
 

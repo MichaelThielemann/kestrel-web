@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import type { MediaItem } from '#kestrel-core/app/types/api'
+import type { PublicMediaItem } from '../utils/public-shapes'
 
 const props = withDefaults(defineProps<{
-  media: string | MediaItem | null
+  media: string | PublicMediaItem | null
   size: string
   sizes?: string
   only?: string[]

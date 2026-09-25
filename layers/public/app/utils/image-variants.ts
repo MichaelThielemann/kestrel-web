@@ -1,4 +1,4 @@
-import type { MediaItem, MediaVariant } from '#kestrel-core/app/types/api'
+import type { PublicMediaItem, PublicMediaVariant } from './public-shapes'
 
 export interface ImageSources {
   src: string
@@ -20,7 +20,7 @@ function sameRatio(a: number, b: number): boolean {
 }
 
 export function pickImageSources(
-  item: MediaItem | null,
+  item: PublicMediaItem | null,
   size: string,
   only?: readonly string[],
 ): ImageSources | null {
@@ -43,9 +43,9 @@ export function pickImageSources(
   return { src, srcset, width, height, variant: named !== undefined }
 }
 
-function restrict(variants: readonly MediaVariant[], referenceRatio: number, only?: readonly string[]): MediaVariant[] {
+function restrict(variants: readonly PublicMediaVariant[], referenceRatio: number, only?: readonly string[]): PublicMediaVariant[] {
   const filtered = variants.filter((v) => v.width > 0 && v.height > 0 && sameRatio(ratioOf(v), referenceRatio) && (!only || only.includes(v.size)))
-  const byWidth = new Map<number, MediaVariant>()
+  const byWidth = new Map<number, PublicMediaVariant>()
   for (const v of filtered) if (!byWidth.has(v.width)) byWidth.set(v.width, v)
   return [...byWidth.values()].sort((a, b) => a.width - b.width)
 }
