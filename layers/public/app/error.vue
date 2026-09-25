@@ -18,6 +18,7 @@ const copy = computed(() => COPY[locale.value] ?? COPY[defaultLocale]!)
 const homePath = computed(() => (isAdmin.value ? '/admin' : localePath('/', locale.value, defaultLocale, prefixPrimary)))
 
 useHead(() => ({ htmlAttrs: { lang: isAdmin.value ? defaultLocale : locale.value } }))
+useSiteBodyClass(() => !isAdmin.value)
 
 function goHome(): void {
   void clearError({ redirect: homePath.value })

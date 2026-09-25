@@ -451,10 +451,12 @@
 - A statically delivered page opened with a trailing slash (`/about/`) no longer requests `/api` while it
   hydrates.
 
-- The public site's default layout no longer leaves the browser's 8px body margin around the page, which
-  showed as a light frame in dark mode. The layout marks `<body>` with a `site-body` class while it is
-  mounted (`useSiteBodyClass()`), and `site.css` zeroes the margin and paints the body in the site's
-  background colour under that class; the admin is unaffected.
+- The public site no longer leaves the browser's 8px body margin around the page, which showed as a light
+  frame in dark mode. The default layout, and the error page for any path outside `/admin`, mark `<body>`
+  with a `site-body` class while they are mounted (`useSiteBodyClass()`), and `site.css` zeroes the margin
+  and paints the body with `--site-bg` and `--site-fg` under that class; the admin is unaffected. The
+  `--site-*` variables and the other site tokens are now defined on `body.site-body`, which `.site`
+  inherits from, so setting them on `.site-body` re-themes the page and the body alike.
 
 ## 2.0.1 – 2026-09-21
 
