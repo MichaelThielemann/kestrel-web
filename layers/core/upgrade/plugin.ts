@@ -1,8 +1,9 @@
 import type { UpgradePlugin } from "@michaelthielemann/kestrel-upgrade/plugin";
 import { detectLayerProject, loadDataModel, loadLayerProject, prepareLayerProject } from "./load";
 import { layerLocateModelFields, layerLocateSteps } from "./locators";
+import { layerMediaWiring } from "./mediaWiring";
 import { layerRules } from "./rules";
-import { layerSwitchEdits } from "./switchEdits";
+import { layerIdempotentPipelines, layerSwitchEdits } from "./switchEdits";
 
 /**
  * The layer's `UpgradePlugin`: detects a project built on this layer, loads its config, modules and
@@ -27,5 +28,7 @@ export function createLayerPlugin(): UpgradePlugin {
     locateModelFields: layerLocateModelFields,
     dataModel: loadDataModel,
     switchEdits: layerSwitchEdits,
+    idempotentPipelines: layerIdempotentPipelines,
+    mediaWiring: layerMediaWiring,
   };
 }

@@ -1,7 +1,8 @@
 import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import type { RuleContext } from "@michaelthielemann/kestrel-upgrade/plugin";
-import { layerSwitchEdits } from "./switchEdits";
+import type { LoadedProject, RuleContext } from "@michaelthielemann/kestrel-upgrade/plugin";
+import { layerIdempotentPipelines, layerSwitchEdits } from "./switchEdits";
 
 vi.mock("node:fs", async (importOriginal) => {
   const actual = await importOriginal<typeof import("node:fs")>();
@@ -147,5 +148,41 @@ describe("layerSwitchEdits", () => {
     expect((await layerSwitchEdits(contextFor({ files: { [CONFIG_FILE]: overridden } }), [])).parts).not.toHaveProperty("kestrel.config.ts's delivery-static render mode");
     const queued = `const modules = [{ use: "@michaelthielemann/kestrel-delivery-static", config: { dependencies: { render: "events" } } }];\n`;
     expect((await layerSwitchEdits(contextFor({ files: { [CONFIG_FILE]: queued } }), [])).parts).not.toHaveProperty("kestrel.config.ts's delivery-static render mode");
+  });
+
+  it("never edits package.json itself: the engine's own offer/event-queue swaps the events-direct/events-queue dependency there instead, and skips its own swap only when a plugin's edits already touch that file", async () => {
+    const source = `export default defineConfig({ modules: [{ use: "@michaelthielemann/kestrel-events-direct" }, { use: "@michaelthielemann/kestrel-delivery-static", config: { types: { pages: {} } } }], triggers: [], http: null });\n`;
+    const result = await layerSwitchEdits(contextFor({ files: { [CONFIG_FILE]: source }, features: ["delivery", "images"] }), ["publishPage", "unpublishPage"]);
+    const allEdits = Object.values(result.parts).flatMap((edits) => edits ?? []);
+    expect(allEdits.length).toBeGreaterThan(0);
+    expect(allEdits.some((edit) => edit.file === join("/fake", "package.json"))).toBe(false);
+  });
+});
+
+function projectWith(data?: Record<string, unknown>): LoadedProject {
+  return {
+    input: { config: { modules: [], triggers: [], http: null }, modules: [], pipelines: [] },
+    kind: "kestrel-web",
+    configFile: CONFIG_FILE,
+    moduleFiles: new Map(),
+    pipelineFiles: [],
+    data,
+  };
+}
+
+const ALWAYS_IDEMPOTENT = ["republishOutput", "refreshLlms", "publishPage", "unpublishPage", "generateImageVariants", "auditAuth", "anonymizeAuditUser"];
+
+describe("layerIdempotentPipelines", () => {
+  it("includes every pipeline the preset's own modules guarantee idempotent, plus each collection's dependents pipeline", () => {
+    const project = projectWith({
+      presetOptions: { modules: [], features: [], collections: { pages: { kind: "multi", fields: {} }, posts: { kind: "single", fields: {} } } },
+    });
+    expect(layerIdempotentPipelines(project)).toEqual(expect.arrayContaining([...ALWAYS_IDEMPOTENT, "pageDependents", "postsDependents", "settingsDependents", "mediaDependents"]));
+  });
+
+  it("still returns the static list and the always-composed settings/media dependents when there is no preset data at all", () => {
+    const result = layerIdempotentPipelines(projectWith(undefined));
+    expect(result).toEqual(expect.arrayContaining([...ALWAYS_IDEMPOTENT, "settingsDependents", "mediaDependents"]));
+    expect(result).not.toContain("pageDependents");
   });
 });

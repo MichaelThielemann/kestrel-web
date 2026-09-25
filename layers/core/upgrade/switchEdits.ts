@@ -1,11 +1,14 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { objectProperty, parseTs, replaceModuleListEntry, stringValue, walk } from "@michaelthielemann/kestrel-upgrade/codemods";
-import type { Edit, RuleContext, SwitchEditsResult } from "@michaelthielemann/kestrel-upgrade/plugin";
+import type { Edit, LoadedProject, RuleContext, SwitchEditsResult } from "@michaelthielemann/kestrel-upgrade/plugin";
+import { boundaryCast } from "@michaelthielemann/kestrel/cast";
 import { lanesFor } from "../pipelines/checkPreset";
-import type { Feature } from "../pipelines/checkPreset";
+import type { Feature, PresetOptions } from "../pipelines/checkPreset";
+import { PAGE_DELIVERY_PIPELINES, REFRESH_LLMS_PIPELINE, REPUBLISH_OUTPUT_PIPELINE, dependentsPipelineNames } from "../pipelines/features/delivery";
 import { addStringToNamedExportArray, dependenciesRender, hasModuleEntry, setDependenciesRender } from "./edits";
 import { renderDependenciesText } from "./dependentsRules";
+import { layerProjectData } from "./load";
 import { queueEmitPlacementEdits } from "./overrideEmit";
 import { findFeaturesArrayFile, packageJsonPath, presetOptionsCast } from "./ruleHelpers";
 
@@ -131,4 +134,37 @@ export async function layerSwitchEdits(ctx: RuleContext, relayPipelines: readonl
   const placement = queueEmitPlacementEdits(ctx);
   if (placement.length > 0) parts["kestrel.config.ts's overrides, their emits inside the write's group"] = placement;
   return { parts, blockers: deploymentBlockers(ctx) };
+}
+
+const ALWAYS_IDEMPOTENT_PIPELINES: readonly string[] = [
+  REPUBLISH_OUTPUT_PIPELINE,
+  REFRESH_LLMS_PIPELINE,
+  PAGE_DELIVERY_PIPELINES.publish,
+  PAGE_DELIVERY_PIPELINES.unpublish,
+  "generateImageVariants",
+  "auditAuth",
+  "anonymizeAuditUser",
+];
+
+function presetOptionsOf(project: LoadedProject): PresetOptions | undefined {
+  const data = layerProjectData(project);
+  if (data?.presetOptions === undefined) return undefined;
+  return boundaryCast<PresetOptions>(data.presetOptions, "host");
+}
+
+/**
+ * Every event-triggered pipeline of the preset's own that `offer/event-queue` can skip its
+ * `idempotent:<pipeline>` question for, because the module that runs it already guarantees running it
+ * twice for one event is safe: `republishOutput` and `refreshLlms` check the current row before writing
+ * and are pure recomputations; `publishPage`/`unpublishPage` and each generic collection's own
+ * `<name>Dependents` (plus `settingsDependents`/`mediaDependents`) write through an optimistic version
+ * check or a plain state overwrite, never an increment; `generateImageVariants` dedupes in-process by
+ * media id and every write is itself state-checked; `auditAuth` and `anonymizeAuditUser` dedupe by the
+ * event's own `eventId` (`audit.record`) or are themselves idempotent state changes
+ * (`audit.anonymize`, documented to change nothing on a second call). A project's own event pipelines are
+ * never included here — only what this preset's own modules already guarantee.
+ */
+export function layerIdempotentPipelines(project: LoadedProject): readonly string[] {
+  const collections = presetOptionsOf(project)?.collections ?? {};
+  return [...ALWAYS_IDEMPOTENT_PIPELINES, ...dependentsPipelineNames(collections)];
 }
