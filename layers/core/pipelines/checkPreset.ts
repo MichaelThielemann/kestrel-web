@@ -6,7 +6,7 @@ import type { PresetStep } from "../module-registry";
 import type { Workflow } from "../app/types/kestrel";
 import { customFieldTypes } from "../field-types";
 import type { FieldTypes } from "../field-types";
-import { appendRelay, applyFeaturePatches, foldTrailingEmit, groupSignatureOf, mergePipelines } from "./compose";
+import { appendRelay, applyFeaturePatches, emitEntryIndex, foldTrailingEmit, groupSignatureOf, mergePipelines } from "./compose";
 import type { GroupSignature, Patch, PresetEntry } from "./compose";
 import { basePipelines } from "./base";
 import type { PresetContext } from "./base";
@@ -524,11 +524,31 @@ export function buildPreset<C extends Record<string, CollectionModel> = Record<s
   for (const name of relayedPipelines) {
     const entries = pipelines[name];
     if (entries === undefined) continue;
-    if (!pipelineSteps(entries).includes("events.relay")) {
+    const relayIndex = entries.findIndex((entry) => !isAtomicGroup(entry) && entry === "events.relay");
+    if (relayIndex === -1) {
       sink.report({
         code: "preset/override-drops-relay",
         pipeline: name,
         message: `preset: override for "${name}" drops "events.relay" – append it after the pipeline's events.emit: step, or exclude the pipeline and define your own`,
+      });
+      continue;
+    }
+    const emitIndex = emitEntryIndex(entries);
+    if (emitIndex === -1) continue;
+    if (relayIndex <= emitIndex) {
+      sink.report({
+        code: "preset/override-relay-before-emit",
+        pipeline: name,
+        message: `preset: override for "${name}" places "events.relay" before the entry carrying its events.emit: step – a relay reported before the emit runs answers "done" before delivery starts; move it after that entry`,
+      });
+      continue;
+    }
+    const emitEntry = entries[emitIndex];
+    if (enabledFeatures.has("eventsQueue") && emitEntry !== undefined && !isAtomicGroup(emitEntry) && entries.some(isAtomicGroup)) {
+      sink.report({
+        code: "preset/override-emit-outside-group",
+        pipeline: name,
+        message: `preset: override for "${name}" keeps its events.emit: step outside the atomic group with the "eventsQueue" feature – the outbox write is then not atomic with the document; move the emit inside { atomic: [...] }`,
       });
     }
   }

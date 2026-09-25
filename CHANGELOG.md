@@ -452,6 +452,11 @@
 
 ### Fixed
 
+- A preset `overrides` entry that keeps `events.relay` but places it before the pipeline's own
+  `events.emit:` step, or that keeps the emit outside the atomic group with the `eventsQueue` feature,
+  is now rejected the same way an entry that drops the atomic group already is. Previously the guard only
+  checked that `events.relay` was present somewhere in the list.
+
 - `DeadEvent`, `UserDeleteResponse`, `InsightsModule`, `InsightsPipelineStep` and `InsightsBootWarning` are
   now derived from the generated OpenAPI types instead of hand-written duplicates, so they can no longer
   drift from what the API actually returns. `InsightsModule` gains the `emits` field the API always sent.

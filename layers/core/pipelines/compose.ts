@@ -206,6 +206,11 @@ export function foldTrailingEmit<S extends string>(name: string, entries: readon
   return [...entries.slice(0, groupIndex), newGroup, ...between];
 }
 
+/** The index of the entry carrying a pipeline's `events.emit:` step — a bare entry, or the atomic group holding it. -1 when the pipeline has none. */
+export function emitEntryIndex<S extends string>(entries: readonly PresetEntry<S>[]): number {
+  return entries.findIndex((entry) => (isAtomicGroup(entry) ? entry.atomic.some((step) => step.startsWith("events.emit:")) : entry.startsWith("events.emit:")));
+}
+
 /**
  * Inserts `events.relay` immediately after the entry carrying the pipeline's `events.emit:` step — a
  * bare entry, or the atomic group it ends (with the queue, after `foldTrailingEmit`). A step that reads
@@ -214,9 +219,7 @@ export function foldTrailingEmit<S extends string>(name: string, entries: readon
  * reads the other's addition. A pipeline with no emit, including an empty one, is returned unchanged.
  */
 export function appendRelay<S extends string>(entries: readonly PresetEntry<S>[]): PresetEntry<S>[] {
-  const emitIndex = entries.findIndex((entry) =>
-    isAtomicGroup(entry) ? entry.atomic.some((step) => step.startsWith("events.emit:")) : entry.startsWith("events.emit:"),
-  );
+  const emitIndex = emitEntryIndex(entries);
   if (emitIndex === -1) return [...entries];
   const result = entries.map((entry): PresetEntry<S> => (isAtomicGroup(entry) ? { atomic: [...entry.atomic] } : entry));
   // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- "events.relay" is a step name registered by both delivery modules; S is a step-name union, not a JSON type

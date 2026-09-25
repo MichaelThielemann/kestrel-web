@@ -189,6 +189,21 @@ describe("checkPreset: dependent re-rendering and queue lanes", () => {
     expect(checkPreset(testOptions).preset.pipelines.find((p) => p.name === "setProfile")?.steps).toEqual(override);
   });
 
+  it("collects an override that places events.relay before the entry carrying the pipeline's own events.emit: step", () => {
+    const override = ["authn.requireUser", "authz.require:pages.manage", "events.relay", { atomic: ["content.remove:pages", "events.emit:page.deleted"] }];
+    const testOptions = options({ modules: modules([]), features: [], collections, overrides: { deletePage: override } });
+    expectParity(testOptions, "preset/override-relay-before-emit", "deletePage");
+    expect(checkPreset(testOptions).preset.pipelines.find((p) => p.name === "deletePage")?.steps).toEqual(override);
+  });
+
+  it("collects an override that keeps the eventsQueue feature's emit outside the atomic group it should join", () => {
+    const features = ["eventsQueue"];
+    const override = ["authn.requireUser", "authz.require:pages.manage", { atomic: ["content.remove:pages"] }, "events.emit:page.deleted", "events.relay"];
+    const testOptions = options({ modules: modules(features), features, collections, overrides: { deletePage: override } });
+    expectParity(testOptions, "preset/override-emit-outside-group", "deletePage");
+    expect(checkPreset(testOptions).preset.pipelines.find((p) => p.name === "deletePage")?.steps).toEqual(override);
+  });
+
   it("collects a queue entry without lanes when images renders variants, since they would run in the main lane", () => {
     const features = ["eventsQueue", "images"];
     expectParity(options({ modules: modules(features), features }), "preset/generate-image-variants-lane", "generateImageVariants");
