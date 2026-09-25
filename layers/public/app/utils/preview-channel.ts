@@ -1,4 +1,4 @@
-import type { BlockNode, PageDocument, PageSeo } from '#kestrel-core/app/types/api'
+import type { BlockNode, PageSeo, PublicPageDocument } from '#kestrel-core/app/types/api'
 import { boundaryCast } from '#kestrel/cast'
 
 export const PREVIEW_PREFIX = 'kestrel:preview:'
@@ -16,7 +16,6 @@ export interface PreviewDocument {
 export interface PreviewSnapshot {
   document: PreviewDocument
   locale: string
-  updatedAt: number
 }
 
 export function buildPreviewDocument(
@@ -29,8 +28,8 @@ export function buildPreviewDocument(
   return document
 }
 
-export function previewPageDocument(document: PreviewDocument, updatedAt: number): PageDocument {
-  return { ...document, status: null, shareImage: null, createdAt: 0, updatedAt }
+export function previewPageDocument(document: PreviewDocument): PublicPageDocument {
+  return { ...document, status: null, shareImage: null }
 }
 
 export function previewKey(pageId: string | null | undefined): string {

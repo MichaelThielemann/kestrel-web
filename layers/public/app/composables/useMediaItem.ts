@@ -1,6 +1,5 @@
 import type { Ref } from 'vue'
-import type { MediaItem } from '#kestrel-core/app/types/api'
-import { toPublicMedia, type PublicMediaItem } from '../utils/public-shapes'
+import { toPublicMedia, type MediaAnswer, type PublicMediaItem } from '../utils/public-shapes'
 
 function onMediaError(mediaId: string, e: unknown): null {
   if (apiErrorStatus(e) !== 404) console.error(`useMediaItem: media "${mediaId}" could not be loaded: ${apiErrorMessage(e)}`)
@@ -11,12 +10,12 @@ function onMediaError(mediaId: string, e: unknown): null {
 export function useMediaItem(id: () => string | null, locale: Ref<string>) {
   const api = useApi()
 
-  return useAsyncData<MediaItem | null, unknown, PublicMediaItem | null>(
+  return useAsyncData<MediaAnswer | null, unknown, PublicMediaItem | null>(
     () => `media:${id() ?? ''}:${locale.value}`,
     () => {
       const mediaId = id()
       if (!mediaId) return Promise.resolve(null)
-      return api<MediaItem>(`/media/${encodeURIComponent(mediaId)}`, { query: { locale: locale.value } }).catch((e: unknown) => onMediaError(mediaId, e))
+      return api<MediaAnswer>(`/media/${encodeURIComponent(mediaId)}`, { query: { locale: locale.value } }).catch((e: unknown) => onMediaError(mediaId, e))
     },
     { watch: [id, locale], transform: (item) => (item ? toPublicMedia(item) : null) },
   )

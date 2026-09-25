@@ -30,6 +30,22 @@ describe('the site page', () => {
     expect(useNuxtData('site:locales:p1:de').data.value).toEqual([{ locale: 'de', path: '/about/', current: true }])
   })
 
+  it('keeps a page without its timestamps in the page data and the shared page, whoever the API answered', async () => {
+    unregisterAll.push(registerEndpoint('/api/site/about', {
+      method: 'GET',
+      handler: () => ({ id: 'p1', createdAt: 1700000000000, updatedAt: 1700000001000, slug: 'about', title: 'About', status: 'published', body: [], _locale: 'de', _translations: { de: true } }),
+    }))
+    unregisterAll.push(registerEndpoint('/api/settings', { method: 'GET', handler: () => ({ id: 's1', title: 'Site' }) }))
+
+    await mountSuspended(SitePage, { route: '/about' })
+
+    const stored: unknown = useNuxtData('site:/about').data.value
+    expect(stored).toMatchObject({ id: 'p1', slug: 'about' })
+    expect(stored).not.toHaveProperty('createdAt')
+    expect(stored).not.toHaveProperty('updatedAt')
+    expect(useSitePage().value).not.toHaveProperty('updatedAt')
+  })
+
   it('reads /about/index.html as that path, so the site answers it as before instead of as /about', async () => {
     const requested: string[] = []
     const record = (event: { path: string }) => {

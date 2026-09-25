@@ -24,9 +24,9 @@ describe('buildPreviewDocument', () => {
 })
 
 describe('previewPageDocument', () => {
-  it('fixes status and shareImage to null and stamps updatedAt', () => {
+  it('fixes status and shareImage to null and invents no timestamps', () => {
     const document = buildPreviewDocument(BASE, ['ctaLabel'], { ctaLabel: 'Book now' })
-    const page = previewPageDocument(document, 1234)
-    expect(page).toMatchObject({ ...BASE, ctaLabel: 'Book now', status: null, shareImage: null, createdAt: 0, updatedAt: 1234 })
+    const page = previewPageDocument(document)
+    expect(page).toEqual({ ...BASE, ctaLabel: 'Book now', status: null, shareImage: null })
   })
 })

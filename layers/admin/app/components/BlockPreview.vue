@@ -29,7 +29,7 @@ function buildPreviewSnapshot(): PreviewSnapshot {
     Object.keys(ctx!.pageFieldsBindings.value.fields),
     values,
   )
-  return { document, locale: ctx!.locale.value, updatedAt: Date.now() }
+  return { document, locale: ctx!.locale.value }
 }
 
 function publishSnapshot(): void {

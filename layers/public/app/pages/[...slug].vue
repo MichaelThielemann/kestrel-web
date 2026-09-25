@@ -8,7 +8,8 @@ import { isFallbackDocument, primaryPathOf } from '../utils/untranslated'
 import { resolvePageLayout } from '../utils/page-layout'
 import { isPageResponse, isRedirectResponse, redirectNavigation } from '../utils/site-redirect'
 import { sitePath } from '../utils/site-path'
-import type { PageDocument, SiteResponse } from '#kestrel-core/app/types/api'
+import { toPublicSiteResponse } from '../utils/public-shapes'
+import type { PublicPageDocument, PublicSiteResponse, SiteResponse } from '#kestrel-core/app/types/api'
 import { boundaryCast } from '#kestrel/cast'
 
 definePageMeta({ key: (route) => route.path, layout: false })
@@ -24,15 +25,16 @@ const api = useApi()
 const { data, error } = await useAsyncData(
   () => `site:${sitePath(route.path)}`,
   () => api<SiteResponse>(`/site${sitePath(route.path)}`),
+  { transform: toPublicSiteResponse },
 )
-const response = boundaryCast<Ref<SiteResponse | null | undefined>>(data, 'host')
+const response = boundaryCast<Ref<PublicSiteResponse | null | undefined>>(data, 'host')
 const redirectHit = response.value && isRedirectResponse(response.value) ? response.value.redirect : null
 
 if (redirectHit) {
   await navigateTo(...redirectNavigation(redirectHit))
 }
 
-const page = computed<PageDocument | null>(() =>
+const page = computed<PublicPageDocument | null>(() =>
   response.value && isPageResponse(response.value) ? response.value : null,
 )
 // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- resolvePageLayout may return a stale/unregistered name on purpose; NuxtLayout's fallback prop renders "default" when it isn't a real LayoutKey
@@ -67,7 +69,7 @@ const { data: localeLinks } = await useAsyncData<SiteLocaleLink[]>(
         continue
       }
       if (doc._translations?.[target] !== true) continue
-      const sibling = await api<PageDocument>(`/pages/${doc.id}`, { query: { locale: target } }).catch((e: unknown) => {
+      const sibling = await api<PublicPageDocument>(`/pages/${doc.id}`, { query: { locale: target } }).catch((e: unknown) => {
         if (apiErrorStatus(e) !== 404) console.error(`Locale links: "${doc.id}" (${target}) could not be loaded: ${apiErrorMessage(e)}`)
         return null
       })

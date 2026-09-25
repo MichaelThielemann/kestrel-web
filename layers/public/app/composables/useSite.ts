@@ -1,6 +1,6 @@
 import type { Ref } from 'vue'
 import { defaultLocale, locales, prefixPrimary } from '~~/shared/model'
-import type { PageDocument, SettingsDocument } from '#kestrel-core/app/types/api'
+import type { PublicPageDocument, SettingsDocument } from '#kestrel-core/app/types/api'
 import type { SiteSettings } from '../utils/site-settings'
 import { emptySiteSettings, toSiteSettings } from '../utils/site-settings'
 
@@ -28,7 +28,7 @@ export function useSiteLocaleLinks() {
 }
 
 export function useSitePage() {
-  return useState<PageDocument | null>('site:page', () => null)
+  return useState<PublicPageDocument | null>('site:page', () => null)
 }
 
 export function useSiteSettings(locale: Ref<string>) {

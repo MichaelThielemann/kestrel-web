@@ -2,7 +2,7 @@
 import type { LayoutKey } from '#app'
 import { defaultLocale, previewBanner } from '~~/shared/model'
 import { resolvePageLayout } from '../../utils/page-layout'
-import type { PageDocument } from '#kestrel-core/app/types/api'
+import type { PublicPageDocument } from '#kestrel-core/app/types/api'
 
 definePageMeta({ key: (route) => route.fullPath, layout: false })
 
@@ -33,10 +33,10 @@ const COPY: Record<string, { banner: string; missingTitle: string; missingBody: 
 }
 const copy = computed(() => COPY[snapshot.value?.locale ?? defaultLocale] ?? COPY[defaultLocale]!)
 
-const page = computed<PageDocument | null>(() => {
+const page = computed<PublicPageDocument | null>(() => {
   const doc = snapshot.value?.document
   if (!doc) return null
-  return previewPageDocument(doc, snapshot.value?.updatedAt ?? 0)
+  return previewPageDocument(doc)
 })
 // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- resolvePageLayout may return a stale/unregistered name on purpose; NuxtLayout's fallback prop renders "default" when it isn't a real LayoutKey
 const pageLayout = computed(() => resolvePageLayout(page.value?.layout) as LayoutKey)
