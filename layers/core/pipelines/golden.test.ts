@@ -176,9 +176,9 @@ describe("golden: images without references", () => {
   });
 });
 
-const queuedModules = allModules
+const queuedModules: { use: string; config?: unknown }[] = allModules
   .filter((entry) => entry.use !== "@michaelthielemann/kestrel-events-direct")
-  .map((entry) => (entry.use === "@michaelthielemann/kestrel-delivery-static" ? { ...entry, config: { dependencies: { render: "events" } } } : entry))
+  .map((entry): { use: string; config?: unknown } => (entry.use === "@michaelthielemann/kestrel-delivery-static" ? { ...entry, config: { dependencies: { render: "events" } } } : entry))
   .concat([{ use: "@michaelthielemann/kestrel-events-queue", config: { lanes: { pages: ["republishOutput", "refreshLlms"], variants: ["generateImageVariants"] } } }]);
 const queuedFeatures = [...allFeatures, "eventsQueue"] as readonly Feature[];
 
