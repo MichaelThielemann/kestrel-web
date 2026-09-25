@@ -521,8 +521,10 @@ The step therefore follows `images.attach` and `redirects.lookup`. An override r
 and keeps the step only when it names it; one that drops it from a public read fails boot, naming the
 pipeline.
 
-`presetModuleConfig()` derives the anonymous grants from the content model and the features
-(`anonymousFieldGrants(model, features)`): every model field of each content type with its `id`, plus
+`presetModuleConfig()` derives the anonymous grants from the content model, the features and
+`roles.anonymous` (`anonymousFieldGrants(model, features, anonymous)`), for each resource whose read
+permission `anonymous` holds (`<type>.read`, `media.read` for `media` and `mediaFile`, matched as
+`authz-roles` matches) and for the ungated redirect rules: every model field of each content type with its `id`, plus
 `_locales` and `_translations` when the model has locales; on `pages` also `_locale` (with locales),
 `_links` and, with `redirects`, `redirect` (the hit `resolvePage` can answer early); on `settings` also
 `_links`; the public media fields (`id`, `path`, `filename`, `contentType`, `size`, `width`, `height`,
@@ -533,6 +535,14 @@ members a read declares, so every path passes kestrel's check. What it leaves ou
 callers: a document's `createdAt` and `updatedAt`, a media item's `folder`, timestamps, `available` and
 `variantCounts`, a variant's `bytes` and `state`, and any other file header. `roles.anonymousFields`
 replaces the grant of a resource it names (an empty list removes it), and `roles.fields` is passed through.
+
+`definePreset` (and the upgrade tool's stand-in for it) then drops, from that `authz-roles` entry, the
+derived grant of every resource no composed pipeline ends with a cut for: kestrel refuses a grant whose
+resource nothing cuts, and excluding every read of a collection, or overriding them behind a session, must
+keep booting. `presetModuleConfig` records which resources it derived (a `WeakMap` keyed by the grants
+object in `field-grants.ts`), so a grant the consumer named, or an `authz-roles` entry written by hand,
+is never touched. A consumer pipeline that cuts a resource whose preset reads are all excluded therefore
+needs that resource in `roles.anonymousFields`.
 
 ## Content migrations
 A consumer that changes a block's props or a collection's field shape needs existing documents rewritten,
@@ -1751,7 +1761,9 @@ media field, no timestamp, no user or audit data. Five things keep it so.
    what `toPublicMedia()` (`layers/public/app/utils/public-shapes.ts`) keeps: no library folder, no
    timestamps, no variant counts, no variant state, and an empty `variants` list for an item a preset
    without `images` answers. On the export these transforms change nothing, since the render is
-   anonymous; on the Node site they keep a signed-in editor's page data equal to a visitor's.
+   anonymous; on the Node site, with the derived grants, they keep a signed-in editor's page data equal to
+   a visitor's. A consumer who narrows the `pages` grant in `roles.anonymousFields` narrows only the
+   visitor's answer: the editor's page data then keeps the fields visitors lose.
 5. **A test that fails on a leak.** `layers/public/static-export.e2e.test.ts` (run with
    `KESTREL_STATIC_E2E=1`) builds the playground, publishes a German page whose English translation is a
    draft, a draft page, a media item in its own folder and an English page whose German original is a

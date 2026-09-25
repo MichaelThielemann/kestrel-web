@@ -301,7 +301,7 @@ calls them before it has read a schema at all.
 | `blobstore` | yes | — a `{ use, config }` entry; `envBlobstore()` builds the usual two |
 | `model` | yes | — your `contentModel` (`{ locales?, defaultLocale?, types }`), handed to `content-default` |
 | `features` | yes | — the same list you pass to `definePreset` and `presetSchemas` |
-| `roles` | yes | — `{ roles, anonymous, anonymousFields?, fields? }` for `authz-roles`; `anonymousFields` replaces the derived field grant of each resource it names (an empty list removes it), `fields` is passed through (see §4, "What a visitor without a session receives") |
+| `roles` | yes | — `{ roles, anonymous, anonymousFields?, fields? }` for `authz-roles`; the field grants of the resources `anonymous` may read are derived, `anonymousFields` replaces the grant of each resource it names (an empty list removes it), `fields` is passed through (see §4, "What a visitor without a session receives") |
 | `bootstrap` | yes | — `{ username, passwordHash, roles? }`, `roles` defaulting to `["admin"]` |
 | `collectionsUi` | no | — your `shared/collections-ui.ts` map; the `revisions` module's `statusField`/`liveStatuses` are derived from the workflows in it |
 | `media` | no | `{ maxBytes: 5242880, allowedTypes: ["image/*", "application/pdf"], deniedTypes: ["text/html", "application/xhtml+xml"] }` |
@@ -344,7 +344,8 @@ rather than booting with something plausible.
 - **`validate-jsonschema.schemas`** — `presetSchemas({ features, collections })`, with `watch` on
   outside production.
 - **`authz-roles.anonymousFields`** — which fields of each answer a caller without a session receives,
-  from the content model and the features (§4, "What a visitor without a session receives").
+  from the content model, the features and `roles.anonymous` (§4, "What a visitor without a session
+  receives").
 - **The conventions** — `media/` for the media prefix, `site/` for delivery and redirects, the empty
   configs of the modules that take none.
 - **`persistence-sqlite.acquireTimeoutMs`** — left unset, so the module derives it itself: `busyTimeoutMs`
@@ -387,7 +388,6 @@ const modules = [
       anonymous: ["pages.read", "settings.read", "media.read"],
       anonymousFields: {
         settings: ["id", "title", "titlePosition", "titleSeparator", "description", "navigation", "_locales", "_translations", "_links"],
-        redirects: ["id", "rules", "_locales", "_translations"],
         pages: ["id", "slug", "title", "body", "seo", "status", "shareImage", "accent", "layout", "_locales", "_translations", "_locale", "_links", "redirect"],
         media: ["id", "path", "filename", "contentType", "size", "width", "height", "alt", "title", "description", "provenance", "variants[].size", "variants[].width", "variants[].height", "variants[].format", "variants[].path"],
         mediaFile: ["headers.cache-control", "headers.x-content-provenance", "headers.x-kestrel-variant"],
@@ -648,7 +648,9 @@ one whose roles are none of the configured ones, keeps the fields `anonymousFiel
 resource; a signed-in editor or admin keeps the whole answer, since the preset gives no role a field
 grant of its own.
 
-`presetModuleConfig()` derives `anonymousFields` from your content model and features:
+`presetModuleConfig()` derives `anonymousFields` from your content model and features, for the resources
+whose read permission `roles.anonymous` holds (`<type>.read` for a content type, `media.read` for media and
+its files; `x.*` and `*` count as in `authz-roles`) and for the redirect rules, which no permission gates:
 
 | Resource | Fields a visitor receives |
 |---|---|
@@ -660,36 +662,53 @@ grant of its own.
 | `redirectRules` | `pattern`, `target`, `status` (with `redirects`) |
 
 Everything else is cut for them: a document's `createdAt` and `updatedAt`, a media item's `folder`,
-timestamps, `available` and `variantCounts`, and a variant's `bytes` and `state`. The model is the public
-contract: a field you add to a content type is public on every published document; keep editor-only
-notes in a collection anonymous callers cannot read. To grant a resource differently, name it in
-`roles.anonymousFields` — the list replaces the derived one, and an empty list removes the resource:
+timestamps, `available` and `variantCounts`, and a variant's `bytes` and `state`. `definePreset()` then
+drops the derived grant of a resource none of its composed reads ends with a cut for — every read of it
+excluded, or overridden without the field step behind a session — so excluding or keeping private all
+reads of a collection needs no grant change.
+
+The model is the public contract: a field you add to a content type is public on every published
+document. To keep a field from visitors, narrow the grant of its resource in `roles.anonymousFields` —
+the list replaces the derived one field by field, and an empty list removes the resource. The example
+keeps every derived `pages` field except `layout`, and gives visitors a smaller media item:
 
 ```ts
 roles: {
   roles: { admin: ["*"], editor: ["pages.*", "media.*", "images.read", "settings.read", "redirects.*"], reviewer: ["pages.read"] },
   anonymous: ["pages.read", "settings.read", "media.read"],
-  anonymousFields: { media: ["id", "path", "alt", "width", "height", "variants[].path", "variants[].width"] },
+  anonymousFields: {
+    pages: ["id", "slug", "title", "body", "seo", "status", "shareImage", "_locales", "_translations", "_locale", "_links", "redirect"],
+    media: ["id", "path", "alt", "width", "height", "variants[].path", "variants[].width"],
+  },
   fields: { reviewer: { pages: ["createdAt", "updatedAt"] } },
 },
 ```
+
+The page data a public page keeps (`toPublicPage()`: the page without its timestamps) matches what a
+visitor receives under the derived `pages` grant, so with it a signed-in editor, a logged-out editor and a
+visitor get the same page data on the Node site. A narrowed grant cuts only the visitor's answer: an
+editor's page data on the Node site then keeps the fields visitors lose. It goes to the editor alone, and
+the static export, rendered without a session, keeps the narrowed shape.
 
 A path is relative to one item of the answer: `title` keeps the member whole, `provenance.origin` keeps
 `provenance` holding only `origin`, `variants[].path` keeps each variant holding only `path`. `fields`
 grants a role, joined with the anonymous grant, what it keeps of a resource; a role without an entry
 keeps everything. The server does not start when a grant names a field no read of its resource declares
 (`anonymousFields.media names "folderr", which no pipeline ending with authz.fields:media declares`), or
-names a resource no pipeline cuts.
+when a grant you named in `roles.anonymousFields` has a resource no pipeline cuts.
 
 The rules for your own pipelines follow from kestrel's boot check:
 
-- **An override of one of these reads** replaces the step list whole, so it ends with the same
-  `authz.fields:…` step, or the server does not start while anonymous callers can reach it
+- **An override of one of these reads** replaces the step list whole. While anonymous callers can reach
+  it, it ends with the same `authz.fields:…` step, or the server does not start
   (`pipeline "getMedia" answers anonymous callers but does not end with authz.fields:<resource>?shape=item`).
+  An override behind `authn.requireUser`, or of a read whose permission `anonymous` does not hold, needs no
+  step; keep it anyway if you may grant the read to visitors later.
 - **A pipeline of your own** that a caller without a session reaches over HTTP and that answers with a
   result ends with `authz.fields:<resource>?shape=<shape>` too, and `roles.anonymousFields` grants that
-  resource's fields unless it is one of the resources above. The boot message names the shape the
-  declared output needs.
+  resource's fields unless it is one of the resources above and a preset read of it still ends with its
+  cut. When you exclude every preset read of a resource and read it through your own pipeline, name the
+  resource in `roles.anonymousFields`. The boot message names the shape the declared output needs.
 - **A step of your own that answers early** with `ctx.done()` declares `terminalOutput`; a run that ends
   this way without it fails, and in a pipeline anonymous callers reach every member of that early answer
   needs a grant, or the server does not start.
@@ -1581,8 +1600,8 @@ other means. Code that runs on exported pages follows these rules:
     page. Store the public shape (a `transform`), never whole API records with internal fields, and keep
     editor-only data out of the page model. The layer does so for its own keys: a media item keeps only the
     fields `toPublicMedia()` returns, a page those `toPublicPage()` returns. The server cuts the layer's
-    reads for an anonymous render already; the transforms keep a signed-in editor's page data on the Node
-    site equal to a visitor's.
+    reads for an anonymous render already; with the derived grants the transforms keep a signed-in editor's
+    page data on the Node site equal to a visitor's (§4, "What a visitor without a session receives").
 11. **Following a link transfers data, not state.** On a static page a navigation applies the target
     page's `useAsyncData`/`useFetch` results only. `useState` values the server set for the target page are
     not transferred; their initializers run again in the browser, as on the live site. Derive such state
@@ -1792,11 +1811,14 @@ What changes:
   admins receive what they received before. The preset ends every public read with `authz.fields`, and
   `presetModuleConfig()` derives the grants, so a project built with it needs no change to its config.
   - A hand-written module list adds `anonymousFields` to its `authz-roles` entry, or the server does not
-    start. `preset/field-grants` prints the grants `presetModuleConfig()` would derive for your model and
-    features; kestrel's `pipelines/field-step` asks once and, answered `yes`, writes the grants it proposes
+    start. `preset/field-grants` prints the grants `presetModuleConfig()` would derive for your model,
+    features and anonymous permissions, limited to the resources a pipeline cuts; kestrel's `pipelines/field-step` asks once and, answered `yes`, writes the grants it proposes
     into that entry.
-  - An override of a public read keeps `authz.fields:<resource>?shape=<shape>` as its last step;
-    `pipelines/public-override-field-step` names the step for each override that lacks it.
+  - An override of a read anonymous callers reach keeps `authz.fields:<resource>?shape=<shape>` as its last
+    step; `pipelines/public-override-field-step` names the step for each override that lacks it, says when
+    the override is harmless because visitors cannot reach it, and notes a field step that cuts another
+    resource than the preset's. Excluding every read of a resource, or overriding them behind a session,
+    needs no change: its derived grant is dropped.
   - A pipeline of your own that anonymous callers reach ends with the step as well; `pipelines/field-step`
     appends it when it can tell the resource from the step that reads the answer.
   - A page keeps that shape for every viewer: its data (`useSitePage()`, the `site:<path>` key) carries no
