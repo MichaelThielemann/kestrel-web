@@ -1580,52 +1580,6 @@ it is an ordinary dependency and needs no attention unless you pinned it yoursel
 
 ### 2.x → 3.0
 
-- Media items carry one public URL, `path`, next to `variants[].path`; both now come from the API as
-  data. Remove any code that built `/api/media/<id>/file` or a variant URL from an id and read `path`
-  from the item instead. `mediaFileUrl` and `mediaVariantUrl` are gone from the admin composables, and
-  `KestrelMediaThumb` takes `path` instead of `id`.
-- `presetModuleConfig()` sets `publicPath: "/media"` on `media-default` and `images-default` (it was
-  `/api/media` on `images-default`), and, with `delivery`, `publicCopy: { prefix: "site/" }` on both
-  instead of a `media` option on `delivery-static`, which no longer accepts one. A hand-written module
-  list needs the same edits — see "Wiring the images module" (§6).
-  The server now answers `/media/**` itself; `/api/media` still exists unchanged.
-- Listing media or its folders (`GET /api/media` without `ids`, `GET /api/media/folders`) now requires a
-  signed-in caller and answers `401` to a public request; reading one item by id stays anonymous.
-- Page slugs `api`, `admin` and `media`, and locales of those names, are rejected.
-- An uploaded image can be put into content only once its `available` field is not `false`; the admin's
-  media picker already enforces this.
-- Run the release's kestrel-side upgrade first (`kestrel-upgrade`, see the backend's own changelog); it
-  rewrites `delivery-static.media`, the image-variant event pipeline and the media delete order for you.
-- A statically delivered site navigates without `/api` (§8). Run **Publish all** after upgrading so every
-  exported page carries the static marker and the build id. A page exported by an earlier release keeps
-  calling `/api` on navigation until it is published again; forwarding `/api/` to the origin (§8, hybrid)
-  keeps such a site working in the meantime.
-- Code on exported pages follows the rules in §8, "What an exported page requests": deterministic keys
-  that carry the locale, never `useId()`, data transferred without `useState`. `useSiteSettings()` stores
-  its data under `site:settings:<locale>`, and a media item the layer loads keeps its public fields only
-  (`PublicMediaItem`).
-
-### 1.x → 2.0
-
-- A collection name has to match `^[a-z][a-z0-9_]*$`; a camelCase name such as `blogPosts` is rejected
-  at config time with a message that names it. Rename it to `blog_posts` — this is a rename of the
-  content type, so existing records need a data migration.
-- `DELETE /users/:id` deletes the user for good; deactivating one is `POST /users/:id/deactivate`. A
-  `kestrel.config.ts` with its own `triggers`, `overrides` or `exclude` list naming `deactivateUser`
-  behind `DELETE` keeps its own mapping and has to move it to the new route itself. This needs
-  `@michaelthielemann/kestrel-authn-multi` 5.5.0 or newer.
-- The admin no longer imports `shared/model.ts` and `shared/collections-ui.ts` as consumer TypeScript;
-  it reads them from the new `GET /api/admin/schema` route instead. Both files stay backend
-  configuration and need no changes, but code importing admin internals directly is affected: the
-  static exports of `layers/admin/app/utils/collections.ts` are now functions over the schema
-  (`collections(schema)`, `findCollection(schema, name)`, `editorOwnedFields(schema, name)`,
-  `contentLocales(schema)`), `useFeatures().features` is a `ComputedRef` rather than an array, and
-  `useContentLocales()` answers `{ locales, primary, prefixPrimary }` as `ComputedRef`s. `EditFormPort`/
-  `EditorExpose` carry `workflow: Workflow | undefined` in place of `hasStatus: boolean`, and
-  `bulkSetStatus` takes `{ workflow, live }` in place of `status: 'published' | 'draft'`.
-
-### 2.x → 3.0
-
 `kestrel-web-upgrade`, the layer's own bin, lists every known 5.8/2.0 → 6.0/3.0 break with its location and
 a suggestion, and applies the mechanical ones with a preview:
 
@@ -1634,14 +1588,40 @@ a suggestion, and applies the mechanical ones with a preview:
    5.x, this sees only what a static read of your files can tell (dependency ranges, module lists,
    overrides).
 3. `npx kestrel-web-upgrade fix` bumps every out-of-range `@michaelthielemann/kestrel*` dependency
-   (`^6.0.0`) and `@michaelthielemann/kestrel-web` itself (`^3.0.0`); run it with `--write`, then
-   `pnpm install`.
-4. `npx kestrel-web-upgrade check` again for the full report, `fix --write` to apply what it can, and fix
+   (`^6.0.0`) and `@michaelthielemann/kestrel-web` itself (`^3.0.0`), and adds `"sanitizeSvg"` to
+   `features` when `delivery` needs it (see below); run it with `--write`, then `pnpm install`.
+4. Run the release's kestrel-side upgrade too (`kestrel-upgrade`, see the backend's own changelog); it
+   rewrites `delivery-static.media`, the image-variant event pipeline and the media delete order for you.
+5. `npx kestrel-web-upgrade check` again for the full report, `fix --write` to apply what it can, and fix
    the rest by hand.
-5. `nuxt typecheck`, `nuxt build`, boot it once, log in.
+6. `nuxt typecheck`, `nuxt build`, boot it once, log in.
 
 What changes:
 
+- Media items carry one public URL, `path`, next to `variants[].path`; both now come from the API as
+  data. Remove any code that built `/api/media/<id>/file` or a variant URL from an id and read `path`
+  from the item instead. `mediaFileUrl` and `mediaVariantUrl` are gone from the admin composables, and
+  `KestrelMediaThumb` takes `path` instead of `id`.
+- `presetModuleConfig()` sets `publicPath: "/media"` on `media-default` and `images-default` (it was
+  `/api/media` on `images-default`), and, with `delivery`, `publicCopy: { prefix: "site/" }` on both
+  instead of a `media` option on `delivery-static`, which no longer accepts one. A hand-written module
+  list needs the same edits — see "Wiring the images module" (§6). The server now answers `/media/**`
+  itself; `/api/media` still exists unchanged. With `delivery` and SVG uploads still allowed,
+  `presetModuleConfig()` also now requires the `sanitizeSvg` feature; `fix` adds it to `features`
+  automatically (add `@michaelthielemann/kestrel-sanitize-svg` to your dependencies too).
+- Listing media or its folders (`GET /api/media` without `ids`, `GET /api/media/folders`) now requires a
+  signed-in caller and answers `401` to a public request; reading one item by id stays anonymous.
+- Page slugs `api`, `admin` and `media`, and locales of those names, are rejected.
+- An uploaded image can be put into content only once its `available` field is not `false`; the admin's
+  media picker already enforces this.
+- A statically delivered site navigates without `/api` (§8). Run **Publish all** after upgrading so every
+  exported page carries the static marker and the build id. A page exported by an earlier release keeps
+  calling `/api` on navigation until it is published again; forwarding `/api/` to the origin (§8, hybrid)
+  keeps such a site working in the meantime.
+- Code on exported pages follows the rules in §8, "What an exported page requests": deterministic keys
+  that carry the locale, never `useId()`, data transferred without `useState`. `useSiteSettings()` stores
+  its data under `site:settings:<locale>`, and a media item the layer loads keeps its public fields only
+  (`PublicMediaItem`).
 - A hand-written `modules` list needs `events-inmemory` plus exactly one of `events-direct`/`events-queue`;
   a project built with `presetModuleConfig()` already has this and needs no change.
 - An `overrides` entry of a write pipeline must keep the atomic group around its content write, and keep
@@ -1688,6 +1668,25 @@ run twice for one event or deduplicates by `eventId` — answering no for any of
 switch, since at-least-once delivery may run it more than once. Once switched, uploads and other requests
 answer at once while everything else runs in the worker moments later, retried with backoff on failure.
 The default throughout is no; nothing switches unless you say yes to all of it.
+
+### 1.x → 2.0
+
+- A collection name has to match `^[a-z][a-z0-9_]*$`; a camelCase name such as `blogPosts` is rejected
+  at config time with a message that names it. Rename it to `blog_posts` — this is a rename of the
+  content type, so existing records need a data migration.
+- `DELETE /users/:id` deletes the user for good; deactivating one is `POST /users/:id/deactivate`. A
+  `kestrel.config.ts` with its own `triggers`, `overrides` or `exclude` list naming `deactivateUser`
+  behind `DELETE` keeps its own mapping and has to move it to the new route itself. This needs
+  `@michaelthielemann/kestrel-authn-multi` 5.5.0 or newer.
+- The admin no longer imports `shared/model.ts` and `shared/collections-ui.ts` as consumer TypeScript;
+  it reads them from the new `GET /api/admin/schema` route instead. Both files stay backend
+  configuration and need no changes, but code importing admin internals directly is affected: the
+  static exports of `layers/admin/app/utils/collections.ts` are now functions over the schema
+  (`collections(schema)`, `findCollection(schema, name)`, `editorOwnedFields(schema, name)`,
+  `contentLocales(schema)`), `useFeatures().features` is a `ComputedRef` rather than an array, and
+  `useContentLocales()` answers `{ locales, primary, prefixPrimary }` as `ComputedRef`s. `EditFormPort`/
+  `EditorExpose` carry `workflow: Workflow | undefined` in place of `hasStatus: boolean`, and
+  `bulkSetStatus` takes `{ workflow, live }` in place of `status: 'published' | 'draft'`.
 
 ## Keeping your styles out of the admin
 
