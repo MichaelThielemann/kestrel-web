@@ -56,8 +56,17 @@ available across layers.
 instance from it, generates its OpenAPI document with `@michaelthielemann/kestrel-openapi`, and runs
 `openapi-typescript` on that document. The result exports `paths`, `components` and, since every OpenAPI
 operation's `operationId` is the pipeline name, an `operations` map keyed by pipeline name — `api.ts` reads
-individual response bodies off it, for example `operations['getMedia']['responses'][200]['content']['application/json']`
-for the shape of a media item.
+individual response bodies off it, for example `operations['pagePublishStatus']['responses'][200]['content']['application/json']`
+for the publish status of a page.
+
+A read that ends with `authz.fields` (see **Public reads and field grants**) documents two answers: its 200
+is the union of `components['schemas'][<pipeline>]`, what a caller whose roles keep every field receives,
+and `components['schemas'][<pipeline>.anonymous]`, what a caller without a session receives. `api.ts` reads
+them through `FullOf<'getMedia'>` and `AnonymousOf<'getMedia'>` rather than off the 200. `MediaItem` is
+`FullOf<'getMedia'>`, the admin's item; the public layer's `PublicMediaItem` is `AnonymousOf<'getMedia'>`.
+`PublicPageDocument` is the hand-written page (for its `body` and `seo` types) without its timestamps, and
+becomes `never` when it names a field the anonymous `resolvePage` answer does not declare, or when that
+answer carries a timestamp, so a drift fails `nuxt typecheck`.
 
 `pnpm test` runs `scripts/generate-api-types.ts --check` first (the package.json `pretest` script) and
 fails if regenerating would change the file, so a stale generated file or a renamed response field breaks
@@ -318,7 +327,8 @@ with `slug`, `status` and `body`), `validate-jsonschema.schemas` via `presetSche
 both media modules from `MEDIA_PUBLIC_PATH`, and, with `delivery`, `publicCopy: { prefix }` on both from
 `SITE_PREFIX`. Both constants live in `layers/core/mount-path.ts` (`MEDIA_PUBLIC_PATH`) and
 `pipelines/config.ts` (`SITE_PREFIX`), shared with `server/plugins/kestrel.ts` and the media-paths boot
-check — nothing can drift.
+check — nothing can drift. `authz-roles` gets `roles` and `anonymous` as given and `anonymousFields`
+derived from the model and the features (see **Public reads and field grants**).
 
 `layers/core/config/` (`#kestrel/config`) is the environment half, deliberately free of preset types:
 `kestrelDataDir()`, `requiredEnv(name)`, `adminPasswordHash()` and `envBlobstore(dataDir)`. Production
@@ -367,9 +377,11 @@ composes pipelines in this fixed order:
 3. Feature patches, in this feature order — `ratelimit, sanitizeSvg, references, links, delivery,
    redirects, images, replication, migrations, audit, insights, eventsQueue, revisions` — and, within
    one feature, in the order its patches are declared.
-4. `overrides`.
-5. `exclude`.
-6. `schedules`.
+4. The emit fold and the relay (§ Events and the relay), then the field step on every public read
+   (§ Public reads and field grants).
+5. `overrides`.
+6. `exclude`.
+7. `schedules`.
 
 Each feature also names the module(s) it needs; a feature without its module throws at compose time, a
 configured module whose feature is off only warns (the consumer may still use the module with pipelines
@@ -480,6 +492,47 @@ Two pipelines are exempt on purpose: `replicationRestore` replaces the database 
 inside a transaction of that same database, and `deleteMediaFolder` has a check-then-act window between
 its reference guard and the blob removal that no database scope closes — closing it needs a different
 mechanism than grouping and is tracked separately.
+
+### Public reads and field grants
+
+Which fields of an answer a caller receives is `authz-roles`' decision: its step
+`authz.fields:<resource>?shape=<item|list|array|file>`, last in a pipeline, cuts the answer to the fields
+`anonymousFields[<resource>]` grants a caller without a session (a signed-in caller keeps everything unless
+every one of its roles has a grant in `fields`). kestrel refuses to boot when a pipeline an anonymous caller
+reaches over HTTP does not end with the step, when its resource has no anonymous grant, or when a grant
+names a field no pipeline of that resource declares.
+
+After the relay pass, `definePreset` appends the step (`field-grants.ts`, `fieldCutSteps(collections)`) to
+every read an anonymous caller can reach, whether or not the consumer's `anonymous` permissions grant it
+today, so that granting `<name>.read` later needs nothing else:
+
+| Pipelines | Step |
+|---|---|
+| `resolvePage`, `readPage` | `authz.fields:pages?shape=item` |
+| `listPages` | `authz.fields:pages?shape=list` |
+| `getSettings` | `authz.fields:settings?shape=item` |
+| `getMedia` / `listMedia` | `authz.fields:media?shape=item` / `?shape=list` |
+| `downloadMedia`, `serveMediaFile`, `serveImageVariant` | `authz.fields:mediaFile?shape=file` |
+| `renderRedirects` | `authz.fields:redirectRules?shape=array` |
+| `getRedirects` | `authz.fields:redirects?shape=item` |
+| each collection's `list<Name>`, `read<Name>`, `get<Name>` | `authz.fields:<name>?shape=list` / `item` / `item` |
+
+The step therefore follows `images.attach` and `redirects.lookup`. An override replaces the step list whole
+and keeps the step only when it names it; one that drops it from a public read fails boot, naming the
+pipeline.
+
+`presetModuleConfig()` derives the anonymous grants from the content model and the features
+(`anonymousFieldGrants(model, features)`): every model field of each content type with its `id`, plus
+`_locales` and `_translations` when the model has locales; on `pages` also `_locale` (with locales),
+`_links` and, with `redirects`, `redirect` (the hit `resolvePage` can answer early); on `settings` also
+`_links`; the public media fields (`id`, `path`, `filename`, `contentType`, `size`, `width`, `height`,
+`alt`, `title`, `description`, `provenance`) and, with `images`, `variants[].size`, `.width`, `.height`,
+`.format` and `.path`; the file headers `cache-control`, `x-content-provenance` and, with `images`,
+`x-kestrel-variant`; with `redirects`, the redirect rules' `pattern`, `target` and `status`. It names only
+members a read declares, so every path passes kestrel's check. What it leaves out is cut for anonymous
+callers: a document's `createdAt` and `updatedAt`, a media item's `folder`, timestamps, `available` and
+`variantCounts`, a variant's `bytes` and `state`, and any other file header. `roles.anonymousFields`
+replaces the grant of a resource it names (an empty list removes it), and `roles.fields` is passed through.
 
 ## Content migrations
 A consumer that changes a block's props or a collection's field shape needs existing documents rewritten,
@@ -1680,26 +1733,32 @@ them is a document load until their background render has run.
 
 An exported page, and therefore the data client navigation reads from it, holds only what an anonymous
 visitor may see on that published page: no draft, no preview, no unpublished translation, no internal
-media field, no user or audit data. Four things keep it so.
+media field, no timestamp, no user or audit data. Five things keep it so.
 
 1. **The render is anonymous.** `renderer-nuxt` calls `NuxtTarget.fetch(path)` with the path only, and the
    layer's target (`layers/core/server/utils/renderer-target.ts`) is `nitro.localFetch(path)`: a new
    in-process request without cookie, `Authorization` or forwarded headers, whatever request triggered the
    publish. Every read during the render runs with the anonymous role's grants and the public status
    filters. Previews never render on the server (`/_preview/**` is `ssr: false`).
-2. **Navigation data is the exported HTML.** Nothing reaches the browser by navigation that the page's
+2. **The server cuts every public read.** Each read an anonymous caller reaches ends with
+   `authz.fields` (see **Public reads and field grants**), so the render receives only the fields the
+   anonymous grants name.
+3. **Navigation data is the exported HTML.** Nothing reaches the browser by navigation that the page's
    own HTML does not already hold.
-3. **The layer stores public shapes.** `site:<path>` is the document `resolvePage` gives anonymous
-   callers; `site:locales:<id>:<locale>` is `{ locale, path, current }[]` of published siblings;
-   `site:settings:<locale>` holds the five fields of `toSiteSettings`; `media:<id>:<locale>` holds what
-   `toPublicMedia()` (`layers/public/app/utils/public-shapes.ts`) keeps: no library folder, no timestamps,
-   no variant counts, no variant state.
-4. **A test that fails on a leak.** `layers/public/static-export.e2e.test.ts` (run with
+4. **The layer stores public shapes.** `site:<path>` is `toPublicPage()` of the `resolvePage` answer: the
+   page without its timestamps; `site:locales:<id>:<locale>` is `{ locale, path, current }[]` of published
+   siblings; `site:settings:<locale>` holds the five fields of `toSiteSettings`; `media:<id>:<locale>` holds
+   what `toPublicMedia()` (`layers/public/app/utils/public-shapes.ts`) keeps: no library folder, no
+   timestamps, no variant counts, no variant state, and an empty `variants` list for an item a preset
+   without `images` answers. On the export these transforms change nothing, since the render is
+   anonymous; on the Node site they keep a signed-in editor's page data equal to a visitor's.
+5. **A test that fails on a leak.** `layers/public/static-export.e2e.test.ts` (run with
    `KESTREL_STATIC_E2E=1`) builds the playground, publishes a German page whose English translation is a
    draft, a draft page, a media item in its own folder and an English page whose German original is a
    draft, runs Publish all as a second user and waits for its background renders, and checks that none of
    their marker strings reaches any exported file, that every payload key keeps its public shape, and that
-   an exported payload equals an anonymous render of the same path. It runs once with the inline event
+   an exported payload equals an anonymous render of the same path, and that the Node origin renders every
+published page the same for a visitor, a signed-in editor and an editor who logged out. It runs once with the inline event
    delivery and once with the queue (`KESTREL_PLAYGROUND_EVENTS_QUEUE=1` on the same build), and in both
    changes the settings, a media item's alt text and a page's slug to check that exactly the pages showing
    them are rendered again.
@@ -1789,13 +1848,13 @@ done the layer-ordered, name-first dedup) and written to a `kestrel-layouts.mjs`
 layer ships `app/layouts/default.vue`, so a consumer with no layouts of its own still renders normally.
 
 ### The rendered page in state
-`useSitePage()` (`app/composables/useSite.ts`) is a `useState<PageDocument | null>('site:page', ...)`,
+`useSitePage()` (`app/composables/useSite.ts`) is a `useState<PublicPageDocument | null>('site:page', ...)`,
 written reactively — not in `onMounted` — by both `[...slug].vue` and `_preview/[key].vue` as soon as
 `page` resolves, so it is set before their `<NuxtLayout>` (and therefore the layout's own components,
 e.g. a header) renders on the same pass, on the server and the client alike; a layout/component that only
-reads it (never assigns) stays consistent between SSR and hydration. It carries the same `PageDocument`
-shape `KestrelBlockRenderer` gets, including any consumer-defined field beyond the reserved ones (via
-`PageDocument`'s inherited index signature) — a layout reaching for a per-page value (e.g. a
+reads it (never assigns) stays consistent between SSR and hydration. It carries the same page
+`KestrelBlockRenderer` gets, without its timestamps, including any consumer-defined field beyond the
+reserved ones (via the page's inherited index signature) — a layout reaching for a per-page value (e.g. a
 page-specific header CTA) reads `useSitePage().value?.someField` and casts it itself; kestrel-web has no
 notion of that field's name or type.
 
@@ -1813,9 +1872,9 @@ never leak into the admin bundle. The snapshot channel (`app/utils/preview-chann
 live block tree rather than raw form state), and `buildPreviewDocument` (`preview-channel.ts`) then
 copies every other renderable field (`Object.keys(pageFieldsBindings.value.fields)` — the same set
 `PageFieldsPane` renders) across from `values` by name, so a consumer field never needs
-`BlockPreview.vue` to know its name. `_preview/[key].vue` turns the snapshot back into a `PageDocument`
-with `previewPageDocument` (same file), which spreads the whole `PreviewDocument` through and then pins
-`status`/`shareImage` to `null` and `createdAt` to `0` — those two are never meaningful in a preview.
+`BlockPreview.vue` to know its name. `_preview/[key].vue` turns the snapshot back into a
+`PublicPageDocument` with `previewPageDocument` (same file), which spreads the whole `PreviewDocument`
+through and then pins `status`/`shareImage` to `null` — those two are never meaningful in a preview.
 
 The editor and the preview iframe are different documents, so block selection crosses that boundary via
 `postMessage`. `app/utils/preview-messages.ts` defines three message shapes: `kestrel-preview:select`,
@@ -1852,7 +1911,7 @@ or `"notFound"` (404) — so a consumer never serves a page whose content for th
 ### Redirects
 When a `redirects` content type is configured (`kestrel-redirects-default`), `GET /site/*path` may
 answer `{ redirect: { to, status } }` instead of a document — a rule matched ahead of page resolution.
-`[...slug].vue` checks the `/site` response for a `redirect` key before treating it as a `PageDocument`
+`[...slug].vue` checks the `/site` response for a `redirect` key before treating it as a page
 and calls `navigateTo(to, { redirectCode: status, external: /^https?:/.test(to) })`, which answers a
 real 30x during SSR and performs the equivalent navigation client-side. Rules are edited under
 **System → Redirects** (a `field/Repeater.vue` over the `rules` json field); a 400 from `PUT /redirects`

@@ -335,6 +335,28 @@
   `{ media: true }`, the files `media-default` serves through `media@1`, instead of
   `{ collection: "media_items" }`.
 
+- **Visitors without a session receive only the fields `anonymousFields` grants**, and a public page keeps
+  that shape in its data for every viewer, signed in or not: a page carries no `createdAt` or `updatedAt`
+  (`useSitePage()`, the page's `site:` data). The preset grants every model field of your content types,
+  the public media fields, the file headers and the redirect rules; a media item's `folder`, timestamps,
+  `available` and `variantCounts`, a variant's `bytes` and `state` and every other file header are cut.
+  Set `roles.anonymousFields` in `presetModuleConfig()` to grant a resource differently (an empty list
+  removes it); `roles.fields` gives a role its own grants. Show a date on a page through a field of your
+  content model.
+  - A hand-written module list adds `anonymousFields` to its `authz-roles` entry, or the server does not
+    start; `presetModuleConfig()` sets it.
+  - A pipeline override of a public read (`resolvePage`, `readPage`, `listPages`, `getSettings`,
+    `getMedia`, `listMedia`, the media file routes, `renderRedirects`, `getRedirects`, a collection's
+    `list`/`read`/`get`) must end with the preset's `authz.fields:<resource>?shape=<shape>` step; otherwise
+    the server does not start and names the pipeline. So must a pipeline of your own that anonymous callers
+    reach, with a grant for its resource.
+  - `MediaItem` is the signed-in media answer; `PublicMediaItem` and the new `PublicPageDocument` are the
+    API's anonymous answers. The generated 200 of a public read is a union of both answers; read one through
+    `FullOf<'getMedia'>` or `AnonymousOf<'getMedia'>`. `previewPageDocument()` takes the preview document
+    alone and returns a page without timestamps; a preview snapshot no longer carries `updatedAt`.
+  - A step that throws answers `unexpected <ErrorName>` instead of its message, and a step that ends a run
+    with `ctx.done()` needs `terminalOutput` (kestrel 6).
+
 ### Added
 
 - System › Static delivery shows how many pages wait to be re-rendered, how many failed and how many were
@@ -406,6 +428,14 @@
   `/api` reads.
 - `GET /admin/events/status`'s response gains `lanes`: per configured named lane, `pending`, `running` and
   `oldestPendingAt`, alongside the existing per-state totals.
+- `anonymousFieldGrants(model, features)` and `fieldCutSteps(collections)` in `#kestrel/pipelines`: the
+  grants `presetModuleConfig()` derives and the `authz.fields` step that ends each public read.
+  `toPublicPage()` and `toPublicSiteResponse()` in the public layer.
+- `kestrel-web-upgrade` notes an override of a public read without its field step
+  (`pipelines/public-override-field-step`), prints the grants `presetModuleConfig()` would derive for a
+  hand-written `authz-roles` entry or, once, the grants a project's visitors keep (`preset/field-grants`),
+  and `site/private-fields` also reports a page's timestamps read off `useSitePage()`, a `site:` data key or
+  a value typed `PageDocument`.
 
 ### Changed
 

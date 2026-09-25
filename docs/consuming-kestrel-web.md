@@ -301,7 +301,7 @@ calls them before it has read a schema at all.
 | `blobstore` | yes | — a `{ use, config }` entry; `envBlobstore()` builds the usual two |
 | `model` | yes | — your `contentModel` (`{ locales?, defaultLocale?, types }`), handed to `content-default` |
 | `features` | yes | — the same list you pass to `definePreset` and `presetSchemas` |
-| `roles` | yes | — `{ roles, anonymous }` for `authz-roles` |
+| `roles` | yes | — `{ roles, anonymous, anonymousFields?, fields? }` for `authz-roles`; `anonymousFields` replaces the derived field grant of each resource it names (an empty list removes it), `fields` is passed through (see §4, "What a visitor without a session receives") |
 | `bootstrap` | yes | — `{ username, passwordHash, roles? }`, `roles` defaulting to `["admin"]` |
 | `collectionsUi` | no | — your `shared/collections-ui.ts` map; the `revisions` module's `statusField`/`liveStatuses` are derived from the workflows in it |
 | `media` | no | `{ maxBytes: 5242880, allowedTypes: ["image/*", "application/pdf"], deniedTypes: ["text/html", "application/xhtml+xml"] }` |
@@ -343,6 +343,8 @@ rather than booting with something plausible.
   (§4).
 - **`validate-jsonschema.schemas`** — `presetSchemas({ features, collections })`, with `watch` on
   outside production.
+- **`authz-roles.anonymousFields`** — which fields of each answer a caller without a session receives,
+  from the content model and the features (§4, "What a visitor without a session receives").
 - **The conventions** — `media/` for the media prefix, `site/` for delivery and redirects, the empty
   configs of the modules that take none.
 - **`persistence-sqlite.acquireTimeoutMs`** — left unset, so the module derives it itself: `busyTimeoutMs`
@@ -378,7 +380,21 @@ const modules = [
   { use: "@michaelthielemann/kestrel-media-default", config: { prefix: "media/", publicPath: "/media", allowedTypes: ["image/*", "application/pdf"], deniedTypes: ["text/html", "application/xhtml+xml"], maxBytes: 5242880, locales: ["de", "en"], defaultLocale: "de", publicCopy: { prefix: "site/" } } },
   { use: "@michaelthielemann/kestrel-images-default", config: { publicPath: "/media", publicCopy: { prefix: "site/" } } },
   { use: "@michaelthielemann/kestrel-authn-multi", config: { identifier: "username", minPasswordLength: 8, sessionTtlSeconds: 86400, bootstrap: { username: "admin", passwordHash: adminPasswordHash(), roles: ["admin"] } } },
-  { use: "@michaelthielemann/kestrel-authz-roles", config: { roles: { admin: ["*"], editor: ["pages.*", "media.*", "images.read", "settings.read", "redirects.*"] }, anonymous: ["pages.read", "settings.read", "media.read"] } },
+  {
+    use: "@michaelthielemann/kestrel-authz-roles",
+    config: {
+      roles: { admin: ["*"], editor: ["pages.*", "media.*", "images.read", "settings.read", "redirects.*"] },
+      anonymous: ["pages.read", "settings.read", "media.read"],
+      anonymousFields: {
+        settings: ["id", "title", "titlePosition", "titleSeparator", "description", "navigation", "_locales", "_translations", "_links"],
+        redirects: ["id", "rules", "_locales", "_translations"],
+        pages: ["id", "slug", "title", "body", "seo", "status", "shareImage", "accent", "layout", "_locales", "_translations", "_locale", "_links", "redirect"],
+        media: ["id", "path", "filename", "contentType", "size", "width", "height", "alt", "title", "description", "provenance", "variants[].size", "variants[].width", "variants[].height", "variants[].format", "variants[].path"],
+        mediaFile: ["headers.cache-control", "headers.x-content-provenance", "headers.x-kestrel-variant"],
+        redirectRules: ["pattern", "target", "status"],
+      },
+    },
+  },
   { use: "@michaelthielemann/kestrel-content-default", config: contentModel },
   { use: "@michaelthielemann/kestrel-site-default", config: {} },
   { use: "@michaelthielemann/kestrel-references-default", config: { targets: { pages: { content: "pages" }, media: { media: true } } } },
@@ -619,6 +635,64 @@ For pipeline shapes and trigger config beyond what `definePreset` covers, see th
 
 That alias is resolved once, at Nuxt startup — adding or deleting `pipelines/index.ts` while the dev
 server is running needs a restart to switch between the consumer file and the default.
+
+### What a visitor without a session receives
+
+Every read of the preset that a caller without a session can reach ends with
+`authz.fields:<resource>?shape=<item|list|array|file>`, the step of `authz-roles` that cuts the answer to
+the fields that caller may see: `resolvePage`, `readPage` and `listPages` (`pages`), `getSettings`
+(`settings`), `getMedia` and `listMedia` (`media`), the media file routes (`mediaFile`, response headers
+only), `renderRedirects` (`redirectRules`), `getRedirects` (`redirects`) and every collection's
+`list<Name>`, `read<Name>` and `get<Name>` (the collection's name). A caller without a session, or with
+one whose roles are none of the configured ones, keeps the fields `anonymousFields` grants for the
+resource; a signed-in editor or admin keeps the whole answer, since the preset gives no role a field
+grant of its own.
+
+`presetModuleConfig()` derives `anonymousFields` from your content model and features:
+
+| Resource | Fields a visitor receives |
+|---|---|
+| each content type | `id` and every field of the model (the workflow's status field included), plus `_locales` and `_translations` when the model has locales |
+| `pages`, additionally | `_locale` (with locales), `_links`, and `redirect` with the `redirects` feature |
+| `settings`, additionally | `_links` |
+| `media` | `id`, `path`, `filename`, `contentType`, `size`, `width`, `height`, `alt`, `title`, `description`, `provenance`; with `images` also `variants[].size`, `.width`, `.height`, `.format`, `.path` |
+| `mediaFile` | the headers `cache-control` and `x-content-provenance`; with `images` also `x-kestrel-variant` |
+| `redirectRules` | `pattern`, `target`, `status` (with `redirects`) |
+
+Everything else is cut for them: a document's `createdAt` and `updatedAt`, a media item's `folder`,
+timestamps, `available` and `variantCounts`, and a variant's `bytes` and `state`. The model is the public
+contract: a field you add to a content type is public on every published document; keep editor-only
+notes in a collection anonymous callers cannot read. To grant a resource differently, name it in
+`roles.anonymousFields` — the list replaces the derived one, and an empty list removes the resource:
+
+```ts
+roles: {
+  roles: { admin: ["*"], editor: ["pages.*", "media.*", "images.read", "settings.read", "redirects.*"], reviewer: ["pages.read"] },
+  anonymous: ["pages.read", "settings.read", "media.read"],
+  anonymousFields: { media: ["id", "path", "alt", "width", "height", "variants[].path", "variants[].width"] },
+  fields: { reviewer: { pages: ["createdAt", "updatedAt"] } },
+},
+```
+
+A path is relative to one item of the answer: `title` keeps the member whole, `provenance.origin` keeps
+`provenance` holding only `origin`, `variants[].path` keeps each variant holding only `path`. `fields`
+grants a role, joined with the anonymous grant, what it keeps of a resource; a role without an entry
+keeps everything. The server does not start when a grant names a field no read of its resource declares
+(`anonymousFields.media names "folderr", which no pipeline ending with authz.fields:media declares`), or
+names a resource no pipeline cuts.
+
+The rules for your own pipelines follow from kestrel's boot check:
+
+- **An override of one of these reads** replaces the step list whole, so it ends with the same
+  `authz.fields:…` step, or the server does not start while anonymous callers can reach it
+  (`pipeline "getMedia" answers anonymous callers but does not end with authz.fields:<resource>?shape=item`).
+- **A pipeline of your own** that a caller without a session reaches over HTTP and that answers with a
+  result ends with `authz.fields:<resource>?shape=<shape>` too, and `roles.anonymousFields` grants that
+  resource's fields unless it is one of the resources above. The boot message names the shape the
+  declared output needs.
+- **A step of your own that answers early** with `ctx.done()` declares `terminalOutput`; a run that ends
+  this way without it fails, and in a pipeline anonymous callers reach every member of that early answer
+  needs a grant, or the server does not start.
 
 ### User administration
 
@@ -1033,7 +1107,8 @@ stay checked alongside your addition.
   only for a `single` type) granted in your roles config, the same way `pages.*` already is — including
   the `anonymous` role: public reads on a new collection 403 until `<name>.read` is granted there too,
   alongside `pages.read`/`settings.read`/`media.read` (a production deployment's `authz-roles` config is
-  a worked example of this, same as `playground/kestrel.config.ts`'s).
+  a worked example of this, same as `playground/kestrel.config.ts`'s). Once granted, they answer the
+  fields `anonymousFields` derives for the collection (§4, "What a visitor without a session receives").
 
 ## 5. Define your blocks
 
@@ -1202,7 +1277,7 @@ iframe fills the preview pane and the page scrolls inside it, so a layout may ke
 ### Reading the current page from a layout or block
 
 Layouts and components can read the currently rendered page via `useSitePage()`
-(`layers/public/app/composables/useSite.ts`) — a `useState<PageDocument | null>('site:page', ...)`, the
+(`layers/public/app/composables/useSite.ts`) — a `useState<PublicPageDocument | null>('site:page', ...)`, the
 same pattern as `useSiteLocaleLinks()`. `[...slug].vue` and `_preview/[key].vue` both write it
 reactively as the page resolves, so a header that needs a per-page value (a page-specific call-to-action
 label and link, say) reads it the same way in both the live site and the editor's iframe preview:
@@ -1212,8 +1287,10 @@ const page = useSitePage()
 const cta = computed(() => (page.value?.ctaLabel && page.value?.ctaLink ? { label: page.value.ctaLabel, link: page.value.ctaLink } : null))
 ```
 
-`PageDocument` carries an index signature (`[field: string]: unknown`), so a custom field like
+`PublicPageDocument` carries an index signature (`[field: string]: unknown`), so a custom field like
 `ctaLabel` is available without extending the type — cast it to your own field's type when reading it.
+It is the page a visitor without a session receives, for every viewer: it has no `createdAt` or
+`updatedAt`. Show a date on a page through a field of your content model.
 In the editor preview, every renderable model field (everything not `editorOwned`) is live in the
 preview iframe as you type, before the page is saved.
 
@@ -1503,7 +1580,9 @@ other means. Code that runs on exported pages follows these rules:
 10. **Only public data in a page's data.** Everything a page's `useAsyncData` returns is exported with the
     page. Store the public shape (a `transform`), never whole API records with internal fields, and keep
     editor-only data out of the page model. The layer does so for its own keys: a media item keeps only the
-    fields `toPublicMedia()` returns.
+    fields `toPublicMedia()` returns, a page those `toPublicPage()` returns. The server cuts the layer's
+    reads for an anonymous render already; the transforms keep a signed-in editor's page data on the Node
+    site equal to a visitor's.
 11. **Following a link transfers data, not state.** On a static page a navigation applies the target
     page's `useAsyncData`/`useFetch` results only. `useState` values the server set for the target page are
     not transferred; their initializers run again in the browser, as on the live site. Derive such state
@@ -1707,6 +1786,31 @@ What changes:
   automatically (add `@michaelthielemann/kestrel-sanitize-svg` to your dependencies too).
 - Listing media or its folders (`GET /api/media` without `ids`, `GET /api/media/folders`) now requires a
   signed-in caller and answers `401` to a public request; reading one item by id stays anonymous.
+- A caller without a session receives only the fields `anonymousFields` grants (§4, "What a visitor
+  without a session receives"): no `createdAt` or `updatedAt` of a document, no `folder`, timestamps,
+  `available` or `variantCounts` of a media item, no `bytes` or `state` of a variant. Signed-in editors and
+  admins receive what they received before. The preset ends every public read with `authz.fields`, and
+  `presetModuleConfig()` derives the grants, so a project built with it needs no change to its config.
+  - A hand-written module list adds `anonymousFields` to its `authz-roles` entry, or the server does not
+    start. `preset/field-grants` prints the grants `presetModuleConfig()` would derive for your model and
+    features; kestrel's `pipelines/field-step` asks once and, answered `yes`, writes the grants it proposes
+    into that entry.
+  - An override of a public read keeps `authz.fields:<resource>?shape=<shape>` as its last step;
+    `pipelines/public-override-field-step` names the step for each override that lacks it.
+  - A pipeline of your own that anonymous callers reach ends with the step as well; `pipelines/field-step`
+    appends it when it can tell the resource from the step that reads the answer.
+  - A page keeps that shape for every viewer: its data (`useSitePage()`, the `site:<path>` key) carries no
+    `createdAt` or `updatedAt`, signed in or not. Show a date through a field of your content model.
+    `site/private-fields` reports your code reading them.
+  - `MediaItem` is the signed-in media answer; `PublicMediaItem` and the new `PublicPageDocument` are the
+    anonymous answers the API documents, and a media item the layer loads from a preset without `images`
+    has an empty `variants` list.
+- A step that throws answers `"<pipeline>/<step>: unexpected <ErrorName>"` instead of its message, for
+  every caller; the message is in the server log under the answer's `runId`. Code of yours that compares an
+  error text with what a throwing step said matches on `code` instead; kestrel's
+  `responses/thrown-error-text` names such files next to your own modules.
+- A step of your own that ends a run with `ctx.done()` declares `terminalOutput`; without it the run fails.
+  Kestrel's `steps/ctx-done-terminal-output` names every module of yours that calls `ctx.done()`.
 - Page slugs `api`, `admin` and `media`, and locales of those names, are rejected.
 - An uploaded image can be put into content only once its `available` field is not `false`; the admin's
   media picker already enforces this.
@@ -1767,6 +1871,8 @@ of these, each named there:
   `presetModuleConfig()` call, or whose `config`, `dependencies` or `overrides` is not an object literal.
 - `kestrel-events-queue` lanes that exist but leave page renders or image variants out.
 - `sanitizeSvg` when `features` is built by a function call, and installing packages after the range bumps.
+- The anonymous field grants of a hand-written `authz-roles` entry until you answer `pipelines/field-step`,
+  a grant for a resource of your own pipeline, and an override of a public read without its field step.
 - Everything reported as a note (`info`): code of your own that reads media events, old response fields or
   server caches, which the tool cannot change for you.
 - Code on exported pages follows the rules in §8, "What an exported page requests": deterministic keys
@@ -1779,7 +1885,8 @@ of these, each named there:
   `watch` on `useSiteLocale()`; `static/route-cache` reports an `isr`/`cache`/`swr` route rule on a page
   route once `delivery` is on, since `delivery-static` cannot publish through it; `site/private-fields`
   reports your own code reading a media item's `folder`, `createdAt`, `updatedAt`, `variantCounts` or a
-  variant's `state` — none of them survive into `PublicMediaItem`.
+  variant's `state` — none of them survive into `PublicMediaItem` — and a page's `createdAt` or `updatedAt`
+  read off `useSitePage()`, a `site:` data key or a value typed `PageDocument`.
 - A hand-written `modules` list needs `events-inmemory` plus exactly one of `events-direct`/`events-queue`;
   a project built with `presetModuleConfig()` already has this and needs no change.
 - An `overrides` entry of a write pipeline must keep the atomic group around its content write, and keep
