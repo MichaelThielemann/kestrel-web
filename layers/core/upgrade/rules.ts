@@ -186,7 +186,7 @@ function defaultPipelineOf(cast: PresetOptions, name: string): PipelineDefinitio
   return preset.pipelines.find((p) => p.name === name);
 }
 
-/** An override lacks a step the 3.0 default of that pipeline runs — information only, never changed automatically. */
+/** An override lacks a step the 3.0 default of that pipeline runs — information only, never changed automatically. The field step is left to `pipelines/public-override-field-step`. */
 export const overrideDriftRule: Rule = {
   id: "preset/override-drift",
   check(ctx) {
@@ -198,7 +198,7 @@ export const overrideDriftRule: Rule = {
     for (const name of overrideNames) {
       const defaultSteps = flatSteps(defaultPipelineOf(cast, name));
       const overriddenSteps = new Set(flatSteps(ctx.project.input.pipelines.find((p) => p.name === name)));
-      const missing = defaultSteps.filter((s) => !overriddenSteps.has(s));
+      const missing = defaultSteps.filter((s) => !overriddenSteps.has(s) && !s.startsWith("authz.fields:"));
       if (missing.length === 0) continue;
       findings.push({
         id: `preset/override-drift:${name}`,

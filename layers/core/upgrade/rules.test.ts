@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { BootCheck } from "@michaelthielemann/kestrel";
 import type { Edit, LoadedProject, RuleContext } from "@michaelthielemann/kestrel-upgrade/plugin";
 import { applyEdits } from "@michaelthielemann/kestrel-upgrade/codemods";
-import { fieldGrantsRule, missingSanitizeSvgRule, overrideDeliveryRule, overrideGroupRule, overrideRelayRule, ownPipelineDeliveryRule, publicOverrideFieldStepRule, relayScopeRule } from "./rules";
+import { fieldGrantsRule, missingSanitizeSvgRule, overrideDeliveryRule, overrideDriftRule, overrideGroupRule, overrideRelayRule, ownPipelineDeliveryRule, publicOverrideFieldStepRule, relayScopeRule } from "./rules";
 
 const FILE = "/fake/kestrel.config.ts";
 const SANITIZE_SVG_PACKAGE = "@michaelthielemann/kestrel-sanitize-svg";
@@ -671,6 +671,11 @@ describe("publicOverrideFieldStepRule", () => {
   it("names a collection's public read by the collection's resource", async () => {
     const findings = await publicOverrideFieldStepRule.check(overrideContextFor({ listPages: ["authn.identifyUser", "authz.require:pages.read", "content.list:pages?status=published"] }));
     expect(findings[0]?.suggestion).toContain('"authz.fields:pages?shape=list"');
+  });
+
+  it("is the only finding about the field step: override drift leaves it out", async () => {
+    const ctx = overrideContextFor({ getMedia: ["authn.identifyUser", "authz.require:media.read", "media.get"] });
+    expect(await overrideDriftRule.check(ctx)).toEqual([]);
   });
 
   it("says nothing for an override that ends with a field step, or of a pipeline no anonymous caller reads", async () => {
