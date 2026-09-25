@@ -1415,6 +1415,24 @@ to a public request.
 See `docs/architecture.md#image-variants` for the validation rules, the discovery/registration split and
 the `<KestrelImage>` prop and fallback rules in full.
 
+**Rendering a non-image file** (video, audio, PDF — anything a `mediaField({ accept: "any" })` holds):
+there is no size or variant to pick, so read the item itself with `useMediaItem()` and use its `path`
+directly, during server rendering:
+
+```vue
+<script setup lang="ts">
+const props = defineProps({ video: mediaField({ accept: "any" }) });
+const { data: videoItem } = await useMediaItem(() => props.video, useSiteLocale());
+</script>
+
+<template>
+  <video v-if="videoItem" :src="videoItem.path" controls />
+</template>
+```
+
+Never build the URL from the id yourself (`` `/api/media/${id}/file` ``, say): production serves no `/api`
+route once the page is exported, so the file 404s.
+
 ## 7. Run it
 
 ```

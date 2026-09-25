@@ -179,7 +179,7 @@ export const mediaUrlFromIdRule: SourceRule = {
           "site/media-url-from-id",
           { file },
           `${relative(ctx.root, file)} builds a media URL from an id (${MEDIA_URL_SUBSTRING}/...); production has no /api route, so the file 404s once the page is exported`,
-          "read the item's public path instead (as pickImageSources/useMediaItem do), never build the URL from an id",
+          `read the item's public path instead (as pickImageSources/useMediaItem do), never build the URL from an id — see consuming-kestrel-web.md §6, "Rendering a non-image file" for a useMediaItem() example`,
           docsAnchor("site-media-url-from-id"),
         ),
       );
