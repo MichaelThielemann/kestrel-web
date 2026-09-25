@@ -19,11 +19,13 @@ describe('MediaVariantChip', () => {
     expect(wrapper.get('.media-variant-chip').attributes('title')).toBe('Some variants could not be generated')
   })
 
-  it('names the subject for the stalled state, not a bare "Stalled"', async () => {
-    const wrapper = await mountSuspended(MediaVariantChip, { props: { state: 'stalled' } })
+  it('names the subject for a stalled pending state, not a bare "Stalled", and keeps the pending state underneath', async () => {
+    const wrapper = await mountSuspended(MediaVariantChip, { props: { state: 'pending', stalled: true } })
 
     expect(wrapper.get('[aria-hidden="true"].media-variant-chip__text').text()).toBe('Variants delayed')
     expect(wrapper.text()).toContain('Variants are still being generated. Check again later.')
     expect(wrapper.get('.media-variant-chip').attributes('title')).toBe('Variants are still being generated. Check again later.')
+    expect(wrapper.get('.media-variant-chip').classes()).toContain('media-variant-chip--stalled')
+    expect(wrapper.get('.media-variant-chip').classes()).not.toContain('media-variant-chip--pending')
   })
 })

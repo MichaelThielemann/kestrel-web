@@ -5,7 +5,8 @@ import type { UploadItem } from '../composables/useMediaUpload'
 const props = defineProps<{
   item: UploadItem
   preview?: string
-  chipState?: 'pending' | 'stalled' | 'failed'
+  chipState?: 'pending' | 'failed'
+  chipStalled?: boolean
   chipDone?: number
   chipTotal?: number
   processing?: boolean
@@ -54,6 +55,7 @@ const progressText = computed(() => {
           v-else-if="ready && chipState"
           class="media-upload-tile__chip"
           :state="chipState"
+          :stalled="chipStalled"
           :done="chipDone"
           :total="chipTotal"
         />

@@ -452,6 +452,11 @@
 
 ### Fixed
 
+- `MediaVariantChip`'s "stalled" wording is no longer a distinct chip state alongside the backend's
+  `pending`/`failed` — kestrel reports neither a "stalled" variant status, and the timeout that decides
+  it is a client-side observation (`useVariantWatch`'s ten-minute limit), not something the backend owns.
+  It is now a `stalled` flag on the `pending` state instead of a third value of `state` itself.
+
 - The status-filter check that boot runs against every workflow-bearing collection now runs before
   `kestrel.start()` instead of after. A failure used to leave crons and, with the `eventsQueue` feature,
   the queue worker running while `/api/*` answered 503; it now stops the process from starting them at

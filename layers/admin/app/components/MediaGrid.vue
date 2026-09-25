@@ -58,9 +58,9 @@ function fileVariants(file: MediaItem) {
 function chipFor(file: MediaItem) {
   const entry = props.variantOverride?.get(file.id)
   if (!entry) return null
-  if (props.stalledIds?.has(file.id)) return { state: 'stalled' as const, done: entry.variantCounts.done, total: variantTotal(entry.variantCounts) }
+  if (props.stalledIds?.has(file.id)) return { state: 'pending' as const, stalled: true, done: entry.variantCounts.done, total: variantTotal(entry.variantCounts) }
   const state = variantChipState(entry.variantCounts, entry.available)
-  return state ? { state, done: entry.variantCounts.done, total: variantTotal(entry.variantCounts) } : null
+  return state ? { state, stalled: false, done: entry.variantCounts.done, total: variantTotal(entry.variantCounts) } : null
 }
 function uploadChipFor(upload: UploadItem) {
   return upload.result ? chipFor(upload.result) : null
@@ -110,6 +110,7 @@ function uploadProcessing(upload: UploadItem): boolean {
         :item="upload"
         :preview="uploadPreview?.(upload.id)"
         :chip-state="uploadChipFor(upload)?.state"
+        :chip-stalled="uploadChipFor(upload)?.stalled"
         :chip-done="uploadChipFor(upload)?.done"
         :chip-total="uploadChipFor(upload)?.total"
         :processing="uploadProcessing(upload)"
@@ -137,7 +138,7 @@ function uploadProcessing(upload: UploadItem): boolean {
               :content-type="item.file.contentType"
               :alt="item.file.alt ?? item.file.filename"
               :variants="fileVariants(item.file)"
-              :pending="chipFor(item.file)?.state === 'pending'" />
+              :pending="chipFor(item.file)?.state === 'pending' && !chipFor(item.file)?.stalled" />
             <span v-else class="media-grid__badge" aria-hidden="true">{{ ext(item.file.filename) }}</span>
             <span v-if="isDisclosed(item.file.provenance)" class="media-grid__ai">{{ badge(item.file) }}</span>
             <span v-if="gatedFile(item)" class="media-grid__processing">{{ t('media.pick.processing') }}</span>
@@ -145,6 +146,7 @@ function uploadProcessing(upload: UploadItem): boolean {
               v-else-if="chipFor(item.file)"
               class="media-grid__variant-chip"
               :state="chipFor(item.file)!.state"
+              :stalled="chipFor(item.file)!.stalled"
               :done="chipFor(item.file)!.done"
               :total="chipFor(item.file)!.total"
             />

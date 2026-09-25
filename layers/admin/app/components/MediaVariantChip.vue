@@ -2,23 +2,25 @@
 import { computed } from 'vue'
 import type { IconName } from '#kestrel-admin/utils/icons'
 
-const props = defineProps<{ state: 'pending' | 'stalled' | 'failed'; done?: number; total?: number }>()
+const props = defineProps<{ state: 'pending' | 'failed'; stalled?: boolean; done?: number; total?: number }>()
 const { t } = useT()
 
+const modifier = computed(() => (props.state === 'pending' && props.stalled ? 'stalled' : props.state))
 const icon = computed<IconName>(() => (props.state === 'failed' ? 'triangle-alert' : 'clock'))
 const fullText = computed(() => {
   if (props.state === 'failed') return t('media.tile.variantsFailed')
-  if (props.state === 'stalled') return t('media.tile.variantsStalled')
+  if (props.stalled) return t('media.tile.variantsStalled')
   return t('media.tile.variantsPending', { done: props.done ?? 0, total: props.total ?? 0 })
 })
 const shortText = computed(() => {
-  if (props.state === 'pending') return `${props.done ?? 0}/${props.total ?? 0}`
-  return t(props.state === 'failed' ? 'media.tile.variantsFailedShort' : 'media.tile.variantsStalledShort')
+  if (props.state === 'failed') return t('media.tile.variantsFailedShort')
+  if (props.stalled) return t('media.tile.variantsStalledShort')
+  return `${props.done ?? 0}/${props.total ?? 0}`
 })
 </script>
 
 <template>
-  <span class="media-variant-chip" :class="`media-variant-chip--${state}`" :title="fullText">
+  <span class="media-variant-chip" :class="`media-variant-chip--${modifier}`" :title="fullText">
     <KestrelUiIcon :name="icon" :size="14" aria-hidden="true" />
     <span class="media-variant-chip__text" aria-hidden="true">{{ shortText }}</span>
     <span class="media-variant-chip__full">{{ fullText }}</span>
