@@ -320,6 +320,41 @@ describe("boot", () => {
       }
     }, 15000);
 
+    it("boots and starts a project scaffolded with --features delivery alone, which brings sanitizeSvg along", async () => {
+      const { resolveOptions } = await import("../../../packages/create-kestrel/src/args.mjs");
+      const { contentModel, contentTypes } = await import("../../../playground/shared/model");
+      const { default: collectionsUi } = await import("../../../playground/shared/collections-ui");
+      const { default: fieldTypes } = await import("../../../playground/shared/field-types");
+      const resolved = resolveOptions(["--features", "delivery"], {});
+      expect(resolved.errors).toEqual([]);
+      const features = asFeatures(resolved.options.features ?? []);
+      expect(features).toEqual(["sanitizeSvg", "delivery"]);
+      const deliveryRoot = mkdtempSync(join(tmpdir(), "kestrel-web-boot-delivery-only-"));
+
+      try {
+        const modules = presetModuleConfig({
+          dataDir: deliveryRoot,
+          blobstore: { use: "@michaelthielemann/kestrel-blobstore-filesystem", config: { root: resolve(deliveryRoot, "blobs") } },
+          model: contentModel,
+          features,
+          collectionsUi,
+          fieldTypes,
+          roles: { roles: { admin: ["*"] }, anonymous: ["pages.read", "settings.read", "media.read"] },
+          bootstrap: { username: "admin", passwordHash: "scrypt$522f4ac87bfe4bcd100ba47a7d2aaec2$dbfc3f2d6cc38a76b21973d7c6f6d310a09506581c665f1f6601fd8fb3fa9bc3959689aea3e389f4d53eb8c7e70791ad4065e308763dd44609904134f0f5ee98" },
+        });
+        const preset = definePreset({ modules, features, collections: contentTypes, collectionsUi, fieldTypes });
+        const config = defineConfig({ modules, triggers: preset.triggers, http: null });
+        const kestrel = await boot({ config: { ...config, http: null }, modules: presetModules(config.modules), pipelines: preset.pipelines, logger: collectingLogger() });
+        try {
+          await kestrel.start();
+        } finally {
+          await kestrel.stop();
+        }
+      } finally {
+        rmSync(deliveryRoot, { recursive: true, force: true });
+      }
+    }, 15000);
+
     it("refuses to boot the default feature set with an empty anonymous role, naming the missing media.read permission", async () => {
       const { DEFAULT_FEATURES } = await import("../../../packages/create-kestrel/src/features.mjs");
       const { contentModel, contentTypes } = await import("../../../playground/shared/model");

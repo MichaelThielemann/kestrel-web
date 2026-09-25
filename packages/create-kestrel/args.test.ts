@@ -44,6 +44,12 @@ describe("resolveOptions", () => {
     expect(errors).toEqual([]);
   });
 
+  it("adds sanitizeSvg whenever delivery is chosen, since delivery publishes every upload", () => {
+    expect(resolveOptions(["--features", "delivery"], NO_ENV).options.features).toEqual(["sanitizeSvg", "delivery"]);
+    expect(resolveOptions(["--features", "images,delivery"], NO_ENV).options.features).toEqual(["sanitizeSvg", "delivery", "images"]);
+    expect(resolveOptions(["--features", "images"], NO_ENV).options.features).toEqual(["images"]);
+  });
+
   it("refuses an unknown feature, package manager, blobstore and locale", () => {
     const { errors } = resolveOptions(["--features", "telepathy", "--pm", "deno", "--blobstore", "ftp", "--locales", "de,Deutsch"], NO_ENV);
     expect(errors).toEqual([
