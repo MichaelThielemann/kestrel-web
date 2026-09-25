@@ -24,6 +24,24 @@ describe('MediaUploadTile', () => {
     expect(bar.attributes('aria-valuetext')).toBe('Processing…')
   })
 
+  it('shows "Processing…" over a finished upload that is not available yet, in place of the variants chip', async () => {
+    const wrapper = await mountSuspended(MediaUploadTile, {
+      props: { item: item({ status: 'done', progress: 100 }), processing: true, chipState: 'pending', chipDone: 1, chipTotal: 3 },
+    })
+
+    expect(wrapper.get('.media-upload-tile__processing').text()).toBe('Processing…')
+    expect(wrapper.find('.media-variant-chip').exists()).toBe(false)
+  })
+
+  it('shows the variants chip on a finished upload once it is no longer processing', async () => {
+    const wrapper = await mountSuspended(MediaUploadTile, {
+      props: { item: item({ status: 'done', progress: 100 }), processing: false, chipState: 'pending', chipDone: 1, chipTotal: 3 },
+    })
+
+    expect(wrapper.find('.media-upload-tile__processing').exists()).toBe(false)
+    expect(wrapper.get('.media-variant-chip').text()).toContain('1/3')
+  })
+
   it('names the file on the failed tile, not only in the dismiss button label', async () => {
     const wrapper = await mountSuspended(MediaUploadTile, { props: { item: item({ status: 'failed', message: 'boom' }) } })
 

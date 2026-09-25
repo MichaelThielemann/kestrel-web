@@ -181,6 +181,55 @@ describe('MediaLibrary upload status', () => {
     await vi.waitFor(() => expect(wrapper.find('.media-variant-chip').exists()).toBe(false), { timeout: 3000 })
   })
 
+  it('shows "Processing…" on the finished upload tile until the poll reports the file available, then the variants chip, while the listing has not taken the tile over', async () => {
+    schema.features = ['images']
+    let idsCalls = 0
+    let uploaded = false
+    let releaseListing: () => void = () => {}
+    const listingHeld = new Promise<void>((resolve) => { releaseListing = resolve })
+    onTestFinished(() => releaseListing())
+    const uploadedItem = (available: boolean): MediaItem => ({
+      id: 'f1', filename: 'photo.jpg', folder: '', contentType: 'image/jpeg', size: 10, path: '/media/f1/photo.jpg', available,
+      createdAt: 1, updatedAt: 1, provenance: { origin: 'human' }, width: null, height: null, alt: null, title: null,
+      description: null, variants: [], variantCounts: { done: 1, pending: 2, error: 0, failed: 0 },
+    })
+    unregisterAll.push(registerEndpoint('/api/media/folders', { method: 'GET', handler: () => [] }))
+    unregisterAll.push(registerEndpoint('/api/media', {
+      method: 'GET',
+      handler: async (event) => {
+        if (typeof getQuery(event).ids !== 'string') {
+          if (uploaded) await listingHeld
+          return { items: [], total: 0 }
+        }
+        idsCalls++
+        return { items: [uploadedItem(idsCalls > 2)], total: 1 }
+      },
+    }))
+    unregisterAll.push(registerEndpoint('/api/limits', { method: 'GET', handler: () => ({ maxUploadBytes: null }) }))
+
+    uploadControl.state.deliver = null
+    const wrapper = await mountSuspended(MediaLibrary, { attachTo: document.body })
+    onTestFinished(() => wrapper.unmount())
+
+    selectFile(boundaryCast<HTMLInputElement>(wrapper.get('input[type="file"]').element, 'dom'), new File(['x'], 'photo.jpg', { type: 'image/jpeg' }))
+    await vi.waitFor(() => expect(document.body.querySelector('.ui-dialog__content')).toBeTruthy())
+    const confirmButton = Array.from(document.body.querySelectorAll('.ui-dialog__content button')).find((b) => b.textContent?.trim() === en['mediaToolbar.upload'])
+    if (!(confirmButton instanceof HTMLElement)) throw new Error('expected the upload dialog to render a confirm button')
+    confirmButton.click()
+    await vi.waitFor(() => expect(uploadControl.state.deliver).not.toBeNull())
+    uploaded = true
+    uploadControl.state.deliver?.({ id: 'f1', contentType: 'image/jpeg' })
+
+    await vi.waitFor(() => expect(wrapper.get('.media-upload-tile__processing').text()).toBe(en['media.tile.processing']))
+    expect(wrapper.find('.media-upload-tile .media-variant-chip').exists()).toBe(false)
+    await vi.waitFor(() => expect(idsCalls).toBeGreaterThan(0))
+    expect(wrapper.find('.media-upload-tile__processing').exists()).toBe(true)
+
+    await vi.waitFor(() => expect(wrapper.find('.media-upload-tile__processing').exists()).toBe(false), { timeout: 8000 })
+    expect(idsCalls).toBeGreaterThan(2)
+    expect(wrapper.get('.media-upload-tile .media-variant-chip').text()).toContain('1/3')
+  }, 12000)
+
   it('announces when variants finish generating, not just the initial chip', async () => {
     schema.features = ['images']
     let uploaded = false
