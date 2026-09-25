@@ -7,7 +7,7 @@ import type { PipelineDefinition, PipelineEntry } from "@michaelthielemann/kestr
 import { checkPreset, relayPipelinesFor } from "../pipelines/checkPreset";
 import { DEFAULT_COLLECTIONS } from "../pipelines/collections";
 import type { CollectionModel } from "../pipelines/collections";
-import { anonymousFieldGrants, anonymousHolds, cutResources, fieldCutSteps, fieldStepResource } from "../pipelines/field-grants";
+import { anonymousFieldGrants, anonymousHolds, cutResources, fieldCutSteps, fieldStepResource, presetCutResources } from "../pipelines/field-grants";
 import type { FieldGrantModel, FieldGrants } from "../pipelines/field-grants";
 import type { PresetOptions } from "../pipelines/checkPreset";
 import { consumerRules } from "./consumerRules";
@@ -607,11 +607,61 @@ function grantsLiteral(grants: FieldGrants): string {
   return `anonymousFields: { ${Object.entries(grants).map(([resource, paths]) => `${resource}: [${paths.map((path) => JSON.stringify(path)).join(", ")}]`).join(", ")} }`;
 }
 
+function reachesAnonymously(ctx: RuleContext, pipeline: { name: string; steps: readonly PipelineEntry[] }, anonymous: readonly string[]): boolean {
+  const routed = ctx.project.input.config.triggers.some((trigger) => "http" in trigger && trigger.pipeline === pipeline.name);
+  return routed && anonymousBarrier(pipelineSteps(pipeline.steps), anonymous) === undefined;
+}
+
+function grantMismatches(ctx: RuleContext, cast: PresetOptions, granted: readonly string[], where: Finding["where"], docs: string): Finding[] {
+  const model = grantModel(ctx);
+  const features = cast.features ?? [];
+  const anonymous = anonymousPermissions(ctx);
+  const loadedCuts = cutResources(ctx.project.input.pipelines);
+  const presetCuts = presetCutResources(model.types, features, { ...(cast.exclude === undefined ? {} : { exclude: cast.exclude }), ...(cast.overrides === undefined ? {} : { overrides: cast.overrides }) });
+  const derivable = anonymousFieldGrants(model, features, ["*"]);
+  const findings: Finding[] = [];
+  for (const pipeline of ctx.project.input.pipelines) {
+    const resource = fieldStepResource(pipelineSteps(pipeline.steps).at(-1));
+    if (resource === undefined || granted.includes(resource) || presetCuts.has(resource) || !reachesAnonymously(ctx, pipeline, anonymous)) continue;
+    const fields = derivable[resource] ?? ["id"];
+    findings.push({
+      id: `preset/field-grants:${pipeline.name}`,
+      rule: "preset/field-grants",
+      severity: "error",
+      tier: "source",
+      where: { ...where, pipeline: pipeline.name },
+      message: `pipeline "${pipeline.name}" ends with authz.fields:${resource} and anonymous callers reach it, but anonymousFields grants nothing for "${resource}": the preset's own reads of it are excluded or overridden, so presetModuleConfig() derives no grant, and the server does not start`,
+      suggestion: `name it in roles.anonymousFields: { ${resource}: [${fields.map((field) => JSON.stringify(field)).join(", ")}] }, with the fields visitors may see`,
+      fix: { kind: "manual" },
+      docs,
+    });
+  }
+  for (const resource of granted) {
+    if (loadedCuts.has(resource) || presetCuts.has(resource) || derivable[resource] === undefined) continue;
+    findings.push({
+      id: `preset/field-grants:${resource}`,
+      rule: "preset/field-grants",
+      severity: "error",
+      tier: "source",
+      where,
+      message: `anonymousFields grants "${resource}", but no pipeline ends with authz.fields:${resource}, so the server does not start`,
+      suggestion: `pass the same exclude and overrides to presetModuleConfig({ pipelines }) and definePreset(), so that no grant is derived for "${resource}"; a grant you named yourself in roles.anonymousFields needs a pipeline that ends with authz.fields:${resource}`,
+      fix: { kind: "manual" },
+      docs,
+    });
+  }
+  return findings;
+}
+
 /**
  * What callers without a session keep of each answer. A hand-written `authz-roles` entry without
  * `anonymousFields` gets the grants `presetModuleConfig()` would derive for the loaded content model, features
- * and anonymous permissions, limited to the resources a loaded pipeline cuts, to copy; a project whose grants are set, while its layer range is still 2.x, is told once which
- * fields its visitors keep. Information only: `pipelines/field-step` writes the grants when answered.
+ * and anonymous permissions, limited to the resources a loaded pipeline cuts, to copy. A project whose grants
+ * are set is told, before boot refuses it, about a pipeline anonymous callers reach whose resource no grant
+ * names because the preset's own reads of it are excluded, and about a derived grant no pipeline cuts because
+ * `presetModuleConfig()` lacked `definePreset()`'s `exclude` or `overrides`; otherwise, while its layer range
+ * is still 2.x, once which fields its visitors keep. `pipelines/field-step` writes grants when answered; this
+ * rule never edits.
  */
 export const fieldGrantsRule: Rule = {
   id: "preset/field-grants",
@@ -639,6 +689,8 @@ export const fieldGrantsRule: Rule = {
         },
       ];
     }
+    const mismatches = grantMismatches(ctx, cast, Object.keys(configured), where, docs);
+    if (mismatches.length > 0) return mismatches;
     const range = layerPackageRange(ctx);
     if (range === undefined || range === LAYER_RANGE) return [];
     const kept = Object.entries(configured).map(([resource, paths]) => `${resource}: ${Array.isArray(paths) ? paths.join(", ") : ""}`);

@@ -759,3 +759,55 @@ describe("fieldGrantsRule", () => {
     expect(await fieldGrantsRule.check(grantsContextFor({ roles: { admin: ["*"] }, anonymous: [], anonymousFields: { media: ["id"] } }, "^3.0.0"))).toEqual([]);
   });
 });
+
+describe("fieldGrantsRule: grants that do not fit the pipelines", () => {
+  const NEWS_TYPES = {
+    settings: { kind: "single", fields: { title: { type: "text" } } },
+    pages: presetOptions.collections.pages,
+    news: { kind: "multi", fields: { title: { type: "text" }, status: { type: "enum", options: ["draft", "published"] } } },
+  };
+  const CONTENT = { use: "@michaelthielemann/kestrel-content-default", config: { types: NEWS_TYPES } };
+  const OWN_NEWS = { name: "latestNews", steps: ["authn.identifyUser", "authz.require:news.read", "content.list:news?status=published", "authz.fields:news?shape=list"] };
+  const PRESET_PIPELINES = [
+    { name: "getSettings", steps: ["authn.identifyUser", "authz.require:settings.read", "content.get:settings", "authz.fields:settings?shape=item"] },
+    { name: "readPage", steps: ["authn.identifyUser", "authz.require:pages.read", "content.get:pages", "authz.fields:pages?shape=item"] },
+  ];
+
+  function contextFor(options: { grants: Record<string, string[]>; exclude?: string[]; own?: boolean }): RuleContext {
+    const pipelines = [...PRESET_PIPELINES, ...(options.own === true ? [OWN_NEWS] : [])];
+    const authz = { use: "@michaelthielemann/kestrel-authz-roles", config: { roles: { admin: ["*"] }, anonymous: ["pages.read", "settings.read", "news.read"], anonymousFields: options.grants } };
+    const project: LoadedProject = {
+      input: { config: { modules: [CONTENT, authz], triggers: pipelines.map((p) => ({ http: `GET /${p.name}`, pipeline: p.name })), http: null }, modules: [], pipelines },
+      kind: "kestrel-web",
+      configFile: FILE,
+      moduleFiles: new Map(),
+      pipelineFiles: [],
+      data: { presetProblems: [], presetOptions: { ...presetOptions, features: [], collections: NEWS_TYPES, exclude: options.exclude ?? [] } },
+    };
+    const packageJson = '{ "dependencies": { "@michaelthielemann/kestrel-web": "^3.0.0" } }';
+    return { root: "/fake", scratch: "/fake", project, bootCheck: { errors: [], warnings: [], notChecked: [] }, readFile: (file) => (file === "/fake/package.json" ? packageJson : undefined), answers: new Map() };
+  }
+
+  const GRANTS = { settings: ["id", "title", "_links"], pages: ["id", "title"] };
+
+  it("flags an own pipeline cutting a resource whose preset reads are excluded, when no grant names it, before boot", async () => {
+    const findings = await fieldGrantsRule.check(contextFor({ grants: GRANTS, exclude: ["listNews", "readNews"], own: true }));
+    expect(findings).toHaveLength(1);
+    expect(findings[0]).toMatchObject({ rule: "preset/field-grants", severity: "error", where: { pipeline: "latestNews" } });
+    expect(findings[0]?.message).toContain('"latestNews" ends with authz.fields:news');
+    expect(findings[0]?.message).toContain('anonymousFields grants nothing for "news"');
+    expect(findings[0]?.suggestion).toContain('roles.anonymousFields: { news: ["id", "title", "status"] }');
+  });
+
+  it("says nothing once a grant names the resource, or while a preset read still cuts it", async () => {
+    expect(await fieldGrantsRule.check(contextFor({ grants: { ...GRANTS, news: ["id", "title"] }, exclude: ["listNews", "readNews"], own: true }))).toEqual([]);
+    expect(await fieldGrantsRule.check(contextFor({ grants: { ...GRANTS, news: ["id", "title"] }, own: true }))).toEqual([]);
+  });
+
+  it("flags a derived grant no pipeline cuts because presetModuleConfig was not given definePreset's exclude", async () => {
+    const findings = await fieldGrantsRule.check(contextFor({ grants: { ...GRANTS, news: ["id", "title", "status"] }, exclude: ["listNews", "readNews"] }));
+    expect(findings).toHaveLength(1);
+    expect(findings[0]?.message).toContain('anonymousFields grants "news", but no pipeline ends with authz.fields:news');
+    expect(findings[0]?.suggestion).toContain("pass the same exclude and overrides to presetModuleConfig({ pipelines }) and definePreset()");
+  });
+});

@@ -1,18 +1,57 @@
-import { findCalls, firstArgument, isArrayExpression, objectProperty, stringValue, walk } from "@michaelthielemann/kestrel-upgrade/codemods";
+import { findCalls, firstArgument, isArrayExpression, isAstNode, objectProperty, stringValue, walk } from "@michaelthielemann/kestrel-upgrade/codemods";
 import type { AstNode, ModelFieldsLocator, StepListLocator } from "@michaelthielemann/kestrel-upgrade/codemods";
 
-/** Every literal step array a `definePreset({ overrides: { <pipeline>: [...] } })` call in the file gives the pipeline, in source order. */
-export function presetOverrideArrays(root: AstNode, pipelineName: string): AstNode[] {
-  const arrays: AstNode[] = [];
+function unwrapped(node: AstNode): AstNode {
+  const inner = node.expression;
+  return (node.type === "TSSatisfiesExpression" || node.type === "TSAsExpression") && isAstNode(inner) ? unwrapped(inner) : node;
+}
+
+function localObject(root: AstNode, name: string): AstNode | undefined {
+  let found: AstNode | undefined;
+  walk(root, (node) => {
+    if (found !== undefined || node.type !== "VariableDeclarator") return;
+    const id = node.id;
+    const init = node.init;
+    if (!isAstNode(id) || id.type !== "Identifier" || id.name !== name || !isAstNode(init)) return;
+    const value = unwrapped(init);
+    if (value.type === "ObjectExpression") found = value;
+  });
+  return found;
+}
+
+function spreadObjects(root: AstNode, options: AstNode): AstNode[] {
+  const properties = Array.isArray(options.properties) ? options.properties.filter(isAstNode) : [];
+  return properties.flatMap((prop) => {
+    const argument = prop.type === "SpreadElement" ? prop.argument : undefined;
+    const object = isAstNode(argument) && argument.type === "Identifier" && typeof argument.name === "string" ? localObject(root, argument.name) : undefined;
+    return object === undefined ? [] : [object];
+  });
+}
+
+/**
+ * The `overrides` object literals a `definePreset()` call gives: written inline, or in an object of this
+ * file the call spreads, such as the pipeline changes a project passes to both `presetModuleConfig()` and
+ * `definePreset()`.
+ */
+export function presetOverridesObjects(root: AstNode): AstNode[] {
+  const objects: AstNode[] = [];
   for (const call of findCalls(root, "definePreset")) {
     const options = firstArgument(call);
     if (options === undefined) continue;
-    const overrides = objectProperty(options, "overrides");
-    if (overrides === undefined) continue;
-    const array = objectProperty(overrides, pipelineName);
-    if (isArrayExpression(array)) arrays.push(array);
+    for (const source of [options, ...spreadObjects(root, options)]) {
+      const overrides = objectProperty(source, "overrides");
+      if (overrides !== undefined) objects.push(overrides);
+    }
   }
-  return arrays;
+  return objects;
+}
+
+/** Every literal step array a `definePreset()` call's overrides give the pipeline, in source order; see `presetOverridesObjects`. */
+export function presetOverrideArrays(root: AstNode, pipelineName: string): AstNode[] {
+  return presetOverridesObjects(root).flatMap((overrides) => {
+    const array = objectProperty(overrides, pipelineName);
+    return isArrayExpression(array) ? [array] : [];
+  });
 }
 
 function atomicSubArrays(top: AstNode): AstNode[] {
@@ -27,8 +66,8 @@ function atomicSubArrays(top: AstNode): AstNode[] {
 }
 
 /**
- * Locates a pipeline's step array inside a `definePreset({ overrides: { <pipeline>: [...] } })` call,
- * including an atomic group's own sub-array; `[]` for anything else, including a plain `definePipeline({
+ * Locates a pipeline's step array inside a `definePreset({ overrides: { <pipeline>: [...] } })` call, or in
+ * the overrides of an object that call spreads, including an atomic group's own sub-array; `[]` for anything else, including a plain `definePipeline({
  * name, steps })` call — the built-in search runs per pipeline name whenever this locator returns nothing
  * for it, so a pipeline defined directly in `pipelines/index.ts` needs no locator of its own here. Also
  * `[]` when more than one `definePreset()` call in the file overrides the pipeline, since the file alone

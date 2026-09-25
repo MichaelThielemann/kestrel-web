@@ -13,6 +13,7 @@ import type { PipelineDefinition } from "@michaelthielemann/kestrel/definePipeli
 import type { DataContentField, DataContentModel, DataContentType, LoadedProject, LoadIssue, LoadResult, PipelineFile } from "@michaelthielemann/kestrel-upgrade/plugin";
 import { kestrelAliases } from "./aliases";
 import { namedExportArray } from "./edits";
+import { presetOverridesObjects } from "./locators";
 import type { CapturedPreset } from "./pipelinesCapture";
 
 const execFileAsync = promisify(execFile);
@@ -131,12 +132,7 @@ function definedPipelineNames(source: string): string[] {
 }
 
 function definesPresetOverrides(source: string): boolean {
-  const root = parseTs(source);
-  for (const call of findCalls(root, "definePreset")) {
-    const options = firstArgument(call);
-    if (options !== undefined && objectProperty(options, "overrides") !== undefined) return true;
-  }
-  return false;
+  return presetOverridesObjects(parseTs(source)).length > 0;
 }
 
 function scratchUnique(scratch: string, aliasValue: string, filename: string): string {
