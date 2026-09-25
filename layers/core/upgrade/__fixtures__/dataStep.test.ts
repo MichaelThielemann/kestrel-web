@@ -23,9 +23,19 @@ function renameToUnderscore(dir: string): void {
   writeFileSync(file, patched);
 }
 
+/** This suite is about model/underscore-field, not the unrelated sanitizeSvg gap; pre-fixing it keeps the project loading throughout. */
+function addSanitizeSvg(dir: string): void {
+  const file = join(dir, "shared", "model.ts");
+  const source = readFileSync(file, "utf8");
+  const patched = source.replace('"delivery", "redirects"', '"delivery", "sanitizeSvg", "redirects"');
+  if (patched === source) throw new Error("fixture's features array no longer matches");
+  writeFileSync(file, patched);
+}
+
 async function prepare(): Promise<string> {
   const dir = materializeFixture("site-2.0");
   renameToUnderscore(dir);
+  addSanitizeSvg(dir);
   const nuxtBin = join(dir, "node_modules", ".bin", "nuxt");
   await execFileAsync(nuxtBin, ["prepare", dir], { cwd: dir, env: { ...process.env, NUXT_TELEMETRY_DISABLED: "1" } });
   return dir;
