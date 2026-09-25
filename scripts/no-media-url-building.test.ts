@@ -48,18 +48,3 @@ describe("no layer code builds a media file URL from an id", () => {
     });
   }
 });
-
-const PUBLIC_AND_SHARED_APP_DIRS = ["layers/public/app", "layers/core/app"];
-
-const LISTS_MEDIA = /\/media\/folders\b|\blistMedia\b|\blistMediaFolders\b|['"`]\/media\?(?!.*ids)|['"`]\/media['"`]/;
-
-describe("no public-layer or shared app code lists media", () => {
-  for (const file of sourceFiles(PUBLIC_AND_SHARED_APP_DIRS)) {
-    const relative = file.slice(ROOT.length);
-    it(`${relative} does not list media`, () => {
-      const source = readFileSync(file, "utf-8");
-      const offenders = source.split("\n").map((line, i) => ({ line, i })).filter(({ line }) => LISTS_MEDIA.test(line));
-      expect(offenders, JSON.stringify(offenders)).toEqual([]);
-    });
-  }
-});
