@@ -452,6 +452,10 @@
 
 ### Fixed
 
+- The admin schema builder no longer imports `PipelineVerdict` from `kestrel-authz-roles`'s internal
+  `/impl` subpath. It is now a local type derived from the same list its type guard checks, exported
+  from `admin-capabilities`.
+
 - The insights configuration table no longer collapses into a one-character-wide path column with
   overlapping header labels at phone width. It sizes its columns to their content and scrolls
   horizontally instead of shrinking; a long value or default now wraps within a bounded width rather than

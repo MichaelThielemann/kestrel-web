@@ -1,5 +1,4 @@
 import { boundaryCast } from "@michaelthielemann/kestrel/cast";
-import type { PipelineVerdict } from "@michaelthielemann/kestrel-authz-roles/impl";
 import type { RunResult } from "@michaelthielemann/kestrel";
 import type { AdminSchema } from "../../app/types/api";
 import type { AdminCollection } from "../../app/types/kestrel";
@@ -7,8 +6,8 @@ import type { Feature, CollectionModel, CollectionVerb } from "#kestrel/pipeline
 import { collectionVerbs } from "#kestrel/pipelines";
 import type { CollectionUi, ContentType, CustomFieldTypes } from "../../collections-ui";
 import { serializeCollections } from "../../collections-ui";
-import type { HttpTriggerEntry } from "./admin-capabilities";
-import { buildCapabilities } from "./admin-capabilities";
+import type { HttpTriggerEntry, PipelineVerdict } from "./admin-capabilities";
+import { buildCapabilities, isPipelineVerdict } from "./admin-capabilities";
 
 export interface DescribedModel {
   locales?: string[];
@@ -57,10 +56,6 @@ export function buildAdminSchema({ model, collectionsUi, features, prefixPrimary
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function isPipelineVerdict(value: unknown): value is PipelineVerdict {
-  return value === "granted" || value === "denied" || value === "unknown";
 }
 
 function isPipelineAccess(value: unknown): value is Record<string, PipelineVerdict> {

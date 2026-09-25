@@ -1,9 +1,16 @@
-import type { PipelineVerdict } from "@michaelthielemann/kestrel-authz-roles/impl";
 import type { Capability, CollectionCapabilities } from "../../app/types/kestrel";
 import { MULTI_VERBS, SINGLE_VERBS } from "#kestrel/pipelines";
 import type { CollectionVerb } from "#kestrel/pipelines";
 
 const ALL_VERBS: readonly CollectionVerb[] = [...MULTI_VERBS, ...SINGLE_VERBS];
+
+/** `authz.describePipelineAccess`'s per-pipeline verdict; kestrel-authz-roles does not export this type from its package root. */
+export const PIPELINE_VERDICTS = ["granted", "denied", "unknown"] as const;
+export type PipelineVerdict = (typeof PIPELINE_VERDICTS)[number];
+
+export function isPipelineVerdict(value: unknown): value is PipelineVerdict {
+  return typeof value === "string" && (PIPELINE_VERDICTS as readonly string[]).includes(value);
+}
 
 export interface HttpTriggerEntry {
   method: string;
