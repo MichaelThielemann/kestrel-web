@@ -50,6 +50,14 @@ describe('DashDeliveryStaleAlert', () => {
     wrapper.unmount()
   })
 
+  it('names a single failed re-render in the singular', async () => {
+    unregisterAll.push(registerEndpoint('/api/admin/publish-status/pages', { method: 'GET', handler: () => staleStatus({ failed: 1 }) }))
+
+    const wrapper = await mountSuspended(DashDeliveryStaleAlert)
+    expect(wrapper.get('a').text()).toBe(en['dash.deliveryStaleFailedOne'].replace('{n}', '1'))
+    wrapper.unmount()
+  })
+
   it('renders nothing when a consumer excluded the pipeline', async () => {
     unregisterAll.push(registerEndpoint('/api/admin/publish-status/pages', {
       method: 'GET',

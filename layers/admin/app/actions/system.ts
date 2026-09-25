@@ -2,6 +2,7 @@ import type { EventRelayStatus, EventsRetryResult, ImagesJob, ImagesPruneResult,
 import { defineAction, type ActionContext, type ActionStep } from '#kestrel-core/app/utils/actions'
 import { apiErrorCode, apiErrorMessage, apiErrorRunId, apiErrorStatus, withRunId } from '../composables/useApi'
 import { humanizeSize } from '../utils/library'
+import { staleCountText } from '../utils/stale-messages'
 import { userErrorMessage } from '../utils/user-errors'
 import type { UserOperation } from '../utils/user-errors'
 import { defineUiStep } from './define'
@@ -159,7 +160,7 @@ export const publishAll = defineAction<PublishAllInput, PublishAllReport>({
       call: (ctx) => ({ route: ctx.input.deps.capabilities.route('publishAllPages') }),
       onSuccess: (ctx, value) => {
         ctx.result = value
-        ctx.input.deps.toast.success(ctx.input.deps.t('delivery.queued', { marked: value.marked }))
+        ctx.input.deps.toast.success(staleCountText(ctx.input.deps.t, 'queued', value.marked))
       },
       onError: (ctx, err) => {
         ctx.input.deps.toast.error(err.message ? withRunId(err.message, err.status, err.runId) : ctx.input.deps.t('delivery.failed'))
@@ -178,7 +179,7 @@ export const retryStale = defineAction<RetryStaleInput, RetryStaleReport>({
       call: (ctx) => ({ route: ctx.input.deps.capabilities.route('retryStalePages') }),
       onSuccess: (ctx, value) => {
         ctx.result = value
-        ctx.input.deps.toast.success(ctx.input.deps.t('delivery.retried', { retried: value.retried }))
+        ctx.input.deps.toast.success(staleCountText(ctx.input.deps.t, 'retried', value.retried))
       },
       onError: (ctx, err) => {
         ctx.input.deps.toast.error(err.message ? withRunId(err.message, err.status, err.runId) : ctx.input.deps.t('delivery.failed'))

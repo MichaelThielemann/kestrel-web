@@ -92,6 +92,15 @@ describe('publishAll', () => {
     expect(result.ok && result.result?.marked).toBe(12)
   })
 
+  it('reports a single queued page in the singular', async () => {
+    const { deps, toast } = fakeDeps([{ marked: 1 }])
+    const { ops } = fakeOps()
+
+    await runAction(publishAll, { deps, ops })
+
+    expect(toast.success).toHaveBeenCalledWith('delivery.queuedOne:{"marked":1}')
+  })
+
   it('toasts the raw error message and fails the action', async () => {
     const { deps, toast } = fakeDeps([apiError(500, 'boom')])
     const { ops, busyLog } = fakeOps()
@@ -126,6 +135,15 @@ describe('retryStale', () => {
     expect(toast.success).toHaveBeenCalledWith('delivery.retried:{"retried":3}')
     expect(busyLog).toEqual([true, false])
     expect(result.ok && result.result?.retried).toBe(3)
+  })
+
+  it('reports a single page queued again in the singular', async () => {
+    const { deps, toast } = fakeDeps([{ retried: 1 }])
+    const { ops } = fakeOps()
+
+    await runAction(retryStale, { deps, ops })
+
+    expect(toast.success).toHaveBeenCalledWith('delivery.retriedOne:{"retried":1}')
   })
 
   it('toasts the error and fails the action', async () => {

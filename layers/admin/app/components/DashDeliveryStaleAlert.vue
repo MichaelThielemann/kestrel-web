@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { StaleStatus } from '#kestrel-admin/types/api'
+import { staleCountText } from '../utils/stale-messages'
 
 const { t } = useT()
 const api = useAdminApi()
@@ -24,6 +25,6 @@ try {
   </p>
   <NuxtLink v-else-if="!notFound && status && status.failed > 0" to="/admin/system?tab=delivery" class="dash__alert">
     <KestrelUiIcon name="triangle-alert" :size="18" />
-    <span>{{ t('dash.deliveryStaleFailed', { n: status.failed }) }}</span>
+    <span>{{ staleCountText(t, 'dashboardFailed', status.failed) }}</span>
   </NuxtLink>
 </template>
