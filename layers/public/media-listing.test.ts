@@ -4,7 +4,10 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 const ROOT = fileURLToPath(new URL("../..", import.meta.url));
-const LAYERS = ["core", "admin", "public"];
+const LAYER_DIRS = ["core", "admin", "public"].map((layer) => `layers/${layer}`);
+const PROJECT_DIRS = ["playground", "packages/create-kestrel/template"];
+const APP_DIRS = [...LAYER_DIRS, ...PROJECT_DIRS].map((dir) => `${dir}/app`);
+const EDITOR_FIELDS_DIR = "layers/admin/app/components/field/";
 
 const ALIASES: readonly [string, string][] = [
   ["#kestrel-core/", "layers/core/"],
@@ -38,8 +41,8 @@ function pascal(segment: string): string {
 
 function componentIndex(): Map<string, string> {
   const index = new Map<string, string>();
-  for (const layer of LAYERS) {
-    const dir = join(ROOT, "layers", layer, "app/components");
+  for (const layer of LAYER_DIRS) {
+    const dir = join(ROOT, layer, "app/components");
     for (const file of walk(dir).filter((f) => f.endsWith(".vue"))) {
       const segments = relative(dir, dirname(file)).split("/").filter(Boolean).map(pascal);
       const base = pascal(basename(file, ".vue"));
@@ -51,26 +54,40 @@ function componentIndex(): Map<string, string> {
   return index;
 }
 
+function camel(fileName: string): string {
+  return fileName.replace(/[-_.](\w)/g, (_, letter: string) => letter.toUpperCase());
+}
+
+function exportedNames(file: string, source: string): string[] {
+  const names = [...source.matchAll(/^export\s+(?:async\s+)?(?:function\*?|const|let|class)\s+(\w+)/gm)].map((match) => match[1] ?? "");
+  for (const match of source.matchAll(/^export\s*\{([^}]*)\}/gm)) {
+    for (const entry of (match[1] ?? "").split(",")) names.push(entry.trim().split(/\s+as\s+/).at(-1) ?? "");
+  }
+  if (/^export\s+default\b/m.test(source)) names.push(camel(basename(file).replace(/\.(ts|vue)$/, "")));
+  return names.filter((name) => /^\w+$/.test(name) && name !== "type");
+}
+
 function autoImportIndex(): Map<string, string[]> {
   const index = new Map<string, string[]>();
-  for (const layer of LAYERS) {
-    for (const sub of ["app/composables", "app/utils", "server/utils"]) {
-      const dir = join(ROOT, "layers", layer, sub);
-      if (!existsSync(dir)) continue;
-      for (const file of readdirSync(dir).map((f) => join(dir, f)).filter(isSource)) {
-        for (const match of readFileSync(file, "utf-8").matchAll(/^export\s+(?:async\s+)?(?:function|const|class)\s+(\w+)/gm)) {
-          const name = match[1];
-          if (name !== undefined) index.set(name, [...(index.get(name) ?? []), file]);
-        }
-      }
+  const dirs = [...APP_DIRS.flatMap((app) => [`${app}/composables`, `${app}/utils`]), ...LAYER_DIRS.map((layer) => `${layer}/server/utils`)];
+  for (const dir of dirs.map((d) => join(ROOT, d)).filter(existsSync)) {
+    for (const file of readdirSync(dir).map((f) => join(dir, f)).filter(isSource)) {
+      for (const name of exportedNames(file, readFileSync(file, "utf-8"))) index.set(name, [...(index.get(name) ?? []), file]);
     }
   }
   return index;
 }
 
+function projectDirOf(file: string): string | undefined {
+  return PROJECT_DIRS.map((dir) => join(ROOT, dir)).find((dir) => file.startsWith(`${dir}/`));
+}
+
 function resolveImport(from: string, specifier: string): string | undefined {
   let base: string | undefined;
+  const project = projectDirOf(from);
   if (specifier.startsWith(".")) base = resolve(dirname(from), specifier);
+  else if (project !== undefined && specifier.startsWith("~~/")) base = join(project, specifier.slice(3));
+  else if (project !== undefined && specifier.startsWith("~/")) base = join(project, "app", specifier.slice(2));
   for (const [alias, target] of ALIASES) {
     if (specifier === alias || specifier.startsWith(alias)) base = join(ROOT, target, specifier.slice(alias.length));
   }
@@ -78,11 +95,18 @@ function resolveImport(from: string, specifier: string): string | undefined {
   return [base, `${base}.ts`, `${base}.vue`, join(base, "index.ts")].find((candidate) => existsSync(candidate) && statSync(candidate).isFile());
 }
 
+const MODULE_SPECIFIERS = [
+  /^\s*(?:import|export)\s+(?!type\s)(?:[^;'"]*?\sfrom\s+)?['"]([^'"]+)['"]/gm,
+  /\bimport\(\s*['"`]([^'"`$]+)['"`]\s*\)/g,
+];
+
 function dependencies(file: string, source: string, components: Map<string, string>, autoImports: Map<string, string[]>): string[] {
   const deps: string[] = [];
-  for (const match of source.matchAll(/^import\s+(?!type\s)[^;]*?from\s+['"]([^'"]+)['"]/gm)) {
-    const target = match[1] === undefined ? undefined : resolveImport(file, match[1]);
-    if (target !== undefined) deps.push(target);
+  for (const pattern of MODULE_SPECIFIERS) {
+    for (const match of source.matchAll(pattern)) {
+      const target = match[1] === undefined ? undefined : resolveImport(file, match[1]);
+      if (target !== undefined) deps.push(target);
+    }
   }
   for (const [name, files] of autoImports) {
     if (new RegExp(`\\b${name}\\b`).test(source)) deps.push(...files);
@@ -94,18 +118,23 @@ function dependencies(file: string, source: string, components: Map<string, stri
   return deps;
 }
 
-function publicClosure(): string[] {
+function closureOf(roots: readonly string[]): string[] {
   const components = componentIndex();
   const autoImports = autoImportIndex();
   const seen = new Set<string>();
-  const queue = walk(join(ROOT, "layers/public")).filter(isSource);
+  const queue = [...roots];
   while (queue.length > 0) {
     const file = queue.shift();
-    if (file === undefined || seen.has(file) || !isSource(file)) continue;
+    if (file === undefined || seen.has(file) || !isSource(file) || relative(ROOT, file).startsWith(EDITOR_FIELDS_DIR)) continue;
     seen.add(file);
     queue.push(...dependencies(file, readFileSync(file, "utf-8"), components, autoImports));
   }
   return [...seen].sort();
+}
+
+function publicRoots(): string[] {
+  const dirs = ["layers/public", ...LAYER_DIRS.map((layer) => `${layer}/app/plugins`), ...PROJECT_DIRS.map((dir) => `${dir}/app`)];
+  return dirs.flatMap((dir) => walk(join(ROOT, dir))).filter(isSource);
 }
 
 function mediaListingReferences(source: string): string[] {
@@ -131,6 +160,18 @@ describe("the scan for media listing references", () => {
     }
   });
 
+  it("follows dynamic imports and re-exports, and indexes a default-exported composable by its file name", () => {
+    const from = join(ROOT, "layers/public/app/components/Image.vue");
+    const library = join(ROOT, "layers/admin/app/composables/useMediaLibrary.ts");
+    const none = new Map<string, string[]>();
+    expect(dependencies(from, "const load = () => import('#kestrel-admin/composables/useMediaLibrary')", new Map(), none)).toEqual([library]);
+    expect(dependencies(from, "export { useMediaLibrary as useGallery } from '#kestrel-admin/composables/useMediaLibrary'", new Map(), none)).toEqual([library]);
+    expect(dependencies(from, "export * from '#kestrel-admin/composables/useMediaLibrary'", new Map(), none)).toEqual([library]);
+    expect(dependencies(from, "export type { MediaItem } from '#kestrel-core/app/types/api'", new Map(), none)).toEqual([]);
+    expect(exportedNames("/x/composables/useAllMedia.ts", "export default function () {}")).toEqual(["useAllMedia"]);
+    expect(exportedNames("/x/utils/list.ts", "const a = 1\nexport { a as listAll, b }")).toEqual(["listAll", "b"]);
+  });
+
   it("lets a read by id through", () => {
     expect(mediaListingReferences("api<MediaItem>(`/media/${encodeURIComponent(mediaId)}`, { query: { locale } })")).toEqual([]);
     expect(mediaListingReferences("const src = item.path")).toEqual([]);
@@ -138,18 +179,22 @@ describe("the scan for media listing references", () => {
   });
 });
 
-describe("the public layer and everything it imports, auto-imports or renders never reference the media list or folder endpoints", () => {
-  const closure = publicClosure();
+describe("static reference scan: the public layer, the app plugins and the site blocks, with everything they import, dynamically import, re-export, auto-import or render as <Kestrel…> except the admin editor's field components, hold no literal media list or folder path and no listMedia/listMediaFolders name (a path held in a variable or built at runtime is not seen)", () => {
+  const closure = closureOf(publicRoots());
 
-  it("reaches the public layer's media read and the API client it calls", () => {
+  it("reaches the public layer's media read, the API client it calls, the app plugins and the site blocks", () => {
     const reached = closure.map((file) => relative(ROOT, file));
     expect(reached).toContain("layers/public/app/composables/useMediaItem.ts");
     expect(reached).toContain("layers/public/app/components/Image.vue");
     expect(reached).toContain("layers/admin/app/composables/useApi.ts");
+    expect(reached).toContain("layers/admin/app/plugins/field-types.ts");
+    expect(reached).toContain("layers/core/app/plugins/actions-debug.client.ts");
+    expect(reached).toContain("playground/app/blocks/Image.vue");
+    expect(reached).toContain("packages/create-kestrel/template/app/blocks/Hero.vue");
   });
 
   for (const file of closure) {
-    it(`${relative(ROOT, file)} references neither endpoint`, () => {
+    it(`${relative(ROOT, file)} holds no literal list or folder reference`, () => {
       expect(mediaListingReferences(readFileSync(file, "utf-8"))).toEqual([]);
     });
   }
