@@ -452,6 +452,16 @@
 
 ### Fixed
 
+- `sanitizedHtmlKey` is no longer auto-imported into consumer server or app code — it moved out of
+  `layers/public/app/composables` into a plain module `useSanitizedHtml` imports, since nothing but its
+  own test called it as a global.
+
+- Documented the `server/utils` exports that Nitro auto-imports into consumer server code and were
+  missing from this file: `adminBootstrapProblem`, `assertAdminBootstrapRoutes`,
+  `bootWithAdminBootstrapCheck`, `buildCapabilities` and its types, and `schemaFromRun`.
+  `AdminSchemaSources.triggers` and `.access` are required, not optional — building an `AdminSchema`
+  needs the caller's pipeline access to compute capabilities.
+
 - A preset `overrides` entry that keeps `events.relay` but places it before the pipeline's own
   `events.emit:` step, or that keeps the emit outside the atomic group with the `eventsQueue` feature,
   is now rejected the same way an entry that drops the atomic group already is. Previously the guard only
