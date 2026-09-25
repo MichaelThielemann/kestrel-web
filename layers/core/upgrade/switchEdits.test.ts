@@ -99,4 +99,42 @@ describe("layerSwitchEdits", () => {
     const result = await layerSwitchEdits(contextFor({ files: { [CONFIG_FILE]: source }, configModules: [{ use: "@michaelthielemann/kestrel-events-direct" }] }), ["updatePage"]);
     expect(result.parts["kestrel.config.ts's hand-written events-direct entry"]).toHaveLength(1);
   });
+
+  it("gives the replacing events-queue entry the lanes its features need once it runs on the queue", async () => {
+    const source = `import { defineConfig } from "@michaelthielemann/kestrel/defineConfig";\nexport default defineConfig({ modules: [{ use: "@michaelthielemann/kestrel-events-direct" }], triggers: [], http: null });\n`;
+    const result = await layerSwitchEdits(contextFor({ files: { [CONFIG_FILE]: source }, features: ["delivery", "images"] }), ["publishPage", "unpublishPage"]);
+    const edit = result.parts["kestrel.config.ts's hand-written events-direct entry"]![0]!;
+    const patched = source.slice(0, edit.start) + edit.text + source.slice(edit.end);
+    expect(patched).toMatch(/lanes:\s*\{\s*pages:\s*\["republishOutput",\s*"refreshLlms"\],\s*variants:\s*\["generateImageVariants"\]\s*\}/);
+  });
+
+  it("switches a literal delivery-static entry to queue renders, as a part of its own", async () => {
+    const source = `export default defineConfig({ modules: [{ use: "@michaelthielemann/kestrel-events-direct" }, { use: "@michaelthielemann/kestrel-delivery-static", config: { types: { pages: {} }, dependencies: { render: "background", rendererReadsDocument: true } } }], triggers: [], http: null });\n`;
+    const result = await layerSwitchEdits(contextFor({ files: { [CONFIG_FILE]: source }, features: ["delivery"] }), []);
+    const edits = result.parts["kestrel.config.ts's delivery-static render mode"];
+    expect(edits).toHaveLength(1);
+    const edit = edits![0]!;
+    const patched = source.slice(0, edit.start) + edit.text + source.slice(edit.end);
+    expect(patched).toContain('dependencies: { render: "events", rendererReadsDocument: true }');
+  });
+
+  it("adds queue renders to a literal delivery-static entry without dependencies", async () => {
+    const source = `export default defineConfig({ modules: [{ use: "@michaelthielemann/kestrel-events-direct" }, { use: "@michaelthielemann/kestrel-delivery-static", config: { types: { pages: {} } } }], triggers: [], http: null });\n`;
+    const result = await layerSwitchEdits(contextFor({ files: { [CONFIG_FILE]: source }, features: ["delivery"] }), []);
+    const edit = result.parts["kestrel.config.ts's delivery-static render mode"]![0]!;
+    const patched = source.slice(0, edit.start) + edit.text + source.slice(edit.end);
+    expect(patched).toContain('dependencies: { render: "events", rendererReadsDocument: true }');
+  });
+
+  it("adds no delivery-static part when the entry is not a literal in the config", async () => {
+    const result = await layerSwitchEdits(contextFor({}), []);
+    expect(result.parts).not.toHaveProperty("kestrel.config.ts's delivery-static render mode");
+  });
+
+  it("adds no delivery-static part when presetModuleConfig() overrides name the module, or its render already runs on the queue", async () => {
+    const overridden = `const modules = presetModuleConfig({ overrides: { "@michaelthielemann/kestrel-delivery-static": { dependencies: { maxAgeSeconds: 3600 } } } });\nconst all = [...modules, { use: "@michaelthielemann/kestrel-events-direct" }];\n`;
+    expect((await layerSwitchEdits(contextFor({ files: { [CONFIG_FILE]: overridden } }), [])).parts).not.toHaveProperty("kestrel.config.ts's delivery-static render mode");
+    const queued = `const modules = [{ use: "@michaelthielemann/kestrel-delivery-static", config: { dependencies: { render: "events" } } }];\n`;
+    expect((await layerSwitchEdits(contextFor({ files: { [CONFIG_FILE]: queued } }), [])).parts).not.toHaveProperty("kestrel.config.ts's delivery-static render mode");
+  });
 });

@@ -2,12 +2,15 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { objectProperty, parseTs, replaceModuleListEntry, stringValue, walk } from "@michaelthielemann/kestrel-upgrade/codemods";
 import type { Edit, RuleContext, SwitchEditsResult } from "@michaelthielemann/kestrel-upgrade/plugin";
-import { addStringToNamedExportArray } from "./edits";
-import { findFeaturesArrayFile, packageJsonPath } from "./ruleHelpers";
+import { lanesFor } from "../pipelines/checkPreset";
+import type { Feature } from "../pipelines/checkPreset";
+import { addStringToNamedExportArray, dependenciesRender, hasModuleEntry, setDependenciesRender } from "./edits";
+import { findFeaturesArrayFile, packageJsonPath, presetOptionsCast } from "./ruleHelpers";
 
 const SERVERLESS_MARKER_FILES = ["vercel.json", "netlify.toml", "wrangler.toml", "serverless.yml", "template.yaml"];
 const EVENTS_DIRECT_PACKAGE = "@michaelthielemann/kestrel-events-direct";
 const EVENTS_QUEUE_PACKAGE = "@michaelthielemann/kestrel-events-queue";
+const DELIVERY_STATIC_PACKAGE = "@michaelthielemann/kestrel-delivery-static";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -70,10 +73,16 @@ function importsEventsDirectLiteral(source: string): boolean {
   return source.includes(`"${EVENTS_DIRECT_PACKAGE}"`) || source.includes(`'${EVENTS_DIRECT_PACKAGE}'`);
 }
 
+function queuedLanes(ctx: RuleContext): string {
+  const features: readonly Feature[] = presetOptionsCast(ctx)?.features ?? [];
+  const lanes = lanesFor([...features, "eventsQueue"]);
+  return Object.entries(lanes).map(([lane, members]) => `${lane}: [${members.map((m) => `"${m}"`).join(", ")}]`).join(", ");
+}
+
 function handWrittenModuleListEdit(ctx: RuleContext, relayPipelines: readonly string[]): Edit | undefined {
   const source = ctx.readFile(ctx.project.configFile);
   if (source === undefined || !importsEventsDirectLiteral(source)) return undefined;
-  const config = `{ relayPipelines: [${relayPipelines.map((p) => `"${p}"`).join(", ")}] }`;
+  const config = `{ relayPipelines: [${relayPipelines.map((p) => `"${p}"`).join(", ")}], lanes: { ${queuedLanes(ctx)} } }`;
   return replaceModuleListEntry(ctx.project.configFile, source, { use: EVENTS_DIRECT_PACKAGE, newUse: EVENTS_QUEUE_PACKAGE, config });
 }
 
@@ -95,6 +104,9 @@ function hasAtMostOneDeliveryModule(ctx: RuleContext): boolean {
  * locate makes the whole switch manual and names which one. That second part is left out entirely (not
  * offered, not required) when the project already has more than one delivery module — the features edit
  * alone then yields exactly one `events-queue` entry, from `presetModuleConfig()`'s own reactive one.
+ * The replacing entry also gets the `lanes` of `lanesFor(features)`, and a `kestrel-delivery-static` entry
+ * written literally in `kestrel.config.ts` gets `dependencies.render: "events"` as a part of its own, since
+ * the preset refuses queue delivery with background renders.
  */
 export async function layerSwitchEdits(ctx: RuleContext, relayPipelines: readonly string[]): Promise<SwitchEditsResult> {
   const file = findFeaturesArrayFile(ctx);
@@ -107,6 +119,10 @@ export async function layerSwitchEdits(ctx: RuleContext, relayPipelines: readonl
   if (configSource !== undefined && importsEventsDirectLiteral(configSource) && hasAtMostOneDeliveryModule(ctx)) {
     const moduleListEdit = handWrittenModuleListEdit(ctx, relayPipelines);
     parts["kestrel.config.ts's hand-written events-direct entry"] = moduleListEdit === undefined ? undefined : [moduleListEdit];
+  }
+  if (configSource !== undefined && hasModuleEntry(configSource, DELIVERY_STATIC_PACKAGE) && dependenciesRender(configSource, DELIVERY_STATIC_PACKAGE) !== "events") {
+    const renderEdit = setDependenciesRender(ctx.project.configFile, configSource, DELIVERY_STATIC_PACKAGE, "events");
+    parts["kestrel.config.ts's delivery-static render mode"] = renderEdit === undefined ? undefined : [renderEdit];
   }
   return { parts, blockers: deploymentBlockers(ctx) };
 }
