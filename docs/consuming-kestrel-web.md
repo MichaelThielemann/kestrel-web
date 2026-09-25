@@ -1363,9 +1363,9 @@ location / { try_files $uri $uri/index.html =404; }
 The two security headers on `/media/` are mandatory whenever it shares an origin with `/admin`. Every
 file an anonymous visitor may read — SVGs included — is served there, and a file opened directly runs any
 script it holds on the site origin, where the admin's session cookie is readable by script. With
-`delivery`, the preset accepts SVG uploads only when `sanitizeSvg` strips their scripts or SVG is denied
-(see the note below the feature table in §4); a hand-written module list must ensure the same, and
-`media-default` refuses to boot otherwise. `nosniff` stops a file from being taken for another type, and
+`delivery`, the preset builds only when `sanitizeSvg` strips an SVG's scripts before it is stored or SVG
+uploads are denied (see the note below the feature table in §4); a hand-written module list must ensure
+the same, and `media-default` refuses to boot otherwise. `nosniff` stops a file from being taken for another type, and
 the CSP `sandbox` stops any script it holds from running. The Node server sends both on every
 file at `/media/**` already; this block matches that when serving the export from a filesystem blobstore
 instead. An original's URL never changes content once written and may be cached for a year; a variant
