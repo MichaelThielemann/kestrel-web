@@ -1720,15 +1720,16 @@ What changes:
   list needs `dependencies: { render, rendererReadsDocument: true }` on `kestrel-delivery-static` (`render:
   "events"` with `kestrel-events-queue`, `"background"` otherwise) and, with the queue, `lanes:
   lanesFor(features)` on `kestrel-events-queue`. The upgrade tool covers these:
-  - `preset/delivery-dependencies` adds the `dependencies` to a `kestrel-delivery-static` entry written in
-    `kestrel.config.ts` (`fix`), with the render mode of your event delivery; it is manual when the entry comes
-    from `presetModuleConfig()` with other features, or sets the wrong mode.
+  - `preset/delivery-dependencies` gives `kestrel-delivery-static` the `dependencies` of your event delivery
+    (`fix`): on an entry written in `kestrel.config.ts` it adds them or corrects `render`; on an entry
+    `presetModuleConfig()` builds with other features than `definePreset()` gets, it adds an `overrides`
+    entry for the module to that call.
   - `preset/queue-lanes` sets `lanes` (and a missing `relayPipelines`) on a `kestrel-events-queue` entry
-    written in `kestrel.config.ts` to what `lanesFor(features)` gives (`fix`); manual when the entry has lanes
-    that leave page renders or image variants out.
-  - `preset/override-group` wraps the settings write of a 2.x `setSettings` override in its group (`fix`);
-    the missing emit and relay are yours to add, and the preset names the override until they are there.
-    `preset/settings-llms` notes an override that still runs `delivery.exportLlms` inside the request.
+    written in `kestrel.config.ts` to what `lanesFor(features)` gives (`fix`).
+  - `preset/override-emit` forward-ports a 2.x `setSettings` or `set<Name>` override in one edit (`fix`): the
+    write in its atomic group, then `events.emit:settings.updated` / `events.emit:<name>.updated` and
+    `events.relay`, and without `delivery.exportLlms`, which the default requests after the re-renders.
+    `preset/settings-llms` notes an override that emits but still exports `llms.txt` inside the request.
   - `runtime/media-event-ids` notes your own triggers on `media.updated`, `media.deleted` or
     `images.variantsChanged`: a folder deletion and the events `images-default` raises itself arrive with
     `id: null` and every affected id in `ids`.
@@ -1736,9 +1737,26 @@ What changes:
     counts; `static/server-cache` notes, with `delivery`, cached handlers, cached functions, `useStorage`
     and cached `/api` route rules, whose answers a page's render does not record as reads.
   - Switching to the queue through `fix` also sets `lanes` on the new `kestrel-events-queue` entry and
-    `dependencies.render: "events"` on a `kestrel-delivery-static` entry written in `kestrel.config.ts`; with
-    `delivery`, it asks whether `pageDependents`, `settingsDependents` and `mediaDependents` may run more than
-    once, as for every other event pipeline (they may: marking twice renders once).
+    the queue's `dependencies` on a `kestrel-delivery-static` entry written in `kestrel.config.ts`, in one
+    edit of its config, so a single run never writes the key twice. With `delivery`, it asks whether
+    `pageDependents`, `settingsDependents` and `mediaDependents` may run more than once, as for every other
+    event pipeline (they may: marking twice renders once).
+
+**What stays manual after `fix --write`.** When the report after `fix --write` still lists an error, it is one
+of these, each named there:
+
+- An override whose write steps do not sit as one run in the 3.0 default's order, for example with a step of
+  your own inside the window: the tool asks whether to include that step in the atomic group, and offers
+  that only when a preview shows every step of the group is safe inside it; otherwise wrap the write, add the
+  emit and `events.relay`, or `exclude` the pipeline and define your own.
+- An override or pipeline the tool cannot locate: one that is not a literal array in
+  `definePreset({ overrides })` or a `definePipeline({ name, steps })` call.
+- A `kestrel-delivery-static` entry that is neither written in `kestrel.config.ts` nor built by exactly one
+  `presetModuleConfig()` call, or whose `config`, `dependencies` or `overrides` is not an object literal.
+- `kestrel-events-queue` lanes that exist but leave page renders or image variants out.
+- `sanitizeSvg` when `features` is built by a function call, and installing packages after the range bumps.
+- Everything reported as a note (`info`): code of your own that reads media events, old response fields or
+  server caches, which the tool cannot change for you.
 - Code on exported pages follows the rules in §8, "What an exported page requests": deterministic keys
   that carry the locale, never `useId()`, data transferred without `useState`. `useSiteSettings()` stores
   its data under `site:settings:<locale>`, and a media item the layer loads keeps its public fields only

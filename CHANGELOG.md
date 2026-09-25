@@ -397,10 +397,11 @@
   an `isr`/`cache`/`swr` route rule on a page route, and a read of a media item's private fields
   (`folder`, `createdAt`, `updatedAt`, `variantCounts`, a variant's `state`); and notes that the first start
   of the upgraded build re-renders every published page in the background.
-- `kestrel-web-upgrade` carries a project to background re-rendering: it adds `dependencies` to a
-  hand-written `kestrel-delivery-static` entry and `lanes` to a hand-written `kestrel-events-queue` entry,
-  wraps a 2.x `setSettings` override's write in its group, gives a switch to the queue its lanes and queue
-  renders, and notes a `setSettings` override exporting `llms.txt`, own triggers on media events (which can
+- `kestrel-web-upgrade` carries a project to background re-rendering: it gives `kestrel-delivery-static` the
+  `dependencies` of the event delivery (on a hand-written entry, or through `presetModuleConfig({ overrides
+  })`) and a hand-written `kestrel-events-queue` entry its `lanes`, forward-ports a 2.x `setSettings` or
+  `set<Name>` override with its group, emit and relay, gives a switch to the queue its lanes and queue
+  renders, lists in the docs what stays manual, and notes a `setSettings` override exporting `llms.txt`, own triggers on media events (which can
   carry `id: null` and `ids`), code reading `_llms` or the old Publish all counts, and server caches near
   `/api` reads.
 - `GET /admin/events/status`'s response gains `lanes`: per configured named lane, `pending`, `running` and
