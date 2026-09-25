@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { ApiErrorDetails, Document } from '#kestrel-admin/types/api'
+import type { ApiErrorDetails, Document, EventRelayStatus } from '#kestrel-admin/types/api'
 import { boundaryCast } from '#kestrel/cast'
 import { runAction } from '#kestrel-core/app/utils/actions'
 import type { BlockRow } from '../utils/block-tree'
@@ -8,6 +8,12 @@ import { copyTranslation, deleteRecord, deleteTranslation, discardRecord, leaveE
 import type { ActionDeps, EditFormPort } from './types'
 import type { RowErrorMap } from '../utils/row-errors'
 import { fakeDeps } from './__fixtures__/fake-deps'
+
+type RelayEntry = EventRelayStatus['pipelines'][number]
+
+function relayEntry(pipeline: string, status: RelayEntry['status']): RelayEntry {
+  return { event: 'page.updated', pipeline, status, attempts: status === 'queued' ? 0 : 1, dead: false, error: status === 'error' ? 'boom' : null }
+}
 
 const CODE_OF: Record<number, string> = {
   400: 'VALIDATION', 401: 'UNAUTHENTICATED', 403: 'FORBIDDEN', 404: 'NOT_FOUND', 409: 'CONFLICT',
@@ -252,7 +258,7 @@ describe('saveRecord', () => {
   })
 
   it('toasts a delivery failure, mentioning re-rendering when the eventsQueue feature is off', async () => {
-    const { deps, toast } = fakeDeps([doc({ _events: { status: 'error', pipelines: [] } })])
+    const { deps, toast } = fakeDeps([doc({ _events: { status: 'error', pipelines: [relayEntry('publishPage', 'error')] } })])
     const { form } = fakeForm()
 
     await runAction(saveRecord, { deps, form })
@@ -261,7 +267,7 @@ describe('saveRecord', () => {
   })
 
   it('toasts a pending delivery as informational, not as an error, still running', async () => {
-    const { deps, toast } = fakeDeps([doc({ _events: { status: 'pending', pipelines: [] } })])
+    const { deps, toast } = fakeDeps([doc({ _events: { status: 'pending', pipelines: [relayEntry('publishPage', 'pending')] } })])
     const { form } = fakeForm()
 
     await runAction(saveRecord, { deps, form, eventsQueue: true })
@@ -271,7 +277,7 @@ describe('saveRecord', () => {
   })
 
   it('does not toast when the delivery status is done', async () => {
-    const { deps, toast } = fakeDeps([doc({ _events: { status: 'done', pipelines: [] } })])
+    const { deps, toast } = fakeDeps([doc({ _events: { status: 'done', pipelines: [relayEntry('publishPage', 'done')] } })])
     const { form } = fakeForm()
 
     await runAction(saveRecord, { deps, form })
@@ -279,8 +285,36 @@ describe('saveRecord', () => {
     expect(toast.error).not.toHaveBeenCalled()
   })
 
+  it('reports only the page\'s own publishing: marking the pages that show it, queued beside it, raises no toast', async () => {
+    const { deps, toast } = fakeDeps([doc({ _events: { status: 'pending', pipelines: [relayEntry('pageDependents', 'queued'), relayEntry('publishPage', 'done')] } })])
+    const { form } = fakeForm()
+
+    await runAction(saveRecord, { deps, form, eventsQueue: true })
+
+    expect(toast.info).not.toHaveBeenCalled()
+    expect(toast.error).not.toHaveBeenCalled()
+  })
+
+  it('reports only the page\'s own publishing: a failed marking beside a published page raises no toast', async () => {
+    const { deps, toast } = fakeDeps([doc({ _events: { status: 'error', pipelines: [relayEntry('pageDependents', 'error'), relayEntry('publishPage', 'done')] } })])
+    const { form } = fakeForm()
+
+    await runAction(saveRecord, { deps, form })
+
+    expect(toast.error).not.toHaveBeenCalled()
+  })
+
+  it('still toasts the page\'s own failed publishing beside a queued marking', async () => {
+    const { deps, toast } = fakeDeps([doc({ _events: { status: 'error', pipelines: [relayEntry('pageDependents', 'queued'), relayEntry('publishPage', 'error')] } })])
+    const { form } = fakeForm()
+
+    await runAction(saveRecord, { deps, form, eventsQueue: true })
+
+    expect(toast.error).toHaveBeenCalledWith('editorStatus.delivery.failed' + 'editorStatus.delivery.retryQueue:{"tab":"system.tabs.events"}')
+  })
+
   it('does not toast for a collection that is not page-like', async () => {
-    const { deps, toast } = fakeDeps([doc({ _events: { status: 'error', pipelines: [] } })])
+    const { deps, toast } = fakeDeps([doc({ _events: { status: 'error', pipelines: [relayEntry('publishPage', 'error')] } })])
     const { form } = fakeForm({ pageLike: false })
 
     await runAction(saveRecord, { deps, form })
@@ -464,8 +498,17 @@ describe('deleteRecord', () => {
     expect(toast.error).toHaveBeenCalledWith('editorStatus.delivery.deleteFailed' + 'editorStatus.delivery.retryQueue:{"tab":"system.tabs.events"}')
   })
 
+  it('does not toast when only marking the pages that showed the deleted page failed', async () => {
+    const { deps, toast } = fakeDeps([{ _events: { status: 'error', pipelines: [relayEntry('pageDependents', 'error'), relayEntry('unpublishPage', 'done')] } }])
+    const { input } = deleteInput(deps, ['p1'])
+
+    await runAction(deleteRecord, { ...input, pageLike: true })
+
+    expect(toast.error).not.toHaveBeenCalledWith(expect.stringContaining('editorStatus.delivery.deleteFailed'))
+  })
+
   it('does not toast a delivery failure for a collection that is not page-like', async () => {
-    const { deps, toast } = fakeDeps([{ _events: { status: 'error', pipelines: [] } }])
+    const { deps, toast } = fakeDeps([{ _events: { status: 'error', pipelines: [relayEntry('unpublishPage', 'error')] } }])
     const { input } = deleteInput(deps, ['p1'])
 
     await runAction(deleteRecord, input)

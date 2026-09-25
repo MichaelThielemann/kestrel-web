@@ -4,7 +4,7 @@ import { defineAction, type ActionStep } from '#kestrel-core/app/utils/actions'
 import { previewDeleteAction } from './shared'
 import { translationSourceValues } from '../utils/translation-copy'
 import { apiEach, apiRequest, apiWrite } from './steps/api'
-import { deliveryRefresh, deliveryToast, retrySuffix } from './steps/delivery'
+import { deliveryRefresh, deliveryToast, ownDeliveryStatus, retrySuffix } from './steps/delivery'
 import { formMapErrors, formOutcome, formRebaseline, formReset, formRevealError, formSaving, formSetStatus, formValidate } from './steps/form'
 import { dialogConfirm, guardAnySucceeded, guardBypass, guardStatus, guardTab, guardUnsaved } from './steps/guard'
 import { defineUiStep } from './define'
@@ -137,7 +137,7 @@ type DeleteReport = EachReport<DeleteResponse>
 function worstDeliveryStatus(report: DeleteReport): EventRelayStatus['status'] | undefined {
   const statuses = report.results
     .filter((item) => item.ok)
-    .map((item) => item.value?._events?.status)
+    .map((item) => ownDeliveryStatus(item.value?._events))
     .filter((status): status is EventRelayStatus['status'] => status !== undefined)
   if (statuses.includes('error')) return 'error'
   if (statuses.includes('pending')) return 'pending'
