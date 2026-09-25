@@ -1,16 +1,18 @@
-import { arrayElements, isArrayExpression, objectProperty, parseTs, span, stringValue } from "@michaelthielemann/kestrel-upgrade/codemods";
+import { arrayElements, isArrayExpression, isAstNode, objectProperty, parseTs, span, stringValue, walk } from "@michaelthielemann/kestrel-upgrade/codemods";
 import type { AstNode } from "@michaelthielemann/kestrel-upgrade/codemods";
-import type { Edit, Finding, Rule } from "@michaelthielemann/kestrel-upgrade/plugin";
+import type { Edit, Finding, Rule, RuleContext } from "@michaelthielemann/kestrel-upgrade/plugin";
 import { pipelineSteps } from "@michaelthielemann/kestrel/definePipeline";
 import type { PipelineEntry } from "@michaelthielemann/kestrel/definePipeline";
 import { checkPreset } from "../pipelines/checkPreset";
 import type { PresetOptions } from "../pipelines/checkPreset";
+import { dependentsPipelineNames } from "../pipelines/features/delivery";
 import { applySplices, insertAfterElement, removeElement, wrapElements } from "./arraySplices";
 import { layerProjectData } from "./load";
 import { presetOverrideArrays } from "./locators";
 import { autoFinding, docsAnchor, fileForPipeline, manualFinding, presetOptionsCast } from "./ruleHelpers";
 
 const RULE = "preset/override-emit";
+const WATCHED_EMIT_PROBLEM = "preset/override-drops-watched-emit";
 const INLINE_EXPORT = "delivery.exportLlms";
 const RELAY = "events.relay";
 const EMIT = "events.emit:";
@@ -21,6 +23,26 @@ const eventOf = (step: string): string => step.slice(EMIT.length).split("?")[0] 
 
 function defaultSteps(cast: PresetOptions, name: string): readonly PipelineEntry[] {
   return checkPreset({ ...cast, overrides: {} }).preset.pipelines.find((p) => p.name === name)?.steps ?? [];
+}
+
+function watchedEvents(cast: PresetOptions): Set<string> {
+  const dependents = new Set(dependentsPipelineNames(cast.collections ?? {}));
+  const { triggers } = checkPreset({ ...cast, overrides: {} }).preset;
+  return new Set(triggers.flatMap((trigger) => ("event" in trigger && dependents.has(trigger.pipeline) ? [trigger.event] : [])));
+}
+
+function isGroupEntry(entry: PipelineEntry | undefined): entry is { atomic: readonly string[] } {
+  return typeof entry === "object";
+}
+
+function emitFollowsWriteGroup(defaults: readonly PipelineEntry[], own: readonly PipelineEntry[], watched: ReadonlySet<string>): boolean {
+  const group = defaults.find(isGroupEntry);
+  if (group === undefined) return false;
+  const members = group.atomic.filter((step) => !isEmit(step));
+  const events = new Set(group.atomic.filter(isEmit).map(eventOf).filter((event) => watched.has(event)));
+  const at = own.findIndex((entry) => isGroupEntry(entry) && entry.atomic.some((step) => members.includes(step)));
+  const next = own[at + 1];
+  return at !== -1 && typeof next === "string" && isEmit(next) && events.has(eventOf(next));
 }
 
 function atomicArray(node: AstNode | undefined): AstNode | undefined {
@@ -34,20 +56,24 @@ type Anchor = { kind: "group"; members: readonly string[] } | { kind: "step"; st
 interface Plan {
   anchor: Anchor;
   inGroup: string[];
+  groupEvents: Set<string>;
   after: string[];
   dropExport: boolean;
 }
 
-function planFor(defaults: readonly PipelineEntry[], own: readonly PipelineEntry[]): Plan | string {
+function planFor(defaults: readonly PipelineEntry[], own: readonly PipelineEntry[], keepExport: boolean): Plan | string {
   const ownEvents = new Set(pipelineSteps(own).filter(isEmit).map(eventOf));
   const missing = (steps: readonly string[]): string[] => steps.filter((step) => isEmit(step) && !ownEvents.has(eventOf(step)));
-  const dropExport = !pipelineSteps(defaults).some(isInlineExport);
-  const group = defaults.find((entry): entry is { atomic: readonly string[] } => typeof entry === "object");
+  const dropExport = !keepExport && !pipelineSteps(defaults).some(isInlineExport);
+  const group = defaults.find(isGroupEntry);
   const after = missing(defaults.filter((entry): entry is string => typeof entry === "string"));
-  if (group !== undefined) return { anchor: { kind: "group", members: group.atomic.filter((step) => !isEmit(step)) }, inGroup: missing(group.atomic), after, dropExport };
+  if (group !== undefined) {
+    const members = group.atomic.filter((step) => !isEmit(step));
+    return { anchor: { kind: "group", members }, inGroup: missing(group.atomic), groupEvents: new Set(group.atomic.filter(isEmit).map(eventOf)), after, dropExport };
+  }
   const firstEmit = defaults.findIndex((entry) => typeof entry === "string" && isEmit(entry));
   const step = defaults[firstEmit - 1];
-  return typeof step === "string" ? { anchor: { kind: "step", step }, inGroup: [], after, dropExport } : "the 3.0 default has no write step before its emit";
+  return typeof step === "string" ? { anchor: { kind: "step", step }, inGroup: [], groupEvents: new Set(), after, dropExport } : "the 3.0 default has no write step before its emit";
 }
 
 function literalSteps(array: AstNode): { steps: string[]; complete: boolean } {
@@ -115,6 +141,11 @@ function quoteOf(source: string, array: AstNode): string {
 export interface EmitRewrite {
   edit?: Edit;
   reason?: string;
+  moved?: number;
+}
+
+export interface EmitRewriteOptions {
+  keepExport?: boolean;
 }
 
 /**
@@ -122,13 +153,14 @@ export interface EmitRewrite {
  * the atomic group that holds the default's write step, or those steps as one bare run (then wrapped in
  * `{ atomic: [...] }`), or, for a default without a group, the step right before its emit. The default's
  * missing emits go where the default has them, at the end of the group (with the queue) or right after
- * it; `events.relay` follows, and one that sits before the write moves there. A `delivery.exportLlms` the
- * default does not run is removed. Everything else, comments included, keeps its bytes and place. The
- * edit spans the whole array, so a narrower edit of another rule into it (the group wrap, the relay) is
- * superseded instead of conflicting.
+ * it; an emit the default runs inside the group that sits right after it moves in. `events.relay`
+ * follows, and one that sits before the write moves there. A `delivery.exportLlms` the default does not
+ * run is removed unless `keepExport` is set. Everything else, comments included, keeps its bytes and
+ * place. The edit spans the whole array, so a narrower edit of another rule into it (the group wrap, the
+ * relay) is superseded instead of conflicting.
  */
-export function rewriteOverrideEmits(file: string, source: string, pipelineName: string, defaults: readonly PipelineEntry[], own: readonly PipelineEntry[]): EmitRewrite {
-  const plan = planFor(defaults, own);
+export function rewriteOverrideEmits(file: string, source: string, pipelineName: string, defaults: readonly PipelineEntry[], own: readonly PipelineEntry[], options: EmitRewriteOptions = {}): EmitRewrite {
+  const plan = planFor(defaults, own, options.keepExport ?? false);
   if (typeof plan === "string") return { reason: plan };
   const original = overrideArray(source, pipelineName, own);
   if (typeof original === "string") return { reason: original };
@@ -150,9 +182,20 @@ export function rewriteOverrideEmits(file: string, source: string, pipelineName:
     located = locateAnchor(text, pipelineName, arrayStart, plan.anchor);
     if (typeof located === "string") return { reason: located };
   }
-  if (plan.inGroup.length > 0) {
+  const moved: string[] = [];
+  for (;;) {
+    const next = arrayElements(located.array)[located.anchorIndex + 1];
+    const value = located.values[located.anchorIndex + 1];
+    if (located.group === undefined || next === undefined || value === undefined || !isEmit(value) || !plan.groupEvents.has(eventOf(value))) break;
+    moved.push(text.slice(span(next).start, span(next).end));
+    text = applySplices(text, removeElement(text, located.array, located.anchorIndex + 1));
+    located = locateAnchor(text, pipelineName, arrayStart, plan.anchor);
+    if (typeof located === "string") return { reason: located };
+  }
+  const inGroup = [...moved, ...plan.inGroup.map(literal)];
+  if (inGroup.length > 0) {
     if (located.group === undefined) return { reason: "the write has no atomic group to hold the emit" };
-    text = applySplices(text, insertAfterElement(text, located.group, arrayElements(located.group).length - 1, plan.inGroup.map(literal)));
+    text = applySplices(text, insertAfterElement(text, located.group, arrayElements(located.group).length - 1, inGroup));
     located = locateAnchor(text, pipelineName, arrayStart, plan.anchor);
     if (typeof located === "string") return { reason: located };
   }
@@ -162,7 +205,74 @@ export function rewriteOverrideEmits(file: string, source: string, pipelineName:
   if (after.length > 0) text = applySplices(text, insertAfterElement(text, located.array, anchorIndex, after.map(literal)));
   const rewritten = presetOverrideArrays(parseTs(text), pipelineName).find((candidate) => span(candidate).start === arrayStart);
   if (rewritten === undefined) return { reason: "the override's own step array could not be located" };
-  return { edit: { file, start: arrayStart, end: span(original).end, text: text.slice(arrayStart, span(rewritten).end) } };
+  return { edit: { file, start: arrayStart, end: span(original).end, text: text.slice(arrayStart, span(rewritten).end) }, moved: moved.length };
+}
+
+function propertyStart(source: string, valueStart: number): number | undefined {
+  let found: number | undefined;
+  walk(parseTs(source), (node) => {
+    if (found !== undefined || (node.type !== "Property" && node.type !== "ObjectProperty")) return;
+    if (isAstNode(node.value) && span(node.value).start === valueStart && span(node).start < valueStart) found = span(node).start;
+  });
+  return found;
+}
+
+interface OverrideTarget {
+  name: string;
+  file: string | undefined;
+  source: string | undefined;
+  own: readonly PipelineEntry[];
+}
+
+function overrideTargets(ctx: RuleContext, names: readonly string[]): OverrideTarget[] {
+  return names.map((name) => {
+    const file = fileForPipeline(ctx, name);
+    return { name, file, source: file === undefined ? undefined : ctx.readFile(file), own: ctx.project.input.pipelines.find((p) => p.name === name)?.steps ?? [] };
+  });
+}
+
+/**
+ * The switch to the queue's own part for overrides: every override that drops a watched emit, or whose
+ * watched emit sits right after the write's group, rewritten with the emit inside that group, as the
+ * queue's default has it, so the event's row commits with the write. Each edit spans the override's whole
+ * property, so it supersedes `preset/override-emit`'s edit of the same array, which places the emit for the
+ * inline delivery the project is still on. Overrides the rewrite cannot place are left to that rule.
+ */
+export function queueEmitPlacementEdits(ctx: RuleContext): Edit[] {
+  const cast = presetOptionsCast(ctx);
+  const data = layerProjectData(ctx.project);
+  if (cast === undefined || data === undefined || (cast.features ?? []).includes("eventsQueue")) return [];
+  const queued: PresetOptions = { ...cast, features: [...(cast.features ?? []), "eventsQueue"] };
+  const watched = watchedEvents(cast);
+  const dropping = new Set(data.presetProblems.filter((p) => p.code === WATCHED_EMIT_PROBLEM).map((p) => p.pipeline));
+  const edits: Edit[] = [];
+  for (const { name, file, source, own } of overrideTargets(ctx, Object.keys(cast.overrides ?? {}))) {
+    const defaults = defaultSteps(queued, name);
+    if (file === undefined || source === undefined || (!dropping.has(name) && !emitFollowsWriteGroup(defaults, own, watched))) continue;
+    const { edit } = rewriteOverrideEmits(file, source, name, defaults, own, { keepExport: !dropping.has(name) });
+    const start = edit === undefined ? undefined : propertyStart(source, edit.start);
+    if (edit !== undefined && start !== undefined) edits.push({ ...edit, start, text: source.slice(start, edit.start) + edit.text });
+  }
+  return edits;
+}
+
+function misplacedEmitFindings(ctx: RuleContext, cast: PresetOptions, skip: ReadonlySet<string>): Finding[] {
+  const watched = watchedEvents(cast);
+  const names = Object.keys(cast.overrides ?? {}).filter((name) => !skip.has(name));
+  return overrideTargets(ctx, names).flatMap(({ name, file, source, own }): Finding[] => {
+    const defaults = defaultSteps(cast, name);
+    if (!emitFollowsWriteGroup(defaults, own, watched)) return [];
+    const id = `${RULE}:${name}`;
+    const where = { pipeline: name };
+    const docs = docsAnchor("preset-override-emit");
+    const message = `override for "${name}" emits right after its atomic group; with the queue the emit belongs inside it, so the event commits with the write`;
+    const rewrite = file === undefined || source === undefined ? { reason: "the override's file is not known" } : rewriteOverrideEmits(file, source, name, defaults, own, { keepExport: true });
+    const finding =
+      rewrite.edit === undefined
+        ? manualFinding(id, RULE, where, message, `move the emit to the end of the write's atomic group yourself (${rewrite.reason ?? "not located"})`, docs)
+        : autoFinding(id, RULE, where, message, "moves the emit to the end of the write's atomic group, as the queue's default has it", [rewrite.edit], docs);
+    return [{ ...finding, severity: "warning" }];
+  });
 }
 
 /**
@@ -170,7 +280,9 @@ export function rewriteOverrideEmits(file: string, source: string, pipelineName:
  * `set<Name>` override never had one) stops the pages showing what it writes from being re-rendered, and the
  * preset refuses it. Adds the emit next to the write and `events.relay` after it, as the 3.0 default has
  * them, and drops an inline `llms.txt` export the default does not run, in one edit of the override's own
- * step array; manual when that array or the write in it cannot be located unambiguously.
+ * step array; manual when that array or the write in it cannot be located unambiguously. On the queue it
+ * also moves such an emit that sits right after the write's group into it (a warning: the preset accepts
+ * it, but the event would not commit with the write).
  */
 export const overrideEmitRule: Rule = {
   id: RULE,
@@ -178,8 +290,9 @@ export const overrideEmitRule: Rule = {
     const cast = presetOptionsCast(ctx);
     const data = layerProjectData(ctx.project);
     if (cast === undefined || data === undefined) return [];
-    const problems = data.presetProblems.filter((p) => p.code === "preset/override-drops-watched-emit" && p.pipeline !== undefined);
-    return problems.map((problem): Finding => {
+    const problems = data.presetProblems.filter((p) => p.code === WATCHED_EMIT_PROBLEM && p.pipeline !== undefined);
+    const misplaced = (cast.features ?? []).includes("eventsQueue") ? misplacedEmitFindings(ctx, cast, new Set(problems.map((p) => p.pipeline!))) : [];
+    const dropped = problems.map((problem): Finding => {
       const pipelineName = problem.pipeline!;
       const id = `${RULE}:${pipelineName}`;
       const where = { pipeline: pipelineName };
@@ -192,5 +305,6 @@ export const overrideEmitRule: Rule = {
         ? manualFinding(id, RULE, where, problem.message, `add the emit next to the write, where the 3.0 default has it, and "events.relay" after it yourself (${rewrite.reason ?? "not located"})`, docs)
         : autoFinding(id, RULE, where, problem.message, "adds the emit next to the write and events.relay after it, as the 3.0 default has them, and drops an inline llms.txt export", [rewrite.edit], docs);
     });
+    return [...dropped, ...misplaced];
   },
 };

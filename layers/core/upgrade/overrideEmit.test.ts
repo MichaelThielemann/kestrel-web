@@ -10,6 +10,7 @@ import type { PresetOptions } from "../pipelines/checkPreset";
 import { settingsLlmsRule } from "./dependentsRules";
 import { overrideEmitRule } from "./overrideEmit";
 import { overrideGroupRule, overrideRelayRule } from "./rules";
+import { layerSwitchEdits } from "./switchEdits";
 
 const FILE = "/fake/kestrel.config.ts";
 const RENDERER = "@michaelthielemann/kestrel-renderer-nuxt";
@@ -72,7 +73,7 @@ function contextFor(source: string, mode: Mode, pipelineName: string): RuleConte
     configFile: FILE,
     moduleFiles: new Map(),
     pipelineFiles: [{ file: FILE, pipelines: [pipelineName] }],
-    data: { presetProblems: problemsOf(source, mode, pipelineName), presetOptions: { modules: mode.modules, features: mode.features, collections } },
+    data: { presetProblems: problemsOf(source, mode, pipelineName), presetOptions: { modules: mode.modules, features: mode.features, collections, overrides: { [pipelineName]: loaded } } },
   };
   return { root: "/fake", scratch: "/fake", project, bootCheck: { errors: [], warnings: [], notChecked: [] }, readFile: (file) => (file === FILE ? source : undefined), answers: new Map() };
 }
@@ -246,5 +247,70 @@ describe("preset/override-emit on a pipeline whose default has no atomic group",
     expect(first).toContain(`updateMedia: ["authn.requireUser", "authz.require:media.write", "media.update", "events.emit:media.updated", "events.relay", "authn.identifyUser"]`);
     expect(second).toBe(first);
     expect(problemsOf(first, DIRECT, "updateMedia")).toEqual([]);
+  });
+});
+
+const SWITCH_PART = "kestrel.config.ts's overrides, their emits inside the write's group";
+const WRITE_THEN_EMIT = `["authn.requireUser", "authz.require:settings.write", { atomic: ["content.set:settings"] }, "events.emit:settings.updated", "events.relay"]`;
+const EMIT_IN_GROUP = `["authn.requireUser", "authz.require:settings.write", { atomic: ["content.set:settings", "events.emit:settings.updated"] }, "events.relay"]`;
+
+async function switchRun(source: string, order: "rules first" | "switch first"): Promise<string> {
+  const rules = (await findingsFor(source, DIRECT)).flatMap((f) => (f.fix.kind === "auto" ? f.fix.edits : []));
+  const placement = (await layerSwitchEdits(contextFor(source, DIRECT, "setSettings"), [])).parts[SWITCH_PART] ?? [];
+  expect(placement).toHaveLength(1);
+  const edits = order === "rules first" ? [...rules, ...placement] : [...placement, ...rules];
+  const { text, applied } = applyEdits(source, edits);
+  expect(applied).toContain(placement[0]);
+  return text;
+}
+
+describe("the forward-ported emit on the queue", () => {
+  it("goes inside the write's group when the same run switches to the queue, whichever edit comes first", async () => {
+    const source = presetWith(`["authn.requireUser", "authz.require:settings.write", "content.set:settings", "delivery.exportLlms"]`);
+    for (const order of ["rules first", "switch first"] as const) {
+      const text = await switchRun(source, order);
+      expect(text).toBe(presetWith(EMIT_IN_GROUP));
+      expect(problemsOf(text, QUEUE, "setSettings")).toEqual([]);
+      expect(await fixOnce(text, QUEUE)).toBe(text);
+    }
+  });
+
+  it("moves into the write's group when the switch finds it right after the group, as written for the inline delivery", async () => {
+    const source = presetWith(WRITE_THEN_EMIT);
+    expect(await fixOnce(source, DIRECT)).toBe(source);
+    expect(await switchRun(source, "rules first")).toBe(presetWith(EMIT_IN_GROUP));
+  });
+
+  it("is moved into the write's group on a later run on the queue, as a warning, in one edit that later runs leave alone", async () => {
+    const source = presetWith(`[
+      "authn.requireUser",
+      "authz.require:settings.write",
+      { atomic: ["content.set:settings"] }, // the write
+      "events.emit:settings.updated",
+      "events.relay",
+      "delivery.exportLlms",
+    ]`);
+    expect(problemsOf(source, QUEUE, "setSettings")).toEqual([]);
+    const [finding] = (await findingsFor(source, QUEUE)).filter((f) => f.rule === "preset/override-emit");
+    expect(finding?.severity).toBe("warning");
+    expect(finding?.fix.kind === "auto" ? finding.fix.edits : []).toHaveLength(1);
+    const [first, second, third] = await fixThreeTimes(source, QUEUE);
+    expect(first).toBe(
+      presetWith(`[
+      "authn.requireUser",
+      "authz.require:settings.write",
+      { atomic: ["content.set:settings", "events.emit:settings.updated"] }, // the write
+      "events.relay",
+      "delivery.exportLlms",
+    ]`),
+    );
+    expect([second, third]).toEqual([first, first]);
+    expect(problemsOf(first, QUEUE, "setSettings")).toEqual([]);
+    expect(checkPreset(presetOptions(QUEUE, { setSettings: overrideIn(first, "setSettings") })).preset.pipelines.find((p) => p.name === "setSettings")?.steps).toContainEqual({ atomic: ["content.set:settings", "events.emit:settings.updated"] });
+  });
+
+  it("stays where it is when a step of the consumer sits between the group and the emit", async () => {
+    const source = presetWith(`["authn.requireUser", { atomic: ["content.set:settings"] }, "authn.identifyUser", "events.emit:settings.updated", "events.relay"]`);
+    expect((await findingsFor(source, QUEUE)).filter((f) => f.rule === "preset/override-emit")).toEqual([]);
   });
 });

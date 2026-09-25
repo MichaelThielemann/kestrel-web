@@ -400,8 +400,8 @@
 - `kestrel-web-upgrade` carries a project to background re-rendering: it gives `kestrel-delivery-static` the
   `dependencies` of the event delivery (on a hand-written entry, or through `presetModuleConfig({ overrides
   })`) and a hand-written `kestrel-events-queue` entry its `lanes`, forward-ports a 2.x `setSettings` or
-  `set<Name>` override with its group, emit and relay, gives a switch to the queue its lanes and queue
-  renders, lists in the docs what stays manual, and notes a `setSettings` override exporting `llms.txt`, own triggers on media events (which can
+  `set<Name>` override with its group, emit and relay, gives a switch to the queue its lanes, queue
+  renders and each forward-ported emit inside the write's group, lists in the docs what stays manual, and notes a `setSettings` override exporting `llms.txt`, own triggers on media events (which can
   carry `id: null` and `ids`), code reading `_llms` or the old Publish all counts, and server caches near
   `/api` reads.
 - `GET /admin/events/status`'s response gains `lanes`: per configured named lane, `pending`, `running` and

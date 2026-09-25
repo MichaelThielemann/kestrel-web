@@ -1732,7 +1732,9 @@ What changes:
     right after the group, or inside it with `eventsQueue`. `events.relay` follows the emit; one that sat
     before the write moves there. `delivery.exportLlms` goes, with or without arguments, because the default
     requests it after the re-renders. Your other steps and your comments keep their place. The edit goes to
-    the `definePreset()` call whose override the project loads.
+    the `definePreset()` call whose override the project loads. On the queue, an emit that sits right after
+    the write's group (where the inline delivery has it) is moved into the group, so the event commits with
+    the write; this is a warning, since the preset accepts either place.
     `preset/settings-llms` notes an override that emits but still exports `llms.txt` inside the request.
   - `runtime/media-event-ids` notes your own triggers on `media.updated`, `media.deleted` or
     `images.variantsChanged`: a folder deletion and the events `images-default` raises itself arrive with
@@ -1742,7 +1744,8 @@ What changes:
     and cached `/api` route rules, whose answers a page's render does not record as reads.
   - Switching to the queue through `fix` also sets `lanes` on the new `kestrel-events-queue` entry and
     the queue's `dependencies` on a `kestrel-delivery-static` entry written in `kestrel.config.ts`, in one
-    edit of its config, so a single run never writes the key twice. With `delivery`, it asks whether
+    edit of its config, so a single run never writes the key twice. It places the emit of an override
+    inside the write's group, whether `preset/override-emit` adds it in the same run or added it earlier. With `delivery`, it asks whether
     `pageDependents`, `settingsDependents` and `mediaDependents` may run more than once, as for every other
     event pipeline (they may: marking twice renders once).
 

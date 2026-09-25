@@ -359,21 +359,44 @@ describe("site-2.0-dependents (a literal delivery-static entry, a 2.x setSetting
     expect(configCompileErrors(join(dir, "kestrel.config.ts"))).toEqual([]);
   }, 60_000);
 
-  it("one fix --write run that also switches to the queue writes one dependencies key with queue renders, and the real definePreset() accepts it", async () => {
-    const dir = await prepare("site-2.0-dependents");
-    const eventPipelines = ["generateImageVariants", "publishPage", "unpublishPage", "reassignRevisionAuthor", "pageDependents", "mediaDependents", "syncPublicMedia"];
+  const eventPipelines = ["generateImageVariants", "publishPage", "unpublishPage", "reassignRevisionAuthor", "pageDependents", "mediaDependents", "syncPublicMedia"];
+
+  async function fixWriteSwitchingToQueue(dir: string, pipelines: readonly string[] = eventPipelines): Promise<void> {
     const answersFile = join(dir, "answers.json");
     const { writeFileSync } = await import("node:fs");
-    writeFileSync(answersFile, JSON.stringify({ "switch-to-queue": "yes", ...Object.fromEntries(eventPipelines.map((p) => [`idempotent:${p}`, "yes"])) }));
+    writeFileSync(answersFile, JSON.stringify({ "switch-to-queue": "yes", ...Object.fromEntries(pipelines.map((p) => [`idempotent:${p}`, "yes"])) }));
     await runUpgradeCli(["fix", "--root", dir, "--write", "--yes", "--answers", answersFile], runOptionsWithMajor6({ plugins: [createLayerPlugin()], stdout: () => undefined, stderr: () => undefined }));
+  }
+
+  const emitInGroup = '{ atomic: ["content.set:settings", "events.emit:settings.updated"] }, "events.relay"';
+
+  it("one fix --write run that also switches to the queue writes one dependencies key with queue renders and the settings emit inside the write's group, and the real definePreset() accepts it", async () => {
+    const dir = await prepare("site-2.0-dependents");
+    await fixWriteSwitchingToQueue(dir);
 
     expect(readFileSync(join(dir, "shared", "model.ts"), "utf8")).toMatch(/"eventsQueue"/);
     const config = readFileSync(join(dir, "kestrel.config.ts"), "utf8");
     expect(config.match(/dependencies:/g)).toHaveLength(1);
     expect(config).toContain('dependencies: { render: "events", rendererReadsDocument: true, maxAttempts: 5, backoffSeconds: [5, 30, 120, 600] }');
+    expect(config).toContain(emitInGroup);
+    expect(config).not.toContain('"delivery.exportLlms"');
     expect(configCompileErrors(join(dir, "kestrel.config.ts"))).toEqual([]);
     expect(await realPresetError(dir)).toBeUndefined();
   }, 60_000);
+
+  it("a switch to the queue on a later run moves the emit fix --write placed for the inline delivery into the write's group, and a further run changes nothing", async () => {
+    const dir = await prepare("site-2.0-dependents");
+    await fixWriteYes(dir);
+    expect(readFileSync(join(dir, "kestrel.config.ts"), "utf8")).toContain('{ atomic: ["content.set:settings"] }, "events.emit:settings.updated", "events.relay"');
+
+    await fixWriteSwitchingToQueue(dir, [...eventPipelines, "settingsDependents"]);
+    const switched = readFileSync(join(dir, "kestrel.config.ts"), "utf8");
+    expect(switched).toContain(emitInGroup);
+    expect(await realPresetError(dir)).toBeUndefined();
+
+    await fixWriteYes(dir);
+    expect(readFileSync(join(dir, "kestrel.config.ts"), "utf8")).toBe(switched);
+  }, 90_000);
 });
 
 describe("the real definePreset() after fix --write on hand-written queue lists built from presetModuleConfig()", () => {

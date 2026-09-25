@@ -6,6 +6,7 @@ import { lanesFor } from "../pipelines/checkPreset";
 import type { Feature } from "../pipelines/checkPreset";
 import { addStringToNamedExportArray, dependenciesRender, hasModuleEntry, setDependenciesRender } from "./edits";
 import { renderDependenciesText } from "./dependentsRules";
+import { queueEmitPlacementEdits } from "./overrideEmit";
 import { findFeaturesArrayFile, packageJsonPath, presetOptionsCast } from "./ruleHelpers";
 
 const SERVERLESS_MARKER_FILES = ["vercel.json", "netlify.toml", "wrangler.toml", "serverless.yml", "template.yaml"];
@@ -107,7 +108,9 @@ function hasAtMostOneDeliveryModule(ctx: RuleContext): boolean {
  * alone then yields exactly one `events-queue` entry, from `presetModuleConfig()`'s own reactive one.
  * The replacing entry also gets the `lanes` of `lanesFor(features)`, and a `kestrel-delivery-static` entry
  * written literally in `kestrel.config.ts` gets `dependencies.render: "events"` as a part of its own, since
- * the preset refuses queue delivery with background renders.
+ * the preset refuses queue delivery with background renders. An override whose watched emit the queue's
+ * default runs inside the write's group gets it placed there, as a part of its own
+ * (`queueEmitPlacementEdits`); an override that part cannot place leaves the switch as it is.
  */
 export async function layerSwitchEdits(ctx: RuleContext, relayPipelines: readonly string[]): Promise<SwitchEditsResult> {
   const file = findFeaturesArrayFile(ctx);
@@ -125,5 +128,7 @@ export async function layerSwitchEdits(ctx: RuleContext, relayPipelines: readonl
     const renderEdit = setDependenciesRender(ctx.project.configFile, configSource, DELIVERY_STATIC_PACKAGE, "events", renderDependenciesText("events"));
     parts["kestrel.config.ts's delivery-static render mode"] = renderEdit === undefined ? undefined : [renderEdit];
   }
+  const placement = queueEmitPlacementEdits(ctx);
+  if (placement.length > 0) parts["kestrel.config.ts's overrides, their emits inside the write's group"] = placement;
   return { parts, blockers: deploymentBlockers(ctx) };
 }
