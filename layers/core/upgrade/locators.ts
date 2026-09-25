@@ -1,16 +1,18 @@
 import { findCalls, firstArgument, isArrayExpression, objectProperty, stringValue, walk } from "@michaelthielemann/kestrel-upgrade/codemods";
 import type { AstNode, ModelFieldsLocator, StepListLocator } from "@michaelthielemann/kestrel-upgrade/codemods";
 
-function overridesArray(root: AstNode, pipelineName: string): AstNode | undefined {
+/** Every literal step array a `definePreset({ overrides: { <pipeline>: [...] } })` call in the file gives the pipeline, in source order. */
+export function presetOverrideArrays(root: AstNode, pipelineName: string): AstNode[] {
+  const arrays: AstNode[] = [];
   for (const call of findCalls(root, "definePreset")) {
     const options = firstArgument(call);
     if (options === undefined) continue;
     const overrides = objectProperty(options, "overrides");
     if (overrides === undefined) continue;
     const array = objectProperty(overrides, pipelineName);
-    if (isArrayExpression(array)) return array;
+    if (isArrayExpression(array)) arrays.push(array);
   }
-  return undefined;
+  return arrays;
 }
 
 function atomicSubArrays(top: AstNode): AstNode[] {
@@ -28,11 +30,13 @@ function atomicSubArrays(top: AstNode): AstNode[] {
  * Locates a pipeline's step array inside a `definePreset({ overrides: { <pipeline>: [...] } })` call,
  * including an atomic group's own sub-array; `[]` for anything else, including a plain `definePipeline({
  * name, steps })` call — the built-in search runs per pipeline name whenever this locator returns nothing
- * for it, so a pipeline defined directly in `pipelines/index.ts` needs no locator of its own here.
+ * for it, so a pipeline defined directly in `pipelines/index.ts` needs no locator of its own here. Also
+ * `[]` when more than one `definePreset()` call in the file overrides the pipeline, since the file alone
+ * does not tell which of them the project loads.
  */
 export const layerLocateSteps: StepListLocator = (root, pipelineName) => {
-  const array = overridesArray(root, pipelineName);
-  return array === undefined ? [] : atomicSubArrays(array);
+  const arrays = presetOverrideArrays(root, pipelineName);
+  return arrays.length === 1 ? atomicSubArrays(arrays[0]!) : [];
 };
 
 function ownPipelineArray(root: AstNode, pipelineName: string): AstNode | undefined {
