@@ -74,6 +74,99 @@ describe('static navigation', () => {
   })
 })
 
+function deferred<T>() {
+  let resolve: (value: T) => void = () => {}
+  const promise = new Promise<T>((settle) => { resolve = settle })
+  return { promise, resolve }
+}
+
+describe('static navigation when a newer navigation starts before a load settles', () => {
+  function pages(): Record<string, PageData> {
+    return {
+      '/kontakt': { path: '/kontakt', data: { 'site:/kontakt': 'kontakt', 'media:m1:de': 'kontakt image' } },
+      '/ueber-uns': { path: '/ueber-uns', data: { 'site:/ueber-uns': 'ueber-uns', 'media:m2:de': 'ueber-uns image' } },
+    }
+  }
+
+  it('drops a superseded load that succeeds late, leaving the newer page\'s data alone', async () => {
+    const target = app()
+    const slow = deferred<PageData | null>()
+    const leave = vi.fn(never)
+    const load = vi.fn((path: string) => (path === '/kontakt' ? slow.promise : Promise.resolve(pages()[path] ?? null)))
+    const navigate = createStaticNavigation({ app: target, load, leave })
+
+    const first = navigate(route('/kontakt'), route('/'))
+    await expect(navigate(route('/ueber-uns'), route('/'))).resolves.toBeUndefined()
+    slow.resolve(pages()['/kontakt'] ?? null)
+
+    await expect(first).resolves.toBe(false)
+    expect(target.static.data).toEqual({ 'site:/ueber-uns': 'ueber-uns', 'media:m2:de': 'ueber-uns image' })
+    expect(leave).not.toHaveBeenCalled()
+  })
+
+  it('drops a superseded load that fails late instead of leaving for the abandoned target', async () => {
+    const target = app()
+    const slow = deferred<PageData | null>()
+    const leave = vi.fn(never)
+    const load = vi.fn((path: string) => (path === '/kontakt' ? slow.promise : Promise.resolve(pages()[path] ?? null)))
+    const navigate = createStaticNavigation({ app: target, load, leave })
+
+    const first = navigate(route('/kontakt'), route('/'))
+    await navigate(route('/ueber-uns'), route('/'))
+    slow.resolve(null)
+
+    await expect(first).resolves.toBe(false)
+    expect(leave).not.toHaveBeenCalled()
+    expect(target.static.data).toEqual({ 'site:/ueber-uns': 'ueber-uns', 'media:m2:de': 'ueber-uns image' })
+  })
+
+  it('keeps a newer page that settles after an older one too', async () => {
+    const target = app()
+    const older = deferred<PageData | null>()
+    const newer = deferred<PageData | null>()
+    const load = vi.fn((path: string) => (path === '/kontakt' ? older.promise : newer.promise))
+    const navigate = createStaticNavigation({ app: target, load, leave: never })
+
+    const first = navigate(route('/kontakt'), route('/'))
+    const second = navigate(route('/ueber-uns'), route('/'))
+    older.resolve(pages()['/kontakt'] ?? null)
+    await expect(first).resolves.toBe(false)
+    newer.resolve(pages()['/ueber-uns'] ?? null)
+    await expect(second).resolves.toBeUndefined()
+    expect(target.static.data).toEqual({ 'site:/ueber-uns': 'ueber-uns', 'media:m2:de': 'ueber-uns image' })
+  })
+
+  it('drops a pending load when Back starts another navigation, so the abandoned target is never loaded as a document', async () => {
+    const target = app()
+    const slow = deferred<PageData | null>()
+    const leave = vi.fn(never)
+    const load = vi.fn((path: string) => (path === '/kontakt' ? slow.promise : Promise.resolve(pages()[path] ?? null)))
+    const navigate = createStaticNavigation({ app: target, load, leave })
+
+    const click = navigate(route('/kontakt'), route('/'))
+    await navigate(route('/ueber-uns'), route('/'))
+    slow.resolve(null)
+
+    await expect(click).resolves.toBe(false)
+    expect(leave).not.toHaveBeenCalled()
+  })
+
+  it('treats a navigation on the same page, such as a hash link, as newer than a pending load', async () => {
+    const target = app()
+    const slow = deferred<PageData | null>()
+    const leave = vi.fn(never)
+    const navigate = createStaticNavigation({ app: target, load: () => slow.promise, leave })
+
+    const pending = navigate(route('/kontakt'), route('/'))
+    await navigate(route('/', '/#top'), route('/'))
+    slow.resolve(null)
+
+    await expect(pending).resolves.toBe(false)
+    expect(leave).not.toHaveBeenCalled()
+    expect(target.static.data).toEqual({})
+  })
+})
+
 describe('leaving for a document load', () => {
   function location(pathname: string, search = '') {
     return { pathname, search, assign: vi.fn(), reload: vi.fn() }

@@ -22,15 +22,20 @@ interface RouteLike {
 /**
  * The route middleware of a statically delivered page: it loads the target page's data and hands
  * it to `useAsyncData` through `nuxtApp.static.data`, the way Nuxt's own payload loader does, or
- * leaves for a document load of the target when the data cannot be used.
+ * leaves for a document load of the target when the data cannot be used. A navigation that another
+ * one started after it has superseded neither writes data nor leaves once its load settles; it
+ * resolves to `false`.
  */
 export function createStaticNavigation(options: StaticNavigationOptions) {
   const added = new Set<string>()
-  return async (to: RouteLike, from: Pick<RouteLike, 'path'>): Promise<void> => {
+  let latest = 0
+  return async (to: RouteLike, from: Pick<RouteLike, 'path'>): Promise<false | undefined> => {
+    const navigation = ++latest
     if (options.app.isHydrating) return
     const path = sitePath(to.path)
     if (path === sitePath(from.path)) return
     const page = await options.load(path)
+    if (navigation !== latest) return false
     if (!page) return options.leave(to.fullPath)
     const store = options.app.static.data
     for (const key of added) Reflect.deleteProperty(store, key)
