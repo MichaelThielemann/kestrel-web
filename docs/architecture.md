@@ -1697,7 +1697,10 @@ media field, no user or audit data. Four things keep it so.
    draft, a draft page, a media item in its own folder and an English page whose German original is a
    draft, runs Publish all as a second user and waits for its background renders, and checks that none of
    their marker strings reaches any exported file, that every payload key keeps its public shape, and that
-   an exported payload equals an anonymous render of the same path.
+   an exported payload equals an anonymous render of the same path. It runs once with the inline event
+   delivery and once with the queue (`KESTREL_PLAYGROUND_EVENTS_QUEUE=1` on the same build), and in both
+   changes the settings, a media item's alt text and a page's slug to check that exactly the pages showing
+   them are rendered again.
 
 A consumer's own `useAsyncData` results are exported the same way; `docs/consuming-kestrel-web.md` §8
 lists the rules for them.

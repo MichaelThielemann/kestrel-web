@@ -2,11 +2,12 @@ import { resolve } from "node:path";
 import { defineConfig } from "@michaelthielemann/kestrel/defineConfig";
 import { kestrelDataDir } from "#kestrel/config";
 import { definePreset, presetModuleConfig } from "#kestrel/pipelines";
-import { contentModel, contentTypes, features } from "./shared/model";
+import { contentModel, contentTypes, features as modelFeatures } from "./shared/model";
 import collectionsUi from "./shared/collections-ui";
 import fieldTypes from "./shared/field-types";
 
 const dataDir = kestrelDataDir();
+const features = process.env.KESTREL_PLAYGROUND_EVENTS_QUEUE === "1" ? [...modelFeatures, "eventsQueue" as const] : modelFeatures;
 
 const modules = presetModuleConfig({
   dataDir,

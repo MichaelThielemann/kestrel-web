@@ -9,3 +9,6 @@ published package), `kestrel.config.ts`, `shared/model.ts`, `shared/collections-
 `kestrel.modules.ts` nor a `pipelines/` directory, because every module it configures is a standard
 one and it adds no pipelines of its own; `../docs/consuming-kestrel-web.md` explains what each file
 does and when those two optional files become necessary.
+
+`KESTREL_PLAYGROUND_EVENTS_QUEUE=1` in the server's environment adds the `eventsQueue` feature at start,
+so one build runs with either event delivery module; the static export test uses it for its queue run.

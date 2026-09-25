@@ -126,13 +126,32 @@ async function waitForVariants(api: Api, id: string): Promise<void> {
   throw new Error(`media ${id} never became available`);
 }
 
-async function settled(api: Api): Promise<void> {
+type Mode = "direct" | "queue";
+
+async function idle(api: Api, mode: Mode): Promise<boolean> {
+  const status = await api.call("GET", "/admin/publish-status/pages");
+  if (status.stale !== 0 || status.rendering !== 0) return false;
+  if (mode === "direct") return true;
+  const queue = await api.call("GET", "/admin/events/status");
+  return queue.pending === 0 && queue.running === 0;
+}
+
+async function settled(api: Api, mode: Mode): Promise<void> {
+  let quiet = 0;
   for (let attempt = 0; attempt < 480; attempt += 1) {
-    const status = await api.call("GET", "/admin/publish-status/pages");
-    if (status.stale === 0 && status.rendering === 0) return;
+    quiet = (await idle(api, mode)) ? quiet + 1 : 0;
+    if (quiet >= 3) return;
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
   throw new Error("the pages marked for a re-render were not rendered within two minutes");
+}
+
+async function until(what: string, check: () => boolean): Promise<void> {
+  for (let attempt = 0; attempt < 240; attempt += 1) {
+    if (check()) return;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  throw new Error(`${what} did not happen within a minute`);
 }
 
 const prose = (id: string, html: string) => ({ id, type: "prose", props: { body: html } });
@@ -141,7 +160,7 @@ const internal = (label: string, id: unknown) => ({ label, link: { type: "intern
 
 interface Seeded { admin: Api; photo: string; contact: string; navigation: Json[] }
 
-async function seed(base: string): Promise<Seeded> {
+async function seed(base: string, mode: Mode): Promise<Seeded> {
   const api = await new Api(base).login("admin", "change-me");
   const photo = await api.upload("landscape.png", gradientPng(1200, 700));
   const archive = await api.upload("archive.png", gradientPng(600, 400), "sentinel-folder");
@@ -171,7 +190,7 @@ async function seed(base: string): Promise<Seeded> {
   const publisher = await new Api(base).login("sentinel-user", "sentinel-passphrase");
   const queued = await publisher.call("POST", "/admin/publish-all/pages");
   expect(queued.marked).toBeGreaterThanOrEqual(PUBLISHED_PATHS.length);
-  await settled(api);
+  await settled(api, mode);
   return { admin: api, photo: String(photo.id), contact: String(contact.id), navigation };
 }
 
@@ -228,20 +247,14 @@ function shapeProblems(key: string, value: unknown, unknown: string[]): string[]
   return [];
 }
 
-let workDir: string | null = null;
-let server: ChildProcess | null = null;
-let base = "";
 let buildId = "";
-let seeded: Seeded | null = null;
 
 function productionEnv(extra: Record<string, string>): NodeJS.ProcessEnv {
   const env = Object.fromEntries(Object.entries(process.env).filter(([name]) => !name.startsWith("VITEST") && name !== "TEST" && name !== "NODE_ENV"));
   return { ...env, NODE_ENV: "production", ...extra };
 }
 
-function stopServer(): void {
-  const child = server;
-  server = null;
+function stopServer(child: ChildProcess | null): void {
   if (child?.pid === undefined) return;
   try {
     process.kill(-child.pid, "SIGKILL");
@@ -250,115 +263,143 @@ function stopServer(): void {
   }
 }
 
+const mtime = (file: string): number | null => (existsSync(file) ? statSync(file).mtimeMs : null);
+
 describe.skipIf(!ENABLED)("a static export of the playground", () => {
-  beforeAll(async () => {
+  beforeAll(() => {
     const built = spawnSync("pnpm", ["build"], { cwd: REPO_ROOT, encoding: "utf8", maxBuffer: 64 * 1024 * 1024, env: productionEnv({}) });
     if (built.status !== 0) throw new Error(`nuxt build failed\n${built.stdout}\n${built.stderr}`);
     buildId = String(record(JSON.parse(readFileSync(join(OUTPUT, "public", "_nuxt", "builds", "latest.json"), "utf8")), "latest.json").id);
     expect(buildId).toMatch(/^[0-9a-f-]{36}$/);
-
-    workDir = mkdtempSync(join(tmpdir(), "kestrel-static-export-"));
-    const port = await freePort(Number(process.env.KESTREL_STATIC_E2E_PORT ?? 3010));
-    base = `http://127.0.0.1:${port}`;
-    const log = openSync(join(workDir, "server.log"), "w");
-    server = spawn(process.execPath, [join(OUTPUT, "server", "index.mjs")], {
-      detached: true,
-      stdio: ["ignore", log, log],
-      env: productionEnv({ PORT: String(port), NITRO_PORT: String(port), NITRO_HOST: "127.0.0.1", KESTREL_DATA_DIR: join(workDir, "data") }),
-    });
-    closeSync(log);
-    const deadline = Date.now() + BOOT_TIMEOUT_MS;
-    for (;;) {
-      const ready = await fetch(`${base}/api/ready`).then((response) => response.ok, () => false);
-      if (ready) break;
-      if (Date.now() > deadline) throw new Error(`the server did not become ready\n${readFileSync(join(workDir, "server.log"), "utf8").slice(-4000)}`);
-      await new Promise((resolve) => setTimeout(resolve, 500));
-    }
-    seeded = await seed(base);
   }, SUITE_TIMEOUT_MS);
 
-  afterAll(() => {
-    stopServer();
-    if (workDir !== null) rmSync(workDir, { recursive: true, force: true });
-  });
+  describe.each<Mode>(["direct", "queue"])("with %s event delivery", (mode) => {
+    let workDir: string | null = null;
+    let server: ChildProcess | null = null;
+    let base = "";
+    let seeded: Seeded | null = null;
 
-  const siteRoot = () => join(workDir ?? "", "data", "blobs", "site");
+    beforeAll(async () => {
+      workDir = mkdtempSync(join(tmpdir(), `kestrel-static-export-${mode}-`));
+      const port = await freePort(Number(process.env.KESTREL_STATIC_E2E_PORT ?? 3010));
+      base = `http://127.0.0.1:${port}`;
+      const log = openSync(join(workDir, "server.log"), "w");
+      server = spawn(process.execPath, [join(OUTPUT, "server", "index.mjs")], {
+        detached: true,
+        stdio: ["ignore", log, log],
+        env: productionEnv({
+          PORT: String(port),
+          NITRO_PORT: String(port),
+          NITRO_HOST: "127.0.0.1",
+          KESTREL_DATA_DIR: join(workDir, "data"),
+          KESTREL_PLAYGROUND_EVENTS_QUEUE: mode === "queue" ? "1" : "0",
+        }),
+      });
+      closeSync(log);
+      const deadline = Date.now() + BOOT_TIMEOUT_MS;
+      for (;;) {
+        const ready = await fetch(`${base}/api/ready`).then((response) => response.ok, () => false);
+        if (ready) break;
+        if (Date.now() > deadline) throw new Error(`the server did not become ready\n${readFileSync(join(workDir, "server.log"), "utf8").slice(-4000)}`);
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+      seeded = await seed(base, mode);
+    }, SUITE_TIMEOUT_MS);
 
-  it("marks every published page as static, names the running build and embeds its own page data", () => {
-    for (const path of PUBLISHED_PATHS) {
-      const html = readFileSync(exportedFile(siteRoot(), path), "utf8");
-      expect(htmlAttribute(html, "data-kestrel-delivery"), path).toBe("static");
-      expect(htmlAttribute(html, "data-kestrel-build"), path).toBe(buildId);
-      const payload = payloadOf(html);
-      expect(payload.path, path).toBe(path);
-      expect(record(payload.data, "data")[`site:${path}`], path).toBeDefined();
-    }
-  });
-
-  it("serves no page from the Node origin with the marker, and every one with the build id", async () => {
-    for (const path of PUBLISHED_PATHS) {
-      const html = await (await fetch(`${base}${path}`)).text();
-      expect(htmlAttribute(html, "data-kestrel-delivery"), path).toBeNull();
-      expect(htmlAttribute(html, "data-kestrel-build"), path).toBe(buildId);
-    }
-  });
-
-  it("exports no draft, no unpublished translation, no internal media field and no user data", async () => {
-    const hits = filesUnder(siteRoot()).flatMap((file) => {
-      const text = readFileSync(file, "latin1");
-      return SENTINELS.filter((sentinel) => text.includes(sentinel)).map((sentinel) => `${relative(siteRoot(), file)}: ${sentinel}`);
+    afterAll(() => {
+      stopServer(server);
+      server = null;
+      if (workDir !== null) rmSync(workDir, { recursive: true, force: true });
     });
-    expect(hits).toEqual([]);
 
-    const unknown: string[] = [];
-    for (const path of PUBLISHED_PATHS) {
-      const html = readFileSync(exportedFile(siteRoot(), path), "utf8");
-      const payload = payloadOf(html);
-      const data = record(payload.data, "data");
-      const problems = Object.entries(data).flatMap(([key, value]) => shapeProblems(key, value, unknown));
-      expect(problems, path).toEqual([]);
+    const siteRoot = () => join(workDir ?? "", "data", "blobs", "site");
+    const page = (path: string) => exportedFile(siteRoot(), path);
+    const admin = (): Api => {
+      if (seeded === null) throw new Error("expected the seed to have run");
+      return seeded.admin;
+    };
 
-      const translations = record(record(data[`site:${path}`], "page")._translations ?? {}, "_translations");
-      const unpublished = UNPUBLISHED_TRANSLATIONS[path];
-      if (unpublished !== undefined) expect(translations[unpublished], path).not.toBe(true);
+    it("delivers events through the configured module", async () => {
+      const queue = await fetch(`${base}/api/admin/events/status`, { headers: { authorization: `Bearer ${admin().token ?? ""}` } });
+      expect(queue.status).toBe(mode === "queue" ? 200 : 404);
+    });
 
-      const anonymous = await (await fetch(`${base}${path}`)).text();
-      expect(payloadOf(anonymous), path).toEqual(payload);
-    }
-    if (unknown.length > 0) console.info(`payload keys outside the layer's public shapes: ${[...new Set(unknown)].join(", ")}`);
-    expect(existsSync(exportedFile(siteRoot(), "/entwurf"))).toBe(false);
+    it("marks every published page as static, names the running build and embeds its own page data", () => {
+      for (const path of PUBLISHED_PATHS) {
+        const html = readFileSync(page(path), "utf8");
+        expect(htmlAttribute(html, "data-kestrel-delivery"), path).toBe("static");
+        expect(htmlAttribute(html, "data-kestrel-build"), path).toBe(buildId);
+        const payload = payloadOf(html);
+        expect(payload.path, path).toBe(path);
+        expect(record(payload.data, "data")[`site:${path}`], path).toBeDefined();
+      }
+    });
+
+    it("serves no page from the Node origin with the marker, and every one with the build id", async () => {
+      for (const path of PUBLISHED_PATHS) {
+        const html = await (await fetch(`${base}${path}`)).text();
+        expect(htmlAttribute(html, "data-kestrel-delivery"), path).toBeNull();
+        expect(htmlAttribute(html, "data-kestrel-build"), path).toBe(buildId);
+      }
+    });
+
+    it("exports no draft, no unpublished translation, no internal media field and no user data", async () => {
+      const hits = filesUnder(siteRoot()).flatMap((file) => {
+        const text = readFileSync(file, "latin1");
+        return SENTINELS.filter((sentinel) => text.includes(sentinel)).map((sentinel) => `${relative(siteRoot(), file)}: ${sentinel}`);
+      });
+      expect(hits).toEqual([]);
+
+      const unknown: string[] = [];
+      for (const path of PUBLISHED_PATHS) {
+        const html = readFileSync(page(path), "utf8");
+        const payload = payloadOf(html);
+        const data = record(payload.data, "data");
+        const problems = Object.entries(data).flatMap(([key, value]) => shapeProblems(key, value, unknown));
+        expect(problems, path).toEqual([]);
+
+        const translations = record(record(data[`site:${path}`], "page")._translations ?? {}, "_translations");
+        const unpublished = UNPUBLISHED_TRANSLATIONS[path];
+        if (unpublished !== undefined) expect(translations[unpublished], path).not.toBe(true);
+
+        const anonymous = await (await fetch(`${base}${path}`)).text();
+        expect(payloadOf(anonymous), path).toEqual(payload);
+      }
+      if (unknown.length > 0) console.info(`payload keys outside the layer's public shapes: ${[...new Set(unknown)].join(", ")}`);
+      expect(existsSync(page("/entwurf"))).toBe(false);
+    });
+
+    it("re-renders every published page after a settings change, without any page being saved", async () => {
+      if (seeded === null) throw new Error("expected the seed to have run");
+      const before = new Map(PUBLISHED_PATHS.map((path) => [path, mtime(page(path))]));
+      await admin().call("PUT", "/settings", { locale: "de", title: "Kestrel Beispiel Zwei", navigation: seeded.navigation });
+      await until("the settings re-render", () => PUBLISHED_PATHS.every((path) => mtime(page(path)) !== before.get(path)));
+      await settled(admin(), mode);
+      for (const path of PUBLISHED_PATHS) {
+        if (!path.startsWith("/en")) expect(readFileSync(page(path), "utf8"), path).toContain("Kestrel Beispiel Zwei");
+      }
+    }, 180_000);
+
+    it("re-renders only the pages that show a media item after its alt text changes", async () => {
+      if (seeded === null) throw new Error("expected the seed to have run");
+      const untouchedBefore = mtime(page("/kontakt"));
+      await admin().call("PATCH", `/media/${seeded.photo}`, { locale: "de", alt: "Ein neuer Alternativtext" });
+      await until("the media re-render", () => readFileSync(page("/ueber-uns"), "utf8").includes("Ein neuer Alternativtext"));
+      await settled(admin(), mode);
+      expect(mtime(page("/kontakt"))).toBe(untouchedBefore);
+    }, 180_000);
+
+    it("re-renders the pages that link to a page whose path changed, and removes the old path", async () => {
+      if (seeded === null) throw new Error("expected the seed to have run");
+      await admin().call("PATCH", `/pages/${seeded.contact}`, { locale: "de", slug: "kontakt-neu" });
+      await until("the link re-render", () => existsSync(page("/kontakt-neu")) && readFileSync(page("/"), "utf8").includes('href="/kontakt-neu"'));
+      await settled(admin(), mode);
+      expect(existsSync(page("/kontakt"))).toBe(false);
+      for (const path of ["/", "/ueber-uns", "/kontakt-neu"]) {
+        const html = readFileSync(page(path), "utf8");
+        expect(html, path).toContain('href="/kontakt-neu"');
+        expect(html, path).not.toContain('href="/kontakt"');
+      }
+    }, 180_000);
   });
-
-  it("re-renders every published page after a settings change, without any page being saved", async () => {
-    if (seeded === null) throw new Error("expected the seed to have run");
-    const before = new Map(PUBLISHED_PATHS.map((path) => [path, statSync(exportedFile(siteRoot(), path)).mtimeMs]));
-    await seeded.admin.call("PUT", "/settings", { locale: "de", title: "Kestrel Beispiel Zwei", navigation: seeded.navigation });
-    await settled(seeded.admin);
-    for (const path of PUBLISHED_PATHS) {
-      expect(statSync(exportedFile(siteRoot(), path)).mtimeMs, path).not.toBe(before.get(path));
-      if (!path.startsWith("/en")) expect(readFileSync(exportedFile(siteRoot(), path), "utf8"), path).toContain("Kestrel Beispiel Zwei");
-    }
-  }, 180_000);
-
-  it("re-renders only the pages that show a media item after its alt text changes", async () => {
-    if (seeded === null) throw new Error("expected the seed to have run");
-    const untouched = exportedFile(siteRoot(), "/kontakt");
-    const untouchedBefore = statSync(untouched).mtimeMs;
-    await seeded.admin.call("PATCH", `/media/${seeded.photo}`, { locale: "de", alt: "Ein neuer Alternativtext" });
-    await settled(seeded.admin);
-    expect(readFileSync(exportedFile(siteRoot(), "/ueber-uns"), "utf8")).toContain("Ein neuer Alternativtext");
-    expect(statSync(untouched).mtimeMs).toBe(untouchedBefore);
-  }, 180_000);
-
-  it("re-renders the pages that link to a page whose path changed, and removes the old path", async () => {
-    if (seeded === null) throw new Error("expected the seed to have run");
-    await seeded.admin.call("PATCH", `/pages/${seeded.contact}`, { locale: "de", slug: "kontakt-neu" });
-    await settled(seeded.admin);
-    expect(existsSync(exportedFile(siteRoot(), "/kontakt"))).toBe(false);
-    for (const path of ["/", "/ueber-uns", "/kontakt-neu"]) {
-      const html = readFileSync(exportedFile(siteRoot(), path), "utf8");
-      expect(html, path).toContain('href="/kontakt-neu"');
-      expect(html, path).not.toContain('href="/kontakt"');
-    }
-  }, 180_000);
 });
