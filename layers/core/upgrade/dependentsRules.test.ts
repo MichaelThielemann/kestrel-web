@@ -8,6 +8,8 @@ import { deliveryAsyncRule, deliveryDependenciesRule, mediaEventIdsRule, queueLa
 import { definePipeline } from "@michaelthielemann/kestrel/definePipeline";
 import type { PipelineEntry } from "@michaelthielemann/kestrel/definePipeline";
 import { checkPreset } from "../pipelines/checkPreset";
+import type { PresetEntry } from "../pipelines/compose";
+import type { PresetStep } from "../module-registry";
 import { overrideEmitRule } from "./overrideEmit";
 import { overrideGroupRule, overrideRelayRule, presetProblemsRule, relayScopeRule } from "./rules";
 
@@ -244,7 +246,7 @@ describe("an override of setSettings", () => {
   });
 
   it("leaves an override the preset accepts in both delivery modes", () => {
-    const fixed: PipelineEntry[] = ["authn.requireUser", "authz.require:settings.write", "validate.check:settings.navigation", { atomic: ["content.set:settings"] }, "events.emit:settings.updated", "events.relay"];
+    const fixed: PresetEntry<PresetStep>[] = ["authn.requireUser", "authz.require:settings.write", "validate.check:settings.navigation", { atomic: ["content.set:settings"] }, "events.emit:settings.updated", "events.relay"];
     const collections = { settings: { kind: "single" as const, fields: {} }, pages: { kind: "multi" as const, fields: { slug: {}, title: {}, body: {}, status: {} } } };
     const direct = [...modules, { use: RENDERER }, { use: DELIVERY_STATIC, config: {} }];
     expect(checkPreset({ modules: direct, features: ["delivery"], collections, overrides: { setSettings: fixed } }).problems).toEqual([]);
