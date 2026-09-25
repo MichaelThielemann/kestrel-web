@@ -143,7 +143,6 @@ async function confirmDelete() {
     ids: [id],
     confirmed: true,
     pageLike: editorRef.value?.pageLike ?? false,
-    eventsQueue: useFeatures().has('eventsQueue'),
     ops: deleteOps,
     navigate,
     bypassGuard,

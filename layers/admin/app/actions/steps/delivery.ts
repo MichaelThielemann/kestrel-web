@@ -24,20 +24,25 @@ export function deliveryRefresh<I extends { form: EditFormPort }>(): ActionStep<
   })
 }
 
-export function retrySuffix(t: Translate, eventsQueue: boolean | undefined): string {
-  return eventsQueue
+/** Whether `status` is a delivery answer only the events queue produces — `events-direct` never reports `pending` or `queued` for its own delivery. */
+export function isQueuedDelivery(status: RelayState): boolean {
+  return status === 'queued' || status === 'pending'
+}
+
+export function retrySuffix(t: Translate, queued: boolean): string {
+  return queued
     ? t('editorStatus.delivery.retryQueue', { tab: t('system.tabs.events') })
     : t('editorStatus.delivery.retryDelivery', { tab: t('system.tabs.delivery') })
 }
 
-export function deliveryToast<I extends WithDeps & { form: EditFormPort, eventsQueue?: boolean }>(): ActionStep<I, SaveOutcome> {
+export function deliveryToast<I extends WithDeps & { form: EditFormPort }>(): ActionStep<I, SaveOutcome> {
   return defineUiStep<I, SaveOutcome>('delivery.toast', (ctx) => {
     const outcome = saveOutcome(ctx, 'delivery.toast')
     if (outcome.failed || !ctx.input.form.pageLike) return
     const status = ownDeliveryStatus(outcome.events)
     if (status === undefined || status === 'done') return
     const { t, toast } = ctx.input.deps
-    const suffix = retrySuffix(t, ctx.input.eventsQueue)
+    const suffix = retrySuffix(t, isQueuedDelivery(status))
     if (status === 'error') {
       toast.error(`${t('editorStatus.delivery.failed')}${suffix}`)
     } else {

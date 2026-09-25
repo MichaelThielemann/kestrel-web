@@ -248,17 +248,8 @@ describe('saveRecord', () => {
     expect(state.savingLog).toEqual([true, false])
   })
 
-  it('toasts a delivery failure, mentioning the queue retry route when the eventsQueue feature is on', async () => {
+  it('toasts a delivery failure, naming the Delivery tab: the answer alone never distinguishes a queue failure from a direct one', async () => {
     const { deps, toast } = fakeDeps([doc({ _events: { status: 'error', pipelines: [{ event: 'page.updated', pipeline: 'publishPage', status: 'error', attempts: 1, dead: false, error: 'boom' }] } })])
-    const { form } = fakeForm()
-
-    await runAction(saveRecord, { deps, form, eventsQueue: true })
-
-    expect(toast.error).toHaveBeenCalledWith('editorStatus.delivery.failed' + 'editorStatus.delivery.retryQueue:{"tab":"system.tabs.events"}')
-  })
-
-  it('toasts a delivery failure, mentioning re-rendering when the eventsQueue feature is off', async () => {
-    const { deps, toast } = fakeDeps([doc({ _events: { status: 'error', pipelines: [relayEntry('publishPage', 'error')] } })])
     const { form } = fakeForm()
 
     await runAction(saveRecord, { deps, form })
@@ -266,11 +257,11 @@ describe('saveRecord', () => {
     expect(toast.error).toHaveBeenCalledWith('editorStatus.delivery.failed' + 'editorStatus.delivery.retryDelivery:{"tab":"system.tabs.delivery"}')
   })
 
-  it('toasts a pending delivery as informational, not as an error, still running', async () => {
+  it('toasts a pending delivery as informational, not as an error, still running, naming the Events tab since only the queue reports it', async () => {
     const { deps, toast } = fakeDeps([doc({ _events: { status: 'pending', pipelines: [relayEntry('publishPage', 'pending')] } })])
     const { form } = fakeForm()
 
-    await runAction(saveRecord, { deps, form, eventsQueue: true })
+    await runAction(saveRecord, { deps, form })
 
     expect(toast.info).toHaveBeenCalledWith('editorStatus.delivery.queued' + 'editorStatus.delivery.retryQueue:{"tab":"system.tabs.events"}')
     expect(toast.error).not.toHaveBeenCalled()
@@ -289,7 +280,7 @@ describe('saveRecord', () => {
     const { deps, toast } = fakeDeps([doc({ _events: { status: 'pending', pipelines: [relayEntry('pageDependents', 'queued'), relayEntry('publishPage', 'done')] } })])
     const { form } = fakeForm()
 
-    await runAction(saveRecord, { deps, form, eventsQueue: true })
+    await runAction(saveRecord, { deps, form })
 
     expect(toast.info).not.toHaveBeenCalled()
     expect(toast.error).not.toHaveBeenCalled()
@@ -304,13 +295,13 @@ describe('saveRecord', () => {
     expect(toast.error).not.toHaveBeenCalled()
   })
 
-  it('still toasts the page\'s own failed publishing beside a queued marking', async () => {
+  it('still toasts the page\'s own failed publishing beside a queued marking, naming the Delivery tab', async () => {
     const { deps, toast } = fakeDeps([doc({ _events: { status: 'error', pipelines: [relayEntry('pageDependents', 'queued'), relayEntry('publishPage', 'error')] } })])
     const { form } = fakeForm()
 
-    await runAction(saveRecord, { deps, form, eventsQueue: true })
+    await runAction(saveRecord, { deps, form })
 
-    expect(toast.error).toHaveBeenCalledWith('editorStatus.delivery.failed' + 'editorStatus.delivery.retryQueue:{"tab":"system.tabs.events"}')
+    expect(toast.error).toHaveBeenCalledWith('editorStatus.delivery.failed' + 'editorStatus.delivery.retryDelivery:{"tab":"system.tabs.delivery"}')
   })
 
   it('does not toast for a collection that is not page-like', async () => {
@@ -493,9 +484,9 @@ describe('deleteRecord', () => {
     const { deps, toast } = fakeDeps([{ _events: { status: 'error', pipelines: [{ event: 'page.deleted', pipeline: 'unpublishPage', status: 'error', attempts: 1, dead: true, error: 'boom' }] } }])
     const { input } = deleteInput(deps, ['p1'])
 
-    await runAction(deleteRecord, { ...input, pageLike: true, eventsQueue: true })
+    await runAction(deleteRecord, { ...input, pageLike: true })
 
-    expect(toast.error).toHaveBeenCalledWith('editorStatus.delivery.deleteFailed' + 'editorStatus.delivery.retryQueue:{"tab":"system.tabs.events"}')
+    expect(toast.error).toHaveBeenCalledWith('editorStatus.delivery.deleteFailed' + 'editorStatus.delivery.retryDelivery:{"tab":"system.tabs.delivery"}')
   })
 
   it('does not toast when only marking the pages that showed the deleted page failed', async () => {

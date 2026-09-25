@@ -452,6 +452,11 @@
 
 ### Fixed
 
+- The editor's delivery-retry toast now names the Events or Delivery tab from the save or delete
+  answer's own relay status (`pending`/`queued` only ever come from the events queue) instead of a
+  separate `useFeatures().has('eventsQueue')` check. A delivery that fails outright still names the
+  Delivery tab, since the answer alone cannot tell a queue failure from a direct one.
+
 - `MediaVariantChip`'s "stalled" wording is no longer a distinct chip state alongside the backend's
   `pending`/`failed` — kestrel reports neither a "stalled" variant status, and the timeout that decides
   it is a client-side observation (`useVariantWatch`'s ten-minute limit), not something the backend owns.

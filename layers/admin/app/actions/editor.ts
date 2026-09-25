@@ -4,7 +4,7 @@ import { defineAction, type ActionStep } from '#kestrel-core/app/utils/actions'
 import { previewDeleteAction } from './shared'
 import { translationSourceValues } from '../utils/translation-copy'
 import { apiEach, apiRequest, apiWrite } from './steps/api'
-import { deliveryRefresh, deliveryToast, ownDeliveryStatus, retrySuffix } from './steps/delivery'
+import { deliveryRefresh, deliveryToast, isQueuedDelivery, ownDeliveryStatus, retrySuffix } from './steps/delivery'
 import { formMapErrors, formOutcome, formRebaseline, formReset, formRevealError, formSaving, formSetStatus, formValidate } from './steps/form'
 import { dialogConfirm, guardAnySucceeded, guardBypass, guardStatus, guardTab, guardUnsaved } from './steps/guard'
 import { defineUiStep } from './define'
@@ -14,10 +14,7 @@ import type { BusyPort, ConfirmPort, EachReport, EditFormPort, NavigatePort, Que
 
 export type { SaveOutcome } from './types'
 
-/** Whether the eventsQueue feature is on, so a delivery-failure toast can name the right retry route. */
-export interface DeliveryModeInput { eventsQueue?: boolean }
-
-export interface SaveInput extends WithDeps, DeliveryModeInput { form: EditFormPort }
+export interface SaveInput extends WithDeps { form: EditFormPort }
 export interface SetStatusInput extends SaveInput { status: string }
 
 export interface DiscardInput {
@@ -33,7 +30,7 @@ export interface LeaveInput {
   to: string
 }
 
-export interface DeleteRecordInput extends WithDeps, DeliveryModeInput {
+export interface DeleteRecordInput extends WithDeps {
   collection: string
   ids: readonly string[]
   confirmed: boolean
@@ -144,11 +141,13 @@ function worstDeliveryStatus(report: DeleteReport): EventRelayStatus['status'] |
   return statuses[0]
 }
 
-function deleteDeliveryToast<I extends WithDeps & DeliveryModeInput & { pageLike?: boolean }>(): ActionStep<I, DeleteReport> {
+function deleteDeliveryToast<I extends WithDeps & { pageLike?: boolean }>(): ActionStep<I, DeleteReport> {
   return defineUiStep<I, DeleteReport>('delivery.deleteToast', (ctx) => {
-    if (!ctx.input.pageLike || ctx.result === undefined || worstDeliveryStatus(ctx.result) !== 'error') return
+    if (!ctx.input.pageLike || ctx.result === undefined) return
+    const status = worstDeliveryStatus(ctx.result)
+    if (status !== 'error') return
     const { t, toast } = ctx.input.deps
-    toast.error(`${t('editorStatus.delivery.deleteFailed')}${retrySuffix(t, ctx.input.eventsQueue)}`)
+    toast.error(`${t('editorStatus.delivery.deleteFailed')}${retrySuffix(t, isQueuedDelivery(status))}`)
   })
 }
 

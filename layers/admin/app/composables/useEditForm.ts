@@ -390,13 +390,13 @@ export function useEditForm(opts: UseEditFormOptions) {
   }
 
   async function submit(): Promise<SubmitResult> {
-    const result = await runAction(saveRecord, { deps, form: port(), eventsQueue: useFeatures().has('eventsQueue') })
+    const result = await runAction(saveRecord, { deps, form: port() })
     toastUnexpected(deps, result)
     return toSubmitResult(result)
   }
 
   async function setStatus(next: string): Promise<SubmitResult> {
-    const result = await runAction(setStatusAction, { deps, form: port(), status: next, eventsQueue: useFeatures().has('eventsQueue') })
+    const result = await runAction(setStatusAction, { deps, form: port(), status: next })
     toastUnexpected(deps, result)
     return toSubmitResult(result)
   }
