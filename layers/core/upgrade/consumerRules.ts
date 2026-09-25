@@ -1,9 +1,9 @@
 import { readdirSync } from "node:fs";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { findCalls, firstArgument, isAstNode, objectProperty, parseTs, propertyKeyName, stringValue, walk } from "@michaelthielemann/kestrel-upgrade/codemods";
 import type { AstNode } from "@michaelthielemann/kestrel-upgrade/codemods";
 import type { Finding, SourceRule, SourceRuleContext } from "@michaelthielemann/kestrel-upgrade/plugin";
-import { deliveryEnabled, docsAnchor, LAYER_RANGE, layerPackageRange, manualFinding } from "./ruleHelpers";
+import { deliveryEnabled, docsAnchor, manualFinding } from "./ruleHelpers";
 
 const CONSUMER_APP_EXTENSIONS = [".ts", ".vue"];
 const SKIP_DIRS = new Set(["node_modules", ".nuxt", ".output", "dist"]);
@@ -62,6 +62,37 @@ export function consumerScripts(ctx: SourceRuleContext, dirs: readonly string[] 
   return scripts;
 }
 
+function templateExpressionSnippets(source: string): string[] {
+  const snippets: string[] = [];
+  const bindingPattern = /:[a-zA-Z][\w-]*="((?:[^"\\]|\\.)*)"/g;
+  for (let match = bindingPattern.exec(source); match !== null; match = bindingPattern.exec(source)) {
+    if (match[1] !== undefined) snippets.push(match[1]);
+  }
+  const mustachePattern = /\{\{([\s\S]*?)\}\}/g;
+  for (let match = mustachePattern.exec(source); match !== null; match = mustachePattern.exec(source)) {
+    if (match[1] !== undefined) snippets.push(match[1]);
+  }
+  return snippets;
+}
+
+/** Every script plus every `<template>` binding expression (`:attr="…"`, `{{ … }}`) of a `.vue` file, under the project's own `dirs` (default `app/`); a snippet that does not parse as an expression is left out. */
+export function consumerExpressions(ctx: SourceRuleContext, dirs: readonly string[] = ["app"]): ConsumerScript[] {
+  const scripts = consumerScripts(ctx, dirs);
+  for (const file of consumerFiles(ctx, dirs)) {
+    if (!file.endsWith(".vue")) continue;
+    const source = ctx.readFile(file);
+    if (source === undefined) continue;
+    for (const snippet of templateExpressionSnippets(source)) {
+      try {
+        scripts.push({ file, root: parseTs(snippet) });
+      } catch {
+        continue;
+      }
+    }
+  }
+  return scripts;
+}
+
 const OLD_SETTINGS_KEY = "site:settings";
 const SETTINGS_KEY_FUNCTIONS = ["refreshNuxtData", "clearNuxtData", "useNuxtData"];
 
@@ -91,6 +122,67 @@ export const settingsKeyRule: SourceRule = {
           );
         }
       }
+    }
+    return findings;
+  },
+};
+
+const MEDIA_URL_SUBSTRING = "/api/media";
+
+function quasiRaw(node: AstNode): string {
+  const value: unknown = node.value;
+  if (typeof value !== "object" || value === null || !("raw" in value)) return "";
+  return typeof value.raw === "string" ? value.raw : "";
+}
+
+function asNode(value: unknown): AstNode | undefined {
+  return isAstNode(value) ? value : undefined;
+}
+
+function mediaUrlFromId(root: AstNode): boolean {
+  let found = false;
+  walk(root, (node) => {
+    if (found) return;
+    if (node.type === "TemplateLiteral" && Array.isArray(node.quasis) && Array.isArray(node.expressions) && node.expressions.length > 0) {
+      const raw = node.quasis.filter(isAstNode).map(quasiRaw).join("");
+      if (raw.includes(MEDIA_URL_SUBSTRING)) found = true;
+      return;
+    }
+    if (node.type !== "BinaryExpression" || node.operator !== "+") return;
+    const left = stringValue(asNode(node.left));
+    const right = stringValue(asNode(node.right));
+    if ((left !== undefined && left.includes(MEDIA_URL_SUBSTRING)) || (right !== undefined && right.includes(MEDIA_URL_SUBSTRING))) found = true;
+  });
+  return found;
+}
+
+/**
+ * A URL for a media file built by hand from an id (`` `/api/media/${id}/file` ``, `"/api/media/" + id`):
+ * production serves the export's bucket prefix only, with no `/api` route, so the file 404s once the page
+ * carrying it is re-rendered under the static marker. Manual, since the fix is project-specific: read the
+ * item's public `path` instead (as `pickImageSources`/`useMediaItem` already do), never build the URL from
+ * an id. Scans script blocks and `<template>` binding expressions alike, since this shape is as common in a
+ * template attribute as in a computed.
+ */
+export const mediaUrlFromIdRule: SourceRule = {
+  id: "site/media-url-from-id",
+  needs: "source",
+  check(ctx) {
+    const findings: Finding[] = [];
+    const seen = new Set<string>();
+    for (const { file, root } of consumerExpressions(ctx)) {
+      if (!mediaUrlFromId(root) || seen.has(file)) continue;
+      seen.add(file);
+      findings.push(
+        manualFinding(
+          "site/media-url-from-id",
+          "site/media-url-from-id",
+          { file },
+          `${relative(ctx.root, file)} builds a media URL from an id (${MEDIA_URL_SUBSTRING}/...); production has no /api route, so the file 404s once the page is exported`,
+          "read the item's public path instead (as pickImageSources/useMediaItem do), never build the URL from an id",
+          docsAnchor("site-media-url-from-id"),
+        ),
+      );
     }
     return findings;
   },
@@ -130,12 +222,28 @@ function callsUseSiteLocale(node: AstNode): boolean {
   return found;
 }
 
-function hasWatchOnSiteLocale(call: AstNode): boolean {
+function useSiteLocaleBoundNames(root: AstNode): string[] {
+  const names: string[] = [];
+  walk(root, (node) => {
+    if (node.type !== "VariableDeclarator") return;
+    const id = node.id;
+    const init = node.init;
+    if (!isAstNode(id) || id.type !== "Identifier" || typeof id.name !== "string") return;
+    if (!isAstNode(init) || init.type !== "CallExpression") return;
+    const callee = init.callee;
+    if (isAstNode(callee) && callee.type === "Identifier" && callee.name === "useSiteLocale") names.push(id.name);
+  });
+  return names;
+}
+
+function hasWatchOnSiteLocale(call: AstNode, localeNames: readonly string[]): boolean {
   const args = Array.isArray(call.arguments) ? call.arguments.filter(isAstNode) : [];
   for (const arg of args) {
     if (arg.type !== "ObjectExpression") continue;
     const watch = objectProperty(arg, "watch");
-    if (watch !== undefined && callsUseSiteLocale(watch)) return true;
+    if (watch === undefined) continue;
+    if (callsUseSiteLocale(watch)) return true;
+    if (localeNames.length > 0 && referencesAny(watch, localeNames)) return true;
   }
   return false;
 }
@@ -152,12 +260,14 @@ export const unstableKeyRule: SourceRule = {
     const findings: Finding[] = [];
     for (const { file, root } of consumerScripts(ctx)) {
       const useIdNames = useIdBoundNames(root);
+      const localeNames = useSiteLocaleBoundNames(root);
+      const relativeFile = relative(ctx.root, file);
       for (const fn of KEYED_FETCH_FUNCTIONS) {
         for (const call of findCalls(root, fn)) {
           const key = firstArgument(call);
           if (key === undefined) continue;
           const usesUseId = useIdNames.length > 0 && referencesAny(key, useIdNames);
-          const watchesLocale = stringValue(key) !== undefined && hasWatchOnSiteLocale(call);
+          const watchesLocale = stringValue(key) !== undefined && hasWatchOnSiteLocale(call, localeNames);
           if (!usesUseId && !watchesLocale) continue;
           const reason = usesUseId ? "its key is built from a useId() value, which is not deterministic across a client navigation" : "its key is fixed but watches useSiteLocale(), which never fires inside a page";
           findings.push({
@@ -166,7 +276,7 @@ export const unstableKeyRule: SourceRule = {
             severity: "info",
             tier: "source",
             where: { file },
-            message: `${fn}() in ${file}: ${reason}`,
+            message: `${fn}() in ${relativeFile}: ${reason}`,
             suggestion: "derive the key from the same inputs the data depends on, including the locale, without useId() or a watch on it",
             fix: { kind: "none" },
             docs: docsAnchor("static-unstable-key"),
@@ -230,13 +340,20 @@ export const routeCacheRule: SourceRule = {
   },
 };
 
-/** A one-time note, gone once the layer range is at 3.x: 3.0 changes what an exported page carries, and the first start of the upgraded build re-renders every published page in the background, so nothing needs running by hand. */
+/**
+ * 3.0 changes what an exported page carries, and the first start of the upgraded build re-renders every
+ * published page in the background, so nothing needs running by hand. Fires whenever `delivery` is on,
+ * regardless of the project's own package.json ranges: the docs' own upgrade steps bump
+ * `@michaelthielemann/kestrel-web`'s range before the rest of the migration is done, so gating this on that
+ * range going stale the moment it is bumped would hide the note exactly while the migration is still under
+ * way — a project's own package.json range says nothing about whether the build has actually started once
+ * since.
+ */
 export const publishAllRule: SourceRule = {
   id: "ops/publish-all",
   needs: "source",
   check(ctx) {
-    const range = layerPackageRange(ctx);
-    if (!deliveryEnabled(ctx) || range === undefined || range === LAYER_RANGE) return [];
+    if (!deliveryEnabled(ctx)) return [];
     return [
       {
         id: "ops/publish-all",
@@ -406,4 +523,4 @@ export const privateFieldsRule: SourceRule = {
   },
 };
 
-export const consumerRules: readonly SourceRule[] = [settingsKeyRule, unstableKeyRule, routeCacheRule, publishAllRule, privateFieldsRule];
+export const consumerRules: readonly SourceRule[] = [settingsKeyRule, mediaUrlFromIdRule, unstableKeyRule, routeCacheRule, publishAllRule, privateFieldsRule];

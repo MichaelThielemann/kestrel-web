@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import type { SourceRuleContext } from "@michaelthielemann/kestrel-upgrade/plugin";
-import { privateFieldsRule, publishAllRule, routeCacheRule, settingsKeyRule, unstableKeyRule } from "./consumerRules";
+import { mediaUrlFromIdRule, privateFieldsRule, publishAllRule, routeCacheRule, settingsKeyRule, unstableKeyRule } from "./consumerRules";
 
 const created: string[] = [];
 
@@ -62,6 +62,52 @@ describe("settingsKeyRule", () => {
   });
 });
 
+describe("mediaUrlFromIdRule", () => {
+  it("flags a template binding that builds /api/media/<id>/file by hand (the Hero block's own shape)", async () => {
+    const ctx = projectWith({
+      "app/blocks/Hero.vue": [
+        '<script setup lang="ts">',
+        "const props = defineProps({ heading: textField({ required: true }), video: mediaField() })",
+        "defineBlock({ label: 'Hero', slots: ['default'], icon: 'image' })",
+        "</script>",
+        "<template>",
+        "  <section class=\"block-hero\">",
+        '    <h1 v-if="heading">{{ heading }}</h1>',
+        '    <video v-if="video" :src="`/api/media/${video.id}/file`" controls />',
+        "  </section>",
+        "</template>",
+      ].join("\n"),
+    });
+    const findings = await mediaUrlFromIdRule.check(ctx);
+    expect(findings).toHaveLength(1);
+    expect(findings[0]?.severity).toBe("error");
+    expect(findings[0]?.fix.kind).toBe("manual");
+    expect(findings[0]?.message).toContain("app/blocks/Hero.vue");
+    expect(findings[0]?.suggestion).toContain("public path");
+  });
+
+  it("flags a script-level template literal built from an id", async () => {
+    const ctx = projectWith({ "app/composables/useVideoUrl.ts": "export function useVideoUrl(id: string) {\n  return `/api/media/${id}/file`\n}\n" });
+    const findings = await mediaUrlFromIdRule.check(ctx);
+    expect(findings).toHaveLength(1);
+  });
+
+  it("flags string concatenation built from an id", async () => {
+    const ctx = projectWith({ "app/composables/useVideoUrl.ts": "export function useVideoUrl(id: string) {\n  return '/api/media/' + id + '/file'\n}\n" });
+    expect(await mediaUrlFromIdRule.check(ctx)).toHaveLength(1);
+  });
+
+  it("does not flag a plain literal API call with no interpolation", async () => {
+    const ctx = projectWith({ "app/composables/useMediaList.ts": "export function useMediaList() {\n  return $fetch('/api/media')\n}\n" });
+    expect(await mediaUrlFromIdRule.check(ctx)).toEqual([]);
+  });
+
+  it("does not flag reading the item's own public path", async () => {
+    const ctx = projectWith({ "app/composables/useVideoUrl.ts": "export function useVideoUrl(item) {\n  return item.path\n}\n" });
+    expect(await mediaUrlFromIdRule.check(ctx)).toEqual([]);
+  });
+});
+
 describe("unstableKeyRule", () => {
   it("flags a useAsyncData key built from a useId() value", async () => {
     const ctx = projectWith({ "app/pages/foo.vue": '<script setup lang="ts">\nconst id = useId()\nuseAsyncData(`foo:${id}`, () => fetchFoo())\n</script>\n' });
@@ -78,9 +124,25 @@ describe("unstableKeyRule", () => {
     expect(findings[0]?.message).toContain("useSiteLocale()");
   });
 
+  it("flags a fixed useFetch key next to a watch on a variable holding useSiteLocale()'s result (useSiteChrome's own shape)", async () => {
+    const ctx = projectWith({
+      "app/composables/useSiteChrome.ts": 'export function useSiteChrome() {\n  const locale = useSiteLocale()\n  return useFetch("site:chrome", { watch: [locale] })\n}\n',
+    });
+    const findings = await unstableKeyRule.check(ctx);
+    expect(findings).toHaveLength(1);
+    expect(findings[0]?.message).toContain("watches useSiteLocale()");
+  });
+
   it("does nothing for a deterministic key with no useId() and no locale watch", async () => {
     const ctx = projectWith({ "app/composables/useThing.ts": 'useAsyncData(`foo:${props.id}:${locale.value}`, () => fetchFoo())\n' });
     expect(await unstableKeyRule.check(ctx)).toEqual([]);
+  });
+
+  it("reports a project-relative path in the message, never the scratch directory", async () => {
+    const ctx = projectWith({ "app/composables/useThing.ts": 'useFetch("foo", { watch: [useSiteLocale()] })\n' });
+    const findings = await unstableKeyRule.check(ctx);
+    expect(findings[0]?.message).toContain("app/composables/useThing.ts");
+    expect(findings[0]?.message).not.toContain(ctx.root);
   });
 });
 
@@ -125,7 +187,7 @@ const OLD_LAYER_PACKAGE_JSON = '{ "dependencies": { "@michaelthielemann/kestrel-
 const NEW_LAYER_PACKAGE_JSON = '{ "dependencies": { "@michaelthielemann/kestrel-web": "^3.0.0" } }';
 
 describe("publishAllRule", () => {
-  it("tells, once delivery is on and the layer is still on its 2.x range, that the first start re-renders every page and nothing needs running", async () => {
+  it("tells, once delivery is on, that the first start re-renders every page and nothing needs running", async () => {
     const ctx = projectWith({ "shared/model.ts": DELIVERY_MODEL, "package.json": OLD_LAYER_PACKAGE_JSON });
     const findings = await publishAllRule.check(ctx);
     expect(findings).toHaveLength(1);
@@ -140,9 +202,14 @@ describe("publishAllRule", () => {
     expect(await publishAllRule.check(ctx)).toEqual([]);
   });
 
-  it("says nothing once the layer is already on its 3.x range (the reminder is one-time)", async () => {
+  it("still fires once the layer's package.json range is already 3.x (the docs bump that range before the rest of the migration is done)", async () => {
     const ctx = projectWith({ "shared/model.ts": DELIVERY_MODEL, "package.json": NEW_LAYER_PACKAGE_JSON });
-    expect(await publishAllRule.check(ctx)).toEqual([]);
+    expect(await publishAllRule.check(ctx)).toHaveLength(1);
+  });
+
+  it("fires the same way with no package.json at all", async () => {
+    const ctx = projectWith({ "shared/model.ts": DELIVERY_MODEL });
+    expect(await publishAllRule.check(ctx)).toHaveLength(1);
   });
 });
 
