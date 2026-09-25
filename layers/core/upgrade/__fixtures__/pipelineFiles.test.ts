@@ -17,9 +17,18 @@ async function prepare(): Promise<string> {
   return dir;
 }
 
+/**
+ * `forceInstalledMajor` still forces the boot tier as if a 6.x core were installed (kestrel-upgrade's
+ * own test suite uses it too), but it moved out of `RunUpgradeCliOptions`'s public type into an
+ * internal one, so this widens the type at the call site instead of narrowing to what is exported.
+ */
+function runOptionsWithMajor6(options: Parameters<typeof runUpgradeCli>[1]): Parameters<typeof runUpgradeCli>[1] & { forceInstalledMajor: number } {
+  return { ...options, forceInstalledMajor: 6 };
+}
+
 async function check(dir: string): Promise<UpgradeReport> {
   const lines: string[] = [];
-  await runUpgradeCli(["check", "--root", dir, "--json"], { plugins: [createLayerPlugin()], stdout: (l) => lines.push(l), stderr: (l) => lines.push(l), forceInstalledMajor: 6 });
+  await runUpgradeCli(["check", "--root", dir, "--json"], runOptionsWithMajor6({ plugins: [createLayerPlugin()], stdout: (l) => lines.push(l), stderr: (l) => lines.push(l) }));
   return JSON.parse(lines.join("\n"));
 }
 

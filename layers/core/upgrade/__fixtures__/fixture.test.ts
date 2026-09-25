@@ -17,6 +17,15 @@ import { cleanupAllFixtures, materializeFixture } from "./materialize";
 const execFileAsync = promisify(execFile);
 const runningKestrels: Kestrel[] = [];
 
+/**
+ * `forceInstalledMajor` still forces the boot tier as if a 6.x core were installed (kestrel-upgrade's
+ * own test suite uses it too), but it moved out of `RunUpgradeCliOptions`'s public type into an
+ * internal one, so this widens the type at the call site instead of narrowing to what is exported.
+ */
+function runOptionsWithMajor6(options: Parameters<typeof runUpgradeCli>[1]): Parameters<typeof runUpgradeCli>[1] & { forceInstalledMajor: number } {
+  return { ...options, forceInstalledMajor: 6 };
+}
+
 async function prepare(name: string): Promise<string> {
   const dir = materializeFixture(name);
   const nuxtBin = join(dir, "node_modules", ".bin", "nuxt");
@@ -26,12 +35,12 @@ async function prepare(name: string): Promise<string> {
 
 async function check(dir: string): Promise<UpgradeReport> {
   const lines: string[] = [];
-  await runUpgradeCli(["check", "--root", dir, "--json"], { plugins: [createLayerPlugin()], stdout: (l) => lines.push(l), stderr: (l) => lines.push(l), forceInstalledMajor: 6 });
+  await runUpgradeCli(["check", "--root", dir, "--json"], runOptionsWithMajor6({ plugins: [createLayerPlugin()], stdout: (l) => lines.push(l), stderr: (l) => lines.push(l) }));
   return JSON.parse(lines.join("\n")) as UpgradeReport;
 }
 
 async function fixWriteYes(dir: string): Promise<number> {
-  return runUpgradeCli(["fix", "--root", dir, "--write", "--yes"], { plugins: [createLayerPlugin()], stdout: () => undefined, stderr: () => undefined, forceInstalledMajor: 6 });
+  return runUpgradeCli(["fix", "--root", dir, "--write", "--yes"], runOptionsWithMajor6({ plugins: [createLayerPlugin()], stdout: () => undefined, stderr: () => undefined }));
 }
 
 async function loadProject(dir: string): Promise<import("@michaelthielemann/kestrel-upgrade/plugin").LoadedProject> {
@@ -114,7 +123,7 @@ describe("site-2.0 (create-kestrel template shape, presetModuleConfig, no overri
     const answersFile = join(dir, "answers.json");
     const { writeFileSync } = await import("node:fs");
     writeFileSync(answersFile, JSON.stringify({ "switch-to-queue": "yes", ...Object.fromEntries(eventPipelines.map((p) => [`idempotent:${p}`, "yes"])) }));
-    await runUpgradeCli(["fix", "--root", dir, "--write", "--yes", "--answers", answersFile], { plugins: [createLayerPlugin()], stdout: () => undefined, stderr: () => undefined, forceInstalledMajor: 6 });
+    await runUpgradeCli(["fix", "--root", dir, "--write", "--yes", "--answers", answersFile], runOptionsWithMajor6({ plugins: [createLayerPlugin()], stdout: () => undefined, stderr: () => undefined }));
 
     const model = readFileSync(join(dir, "shared", "model.ts"), "utf8");
     expect(model).toMatch(/"eventsQueue"/);
@@ -124,6 +133,7 @@ describe("site-2.0 (create-kestrel template shape, presetModuleConfig, no overri
     const bootCheck = await checkBoot(box.input, { setup: box.setup });
     expect(bootCheck.errors).toEqual([]);
     expect(fixedProject.input.modules.some((m) => m.name === "events/queue")).toBe(true);
+    expect(fixedProject.input.modules.some((m) => m.name === "events/direct")).toBe(false);
 
     const status = await bootAndLogin({ ...fixedProject.input, root: dir });
     expect(status).toBe(200);

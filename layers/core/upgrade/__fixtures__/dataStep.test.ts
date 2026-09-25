@@ -43,6 +43,15 @@ async function seedDb(dir: string, storedValue: string | undefined): Promise<str
   return file;
 }
 
+/**
+ * `forceInstalledMajor` still forces the boot tier as if a 6.x core were installed (kestrel-upgrade's
+ * own test suite uses it too), but it moved out of `RunUpgradeCliOptions`'s public type into an
+ * internal one, so this widens the type at the call site instead of narrowing to what is exported.
+ */
+function runOptionsWithMajor6(options: Parameters<typeof runUpgradeCli>[1]): Parameters<typeof runUpgradeCli>[1] & { forceInstalledMajor: number } {
+  return { ...options, forceInstalledMajor: 6 };
+}
+
 async function runData(dir: string, dbFile: string, outFile: string): Promise<UpgradeReport & { underscoreFields: Record<string, Record<string, number | null>> }> {
   const lines: string[] = [];
   await runUpgradeCli(["data", "--db", dbFile, "--root", dir, "--out", outFile, "--json"], { plugins: [createLayerPlugin()], stdout: (l) => lines.push(l), stderr: (l) => lines.push(l) });
@@ -51,12 +60,12 @@ async function runData(dir: string, dbFile: string, outFile: string): Promise<Up
 
 async function checkWithReport(dir: string, reportFile: string): Promise<UpgradeReport> {
   const lines: string[] = [];
-  await runUpgradeCli(["check", "--root", dir, "--data-report", reportFile, "--json"], { plugins: [createLayerPlugin()], stdout: (l) => lines.push(l), stderr: (l) => lines.push(l), forceInstalledMajor: 6 });
+  await runUpgradeCli(["check", "--root", dir, "--data-report", reportFile, "--json"], runOptionsWithMajor6({ plugins: [createLayerPlugin()], stdout: (l) => lines.push(l), stderr: (l) => lines.push(l) }));
   return JSON.parse(lines.join("\n"));
 }
 
 async function fixWithReport(dir: string, reportFile: string): Promise<number> {
-  return runUpgradeCli(["fix", "--root", dir, "--write", "--yes", "--data-report", reportFile], { plugins: [createLayerPlugin()], stdout: () => undefined, stderr: () => undefined, forceInstalledMajor: 6 });
+  return runUpgradeCli(["fix", "--root", dir, "--write", "--yes", "--data-report", reportFile], runOptionsWithMajor6({ plugins: [createLayerPlugin()], stdout: () => undefined, stderr: () => undefined }));
 }
 
 afterEach(() => {
