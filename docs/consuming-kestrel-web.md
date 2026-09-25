@@ -1871,11 +1871,13 @@ a suggestion, and applies the mechanical ones with a preview:
 3. `npx kestrel-web-upgrade fix` bumps every out-of-range `@michaelthielemann/kestrel*` dependency
    (`^6.0.0`) and `@michaelthielemann/kestrel-web` itself (`^3.0.0`), and adds `"sanitizeSvg"` to
    `features` when `delivery` needs it (see below); run it with `--write`, then `pnpm install`.
-4. Run the release's kestrel-side upgrade too (`kestrel-upgrade`, see the backend's own changelog); it
-   rewrites `delivery-static.media`, the image-variant event pipeline and the media delete order for you.
-5. `npx kestrel-web-upgrade check` again for the full report, `fix --write` to apply what it can, and fix
-   the rest by hand.
-6. `nuxt typecheck`, `nuxt build`, boot it once, log in.
+4. `npx kestrel-web-upgrade check` again for the full report, `fix --write` to apply what it can, and fix
+   the rest by hand. This is the release's kestrel-side upgrade too: `kestrel-web-upgrade` already runs
+   kestrel's own rules through the plugin API (it rewrites `delivery-static.media`, the image-variant event
+   pipeline and the media delete order for you, among others). Do not run the standalone `kestrel-upgrade`
+   on a layer project — it cannot load `kestrel.config.ts` at all and only ever tells you to "fix the file
+   so it loads".
+5. `nuxt typecheck`, `nuxt build`, boot it once, log in.
 
 What changes:
 
