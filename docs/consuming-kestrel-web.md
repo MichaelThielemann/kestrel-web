@@ -1726,9 +1726,13 @@ What changes:
     entry for the module to that call.
   - `preset/queue-lanes` sets `lanes` (and a missing `relayPipelines`) on a `kestrel-events-queue` entry
     written in `kestrel.config.ts` to what `lanesFor(features)` gives (`fix`).
-  - `preset/override-emit` forward-ports a 2.x `setSettings` or `set<Name>` override in one edit (`fix`): the
-    write in its atomic group, then `events.emit:settings.updated` / `events.emit:<name>.updated` and
-    `events.relay`, and without `delivery.exportLlms`, which the default requests after the re-renders.
+  - `preset/override-emit` forward-ports a 2.x `setSettings` or `set<Name>` override in one edit (`fix`). It
+    finds the write (`content.set:settings`, or the group that already holds it), wraps it in its atomic
+    group, and adds `events.emit:settings.updated` / `events.emit:<name>.updated` where the default has it:
+    right after the group, or inside it with `eventsQueue`. `events.relay` follows the emit; one that sat
+    before the write moves there. `delivery.exportLlms` goes, with or without arguments, because the default
+    requests it after the re-renders. Your other steps and your comments keep their place. The edit goes to
+    the `definePreset()` call whose override the project loads.
     `preset/settings-llms` notes an override that emits but still exports `llms.txt` inside the request.
   - `runtime/media-event-ids` notes your own triggers on `media.updated`, `media.deleted` or
     `images.variantsChanged`: a folder deletion and the events `images-default` raises itself arrive with
@@ -1750,7 +1754,9 @@ of these, each named there:
   that only when a preview shows every step of the group is safe inside it; otherwise wrap the write, add the
   emit and `events.relay`, or `exclude` the pipeline and define your own.
 - An override or pipeline the tool cannot locate: one that is not a literal array in
-  `definePreset({ overrides })` or a `definePipeline({ name, steps })` call.
+  `definePreset({ overrides })` or a `definePipeline({ name, steps })` call, or one that more than one
+  `definePreset()` call in the file overrides. Only `preset/override-emit` tells such calls apart, by the
+  steps the project loads, and it too leaves them to you when their steps are the same.
 - A `kestrel-delivery-static` entry that is neither written in `kestrel.config.ts` nor built by exactly one
   `presetModuleConfig()` call, or whose `config`, `dependencies` or `overrides` is not an object literal.
 - `kestrel-events-queue` lanes that exist but leave page renders or image variants out.
