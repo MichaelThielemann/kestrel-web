@@ -74,13 +74,11 @@ The types that used to come from a backend package's `impl` subpath (`ImageSizeR
 `SettingsDocument.navigation`, still hand-written); such a field would need casting to be usable, so it
 stays hand-written rather than being derived.
 
-The installed backend packages describe some always-present response fields without `required` in their
-`describe().output`, so `operations[...]` marks them optional even though the pipeline always sets them.
-`api.ts` defines `RequireFields<T, K>` and applies it to `MediaItem` (`width`, `height`, `alt`, `title`,
-`description`), `ReplicationStatus` (every field) and `ReplicationSnapshotResult` (`generation`, `bytes`)
-to keep those fields as non-optional as they were before this file was generated.
-`layers/core/app/types/api.types.test.ts` pins both sides: that the generated type still needs the
-helper, and that the exported type still matches the published optionality.
+`MediaItem`, `ReplicationStatus` and `ReplicationSnapshotResult` alias `operations[...]` directly, with no
+optionality workaround: the backend packages' `describe().output` marks every field of these three
+`required`, matching what the pipelines always set. `layers/core/app/types/api.types.test.ts` pins the
+published shape against a hand-written `Expected*` interface, so a field that becomes optional in a future
+generated document fails the test instead of silently widening the public type.
 
 The preset that `scripts/generate-api-types.ts` boots enables every `Feature` this layer defines, so the
 generated document — and therefore `operations[...]` in `api.ts` — describes the full surface regardless
@@ -237,18 +235,19 @@ call a restarted instance would only know its config/default sizes and variant U
 would 404.
 
 `layers/core`'s server utils (`server/utils/modules.ts`) identify submodules by the steps they register,
-not by package name. Four places rely on this:
+not by package name. Three places rely on this:
 
 - The upload limit (`server/utils/limits.ts`) looks up the module that registers `media.upload`.
 - The inline-SVG check (`http.inlineTypes`, `server/utils/inline-types.ts`) looks up the module that
   registers `sanitize.svg`.
 - The media-paths boot check (`assertMediaPaths`, `server/utils/media-paths.ts`) looks up the modules
   that register `media.upload`, `images.attach` and `delivery.exportLlms`.
-- The readiness probe looks up the module that registers `content.create`.
 
 The owning module name comes from the booted instance's `kestrel.steps.owner(step)` — the real step
-registry, not a pre-boot probe of each module's `steps()` factory — so all four run after
-`boot()`/`kestrel.start()` resolves. A
+registry, not a pre-boot probe of each module's `steps()` factory — so all three run after
+`boot()`/`kestrel.start()` resolves. Readiness (`server/utils/readiness.ts`) does not look up a step
+owner at all: it reads `kestrel.health()`, the synchronous, no-I/O per-module health hook, not a probe of
+any particular step. A
 drop-in replacement for any of those modules works without touching `layers/core`. A configured media
 module whose `maxBytes` cannot be determined — not in the entry config and not defaulted by the module's
 own `configSchema` — fails the boot with a clear message instead of silently dropping the limit.
@@ -451,8 +450,11 @@ without it — additionally ends in `events.relay` (`appendRelay` in `compose.ts
 `index.ts`'s fold pass, after every feature's patches and `derive()`). The relay is not gated by
 `eventsQueue`: both delivery modules register the step, so the composed pipeline list and the response
 shape are the same regardless of mode — only whether the emit sits inside an atomic group differs.
-`events.relay` is never itself atomic-safe (`atomic-safe.ts` deliberately omits it), so boot rejects any
-attempt to put it inside a group; it always runs after the group's commit.
+`events.relay`'s own `describe()` never declares `atomicSafe`, so kestrel's boot rejects any attempt to
+put it inside a group; it always runs after the group's commit. `atomic-safe.ts` does not enforce this —
+it is a local list of every step this layer's shipped modules do declare `atomicSafe` for, which
+`boot.test.ts` asserts against the booted manifest so the list cannot drift from what those modules
+actually declare; `events.relay` is correctly absent from it.
 
 `appendRelay` inserts the step immediately after the entry carrying the emit — the emit itself when bare,
 or the atomic group it ends when folded — not necessarily at the very end of the pipeline: `restorePageRevision` ends

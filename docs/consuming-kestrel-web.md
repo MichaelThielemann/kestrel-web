@@ -1020,6 +1020,9 @@ stay checked alongside your addition.
   use the module with pipelines of your own instead of the preset's.
 - An `overrides` entry that drops the atomic group of a preset write pipeline → throws, naming the
   pipeline and the `content.*` step whose group it removed (see the `overrides` bullet above).
+- An `overrides` entry that keeps `events.relay` but places it before the entry carrying the pipeline's
+  own `events.emit:` step, or that keeps that emit outside the atomic group with the `eventsQueue`
+  feature → throws, naming the pipeline.
 
 ### Consumer-side prerequisites the preset cannot check
 
@@ -1342,8 +1345,8 @@ website public.
 
 | Endpoint | Meaning | 200 | Not 200 |
 | --- | --- | --- | --- |
-| `GET /api/health` | liveness — the process is up | `{ ok: true, uptimeSeconds }` | never |
-| `GET /api/ready` | readiness — the backend booted and its database answers | `{ ready: true, uptimeSeconds }` | `503 { ready: false, state, error? }` |
+| `GET /api/health` | liveness — the process is up and no module reports it needs a restart | `{ ok: true, uptimeSeconds }` | `503 { ok: false, error, uptimeSeconds }` once a module's `health()` says the process cannot recover on its own |
+| `GET /api/ready` | readiness — the backend booted and every module reports healthy | `{ ready: true, uptimeSeconds }` | `503 { ready: false, state, error? }` |
 
 One more route comes with the layer, for the admin rather than for an operator:
 
@@ -1358,11 +1361,12 @@ array `serializeCollections()` produces, in the order of your `contentTypes`, ea
 `x-content-type-options: nosniff` and `x-kestrel-run-id` headers as any backend answer. The response type
 is `AdminSchema` from `#kestrel-admin/types/api`. You configure nothing for it.
 
-`state` is `booting` (boot still running), `failed` (boot rejected) or `degraded` (booted, but the read
-against the database failed). Point a restart policy (Kubernetes `livenessProbe`, systemd, a process
-manager) at `/api/health` and traffic routing (`readinessProbe`, load-balancer health check) at
-`/api/ready` — `/api/health` deliberately keeps answering while the backend is broken, so that a boot
-failure does not turn into a restart loop.
+`state` is `booting` (boot still running), `failed` (boot rejected) or `degraded` (booted, but
+`kestrel.health()` reports a module unhealthy — a synchronous check with no I/O, never a database read).
+Point a restart policy (Kubernetes `livenessProbe`, systemd, a process manager) at `/api/health` and
+traffic routing (`readinessProbe`, load-balancer health check) at `/api/ready` — `/api/health` keeps
+answering 200 while merely `degraded`, so that a failure a restart cannot fix does not turn into a restart
+loop; it only turns 503 once a module's `health()` reports `restartRequired`.
 
 A boot failure is logged as one JSON line on stderr (`"kestrel failed to boot"` with the failing module
 and the reason) and, outside `nuxt dev`, ends the process with exit code 1; in `nuxt dev` the server
