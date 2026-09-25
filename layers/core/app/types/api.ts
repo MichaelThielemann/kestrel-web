@@ -16,8 +16,11 @@ type Schemas = components['schemas']
 /** The documented answer of an operation to a caller whose roles keep every field. */
 export type FullOf<Operation extends keyof Schemas & keyof operations> = Schemas[Operation]
 
+/** The operations that document an answer for a caller without a session: the reads ending with `authz.fields`. */
+export type AnonymousOperation = { [Operation in keyof operations & string]: `${Operation}.anonymous` extends keyof Schemas ? Operation : never }[keyof operations & string]
+
 /** The documented answer of an operation to a caller without a session: only the fields the anonymous grant keeps. */
-export type AnonymousOf<Operation extends keyof operations & string> = Schemas[`${Operation}.anonymous` & keyof Schemas]
+export type AnonymousOf<Operation extends AnonymousOperation> = Schemas[`${Operation}.anonymous` & keyof Schemas]
 
 type OkValue<T> = T extends Ok<infer V> ? V : never
 

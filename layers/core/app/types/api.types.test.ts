@@ -1,5 +1,5 @@
 import { describe, expectTypeOf, it } from 'vitest'
-import type { DeadEvent, EventDeliveryStatus, EventRelayStatus, MediaItem, PublishStatusEntry, RedirectHit, ReplicationSnapshotResult, ReplicationStatus, RevisionRestoreResponse, StaleStatus } from './api'
+import type { AnonymousOf, DeadEvent, EventDeliveryStatus, EventRelayStatus, MediaItem, PublishStatusEntry, RedirectHit, ReplicationSnapshotResult, ReplicationStatus, RevisionRestoreResponse, StaleStatus } from './api'
 
 interface ExpectedMediaItem {
   alt: string | null
@@ -139,5 +139,12 @@ describe('the public API types keep exactly their published shape', () => {
 
   it('RedirectHit narrows status to the codes a redirect rule can compile to', () => {
     expectTypeOf<RedirectHit>().toEqualTypeOf<{ status: 301 | 302 | 307 | 308, to: string }>()
+  })
+
+  it('AnonymousOf reads the anonymous answer of an operation that documents one, and refuses any other', () => {
+    expectTypeOf<AnonymousOf<'getMedia'>>().toHaveProperty('path')
+    expectTypeOf<AnonymousOf<'getMedia'>>().not.toHaveProperty('folder')
+    // @ts-expect-error createPage documents no anonymous answer
+    expectTypeOf<AnonymousOf<'createPage'>>().toBeNever()
   })
 })

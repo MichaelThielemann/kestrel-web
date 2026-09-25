@@ -2,7 +2,7 @@ import { resolve } from "node:path";
 import { pipelineSteps } from "@michaelthielemann/kestrel/definePipeline";
 import { describe, expect, it } from "vitest";
 import { anonymousFieldGrants, definePreset, featureOrder, presetModuleConfig } from "./index";
-import type { CollectionModel, Feature, PresetContentModel } from "./index";
+import type { CollectionModel, Feature, PresetContentModel, PresetOptions } from "./index";
 import { syntheticContentTypes } from "./__fixtures__/synthetic-collections";
 import { contentModel, contentTypes } from "../../../playground/shared/model";
 import fieldTypes from "../../../playground/shared/field-types";
@@ -213,7 +213,7 @@ describe("the derived grants definePreset keeps", () => {
   } satisfies Record<string, CollectionModel>;
   const features: readonly Feature[] = ["redirects", "images"];
 
-  function compose(anonymous: string[], preset: { exclude?: string[]; overrides?: Record<string, string[]>; anonymousFields?: Record<string, string[]> } = {}): Record<string, unknown> {
+  function compose(anonymous: string[], preset: Pick<PresetOptions<typeof types>, "exclude" | "overrides"> & { anonymousFields?: Record<string, string[]> } = {}): Record<string, unknown> {
     const modules = presetModuleConfig({
       dataDir: DATA_DIR,
       blobstore: { use: "@michaelthielemann/kestrel-blobstore-filesystem", config: { root: resolve(DATA_DIR, "blobs") } },
@@ -238,8 +238,7 @@ describe("the derived grants definePreset keeps", () => {
   });
 
   it("drops the grant of a collection whose every read an override keeps private without the cut", () => {
-    const overrides = { listNews: ["authn.requireUser", "authz.require:news.read", "content.list:news"], readNews: ["authn.requireUser", "authz.require:news.read", "content.get:news"] };
-    expect(compose(["*"], { overrides })).not.toHaveProperty("news");
+    expect(compose(["*"], { overrides: { listNews: ["authn.requireUser", "authz.require:news.read", "content.list:news"], readNews: ["authn.requireUser", "authz.require:news.read", "content.get:news"] } })).not.toHaveProperty("news");
   });
 
   it("keeps the grant while one read of the resource still ends with its cut", () => {
