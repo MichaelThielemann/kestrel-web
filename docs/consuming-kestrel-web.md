@@ -669,9 +669,11 @@ or a retry actually runs.
 **`sanitizeSvg` with `delivery`:** `delivery` publishes every uploaded file under `/media/` on the site
 origin, so `presetModuleConfig()` refuses a configuration in which `media-default` has `publicCopy` (which
 `delivery` sets) and accepts `image/svg+xml` while `sanitizeSvg` is off. It reads the configuration after
-`overrides` are applied, compares types in any letter case and counts `image/*`, `*/*` and `*` as
-accepting SVG. Turn `sanitizeSvg` on, or add `image/svg+xml` to `media.deniedTypes`. `create-kestrel`
-adds `sanitizeSvg` whenever `delivery` is chosen.
+`overrides` are applied and matches `allowedTypes` and `deniedTypes` the way `media-default` does
+(`mediaTypeAllowed` from `@michaelthielemann/kestrel-contracts/mediaType`): case and parameters are
+ignored, `*` and `*/*` match every type, `image/*` every image type, and a malformed pattern matches
+nothing. Turn `sanitizeSvg` on, or add `image/svg+xml` to `media.deniedTypes`. `create-kestrel` adds
+`sanitizeSvg` whenever `delivery` is chosen.
 
 **Event delivery status (every instance):** `GET /admin/events/delivery` (`system.manage`) answers
 `{ dead, scope, since, lastDeadAt }`, the deliveries the active delivery module gave up on — `scope:

@@ -1,4 +1,5 @@
 import { resolve } from "node:path";
+import { mediaTypeAllowed } from "@michaelthielemann/kestrel-contracts/mediaType";
 import { MEDIA_PUBLIC_PATH, MOUNT_PATH, RESERVED_PAGE_SEGMENTS } from "../mount-path";
 import { resolveWorkflow } from "../collections-ui/workflow";
 import type { WorkflowUi } from "../collections-ui/workflow";
@@ -113,7 +114,6 @@ const DEFAULT_MEDIA_MAX_BYTES = 5 * 1024 * 1024;
 const DEFAULT_MEDIA_ALLOWED_TYPES = ["image/*", "application/pdf"];
 const DEFAULT_MEDIA_DENIED_TYPES = ["text/html", "application/xhtml+xml"];
 const SVG_CONTENT_TYPE = "image/svg+xml";
-const SVG_PATTERNS: ReadonlySet<string> = new Set(["*", "*/*", "image/*", SVG_CONTENT_TYPE]);
 const MEDIA_MODULE = "@michaelthielemann/kestrel-media-default";
 const SANITIZE_SVG_MODULE = "@michaelthielemann/kestrel-sanitize-svg";
 const DEFAULT_LOGIN_BUCKET = { limit: 5, windowSeconds: 60 };
@@ -126,17 +126,17 @@ function requireOption<T>(value: T | undefined, name: string): T {
   return value;
 }
 
-function coversSvg(patterns: readonly unknown[]): boolean {
-  return patterns.some((pattern) => typeof pattern === "string" && SVG_PATTERNS.has((pattern.split(";")[0] ?? "").trim().toLowerCase()));
+function typePatterns(value: unknown): string[] | undefined {
+  return Array.isArray(value) ? value.filter((pattern): pattern is string => typeof pattern === "string") : undefined;
 }
 
 function assertSvgSanitized(modules: readonly ModuleEntry[]): void {
   const media = modules.find((entry) => entry.use === MEDIA_MODULE)?.config;
   if (typeof media !== "object" || media === null || !("publicCopy" in media) || media.publicCopy === undefined || media.publicCopy === null) return;
   if (modules.some((entry) => entry.use === SANITIZE_SVG_MODULE)) return;
-  const allowed = "allowedTypes" in media && Array.isArray(media.allowedTypes) ? media.allowedTypes : DEFAULT_MEDIA_ALLOWED_TYPES;
-  const denied = "deniedTypes" in media && Array.isArray(media.deniedTypes) ? media.deniedTypes : [];
-  if (!coversSvg(allowed) || coversSvg(denied)) return;
+  const allowed = ("allowedTypes" in media ? typePatterns(media.allowedTypes) : undefined) ?? DEFAULT_MEDIA_ALLOWED_TYPES;
+  const denied = ("deniedTypes" in media ? typePatterns(media.deniedTypes) : undefined) ?? [];
+  if (!mediaTypeAllowed(allowed, denied, SVG_CONTENT_TYPE)) return;
   throw new Error(
     `presetModuleConfig: media-default has publicCopy set (the "delivery" feature sets it) and its allowedTypes allow "${SVG_CONTENT_TYPE}", but the "sanitizeSvg" feature is not enabled`
     + ` – either add "sanitizeSvg" to features (it inserts sanitize.svg before media.upload) or deny "${SVG_CONTENT_TYPE}" in media.deniedTypes`,

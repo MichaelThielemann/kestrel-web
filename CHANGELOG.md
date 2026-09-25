@@ -265,8 +265,10 @@
   - `presetModuleConfig()` refuses to build when `media-default` ends up with `publicCopy` set (the
     `delivery` feature sets it) and allows `image/svg+xml` without the `sanitizeSvg` feature enabled: an
     unsanitized SVG is public at the same origin as the admin. The check reads the configuration after
-    `overrides` are applied, compares types case-insensitively and counts `image/*`, `*/*` and `*` as
-    allowing SVG. Add `sanitizeSvg` to `features` or deny the type in `media.deniedTypes`.
+    `overrides` are applied and matches types exactly as `media-default`'s own boot check does
+    (`mediaTypeAllowed` from `@michaelthielemann/kestrel-contracts/mediaType`: case and parameters are
+    ignored, `*` and `*/*` match every type, `image/*` every image type, and a malformed pattern nothing).
+    Add `sanitizeSvg` to `features` or deny the type in `media.deniedTypes`.
     `create-kestrel` preselects `sanitizeSvg` and adds it whenever `delivery` is chosen.
 
 ### Added

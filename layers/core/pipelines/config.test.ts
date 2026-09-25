@@ -273,6 +273,11 @@ describe("svg sanitize guard", () => {
     }
   });
 
+  it("lets a malformed pattern match nothing, allowed or denied", () => {
+    expect(() => presetModuleConfig({ ...playgroundOptions(), features: ["delivery"], media: { allowedTypes: ["image/svg+xml, text/html"] } })).not.toThrow();
+    expect(() => presetModuleConfig({ ...playgroundOptions(), features: ["delivery"], media: { deniedTypes: ["image/svg+xml,"] } })).toThrow(/sanitizeSvg/);
+  });
+
   it("does not treat another type family's wildcard as svg", () => {
     expect(() => presetModuleConfig({ ...playgroundOptions(), features: ["delivery"], media: { allowedTypes: ["application/*", "video/*"] } })).not.toThrow();
   });
