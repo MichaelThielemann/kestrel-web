@@ -363,6 +363,9 @@
 
 ### Added
 
+- `docs/deployment.md` and `docs/consuming-kestrel-web.md` §8/§9 document how redirects are served on a
+  static host: the `examples/nginx-njs` edge handler as the default, a generated nginx `map` and HTML
+  stubs as fallbacks without njs, and their tradeoffs.
 - System › Static delivery shows how many pages wait to be re-rendered, how many failed and how many were
   rendered before changes were tracked, with the progress of "Re-render all pages" and "Retry failed
   re-renders". The page editor shows when a page waits for or failed its re-render; the dashboard warns about

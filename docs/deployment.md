@@ -331,3 +331,18 @@ HTML with `Cache-Control: no-cache` and `/_nuxt/` as immutable, and answer an un
 with another page's HTML (no SPA fallback). §8 of the consuming guide has the nginx block. Forward `/api/`
 to the origin only for features of your own that need it after load (hybrid); those features then depend
 on the origin again, and the API's access list becomes the public boundary.
+
+### Redirects on a static host
+
+`redirects.json` is exported next to the pages, but a plain static host reads files, not JSON — nothing
+evaluates it unless something in front of the host does. The default is an edge handler:
+[`examples/nginx-njs`](https://github.com/MichaelThielemann/kestrel/tree/main/examples/nginx-njs) in the
+backend repository, an nginx configuration that polls `redirects.json` and answers matching requests
+with a real 30x before the static host is asked at all. It needs nginx built with the njs module at
+version 0.8.1 or newer. Without njs, a `map` generated from `redirects.json` at deploy time, or HTML
+stub files for a handful of fixed paths as a last resort, cover the same rules with less machinery and
+more limitations — §8/§9 of the consuming guide lay out all three with their tradeoffs.
+
+None of this applies to the Node origin: its site pipeline already answers a redirect before a page is
+resolved (§9 of the consuming guide), so a deployment that serves traffic from the Node process directly
+needs no edge handler.

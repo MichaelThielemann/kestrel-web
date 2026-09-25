@@ -1679,6 +1679,64 @@ being up, every visitor could reach the API, so its access list becomes the publ
 would mix the published snapshot with live data. The admin needs its own routing and access list either
 way (`runtimeConfig.kestrel.access.admin`).
 
+### Redirects at the edge
+
+With the `redirects` feature (§9), a publish also writes `redirects.json` next to the pages: an array of
+`{ pattern, target, status }`, each `pattern` an anchored regex and `target` its replacement with
+`$1`, `$2`, … for the capture groups. A static host serves files; nothing there reads this list unless
+something in front of it does. Three ways to do that, in the order to prefer them:
+
+**Default: an edge handler.**
+[`examples/nginx-njs`](https://github.com/MichaelThielemann/kestrel/tree/main/examples/nginx-njs) in the
+backend repository is a reference nginx configuration for exactly this case: two `js_periodic` handlers
+(nginx njs ≥ 0.8.1) fetch `redirects.json` on an interval and keep the last good list in a
+`js_shared_dict_zone` shared across worker processes; a cold-start burst polls every two seconds until
+the first successful fetch, then falls back to the steady interval. Every request is matched against
+the list before it reaches the static host at all — a hit returns the 30x directly with `Location` set
+from the pattern's capture groups, a miss falls through to the host unchanged. Point its `REDIRECTS_URL`
+at the exported `<prefix>redirects.json` and `ORIGIN_UPSTREAM` at your static host; the example's own
+README has the rest of the configuration and a smoke test. It needs an nginx build carrying the njs
+module (`nginx-module-njs` on Alpine/Debian) at version 0.8.1 or newer — `njs -v` inside the image
+reports it.
+
+**Without njs: a generated `map`.** `pattern` and `target` are already nginx `map`-compatible regex and
+replacement syntax, so a deploy step can turn `redirects.json` straight into one:
+
+```js
+// redirects-to-nginx-map.mjs — node redirects-to-nginx-map.mjs <redirects.json> <out.conf>
+import { readFileSync, writeFileSync } from "node:fs";
+
+const rules = JSON.parse(readFileSync(process.argv[2], "utf8"));
+const byStatus = new Map();
+for (const { pattern, target, status } of rules) {
+  if (!byStatus.has(status)) byStatus.set(status, []);
+  byStatus.get(status).push(`    ~${pattern}  ${target};`);
+}
+const maps = [...byStatus].map(
+  ([status, lines]) => `map $uri $redirect_${status} {\n    default "";\n${lines.join("\n")}\n}`,
+);
+const ifs = [...byStatus.keys()].map(
+  (status) => `  if ($redirect_${status}) { return ${status} $redirect_${status}; }`,
+);
+writeFileSync(process.argv[3], `${maps.join("\n\n")}\n\nserver {\n${ifs.join("\n")}\n}\n`);
+```
+
+nginx groups the rules by status because `return` needs a literal status code, not a variable. Run the
+script after every deploy (or whenever redirects change) and `include` its output inside the `server`
+block that serves the static host, ahead of `location /`.
+
+**Last resort: HTML stubs.** Where no edge configuration is reachable at all, write one HTML file per
+*fixed* redirect at deploy time — `<from>/index.html` with `<meta http-equiv="refresh" content="0;
+url=<to>">` and a visible link. The host answers these `200`, not `30x`: a stub is a page that redirects
+on load, not a redirect response, so it carries no `Location` header and most crawlers treat it as a much
+weaker signal for transferring a moved URL's ranking than a real 301. It also only covers the literal
+paths stubbed — a wildcard rule has no fixed set of paths to generate. Use it only where neither option
+above is possible.
+
+None of this is needed on the Node origin: its site pipeline answers a redirect before a page is even
+resolved (below) — this section is only for a plain static host serving the exported `site/` directory
+on its own.
+
 ## 9. Optional: redirects
 
 Add `redirects: { kind: "single", fields: { rules: { type: "json" } } }` to your content model and
@@ -1689,6 +1747,10 @@ the pipelines, triggers and `redirects.rules` schema; you only own the content t
 `status`); a matching request to `GET /site/*path` is answered with `{ redirect: { to, status } }` instead
 of a page, and `[...slug].vue` turns that into a real 30x via `navigateTo`. See
 `docs/architecture.md#redirects`.
+
+This is the Node origin's own resolution and needs nothing further. With static delivery (§8), the same
+rules are also exported as `redirects.json` for a plain static host to apply — see "Redirects at the
+edge" in §8.
 
 ## 9.5 Internal links in `settings`
 
