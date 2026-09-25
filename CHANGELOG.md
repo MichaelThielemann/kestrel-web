@@ -452,6 +452,10 @@
 
 ### Fixed
 
+- `DeadEvent`, `UserDeleteResponse`, `InsightsModule`, `InsightsPipelineStep` and `InsightsBootWarning` are
+  now derived from the generated OpenAPI types instead of hand-written duplicates, so they can no longer
+  drift from what the API actually returns. `InsightsModule` gains the `emits` field the API always sent.
+
 - The admin schema builder no longer imports `PipelineVerdict` from `kestrel-authz-roles`'s internal
   `/impl` subpath. It is now a local type derived from the same list its type guard checks, exported
   from `admin-capabilities`.

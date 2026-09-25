@@ -66,7 +66,7 @@ describe('moduleConfigSummary', () => {
 
   it('reports missing required variables (pre-status backend)', () => {
     const missing: InsightsModule = {
-      name: 'x', use: 'x', version: null, provides: [], requires: [], optional: [],
+      name: 'x', use: 'x', version: null, provides: [], requires: [], optional: [], emits: [],
       config: { schema: {}, variables: [{ path: 'a', type: 'string', required: true, secret: false, set: false }] },
       steps: [], eventHook: false, atomicScope: false,
     }
@@ -75,7 +75,7 @@ describe('moduleConfigSummary', () => {
 
   it('does not flag a required variable using its schema default as missing', () => {
     const usingDefault: InsightsModule = {
-      name: 'x', use: 'x', version: null, provides: [], requires: [], optional: [],
+      name: 'x', use: 'x', version: null, provides: [], requires: [], optional: [], emits: [],
       config: { schema: {}, variables: [{ path: 'a', type: 'string', required: true, default: 'inherited', secret: false, set: false, status: 'default' }] },
       steps: [], eventHook: false, atomicScope: false,
     }
@@ -84,7 +84,7 @@ describe('moduleConfigSummary', () => {
 
   it('trusts an explicit missing status over a stale true set flag', () => {
     const staleSet: InsightsModule = {
-      name: 'x', use: 'x', version: null, provides: [], requires: [], optional: [],
+      name: 'x', use: 'x', version: null, provides: [], requires: [], optional: [], emits: [],
       config: { schema: {}, variables: [{ path: 'a', type: 'string', required: true, secret: false, set: true, status: 'missing' }] },
       steps: [], eventHook: false, atomicScope: false,
     }

@@ -37,8 +37,8 @@ export interface LoginResponse { token: string; identity: Identity }
 
 export interface User { id: string; username: string; roles: string[]; active: boolean; createdAt: number }
 
-export interface UserReassignTarget { id: string; name: string }
-export interface UserDeleteResponse { ok: boolean; reassignTo: UserReassignTarget | null; _events: EventRelayStatus }
+export type UserDeleteResponse = ResponseOf<'deleteUser', 200>
+export type UserReassignTarget = NonNullable<UserDeleteResponse['reassignTo']>
 
 export interface ListPage<T> { items: T[]; total: number }
 
@@ -240,18 +240,9 @@ export interface InsightsConfigVariable {
   redacted?: boolean
 }
 
-export interface InsightsModule {
-  name: string
-  use: string
-  version: string | null
-  provides: string[]
-  requires: string[]
-  optional: string[]
-  config: { schema: JsonSchema; variables: InsightsConfigVariable[] }
-  steps: string[]
-  eventHook: boolean
-  atomicScope: boolean
-}
+type InsightsManifestBody = ResponseOf<'insightsManifest', 200>
+
+export type InsightsModule = Omit<InsightsManifestBody['modules'][number], 'config'> & { config: { schema: JsonSchema; variables: InsightsConfigVariable[] } }
 
 export interface InsightsStep {
   name: string
@@ -260,14 +251,7 @@ export interface InsightsStep {
   description: InsightsStepDescription | null
 }
 
-export interface InsightsPipelineStep {
-  spec: string
-  name: string
-  module: string
-  description: InsightsStepDescription
-  /** The 1-based ordinal of the atomic group this step belongs to; absent outside a group. */
-  atomic?: number
-}
+export type InsightsPipelineStep = InsightsManifestBody['pipelines'][number]['steps'][number]
 
 export interface InsightsPipeline { name: string; steps: InsightsPipelineStep[] }
 
@@ -275,7 +259,7 @@ export interface InsightsHttpTrigger { method: string; path: string; pipeline: s
 export interface InsightsEventTrigger { event: string; pipeline: string }
 export interface InsightsCronTrigger { expression: string; pipeline: string }
 
-export interface InsightsBootWarning { code: string; message: string; [field: string]: string }
+export type InsightsBootWarning = InsightsManifestBody['warnings'][number]
 
 export interface InsightsManifest {
   generatedAt: number
@@ -325,8 +309,8 @@ export interface EventsQueueStatus {
   worker: { running: boolean; lastTickAt: number | null }
 }
 
-export interface DeadEvent { id: string; name: string; pipeline: string; runId: string; attempts: number; error: string; createdAt: number; availableAt: number }
-export interface DeadEventsResponse { items: DeadEvent[] }
+export type DeadEventsResponse = ResponseOf<'eventsDead', 200>
+export type DeadEvent = DeadEventsResponse['items'][number]
 export interface EventsRetryResult { retried: number }
 
 export interface AdminSchemaLocales { all: string[]; primary: string; prefixPrimary: boolean }
