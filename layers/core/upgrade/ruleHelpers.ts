@@ -26,6 +26,17 @@ export function packageJsonPath(ctx: FileReadable): string {
   return join(ctx.root, "package.json");
 }
 
+export const LAYER_PACKAGE = "@michaelthielemann/kestrel-web";
+export const LAYER_RANGE = "^3.0.0";
+
+/** The declared range of `@michaelthielemann/kestrel-web` in the project's `package.json`, `undefined` when the dependency is missing or the file cannot be read. */
+export function layerPackageRange(ctx: FileReadable): string | undefined {
+  const source = ctx.readFile(packageJsonPath(ctx));
+  if (source === undefined) return undefined;
+  const escaped = LAYER_PACKAGE.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`"${escaped}"\\s*:\\s*"([^"]*)"`).exec(source)?.[1];
+}
+
 export function sharedModelFile(ctx: FileReadable): string {
   return join(ctx.root, "shared", "model.ts");
 }

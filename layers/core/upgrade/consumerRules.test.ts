@@ -111,11 +111,22 @@ describe("routeCacheRule", () => {
     });
     expect(await routeCacheRule.check(ctx)).toEqual([]);
   });
+
+  it("does nothing for a route rule that explicitly turns caching off (isr: false, cache: false)", async () => {
+    const ctx = projectWith({
+      "shared/model.ts": DELIVERY_MODEL,
+      "nuxt.config.ts": 'export default defineNuxtConfig({ routeRules: { "/about/**": { isr: false }, "/contact": { cache: false } } })\n',
+    });
+    expect(await routeCacheRule.check(ctx)).toEqual([]);
+  });
 });
 
+const OLD_LAYER_PACKAGE_JSON = '{ "dependencies": { "@michaelthielemann/kestrel-web": "^2.0.0" } }';
+const NEW_LAYER_PACKAGE_JSON = '{ "dependencies": { "@michaelthielemann/kestrel-web": "^3.0.0" } }';
+
 describe("publishAllRule", () => {
-  it("reminds to publish all once delivery is on", async () => {
-    const ctx = projectWith({ "shared/model.ts": DELIVERY_MODEL });
+  it("reminds to publish all once delivery is on and the layer is still on its 2.x range", async () => {
+    const ctx = projectWith({ "shared/model.ts": DELIVERY_MODEL, "package.json": OLD_LAYER_PACKAGE_JSON });
     const findings = await publishAllRule.check(ctx);
     expect(findings).toHaveLength(1);
     expect(findings[0]?.suggestion).toContain("Publish all");
@@ -123,7 +134,12 @@ describe("publishAllRule", () => {
   });
 
   it("says nothing without the delivery feature", async () => {
-    const ctx = projectWith({ "shared/model.ts": 'export const features = ["images"] as const satisfies readonly Feature[];\n' });
+    const ctx = projectWith({ "shared/model.ts": 'export const features = ["images"] as const satisfies readonly Feature[];\n', "package.json": OLD_LAYER_PACKAGE_JSON });
+    expect(await publishAllRule.check(ctx)).toEqual([]);
+  });
+
+  it("says nothing once the layer is already on its 3.x range (the reminder is one-time)", async () => {
+    const ctx = projectWith({ "shared/model.ts": DELIVERY_MODEL, "package.json": NEW_LAYER_PACKAGE_JSON });
     expect(await publishAllRule.check(ctx)).toEqual([]);
   });
 });

@@ -12,6 +12,7 @@ import type { ModuleDefinition } from "@michaelthielemann/kestrel/defineModule";
 import type { PipelineDefinition } from "@michaelthielemann/kestrel/definePipeline";
 import type { DataContentField, DataContentModel, DataContentType, LoadedProject, LoadIssue, LoadResult, PipelineFile } from "@michaelthielemann/kestrel-upgrade/plugin";
 import { kestrelAliases } from "./aliases";
+import { namedExportArray } from "./edits";
 import type { CapturedPreset } from "./pipelinesCapture";
 
 const execFileAsync = promisify(execFile);
@@ -20,10 +21,13 @@ const CAPTURE_WRAPPER = fileURLToPath(new URL("./pipelinesCapture.ts", import.me
 
 const SVG_NOT_SANITIZED_MESSAGE = 'the "sanitizeSvg" feature is not enabled';
 
-function configLoadIssue(err: unknown): LoadIssue {
+function configLoadIssue(err: unknown, configFile: string): LoadIssue {
   const message = err instanceof Error ? err.message : String(err);
   if (message.includes(SVG_NOT_SANITIZED_MESSAGE)) {
-    return { file: "shared/model.ts", message: `shared/model.ts's features is missing "sanitizeSvg": ${message}` };
+    const configSource = existsSync(configFile) ? readFileSync(configFile, "utf8") : undefined;
+    const inline = configSource !== undefined && namedExportArray(configSource, "features") !== undefined;
+    const file = inline ? "kestrel.config.ts" : "shared/model.ts";
+    return { file, message: `${file}'s features is missing "sanitizeSvg": ${message}` };
   }
   return { file: "kestrel.config.ts", message };
 }
@@ -177,7 +181,7 @@ export async function loadLayerProject(scratch: string): Promise<LoadResult> {
       const configModule = await jiti.import<{ default: KestrelConfigInput }>(pathToFileURL(configFile).href);
       config = boundaryCast<KestrelConfigInput>(configModule.default, "host");
     } catch (err) {
-      return { issues: [configLoadIssue(err)] };
+      return { issues: [configLoadIssue(err, configFile)] };
     }
 
     const issues: LoadIssue[] = [];

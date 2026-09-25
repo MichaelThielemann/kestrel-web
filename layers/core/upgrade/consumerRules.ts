@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { findCalls, firstArgument, isAstNode, objectProperty, parseTs, propertyKeyName, stringValue, walk } from "@michaelthielemann/kestrel-upgrade/codemods";
 import type { AstNode } from "@michaelthielemann/kestrel-upgrade/codemods";
 import type { Finding, SourceRule, SourceRuleContext } from "@michaelthielemann/kestrel-upgrade/plugin";
-import { deliveryEnabled, docsAnchor, manualFinding } from "./ruleHelpers";
+import { deliveryEnabled, docsAnchor, LAYER_RANGE, layerPackageRange, manualFinding } from "./ruleHelpers";
 
 const CONSUMER_APP_EXTENSIONS = [".ts", ".vue"];
 const SKIP_DIRS = new Set(["node_modules", ".nuxt", ".output", "dist"]);
@@ -183,6 +183,10 @@ function isPageRoute(pattern: string): boolean {
   return !RESERVED_ROUTE_PREFIXES.some((prefix) => pattern === prefix || pattern.startsWith(`${prefix}/`));
 }
 
+function turnsCachingOn(node: AstNode): boolean {
+  return !(node.type === "BooleanLiteral" && node.value === false);
+}
+
 /** `isr`/`cache`/`swr` turned on for a page route makes `delivery-static`'s publish fail; the reserved prefixes (`/api`, `/admin`, `/media`, `/_preview`, `/_nuxt`) are never page routes. */
 export const routeCacheRule: SourceRule = {
   id: "static/route-cache",
@@ -202,7 +206,10 @@ export const routeCacheRule: SourceRule = {
         const pattern = propertyKeyName(prop);
         const value = prop.value;
         if (pattern === undefined || !isPageRoute(pattern) || !isAstNode(value) || value.type !== "ObjectExpression") continue;
-        const cacheKey = ROUTE_CACHE_KEYS.find((k) => objectProperty(value, k) !== undefined);
+        const cacheKey = ROUTE_CACHE_KEYS.find((k) => {
+          const prop = objectProperty(value, k);
+          return prop !== undefined && turnsCachingOn(prop);
+        });
         if (cacheKey === undefined) continue;
         findings.push({
           id: `static/route-cache:${pattern}`,
@@ -226,7 +233,8 @@ export const publishAllRule: SourceRule = {
   id: "ops/publish-all",
   needs: "source",
   check(ctx) {
-    if (!deliveryEnabled(ctx)) return [];
+    const range = layerPackageRange(ctx);
+    if (!deliveryEnabled(ctx) || range === undefined || range === LAYER_RANGE) return [];
     return [
       {
         id: "ops/publish-all",

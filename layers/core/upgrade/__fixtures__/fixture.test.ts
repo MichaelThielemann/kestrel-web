@@ -301,3 +301,14 @@ describe("site-2.0-static-rules (the settings-key, route-cache and publish-all r
     expect(publishAll?.severity).toBe("warning");
   }, 60_000);
 });
+
+describe("site-2.0-inline-features (features declared directly in kestrel.config.ts, not imported from shared/model.ts)", () => {
+  it("names kestrel.config.ts, not shared/model.ts, as the file to fix", async () => {
+    const dir = await prepare("site-2.0-inline-features");
+    const report = await check(dir);
+
+    const loadFailed = report.findings.find((f) => f.rule === "load/failed");
+    expect(loadFailed?.where.file).toBe("kestrel.config.ts");
+    expect(loadFailed?.message).toContain("kestrel.config.ts's features is missing");
+  }, 60_000);
+});

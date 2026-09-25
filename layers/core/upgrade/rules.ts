@@ -11,10 +11,8 @@ import { addModuleEntryConfigProperty, addStringToNamedExportArray, bumpPackageJ
 import type { SourceRange } from "./edits";
 import { layerProjectData } from "./load";
 import { layerLocateSteps, ownPipelineSteps } from "./locators";
-import { autoFinding, docsAnchor, fileForPipeline, findFeaturesArrayFile, manualFinding, packageJsonPath, presetOptionsCast, resolvedArrayValues } from "./ruleHelpers";
+import { autoFinding, docsAnchor, fileForPipeline, findFeaturesArrayFile, LAYER_PACKAGE, LAYER_RANGE, layerPackageRange, manualFinding, packageJsonPath, presetOptionsCast, resolvedArrayValues } from "./ruleHelpers";
 
-const LAYER_RANGE = "^3.0.0";
-const LAYER_PACKAGE = "@michaelthielemann/kestrel-web";
 const EVENTS_QUEUE_MODULE = "@michaelthielemann/kestrel-events-queue";
 
 /**
@@ -29,10 +27,8 @@ export const layerRangeRule: SourceRule = {
   check(ctx) {
     const file = packageJsonPath(ctx);
     const source = ctx.readFile(file);
-    if (source === undefined) return [];
-    const match = new RegExp(`"${LAYER_PACKAGE.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"\\s*:\\s*"([^"]*)"`).exec(source);
-    const current = match?.[1];
-    if (current === undefined || current === LAYER_RANGE) return [];
+    const current = layerPackageRange(ctx);
+    if (source === undefined || current === undefined || current === LAYER_RANGE) return [];
     const edit = bumpPackageJsonDependency(file, source, LAYER_PACKAGE, LAYER_RANGE);
     return [
       {
