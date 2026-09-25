@@ -512,6 +512,9 @@
   reaches `done`; a failed upload (including the swallowed 401) shows its failed state without a
   false success announcement.
 
+- The `[...slug]` page now loads site settings and the share-image media item in parallel instead
+  of one after the other, cutting one round trip off every public page render.
+
 - `useReferrerLabels` now logs a lookup failure instead of silently falling back to the raw reference
   key the same way it does when the caller simply has no `readAny` capability for that collection. The
   fallback text is unchanged; only a genuine failure is now visible in the console.

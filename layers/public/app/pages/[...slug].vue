@@ -94,8 +94,10 @@ watchEffect(() => {
 })
 
 const siteUrl = useRuntimeConfig().public.siteUrl
-const { data: siteSettings } = await useSiteSettings(locale)
-const { data: shareItem } = await useMediaItem(() => page.value?.shareImage ?? null, locale)
+const [{ data: siteSettings }, { data: shareItem }] = await Promise.all([
+  useSiteSettings(locale),
+  useMediaItem(() => page.value?.shareImage ?? null, locale),
+])
 useHead(() => {
   const seo = page.value?.seo ?? {}
   const title = seo.title || page.value?.title || ''
