@@ -163,10 +163,40 @@ describe("privateFieldsRule", () => {
     expect(findings.map((f) => f.message).join("\n")).toContain("variants[].state");
   });
 
-  it("does not flag the same field name on an object never bound to useMediaItem()", async () => {
+  it("does not flag the same field name on an object the layer never loaded", async () => {
     const ctx = projectWith({
-      "app/pages/foo.vue": '<script setup lang="ts">\nconst page = useSitePage()\nconsole.log(page.value.createdAt)\n</script>\n',
+      "app/pages/foo.vue": '<script setup lang="ts">\nconst entry = useEntry()\nconsole.log(entry.value.createdAt, entry.value.folder)\n</script>\n',
     });
     expect(await privateFieldsRule.check(ctx)).toEqual([]);
+  });
+
+  it("flags a page timestamp read off useSitePage()", async () => {
+    const ctx = projectWith({
+      "app/components/PageDate.vue": '<script setup lang="ts">\nconst page = useSitePage()\nconst stamp = computed(() => page.value?.updatedAt)\n</script>\n',
+    });
+    const findings = await privateFieldsRule.check(ctx);
+    expect(findings).toHaveLength(1);
+    expect(findings[0]?.message).toContain('"updatedAt"');
+    expect(findings[0]?.message).toContain("page");
+    expect(findings[0]?.severity).toBe("info");
+    expect(findings[0]?.fix.kind).toBe("none");
+  });
+
+  it("flags a page timestamp read off the page data under a site: key", async () => {
+    const ctx = projectWith({
+      "app/composables/usePageDate.ts": "export function usePageDate(path: string) {\n  const { data } = useNuxtData(`site:${path}`)\n  return data.value?.createdAt\n}\n",
+    });
+    const findings = await privateFieldsRule.check(ctx);
+    expect(findings.map((f) => f.message).join("\n")).toContain('"createdAt"');
+  });
+
+  it("flags a page timestamp read off a value typed PageDocument, and leaves the settings key alone", async () => {
+    const ctx = projectWith({
+      "app/utils/stamp.ts": "import type { PageDocument } from '#kestrel-core/app/types/api'\nexport function stamp(page: PageDocument | null): number | undefined {\n  return page?.updatedAt\n}\n",
+      "app/utils/settings.ts": "export function title() {\n  const { data } = useNuxtData('site:settings:de')\n  return data.value?.updatedAt\n}\n",
+    });
+    const findings = await privateFieldsRule.check(ctx);
+    expect(findings).toHaveLength(1);
+    expect(findings[0]?.where.file).toContain("stamp.ts");
   });
 });

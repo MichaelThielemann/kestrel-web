@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { BootCheck } from "@michaelthielemann/kestrel";
 import type { Edit, LoadedProject, RuleContext } from "@michaelthielemann/kestrel-upgrade/plugin";
 import { applyEdits } from "@michaelthielemann/kestrel-upgrade/codemods";
-import { missingSanitizeSvgRule, overrideDeliveryRule, overrideGroupRule, overrideRelayRule, ownPipelineDeliveryRule, relayScopeRule } from "./rules";
+import { fieldGrantsRule, missingSanitizeSvgRule, overrideDeliveryRule, overrideGroupRule, overrideRelayRule, ownPipelineDeliveryRule, publicOverrideFieldStepRule, relayScopeRule } from "./rules";
 
 const FILE = "/fake/kestrel.config.ts";
 const SANITIZE_SVG_PACKAGE = "@michaelthielemann/kestrel-sanitize-svg";
@@ -647,3 +647,75 @@ describe("missingSanitizeSvgRule", () => {
   });
 });
 
+
+describe("publicOverrideFieldStepRule", () => {
+  function overrideContextFor(overrides: Record<string, string[]>): RuleContext {
+    const project: LoadedProject = {
+      input: { config: { modules: [], triggers: [], http: null }, modules: [], pipelines: Object.entries(overrides).map(([name, steps]) => ({ name, steps })) },
+      kind: "kestrel-web",
+      configFile: FILE,
+      moduleFiles: new Map(),
+      pipelineFiles: [{ file: FILE, pipelines: Object.keys(overrides) }],
+      data: { presetProblems: [], presetOptions: { ...presetOptions, overrides } },
+    };
+    return { root: "/fake", scratch: "/fake", project, bootCheck: { errors: [], warnings: [], notChecked: [] }, readFile: () => undefined, answers: new Map() };
+  }
+
+  it("names an override of a public read that does not end with its field step, and the step to append", async () => {
+    const findings = await publicOverrideFieldStepRule.check(overrideContextFor({ getMedia: ["authn.identifyUser", "authz.require:media.read", "media.get"] }));
+    expect(findings).toHaveLength(1);
+    expect(findings[0]).toMatchObject({ rule: "pipelines/public-override-field-step", severity: "info", tier: "source", where: { pipeline: "getMedia", file: FILE }, fix: { kind: "none" } });
+    expect(findings[0]?.suggestion).toContain('"authz.fields:media?shape=item"');
+  });
+
+  it("names a collection's public read by the collection's resource", async () => {
+    const findings = await publicOverrideFieldStepRule.check(overrideContextFor({ listPages: ["authn.identifyUser", "authz.require:pages.read", "content.list:pages?status=published"] }));
+    expect(findings[0]?.suggestion).toContain('"authz.fields:pages?shape=list"');
+  });
+
+  it("says nothing for an override that ends with a field step, or of a pipeline no anonymous caller reads", async () => {
+    const findings = await publicOverrideFieldStepRule.check(
+      overrideContextFor({
+        getMedia: ["authn.identifyUser", "authz.require:media.read", "media.get", "authz.fields:media?shape=item"],
+        updatePage: ["authn.requireUser", "authz.require:pages.write", "content.update:pages"],
+      }),
+    );
+    expect(findings).toEqual([]);
+  });
+});
+
+describe("fieldGrantsRule", () => {
+  const CONTENT = { use: "@michaelthielemann/kestrel-content-default", config: { locales: ["de", "en"], defaultLocale: "de", types: { settings: { kind: "single", fields: { title: { type: "text" } } }, pages: presetOptions.collections.pages } } };
+
+  function grantsContextFor(authz: Record<string, unknown>, layerRange: string): RuleContext {
+    const project: LoadedProject = {
+      input: { config: { modules: [CONTENT, { use: "@michaelthielemann/kestrel-authz-roles", config: authz }], triggers: [], http: null }, modules: [], pipelines: [] },
+      kind: "kestrel-web",
+      configFile: FILE,
+      moduleFiles: new Map(),
+      pipelineFiles: [],
+      data: { presetProblems: [], presetOptions: { ...presetOptions, features: ["images"] } },
+    };
+    const packageJson = `{ "dependencies": { "@michaelthielemann/kestrel-web": "${layerRange}" } }`;
+    return { root: "/fake", scratch: "/fake", project, bootCheck: { errors: [], warnings: [], notChecked: [] }, readFile: (file) => (file === "/fake/package.json" ? packageJson : undefined), answers: new Map() };
+  }
+
+  it("shows a hand-written authz-roles entry without grants the grants the preset derives for its model", async () => {
+    const findings = await fieldGrantsRule.check(grantsContextFor({ roles: { admin: ["*"] }, anonymous: ["pages.read"] }, "^3.0.0"));
+    expect(findings).toHaveLength(1);
+    expect(findings[0]).toMatchObject({ rule: "preset/field-grants", severity: "info", fix: { kind: "none" } });
+    expect(findings[0]?.suggestion).toContain('pages: ["id", "slug", "title", "body", "_locales", "_translations", "_locale", "_links"]');
+    expect(findings[0]?.suggestion).toContain('"variants[].path"');
+  });
+
+  it("tells a presetModuleConfig() project on its 2.x range once what anonymous callers keep", async () => {
+    const findings = await fieldGrantsRule.check(grantsContextFor({ roles: { admin: ["*"] }, anonymous: ["pages.read"], anonymousFields: { pages: ["id", "title"], media: ["id", "path"] } }, "^2.0.1"));
+    expect(findings).toHaveLength(1);
+    expect(findings[0]?.message).toContain("pages: id, title");
+    expect(findings[0]?.suggestion).toContain("roles.anonymousFields");
+  });
+
+  it("says nothing once the grants are set and the layer is on its 3.x range", async () => {
+    expect(await fieldGrantsRule.check(grantsContextFor({ roles: { admin: ["*"] }, anonymous: [], anonymousFields: { media: ["id"] } }, "^3.0.0"))).toEqual([]);
+  });
+});

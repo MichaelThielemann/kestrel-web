@@ -5,6 +5,10 @@ import type { Edit, Finding, Rule, RuleContext, SourceRule, SourceRuleContext } 
 import { pipelineSteps } from "@michaelthielemann/kestrel/definePipeline";
 import type { PipelineDefinition, PipelineEntry } from "@michaelthielemann/kestrel/definePipeline";
 import { checkPreset, relayPipelinesFor } from "../pipelines/checkPreset";
+import { DEFAULT_COLLECTIONS } from "../pipelines/collections";
+import type { CollectionModel } from "../pipelines/collections";
+import { anonymousFieldGrants, fieldCutSteps } from "../pipelines/field-grants";
+import type { FieldGrantModel, FieldGrants } from "../pipelines/field-grants";
 import type { PresetOptions } from "../pipelines/checkPreset";
 import { consumerRules } from "./consumerRules";
 import { DEPENDENTS_PROBLEM_CODES, dependentsRules } from "./dependentsRules";
@@ -14,6 +18,7 @@ import type { SourceRange } from "./edits";
 import { layerProjectData } from "./load";
 import { layerLocateSteps, ownPipelineSteps } from "./locators";
 import { autoFinding, docsAnchor, fileForPipeline, findFeaturesArrayFile, LAYER_PACKAGE, LAYER_RANGE, layerPackageRange, manualFinding, packageJsonPath, presetOptionsCast, resolvedArrayValues } from "./ruleHelpers";
+import { boundaryCast } from "@michaelthielemann/kestrel/cast";
 
 const EVENTS_QUEUE_MODULE = "@michaelthielemann/kestrel-events-queue";
 
@@ -518,6 +523,112 @@ export const overrideRelayRule: Rule = {
   },
 };
 
+/**
+ * An override of a read the preset ends with `authz.fields` replaces the whole step list, the field step
+ * included; boot refuses it while an anonymous caller can reach it. Names the step to append — information
+ * only, since kestrel's own `pipelines/field-step` offers the edit once boot reports it.
+ */
+export const publicOverrideFieldStepRule: Rule = {
+  id: "pipelines/public-override-field-step",
+  check(ctx) {
+    const cast = presetOptionsCast(ctx);
+    if (cast === undefined) return [];
+    const cuts = fieldCutSteps(cast.collections ?? DEFAULT_COLLECTIONS);
+    const findings: Finding[] = [];
+    for (const name of Object.keys(cast.overrides ?? {})) {
+      const step = cuts[name];
+      if (step === undefined) continue;
+      const steps = pipelineSteps(ctx.project.input.pipelines.find((p) => p.name === name)?.steps ?? []);
+      if (steps.at(-1)?.startsWith("authz.fields:") === true) continue;
+      const file = fileForPipeline(ctx, name);
+      findings.push({
+        id: `pipelines/public-override-field-step:${name}`,
+        rule: "pipelines/public-override-field-step",
+        severity: "info",
+        tier: "source",
+        where: file === undefined ? { pipeline: name } : { pipeline: name, file },
+        message: `override for "${name}" does not end with "${step}", which the preset's default ends with; the server does not start while anonymous callers can reach it`,
+        suggestion: `append "${step}" as the override's last step, so that a visitor without a session receives only the fields anonymousFields grants`,
+        fix: { kind: "none" },
+        docs: docsAnchor("pipelines-public-override-field-step"),
+      });
+    }
+    return findings;
+  },
+};
+
+const AUTHZ_ROLES_MODULE = "@michaelthielemann/kestrel-authz-roles";
+const CONTENT_MODULE = "@michaelthielemann/kestrel-content-default";
+
+function recordOf(value: unknown): Record<string, unknown> | undefined {
+  return typeof value === "object" && value !== null && !Array.isArray(value) ? Object.fromEntries(Object.entries(value)) : undefined;
+}
+
+function moduleConfig(ctx: RuleContext, use: string): Record<string, unknown> | undefined {
+  return recordOf(ctx.project.input.config.modules.find((entry) => entry.use === use)?.config);
+}
+
+function grantModel(ctx: RuleContext): FieldGrantModel {
+  const content = moduleConfig(ctx, CONTENT_MODULE);
+  const locales = Array.isArray(content?.locales) ? content.locales.filter((locale): locale is string => typeof locale === "string") : undefined;
+  const types = boundaryCast<Record<string, CollectionModel>>(recordOf(content?.types) ?? {}, "host");
+  return locales === undefined ? { types } : { locales, types };
+}
+
+function grantsLiteral(grants: FieldGrants): string {
+  return `anonymousFields: { ${Object.entries(grants).map(([resource, paths]) => `${resource}: [${paths.map((path) => JSON.stringify(path)).join(", ")}]`).join(", ")} }`;
+}
+
+/**
+ * What callers without a session keep of each answer. A hand-written `authz-roles` entry without
+ * `anonymousFields` gets the grants `presetModuleConfig()` would derive for the loaded content model and
+ * features, to copy; a project whose grants are set, while its layer range is still 2.x, is told once which
+ * fields its visitors keep. Information only: `pipelines/field-step` writes the grants when answered.
+ */
+export const fieldGrantsRule: Rule = {
+  id: "preset/field-grants",
+  check(ctx) {
+    const cast = presetOptionsCast(ctx);
+    const authz = moduleConfig(ctx, AUTHZ_ROLES_MODULE);
+    if (cast === undefined || authz === undefined) return [];
+    const docs = docsAnchor("preset-field-grants");
+    const where = { module: AUTHZ_ROLES_MODULE, file: ctx.project.configFile };
+    const configured = recordOf(authz.anonymousFields);
+    if (configured === undefined) {
+      const derived = anonymousFieldGrants(grantModel(ctx), cast.features ?? []);
+      return [
+        {
+          id: "preset/field-grants",
+          rule: "preset/field-grants",
+          severity: "info",
+          tier: "source",
+          where,
+          message: "authz-roles is configured by hand without anonymousFields: the preset's public reads end with authz.fields, and the server does not start while they grant anonymous callers nothing",
+          suggestion: `add ${grantsLiteral(derived)} to its config, the grants presetModuleConfig() derives for this model and these features`,
+          fix: { kind: "none" },
+          docs,
+        },
+      ];
+    }
+    const range = layerPackageRange(ctx);
+    if (range === undefined || range === LAYER_RANGE) return [];
+    const kept = Object.entries(configured).map(([resource, paths]) => `${resource}: ${Array.isArray(paths) ? paths.join(", ") : ""}`);
+    return [
+      {
+        id: "preset/field-grants",
+        rule: "preset/field-grants",
+        severity: "info",
+        tier: "source",
+        where,
+        message: `visitors without a session keep only these fields of the answers they read — ${kept.join("; ")}; every other field is cut`,
+        suggestion: "set roles.anonymousFields in presetModuleConfig() to grant a resource differently",
+        fix: { kind: "none" },
+        docs,
+      },
+    ];
+  },
+};
+
 export const layerRules: readonly Rule[] = [
   layerRangeRule,
   relayScopeRule,
@@ -529,6 +640,8 @@ export const layerRules: readonly Rule[] = [
   overrideGroupRule,
   overrideRelayRule,
   overrideEmitRule,
+  publicOverrideFieldStepRule,
+  fieldGrantsRule,
   ...dependentsRules,
   ...consumerRules,
 ];
