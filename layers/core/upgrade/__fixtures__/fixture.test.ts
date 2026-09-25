@@ -173,6 +173,12 @@ describe("site-2.0 (create-kestrel template shape, presetModuleConfig, no overri
     expect(fixedProject.input.modules.some((m) => m.name === "events/queue")).toBe(true);
     expect(fixedProject.input.modules.some((m) => m.name === "events/direct")).toBe(false);
 
+    // The engine's own package.json swap (offer/event-queue's withPackageJsonFallback), not a second edit
+    // of the layer's switchEdits: this plugin's own edits never touch package.json.
+    const pkg = JSON.parse(readFileSync(join(dir, "package.json"), "utf8"));
+    expect(pkg.dependencies).toHaveProperty("@michaelthielemann/kestrel-events-queue");
+    expect(pkg.dependencies).not.toHaveProperty("@michaelthielemann/kestrel-events-direct");
+
     const status = await bootAndLogin({ ...fixedProject.input, root: dir });
     expect(status).toBe(200);
   }, 60_000);
