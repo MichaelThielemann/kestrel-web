@@ -466,7 +466,7 @@ describe('MediaLibrary multi-pick with ids the field already holds', () => {
     await vi.waitFor(() => expect(wrapper.emitted('confirm')).toEqual([[['f1']]]))
   }, 10000)
 
-  it('refuses a new pick from another folder, disables "Use selected" while it is unavailable, and enables it again once it becomes available', async () => {
+  it('refuses a new pick from another folder, disables "Use selected" while it is unavailable, and clears the refusal and enables it again once it becomes available', async () => {
     schema.features = ['images']
     let f2Available = false
     const f1 = pickItem('f1', 'stored.jpg', '', true)
@@ -490,9 +490,44 @@ describe('MediaLibrary multi-pick with ids the field already holds', () => {
 
     f2Available = true
     await vi.waitFor(() => expect(useSelectedButton(wrapper).attributes('disabled')).toBeUndefined(), { timeout: 6000 })
+    expect(wrapper.find('.media-pick-bar [role="alert"]').exists()).toBe(false)
     await useSelectedButton(wrapper).trigger('click')
     await vi.waitFor(() => expect(wrapper.emitted('confirm')).toEqual([[['f1', 'f2']]]))
   }, 12000)
+
+  it('emits the selection as it stands when the check returns, checking a file picked while it ran', async () => {
+    const f2 = pickItem('f2', 'first.jpg', '', true)
+    const f3 = pickItem('f3', 'second.jpg', '', true)
+    let release: () => void = () => {}
+    const gate = new Promise<void>((resolve) => { release = resolve })
+    unregisterAll.push(registerEndpoint('/api/media/folders', { method: 'GET', handler: () => [] }))
+    unregisterAll.push(registerEndpoint('/api/media', {
+      method: 'GET',
+      handler: async (event) => {
+        const query = getQuery(event)
+        if (typeof query.ids !== 'string') return { items: [f2, f3], total: 2 }
+        idsQueries.push(query.ids)
+        if (idsQueries.length === 1) await gate
+        const items = query.ids.split(',').map((id) => ({ f2, f3 })[id]).filter((item): item is MediaItem => item !== undefined)
+        return { items, total: items.length }
+      },
+    }))
+
+    const wrapper = await mountSuspended(MediaLibrary, { props: { pick: true, multiple: true }, attachTo: document.body })
+    onTestFinished(() => wrapper.unmount())
+
+    await vi.waitFor(() => expect(wrapper.find('[data-test="file-f3"]').exists()).toBe(true))
+    await wrapper.get('[data-test="file-f2"]').trigger('click')
+    await useSelectedButton(wrapper).trigger('click')
+    await vi.waitFor(() => expect(idsQueries).toEqual(['f2']))
+
+    await wrapper.get('[data-test="file-f2"]').trigger('click')
+    await wrapper.get('[data-test="file-f3"]').trigger('click')
+    release()
+
+    await vi.waitFor(() => expect(wrapper.emitted('confirm')).toEqual([[['f3']]]))
+    expect(idsQueries).toEqual(['f2', 'f3'])
+  })
 
   it('sends one check per confirm and keeps "Use selected" busy while it runs', async () => {
     const f2 = pickItem('f2', 'new.jpg', '', true)
