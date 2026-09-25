@@ -309,7 +309,7 @@ An app that extends `kestrel-web` provides, at its root:
 
 | file | purpose |
 |---|---|
-| `kestrel.config.ts` | `defineConfig({ modules, triggers, http: null })` — the backend's module config and HTTP-trigger routing; also exports `preset` (`definePreset({ modules, features, collections })`, see **Pipeline presets**). The `modules` list comes from `presetModuleConfig()` (see **Consumer module config**); writing it out by hand stays supported. |
+| `kestrel.config.ts` | `defineConfig({ modules, triggers, http: null })` — the backend's module config and HTTP-trigger routing; also exports `preset` (`definePreset({ modules, features, collections, ...pipelineChanges })`, see **Pipeline presets**; the same `pipelineChanges` go to `presetModuleConfig({ pipelines })`). The `modules` list comes from `presetModuleConfig()` (see **Consumer module config**); writing it out by hand stays supported. |
 | `kestrel.modules.ts` *(optional)* | The module *implementations*, one per entry in `kestrel.config.ts`'s `modules`, same order. Needed only when a `modules` entry isn't a standard `@michaelthielemann/kestrel-*` package — see **Module registry**. |
 | `pipelines/index.ts` *(optional)* | Exports `pipelines`, the list of pipeline definitions referenced by `kestrel.config.ts` triggers — `[...preset.pipelines, ...ownPipelines]`. Needed only once you have pipelines of your own. |
 | `shared/model.ts` | The content model — `locales`, `defaultLocale`, `prefixPrimary` (whether public URLs prefix the default locale too — the backend never does), `contentTypes` — and `features`, the `Feature[]` list passed to `definePreset`/`presetSchemas`/`presetCollectionsUi`. Backend config: consumed by `kestrel.config.ts`, by `shared/collections-ui.ts` and, server-side, by the `GET /api/admin/schema` route (so backend and admin UI can't drift). The admin browser bundle does not import it. |
@@ -538,13 +538,16 @@ callers: a document's `createdAt` and `updatedAt`, a media item's `folder`, time
 `variantCounts`, a variant's `bytes` and `state`, and any other file header. `roles.anonymousFields`
 replaces the grant of a resource it names (an empty list removes it), and `roles.fields` is passed through.
 
-`definePreset` (and the upgrade tool's stand-in for it) then drops, from that `authz-roles` entry, the
-derived grant of every resource no composed pipeline ends with a cut for: kestrel refuses a grant whose
-resource nothing cuts, and excluding every read of a collection, or overriding them behind a session, must
-keep booting. `presetModuleConfig` records which resources it derived (a `WeakMap` keyed by the grants
-object in `field-grants.ts`), so a grant the consumer named, or an `authz-roles` entry written by hand,
-is never touched. A consumer pipeline that cuts a resource whose preset reads are all excluded therefore
-needs that resource in `roles.anonymousFields`.
+`presetModuleConfig` also takes the `exclude` and `overrides` the consumer gives `definePreset`, as its
+`pipelines` option, and derives no grant for a resource whose every preset read they exclude or override
+without its cut (`presetCutResources` in `field-grants.ts`; a read whose feature is off counts as absent).
+The derivation is a pure function of its options: `definePreset` never touches the module list, so cloning
+it or composing several presets from it is safe. kestrel refuses a grant whose resource no pipeline cuts;
+when a consumer passes different changes to the two functions, that refusal is the result, and the Nitro
+plugin adds to it (`server/utils/field-grant-hint.ts`) that both functions need the same `exclude` and
+`overrides`. The template and the playground keep them in one `PresetPipelineChanges` object passed to
+both. A consumer pipeline that cuts a resource whose preset reads are all excluded needs that resource in
+`roles.anonymousFields`; `preset/field-grants` in the upgrade tool reports both cases before boot.
 
 ## Content migrations
 A consumer that changes a block's props or a collection's field shape needs existing documents rewritten,

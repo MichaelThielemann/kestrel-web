@@ -254,10 +254,13 @@ content model already filled in. What stays in the file is what is genuinely you
 import { defineConfig } from "@michaelthielemann/kestrel/defineConfig";
 import { adminPasswordHash, envBlobstore, kestrelDataDir } from "#kestrel/config";
 import { definePreset, presetModuleConfig } from "#kestrel/pipelines";
+import type { PresetPipelineChanges } from "#kestrel/pipelines";
 import { contentModel, contentTypes, features } from "./shared/model"; // add a feature name once you want it — see §4
 import collectionsUi from "./shared/collections-ui";
 
 const dataDir = kestrelDataDir();
+
+const pipelineChanges: PresetPipelineChanges<typeof contentTypes> = {}; // your exclude and overrides — see §4
 
 const modules = presetModuleConfig({
   dataDir,
@@ -270,9 +273,10 @@ const modules = presetModuleConfig({
     anonymous: ["pages.read", "settings.read", "media.read"],
   },
   bootstrap: { username: "admin", passwordHash: adminPasswordHash() },
+  pipelines: pipelineChanges,
 });
 
-export const preset = definePreset({ modules, features, collections: contentTypes, collectionsUi });
+export const preset = definePreset({ modules, features, collections: contentTypes, collectionsUi, ...pipelineChanges });
 
 export default defineConfig({
   modules,
@@ -313,6 +317,7 @@ calls them before it has read a schema at all.
 | `revisions` | no | — `{ keep?, maxSnapshotBytes?, pruneOnWrite?, maxLimit? }`, passed through to `revisions-default`; used only with the `revisions` feature (§4) |
 | `audit` | no | — `{ retentionDays? }`, passed through to `audit-persistence`; used only with the `audit` feature. It is what turns the `pruneAudit` cron on (§4) |
 | `overrides` | no | — per-module escape hatch, keyed by package name, shallow-merged onto that module's derived config |
+| `pipelines` | no | `{}` — the `exclude` and `overrides` you give `definePreset()`, the same object (`PresetPipelineChanges`); a resource whose every preset read they exclude or override without its `authz.fields` step gets no derived anonymous field grant (§4) |
 
 `blobstore`, `roles` and `bootstrap` have no default at all — a missing one throws naming the option
 rather than booting with something plausible.
@@ -662,10 +667,24 @@ its files; `x.*` and `*` count as in `authz-roles`) and for the redirect rules, 
 | `redirectRules` | `pattern`, `target`, `status` (with `redirects`) |
 
 Everything else is cut for them: a document's `createdAt` and `updatedAt`, a media item's `folder`,
-timestamps, `available` and `variantCounts`, and a variant's `bytes` and `state`. `definePreset()` then
-drops the derived grant of a resource none of its composed reads ends with a cut for — every read of it
-excluded, or overridden without the field step behind a session — so excluding or keeping private all
-reads of a collection needs no grant change.
+timestamps, `available` and `variantCounts`, and a variant's `bytes` and `state`.
+
+`presetModuleConfig()` takes the `exclude` and `overrides` you give `definePreset()` as its `pipelines`
+option, and derives no grant for a resource whose every preset read they exclude or override without its
+field step, so excluding or keeping private all reads of a collection needs no grant change. Pass one
+object to both functions, as the example in §3 does with `pipelineChanges`:
+
+```ts
+const pipelineChanges: PresetPipelineChanges<typeof contentTypes> = {
+  exclude: ["listNews", "readNews"],
+};
+const modules = presetModuleConfig({ …, pipelines: pipelineChanges });
+export const preset = definePreset({ modules, …, ...pipelineChanges });
+```
+
+Given only to `definePreset()`, the server does not start: `authz-roles` refuses the grant it derived
+for `news`, which no pipeline cuts any more, and the message names the resource and says to pass the same
+`exclude` and `overrides` to both functions.
 
 The model is the public contract: a field you add to a content type is public on every published
 document. To keep a field from visitors, narrow the grant of its resource in `roles.anonymousFields` —
@@ -699,8 +718,9 @@ when a grant you named in `roles.anonymousFields` has a resource no pipeline cut
 
 The rules for your own pipelines follow from kestrel's boot check:
 
-- **An override of one of these reads** replaces the step list whole. While anonymous callers can reach
-  it, it ends with the same `authz.fields:…` step, or the server does not start
+- **An override of one of these reads** replaces the step list whole. Write it in the pipeline changes
+  object both preset functions get. While anonymous callers can reach it, it ends with the same
+  `authz.fields:…` step, or the server does not start
   (`pipeline "getMedia" answers anonymous callers but does not end with authz.fields:<resource>?shape=item`).
   An override behind `authn.requireUser`, or of a read whose permission `anonymous` does not hold, needs no
   step; keep it anyway if you may grant the read to visitors later.
@@ -708,7 +728,9 @@ The rules for your own pipelines follow from kestrel's boot check:
   result ends with `authz.fields:<resource>?shape=<shape>` too, and `roles.anonymousFields` grants that
   resource's fields unless it is one of the resources above and a preset read of it still ends with its
   cut. When you exclude every preset read of a resource and read it through your own pipeline, name the
-  resource in `roles.anonymousFields`. The boot message names the shape the declared output needs.
+  resource in `roles.anonymousFields`; `kestrel-web-upgrade check` (`preset/field-grants`) reports a
+  pipeline that needs such a grant before the server refuses to start. The boot message names the shape
+  the declared output needs.
 - **A step of your own that answers early** with `ctx.done()` declares `terminalOutput`; a run that ends
   this way without it fails, and in a pipeline anonymous callers reach every member of that early answer
   needs a grant, or the server does not start.
@@ -1086,6 +1108,9 @@ entirely — their pipelines and routes are hand-written in the preset.
   deliberately outside every group: the database stays consistent, and the published artefact may lag
   only when the relay itself fails, which **Publish all** then repairs in the background.
 - `exclude` removes a preset pipeline **and** its trigger(s) — same for collection-derived names.
+- Keep `overrides` and `exclude` in one `PresetPipelineChanges` object that `presetModuleConfig({ pipelines
+  })` gets too (§3): the anonymous field grants follow which public reads survive them (§4, "What a visitor
+  without a session receives").
 - `schedules` changes a cron pipeline's schedule.
 - `exportDir` — media/image export directory (default `<KESTREL_APP_ROOT>/data/export`; `KESTREL_APP_ROOT` is the app root in dev and the environment variable or process cwd of a production server).
 - `homeSlug` — the slug resolved at `/` (default `"home"`).
@@ -1817,8 +1842,11 @@ What changes:
   - An override of a read anonymous callers reach keeps `authz.fields:<resource>?shape=<shape>` as its last
     step; `pipelines/public-override-field-step` names the step for each override that lacks it, says when
     the override is harmless because visitors cannot reach it, and notes a field step that cuts another
-    resource than the preset's. Excluding every read of a resource, or overriding them behind a session,
-    needs no change: its derived grant is dropped.
+    resource than the preset's. Move your `exclude` and `overrides` into one `PresetPipelineChanges`
+    object and pass it to `presetModuleConfig({ pipelines })` as well: a resource whose every read it
+    excludes, or overrides behind a session, then gets no derived grant. `preset/field-grants` reports a
+    derived grant no pipeline cuts because the two functions got different changes, and an own pipeline
+    whose resource needs a grant you name.
   - A pipeline of your own that anonymous callers reach ends with the step as well; `pipelines/field-step`
     appends it when it can tell the resource from the step that reads the answer.
   - A page keeps that shape for every viewer: its data (`useSitePage()`, the `site:<path>` key) carries no

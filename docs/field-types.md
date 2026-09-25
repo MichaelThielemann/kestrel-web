@@ -58,8 +58,8 @@ an empty map.
 ```ts
 import fieldTypes from "./shared/field-types";
 
-const modules = presetModuleConfig({ …, model: contentModel, fieldTypes });
-export const preset = definePreset({ modules, features, collections: contentTypes, fieldTypes });
+const modules = presetModuleConfig({ …, model: contentModel, fieldTypes, pipelines: pipelineChanges });
+export const preset = definePreset({ modules, features, collections: contentTypes, fieldTypes, ...pipelineChanges });
 ```
 
 `presetModuleConfig` resolves every declared type to its storage type *before* the content model

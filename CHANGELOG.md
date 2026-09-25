@@ -340,8 +340,11 @@
   (`useSitePage()`, the page's `site:` data). The preset grants, for the content types and media
   `roles.anonymous` may read, every model field and the public media fields and file headers, and the
   redirect rules; a media item's `folder`, timestamps, `available` and `variantCounts`, a variant's `bytes`
-  and `state` and every other file header are cut. `definePreset()` drops the derived grant of a resource
-  whose every read you exclude or override behind a session. Set `roles.anonymousFields` in
+  and `state` and every other file header are cut. `presetModuleConfig()` takes the `exclude` and
+  `overrides` you give `definePreset()` as its new `pipelines` option and derives no grant for a resource
+  whose every preset read they exclude or override without its field step; pass one
+  `PresetPipelineChanges` object to both, as the template now does, or the server does not start when you
+  exclude every read of an anonymously readable resource. Set `roles.anonymousFields` in
   `presetModuleConfig()` to grant a resource differently, field by field (an empty list removes it);
   `roles.fields` gives a role its own grants. Show a date on a page through a field of your content model.
   - A hand-written module list adds `anonymousFields` to its `authz-roles` entry, or the server does not
@@ -429,15 +432,20 @@
   `/api` reads.
 - `GET /admin/events/status`'s response gains `lanes`: per configured named lane, `pending`, `running` and
   `oldestPendingAt`, alongside the existing per-state totals.
-- `anonymousFieldGrants(model, features, anonymous)` and `fieldCutSteps(collections)` in
+- `anonymousFieldGrants(model, features, anonymous, changes?)` and `fieldCutSteps(collections)` in
   `#kestrel/pipelines`: the grants `presetModuleConfig()` derives and the `authz.fields` step that ends each
-  public read.
+  public read. The type `PresetPipelineChanges<C>` holds the `exclude` and `overrides` both preset
+  functions take.
   `toPublicPage()` and `toPublicSiteResponse()` in the public layer.
-- `kestrel-web-upgrade` notes an override of a public read without its field step, worded by whether
-  anonymous callers reach it, or with a field step for another resource (`pipelines/public-override-field-step`), prints the grants `presetModuleConfig()` would derive for a
-  hand-written `authz-roles` entry or, once, the grants a project's visitors keep (`preset/field-grants`),
-  and `site/private-fields` also reports a page's timestamps read off `useSitePage()`, a `site:` data key or
-  a value typed `PageDocument`.
+- `kestrel-web-upgrade`:
+  - `pipelines/public-override-field-step` notes an override of a public read without its field step, worded
+    by whether anonymous callers reach it, or with a field step for another resource.
+  - `preset/field-grants` prints the grants `presetModuleConfig()` would derive for a hand-written
+    `authz-roles` entry, or, once, the grants a project's visitors keep. Before boot it reports a derived
+    grant no pipeline cuts and an own public pipeline whose resource no grant names.
+  - Override edits also find overrides in a pipeline changes object a `definePreset()` call spreads.
+  - `site/private-fields` also reports a page's timestamps read off `useSitePage()`, a `site:` data key or a
+    value typed `PageDocument`.
 
 ### Changed
 
