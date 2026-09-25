@@ -18,6 +18,16 @@ const execFileAsync = promisify(execFile);
 
 const CAPTURE_WRAPPER = fileURLToPath(new URL("./pipelinesCapture.ts", import.meta.url));
 
+const SVG_NOT_SANITIZED_MESSAGE = 'the "sanitizeSvg" feature is not enabled';
+
+function configLoadIssue(err: unknown): LoadIssue {
+  const message = err instanceof Error ? err.message : String(err);
+  if (message.includes(SVG_NOT_SANITIZED_MESSAGE)) {
+    return { file: "shared/model.ts", message: `shared/model.ts's features is missing "sanitizeSvg": ${message}` };
+  }
+  return { file: "kestrel.config.ts", message };
+}
+
 export interface LayerProjectData {
   presetOptions?: unknown;
   presetProblems: Array<{ code: string; pipeline?: string; message: string }>;
@@ -167,7 +177,7 @@ export async function loadLayerProject(scratch: string): Promise<LoadResult> {
       const configModule = await jiti.import<{ default: KestrelConfigInput }>(pathToFileURL(configFile).href);
       config = boundaryCast<KestrelConfigInput>(configModule.default, "host");
     } catch (err) {
-      return { issues: [{ file: "kestrel.config.ts", message: err instanceof Error ? err.message : String(err) }] };
+      return { issues: [configLoadIssue(err)] };
     }
 
     const issues: LoadIssue[] = [];
