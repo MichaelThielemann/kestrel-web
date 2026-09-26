@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { test as base, expect } from "@playwright/test";
+import { test as base, expect, type APIRequestContext } from "@playwright/test";
 import { Api, isRecord } from "./api.ts";
 import { ADMIN_STATE, BASE_URL, EDITOR_STATE, SEED_FILE } from "./env.ts";
 import type { Seed } from "./seed.ts";
@@ -31,8 +31,11 @@ function sessionFrom(stateFile: string, baseUrl: string): Api {
   return api;
 }
 
-/** Test fixtures: the seeded ids and API clients sharing the admin's and the editor's stored sessions. */
-export const test = base.extend<{ seed: Seed; adminApi: Api; editorApi: Api }>({
+/**
+ * Test fixtures: the seeded ids, API clients sharing the admin's and the editor's stored sessions, and
+ * `visitor`, a request context without any session for checking what the public sees.
+ */
+export const test = base.extend<{ seed: Seed; adminApi: Api; editorApi: Api; visitor: APIRequestContext }>({
   // eslint-disable-next-line no-empty-pattern
   seed: async ({}, use) => {
     await use(readSeed());
@@ -42,6 +45,11 @@ export const test = base.extend<{ seed: Seed; adminApi: Api; editorApi: Api }>({
   },
   editorApi: async ({ baseURL }, use) => {
     await use(sessionFrom(EDITOR_STATE, baseURL ?? BASE_URL));
+  },
+  visitor: async ({ playwright, baseURL }, use) => {
+    const context = await playwright.request.newContext({ baseURL: baseURL ?? BASE_URL, storageState: { cookies: [], origins: [] } });
+    await use(context);
+    await context.dispose();
   },
 });
 
