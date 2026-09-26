@@ -8110,6 +8110,7 @@ export interface operations {
                 q?: string;
                 recursive?: boolean;
                 sort?: string;
+                type?: "image" | "video" | "other";
             };
             header?: never;
             path?: never;
