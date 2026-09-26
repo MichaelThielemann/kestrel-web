@@ -4,14 +4,16 @@
 
 ### Added
 
-- Page builder: a block instance can carry an optional alias, set in its fields panel. It is stripped
-  from the public site's API answer, its SSR data and the static export regardless of caller identity, so
-  it never reaches an anonymous visitor or shows up in a render; only the admin's own read of the page
-  keeps it. The block picker's search also matches an existing block's alias and jumps straight to it
-  instead of adding a new block.
-- Media picker: reopening it (in any field, without an explicit folder) starts in the folder the user
-  last browsed, remembered per browser via `localStorage`; a field's own fixed folder still wins on its
-  first open.
+- Page builder: a block instance can carry an optional alias, set in its fields panel. It is stored in a
+  new `blockAliases` field next to a collection's `body`, editor-only by the same field grants that already
+  keep other fields from anonymous callers, so it never reaches an anonymous visitor on any pipeline that
+  answers a page, in the public site's SSR data or in the static export, and never on the block itself. The
+  block picker's search also matches an existing block's alias and jumps straight to it instead of adding a
+  new block. A collection that wants this declares its own `blockAliases: { type: "json" }` field next to
+  `body` (see `docs/field-types.md`); without it the alias is kept in memory but never saved.
+- Media picker: reopening it starts in the folder the user last browsed, remembered per browser via
+  `localStorage`; a field that already holds an item keeps opening in that item's folder every time, and
+  only an empty field falls back to the remembered one.
 - Media library and picker: a type filter (Images / Videos / Other files), matched server-side against
   each item's canonical content type (requires `@michaelthielemann/kestrel-media-default` with the `type`
   query on `media.list`), narrows the listing with correct paging and combines with the text search; a
