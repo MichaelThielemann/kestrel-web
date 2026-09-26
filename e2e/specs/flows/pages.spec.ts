@@ -39,3 +39,23 @@ test("a page and a subpage created in the editor are published and server-render
   await expect(visit).toHaveTitle(/Beratung/);
   await anonymous.close();
 });
+
+test("a block's alias is findable in the block picker's search and jumps to that block, but never reaches a visitor", async ({ page, seed, visitor }) => {
+  await page.goto(`/admin/pages/${seed.about}?locale=de`);
+  await page.getByRole("button", { name: "Fließtext" }).click();
+  await page.getByRole("textbox", { name: "Alias" }).fill("Einleitungstext");
+  await page.getByRole("button", { name: "Bild" }).click();
+  await save(page);
+
+  await page.getByRole("button", { name: "Block hinzufügen" }).click();
+  await page.getByRole("searchbox", { name: "Blöcke durchsuchen" }).fill("Einleitung");
+  await expect(page.getByText("Passende Blöcke auf dieser Seite")).toBeVisible();
+  await page.getByRole("button", { name: /^Einleitungstext/ }).click();
+  await expect(page.getByRole("dialog", { name: "Block-Typ wählen" })).toBeHidden();
+  await expect(page.getByRole("button", { name: "Fließtext", pressed: true })).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Alias" })).toHaveValue("Einleitungstext");
+
+  const response = await visitor.get("/ueber-uns");
+  expect(response.status()).toBe(200);
+  expect(await response.text()).not.toContain("Einleitungstext");
+});

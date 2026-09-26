@@ -6,6 +6,43 @@ import { gradientPng } from "../../support/png.ts";
 
 test.use({ storageState: ADMIN_STATE });
 
+test("the type filter narrows the library to images or other files, and combines with the type a field fixes", async ({ page, adminApi }) => {
+  const imagePng = await adminApi.upload("gradient.png", gradientPng(300, 200, [10, 120, 200], [200, 10, 90]));
+  idOf(imagePng);
+  const form = new FormData();
+  form.append("file", new Blob([new Uint8Array([1, 2, 3])], { type: "application/pdf" }), "sheet.pdf");
+  await adminApi.call("POST", "/media", undefined, form);
+
+  await page.goto("/admin/media");
+  await expect(page.getByRole("button", { name: /gradient\.png/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /sheet\.pdf/ })).toBeVisible();
+
+  await page.getByRole("button", { name: "Andere Dateien" }).click();
+  await expect(page.getByRole("button", { name: /sheet\.pdf/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /gradient\.png/ })).toBeHidden();
+
+  await page.getByRole("button", { name: "Bilder" }).click();
+  await expect(page.getByRole("button", { name: /gradient\.png/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /sheet\.pdf/ })).toBeHidden();
+});
+
+test("the media picker reopens in the folder the user last browsed", async ({ page, adminApi }) => {
+  await adminApi.call("POST", "/media/folders", { path: "kampagnen" });
+
+  await page.goto("/admin/media");
+  await page.getByRole("button", { name: "kampagnen" }).click();
+  await expect(page).toHaveURL(/folder=kampagnen/);
+
+  await page.goto("/admin/pages/new?locale=de");
+  await page.getByRole("textbox", { name: "Titel", exact: true }).fill("Ordnertest");
+  await page.getByRole("button", { name: "Block hinzufügen" }).click();
+  await page.getByRole("searchbox", { name: "Blöcke durchsuchen" }).fill("Bild");
+  await page.getByRole("button", { name: "Bild hinzufügen" }).click();
+  await page.getByRole("region", { name: "Block-Felder" }).getByRole("button", { name: "Bild" }).click();
+  const picker = page.getByRole("dialog", { name: "Datei auswählen" });
+  await expect(picker.getByText("kampagnen")).toBeVisible();
+});
+
 test("an uploaded file is picked as a share image and then refuses deletion while referenced", async ({ page, seed, adminApi }) => {
   await page.goto("/admin/media");
   const chooser = page.waitForEvent("filechooser");
