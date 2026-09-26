@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createValidator, type Validator } from "@michaelthielemann/kestrel-validate-jsonschema/impl";
 import { silentLogger } from "@michaelthielemann/kestrel/logger";
+import { boundaryCast } from "./app/utils/cast";
 import { blockSchema } from "./block-schema";
 import type { SerializedBlock } from "./app/types/kestrel";
 
@@ -61,5 +62,37 @@ describe("blockSchema for media and relation fields", () => {
 
   it("rejects an array in the single relation field", () => {
     expect(check({ author: ["author-1"] })).toBe(false);
+  });
+});
+
+describe("blockSchema marks where ids of other documents live", () => {
+  type Schema = Record<string, unknown>;
+  const at = (schema: Schema, ...keys: string[]): Schema => keys.reduce<Schema>((node, key) => boundaryCast<Schema>(node[key], "json"), schema);
+  const props = (schema: Schema, block: string): Schema => at(schema, "$defs", block, "properties", "props", "properties");
+  const branch = (field: Schema): Schema => boundaryCast<Schema[]>(field.anyOf, "json")[0] ?? {};
+
+  it("marks a single media field and every item of a multiple one as media ids", () => {
+    const gallery = props(blockSchema(blocks), "gallery");
+    expect(branch(at(gallery, "cover"))).toEqual({ type: "string", "x-kestrel-ref": "media" });
+    expect(branch(at(gallery, "images"))).toEqual({ type: "array", items: { type: "string", "x-kestrel-ref": "media" } });
+  });
+
+  it("marks a relation field with the collection it points to, single and multiple", () => {
+    const gallery = props(blockSchema(blocks), "gallery");
+    expect(branch(at(gallery, "author"))).toEqual({ type: "string", "x-kestrel-ref": "authors" });
+    expect(branch(at(gallery, "pages"))).toEqual({ type: "array", items: { type: "string", "x-kestrel-ref": "pages" } });
+  });
+
+  it("marks media fields inside a repeater", () => {
+    const slides: SerializedBlock = {
+      name: "slides",
+      fields: { items: { type: "repeater", required: true, unique: false, options: { fields: { picture: { type: "media", required: true, unique: false } } } } },
+    };
+    const items = at(props(blockSchema([slides]), "slides"), "items");
+    expect(at(items, "items", "properties", "picture")).toEqual({ type: "string", "x-kestrel-ref": "media" });
+  });
+
+  it("still validates marked fields like plain strings", () => {
+    expect(check({ cover: "media-1", images: ["media-2"], author: "author-1", pages: ["page-1"] })).toBe(true);
   });
 });

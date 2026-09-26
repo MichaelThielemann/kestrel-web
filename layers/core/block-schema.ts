@@ -1,3 +1,4 @@
+import { REF_KEYWORD } from "@michaelthielemann/kestrel-references-default/impl";
 import { boundaryCast } from "./app/utils/cast";
 import type { SerializedBlock, SerializedField } from "./app/types/kestrel";
 import type { FieldTypes } from "./field-types";
@@ -16,7 +17,9 @@ function fieldSchema(field: SerializedField, fieldTypes: FieldTypes): Schema {
     case "media":
     case "relation": {
       const multiple = field.type === "media" ? field.options?.multiple : field.relation?.many;
-      return multiple ? nullable({ type: "array", items: { type: "string" } }) : nullable({ type: "string" });
+      const target = field.type === "media" ? "media" : field.relation?.collection;
+      const id: Schema = target === undefined ? { type: "string" } : { type: "string", [REF_KEYWORD]: target };
+      return multiple ? nullable({ type: "array", items: id }) : nullable(id);
     }
     case "slug":
       return nullable({ type: "string", pattern: "^[a-z0-9]+(-[a-z0-9]+)*$" });

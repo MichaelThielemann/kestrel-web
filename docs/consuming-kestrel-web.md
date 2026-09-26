@@ -337,10 +337,15 @@ rather than booting with something plausible.
   canonical order. Drop a feature and its module goes with it.
 - **`media.locales` / `media.defaultLocale`** — from `model.locales` / `model.defaultLocale`, so the
   media library can't drift from the content model.
-- **`references.targets`** — `pages` when the model has it, plus one entry per `ref` field: `to: "media"`
-  becomes `{ media: true }` (the files `media-default` serves through `media@1`), a `to` naming another
-  collection becomes `{ content: <name> }`.
-  A `to` pointing at neither is left out.
+- **`references.targets`** — `media` as `{ media: true }` (the files `media-default` serves through
+  `media@1`) and every multi collection as `{ content: <name> }`, plus a `ref` field's `to` naming another
+  collection. A `to` pointing at neither is left out.
+- **`references.schemas`** — the schema of every `json` field that `validate-jsonschema` checks, the
+  block schema of `pages.body` included. The generated block schema marks each block `media` field with
+  `"x-kestrel-ref": "media"` and each `relation` field with its collection, so a file or page used only
+  inside a block — also in a `multiple` field, a repeater or a nested block — is indexed, and deleting it
+  answers 409 like a top-level `ref` field. Internal links in rich text and `link` fields are indexed
+  as before.
 - **`delivery.types`** — every routed collection, i.e. `pages` and every mounted collection
   ([`paths.md`](paths.md)), as `{}` so the module's own field defaults apply.
 - **`site-default`** — `routes` for `pages` and every mounted collection, with the workflow's live status as

@@ -324,7 +324,9 @@ An app that extends `kestrel-web` provides, at its root:
 ratelimit?, llms?, migrations?, session? }`. It emits the base modules plus exactly the modules the given
 features require — the same feature→module mapping `definePreset` checks (`pipelines/features/*.ts`) — in
 the canonical order, and derives from the model what is derivable: `media.locales`/`defaultLocale`,
-`references.targets` (every routed collection plus every `ref` field's `to`), `delivery.types` (every
+`references.targets` (media, every multi collection and every `ref` field's `to`), `references.schemas`
+(the `json` field schemas from `presetSchemas()`; the block schema marks media and relation fields with
+`x-kestrel-ref`), `delivery.types` (every
 routed collection), `site-default`'s `routes`, `validate-jsonschema.schemas` via `presetSchemas()`, `publicPath` on
 both media modules from `MEDIA_PUBLIC_PATH`, and, with `delivery`, `publicCopy: { prefix }` on both from
 `SITE_PREFIX`. Both constants live in `layers/core/mount-path.ts` (`MEDIA_PUBLIC_PATH`) and

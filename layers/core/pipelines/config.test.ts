@@ -58,6 +58,8 @@ describe("presetModuleConfig with the playground inputs", () => {
       return { defaults: { from: "preset", values } };
     }
 
+    const validated = presetSchemas({ features, collections: contentTypes, fieldTypes });
+
     expect(presetModuleConfig(playgroundOptions())).toEqual([
       { use: "@michaelthielemann/kestrel-blobstore-filesystem", config: { root: resolve(DATA_DIR, "blobs") } },
       { use: "@michaelthielemann/kestrel-replication-sqlite", ...preset({ file: DATABASE_FILE }) },
@@ -113,11 +115,17 @@ describe("presetModuleConfig with the playground inputs", () => {
           reservedPaths: ["/api", "/admin", "/media"],
         }),
       },
-      { use: "@michaelthielemann/kestrel-references-default", ...preset({ targets: { pages: { content: "pages" }, blog: { content: "blog" }, media: { media: true } } }) },
+      {
+        use: "@michaelthielemann/kestrel-references-default",
+        ...preset({
+          targets: { pages: { content: "pages" }, blog: { content: "blog" }, media: { media: true } },
+          schemas: Object.fromEntries(Object.entries(validated).filter(([key]) => ["blog.body", "pages.body", "redirects.rules", "settings.mounts", "settings.navigation"].includes(key))),
+        }),
+      },
       { use: "@michaelthielemann/kestrel-links-default", ...preset({ timeoutMs: 10000, concurrency: 4, recheckAfterSeconds: 21600 }) },
       {
         use: "@michaelthielemann/kestrel-validate-jsonschema",
-        ...preset({ schemas: presetSchemas({ features, collections: contentTypes, fieldTypes }), watch: process.env.NODE_ENV !== "production" }),
+        ...preset({ schemas: validated, watch: process.env.NODE_ENV !== "production" }),
       },
       { use: "@michaelthielemann/kestrel-renderer-nuxt", config: {} },
       {
@@ -174,7 +182,7 @@ describe("derived references targets", () => {
     const modules = presetModuleConfig({ ...playgroundOptions(), model: { types }, features: ["references"] });
 
     expect(configFor(modules, "references-default")).toEqual({
-      targets: { pages: { content: "pages" }, media: { media: true }, people: { content: "people" } },
+      targets: { pages: { content: "pages" }, media: { media: true }, news: { content: "news" }, people: { content: "people" } },
     });
   });
 
@@ -182,7 +190,35 @@ describe("derived references targets", () => {
     const types: Record<string, CollectionModel> = { pages: { kind: "multi", fields: { slug: {}, status: {}, body: {}, owner: { type: "ref", to: "nowhere" } } } };
     const modules = presetModuleConfig({ ...playgroundOptions(), model: { types }, features: ["references"] });
 
-    expect(configFor(modules, "references-default")).toEqual({ targets: { pages: { content: "pages" } } });
+    expect(configFor(modules, "references-default")).toEqual({ targets: { pages: { content: "pages" }, media: { media: true } } });
+  });
+
+  it("targets the media files and every multi collection, so ids inside blocks can point at them", () => {
+    const types: Record<string, CollectionModel> = {
+      settings: { kind: "single", fields: { title: { type: "text" } } },
+      pages: { kind: "multi", fields: { slug: {}, status: {}, body: { type: "json" } } },
+      authors: { kind: "multi", fields: { name: { type: "text" } } },
+    };
+    const modules = presetModuleConfig({ ...playgroundOptions(), model: { types }, features: ["references"] });
+
+    expect(fieldOf(configFor(modules, "references-default"), "targets")).toEqual({ pages: { content: "pages" }, media: { media: true }, authors: { content: "authors" } });
+  });
+
+  it("hands references-default the schema of every json field the validator checks, so ids inside blocks are indexed", () => {
+    vi.stubEnv("KESTREL_BLOCK_SCHEMA", "/srv/app/.nuxt/kestrel/pages.body.json");
+    const types: Record<string, CollectionModel> = {
+      settings: { kind: "single", fields: { title: { type: "text" }, navigation: { type: "json" } } },
+      pages: { kind: "multi", fields: { slug: { type: "slug" }, status: {}, body: { type: "json" } } },
+      news: { kind: "multi", fields: { slug: { type: "slug" }, status: {}, body: { type: "json" } }, mount: true },
+    };
+    const modules = presetModuleConfig({ ...playgroundOptions(), model: { types }, features: ["references"] });
+    const schemas = fieldOf(configFor(modules, "references-default"), "schemas");
+    const validated = fieldOf(configFor(modules, "validate-jsonschema"), "schemas");
+
+    expect(Object.keys(schemas ?? {}).sort()).toEqual(["news.body", "pages.body", "settings.mounts", "settings.navigation"]);
+    expect(fieldOf(schemas, "pages.body")).toBe("/srv/app/.nuxt/kestrel/pages.body.json");
+    expect(fieldOf(schemas, "news.body")).toBe("/srv/app/.nuxt/kestrel/pages.body.json");
+    expect(fieldOf(schemas, "settings.navigation")).toEqual(fieldOf(validated, "settings.navigation"));
   });
 });
 

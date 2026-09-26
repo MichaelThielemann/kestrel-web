@@ -698,6 +698,70 @@ describe('MediaLibrary viewer delete flow', () => {
   })
 })
 
+describe('MediaLibrary delete warning for a file a content block uses', () => {
+  const unregisterAll: (() => void)[] = []
+  const fullCapabilities = { ...schema.capabilities }
+
+  beforeEach(async () => {
+    schema.capabilities = { ...fullCapabilities, mediaReferrers: { method: 'GET', path: '/admin/references/to/media/:id' } }
+    unregisterAll.push(registerEndpoint('/api/admin/schema', { method: 'GET', handler: () => schema }))
+    await useSchema().load()
+  })
+
+  afterEach(() => {
+    unregisterAll.splice(0).forEach((unregister) => unregister())
+    schema.capabilities = fullCapabilities
+    useSchema().clear()
+  })
+
+  it('names the page whose block uses the file before anything is deleted', async () => {
+    const file: MediaItem = {
+      id: 'f1',
+      filename: 'teaser.png',
+      folder: '',
+      contentType: 'image/png',
+      size: 2048,
+      path: '/media/f1/teaser.png',
+      available: true,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      provenance: { origin: 'human' },
+      width: 10,
+      height: 10,
+      alt: null,
+      title: null,
+      description: null,
+      variantCounts: { done: 0, pending: 0, error: 0, failed: 0 },
+      variants: [],
+    }
+    let deleteCalls = 0
+    unregisterAll.push(registerEndpoint('/api/media/folders', { method: 'GET', handler: () => [] }))
+    unregisterAll.push(registerEndpoint('/api/media', { method: 'GET', handler: () => ({ items: [file], total: 1 }) }))
+    unregisterAll.push(registerEndpoint('/api/limits', { method: 'GET', handler: () => ({ maxUploadBytes: null }) }))
+    unregisterAll.push(registerEndpoint('/api/admin/references/to/media/f1', { method: 'GET', handler: () => [{ type: 'pages', field: 'body', id: 'p1', via: 'body' }] }))
+    unregisterAll.push(registerEndpoint('/api/media/f1', { method: 'DELETE', handler: () => { deleteCalls++; return {} } }))
+
+    const wrapper = await mountSuspended(MediaLibrary, { attachTo: document.body })
+    onTestFinished(() => wrapper.unmount())
+
+    await vi.waitFor(() => expect(wrapper.find('[data-test="file-f1"]').exists()).toBe(true))
+    await wrapper.get('[data-test="file-f1"]').trigger('dblclick')
+    await vi.waitFor(() => expect(document.body.querySelector('.media-viewer')).toBeTruthy())
+    const viewerContent = document.body.querySelector('.ui-dialog__content--xl')
+    const deleteButton = Array.from(viewerContent?.querySelectorAll('button') ?? []).find((b) => b.textContent?.trim() === en['common.delete'])
+    if (!deleteButton) throw new Error('expected the viewer to render a delete button')
+    deleteButton.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+
+    await vi.waitFor(() => expect(document.body.querySelector('.media-delete__refs')).toBeTruthy())
+    const warning = document.body.querySelector('.media-delete__refs')
+    expect(warning?.textContent).toContain(en['refs.referencedBy'].replace('{n}', '1'))
+    const link = warning?.querySelector('a')
+    expect(link?.getAttribute('href')).toBe('/admin/pages/p1')
+    expect(link?.textContent?.trim()).toBe('pages/p1')
+    expect(deleteCalls).toBe(0)
+  })
+})
+
 describe('MediaLibrary read-only capabilities', () => {
   const unregisterAll: (() => void)[] = []
   const fullCapabilities = { ...schema.capabilities }
