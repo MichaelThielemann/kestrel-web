@@ -1,4 +1,5 @@
 import type { AnonymousOf, PageDocument, PublicPageDocument, PublicSiteResponse, SiteResponse } from '#kestrel-core/app/types/api'
+import { withoutBlockAliases } from '#kestrel-core/app/utils/block-privacy'
 
 /** The fields of a media item a visitor may see, as the API answers a caller without a session; what the public layer keeps in a page's data. */
 export type PublicMediaItem = AnonymousOf<'getMedia'>
@@ -27,10 +28,10 @@ export function toPublicMedia(item: MediaAnswer): PublicMediaItem {
   }
 }
 
-/** Reduces a page to what a caller without a session receives: everything but its timestamps. */
+/** Reduces a page to what a caller without a session receives: everything but its timestamps, and every block's editor-only alias. */
 export function toPublicPage(page: PageDocument | PublicPageDocument): PublicPageDocument {
   const { createdAt: _createdAt, updatedAt: _updatedAt, ...rest } = page
-  return rest
+  return { ...rest, body: rest.body === null ? null : withoutBlockAliases(rest.body) }
 }
 
 function isPageAnswer(response: SiteResponse | PublicSiteResponse): response is PageDocument | PublicPageDocument {
