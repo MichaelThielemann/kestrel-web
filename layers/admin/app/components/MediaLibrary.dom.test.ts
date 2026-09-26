@@ -688,6 +688,34 @@ describe('MediaLibrary type filter', () => {
     expect(filterButtons).toHaveLength(1)
     expect(filterButtons[0]?.text()).toBe(en['mediaToolbar.filterImages'])
   })
+
+  it('announces the result count, politely, and updates it when the filter changes', async () => {
+    const image = mixedItem('img1', 'photo.jpg', 'image/jpeg')
+    const video = mixedItem('vid1', 'clip.mp4', 'video/mp4')
+    const all = [image, video]
+    unregisterAll.push(registerEndpoint('/api/media/folders', { method: 'GET', handler: () => [] }))
+    unregisterAll.push(registerEndpoint('/api/media', {
+      method: 'GET',
+      handler: (event) => {
+        const type = getQuery(event).type
+        const items = typeof type === 'string' ? all.filter((i) => i.contentType.startsWith(`${type}/`)) : all
+        return { items, total: items.length }
+      },
+    }))
+
+    const wrapper = await mountSuspended(MediaLibrary, { attachTo: document.body })
+    onTestFinished(() => wrapper.unmount())
+
+    await vi.waitFor(() => expect(wrapper.get('.media-toolbar__count').text()).toBe(en['mediaToolbar.resultCountPlural'].replace('{n}', '2')))
+    expect(wrapper.get('.media-toolbar__count').attributes('aria-live')).toBe('polite')
+
+    const filterButtons = wrapper.findAll('.media-toolbar__filter button')
+    const videosButton = filterButtons.find((b) => b.text() === en['mediaToolbar.filterVideos'])
+    if (!videosButton) throw new Error('expected a "Videos" filter button')
+    await videosButton.trigger('click')
+
+    await vi.waitFor(() => expect(wrapper.get('.media-toolbar__count').text()).toBe(en['mediaToolbar.resultCount'].replace('{n}', '1')))
+  })
 })
 
 describe('media components do not branch on the delivery mode', () => {

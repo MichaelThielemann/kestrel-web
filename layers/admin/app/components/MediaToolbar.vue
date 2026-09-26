@@ -14,6 +14,7 @@ const props = defineProps<{
   canCreateFolder: boolean
   typeFilter?: MediaTypeFilter
   accept?: 'image' | 'any'
+  resultCount?: number
 }>()
 const emit = defineEmits<{
   'update:view': [View]
@@ -46,6 +47,12 @@ const typeFilterModel = computed<string | string[] | null>({
   set: (v) => { if (typeof v === 'string') emit('update:typeFilter', parseMediaTypeFilter(v)) },
 })
 
+const resultLabel = computed(() => (
+  props.resultCount === undefined
+    ? ''
+    : t(props.resultCount === 1 ? 'mediaToolbar.resultCount' : 'mediaToolbar.resultCountPlural', { n: props.resultCount })
+))
+
 function isView(value: string): value is View {
   return value === 'grid' || value === 'table'
 }
@@ -72,6 +79,7 @@ const fileInput = ref<{ open: () => void } | null>(null)
 
     <div class="media-toolbar__filter" role="group" :aria-label="t('mediaToolbar.filterAriaLabel')">
       <KestrelUiButtonGroup v-model="typeFilterModel" :options="TYPE_FILTER_OPTIONS" :aria-label="t('mediaToolbar.filterAriaLabel')" />
+      <span v-if="resultLabel" class="media-toolbar__count" aria-live="polite">{{ resultLabel }}</span>
     </div>
 
     <p class="media-toolbar__status" role="status" aria-live="polite">{{ status }}</p>
@@ -103,6 +111,12 @@ const fileInput = ref<{ open: () => void } | null>(null)
     min-width: 8rem;
   }
 
+  &__filter {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+
   &__status {
     flex: 1 1 auto;
     min-width: 0;
@@ -110,6 +124,12 @@ const fileInput = ref<{ open: () => void } | null>(null)
     text-align: end;
     color: var(--color-text-muted);
     font-size: var(--text-sm);
+  }
+
+  &__count {
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+    white-space: nowrap;
   }
 
   &__actions {

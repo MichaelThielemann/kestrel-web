@@ -521,6 +521,8 @@ export const en = {
   'mediaToolbar.filterImages': 'Images',
   'mediaToolbar.filterVideos': 'Videos',
   'mediaToolbar.filterOther': 'Other files',
+  'mediaToolbar.resultCount': '{n} file',
+  'mediaToolbar.resultCountPlural': '{n} files',
 
   'mediaPath.navAriaLabel': 'Path',
   'mediaPath.editAriaLabel': 'Edit path',

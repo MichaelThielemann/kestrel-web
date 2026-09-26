@@ -523,6 +523,8 @@ export const de: Record<CatalogKey, string> = {
   'mediaToolbar.filterImages': 'Bilder',
   'mediaToolbar.filterVideos': 'Videos',
   'mediaToolbar.filterOther': 'Andere Dateien',
+  'mediaToolbar.resultCount': '{n} Datei',
+  'mediaToolbar.resultCountPlural': '{n} Dateien',
 
   'mediaPath.navAriaLabel': 'Pfad',
   'mediaPath.editAriaLabel': 'Pfad bearbeiten',

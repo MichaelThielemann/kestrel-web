@@ -189,6 +189,7 @@ const localizedMenu = computed(() => menuItems.value.map((s) => ({
       :can-create-folder="mediaCaps.canCreateFolder.value"
       :type-filter="lib.typeFilter.value"
       :accept="lib.accept"
+      :result-count="total"
       @update:view="lib.setView"
       @update:search="lib.setSearch"
       @update:type-filter="lib.setTypeFilter"
