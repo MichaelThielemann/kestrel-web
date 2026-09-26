@@ -9,8 +9,13 @@ This page is what an operator needs on top of [`consuming-kestrel-web.md`](consu
 
 ```bash
 pnpm install
+pnpm exec kestrel check       # optional gate: boot problems without starting anything
 pnpm exec nuxt build          # writes .output/
 ```
+
+`kestrel check` comes from `@michaelthielemann/kestrel-cli`, a dev dependency (consuming guide §7). It
+exits 1 on a problem the server would refuse to start with, so a CI job or a build stage can stop before
+building. The server itself does not use it: `.output` runs without it.
 
 Ship `.output` only. It has no dependency on `node_modules`, the sources or the working directory:
 the JSON Schemas (`pages.body`, `settings.navigation`, `redirects.rules`) are inlined into the server

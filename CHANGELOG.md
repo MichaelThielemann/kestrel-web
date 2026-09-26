@@ -4,6 +4,15 @@
 
 ### Breaking
 
+- **The layer ships no binary; `kestrel` from `@michaelthielemann/kestrel-cli` checks and upgrades a
+  project built on it.** Add `@michaelthielemann/kestrel-cli` to `devDependencies` at the same range as
+  `@michaelthielemann/kestrel` (`kestrel upgrade fix` adds it) and run `kestrel upgrade check|fix|data`
+  and `kestrel check`. The layer registers its plugin through a `kestrel` field in its `package.json`
+  (`plugin`, `pluginApi`, `engine`); the CLI finds it among the project's direct dependencies. Install
+  this release of the layer before running the 6.x CLI: with a 2.x layer installed, the CLI reports
+  `deps/host-outdated` and `fix --write` and `data` stop before writing. `scripts/host-binary` rewrites
+  scripts that still call `kestrel-web-upgrade`.
+
 - **A module entry `presetModuleConfig()` builds no longer carries its derived config in `config`.**
   It moved to `defaults` (`{ from, values }`); `config` on that entry is `undefined` unless an
   `overrides` key names it. Code that read `presetModuleConfig(...)[i].config` directly — a build
@@ -392,7 +401,7 @@
   `pages.slug` must not be `unique`; the playground and the `create-kestrel` template drop the flag, and
   the reserved-segment value schema on page slugs is gone (a reserved path is a slug field error from
   `site-default`, now on the full path). An override of a page write, list or read that lacks these steps
-  fails to boot; `kestrel-web-upgrade fix` inserts them (`preset/override-path-steps`). A hand-written
+  fails to boot; `kestrel upgrade fix` inserts them (`preset/override-path-steps`). A hand-written
   module list must configure `site-default`'s `routes` the same way.
 - The server refuses to boot when `site-default`'s `prefixPrimary` or home slug differs from `shared/model`'s
   `prefixPrimary`/`homeSlug`: pass both to `presetModuleConfig()` (and `homeSlug` to `definePreset()`, checked
@@ -445,7 +454,7 @@
   admin schema as `maxCascade`); removing an automatic redirect asks first; a path conflict names the
   holder's title only to callers who can read its collection. The editor preview renders a mounted
   collection's document with its own component.
-- `kestrel-web-upgrade`: `model/parent-offer` asks whether pages should get a parent field, and
+- `kestrel upgrade`: `model/parent-offer` asks whether pages should get a parent field, and
   `model/page-like-mount` offers `mount: true` (with the anonymous `<collection>.read`) for a 2.x collection
   carrying `slug`, `status` and `body`, which is no longer exported otherwise; `preset/site-model-options` passes
   `homeSlug` and `prefixPrimary` from `shared/model` to `presetModuleConfig()` and `homeSlug` to `definePreset()`.
@@ -457,7 +466,7 @@
   `site.route:pages` in `resolvePage`. The admin's settings assign each mounted collection to a page; the
   public layer follows the route hint and renders the document with the page template or a global
   component named after the collection. The playground mounts a `blog`.
-- `kestrel-web-upgrade`: `preset/override-path-steps` (fix) and `consumer/slug-url` (info). The path event
+- `kestrel upgrade`: `preset/override-path-steps` (fix) and `consumer/slug-url` (info). The path event
   pipelines count as safe to deliver twice for `offer/event-queue`.
 
 - `docs/deployment.md` and `docs/consuming-kestrel-web.md` §8/§9 document how redirects are served on a
@@ -512,18 +521,30 @@
 - `sitePath()` and `toPublicMedia()`/`PublicMediaItem` (`layers/public/app/utils/`), and the
   `@michaelthielemann/kestrel-renderer-nuxt/static-marker` subpath with the attribute names
   (`DELIVERY_ATTRIBUTE`, `STATIC_DELIVERY`, `BUILD_ATTRIBUTE`), which UI code may import.
-- `kestrel-web-upgrade`, a bin of this package: `check`, `fix` and `data` list and, where mechanical, fix
-  the layer-specific breaks of the 6.0.0 major (module lists, preset overrides, the underscore-field
-  rename, the event-queue offer), delegating everything else to `@michaelthielemann/kestrel-upgrade`. See
+- The layer's upgrade rules for `kestrel upgrade` (`@michaelthielemann/kestrel-cli`): `check`, `fix` and
+  `data` list and, where mechanical, fix the layer-specific breaks of the 6.0.0 major (module lists, preset
+  overrides, the underscore-field rename, the event-queue offer) next to kestrel's own rules. See
   `docs/consuming-kestrel-web.md` §11.
+- `kestrel check`, `kestrel explain <pipeline>` and `kestrel manifest` load a project built on the layer
+  through the layer's own loader: its aliases, `nuxt prepare` in a scratch copy, the bundled schemas. `check`
+  also reports what the layer's server refuses to start with beyond kestrel's own boot checks: a preset
+  composition problem, `site-default` disagreeing with `shared/model`, the admin's login, logout and me
+  routes bound elsewhere, a public read that does not filter on the declared workflow, media routes this
+  server cannot answer, and the fix for a field grant no pipeline cuts. See
+  `docs/consuming-kestrel-web.md` §7.
+- `scripts/host-binary` (`kestrel upgrade`) rewrites `kestrel-web-upgrade` in `package.json` scripts to
+  `kestrel upgrade`, also behind `pnpm`, `pnpm exec`, `npm exec`, `yarn`, `cross-env` or `VAR=` prefixes,
+  and an unscoped `npx kestrel-web-upgrade`, which would fetch an unrelated registry package, to the local
+  command; it warns with file and line about the name in Dockerfiles, shell scripts, CI files and the
+  project's other command files.
 - `#kestrel/pipelines` exports `checkPreset(options)`, which composes a preset like `definePreset()` but
   collects every problem instead of throwing at the first.
-- `kestrel-web-upgrade` also checks the consumer's own `app/` code against the static-export contract
+- `kestrel upgrade` also checks the consumer's own `app/` code against the static-export contract
   (§8): the old, unscoped `"site:settings"` key, a fetch key built from `useId()` or watching `useSiteLocale()`,
   an `isr`/`cache`/`swr` route rule on a page route, and a read of a media item's private fields
   (`folder`, `createdAt`, `updatedAt`, `variantCounts`, a variant's `state`); and notes that the first start
   of the upgraded build re-renders every published page in the background.
-- `kestrel-web-upgrade` carries a project to background re-rendering: it gives `kestrel-delivery-static` the
+- `kestrel upgrade` carries a project to background re-rendering: it gives `kestrel-delivery-static` the
   `dependencies` of the event delivery (on a hand-written entry, or through `presetModuleConfig({ overrides
   })`) and a hand-written `kestrel-events-queue` entry its `lanes`, forward-ports a 2.x `setSettings` or
   `set<Name>` override with its group, emit and relay, gives a switch to the queue its lanes, queue
@@ -537,7 +558,7 @@
   public read. The type `PresetPipelineChanges<C>` holds the `exclude` and `overrides` both preset
   functions take.
   `toPublicPage()` and `toPublicSiteResponse()` in the public layer.
-- `kestrel-web-upgrade`:
+- `kestrel upgrade`:
   - `pipelines/public-override-field-step` notes an override of a public read without its field step, worded
     by whether anonymous callers reach it, or with a field step for another resource.
   - `preset/field-grants` prints the grants `presetModuleConfig()` would derive for a hand-written
@@ -638,7 +659,7 @@
   the queue worker running while `/api/*` answered 503; it now stops the process from starting them at
   all.
 
-- `kestrel-web-upgrade`:
+- `kestrel upgrade`:
   - A `checkPreset()` problem code (already prefixed `preset/` at the source) no longer gets a second
     `preset/` prepended onto its finding id and rule when no more specific rule owns it (`preset/preset/…`).
   - `addModuleEntryConfigProperty` no longer doubles a comma when the object it inserts into already ends

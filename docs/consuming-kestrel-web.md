@@ -744,7 +744,7 @@ The rules for your own pipelines follow from kestrel's boot check:
   result ends with `authz.fields:<resource>?shape=<shape>` too, and `roles.anonymousFields` grants that
   resource's fields unless it is one of the resources above and a preset read of it still ends with its
   cut. When you exclude every preset read of a resource and read it through your own pipeline, name the
-  resource in `roles.anonymousFields`; `kestrel-web-upgrade check` (`preset/field-grants`) reports a
+  resource in `roles.anonymousFields`; `kestrel upgrade check` (`preset/field-grants`) reports a
   pipeline that needs such a grant before the server refuses to start. The boot message names the shape
   the declared output needs.
 - **A step of your own that answers early** with `ctx.done()` declares `terminalOutput`; a run that ends
@@ -1526,6 +1526,40 @@ A boot failure is logged as one JSON line on stderr (`"kestrel failed to boot"` 
 and the reason) and, outside `nuxt dev`, ends the process with exit code 1; in `nuxt dev` the server
 stays up and `/api/*` answers 503 so you can fix the config and let HMR restart it.
 
+### Checking a project without starting it
+
+`@michaelthielemann/kestrel-cli` provides the `kestrel` command. Add it as a dev dependency at the same
+range as `@michaelthielemann/kestrel` (the production server is the Nitro output and does not need it):
+
+```
+pnpm add -D @michaelthielemann/kestrel-cli
+pnpm exec kestrel check
+pnpm exec kestrel explain updatePage
+```
+
+The CLI finds this layer's plugin through the `kestrel` field of the layer's `package.json`, as long as
+the layer is a direct dependency, and loads the project the way the server does: it copies the project
+into a scratch directory, runs `nuxt prepare` there, resolves the layer's `#kestrel/*` aliases, applies the
+schemas the build bundles, and boots the result without starting a trigger. Storage modules write into
+the copy; the project itself is never written. Every command prints `plugins: @michaelthielemann/kestrel-web
+<version>` so you can see which loader ran.
+
+- `kestrel check` reports every boot problem at once, then what this layer's server refuses to start with
+  beyond kestrel's own checks: a preset composition problem (the `preset/*` codes of `checkPreset()`),
+  `site-model` (`site-default` disagrees with `shared/model`), `admin-bootstrap` (login, logout or me not
+  at its fixed route), `status-filter` (a public read that does not filter on the declared workflow) and
+  `media-paths` (media routes this server cannot answer). A `field-grant-hint` warning names the fix for a
+  field grant no pipeline cuts. It exits 1 on an error, which makes it a CI gate before `nuxt build`.
+- `kestrel explain <pipeline>` shows a pipeline's steps with their atomic group, its triggers, the events
+  it emits and the pipelines listening to them, with the queue lane each delivery runs on; `--json` and
+  `--mermaid` are for tools and docs, and `--event <name>` starts from an event instead.
+- `kestrel manifest` prints what the booted project describes: modules, contracts, pipelines, triggers.
+
+Two things the CLI does not check: the image sizes the server registers at start, and whether a static
+export matches the running build; both need the running server. A project whose `nuxt.config.ts` extends
+the layer through a relative path outside the project (the repository's own playground extends `..`)
+cannot be loaded from a scratch copy.
+
 ## 8. Optional: static delivery
 
 Add `@michaelthielemann/kestrel-delivery-static` (renders published pages to the blobstore on save) and
@@ -1895,25 +1929,38 @@ it is an ordinary dependency and needs no attention unless you pinned it yoursel
 
 ### 2.x → 3.0
 
-`kestrel-web-upgrade`, the layer's own bin, lists every known 5.8/2.0 → 6.0/3.0 break with its location and
-a suggestion, and applies the mechanical ones with a preview:
+`kestrel upgrade`, the command of `@michaelthielemann/kestrel-cli`, lists every known 5.8/2.0 → 6.0/3.0
+break with its location and a suggestion, and applies the mechanical ones with a preview. It runs this
+layer's rules through the plugin the layer registers in its `package.json` (the `kestrel` field), so the
+layer has to be upgraded first:
 
-1. `pnpm add @michaelthielemann/kestrel-web@^3` in a branch.
-2. `npx kestrel-web-upgrade check` — with the project's own `@michaelthielemann/kestrel*` packages still at
-   5.x, this sees only what a static read of your files can tell (dependency ranges, module lists,
-   overrides).
-3. `npx kestrel-web-upgrade fix` bumps every out-of-range `@michaelthielemann/kestrel*` dependency
-   (`^6.0.0`) and `@michaelthielemann/kestrel-web` itself (`^3.0.0`), and adds `"sanitizeSvg"` to
-   `features` when `delivery` needs it (see below); run it with `--write`, then `pnpm install`.
-4. `npx kestrel-web-upgrade check` again for the full report, `fix --write` to apply what it can, and fix
-   the rest by hand. This is the release's kestrel-side upgrade too: `kestrel-web-upgrade` already runs
-   kestrel's own rules through the plugin API, with this layer's media wiring (§6) built in: it reports a
+1. `pnpm add @michaelthielemann/kestrel-web@^3` in a branch. Without it, the CLI finds the 2.x layer,
+   whose plugin is not built for it, and stops with `deps/host-outdated` before it changes anything.
+2. `npx -y @michaelthielemann/kestrel-cli@6 upgrade check` (or `pnpm dlx @michaelthielemann/kestrel-cli@6
+   upgrade check`) — with the project's own `@michaelthielemann/kestrel*` packages still at 5.x, this sees
+   only what a static read of your files can tell (dependency ranges, module lists, overrides).
+3. `npx -y @michaelthielemann/kestrel-cli@6 upgrade fix` bumps every out-of-range
+   `@michaelthielemann/kestrel*` dependency (`^6.0.0`), adds `@michaelthielemann/kestrel-cli` to
+   `devDependencies`, and adds `"sanitizeSvg"` to `features` when `delivery` needs it (see below); run it
+   with `--write`, then `pnpm install`.
+4. `pnpm exec kestrel upgrade check` again for the full report, `fix --write` to apply what it can, and fix
+   the rest by hand. This is the release's kestrel-side upgrade too: `kestrel upgrade` runs kestrel's own
+   rules next to the layer's, with this layer's media wiring (§6) built in: it reports a
    `delivery-static.media` still set with the exact `publicPath`/`publicCopy`/`reservedPaths` this project
    needs, and rewrites it when the module list names `delivery-static` literally; with `presetModuleConfig()`
    it stays manual. It also rewrites the image-variant event pipeline and the media delete order for you,
-   among others. Do not run the standalone `kestrel-upgrade` on a layer project — it cannot load
-   `kestrel.config.ts` at all and only ever tells you to "fix the file so it loads".
+   among others. `--no-plugins` skips the layer's plugin, and without it `kestrel` cannot load
+   `kestrel.config.ts` and only tells you to fix the file so it loads.
 5. `nuxt typecheck`, `nuxt build`, boot it once, log in.
+
+#### Scripts that call kestrel-web-upgrade
+
+The layer ships no binary. `scripts/host-binary` rewrites `kestrel-web-upgrade <command>` in
+`package.json` scripts to `kestrel upgrade <command>`, keeping a `pnpm`, `pnpm exec`, `npm exec`, `yarn`,
+`cross-env` or `VAR=value` prefix. An unscoped `npx kestrel-web-upgrade` is reported as an error, since npx
+would fetch and run whatever registry package has that name, and rewritten to the local `kestrel upgrade`.
+In a Dockerfile, a shell script, a systemd unit, a CI file or any other command file of the project it
+reports the line with the command to use instead; Markdown and lockfiles are not read.
 
 What changes:
 
@@ -2082,7 +2129,7 @@ of these, each named there:
   edit's response still carries the delivery outcome; every other subscriber (image variants, the login
   audit, a deleted user's follow-ups) moves to the worker and answers moments later. A hand-written
   `events-queue` module entry without `relayPipelines` gets one added by `fix`.
-- A content field name may not start with `_`. Run `kestrel-web-upgrade data --db <file> --out <report>`
+- A content field name may not start with `_`. Run `kestrel upgrade data --db <file> --out <report>`
   against your production database first, then `check --data-report <report>`: a field whose old,
   underscored column holds zero stored values renames automatically in `shared/model.ts`; one that still
   holds a value asks for the new name (or to remove the field) with no default, so you only confirm once a

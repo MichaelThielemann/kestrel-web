@@ -11,7 +11,7 @@ The public path is unique per locale, not the slug. Two pages may carry the same
 paths differ (see [Subpages](#subpages)). `pages.slug` therefore must not declare `unique: true`: a unique
 slug would reject the same slug in two places without naming the page that holds it. With a parent field
 the preset refuses such a model (`preset/routed-slug-unique`), and `site-default` refuses it at boot.
-Without one, `site-default` logs a warning. `kestrel-web-upgrade fix` removes the flag in either case.
+Without one, `site-default` logs a warning. `kestrel upgrade fix` removes the flag in either case.
 
 A save that would take a path held by another document answers `409 CONFLICT`. The message names the
 path, its locale and the document that holds it; the admin shows it under the field that caused the
@@ -49,7 +49,7 @@ of its own uses the parent's default-locale slug as the segment.
 - The admin's pages list opens as a tree (`GET /api/admin/pages/tree`, permission `pages.manage`), and the
   parent picker offers neither the page itself nor its subpages.
 
-`kestrel-web-upgrade fix` offers to add the parent field (`model/parent-offer`, default no).
+`kestrel upgrade fix` offers to add the parent field (`model/parent-offer`, default no).
 
 ## Mounted collections
 
@@ -124,7 +124,7 @@ Every page answer carries `_paths`: locale → public path.
 
 Build links from `_paths` (or from a link's resolved `_links` entry), never from a slug:
 `` `/${page.slug}` `` is wrong for a subpage and for every locale but the default one.
-`kestrel-web-upgrade check` names consumer code that does (`consumer/slug-url`).
+`kestrel upgrade check` names consumer code that does (`consumer/slug-url`).
 
 The public layer's language switcher links each locale the page is translated to at its `_paths` entry,
 and the untranslated-page redirect goes to the default locale's `_paths` entry.
@@ -159,5 +159,5 @@ in the default workflow). `resumePaths` runs every minute and announces any move
 An override of a page write must keep `site.indexPath:pages` as the last step of its atomic group and
 `site.announcePaths` right after the group; boot rejects it otherwise. An override of a page list or read
 keeps `site.attachPaths:pages` (`?reachable` on the public ones) after the content read.
-`kestrel-web-upgrade fix` inserts missing path steps at the preset's positions
+`kestrel upgrade fix` inserts missing path steps at the preset's positions
 (`preset/override-path-steps`).

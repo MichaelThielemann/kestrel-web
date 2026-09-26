@@ -4,7 +4,7 @@ import type { Finding, SourceRule, SourceRuleContext } from "@michaelthielemann/
 import { autoFinding, docsAnchor, packageJsonPath } from "./ruleHelpers";
 
 const RULE = "scripts/host-binary";
-const DOCS = docsAnchor("scripts-host-binary");
+const DOCS = docsAnchor("scripts-that-call-kestrel-web-upgrade");
 const BINARY = "kestrel-web-upgrade";
 const REPLACEMENT = "kestrel upgrade";
 
