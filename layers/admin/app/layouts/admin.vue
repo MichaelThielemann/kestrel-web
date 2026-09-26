@@ -11,7 +11,7 @@ const { hasAccess: hasSystemAccess } = useSystemTabs()
 const { collapsed: cookieCollapsed, toggle: toggleCookieCollapsed } = useRailCollapsed()
 const isPhone = useIsPhone()
 const { theme } = useTheme()
-const { t } = useT()
+const { t, lang } = useT()
 const route = useRoute()
 const routePath = computed(() => route.path)
 const { railOpen, railCollapsed, toggleRail, closeRailOverlay } = useRailOverlay({
@@ -29,7 +29,7 @@ const failure = computed(() => (schemaFailed.value ? schemaError.value : bootErr
 useHead(() => ({
   title: 'Kestrel',
   titleTemplate: (title) => (title && title !== 'Kestrel' ? `${title} · Kestrel` : 'Kestrel'),
-  htmlAttrs: { 'data-theme': theme.value, style: 'font-size: initial' },
+  htmlAttrs: { lang: lang.value, 'data-theme': theme.value, style: 'font-size: initial' },
 }))
 </script>
 

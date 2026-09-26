@@ -604,6 +604,9 @@
 
 ### Fixed
 
+- The admin's `<html>` element carries a `lang` attribute with the admin language, so screen readers
+  pronounce the admin in the right language (WCAG 3.1.1).
+
 - The editor preview iframe now loads the public site's layout CSS in a production build. Its route
   is rendered client-side only, so a stylesheet reachable exclusively through the lazily loaded
   default layout was never part of the initial page load; it is now registered as global app CSS.
