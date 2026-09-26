@@ -4,7 +4,7 @@ import type { CustomFieldTypes } from "../field-types";
 import type { PresetEntry } from "./compose";
 import { customFieldChecks } from "./collections";
 import { MOUNTS_FIELD } from "../mount-path";
-import { mountedCollections, mountedPipelines, pathPipelines } from "./paths";
+import { mountedCollections, mountedPipelines, pageRules, pathPipelines } from "./paths";
 import type { CollectionModel } from "./collections";
 
 export interface PresetModuleEntry {
@@ -31,7 +31,7 @@ export function basePipelines(
   collections: Record<string, CollectionModel>,
 ): Record<string, PresetEntry<PresetStep>[]> {
   const mounts = "pages" in collections && mountedCollections(collections).length > 0;
-  const siteRules = `home=${homeSlug}&status=published&fallback=true`;
+  const siteRules = pageRules(homeSlug, collections, collectionsUi);
   const routeHint: PresetStep[] = mounts ? [`site.route:pages?${siteRules}`] : [];
   const pipelines: Record<string, PresetEntry<PresetStep>[]> = {
     login: ["authn.login", "events.emit:auth.loggedIn"],

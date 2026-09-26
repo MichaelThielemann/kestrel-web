@@ -3,7 +3,7 @@ import type { PresetStep } from "../module-registry";
 import type { WorkflowUi } from "../collections-ui/workflow";
 import { isRoutedCollection } from "./capabilities";
 import type { PresetEntry } from "./compose";
-import { statusQueryFor } from "./collections";
+import { resolveWorkflow } from "../collections-ui/workflow";
 import type { CollectionModel } from "./collections";
 import { routedPipelineNames } from "./delivery-names";
 
@@ -71,8 +71,8 @@ export function mountedCollections(collections: Record<string, CollectionModel>)
 
 /** The rules a routed collection's public resolve runs with: its workflow's live status and the default-locale fallback. */
 export function resolveRules(name: string, model: CollectionModel, ui?: WorkflowUi): string {
-  const status = statusQueryFor(name, model, ui);
-  return status === "" ? "fallback=true" : `${status.slice(1)}&fallback=true`;
+  const workflow = resolveWorkflow(name, model, ui);
+  return workflow === undefined ? "fallback=true" : `${encodeURIComponent(workflow.field)}=${encodeURIComponent(workflow.live)}&fallback=true`;
 }
 
 /** The preview and public resolve pipelines of every mounted collection. */
@@ -96,4 +96,10 @@ export function mountedTriggers(name: string): TriggerConfig[] {
     { http: `POST /admin/${name}/path-preview`, pipeline: names.preview },
     { http: `GET /routes/${name}/*path`, pipeline: names.resolve },
   ];
+}
+
+/** The rules `resolvePage`'s site steps run with: the home slug, the pages workflow's live status and the default-locale fallback. */
+export function pageRules(homeSlug: string, collections: Record<string, CollectionModel>, ui?: Record<string, WorkflowUi>): string {
+  const pages = collections.pages;
+  return `home=${homeSlug}&${pages === undefined ? "fallback=true" : resolveRules("pages", pages, ui?.pages)}`;
 }

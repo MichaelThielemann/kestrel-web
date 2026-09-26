@@ -325,3 +325,13 @@ describe("re-rendering everything", () => {
     expect(stepsOf(preset, "publishAllPages")).toEqual(["authn.requireUser", "authz.require:pages.manage", "delivery.markAll:pages", "delivery.markAll:blog", "redirects.export"]);
   });
 });
+
+describe("the pages workflow in resolvePage", () => {
+  it("resolves pages with the workflow's live status, the same one site-default's liveWhen gets", () => {
+    const state: CollectionModel = { kind: "multi", fields: { slug: { type: "slug" }, title: {}, body: {}, state: { type: "enum", options: ["hidden", "listed"] } } };
+    const ui = { pages: { workflow: { field: "state", live: "listed", draft: "hidden" } } };
+    const preset = definePreset({ modules: direct, features: ["redirects"], collections: { pages: state }, collectionsUi: ui });
+    expect(stepsOf(preset, "resolvePage")).toContain("site.resolve:pages?home=home&state=listed&fallback=true");
+    expect(stepsOf(preset, "resolvePage")?.[2]).toBe("redirects.lookup");
+  });
+});

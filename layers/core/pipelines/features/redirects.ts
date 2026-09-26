@@ -4,7 +4,7 @@ import { customFieldChecks, DEFAULT_COLLECTIONS } from "../collections";
 import type { PresetContext } from "../base";
 import type { PresetEntry } from "../compose";
 import type { FeatureModule } from "../index";
-import { mountedCollections, PATH_PIPELINES, PATHS_MOVED_EVENT } from "../paths";
+import { mountedCollections, pageRules, PATH_PIPELINES, PATHS_MOVED_EVENT } from "../paths";
 
 export const REDIRECTS_PIPELINES = { get: "getRedirects", set: "setRedirects" } as const;
 
@@ -24,7 +24,7 @@ function automaticRedirects(routed: boolean): { pipelines: Record<string, Preset
   };
 }
 
-export default function redirects({ homeSlug, customFields, collections }: PresetContext): FeatureModule {
+export default function redirects({ homeSlug, customFields, collections, collectionsUi }: PresetContext): FeatureModule {
   const models = collections ?? DEFAULT_COLLECTIONS;
   const automatic = automaticRedirects("pages" in models);
   const resolveStep = mountedCollections(models).length > 0 ? "site.route" : "site.resolve";
@@ -46,7 +46,7 @@ export default function redirects({ homeSlug, customFields, collections }: Prese
     },
     triggers: automatic.triggers,
     patches: [
-      { pipeline: "resolvePage", steps: ["redirects.lookup"], at: "before", anchor: `${resolveStep}:pages?home=${homeSlug}&status=published&fallback=true` },
+      { pipeline: "resolvePage", steps: ["redirects.lookup"], at: "before", anchor: `${resolveStep}:pages?${pageRules(homeSlug, models, collectionsUi)}` },
       { pipeline: "publishAllPages", steps: ["redirects.export"], when: "delivery", at: "end" },
     ],
   };
