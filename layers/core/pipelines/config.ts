@@ -1,6 +1,6 @@
 import { resolve } from "node:path";
 import { effectiveModuleConfig } from "@michaelthielemann/kestrel";
-import { mediaTypeAllowed } from "@michaelthielemann/kestrel-contracts/mediaType";
+import { mediaTypeAllowed } from "@michaelthielemann/kestrel-contracts/helpers/mediaType";
 import { MEDIA_PUBLIC_PATH, MOUNT_PATH, MOUNTS_FIELD, RESERVED_PAGE_SEGMENTS } from "../mount-path";
 import { resolveWorkflow } from "../collections-ui/workflow";
 import type { WorkflowUi } from "../collections-ui/workflow";

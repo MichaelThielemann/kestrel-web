@@ -1,5 +1,6 @@
 import { err, failure, ok, type Result } from "@michaelthielemann/kestrel-contracts/errors";
-import { renderFailed, type RenderAsset, type RenderInput, type RenderOutput, type Renderer, type RendererError } from "@michaelthielemann/kestrel-contracts/renderer";
+import { renderFailed } from "@michaelthielemann/kestrel-contracts/helpers/renderer";
+import type { RenderAsset, RenderInput, RenderOutput, Renderer, RendererError } from "@michaelthielemann/kestrel-contracts/renderer";
 import { nuxtTarget, type NuxtBuildAssets, type NuxtTarget } from "./registry.ts";
 import { DELIVERY_ATTRIBUTE, STATIC_DELIVERY } from "./static-marker.ts";
 

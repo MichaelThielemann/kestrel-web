@@ -807,7 +807,7 @@ or a retry actually runs.
 origin, so `presetModuleConfig()` refuses a configuration in which `media-default` has `publicCopy` (which
 `delivery` sets) and accepts `image/svg+xml` while `sanitizeSvg` is off. It reads the configuration after
 `overrides` are applied and matches `allowedTypes` and `deniedTypes` the way `media-default` does
-(`mediaTypeAllowed` from `@michaelthielemann/kestrel-contracts/mediaType`): case and parameters are
+(`mediaTypeAllowed` from `@michaelthielemann/kestrel-contracts/helpers/mediaType`): case and parameters are
 ignored, `*` and `*/*` match every type, `image/*` every image type, and a malformed pattern matches
 nothing. Turn `sanitizeSvg` on, or add `image/svg+xml` to `media.deniedTypes`. `create-kestrel` adds
 `sanitizeSvg` whenever `delivery` is chosen.
