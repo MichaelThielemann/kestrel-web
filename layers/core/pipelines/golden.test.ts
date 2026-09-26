@@ -125,7 +125,7 @@ describe("golden: synthetic collections (news multi, profile system single, noti
 });
 
 describe("canonicalTriggers consistency", () => {
-  const collections = { pages: { kind: "multi" as const, fields: {} } };
+  const collections = { pages: { kind: "multi" as const, fields: { parent: { type: "ref", to: "pages" } } } };
   const context = { exportDir: EXPORT_DIR, homeSlug: "home", collections };
   const featureFactories = { ratelimit, sanitizeSvg, references, links, delivery, redirects, images, replication, migrations, audit, insights, eventsQueue, revisions };
   const basePipelineNames = new Set(Object.keys(basePipelines(context, collections)));

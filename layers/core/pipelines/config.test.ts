@@ -97,7 +97,7 @@ describe("presetModuleConfig with the playground inputs", () => {
       },
       {
         use: "@michaelthielemann/kestrel-site-default",
-        config: { routes: { pages: { home: "home", liveWhen: { status: "published" } } }, prefixPrimary: false, reservedPaths: ["/api", "/admin", "/media"] },
+        config: { routes: { pages: { home: "home", liveWhen: { status: "published" }, parentField: "parent" } }, prefixPrimary: false, reservedPaths: ["/api", "/admin", "/media"] },
       },
       { use: "@michaelthielemann/kestrel-references-default", config: { targets: { pages: { content: "pages" }, media: { media: true } } } },
       { use: "@michaelthielemann/kestrel-links-default", config: { timeoutMs: 10000, concurrency: 4, recheckAfterSeconds: 21600 } },

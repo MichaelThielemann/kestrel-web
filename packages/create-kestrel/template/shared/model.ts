@@ -71,6 +71,7 @@ export const contentTypes = {
       seo: { type: "json", localized: true },
       status: { type: "enum", options: ["draft", "finished", "published"], required: true, localized: true },
       shareImage: { type: "ref", to: "media" },
+      parent: { type: "ref", to: "pages" },
     },
   },
 } satisfies Record<string, ContentType>;

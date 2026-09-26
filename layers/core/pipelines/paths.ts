@@ -5,6 +5,7 @@ import type { PresetEntry } from "./compose";
 /** The pipelines the preset composes around `site-default`'s path index, by role. */
 export const PATH_PIPELINES = {
   preview: "previewPagePath",
+  tree: "pageTree",
   rebuild: "rebuildPaths",
   resume: "resumePaths",
   rebuildAfterMigrations: "rebuildPathsAfterMigrations",
@@ -34,9 +35,10 @@ function rebuildSteps(): PresetEntry<PresetStep>[] {
   return ["site.planRebuild", { atomic: ["site.applyRebuild"] }, "site.announcePaths"];
 }
 
-/** The path pipelines every preset with a `pages` collection composes, whatever its features. */
-export function pathPipelines(): Record<string, PresetEntry<PresetStep>[]> {
+/** The path pipelines every preset with a `pages` collection composes, whatever its features; the page tree only when pages have a parent field. */
+export function pathPipelines(pages: { fields: Record<string, unknown> }): Record<string, PresetEntry<PresetStep>[]> {
   return {
+    ...(parentFieldOf("pages", pages) === undefined ? {} : { [PATH_PIPELINES.tree]: ["authn.requireUser", "authz.require:pages.manage", "site.readTree:pages"] }),
     [PATH_PIPELINES.preview]: ["authn.requireUser", "authz.require:pages.write", "site.previewPath:pages"],
     [PATH_PIPELINES.rebuild]: ["authn.requireUser", "authz.require:system.manage", ...rebuildSteps()],
     [PATH_PIPELINES.resume]: ["site.resumePaths"],

@@ -258,5 +258,5 @@ export type CollectionPipelineName<C extends Record<string, CollectionModel>> = 
 }[GenericCollectionKeys<C>];
 
 export const DEFAULT_COLLECTIONS: Record<string, CollectionModel> = {
-  pages: { kind: "multi", fields: { slug: {}, title: {}, body: {}, seo: {}, status: {}, shareImage: {}, layout: {} } },
+  pages: { kind: "multi", fields: { slug: {}, title: {}, body: {}, seo: {}, status: {}, shareImage: {}, layout: {}, parent: { type: "ref", to: "pages" } } },
 };

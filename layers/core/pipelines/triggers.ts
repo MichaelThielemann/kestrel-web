@@ -7,6 +7,8 @@ export interface TriggerEntry {
   feature?: Feature;
   /** The trigger exists only when the preset composes a `pages` collection. */
   pages?: true;
+  /** The trigger exists only when `pages` has a parent field. */
+  parent?: true;
 }
 
 export const canonicalTriggers: readonly TriggerEntry[] = [
@@ -42,6 +44,7 @@ export const canonicalTriggers: readonly TriggerEntry[] = [
   { trigger: { http: "GET /redirects.json", pipeline: "renderRedirects" }, feature: "redirects" },
   { trigger: { http: "POST /admin/paths/rebuild", pipeline: "rebuildPaths" }, pages: true },
   { trigger: { http: "POST /admin/pages/path-preview", pipeline: "previewPagePath" }, pages: true },
+  { trigger: { http: "GET /admin/pages/tree", pipeline: "pageTree" }, pages: true, parent: true },
   { trigger: { http: "GET /site/*path", pipeline: "resolvePage" }, pages: true },
   { trigger: { http: "POST /media", pipeline: "uploadMedia" } },
   { trigger: { http: "POST /admin/media/export", pipeline: "exportMedia" } },

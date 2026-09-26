@@ -446,6 +446,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/pages/tree": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Require a valid session → Requires permission pages.manage → Every pages with its parent, label and valid paths per locale */
+        get: operations["pageTree"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/paths/rebuild": {
         parameters: {
             query?: never;
@@ -1427,6 +1444,7 @@ export interface components {
                 createdAt: number;
                 id: string;
                 layout?: string | null;
+                parent?: string | null;
                 seo?: unknown | null;
                 shareImage?: string | null;
                 slug?: string | null;
@@ -1480,6 +1498,7 @@ export interface components {
             createdAt: number;
             id: string;
             layout?: string | null;
+            parent?: string | null;
             seo?: unknown | null;
             shareImage?: string | null;
             slug?: string | null;
@@ -1550,6 +1569,7 @@ export interface components {
             createdAt: number;
             id: string;
             layout?: string | null;
+            parent?: string | null;
             seo?: unknown | null;
             shareImage?: string | null;
             slug?: string | null;
@@ -3513,6 +3533,7 @@ export interface operations {
                             createdAt: number;
                             id: string;
                             layout?: string | null;
+                            parent?: string | null;
                             seo?: unknown | null;
                             shareImage?: string | null;
                             slug?: string | null;
@@ -3610,6 +3631,7 @@ export interface operations {
                         createdAt: number;
                         id: string;
                         layout?: string | null;
+                        parent?: string | null;
                         seo?: unknown | null;
                         shareImage?: string | null;
                         slug?: string | null;
@@ -3998,6 +4020,7 @@ export interface operations {
                     layout?: string | null;
                     /** @enum {string} */
                     locale?: "de" | "en";
+                    parent?: string | null;
                     seo?: unknown | null;
                     shareImage?: string | null;
                     slug?: string | null;
@@ -4040,6 +4063,7 @@ export interface operations {
                         createdAt: number;
                         id: string;
                         layout?: string | null;
+                        parent?: string | null;
                         restore?: {
                             dropped: string[];
                             missing: string[];
@@ -4191,6 +4215,72 @@ export interface operations {
                 };
             };
             /** @description missing permission pages.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description the store is unavailable */
+            503: {
+                headers: {
+                    /** @description seconds until the client may retry */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    pageTree: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description ok */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        id: string;
+                        label: string;
+                        parent: string | null;
+                        /** @description public path per locale; null where the document is not reachable (site.attachPaths without ?reachable: not valid) */
+                        paths: {
+                            [key: string]: string | null;
+                        };
+                    }[];
+                };
+            };
+            /** @description not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description missing permission pages.manage */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -7220,6 +7310,7 @@ export interface operations {
                     layout?: string | null;
                     /** @enum {string} */
                     locale?: "de" | "en";
+                    parent?: string | null;
                     seo?: unknown | null;
                     shareImage?: string | null;
                     slug: string;
@@ -7263,6 +7354,7 @@ export interface operations {
                         createdAt: number;
                         id: string;
                         layout?: string | null;
+                        parent?: string | null;
                         seo?: unknown | null;
                         shareImage?: string | null;
                         slug?: string | null;
@@ -7522,6 +7614,7 @@ export interface operations {
                     layout?: string | null;
                     /** @enum {string} */
                     locale?: "de" | "en";
+                    parent?: string | null;
                     seo?: unknown | null;
                     shareImage?: string | null;
                     slug?: string | null;
@@ -7564,6 +7657,7 @@ export interface operations {
                         createdAt: number;
                         id: string;
                         layout?: string | null;
+                        parent?: string | null;
                         seo?: unknown | null;
                         shareImage?: string | null;
                         slug?: string | null;
@@ -7687,6 +7781,7 @@ export interface operations {
                         createdAt: number;
                         id: string;
                         layout?: string | null;
+                        parent?: string | null;
                         seo?: unknown | null;
                         shareImage?: string | null;
                         slug?: string | null;

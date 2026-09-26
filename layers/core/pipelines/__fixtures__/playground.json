@@ -301,6 +301,11 @@
       "authz.require:pages.manage",
       "revisions.list:pages"
     ],
+    "pageTree": [
+      "authn.requireUser",
+      "authz.require:pages.manage",
+      "site.readTree:pages"
+    ],
     "pagesStaleStatus": [
       "authn.requireUser",
       "authz.require:pages.manage",
@@ -736,6 +741,10 @@
     {
       "http": "POST /admin/pages/path-preview",
       "pipeline": "previewPagePath"
+    },
+    {
+      "http": "GET /admin/pages/tree",
+      "pipeline": "pageTree"
     },
     {
       "http": "GET /site/*path",

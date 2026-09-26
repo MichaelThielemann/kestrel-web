@@ -9,11 +9,13 @@ export default defineCollectionsUi({
     editor: "blocks",
     fieldLayout: [
       { kind: "row", fields: ["title"], tracks: [1] },
+      { kind: "row", fields: ["parent"], tracks: [1] },
       { kind: "row", fields: ["slug", "status"], tracks: [2, 1] },
     ],
     seoFields: ["shareImage"],
     fieldLabels: {
       title: "Title",
+      parent: "Parent page",
       slug: "Slug",
       status: "Status",
       shareImage: "Share image",

@@ -7,6 +7,7 @@ import { resolveStorageTypes } from "../field-types";
 import type { FieldTypes } from "../field-types";
 import { isGenericCollection, isPageLikeCollection } from "./collections";
 import { anonymousFieldGrants, withConsumerGrants } from "./field-grants";
+import { parentFieldOf } from "./paths";
 import type { PipelineChanges } from "./field-grants";
 import type { CollectionModel } from "./collections";
 import { lanesFor, presetSchemas, relayPipelinesFor } from "./index";
@@ -240,6 +241,8 @@ function siteConfig(types: Record<string, CollectionModel>, options: PresetModul
   const routes: Record<string, Record<string, unknown>> = {
     [PAGES_COLLECTION]: { home: options.homeSlug ?? DEFAULT_HOME_SLUG, liveWhen: liveWhenOf(PAGES_COLLECTION, pages, options.collectionsUi?.[PAGES_COLLECTION]) },
   };
+  const parentField = parentFieldOf(PAGES_COLLECTION, pages);
+  if (parentField !== undefined && routes[PAGES_COLLECTION] !== undefined) routes[PAGES_COLLECTION].parentField = parentField;
   return {
     routes,
     prefixPrimary: options.prefixPrimary ?? false,

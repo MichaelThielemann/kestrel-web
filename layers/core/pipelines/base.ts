@@ -97,7 +97,7 @@ export function basePipelines(
       `site.resolve:pages?home=${homeSlug}&status=published&fallback=true`,
       `site.resolveLinks:pages?home=${homeSlug}&status=published&fallback=true`,
     ];
-    Object.assign(pipelines, pathPipelines());
+    Object.assign(pipelines, pathPipelines(collections.pages));
   }
 
   return pipelines;

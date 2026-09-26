@@ -12,12 +12,14 @@ export default defineCollectionsUi({
     editor: "blocks",
     fieldLayout: [
       { kind: "row", fields: ["title"], tracks: [1] },
+      { kind: "row", fields: ["parent"], tracks: [1] },
       { kind: "row", fields: ["slug", "status"], tracks: [2, 1] },
       { kind: "row", fields: ["accent"], tracks: [1] },
     ],
     seoFields: ["shareImage"],
     fieldLabels: {
       title: { en: "Title", de: "Titel" },
+      parent: { en: "Parent page", de: "Übergeordnete Seite" },
       slug: "Slug",
       status: "Status",
       shareImage: { en: "Share image", de: "Share-Bild" },

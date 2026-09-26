@@ -63,7 +63,7 @@ export const staticPipelineNames = [
   "eventsQueueStatus", "eventsDead", "eventsRetryDead", "eventsRetryOne", "purgeEvents",
   "pageRevisions", "pageRevision", "labelPageRevision", "restorePageRevision", "pruneRevisions",
   "reassignRevisionAuthor", "retryReassignRevisionAuthor",
-  "previewPagePath", "rebuildPaths", "resumePaths", "rebuildPathsAfterMigrations", "pathsMovedRedirects", "pathsMovedDelivery", "listAutoRedirects", "removeAutoRedirect",
+  "previewPagePath", "pageTree", "rebuildPaths", "resumePaths", "rebuildPathsAfterMigrations", "pathsMovedRedirects", "pathsMovedDelivery", "listAutoRedirects", "removeAutoRedirect",
 ] as const;
 
 export type StaticPipelineName = (typeof staticPipelineNames)[number];
@@ -457,6 +457,7 @@ export function buildPreset<C extends Record<string, CollectionModel> = Record<s
   let triggers: TriggerConfig[] = canonicalTriggers
     .filter((entry) => entry.feature === undefined || enabledFeatures.has(entry.feature))
     .filter((entry) => entry.pages !== true || "pages" in collections)
+    .filter((entry) => entry.parent !== true || (collections.pages !== undefined && parentFieldOf("pages", collections.pages) !== undefined))
     .map((entry) => entry.trigger);
   triggers = [...insertCollectionTriggers(triggers, collections), ...featureTriggers];
 

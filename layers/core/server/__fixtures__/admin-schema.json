@@ -547,6 +547,22 @@
             "accept": "image"
           }
         },
+        "parent": {
+          "required": false,
+          "unique": false,
+          "localized": false,
+          "label": {
+            "en": "Parent page",
+            "de": "Übergeordnete Seite"
+          },
+          "type": "relation",
+          "single": true,
+          "relation": {
+            "collection": "pages",
+            "many": false,
+            "labelField": "title"
+          }
+        },
         "accent": {
           "required": false,
           "unique": false,
@@ -570,6 +586,15 @@
           "kind": "row",
           "fields": [
             "title"
+          ],
+          "tracks": [
+            1
+          ]
+        },
+        {
+          "kind": "row",
+          "fields": [
+            "parent"
           ],
           "tracks": [
             1
@@ -674,6 +699,10 @@
         "previewPath": {
           "method": "POST",
           "path": "/admin/pages/path-preview"
+        },
+        "tree": {
+          "method": "GET",
+          "path": "/admin/pages/tree"
         }
       }
     }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PipelineEntry } from "@michaelthielemann/kestrel/definePipeline";
-import { checkPreset, definePreset } from "./index";
+import { checkPreset, collectionVerbs, definePreset, presetModuleConfig } from "./index";
 import type { CollectionModel, Feature } from "./index";
 
 const pages: CollectionModel = { kind: "multi", fields: { slug: { type: "slug", localized: true }, title: { localized: true }, body: { localized: true }, status: { localized: true } } };
@@ -167,5 +167,47 @@ describe("routed slug uniqueness", () => {
   it("reports nothing for a slug without unique", () => {
     const { problems } = checkPreset({ modules: direct, features: [], collections: { pages: nested } });
     expect(problems.filter((problem) => problem.code === "preset/routed-slug-unique")).toEqual([]);
+  });
+});
+
+describe("subpages", () => {
+  const nested: CollectionModel = { kind: "multi", fields: { ...pages.fields, parent: { type: "ref", to: "pages" } } };
+
+  it("composes the page tree for pages with a parent field, behind pages.manage", () => {
+    const preset = definePreset({ modules: direct, features: [], collections: { pages: nested } });
+    expect(stepsOf(preset, "pageTree")).toEqual(["authn.requireUser", "authz.require:pages.manage", "site.readTree:pages"]);
+    expect(preset.triggers).toContainEqual({ http: "GET /admin/pages/tree", pipeline: "pageTree" });
+  });
+
+  it("composes no page tree for flat pages", () => {
+    const preset = definePreset({ modules: direct, features: [], collections: { pages } });
+    expect(stepsOf(preset, "pageTree")).toBeUndefined();
+    expect(preset.triggers.some((trigger) => trigger.pipeline === "pageTree")).toBe(false);
+  });
+
+  it("names the tree as the pages' tree verb only with a parent field", () => {
+    expect(collectionVerbs("pages", nested).tree).toBe("pageTree");
+    expect(collectionVerbs("pages", pages).tree).toBeUndefined();
+  });
+
+  it("routes pages through their parent field and never grants the parent to anonymous callers", () => {
+    const modules = presetModuleConfig({
+      dataDir: "/srv/data",
+      blobstore: { use: "@michaelthielemann/kestrel-blobstore-filesystem", config: { root: "/srv/data/blobs" } },
+      model: { locales: ["de", "en"], defaultLocale: "de", types: { pages: nested } },
+      features: [],
+      roles: { roles: { admin: ["*"] }, anonymous: ["pages.read"] },
+      bootstrap: { username: "admin", passwordHash: "x" },
+    });
+    const site = modules.find((entry) => entry.use === "@michaelthielemann/kestrel-site-default")?.config;
+    expect(site).toMatchObject({ routes: { pages: { parentField: "parent" } } });
+    const authz = modules.find((entry) => entry.use === "@michaelthielemann/kestrel-authz-roles")?.config;
+    expect(authz).toMatchObject({ anonymousFields: { pages: expect.not.arrayContaining(["parent"]) } });
+    expect(authz).toMatchObject({ anonymousFields: { pages: expect.arrayContaining(["_paths"]) } });
+  });
+
+  it("does not treat a localized parent reference as a parent field", () => {
+    const localized: CollectionModel = { kind: "multi", fields: { ...pages.fields, parent: { type: "ref", to: "pages", localized: true } } };
+    expect(collectionVerbs("pages", localized).tree).toBeUndefined();
   });
 });
