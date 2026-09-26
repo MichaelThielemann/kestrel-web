@@ -1,4 +1,5 @@
 import { resolve } from "node:path";
+import { effectiveModuleConfig } from "@michaelthielemann/kestrel";
 import { mediaTypeAllowed } from "@michaelthielemann/kestrel-contracts/mediaType";
 import { MEDIA_PUBLIC_PATH, MOUNT_PATH, MOUNTS_FIELD, RESERVED_PAGE_SEGMENTS } from "../mount-path";
 import { resolveWorkflow } from "../collections-ui/workflow";
@@ -15,7 +16,9 @@ import type { Feature } from "./index";
 
 export interface ModuleEntry {
   use: string;
-  config: unknown;
+  config?: unknown;
+  /** Values `presetModuleConfig` computed for this module, reported by `describeConfig` as `status: "default"` with `source: "preset"` until `config` overrides a path. */
+  defaults?: { from: string; values: Record<string, unknown> };
 }
 
 export interface PresetContentModel {
@@ -139,6 +142,7 @@ export const QUEUE_DEFAULT_MAX_ATTEMPTS = 5;
 export const QUEUE_DEFAULT_BACKOFF_SECONDS: readonly number[] = [5, 30, 120, 600];
 const MEDIA_REFERENCE_TARGET = "media";
 const PAGES_COLLECTION = "pages";
+const PRESET_SOURCE = "preset";
 
 const DEFAULT_MEDIA_MAX_BYTES = 5 * 1024 * 1024;
 const DEFAULT_MEDIA_ALLOWED_TYPES = ["image/*", "application/pdf"];
@@ -156,12 +160,17 @@ function requireOption<T>(value: T | undefined, name: string): T {
   return value;
 }
 
+function preset(use: string, values: Record<string, unknown>): ModuleEntry {
+  return { use, defaults: { from: PRESET_SOURCE, values } };
+}
+
 function typePatterns(value: unknown): string[] | undefined {
   return Array.isArray(value) ? value.filter((pattern): pattern is string => typeof pattern === "string") : undefined;
 }
 
 function assertSvgSanitized(modules: readonly ModuleEntry[]): void {
-  const media = modules.find((entry) => entry.use === MEDIA_MODULE)?.config;
+  const mediaEntry = modules.find((entry) => entry.use === MEDIA_MODULE);
+  const media = mediaEntry === undefined ? undefined : effectiveModuleConfig(mediaEntry);
   if (typeof media !== "object" || media === null || !("publicCopy" in media) || media.publicCopy === undefined || media.publicCopy === null) return;
   if (modules.some((entry) => entry.use === SANITIZE_SVG_MODULE)) return;
   const allowed = ("allowedTypes" in media ? typePatterns(media.allowedTypes) : undefined) ?? DEFAULT_MEDIA_ALLOWED_TYPES;
@@ -278,6 +287,11 @@ function mergedConfig(config: unknown, override: Record<string, unknown>): unkno
   return typeof config === "object" && config !== null ? { ...config, ...override } : { ...override };
 }
 
+function withoutKeys(values: Record<string, unknown>, keys: readonly string[]): Record<string, unknown> {
+  const excluded = new Set(keys);
+  return Object.fromEntries(Object.entries(values).filter(([key]) => !excluded.has(key)));
+}
+
 function applyModuleOverrides(modules: ModuleEntry[], overrides: Partial<Record<string, Record<string, unknown>>> | undefined): ModuleEntry[] {
   if (overrides === undefined) return modules;
   const enabled = new Set(modules.map((entry) => entry.use));
@@ -286,7 +300,12 @@ function applyModuleOverrides(modules: ModuleEntry[], overrides: Partial<Record<
   }
   return modules.map((entry) => {
     const override = overrides[entry.use];
-    return override === undefined ? entry : { use: entry.use, config: mergedConfig(entry.config, override) };
+    if (override === undefined) return entry;
+    if (entry.defaults !== undefined) {
+      const values = withoutKeys(entry.defaults.values, Object.keys(override));
+      return { use: entry.use, defaults: { from: entry.defaults.from, values }, config: override };
+    }
+    return { use: entry.use, config: mergedConfig(entry.config, override) };
   });
 }
 
@@ -333,129 +352,106 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
 
   const modules: ModuleEntry[] = [{ use: blobstore.use, config: blobstore.config }];
 
-  if (enabled.has("replication")) modules.push({ use: "@michaelthielemann/kestrel-replication-sqlite", config: { file: databaseFile } });
-  modules.push({ use: "@michaelthielemann/kestrel-persistence-sqlite", config: { file: databaseFile } });
+  if (enabled.has("replication")) modules.push(preset("@michaelthielemann/kestrel-replication-sqlite", { file: databaseFile }));
+  modules.push(preset("@michaelthielemann/kestrel-persistence-sqlite", { file: databaseFile }));
   if (enabled.has("sanitizeSvg")) modules.push({ use: SANITIZE_SVG_MODULE, config: {} });
 
-  modules.push({
-    use: MEDIA_MODULE,
-    config: {
-      prefix: MEDIA_PREFIX,
-      publicPath: MEDIA_PUBLIC_PATH,
-      allowedTypes: mediaAllowedTypes,
-      deniedTypes: mediaDeniedTypes,
-      maxBytes: options.media?.maxBytes ?? DEFAULT_MEDIA_MAX_BYTES,
-      ...(model.locales === undefined ? {} : { locales: [...model.locales] }),
-      ...(model.defaultLocale === undefined ? {} : { defaultLocale: model.defaultLocale }),
-      ...publicCopy,
-    },
-  });
+  modules.push(preset(MEDIA_MODULE, {
+    prefix: MEDIA_PREFIX,
+    publicPath: MEDIA_PUBLIC_PATH,
+    allowedTypes: mediaAllowedTypes,
+    deniedTypes: mediaDeniedTypes,
+    maxBytes: options.media?.maxBytes ?? DEFAULT_MEDIA_MAX_BYTES,
+    ...(model.locales === undefined ? {} : { locales: [...model.locales] }),
+    ...(model.defaultLocale === undefined ? {} : { defaultLocale: model.defaultLocale }),
+    ...publicCopy,
+  }));
 
   if (enabled.has("images")) {
-    modules.push({ use: "@michaelthielemann/kestrel-images-default", config: { publicPath: MEDIA_PUBLIC_PATH, ...publicCopy } });
+    modules.push(preset("@michaelthielemann/kestrel-images-default", { publicPath: MEDIA_PUBLIC_PATH, ...publicCopy }));
   }
 
-  modules.push({
-    use: "@michaelthielemann/kestrel-authn-multi",
-    config: {
-      identifier: session.identifier,
-      minPasswordLength: session.minPasswordLength,
-      sessionTtlSeconds: session.sessionTtlSeconds,
-      bootstrap: { username: bootstrap.username, passwordHash: bootstrap.passwordHash, roles: bootstrap.roles ?? ["admin"] },
-    },
-  });
-  modules.push({
-    use: "@michaelthielemann/kestrel-authz-roles",
-    config: {
-      roles: roles.roles,
-      anonymous: roles.anonymous,
-      anonymousFields: withConsumerGrants(anonymousFieldGrants({ ...(model.locales === undefined ? {} : { locales: model.locales }), types }, features, roles.anonymous, options.pipelines), roles.anonymousFields),
-      ...(roles.fields === undefined ? {} : { fields: roles.fields }),
-    },
-  });
-  modules.push({
-    use: "@michaelthielemann/kestrel-content-default",
-    config: {
-      ...(model.locales === undefined ? {} : { locales: [...model.locales] }),
-      ...(model.defaultLocale === undefined ? {} : { defaultLocale: model.defaultLocale }),
-      types: contentTypesOf(types),
-    },
-  });
-  modules.push({ use: "@michaelthielemann/kestrel-site-default", config: siteConfig(types, options) });
+  modules.push(preset("@michaelthielemann/kestrel-authn-multi", {
+    identifier: session.identifier,
+    minPasswordLength: session.minPasswordLength,
+    sessionTtlSeconds: session.sessionTtlSeconds,
+    bootstrap: { username: bootstrap.username, passwordHash: bootstrap.passwordHash, roles: bootstrap.roles ?? ["admin"] },
+  }));
+  modules.push(preset("@michaelthielemann/kestrel-authz-roles", {
+    roles: roles.roles,
+    anonymous: roles.anonymous,
+    anonymousFields: withConsumerGrants(anonymousFieldGrants({ ...(model.locales === undefined ? {} : { locales: model.locales }), types }, features, roles.anonymous, options.pipelines), roles.anonymousFields),
+    ...(roles.fields === undefined ? {} : { fields: roles.fields }),
+  }));
+  modules.push(preset("@michaelthielemann/kestrel-content-default", {
+    ...(model.locales === undefined ? {} : { locales: [...model.locales] }),
+    ...(model.defaultLocale === undefined ? {} : { defaultLocale: model.defaultLocale }),
+    types: contentTypesOf(types),
+  }));
+  modules.push(preset("@michaelthielemann/kestrel-site-default", siteConfig(types, options)));
 
-  if (enabled.has("references")) modules.push({ use: "@michaelthielemann/kestrel-references-default", config: { targets: referenceTargets(types) } });
-  if (enabled.has("links")) modules.push({ use: "@michaelthielemann/kestrel-links-default", config: { ...DEFAULT_LINKS } });
+  if (enabled.has("references")) modules.push(preset("@michaelthielemann/kestrel-references-default", { targets: referenceTargets(types) }));
+  if (enabled.has("links")) modules.push(preset("@michaelthielemann/kestrel-links-default", { ...DEFAULT_LINKS }));
 
-  modules.push({
-    use: "@michaelthielemann/kestrel-validate-jsonschema",
-    config: { schemas: presetSchemas({ features, collections: declaredTypes, fieldTypes }), watch: process.env.NODE_ENV !== "production" },
-  });
+  modules.push(preset("@michaelthielemann/kestrel-validate-jsonschema", {
+    schemas: presetSchemas({ features, collections: declaredTypes, fieldTypes }),
+    watch: process.env.NODE_ENV !== "production",
+  }));
 
   if (enabled.has("delivery")) {
     modules.push({ use: "@michaelthielemann/kestrel-renderer-nuxt", config: {} });
-    modules.push({
-      use: "@michaelthielemann/kestrel-delivery-static",
-      config: {
-        types: deliveryTypes(types),
-        prefix: SITE_PREFIX,
-        reservedPaths: [...RESERVED_PATHS],
-        llms: {
-          full: options.llms?.full ?? true,
-          headings: options.llms?.headings ?? llmsHeadings(types, options.collectionsUi),
-          ...(siteUrl === undefined ? {} : { siteUrl }),
-        },
-        dependencies: renderDependencies(enabled.has("eventsQueue"), options.eventsQueue),
+    modules.push(preset("@michaelthielemann/kestrel-delivery-static", {
+      types: deliveryTypes(types),
+      prefix: SITE_PREFIX,
+      reservedPaths: [...RESERVED_PATHS],
+      llms: {
+        full: options.llms?.full ?? true,
+        headings: options.llms?.headings ?? llmsHeadings(types, options.collectionsUi),
+        ...(siteUrl === undefined ? {} : { siteUrl }),
       },
-    });
+      dependencies: renderDependencies(enabled.has("eventsQueue"), options.eventsQueue),
+    }));
   }
 
   if (enabled.has("revisions")) {
     const live = liveStatesOf(types, options.collectionsUi);
-    modules.push({
-      use: "@michaelthielemann/kestrel-revisions-default",
-      config: {
-        ...(options.revisions?.keep === undefined ? {} : { keep: options.revisions.keep }),
-        ...(options.revisions?.maxSnapshotBytes === undefined ? {} : { maxSnapshotBytes: options.revisions.maxSnapshotBytes }),
-        ...(options.revisions?.pruneOnWrite === undefined ? {} : { pruneOnWrite: options.revisions.pruneOnWrite }),
-        ...(options.revisions?.maxLimit === undefined ? {} : { maxLimit: options.revisions.maxLimit }),
-        ...(live === undefined ? {} : live),
-      },
-    });
+    modules.push(preset("@michaelthielemann/kestrel-revisions-default", {
+      ...(options.revisions?.keep === undefined ? {} : { keep: options.revisions.keep }),
+      ...(options.revisions?.maxSnapshotBytes === undefined ? {} : { maxSnapshotBytes: options.revisions.maxSnapshotBytes }),
+      ...(options.revisions?.pruneOnWrite === undefined ? {} : { pruneOnWrite: options.revisions.pruneOnWrite }),
+      ...(options.revisions?.maxLimit === undefined ? {} : { maxLimit: options.revisions.maxLimit }),
+      ...(live === undefined ? {} : live),
+    }));
   }
 
-  if (enabled.has("redirects")) modules.push({ use: "@michaelthielemann/kestrel-redirects-default", config: { prefix: SITE_PREFIX } });
+  if (enabled.has("redirects")) modules.push(preset("@michaelthielemann/kestrel-redirects-default", { prefix: SITE_PREFIX }));
   if (enabled.has("audit")) {
-    modules.push({
-      use: "@michaelthielemann/kestrel-audit-persistence",
-      config: { ...(options.audit?.retentionDays === undefined ? {} : { retentionDays: options.audit.retentionDays }) },
-    });
+    modules.push(preset("@michaelthielemann/kestrel-audit-persistence", {
+      ...(options.audit?.retentionDays === undefined ? {} : { retentionDays: options.audit.retentionDays }),
+    }));
   }
   modules.push({ use: "@michaelthielemann/kestrel-events-inmemory", config: {} });
   modules.push(
     enabled.has("eventsQueue")
-      ? {
-          use: "@michaelthielemann/kestrel-events-queue",
-          config: {
-            ...options.eventsQueue,
-            relayPipelines: relayPipelinesFor(features),
-            lanes: lanesFor(features),
-          },
-        }
+      ? preset("@michaelthielemann/kestrel-events-queue", {
+          ...options.eventsQueue,
+          relayPipelines: relayPipelinesFor(features),
+          lanes: lanesFor(features),
+        })
       : { use: "@michaelthielemann/kestrel-events-direct", config: {} },
   );
   if (enabled.has("ratelimit")) {
-    modules.push({
-      use: "@michaelthielemann/kestrel-ratelimit-memory",
-      config: { buckets: { login: { ...(options.ratelimit?.login ?? DEFAULT_LOGIN_BUCKET) } } },
-    });
+    modules.push(preset("@michaelthielemann/kestrel-ratelimit-memory", {
+      buckets: { login: { ...(options.ratelimit?.login ?? DEFAULT_LOGIN_BUCKET) } },
+    }));
   }
   if (enabled.has("insights")) modules.push({ use: "@michaelthielemann/kestrel-insights", config: {} });
   if (enabled.has("migrations")) {
     const migrations = requireOption(options.migrations, "migrations");
-    modules.push({
-      use: "@michaelthielemann/kestrel-migrations-default",
-      config: { migrations: [...migrations.migrations], ...(migrations.mode === undefined ? {} : { mode: migrations.mode }) },
-    });
+    modules.push(preset("@michaelthielemann/kestrel-migrations-default", {
+      migrations: [...migrations.migrations],
+      ...(migrations.mode === undefined ? {} : { mode: migrations.mode }),
+    }));
   }
 
   const merged = applyModuleOverrides(modules, options.overrides);

@@ -1,4 +1,5 @@
 import { resolve } from "node:path";
+import { effectiveModuleConfig } from "@michaelthielemann/kestrel";
 import { definePipeline as defineRawPipeline, isAtomicGroup, pipelineSteps } from "@michaelthielemann/kestrel/definePipeline";
 import type { PipelineDefinition } from "@michaelthielemann/kestrel/definePipeline";
 import type { TriggerConfig } from "@michaelthielemann/kestrel/defineConfig";
@@ -210,15 +211,20 @@ const CONDITIONAL_CRON_HINTS: Record<string, string> = {
   [AUDIT_PRUNE_PIPELINE]: `module "${AUDIT_MODULE}" has no "${AUDIT_RETENTION_KEY}", so there is nothing to prune – pass audit: { ${AUDIT_RETENTION_KEY} } to presetModuleConfig()`,
 };
 
+function effectiveConfigOf(modules: readonly { use: string; config?: unknown }[], use: string): unknown {
+  const entry = modules.find((candidate) => candidate.use === use);
+  return entry === undefined ? undefined : effectiveModuleConfig(entry);
+}
+
 function configuredRelayPipelines(modules: readonly { use: string; config?: unknown }[]): string[] | undefined {
-  const config = modules.find((entry) => entry.use === EVENTS_QUEUE_MODULE)?.config;
+  const config = effectiveConfigOf(modules, EVENTS_QUEUE_MODULE);
   if (typeof config !== "object" || config === null || !("relayPipelines" in config)) return undefined;
   const value = Reflect.get(config, "relayPipelines");
   return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === "string") : undefined;
 }
 
 function configuredLanes(modules: readonly { use: string; config?: unknown }[]): Map<string, string[]> | undefined {
-  const config = modules.find((entry) => entry.use === EVENTS_QUEUE_MODULE)?.config;
+  const config = effectiveConfigOf(modules, EVENTS_QUEUE_MODULE);
   if (typeof config !== "object" || config === null || !("lanes" in config)) return undefined;
   const lanes: unknown = Reflect.get(config, "lanes");
   if (typeof lanes !== "object" || lanes === null) return undefined;
@@ -231,7 +237,7 @@ function configuredLaneMembers(modules: readonly { use: string; config?: unknown
 }
 
 function configuredRenderMode(modules: readonly { use: string; config?: unknown }[]): unknown {
-  const config = modules.find((entry) => entry.use === DELIVERY_STATIC_MODULE)?.config;
+  const config = effectiveConfigOf(modules, DELIVERY_STATIC_MODULE);
   if (typeof config !== "object" || config === null || !("dependencies" in config)) return "background";
   const dependencies: unknown = Reflect.get(config, "dependencies");
   if (typeof dependencies !== "object" || dependencies === null || !("render" in dependencies)) return "background";
@@ -261,14 +267,14 @@ const RESERVED_COLLECTION_NAMES = new Set(["site", "media", "users", "health", "
 const AUTHZ_MODULE = "@michaelthielemann/kestrel-authz-roles";
 
 function anonymousPermissions(modules: readonly { use: string; config?: unknown }[]): string[] | undefined {
-  const config = modules.find((entry) => entry.use === AUTHZ_MODULE)?.config;
+  const config = effectiveConfigOf(modules, AUTHZ_MODULE);
   if (typeof config !== "object" || config === null || !("anonymous" in config)) return undefined;
   const anonymous: unknown = Reflect.get(config, "anonymous");
   return Array.isArray(anonymous) ? anonymous.filter((entry): entry is string => typeof entry === "string") : undefined;
 }
 
 function validateHomeSlug(homeSlug: string, modules: readonly { use: string; config?: unknown }[], sink: PresetSink): void {
-  const config = modules.find((entry) => entry.use === "@michaelthielemann/kestrel-site-default")?.config;
+  const config = effectiveConfigOf(modules, "@michaelthielemann/kestrel-site-default");
   const routes: unknown = typeof config === "object" && config !== null ? Reflect.get(config, "routes") : undefined;
   const pages: unknown = typeof routes === "object" && routes !== null ? Reflect.get(routes, "pages") : undefined;
   const home: unknown = typeof pages === "object" && pages !== null ? Reflect.get(pages, "home") : undefined;
@@ -464,7 +470,7 @@ export function buildPreset<C extends Record<string, CollectionModel> = Record<s
     const validateModule = options.modules.find((entry) => entry.use === VALIDATE_JSONSCHEMA_MODULE);
     if (validateModule === undefined) {
       sink.report({ code: "preset/redirects-needs-module", message: `preset: feature "redirects" needs module "${VALIDATE_JSONSCHEMA_MODULE}" with schema "redirects.rules" – use presetSchemas()` });
-    } else if (!hasRedirectsRulesSchema(validateModule.config)) {
+    } else if (!hasRedirectsRulesSchema(effectiveModuleConfig(validateModule))) {
       sink.report({ code: "preset/redirects-needs-schema", message: 'preset: feature "redirects" needs schema "redirects.rules" in validate-jsonschema config – use presetSchemas()' });
     }
   }

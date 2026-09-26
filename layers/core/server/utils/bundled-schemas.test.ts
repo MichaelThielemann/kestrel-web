@@ -23,4 +23,28 @@ describe("applyBundledSchemas", () => {
     const out = applyBundledSchemas([mounted], { mode: "inline", schemas: { "pages.body": { type: "array" } } });
     expect(boundaryCast<{ schemas: Record<string, unknown> }>(out[0]?.config, "json").schemas["blog.body"]).toEqual({ type: "array" });
   });
+
+  it("rewrites the schemas a preset put into an entry's defaults, leaving config untouched", () => {
+    const preset = {
+      use: "@michaelthielemann/kestrel-validate-jsonschema",
+      defaults: { from: "preset", values: { schemas: { "pages.body": "/build/pages.body.json" }, watch: true } },
+    };
+    const out = applyBundledSchemas([preset], { mode: "inline", schemas: { "pages.body": { type: "array" } } });
+    expect(out[0]?.config).toBeUndefined();
+    expect(out[0]?.defaults).toEqual({ from: "preset", values: { schemas: { "pages.body": { type: "array" } }, watch: true } });
+  });
+
+  it("rewrites both layers independently when defaults and config each carry their own schemas", () => {
+    const entry = {
+      use: "@michaelthielemann/kestrel-validate-jsonschema",
+      defaults: { from: "preset", values: { schemas: { "pages.body": "/build/pages.body.json" }, watch: true } },
+      config: { schemas: { "events.data": "/build/events.data.json" } },
+    };
+    const out = applyBundledSchemas([entry], {
+      mode: "inline",
+      schemas: { "pages.body": { type: "array" }, "events.data": { type: "object" } },
+    });
+    expect(out[0]?.defaults).toEqual({ from: "preset", values: { schemas: { "pages.body": { type: "array" } }, watch: true } });
+    expect(out[0]?.config).toEqual({ schemas: { "events.data": { type: "object" } } });
+  });
 });

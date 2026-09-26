@@ -1,4 +1,5 @@
 import { relative } from "node:path";
+import { effectiveModuleConfig } from "@michaelthielemann/kestrel";
 import { arrayElements, isAstNode, objectProperty, parseTs, span, stringValue, walk } from "@michaelthielemann/kestrel-upgrade/codemods";
 import type { AstNode, Edit } from "@michaelthielemann/kestrel-upgrade/codemods";
 import type { Finding, Rule, SourceRule } from "@michaelthielemann/kestrel-upgrade/plugin";
@@ -280,7 +281,7 @@ function anonymousOf(config: unknown): string[] {
   if (!Array.isArray(modules)) return [];
   for (const entry of modules) {
     if (typeof entry !== "object" || entry === null || Reflect.get(entry, "use") !== "@michaelthielemann/kestrel-authz-roles") continue;
-    const moduleConfig: unknown = Reflect.get(entry, "config");
+    const moduleConfig: unknown = effectiveModuleConfig(entry);
     const anonymous: unknown = typeof moduleConfig === "object" && moduleConfig !== null ? Reflect.get(moduleConfig, "anonymous") : undefined;
     return Array.isArray(anonymous) ? anonymous.filter((item): item is string => typeof item === "string") : [];
   }

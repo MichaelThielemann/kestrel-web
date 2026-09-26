@@ -1,4 +1,5 @@
 import { boundaryCast } from "@michaelthielemann/kestrel/cast";
+import { effectiveModuleConfig } from "@michaelthielemann/kestrel";
 import type { RunResult } from "@michaelthielemann/kestrel";
 import type { AdminSchema } from "../../app/types/api";
 import type { AdminCollection } from "../../app/types/kestrel";
@@ -105,7 +106,8 @@ const DEFAULT_MAX_CASCADE = 1000;
 
 /** `site-default`'s `maxCascade` in a module list, its default when routes are configured without it, `undefined` without routes. */
 export function maxCascadeOf(modules: readonly { use: string; config?: unknown }[]): number | undefined {
-  const config = modules.find((entry) => entry.use === SITE_MODULE)?.config;
+  const entry = modules.find((candidate) => candidate.use === SITE_MODULE);
+  const config = entry === undefined ? undefined : effectiveModuleConfig(entry);
   if (!isRecord(config) || !isRecord(config.routes) || Object.keys(config.routes).length === 0) return undefined;
   return typeof config.maxCascade === "number" ? config.maxCascade : DEFAULT_MAX_CASCADE;
 }

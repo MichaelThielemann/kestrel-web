@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import { effectiveModuleConfig } from "@michaelthielemann/kestrel";
 import { arrayElements, findCalls, firstArgument, insertStepAfterEmitOutsideGroup, isArrayExpression, isAstNode, objectProperty, parseTs, stringValue } from "@michaelthielemann/kestrel-upgrade/codemods";
 import type { AstNode } from "@michaelthielemann/kestrel-upgrade/codemods";
 import type { Edit, Finding, Rule, RuleContext, SourceRule, SourceRuleContext } from "@michaelthielemann/kestrel-upgrade/plugin";
@@ -56,7 +57,8 @@ export const layerRangeRule: SourceRule = {
 };
 
 function hasRelayPipelinesKey(entry: { use: string; config?: unknown }): boolean {
-  return typeof entry.config === "object" && entry.config !== null && "relayPipelines" in entry.config;
+  const config = effectiveModuleConfig(entry);
+  return typeof config === "object" && config !== null && "relayPipelines" in config;
 }
 
 /**
@@ -530,7 +532,8 @@ const AUTHZ_ROLES_MODULE = "@michaelthielemann/kestrel-authz-roles";
 const CONTENT_MODULE = "@michaelthielemann/kestrel-content-default";
 
 function anonymousPermissions(ctx: RuleContext): string[] {
-  const authz = ctx.project.input.config.modules.find((entry) => entry.use === AUTHZ_ROLES_MODULE)?.config;
+  const entry = ctx.project.input.config.modules.find((candidate) => candidate.use === AUTHZ_ROLES_MODULE);
+  const authz = entry === undefined ? undefined : effectiveModuleConfig(entry);
   const anonymous: unknown = typeof authz === "object" && authz !== null ? Reflect.get(authz, "anonymous") : undefined;
   return Array.isArray(anonymous) ? anonymous.filter((permission): permission is string => typeof permission === "string") : [];
 }
@@ -596,7 +599,8 @@ function recordOf(value: unknown): Record<string, unknown> | undefined {
 }
 
 function moduleConfig(ctx: RuleContext, use: string): Record<string, unknown> | undefined {
-  return recordOf(ctx.project.input.config.modules.find((entry) => entry.use === use)?.config);
+  const entry = ctx.project.input.config.modules.find((candidate) => candidate.use === use);
+  return recordOf(entry === undefined ? undefined : effectiveModuleConfig(entry));
 }
 
 function grantModel(ctx: RuleContext): FieldGrantModel {

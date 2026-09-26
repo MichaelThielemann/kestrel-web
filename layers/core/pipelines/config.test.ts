@@ -1,5 +1,6 @@
 import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { effectiveModuleConfig } from "@michaelthielemann/kestrel";
 import { presetModuleConfig } from "./config";
 import type { ModuleEntry, PresetModuleConfigOptions } from "./config";
 import eventsQueueModule from "@michaelthielemann/kestrel-events-queue";
@@ -26,7 +27,8 @@ function playgroundOptions(): PresetModuleConfigOptions {
 }
 
 function configFor(modules: readonly ModuleEntry[], use: string): unknown {
-  return modules.find((entry) => entry.use === `@michaelthielemann/kestrel-${use}`)?.config;
+  const entry = modules.find((entry) => entry.use === `@michaelthielemann/kestrel-${use}`);
+  return entry === undefined ? undefined : effectiveModuleConfig(entry);
 }
 
 function fieldOf(value: unknown, key: string): unknown {
@@ -52,14 +54,18 @@ describe("presetModuleConfig with the playground inputs", () => {
     const resolved = resolveStorageTypes(contentTypes, fieldTypes, "presetModuleConfig");
     const { mount: _mount, ...blog } = contentTypes.blog;
     const storedTypes = { ...resolved, blog, settings: { ...resolved.settings, fields: { ...resolved.settings?.fields, mounts: { type: "json", required: true } } } };
+    function preset(values: Record<string, unknown>): { defaults: { from: string; values: Record<string, unknown> } } {
+      return { defaults: { from: "preset", values } };
+    }
+
     expect(presetModuleConfig(playgroundOptions())).toEqual([
       { use: "@michaelthielemann/kestrel-blobstore-filesystem", config: { root: resolve(DATA_DIR, "blobs") } },
-      { use: "@michaelthielemann/kestrel-replication-sqlite", config: { file: DATABASE_FILE } },
-      { use: "@michaelthielemann/kestrel-persistence-sqlite", config: { file: DATABASE_FILE } },
+      { use: "@michaelthielemann/kestrel-replication-sqlite", ...preset({ file: DATABASE_FILE }) },
+      { use: "@michaelthielemann/kestrel-persistence-sqlite", ...preset({ file: DATABASE_FILE }) },
       { use: "@michaelthielemann/kestrel-sanitize-svg", config: {} },
       {
         use: "@michaelthielemann/kestrel-media-default",
-        config: {
+        ...preset({
           prefix: "media/",
           publicPath: "/media",
           allowedTypes: ["image/*", "application/pdf"],
@@ -68,21 +74,21 @@ describe("presetModuleConfig with the playground inputs", () => {
           locales: ["de", "en"],
           defaultLocale: "de",
           publicCopy: { prefix: "site/" },
-        },
+        }),
       },
-      { use: "@michaelthielemann/kestrel-images-default", config: { publicPath: "/media", publicCopy: { prefix: "site/" } } },
+      { use: "@michaelthielemann/kestrel-images-default", ...preset({ publicPath: "/media", publicCopy: { prefix: "site/" } }) },
       {
         use: "@michaelthielemann/kestrel-authn-multi",
-        config: {
+        ...preset({
           identifier: "username",
           minPasswordLength: 8,
           sessionTtlSeconds: 86400,
           bootstrap: { username: "admin", passwordHash: PASSWORD_HASH, roles: ["admin"] },
-        },
+        }),
       },
       {
         use: "@michaelthielemann/kestrel-authz-roles",
-        config: {
+        ...preset({
           roles: { admin: ["*"], editor: ["pages.*", "media.*", "images.read", "settings.read", "redirects.*"] },
           anonymous: ["pages.read", "settings.read", "media.read"],
           anonymousFields: {
@@ -92,46 +98,69 @@ describe("presetModuleConfig with the playground inputs", () => {
             mediaFile: ["headers.cache-control", "headers.x-content-provenance", "headers.x-kestrel-variant"],
             redirectRules: ["pattern", "target", "status"],
           },
-        },
+        }),
       },
       {
         use: "@michaelthielemann/kestrel-content-default",
-        config: { ...contentModel, types: storedTypes },
+        ...preset({ ...contentModel, types: storedTypes }),
       },
       {
         use: "@michaelthielemann/kestrel-site-default",
-        config: {
+        ...preset({
           routes: { pages: { home: "home", liveWhen: { status: "published" }, parentField: "parent" }, blog: { mount: true, liveWhen: { status: "published" } } },
           mounts: { type: "settings", field: "mounts" },
           prefixPrimary: false,
           reservedPaths: ["/api", "/admin", "/media"],
-        },
+        }),
       },
-      { use: "@michaelthielemann/kestrel-references-default", config: { targets: { pages: { content: "pages" }, blog: { content: "blog" }, media: { media: true } } } },
-      { use: "@michaelthielemann/kestrel-links-default", config: { timeoutMs: 10000, concurrency: 4, recheckAfterSeconds: 21600 } },
+      { use: "@michaelthielemann/kestrel-references-default", ...preset({ targets: { pages: { content: "pages" }, blog: { content: "blog" }, media: { media: true } } }) },
+      { use: "@michaelthielemann/kestrel-links-default", ...preset({ timeoutMs: 10000, concurrency: 4, recheckAfterSeconds: 21600 }) },
       {
         use: "@michaelthielemann/kestrel-validate-jsonschema",
-        config: { schemas: presetSchemas({ features, collections: contentTypes, fieldTypes }), watch: process.env.NODE_ENV !== "production" },
+        ...preset({ schemas: presetSchemas({ features, collections: contentTypes, fieldTypes }), watch: process.env.NODE_ENV !== "production" }),
       },
       { use: "@michaelthielemann/kestrel-renderer-nuxt", config: {} },
       {
         use: "@michaelthielemann/kestrel-delivery-static",
-        config: {
+        ...preset({
           types: { pages: {}, blog: {} },
           prefix: "site/",
           reservedPaths: ["/api", "/admin", "/media"],
           llms: { full: true, headings: { pages: "Pages", blog: "Blog" } },
           dependencies: { render: "background", rendererReadsDocument: true },
-        },
+        }),
       },
-      { use: "@michaelthielemann/kestrel-revisions-default", config: { statusField: "status", liveStatuses: ["published"] } },
-      { use: "@michaelthielemann/kestrel-redirects-default", config: { prefix: "site/" } },
-      { use: "@michaelthielemann/kestrel-audit-persistence", config: {} },
+      { use: "@michaelthielemann/kestrel-revisions-default", ...preset({ statusField: "status", liveStatuses: ["published"] }) },
+      { use: "@michaelthielemann/kestrel-redirects-default", ...preset({ prefix: "site/" }) },
+      { use: "@michaelthielemann/kestrel-audit-persistence", ...preset({}) },
       { use: "@michaelthielemann/kestrel-events-inmemory", config: {} },
       { use: "@michaelthielemann/kestrel-events-direct", config: {} },
-      { use: "@michaelthielemann/kestrel-ratelimit-memory", config: { buckets: { login: { limit: 5, windowSeconds: 60 } } } },
+      { use: "@michaelthielemann/kestrel-ratelimit-memory", ...preset({ buckets: { login: { limit: 5, windowSeconds: 60 } } }) },
       { use: "@michaelthielemann/kestrel-insights", config: {} },
     ]);
+  });
+});
+
+describe("presetModuleConfig attributes its own values to the preset, never to raw config", () => {
+  it("gives every value it computes a defaults layer, and leaves the consumer's own blobstore entry as plain config", () => {
+    const modules = presetModuleConfig(playgroundOptions());
+    const blobstore = modules.find((entry) => entry.use === "@michaelthielemann/kestrel-blobstore-filesystem");
+    expect(blobstore?.defaults).toBeUndefined();
+    expect(blobstore?.config).toEqual({ root: resolve(DATA_DIR, "blobs") });
+
+    for (const use of [
+      "@michaelthielemann/kestrel-persistence-sqlite",
+      "@michaelthielemann/kestrel-media-default",
+      "@michaelthielemann/kestrel-delivery-static",
+      "@michaelthielemann/kestrel-ratelimit-memory",
+    ]) {
+      const entry = modules.find((candidate) => candidate.use === use);
+      expect(entry?.config, `${use} carries raw config instead of defaults`).toBeUndefined();
+      expect(entry?.defaults?.from).toBe("preset");
+    }
+
+    const persistence = modules.find((entry) => entry.use === "@michaelthielemann/kestrel-persistence-sqlite");
+    expect(persistence?.defaults).toEqual({ from: "preset", values: { file: DATABASE_FILE } });
   });
 });
 
@@ -570,6 +599,42 @@ describe("options", () => {
     });
 
     expect(configFor(modules, "persistence-sqlite")).toEqual({ file: DATABASE_FILE, busyTimeoutMs: 20000 });
+  });
+
+  it("replaces a derived top-level key whole, so an override can remove a role the preset derived", () => {
+    const modules = presetModuleConfig({
+      ...playgroundOptions(),
+      overrides: { "@michaelthielemann/kestrel-authz-roles": { roles: { admin: ["*"] } } },
+    });
+
+    const authz = configFor(modules, "authz-roles");
+    expect(authz).toMatchObject({ roles: { admin: ["*"] } });
+    const roles = fieldOf(authz, "roles");
+    expect(typeof roles === "object" && roles !== null ? Object.keys(roles) : []).toEqual(["admin"]);
+  });
+
+  it("keeps every other derived key of the module an override names one key of", () => {
+    const modules = presetModuleConfig({
+      ...playgroundOptions(),
+      overrides: { "@michaelthielemann/kestrel-delivery-static": { llms: { full: false } } },
+    });
+
+    expect(configFor(modules, "delivery-static")).toMatchObject({
+      dependencies: { render: "background", rendererReadsDocument: true },
+      llms: { full: false },
+    });
+  });
+
+  it("falls back to the schema default, not the preset's, when an override sets a key to undefined", () => {
+    const withPreset = fieldOf(configFor(presetModuleConfig(playgroundOptions()), "ratelimit-memory"), "buckets");
+    expect(withPreset).toEqual({ login: { limit: 5, windowSeconds: 60 } });
+
+    const modules = presetModuleConfig({
+      ...playgroundOptions(),
+      overrides: { "@michaelthielemann/kestrel-ratelimit-memory": { buckets: undefined } },
+    });
+    const overridden = fieldOf(configFor(modules, "ratelimit-memory"), "buckets");
+    expect(overridden).not.toEqual({ login: { limit: 5, windowSeconds: 60 } });
   });
 
   it("throws naming a module the overrides address that the built list does not contain", () => {

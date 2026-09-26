@@ -51,8 +51,8 @@ function presetRefuses(media: PresetMediaPolicy): boolean {
 async function kestrelRefuses(media: Required<Pick<PresetMediaPolicy, "allowedTypes" | "deniedTypes">>, index: number): Promise<boolean> {
   const dataDir = mkdtempSync(join(appRoot, `case-${index}-`));
   const modules = deliveryModules(dataDir, { allowedTypes: ["application/pdf"] }).map((entry) => {
-    if (entry.use !== MEDIA_MODULE || typeof entry.config !== "object" || entry.config === null) return entry;
-    return { use: entry.use, config: { ...entry.config, allowedTypes: media.allowedTypes, deniedTypes: media.deniedTypes } };
+    if (entry.use !== MEDIA_MODULE) return entry;
+    return { ...entry, config: { allowedTypes: media.allowedTypes, deniedTypes: media.deniedTypes } };
   });
   const preset = definePreset({ modules, features: ["delivery"], collections: contentTypes, fieldTypes });
   const config = defineConfig({ modules, triggers: preset.triggers, http: null });

@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { deflateSync } from "node:zlib";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { boot, silentLogger, type JsonSchema, type Kestrel, type Manifest, type NarrowsDeclaration } from "@michaelthielemann/kestrel";
+import { boot, effectiveModuleConfig, silentLogger, type JsonSchema, type Kestrel, type Manifest, type NarrowsDeclaration } from "@michaelthielemann/kestrel";
 import { boundaryCast } from "@michaelthielemann/kestrel/cast";
 import { validateSchema } from "@michaelthielemann/kestrel/schema";
 import { anonymousPipelines, type Config } from "@michaelthielemann/kestrel-authz-roles/impl";
@@ -240,7 +240,8 @@ describe("the playground preset: what a caller without a session receives", () =
     const started = await kestrel.start();
     base = `http://127.0.0.1:${started.http?.port ?? 0}`;
     manifest = kestrel.describe();
-    const authz = boundaryCast<Omit<Config, "roleClaim">>(playground.modules.find((entry) => entry.use === "@michaelthielemann/kestrel-authz-roles")?.config, "host");
+    const authzEntry = playground.modules.find((entry) => entry.use === "@michaelthielemann/kestrel-authz-roles");
+    const authz = boundaryCast<Omit<Config, "roleClaim">>(authzEntry === undefined ? undefined : effectiveModuleConfig(authzEntry), "host");
     config = { ...authz, roleClaim: "roles" };
     openapi = boundaryCast<OpenApi>(generateOpenApi(kestrel, { title: "t", version: "1" }), "json");
     seeded = await seed(base);

@@ -3,7 +3,7 @@ import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { boot, defineConfig, defineModule, definePipeline, isOk, KestrelBootError, type Logger, type ModuleDefinition } from "@michaelthielemann/kestrel";
+import { boot, defineConfig, defineModule, definePipeline, effectiveModuleConfig, isOk, KestrelBootError, type Logger, type ModuleDefinition } from "@michaelthielemann/kestrel";
 import { failure } from "@michaelthielemann/kestrel/errors";
 import { err } from "@michaelthielemann/kestrel/result";
 import { stepFactory } from "@michaelthielemann/kestrel/context";
@@ -291,7 +291,7 @@ describe("boot", () => {
       });
       const preset = definePreset({ modules, features, collections: contentTypes, collectionsUi, fieldTypes });
       const queueEntry = modules.find((entry) => entry.use === "@michaelthielemann/kestrel-events-queue");
-      expect(queueEntry?.config).toMatchObject({ relayPipelines: ["publishPage", "unpublishPage"] });
+      expect(queueEntry === undefined ? undefined : effectiveModuleConfig(queueEntry)).toMatchObject({ relayPipelines: ["publishPage", "unpublishPage"] });
 
       const config = defineConfig({ modules, triggers: preset.triggers, http: null });
       const bootedModules = presetModules(config.modules, { "@michaelthielemann/kestrel-insights": insights });
@@ -755,5 +755,52 @@ describe("boot", () => {
 
     await expect(boot({ config, modules: [], pipelines, logger: collectingLogger() })).rejects.toThrow(KestrelBootError);
     await expect(boot({ config, modules: [], pipelines, logger: collectingLogger() })).rejects.toThrow(/totally\.not\.a\.step/);
+  });
+
+  describe("config origin in the booted manifest", () => {
+    let appRoot: string;
+
+    beforeAll(() => {
+      appRoot = mkdtempSync(join(tmpdir(), "kestrel-web-boot-config-origin-"));
+      process.env.KESTREL_APP_ROOT = appRoot;
+    });
+
+    afterAll(() => {
+      delete process.env.KESTREL_APP_ROOT;
+      rmSync(appRoot, { recursive: true, force: true });
+    });
+
+    it("reports a value the preset computed as default with source \"preset\", and a consumer override of another preset value as set", async () => {
+      const types = {
+        settings: { kind: "single", fields: { title: { type: "text" } } },
+        pages: { kind: "multi", fields: { slug: { type: "slug" }, title: { type: "text" }, status: { type: "enum", options: ["draft", "published"] } } },
+      } as const;
+      const features = asFeatures(["ratelimit"]);
+      const modules = presetModuleConfig({
+        dataDir: appRoot,
+        blobstore: { use: "@michaelthielemann/kestrel-blobstore-filesystem", config: { root: resolve(appRoot, "blobs-config-origin") } },
+        model: { types },
+        features,
+        roles: { roles: { admin: ["*"] }, anonymous: ["pages.read", "settings.read"] },
+        bootstrap: { username: "admin", passwordHash: "scrypt$522f4ac87bfe4bcd100ba47a7d2aaec2$dbfc3f2d6cc38a76b21973d7c6f6d310a09506581c665f1f6601fd8fb3fa9bc3959689aea3e389f4d53eb8c7e70791ad4065e308763dd44609904134f0f5ee98" },
+        overrides: { "@michaelthielemann/kestrel-persistence-sqlite": { busyTimeoutMs: 20000 } },
+      });
+      const preset = definePreset({ modules, features, collections: types });
+      const config = defineConfig({ modules, triggers: preset.triggers, http: null });
+      const kestrel = await boot({ config, modules: presetModules(config.modules), pipelines: preset.pipelines, logger: collectingLogger() });
+      try {
+        const manifest = kestrel.describe();
+        const persistence = manifest.modules.find((m) => m.use === "@michaelthielemann/kestrel-persistence-sqlite");
+        const file = persistence?.config.variables.find((v) => v.path === "file");
+        expect(file?.status).toBe("default");
+        expect(file?.source).toBe("preset");
+
+        const busyTimeoutMs = persistence?.config.variables.find((v) => v.path === "busyTimeoutMs");
+        expect(busyTimeoutMs?.status).toBe("set");
+        expect(busyTimeoutMs?.source).toBeUndefined();
+      } finally {
+        await kestrel.stop();
+      }
+    }, 15000);
   });
 });

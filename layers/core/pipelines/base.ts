@@ -10,6 +10,7 @@ import type { CollectionModel } from "./collections";
 export interface PresetModuleEntry {
   use: string;
   config?: unknown;
+  defaults?: { from: string; values: Record<string, unknown> };
 }
 
 export const SETTINGS_PIPELINES = { get: "getSettings", set: "setSettings" } as const;

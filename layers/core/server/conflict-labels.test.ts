@@ -38,9 +38,8 @@ describe("path conflicts over HTTP", () => {
     process.env.KESTREL_BLOCK_SCHEMA = fileURLToPath(new URL("../pipelines/__fixtures__/pages.body.json", import.meta.url));
     const { default: playground, preset } = await import("../../../playground/kestrel.config");
     const withWriter = playground.modules.map((entry) => {
-      if (entry.use !== "@michaelthielemann/kestrel-authz-roles" || typeof entry.config !== "object" || entry.config === null) return entry;
-      const roles: unknown = Reflect.get(entry.config, "roles");
-      return { ...entry, config: { ...entry.config, roles: { ...(typeof roles === "object" && roles !== null ? roles : {}), pageWriter: ["pages.write"] } } };
+      if (entry.use !== "@michaelthielemann/kestrel-authz-roles") return entry;
+      return { ...entry, config: { roles: { pageWriter: ["pages.write"] } } };
     });
     const modules = presetModules(withWriter, { "@michaelthielemann/kestrel-insights": insights });
     kestrel = await boot({ config: { ...playground, modules: withWriter }, modules, pipelines: preset.pipelines, logger: silentLogger });

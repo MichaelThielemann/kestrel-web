@@ -1,3 +1,5 @@
+import { effectiveModuleConfig } from "@michaelthielemann/kestrel";
+
 const SITE_MODULE = "@michaelthielemann/kestrel-site-default";
 
 /** What `shared/model` says about the site's public URLs, which the public layer builds links with. */
@@ -16,7 +18,8 @@ function field(value: unknown, key: string): unknown {
  * its pages route must serve the model's `homeSlug` at the root.
  */
 export function siteModelProblem(modules: readonly { use: string; config?: unknown }[], model: SiteModel): string | undefined {
-  const site = modules.find((entry) => entry.use === SITE_MODULE)?.config;
+  const entry = modules.find((candidate) => candidate.use === SITE_MODULE);
+  const site = entry === undefined ? undefined : effectiveModuleConfig(entry);
   const pages = field(field(site, "routes"), "pages");
   if (pages === undefined) return undefined;
   const configured = field(site, "prefixPrimary") === true;

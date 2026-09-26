@@ -1,6 +1,9 @@
+import { effectiveModuleConfig } from "@michaelthielemann/kestrel";
+
 export interface ConfigEntry {
   use: string;
   config?: unknown;
+  defaults?: { from: string; values: Record<string, unknown> };
 }
 
 export interface ModuleLike {
@@ -31,7 +34,8 @@ export function moduleConfigForStep(modules: readonly ModuleLike[], entries: rea
   }
   const index = moduleIndexForStep(modules, owner);
   if (index === -1) return undefined;
-  const raw = entries[index]?.config ?? {};
+  const entry = entries[index];
+  const raw = (entry === undefined ? undefined : effectiveModuleConfig(entry)) ?? {};
   const parsed = modules[index]?.configSchema?.safeParse(raw);
   return parsed?.success === true ? parsed.data : raw;
 }

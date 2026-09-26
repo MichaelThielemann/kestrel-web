@@ -1,3 +1,4 @@
+import { effectiveModuleConfig } from "@michaelthielemann/kestrel";
 import type { TriggerConfig } from "@michaelthielemann/kestrel/defineConfig";
 import type { PresetStep } from "../../module-registry";
 import type { PresetContext, PresetModuleEntry } from "../base";
@@ -8,7 +9,8 @@ export const AUDIT_PRUNE_PIPELINE = "pruneAudit";
 export const AUDIT_RETENTION_KEY = "retentionDays";
 
 function hasRetention(modules: readonly PresetModuleEntry[] | undefined): boolean {
-  const config = modules?.find((entry) => entry.use === AUDIT_MODULE)?.config;
+  const entry = modules?.find((candidate) => candidate.use === AUDIT_MODULE);
+  const config = entry === undefined ? undefined : effectiveModuleConfig(entry);
   if (typeof config !== "object" || config === null || !(AUDIT_RETENTION_KEY in config)) return false;
   const value: unknown = Reflect.get(config, AUDIT_RETENTION_KEY);
   return typeof value === "number";

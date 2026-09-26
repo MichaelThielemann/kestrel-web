@@ -1,4 +1,5 @@
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { effectiveModuleConfig } from "@michaelthielemann/kestrel";
 import { boundaryCast } from "@michaelthielemann/kestrel/cast";
 import { pipelineSteps } from "@michaelthielemann/kestrel/definePipeline";
 import type { PipelineEntry } from "@michaelthielemann/kestrel/definePipeline";
@@ -129,7 +130,8 @@ describe("definePreset relay pipeline selection", () => {
   }
 
   function relayPipelinesOf(modules: readonly { use: string; config?: unknown }[]): unknown {
-    const config = modules.find((entry) => entry.use === "@michaelthielemann/kestrel-events-queue")?.config;
+    const entry = modules.find((candidate) => candidate.use === "@michaelthielemann/kestrel-events-queue");
+    const config = entry === undefined ? undefined : effectiveModuleConfig(entry);
     return typeof config === "object" && config !== null && "relayPipelines" in config ? Reflect.get(config, "relayPipelines") : undefined;
   }
 
@@ -244,7 +246,8 @@ describe("definePreset relay pipeline selection over feature combinations", () =
   }
 
   function relayPipelinesOf(modules: readonly { use: string; config?: unknown }[]): string[] | undefined {
-    const config = modules.find((entry) => entry.use === "@michaelthielemann/kestrel-events-queue")?.config;
+    const entry = modules.find((candidate) => candidate.use === "@michaelthielemann/kestrel-events-queue");
+    const config = entry === undefined ? undefined : effectiveModuleConfig(entry);
     if (typeof config !== "object" || config === null || !("relayPipelines" in config)) return undefined;
     const value = Reflect.get(config, "relayPipelines");
     return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === "string") : undefined;
@@ -298,7 +301,7 @@ describe("definePreset relay pipeline selection over feature combinations", () =
       { use: "@michaelthielemann/kestrel-validate-jsonschema", config: { schemas: { "pages.body": "x", "redirects.rules": "y" } } },
     ];
     const queueEntry = modules.find((entry) => entry.use === "@michaelthielemann/kestrel-events-queue");
-    expect(queueEntry?.config).toMatchObject({ relayPipelines: ["publishPage", "unpublishPage"] });
+    expect(queueEntry === undefined ? undefined : effectiveModuleConfig(queueEntry)).toMatchObject({ relayPipelines: ["publishPage", "unpublishPage"] });
     const preset = definePreset({ modules, features, collections: relayCollections });
     expect(preset.pipelines.map((pipeline) => pipeline.name)).toEqual(expect.arrayContaining(["publishPage", "unpublishPage"]));
   });

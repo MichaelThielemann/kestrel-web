@@ -1,4 +1,5 @@
 import { join, relative } from "node:path";
+import { effectiveModuleConfig } from "@michaelthielemann/kestrel";
 import { findCalls, firstArgument, isAstNode, objectProperty, parseTs, propertyKeyName, stringValue, walk } from "@michaelthielemann/kestrel-upgrade/codemods";
 import type { AstNode } from "@michaelthielemann/kestrel-upgrade/codemods";
 import type { Finding, Rule, RuleContext, SourceRule, SourceRuleContext } from "@michaelthielemann/kestrel-upgrade/plugin";
@@ -34,8 +35,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-function configOf(entry: { config?: unknown } | undefined): Record<string, unknown> | undefined {
-  return isRecord(entry?.config) ? entry.config : undefined;
+function configOf(entry: { config?: unknown; defaults?: { from: string; values: Record<string, unknown> } } | undefined): Record<string, unknown> | undefined {
+  const effective = entry === undefined ? undefined : effectiveModuleConfig(entry);
+  return isRecord(effective) ? effective : undefined;
 }
 
 function finding(rule: string, id: string, severity: Finding["severity"], where: Finding["where"], message: string, suggestion: string, fix: Finding["fix"]): Finding {

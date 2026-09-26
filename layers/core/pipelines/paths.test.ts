@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { effectiveModuleConfig } from "@michaelthielemann/kestrel";
 import type { PipelineEntry } from "@michaelthielemann/kestrel/definePipeline";
 import { checkPreset, collectionVerbs, definePreset, presetModuleConfig } from "./index";
 import type { CollectionModel, Feature } from "./index";
@@ -199,9 +200,11 @@ describe("subpages", () => {
       roles: { roles: { admin: ["*"] }, anonymous: ["pages.read"] },
       bootstrap: { username: "admin", passwordHash: "x" },
     });
-    const site = modules.find((entry) => entry.use === "@michaelthielemann/kestrel-site-default")?.config;
+    const siteEntry = modules.find((entry) => entry.use === "@michaelthielemann/kestrel-site-default");
+    const site = siteEntry === undefined ? undefined : effectiveModuleConfig(siteEntry);
     expect(site).toMatchObject({ routes: { pages: { parentField: "parent" } } });
-    const authz = modules.find((entry) => entry.use === "@michaelthielemann/kestrel-authz-roles")?.config;
+    const authzEntry = modules.find((entry) => entry.use === "@michaelthielemann/kestrel-authz-roles");
+    const authz = authzEntry === undefined ? undefined : effectiveModuleConfig(authzEntry);
     const fields: unknown = typeof authz === "object" && authz !== null ? Reflect.get(authz, "anonymousFields") : undefined;
     const grant: unknown = typeof fields === "object" && fields !== null ? Reflect.get(fields, "pages") : undefined;
     expect(grant).toContain("_paths");
@@ -287,12 +290,15 @@ describe("mounted collections", () => {
       roles: { roles: { admin: ["*"] }, anonymous: ["pages.read", "blog.read"] },
       bootstrap: { username: "admin", passwordHash: "x" },
     });
-    const site = modules.find((entry) => entry.use === "@michaelthielemann/kestrel-site-default")?.config;
+    const siteEntry = modules.find((entry) => entry.use === "@michaelthielemann/kestrel-site-default");
+    const site = siteEntry === undefined ? undefined : effectiveModuleConfig(siteEntry);
     expect(site).toMatchObject({ routes: { blog: { mount: true, liveWhen: { status: "published" } } }, mounts: { type: "settings", field: "mounts" } });
-    const content = modules.find((entry) => entry.use === "@michaelthielemann/kestrel-content-default")?.config;
+    const contentEntry = modules.find((entry) => entry.use === "@michaelthielemann/kestrel-content-default");
+    const content = contentEntry === undefined ? undefined : effectiveModuleConfig(contentEntry);
     expect(content).toMatchObject({ types: { settings: { fields: { mounts: { type: "json", required: true } } } } });
     expect(content).not.toMatchObject({ types: { blog: { mount: true } } });
-    const validate = modules.find((entry) => entry.use === "@michaelthielemann/kestrel-validate-jsonschema")?.config;
+    const validateEntry = modules.find((entry) => entry.use === "@michaelthielemann/kestrel-validate-jsonschema");
+    const validate = validateEntry === undefined ? undefined : effectiveModuleConfig(validateEntry);
     expect(validate).toMatchObject({ schemas: { "settings.mounts": { type: "object", properties: { blog: { type: ["string", "null"] } }, additionalProperties: false } } });
   });
 

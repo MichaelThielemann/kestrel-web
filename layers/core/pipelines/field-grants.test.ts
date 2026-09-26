@@ -1,4 +1,5 @@
 import { resolve } from "node:path";
+import { effectiveModuleConfig } from "@michaelthielemann/kestrel";
 import { pipelineSteps } from "@michaelthielemann/kestrel/definePipeline";
 import { describe, expect, it } from "vitest";
 import { anonymousFieldGrants, definePreset, featureOrder, presetModuleConfig } from "./index";
@@ -143,7 +144,8 @@ function authzConfig(options: { model?: PresetContentModel; features: readonly F
     bootstrap: { username: "admin", passwordHash: PASSWORD_HASH },
     ...(options.features.includes("migrations") ? { migrations: { migrations: [] } } : {}),
   });
-  const config = modules.find((entry) => entry.use === "@michaelthielemann/kestrel-authz-roles")?.config;
+  const entry = modules.find((candidate) => candidate.use === "@michaelthielemann/kestrel-authz-roles");
+  const config = entry === undefined ? undefined : effectiveModuleConfig(entry);
   if (typeof config !== "object" || config === null) throw new Error("expected an authz-roles entry");
   return Object.fromEntries(Object.entries(config));
 }
@@ -230,7 +232,8 @@ describe("the grants presetModuleConfig derives from the same pipeline changes a
   }
 
   function grantsOf(modules: readonly ModuleEntry[]): Record<string, unknown> {
-    const config = modules.find((entry) => entry.use === "@michaelthielemann/kestrel-authz-roles")?.config;
+    const entry = modules.find((candidate) => candidate.use === "@michaelthielemann/kestrel-authz-roles");
+    const config = entry === undefined ? undefined : effectiveModuleConfig(entry);
     const grants: unknown = typeof config === "object" && config !== null ? Reflect.get(config, "anonymousFields") : undefined;
     if (typeof grants !== "object" || grants === null) throw new Error("expected anonymousFields");
     return Object.fromEntries(Object.entries(grants));
