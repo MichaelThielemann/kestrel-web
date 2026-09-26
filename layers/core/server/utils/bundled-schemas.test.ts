@@ -17,4 +17,10 @@ describe("applyBundledSchemas", () => {
     const out = applyBundledSchemas([validate], { mode: "paths", schemas: { "pages.body": "/cache/.nuxt/kestrel/pages.body.json" } });
     expect(boundaryCast<{ schemas: Record<string, unknown> }>(out[0]?.config, "json").schemas["pages.body"]).toBe("/cache/.nuxt/kestrel/pages.body.json");
   });
+
+  it("gives a mounted collection's body on the pages' block schema the bundled block schema too", () => {
+    const mounted = { ...validate, config: { ...validate.config, schemas: { ...validate.config.schemas, "blog.body": "/build/pages.body.json" } } };
+    const out = applyBundledSchemas([mounted], { mode: "inline", schemas: { "pages.body": { type: "array" } } });
+    expect(boundaryCast<{ schemas: Record<string, unknown> }>(out[0]?.config, "json").schemas["blog.body"]).toEqual({ type: "array" });
+  });
 });
