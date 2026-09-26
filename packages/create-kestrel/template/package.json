@@ -3,14 +3,15 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=22.13.0"
+    "node": ">=22.18.0"
   },
   "scripts": {
     "dev": "nuxt dev",
     "build": "nuxt build",
     "preview": "nuxt preview",
     "prepare": "nuxt prepare",
-    "typecheck": "nuxt typecheck"
+    "typecheck": "nuxt typecheck",
+    "check": "kestrel check"
   },
   "dependencies": {
     "@dagrejs/dagre": "__DAGRE_VERSION__",
@@ -23,6 +24,7 @@
     "vue-router": "__VUE_ROUTER_VERSION__"
   },
   "devDependencies": {
+    "@michaelthielemann/kestrel-cli": "__KESTREL_CLI_VERSION__",
     "typescript": "__TYPESCRIPT_VERSION__",
     "vue-tsc": "__VUE_TSC_VERSION__"
   }

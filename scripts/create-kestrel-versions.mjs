@@ -17,6 +17,7 @@ export function expectedVersions(manifest) {
   return {
     kestrelWeb: `^${manifest.version}`,
     kestrel: required(manifest, "dependencies", "@michaelthielemann/kestrel"),
+    kestrelCli: required(manifest, "dependencies", "@michaelthielemann/kestrel"),
     insights: required(manifest, "peerDependencies", "@michaelthielemann/kestrel-insights"),
     vueFlow: required(manifest, "peerDependencies", "@vue-flow/core"),
     dagre: required(manifest, "peerDependencies", "@dagrejs/dagre"),

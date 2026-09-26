@@ -18,6 +18,19 @@ git-ignored and never leaves the machine. Create further users under **System �
 server, set `KESTREL_ADMIN_PASSWORD_HASH`, `KESTREL_BLOBSTORE` and the `KESTREL_S3_*` variables in the
 process environment instead. See `.env.example` for the full list.
 
+## Checking the project
+
+```bash
+__CHECK_COMMAND__
+```
+
+runs `kestrel check`: it loads the project the way the server does, in a scratch copy, and reports every
+boot problem (a broken pipeline, a module config the schema refuses, a preset override the layer rejects)
+without starting anything. It runs `nuxt prepare` in that copy first, so it takes a few seconds.
+`kestrel explain <pipeline>` shows the steps, triggers and event listeners of one pipeline, and
+`kestrel manifest` prints what the booted project describes; run both through your package manager
+(`pnpm exec kestrel …`, `npx kestrel …`).
+
 ## Where to change what
 
 | File | Holds |

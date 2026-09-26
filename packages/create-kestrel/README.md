@@ -49,7 +49,9 @@ With `--yes` and no password given, a random one is generated and printed once a
 `package.json`, `nuxt.config.ts`, `kestrel.config.ts`, `shared/model.ts`,
 `shared/collections-ui.ts`, two example blocks under `app/blocks/`, `tsconfig.json`,
 `pnpm-workspace.yaml` (the `allowBuilds` list Nuxt needs, ignored by the other managers),
-`.gitignore`, `.env`, `.env.example` and a README. The sources live as real files under `template/`;
+`.gitignore`, `.env`, `.env.example` and a README. The generated project has
+`@michaelthielemann/kestrel-cli` as a dev dependency and a `check` script, so `pnpm check` runs
+`kestrel check` against it; the project then needs Node 22.18 or newer. The sources live as real files under `template/`;
 a file whose name starts with `_` is written with a leading dot (`_gitignore` becomes `.gitignore`).
 
 ## Versions

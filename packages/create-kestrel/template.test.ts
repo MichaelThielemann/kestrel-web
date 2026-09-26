@@ -108,6 +108,16 @@ describe("projectFiles", () => {
     expect(manifest.name).toBe("my-site");
   });
 
+  it("adds the kestrel CLI as a dev dependency with a check script, on the Node version the CLI needs", () => {
+    const manifest = JSON.parse(text(files({}), "package.json"));
+    expect(manifest.devDependencies["@michaelthielemann/kestrel-cli"]).toBe(VERSIONS.kestrelCli);
+    expect(VERSIONS.kestrelCli).toBe(VERSIONS.kestrel);
+    expect(manifest.dependencies["@michaelthielemann/kestrel-cli"]).toBeUndefined();
+    expect(manifest.scripts.check).toBe("kestrel check");
+    expect(manifest.engines.node).toBe(">=22.18.0");
+    expect(text(files({ packageManager: "npm" }), "README.md")).toContain("npm run check");
+  });
+
   it("adds the three insights packages only with the insights feature", () => {
     const withInsights = JSON.parse(text(files({}), "package.json")).dependencies;
     expect(Object.keys(withInsights)).toContain("@michaelthielemann/kestrel-insights");
