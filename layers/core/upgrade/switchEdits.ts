@@ -6,6 +6,7 @@ import { boundaryCast } from "@michaelthielemann/kestrel/cast";
 import { lanesFor } from "../pipelines/checkPreset";
 import type { Feature, PresetOptions } from "../pipelines/checkPreset";
 import { PAGE_DELIVERY_PIPELINES, REFRESH_LLMS_PIPELINE, REPUBLISH_OUTPUT_PIPELINE, dependentsPipelineNames } from "../pipelines/features/delivery";
+import { PATH_PIPELINES } from "../pipelines/paths";
 import { addStringToNamedExportArray, dependenciesRender, hasModuleEntry, setDependenciesRender } from "./edits";
 import { renderDependenciesText } from "./dependentsRules";
 import { layerProjectData } from "./load";
@@ -170,6 +171,9 @@ const ALWAYS_IDEMPOTENT_PIPELINES: readonly string[] = [
   "generateImageVariants",
   "auditAuth",
   "anonymizeAuditUser",
+  PATH_PIPELINES.movedRedirects,
+  PATH_PIPELINES.movedDelivery,
+  PATH_PIPELINES.rebuildAfterMigrations,
 ];
 
 function presetOptionsOf(project: LoadedProject): PresetOptions | undefined {
@@ -187,7 +191,9 @@ function presetOptionsOf(project: LoadedProject): PresetOptions | undefined {
  * check or a plain state overwrite, never an increment; `generateImageVariants` dedupes in-process by
  * media id and every write is itself state-checked; `auditAuth` and `anonymizeAuditUser` dedupe by the
  * event's own `eventId` (`audit.record`) or are themselves idempotent state changes
- * (`audit.anonymize`, documented to change nothing on a second call). A project's own event pipelines are
+ * (`audit.anonymize`, documented to change nothing on a second call); `pathsMovedRedirects` applies a move
+ * only when its sequence number is newer than the stored one, `pathsMovedDelivery` only marks outputs, and
+ * `rebuildPathsAfterMigrations` recomputes the path index from the stored documents. A project's own event pipelines are
  * never included here — only what this preset's own modules already guarantee.
  */
 export function layerIdempotentPipelines(project: LoadedProject): readonly string[] {

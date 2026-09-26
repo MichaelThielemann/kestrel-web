@@ -13,6 +13,7 @@ import type { PresetOptions } from "../pipelines/checkPreset";
 import { consumerRules } from "./consumerRules";
 import { DEPENDENTS_PROBLEM_CODES, dependentsRules } from "./dependentsRules";
 import { overrideEmitRule } from "./overrideEmit";
+import { isPathStep, overridePathStepsRule, slugUrlRule } from "./pathRules";
 import { addModuleEntryConfigProperty, addStringToNamedExportArray, bumpPackageJsonDependency, namedExportArray, removeStepsFromArray, wrapAtomicGroup, wrapRange } from "./edits";
 import type { SourceRange } from "./edits";
 import { layerProjectData } from "./load";
@@ -151,7 +152,8 @@ export const missingSanitizeSvgRule: SourceRule = {
 };
 
 const WATCHED_EMIT_PROBLEM = "preset/override-drops-watched-emit";
-const OWNED_PROBLEM_CODES = new Set(["preset/override-drops-atomic-group", "preset/override-drops-relay", WATCHED_EMIT_PROBLEM, ...DEPENDENTS_PROBLEM_CODES]);
+const ROUTED_SLUG_PROBLEM = "preset/routed-slug-unique";
+const OWNED_PROBLEM_CODES = new Set(["preset/override-drops-atomic-group", "preset/override-drops-relay", WATCHED_EMIT_PROBLEM, ROUTED_SLUG_PROBLEM, ...DEPENDENTS_PROBLEM_CODES]);
 
 /** Every `checkPreset()` problem not already owned by a more specific rule, one manual finding each. */
 export const presetProblemsRule: Rule = {
@@ -198,7 +200,7 @@ export const overrideDriftRule: Rule = {
     for (const name of overrideNames) {
       const defaultSteps = flatSteps(defaultPipelineOf(cast, name));
       const overriddenSteps = new Set(flatSteps(ctx.project.input.pipelines.find((p) => p.name === name)));
-      const missing = defaultSteps.filter((s) => !overriddenSteps.has(s) && !s.startsWith("authz.fields:"));
+      const missing = defaultSteps.filter((s) => !overriddenSteps.has(s) && !s.startsWith("authz.fields:") && !isPathStep(s));
       if (missing.length === 0) continue;
       findings.push({
         id: `preset/override-drift:${name}`,
@@ -363,7 +365,7 @@ export const ownPipelineDeliveryRule: Rule = {
 
 function atomicGroupOf(def: PipelineDefinition | undefined): string[] | undefined {
   for (const entry of def?.steps ?? []) {
-    if (typeof entry === "object" && entry !== null && "atomic" in entry) return [...(entry as { atomic: readonly string[] }).atomic];
+    if (typeof entry === "object" && entry !== null && "atomic" in entry) return (entry as { atomic: readonly string[] }).atomic.filter((step) => !isPathStep(step));
   }
   return undefined;
 }
@@ -721,6 +723,8 @@ export const layerRules: readonly Rule[] = [
   overrideGroupRule,
   overrideRelayRule,
   overrideEmitRule,
+  overridePathStepsRule,
+  slugUrlRule,
   publicOverrideFieldStepRule,
   fieldGrantsRule,
   ...dependentsRules,

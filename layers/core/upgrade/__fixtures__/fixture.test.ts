@@ -224,10 +224,11 @@ describe("site-2.0-custom (hand-written module list, eventsQueue already on, a 2
     expect(relay?.fix.kind).toBe("auto");
   }, 60_000);
 
-  it("two fix --write --yes passes forward-port deletePage's override, add relayPipelines and bump ranges; the fixed project boots and answers POST /api/login 200", async () => {
+  it("three fix --write --yes passes forward-port deletePage's override, add relayPipelines and bump ranges; the fixed project boots and answers POST /api/login 200", async () => {
     const dir = await prepare("site-2.0-custom");
     await fixWriteYes(dir); // pass 1: unblocks the project's own load (range bumps, sanitizeSvg)
     await fixWriteYes(dir); // pass 2: now that it loads, the project-tier findings (relayPipelines, the override forward-port)
+    await fixWriteYes(dir); // pass 3: the path index steps, once the override's write has its atomic group
 
     const config = readFileSync(join(dir, "kestrel.config.ts"), "utf8");
     expect(config).toMatch(/relayPipelines:\s*\["publishPage",\s*"unpublishPage"\]/);
@@ -235,8 +236,8 @@ describe("site-2.0-custom (hand-written module list, eventsQueue already on, a 2
     expect(config).toContain('overrides: { "@michaelthielemann/kestrel-delivery-static": { dependencies: { render: "events", rendererReadsDocument: true, maxAttempts: 5, backoffSeconds: [5, 30, 120, 600] } } }');
     expect(await realPresetError(dir)).toBeUndefined();
     expect(configCompileErrors(join(dir, "kestrel.config.ts"))).toEqual([]);
-    expect(config).toMatch(/\{\s*atomic:\s*\[\s*"references\.guard:pages",\s*"content\.remove:pages",\s*"references\.unindex:pages",\s*"links\.unextract:pages",\s*"events\.emit:page\.deleted"\s*\]\s*\}/);
-    expect(config).toMatch(/events\.emit:page\.deleted"\s*\]\s*\},\s*"events\.relay"/);
+    expect(config).toMatch(/\{\s*atomic:\s*\[\s*"references\.guard:pages",\s*"content\.remove:pages",\s*"references\.unindex:pages",\s*"links\.unextract:pages",\s*"events\.emit:page\.deleted",\s*"site\.indexPath:pages"\s*\]\s*\}/);
+    expect(config).toMatch(/"site\.indexPath:pages"\s*\]\s*\},\s*"site\.announcePaths",\s*"events\.relay"/);
 
     const project = await loadProject(dir);
     const box = sandboxBootInput(project.input, { dir });
@@ -247,8 +248,9 @@ describe("site-2.0-custom (hand-written module list, eventsQueue already on, a 2
     expect(status).toBe(200);
   }, 60_000);
 
-  it("a third fix makes no further edit at all (fully idempotent once both passes have run)", async () => {
+  it("a fourth fix makes no further edit at all (fully idempotent once the three passes have run)", async () => {
     const dir = await prepare("site-2.0-custom");
+    await fixWriteYes(dir);
     await fixWriteYes(dir);
     await fixWriteYes(dir);
     const beforeConfig = readFileSync(join(dir, "kestrel.config.ts"), "utf8");

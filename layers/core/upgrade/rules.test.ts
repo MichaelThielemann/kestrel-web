@@ -743,7 +743,7 @@ describe("fieldGrantsRule", () => {
     const findings = await fieldGrantsRule.check(grantsContextFor({ roles: { admin: ["*"] }, anonymous: ["pages.read", "media.read"] }, "^3.0.0"));
     expect(findings).toHaveLength(1);
     expect(findings[0]).toMatchObject({ rule: "preset/field-grants", severity: "info", fix: { kind: "none" } });
-    expect(findings[0]?.suggestion).toContain('pages: ["id", "slug", "title", "body", "_locales", "_translations", "_locale", "_links"]');
+    expect(findings[0]?.suggestion).toContain('pages: ["id", "slug", "title", "body", "_locales", "_translations", "_locale", "_links", "_paths"]');
     expect(findings[0]?.suggestion).toContain('"variants[].path"');
     expect(findings[0]?.suggestion).not.toContain("settings:");
   });
