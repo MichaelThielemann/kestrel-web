@@ -113,6 +113,9 @@ export type PublicPageDocument = MatchesAnonymousPage<PublicPageFields>
 export interface PageDocument extends PublicPageFields {
   createdAt: number
   updatedAt: number
+
+  /** Editor-only: a block instance's alias, by block id. Never in the anonymous answer. */
+  blockAliases?: Record<string, string>
 }
 
 export type RedirectHit = Extract<FullOf<'resolvePage'>, { redirect: unknown }>['redirect']

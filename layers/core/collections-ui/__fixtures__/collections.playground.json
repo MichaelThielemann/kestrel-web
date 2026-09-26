@@ -489,6 +489,16 @@
         },
         "type": "json"
       },
+      "blockAliases": {
+        "required": false,
+        "unique": false,
+        "localized": false,
+        "label": {
+          "en": "Block aliases",
+          "de": "Block-Aliasnamen"
+        },
+        "type": "json"
+      },
       "seo": {
         "required": false,
         "unique": false,
@@ -622,6 +632,7 @@
     ],
     "editorOwned": [
       "body",
+      "blockAliases",
       "seo"
     ],
     "workflow": {
@@ -694,6 +705,16 @@
         },
         "type": "json"
       },
+      "blockAliases": {
+        "required": false,
+        "unique": false,
+        "localized": false,
+        "label": {
+          "en": "Block aliases",
+          "de": "Block-Aliasnamen"
+        },
+        "type": "json"
+      },
       "seo": {
         "required": false,
         "unique": false,
@@ -759,6 +780,7 @@
     ],
     "editorOwned": [
       "body",
+      "blockAliases",
       "seo"
     ],
     "workflow": {

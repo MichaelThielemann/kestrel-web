@@ -114,16 +114,8 @@ describe("blockSchema and the references index", () => {
   });
 });
 
-describe("blockSchema alias", () => {
-  it("accepts a block node carrying an alias string", () => {
-    expect(validator.check("pages.body", [{ type: "gallery", alias: "hero-teaser", props: {} }]).ok).toBe(true);
-  });
-
-  it("accepts a block node without an alias", () => {
-    expect(validator.check("pages.body", [{ type: "gallery", props: {} }]).ok).toBe(true);
-  });
-
-  it("rejects a non-string alias", () => {
-    expect(validator.check("pages.body", [{ type: "gallery", alias: 42, props: {} }]).ok).toBe(false);
+describe("blockSchema rejects an alias on the node itself", () => {
+  it("rejects a block node carrying an alias key: it lives in the collection's blockAliases field instead", () => {
+    expect(validator.check("pages.body", [{ type: "gallery", alias: "hero-teaser", props: {} }]).ok).toBe(false);
   });
 });

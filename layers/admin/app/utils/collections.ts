@@ -5,6 +5,7 @@ import { LAYOUT_FIELD } from '#kestrel/collections-ui'
 import { resolveLocalized } from './localized'
 
 export const BLOCKS_FIELD = 'body'
+export const BLOCK_ALIASES_FIELD = 'blockAliases'
 
 export interface ContentLocales {
   locales: string[]

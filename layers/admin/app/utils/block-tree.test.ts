@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { collectAliasedBlocks, findInTree, moveToIndex, updateAliasById } from './block-tree'
+import { aliasMapOf, collectAliasedBlocks, findInTree, moveToIndex, stripAliases, updateAliasById, withAliasMap } from './block-tree'
 import type { BlockRow } from './block-tree'
 
 function block(id: string): BlockRow {
@@ -67,5 +67,51 @@ describe('collectAliasedBlocks', () => {
 
   it('returns an empty array when no block has an alias', () => {
     expect(collectAliasedBlocks([block('a'), block('b')])).toEqual([])
+  })
+})
+
+describe('stripAliases', () => {
+  it('removes alias from every block, including nested slots', () => {
+    const blocks: BlockRow[] = [
+      { ...block('a'), alias: 'Hero teaser' },
+      { id: 'p', type: 'container', props: {}, slots: { items: [{ ...block('c1'), alias: 'Nested' }] } },
+    ]
+    expect(stripAliases(blocks)).toEqual([
+      block('a'),
+      { id: 'p', type: 'container', props: {}, slots: { items: [block('c1')] } },
+    ])
+  })
+
+  it('leaves a tree without any alias unchanged in shape', () => {
+    const blocks = [block('a'), block('b')]
+    expect(stripAliases(blocks)).toEqual(blocks)
+  })
+})
+
+describe('aliasMapOf', () => {
+  it('builds an id-to-alias map from the tree, including nested slots', () => {
+    const blocks: BlockRow[] = [
+      { ...block('a'), alias: 'Hero teaser' },
+      { id: 'p', type: 'container', props: {}, slots: { items: [{ ...block('c1'), alias: 'Nested' }] } },
+    ]
+    expect(aliasMapOf(blocks)).toEqual({ a: 'Hero teaser', c1: 'Nested' })
+  })
+
+  it('returns an empty map when no block has an alias', () => {
+    expect(aliasMapOf([block('a'), block('b')])).toEqual({})
+  })
+})
+
+describe('withAliasMap', () => {
+  it('applies each alias in the map to its matching block', () => {
+    const blocks = [block('a'), block('b')]
+    const result = withAliasMap(blocks, { a: 'Hero teaser', b: 'Second' })
+    expect(findInTree(result, 'a')?.block.alias).toBe('Hero teaser')
+    expect(findInTree(result, 'b')?.block.alias).toBe('Second')
+  })
+
+  it('ignores an id in the map that no block has', () => {
+    const blocks = [block('a')]
+    expect(withAliasMap(blocks, { missing: 'x' })).toEqual(blocks)
   })
 })

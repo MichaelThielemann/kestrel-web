@@ -24,6 +24,8 @@ const LOCALE_MEMBERS = ["_locales", "_translations"];
 const MEDIA_READ = "media.read";
 const FIELD_STEP = "authz.fields:";
 
+const BLOCK_ALIASES_FIELD = "blockAliases";
+
 function holds(granted: readonly string[], permission: string): boolean {
   return granted.some((grant) => grant === "*" || grant === permission || (grant.endsWith(".*") && permission.startsWith(grant.slice(0, -1))));
 }
@@ -108,7 +110,8 @@ export interface FieldGrantModel {
  * the redirect rules, which no permission gates, under `redirects`) and that a read still cuts once `changes`
  * (the `exclude` and `overrides` given to `definePreset()`) apply: every model field of a content type with
  * its `id`, the locale members when the model has locales, the resolved links and the redirect hit on pages,
- * the public paths (`_paths`) on a routed collection, never the parent field of pages,
+ * the public paths (`_paths`) on a routed collection, never the parent field of pages, never a `blockAliases`
+ * field (the page builder's editor-only block aliases, on any collection that declares one);
  * the resolved links on settings; the public media fields, with the variant fields under `images`; the file
  * headers; the redirect rules' fields. Only members a read declares are named, so every path passes
  * `authz-roles`' boot check.
@@ -124,7 +127,7 @@ export function anonymousFieldGrants(model: FieldGrantModel, features: readonly 
     if (name === "redirects" && !redirects) continue;
     if (!holds(anonymous, `${name}.read`) || !cut.has(name)) continue;
     const parent = parentFieldOf(name, type);
-    const fields = ["id", ...Object.keys(type.fields).filter((field) => field !== parent), ...locale];
+    const fields = ["id", ...Object.keys(type.fields).filter((field) => field !== parent && field !== BLOCK_ALIASES_FIELD), ...locale];
     if (name === "settings") fields.push("_links");
     if (name === "pages") fields.push(...(localized ? ["_locale"] : []), "_links", ...(redirects ? ["redirect"] : []));
     else if (isRoutedCollection(name, type)) fields.push(...(localized ? ["_locale"] : []), "_links");

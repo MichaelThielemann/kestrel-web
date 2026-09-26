@@ -2,6 +2,7 @@ import { defineCollectionsUi, presetCollectionsUi } from "#kestrel/collections-u
 import { contentTypes, features } from "./model";
 
 const BLOCKS_FIELD = "body";
+const BLOCK_ALIASES_FIELD = "blockAliases";
 const SEO_FIELD = "seo";
 
 export default defineCollectionsUi({
@@ -25,9 +26,10 @@ export default defineCollectionsUi({
       shareImage: { en: "Share image", de: "Share-Bild" },
       accent: { en: "Accent colour", de: "Akzentfarbe" },
       body: { en: "Content", de: "Inhalt" },
+      blockAliases: { en: "Block aliases", de: "Block-Aliasnamen" },
       seo: "SEO",
     },
-    editorOwned: [BLOCKS_FIELD, SEO_FIELD],
+    editorOwned: [BLOCKS_FIELD, BLOCK_ALIASES_FIELD, SEO_FIELD],
     fieldOverrides: {
       slug: { required: false, options: { from: "title" } },
       status: {
@@ -51,8 +53,8 @@ export default defineCollectionsUi({
       { kind: "row", fields: ["title"], tracks: [1] },
       { kind: "row", fields: ["slug", "status"], tracks: [2, 1] },
     ],
-    fieldLabels: { title: { en: "Title", de: "Titel" }, slug: "Slug", status: "Status", body: { en: "Content", de: "Inhalt" }, seo: "SEO" },
-    editorOwned: ["body", "seo"],
+    fieldLabels: { title: { en: "Title", de: "Titel" }, slug: "Slug", status: "Status", body: { en: "Content", de: "Inhalt" }, blockAliases: { en: "Block aliases", de: "Block-Aliasnamen" }, seo: "SEO" },
+    editorOwned: ["body", BLOCK_ALIASES_FIELD, "seo"],
     fieldOverrides: {
       slug: { required: false, options: { from: "title" } },
       status: {

@@ -146,6 +146,28 @@ export function updateAliasById(blocks: BlockRow[], id: string, alias: string): 
   })
 }
 
+export function stripAliases(blocks: BlockRow[]): BlockRow[] {
+  return blocks.map((b) => {
+    const next: BlockRow = { id: b.id, type: b.type, props: b.props }
+    if (b.slots) {
+      next.slots = Object.fromEntries(
+        Object.entries(b.slots).map(([name, arr]) => [name, Array.isArray(arr) ? stripAliases(boundaryCast<BlockRow[]>(arr, 'json')) : arr]),
+      )
+    }
+    return next
+  })
+}
+
+export function aliasMapOf(blocks: BlockRow[]): Record<string, string> {
+  return Object.fromEntries(collectAliasedBlocks(blocks).map((b) => [b.id, b.alias]))
+}
+
+export function withAliasMap(blocks: BlockRow[], aliases: Record<string, string>): BlockRow[] {
+  let out = blocks
+  for (const [id, alias] of Object.entries(aliases)) out = updateAliasById(out, id, alias)
+  return out
+}
+
 export function collectAliasedBlocks(blocks: BlockRow[]): AliasedBlockEntry[] {
   const out: AliasedBlockEntry[] = []
   function walk(arr: BlockRow[]): void {

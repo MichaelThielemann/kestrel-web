@@ -68,7 +68,6 @@ function blockNodeSchema(block: SerializedBlock, fieldTypes: FieldTypes): Schema
     properties: {
       id: { type: "string" },
       type: { const: block.name },
-      alias: { type: "string" },
       props: propsSchema(block.fields, fieldTypes),
       slots: { type: "object", properties: slots, additionalProperties: false },
     },

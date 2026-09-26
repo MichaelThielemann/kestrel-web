@@ -6,7 +6,9 @@ import { useEchoGuard } from '#kestrel-admin/composables/useEchoGuard'
 import type { SerializedBlock } from '#kestrel-admin/types/kestrel'
 import {
   type BlockRow,
+  aliasMapOf,
   findInTree,
+  stripAliases,
   updateAliasById,
   updatePropById,
   removeById,
@@ -16,6 +18,7 @@ import {
   duplicateById,
   addBlock,
   pasteBlocks,
+  withAliasMap,
 } from '../utils/block-tree'
 import { type ClipboardBlockNode, countBlocks, normalizeClipboardBlocks } from '../utils/block-clipboard'
 
@@ -27,18 +30,25 @@ export function useBlockTree(
   genId: () => string = randomId,
 
   setContent?: (value: unknown[], coalesceAs: string) => void,
+  aliases?: Ref<Record<string, string> | undefined>,
+  setAliases?: (value: Record<string, string>) => void,
 ) {
-  const clone = (v: unknown): BlockRow[] => (Array.isArray(v) ? boundaryCast<BlockRow[]>(JSON.parse(JSON.stringify(v)), 'json') : [])
+  const clone = (v: unknown): BlockRow[] => {
+    const parsed = Array.isArray(v) ? boundaryCast<BlockRow[]>(JSON.parse(JSON.stringify(v)), 'json') : []
+    const map = aliases?.value
+    return map && Object.keys(map).length ? withAliasMap(parsed, map) : parsed
+  }
 
   const blocks = ref<BlockRow[]>(clone(model.value))
   const selectedId = ref<string | null>(null)
 
   function emit(coalesceAs: string): void {
-    if (setContent) setContent(blocks.value, coalesceAs)
-    else model.value = blocks.value
+    if (setContent) setContent(stripAliases(blocks.value), coalesceAs)
+    else model.value = stripAliases(blocks.value)
+    setAliases?.(aliasMapOf(blocks.value))
   }
 
-  useEchoGuard(model, () => blocks.value, (v) => {
+  useEchoGuard(model, () => stripAliases(blocks.value), (v) => {
     blocks.value = clone(v)
     if (selectedId.value !== null && !findInTree(blocks.value, selectedId.value)) selectedId.value = null
   }, [])

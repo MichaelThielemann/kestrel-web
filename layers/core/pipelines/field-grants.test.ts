@@ -169,6 +169,16 @@ describe("the anonymous field grants presetModuleConfig derives", () => {
     expect(Object.keys(grants).sort()).toEqual(["media", "mediaFile", "pages", "settings"]);
   });
 
+  it("never grants a blockAliases field, on pages or on any other collection", () => {
+    const types: Record<string, CollectionModel> = {
+      pages: { kind: "multi", fields: { slug: { type: "slug" }, title: { type: "text" }, body: { type: "json" }, blockAliases: { type: "json" }, status: { type: "enum", options: ["draft", "published"] } } },
+      news: { kind: "multi", fields: { title: { type: "text" }, body: { type: "json" }, blockAliases: { type: "json" } } },
+    };
+    const grants = anonymousFieldGrants({ types }, ["redirects"], ["*"]);
+    expect(grants.pages).not.toContain("blockAliases");
+    expect(grants.news).not.toContain("blockAliases");
+  });
+
   it("grants no locale members for a model without locales, but keeps the resolved links", () => {
     const types: Record<string, CollectionModel> = {
       settings: { kind: "single", fields: { title: { type: "text" } } },
