@@ -58,6 +58,7 @@ packages (`@michaelthielemann/kestrel*`) are installed from npm.
 | `pnpm build` / `pnpm preview` | production build of the playground, and a preview server for it |
 | `pnpm typecheck` | `nuxt typecheck playground` |
 | `pnpm test` | vitest (`layers/**/*.test.ts`, `packages/**/*.test.ts`, `scripts/**/*.test.ts`) |
+| `pnpm test:e2e` | Playwright in Chromium against a production build of the playground (`e2e/`, see `docs/testing.md`) |
 | `pnpm lint` | `nuxt prepare playground && eslint .` |
 | `pnpm build:packages` | builds `packages/*` (the renderer's `dist/`) |
 
@@ -128,6 +129,7 @@ overrides:
 | [`docs/admin-i18n.md`](docs/admin-i18n.md) | The admin's own language: the two catalogs, the language cookie, how `Localized` labels resolve, and what overriding a string costs. |
 | [`docs/migrations.md`](docs/migrations.md) | Stored content has to be rewritten after a block or model change: enabling the module, writing migrations, run modes, the admin tab. |
 | [`docs/insights.md`](docs/insights.md) | The `/admin/insights` page: what it shows, the two routes behind it, enabling it, the wiring graph. |
+| [`docs/testing.md`](docs/testing.md) | You are running or extending the Playwright end-to-end suite: the production server it starts, its seed, screenshots and CI job. |
 | [`RELEASING.md`](RELEASING.md) | You are cutting a release of this repository. |
 | [`packages/renderer-nuxt/README.md`](packages/renderer-nuxt/README.md) | The `renderer@1` module: how a published page is rendered and which assets travel with it. |
 | [`CHANGELOG.md`](CHANGELOG.md) | Every behaviour change visible to a consumer, newest first under `## Unreleased`. Read it before upgrading. |
