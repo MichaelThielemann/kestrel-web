@@ -202,7 +202,7 @@ function referenceTargets(types: Record<string, CollectionModel>): Record<string
 export const MOUNTED_HOME_SLUG = "-";
 
 function deliveryTypes(types: Record<string, CollectionModel>): Record<string, Record<string, string>> {
-  return Object.fromEntries(routedCollections(types).map((name) => [name, name === PAGES_COLLECTION ? {} : { home: MOUNTED_HOME_SLUG }]));
+  return Object.fromEntries(routedCollections(types).map((name): [string, Record<string, string>] => [name, name === PAGES_COLLECTION ? {} : { home: MOUNTED_HOME_SLUG }]));
 }
 
 function pluralLabel(name: string, ui: WorkflowUi | undefined): string {
