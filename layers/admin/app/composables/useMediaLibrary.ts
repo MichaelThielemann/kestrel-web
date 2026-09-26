@@ -2,11 +2,28 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from '#imports'
 import type { ListPage, MediaFolder, MediaItem } from '#kestrel-admin/types/api'
 import { DEFAULT_PER_PAGE, clampPerPage } from '#kestrel-admin/utils/kestrel'
-import { itemKey, computeRange, parentFolder, folderCounts, childFolders, type LibraryItem } from '../utils/library'
+import { itemKey, computeRange, parentFolder, folderCounts, childFolders, mediaKindOf, type LibraryItem, type MediaTypeFilter } from '../utils/library'
 
 const VIEW_KEY = 'kestrel-media-view'
+const LAST_FOLDER_KEY = 'kestrel-media-last-folder'
 
 export type SortField = 'filename' | 'size' | 'createdAt'
+
+export function getLastMediaFolder(): string {
+  if (!import.meta.client) return ''
+  try {
+    return localStorage.getItem(LAST_FOLDER_KEY) ?? ''
+  } catch {
+    return ''
+  }
+}
+
+function rememberMediaFolder(path: string): void {
+  if (!import.meta.client) return
+  try {
+    localStorage.setItem(LAST_FOLDER_KEY, path)
+  } catch {}
+}
 
 export function useMediaLibrary(opts: { urlSync?: boolean; accept?: 'image' | 'any'; initialFolder?: string } = {}) {
   const urlSync = opts.urlSync ?? true
@@ -21,9 +38,15 @@ export function useMediaLibrary(opts: { urlSync?: boolean; accept?: 'image' | 'a
   const { primary: displayLocale } = useContentLocales()
 
   const folder = ref<string>(urlSync && typeof route.query.folder === 'string' ? route.query.folder : (opts.initialFolder ?? ''))
-  const files = ref<MediaItem[]>([])
+  rememberMediaFolder(folder.value)
+  const rawFiles = ref<MediaItem[]>([])
   const total = ref(0)
   const folderList = ref<MediaFolder[]>([])
+
+  const typeFilter = ref<MediaTypeFilter>(accept === 'image' ? 'image' : 'all')
+  const files = computed(() => (
+    typeFilter.value === 'all' ? rawFiles.value : rawFiles.value.filter((i) => mediaKindOf(i.contentType) === typeFilter.value)
+  ))
 
   const search = ref('')
   const sort = ref<string>('-createdAt')
@@ -85,7 +108,7 @@ export function useMediaLibrary(opts: { urlSync?: boolean; accept?: 'image' | 'a
         },
       })
       if (my !== token) return
-      files.value = accept === 'image' ? page1.items.filter((i) => i.contentType.startsWith('image/')) : page1.items
+      rawFiles.value = accept === 'image' ? page1.items.filter((i) => i.contentType.startsWith('image/')) : page1.items
       total.value = page1.total
       checkFolder()
     } catch (e) {
@@ -98,6 +121,10 @@ export function useMediaLibrary(opts: { urlSync?: boolean; accept?: 'image' | 'a
 
   async function fetchLibrary() {
     await fetchFolders()
+    if (folder.value !== '' && !counts.value.has(folder.value)) {
+      folder.value = ''
+      rememberMediaFolder('')
+    }
     await fetchFiles()
   }
 
@@ -106,6 +133,7 @@ export function useMediaLibrary(opts: { urlSync?: boolean; accept?: 'image' | 'a
     if (urlSync) return router.push({ query: path ? { folder: path } : {} })
     search.value = ''
     folder.value = path
+    rememberMediaFolder(path)
     page.value = 1
     clear()
     checkFolder()
@@ -113,6 +141,12 @@ export function useMediaLibrary(opts: { urlSync?: boolean; accept?: 'image' | 'a
   }
 
   function setSearch(s: string) { search.value = s; page.value = 1; void fetchFiles() }
+
+  function setTypeFilter(v: MediaTypeFilter) {
+    if (accept === 'image') return
+    typeFilter.value = v
+    clear()
+  }
 
   function setView(v: 'grid' | 'table') {
     view.value = v
@@ -146,6 +180,7 @@ export function useMediaLibrary(opts: { urlSync?: boolean; accept?: 'image' | 'a
       if (next === folder.value) return
       search.value = ''
       folder.value = next
+      rememberMediaFolder(next)
       page.value = 1
       clear()
       checkFolder()
@@ -157,9 +192,9 @@ export function useMediaLibrary(opts: { urlSync?: boolean; accept?: 'image' | 'a
 
   return {
     folder, folders, files, search, sort, view, loading, error,
-    page, perPage, total, totalPages,
+    page, perPage, total, totalPages, typeFilter, accept,
     items, parentPath, orderedKeys, count, selected, allFolderPaths, counts,
-    fetchLibrary, navigate, setSearch, setView, setSort, setPage, setPerPage,
+    fetchLibrary, navigate, setSearch, setView, setSort, setPage, setPerPage, setTypeFilter,
     isSelected, select, toggle, range, clear, selectAll,
   }
 }

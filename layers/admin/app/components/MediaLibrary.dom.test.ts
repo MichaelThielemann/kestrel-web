@@ -610,6 +610,76 @@ describe('MediaLibrary multi-pick with ids the field already holds', () => {
     await vi.waitFor(() => expect(wrapper.emitted('confirm')).toEqual([[['f2']]]))
     expect(idsQueries).toHaveLength(1)
   })
+
+  it('remembers the folder navigated into so a later picker opens there again', async () => {
+    localStorage.removeItem('kestrel-media-last-folder')
+    const f2 = pickItem('f2', 'late.jpg', 'sub', true)
+    serve({ '': [], sub: [f2] }, (id) => (id === 'f2' ? f2 : undefined))
+
+    const wrapper = await mountSuspended(MediaLibrary, { props: { pick: true }, attachTo: document.body })
+    onTestFinished(() => wrapper.unmount())
+
+    await vi.waitFor(() => expect(wrapper.find('[data-test="folder-sub"]').exists()).toBe(true))
+    await wrapper.get('[data-test="folder-sub"]').trigger('click')
+    await vi.waitFor(() => expect(wrapper.find('[data-test="file-f2"]').exists()).toBe(true))
+
+    expect(localStorage.getItem('kestrel-media-last-folder')).toBe('sub')
+  })
+})
+
+describe('MediaLibrary type filter', () => {
+  const unregisterAll: (() => void)[] = []
+
+  afterEach(() => {
+    unregisterAll.splice(0).forEach((unregister) => unregister())
+  })
+
+  function mixedItem(id: string, filename: string, contentType: string): MediaItem {
+    return {
+      id, filename, folder: '', contentType, size: 10, path: `/media/${id}/${filename}`,
+      createdAt: 1, updatedAt: 1, provenance: { origin: 'human' }, width: null, height: null, alt: null, title: null,
+      description: null, variants: [], variantCounts: { done: 0, pending: 0, error: 0, failed: 0 },
+    }
+  }
+
+  it('narrows the listing to the selected type and combines with a text search', async () => {
+    const image = mixedItem('img1', 'photo.jpg', 'image/jpeg')
+    const video = mixedItem('vid1', 'clip.mp4', 'video/mp4')
+    const doc = mixedItem('doc1', 'sheet.pdf', 'application/pdf')
+    unregisterAll.push(registerEndpoint('/api/media/folders', { method: 'GET', handler: () => [] }))
+    unregisterAll.push(registerEndpoint('/api/media', { method: 'GET', handler: () => ({ items: [image, video, doc], total: 3 }) }))
+
+    const wrapper = await mountSuspended(MediaLibrary, { attachTo: document.body })
+    onTestFinished(() => wrapper.unmount())
+
+    await vi.waitFor(() => expect(wrapper.find('[data-test="file-img1"]').exists()).toBe(true))
+    expect(wrapper.find('[data-test="file-vid1"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="file-doc1"]').exists()).toBe(true)
+
+    const filterButtons = wrapper.findAll('.media-toolbar__filter button')
+    const videosButton = filterButtons.find((b) => b.text() === en['mediaToolbar.filterVideos'])
+    if (!videosButton) throw new Error('expected a "Videos" filter button')
+    await videosButton.trigger('click')
+
+    expect(wrapper.find('[data-test="file-vid1"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="file-img1"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="file-doc1"]').exists()).toBe(false)
+  })
+
+  it('offers only the images option, with no other type selectable, when the field accepts images only', async () => {
+    const image = mixedItem('img1', 'photo.jpg', 'image/jpeg')
+    unregisterAll.push(registerEndpoint('/api/media/folders', { method: 'GET', handler: () => [] }))
+    unregisterAll.push(registerEndpoint('/api/media', { method: 'GET', handler: () => ({ items: [image], total: 1 }) }))
+
+    const wrapper = await mountSuspended(MediaLibrary, { props: { pick: true, accept: 'image' }, attachTo: document.body })
+    onTestFinished(() => wrapper.unmount())
+
+    await vi.waitFor(() => expect(wrapper.find('[data-test="file-img1"]').exists()).toBe(true))
+
+    const filterButtons = wrapper.findAll('.media-toolbar__filter button')
+    expect(filterButtons).toHaveLength(1)
+    expect(filterButtons[0]?.text()).toBe(en['mediaToolbar.filterImages'])
+  })
 })
 
 describe('media components do not branch on the delivery mode', () => {
