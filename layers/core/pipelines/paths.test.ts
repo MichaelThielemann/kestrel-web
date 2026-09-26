@@ -335,3 +335,27 @@ describe("the pages workflow in resolvePage", () => {
     expect(stepsOf(preset, "resolvePage")?.[2]).toBe("redirects.lookup");
   });
 });
+
+describe("a mounted collection's slug", () => {
+  it("must be a slug field, whose pattern keeps every document off the collection's reserved home slug", () => {
+    const settings: CollectionModel = { kind: "single", fields: { title: {} } };
+    const blog: CollectionModel = { kind: "multi", mount: true, fields: { slug: { type: "text" }, title: {}, status: {} } };
+    const { problems } = checkPreset({ modules: direct, features: [], collections: { settings, pages, blog } });
+    expect(problems.filter((problem) => problem.code === "preset/mount-invalid").map((problem) => problem.message)).toEqual(['preset: mounted collection "blog" needs a "slug" field of type "slug" for its public paths']);
+  });
+});
+
+describe("the reserved settings.mounts field", () => {
+  it("refuses a settings collection that declares mounts itself", () => {
+    const settings: CollectionModel = { kind: "single", fields: { title: {}, mounts: { type: "json" } } };
+    const blog: CollectionModel = { kind: "multi", mount: true, fields: { slug: { type: "slug" }, title: {}, status: {} } };
+    expect(() => presetModuleConfig({
+      dataDir: "/srv/data",
+      blobstore: { use: "@michaelthielemann/kestrel-blobstore-filesystem", config: { root: "/srv/data/blobs" } },
+      model: { types: { settings, pages, blog } },
+      features: [],
+      roles: { roles: { admin: ["*"] }, anonymous: [] },
+      bootstrap: { username: "admin", passwordHash: "x" },
+    })).toThrow('"settings.mounts" is reserved');
+  });
+});

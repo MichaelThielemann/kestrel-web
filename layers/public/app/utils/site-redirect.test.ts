@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { boundaryCast } from "#kestrel/cast";
 import type { PageDocument, RedirectHit, SiteResponse } from "#kestrel-core/app/types/api";
-import { isPageResponse, isRedirectResponse, redirectNavigation } from "./site-redirect";
+import { isPageResponse, isRedirectResponse, isRouteHint, redirectNavigation } from "./site-redirect";
 
 const REDIRECT_STATUSES = [301, 302, 307, 308] as const;
 
@@ -86,5 +86,16 @@ describe("redirectNavigation", () => {
   it("treats a site-relative target as internal, not external", () => {
     const [, options] = redirectNavigation(hit(302, "/neu"));
     expect(options.external).toBe(false);
+  });
+});
+
+describe("isRouteHint", () => {
+  it("accepts a hint naming a collection", () => {
+    expect(isRouteHint({ route: { type: "blog" } })).toBe(true);
+  });
+
+  it("refuses a hint whose type is not a collection name, so it never becomes part of a request path", () => {
+    expect(isRouteHint({ route: { type: "../admin" } })).toBe(false);
+    expect(isRouteHint(boundaryCast<SiteResponse>({ route: { type: 7 } }, "json"))).toBe(false);
   });
 });
