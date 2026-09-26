@@ -1,0 +1,11 @@
+:root,
+.admin,
+.admin-portal {
+  --font-sans: "Liberation Sans", Arial, sans-serif !important;
+}
+
+*,
+*::before,
+*::after {
+  font-family: "Liberation Sans", Arial, sans-serif !important;
+}

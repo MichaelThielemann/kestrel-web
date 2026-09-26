@@ -35,12 +35,13 @@
     "build": "nuxt build playground",
     "preview": "nuxt preview playground",
     "prepare": "nuxt prepare playground",
-    "typecheck": "nuxt typecheck playground",
+    "typecheck": "nuxt typecheck playground && tsc -p e2e",
     "lint": "nuxt prepare playground && eslint .",
     "pretest": "tsx scripts/generate-api-types.ts --check",
     "test": "vitest run",
     "build:packages": "pnpm -r --filter './packages/*' build",
-    "generate:api-types": "tsx scripts/generate-api-types.ts"
+    "generate:api-types": "tsx scripts/generate-api-types.ts",
+    "test:e2e": "playwright test --config e2e/playwright.config.ts"
   },
   "dependencies": {
     "@babel/parser": "^8.0.4",
@@ -114,11 +115,13 @@
     }
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
     "@dagrejs/dagre": "^3.1.1",
     "@michaelthielemann/kestrel-insights": "^5.8.0",
     "@michaelthielemann/kestrel-openapi": "^5.8.0",
     "@nuxt/eslint": "^1.9.0",
     "@nuxt/test-utils": "^4.3.2",
+    "@playwright/test": "^1.63.0",
     "@vue-flow/core": "^1.48.2",
     "@vue/test-utils": "^2.5.0",
     "eslint": "^9.39.1",
