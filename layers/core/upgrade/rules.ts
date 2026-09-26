@@ -14,6 +14,7 @@ import { consumerRules } from "./consumerRules";
 import { DEPENDENTS_PROBLEM_CODES, dependentsRules } from "./dependentsRules";
 import { overrideEmitRule } from "./overrideEmit";
 import { isPathStep, overridePathStepsRule, pageLikeMountRule, parentOfferRule, slugUrlRule } from "./pathRules";
+import { siteModelOptionsRule } from "./siteModelRule";
 import { addModuleEntryConfigProperty, addStringToNamedExportArray, bumpPackageJsonDependency, namedExportArray, removeStepsFromArray, wrapAtomicGroup, wrapRange } from "./edits";
 import type { SourceRange } from "./edits";
 import { layerProjectData } from "./load";
@@ -727,6 +728,7 @@ export const layerRules: readonly Rule[] = [
   slugUrlRule,
   parentOfferRule,
   pageLikeMountRule,
+  siteModelOptionsRule,
   publicOverrideFieldStepRule,
   fieldGrantsRule,
   ...dependentsRules,

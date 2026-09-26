@@ -180,7 +180,7 @@ export const slugUrlRule: SourceRule = {
 const PARENT_OFFER = "model/parent-offer";
 const PARENT_FIELD = 'parent: { type: "ref", to: "pages" }';
 
-function insertLastProperty(file: string, source: string, fields: AstNode, text: string): Edit | undefined {
+export function insertLastProperty(file: string, source: string, fields: AstNode, text: string): Edit | undefined {
   const properties = Array.isArray(fields.properties) ? fields.properties.filter(isAstNode) : [];
   const last = properties.at(-1);
   if (last === undefined) return undefined;

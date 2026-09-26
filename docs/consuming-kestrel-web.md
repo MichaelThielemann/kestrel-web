@@ -1966,6 +1966,9 @@ What changes:
   `model/page-like-mount` asks for each such collection (default yes) and adds `mount: true` and, when
   anonymous callers read pages, `"<collection>.read"` to `roles.anonymous`. Without an assigned page a mounted
   collection keeps its 2.x top-level URLs.
+- `presetModuleConfig()` takes `homeSlug` and `prefixPrimary` from `shared/model`, and the server refuses to
+  boot when `site-default` disagrees with them. `preset/site-model-options` passes both (and `homeSlug` to
+  `definePreset()`); it is an error when `shared/model` sets `prefixPrimary = true` or another home slug.
 - `fix --write` repeats its checks until nothing more changes, so a 2.x override gets its atomic group and
   its path steps in one run. After a dependency change it asks for `pnpm install`; run `fix --write` once more
   afterwards, since a question such as `model/parent-offer` appears only once the project loads.

@@ -520,3 +520,21 @@ describe("site-2.0-news (a 2.x page-like news collection next to pages)", () => 
     expect(report.findings.some((f) => f.rule === "model/page-like-mount")).toBe(false);
   }, 120_000);
 });
+
+describe("site-2.0-prefixed (shared/model has prefixPrimary = true)", () => {
+  it("fix --write --yes passes homeSlug and prefixPrimary from shared/model, so the project boots with matching URLs", async () => {
+    const dir = await prepare("site-2.0-prefixed");
+    await fixWriteYes(dir);
+    const config = readFileSync(join(dir, "kestrel.config.ts"), "utf8");
+    expect(config).toMatch(/import \{ contentModel, contentTypes, features, homeSlug, prefixPrimary \} from "\.\/shared\/model";/);
+    expect(config).toMatch(/presetModuleConfig\(\{[\s\S]*homeSlug,[\s\S]*prefixPrimary,[\s\S]*\}\);/);
+    expect(config).toMatch(/definePreset\(\{[^)]*homeSlug[^)]*\}\)/);
+    expect(await realPresetError(dir)).toBeUndefined();
+    const project = await loadProject(dir);
+    const { siteModelProblem } = await import("../../server/utils/site-model");
+    expect(siteModelProblem(project.input.config.modules, { prefixPrimary: true, homeSlug: "home" })).toBeUndefined();
+    const report = await check(dir);
+    expect(report.findings.some((f) => f.rule === "preset/site-model-options")).toBe(false);
+  }, 120_000);
+
+});

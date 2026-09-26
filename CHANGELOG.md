@@ -430,7 +430,8 @@
   collection's document with its own component.
 - `kestrel-web-upgrade`: `model/parent-offer` asks whether pages should get a parent field, and
   `model/page-like-mount` offers `mount: true` (with the anonymous `<collection>.read`) for a 2.x collection
-  carrying `slug`, `status` and `body`, which is no longer exported otherwise.
+  carrying `slug`, `status` and `body`, which is no longer exported otherwise; `preset/site-model-options` passes
+  `homeSlug` and `prefixPrimary` from `shared/model` to `presetModuleConfig()` and `homeSlug` to `definePreset()`.
 - Mounted collections ([`docs/paths.md`](docs/paths.md#mounted-collections)): `mount: true` on a multi
   collection gives it public paths under the page `settings.mounts` assigns to it, or at the top level. The
   preset composes `resolve<Name>` (`GET /routes/<c>/*path`), `preview<Name>Path`, per-collection delivery
