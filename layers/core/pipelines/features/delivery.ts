@@ -87,7 +87,7 @@ export default function delivery(context: PresetContext): FeatureModule {
     [PAGE_DELIVERY_PIPELINES.publishStatus]: ["authn.requireUser", "authz.require:pages.manage", "delivery.readStatus:pages"],
     [PAGE_DELIVERY_PIPELINES.staleStatus]: ["authn.requireUser", "authz.require:pages.manage", "delivery.readStaleStatus"],
     [PAGE_DELIVERY_PIPELINES.retryStale]: ["authn.requireUser", "authz.require:pages.manage", "delivery.retryStale"],
-    publishAllPages: ["authn.requireUser", "authz.require:pages.manage", "delivery.markAll:pages"],
+    publishAllPages: ["authn.requireUser", "authz.require:pages.manage", "delivery.markAll:pages", ...mountedCollections(context.collections ?? DEFAULT_COLLECTIONS).map((name): PresetStep => `delivery.markAll:${name}`)],
     [RESUME_STALE_PIPELINE]: ["delivery.resumeStale"],
     [BUILD_CHECK_PIPELINE]: ["delivery.checkBuild"],
     repairPublicMedia: ["authn.requireUser", "authz.require:media.manage", "media.syncPublic"],

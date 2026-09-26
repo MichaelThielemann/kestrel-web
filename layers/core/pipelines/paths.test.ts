@@ -315,3 +315,13 @@ describe("the home slug in both places", () => {
     expect(checkPreset({ modules: withSite, features: [], collections: { pages }, homeSlug: "home" }).problems.filter((p) => p.code === "preset/home-slug")).toEqual([]);
   });
 });
+
+describe("re-rendering everything", () => {
+  it("marks every mounted collection's outputs too, before the redirect export", () => {
+    const settings: CollectionModel = { kind: "single", fields: { title: {} } };
+    const blog: CollectionModel = { kind: "multi", mount: true, fields: { slug: { type: "slug" }, title: {}, status: {} } };
+    const withAuthz = direct.map((entry) => (entry.use.endsWith("authz-roles") ? { ...entry, config: { anonymous: ["pages.read", "blog.read"] } } : entry));
+    const preset = definePreset({ modules: withAuthz, features, collections: { settings, pages, blog } });
+    expect(stepsOf(preset, "publishAllPages")).toEqual(["authn.requireUser", "authz.require:pages.manage", "delivery.markAll:pages", "delivery.markAll:blog", "redirects.export"]);
+  });
+});

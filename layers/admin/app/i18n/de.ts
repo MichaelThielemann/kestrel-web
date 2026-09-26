@@ -731,7 +731,7 @@ export const de: Record<CatalogKey, string> = {
   'system.tabs.delivery': 'Auslieferung',
   'delivery.title': 'Statische Auslieferung',
   'delivery.desc': 'Jede veröffentlichte Seite zum Neu-Rendern einreihen. Die Seiten werden nacheinander im Hintergrund gerendert.',
-  'delivery.publishAll': 'Alle Seiten neu rendern',
+  'delivery.publishAll': 'Alle Seiten und Sammlungen neu rendern',
   'delivery.queuedOne': '{marked} Seite zum Neu-Rendern eingereiht.',
   'delivery.queued': '{marked} Seiten zum Neu-Rendern eingereiht.',
   'delivery.waitingOne': '{n} Seite wartet auf das Neu-Rendern, weil sich angezeigte Inhalte geändert haben.',

@@ -729,7 +729,7 @@ export const en = {
   'system.tabs.delivery': 'Delivery',
   'delivery.title': 'Static delivery',
   'delivery.desc': 'Queue every published page for a re-render. Pages are rendered in the background, one after another.',
-  'delivery.publishAll': 'Re-render all pages',
+  'delivery.publishAll': 'Re-render all pages and collections',
   'delivery.queuedOne': '{marked} page queued for re-rendering.',
   'delivery.queued': '{marked} pages queued for re-rendering.',
   'delivery.waitingOne': '{n} page waits to be re-rendered because content it shows changed.',

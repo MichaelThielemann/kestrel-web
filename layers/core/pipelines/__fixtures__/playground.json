@@ -442,6 +442,7 @@
       "authn.requireUser",
       "authz.require:pages.manage",
       "delivery.markAll:pages",
+      "delivery.markAll:blog",
       "redirects.export"
     ],
     "publishBlog": [
