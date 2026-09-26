@@ -288,7 +288,7 @@ describe("mounted collections", () => {
       bootstrap: { username: "admin", passwordHash: "x" },
     });
     const site = modules.find((entry) => entry.use === "@michaelthielemann/kestrel-site-default")?.config;
-    expect(site).toMatchObject({ routes: { blog: { mount: true, liveWhen: { status: "published" } } }, mounts: { type: "settings", field: "mounts" } });
+    expect(site).toMatchObject({ routes: { blog: { mount: true, home: "-", liveWhen: { status: "published" } } }, mounts: { type: "settings", field: "mounts" } });
     const content = modules.find((entry) => entry.use === "@michaelthielemann/kestrel-content-default")?.config;
     expect(content).toMatchObject({ types: { settings: { fields: { mounts: { type: "json" } } } } });
     expect(content).not.toMatchObject({ types: { blog: { mount: true } } });
