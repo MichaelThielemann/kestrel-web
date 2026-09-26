@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PresetStep } from "../module-registry";
-import { appendRelay, applyExclude, applyFeaturePatches, applyOverrides, applySchedules, foldTrailingEmit, groupSignatureOf, mergePipelines } from "./compose";
+import { appendRelay, applyExclude, applyFeaturePatches, applyOverrides, applySchedules, foldTrailingEmit, groupSignatureOf, mergePipelines, placeIndexStepsLast } from "./compose";
 import type { Patch } from "./compose";
 
 type F = "a" | "b";
@@ -181,6 +181,14 @@ describe("foldTrailingEmit", () => {
     expect(foldTrailingEmit("createPage", entries)).toEqual(entries);
   });
 
+  it("places the emit before a trailing path index step, which must stay last in the group", () => {
+    const entries = [{ atomic: ["content.create:pages", "site.indexPath:pages"] }, "site.announcePaths", "events.emit:page.created"];
+    expect(foldTrailingEmit("createPage", entries)).toEqual([
+      { atomic: ["content.create:pages", "events.emit:page.created", "site.indexPath:pages"] },
+      "site.announcePaths",
+    ]);
+  });
+
   it("throws naming the pipeline when it has more than one atomic group", () => {
     const entries = [{ atomic: ["a"] }, { atomic: ["b"] }, "events.emit:x"];
     expect(() => foldTrailingEmit("twoGroups", entries)).toThrow(/"twoGroups"/);
@@ -215,6 +223,29 @@ describe("appendRelay", () => {
   it("inserts right after the emit, keeping a later step that reads the result outside the group", () => {
     const entries = [{ atomic: ["content.update:pages", "events.emit:page.restored"] }, "revisions.reportRestore"];
     expect(appendRelay(entries)).toEqual([{ atomic: ["content.update:pages", "events.emit:page.restored"] }, "events.relay", "revisions.reportRestore"]);
+  });
+});
+
+describe("appendRelay after a path announcement", () => {
+  it("inserts after the announcement that must directly follow the group", () => {
+    const entries = [{ atomic: ["content.create:pages", "events.emit:page.created", "site.indexPath:pages"] }, "site.announcePaths"];
+    expect(appendRelay(entries)).toEqual([...entries, "events.relay"]);
+  });
+});
+
+describe("placeIndexStepsLast", () => {
+  it("moves a path index step to the end of its atomic group", () => {
+    const entries = ["authn.requireUser", { atomic: ["content.create:pages", "site.indexPath:pages", "references.index:pages"] }, "site.announcePaths"];
+    expect(placeIndexStepsLast(entries)).toEqual(["authn.requireUser", { atomic: ["content.create:pages", "references.index:pages", "site.indexPath:pages"] }, "site.announcePaths"]);
+  });
+
+  it("moves the mount index step the same way", () => {
+    expect(placeIndexStepsLast([{ atomic: ["site.indexMounts", "content.set:settings"] }])).toEqual([{ atomic: ["content.set:settings", "site.indexMounts"] }]);
+  });
+
+  it("leaves a pipeline without an index step unchanged", () => {
+    const entries = [{ atomic: ["content.create:news"] }, "events.emit:news.created"];
+    expect(placeIndexStepsLast(entries)).toEqual(entries);
   });
 });
 

@@ -184,7 +184,8 @@ export function bodyOf<S extends string>(entries: readonly PresetEntry<S>[], hea
  * Without the `eventsQueue` feature a pipeline's trailing `events.emit:` stays outside its atomic group,
  * because `events/direct` runs subscribers inline and must not hold the write lock. With the queue the
  * emit is a row insert and belongs with the write it reports: if the pipeline's last entry is an
- * `events.emit:` step and it has exactly one atomic group, the emit moves to the end of that group.
+ * `events.emit:` step and it has exactly one atomic group, the emit moves to the end of that group, or
+ * right before a trailing `site.indexPath:`/`site.indexMounts` step, which has to stay last.
  * Nothing else moves — a step between the group and the emit (`delivery.*`, `revisions.reportRestore`)
  * keeps its position; both steps merge into the response via `extendsOutput`
  * (`resolveOutputSchema`, `@michaelthielemann/kestrel/schema`), so their order no longer matters. A
@@ -202,8 +203,29 @@ export function foldTrailingEmit<S extends string>(name: string, entries: readon
   const group = groups[0]!;
   const groupIndex = entries.indexOf(group);
   const between = entries.slice(groupIndex + 1, entries.length - 1).map((entry): PresetEntry<S> => (isAtomicGroup(entry) ? { atomic: [...entry.atomic] } : entry));
-  const newGroup: AtomicGroup<S> = { atomic: [...group.atomic, last] };
+  const trailing = group.atomic.at(-1);
+  const newGroup: AtomicGroup<S> = trailing !== undefined && isIndexStep(trailing) ? { atomic: [...group.atomic.slice(0, -1), last, trailing] } : { atomic: [...group.atomic, last] };
   return [...entries.slice(0, groupIndex), newGroup, ...between];
+}
+
+const INDEX_STEP = /^site\.(?:indexPath:|indexMounts$)/;
+const ANNOUNCE_STEP = "site.announcePaths";
+
+function isIndexStep(step: string): boolean {
+  return INDEX_STEP.test(step);
+}
+
+/**
+ * Moves `site.indexPath:<type>` and `site.indexMounts` to the end of their atomic group. `site-default`
+ * recomputes paths from the rows the group has written so far, so both must run after every other write of
+ * the group, and its boot check rejects a group that does not end with them.
+ */
+export function placeIndexStepsLast<S extends string>(entries: readonly PresetEntry<S>[]): PresetEntry<S>[] {
+  return entries.map((entry): PresetEntry<S> => {
+    if (!isAtomicGroup(entry)) return entry;
+    const index = entry.atomic.filter(isIndexStep);
+    return { atomic: [...entry.atomic.filter((step) => !isIndexStep(step)), ...index] };
+  });
 }
 
 /** The index of the entry carrying a pipeline's `events.emit:` step — a bare entry, or the atomic group holding it. -1 when the pipeline has none. */
@@ -213,7 +235,8 @@ export function emitEntryIndex<S extends string>(entries: readonly PresetEntry<S
 
 /**
  * Inserts `events.relay` immediately after the entry carrying the pipeline's `events.emit:` step — a
- * bare entry, or the atomic group it ends (with the queue, after `foldTrailingEmit`). A step that reads
+ * bare entry, or the atomic group it ends (with the queue, after `foldTrailingEmit`) — or after the
+ * `site.announcePaths` that must directly follow that group. A step that reads
  * the result after the emit but outside the group, such as `revisions.reportRestore` on
  * `restorePageRevision`, stays after the relay: both merge into the result independently, and neither
  * reads the other's addition. A pipeline with no emit, including an empty one, is returned unchanged.
@@ -222,8 +245,9 @@ export function appendRelay<S extends string>(entries: readonly PresetEntry<S>[]
   const emitIndex = emitEntryIndex(entries);
   if (emitIndex === -1) return [...entries];
   const result = entries.map((entry): PresetEntry<S> => (isAtomicGroup(entry) ? { atomic: [...entry.atomic] } : entry));
+  const at = result[emitIndex + 1] === ANNOUNCE_STEP ? emitIndex + 2 : emitIndex + 1;
   // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- "events.relay" is a step name registered by both delivery modules; S is a step-name union, not a JSON type
-  result.splice(emitIndex + 1, 0, "events.relay" as S);
+  result.splice(at, 0, "events.relay" as S);
   return result;
 }
 
