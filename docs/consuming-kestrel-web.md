@@ -341,8 +341,11 @@ rather than booting with something plausible.
   becomes `{ media: true }` (the files `media-default` serves through `media@1`), a `to` naming another
   collection becomes `{ content: <name> }`.
   A `to` pointing at neither is left out.
-- **`delivery.types`** — every page-like collection, i.e. every `multi` type carrying `slug`, `status`
-  and `body`, as `{}` so the module's own field defaults apply.
+- **`delivery.types`** — every routed collection, i.e. `pages` and every mounted collection
+  ([`paths.md`](paths.md)), as `{}` so the module's own field defaults apply.
+- **`site-default`** — `routes` for `pages` and every mounted collection, with the workflow's live status as
+  `liveWhen`, `parentField` when pages have a parent field, `mounts` when a collection mounts, and the
+  server's reserved paths ([`paths.md`](paths.md)).
 - **`publicPath` on both media modules** — `media-default`'s and `images-default`'s — set to `/media`, the
   path the Node server answers media on directly (see "Media URLs"). With the `delivery` feature, both
   modules also get `publicCopy: { prefix: "site/" }`, and `delivery-static` gets `reservedPaths: ["/api",

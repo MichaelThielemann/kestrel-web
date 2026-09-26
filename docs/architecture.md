@@ -324,8 +324,8 @@ An app that extends `kestrel-web` provides, at its root:
 ratelimit?, llms?, migrations?, session? }`. It emits the base modules plus exactly the modules the given
 features require — the same feature→module mapping `definePreset` checks (`pipelines/features/*.ts`) — in
 the canonical order, and derives from the model what is derivable: `media.locales`/`defaultLocale`,
-`references.targets` (`pages` plus every `ref` field's `to`), `delivery.types` (every `multi` collection
-with `slug`, `status` and `body`), `validate-jsonschema.schemas` via `presetSchemas()`, `publicPath` on
+`references.targets` (every routed collection plus every `ref` field's `to`), `delivery.types` (every
+routed collection), `site-default`'s `routes`, `validate-jsonschema.schemas` via `presetSchemas()`, `publicPath` on
 both media modules from `MEDIA_PUBLIC_PATH`, and, with `delivery`, `publicCopy: { prefix }` on both from
 `SITE_PREFIX`. Both constants live in `layers/core/mount-path.ts` (`MEDIA_PUBLIC_PATH`) and
 `pipelines/config.ts` (`SITE_PREFIX`), shared with `server/plugins/kestrel.ts` and the media-paths boot
@@ -401,11 +401,12 @@ none gets the `pages` pipelines and triggers. `pages` is the one collection name
 special-cases (`layers/core/pipelines/collections.ts`'s `NAME_OVERRIDES`): every other `multi` collection
 uses its own name for every pipeline (`listNews`, `readNews`, `createNews`, …), but `pages` uses
 singular forms (`readPage`, `createPage`, …) and event names (`page.created`, not
-`pages.created`), so overrides, triggers and listeners written against those names keep working. `pages` also
-gets `resolvePage` and the references/links feature patches plus the `delivery` feature's own
-`publishPage`/`unpublishPage` event pipelines, all of which stay hardcoded to the name `"pages"`
-(`capabilities.ts`'s `isRoutedCollection`, a single-collection set today) until a later change routes more
-collections through them — every other collection's pipelines are untouched by those features.
+`pages.created`), so overrides, triggers and listeners written against those names keep working. A routed
+collection — `pages`, and every multi collection declaring `mount: true` (`capabilities.ts`'s
+`isRoutedCollection(name, model)`) — also gets the path index steps, the references/links feature patches
+and the `delivery` feature's own publish/unpublish event pipelines (`publishPage`, or `publish<Name>` for a
+mounted collection, `delivery-names.ts`'s `routedPipelineNames`); `pages` gets `resolvePage`, a mounted
+collection `resolve<Name>`. Every other collection's pipelines are untouched by those features.
 
 A `multi` collection with at least one `localized: true` field (`collections.ts`'s `hasLocalizedField`)
 additionally gets `delete<Name>Translation` (`authn.requireUser`, `authz.require:<name>.write`,
@@ -600,9 +601,9 @@ The merge and validation live in `layers/core/collections-ui/serialize.ts`
 never calls it directly. `SerializedCollection` carries `editorOwned` and `workflow` alongside the
 fields, so a client needs no second look at the UI map. It also carries `routed`, `published` and
 `hasSlug`, decided in one place (`admin-schema.ts`, from `collectionVerbs`/`isRoutedCollection` in
-`#kestrel/pipelines`) instead of from the collection's field shape: `routed` is `isRoutedCollection(name)`
-— a name check today, the same one `collectionVerbs` already used, kept as the single place that decision
-lives so a later change generalizing it touches only that function; `published` is true when the
+`#kestrel/pipelines`) instead of from the collection's field shape: `routed` is
+`isRoutedCollection(name, model)`, the single place that decision lives, with the `mount` flag read from the
+preset's model since the stored model does not carry it; `published` is true when the
 collection's `publishStatus` pipeline both exists and has a booted HTTP trigger, independent of the
 calling user's access; `hasSlug` is a plain `"slug" in fields` check for the list's slug column.
 `serializeCollection`/`serializeCollections` take the `routing` map as a required parameter, so a caller
