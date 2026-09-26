@@ -41,6 +41,9 @@ const page = computed<PublicPageDocument | null>(() => {
 // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- resolvePageLayout may return a stale/unregistered name on purpose; NuxtLayout's fallback prop renders "default" when it isn't a real LayoutKey
 const pageLayout = computed(() => resolvePageLayout(page.value?.layout) as LayoutKey)
 
+const collection = computed(() => snapshot.value?.collection ?? 'pages')
+const collectionView = useCollectionView(() => collection.value)
+
 const sharedPage = useSitePage()
 watchEffect(() => {
   sharedPage.value = page.value
@@ -115,7 +118,11 @@ useHead(() => {
 
 <template>
   <NuxtLayout :name="pageLayout" fallback="default">
-    <article v-if="page" class="site-page preview-page">
+    <div v-if="page && collectionView" class="preview-page">
+      <p v-if="showBanner" class="preview-page__banner" role="status">{{ copy.banner }}</p>
+      <component :is="collectionView" :document="page" :collection="collection" />
+    </div>
+    <article v-else-if="page" class="site-page preview-page">
       <p v-if="showBanner" class="preview-page__banner" role="status">{{ copy.banner }}</p>
       <div ref="content">
         <KestrelBlockRenderer

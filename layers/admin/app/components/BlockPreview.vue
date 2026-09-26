@@ -29,7 +29,7 @@ function buildPreviewSnapshot(): PreviewSnapshot {
     Object.keys(ctx!.pageFieldsBindings.value.fields),
     values,
   )
-  return { document, locale: ctx!.locale.value }
+  return { document, locale: ctx!.locale.value, collection: ctx!.pageFieldsBindings.value.collection }
 }
 
 function publishSnapshot(): void {

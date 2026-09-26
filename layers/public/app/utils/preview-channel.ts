@@ -16,6 +16,8 @@ export interface PreviewDocument {
 export interface PreviewSnapshot {
   document: PreviewDocument
   locale: string
+  /** The collection the previewed document belongs to; `pages` when absent. */
+  collection?: string
 }
 
 export function buildPreviewDocument(
