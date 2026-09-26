@@ -1,4 +1,4 @@
-import { isRecord } from "../../support/api.ts";
+import { idOf, isRecord } from "../../support/api.ts";
 import { save } from "../../support/editor.ts";
 import { ADMIN_STATE } from "../../support/env.ts";
 import { expect, test } from "../../support/fixtures.ts";
@@ -44,5 +44,30 @@ test("an uploaded file is picked as a share image and then refuses deletion whil
   await dialog.getByRole("button", { name: "Löschen" }).click();
   expect((await attempt).status()).toBe(409);
   await expect(dialog.getByText("Inzwischen referenziert von — nicht gelöscht:")).toBeVisible();
+  expect((await adminApi.raw("GET", `/media/${id}`)).status).toBe(200);
+});
+
+test("a file used only by an image block inside a column refuses deletion and the dialog names the page", async ({ page, adminApi }) => {
+  const id = idOf(await adminApi.upload("column.png", gradientPng(400, 300, [60, 160, 60], [20, 40, 120])));
+  const created = await adminApi.call("POST", "/pages", {
+    locale: "de",
+    slug: "spalten-bild",
+    title: "Spalten mit Bild",
+    status: "draft",
+    body: [{ id: "c1", type: "columns", props: {}, slots: { left: [{ id: "c2", type: "image", props: { image: id, alt: "Ein Verlauf" } }], right: [] } }],
+  });
+  const pageId = idOf(created);
+
+  const refused = await adminApi.raw("DELETE", `/media/${id}`);
+  expect(refused.status).toBe(409);
+  expect(refused.text).toContain(`pages/${pageId}`);
+
+  await page.goto("/admin/media");
+  await page.getByRole("button", { name: /column\.png/ }).click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Löschen" }).click();
+  const dialog = page.getByRole("dialog", { name: "Löschen" });
+  await expect(dialog.getByText("Referenziert von 1 Dokument(en):")).toBeVisible();
+  await expect(dialog.getByRole("link", { name: "Spalten mit Bild" })).toBeVisible();
+  await dialog.getByRole("button", { name: "Abbrechen" }).click();
   expect((await adminApi.raw("GET", `/media/${id}`)).status).toBe(200);
 });
