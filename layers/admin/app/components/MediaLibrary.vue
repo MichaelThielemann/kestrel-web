@@ -187,8 +187,11 @@ const localizedMenu = computed(() => menuItems.value.map((s) => ({
       :disabled="!!error"
       :can-upload="mediaCaps.canUpload.value"
       :can-create-folder="mediaCaps.canCreateFolder.value"
+      :type-filter="lib.typeFilter.value"
+      :accept="lib.accept"
       @update:view="lib.setView"
       @update:search="lib.setSearch"
+      @update:type-filter="lib.setTypeFilter"
       @upload="onUpload"
       @new-folder="newFolderOpen = true"
     />

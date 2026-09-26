@@ -1,13 +1,24 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import type { IconName } from '#kestrel-admin/utils/icons'
+import { parseMediaTypeFilter, type MediaTypeFilter } from '../utils/library'
 
 type View = 'grid' | 'table'
 
-const props = defineProps<{ view: View; search: string; status?: string; disabled?: boolean; canUpload: boolean; canCreateFolder: boolean }>()
+const props = defineProps<{
+  view: View
+  search: string
+  status?: string
+  disabled?: boolean
+  canUpload: boolean
+  canCreateFolder: boolean
+  typeFilter?: MediaTypeFilter
+  accept?: 'image' | 'any'
+}>()
 const emit = defineEmits<{
   'update:view': [View]
   'update:search': [string]
+  'update:typeFilter': [MediaTypeFilter]
   upload: [File[]]
   'new-folder': []
 }>()
@@ -18,6 +29,22 @@ const VIEW_OPTIONS = computed<{ label: string; value: string; icon: IconName }[]
   { label: t('mediaToolbar.viewGrid'), value: 'grid', icon: 'layout-grid' },
   { label: t('mediaToolbar.viewTable'), value: 'table', icon: 'table' },
 ])
+
+const TYPE_FILTER_OPTIONS = computed<{ label: string; value: MediaTypeFilter }[]>(() => (
+  props.accept === 'image'
+    ? [{ label: t('mediaToolbar.filterImages'), value: 'image' }]
+    : [
+        { label: t('mediaToolbar.filterAll'), value: 'all' },
+        { label: t('mediaToolbar.filterImages'), value: 'image' },
+        { label: t('mediaToolbar.filterVideos'), value: 'video' },
+        { label: t('mediaToolbar.filterOther'), value: 'other' },
+      ]
+))
+
+const typeFilterModel = computed<string | string[] | null>({
+  get: () => props.typeFilter ?? 'all',
+  set: (v) => { if (typeof v === 'string') emit('update:typeFilter', parseMediaTypeFilter(v)) },
+})
 
 function isView(value: string): value is View {
   return value === 'grid' || value === 'table'
@@ -41,6 +68,10 @@ const fileInput = ref<{ open: () => void } | null>(null)
         :aria-label="t('mediaToolbar.searchAriaLabel')"
         @update:model-value="(v) => emit('update:search', v ?? '')"
       />
+    </div>
+
+    <div class="media-toolbar__filter" role="group" :aria-label="t('mediaToolbar.filterAriaLabel')">
+      <KestrelUiButtonGroup v-model="typeFilterModel" :options="TYPE_FILTER_OPTIONS" :aria-label="t('mediaToolbar.filterAriaLabel')" />
     </div>
 
     <p class="media-toolbar__status" role="status" aria-live="polite">{{ status }}</p>
