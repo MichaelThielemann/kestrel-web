@@ -380,4 +380,6 @@ export interface AdminSchema {
   features: Feature[]
   /** Pipelines outside any collection verb that the caller can reach and is not denied, by pipeline name; includes the consumer's own pipelines. */
   capabilities: Record<string, Capability>
+  /** The most paths (documents × locales) one save may move, `site-default`'s `maxCascade`; absent without routed collections. */
+  maxCascade?: number
 }

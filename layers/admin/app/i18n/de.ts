@@ -1100,4 +1100,5 @@ export const de: Record<CatalogKey, string> = {
   'redirects.auto.confirmTitle': 'Weiterleitung entfernen?',
   'redirects.auto.confirm': '{from} leitet nicht mehr weiter und antwortet wieder mit „nicht gefunden“. Eine entfernte automatische Weiterleitung lässt sich hier nicht wiederherstellen; erst ein späterer Umzug einer Seite von dieser Adresse legt eine neue an.',
   'redirects.auto.removeConfirm': 'Weiterleitung entfernen',
+  'field.mounts.movesOf': 'Eine Änderung verschiebt {n} Adressen (Dokumente × Sprachen); ein Speichern darf höchstens {limit} verschieben.',
 }

@@ -11,6 +11,7 @@ const { t, lang } = useT()
 const { locales, primary } = useContentLocales()
 const { collections: schemaCollections } = useCollections()
 const deps = useActionDeps()
+const { schema } = useSchema()
 
 const mounted = computed<string[]>(() => {
   const options: unknown = 'options' in props.field ? props.field.options : undefined
@@ -45,7 +46,10 @@ function assign(name: string, value: string | null) {
 
 function moves(name: string): string {
   const count = counts.value[name]
-  return count === undefined ? t('field.mounts.movesAll') : t('field.mounts.moves', { n: count * Math.max(locales.value.length, 1) })
+  const limit = schema.value?.maxCascade
+  if (count === undefined) return t('field.mounts.movesAll')
+  const n = count * Math.max(locales.value.length, 1)
+  return limit === undefined ? t('field.mounts.moves', { n }) : t('field.mounts.movesOf', { n, limit })
 }
 </script>
 

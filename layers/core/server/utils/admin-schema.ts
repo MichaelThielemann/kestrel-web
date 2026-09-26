@@ -27,13 +27,15 @@ export interface AdminSchemaSources {
   access: Readonly<Record<string, PipelineVerdict>>;
   /** The model as the preset composed it, which carries each collection's `mount` flag the stored model does not. */
   collections?: Readonly<Record<string, { kind: string; mount?: boolean }>>;
+  /** `site-default`'s `maxCascade`, reported to the admin for the mount picker. */
+  maxCascade?: number | undefined;
 }
 
 function toCollectionModel(type: ContentType, mount: boolean): CollectionModel {
   return { kind: type.kind, fields: type.fields, ...(mount ? { mount: true } : {}) };
 }
 
-export function buildAdminSchema({ model, collectionsUi, features, prefixPrimary, locales, defaultLocale, customTypes, triggers, access, collections: declared }: AdminSchemaSources): AdminSchema {
+export function buildAdminSchema({ model, collectionsUi, features, prefixPrimary, locales, defaultLocale, customTypes, triggers, access, collections: declared, maxCascade }: AdminSchemaSources): AdminSchema {
   const verbs: Record<string, Partial<Record<CollectionVerb, string>>> = {};
   const routing: Record<string, CollectionRouting> = {};
   for (const name of Object.keys(model.types)) {
@@ -58,6 +60,7 @@ export function buildAdminSchema({ model, collectionsUi, features, prefixPrimary
     collections,
     features: [...features],
     capabilities: capabilities.global,
+    ...(maxCascade === undefined ? {} : { maxCascade }),
   };
 }
 
@@ -95,4 +98,14 @@ export function schemaFromRun(run: RunResult, sources: SchemaRunSources): { stat
   }
   const model = boundaryCast<DescribedModel>(result, "json");
   return { status: 200, body: buildAdminSchema({ ...sources, model, access: pipelineAccess }) };
+}
+
+const SITE_MODULE = "@michaelthielemann/kestrel-site-default";
+const DEFAULT_MAX_CASCADE = 1000;
+
+/** `site-default`'s `maxCascade` in a module list, its default when routes are configured without it, `undefined` without routes. */
+export function maxCascadeOf(modules: readonly { use: string; config?: unknown }[]): number | undefined {
+  const config = modules.find((entry) => entry.use === SITE_MODULE)?.config;
+  if (!isRecord(config) || !isRecord(config.routes) || Object.keys(config.routes).length === 0) return undefined;
+  return typeof config.maxCascade === "number" ? config.maxCascade : DEFAULT_MAX_CASCADE;
 }

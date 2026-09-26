@@ -18,7 +18,11 @@ function pathIn(doc: Document, locale: string): string | null {
   return typeof value === 'string' ? value : null
 }
 
-/** The pages a mounted collection can be assigned to, and how many documents each mounted collection holds. */
+function isRootPath(path: string | null, locale: string): boolean {
+  return path === '/' || path === `/${locale}`
+}
+
+/** The pages a mounted collection can be assigned to, without the home page, and how many documents each mounted collection holds. */
 export function useMountTargets(deps: Pick<ActionDeps, 'api' | 'capabilities'>, collections: () => readonly string[], primary: () => string) {
   const pages = ref<MountTarget[]>([])
   const counts = ref<Record<string, number>>({})
@@ -27,9 +31,15 @@ export function useMountTargets(deps: Pick<ActionDeps, 'api' | 'capabilities'>, 
     if (!deps.capabilities.hasVerb('pages', 'listAll')) return
     const locale = primary()
     try {
-      const list = await deps.api<ListPage<Document>>(deps.capabilities.verbRoute('pages', 'listAll'), { query: { locale, limit: LIMIT } })
-      pages.value = list.items
+      const items: Document[] = []
+      for (let offset = 0; ; offset += LIMIT) {
+        const list = await deps.api<ListPage<Document>>(deps.capabilities.verbRoute('pages', 'listAll'), { query: { locale, limit: LIMIT, offset } })
+        items.push(...list.items)
+        if (list.items.length < LIMIT || items.length >= list.total) break
+      }
+      pages.value = items
         .map((doc) => ({ id: doc.id, label: typeof doc.title === 'string' && doc.title !== '' ? doc.title : doc.id, path: pathIn(doc, locale) }))
+        .filter((page) => !isRootPath(page.path, locale))
         .sort((a, b) => a.label.localeCompare(b.label))
     } catch {
       pages.value = []

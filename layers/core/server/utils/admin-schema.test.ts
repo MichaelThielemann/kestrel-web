@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import { boundaryCast } from "@michaelthielemann/kestrel/cast";
 import { describe, expect, it } from "vitest";
 import { definePreset } from "#kestrel/pipelines";
-import { buildAdminSchema, schemaFromRun } from "./admin-schema";
+import { buildAdminSchema, maxCascadeOf, schemaFromRun } from "./admin-schema";
 import type { HttpTriggerEntry } from "./admin-capabilities";
 import { contentModel, contentTypes, defaultLocale, features, locales, prefixPrimary } from "../../../../playground/shared/model";
 import fieldTypes from "../../../../playground/shared/field-types";
@@ -177,5 +177,15 @@ describe("schemaFromRun", () => {
     const run = { runId: "r4", status: 200, result: { ...describedModel, pipelineAccess: [] } };
     const result = schemaFromRun(run, sources);
     expect(result.status).toBe(500);
+  });
+});
+
+describe("maxCascadeOf", () => {
+  const site = (config: unknown) => [{ use: "@michaelthielemann/kestrel-site-default", config }];
+
+  it("reports site-default's maxCascade, its default with routes, and nothing without them", () => {
+    expect(maxCascadeOf(site({ routes: { pages: {} }, maxCascade: 250 }))).toBe(250);
+    expect(maxCascadeOf(site({ routes: { pages: {} } }))).toBe(1000);
+    expect(maxCascadeOf(site({}))).toBeUndefined();
   });
 });

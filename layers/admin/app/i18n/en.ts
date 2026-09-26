@@ -1098,4 +1098,5 @@ export const en = {
   'redirects.auto.confirmTitle': 'Remove the redirect?',
   'redirects.auto.confirm': '{from} stops redirecting and answers "not found" again. A removed automatic redirect cannot be restored here; only a later move of a page away from this address creates a new one.',
   'redirects.auto.removeConfirm': 'Remove redirect',
+  'field.mounts.movesOf': 'A change moves {n} addresses (documents × languages); one save may move at most {limit}.',
 } satisfies Record<string, string>
