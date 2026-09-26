@@ -3,6 +3,8 @@ import { computed } from 'vue'
 import UiField from '../ui/Field.vue'
 import UiCombobox from '../ui/Combobox.vue'
 import { useRecordOptions } from '../../composables/useRecordOptions'
+import { descendantsOf, usePageTree } from '../../composables/usePageTree'
+import { editorFormContextKey } from '../../utils/editor-form-context'
 import type { FieldComponentProps } from '../../utils/field-component'
 import { fieldIs } from '#kestrel-admin/types/kestrel'
 
@@ -24,7 +26,20 @@ const collection = computed(() => cfg.value.collection)
 const locale = computed(() => props.locale)
 const labelField = computed(() => cfg.value.label)
 
-const { options, selected, loading, onSearch } = useRecordOptions(collection, ids, locale, labelField)
+const form = inject(editorFormContextKey, null)
+const editing = computed(() => form?.pageFieldsBindings.value)
+const deps = useActionDeps()
+const ownTree = editing.value !== undefined && editing.value.collection === cfg.value.collection && deps.capabilities.hasVerb(cfg.value.collection, 'tree')
+  ? usePageTree(deps, cfg.value.collection)
+  : undefined
+if (ownTree !== undefined && editing.value?.id !== 'new') void ownTree.load()
+const exclude = computed<ReadonlySet<string>>(() => {
+  const id = editing.value?.id
+  if (ownTree === undefined || id === undefined || id === 'new') return new Set()
+  return new Set([id, ...descendantsOf(ownTree.nodes.value, id)])
+})
+
+const { options, selected, loading, onSearch } = useRecordOptions(collection, ids, locale, labelField, exclude)
 const { t } = useT()
 </script>
 
