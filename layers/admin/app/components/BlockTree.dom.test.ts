@@ -23,6 +23,7 @@ function createCtx(): BlockTreeCtx {
   return {
     byName: { hero: heroBlock, container: containerBlock },
     allowedTypes: [heroBlock, containerBlock],
+    aliasedBlocks: [],
     ops: {
       select: vi.fn(),
       add: vi.fn(),
@@ -32,6 +33,7 @@ function createCtx(): BlockTreeCtx {
       duplicate: vi.fn(),
       copy: vi.fn(),
       pasteAfter: vi.fn(),
+      jumpTo: vi.fn(),
     },
     clipboard: { count: 0, refresh: vi.fn(), pasteInto: vi.fn() },
     announce: vi.fn(),

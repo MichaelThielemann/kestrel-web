@@ -2,7 +2,7 @@
 import type { SerializedBlock } from '#kestrel-admin/types/kestrel'
 import type { BlockNode } from '#kestrel-admin/types/api'
 import type { BlockTreeCtx } from '../utils/block-tree'
-import { errorBearingIds, firstMatchingId } from '../utils/block-tree'
+import { collectAliasedBlocks, errorBearingIds, firstMatchingId } from '../utils/block-tree'
 import { boundaryCast } from '#kestrel/cast'
 
 const { t } = useT()
@@ -46,9 +46,15 @@ function addAndFocus(parentId: string | null, slotName: string | null, type: str
   void nextTick(tryFocus)
 }
 
+function jumpTo(id: string): void {
+  tree.select(id)
+  focusRequest.value = { id }
+}
+
 const treeCtx: BlockTreeCtx = {
   byName: byName.value,
   allowedTypes: allowedTypes.value,
+  get aliasedBlocks() { return collectAliasedBlocks(tree.blocks.value) },
   ops: {
     select: tree.select,
     add: addAndFocus,
@@ -58,6 +64,7 @@ const treeCtx: BlockTreeCtx = {
     duplicate: tree.duplicate,
     copy: (id) => { void clipboard.copy(id) },
     pasteAfter: (id) => { void clipboard.pasteAfter(id) },
+    jumpTo,
   },
   clipboard: {
     get count() { return clipboard.clipboardCount.value },
@@ -141,6 +148,7 @@ function onTreeKeydown(e: KeyboardEvent): void {
         :disabled="saving"
         :errors="ctx.blockErrors.value.get(selectedBlock.id)"
         @update="(k, v) => selectedId && tree.setProp(selectedId, k, v)"
+        @update-alias="(v) => selectedId && tree.setAlias(selectedId, v)"
       />
       <template v-else>
         <p class="editor3__pane-label">{{ t('blocks.pageFields') }}</p>

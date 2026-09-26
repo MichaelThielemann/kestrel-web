@@ -13,7 +13,7 @@ const props = defineProps<{
 
   errors?: { field?: string; message: string; path?: string[] }[]
 }>()
-const emit = defineEmits<{ update: [key: string, value: unknown] }>()
+const emit = defineEmits<{ update: [key: string, value: unknown]; 'update-alias': [value: string] }>()
 
 const { t, lang } = useT()
 const subFields = computed(() =>
@@ -37,6 +37,17 @@ const blockLayout = computed(() => props.def?.fieldLayout)
   <div class="block-fields">
     <p class="block-fields__title">{{ resolveLocalized(def?.label, lang) ?? block.type }}</p>
     <p v-for="(msg, i) in blockAlerts" :key="i" class="block-fields__alert" role="alert">{{ msg }}</p>
+    <KestrelUiField :label="t('blocks.aliasLabel')" :hint="t('blocks.aliasHint')">
+      <template #default="f">
+        <KestrelUiTextInput
+          :model-value="block.alias ?? ''"
+          :disabled="disabled"
+          maxlength="200"
+          v-bind="f"
+          @update:model-value="(v) => emit('update-alias', v ?? '')"
+        />
+      </template>
+    </KestrelUiField>
     <KestrelFieldLayout
       :layout="blockLayout"
       :fields="subFields"

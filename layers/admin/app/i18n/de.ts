@@ -365,6 +365,10 @@ export const de: Record<CatalogKey, string> = {
   'blocks.pickerFavoritesGroup': 'Favoriten',
   'blocks.pickerRecentGroup': 'Zuletzt verwendet',
   'blocks.pickerAllGroup': 'Alle Blöcke',
+  'blocks.pickerMatchesHeading': 'Passende Blöcke auf dieser Seite',
+  'blocks.pickerMatchType': '({type})',
+  'blocks.aliasLabel': 'Alias',
+  'blocks.aliasHint': 'Optionaler Name, nur hier sichtbar, um diesen Block über die Suche zu finden.',
 
   'deadRefs.listWarning': 'Verweist auf einen gelöschten oder unveröffentlichten Datensatz',
   'deadRefs.blockBadge': 'Defekter Verweis',
@@ -514,6 +518,11 @@ export const de: Record<CatalogKey, string> = {
   'mediaToolbar.viewAriaLabel': 'Ansicht',
   'mediaToolbar.upload': 'Hochladen',
   'mediaToolbar.newFolder': 'Neuer Ordner',
+  'mediaToolbar.filterAriaLabel': 'Nach Typ filtern',
+  'mediaToolbar.filterAll': 'Alle',
+  'mediaToolbar.filterImages': 'Bilder',
+  'mediaToolbar.filterVideos': 'Videos',
+  'mediaToolbar.filterOther': 'Andere Dateien',
 
   'mediaPath.navAriaLabel': 'Pfad',
   'mediaPath.editAriaLabel': 'Pfad bearbeiten',

@@ -363,6 +363,10 @@ export const en = {
   'blocks.pickerFavoritesGroup': 'Favorites',
   'blocks.pickerRecentGroup': 'Recently used',
   'blocks.pickerAllGroup': 'All blocks',
+  'blocks.pickerMatchesHeading': 'Matching blocks on this page',
+  'blocks.pickerMatchType': '({type})',
+  'blocks.aliasLabel': 'Alias',
+  'blocks.aliasHint': 'Optional name, visible only here, to find this block by search.',
 
   'deadRefs.listWarning': 'Links to a deleted or unpublished record',
   'deadRefs.blockBadge': 'Broken reference',
@@ -512,6 +516,11 @@ export const en = {
   'mediaToolbar.viewAriaLabel': 'View',
   'mediaToolbar.upload': 'Upload',
   'mediaToolbar.newFolder': 'New folder',
+  'mediaToolbar.filterAriaLabel': 'Filter by type',
+  'mediaToolbar.filterAll': 'All',
+  'mediaToolbar.filterImages': 'Images',
+  'mediaToolbar.filterVideos': 'Videos',
+  'mediaToolbar.filterOther': 'Other files',
 
   'mediaPath.navAriaLabel': 'Path',
   'mediaPath.editAriaLabel': 'Edit path',

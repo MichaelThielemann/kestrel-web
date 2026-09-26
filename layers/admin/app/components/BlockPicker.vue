@@ -6,10 +6,12 @@ import { useBlockPickerView } from '../composables/useBlockPickerView'
 import { useBlockPickerTags } from '../composables/useBlockPickerTags'
 import { useBlockPickerFavorites } from '../composables/useBlockPickerFavorites'
 import { useBlockPickerRecent } from '../composables/useBlockPickerRecent'
-import { collectBlockTags, filterBlockTypes } from '../utils/block-picker-filter'
+import { collectBlockTags, filterAliasedBlocks, filterBlockTypes } from '../utils/block-picker-filter'
+import type { AliasedBlockEntry } from '../utils/block-tree'
 import { groupBlockTypes, type BlockPickerGroupKind } from '../utils/block-picker-groups'
 import { blockTagLabel } from '../utils/collections'
 import { parseBlockPickerView } from '../utils/block-picker-view'
+import { resolveLocalized } from '../utils/localized'
 import BlockPickerItem from './BlockPickerItem.vue'
 
 const props = defineProps<{
@@ -18,9 +20,10 @@ const props = defineProps<{
   lang: string
   disabled?: boolean
   pasteCount?: number
+  aliasedBlocks?: AliasedBlockEntry[]
 }>()
 
-const emit = defineEmits<{ 'update:open': [boolean]; pick: [string]; paste: [] }>()
+const emit = defineEmits<{ 'update:open': [boolean]; pick: [string]; paste: []; jump: [string] }>()
 
 const { t } = useT()
 
@@ -56,6 +59,15 @@ const tagsModel = computed<string | string[] | null>({
 })
 
 const filteredTypes = computed(() => filterBlockTypes({ types: props.types, query: search.value, tags: selectedTags.value, lang: props.lang }))
+const aliasMatches = computed(() => filterAliasedBlocks(props.aliasedBlocks ?? [], search.value))
+const typeLabelByName = computed<Record<string, string>>(() =>
+  Object.fromEntries(props.types.map((type) => [type.name, resolveLocalized(type.label, props.lang) ?? type.name])),
+)
+
+function jumpTo(id: string): void {
+  emit('jump', id)
+  emit('update:open', false)
+}
 const hasActiveFilters = computed(() => search.value.trim() !== '' || selectedTags.value.length > 0)
 const resultsLabel = computed(() => t(filteredTypes.value.length === 1 ? 'blocks.pickerResult' : 'blocks.pickerResults', { n: filteredTypes.value.length }))
 
@@ -111,6 +123,18 @@ watch(
           :placeholder="t('blocks.pickerSearchPlaceholder')"
         />
       </label>
+
+      <section v-if="aliasMatches.length" class="block-picker__matches" :aria-label="t('blocks.pickerMatchesHeading')">
+        <h3 class="block-picker__group-heading">{{ t('blocks.pickerMatchesHeading') }}</h3>
+        <ul class="block-picker__matches-list">
+          <li v-for="match in aliasMatches" :key="match.id">
+            <KestrelUiButton type="button" variant="secondary" size="sm" @click="jumpTo(match.id)">
+              {{ match.alias }}
+              <span class="block-picker__vh">{{ t('blocks.pickerMatchType', { type: typeLabelByName[match.type] ?? match.type }) }}</span>
+            </KestrelUiButton>
+          </li>
+        </ul>
+      </section>
 
       <div v-if="availableTags.length" class="block-picker__tags" role="group" :aria-label="t('blocks.pickerTagsLabel')">
         <KestrelUiButtonGroup v-model="tagsModel" multiple :options="tagOptions" :aria-label="t('blocks.pickerTagsLabel')" />
@@ -179,6 +203,14 @@ watch(
     display: flex;
     flex-wrap: wrap;
     align-items: center;
+    gap: var(--space-2);
+  }
+  &__matches-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
     gap: var(--space-2);
   }
   &__header {

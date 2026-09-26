@@ -187,9 +187,11 @@ const { listEl, dragIndex, dropGap, onHandleDown, onHandleMove, onHandleUp, onHa
         :lang="lang"
         :disabled="disabled"
         :paste-count="ctx.clipboard.count"
+        :aliased-blocks="ctx.aliasedBlocks"
         @update:open="picking = $event"
         @pick="pick"
         @paste="pasteFromPicker"
+        @jump="ctx.ops.jumpTo"
       />
     </div>
   </div>
