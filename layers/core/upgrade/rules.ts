@@ -13,6 +13,7 @@ import type { FieldGrantModel, FieldGrants } from "../pipelines/field-grants";
 import type { PresetOptions } from "../pipelines/checkPreset";
 import { consumerRules } from "./consumerRules";
 import { DEPENDENTS_PROBLEM_CODES, dependentsRules } from "./dependentsRules";
+import { hostBinaryRule } from "./hostBinaryRule";
 import { overrideEmitRule } from "./overrideEmit";
 import { isPathStep, overridePathStepsRule, pageLikeMountRule, parentOfferRule, slugUrlRule } from "./pathRules";
 import { siteModelOptionsRule } from "./siteModelRule";
@@ -719,6 +720,7 @@ export const fieldGrantsRule: Rule = {
 
 export const layerRules: readonly Rule[] = [
   layerRangeRule,
+  hostBinaryRule,
   relayScopeRule,
   missingSanitizeSvgRule,
   presetProblemsRule,
