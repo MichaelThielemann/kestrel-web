@@ -388,6 +388,12 @@
   `site-default`, now on the full path). An override of a page write, list or read that lacks these steps
   fails to boot; `kestrel-web-upgrade fix` inserts them (`preset/override-path-steps`). A hand-written
   module list must configure `site-default`'s `routes` the same way.
+- `isRoutedCollection(name, model)` (from `#kestrel/pipelines`) takes the collection's model: `pages` and
+  every multi collection declaring `mount: true` are routed. `delivery-static` delivers the routed collections
+  only; a collection that merely carries `slug`, `status` and `body` is no longer exported. The admin's
+  `buildAdminSchema()` takes the preset's model as `collections` to read the mount flag. `routes` is a
+  reserved collection name. With a mounted collection, `resolvePage` can answer `{ route: { type } }` and
+  `PublicSiteResponse` gains `RouteHint`.
 
 ### Added
 
@@ -412,6 +418,14 @@
   the preset's default collections give pages a parent field. The admin shows pages as an ARIA tree next to
   the flat list, and the parent picker leaves out the page and its subpages.
 - `kestrel-web-upgrade`: `model/parent-offer` asks whether pages should get a parent field.
+- Mounted collections ([`docs/paths.md`](docs/paths.md#mounted-collections)): `mount: true` on a multi
+  collection gives it public paths under the page `settings.mounts` assigns to it, or at the top level. The
+  preset composes `resolve<Name>` (`GET /routes/<c>/*path`), `preview<Name>Path`, per-collection delivery
+  (`publish<Name>`, `unpublish<Name>`, `<name>PublishStatus`), referrers and the reference and link index,
+  adds the reserved `settings.mounts` field with `site.indexMounts` in `setSettings`, and runs
+  `site.route:pages` in `resolvePage`. The admin's settings assign each mounted collection to a page; the
+  public layer follows the route hint and renders the document with the page template or a global
+  component named after the collection. The playground mounts a `blog`.
 - `kestrel-web-upgrade`: `preset/override-path-steps` (fix) and `consumer/slug-url` (info). The path event
   pipelines count as safe to deliver twice for `offer/event-queue`.
 

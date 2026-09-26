@@ -51,6 +51,48 @@ of its own uses the parent's default-locale slug as the segment.
 
 `kestrel-web-upgrade fix` offers to add the parent field (`model/parent-offer`, default no).
 
+## Mounted collections
+
+A multi collection that declares `mount: true` gets public paths in the pages' path space:
+
+```ts
+blog: {
+  kind: "multi",
+  mount: true,
+  fields: {
+    slug: { type: "slug", required: true, localized: true },
+    title: { type: "text", required: true, localized: true },
+    body: { type: "json", localized: true },
+    status: { type: "enum", options: ["draft", "finished", "published"], required: true, localized: true },
+  },
+},
+```
+
+It needs `slug`, `title` and `status`, and a `settings` collection: the preset adds the reserved field
+`settings.mounts`, where the admin's settings assign each mounted collection to a page. A post then lives at
+`/<page path>/<slug>` (`/blog/hallo`, `/en/blog/hello`); without an assigned page it lives at the top level,
+next to the pages. Changing the assignment moves every document of the collection, with a redirect from
+each old path, and is rejected above `paths.maxCascade`. A page that holds a collection cannot be deleted,
+and posts under an unpublished page stay reachable, like subpages.
+
+What the preset composes for a mounted collection `blog`:
+
+- the collection's usual pipelines, with the path index in its writes and `_paths` in its reads;
+- `resolveBlog` on `GET /api/routes/blog/*path` and `previewBlogPath` on
+  `POST /api/admin/blog/path-preview`;
+- with `delivery`: `publishBlog`, `unpublishBlog`, `blogPublishStatus`, and an `llms.txt` heading named
+  after the collection; with `references`: `blogReferrers` and `blogReferrersMany`, and the reference and
+  link index on its writes.
+
+`resolvePage` answers a path that belongs to a mounted collection with `{ route: { type: "blog" } }`, and the
+public layer fetches the document from `GET /api/routes/blog/<path>`. The document renders with the page
+template; a globally registered component named after the collection (`app/components/global/Blog.vue`)
+renders it instead, with the props `document` and `collection`. Its `body` is checked against
+`schemas/blog.body.json` when the app has one, and against the pages' block schema otherwise.
+
+When anonymous callers may read pages, they must be able to read every mounted collection too
+(`blog.read`), since a page path can hand them on to it. `routes` is a reserved collection name.
+
 ## Moves and redirects
 
 Every change of a reachable path is a move: a renamed slug, a changed parent, a page published or
