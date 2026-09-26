@@ -283,7 +283,7 @@ function isSlugField(field: unknown): boolean {
 function validateMounts(collections: Record<string, CollectionModel>, modules: readonly { use: string; config?: unknown }[], sink: PresetSink): void {
   const mounting = Object.entries(collections).filter(([, model]) => model.mount === true);
   for (const [name, model] of mounting) {
-    if (name === "pages" || model.kind !== "multi") sink.report({ code: "preset/mount-invalid", message: `preset: collection "${name}" declares mount: true, but only a multi collection other than "pages" can be mounted` });
+    if (name === "pages" || name === "page" || model.kind !== "multi") sink.report({ code: "preset/mount-invalid", message: `preset: collection "${name}" declares mount: true, but only a multi collection other than "pages" and "page" can be mounted` });
     else if (!isSlugField(model.fields.slug)) sink.report({ code: "preset/mount-invalid", message: `preset: mounted collection "${name}" needs a "slug" field of type "slug" for its public paths` });
   }
   if (mounting.length > 0 && !("pages" in collections)) sink.report({ code: "preset/mount-invalid", message: 'preset: a mounted collection lives under a page, which needs a "pages" collection' });

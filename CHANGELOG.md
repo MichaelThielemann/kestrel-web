@@ -388,6 +388,11 @@
   `site-default`, now on the full path). An override of a page write, list or read that lacks these steps
   fails to boot; `kestrel-web-upgrade fix` inserts them (`preset/override-path-steps`). A hand-written
   module list must configure `site-default`'s `routes` the same way.
+- The server refuses to boot when `site-default`'s `prefixPrimary` or home slug differs from `shared/model`'s
+  `prefixPrimary`/`homeSlug`: pass both to `presetModuleConfig()` (and `homeSlug` to `definePreset()`, checked
+  as `preset/home-slug`), as the playground and the `create-kestrel` template do.
+- With a mounted collection, `settings.mounts` is required: a `PUT /api/settings` without it answers 400
+  instead of resetting the assignment for every locale.
 - `isRoutedCollection(name, model)` (from `#kestrel/pipelines`) takes the collection's model: `pages` and
   every multi collection declaring `mount: true` are routed. `delivery-static` delivers the routed collections
   only; a collection that merely carries `slug`, `status` and `body` is no longer exported. The admin's
@@ -417,6 +422,12 @@
   the parent field is never granted to anonymous callers. The playground, the `create-kestrel` template and
   the preset's default collections give pages a parent field. The admin shows pages as an ARIA tree next to
   the flat list, and the parent picker leaves out the page and its subpages.
+- Publish all ("Re-render all pages and collections") also marks every mounted collection.
+- Admin: the pages tree is a treegrid with each page's live state, path and the list's edit and delete
+  actions; the mount picker leaves out the home page and names the `maxCascade` limit (reported in the
+  admin schema as `maxCascade`); removing an automatic redirect asks first; a path conflict names the
+  holder's title only to callers who can read its collection. The editor preview renders a mounted
+  collection's document with its own component.
 - `kestrel-web-upgrade`: `model/parent-offer` asks whether pages should get a parent field, and
   `model/page-like-mount` offers `mount: true` (with the anonymous `<collection>.read`) for a 2.x collection
   carrying `slug`, `status` and `body`, which is no longer exported otherwise.

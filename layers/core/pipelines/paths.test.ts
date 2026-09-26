@@ -359,3 +359,12 @@ describe("the reserved settings.mounts field", () => {
     })).toThrow('"settings.mounts" is reserved');
   });
 });
+
+describe("a mounted collection named page", () => {
+  it("is refused, since its pipelines would take the pages' names", () => {
+    const settings: CollectionModel = { kind: "single", fields: { title: {} } };
+    const page: CollectionModel = { kind: "multi", mount: true, fields: { slug: { type: "slug" }, title: {}, status: {} } };
+    const { problems } = checkPreset({ modules: direct, features: [], collections: { settings, pages, page } });
+    expect(problems.map((problem) => problem.code)).toContain("preset/mount-invalid");
+  });
+});
