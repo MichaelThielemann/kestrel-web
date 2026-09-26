@@ -131,6 +131,7 @@ export function formMapErrors<I extends WithDeps & { form: EditFormPort }>(): Ac
     }
 
     if (code === 'CONFLICT') {
+      mapFieldDetails(form, details)
       form.setFormError(message || deps.t('editor.saveConflict'))
       return
     }

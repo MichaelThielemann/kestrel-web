@@ -32,8 +32,20 @@ export interface ApiRefProblem { field: string; to: string; id: string }
 
 export interface ApiSchemaProblem { path: string; message: string }
 
+/** A document that already holds a public path a save would take, from `site-default`'s `CONFLICT` answer. */
+export interface ApiPathConflict {
+  path: string
+  locale: string
+  type: string
+  id: string
+  label: string
+  /** The document whose path collides, when the save moved it along (a subpage, a mounted document). */
+  moving?: { type: string; id: string }
+}
+
 export interface ApiErrorDetails {
   fields?: ApiFieldError[]
+  conflicts?: ApiPathConflict[]
   refs?: ApiRefProblem[]
   problems?: ApiSchemaProblem[]
   referrers?: ReferenceTo[]
@@ -82,6 +94,7 @@ interface PublicPageFields extends PublicDocument {
   status: PageStatus | null
   shareImage: string | null
   layout?: string | null
+  _paths?: Record<string, string | null>
 }
 
 type NamedKeys<T> = keyof { [K in keyof T as string extends K ? never : number extends K ? never : K]: T[K] }
@@ -176,6 +189,12 @@ export interface BrokenLink {
 }
 
 export interface RebuildReport { documents: number; entries: number }
+
+export type PathPreview = ResponseOf<'previewPagePath', 200>
+
+export type PathsRebuildReport = ResponseOf<'rebuildPaths', 200>
+
+export type AutoRedirect = ResponseOf<'listAutoRedirects', 200>[number]
 
 export type PublishStatusEntry = ResponseOf<'pagePublishStatus', 200>[number]
 

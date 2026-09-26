@@ -123,6 +123,33 @@ describe('formMapErrors', () => {
     expect(runMapErrors({ status: 409, code: 'CONFLICT', retryable: false, message: '' }).formError).toBe('editor.saveConflict')
   })
 
+  it('maps a taken public path onto the slug field, naming the page that holds it', () => {
+    const message = '/ueber-uns (de) is taken by pages "About us"'
+    const state = runMapErrors({
+      status: 409,
+      code: 'CONFLICT',
+      retryable: false,
+      message,
+      details: { fields: [{ field: 'slug', message }], conflicts: [{ path: '/ueber-uns', locale: 'de', type: 'pages', id: 'p2', label: 'About us', moving: { type: 'pages', id: 'p1' } }] },
+    })
+    expect(state.fieldErrors).toEqual({ slug: message })
+    expect(state.formError).toBe(message)
+  })
+
+  it('maps a conflict of a moved subpage onto the parent field', () => {
+    const message = '/team/kontakt (de) is taken by pages "Contact"'
+    const { form, state } = fakeForm()
+    form.fieldKeys = () => ['title', 'slug', 'parent']
+    const deps: ActionDeps = { api: fakeApiClient(), t: vi.fn((key: string) => key), toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() }, capabilities: fullAccessCapabilities }
+    void formMapErrors<Input>().run({
+      input: { deps, form },
+      result: { record: null, events: null, failed: true, failure: { status: 409, code: 'CONFLICT', retryable: false, message, details: { fields: [{ field: 'parent', message }], conflicts: [{ path: '/team/kontakt', locale: 'de', type: 'pages', id: 'p9', label: 'Contact', moving: { type: 'pages', id: 'p3' } }] } } },
+      fail: () => { throw new Error('unexpected fail') },
+      done: () => { throw new Error('unexpected done') },
+    })
+    expect(state.fieldErrors).toEqual({ parent: message })
+  })
+
   it('gives 413 and 415 their own messages', () => {
     expect(runMapErrors({ status: 413, code: 'PAYLOAD_TOO_LARGE', retryable: false, message: 'body exceeds 1048576 bytes' }).formError).toBe('editor.tooLarge')
     expect(runMapErrors({ status: 415, code: 'UNSUPPORTED', retryable: false, message: 'type not allowed' }).formError).toBe('editor.unsupportedType')
