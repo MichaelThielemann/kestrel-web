@@ -267,6 +267,15 @@ function anonymousPermissions(modules: readonly { use: string; config?: unknown 
   return Array.isArray(anonymous) ? anonymous.filter((entry): entry is string => typeof entry === "string") : undefined;
 }
 
+function validateHomeSlug(homeSlug: string, modules: readonly { use: string; config?: unknown }[], sink: PresetSink): void {
+  const config = modules.find((entry) => entry.use === "@michaelthielemann/kestrel-site-default")?.config;
+  const routes: unknown = typeof config === "object" && config !== null ? Reflect.get(config, "routes") : undefined;
+  const pages: unknown = typeof routes === "object" && routes !== null ? Reflect.get(routes, "pages") : undefined;
+  const home: unknown = typeof pages === "object" && pages !== null ? Reflect.get(pages, "home") : undefined;
+  if (typeof home !== "string" || home === homeSlug) return;
+  sink.report({ code: "preset/home-slug", message: `preset: homeSlug "${homeSlug}" differs from site-default's home "${home}" – pass the same homeSlug to presetModuleConfig() and definePreset()` });
+}
+
 function validateMounts(collections: Record<string, CollectionModel>, modules: readonly { use: string; config?: unknown }[], sink: PresetSink): void {
   const mounting = Object.entries(collections).filter(([, model]) => model.mount === true);
   for (const [name, model] of mounting) {
@@ -334,6 +343,7 @@ export function buildPreset<C extends Record<string, CollectionModel> = Record<s
   validateCollectionNames(collections, sink);
   validateRoutedSlugs(collections, sink);
   validateMounts(collections, options.modules, sink);
+  validateHomeSlug(homeSlug, options.modules, sink);
   const customFields = customFieldTypes(collections, options.fieldTypes ?? {});
   const context: PresetContext = { exportDir, homeSlug, collections, customFields, modules: options.modules, ...(options.collectionsUi === undefined ? {} : { collectionsUi: options.collectionsUi }) };
 

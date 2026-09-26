@@ -307,3 +307,11 @@ describe("mounted collections", () => {
     expect(problems).toContainEqual(expect.objectContaining({ code: "preset/collection-name-reserved" }));
   });
 });
+
+describe("the home slug in both places", () => {
+  it("reports a definePreset homeSlug that differs from site-default's route", () => {
+    const withSite = [...direct, { use: "@michaelthielemann/kestrel-site-default", config: { routes: { pages: { home: "home" } } } }];
+    expect(checkPreset({ modules: withSite, features: [], collections: { pages }, homeSlug: "start" }).problems).toContainEqual(expect.objectContaining({ code: "preset/home-slug" }));
+    expect(checkPreset({ modules: withSite, features: [], collections: { pages }, homeSlug: "home" }).problems.filter((p) => p.code === "preset/home-slug")).toEqual([]);
+  });
+});

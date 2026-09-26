@@ -8,6 +8,8 @@ import { imageSizes } from "#kestrel/image-sizes";
 import modules from "#kestrel/consumer-modules";
 import config from "~~/kestrel.config";
 import collectionsUi from "~~/shared/collections-ui";
+import { homeSlug, prefixPrimary } from "~~/shared/model";
+import { siteModelProblem } from "../utils/site-model";
 import { inlineTypesFor } from "../utils/inline-types";
 import { uploadLimits } from "../utils/limits";
 import { applyBundledSchemas } from "../utils/bundled-schemas";
@@ -72,6 +74,8 @@ function recordBootFailure(err: unknown): void {
 export function getKestrel(): Promise<Kestrel> {
   instance ??= (async () => {
     try {
+      const siteProblem = siteModelProblem(config.modules, { prefixPrimary, homeSlug });
+      if (siteProblem !== undefined) throw new Error(siteProblem);
       const kestrel = await bootWithAdminBootstrapCheck({ config: { ...config, modules: applyBundledSchemas(config.modules, bundledSchemas) }, modules, pipelines, logger: consoleLogger });
       assertStatusFilters(kestrel);
       await kestrel.start();

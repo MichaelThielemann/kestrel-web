@@ -3,7 +3,7 @@ import { defineConfig } from "@michaelthielemann/kestrel/defineConfig";
 import { kestrelDataDir } from "#kestrel/config";
 import { definePreset, presetModuleConfig } from "#kestrel/pipelines";
 import type { PresetPipelineChanges } from "#kestrel/pipelines";
-import { contentModel, contentTypes, features as modelFeatures } from "./shared/model";
+import { contentModel, contentTypes, features as modelFeatures, homeSlug, prefixPrimary } from "./shared/model";
 import collectionsUi from "./shared/collections-ui";
 import fieldTypes from "./shared/field-types";
 
@@ -18,6 +18,8 @@ const modules = presetModuleConfig({
   model: contentModel,
   features,
   collectionsUi,
+  homeSlug,
+  prefixPrimary,
   fieldTypes,
   audit: { retentionDays: 365 },
   roles: {
@@ -31,6 +33,6 @@ const modules = presetModuleConfig({
   pipelines: pipelineChanges,
 });
 
-export const preset = definePreset({ modules, features, collections: contentTypes, collectionsUi, fieldTypes, ...pipelineChanges });
+export const preset = definePreset({ modules, features, collections: contentTypes, collectionsUi, homeSlug, fieldTypes, ...pipelineChanges });
 
 export default defineConfig({ modules, triggers: preset.triggers, http: null });
