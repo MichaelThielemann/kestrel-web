@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { ADMIN_STATE } from "../../support/env.ts";
+import { ADMIN_STATE, VISUAL_IMAGE } from "../../support/env.ts";
 import { expect, test } from "../../support/fixtures.ts";
 
 const VIEWPORTS = [
@@ -7,6 +7,7 @@ const VIEWPORTS = [
   { name: "phone", width: 390, height: 844 },
 ];
 
+test.skip(process.env.KESTREL_E2E_VISUAL !== "1", `screenshots are compared only inside ${VISUAL_IMAGE}; run pnpm test:e2e:visual`);
 test.use({ storageState: ADMIN_STATE, colorScheme: "light" });
 
 async function settle(page: Page): Promise<void> {
@@ -29,7 +30,7 @@ for (const viewport of VIEWPORTS) {
       await page.goto(`/admin/pages/${seed.about}?locale=de`);
       await expect(page.getByRole("textbox", { name: "Titel", exact: true })).toHaveValue("Über uns");
       await settle(page);
-      await expect(page).toHaveScreenshot(`editor-${viewport.name}.png`, { mask: [page.locator("iframe")] });
+      await expect(page).toHaveScreenshot(`editor-${viewport.name}.png`, { mask: [page.locator("iframe"), page.getByText(/^127\.0\.0\.1:\d+\//)] });
     });
 
     test("the media library looks as recorded", async ({ page }) => {

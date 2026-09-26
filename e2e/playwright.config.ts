@@ -13,7 +13,7 @@ export default defineConfig({
   forbidOnly: process.env.CI !== undefined,
   retries: 0,
   timeout: 60_000,
-  expect: { timeout: 10_000, toHaveScreenshot: { maxDiffPixelRatio: 0.01, animations: "disabled", caret: "hide", stylePath: "./support/screenshot.css" } },
+  expect: { timeout: 10_000, toHaveScreenshot: { maxDiffPixels: 50, animations: "disabled", caret: "hide" } },
   reporter: process.env.CI === undefined ? [["list"]] : [["list"], ["html", { outputFolder: "./playwright-report", open: "never" }]],
   globalSetup: "./support/global-setup.ts",
   use: {
@@ -28,6 +28,7 @@ export default defineConfig({
   projects: [
     { name: "fresh", testMatch: /fresh\/.*\.spec\.ts$/ },
     { name: "flows", testMatch: /flows\/.*\.spec\.ts$/, dependencies: ["fresh"] },
+    { name: "visual", testMatch: /visual\/.*\.spec\.ts$/ },
   ],
   webServer: {
     command: "node e2e/serve.ts",

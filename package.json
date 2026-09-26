@@ -41,7 +41,8 @@
     "test": "vitest run",
     "build:packages": "pnpm -r --filter './packages/*' build",
     "generate:api-types": "tsx scripts/generate-api-types.ts",
-    "test:e2e": "playwright test --config e2e/playwright.config.ts"
+    "test:e2e": "playwright test --config e2e/playwright.config.ts --project fresh --project flows",
+    "test:e2e:visual": "node e2e/visual.ts"
   },
   "dependencies": {
     "@babel/parser": "^8.0.4",

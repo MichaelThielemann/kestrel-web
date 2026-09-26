@@ -14,5 +14,8 @@ export const SEED_FILE = join(WORK_DIR, "seed.json");
 export const ADMIN_STATE = join(WORK_DIR, "admin-state.json");
 export const EDITOR_STATE = join(WORK_DIR, "editor-state.json");
 
+/** The Playwright image, pinned by digest, that screenshot baselines are recorded and compared in. */
+export const VISUAL_IMAGE = "mcr.microsoft.com/playwright:v1.63.0-noble@sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27";
+
 export const ADMIN = { username: "admin", password: "change-me" };
 export const EDITOR = { username: "editor", password: "editor-passphrase" };
