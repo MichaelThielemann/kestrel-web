@@ -29,8 +29,8 @@ describe("the playground's settings.mounts across locales", () => {
     kestrel = await boot({ config: { ...playground, http: { port: 0, host: "127.0.0.1" } }, modules, pipelines: preset.pipelines, logger: silentLogger });
     const started = await kestrel.start();
     base = `http://127.0.0.1:${started.http?.port ?? 0}`;
-    const login = await (await fetch(`${base}/login`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ username: "admin", password: "change-me" }) })).json();
-    token = String((login as { token: string }).token);
+    const login: unknown = await (await fetch(`${base}/login`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ username: "admin", password: "change-me" }) })).json();
+    token = String(typeof login === "object" && login !== null ? Reflect.get(login, "token") : "");
   }, 60_000);
 
   afterAll(async () => {
