@@ -1,29 +1,31 @@
 import { fileURLToPath } from "node:url";
 import { ESLint } from "eslint";
 import type { Linter } from "eslint";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
 const repoRoot = fileURLToPath(new URL("..", import.meta.url));
 const configPath = fileURLToPath(new URL("../playground/eslint.config.mjs", import.meta.url));
 
-async function loadConfig(): Promise<{ name?: string }[]> {
-  const composer = (await import(configPath)) as { default: unknown };
-  return (await composer.default) as { name?: string }[];
+let configPromise: Promise<{ name?: string }[]> | undefined;
+
+function loadConfig(): Promise<{ name?: string }[]> {
+  configPromise ??= (async () => {
+    const composer = (await import(configPath)) as { default: unknown };
+    return (await composer.default) as { name?: string }[];
+  })();
+  return configPromise;
 }
 
+let virtualEslint: ESLint;
+let fixtureEslint: ESLint;
+
 async function lintVirtual(code: string, filePath: string): Promise<Linter.LintMessage[]> {
-  const fullConfig = await loadConfig();
-  const config = fullConfig.filter((entry) => entry.name !== "kestrel/type-aware" && entry.name !== "kestrel/type-aware-server");
-  const eslint = new ESLint({ cwd: repoRoot, overrideConfigFile: true, overrideConfig: config as Linter.Config[] });
-  const [result] = await eslint.lintText(code, { filePath });
+  const [result] = await virtualEslint.lintText(code, { filePath });
   return result?.messages ?? [];
 }
 
 async function lintFixtureFile(relativePath: string): Promise<Linter.LintMessage[]> {
-  const fullConfig = await loadConfig();
-  const config = fullConfig.filter((entry) => entry.name !== "kestrel/lint-fixtures-ignore");
-  const eslint = new ESLint({ cwd: repoRoot, overrideConfigFile: true, overrideConfig: config as Linter.Config[] });
-  const [result] = await eslint.lintFiles([relativePath]);
+  const [result] = await fixtureEslint.lintFiles([relativePath]);
   return result?.messages ?? [];
 }
 
@@ -32,7 +34,15 @@ function expectMessage(messages: Linter.LintMessage[], ruleId: string, messageIn
   expect(found, `expected ${ruleId} with a message including "${messageIncludes}", got: ${JSON.stringify(messages.map((m) => ({ ruleId: m.ruleId, message: m.message })))}`).toBe(true);
 }
 
-describe("project-specific eslint rules have a violating fixture", () => {
+describe("project-specific eslint rules have a violating fixture", { timeout: 20_000 }, () => {
+  beforeAll(async () => {
+    const fullConfig = await loadConfig();
+    const virtualConfig = fullConfig.filter((entry) => entry.name !== "kestrel/type-aware" && entry.name !== "kestrel/type-aware-server");
+    virtualEslint = new ESLint({ cwd: repoRoot, overrideConfigFile: true, overrideConfig: virtualConfig as Linter.Config[] });
+    const fixtureConfig = fullConfig.filter((entry) => entry.name !== "kestrel/lint-fixtures-ignore");
+    fixtureEslint = new ESLint({ cwd: repoRoot, overrideConfigFile: true, overrideConfig: fixtureConfig as Linter.Config[] });
+  }, 20_000);
+
   it("kestrel/layer-boundaries: bans `as unknown as T`", async () => {
     const messages = await lintVirtual("const x = 1 as unknown as string;\n", "layers/admin/app/probe.ts");
     expectMessage(messages, "no-restricted-syntax", "as unknown as T` is banned");
@@ -139,24 +149,26 @@ const raw = "<b>x</b>"
     expectMessage(messages, "vue/no-restricted-syntax", 'Use KestrelUiButton instead of :role="\'button\'"');
   });
 
-  it("kestrel/type-aware fires on layers/*/app/**", async () => {
-    const messages = await lintFixtureFile("layers/public/app/__lint_fixtures__/type-aware.ts");
-    expectMessage(messages, "@typescript-eslint/no-floating-promises", "");
-  });
+  describe("type-aware rules (start a TypeScript project service each)", { timeout: 60_000 }, () => {
+    it("kestrel/type-aware fires on layers/*/app/**", async () => {
+      const messages = await lintFixtureFile("layers/public/app/__lint_fixtures__/type-aware.ts");
+      expectMessage(messages, "@typescript-eslint/no-floating-promises", "");
+    });
 
-  it("kestrel/type-aware-server fires on layers/*/pipelines/**", async () => {
-    const messages = await lintFixtureFile("layers/core/pipelines/__lint_fixtures__/type-aware-server.ts");
-    expectMessage(messages, "@typescript-eslint/no-floating-promises", "");
-  });
+    it("kestrel/type-aware-server fires on layers/*/pipelines/**", async () => {
+      const messages = await lintFixtureFile("layers/core/pipelines/__lint_fixtures__/type-aware-server.ts");
+      expectMessage(messages, "@typescript-eslint/no-floating-promises", "");
+    });
 
-  it("kestrel/type-aware covers packages/create-kestrel/**", async () => {
-    const messages = await lintFixtureFile("packages/create-kestrel/__lint_fixtures__/type-aware.ts");
-    expectMessage(messages, "@typescript-eslint/no-floating-promises", "");
-  });
+    it("kestrel/type-aware covers packages/create-kestrel/**", async () => {
+      const messages = await lintFixtureFile("packages/create-kestrel/__lint_fixtures__/type-aware.ts");
+      expectMessage(messages, "@typescript-eslint/no-floating-promises", "");
+    });
 
-  it("kestrel/type-aware covers .ts files directly in layers/core/", async () => {
-    const messages = await lintFixtureFile("layers/core/lint-fixture-type-aware.ts");
-    expectMessage(messages, "@typescript-eslint/no-floating-promises", "");
+    it("kestrel/type-aware covers .ts files directly in layers/core/", async () => {
+      const messages = await lintFixtureFile("layers/core/lint-fixture-type-aware.ts");
+      expectMessage(messages, "@typescript-eslint/no-floating-promises", "");
+    });
   });
 
   it("kestrel/admin-api-routes: bans a path literal passed to the admin API client", async () => {

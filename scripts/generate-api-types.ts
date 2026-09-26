@@ -10,7 +10,8 @@ import { defineFieldTypes } from "../layers/core/field-types.ts";
 import { contentModel, contentTypes } from "../playground/shared/model.ts";
 
 const repoRoot = fileURLToPath(new URL("..", import.meta.url));
-const outFile = resolve(repoRoot, "layers/core/app/types/openapi.generated.ts");
+const targetFlagIndex = process.argv.indexOf("--target");
+const outFile = targetFlagIndex === -1 ? resolve(repoRoot, "layers/core/app/types/openapi.generated.ts") : resolve(process.argv[targetFlagIndex + 1] ?? "");
 const generatorCommand = "pnpm generate:api-types";
 
 const fieldTypes = defineFieldTypes({
