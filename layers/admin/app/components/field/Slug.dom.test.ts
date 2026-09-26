@@ -1,8 +1,9 @@
-import { mountSuspended } from '@nuxt/test-utils/runtime'
+import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { computed, ref } from 'vue'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import type { FieldDef } from '#kestrel-admin/types/kestrel'
-import type { PathPreview } from '#kestrel-admin/types/api'
+import type { AdminSchema, PathPreview } from '#kestrel-admin/types/api'
+import { useSchema } from '../../composables/useSchema'
 import { en } from '#kestrel-admin/i18n/en'
 import { pathPreviewKey } from '../../composables/usePathPreview'
 import FieldSlug from './Slug.vue'
@@ -53,7 +54,38 @@ describe('field/Slug full path preview', () => {
     expect(wrapper.get('.field-slug__prefix').text()).toBe('/ueber-uns/')
   })
 
+  const unregisterAll: (() => void)[] = []
+  afterEach(() => {
+    unregisterAll.splice(0).forEach((unregister) => unregister())
+    useSchema().clear()
+  })
+
+  async function schemaWithPages(readable: boolean) {
+    const schema: AdminSchema = {
+      locales: { all: ['de'], primary: 'de', prefixPrimary: false },
+      collections: [{
+        name: 'pages', mode: 'multi', translatable: true, routed: true, published: true, hasSlug: true, seo: false, status: false, layoutField: false,
+        blocks: { enabled: false }, editor: 'fields', nav: true, placement: 'rail', fields: {},
+        capabilities: readable ? { readAny: { method: 'GET', path: '/admin/pages/:id' } } : {},
+      }],
+      features: [],
+      capabilities: {},
+    }
+    unregisterAll.push(registerEndpoint('/api/admin/schema', { method: 'GET', handler: () => schema }))
+    await useSchema().load()
+  }
+
+  it('names only the path when the caller cannot read the page that holds it', async () => {
+    await schemaWithPages(false)
+    const wrapper = await mountSuspended(FieldSlug, {
+      props: { field, name: 'slug', locale: 'de', modelValue: 'team' },
+      ...previewing({ path: '/team', reachable: false, reason: 'taken', conflict: { path: '/team', locale: 'de', type: 'pages', id: 'p2', label: 'Our team' } }),
+    })
+    expect(wrapper.get('.ui-field__error').text()).toBe('This address is taken: /team (DE).')
+  })
+
   it('names the page that already holds the path under the field', async () => {
+    await schemaWithPages(true)
     const wrapper = await mountSuspended(FieldSlug, {
       props: { field, name: 'slug', locale: 'de', modelValue: 'team' },
       ...previewing({ path: '/team', reachable: false, reason: 'taken', conflict: { path: '/team', locale: 'de', type: 'pages', id: 'p2', label: 'Our team' } }),

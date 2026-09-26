@@ -5,7 +5,7 @@ import type { BlockErrors } from '../../composables/useEditFormValidation'
 import { blockErrorFromPointer, fieldErrorsFromDetails, fieldFromErrorMessage, hasAdditionalPropertiesProblem, parseBodyErrors, parseRowErrors } from '../../utils/edit-form'
 import { parseSchemaRowErrors } from '../../utils/row-errors'
 import { defineUiStep } from '../define'
-import type { EditFormPort, SaveOutcome, Translate, WithDeps } from '../types'
+import type { ActionDeps, EditFormPort, SaveOutcome, Translate, WithDeps } from '../types'
 
 export function saveOutcome<I>(ctx: ActionContext<I, SaveOutcome>, step: string): SaveOutcome {
   if (ctx.result === undefined) throw new Error(`form.reset must run before ${step}`)
@@ -61,6 +61,21 @@ function mapSchemaRowError(form: EditFormPort, message: string): boolean {
   form.setRowErrors(repeater, tree)
   form.setFormError(message)
   return true
+}
+
+function withReadableOccupants(deps: ActionDeps, details: ApiErrorDetails | undefined): ApiErrorDetails | undefined {
+  const conflicts = details?.conflicts ?? []
+  const hidden = conflicts.filter((conflict) => !deps.capabilities.hasVerb(conflict.type, 'readAny'))
+  if (hidden.length === 0 || details === undefined) return details
+  const pathOnly = (message: string): string => {
+    const conflict = hidden.find((entry) => message.startsWith(`${entry.path} (`))
+    return conflict === undefined ? message : deps.t('editor.pathTaken', { path: conflict.path, locale: conflict.locale.toUpperCase() })
+  }
+  return {
+    ...details,
+    fields: (details.fields ?? []).map((field) => ({ ...field, message: pathOnly(field.message) })),
+    conflicts: conflicts.map((conflict) => (hidden.includes(conflict) ? { ...conflict, label: '' } : conflict)),
+  }
 }
 
 export function formReset<I extends { form: EditFormPort }>(): ActionStep<I, SaveOutcome> {
@@ -131,8 +146,10 @@ export function formMapErrors<I extends WithDeps & { form: EditFormPort }>(): Ac
     }
 
     if (code === 'CONFLICT') {
-      mapFieldDetails(form, details)
-      form.setFormError(message || deps.t('editor.saveConflict'))
+      const visible = withReadableOccupants(deps, details)
+      mapFieldDetails(form, visible)
+      const hidden = visible !== details ? [...new Set((visible?.fields ?? []).map((field) => field.message))].join('; ') : ''
+      form.setFormError(hidden || message || deps.t('editor.saveConflict'))
       return
     }
 

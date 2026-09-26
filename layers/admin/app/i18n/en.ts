@@ -1092,4 +1092,5 @@ export const en = {
   'field.mounts.path': 'Addresses: {path}',
   'field.mounts.moves': 'A change moves {n} addresses (documents × languages).',
   'field.mounts.movesAll': 'A change moves the address of every document of this collection.',
+  'editor.pathTaken': 'This address is taken: {path} ({locale}).',
 } satisfies Record<string, string>

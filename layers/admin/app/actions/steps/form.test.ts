@@ -3,7 +3,8 @@ import { defineAction, runAction, type ActionContext } from '#kestrel-core/app/u
 import { ApiError } from '../../composables/useApi'
 import type { ActionDeps, ApiClient, EditFormPort, SaveFailure, SaveOutcome, WithDeps } from '../types'
 import type { ApiRoute } from '../../utils/capabilities'
-import { fullAccessCapabilities } from '../__fixtures__/fake-deps'
+import { fullAccessCapabilities, fullAccessSchema } from '../__fixtures__/fake-deps'
+import { capabilityResolver } from '../../utils/capabilities'
 import { apiWrite } from './api'
 import { formMapErrors, formReset } from './form'
 
@@ -50,9 +51,9 @@ function fakeForm() {
   return { form, state }
 }
 
-function runMapErrors(failure: SaveFailure | null) {
+function runMapErrors(failure: SaveFailure | null, capabilities = fullAccessCapabilities) {
   const { form, state } = fakeForm()
-  const deps: ActionDeps = { api: fakeApiClient(), t: vi.fn((key: string) => key), toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() }, capabilities: fullAccessCapabilities }
+  const deps: ActionDeps = { api: fakeApiClient(), t: vi.fn((key: string) => key), toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() }, capabilities }
   const ctx: ActionContext<Input, SaveOutcome> = {
     input: { deps, form },
     result: { record: null, events: null, failure, failed: failure !== null },
@@ -134,6 +135,22 @@ describe('formMapErrors', () => {
     })
     expect(state.fieldErrors).toEqual({ slug: message })
     expect(state.formError).toBe(message)
+  })
+
+  it('names a taken path by its path only when the caller cannot read the collection that holds it', () => {
+    const message = '/team (de) is taken by blog "Unreleased launch plan"'
+    const withoutBlog = capabilityResolver({ ...fullAccessSchema, collections: fullAccessSchema.collections.map((c) => (c.name === 'blog' ? { ...c, capabilities: {} } : c)) })
+    const state = runMapErrors({
+      status: 409,
+      code: 'CONFLICT',
+      retryable: false,
+      message,
+      details: { fields: [{ field: 'slug', message }], conflicts: [{ path: '/team', locale: 'de', type: 'blog', id: 'b1', label: 'Unreleased launch plan', moving: { type: 'pages', id: 'p1' } }] },
+    }, withoutBlog)
+    const pathOnly = 'editor.pathTaken'
+    expect(state.fieldErrors).toEqual({ slug: pathOnly })
+    expect(state.formError).toBe(pathOnly)
+    expect(JSON.stringify(state)).not.toContain('Unreleased')
   })
 
   it('maps a conflict of a moved subpage onto the parent field', () => {

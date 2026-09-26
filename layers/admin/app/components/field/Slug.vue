@@ -13,6 +13,7 @@ const model = defineModel<string | null>()
 const { t } = useT()
 const { primary, prefixPrimary } = useContentLocales()
 const form = inject(editorFormContextKey, null)
+const capabilities = useCapabilities()
 
 const auto = computed(() => {
   const from = fromField.value
@@ -47,7 +48,9 @@ const topLevel = computed(() => {
 const reserved = computed(() => topLevel.value && typeof model.value === 'string' && (RESERVED_PAGE_SEGMENTS as readonly string[]).includes(model.value))
 const taken = computed(() => {
   const conflict = preview.value?.conflict
-  return conflict ? t('field.slug.taken', { path: conflict.path, locale: conflict.locale.toUpperCase(), label: conflict.label }) : undefined
+  if (!conflict) return undefined
+  const locale = conflict.locale.toUpperCase()
+  return capabilities.hasVerb(conflict.type, 'readAny') ? t('field.slug.taken', { path: conflict.path, locale, label: conflict.label }) : t('editor.pathTaken', { path: conflict.path, locale })
 })
 const displayError = computed(() => (reserved.value ? t('field.slug.reserved', { slug: model.value ?? '' }) : (props.error ?? taken.value)))
 
