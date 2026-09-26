@@ -8,6 +8,7 @@ const props = defineProps<{
   pageTitle?: string
 
   slug?: string
+  path?: string
   locale: string
   disabled?: boolean
 }>()
@@ -31,7 +32,7 @@ const descPlaceholder = computed(() => siteDescription.value || t('seo.descripti
 const siteUrl = computed(() => String(useRuntimeConfig().public.siteUrl ?? '').replace(/\/+$/, ''))
 const previewUrl = computed(() => {
   const slug = props.slug?.trim() ?? ''
-  const path = localePath(slug ? `/${slug}` : '/', props.locale, primary.value, prefixPrimary.value)
+  const path = props.path || localePath(slug ? `/${slug}` : '/', props.locale, primary.value, prefixPrimary.value)
   return `${siteUrl.value || (import.meta.client ? window.location.host : '')}${path}`
 })
 

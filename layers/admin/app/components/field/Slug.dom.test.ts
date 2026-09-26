@@ -1,7 +1,10 @@
 import { mountSuspended } from '@nuxt/test-utils/runtime'
+import { computed, ref } from 'vue'
 import { describe, expect, it } from 'vitest'
 import type { FieldDef } from '#kestrel-admin/types/kestrel'
+import type { PathPreview } from '#kestrel-admin/types/api'
 import { en } from '#kestrel-admin/i18n/en'
+import { pathPreviewKey } from '../../composables/usePathPreview'
 import FieldSlug from './Slug.vue'
 
 const field: FieldDef = { type: 'slug', label: 'Slug' }
@@ -33,5 +36,46 @@ describe('field/Slug reserved segments', () => {
       props: { field, name: 'slug', locale: 'en', modelValue: 'admin', error: 'already taken' },
     })
     expect(wrapper.get('.ui-field__error').text()).toBe(en['field.slug.reserved'].replace('{slug}', 'admin'))
+  })
+})
+
+function previewing(preview: Partial<PathPreview>, unreachable: string | null = null) {
+  const full: PathPreview = { path: '', reachable: true, reason: null, conflict: null, shadows: [], exposesParentSlug: null, ...preview }
+  return { global: { provide: { [pathPreviewKey]: { preview: ref(full), unreachable: computed(() => unreachable) } } } }
+}
+
+describe('field/Slug full path preview', () => {
+  it('shows the parent path in front of the slug', async () => {
+    const wrapper = await mountSuspended(FieldSlug, {
+      props: { field, name: 'slug', locale: 'de', modelValue: 'team' },
+      ...previewing({ path: '/ueber-uns/team' }),
+    })
+    expect(wrapper.get('.field-slug__prefix').text()).toBe('/ueber-uns/')
+  })
+
+  it('names the page that already holds the path under the field', async () => {
+    const wrapper = await mountSuspended(FieldSlug, {
+      props: { field, name: 'slug', locale: 'de', modelValue: 'team' },
+      ...previewing({ path: '/team', reachable: false, reason: 'taken', conflict: { path: '/team', locale: 'de', type: 'pages', id: 'p2', label: 'Our team' } }),
+    })
+    expect(wrapper.get('.ui-field__error').text()).toBe('This address is taken: /team (DE) belongs to "Our team".')
+  })
+
+  it('warns that the address shows the slug of an unpublished parent', async () => {
+    const wrapper = await mountSuspended(FieldSlug, {
+      props: { field, name: 'slug', locale: 'de', modelValue: 'team' },
+      ...previewing({ path: '/ueber-uns/team', exposesParentSlug: { type: 'pages', id: 'p1', label: 'About us' } }),
+    })
+    const notes = wrapper.get('.field-slug__notes')
+    expect(notes.text()).toBe('This address shows the slug of "About us", which is not published in this language.')
+    expect(wrapper.get('input').attributes('aria-describedby')).toContain(notes.attributes('id'))
+  })
+
+  it('names why a live page would not be reachable', async () => {
+    const wrapper = await mountSuspended(FieldSlug, {
+      props: { field, name: 'slug', locale: 'de', modelValue: 'de' },
+      ...previewing({ path: '/de', reachable: false, reason: 'the path starts with a locale code' }, 'the path starts with a locale code'),
+    })
+    expect(wrapper.get('.field-slug__notes').text()).toBe('Visitors cannot reach this address: the path starts with a locale code')
   })
 })

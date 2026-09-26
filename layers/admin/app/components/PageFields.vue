@@ -4,6 +4,7 @@ import type { FieldDef, LayoutNode } from '#kestrel-admin/types/kestrel'
 import type { PageSeo } from '#kestrel-admin/types/api'
 import { layoutSelectOptions } from '#kestrel-core/app/utils/layouts'
 import { splitLayoutAfter } from '../utils/layout-split'
+import { pathPreviewKey } from '../composables/usePathPreview'
 import type { RowErrorMap } from '../utils/row-errors'
 
 const props = defineProps<{
@@ -37,6 +38,8 @@ const layoutOptions = computed(() => {
 })
 const showLayout = computed(() => !!props.layoutField && (kestrelLayouts.length > 1 || layoutUnknown.value))
 const layoutSplit = computed(() => splitLayoutAfter(props.fieldLayout ?? [], ['slug', 'status']))
+const paths = inject(pathPreviewKey, null)
+const previewPath = computed(() => paths?.preview.value?.path || undefined)
 </script>
 
 <template>
@@ -85,6 +88,7 @@ const layoutSplit = computed(() => splitLayoutAfter(props.fieldLayout ?? [], ['s
     :value="(values.seo as PageSeo | null) ?? {}"
     :page-title="(values.title as string | null) ?? ''"
     :slug="(values.slug as string | null) ?? ''"
+    :path="previewPath"
     :locale="locale"
     :disabled="disabled"
     @update="(v) => emit('update', 'seo', v)"

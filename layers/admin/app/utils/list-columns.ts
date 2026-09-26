@@ -1,7 +1,7 @@
 import type { SerializedCollection } from '#kestrel-admin/types/kestrel'
 
 export interface ListColumn {
-  key: 'title' | 'slug' | 'status' | 'updatedAt'
+  key: 'title' | 'slug' | 'path' | 'status' | 'updatedAt'
   labelKey: string
   sortable: boolean
 }
@@ -9,7 +9,8 @@ export interface ListColumn {
 export function listColumns(schema: SerializedCollection): ListColumn[] {
   const columns: ListColumn[] = []
   if ('title' in schema.fields) columns.push({ key: 'title', labelKey: 'list.col.title', sortable: true })
-  if (schema.hasSlug) columns.push({ key: 'slug', labelKey: 'list.col.slug', sortable: true })
+  if (schema.routed) columns.push({ key: 'path', labelKey: 'list.col.path', sortable: false })
+  else if (schema.hasSlug) columns.push({ key: 'slug', labelKey: 'list.col.slug', sortable: true })
   if (schema.status) columns.push({ key: 'status', labelKey: 'list.col.status', sortable: true })
   columns.push({ key: 'updatedAt', labelKey: 'list.col.updatedAt', sortable: true })
   return columns

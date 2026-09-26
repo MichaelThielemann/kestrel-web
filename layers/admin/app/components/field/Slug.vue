@@ -5,6 +5,7 @@ import { fieldIs } from '#kestrel-admin/types/kestrel'
 import { RESERVED_PAGE_SEGMENTS } from '#kestrel-core/mount-path'
 import type { FieldComponentProps } from '../../utils/field-component'
 import { editorFormContextKey } from '../../utils/editor-form-context'
+import { pathPreviewKey } from '../../composables/usePathPreview'
 
 const props = defineProps<FieldComponentProps>()
 const model = defineModel<string | null>()
@@ -25,13 +26,44 @@ const opts = computed(() => {
 })
 const fromField = computed(() => opts.value?.from)
 
-const prefix = computed(() => (props.locale === primary.value && !prefixPrimary.value ? '/' : `/${props.locale}/`))
+const paths = inject(pathPreviewKey, null)
+const preview = computed(() => paths?.preview.value ?? null)
+const notesId = useId()
+
+const localePrefix = computed(() => (props.locale === primary.value && !prefixPrimary.value ? '/' : `/${props.locale}/`))
+const prefix = computed(() => {
+  const path = preview.value?.path ?? ''
+  const slug = model.value ?? ''
+  return slug !== '' && path.endsWith(`/${slug}`) ? path.slice(0, path.length - slug.length) : localePrefix.value
+})
 
 const rootPlaceholder = computed(() => (model.value ? undefined : t('field.slug.rootPlaceholder')))
 const rootHint = computed(() => (model.value ? undefined : t('pageSettings.slugHomeHint')))
 
-const reserved = computed(() => typeof model.value === 'string' && (RESERVED_PAGE_SEGMENTS as readonly string[]).includes(model.value))
-const displayError = computed(() => (reserved.value ? t('field.slug.reserved', { slug: model.value ?? '' }) : (props.error ?? undefined)))
+const topLevel = computed(() => {
+  const parent = form?.values.parent
+  return typeof parent !== 'string' || parent === ''
+})
+const reserved = computed(() => topLevel.value && typeof model.value === 'string' && (RESERVED_PAGE_SEGMENTS as readonly string[]).includes(model.value))
+const taken = computed(() => {
+  const conflict = preview.value?.conflict
+  return conflict ? t('field.slug.taken', { path: conflict.path, locale: conflict.locale.toUpperCase(), label: conflict.label }) : undefined
+})
+const displayError = computed(() => (reserved.value ? t('field.slug.reserved', { slug: model.value ?? '' }) : (props.error ?? taken.value)))
+
+const notes = computed(() => {
+  const current = preview.value
+  if (!current) return []
+  const out = current.shadows.map((shadow) => t('field.slug.shadows', { path: shadow.path, label: shadow.label }))
+  if (current.exposesParentSlug) out.push(t('field.slug.exposesParent', { label: current.exposesParentSlug.label }))
+  const unreachable = paths?.unreachable.value
+  if (unreachable) out.push(t('field.slug.unreachable', { reason: unreachable }))
+  return out
+})
+
+function describedBy(base: string | undefined): string | undefined {
+  return [base, notes.value.length > 0 ? notesId : undefined].filter(Boolean).join(' ') || undefined
+}
 
 function onBlur() {
   const cur = model.value ?? ''
@@ -58,12 +90,15 @@ function onFocus(event: FocusEvent) {
           type="text"
           :placeholder="rootPlaceholder"
           :aria-invalid="f['aria-invalid']"
-          :aria-describedby="f['aria-describedby']"
+          :aria-describedby="describedBy(f['aria-describedby'])"
           :disabled="disabled"
           @focus="onFocus"
           @blur="onBlur"
         />
       </div>
+      <ul v-if="notes.length" :id="notesId" class="field-slug__notes">
+        <li v-for="note in notes" :key="note">{{ note }}</li>
+      </ul>
     </template>
   </KestrelUiField>
 </template>
@@ -87,4 +122,9 @@ function onFocus(event: FocusEvent) {
   &.field-slug__input--auto { color: var(--color-text-muted); }
 }
 .field-slug:focus-within { border-color: var(--color-primary); }
+.field-slug__notes {
+  margin: 0; padding: 0; list-style: none;
+  display: flex; flex-direction: column; gap: var(--space-1);
+  font-size: var(--text-sm); color: var(--color-warning-text);
+}
 </style>

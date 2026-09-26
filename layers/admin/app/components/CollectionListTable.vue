@@ -60,7 +60,7 @@ function statusLabel(value: unknown): string {
 }
 function cellText(c: ListColumn, row: Record<string, unknown>): string {
   const field = props.workflow?.field
-  return c.key === 'status' && field ? statusLabel(row[field]) : cellDisplay(c, row)
+  return c.key === 'status' && field ? statusLabel(row[field]) : cellDisplay(c, row, props.locale ?? props.primaryLocale)
 }
 
 function ariaSort(field: string): 'ascending' | 'descending' | 'none' {

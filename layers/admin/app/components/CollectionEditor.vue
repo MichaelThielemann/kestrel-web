@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { resolveCollectionEditor } from '../utils/editor-registry'
 import { editorFormContextKey } from '../utils/editor-form-context'
+import { pathPreviewKey, usePathPreview } from '../composables/usePathPreview'
 import { boundaryCast } from '#kestrel/cast'
 import '../utils/register-builtin-editors'
 
@@ -43,6 +44,16 @@ const status = computed(() => {
 })
 const slug = computed(() => boundaryCast<string | undefined>(f.values.slug, 'json') ?? '')
 const fieldKeys = computed(() => Object.keys(f.fields.value))
+
+const pathPreview = usePathPreview(useActionDeps(), {
+  collection: props.collection,
+  id: props.id,
+  locale: () => f.locale.value,
+  slug: () => slug.value,
+  parent: () => ('parent' in f.fields.value ? (typeof f.values.parent === 'string' && f.values.parent !== '' ? f.values.parent : null) : undefined),
+  live: () => workflow.value !== undefined && status.value === workflow.value.live,
+})
+provide(pathPreviewKey, pathPreview)
 
 provide(editorFormContextKey, {
   values: f.values, errors: f.errors, blockErrors: f.blockErrors, following: f.following, formError: f.formError, setField: f.setField, locale: f.locale,
