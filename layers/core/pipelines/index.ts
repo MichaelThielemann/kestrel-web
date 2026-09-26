@@ -8,11 +8,12 @@ import type { FieldTypes } from "../field-types";
 import { RESERVED_PAGE_SEGMENTS } from "../mount-path";
 import { buildPreset, throwSink } from "./checkPreset";
 import type { CollectionModel, Feature, Preset, PresetOptions } from "./checkPreset";
-import { DEFAULT_COLLECTIONS, isPageLikeCollection } from "./collections";
+import { DEFAULT_COLLECTIONS, hasSlugValueSchema } from "./collections";
 
 export type { CollectionModel } from "./collections";
 export type { PresetEntry } from "./compose";
 export { collectionVerbs, isRoutedCollection, MULTI_VERBS, SINGLE_VERBS } from "./capabilities";
+export { PATH_PIPELINES, PATHS_MOVED_EVENT } from "./paths";
 export type { CollectionVerb, MultiVerb, SingleVerb } from "./capabilities";
 export type { Workflow } from "../app/types/kestrel";
 export type { PresetStep } from "../module-registry";
@@ -31,6 +32,7 @@ export type {
   PresetMigrations,
   PresetModuleConfigOptions,
   PresetRateLimit,
+  PresetPaths,
   PresetRevisions,
   PresetRoles,
   PresetSession,
@@ -95,7 +97,7 @@ export function presetSchemas({
       name === "pages" ? process.env.KESTREL_BLOCK_SCHEMA ?? resolve(appRoot, ".nuxt/kestrel/pages.body.json") : resolve(appRoot, `schemas/${name}.body.json`);
   }
   for (const [name, model] of Object.entries(resolved)) {
-    if (!isPageLikeCollection(name, model)) continue;
+    if (!hasSlugValueSchema(name, model)) continue;
     schemas[`${name}.slug`] = { type: ["string", "null"], not: { enum: [...RESERVED_PAGE_SEGMENTS] } };
   }
   if (features.includes("redirects")) {

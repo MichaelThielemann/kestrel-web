@@ -725,13 +725,13 @@ describe("definePreset step ordering", () => {
 describe("presetSchemas", () => {
   it("returns pages.body and settings.navigation without the redirects feature", () => {
     const schemas = presetSchemas({ features: [] });
-    expect(Object.keys(schemas).sort()).toEqual(["pages.body", "pages.slug", "settings.navigation"]);
+    expect(Object.keys(schemas).sort()).toEqual(["pages.body", "settings.navigation"]);
     expect(schemas["settings.navigation"]).toMatch(/schemas\/settings\.navigation\.json$/);
   });
 
   it("adds redirects.rules with the redirects feature", () => {
     const schemas = presetSchemas({ features: ["redirects"] });
-    expect(Object.keys(schemas).sort()).toEqual(["pages.body", "pages.slug", "redirects.rules", "settings.navigation"]);
+    expect(Object.keys(schemas).sort()).toEqual(["pages.body", "redirects.rules", "settings.navigation"]);
     expect(schemas["redirects.rules"]).toMatch(/redirects\.rules\.json$/);
   });
 
@@ -745,9 +745,14 @@ describe("presetSchemas", () => {
     expect(schemas["news.body"]).toMatch(/schemas[/\\]news\.body\.json$/);
   });
 
-  it("registers a page-like collection's slug schema rejecting the reserved segments, nullable", () => {
+  it("registers no slug schema for pages, whose full path site-default checks against the reserved paths", () => {
     const schemas = presetSchemas({ features: [] });
-    expect(schemas["pages.slug"]).toEqual({ type: ["string", "null"], not: { enum: ["api", "admin", "media"] } });
+    expect(schemas["pages.slug"]).toBeUndefined();
+  });
+
+  it("registers a slug schema rejecting the reserved segments for a page-like collection outside the path index", () => {
+    const schemas = presetSchemas({ features: [], collections: { news: { kind: "multi", fields: { slug: {}, status: {}, body: {} } } } });
+    expect(schemas["news.slug"]).toEqual({ type: ["string", "null"], not: { enum: ["api", "admin", "media"] } });
   });
 
   it("registers no slug schema for a collection missing status or body", () => {
@@ -959,11 +964,13 @@ describe("definePreset revisions feature", () => {
       "authz.require:pages.delete",
       "content.remove:pages",
       "revisions.remove:pages",
+      "site.indexPath:pages",
+      "site.announcePaths",
       "events.emit:page.deleted",
       "events.relay",
     ]);
     const deletePage = preset.pipelines.find((pipeline) => pipeline.name === "deletePage");
-    expect(deletePage?.steps).toContainEqual({ atomic: ["content.remove:pages", "revisions.remove:pages"] });
+    expect(deletePage?.steps).toContainEqual({ atomic: ["content.remove:pages", "revisions.remove:pages", "site.indexPath:pages"] });
     expect(stepsOf("deletePageTranslation")).toContain("revisions.removeTranslation:pages");
   });
 

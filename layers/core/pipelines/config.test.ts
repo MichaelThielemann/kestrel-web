@@ -84,7 +84,7 @@ describe("presetModuleConfig with the playground inputs", () => {
           anonymous: ["pages.read", "settings.read", "media.read"],
           anonymousFields: {
             settings: ["id", "title", "titlePosition", "titleSeparator", "description", "navigation", "_locales", "_translations", "_links"],
-            pages: ["id", "slug", "title", "body", "seo", "status", "shareImage", "accent", "layout", "_locales", "_translations", "_locale", "_links", "redirect"],
+            pages: ["id", "slug", "title", "body", "seo", "status", "shareImage", "accent", "layout", "_locales", "_translations", "_locale", "_links", "redirect", "_paths"],
             media: ["id", "path", "filename", "contentType", "size", "width", "height", "alt", "title", "description", "provenance", "variants[].size", "variants[].width", "variants[].height", "variants[].format", "variants[].path"],
             mediaFile: ["headers.cache-control", "headers.x-content-provenance", "headers.x-kestrel-variant"],
             redirectRules: ["pattern", "target", "status"],
@@ -95,7 +95,10 @@ describe("presetModuleConfig with the playground inputs", () => {
         use: "@michaelthielemann/kestrel-content-default",
         config: { ...contentModel, types: resolveStorageTypes(contentTypes, fieldTypes, "presetModuleConfig") },
       },
-      { use: "@michaelthielemann/kestrel-site-default", config: {} },
+      {
+        use: "@michaelthielemann/kestrel-site-default",
+        config: { routes: { pages: { home: "home", liveWhen: { status: "published" } } }, prefixPrimary: false, reservedPaths: ["/api", "/admin", "/media"] },
+      },
       { use: "@michaelthielemann/kestrel-references-default", config: { targets: { pages: { content: "pages" }, media: { media: true } } } },
       { use: "@michaelthielemann/kestrel-links-default", config: { timeoutMs: 10000, concurrency: 4, recheckAfterSeconds: 21600 } },
       {

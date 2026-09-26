@@ -83,6 +83,14 @@ export interface PresetMigrations {
   mode?: string;
 }
 
+export interface PresetPaths {
+  /**
+   * The most paths (documents × locales) one save may move, `site-default`'s `maxCascade`. A save above it is
+   * rejected; while a save below it runs, every other request waits.
+   */
+  maxCascade?: number;
+}
+
 export interface PresetSession {
   identifier?: "username" | "email";
   minPasswordLength?: number;
@@ -106,6 +114,11 @@ export interface PresetModuleConfigOptions {
   audit?: PresetAudit;
   session?: PresetSession;
   eventsQueue?: PresetEventsQueue;
+  /** The slug served at a locale's root; the same value `definePreset()` takes as `homeSlug`. Default `"home"`. */
+  homeSlug?: string;
+  /** Whether the default locale's public paths carry its prefix too, as `shared/model` declares it. Default `false`. */
+  prefixPrimary?: boolean;
+  paths?: PresetPaths;
   overrides?: Partial<Record<string, Record<string, unknown>>>;
   /**
    * The `exclude` and `overrides` given to `definePreset()`, the same object: a resource whose every preset
@@ -211,6 +224,28 @@ function liveStatesOf(types: Record<string, CollectionModel>, collectionsUi: Rec
     );
   }
   return { statusField: [...fields][0] ?? "", liveStatuses: [...live].sort() };
+}
+
+const RESERVED_PATHS = [MOUNT_PATH, "/admin", MEDIA_PUBLIC_PATH];
+const DEFAULT_HOME_SLUG = "home";
+
+function liveWhenOf(name: string, model: CollectionModel, ui: WorkflowUi | undefined): Record<string, string> {
+  const workflow = resolveWorkflow(name, model, ui);
+  return workflow === undefined ? {} : { [workflow.field]: workflow.live };
+}
+
+function siteConfig(types: Record<string, CollectionModel>, options: PresetModuleConfigOptions): Record<string, unknown> {
+  const pages = types[PAGES_COLLECTION];
+  if (pages === undefined) return {};
+  const routes: Record<string, Record<string, unknown>> = {
+    [PAGES_COLLECTION]: { home: options.homeSlug ?? DEFAULT_HOME_SLUG, liveWhen: liveWhenOf(PAGES_COLLECTION, pages, options.collectionsUi?.[PAGES_COLLECTION]) },
+  };
+  return {
+    routes,
+    prefixPrimary: options.prefixPrimary ?? false,
+    reservedPaths: [...RESERVED_PATHS],
+    ...(options.paths?.maxCascade === undefined ? {} : { maxCascade: options.paths.maxCascade }),
+  };
 }
 
 function mergedConfig(config: unknown, override: Record<string, unknown>): unknown {
@@ -320,7 +355,7 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
       types,
     },
   });
-  modules.push({ use: "@michaelthielemann/kestrel-site-default", config: {} });
+  modules.push({ use: "@michaelthielemann/kestrel-site-default", config: siteConfig(types, options) });
 
   if (enabled.has("references")) modules.push({ use: "@michaelthielemann/kestrel-references-default", config: { targets: referenceTargets(types) } });
   if (enabled.has("links")) modules.push({ use: "@michaelthielemann/kestrel-links-default", config: { ...DEFAULT_LINKS } });
@@ -337,7 +372,7 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
       config: {
         types: deliveryTypes(types),
         prefix: SITE_PREFIX,
-        reservedPaths: [MOUNT_PATH, "/admin", MEDIA_PUBLIC_PATH],
+        reservedPaths: [...RESERVED_PATHS],
         llms: {
           full: options.llms?.full ?? true,
           headings: options.llms?.headings ?? { ...DEFAULT_LLMS_HEADINGS },

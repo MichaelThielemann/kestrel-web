@@ -217,12 +217,13 @@ describe("atomic group invariants across every composed pipeline", () => {
     }
   });
 
-  it("with the queue, every group that ends in an emit puts it last, and no emit sits in the middle of a group", () => {
+  it("with the queue, every group that ends in an emit puts it last or right before the path index, and no emit sits in the middle of a group", () => {
     for (const pipeline of queued.pipelines) {
       for (const entry of pipeline.steps) {
         if (!isAtomicGroup(entry)) continue;
+        const end = entry.atomic.at(-1)?.startsWith("site.indexPath:") === true ? entry.atomic.length - 2 : entry.atomic.length - 1;
         entry.atomic.forEach((step, index) => {
-          if (step.startsWith("events.emit") && index !== entry.atomic.length - 1) {
+          if (step.startsWith("events.emit") && index !== end) {
             throw new Error(`${pipeline.name}: "${step}" is not the last step of its group`);
           }
         });
@@ -250,13 +251,13 @@ describe("restorePageRevision inherits the group; the fold moves only the emit, 
     expect(flat.slice(-3)).toEqual(["revisions.reportRestore", "events.emit:page.restored", "events.relay"]);
   });
 
-  it("queue: the emit joins the group's end; the relay follows it and reportRestore stays outside, after both, so the response keeps `restore`", () => {
+  it("queue: the emit joins the group right before the path index; the announcement and the relay follow it and reportRestore stays outside, after them, so the response keeps `restore`", () => {
     const preset = definePreset({ modules: queuedModules, features: queuedFeatures, collections: contentTypes, fieldTypes, exportDir: EXPORT_DIR });
     const restore = preset.pipelines.find((pipeline) => pipeline.name === "restorePageRevision");
     const group = restore?.steps.find(isAtomicGroup);
-    expect(group?.atomic.at(-1)).toBe("events.emit:page.restored");
+    expect(group?.atomic.slice(-2)).toEqual(["events.emit:page.restored", "site.indexPath:pages"]);
     expect(group?.atomic).not.toContain("revisions.reportRestore");
     const flat = pipelineSteps(restore?.steps ?? []);
-    expect(flat.slice(-2)).toEqual(["events.relay", "revisions.reportRestore"]);
+    expect(flat.slice(-3)).toEqual(["site.announcePaths", "events.relay", "revisions.reportRestore"]);
   });
 });

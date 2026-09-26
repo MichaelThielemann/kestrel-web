@@ -5,11 +5,12 @@ import type { CollectionModel, CollectionPipeline } from "./collections";
 import { PAGE_DELIVERY_PIPELINES } from "./features/delivery";
 import { PAGE_REFERENCE_PIPELINES } from "./features/references";
 import { REDIRECTS_PIPELINES } from "./features/redirects";
+import { PATH_PIPELINES } from "./paths";
 import { revisionPipelineNames } from "./features/revisions";
 
 export const MULTI_VERBS = [
   "list", "listAll", "read", "readAny", "create", "update", "delete", "deleteTranslation",
-  "revisions", "revision", "labelRevision", "restoreRevision", "publishStatus", "referrers", "referrersMany",
+  "revisions", "revision", "labelRevision", "restoreRevision", "publishStatus", "referrers", "referrersMany", "previewPath",
 ] as const;
 
 export const SINGLE_VERBS = ["get", "set"] as const;
@@ -59,6 +60,7 @@ export function collectionVerbs(
     verbs.publishStatus = PAGE_DELIVERY_PIPELINES.publishStatus;
     verbs.referrers = PAGE_REFERENCE_PIPELINES.referrers;
     verbs.referrersMany = PAGE_REFERENCE_PIPELINES.referrersMany;
+    verbs.previewPath = PATH_PIPELINES.preview;
   }
   return verbs;
 }

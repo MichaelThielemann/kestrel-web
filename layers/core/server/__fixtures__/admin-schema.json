@@ -465,7 +465,7 @@
       "fields": {
         "slug": {
           "required": false,
-          "unique": true,
+          "unique": false,
           "localized": true,
           "label": "Slug",
           "type": "slug",
@@ -670,6 +670,10 @@
         "referrersMany": {
           "method": "GET",
           "path": "/admin/references/to/pages"
+        },
+        "previewPath": {
+          "method": "POST",
+          "path": "/admin/pages/path-preview"
         }
       }
     }
@@ -779,6 +783,10 @@
     "renderRedirects": {
       "method": "GET",
       "path": "/redirects.json"
+    },
+    "rebuildPaths": {
+      "method": "POST",
+      "path": "/admin/paths/rebuild"
     },
     "resolvePage": {
       "method": "GET",
@@ -895,6 +903,14 @@
     "eventsDeliveryStatus": {
       "method": "GET",
       "path": "/admin/events/delivery"
+    },
+    "listAutoRedirects": {
+      "method": "GET",
+      "path": "/admin/redirects/auto"
+    },
+    "removeAutoRedirect": {
+      "method": "DELETE",
+      "path": "/admin/redirects/auto/*path"
     },
     "retryAnonymizeAuditUser": {
       "method": "POST",

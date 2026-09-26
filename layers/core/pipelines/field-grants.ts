@@ -1,6 +1,7 @@
 import { pipelineSteps } from "@michaelthielemann/kestrel/definePipeline";
 import type { PipelineEntry } from "@michaelthielemann/kestrel/definePipeline";
 import type { PresetStep } from "../module-registry";
+import { isRoutedCollection } from "./capabilities";
 import { collectionPipelines, isGenericCollection } from "./collections";
 import type { CollectionModel } from "./collections";
 import type { PresetEntry } from "./compose";
@@ -104,6 +105,7 @@ export interface FieldGrantModel {
  * the redirect rules, which no permission gates, under `redirects`) and that a read still cuts once `changes`
  * (the `exclude` and `overrides` given to `definePreset()`) apply: every model field of a content type with
  * its `id`, the locale members when the model has locales, the resolved links and the redirect hit on pages,
+ * the public paths (`_paths`) on a routed collection,
  * the resolved links on settings; the public media fields, with the variant fields under `images`; the file
  * headers; the redirect rules' fields. Only members a read declares are named, so every path passes
  * `authz-roles`' boot check.
@@ -121,6 +123,7 @@ export function anonymousFieldGrants(model: FieldGrantModel, features: readonly 
     const fields = ["id", ...Object.keys(type.fields), ...locale];
     if (name === "settings") fields.push("_links");
     if (name === "pages") fields.push(...(localized ? ["_locale"] : []), "_links", ...(redirects ? ["redirect"] : []));
+    if (isRoutedCollection(name)) fields.push("_paths");
     grants[name] = fields;
   }
   if (holds(anonymous, MEDIA_READ) && cut.has("media")) grants.media = [...MEDIA_FIELDS, ...(images ? VARIANT_FIELDS : [])];

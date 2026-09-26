@@ -6,6 +6,7 @@ import type { CollectionModel } from "../collections";
 import type { PresetEntry } from "../compose";
 import { PAGE_DELIVERY_PIPELINES } from "../delivery-names";
 import type { FeatureModule } from "../index";
+import { PATH_PIPELINES, PATHS_MOVED_EVENT } from "../paths";
 
 export { PAGE_DELIVERY_PIPELINES } from "../delivery-names";
 
@@ -54,6 +55,7 @@ export default function delivery(context: PresetContext): FeatureModule {
     { event: "page.updated", pipeline: PAGE_DELIVERY_PIPELINES.publish },
     { event: "page.restored", pipeline: PAGE_DELIVERY_PIPELINES.publish },
     { event: "page.deleted", pipeline: PAGE_DELIVERY_PIPELINES.unpublish },
+    { event: PATHS_MOVED_EVENT, pipeline: PATH_PIPELINES.movedDelivery },
   ];
   if (context.pagesTranslatable) {
     triggers.push({ event: "page.translationRemoved", pipeline: PAGE_DELIVERY_PIPELINES.publish });
@@ -71,6 +73,7 @@ export default function delivery(context: PresetContext): FeatureModule {
     [BUILD_CHECK_PIPELINE]: ["delivery.checkBuild"],
     repairPublicMedia: ["authn.requireUser", "authz.require:media.manage", "media.syncPublic"],
     syncPublicMedia: ["media.syncPublic"],
+    [PATH_PIPELINES.movedDelivery]: ["delivery.markMoved"],
     ...marking.pipelines,
   };
   if (context.eventsQueued) {

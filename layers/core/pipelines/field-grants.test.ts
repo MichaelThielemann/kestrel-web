@@ -148,7 +148,7 @@ describe("the anonymous field grants presetModuleConfig derives", () => {
   it("grants the playground's anonymously readable model fields, the public media fields, the file headers and the redirect rules", () => {
     expect(authzConfig({ features: ["delivery", "sanitizeSvg", "images", "redirects"] }).anonymousFields).toEqual({
       settings: ["id", "title", "titlePosition", "titleSeparator", "description", "navigation", "_locales", "_translations", "_links"],
-      pages: ["id", "slug", "title", "body", "seo", "status", "shareImage", "accent", "layout", "_locales", "_translations", "_locale", "_links", "redirect"],
+      pages: ["id", "slug", "title", "body", "seo", "status", "shareImage", "accent", "layout", "_locales", "_translations", "_locale", "_links", "redirect", "_paths"],
       media: [...MEDIA_FIELDS, ...VARIANT_FIELDS],
       mediaFile: ["headers.cache-control", "headers.x-content-provenance", "headers.x-kestrel-variant"],
       redirectRules: ["pattern", "target", "status"],
@@ -170,7 +170,7 @@ describe("the anonymous field grants presetModuleConfig derives", () => {
     };
     const grants = anonymousFieldGrants({ types }, ["redirects"], PUBLIC_READS);
     expect(grants.settings).toEqual(["id", "title", "_links"]);
-    expect(grants.pages).toEqual(["id", "slug", "title", "body", "status", "_links", "redirect"]);
+    expect(grants.pages).toEqual(["id", "slug", "title", "body", "status", "_links", "redirect", "_paths"]);
   });
 
   it("grants every generic collection its model fields, with the locale members when the model has locales", () => {

@@ -436,7 +436,7 @@
     "fields": {
       "slug": {
         "required": false,
-        "unique": true,
+        "unique": false,
         "localized": true,
         "label": "Slug",
         "type": "slug",

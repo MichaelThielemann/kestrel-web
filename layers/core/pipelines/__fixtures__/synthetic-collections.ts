@@ -28,7 +28,7 @@ export const syntheticContentTypes = {
   pages: {
     kind: "multi",
     fields: {
-      slug: { type: "slug", required: true, unique: true, localized: true },
+      slug: { type: "slug", required: true, localized: true },
       title: { type: "text", required: true, localized: true },
       body: { type: "json", localized: true },
       status: { type: "enum", options: ["draft", "finished", "published"], required: true, localized: true },

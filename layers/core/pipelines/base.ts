@@ -3,6 +3,7 @@ import type { WorkflowUi } from "../collections-ui/workflow";
 import type { CustomFieldTypes } from "../field-types";
 import type { PresetEntry } from "./compose";
 import { customFieldChecks } from "./collections";
+import { pathPipelines } from "./paths";
 import type { CollectionModel } from "./collections";
 
 export interface PresetModuleEntry {
@@ -96,6 +97,7 @@ export function basePipelines(
       `site.resolve:pages?home=${homeSlug}&status=published&fallback=true`,
       `site.resolveLinks:pages?home=${homeSlug}&status=published&fallback=true`,
     ];
+    Object.assign(pipelines, pathPipelines());
   }
 
   return pipelines;

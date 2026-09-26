@@ -45,4 +45,7 @@ export const ATOMIC_SAFE_STEPS: ReadonlySet<string> = new Set([
   "delivery.readStaleStatus",
   "authn.deleteUser",
   "authn.verifyUser",
+  "site.indexPath",
+  "site.applyRebuild",
+  "site.indexMounts",
 ]);

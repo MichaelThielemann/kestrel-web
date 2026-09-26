@@ -47,7 +47,6 @@
       "validate.check:pages.body",
       "validate.sanitize:pages.body",
       "validate.check:pages.body",
-      "validate.check:pages.slug",
       "validate.check:pages.accent",
       {
         "atomic": [
@@ -55,9 +54,11 @@
           "content.create:pages",
           "revisions.record:pages",
           "references.index:pages",
-          "links.extract:pages"
+          "links.extract:pages",
+          "site.indexPath:pages"
         ]
       },
+      "site.announcePaths",
       "events.emit:page.created",
       "events.relay"
     ],
@@ -102,9 +103,11 @@
           "content.remove:pages",
           "revisions.remove:pages",
           "references.unindex:pages",
-          "links.unextract:pages"
+          "links.unextract:pages",
+          "site.indexPath:pages"
         ]
       },
+      "site.announcePaths",
       "events.emit:page.deleted",
       "events.relay"
     ],
@@ -116,9 +119,11 @@
           "content.removeTranslation:pages",
           "revisions.removeTranslation:pages",
           "references.index:pages",
-          "links.extract:pages"
+          "links.extract:pages",
+          "site.indexPath:pages"
         ]
       },
+      "site.announcePaths",
       "events.emit:page.translationRemoved",
       "events.relay"
     ],
@@ -190,7 +195,13 @@
     "listAllPages": [
       "authn.requireUser",
       "authz.require:pages.manage",
-      "content.list:pages"
+      "content.list:pages",
+      "site.attachPaths:pages"
+    ],
+    "listAutoRedirects": [
+      "authn.requireUser",
+      "authz.require:redirects.read",
+      "redirects.listAuto"
     ],
     "listMedia": [
       "authn.identifyUser",
@@ -207,6 +218,7 @@
       "authn.identifyUser",
       "authz.require:pages.read",
       "content.list:pages?status=published",
+      "site.attachPaths:pages?reachable",
       "authz.fields:pages?shape=list"
     ],
     "listUsers": [
@@ -276,6 +288,18 @@
       "authz.require:pages.manage",
       "delivery.readStaleStatus"
     ],
+    "pathsMovedDelivery": [
+      "delivery.markMoved"
+    ],
+    "pathsMovedRedirects": [
+      "redirects.recordMoves",
+      "redirects.export"
+    ],
+    "previewPagePath": [
+      "authn.requireUser",
+      "authz.require:pages.write",
+      "site.previewPath:pages"
+    ],
     "pruneAudit": [
       "audit.prune"
     ],
@@ -295,12 +319,14 @@
     "readAnyPage": [
       "authn.requireUser",
       "authz.require:pages.manage",
-      "content.get:pages"
+      "content.get:pages",
+      "site.attachPaths:pages"
     ],
     "readPage": [
       "authn.identifyUser",
       "authz.require:pages.read",
       "content.get:pages?status=published",
+      "site.attachPaths:pages?reachable",
       "authz.fields:pages?shape=item"
     ],
     "reassignRevisionAuthor": [
@@ -311,6 +337,17 @@
       "authn.requireUser",
       "authz.require:pages.manage",
       "links.rebuild"
+    ],
+    "rebuildPaths": [
+      "authn.requireUser",
+      "authz.require:system.manage",
+      "site.planRebuild",
+      {
+        "atomic": [
+          "site.applyRebuild"
+        ]
+      },
+      "site.announcePaths"
     ],
     "rebuildReferences": [
       "authn.requireUser",
@@ -329,6 +366,12 @@
       "authn.requireUser",
       "authz.require:media.manage",
       "media.reconcile"
+    ],
+    "removeAutoRedirect": [
+      "authn.requireUser",
+      "authz.require:redirects.write",
+      "redirects.removeAuto",
+      "redirects.export"
     ],
     "renameMediaFolder": [
       "authn.requireUser",
@@ -382,7 +425,6 @@
       "validate.check:pages.body",
       "validate.sanitize:pages.body",
       "validate.check:pages.body",
-      "validate.check:pages.slug",
       "validate.check:pages.accent",
       {
         "atomic": [
@@ -390,12 +432,17 @@
           "content.update:pages",
           "revisions.record:pages",
           "references.index:pages",
-          "links.extract:pages"
+          "links.extract:pages",
+          "site.indexPath:pages"
         ]
       },
+      "site.announcePaths",
       "revisions.reportRestore",
       "events.emit:page.restored",
       "events.relay"
+    ],
+    "resumePaths": [
+      "site.resumePaths"
     ],
     "resumeStalePages": [
       "delivery.resumeStale"
@@ -477,7 +524,6 @@
       "validate.check:pages.body",
       "validate.sanitize:pages.body",
       "validate.check:pages.body",
-      "validate.check:pages.slug",
       "validate.check:pages.accent",
       {
         "atomic": [
@@ -485,9 +531,11 @@
           "content.update:pages",
           "revisions.record:pages",
           "references.index:pages",
-          "links.extract:pages"
+          "links.extract:pages",
+          "site.indexPath:pages"
         ]
       },
+      "site.announcePaths",
       "events.emit:page.updated",
       "events.relay"
     ],
@@ -630,6 +678,14 @@
       "pipeline": "renderRedirects"
     },
     {
+      "http": "POST /admin/paths/rebuild",
+      "pipeline": "rebuildPaths"
+    },
+    {
+      "http": "POST /admin/pages/path-preview",
+      "pipeline": "previewPagePath"
+    },
+    {
       "http": "GET /site/*path",
       "pipeline": "resolvePage"
     },
@@ -762,6 +818,10 @@
       "pipeline": "cleanupSessions"
     },
     {
+      "cron": "* * * * *",
+      "pipeline": "resumePaths"
+    },
+    {
       "cron": "*/5 * * * *",
       "pipeline": "sweepRateLimits"
     },
@@ -810,6 +870,10 @@
       "pipeline": "unpublishPage"
     },
     {
+      "event": "site.pathsMoved",
+      "pipeline": "pathsMovedDelivery"
+    },
+    {
       "event": "page.translationRemoved",
       "pipeline": "publishPage"
     },
@@ -844,6 +908,18 @@
     {
       "event": "media.deleted",
       "pipeline": "mediaDependents"
+    },
+    {
+      "http": "GET /admin/redirects/auto",
+      "pipeline": "listAutoRedirects"
+    },
+    {
+      "http": "DELETE /admin/redirects/auto/*path",
+      "pipeline": "removeAutoRedirect"
+    },
+    {
+      "event": "site.pathsMoved",
+      "pipeline": "pathsMovedRedirects"
     },
     {
       "http": "POST /admin/users/:id/audit/anonymize",

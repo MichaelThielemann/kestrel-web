@@ -350,7 +350,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Require a valid session → Requires permission pages.manage → List pages */
+        /** Require a valid session → Requires permission pages.manage → List pages → Add _paths (locale → path) to the pages result, every valid path including drafts */
         get: operations["listAllPages"];
         put?: never;
         post?: never;
@@ -367,7 +367,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Require a valid session → Requires permission pages.manage → One pages document */
+        /** Require a valid session → Requires permission pages.manage → One pages document → Add _paths (locale → path) to the pages result, every valid path including drafts */
         get: operations["readAnyPage"];
         put?: never;
         post?: never;
@@ -421,8 +421,42 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Require a valid session → Requires permission pages.write → Put a pages revision's snapshot into the body, so the steps behind it save it like any other write and branch the history at that revision; fields the model has dropped since are left out → Validate payload field pages.body against its JSON Schema → Sanitize HTML at format:"html" positions of payload field pages.body → Validate payload field pages.body against its JSON Schema → Validate payload field pages.slug against its JSON Schema → Validate payload field pages.accent against its JSON Schema → Referenced ids of pages must exist → Update a pages → Record the saved pages document from the result as a revision; its parent is the head, or the revision a restore put on the context → Index the references of a pages document → Index external links of pages → Queue event "page.restored" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) → Add what the restore of this run left out to the result as `restore`; without a known content model the result stays as it is */
+        /** Require a valid session → Requires permission pages.write → Put a pages revision's snapshot into the body, so the steps behind it save it like any other write and branch the history at that revision; fields the model has dropped since are left out → Validate payload field pages.body against its JSON Schema → Sanitize HTML at format:"html" positions of payload field pages.body → Validate payload field pages.body against its JSON Schema → Validate payload field pages.accent against its JSON Schema → Referenced ids of pages must exist → Update a pages → Record the saved pages document from the result as a revision; its parent is the head, or the revision a restore put on the context → Index the references of a pages document → Index external links of pages → Queue event "page.restored" for the subscribed handler pipelines; the worker delivers it after this run → Recompute the public paths of the saved pages (result.id, else params.id) and of every document whose path depends on it; last step of the write's atomic group → After the write's atomic group: patches the in-memory path table from the committed rows and raises site.pathsMoved; never fails the run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) → Add what the restore of this run left out to the result as `restore`; without a known content model the result stays as it is */
         post: operations["restorePageRevision"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/pages/path-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Require a valid session → Requires permission pages.write → The public path a pages would get for payload { id?, locale?, slug, parent? }, whether it would be reachable and why not; writes nothing */
+        post: operations["previewPagePath"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/paths/rebuild": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Require a valid session → Requires permission system.manage → Recompute every routed document's paths from content@1 outside any group (adds `rebuild` to the result) → Write the planned paths inside one atomic group; saves committed since the plan are recomputed there → After the write's atomic group: patches the in-memory path table from the committed rows and raises site.pathsMoved; never fails the run */
+        post: operations["rebuildPaths"];
         delete?: never;
         options?: never;
         head?: never;
@@ -438,7 +472,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Require a valid session → Requires permission pages.manage → Mark every pages output for a re-render in the background, including documents that were never delivered (adds `marked` to the result) → Write redirects.json to the blobstore (adds `redirects: { rules, skipped }` to the result) */
+        /** Require a valid session → Requires permission pages.manage → Mark every pages output for a re-render in the background, including documents that were never delivered (adds `marked` to the result) → Write redirects.json to the blobstore: editor rules first, then automatic ones (adds `redirects: { rules, skipped }` to the result) */
         post: operations["publishAllPages"];
         delete?: never;
         options?: never;
@@ -492,6 +526,40 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/redirects/auto": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Require a valid session → Requires permission redirects.read → Effective automatic redirects (a moved document's old path, sorted by from) */
+        get: operations["listAutoRedirects"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/redirects/auto/{path}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Require a valid session → Requires permission redirects.write → Turn the automatic redirect at params.path into a removed tombstone; a replay of the move that created it cannot restore it → Write redirects.json to the blobstore: editor rules first, then automatic ones (adds `redirects: { rules, skipped }` to the result) */
+        delete: operations["removeAutoRedirect"];
         options?: never;
         head?: never;
         patch?: never;
@@ -900,10 +968,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Identify the caller if a valid token is present → Requires permission pages.read → List pages → Keep only the pages fields the caller may see: anonymousFields.pages without an identity or a configured role; otherwise everything when one of its roles has no field grant for pages, else the union of its roles' grants and the anonymous one */
+        /** Identify the caller if a valid token is present → Requires permission pages.read → List pages → Add _paths (locale → path) to the pages result, reachable paths only → Keep only the pages fields the caller may see: anonymousFields.pages without an identity or a configured role; otherwise everything when one of its roles has no field grant for pages, else the union of its roles' grants and the anonymous one */
         get: operations["listPages"];
         put?: never;
-        /** Require a valid session → Requires permission pages.write → Validate payload field pages.body against its JSON Schema → Sanitize HTML at format:"html" positions of payload field pages.body → Validate payload field pages.body against its JSON Schema → Validate payload field pages.slug against its JSON Schema → Validate payload field pages.accent against its JSON Schema → Referenced ids of pages must exist → Create a pages → Record the saved pages document from the result as a revision; its parent is the head, or the revision a restore put on the context → Index the references of a pages document → Index external links of pages → Queue event "page.created" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
+        /** Require a valid session → Requires permission pages.write → Validate payload field pages.body against its JSON Schema → Sanitize HTML at format:"html" positions of payload field pages.body → Validate payload field pages.body against its JSON Schema → Validate payload field pages.accent against its JSON Schema → Referenced ids of pages must exist → Create a pages → Record the saved pages document from the result as a revision; its parent is the head, or the revision a restore put on the context → Index the references of a pages document → Index external links of pages → Queue event "page.created" for the subscribed handler pipelines; the worker delivers it after this run → Recompute the public paths of the saved pages (result.id, else params.id) and of every document whose path depends on it; last step of the write's atomic group → After the write's atomic group: patches the in-memory path table from the committed rows and raises site.pathsMoved; never fails the run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
         post: operations["createPage"];
         delete?: never;
         options?: never;
@@ -918,15 +986,15 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Identify the caller if a valid token is present → Requires permission pages.read → One pages document → Keep only the pages fields the caller may see: anonymousFields.pages without an identity or a configured role; otherwise everything when one of its roles has no field grant for pages, else the union of its roles' grants and the anonymous one */
+        /** Identify the caller if a valid token is present → Requires permission pages.read → One pages document → Add _paths (locale → path) to the pages result, reachable paths only → Keep only the pages fields the caller may see: anonymousFields.pages without an identity or a configured role; otherwise everything when one of its roles has no field grant for pages, else the union of its roles' grants and the anonymous one */
         get: operations["readPage"];
         put?: never;
         post?: never;
-        /** Require a valid session → Requires permission pages.delete → Refuse deletion while pages is referenced → Delete a pages → Drop every revision of a pages document, in every locale → Drop indexed references of a pages document → Drop indexed links of pages → Queue event "page.deleted" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
+        /** Require a valid session → Requires permission pages.delete → Refuse deletion while pages is referenced → Delete a pages → Drop every revision of a pages document, in every locale → Drop indexed references of a pages document → Drop indexed links of pages → Queue event "page.deleted" for the subscribed handler pipelines; the worker delivers it after this run → Recompute the public paths of the saved pages (result.id, else params.id) and of every document whose path depends on it; last step of the write's atomic group → After the write's atomic group: patches the in-memory path table from the committed rows and raises site.pathsMoved; never fails the run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
         delete: operations["deletePage"];
         options?: never;
         head?: never;
-        /** Require a valid session → Requires permission pages.write → Validate payload field pages.body against its JSON Schema → Sanitize HTML at format:"html" positions of payload field pages.body → Validate payload field pages.body against its JSON Schema → Validate payload field pages.slug against its JSON Schema → Validate payload field pages.accent against its JSON Schema → Referenced ids of pages must exist → Update a pages → Record the saved pages document from the result as a revision; its parent is the head, or the revision a restore put on the context → Index the references of a pages document → Index external links of pages → Queue event "page.updated" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
+        /** Require a valid session → Requires permission pages.write → Validate payload field pages.body against its JSON Schema → Sanitize HTML at format:"html" positions of payload field pages.body → Validate payload field pages.body against its JSON Schema → Validate payload field pages.accent against its JSON Schema → Referenced ids of pages must exist → Update a pages → Record the saved pages document from the result as a revision; its parent is the head, or the revision a restore put on the context → Index the references of a pages document → Index external links of pages → Queue event "page.updated" for the subscribed handler pipelines; the worker delivers it after this run → Recompute the public paths of the saved pages (result.id, else params.id) and of every document whose path depends on it; last step of the write's atomic group → After the write's atomic group: patches the in-memory path table from the committed rows and raises site.pathsMoved; never fails the run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
         patch: operations["updatePage"];
         trace?: never;
     };
@@ -940,7 +1008,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Require a valid session → Requires permission pages.write → Remove one translation of a pages (locale from the route or ?locale=); the document stays in its other locales → Drop the revisions of one locale of a pages document → Index the references of a pages document → Index external links of pages → Queue event "page.translationRemoved" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
+        /** Require a valid session → Requires permission pages.write → Remove one translation of a pages (locale from the route or ?locale=); the document stays in its other locales → Drop the revisions of one locale of a pages document → Index the references of a pages document → Index external links of pages → Queue event "page.translationRemoved" for the subscribed handler pipelines; the worker delivers it after this run → Recompute the public paths of the saved pages (result.id, else params.id) and of every document whose path depends on it; last step of the write's atomic group → After the write's atomic group: patches the in-memory path table from the committed rows and raises site.pathsMoved; never fails the run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
         delete: operations["deletePageTranslation"];
         options?: never;
         head?: never;
@@ -956,7 +1024,7 @@ export interface paths {
         };
         /** Identify the caller if a valid token is present → Requires permission redirects.read → One redirects document → Keep only the redirects fields the caller may see: anonymousFields.redirects without an identity or a configured role; otherwise everything when one of its roles has no field grant for redirects, else the union of its roles' grants and the anonymous one */
         get: operations["getRedirects"];
-        /** Require a valid session → Requires permission redirects.write → Validate payload field redirects.rules against its JSON Schema → Compile the redirect rules of the payload; VALIDATION names the offending row → Replace the redirects document → Write redirects.json to the blobstore (adds `redirects: { rules, skipped }` to the result) */
+        /** Require a valid session → Requires permission redirects.write → Validate payload field redirects.rules against its JSON Schema → Compile the redirect rules of the payload; VALIDATION names the offending row, also for a rule that redirects into an active automatic redirect → Replace the redirects document → Write redirects.json to the blobstore: editor rules first, then automatic ones (adds `redirects: { rules, skipped }` to the result) */
         put: operations["setRedirects"];
         post?: never;
         delete?: never;
@@ -1007,7 +1075,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Identify the caller if a valid token is present → Requires permission pages.read → End the pipeline with { redirect: { to, status } } when the request path matches a rule; pass through otherwise → Resolve a site path to a pages document (default locale unprefixed) → Replace internal kestrel:<type>:<id> references in the pages document with public paths (_links map added) → Keep only the pages fields the caller may see: anonymousFields.pages without an identity or a configured role; otherwise everything when one of its roles has no field grant for pages, else the union of its roles' grants and the anonymous one */
+        /** Identify the caller if a valid token is present → Requires permission pages.read → End the pipeline with { redirect: { to, status } } on an editor rule or an automatic redirect (a moved document's old path); pass through otherwise → Resolve a site path to a pages document (default locale unprefixed) → Replace internal kestrel:<type>:<id> references in the pages document with public paths (_links map added) → Keep only the pages fields the caller may see: anonymousFields.pages without an identity or a configured role; otherwise everything when one of its roles has no field grant for pages, else the union of its roles' grants and the anonymous one */
         get: operations["resolvePage"];
         put?: never;
         post?: never;
@@ -1346,6 +1414,10 @@ export interface components {
                 _locales?: {
                     [key: string]: string;
                 };
+                /** @description public path per locale; null where the document is not reachable (site.attachPaths without ?reachable: not valid) */
+                _paths: {
+                    [key: string]: string | null;
+                };
                 /** @description per locale: required localized fields present */
                 _translations?: {
                     [key: string]: boolean;
@@ -1370,6 +1442,10 @@ export interface components {
                 _locales?: {
                     [key: string]: string;
                 };
+                /** @description public path per locale; null where the document is not reachable (site.attachPaths without ?reachable: not valid) */
+                _paths: {
+                    [key: string]: string | null;
+                };
                 /** @description per locale: required localized fields present */
                 _translations?: {
                     [key: string]: boolean;
@@ -1391,6 +1467,10 @@ export interface components {
             _locales?: {
                 [key: string]: string;
             };
+            /** @description public path per locale; null where the document is not reachable (site.attachPaths without ?reachable: not valid) */
+            _paths: {
+                [key: string]: string | null;
+            };
             /** @description per locale: required localized fields present */
             _translations?: {
                 [key: string]: boolean;
@@ -1411,6 +1491,10 @@ export interface components {
             /** @description origin locale per field, only with fallback */
             _locales?: {
                 [key: string]: string;
+            };
+            /** @description public path per locale; null where the document is not reachable (site.attachPaths without ?reachable: not valid) */
+            _paths: {
+                [key: string]: string | null;
             };
             /** @description per locale: required localized fields present */
             _translations?: {
@@ -1453,6 +1537,10 @@ export interface components {
             _locales?: {
                 [key: string]: string;
             };
+            /** @description public path per locale; null where the document is not reachable (site.attachPaths without ?reachable: not valid) */
+            _paths?: {
+                [key: string]: string | null;
+            };
             /** @description per locale: required localized fields present */
             _translations?: {
                 [key: string]: boolean;
@@ -1489,6 +1577,10 @@ export interface components {
             /** @description origin locale per field, only with fallback */
             _locales?: {
                 [key: string]: string;
+            };
+            /** @description public path per locale; null where the document is not reachable (site.attachPaths without ?reachable: not valid) */
+            _paths?: {
+                [key: string]: string | null;
             };
             /** @description per locale: required localized fields present */
             _translations?: {
@@ -3408,6 +3500,10 @@ export interface operations {
                             _locales?: {
                                 [key: string]: string;
                             };
+                            /** @description public path per locale; null where the document is not reachable (site.attachPaths without ?reachable: not valid) */
+                            _paths: {
+                                [key: string]: string | null;
+                            };
                             /** @description per locale: required localized fields present */
                             _translations?: {
                                 [key: string]: boolean;
@@ -3500,6 +3596,10 @@ export interface operations {
                         /** @description origin locale per field, only with fallback */
                         _locales?: {
                             [key: string]: string;
+                        };
+                        /** @description public path per locale; null where the document is not reachable (site.attachPaths without ?reachable: not valid) */
+                        _paths: {
+                            [key: string]: string | null;
                         };
                         /** @description per locale: required localized fields present */
                         _translations?: {
@@ -3954,7 +4054,7 @@ export interface operations {
                     };
                 };
             };
-            /** @description validation failed */
+            /** @description the path is reserved or starts with a locale code */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -3990,7 +4090,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description the revision carries no snapshot */
+            /** @description another document holds the path */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -4008,7 +4108,184 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description the event could not be persisted */
+            /** @description the store is unavailable */
+            503: {
+                headers: {
+                    /** @description seconds until the client may retry */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    previewPagePath: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    id?: string;
+                    locale?: string;
+                    parent?: string | null;
+                    slug: string;
+                } & {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description ok */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        conflict: {
+                            id: string;
+                            label: string;
+                            locale: string;
+                            path: string;
+                            type: string;
+                        } | null;
+                        exposesParentSlug: {
+                            id: string;
+                            label: string;
+                            type: string;
+                        } | null;
+                        path: string;
+                        reachable: boolean;
+                        reason: string | null;
+                        shadows: {
+                            id: string;
+                            label: string;
+                            path: string;
+                            type: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description slug is missing */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description missing permission pages.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description the store is unavailable */
+            503: {
+                headers: {
+                    /** @description seconds until the client may retry */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    rebuildPaths: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description ok */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        conflicts: {
+                            locale: string;
+                            losers: Record<string, never>[];
+                            path: string;
+                            /** @enum {string} */
+                            reason: "taken" | "reserved" | "locale";
+                            winner: Record<string, never> | null;
+                        }[];
+                        indexed: number;
+                    };
+                };
+            };
+            /** @description invalid body */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description missing permission system.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description the store is unavailable */
             503: {
                 headers: {
                     /** @description seconds until the client may retry */
@@ -4283,6 +4560,155 @@ export interface operations {
             };
             /** @description missing permission pages.manage */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description temporarily unavailable; retry after the Retry-After header */
+            503: {
+                headers: {
+                    /** @description seconds until the client may retry */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listAutoRedirects: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description ok */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        docId: string;
+                        from: string;
+                        locale: string;
+                        seq: number;
+                        to: string;
+                        type: string;
+                    }[];
+                };
+            };
+            /** @description not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description missing permission redirects.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description temporarily unavailable; retry after the Retry-After header */
+            503: {
+                headers: {
+                    /** @description seconds until the client may retry */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    removeAutoRedirect: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description rest of the path, may contain slashes */
+                path: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description ok */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        redirects: {
+                            rules: number;
+                            skipped: string[];
+                        };
+                    };
+                };
+            };
+            /** @description missing path */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description missing permission redirects.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description no automatic redirect at that path */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -6846,7 +7272,7 @@ export interface operations {
                     };
                 };
             };
-            /** @description validation failed */
+            /** @description the path is reserved or starts with a locale code */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -6873,7 +7299,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description a document with that id already exists */
+            /** @description another document holds the path */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -6891,7 +7317,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description the event could not be persisted */
+            /** @description the store is unavailable */
             503: {
                 headers: {
                     /** @description seconds until the client may retry */
@@ -7019,7 +7445,7 @@ export interface operations {
                     };
                 };
             };
-            /** @description missing id */
+            /** @description the path is reserved or starts with a locale code */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -7046,7 +7472,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description still referenced */
+            /** @description another document holds the path */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -7064,7 +7490,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description the event could not be persisted */
+            /** @description the store is unavailable */
             503: {
                 headers: {
                     /** @description seconds until the client may retry */
@@ -7147,7 +7573,7 @@ export interface operations {
                     };
                 };
             };
-            /** @description validation failed */
+            /** @description the path is reserved or starts with a locale code */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -7183,6 +7609,15 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description another document holds the path */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             /** @description internal error */
             500: {
                 headers: {
@@ -7192,7 +7627,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description the event could not be persisted */
+            /** @description the store is unavailable */
             503: {
                 headers: {
                     /** @description seconds until the client may retry */
@@ -7261,7 +7696,7 @@ export interface operations {
                     };
                 };
             };
-            /** @description missing id */
+            /** @description the path is reserved or starts with a locale code */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -7297,7 +7732,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description last translation – remove the document */
+            /** @description another document holds the path */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -7315,7 +7750,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description the event could not be persisted */
+            /** @description the store is unavailable */
             503: {
                 headers: {
                     /** @description seconds until the client may retry */

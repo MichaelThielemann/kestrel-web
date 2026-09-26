@@ -2,6 +2,7 @@ import type { TriggerConfig } from "@michaelthielemann/kestrel/defineConfig";
 import type { PresetStep } from "../module-registry";
 import { resolveWorkflow } from "../collections-ui/workflow";
 import type { WorkflowUi } from "../collections-ui/workflow";
+import { isRoutedCollection } from "./capabilities";
 import type { CollectionVerb, MultiVerb, SingleVerb } from "./capabilities";
 import type { PresetEntry } from "./compose";
 
@@ -52,6 +53,11 @@ export function isPageLikeCollection(name: string, model: CollectionModel): bool
   return isGenericCollection(name) && model.kind === "multi" && PAGE_LIKE_FIELDS.every((field) => field in model.fields);
 }
 
+/** Whether the preset checks a collection's slug against the server's reserved path segments: a page-like collection whose paths `site-default` does not own. `site-default` rejects a reserved path of a routed collection itself, on the full path. */
+export function hasSlugValueSchema(name: string, model: CollectionModel): boolean {
+  return isPageLikeCollection(name, model) && !isRoutedCollection(name);
+}
+
 export interface PublicCollectionStep {
   pipeline: string;
   step: string;
@@ -95,13 +101,17 @@ export function multiCollectionPipelines(name: string, model: CollectionModel, u
   const { plural, singular, event } = collectionNames(name);
   const statusQuery = statusQueryFor(name, model, ui);
   const bodySteps: PresetStep[] = "body" in model.fields ? [`validate.check:${name}.body`, `validate.sanitize:${name}.body`, `validate.check:${name}.body`] : [];
-  const slugSteps: PresetStep[] = isPageLikeCollection(name, model) ? [`validate.check:${name}.slug`] : [];
+  const slugSteps: PresetStep[] = hasSlugValueSchema(name, model) ? [`validate.check:${name}.slug`] : [];
   const customSteps = customFieldChecks(name, customFields);
+  const routed = isRoutedCollection(name);
+  const write = (step: PresetStep): PresetEntry<PresetStep>[] => (routed ? [{ atomic: [step, `site.indexPath:${name}`] }, "site.announcePaths"] : [{ atomic: [step] }]);
+  const publicPaths: PresetStep[] = routed ? [`site.attachPaths:${name}?reachable`] : [];
+  const adminPaths: PresetStep[] = routed ? [`site.attachPaths:${name}`] : [];
   const pipelines: Partial<Record<MultiVerb, CollectionPipeline>> = {
-    list: { name: `list${plural}`, steps: ["authn.identifyUser", `authz.require:${name}.read`, `content.list:${name}${statusQuery}`] },
-    listAll: { name: `listAll${plural}`, steps: ["authn.requireUser", `authz.require:${name}.manage`, `content.list:${name}`] },
-    read: { name: `read${singular}`, steps: ["authn.identifyUser", `authz.require:${name}.read`, `content.get:${name}${statusQuery}`] },
-    readAny: { name: `readAny${singular}`, steps: ["authn.requireUser", `authz.require:${name}.manage`, `content.get:${name}`] },
+    list: { name: `list${plural}`, steps: ["authn.identifyUser", `authz.require:${name}.read`, `content.list:${name}${statusQuery}`, ...publicPaths] },
+    listAll: { name: `listAll${plural}`, steps: ["authn.requireUser", `authz.require:${name}.manage`, `content.list:${name}`, ...adminPaths] },
+    read: { name: `read${singular}`, steps: ["authn.identifyUser", `authz.require:${name}.read`, `content.get:${name}${statusQuery}`, ...publicPaths] },
+    readAny: { name: `readAny${singular}`, steps: ["authn.requireUser", `authz.require:${name}.manage`, `content.get:${name}`, ...adminPaths] },
     create: {
       name: `create${singular}`,
       steps: [
@@ -110,7 +120,7 @@ export function multiCollectionPipelines(name: string, model: CollectionModel, u
         ...bodySteps,
         ...slugSteps,
         ...customSteps,
-        { atomic: [`content.create:${name}`] },
+        ...write(`content.create:${name}`),
         `events.emit:${event}.created`,
       ],
     },
@@ -122,7 +132,7 @@ export function multiCollectionPipelines(name: string, model: CollectionModel, u
         ...bodySteps,
         ...slugSteps,
         ...customSteps,
-        { atomic: [`content.update:${name}`] },
+        ...write(`content.update:${name}`),
         `events.emit:${event}.updated`,
       ],
     },
@@ -131,7 +141,7 @@ export function multiCollectionPipelines(name: string, model: CollectionModel, u
       steps: [
         "authn.requireUser",
         `authz.require:${name}.delete`,
-        { atomic: [`content.remove:${name}`] },
+        ...write(`content.remove:${name}`),
         `events.emit:${event}.deleted`,
       ],
     },
@@ -142,7 +152,7 @@ export function multiCollectionPipelines(name: string, model: CollectionModel, u
       steps: [
         "authn.requireUser",
         `authz.require:${name}.write`,
-        { atomic: [`content.removeTranslation:${name}`] },
+        ...write(`content.removeTranslation:${name}`),
         `events.emit:${event}.translationRemoved`,
       ],
     };

@@ -6,12 +6,14 @@ import type { PresetStep } from "../module-registry";
 import type { Workflow } from "../app/types/kestrel";
 import { customFieldTypes } from "../field-types";
 import type { FieldTypes } from "../field-types";
-import { appendRelay, applyFeaturePatches, emitEntryIndex, foldTrailingEmit, groupSignatureOf, mergePipelines } from "./compose";
+import { appendRelay, applyFeaturePatches, emitEntryIndex, foldTrailingEmit, groupSignatureOf, mergePipelines, placeIndexStepsLast } from "./compose";
 import type { GroupSignature, Patch, PresetEntry } from "./compose";
 import { basePipelines } from "./base";
 import { appendFieldCut, fieldCutSteps } from "./field-grants";
 import type { PresetContext } from "./base";
 import { canonicalTriggers } from "./triggers";
+import { isRoutedCollection } from "./capabilities";
+import { parentFieldOf } from "./paths";
 import { collectionPipelines, hasLocalizedField, insertCollectionTriggers, isGenericCollection, pipelinesByName, DEFAULT_COLLECTIONS } from "./collections";
 import type { CollectionModel, CollectionPipelineName } from "./collections";
 import ratelimit from "./features/ratelimit";
@@ -61,6 +63,7 @@ export const staticPipelineNames = [
   "eventsQueueStatus", "eventsDead", "eventsRetryDead", "eventsRetryOne", "purgeEvents",
   "pageRevisions", "pageRevision", "labelPageRevision", "restorePageRevision", "pruneRevisions",
   "reassignRevisionAuthor", "retryReassignRevisionAuthor",
+  "previewPagePath", "rebuildPaths", "resumePaths", "rebuildPathsAfterMigrations", "pathsMovedRedirects", "pathsMovedDelivery", "listAutoRedirects", "removeAutoRedirect",
 ] as const;
 
 export type StaticPipelineName = (typeof staticPipelineNames)[number];
@@ -69,7 +72,7 @@ export type PresetPipelineName<C extends Record<string, CollectionModel> = Recor
   | StaticPipelineName
   | CollectionPipelineName<C>;
 
-export type CronPipelineName = "cleanupSessions" | "sweepRateLimits" | "scanReferences" | "checkLinks" | "resumeImages" | "replicate" | "reconcileMedia" | "syncPublicMedia" | "resumeStalePages" | "purgeEvents" | "pruneRevisions" | "pruneAudit";
+export type CronPipelineName = "resumePaths" | "cleanupSessions" | "sweepRateLimits" | "scanReferences" | "checkLinks" | "resumeImages" | "replicate" | "reconcileMedia" | "syncPublicMedia" | "resumeStalePages" | "purgeEvents" | "pruneRevisions" | "pruneAudit";
 
 export interface PresetOptions<C extends Record<string, CollectionModel> = Record<string, CollectionModel>, S extends string = PresetStep> {
   modules: readonly { use: string; config?: unknown }[];
@@ -173,6 +176,7 @@ const IMAGE_VARIANT_LANE = "variants";
 
 const MODULE_EMITS: Readonly<Record<string, readonly string[]>> = {
   "@michaelthielemann/kestrel-images-default": ["images.variantsChanged"],
+  "@michaelthielemann/kestrel-site-default": ["site.pathsMoved"],
 };
 
 /** The event-triggered pipelines the `eventsQueue` module's relay may keep in the request; see `relayPipelinesFor`. */
@@ -269,6 +273,21 @@ function validateCollectionNames(collections: Record<string, CollectionModel>, s
   }
 }
 
+function isUniqueSlug(field: unknown): boolean {
+  return typeof field === "object" && field !== null && "unique" in field && field.unique === true;
+}
+
+function validateRoutedSlugs(collections: Record<string, CollectionModel>, sink: PresetSink): void {
+  for (const [name, model] of Object.entries(collections)) {
+    if (!isGenericCollection(name) || !isRoutedCollection(name) || !isUniqueSlug(model.fields.slug)) continue;
+    if (parentFieldOf(name, model) === undefined) continue;
+    sink.report({
+      code: "preset/routed-slug-unique",
+      message: `preset: "${name}.slug" must not be unique – the public path is what is unique, and a unique slug rejects the same slug under two different parents without naming the page that holds it; remove "unique: true"`,
+    });
+  }
+}
+
 /**
  * Composes a preset from `options`, reporting every violation to `sink` instead of stopping at the first.
  * `throwSink()` reproduces `definePreset()`'s exact behaviour (same messages, same order, stops at the
@@ -286,6 +305,7 @@ export function buildPreset<C extends Record<string, CollectionModel> = Record<s
   const homeSlug = options.homeSlug ?? "home";
   const collections: Record<string, CollectionModel> = options.collections ?? DEFAULT_COLLECTIONS;
   validateCollectionNames(collections, sink);
+  validateRoutedSlugs(collections, sink);
   const customFields = customFieldTypes(collections, options.fieldTypes ?? {});
   const context: PresetContext = { exportDir, homeSlug, collections, customFields, modules: options.modules, ...(options.collectionsUi === undefined ? {} : { collectionsUi: options.collectionsUi }) };
 
@@ -365,7 +385,8 @@ export function buildPreset<C extends Record<string, CollectionModel> = Record<s
   }
 
   const folded: Record<string, PresetEntry[]> = {};
-  for (const [name, entries] of Object.entries(pipelines)) {
+  for (const [name, composed] of Object.entries(pipelines)) {
+    const entries = placeIndexStepsLast(composed);
     let withEmitPlaced = entries;
     if (enabledFeatures.has("eventsQueue")) {
       try {
@@ -435,7 +456,7 @@ export function buildPreset<C extends Record<string, CollectionModel> = Record<s
 
   let triggers: TriggerConfig[] = canonicalTriggers
     .filter((entry) => entry.feature === undefined || enabledFeatures.has(entry.feature))
-    .filter((entry) => !("http" in entry.trigger) || entry.trigger.pipeline !== "resolvePage" || "pages" in collections)
+    .filter((entry) => entry.pages !== true || "pages" in collections)
     .map((entry) => entry.trigger);
   triggers = [...insertCollectionTriggers(triggers, collections), ...featureTriggers];
 

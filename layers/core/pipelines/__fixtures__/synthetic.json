@@ -47,12 +47,13 @@
       "validate.check:pages.body",
       "validate.sanitize:pages.body",
       "validate.check:pages.body",
-      "validate.check:pages.slug",
       {
         "atomic": [
-          "content.create:pages"
+          "content.create:pages",
+          "site.indexPath:pages"
         ]
       },
+      "site.announcePaths",
       "events.emit:page.created",
       "events.relay"
     ],
@@ -113,9 +114,11 @@
       "authz.require:pages.delete",
       {
         "atomic": [
-          "content.remove:pages"
+          "content.remove:pages",
+          "site.indexPath:pages"
         ]
       },
+      "site.announcePaths",
       "events.emit:page.deleted",
       "events.relay"
     ],
@@ -124,9 +127,11 @@
       "authz.require:pages.write",
       {
         "atomic": [
-          "content.removeTranslation:pages"
+          "content.removeTranslation:pages",
+          "site.indexPath:pages"
         ]
       },
+      "site.announcePaths",
       "events.emit:page.translationRemoved",
       "events.relay"
     ],
@@ -197,7 +202,13 @@
     "listAllPages": [
       "authn.requireUser",
       "authz.require:pages.manage",
-      "content.list:pages"
+      "content.list:pages",
+      "site.attachPaths:pages"
+    ],
+    "listAutoRedirects": [
+      "authn.requireUser",
+      "authz.require:redirects.read",
+      "redirects.listAuto"
     ],
     "listMedia": [
       "authn.identifyUser",
@@ -225,6 +236,7 @@
       "authn.identifyUser",
       "authz.require:pages.read",
       "content.list:pages?status=published",
+      "site.attachPaths:pages?reachable",
       "authz.fields:pages?shape=list"
     ],
     "listUsers": [
@@ -247,6 +259,15 @@
       "authn.requireUser",
       "authn.loadIdentity"
     ],
+    "pathsMovedRedirects": [
+      "redirects.recordMoves",
+      "redirects.export"
+    ],
+    "previewPagePath": [
+      "authn.requireUser",
+      "authz.require:pages.write",
+      "site.previewPath:pages"
+    ],
     "readAnyNews": [
       "authn.requireUser",
       "authz.require:news.manage",
@@ -255,7 +276,8 @@
     "readAnyPage": [
       "authn.requireUser",
       "authz.require:pages.manage",
-      "content.get:pages"
+      "content.get:pages",
+      "site.attachPaths:pages"
     ],
     "readNews": [
       "authn.identifyUser",
@@ -267,7 +289,28 @@
       "authn.identifyUser",
       "authz.require:pages.read",
       "content.get:pages?status=published",
+      "site.attachPaths:pages?reachable",
       "authz.fields:pages?shape=item"
+    ],
+    "rebuildPaths": [
+      "authn.requireUser",
+      "authz.require:system.manage",
+      "site.planRebuild",
+      {
+        "atomic": [
+          "site.applyRebuild"
+        ]
+      },
+      "site.announcePaths"
+    ],
+    "rebuildPathsAfterMigrations": [
+      "site.planRebuild",
+      {
+        "atomic": [
+          "site.applyRebuild"
+        ]
+      },
+      "site.announcePaths"
     ],
     "reconcileMedia": [
       "media.reconcile"
@@ -281,6 +324,12 @@
       "authn.requireUser",
       "authz.require:media.manage",
       "media.reconcile"
+    ],
+    "removeAutoRedirect": [
+      "authn.requireUser",
+      "authz.require:redirects.write",
+      "redirects.removeAuto",
+      "redirects.export"
     ],
     "renameMediaFolder": [
       "authn.requireUser",
@@ -298,6 +347,9 @@
       "site.resolve:pages?home=home&status=published&fallback=true",
       "site.resolveLinks:pages?home=home&status=published&fallback=true",
       "authz.fields:pages?shape=item"
+    ],
+    "resumePaths": [
+      "site.resumePaths"
     ],
     "serveMediaFile": [
       "authn.identifyUser",
@@ -379,12 +431,13 @@
       "validate.check:pages.body",
       "validate.sanitize:pages.body",
       "validate.check:pages.body",
-      "validate.check:pages.slug",
       {
         "atomic": [
-          "content.update:pages"
+          "content.update:pages",
+          "site.indexPath:pages"
         ]
       },
+      "site.announcePaths",
       "events.emit:page.updated",
       "events.relay"
     ],
@@ -472,6 +525,14 @@
     {
       "http": "GET /redirects.json",
       "pipeline": "renderRedirects"
+    },
+    {
+      "http": "POST /admin/paths/rebuild",
+      "pipeline": "rebuildPaths"
+    },
+    {
+      "http": "POST /admin/pages/path-preview",
+      "pipeline": "previewPagePath"
     },
     {
       "http": "GET /site/*path",
@@ -582,6 +643,10 @@
       "pipeline": "cleanupSessions"
     },
     {
+      "cron": "* * * * *",
+      "pipeline": "resumePaths"
+    },
+    {
       "cron": "30 3 * * *",
       "pipeline": "reconcileMedia"
     },
@@ -632,6 +697,22 @@
     {
       "http": "PUT /notifications",
       "pipeline": "setNotifications"
+    },
+    {
+      "http": "GET /admin/redirects/auto",
+      "pipeline": "listAutoRedirects"
+    },
+    {
+      "http": "DELETE /admin/redirects/auto/*path",
+      "pipeline": "removeAutoRedirect"
+    },
+    {
+      "event": "site.pathsMoved",
+      "pipeline": "pathsMovedRedirects"
+    },
+    {
+      "event": "migrations.applied",
+      "pipeline": "rebuildPathsAfterMigrations"
     }
   ]
 }

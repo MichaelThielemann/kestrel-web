@@ -5,6 +5,8 @@ import type { Feature } from "./index";
 export interface TriggerEntry {
   trigger: TriggerConfig;
   feature?: Feature;
+  /** The trigger exists only when the preset composes a `pages` collection. */
+  pages?: true;
 }
 
 export const canonicalTriggers: readonly TriggerEntry[] = [
@@ -38,7 +40,9 @@ export const canonicalTriggers: readonly TriggerEntry[] = [
   { trigger: { http: "GET /redirects", pipeline: "getRedirects" }, feature: "redirects" },
   { trigger: { http: "PUT /redirects", pipeline: "setRedirects" }, feature: "redirects" },
   { trigger: { http: "GET /redirects.json", pipeline: "renderRedirects" }, feature: "redirects" },
-  { trigger: { http: "GET /site/*path", pipeline: "resolvePage" } },
+  { trigger: { http: "POST /admin/paths/rebuild", pipeline: "rebuildPaths" }, pages: true },
+  { trigger: { http: "POST /admin/pages/path-preview", pipeline: "previewPagePath" }, pages: true },
+  { trigger: { http: "GET /site/*path", pipeline: "resolvePage" }, pages: true },
   { trigger: { http: "POST /media", pipeline: "uploadMedia" } },
   { trigger: { http: "POST /admin/media/export", pipeline: "exportMedia" } },
   { trigger: { http: "POST /admin/media/reconcile", pipeline: "reconcileMediaReport" } },
@@ -76,6 +80,7 @@ export const canonicalTriggers: readonly TriggerEntry[] = [
   { trigger: { cron: "30 2 * * *", pipeline: "scanReferences" }, feature: "references" },
   { trigger: { cron: "0 3 * * *", pipeline: "checkLinks" }, feature: "links" },
   { trigger: { cron: "0 * * * *", pipeline: "cleanupSessions" } },
+  { trigger: { cron: "* * * * *", pipeline: "resumePaths" }, pages: true },
   { trigger: { cron: "*/5 * * * *", pipeline: "sweepRateLimits" }, feature: "ratelimit" },
   { trigger: { cron: "*/5 * * * *", pipeline: "resumeImages" }, feature: "images" },
   { trigger: { cron: "30 3 * * *", pipeline: "reconcileMedia" } },

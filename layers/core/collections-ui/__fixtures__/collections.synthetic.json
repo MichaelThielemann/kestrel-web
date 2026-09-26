@@ -140,7 +140,7 @@
     "fields": {
       "slug": {
         "required": true,
-        "unique": true,
+        "unique": false,
         "localized": true,
         "type": "slug"
       },
