@@ -1097,4 +1097,7 @@ export const de: Record<CatalogKey, string> = {
   'editor.pathTaken': 'Diese Adresse ist vergeben: {path} ({locale}).',
   'tree.live': 'Veröffentlicht',
   'tree.notLive': 'Nicht veröffentlicht',
+  'redirects.auto.confirmTitle': 'Weiterleitung entfernen?',
+  'redirects.auto.confirm': '{from} leitet nicht mehr weiter und antwortet wieder mit „nicht gefunden“. Eine entfernte automatische Weiterleitung lässt sich hier nicht wiederherstellen; erst ein späterer Umzug einer Seite von dieser Adresse legt eine neue an.',
+  'redirects.auto.removeConfirm': 'Weiterleitung entfernen',
 }

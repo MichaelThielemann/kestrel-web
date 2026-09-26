@@ -6,6 +6,13 @@ const deps = useActionDeps()
 const { items, loading, error, removing, load, remove } = useAutoRedirects(deps)
 const canRemove = computed(() => deps.capabilities.has('removeAutoRedirect'))
 const headingId = useId()
+const pending = ref<string | null>(null)
+
+async function confirmRemove() {
+  const from = pending.value
+  pending.value = null
+  if (from !== null) await remove(from)
+}
 
 onMounted(() => { void load() })
 </script>
@@ -39,13 +46,19 @@ onMounted(() => { void load() })
                 :loading="removing === item.from"
                 :disabled="removing !== null"
                 :aria-label="t('redirects.auto.remove', { from: item.from })"
-                @click="remove(item.from)"
+                @click="pending = item.from"
               />
             </td>
           </tr>
         </template>
       </KestrelUiTable>
     </div>
+    <KestrelUiDialog :open="pending !== null" :title="t('redirects.auto.confirmTitle')" :description="t('redirects.auto.confirm', { from: pending ?? '' })" @update:open="(open) => { if (!open) pending = null }">
+      <template #footer>
+        <KestrelUiButton variant="ghost" @click="pending = null">{{ t('common.cancel') }}</KestrelUiButton>
+        <KestrelUiButton variant="danger" @click="confirmRemove">{{ t('redirects.auto.removeConfirm') }}</KestrelUiButton>
+      </template>
+    </KestrelUiDialog>
   </section>
 </template>
 

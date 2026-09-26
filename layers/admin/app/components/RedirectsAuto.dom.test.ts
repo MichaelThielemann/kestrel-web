@@ -54,9 +54,13 @@ describe('RedirectsAuto', () => {
     }))
     await useSchema().load()
 
-    const wrapper = await mountSuspended(RedirectsAuto)
+    const wrapper = await mountSuspended(RedirectsAuto, { attachTo: document.body })
     await vi.waitFor(() => expect(wrapper.find('tbody button').exists()).toBe(true))
     await wrapper.get('tbody button').trigger('click')
+    expect(removed).toEqual([])
+    await vi.waitFor(() => expect(document.body.textContent).toContain('/ueber-uns/team stops redirecting'))
+    const confirm = [...document.body.querySelectorAll('button')].find((button) => button.textContent?.trim() === 'Remove redirect')
+    confirm?.click()
     await vi.waitFor(() => expect(wrapper.find('.redirects-auto__empty').exists()).toBe(true))
 
     expect(removed).toEqual(['/ueber-uns/team'])

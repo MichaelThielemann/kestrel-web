@@ -1095,4 +1095,7 @@ export const en = {
   'editor.pathTaken': 'This address is taken: {path} ({locale}).',
   'tree.live': 'Published',
   'tree.notLive': 'Not published',
+  'redirects.auto.confirmTitle': 'Remove the redirect?',
+  'redirects.auto.confirm': '{from} stops redirecting and answers "not found" again. A removed automatic redirect cannot be restored here; only a later move of a page away from this address creates a new one.',
+  'redirects.auto.removeConfirm': 'Remove redirect',
 } satisfies Record<string, string>
