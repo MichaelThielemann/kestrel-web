@@ -84,7 +84,7 @@ defineExpose({ load })
       <template #head>
         <th scope="col">{{ t('list.col.title') }}</th>
         <th scope="col" class="collection-tree__path">{{ t('list.col.path') }}</th>
-        <th scope="col">{{ t('list.col.status') }}</th>
+        <th scope="col" class="collection-tree__status">{{ t('list.col.status') }}</th>
         <th scope="col"><span class="collection-tree__vh">{{ t('a11y.rowActions') }}</span></th>
       </template>
       <template #body>
@@ -108,6 +108,10 @@ defineExpose({ load })
             </span>
             <NuxtLink v-if="canEdit" class="collection-tree__label" :to="editTo(row)" tabindex="-1">{{ labelOf(row) }}</NuxtLink>
             <span v-else class="collection-tree__label">{{ labelOf(row) }}</span>
+            <span class="collection-tree__sub">
+              {{ pathOf(row) || t('tree.noPath') }}
+              <span class="collection-tree__badge" :class="{ 'collection-tree__badge--live': isLive(row) }">{{ isLive(row) ? liveLabel : t('tree.notLive') }}</span>
+            </span>
           </td>
           <td class="collection-tree__path">{{ pathOf(row) || t('tree.noPath') }}</td>
           <td class="collection-tree__status">
@@ -188,6 +192,30 @@ defineExpose({ load })
   }
   &__actions {
     white-space: nowrap;
+  }
+  &__sub {
+    display: none;
+    padding-inline-start: 1.25rem;
+
+    .collection-tree__badge {
+      margin-inline-start: var(--space-2);
+    }
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 40rem) {
+  .collection-tree__path,
+  .collection-tree__status {
+    display: none;
+  }
+  .collection-tree__main {
+    white-space: normal;
+  }
+  .collection-tree__sub {
+    display: block;
   }
 }
 </style>
