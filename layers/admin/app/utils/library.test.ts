@@ -1,18 +1,17 @@
 import { describe, expect, it } from 'vitest'
-import { mediaKindOf } from './library'
+import { parseMediaTypeFilter } from './library'
 
-describe('mediaKindOf', () => {
-  it('classifies an image content type as image', () => {
-    expect(mediaKindOf('image/jpeg')).toBe('image')
+describe('parseMediaTypeFilter', () => {
+  it('accepts each of the declared type filter values', () => {
+    expect(parseMediaTypeFilter('all')).toBe('all')
+    expect(parseMediaTypeFilter('image')).toBe('image')
+    expect(parseMediaTypeFilter('video')).toBe('video')
+    expect(parseMediaTypeFilter('other')).toBe('other')
   })
 
-  it('classifies a video content type as video', () => {
-    expect(mediaKindOf('video/mp4')).toBe('video')
-  })
-
-  it('classifies anything else as other', () => {
-    expect(mediaKindOf('application/pdf')).toBe('other')
-    expect(mediaKindOf('audio/mpeg')).toBe('other')
-    expect(mediaKindOf('text/plain')).toBe('other')
+  it('falls back to "all" for an unknown value', () => {
+    expect(parseMediaTypeFilter('nonsense')).toBe('all')
+    expect(parseMediaTypeFilter(undefined)).toBe('all')
+    expect(parseMediaTypeFilter(42)).toBe('all')
   })
 })

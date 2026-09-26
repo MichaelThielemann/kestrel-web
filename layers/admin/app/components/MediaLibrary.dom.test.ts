@@ -646,8 +646,16 @@ describe('MediaLibrary type filter', () => {
     const image = mixedItem('img1', 'photo.jpg', 'image/jpeg')
     const video = mixedItem('vid1', 'clip.mp4', 'video/mp4')
     const doc = mixedItem('doc1', 'sheet.pdf', 'application/pdf')
+    const all = [image, video, doc]
     unregisterAll.push(registerEndpoint('/api/media/folders', { method: 'GET', handler: () => [] }))
-    unregisterAll.push(registerEndpoint('/api/media', { method: 'GET', handler: () => ({ items: [image, video, doc], total: 3 }) }))
+    unregisterAll.push(registerEndpoint('/api/media', {
+      method: 'GET',
+      handler: (event) => {
+        const type = getQuery(event).type
+        const items = typeof type === 'string' ? all.filter((i) => i.contentType.startsWith(`${type}/`)) : all
+        return { items, total: items.length }
+      },
+    }))
 
     const wrapper = await mountSuspended(MediaLibrary, { attachTo: document.body })
     onTestFinished(() => wrapper.unmount())
@@ -661,8 +669,8 @@ describe('MediaLibrary type filter', () => {
     if (!videosButton) throw new Error('expected a "Videos" filter button')
     await videosButton.trigger('click')
 
+    await vi.waitFor(() => expect(wrapper.find('[data-test="file-img1"]').exists()).toBe(false))
     expect(wrapper.find('[data-test="file-vid1"]').exists()).toBe(true)
-    expect(wrapper.find('[data-test="file-img1"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="file-doc1"]').exists()).toBe(false)
   })
 

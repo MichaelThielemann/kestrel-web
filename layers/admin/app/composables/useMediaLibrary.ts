@@ -2,7 +2,7 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from '#imports'
 import type { ListPage, MediaFolder, MediaItem } from '#kestrel-admin/types/api'
 import { DEFAULT_PER_PAGE, clampPerPage } from '#kestrel-admin/utils/kestrel'
-import { itemKey, computeRange, parentFolder, folderCounts, childFolders, mediaKindOf, type LibraryItem, type MediaTypeFilter } from '../utils/library'
+import { itemKey, computeRange, parentFolder, folderCounts, childFolders, type LibraryItem, type MediaTypeFilter } from '../utils/library'
 
 const VIEW_KEY = 'kestrel-media-view'
 const LAST_FOLDER_KEY = 'kestrel-media-last-folder'
@@ -40,14 +40,11 @@ export function useMediaLibrary(opts: { urlSync?: boolean; accept?: 'image' | 'a
 
   const folder = ref<string>(urlSync && typeof route.query.folder === 'string' ? route.query.folder : (opts.initialFolder ?? ''))
   rememberMediaFolder(folder.value)
-  const rawFiles = ref<MediaItem[]>([])
+  const files = ref<MediaItem[]>([])
   const total = ref(0)
   const folderList = ref<MediaFolder[]>([])
 
   const typeFilter = ref<MediaTypeFilter>(accept === 'image' ? 'image' : 'all')
-  const files = computed(() => (
-    typeFilter.value === 'all' ? rawFiles.value : rawFiles.value.filter((i) => mediaKindOf(i.contentType) === typeFilter.value)
-  ))
 
   const search = ref('')
   const sort = ref<string>('-createdAt')
@@ -106,10 +103,11 @@ export function useMediaLibrary(opts: { urlSync?: boolean; accept?: 'image' | 'a
           sort: sort.value,
           locale: displayLocale.value,
           ...(q ? { q } : {}),
+          ...(typeFilter.value === 'all' ? {} : { type: typeFilter.value }),
         },
       })
       if (my !== token) return
-      rawFiles.value = accept === 'image' ? page1.items.filter((i) => i.contentType.startsWith('image/')) : page1.items
+      files.value = page1.items
       total.value = page1.total
       checkFolder()
     } catch (e) {
@@ -146,7 +144,9 @@ export function useMediaLibrary(opts: { urlSync?: boolean; accept?: 'image' | 'a
   function setTypeFilter(v: MediaTypeFilter) {
     if (accept === 'image') return
     typeFilter.value = v
+    page.value = 1
     clear()
+    void fetchFiles()
   }
 
   function setView(v: 'grid' | 'table') {

@@ -10,15 +10,8 @@ export function itemKey(item: LibraryItem): string {
   return item.type === 'folder' ? `folder:${item.folder.path}` : `file:${item.file.id}`
 }
 
-export type MediaKind = 'image' | 'video' | 'other'
 export const MEDIA_TYPE_FILTERS = ['all', 'image', 'video', 'other'] as const
 export type MediaTypeFilter = (typeof MEDIA_TYPE_FILTERS)[number]
-
-export function mediaKindOf(contentType: string): MediaKind {
-  if (contentType.startsWith('image/')) return 'image'
-  if (contentType.startsWith('video/')) return 'video'
-  return 'other'
-}
 
 function isMediaTypeFilter(value: unknown): value is MediaTypeFilter {
   return MEDIA_TYPE_FILTERS.some((v) => v === value)
