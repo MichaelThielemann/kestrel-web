@@ -1,5 +1,6 @@
 import { resolveLocalized } from './localized'
 import type { SerializedBlock } from '#kestrel-admin/types/kestrel'
+import type { AliasedBlockEntry } from './block-tree'
 
 function foldAccents(value: string): string {
   return value.normalize('NFD').replace(/\p{Diacritic}/gu, '')
@@ -26,6 +27,12 @@ export function filterBlockTypes({ types, query, tags, lang }: BlockPickerFilter
     if (normalizeForSearch(label).includes(q) || normalizeForSearch(type.name).includes(q)) return true
     return description !== undefined && normalizeForSearch(description).includes(q)
   })
+}
+
+export function filterAliasedBlocks(entries: AliasedBlockEntry[], query: string): AliasedBlockEntry[] {
+  const q = normalizeForSearch(query)
+  if (!q) return []
+  return entries.filter((entry) => normalizeForSearch(entry.alias).includes(q))
 }
 
 export function collectBlockTags(types: SerializedBlock[]): string[] {

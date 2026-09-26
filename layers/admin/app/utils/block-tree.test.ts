@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { findInTree, moveToIndex } from './block-tree'
+import { collectAliasedBlocks, findInTree, moveToIndex, updateAliasById } from './block-tree'
 import type { BlockRow } from './block-tree'
 
 function block(id: string): BlockRow {
@@ -33,5 +33,39 @@ describe('moveToIndex', () => {
   it('returns the tree unchanged for an unknown id', () => {
     const blocks = [block('a'), block('b')]
     expect(moveToIndex(blocks, 'missing', 1)).toEqual(blocks)
+  })
+})
+
+describe('updateAliasById', () => {
+  it('sets a trimmed alias on the matching block', () => {
+    const blocks = [block('a')]
+    expect(findInTree(updateAliasById(blocks, 'a', '  Intro teaser  '), 'a')?.block.alias).toBe('Intro teaser')
+  })
+
+  it('removes the alias when set to an empty string', () => {
+    const blocks = [{ ...block('a'), alias: 'Intro teaser' }]
+    expect(findInTree(updateAliasById(blocks, 'a', '   '), 'a')?.block.alias).toBeUndefined()
+  })
+
+  it('sets the alias on a block nested in a slot', () => {
+    const parent: BlockRow = { id: 'p', type: 'container', props: {}, slots: { items: [block('c1')] } }
+    const result = updateAliasById([parent], 'c1', 'Nested block')
+    expect(findInTree(result, 'c1')?.block.alias).toBe('Nested block')
+  })
+})
+
+describe('collectAliasedBlocks', () => {
+  it('collects only blocks that carry an alias', () => {
+    const blocks = [{ ...block('a'), alias: 'Hero teaser' }, block('b')]
+    expect(collectAliasedBlocks(blocks)).toEqual([{ id: 'a', alias: 'Hero teaser', type: 'hero' }])
+  })
+
+  it('walks into slots to find aliased descendants', () => {
+    const parent: BlockRow = { id: 'p', type: 'container', props: {}, slots: { items: [{ ...block('c1'), alias: 'Nested' }] } }
+    expect(collectAliasedBlocks([parent])).toEqual([{ id: 'c1', alias: 'Nested', type: 'hero' }])
+  })
+
+  it('returns an empty array when no block has an alias', () => {
+    expect(collectAliasedBlocks([block('a'), block('b')])).toEqual([])
   })
 })

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { collectBlockTags, filterBlockTypes, normalizeForSearch } from './block-picker-filter'
+import { collectBlockTags, filterAliasedBlocks, filterBlockTypes, normalizeForSearch } from './block-picker-filter'
 import type { SerializedBlock } from '#kestrel-admin/types/kestrel'
+import type { AliasedBlockEntry } from './block-tree'
 
 const hero: SerializedBlock = { name: 'hero', label: { en: 'Hero', de: 'Held' }, description: { en: 'A big banner', de: 'Ein Banner für die Startseite' }, tags: ['hero', 'marketing'], fields: {} }
 const uberHero: SerializedBlock = { name: 'ueber-uns', label: { en: 'About us', de: 'Über uns' }, tags: ['marketing'], fields: {} }
@@ -63,6 +64,29 @@ describe('filterBlockTypes', () => {
 
   it('returns an empty array when nothing matches', () => {
     expect(filterBlockTypes({ types, query: 'nonexistent', tags: [], lang: 'en' })).toEqual([])
+  })
+})
+
+describe('filterAliasedBlocks', () => {
+  const entries: AliasedBlockEntry[] = [
+    { id: 'a', alias: 'Intro teaser', type: 'hero' },
+    { id: 'b', alias: 'Über uns Vorstellung', type: 'prose' },
+  ]
+
+  it('returns no matches for an empty query', () => {
+    expect(filterAliasedBlocks(entries, '')).toEqual([])
+  })
+
+  it('matches an alias case- and accent-insensitively', () => {
+    expect(filterAliasedBlocks(entries, 'uber uns')).toEqual([entries[1]])
+  })
+
+  it('matches a partial alias', () => {
+    expect(filterAliasedBlocks(entries, 'teaser')).toEqual([entries[0]])
+  })
+
+  it('returns an empty array when nothing matches', () => {
+    expect(filterAliasedBlocks(entries, 'nonexistent')).toEqual([])
   })
 })
 

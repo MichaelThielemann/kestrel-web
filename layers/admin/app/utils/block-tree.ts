@@ -6,8 +6,15 @@ import { initialValues } from './edit-form'
 export interface BlockRow {
   id: string
   type: string
+  alias?: string
   props: Record<string, unknown>
   slots?: Record<string, unknown>
+}
+
+export interface AliasedBlockEntry {
+  id: string
+  alias: string
+  type: string
 }
 
 type GenId = () => string
@@ -15,6 +22,7 @@ type GenId = () => string
 export interface BlockTreeCtx {
   byName: Record<string, SerializedBlock>
   allowedTypes: SerializedBlock[]
+  aliasedBlocks: AliasedBlockEntry[]
   ops: {
     select: (id: string | null) => void
     add: (parentId: string | null, slotName: string | null, type: string) => void
@@ -24,6 +32,7 @@ export interface BlockTreeCtx {
     duplicate: (id: string) => void
     copy: (id: string) => void
     pasteAfter: (id: string) => void
+    jumpTo: (id: string) => void
   }
   clipboard: {
     count: number
@@ -125,6 +134,32 @@ function updateContaining(blocks: BlockRow[], id: string, fn: (arr: BlockRow[], 
 
 export function updatePropById(blocks: BlockRow[], id: string, key: string, value: unknown): BlockRow[] {
   return updateBlock(blocks, id, (b) => ({ ...b, props: { ...b.props, [key]: value } }))
+}
+
+export function updateAliasById(blocks: BlockRow[], id: string, alias: string): BlockRow[] {
+  return updateBlock(blocks, id, (b) => {
+    const trimmed = alias.trim()
+    const next: BlockRow = { id: b.id, type: b.type, props: b.props }
+    if (b.slots) next.slots = b.slots
+    if (trimmed) next.alias = trimmed
+    return next
+  })
+}
+
+export function collectAliasedBlocks(blocks: BlockRow[]): AliasedBlockEntry[] {
+  const out: AliasedBlockEntry[] = []
+  function walk(arr: BlockRow[]): void {
+    for (const b of arr) {
+      if (b.alias) out.push({ id: b.id, alias: b.alias, type: b.type })
+      if (b.slots) {
+        for (const sub of Object.values(b.slots)) {
+          if (Array.isArray(sub)) walk(boundaryCast<BlockRow[]>(sub, 'json'))
+        }
+      }
+    }
+  }
+  walk(blocks)
+  return out
 }
 
 export function removeById(blocks: BlockRow[], id: string): BlockRow[] {

@@ -7,6 +7,7 @@ import type { SerializedBlock } from '#kestrel-admin/types/kestrel'
 import {
   type BlockRow,
   findInTree,
+  updateAliasById,
   updatePropById,
   removeById,
   removalRetarget,
@@ -56,6 +57,11 @@ export function useBlockTree(
     emit(`content:prop:${id}:${key}`)
   }
 
+  function setAlias(id: string, alias: string): void {
+    blocks.value = updateAliasById(blocks.value, id, alias)
+    emit(`content:alias:${id}`)
+  }
+
   function remove(id: string): void {
     const retarget = removalRetarget(blocks.value, id)
     blocks.value = removeById(blocks.value, id)
@@ -97,5 +103,5 @@ export function useBlockTree(
     return { insertedCount: countBlocks(normalized), skippedTypes }
   }
 
-  return { blocks, selectedId, selectedBlock, select, setProp, remove, move, reorder, duplicate, add, paste }
+  return { blocks, selectedId, selectedBlock, select, setProp, setAlias, remove, move, reorder, duplicate, add, paste }
 }
