@@ -46,6 +46,7 @@ export default function redirects({ homeSlug, customFields, collections, collect
     },
     triggers: automatic.triggers,
     patches: [
+      { pipeline: REDIRECTS_PIPELINES.set, steps: ["references.index:redirects"], when: "references", at: "after", anchor: "content.set:redirects" },
       { pipeline: "resolvePage", steps: ["redirects.lookup"], at: "before", anchor: `${resolveStep}:pages?${pageRules(homeSlug, models, collectionsUi)}` },
       { pipeline: "publishAllPages", steps: ["redirects.export"], when: "delivery", at: "end" },
     ],

@@ -56,12 +56,13 @@ export function collectionVerbs(
     verbs.revision = revisionNames.revision;
     verbs.labelRevision = revisionNames.labelRevision;
     verbs.restoreRevision = revisionNames.restoreRevision;
+    const routed = routedPipelineNames(name);
+    verbs.referrers = routed.referrers;
+    verbs.referrersMany = routed.referrersMany;
   }
   if (isRoutedCollection(name, model)) {
     const routed = routedPipelineNames(name);
     verbs.publishStatus = routed.publishStatus;
-    verbs.referrers = routed.referrers;
-    verbs.referrersMany = routed.referrersMany;
     verbs.previewPath = routed.preview;
     if (name !== "pages") verbs.publishAll = routed.publishAll;
     if (parentFieldOf(name, model) !== undefined) verbs.tree = PATH_PIPELINES.tree;

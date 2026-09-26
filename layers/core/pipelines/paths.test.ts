@@ -276,6 +276,7 @@ describe("mounted collections", () => {
       "validate.check:settings.mounts",
       { atomic: ["content.set:settings", "site.indexMounts"] },
       "site.announcePaths",
+      "references.index:settings",
       "events.emit:settings.updated",
       "events.relay",
     ]);

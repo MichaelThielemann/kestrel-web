@@ -324,7 +324,9 @@ An app that extends `kestrel-web` provides, at its root:
 ratelimit?, llms?, migrations?, session? }`. It emits the base modules plus exactly the modules the given
 features require — the same feature→module mapping `definePreset` checks (`pipelines/features/*.ts`) — in
 the canonical order, and derives from the model what is derivable: `media.locales`/`defaultLocale`,
-`references.targets` (media, every multi collection and every `ref` field's `to`), `references.schemas`
+`references.targets` (media, every multi collection and every `ref` field's `to`; the references feature
+wires check/index/guard/unindex into every generic multi collection and a re-index after every single
+collection's write group, right before its emit), `references.schemas`
 (the `json` field schemas from `presetSchemas()`; the block schema marks media and relation fields with
 `x-kestrel-ref`), `delivery.types` (every
 routed collection), `site-default`'s `routes`, `validate-jsonschema.schemas` via `presetSchemas()`, `publicPath` on
@@ -405,7 +407,7 @@ uses its own name for every pipeline (`listNews`, `readNews`, `createNews`, …)
 singular forms (`readPage`, `createPage`, …) and event names (`page.created`, not
 `pages.created`), so overrides, triggers and listeners written against those names keep working. A routed
 collection — `pages`, and every multi collection declaring `mount: true` (`capabilities.ts`'s
-`isRoutedCollection(name, model)`) — also gets the path index steps, the references/links feature patches
+`isRoutedCollection(name, model)`) — also gets the path index steps, the links feature patches
 and the `delivery` feature's own publish/unpublish event pipelines (`publishPage`, or `publish<Name>` for a
 mounted collection, `delivery-names.ts`'s `routedPipelineNames`); `pages` gets `resolvePage`, a mounted
 collection `resolve<Name>`. Every other collection's pipelines are untouched by those features.

@@ -644,6 +644,7 @@
       "validate.check:redirects.rules",
       "redirects.validate",
       "content.set:redirects",
+      "references.index:redirects",
       "redirects.export"
     ],
     "setSettings": [
@@ -658,6 +659,7 @@
         ]
       },
       "site.announcePaths",
+      "references.index:settings",
       "events.emit:settings.updated",
       "events.relay"
     ],

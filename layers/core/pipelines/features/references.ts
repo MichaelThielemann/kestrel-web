@@ -1,19 +1,25 @@
 import type { TriggerConfig } from "@michaelthielemann/kestrel/defineConfig";
 import type { PresetStep } from "../../module-registry";
-import type { PresetContext } from "../base";
-import { collectionNames, DEFAULT_COLLECTIONS, hasLocalizedField } from "../collections";
+import { SETTINGS_PIPELINES, type PresetContext } from "../base";
+import { collectionNames, DEFAULT_COLLECTIONS, hasLocalizedField, isGenericCollection } from "../collections";
 import type { CollectionModel } from "../collections";
 import { ATOMIC_END } from "../compose";
 import type { PresetEntry } from "../compose";
 import { routedPipelineNames } from "../delivery-names";
 import type { FeatureModule } from "../index";
-import { mountedCollections } from "../paths";
 
-function mountedReferences(collections: Record<string, CollectionModel>): { pipelines: Record<string, PresetEntry<PresetStep>[]>; patches: FeatureModule["patches"][number][]; triggers: TriggerConfig[] } {
+function collectionReferences(collections: Record<string, CollectionModel>): { pipelines: Record<string, PresetEntry<PresetStep>[]>; patches: FeatureModule["patches"][number][]; triggers: TriggerConfig[] } {
   const pipelines: Record<string, PresetEntry<PresetStep>[]> = {};
   const patches: FeatureModule["patches"][number][] = [];
   const triggers: TriggerConfig[] = [];
-  for (const name of mountedCollections(collections)) {
+  for (const [name, model] of Object.entries(collections)) {
+    if (!isGenericCollection(name) || model.kind !== "single") continue;
+    const { plural, event } = collectionNames(name);
+    patches.push({ pipeline: `set${plural}`, steps: [`references.index:${name}`], at: "before", anchor: `events.emit:${event}.updated` });
+  }
+  if ("settings" in collections) patches.push({ pipeline: SETTINGS_PIPELINES.set, steps: ["references.index:settings"], at: "before", anchor: "events.emit:settings.updated" });
+  for (const [name, model] of Object.entries(collections)) {
+    if (!isGenericCollection(name) || name === "pages" || model.kind !== "multi") continue;
     const names = routedPipelineNames(name);
     const { singular } = collectionNames(name);
     pipelines[names.referrers] = ["authn.requireUser", `authz.require:${name}.manage`, `references.referrers:${name}`];
@@ -27,8 +33,7 @@ function mountedReferences(collections: Record<string, CollectionModel>): { pipe
       { pipeline: `delete${singular}`, steps: [`references.guard:${name}`], at: "before", anchor: `content.remove:${name}` },
       { pipeline: `delete${singular}`, steps: [`references.unindex:${name}`], at: "before", anchor: ATOMIC_END },
     );
-    const model = collections[name];
-    if (model !== undefined && hasLocalizedField(model)) patches.push({ pipeline: `delete${singular}Translation`, steps: [`references.index:${name}`], at: "before", anchor: ATOMIC_END });
+    if (hasLocalizedField(model)) patches.push({ pipeline: `delete${singular}Translation`, steps: [`references.index:${name}`], at: "before", anchor: ATOMIC_END });
   }
   return { pipelines, patches, triggers };
 }
@@ -39,7 +44,7 @@ export default function references(context: PresetContext): FeatureModule {
   const translationPatches: FeatureModule["patches"] = context.pagesTranslatable
     ? [{ pipeline: "deletePageTranslation", steps: ["references.index:pages"], at: "before", anchor: ATOMIC_END }]
     : [];
-  const mounted = mountedReferences(context.collections ?? DEFAULT_COLLECTIONS);
+  const mounted = collectionReferences(context.collections ?? DEFAULT_COLLECTIONS);
   return {
     modules: ["@michaelthielemann/kestrel-references-default"],
     triggers: mounted.triggers,

@@ -62,7 +62,7 @@ describe("collectionVerbs", () => {
     expect(collectionVerbs("redirects", { kind: "single", fields: {} })).toEqual({ get: "getRedirects", set: "setRedirects" });
   });
 
-  it("adds the delivery and reference verbs only for pages", () => {
+  it("adds the delivery verbs only for pages and the reference verbs for every multi collection", () => {
     const pagesVerbs = collectionVerbs("pages", { kind: "multi", fields: { title: {} } });
     expect(pagesVerbs.publishStatus).toBe("pagePublishStatus");
     expect(pagesVerbs.referrers).toBe("pageReferrers");
@@ -70,7 +70,9 @@ describe("collectionVerbs", () => {
 
     const newsVerbs = collectionVerbs("news", { kind: "multi", fields: { title: {} } });
     expect(newsVerbs.publishStatus).toBeUndefined();
-    expect(newsVerbs.referrers).toBeUndefined();
+    expect(newsVerbs.referrers).toBe("newsReferrers");
+    expect(newsVerbs.referrersMany).toBe("newsReferrersMany");
+    expect(collectionVerbs("profile", { kind: "single", fields: { bio: {} } }).referrers).toBeUndefined();
   });
 
   it("adds the revision verbs only for a multi collection", () => {

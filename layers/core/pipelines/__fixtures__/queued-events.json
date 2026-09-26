@@ -728,6 +728,7 @@
       "validate.check:redirects.rules",
       "redirects.validate",
       "content.set:redirects",
+      "references.index:redirects",
       "redirects.export"
     ],
     "setSettings": [
@@ -743,7 +744,8 @@
         ]
       },
       "site.announcePaths",
-      "events.relay"
+      "events.relay",
+      "references.index:settings"
     ],
     "settingsDependents": [
       "delivery.markDependents:settings",

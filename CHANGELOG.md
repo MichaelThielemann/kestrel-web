@@ -631,10 +631,16 @@
 - A media file or page used only inside a content block could be deleted: the delete guard saw
   top-level `ref` fields such as `shareImage` but not a block's `media` or `relation` field, in a
   `multiple` field, a repeater or a nested block. The generated block schema marks those fields with
-  `"x-kestrel-ref"`, and `presetModuleConfig` hands the `json` field schemas to `references-default`,
-  so such a delete answers 409 and the media library names the page before deleting. `media` and every
-  multi collection are always reference targets. Existing pages are indexed only on their next save:
-  run System → References → Rebuild (`POST /api/admin/references/rebuild`) once after upgrading.
+  `"x-kestrel-ref"`, and `presetModuleConfig` hands the `json` field schemas to `references-default`
+  (with `watch` outside production), so such a delete answers 409 and the media library names the page
+  before deleting. `media` and every multi collection are always reference targets. Existing content
+  needs no manual step: `references-default` rebuilds its index at the first boot after the upgrade and
+  whenever targets, fields or the block schema change.
+- The `references` feature wires every generic multi collection, not only mounted ones: its writes are
+  checked and indexed, its deletes guarded (409 while a page or block still points at the document) and
+  unindexed, and it gets `<name>Referrers(Many)`, which the admin's delete dialog reads. `setSettings`,
+  `setRedirects` and every generic single re-index after their write, so an internal link there guards
+  its target page and never outlives an edit.
 
 - The editor preview iframe now loads the public site's layout CSS in a production build. Its route
   is rendered client-side only, so a stylesheet reachable exclusively through the lazily loaded

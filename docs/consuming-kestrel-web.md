@@ -177,8 +177,11 @@ Two files have to agree on the name:
 name from it — `pages`, `settings` and `redirects` included. No consumer pipelines or triggers to write
 for a plain CRUD collection.
 
-Only `pages` gets the `references`/`links`/`delivery` feature wiring (§4) — a generic collection gets
-none of it, so e.g. media referenced only from such a collection's `body` is not guarded against deletion.
+Only `pages` and mounted collections get the `links`/`delivery` feature wiring (§4). The `references`
+feature wires every generic multi collection: its writes are checked and indexed, its deletes guarded and
+unindexed, and it gets `<name>Referrers(Many)` for the admin's delete dialog. Every single collection
+(`settings`, `redirects` and generic singles) is re-indexed after each write, so an internal link in its
+`json` fields guards the page it points to.
 
 ### Layouts
 
@@ -345,7 +348,8 @@ rather than booting with something plausible.
   `"x-kestrel-ref": "media"` and each `relation` field with its collection, so a file or page used only
   inside a block — also in a `multiple` field, a repeater or a nested block — is indexed, and deleting it
   answers 409 like a top-level `ref` field. Internal links in rich text and `link` fields are indexed
-  as before.
+  as before. `references.watch` follows `NODE_ENV` like the validator, so a block edit in development
+  applies to the next save; the index itself rebuilds at boot whenever targets, fields or schemas change.
 - **`delivery.types`** — every routed collection, i.e. `pages` and every mounted collection
   ([`paths.md`](paths.md)), as `{}` so the module's own field defaults apply.
 - **`site-default`** — `routes` for `pages` and every mounted collection, with the workflow's live status as
@@ -796,7 +800,7 @@ or a retry actually runs.
 |---|---|---|
 | `ratelimit` | kestrel-ratelimit-memory | `sweepRateLimits` (cron); rate-limit check step at the start of `login` |
 | `sanitizeSvg` | kestrel-sanitize-svg | SVG sanitize step before the upload step in `uploadMedia`; only with this module configured does `layers/core` serve SVG inline (`inlineTypes`), otherwise SVGs are delivered as attachments. Required with `delivery` unless `image/svg+xml` is denied — see the note below the table |
-| `references` | kestrel-references-default | `brokenReferences`, `pageReferrers(Many)`, `mediaReferrers(Many)`, `rebuildReferences`, `scanReferences` (cron); check/index/guard/unindex steps in `createPage`, `updatePage`, `deletePage`, `deleteMedia`, `deleteMediaFolder`, and a re-index step in `deletePageTranslation` when it exists |
+| `references` | kestrel-references-default | `brokenReferences`, `pageReferrers(Many)`, `mediaReferrers(Many)`, `<name>Referrers(Many)` per generic multi collection, `rebuildReferences`, `scanReferences` (cron); check/index/guard/unindex steps in the create/update/delete pipelines of `pages` and every generic multi collection, `deleteMedia`, `deleteMediaFolder`, a re-index step in each `delete…Translation`, and a re-index step after the write of `setSettings`, `setRedirects` and each generic single |
 | `links` | kestrel-links-default | `brokenLinks`, `rebuildLinks`, `checkLinks` (cron); extract/unextract steps in `createPage`, `updatePage`, `deletePage`, and a re-extract step in `deletePageTranslation` when it exists |
 | `delivery` | kestrel-delivery-static + kestrel-renderer-nuxt | `pagePublishStatus`, `publishAllPages`, `pagesStaleStatus`, `retryStalePages`, `resumeStalePages` (cron), `deliveryBuildCheck` (run at start), two event pipelines that publish the saved page: `publishPage` (triggered by `page.created`, `page.updated`, `page.restored`, and `page.translationRemoved` when the model is translatable) and `unpublishPage` (triggered by `page.deleted`), and the dependents pipelines that re-render the pages showing a change: `pageDependents`, one `<name>Dependents` per collection, `settingsDependents`, `mediaDependents`, with `eventsQueue` also `republishOutput` and `refreshLlms` — see the notes below the table |
 | `redirects` | kestrel-redirects-default | `getRedirects`, `setRedirects`, `renderRedirects`; redirect-lookup step in `resolvePage`; export step at the end of `publishAllPages` (only when `delivery` is also on) |
