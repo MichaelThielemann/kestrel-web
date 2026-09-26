@@ -202,8 +202,10 @@ describe("subpages", () => {
     const site = modules.find((entry) => entry.use === "@michaelthielemann/kestrel-site-default")?.config;
     expect(site).toMatchObject({ routes: { pages: { parentField: "parent" } } });
     const authz = modules.find((entry) => entry.use === "@michaelthielemann/kestrel-authz-roles")?.config;
-    expect(authz).toMatchObject({ anonymousFields: { pages: expect.not.arrayContaining(["parent"]) } });
-    expect(authz).toMatchObject({ anonymousFields: { pages: expect.arrayContaining(["_paths"]) } });
+    const fields: unknown = typeof authz === "object" && authz !== null ? Reflect.get(authz, "anonymousFields") : undefined;
+    const grant: unknown = typeof fields === "object" && fields !== null ? Reflect.get(fields, "pages") : undefined;
+    expect(grant).toContain("_paths");
+    expect(grant).not.toContain("parent");
   });
 
   it("does not treat a localized parent reference as a parent field", () => {
