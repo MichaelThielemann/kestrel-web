@@ -41,6 +41,7 @@ export default defineEventHandler(async (event) => {
     locales,
     defaultLocale,
     customTypes: customFieldTypes(contentTypes, fieldTypes),
+    collections: contentTypes,
     triggers: kestrel.describe().triggers.http,
   });
 

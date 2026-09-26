@@ -257,6 +257,21 @@
               }
             ]
           }
+        },
+        "mounts": {
+          "required": false,
+          "unique": false,
+          "localized": false,
+          "label": {
+            "en": "Collection addresses",
+            "de": "Adressen der Sammlungen"
+          },
+          "type": "mounts",
+          "options": {
+            "collections": [
+              "blog"
+            ]
+          }
         }
       },
       "fieldLayout": [
@@ -286,6 +301,15 @@
           "kind": "row",
           "fields": [
             "navigation"
+          ],
+          "tracks": [
+            1
+          ]
+        },
+        {
+          "kind": "row",
+          "fields": [
+            "mounts"
           ],
           "tracks": [
             1
@@ -705,6 +729,209 @@
           "path": "/admin/pages/tree"
         }
       }
+    },
+    {
+      "name": "blog",
+      "mode": "multi",
+      "translatable": true,
+      "routed": true,
+      "published": true,
+      "hasSlug": true,
+      "seo": true,
+      "status": true,
+      "layoutField": false,
+      "blocks": {
+        "enabled": true
+      },
+      "editor": "blocks",
+      "nav": true,
+      "placement": "rail",
+      "label": {
+        "singular": {
+          "en": "Post",
+          "de": "Beitrag"
+        },
+        "plural": {
+          "en": "Blog",
+          "de": "Blog"
+        },
+        "new": {
+          "en": "New post",
+          "de": "Neuer Beitrag"
+        }
+      },
+      "icon": "file-text",
+      "fields": {
+        "slug": {
+          "required": false,
+          "unique": false,
+          "localized": true,
+          "label": "Slug",
+          "type": "slug",
+          "options": {
+            "from": "title"
+          }
+        },
+        "title": {
+          "required": true,
+          "unique": false,
+          "localized": true,
+          "label": {
+            "en": "Title",
+            "de": "Titel"
+          },
+          "type": "text"
+        },
+        "body": {
+          "required": false,
+          "unique": false,
+          "localized": true,
+          "label": {
+            "en": "Content",
+            "de": "Inhalt"
+          },
+          "type": "json"
+        },
+        "seo": {
+          "required": false,
+          "unique": false,
+          "localized": true,
+          "label": "SEO",
+          "type": "json"
+        },
+        "status": {
+          "required": true,
+          "unique": false,
+          "localized": true,
+          "label": "Status",
+          "type": "choice",
+          "options": {
+            "choices": [
+              {
+                "value": "draft",
+                "label": {
+                  "en": "Draft",
+                  "de": "Entwurf"
+                }
+              },
+              {
+                "value": "finished",
+                "label": {
+                  "en": "Finished",
+                  "de": "Fertig"
+                }
+              },
+              {
+                "value": "published",
+                "label": {
+                  "en": "Published",
+                  "de": "Veröffentlicht"
+                }
+              }
+            ],
+            "display": "select"
+          }
+        }
+      },
+      "fieldLayout": [
+        {
+          "kind": "row",
+          "fields": [
+            "title"
+          ],
+          "tracks": [
+            1
+          ]
+        },
+        {
+          "kind": "row",
+          "fields": [
+            "slug",
+            "status"
+          ],
+          "tracks": [
+            2,
+            1
+          ]
+        }
+      ],
+      "editorOwned": [
+        "body",
+        "seo"
+      ],
+      "workflow": {
+        "field": "status",
+        "live": "published",
+        "draft": "draft",
+        "done": "finished"
+      },
+      "actions": [],
+      "capabilities": {
+        "list": {
+          "method": "GET",
+          "path": "/blog"
+        },
+        "listAll": {
+          "method": "GET",
+          "path": "/admin/blog"
+        },
+        "read": {
+          "method": "GET",
+          "path": "/blog/:id"
+        },
+        "readAny": {
+          "method": "GET",
+          "path": "/admin/blog/:id"
+        },
+        "create": {
+          "method": "POST",
+          "path": "/blog"
+        },
+        "update": {
+          "method": "PATCH",
+          "path": "/blog/:id"
+        },
+        "delete": {
+          "method": "DELETE",
+          "path": "/blog/:id"
+        },
+        "deleteTranslation": {
+          "method": "DELETE",
+          "path": "/blog/:id/translations/:locale"
+        },
+        "revisions": {
+          "method": "GET",
+          "path": "/admin/blog/:id/revisions"
+        },
+        "revision": {
+          "method": "GET",
+          "path": "/admin/blog/:id/revisions/:revisionId"
+        },
+        "labelRevision": {
+          "method": "PATCH",
+          "path": "/admin/blog/:id/revisions/:revisionId"
+        },
+        "restoreRevision": {
+          "method": "POST",
+          "path": "/admin/blog/:id/revisions/:revisionId/restore"
+        },
+        "publishStatus": {
+          "method": "GET",
+          "path": "/admin/publish-status/blog/:id"
+        },
+        "referrers": {
+          "method": "GET",
+          "path": "/admin/references/to/blog/:id"
+        },
+        "referrersMany": {
+          "method": "GET",
+          "path": "/admin/references/to/blog"
+        },
+        "previewPath": {
+          "method": "POST",
+          "path": "/admin/blog/path-preview"
+        }
+      }
     }
   ],
   "features": [
@@ -932,6 +1159,10 @@
     "eventsDeliveryStatus": {
       "method": "GET",
       "path": "/admin/events/delivery"
+    },
+    "resolveBlog": {
+      "method": "GET",
+      "path": "/routes/blog/*path"
     },
     "listAutoRedirects": {
       "method": "GET",

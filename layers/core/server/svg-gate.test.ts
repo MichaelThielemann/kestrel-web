@@ -32,7 +32,7 @@ function deliveryModules(dataDir: string, media: PresetMediaPolicy): ModuleEntry
     model: contentModel,
     features: ["delivery"],
     fieldTypes,
-    roles: { roles: { admin: ["*"] }, anonymous: ["pages.read", "media.read"] },
+    roles: { roles: { admin: ["*"] }, anonymous: ["pages.read", "blog.read", "media.read"] },
     bootstrap: { username: "admin", passwordHash: PASSWORD_HASH },
     media,
   });

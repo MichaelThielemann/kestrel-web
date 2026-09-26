@@ -1,6 +1,11 @@
 import type { TriggerConfig } from "@michaelthielemann/kestrel/defineConfig";
 import type { PresetStep } from "../module-registry";
+import type { WorkflowUi } from "../collections-ui/workflow";
+import { isRoutedCollection } from "./capabilities";
 import type { PresetEntry } from "./compose";
+import { statusQueryFor } from "./collections";
+import type { CollectionModel } from "./collections";
+import { routedPipelineNames } from "./delivery-names";
 
 /** The pipelines the preset composes around `site-default`'s path index, by role. */
 export const PATH_PIPELINES = {
@@ -51,3 +56,44 @@ export function rebuildAfterMigrationsPipeline(): Record<string, PresetEntry<Pre
 }
 
 export const REBUILD_AFTER_MIGRATIONS_TRIGGER: TriggerConfig = { event: "migrations.applied", pipeline: PATH_PIPELINES.rebuildAfterMigrations };
+
+export { MOUNTS_FIELD } from "../mount-path";
+
+/** The routed collections: `pages` and every mounted collection, in model order. */
+export function routedCollections(collections: Record<string, CollectionModel>): string[] {
+  return Object.entries(collections).filter(([name, model]) => isRoutedCollection(name, model)).map(([name]) => name);
+}
+
+/** The collections declaring `mount: true`, in model order. */
+export function mountedCollections(collections: Record<string, CollectionModel>): string[] {
+  return routedCollections(collections).filter((name) => name !== "pages");
+}
+
+/** The rules a routed collection's public resolve runs with: its workflow's live status and the default-locale fallback. */
+export function resolveRules(name: string, model: CollectionModel, ui?: WorkflowUi): string {
+  const status = statusQueryFor(name, model, ui);
+  return status === "" ? "fallback=true" : `${status.slice(1)}&fallback=true`;
+}
+
+/** The preview and public resolve pipelines of every mounted collection. */
+export function mountedPipelines(collections: Record<string, CollectionModel>, ui?: Record<string, WorkflowUi>): Record<string, PresetEntry<PresetStep>[]> {
+  const pipelines: Record<string, PresetEntry<PresetStep>[]> = {};
+  for (const name of mountedCollections(collections)) {
+    const model = collections[name];
+    if (model === undefined) continue;
+    const names = routedPipelineNames(name);
+    const rules = resolveRules(name, model, ui?.[name]);
+    pipelines[names.preview] = ["authn.requireUser", `authz.require:${name}.write`, `site.previewPath:${name}`];
+    pipelines[names.resolve] = ["authn.identifyUser", `authz.require:${name}.read`, `site.resolve:${name}?${rules}`, `site.resolveLinks:${name}?${rules}`];
+  }
+  return pipelines;
+}
+
+/** The HTTP triggers of a mounted collection's preview and public resolve. */
+export function mountedTriggers(name: string): TriggerConfig[] {
+  const names = routedPipelineNames(name);
+  return [
+    { http: `POST /admin/${name}/path-preview`, pipeline: names.preview },
+    { http: `GET /routes/${name}/*path`, pipeline: names.resolve },
+  ];
+}

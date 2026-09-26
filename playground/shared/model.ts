@@ -49,6 +49,7 @@ export interface ContentField {
 export interface ContentType {
   kind: "single" | "multi";
   fields: Record<string, ContentField>;
+  mount?: boolean;
 }
 
 export const contentTypes = {
@@ -80,6 +81,17 @@ export const contentTypes = {
       parent: { type: "ref", to: "pages" },
       accent: { type: "color" },
       layout: { type: "text" },
+    },
+  },
+  blog: {
+    kind: "multi",
+    mount: true,
+    fields: {
+      slug: { type: "slug", required: true, localized: true },
+      title: { type: "text", required: true, localized: true },
+      body: { type: "json", localized: true },
+      seo: { type: "json", localized: true },
+      status: { type: "enum", options: ["draft", "finished", "published"], required: true, localized: true },
     },
   },
 } satisfies Record<string, ContentType>;

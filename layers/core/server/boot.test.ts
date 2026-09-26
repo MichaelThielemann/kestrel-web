@@ -343,7 +343,7 @@ describe("boot", () => {
           features,
           collectionsUi,
           fieldTypes,
-          roles: { roles: { admin: ["*"] }, anonymous: ["pages.read", "settings.read", "media.read"] },
+          roles: { roles: { admin: ["*"] }, anonymous: ["pages.read", "blog.read", "settings.read", "media.read"] },
           bootstrap: { username: "admin", passwordHash: "scrypt$522f4ac87bfe4bcd100ba47a7d2aaec2$dbfc3f2d6cc38a76b21973d7c6f6d310a09506581c665f1f6601fd8fb3fa9bc3959689aea3e389f4d53eb8c7e70791ad4065e308763dd44609904134f0f5ee98" },
         });
         const preset = definePreset({ modules, features, collections: contentTypes, collectionsUi, fieldTypes });
@@ -600,7 +600,7 @@ describe("boot", () => {
         collectionsUi,
         fieldTypes,
         audit: { retentionDays: 365 },
-        roles: { roles: { admin: ["*"] }, anonymous: ["pages.read", "settings.read", "media.read"], ...(options.anonymousFields === undefined ? {} : { anonymousFields: options.anonymousFields }) },
+        roles: { roles: { admin: ["*"] }, anonymous: ["pages.read", "blog.read", "settings.read", "media.read"], ...(options.anonymousFields === undefined ? {} : { anonymousFields: options.anonymousFields }) },
         bootstrap: { username: "admin", passwordHash: "scrypt$522f4ac87bfe4bcd100ba47a7d2aaec2$dbfc3f2d6cc38a76b21973d7c6f6d310a09506581c665f1f6601fd8fb3fa9bc3959689aea3e389f4d53eb8c7e70791ad4065e308763dd44609904134f0f5ee98" },
       });
       const preset = definePreset({ modules, features, collections: contentTypes, collectionsUi, fieldTypes, ...(options.overrides === undefined ? {} : { overrides: options.overrides }) });
@@ -635,7 +635,7 @@ describe("boot", () => {
         blobstore: { use: "@michaelthielemann/kestrel-blobstore-filesystem", config: { root: resolve(appRoot, "blobs-plain") } },
         model: { types },
         features,
-        roles: { roles: { admin: ["*"] }, anonymous: ["pages.read", "settings.read", "media.read", "news.read", "profile.read", "redirects.read"] },
+        roles: { roles: { admin: ["*"] }, anonymous: ["pages.read", "blog.read", "settings.read", "media.read", "news.read", "profile.read", "redirects.read"] },
         bootstrap: { username: "admin", passwordHash: "scrypt$522f4ac87bfe4bcd100ba47a7d2aaec2$dbfc3f2d6cc38a76b21973d7c6f6d310a09506581c665f1f6601fd8fb3fa9bc3959689aea3e389f4d53eb8c7e70791ad4065e308763dd44609904134f0f5ee98" },
         overrides: { "@michaelthielemann/kestrel-persistence-sqlite": { file: ":memory:" } },
       });
@@ -670,7 +670,7 @@ describe("boot", () => {
         listNews: ["authn.requireUser", "authz.require:news.read", "content.list:news"],
         readNews: ["authn.requireUser", "authz.require:news.read", "content.get:news"],
       } as const;
-      const publicReads = ["pages.read", "settings.read", "media.read"];
+      const publicReads = ["pages.read", "blog.read", "settings.read", "media.read"];
 
       type Changes = PresetPipelineChanges<typeof types>;
 

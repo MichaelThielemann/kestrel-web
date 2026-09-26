@@ -40,6 +40,9 @@ const queuedModules = allModules
 
 const PUBLIC_READS_WITH_IMAGES: Record<string, string> = {
   resolvePage: "authz.fields:pages?shape=item",
+  resolveBlog: "authz.fields:blog?shape=item",
+  readBlog: "authz.fields:blog?shape=item",
+  listBlog: "authz.fields:blog?shape=list",
   readPage: "authz.fields:pages?shape=item",
   listPages: "authz.fields:pages?shape=list",
   getSettings: "authz.fields:settings?shape=item",
@@ -84,6 +87,7 @@ describe("the preset's field cut on public reads", () => {
       "authn.identifyUser",
       "authz.require:pages.read",
       "redirects.lookup",
+      "site.route:pages?home=home&status=published&fallback=true",
       "site.resolve:pages?home=home&status=published&fallback=true",
       "site.resolveLinks:pages?home=home&status=published&fallback=true",
       "authz.fields:pages?shape=item",
@@ -148,7 +152,7 @@ describe("the anonymous field grants presetModuleConfig derives", () => {
   it("grants the playground's anonymously readable model fields, the public media fields, the file headers and the redirect rules", () => {
     expect(authzConfig({ features: ["delivery", "sanitizeSvg", "images", "redirects"] }).anonymousFields).toEqual({
       settings: ["id", "title", "titlePosition", "titleSeparator", "description", "navigation", "_locales", "_translations", "_links"],
-      pages: ["id", "slug", "title", "body", "seo", "status", "shareImage", "accent", "layout", "_locales", "_translations", "_locale", "_links", "redirect", "_paths"],
+      pages: ["id", "slug", "title", "body", "seo", "status", "shareImage", "accent", "layout", "_locales", "_translations", "_locale", "_links", "redirect", "_paths", "route.type"],
       media: [...MEDIA_FIELDS, ...VARIANT_FIELDS],
       mediaFile: ["headers.cache-control", "headers.x-content-provenance", "headers.x-kestrel-variant"],
       redirectRules: ["pattern", "target", "status"],

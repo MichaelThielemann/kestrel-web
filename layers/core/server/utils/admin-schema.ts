@@ -25,22 +25,25 @@ export interface AdminSchemaSources {
   customTypes?: CustomFieldTypes;
   triggers: readonly HttpTriggerEntry[];
   access: Readonly<Record<string, PipelineVerdict>>;
+  /** The model as the preset composed it, which carries each collection's `mount` flag the stored model does not. */
+  collections?: Readonly<Record<string, { kind: string; mount?: boolean }>>;
 }
 
-function toCollectionModel(type: ContentType): CollectionModel {
-  return { kind: type.kind, fields: type.fields };
+function toCollectionModel(type: ContentType, mount: boolean): CollectionModel {
+  return { kind: type.kind, fields: type.fields, ...(mount ? { mount: true } : {}) };
 }
 
-export function buildAdminSchema({ model, collectionsUi, features, prefixPrimary, locales, defaultLocale, customTypes, triggers, access }: AdminSchemaSources): AdminSchema {
+export function buildAdminSchema({ model, collectionsUi, features, prefixPrimary, locales, defaultLocale, customTypes, triggers, access, collections: declared }: AdminSchemaSources): AdminSchema {
   const verbs: Record<string, Partial<Record<CollectionVerb, string>>> = {};
   const routing: Record<string, CollectionRouting> = {};
   for (const name of Object.keys(model.types)) {
     const type = model.types[name];
     if (type === undefined) continue;
-    verbs[name] = collectionVerbs(name, toCollectionModel(type), collectionsUi[name], customTypes?.[name]);
+    const collection = toCollectionModel(type, declared?.[name]?.mount === true);
+    verbs[name] = collectionVerbs(name, collection, collectionsUi[name], customTypes?.[name]);
     const publishStatusPipeline = verbs[name]?.publishStatus;
     const published = publishStatusPipeline !== undefined && triggers.some((trigger) => trigger.pipeline === publishStatusPipeline);
-    routing[name] = { routed: isRoutedCollection(name), published };
+    routing[name] = { routed: isRoutedCollection(name, collection), published };
   }
 
   const serialized = serializeCollections(model.types, collectionsUi, routing, customTypes ?? {});

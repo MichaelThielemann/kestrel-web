@@ -1,6 +1,37 @@
+import type { TriggerConfig } from "@michaelthielemann/kestrel/defineConfig";
+import type { PresetStep } from "../../module-registry";
 import type { PresetContext } from "../base";
+import { collectionNames, DEFAULT_COLLECTIONS, hasLocalizedField } from "../collections";
+import type { CollectionModel } from "../collections";
 import { ATOMIC_END } from "../compose";
+import type { PresetEntry } from "../compose";
+import { routedPipelineNames } from "../delivery-names";
 import type { FeatureModule } from "../index";
+import { mountedCollections } from "../paths";
+
+function mountedReferences(collections: Record<string, CollectionModel>): { pipelines: Record<string, PresetEntry<PresetStep>[]>; patches: FeatureModule["patches"][number][]; triggers: TriggerConfig[] } {
+  const pipelines: Record<string, PresetEntry<PresetStep>[]> = {};
+  const patches: FeatureModule["patches"][number][] = [];
+  const triggers: TriggerConfig[] = [];
+  for (const name of mountedCollections(collections)) {
+    const names = routedPipelineNames(name);
+    const { singular } = collectionNames(name);
+    pipelines[names.referrers] = ["authn.requireUser", `authz.require:${name}.manage`, `references.referrers:${name}`];
+    pipelines[names.referrersMany] = ["authn.requireUser", `authz.require:${name}.manage`, `references.referrersMany:${name}`];
+    triggers.push({ http: `GET /admin/references/to/${name}`, pipeline: names.referrersMany }, { http: `GET /admin/references/to/${name}/:id`, pipeline: names.referrers });
+    patches.push(
+      { pipeline: `create${singular}`, steps: [`references.check:${name}`], at: "before", anchor: `content.create:${name}` },
+      { pipeline: `create${singular}`, steps: [`references.index:${name}`], at: "before", anchor: ATOMIC_END },
+      { pipeline: `update${singular}`, steps: [`references.check:${name}`], at: "before", anchor: `content.update:${name}` },
+      { pipeline: `update${singular}`, steps: [`references.index:${name}`], at: "before", anchor: ATOMIC_END },
+      { pipeline: `delete${singular}`, steps: [`references.guard:${name}`], at: "before", anchor: `content.remove:${name}` },
+      { pipeline: `delete${singular}`, steps: [`references.unindex:${name}`], at: "before", anchor: ATOMIC_END },
+    );
+    const model = collections[name];
+    if (model !== undefined && hasLocalizedField(model)) patches.push({ pipeline: `delete${singular}Translation`, steps: [`references.index:${name}`], at: "before", anchor: ATOMIC_END });
+  }
+  return { pipelines, patches, triggers };
+}
 
 export const PAGE_REFERENCE_PIPELINES = { referrers: "pageReferrers", referrersMany: "pageReferrersMany" } as const;
 
@@ -8,9 +39,12 @@ export default function references(context: PresetContext): FeatureModule {
   const translationPatches: FeatureModule["patches"] = context.pagesTranslatable
     ? [{ pipeline: "deletePageTranslation", steps: ["references.index:pages"], at: "before", anchor: ATOMIC_END }]
     : [];
+  const mounted = mountedReferences(context.collections ?? DEFAULT_COLLECTIONS);
   return {
     modules: ["@michaelthielemann/kestrel-references-default"],
+    triggers: mounted.triggers,
     pipelines: {
+      ...mounted.pipelines,
       brokenReferences: ["authn.requireUser", "authz.require:pages.manage", "references.report"],
       [PAGE_REFERENCE_PIPELINES.referrers]: ["authn.requireUser", "authz.require:pages.manage", "references.referrers:pages"],
       [PAGE_REFERENCE_PIPELINES.referrersMany]: ["authn.requireUser", "authz.require:pages.manage", "references.referrersMany:pages"],
@@ -29,6 +63,7 @@ export default function references(context: PresetContext): FeatureModule {
       { pipeline: "deleteMedia", steps: ["references.guard:media"], at: "before", anchor: "media.remove" },
       { pipeline: "deleteMediaFolder", steps: ["references.guardAll:media"], at: "before", anchor: "media.removeFolder" },
       ...translationPatches,
+      ...mounted.patches,
     ],
   };
 }

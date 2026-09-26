@@ -21,8 +21,8 @@ const modules = presetModuleConfig({
   fieldTypes,
   audit: { retentionDays: 365 },
   roles: {
-    roles: { admin: ["*"], editor: ["pages.*", "media.*", "images.read", "settings.read", "redirects.*"] },
-    anonymous: ["pages.read", "settings.read", "media.read"],
+    roles: { admin: ["*"], editor: ["pages.*", "blog.*", "media.*", "images.read", "settings.read", "redirects.*"] },
+    anonymous: ["pages.read", "blog.read", "settings.read", "media.read"],
   },
   bootstrap: {
     username: "admin",

@@ -1,12 +1,12 @@
 import type { TriggerConfig } from "@michaelthielemann/kestrel/defineConfig";
 import type { PresetStep } from "../../module-registry";
 import type { PresetContext } from "../base";
-import { collectionNames, isGenericCollection, uncapitalize, DEFAULT_COLLECTIONS } from "../collections";
+import { collectionNames, hasLocalizedField, isGenericCollection, uncapitalize, DEFAULT_COLLECTIONS } from "../collections";
 import type { CollectionModel } from "../collections";
 import type { PresetEntry } from "../compose";
-import { PAGE_DELIVERY_PIPELINES } from "../delivery-names";
+import { PAGE_DELIVERY_PIPELINES, routedPipelineNames } from "../delivery-names";
 import type { FeatureModule } from "../index";
-import { PATH_PIPELINES, PATHS_MOVED_EVENT } from "../paths";
+import { mountedCollections, PATH_PIPELINES, PATHS_MOVED_EVENT } from "../paths";
 
 export { PAGE_DELIVERY_PIPELINES } from "../delivery-names";
 
@@ -49,6 +49,24 @@ function dependents(collections: Record<string, CollectionModel>): { pipelines: 
   return { pipelines, triggers };
 }
 
+function mountedDelivery(collections: Record<string, CollectionModel>): { pipelines: Record<string, PresetEntry<PresetStep>[]>; triggers: TriggerConfig[] } {
+  const pipelines: Record<string, PresetEntry<PresetStep>[]> = {};
+  const triggers: TriggerConfig[] = [];
+  for (const name of mountedCollections(collections)) {
+    const names = routedPipelineNames(name);
+    const { event } = collectionNames(name);
+    pipelines[names.publish] = [`delivery.publish:${name}`, "delivery.requestLlms"];
+    pipelines[names.unpublish] = [`delivery.unpublish:${name}`, "delivery.requestLlms"];
+    pipelines[names.publishStatus] = ["authn.requireUser", `authz.require:${name}.manage`, `delivery.readStatus:${name}`];
+    triggers.push({ http: `GET /admin/publish-status/${name}/:id`, pipeline: names.publishStatus });
+    for (const change of ["created", "updated", "restored"]) triggers.push({ event: `${event}.${change}`, pipeline: names.publish });
+    triggers.push({ event: `${event}.deleted`, pipeline: names.unpublish });
+    const model = collections[name];
+    if (model !== undefined && hasLocalizedField(model)) triggers.push({ event: `${event}.translationRemoved`, pipeline: names.publish });
+  }
+  return { pipelines, triggers };
+}
+
 export default function delivery(context: PresetContext): FeatureModule {
   const triggers: TriggerConfig[] = [
     { event: "page.created", pipeline: PAGE_DELIVERY_PIPELINES.publish },
@@ -61,7 +79,8 @@ export default function delivery(context: PresetContext): FeatureModule {
     triggers.push({ event: "page.translationRemoved", pipeline: PAGE_DELIVERY_PIPELINES.publish });
   }
   const marking = dependents(context.collections ?? DEFAULT_COLLECTIONS);
-  triggers.push(...marking.triggers);
+  const mounted = mountedDelivery(context.collections ?? DEFAULT_COLLECTIONS);
+  triggers.push(...mounted.triggers, ...marking.triggers);
   const pipelines: FeatureModule["pipelines"] = {
     [PAGE_DELIVERY_PIPELINES.publish]: ["delivery.publish:pages", "delivery.requestLlms"],
     [PAGE_DELIVERY_PIPELINES.unpublish]: ["delivery.unpublish:pages", "delivery.requestLlms"],
@@ -74,6 +93,7 @@ export default function delivery(context: PresetContext): FeatureModule {
     repairPublicMedia: ["authn.requireUser", "authz.require:media.manage", "media.syncPublic"],
     syncPublicMedia: ["media.syncPublic"],
     [PATH_PIPELINES.movedDelivery]: ["delivery.markMoved"],
+    ...mounted.pipelines,
     ...marking.pipelines,
   };
   if (context.eventsQueued) {

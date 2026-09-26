@@ -159,6 +159,7 @@ interface Seeded {
   homeId: string;
   aboutId: string;
   draftId: string;
+  postId: string;
   mediaId: string;
   mediaName: string;
   variantFiles: string[];
@@ -183,22 +184,28 @@ async function seed(base: string): Promise<Seeded> {
   const body = [{ type: "prose", props: { body: `<p><a href="kestrel:pages:${aboutId}">Über uns</a> <a href="kestrel:pages:${draftId}">Entwurf</a></p>` } }];
   const homeId = String((await ok(base, "POST", "/pages", { token: admin, json: { locale: "de", slug: "home", title: "Start", status: "published", shareImage: mediaId, seo: { title: "Start" }, body } })).id);
   await ok(base, "PATCH", `/pages/${homeId}`, { token: admin, json: { locale: "en", slug: "home", title: "SENTINEL-EN-DRAFT", status: "draft" } });
-  await ok(base, "PUT", "/settings", { token: admin, json: { locale: "de", title: "Seite", description: "Beschreibung", navigation: [{ label: "Über uns", link: { type: "internal", collection: "pages", id: aboutId } }] } });
+  const blogPageId = String((await ok(base, "POST", "/pages", { token: admin, json: { locale: "de", slug: "blog", title: "Blog", status: "draft", body: [] } })).id);
+  await ok(base, "PUT", "/settings", { token: admin, json: { locale: "de", title: "Seite", description: "Beschreibung", navigation: [{ label: "Über uns", link: { type: "internal", collection: "pages", id: aboutId } }], mounts: { blog: blogPageId } } });
   await ok(base, "PUT", "/redirects", { token: admin, json: { rules: [{ from: "/alt", to: "/ueber-uns", status: "301" }] } });
+  const postId = String((await ok(base, "POST", "/blog", { token: admin, json: { locale: "de", slug: "hallo", title: "Hallo", status: "published", body: [] } })).id);
+  await ok(base, "PATCH", `/blog/${postId}`, { token: admin, json: { locale: "en", slug: "hello", title: "SENTINEL-EN-DRAFT-POST", status: "draft" } });
   await ok(base, "PATCH", `/pages/${homeId}`, { token: admin, json: { locale: "en", title: "SENTINEL-EN-DRAFT" } });
   await ok(base, "POST", "/users", { token: admin, json: { username: "sentinel-editor", password: "sentinel-passphrase", roles: ["editor"] } });
   const editor = String((await ok(base, "POST", "/login", { json: { username: "sentinel-editor", password: "sentinel-passphrase" } })).token);
   const loggedOut = String((await ok(base, "POST", "/login", { json: { username: "sentinel-editor", password: "sentinel-passphrase" } })).token);
   await ok(base, "POST", "/logout", { token: loggedOut });
   const fileOf = (path: string) => path.slice(path.lastIndexOf("/") + 1);
-  return { admin, editor, loggedOut, homeId, aboutId, draftId, mediaId, mediaName: fileOf(String(item.path)), variantFiles: variants.map((variant) => fileOf(variant.path)) };
+  return { admin, editor, loggedOut, homeId, aboutId, draftId, postId, mediaId, mediaName: fileOf(String(item.path)), variantFiles: variants.map((variant) => fileOf(variant.path)) };
 }
 
 function requestsFor(s: Seeded): Record<string, string[]> {
   return {
     "GET /settings": ["/settings", "/settings?locale=en"],
     "GET /redirects.json": ["/redirects.json"],
-    "GET /site/*path": ["/site/", "/site/en", "/site/ueber-uns", "/site/alt", "/site/entwurf"],
+    "GET /site/*path": ["/site/", "/site/en", "/site/ueber-uns", "/site/alt", "/site/entwurf", "/site/blog/hallo", "/site/blog"],
+    "GET /routes/blog/*path": ["/routes/blog/blog/hallo", "/routes/blog/en/blog/hello"],
+    "GET /blog": ["/blog", "/blog?locale=en"],
+    "GET /blog/:id": [`/blog/${s.postId}`, `/blog/${s.postId}?locale=en`],
     "GET /pages": ["/pages", "/pages?locale=en"],
     "GET /pages/:id": [`/pages/${s.homeId}`, `/pages/${s.homeId}?locale=en`, `/pages/${s.aboutId}`, `/pages/${s.draftId}`],
     "GET /media": [`/media?ids=${s.mediaId}`],
@@ -256,7 +263,7 @@ describe("the playground preset: what a caller without a session receives", () =
 
   it("reaches exactly the preset's public reads without a session", () => {
     expect(anonymousPipelines(config, manifest).map((p) => p.name).sort()).toEqual(
-      ["downloadMedia", "getMedia", "getSettings", "listMedia", "listPages", "readPage", "renderRedirects", "resolvePage", "serveImageVariant", "serveMediaFile"],
+      ["downloadMedia", "getMedia", "getSettings", "listBlog", "listMedia", "listPages", "readBlog", "readPage", "renderRedirects", "resolveBlog", "resolvePage", "serveImageVariant", "serveMediaFile"],
     );
   });
 

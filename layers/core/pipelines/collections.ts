@@ -3,12 +3,15 @@ import type { PresetStep } from "../module-registry";
 import { resolveWorkflow } from "../collections-ui/workflow";
 import type { WorkflowUi } from "../collections-ui/workflow";
 import { isRoutedCollection } from "./capabilities";
+import { mountedTriggers } from "./paths";
 import type { CollectionVerb, MultiVerb, SingleVerb } from "./capabilities";
 import type { PresetEntry } from "./compose";
 
 export interface CollectionModel {
   kind: "single" | "multi";
   fields: Record<string, unknown>;
+  /** A multi collection whose documents live under the page `settings.mounts` assigns to it, or at the top level without one. */
+  mount?: boolean;
 }
 
 const HARDCODED_COLLECTIONS = new Set(["settings", "redirects"]);
@@ -55,7 +58,7 @@ export function isPageLikeCollection(name: string, model: CollectionModel): bool
 
 /** Whether the preset checks a collection's slug against the server's reserved path segments: a page-like collection whose paths `site-default` does not own. `site-default` rejects a reserved path of a routed collection itself, on the full path. */
 export function hasSlugValueSchema(name: string, model: CollectionModel): boolean {
-  return isPageLikeCollection(name, model) && !isRoutedCollection(name);
+  return isPageLikeCollection(name, model) && !isRoutedCollection(name, model);
 }
 
 export interface PublicCollectionStep {
@@ -103,7 +106,7 @@ export function multiCollectionPipelines(name: string, model: CollectionModel, u
   const bodySteps: PresetStep[] = "body" in model.fields ? [`validate.check:${name}.body`, `validate.sanitize:${name}.body`, `validate.check:${name}.body`] : [];
   const slugSteps: PresetStep[] = hasSlugValueSchema(name, model) ? [`validate.check:${name}.slug`] : [];
   const customSteps = customFieldChecks(name, customFields);
-  const routed = isRoutedCollection(name);
+  const routed = isRoutedCollection(name, model);
   const write = (step: PresetStep): PresetEntry<PresetStep>[] => (routed ? [{ atomic: [step, `site.indexPath:${name}`] }, "site.announcePaths"] : [{ atomic: [step] }]);
   const publicPaths: PresetStep[] = routed ? [`site.attachPaths:${name}?reachable`] : [];
   const adminPaths: PresetStep[] = routed ? [`site.attachPaths:${name}`] : [];
@@ -224,6 +227,7 @@ export function insertCollectionTriggers(triggers: TriggerConfig[], collections:
   const extra: TriggerConfig[] = [];
   for (const [name, model] of Object.entries(collections)) {
     if (!isGenericCollection(name) || name === "pages") continue;
+    if (pagesModel && isRoutedCollection(name, model)) extra.push(...mountedTriggers(name));
     extra.push(...collectionTriggers(name, model));
   }
   return [...result, ...extra];
@@ -247,6 +251,13 @@ export type MultiCollectionPipelineName<K extends string> =
   | `delete${Capitalized<K>}`
   | `delete${Capitalized<K>}Translation`
   | `${K}Dependents`
+  | `publish${Capitalized<K>}`
+  | `unpublish${Capitalized<K>}`
+  | `${K}PublishStatus`
+  | `${K}Referrers`
+  | `${K}ReferrersMany`
+  | `preview${Capitalized<K>}Path`
+  | `resolve${Capitalized<K>}`
   | RevisionPipelineName<K>;
 
 export type SingleCollectionPipelineName<K extends string> = `get${Capitalized<K>}` | `set${Capitalized<K>}` | `${K}Dependents`;

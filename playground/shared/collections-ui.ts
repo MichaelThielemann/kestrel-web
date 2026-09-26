@@ -43,4 +43,28 @@ export default defineCollectionsUi({
       shareImage: { options: { accept: "image" } },
     },
   },
+  blog: {
+    label: { singular: { en: "Post", de: "Beitrag" }, plural: { en: "Blog", de: "Blog" }, new: { en: "New post", de: "Neuer Beitrag" } },
+    icon: "file-text",
+    editor: "blocks",
+    fieldLayout: [
+      { kind: "row", fields: ["title"], tracks: [1] },
+      { kind: "row", fields: ["slug", "status"], tracks: [2, 1] },
+    ],
+    fieldLabels: { title: { en: "Title", de: "Titel" }, slug: "Slug", status: "Status", body: { en: "Content", de: "Inhalt" }, seo: "SEO" },
+    editorOwned: ["body", "seo"],
+    fieldOverrides: {
+      slug: { required: false, options: { from: "title" } },
+      status: {
+        options: {
+          choices: [
+            { value: "draft", label: { en: "Draft", de: "Entwurf" } },
+            { value: "finished", label: { en: "Finished", de: "Fertig" } },
+            { value: "published", label: { en: "Published", de: "Veröffentlicht" } },
+          ],
+          display: "select",
+        },
+      },
+    },
+  },
 }, contentTypes);

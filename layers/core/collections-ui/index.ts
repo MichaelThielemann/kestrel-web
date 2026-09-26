@@ -1,6 +1,7 @@
 import type { Localized, LayoutNode, SerializedField, Workflow } from "../app/types/kestrel";
 import type { CollectionModel, Feature } from "#kestrel/pipelines";
 import { validateWorkflow } from "./workflow";
+import { MOUNTS_FIELD } from "../mount-path";
 
 const NAVIGATION_TARGET_CHOICES = {
   choices: [
@@ -102,9 +103,10 @@ export function presetCollectionsUi({
   collections,
 }: {
   features: readonly Feature[];
-  collections?: Record<string, { fields: Record<string, unknown> }>;
+  collections?: Record<string, { kind?: "single" | "multi"; fields: Record<string, unknown>; mount?: boolean }>;
 }): Record<string, CollectionUi> {
-  const settingsFields = collections?.settings?.fields ?? {};
+  const mounted = Object.entries(collections ?? {}).filter(([name, model]) => name !== "pages" && model.mount === true).map(([name]) => name);
+  const settingsFields = { ...(collections?.settings?.fields ?? {}), ...(mounted.length > 0 ? { [MOUNTS_FIELD]: { type: "json" } } : {}) };
   const titleRow = TITLE_ROW_FIELDS.filter((name) => name in settingsFields);
   const settingsLayout: LayoutNode[] | undefined = collections
     ? [
@@ -124,6 +126,7 @@ export function presetCollectionsUi({
         navigation: { en: "Navigation", de: "Navigation" },
         ...("titleSeparator" in settingsFields ? { titleSeparator: { en: "Separator", de: "Trenner" } } : {}),
         ...("titlePosition" in settingsFields ? { titlePosition: { en: "Site title position", de: "Position des Website-Titels" } } : {}),
+        ...(mounted.length > 0 ? { [MOUNTS_FIELD]: { en: "Collection addresses", de: "Adressen der Sammlungen" } } : {}),
       },
       fieldOverrides: {
         ...("titlePosition" in settingsFields
@@ -139,6 +142,7 @@ export function presetCollectionsUi({
               },
             }
           : {}),
+        ...(mounted.length > 0 ? { [MOUNTS_FIELD]: { type: "mounts", options: { collections: mounted } } } : {}),
         navigation: {
           type: "repeater",
           options: {

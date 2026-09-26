@@ -221,7 +221,8 @@ describe("atomic group invariants across every composed pipeline", () => {
     for (const pipeline of queued.pipelines) {
       for (const entry of pipeline.steps) {
         if (!isAtomicGroup(entry)) continue;
-        const end = entry.atomic.at(-1)?.startsWith("site.indexPath:") === true ? entry.atomic.length - 2 : entry.atomic.length - 1;
+        const last = entry.atomic.at(-1) ?? "";
+        const end = last.startsWith("site.indexPath:") || last === "site.indexMounts" ? entry.atomic.length - 2 : entry.atomic.length - 1;
         entry.atomic.forEach((step, index) => {
           if (step.startsWith("events.emit") && index !== end) {
             throw new Error(`${pipeline.name}: "${step}" is not the last step of its group`);

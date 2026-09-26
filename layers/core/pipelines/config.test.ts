@@ -49,6 +49,9 @@ afterEach(() => {
 
 describe("presetModuleConfig with the playground inputs", () => {
   it("produces the module list the playground spelled out by hand, plus delivery's media publicPath", () => {
+    const resolved = resolveStorageTypes(contentTypes, fieldTypes, "presetModuleConfig");
+    const { mount: _mount, ...blog } = contentTypes.blog;
+    const storedTypes = { ...resolved, blog, settings: { ...resolved.settings, fields: { ...resolved.settings?.fields, mounts: { type: "json" } } } };
     expect(presetModuleConfig(playgroundOptions())).toEqual([
       { use: "@michaelthielemann/kestrel-blobstore-filesystem", config: { root: resolve(DATA_DIR, "blobs") } },
       { use: "@michaelthielemann/kestrel-replication-sqlite", config: { file: DATABASE_FILE } },
@@ -84,7 +87,7 @@ describe("presetModuleConfig with the playground inputs", () => {
           anonymous: ["pages.read", "settings.read", "media.read"],
           anonymousFields: {
             settings: ["id", "title", "titlePosition", "titleSeparator", "description", "navigation", "_locales", "_translations", "_links"],
-            pages: ["id", "slug", "title", "body", "seo", "status", "shareImage", "accent", "layout", "_locales", "_translations", "_locale", "_links", "redirect", "_paths"],
+            pages: ["id", "slug", "title", "body", "seo", "status", "shareImage", "accent", "layout", "_locales", "_translations", "_locale", "_links", "redirect", "_paths", "route.type"],
             media: ["id", "path", "filename", "contentType", "size", "width", "height", "alt", "title", "description", "provenance", "variants[].size", "variants[].width", "variants[].height", "variants[].format", "variants[].path"],
             mediaFile: ["headers.cache-control", "headers.x-content-provenance", "headers.x-kestrel-variant"],
             redirectRules: ["pattern", "target", "status"],
@@ -93,13 +96,18 @@ describe("presetModuleConfig with the playground inputs", () => {
       },
       {
         use: "@michaelthielemann/kestrel-content-default",
-        config: { ...contentModel, types: resolveStorageTypes(contentTypes, fieldTypes, "presetModuleConfig") },
+        config: { ...contentModel, types: storedTypes },
       },
       {
         use: "@michaelthielemann/kestrel-site-default",
-        config: { routes: { pages: { home: "home", liveWhen: { status: "published" }, parentField: "parent" } }, prefixPrimary: false, reservedPaths: ["/api", "/admin", "/media"] },
+        config: {
+          routes: { pages: { home: "home", liveWhen: { status: "published" }, parentField: "parent" }, blog: { mount: true, liveWhen: { status: "published" } } },
+          mounts: { type: "settings", field: "mounts" },
+          prefixPrimary: false,
+          reservedPaths: ["/api", "/admin", "/media"],
+        },
       },
-      { use: "@michaelthielemann/kestrel-references-default", config: { targets: { pages: { content: "pages" }, media: { media: true } } } },
+      { use: "@michaelthielemann/kestrel-references-default", config: { targets: { pages: { content: "pages" }, blog: { content: "blog" }, media: { media: true } } } },
       { use: "@michaelthielemann/kestrel-links-default", config: { timeoutMs: 10000, concurrency: 4, recheckAfterSeconds: 21600 } },
       {
         use: "@michaelthielemann/kestrel-validate-jsonschema",
@@ -109,10 +117,10 @@ describe("presetModuleConfig with the playground inputs", () => {
       {
         use: "@michaelthielemann/kestrel-delivery-static",
         config: {
-          types: { pages: {} },
+          types: { pages: {}, blog: {} },
           prefix: "site/",
           reservedPaths: ["/api", "/admin", "/media"],
-          llms: { full: true, headings: { pages: "Pages" } },
+          llms: { full: true, headings: { pages: "Pages", blog: "Blog" } },
           dependencies: { render: "background", rendererReadsDocument: true },
         },
       },
@@ -150,12 +158,13 @@ describe("derived references targets", () => {
 });
 
 describe("derived delivery types", () => {
-  it("delivers every multi collection carrying slug, status and body and leaves the others out", () => {
+  it("delivers pages and every mounted collection and leaves the others out, with a heading per mounted collection", () => {
     const types: Record<string, CollectionModel> = {
       settings: { kind: "single", fields: { title: {} } },
       redirects: { kind: "single", fields: { rules: {} } },
       pages: { kind: "multi", fields: { slug: {}, status: {}, body: {} } },
-      news: { kind: "multi", fields: { slug: {}, status: {}, body: {} } },
+      news: { kind: "multi", fields: { slug: {}, status: {}, body: {} }, mount: true },
+      archive: { kind: "multi", fields: { slug: {}, status: {}, body: {} } },
       people: { kind: "multi", fields: { slug: {}, name: {} } },
       profile: { kind: "single", fields: { slug: {}, status: {}, body: {} } },
     };
@@ -166,7 +175,7 @@ describe("derived delivery types", () => {
       types: { pages: {}, news: {} },
       prefix: "site/",
       reservedPaths: ["/api", "/admin", "/media"],
-      llms: { full: true, headings: { pages: "Pages" } },
+      llms: { full: true, headings: { pages: "Pages", news: "News" } },
       dependencies: { render: "background", rendererReadsDocument: true },
     });
   });
@@ -488,7 +497,7 @@ describe("llms", () => {
     const modules = presetModuleConfig({ ...playgroundOptions(), llms: { full: false, headings: { pages: "Seiten" }, siteUrl: "https://example.test" } });
 
     expect(configFor(modules, "delivery-static")).toEqual({
-      types: { pages: {} },
+      types: { pages: {}, blog: {} },
       prefix: "site/",
       reservedPaths: ["/api", "/admin", "/media"],
       llms: { full: false, headings: { pages: "Seiten" }, siteUrl: "https://example.test" },
@@ -501,10 +510,10 @@ describe("llms", () => {
     const modules = presetModuleConfig(playgroundOptions());
 
     expect(configFor(modules, "delivery-static")).toEqual({
-      types: { pages: {} },
+      types: { pages: {}, blog: {} },
       prefix: "site/",
       reservedPaths: ["/api", "/admin", "/media"],
-      llms: { full: true, headings: { pages: "Pages" }, siteUrl: "https://from-env.test" },
+      llms: { full: true, headings: { pages: "Pages", blog: "Blog" }, siteUrl: "https://from-env.test" },
       dependencies: { render: "background", rendererReadsDocument: true },
     });
   });

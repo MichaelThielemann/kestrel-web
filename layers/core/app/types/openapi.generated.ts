@@ -2,6 +2,109 @@
 // Regenerate with `pnpm generate:api-types`.
 
 export interface paths {
+    "/admin/blog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Require a valid session → Requires permission blog.manage → List blog → Add _paths (locale → path) to the blog result, every valid path including drafts */
+        get: operations["listAllBlog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/blog/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Require a valid session → Requires permission blog.manage → One blog document → Add _paths (locale → path) to the blog result, every valid path including drafts */
+        get: operations["readAnyBlog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/blog/{id}/revisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Require a valid session → Requires permission blog.manage → Revisions of one blog document and locale, newest first and without snapshots */
+        get: operations["blogRevisions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/blog/{id}/revisions/{revisionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Require a valid session → Requires permission blog.manage → One revision of a blog document including its snapshot and, where the content model is known, the dry run of its restore under `restore` */
+        get: operations["blogRevision"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Require a valid session → Requires permission blog.write → Name a blog revision, or clear its name with null; a labelled revision is never pruned */
+        patch: operations["labelBlogRevision"];
+        trace?: never;
+    };
+    "/admin/blog/{id}/revisions/{revisionId}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Require a valid session → Requires permission blog.write → Put a blog revision's snapshot into the body, so the steps behind it save it like any other write and branch the history at that revision; fields the model has dropped since are left out → Validate payload field blog.body against its JSON Schema → Sanitize HTML at format:"html" positions of payload field blog.body → Validate payload field blog.body against its JSON Schema → Referenced ids of blog must exist → Update a blog → Record the saved blog document from the result as a revision; its parent is the head, or the revision a restore put on the context → Index the references of a blog document → Index external links of blog → Queue event "blog.restored" for the subscribed handler pipelines; the worker delivers it after this run → Recompute the public paths of the saved blog (result.id, else params.id) and of every document whose path depends on it; last step of the write's atomic group → After the write's atomic group: patches the in-memory path table from the committed rows and raises site.pathsMoved; never fails the run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) → Add what the restore of this run left out to the result as `restore`; without a known content model the result stays as it is */
+        post: operations["restoreBlogRevision"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/blog/path-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Require a valid session → Requires permission blog.write → The public path a blog would get for payload { id?, locale?, slug, parent? }, whether it would be reachable and why not; writes nothing */
+        post: operations["previewBlogPath"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/events/dead": {
         parameters: {
             query?: never;
@@ -514,6 +617,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/publish-status/blog/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Require a valid session → Requires permission blog.manage → Publish status per locale of a blog */
+        get: operations["blogPublishStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/publish-status/pages": {
         parameters: {
             query?: never;
@@ -610,6 +730,40 @@ export interface paths {
         put?: never;
         /** Require a valid session → Requires permission pages.manage → Rebuild the reference index */
         post: operations["rebuildReferences"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/references/to/blog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Require a valid session → Requires permission blog.manage → Documents referencing each of up to 200 blog ids */
+        get: operations["blogReferrersMany"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/references/to/blog/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Require a valid session → Requires permission blog.manage → Documents referencing a blog */
+        get: operations["blogReferrers"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -781,6 +935,60 @@ export interface paths {
         /** Require a valid session → Requires permission users.manage → Verify the user reference at payload.reassignTo: it must be a user id, { id }, or null. Writes its canonical { id, name } to verifiedUser, or null when there was none to verify. authn.verifyUser:reassignTo reads payload.reassignTo; authn.verifyUser:result.reassignTo reads payload.result.reassignTo, the shape an event hands over → Replace the author of every revision written by the user in `params.id` or the event payload's `id`, with the canonical `{ id, name }` a preceding step's `verifiedUser` (e.g. `authn.verifyUser`) verified. Without a target, the anonymous author `{ id: null, name: null }` */
         post: operations["retryReassignRevisionAuthor"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/blog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Identify the caller if a valid token is present → Requires permission blog.read → List blog → Add _paths (locale → path) to the blog result, reachable paths only → Keep only the blog fields the caller may see: anonymousFields.blog without an identity or a configured role; otherwise everything when one of its roles has no field grant for blog, else the union of its roles' grants and the anonymous one */
+        get: operations["listBlog"];
+        put?: never;
+        /** Require a valid session → Requires permission blog.write → Validate payload field blog.body against its JSON Schema → Sanitize HTML at format:"html" positions of payload field blog.body → Validate payload field blog.body against its JSON Schema → Referenced ids of blog must exist → Create a blog → Record the saved blog document from the result as a revision; its parent is the head, or the revision a restore put on the context → Index the references of a blog document → Index external links of blog → Queue event "blog.created" for the subscribed handler pipelines; the worker delivers it after this run → Recompute the public paths of the saved blog (result.id, else params.id) and of every document whose path depends on it; last step of the write's atomic group → After the write's atomic group: patches the in-memory path table from the committed rows and raises site.pathsMoved; never fails the run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
+        post: operations["createBlog"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/blog/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Identify the caller if a valid token is present → Requires permission blog.read → One blog document → Add _paths (locale → path) to the blog result, reachable paths only → Keep only the blog fields the caller may see: anonymousFields.blog without an identity or a configured role; otherwise everything when one of its roles has no field grant for blog, else the union of its roles' grants and the anonymous one */
+        get: operations["readBlog"];
+        put?: never;
+        post?: never;
+        /** Require a valid session → Requires permission blog.delete → Refuse deletion while blog is referenced → Delete a blog → Drop every revision of a blog document, in every locale → Drop indexed references of a blog document → Drop indexed links of blog → Queue event "blog.deleted" for the subscribed handler pipelines; the worker delivers it after this run → Recompute the public paths of the saved blog (result.id, else params.id) and of every document whose path depends on it; last step of the write's atomic group → After the write's atomic group: patches the in-memory path table from the committed rows and raises site.pathsMoved; never fails the run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
+        delete: operations["deleteBlog"];
+        options?: never;
+        head?: never;
+        /** Require a valid session → Requires permission blog.write → Validate payload field blog.body against its JSON Schema → Sanitize HTML at format:"html" positions of payload field blog.body → Validate payload field blog.body against its JSON Schema → Referenced ids of blog must exist → Update a blog → Record the saved blog document from the result as a revision; its parent is the head, or the revision a restore put on the context → Index the references of a blog document → Index external links of blog → Queue event "blog.updated" for the subscribed handler pipelines; the worker delivers it after this run → Recompute the public paths of the saved blog (result.id, else params.id) and of every document whose path depends on it; last step of the write's atomic group → After the write's atomic group: patches the in-memory path table from the committed rows and raises site.pathsMoved; never fails the run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
+        patch: operations["updateBlog"];
+        trace?: never;
+    };
+    "/blog/{id}/translations/{locale}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Require a valid session → Requires permission blog.write → Remove one translation of a blog (locale from the route or ?locale=); the document stays in its other locales → Drop the revisions of one locale of a blog document → Index the references of a blog document → Index external links of blog → Queue event "blog.translationRemoved" for the subscribed handler pipelines; the worker delivers it after this run → Recompute the public paths of the saved blog (result.id, else params.id) and of every document whose path depends on it; last step of the write's atomic group → After the write's atomic group: patches the in-memory path table from the committed rows and raises site.pathsMoved; never fails the run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
+        delete: operations["deleteBlogTranslation"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1067,6 +1275,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/routes/blog/{path}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Identify the caller if a valid token is present → Requires permission blog.read → Resolve a site path to a blog document (default locale unprefixed) → Replace internal kestrel:<type>:<id> references in the blog document with public paths (_links map added) → Keep only the blog fields the caller may see: anonymousFields.blog without an identity or a configured role; otherwise everything when one of its roles has no field grant for blog, else the union of its roles' grants and the anonymous one */
+        get: operations["resolveBlog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/settings": {
         parameters: {
             query?: never;
@@ -1076,7 +1301,7 @@ export interface paths {
         };
         /** Identify the caller if a valid token is present → Requires permission settings.read → One settings document → Replace internal kestrel:<type>:<id> references in the settings document with public paths (_links map added) → Keep only the settings fields the caller may see: anonymousFields.settings without an identity or a configured role; otherwise everything when one of its roles has no field grant for settings, else the union of its roles' grants and the anonymous one */
         get: operations["getSettings"];
-        /** Require a valid session → Requires permission settings.write → Validate payload field settings.navigation against its JSON Schema → Replace the settings document → Queue event "settings.updated" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
+        /** Require a valid session → Requires permission settings.write → Validate payload field settings.navigation against its JSON Schema → Validate payload field settings.mounts against its JSON Schema → Replace the settings document → Queue event "settings.updated" for the subscribed handler pipelines; the worker delivers it after this run → Validate the stored mount assignment and move every document of each collection whose mount page changed; last step of the settings write's atomic group → After the write's atomic group: patches the in-memory path table from the committed rows and raises site.pathsMoved; never fails the run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
         put: operations["setSettings"];
         post?: never;
         delete?: never;
@@ -1092,7 +1317,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Identify the caller if a valid token is present → Requires permission pages.read → End the pipeline with { redirect: { to, status } } on an editor rule or an automatic redirect (a moved document's old path); pass through otherwise → Resolve a site path to a pages document (default locale unprefixed) → Replace internal kestrel:<type>:<id> references in the pages document with public paths (_links map added) → Keep only the pages fields the caller may see: anonymousFields.pages without an identity or a configured role; otherwise everything when one of its roles has no field grant for pages, else the union of its roles' grants and the anonymous one */
+        /** Identify the caller if a valid token is present → Requires permission pages.read → End the pipeline with { redirect: { to, status } } on an editor rule or an automatic redirect (a moved document's old path); pass through otherwise → End the run with { route: { type } } when params.path is reachable and belongs to a routed collection other than pages; pass through otherwise → Resolve a site path to a pages document (default locale unprefixed) → Replace internal kestrel:<type>:<id> references in the pages document with public paths (_links map added) → Keep only the pages fields the caller may see: anonymousFields.pages without an identity or a configured role; otherwise everything when one of its roles has no field grant for pages, else the union of its roles' grants and the anonymous one */
         get: operations["resolvePage"];
         put?: never;
         post?: never;
@@ -1320,6 +1545,7 @@ export interface components {
             createdAt: number;
             description?: string | null;
             id: string;
+            mounts?: unknown | null;
             navigation?: unknown | null;
             title?: string | null;
             titlePosition?: ("suffix" | "prefix") | null;
@@ -1349,6 +1575,54 @@ export interface components {
             title?: string | null;
             titlePosition?: ("suffix" | "prefix") | null;
             titleSeparator?: string | null;
+        };
+        listBlog: {
+            items: {
+                /** @description origin locale per field, only with fallback */
+                _locales?: {
+                    [key: string]: string;
+                };
+                /** @description public path per locale; null where the document is not reachable (site.attachPaths without ?reachable: not valid) */
+                _paths: {
+                    [key: string]: string | null;
+                };
+                /** @description per locale: required localized fields present */
+                _translations?: {
+                    [key: string]: boolean;
+                };
+                body?: unknown | null;
+                createdAt: number;
+                id: string;
+                seo?: unknown | null;
+                slug?: string | null;
+                status?: ("draft" | "finished" | "published") | null;
+                title?: string | null;
+                updatedAt: number;
+            }[];
+            total: number;
+        };
+        "listBlog.anonymous": {
+            items: {
+                /** @description origin locale per field, only with fallback */
+                _locales?: {
+                    [key: string]: string;
+                };
+                /** @description public path per locale; null where the document is not reachable (site.attachPaths without ?reachable: not valid) */
+                _paths: {
+                    [key: string]: string | null;
+                };
+                /** @description per locale: required localized fields present */
+                _translations?: {
+                    [key: string]: boolean;
+                };
+                body?: unknown | null;
+                id: string;
+                seo?: unknown | null;
+                slug?: string | null;
+                status?: ("draft" | "finished" | "published") | null;
+                title?: string | null;
+            }[];
+            total: number;
         };
         listMedia: {
             items: {
@@ -1480,6 +1754,48 @@ export interface components {
             }[];
             total: number;
         };
+        readBlog: {
+            /** @description origin locale per field, only with fallback */
+            _locales?: {
+                [key: string]: string;
+            };
+            /** @description public path per locale; null where the document is not reachable (site.attachPaths without ?reachable: not valid) */
+            _paths: {
+                [key: string]: string | null;
+            };
+            /** @description per locale: required localized fields present */
+            _translations?: {
+                [key: string]: boolean;
+            };
+            body?: unknown | null;
+            createdAt: number;
+            id: string;
+            seo?: unknown | null;
+            slug?: string | null;
+            status?: ("draft" | "finished" | "published") | null;
+            title?: string | null;
+            updatedAt: number;
+        };
+        "readBlog.anonymous": {
+            /** @description origin locale per field, only with fallback */
+            _locales?: {
+                [key: string]: string;
+            };
+            /** @description public path per locale; null where the document is not reachable (site.attachPaths without ?reachable: not valid) */
+            _paths: {
+                [key: string]: string | null;
+            };
+            /** @description per locale: required localized fields present */
+            _translations?: {
+                [key: string]: boolean;
+            };
+            body?: unknown | null;
+            id: string;
+            seo?: unknown | null;
+            slug?: string | null;
+            status?: ("draft" | "finished" | "published") | null;
+            title?: string | null;
+        };
         readPage: {
             /** @description origin locale per field, only with fallback */
             _locales?: {
@@ -1541,6 +1857,68 @@ export interface components {
             status: 301 | 302 | 307 | 308;
             target: string;
         }[];
+        resolveBlog: {
+            /** @description internal references by target id after site.resolveLinks; absent when the document has no internal references to resolve */
+            _links?: {
+                [key: string]: {
+                    broken?: boolean;
+                    locale?: string;
+                    path?: string;
+                };
+            };
+            /** @description effective locale of a site-resolved document */
+            _locale?: string;
+            /** @description origin locale per field, only with fallback */
+            _locales?: {
+                [key: string]: string;
+            };
+            /** @description public path per locale; null where the document is not reachable (site.attachPaths without ?reachable: not valid) */
+            _paths?: {
+                [key: string]: string | null;
+            };
+            /** @description per locale: required localized fields present */
+            _translations?: {
+                [key: string]: boolean;
+            };
+            body?: unknown | null;
+            createdAt: number;
+            id: string;
+            seo?: unknown | null;
+            slug?: string | null;
+            status?: ("draft" | "finished" | "published") | null;
+            title?: string | null;
+            updatedAt: number;
+        };
+        "resolveBlog.anonymous": {
+            /** @description internal references by target id after site.resolveLinks; absent when the document has no internal references to resolve */
+            _links?: {
+                [key: string]: {
+                    broken?: boolean;
+                    locale?: string;
+                    path?: string;
+                };
+            };
+            /** @description effective locale of a site-resolved document */
+            _locale?: string;
+            /** @description origin locale per field, only with fallback */
+            _locales?: {
+                [key: string]: string;
+            };
+            /** @description public path per locale; null where the document is not reachable (site.attachPaths without ?reachable: not valid) */
+            _paths?: {
+                [key: string]: string | null;
+            };
+            /** @description per locale: required localized fields present */
+            _translations?: {
+                [key: string]: boolean;
+            };
+            body?: unknown | null;
+            id: string;
+            seo?: unknown | null;
+            slug?: string | null;
+            status?: ("draft" | "finished" | "published") | null;
+            title?: string | null;
+        };
         resolvePage: {
             /** @description internal references by target id after site.resolveLinks; absent when the document has no internal references to resolve */
             _links?: {
@@ -1582,6 +1960,10 @@ export interface components {
                 status: 301 | 302 | 307 | 308;
                 to: string;
             };
+        } | {
+            route: {
+                type: string;
+            };
         };
         "resolvePage.anonymous": {
             /** @description internal references by target id after site.resolveLinks; absent when the document has no internal references to resolve */
@@ -1621,6 +2003,10 @@ export interface components {
                 status: 301 | 302 | 307 | 308;
                 to: string;
             };
+        } | {
+            route: {
+                type: string;
+            };
         };
     };
     responses: never;
@@ -1636,18 +2022,759 @@ export type SchemaGetRedirects = components['schemas']['getRedirects'];
 export type SchemaGetRedirectsAnonymous = components['schemas']['getRedirects.anonymous'];
 export type SchemaGetSettings = components['schemas']['getSettings'];
 export type SchemaGetSettingsAnonymous = components['schemas']['getSettings.anonymous'];
+export type SchemaListBlog = components['schemas']['listBlog'];
+export type SchemaListBlogAnonymous = components['schemas']['listBlog.anonymous'];
 export type SchemaListMedia = components['schemas']['listMedia'];
 export type SchemaListMediaAnonymous = components['schemas']['listMedia.anonymous'];
 export type SchemaListPages = components['schemas']['listPages'];
 export type SchemaListPagesAnonymous = components['schemas']['listPages.anonymous'];
+export type SchemaReadBlog = components['schemas']['readBlog'];
+export type SchemaReadBlogAnonymous = components['schemas']['readBlog.anonymous'];
 export type SchemaReadPage = components['schemas']['readPage'];
 export type SchemaReadPageAnonymous = components['schemas']['readPage.anonymous'];
 export type SchemaRenderRedirects = components['schemas']['renderRedirects'];
 export type SchemaRenderRedirectsAnonymous = components['schemas']['renderRedirects.anonymous'];
+export type SchemaResolveBlog = components['schemas']['resolveBlog'];
+export type SchemaResolveBlogAnonymous = components['schemas']['resolveBlog.anonymous'];
 export type SchemaResolvePage = components['schemas']['resolvePage'];
 export type SchemaResolvePageAnonymous = components['schemas']['resolvePage.anonymous'];
 export type $defs = Record<string, never>;
 export interface operations {
+    listAllBlog: {
+        parameters: {
+            query?: {
+                limit?: number;
+                locale?: "de" | "en";
+                offset?: number;
+                sort?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description ok */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            /** @description origin locale per field, only with fallback */
+                            _locales?: {
+                                [key: string]: string;
+                            };
+                            /** @description public path per locale; null where the document is not reachable (site.attachPaths without ?reachable: not valid) */
+                            _paths: {
+                                [key: string]: string | null;
+                            };
+                            /** @description per locale: required localized fields present */
+                            _translations?: {
+                                [key: string]: boolean;
+                            };
+                            body?: unknown | null;
+                            createdAt: number;
+                            id: string;
+                            seo?: unknown | null;
+                            slug?: string | null;
+                            status?: ("draft" | "finished" | "published") | null;
+                            title?: string | null;
+                            updatedAt: number;
+                        }[];
+                        total: number;
+                    };
+                };
+            };
+            /** @description invalid limit, offset, sort or locale */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description missing permission blog.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description temporarily unavailable; retry after the Retry-After header */
+            503: {
+                headers: {
+                    /** @description seconds until the client may retry */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    readAnyBlog: {
+        parameters: {
+            query?: {
+                locale?: "de" | "en";
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description ok */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description origin locale per field, only with fallback */
+                        _locales?: {
+                            [key: string]: string;
+                        };
+                        /** @description public path per locale; null where the document is not reachable (site.attachPaths without ?reachable: not valid) */
+                        _paths: {
+                            [key: string]: string | null;
+                        };
+                        /** @description per locale: required localized fields present */
+                        _translations?: {
+                            [key: string]: boolean;
+                        };
+                        body?: unknown | null;
+                        createdAt: number;
+                        id: string;
+                        seo?: unknown | null;
+                        slug?: string | null;
+                        status?: ("draft" | "finished" | "published") | null;
+                        title?: string | null;
+                        updatedAt: number;
+                    };
+                };
+            };
+            /** @description unknown locale */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description missing permission blog.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description temporarily unavailable; retry after the Retry-After header */
+            503: {
+                headers: {
+                    /** @description seconds until the client may retry */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    blogRevisions: {
+        parameters: {
+            query?: {
+                limit?: number;
+                locale?: string;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description ok */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        head: string | null;
+                        items: {
+                            author: {
+                                id: string | null;
+                                name: string | null;
+                            };
+                            bytes: number;
+                            collection: string;
+                            createdAt: number;
+                            documentId: string;
+                            id: string;
+                            /** @enum {string} */
+                            kind: "save" | "restore";
+                            label: string | null;
+                            live: boolean;
+                            locale: string;
+                            parentId: string | null;
+                            skipped: boolean;
+                            status: string | null;
+                        }[];
+                        total: number;
+                    };
+                };
+            };
+            /** @description missing id */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description missing permission blog.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description temporarily unavailable; retry after the Retry-After header */
+            503: {
+                headers: {
+                    /** @description seconds until the client may retry */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    blogRevision: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                revisionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description ok */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        author: {
+                            id: string | null;
+                            name: string | null;
+                        };
+                        bytes: number;
+                        collection: string;
+                        createdAt: number;
+                        documentId: string;
+                        id: string;
+                        /** @enum {string} */
+                        kind: "save" | "restore";
+                        label: string | null;
+                        live: boolean;
+                        locale: string;
+                        parentId: string | null;
+                        restore?: {
+                            dropped: string[];
+                            missing: string[];
+                            revisionId: string;
+                        };
+                        skipped: boolean;
+                        snapshot: Record<string, never> | null;
+                        status: string | null;
+                    };
+                };
+            };
+            /** @description missing id or revisionId */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description missing permission blog.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description no such revision */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description temporarily unavailable; retry after the Retry-After header */
+            503: {
+                headers: {
+                    /** @description seconds until the client may retry */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    labelBlogRevision: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                revisionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    label: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description ok */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        author: {
+                            id: string | null;
+                            name: string | null;
+                        };
+                        bytes: number;
+                        collection: string;
+                        createdAt: number;
+                        documentId: string;
+                        id: string;
+                        /** @enum {string} */
+                        kind: "save" | "restore";
+                        label: string | null;
+                        live: boolean;
+                        locale: string;
+                        parentId: string | null;
+                        skipped: boolean;
+                        status: string | null;
+                    };
+                };
+            };
+            /** @description missing id or revisionId */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description missing permission blog.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description no such revision */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description temporarily unavailable; retry after the Retry-After header */
+            503: {
+                headers: {
+                    /** @description seconds until the client may retry */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    restoreBlogRevision: {
+        parameters: {
+            query?: {
+                locale?: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+                revisionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    body?: unknown | null;
+                    /** @enum {string} */
+                    locale?: "de" | "en";
+                    seo?: unknown | null;
+                    slug?: string | null;
+                    status?: ("draft" | "finished" | "published") | null;
+                    title?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description ok */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        _events: {
+                            pipelines: {
+                                attempts: number;
+                                dead: boolean;
+                                error: string | null;
+                                event: string;
+                                pipeline: string;
+                                /** @enum {string} */
+                                status: "done" | "error" | "pending" | "queued";
+                            }[];
+                            /** @enum {string} */
+                            status: "done" | "error" | "pending" | "queued";
+                        };
+                        /** @description origin locale per field, only with fallback */
+                        _locales?: {
+                            [key: string]: string;
+                        };
+                        /** @description per locale: required localized fields present */
+                        _translations?: {
+                            [key: string]: boolean;
+                        };
+                        body?: unknown | null;
+                        createdAt: number;
+                        id: string;
+                        restore?: {
+                            dropped: string[];
+                            missing: string[];
+                            revisionId: string;
+                        };
+                        seo?: unknown | null;
+                        slug?: string | null;
+                        status?: ("draft" | "finished" | "published") | null;
+                        title?: string | null;
+                        updatedAt: number;
+                    };
+                };
+            };
+            /** @description the path is reserved or starts with a locale code */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description missing permission blog.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description another document holds the path */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description the store is unavailable */
+            503: {
+                headers: {
+                    /** @description seconds until the client may retry */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    previewBlogPath: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    id?: string;
+                    locale?: string;
+                    parent?: string | null;
+                    slug: string;
+                } & {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description ok */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        conflict: {
+                            id: string;
+                            label: string;
+                            locale: string;
+                            path: string;
+                            type: string;
+                        } | null;
+                        exposesParentSlug: {
+                            id: string;
+                            label: string;
+                            type: string;
+                        } | null;
+                        path: string;
+                        reachable: boolean;
+                        reason: string | null;
+                        shadows: {
+                            id: string;
+                            label: string;
+                            path: string;
+                            type: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description slug is missing */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description missing permission blog.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description the store is unavailable */
+            503: {
+                headers: {
+                    /** @description seconds until the client may retry */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     eventsDead: {
         parameters: {
             query?: {
@@ -4530,6 +5657,90 @@ export interface operations {
             };
         };
     };
+    blogPublishStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description ok */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        dependencies: number | null;
+                        docId: string;
+                        error?: string | null;
+                        locale: string;
+                        path?: string | null;
+                        publishedAt?: number | null;
+                        stale: boolean;
+                        staleError: string | null;
+                        staleFailed: boolean;
+                        staleSince: number | null;
+                        /** @enum {string} */
+                        state: "live" | "error" | "draft";
+                        type: string;
+                        updatedAt: number;
+                    }[];
+                };
+            };
+            /** @description missing id */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description missing permission blog.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description temporarily unavailable; retry after the Retry-After header */
+            503: {
+                headers: {
+                    /** @description seconds until the client may retry */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     pagesStaleStatus: {
         parameters: {
             query?: never;
@@ -4939,6 +6150,158 @@ export interface operations {
                 };
             };
             /** @description missing permission pages.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description temporarily unavailable; retry after the Retry-After header */
+            503: {
+                headers: {
+                    /** @description seconds until the client may retry */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    blogReferrersMany: {
+        parameters: {
+            query?: {
+                ids?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description ok */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: {
+                            field: string;
+                            id: string;
+                            type: string;
+                            /** @enum {string} */
+                            via: "field" | "body";
+                        }[];
+                    };
+                };
+            };
+            /** @description missing ids or more than 200 ids */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description missing permission blog.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description temporarily unavailable; retry after the Retry-After header */
+            503: {
+                headers: {
+                    /** @description seconds until the client may retry */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    blogReferrers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description ok */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        field: string;
+                        id: string;
+                        type: string;
+                        /** @enum {string} */
+                        via: "field" | "body";
+                    }[];
+                };
+            };
+            /** @description missing id */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description missing permission blog.manage */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -5723,6 +7086,623 @@ export interface operations {
                 };
             };
             /** @description temporarily unavailable; retry after the Retry-After header */
+            503: {
+                headers: {
+                    /** @description seconds until the client may retry */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listBlog: {
+        parameters: {
+            query?: {
+                limit?: number;
+                locale?: "de" | "en";
+                offset?: number;
+                sort?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description ok; x-kestrel-answers names the answer each audience receives */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["listBlog"] | components["schemas"]["listBlog.anonymous"];
+                };
+            };
+            /** @description invalid limit, offset, sort or locale */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description no field grant on blog for a caller without an identity or a configured role */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description temporarily unavailable; retry after the Retry-After header */
+            503: {
+                headers: {
+                    /** @description seconds until the client may retry */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createBlog: {
+        parameters: {
+            query?: {
+                locale?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    body?: unknown | null;
+                    /** @enum {string} */
+                    locale?: "de" | "en";
+                    seo?: unknown | null;
+                    slug: string;
+                    /** @enum {string} */
+                    status: "draft" | "finished" | "published";
+                    title: string;
+                };
+            };
+        };
+        responses: {
+            /** @description ok */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        _events: {
+                            pipelines: {
+                                attempts: number;
+                                dead: boolean;
+                                error: string | null;
+                                event: string;
+                                pipeline: string;
+                                /** @enum {string} */
+                                status: "done" | "error" | "pending" | "queued";
+                            }[];
+                            /** @enum {string} */
+                            status: "done" | "error" | "pending" | "queued";
+                        };
+                        /** @description origin locale per field, only with fallback */
+                        _locales?: {
+                            [key: string]: string;
+                        };
+                        /** @description per locale: required localized fields present */
+                        _translations?: {
+                            [key: string]: boolean;
+                        };
+                        body?: unknown | null;
+                        createdAt: number;
+                        id: string;
+                        seo?: unknown | null;
+                        slug?: string | null;
+                        status?: ("draft" | "finished" | "published") | null;
+                        title?: string | null;
+                        updatedAt: number;
+                    };
+                };
+            };
+            /** @description the path is reserved or starts with a locale code */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description missing permission blog.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description another document holds the path */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description the store is unavailable */
+            503: {
+                headers: {
+                    /** @description seconds until the client may retry */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    readBlog: {
+        parameters: {
+            query?: {
+                locale?: "de" | "en";
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description ok; x-kestrel-answers names the answer each audience receives */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["readBlog"] | components["schemas"]["readBlog.anonymous"];
+                };
+            };
+            /** @description unknown locale */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description no field grant on blog for a caller without an identity or a configured role */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description temporarily unavailable; retry after the Retry-After header */
+            503: {
+                headers: {
+                    /** @description seconds until the client may retry */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    deleteBlog: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description ok */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        _events: {
+                            pipelines: {
+                                attempts: number;
+                                dead: boolean;
+                                error: string | null;
+                                event: string;
+                                pipeline: string;
+                                /** @enum {string} */
+                                status: "done" | "error" | "pending" | "queued";
+                            }[];
+                            /** @enum {string} */
+                            status: "done" | "error" | "pending" | "queued";
+                        };
+                        ok: boolean;
+                    };
+                };
+            };
+            /** @description the path is reserved or starts with a locale code */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description missing permission blog.delete */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description another document holds the path */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description the store is unavailable */
+            503: {
+                headers: {
+                    /** @description seconds until the client may retry */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    updateBlog: {
+        parameters: {
+            query?: {
+                locale?: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    body?: unknown | null;
+                    /** @enum {string} */
+                    locale?: "de" | "en";
+                    seo?: unknown | null;
+                    slug?: string | null;
+                    status?: ("draft" | "finished" | "published") | null;
+                    title?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description ok */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        _events: {
+                            pipelines: {
+                                attempts: number;
+                                dead: boolean;
+                                error: string | null;
+                                event: string;
+                                pipeline: string;
+                                /** @enum {string} */
+                                status: "done" | "error" | "pending" | "queued";
+                            }[];
+                            /** @enum {string} */
+                            status: "done" | "error" | "pending" | "queued";
+                        };
+                        /** @description origin locale per field, only with fallback */
+                        _locales?: {
+                            [key: string]: string;
+                        };
+                        /** @description per locale: required localized fields present */
+                        _translations?: {
+                            [key: string]: boolean;
+                        };
+                        body?: unknown | null;
+                        createdAt: number;
+                        id: string;
+                        seo?: unknown | null;
+                        slug?: string | null;
+                        status?: ("draft" | "finished" | "published") | null;
+                        title?: string | null;
+                        updatedAt: number;
+                    };
+                };
+            };
+            /** @description the path is reserved or starts with a locale code */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description missing permission blog.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description another document holds the path */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description the store is unavailable */
+            503: {
+                headers: {
+                    /** @description seconds until the client may retry */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    deleteBlogTranslation: {
+        parameters: {
+            query?: {
+                locale?: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+                locale: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description ok */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        _events: {
+                            pipelines: {
+                                attempts: number;
+                                dead: boolean;
+                                error: string | null;
+                                event: string;
+                                pipeline: string;
+                                /** @enum {string} */
+                                status: "done" | "error" | "pending" | "queued";
+                            }[];
+                            /** @enum {string} */
+                            status: "done" | "error" | "pending" | "queued";
+                        };
+                        /** @description origin locale per field, only with fallback */
+                        _locales?: {
+                            [key: string]: string;
+                        };
+                        /** @description per locale: required localized fields present */
+                        _translations?: {
+                            [key: string]: boolean;
+                        };
+                        body?: unknown | null;
+                        createdAt: number;
+                        id: string;
+                        seo?: unknown | null;
+                        slug?: string | null;
+                        status?: ("draft" | "finished" | "published") | null;
+                        title?: string | null;
+                        updatedAt: number;
+                    };
+                };
+            };
+            /** @description the path is reserved or starts with a locale code */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description missing permission blog.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description document or translation not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description another document holds the path */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description the store is unavailable */
             503: {
                 headers: {
                     /** @description seconds until the client may retry */
@@ -8068,6 +10048,78 @@ export interface operations {
             };
         };
     };
+    resolveBlog: {
+        parameters: {
+            query?: {
+                locale?: string;
+            };
+            header?: never;
+            path: {
+                /** @description rest of the path, may contain slashes */
+                path: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description ok; x-kestrel-answers names the answer each audience receives */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["resolveBlog"] | components["schemas"]["resolveBlog.anonymous"];
+                };
+            };
+            /** @description not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description no field grant on blog for a caller without an identity or a configured role */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description no page at this path */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description temporarily unavailable; retry after the Retry-After header */
+            503: {
+                headers: {
+                    /** @description seconds until the client may retry */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     getSettings: {
         parameters: {
             query?: {
@@ -8150,6 +10202,7 @@ export interface operations {
                     description?: string | null;
                     /** @enum {string} */
                     locale?: "de" | "en";
+                    mounts?: unknown | null;
                     navigation?: unknown | null;
                     title: string;
                     titlePosition?: ("suffix" | "prefix") | null;
@@ -8189,6 +10242,7 @@ export interface operations {
                         createdAt: number;
                         description?: string | null;
                         id: string;
+                        mounts?: unknown | null;
                         navigation?: unknown | null;
                         title?: string | null;
                         titlePosition?: ("suffix" | "prefix") | null;
@@ -8197,7 +10251,7 @@ export interface operations {
                     };
                 };
             };
-            /** @description validation failed */
+            /** @description an invalid assignment, or a change moving more than maxCascade paths */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -8224,6 +10278,15 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description a moved document's path is taken */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             /** @description internal error */
             500: {
                 headers: {
@@ -8233,7 +10296,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description the event could not be persisted */
+            /** @description the store is unavailable */
             503: {
                 headers: {
                     /** @description seconds until the client may retry */

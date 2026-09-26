@@ -2,8 +2,7 @@ import type { WorkflowUi } from "../collections-ui/workflow";
 import { SETTINGS_PIPELINES } from "./base";
 import { collectionPipelines, isGenericCollection } from "./collections";
 import type { CollectionModel, CollectionPipeline } from "./collections";
-import { PAGE_DELIVERY_PIPELINES } from "./features/delivery";
-import { PAGE_REFERENCE_PIPELINES } from "./features/references";
+import { routedPipelineNames } from "./delivery-names";
 import { REDIRECTS_PIPELINES } from "./features/redirects";
 import { PATH_PIPELINES, parentFieldOf } from "./paths";
 import { revisionPipelineNames } from "./features/revisions";
@@ -21,11 +20,13 @@ export type CollectionVerb = MultiVerb | SingleVerb;
 
 const ALL_VERBS: readonly CollectionVerb[] = [...MULTI_VERBS, ...SINGLE_VERBS];
 
-const ROUTED_COLLECTIONS: ReadonlySet<string> = new Set(["pages"]);
-
-/** Whether the preset composed this collection into the public `resolvePage` route, independent of the caller's access. */
-export function isRoutedCollection(name: string): boolean {
-  return ROUTED_COLLECTIONS.has(name);
+/**
+ * Whether `site-default` owns this collection's public paths: `pages`, and every multi collection declaring
+ * `mount: true`. The preset composes the path index, the public resolve route and delivery for exactly these,
+ * independent of the caller's access.
+ */
+export function isRoutedCollection(name: string, model: Pick<CollectionModel, "kind" | "mount">): boolean {
+  return name === "pages" || (model.kind === "multi" && model.mount === true);
 }
 
 function namesOf(pipelines: Partial<Record<CollectionVerb, CollectionPipeline>>): Partial<Record<CollectionVerb, string>> {
@@ -56,11 +57,12 @@ export function collectionVerbs(
     verbs.labelRevision = revisionNames.labelRevision;
     verbs.restoreRevision = revisionNames.restoreRevision;
   }
-  if (isRoutedCollection(name)) {
-    verbs.publishStatus = PAGE_DELIVERY_PIPELINES.publishStatus;
-    verbs.referrers = PAGE_REFERENCE_PIPELINES.referrers;
-    verbs.referrersMany = PAGE_REFERENCE_PIPELINES.referrersMany;
-    verbs.previewPath = PATH_PIPELINES.preview;
+  if (isRoutedCollection(name, model)) {
+    const routed = routedPipelineNames(name);
+    verbs.publishStatus = routed.publishStatus;
+    verbs.referrers = routed.referrers;
+    verbs.referrersMany = routed.referrersMany;
+    verbs.previewPath = routed.preview;
     if (parentFieldOf(name, model) !== undefined) verbs.tree = PATH_PIPELINES.tree;
   }
   return verbs;

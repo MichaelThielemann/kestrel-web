@@ -4,7 +4,7 @@ import { customFieldChecks, DEFAULT_COLLECTIONS } from "../collections";
 import type { PresetContext } from "../base";
 import type { PresetEntry } from "../compose";
 import type { FeatureModule } from "../index";
-import { PATH_PIPELINES, PATHS_MOVED_EVENT } from "../paths";
+import { mountedCollections, PATH_PIPELINES, PATHS_MOVED_EVENT } from "../paths";
 
 export const REDIRECTS_PIPELINES = { get: "getRedirects", set: "setRedirects" } as const;
 
@@ -25,7 +25,9 @@ function automaticRedirects(routed: boolean): { pipelines: Record<string, Preset
 }
 
 export default function redirects({ homeSlug, customFields, collections }: PresetContext): FeatureModule {
-  const automatic = automaticRedirects("pages" in (collections ?? DEFAULT_COLLECTIONS));
+  const models = collections ?? DEFAULT_COLLECTIONS;
+  const automatic = automaticRedirects("pages" in models);
+  const resolveStep = mountedCollections(models).length > 0 ? "site.route" : "site.resolve";
   return {
     modules: ["@michaelthielemann/kestrel-redirects-default"],
     pipelines: {
@@ -44,7 +46,7 @@ export default function redirects({ homeSlug, customFields, collections }: Prese
     },
     triggers: automatic.triggers,
     patches: [
-      { pipeline: "resolvePage", steps: ["redirects.lookup"], at: "before", anchor: `site.resolve:pages?home=${homeSlug}&status=published&fallback=true` },
+      { pipeline: "resolvePage", steps: ["redirects.lookup"], at: "before", anchor: `${resolveStep}:pages?home=${homeSlug}&status=published&fallback=true` },
       { pipeline: "publishAllPages", steps: ["redirects.export"], when: "delivery", at: "end" },
     ],
   };

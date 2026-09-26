@@ -213,3 +213,97 @@ describe("subpages", () => {
     expect(collectionVerbs("pages", localized).tree).toBeUndefined();
   });
 });
+
+describe("mounted collections", () => {
+  const settings: CollectionModel = { kind: "single", fields: { title: { type: "text" } } };
+  const blog: CollectionModel = { kind: "multi", mount: true, fields: { slug: { type: "slug", localized: true }, title: { localized: true }, body: { localized: true }, status: { localized: true } } };
+  const collections = { settings, pages, blog };
+  const withAuthz = direct.map((entry) => (entry.use.endsWith("authz-roles") ? { ...entry, config: { anonymous: ["pages.read", "blog.read"] } } : entry));
+  const preset = definePreset({ modules: withAuthz, features, collections });
+
+  it("indexes a mounted collection's writes and adds _paths to its reads like pages", () => {
+    expect(stepsOf(preset, "createBlog")).toEqual([
+      "authn.requireUser",
+      "authz.require:blog.write",
+      "validate.check:blog.body",
+      "validate.sanitize:blog.body",
+      "validate.check:blog.body",
+      { atomic: ["references.check:blog", "content.create:blog", "revisions.record:blog", "references.index:blog", "links.extract:blog", "site.indexPath:blog"] },
+      "site.announcePaths",
+      "events.emit:blog.created",
+      "events.relay",
+    ]);
+    expect(stepsOf(preset, "listBlog")).toEqual(["authn.identifyUser", "authz.require:blog.read", "content.list:blog?status=published", "site.attachPaths:blog?reachable", "authz.fields:blog?shape=list"]);
+  });
+
+  it("gives it a public resolve route, a path preview, delivery and referrers of its own", () => {
+    expect(stepsOf(preset, "resolveBlog")).toEqual(["authn.identifyUser", "authz.require:blog.read", "site.resolve:blog?status=published&fallback=true", "site.resolveLinks:blog?status=published&fallback=true", "authz.fields:blog?shape=item"]);
+    expect(stepsOf(preset, "previewBlogPath")).toEqual(["authn.requireUser", "authz.require:blog.write", "site.previewPath:blog"]);
+    expect(stepsOf(preset, "publishBlog")).toEqual(["delivery.publish:blog", "delivery.requestLlms"]);
+    expect(stepsOf(preset, "unpublishBlog")).toEqual(["delivery.unpublish:blog", "delivery.requestLlms"]);
+    expect(stepsOf(preset, "blogPublishStatus")).toEqual(["authn.requireUser", "authz.require:blog.manage", "delivery.readStatus:blog"]);
+    expect(stepsOf(preset, "blogReferrers")).toEqual(["authn.requireUser", "authz.require:blog.manage", "references.referrers:blog"]);
+    for (const trigger of [
+      { http: "GET /routes/blog/*path", pipeline: "resolveBlog" },
+      { http: "POST /admin/blog/path-preview", pipeline: "previewBlogPath" },
+      { http: "GET /admin/publish-status/blog/:id", pipeline: "blogPublishStatus" },
+      { event: "blog.updated", pipeline: "publishBlog" },
+      { event: "blog.deleted", pipeline: "unpublishBlog" },
+    ]) expect(preset.triggers).toContainEqual(trigger);
+    expect(collectionVerbs("blog", blog)).toMatchObject({ publishStatus: "blogPublishStatus", referrers: "blogReferrers", previewPath: "previewBlogPath" });
+  });
+
+  it("hands a page path that belongs to a mounted collection on with a route hint, after the redirect lookup", () => {
+    expect(stepsOf(preset, "resolvePage")).toEqual([
+      "authn.identifyUser",
+      "authz.require:pages.read",
+      "redirects.lookup",
+      "site.route:pages?home=home&status=published&fallback=true",
+      "site.resolve:pages?home=home&status=published&fallback=true",
+      "site.resolveLinks:pages?home=home&status=published&fallback=true",
+      "authz.fields:pages?shape=item",
+    ]);
+  });
+
+  it("checks the mount assignment and moves the collection inside the settings write", () => {
+    expect(stepsOf(preset, "setSettings")).toEqual([
+      "authn.requireUser",
+      "authz.require:settings.write",
+      "validate.check:settings.navigation",
+      "validate.check:settings.mounts",
+      { atomic: ["content.set:settings", "site.indexMounts"] },
+      "site.announcePaths",
+      "events.emit:settings.updated",
+      "events.relay",
+    ]);
+  });
+
+  it("configures site-default and content-default for the mount", () => {
+    const modules = presetModuleConfig({
+      dataDir: "/srv/data",
+      blobstore: { use: "@michaelthielemann/kestrel-blobstore-filesystem", config: { root: "/srv/data/blobs" } },
+      model: { locales: ["de", "en"], defaultLocale: "de", types: collections },
+      features: [],
+      roles: { roles: { admin: ["*"] }, anonymous: ["pages.read", "blog.read"] },
+      bootstrap: { username: "admin", passwordHash: "x" },
+    });
+    const site = modules.find((entry) => entry.use === "@michaelthielemann/kestrel-site-default")?.config;
+    expect(site).toMatchObject({ routes: { blog: { mount: true, liveWhen: { status: "published" } } }, mounts: { type: "settings", field: "mounts" } });
+    const content = modules.find((entry) => entry.use === "@michaelthielemann/kestrel-content-default")?.config;
+    expect(content).toMatchObject({ types: { settings: { fields: { mounts: { type: "json" } } } } });
+    expect(content).not.toMatchObject({ types: { blog: { mount: true } } });
+    const validate = modules.find((entry) => entry.use === "@michaelthielemann/kestrel-validate-jsonschema")?.config;
+    expect(validate).toMatchObject({ schemas: { "settings.mounts": { type: ["object", "null"], properties: { blog: { type: ["string", "null"] } }, additionalProperties: false } } });
+  });
+
+  it("requires anonymous callers to read every routed collection", () => {
+    const { problems } = checkPreset({ modules: direct.map((entry) => (entry.use.endsWith("authz-roles") ? { ...entry, config: { anonymous: ["pages.read"] } } : entry)), features: [], collections });
+    expect(problems).toContainEqual(expect.objectContaining({ code: "preset/routed-read" }));
+  });
+
+  it("refuses a mounted single collection and reserves the name routes", () => {
+    const { problems } = checkPreset({ modules: direct, features: [], collections: { settings, pages, notes: { kind: "single", mount: true, fields: {} }, routes: { kind: "multi", fields: {} } } });
+    expect(problems).toContainEqual(expect.objectContaining({ code: "preset/mount-invalid" }));
+    expect(problems).toContainEqual(expect.objectContaining({ code: "preset/collection-name-reserved" }));
+  });
+});

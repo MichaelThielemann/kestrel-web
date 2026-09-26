@@ -48,6 +48,7 @@ export interface ContentField {
 export interface ContentType {
   kind: "single" | "multi";
   fields: Record<string, ContentField>;
+  mount?: boolean;
 }
 
 export const contentTypes = {

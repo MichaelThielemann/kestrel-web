@@ -9,11 +9,12 @@ import type { FieldTypes } from "../field-types";
 import { appendRelay, applyFeaturePatches, emitEntryIndex, foldTrailingEmit, groupSignatureOf, mergePipelines, placeIndexStepsLast } from "./compose";
 import type { GroupSignature, Patch, PresetEntry } from "./compose";
 import { basePipelines } from "./base";
-import { appendFieldCut, fieldCutSteps } from "./field-grants";
+import { anonymousHolds, appendFieldCut, fieldCutSteps } from "./field-grants";
 import type { PresetContext } from "./base";
 import { canonicalTriggers } from "./triggers";
 import { isRoutedCollection } from "./capabilities";
-import { parentFieldOf } from "./paths";
+import { parentFieldOf, routedCollections } from "./paths";
+import { routedPipelineNames } from "./delivery-names";
 import { collectionPipelines, hasLocalizedField, insertCollectionTriggers, isGenericCollection, pipelinesByName, DEFAULT_COLLECTIONS } from "./collections";
 import type { CollectionModel, CollectionPipelineName } from "./collections";
 import ratelimit from "./features/ratelimit";
@@ -256,7 +257,33 @@ function hasRedirectsRulesSchema(config: unknown): boolean {
 const PAGE_REQUIRING_FEATURES: readonly Feature[] = ["references", "links", "delivery"];
 
 const COLLECTION_NAME_PATTERN = /^[a-z][a-z0-9_]*$/;
-const RESERVED_COLLECTION_NAMES = new Set(["site", "media", "users", "health", "login", "logout", "me", "admin"]);
+const RESERVED_COLLECTION_NAMES = new Set(["site", "media", "users", "health", "login", "logout", "me", "admin", "routes"]);
+const AUTHZ_MODULE = "@michaelthielemann/kestrel-authz-roles";
+
+function anonymousPermissions(modules: readonly { use: string; config?: unknown }[]): string[] | undefined {
+  const config = modules.find((entry) => entry.use === AUTHZ_MODULE)?.config;
+  if (typeof config !== "object" || config === null || !("anonymous" in config)) return undefined;
+  const anonymous: unknown = Reflect.get(config, "anonymous");
+  return Array.isArray(anonymous) ? anonymous.filter((entry): entry is string => typeof entry === "string") : undefined;
+}
+
+function validateMounts(collections: Record<string, CollectionModel>, modules: readonly { use: string; config?: unknown }[], sink: PresetSink): void {
+  const mounting = Object.entries(collections).filter(([, model]) => model.mount === true);
+  for (const [name, model] of mounting) {
+    if (name === "pages" || model.kind !== "multi") sink.report({ code: "preset/mount-invalid", message: `preset: collection "${name}" declares mount: true, but only a multi collection other than "pages" can be mounted` });
+    else if (!("slug" in model.fields)) sink.report({ code: "preset/mount-invalid", message: `preset: mounted collection "${name}" needs a "slug" field for its public paths` });
+  }
+  if (mounting.length > 0 && !("pages" in collections)) sink.report({ code: "preset/mount-invalid", message: 'preset: a mounted collection lives under a page, which needs a "pages" collection' });
+  const anonymous = anonymousPermissions(modules);
+  if (anonymous === undefined || mounting.length === 0 || !anonymousHolds(anonymous, "pages.read")) return;
+  for (const name of routedCollections(collections)) {
+    if (anonymousHolds(anonymous, `${name}.read`)) continue;
+    sink.report({
+      code: "preset/routed-read",
+      message: `preset: anonymous callers read pages, so they must hold "${name}.read" too – "${name}" has public paths, and a page path that belongs to it hands the visitor on to its own resolve route`,
+    });
+  }
+}
 
 function validateCollectionNames(collections: Record<string, CollectionModel>, sink: PresetSink): void {
   for (const name of Object.keys(collections)) {
@@ -279,8 +306,8 @@ function isUniqueSlug(field: unknown): boolean {
 
 function validateRoutedSlugs(collections: Record<string, CollectionModel>, sink: PresetSink): void {
   for (const [name, model] of Object.entries(collections)) {
-    if (!isGenericCollection(name) || !isRoutedCollection(name) || !isUniqueSlug(model.fields.slug)) continue;
-    if (parentFieldOf(name, model) === undefined) continue;
+    if (!isGenericCollection(name) || !isRoutedCollection(name, model) || !isUniqueSlug(model.fields.slug)) continue;
+    if (parentFieldOf(name, model) === undefined && model.mount !== true) continue;
     sink.report({
       code: "preset/routed-slug-unique",
       message: `preset: "${name}.slug" must not be unique – the public path is what is unique, and a unique slug rejects the same slug under two different parents without naming the page that holds it; remove "unique: true"`,
@@ -306,6 +333,7 @@ export function buildPreset<C extends Record<string, CollectionModel> = Record<s
   const collections: Record<string, CollectionModel> = options.collections ?? DEFAULT_COLLECTIONS;
   validateCollectionNames(collections, sink);
   validateRoutedSlugs(collections, sink);
+  validateMounts(collections, options.modules, sink);
   const customFields = customFieldTypes(collections, options.fieldTypes ?? {});
   const context: PresetContext = { exportDir, homeSlug, collections, customFields, modules: options.modules, ...(options.collectionsUi === undefined ? {} : { collectionsUi: options.collectionsUi }) };
 
@@ -331,6 +359,10 @@ export function buildPreset<C extends Record<string, CollectionModel> = Record<s
     const generated = collectionPipelines(name, model, options.collectionsUi?.[name], customFields[name]);
     for (const pipeline of Object.values(generated)) composablePipelineNames.add(pipeline.name);
     composablePipelineNames.add(dependentsPipelineName(name));
+    if (isRoutedCollection(name, model)) {
+      const routed = routedPipelineNames(name);
+      for (const pipeline of [routed.publish, routed.unpublish, routed.publishStatus, routed.referrers, routed.referrersMany, routed.preview, routed.resolve]) composablePipelineNames.add(pipeline);
+    }
     try {
       pipelines = mergePipelines(pipelines, pipelinesByName(generated), name, "collection");
     } catch (err) {

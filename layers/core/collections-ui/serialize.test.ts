@@ -14,26 +14,27 @@ import { syntheticCollectionsUi } from "./__fixtures__/synthetic-collections-ui"
 const describedTypes: Record<string, ContentType> = {
   ...contentTypes,
   pages: { ...contentTypes.pages, fields: { ...contentTypes.pages.fields, accent: { type: "text" } } },
+  settings: { ...contentTypes.settings, fields: { ...contentTypes.settings.fields, mounts: { type: "json" } } },
 };
 const playgroundCustomTypes = customFieldTypes(contentTypes, fieldTypes);
 
-function routingFor(names: readonly string[]): Record<string, CollectionRouting> {
-  return Object.fromEntries(names.map((name) => [name, { routed: isRoutedCollection(name), published: isRoutedCollection(name) }]));
+function routingFor(types: Readonly<Record<string, { kind: "single" | "multi"; mount?: boolean }>>): Record<string, CollectionRouting> {
+  return Object.fromEntries(Object.entries(types).map(([name, model]) => [name, { routed: isRoutedCollection(name, model), published: isRoutedCollection(name, model) }]));
 }
 
 describe("serializeCollections golden fixture", () => {
   it("matches today's frozen playground output", () => {
     const fixture: unknown = JSON.parse(readFileSync(fileURLToPath(new URL("./__fixtures__/collections.playground.json", import.meta.url)), "utf-8"));
-    expect(serializeCollections(describedTypes, playgroundUi, routingFor(Object.keys(describedTypes)), playgroundCustomTypes)).toEqual(fixture);
+    expect(serializeCollections(describedTypes, playgroundUi, routingFor(describedTypes), playgroundCustomTypes)).toEqual(fixture);
   });
 
   it("reports the declared field type and keeps the storage type for the admin's fallback", () => {
-    const pages = serializeCollections(describedTypes, playgroundUi, routingFor(Object.keys(describedTypes)), playgroundCustomTypes).find((collection) => collection.name === "pages");
+    const pages = serializeCollections(describedTypes, playgroundUi, routingFor(describedTypes), playgroundCustomTypes).find((collection) => collection.name === "pages");
     expect(pages?.fields.accent).toMatchObject({ type: "color", storageType: "text" });
   });
 
   it("leaves the storage type alone when no custom type is declared for the field", () => {
-    const pages = serializeCollections(describedTypes, playgroundUi, routingFor(Object.keys(describedTypes))).find((collection) => collection.name === "pages");
+    const pages = serializeCollections(describedTypes, playgroundUi, routingFor(describedTypes)).find((collection) => collection.name === "pages");
     expect(pages?.fields.accent).toMatchObject({ type: "text" });
     expect(pages?.fields.accent?.storageType).toBeUndefined();
   });
@@ -42,11 +43,11 @@ describe("serializeCollections golden fixture", () => {
 describe("serializeCollections golden fixture: synthetic collections", () => {
   it("derives rail/system/account placement and status/body flags for news, profile and notifications", () => {
     const fixture: unknown = JSON.parse(readFileSync(fileURLToPath(new URL("./__fixtures__/collections.synthetic.json", import.meta.url)), "utf-8"));
-    expect(serializeCollections(syntheticContentTypes, syntheticCollectionsUi, routingFor(Object.keys(syntheticContentTypes)))).toEqual(fixture);
+    expect(serializeCollections(syntheticContentTypes, syntheticCollectionsUi, routingFor(syntheticContentTypes))).toEqual(fixture);
   });
 
   it("defaults placement to rail when the UI entry does not set one", () => {
-    const [, , pages, news] = serializeCollections(syntheticContentTypes, syntheticCollectionsUi, routingFor(Object.keys(syntheticContentTypes)));
+    const [, , pages, news] = serializeCollections(syntheticContentTypes, syntheticCollectionsUi, routingFor(syntheticContentTypes));
     expect(pages!.placement).toBe("rail");
     expect(news!.placement).toBe("rail");
   });

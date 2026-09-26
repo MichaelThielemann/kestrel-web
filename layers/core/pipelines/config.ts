@@ -1,13 +1,13 @@
 import { resolve } from "node:path";
 import { mediaTypeAllowed } from "@michaelthielemann/kestrel-contracts/mediaType";
-import { MEDIA_PUBLIC_PATH, MOUNT_PATH, RESERVED_PAGE_SEGMENTS } from "../mount-path";
+import { MEDIA_PUBLIC_PATH, MOUNT_PATH, MOUNTS_FIELD, RESERVED_PAGE_SEGMENTS } from "../mount-path";
 import { resolveWorkflow } from "../collections-ui/workflow";
 import type { WorkflowUi } from "../collections-ui/workflow";
 import { resolveStorageTypes } from "../field-types";
 import type { FieldTypes } from "../field-types";
-import { isGenericCollection, isPageLikeCollection } from "./collections";
+import { isGenericCollection } from "./collections";
 import { anonymousFieldGrants, withConsumerGrants } from "./field-grants";
-import { parentFieldOf } from "./paths";
+import { mountedCollections, parentFieldOf, routedCollections } from "./paths";
 import type { PipelineChanges } from "./field-grants";
 import type { CollectionModel } from "./collections";
 import { lanesFor, presetSchemas, relayPipelinesFor } from "./index";
@@ -182,7 +182,7 @@ function refTargetOf(field: unknown): string | undefined {
 
 function referenceTargets(types: Record<string, CollectionModel>): Record<string, ReferenceTarget> {
   const targets: Record<string, ReferenceTarget> = {};
-  if (PAGES_COLLECTION in types) targets[PAGES_COLLECTION] = { content: PAGES_COLLECTION };
+  for (const name of routedCollections(types)) targets[name] = { content: name };
   for (const model of Object.values(types)) {
     for (const field of Object.values(model.fields)) {
       const to = refTargetOf(field);
@@ -195,11 +195,28 @@ function referenceTargets(types: Record<string, CollectionModel>): Record<string
 }
 
 function deliveryTypes(types: Record<string, CollectionModel>): Record<string, Record<string, never>> {
-  const delivered: Record<string, Record<string, never>> = {};
-  for (const [name, model] of Object.entries(types)) {
-    if (isPageLikeCollection(name, model)) delivered[name] = {};
-  }
-  return delivered;
+  return Object.fromEntries(routedCollections(types).map((name) => [name, {}]));
+}
+
+function pluralLabel(name: string, ui: WorkflowUi | undefined): string {
+  const label: unknown = typeof ui === "object" && ui !== null && "label" in ui ? Reflect.get(ui, "label") : undefined;
+  const plural: unknown = typeof label === "object" && label !== null ? Reflect.get(label, "plural") : undefined;
+  if (typeof plural === "string") return plural;
+  const en: unknown = typeof plural === "object" && plural !== null ? Reflect.get(plural, "en") : undefined;
+  return typeof en === "string" ? en : name.charAt(0).toUpperCase() + name.slice(1);
+}
+
+function llmsHeadings(types: Record<string, CollectionModel>, collectionsUi: Record<string, WorkflowUi> | undefined): Record<string, string> {
+  return { ...DEFAULT_LLMS_HEADINGS, ...Object.fromEntries(mountedCollections(types).map((name) => [name, pluralLabel(name, collectionsUi?.[name])])) };
+}
+
+function contentTypesOf(types: Record<string, CollectionModel>): Record<string, CollectionModel> {
+  const stored = Object.fromEntries(Object.entries(types).map(([name, { mount: _mount, ...model }]) => [name, model]));
+  if (mountedCollections(types).length === 0) return stored;
+  const settings = stored.settings;
+  if (settings === undefined || settings.kind !== "single") throw new Error(`presetModuleConfig: collection "${mountedCollections(types)[0] ?? ""}" is mounted, which needs a single "settings" collection to store the mount pages`);
+  if (MOUNTS_FIELD in settings.fields) throw new Error(`presetModuleConfig: "settings.${MOUNTS_FIELD}" is reserved for the mount pages of mounted collections`);
+  return { ...stored, settings: { ...settings, fields: { ...settings.fields, [MOUNTS_FIELD]: { type: "json" } } } };
 }
 
 interface LiveStates {
@@ -243,8 +260,14 @@ function siteConfig(types: Record<string, CollectionModel>, options: PresetModul
   };
   const parentField = parentFieldOf(PAGES_COLLECTION, pages);
   if (parentField !== undefined && routes[PAGES_COLLECTION] !== undefined) routes[PAGES_COLLECTION].parentField = parentField;
+  const mounted = mountedCollections(types);
+  for (const name of mounted) {
+    const model = types[name];
+    if (model !== undefined) routes[name] = { mount: true, liveWhen: liveWhenOf(name, model, options.collectionsUi?.[name]) };
+  }
   return {
     routes,
+    ...(mounted.length === 0 ? {} : { mounts: { type: "settings", field: MOUNTS_FIELD } }),
     prefixPrimary: options.prefixPrimary ?? false,
     reservedPaths: [...RESERVED_PATHS],
     ...(options.paths?.maxCascade === undefined ? {} : { maxCascade: options.paths.maxCascade }),
@@ -355,7 +378,7 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
     config: {
       ...(model.locales === undefined ? {} : { locales: [...model.locales] }),
       ...(model.defaultLocale === undefined ? {} : { defaultLocale: model.defaultLocale }),
-      types,
+      types: contentTypesOf(types),
     },
   });
   modules.push({ use: "@michaelthielemann/kestrel-site-default", config: siteConfig(types, options) });
@@ -378,7 +401,7 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
         reservedPaths: [...RESERVED_PATHS],
         llms: {
           full: options.llms?.full ?? true,
-          headings: options.llms?.headings ?? { ...DEFAULT_LLMS_HEADINGS },
+          headings: options.llms?.headings ?? llmsHeadings(types, options.collectionsUi),
           ...(siteUrl === undefined ? {} : { siteUrl }),
         },
         dependencies: renderDependencies(enabled.has("eventsQueue"), options.eventsQueue),

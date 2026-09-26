@@ -53,6 +53,7 @@ function fullAccessTriggers(): HttpTriggerEntry[] {
 const describedTypes: Record<string, ContentType> = {
   ...contentTypes,
   pages: { ...contentTypes.pages, fields: { ...contentTypes.pages.fields, accent: { type: "text" } } },
+  settings: { ...contentTypes.settings, fields: { ...contentTypes.settings.fields, mounts: { type: "json" } } },
 };
 const describedModel = { ...contentModel, types: describedTypes };
 const customTypes = customFieldTypes(contentTypes, fieldTypes);
@@ -68,6 +69,7 @@ const schema = buildAdminSchema({
   customTypes,
   triggers,
   access: {},
+  collections: contentTypes,
 });
 
 describe("buildAdminSchema", () => {
@@ -86,7 +88,7 @@ describe("buildAdminSchema", () => {
 
   it("falls back to the consumer locales when the model describes none", () => {
     const fallback = buildAdminSchema({
-      model: { types: contentModel.types },
+      model: { types: describedTypes },
       collectionsUi,
       features,
       prefixPrimary,

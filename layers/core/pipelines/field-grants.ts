@@ -3,7 +3,8 @@ import type { PipelineEntry } from "@michaelthielemann/kestrel/definePipeline";
 import type { PresetStep } from "../module-registry";
 import { isRoutedCollection } from "./capabilities";
 import { collectionPipelines, isGenericCollection } from "./collections";
-import { parentFieldOf } from "./paths";
+import { mountedCollections, parentFieldOf } from "./paths";
+import { routedPipelineNames } from "./delivery-names";
 import type { CollectionModel } from "./collections";
 import type { PresetEntry } from "./compose";
 import type { Feature } from "./checkPreset";
@@ -56,6 +57,7 @@ export function fieldCutSteps(collections: Record<string, CollectionModel>): Rec
     if (pipelines.list) steps[pipelines.list.name] = cut(name, "list");
     if (pipelines.read) steps[pipelines.read.name] = cut(name, "item");
     if (pipelines.get) steps[pipelines.get.name] = cut(name, "item");
+    if (name !== "pages" && isRoutedCollection(name, model)) steps[routedPipelineNames(name).resolve] = cut(name, "item");
   }
   return steps;
 }
@@ -125,7 +127,9 @@ export function anonymousFieldGrants(model: FieldGrantModel, features: readonly 
     const fields = ["id", ...Object.keys(type.fields).filter((field) => field !== parent), ...locale];
     if (name === "settings") fields.push("_links");
     if (name === "pages") fields.push(...(localized ? ["_locale"] : []), "_links", ...(redirects ? ["redirect"] : []));
-    if (isRoutedCollection(name)) fields.push("_paths");
+    else if (isRoutedCollection(name, type)) fields.push(...(localized ? ["_locale"] : []), "_links");
+    if (isRoutedCollection(name, type)) fields.push("_paths");
+    if (name === "pages" && mountedCollections(model.types).length > 0) fields.push("route.type");
     grants[name] = fields;
   }
   if (holds(anonymous, MEDIA_READ) && cut.has("media")) grants.media = [...MEDIA_FIELDS, ...(images ? VARIANT_FIELDS : [])];

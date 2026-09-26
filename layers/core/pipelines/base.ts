@@ -3,7 +3,8 @@ import type { WorkflowUi } from "../collections-ui/workflow";
 import type { CustomFieldTypes } from "../field-types";
 import type { PresetEntry } from "./compose";
 import { customFieldChecks } from "./collections";
-import { pathPipelines } from "./paths";
+import { MOUNTS_FIELD } from "../mount-path";
+import { mountedCollections, mountedPipelines, pathPipelines } from "./paths";
 import type { CollectionModel } from "./collections";
 
 export interface PresetModuleEntry {
@@ -26,9 +27,12 @@ export interface PresetContext {
 }
 
 export function basePipelines(
-  { exportDir, homeSlug, customFields, eventsQueued }: PresetContext,
+  { exportDir, homeSlug, customFields, eventsQueued, collectionsUi }: PresetContext,
   collections: Record<string, CollectionModel>,
 ): Record<string, PresetEntry<PresetStep>[]> {
+  const mounts = "pages" in collections && mountedCollections(collections).length > 0;
+  const siteRules = `home=${homeSlug}&status=published&fallback=true`;
+  const routeHint: PresetStep[] = mounts ? [`site.route:pages?${siteRules}`] : [];
   const pipelines: Record<string, PresetEntry<PresetStep>[]> = {
     login: ["authn.login", "events.emit:auth.loggedIn"],
     logout: ["authn.requireUser", "authn.logout", "events.emit:auth.loggedOut"],
@@ -64,14 +68,25 @@ export function basePipelines(
       "content.get:settings",
       `site.resolveLinks:settings?home=${homeSlug}&status=published&fallback=true`,
     ],
-    [SETTINGS_PIPELINES.set]: [
-      "authn.requireUser",
-      "authz.require:settings.write",
-      "validate.check:settings.navigation",
-      ...customFieldChecks("settings", customFields?.settings),
-      { atomic: ["content.set:settings"] },
-      "events.emit:settings.updated",
-    ],
+    [SETTINGS_PIPELINES.set]: mounts
+      ? [
+          "authn.requireUser",
+          "authz.require:settings.write",
+          "validate.check:settings.navigation",
+          `validate.check:settings.${MOUNTS_FIELD}`,
+          ...customFieldChecks("settings", customFields?.settings),
+          { atomic: ["content.set:settings", "site.indexMounts"] },
+          "site.announcePaths",
+          "events.emit:settings.updated",
+        ]
+      : [
+          "authn.requireUser",
+          "authz.require:settings.write",
+          "validate.check:settings.navigation",
+          ...customFieldChecks("settings", customFields?.settings),
+          { atomic: ["content.set:settings"] },
+          "events.emit:settings.updated",
+        ],
     uploadMedia: ["authn.requireUser", "authz.require:media.write", "media.upload", "events.emit:media.uploaded"],
     exportMedia: ["authn.requireUser", "authz.require:media.manage", `media.export:${exportDir}`],
     listMediaFolders: ["authn.requireUser", "authz.require:media.read", "media.listFolders"],
@@ -94,10 +109,11 @@ export function basePipelines(
     pipelines.resolvePage = [
       "authn.identifyUser",
       "authz.require:pages.read",
-      `site.resolve:pages?home=${homeSlug}&status=published&fallback=true`,
-      `site.resolveLinks:pages?home=${homeSlug}&status=published&fallback=true`,
+      ...routeHint,
+      `site.resolve:pages?${siteRules}`,
+      `site.resolveLinks:pages?${siteRules}`,
     ];
-    Object.assign(pipelines, pathPipelines(collections.pages));
+    Object.assign(pipelines, pathPipelines(collections.pages), mountedPipelines(collections, collectionsUi));
   }
 
   return pipelines;
