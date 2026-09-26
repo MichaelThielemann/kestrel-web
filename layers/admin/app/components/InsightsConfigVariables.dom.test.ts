@@ -93,12 +93,49 @@ describe('InsightsConfigVariables', () => {
     expect(dot.element.parentElement).toBe(statusCell.element)
   })
 
-  it('bounds the value and default cells to a fixed character width and lets long values wrap inside it, instead of forcing the table wider', () => {
-    const valueBlock = source.match(/&__value\s*{[\s\S]*?\.insights-value__text\s*{([^}]*)}/)
+  it('bounds a wrapping value (object, array, record) to a fixed character width and lets it wrap inside it, instead of forcing the table wider', () => {
+    const valueBlock = source.match(/&__value--wrap\s*{[\s\S]*?\.insights-value__text\s*{([^}]*)}/)
     expect(valueBlock).not.toBeNull()
     const declarations = valueBlock![1]!
     expect(declarations).toMatch(/max-width:\s*40ch/)
     expect(declarations).toMatch(/overflow-wrap:\s*anywhere/)
     expect(declarations).not.toMatch(/white-space:\s*nowrap/)
+  })
+
+  it('keeps a short scalar value (number, boolean, enum) on one line instead of breaking it apart', async () => {
+    const scalar: InsightsConfigVariable[] = [
+      { path: 'busyTimeoutMs', type: 'integer', required: false, secret: false, set: true, status: 'set', value: 20000 },
+    ]
+    const wrapper = await mountSuspended(InsightsConfigVariables, { props: { variables: scalar } })
+    const valueCell = wrapper.findAll('tbody tr')[0]!.findAll('td')[3]!
+    expect(valueCell.classes()).not.toContain('insights-config__value--wrap')
+  })
+
+  it('gives the embedded (non-sticky) table its own horizontal scroll region, separate from the page vertical scroll', async () => {
+    const wrapper = await mountSuspended(InsightsConfigVariables, { props: { variables, labelledBy: 'heading-id', scroll: false } })
+    const region = wrapper.get('table').element.closest('[role="region"]')
+    expect(region).not.toBeNull()
+    expect(region?.getAttribute('tabindex')).toBe('0')
+    expect(region?.getAttribute('aria-labelledby')).toBe('heading-id')
+    expect(region?.closest('.u-scroll')).toBeNull()
+  })
+
+  it('falls back to a generic label on the scroll region when no heading is given to label it', async () => {
+    const wrapper = await mountSuspended(InsightsConfigVariables, { props: { variables, scroll: false } })
+    const region = wrapper.get('table').element.closest('[role="region"]')
+    expect(region?.getAttribute('aria-label')).toBe(en['insights.configScrollRegion'])
+  })
+
+  it('names the source of a value a preset supplied, in the same blue dot as any other default', async () => {
+    const fromPreset: InsightsConfigVariable[] = [
+      { path: 'dependencies.render', type: 'enum', required: false, secret: false, set: false, status: 'default', source: 'preset', default: 'background' },
+    ]
+    const wrapper = await mountSuspended(InsightsConfigVariables, { props: { variables: fromPreset } })
+    const row = wrapper.findAll('tbody tr')[0]!
+    const dot = row.get('.insights-config__dot')
+
+    expect(dot.classes()).toContain('insights-config__dot--default')
+    expect(row.text()).toContain('Default · Preset')
+    expect(dot.attributes('title')).toBe('Value the Preset supplies')
   })
 })

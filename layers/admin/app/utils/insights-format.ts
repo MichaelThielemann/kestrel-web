@@ -10,6 +10,12 @@ export function isConfigRedacted(v: InsightsConfigVariable): boolean {
   return v.redacted === true || v.secret
 }
 
+export function configSourceLabel(source: string, t: (key: string) => string): string {
+  const key = `insights.source.${source}`
+  const label = t(key)
+  return label === key ? source.charAt(0).toUpperCase() + source.slice(1) : label
+}
+
 export function formatConfigValue(value: unknown): string | null {
   if (value === undefined || value === null) return null
   const json = JSON.stringify(value)
