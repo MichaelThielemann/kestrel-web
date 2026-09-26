@@ -405,6 +405,13 @@
   and reports its conflicts.
 - The public language switcher links each locale through the page's `_paths`, without a request per
   locale; the untranslated-page redirect uses the default locale's `_paths` entry.
+- Subpages ([`docs/paths.md`](docs/paths.md#subpages)): a `pages` collection with `parent: { type: "ref",
+  to: "pages" }` routes its pages through `site-default`'s `parentField`, so a page's path starts with its
+  parent's. New pipeline `pageTree` (`GET /admin/pages/tree`, `pages.manage`) and collection verb `tree`;
+  the parent field is never granted to anonymous callers. The playground, the `create-kestrel` template and
+  the preset's default collections give pages a parent field. The admin shows pages as an ARIA tree next to
+  the flat list, and the parent picker leaves out the page and its subpages.
+- `kestrel-web-upgrade`: `model/parent-offer` asks whether pages should get a parent field.
 - `kestrel-web-upgrade`: `preset/override-path-steps` (fix) and `consumer/slug-url` (info). The path event
   pipelines count as safe to deliver twice for `offer/event-queue`.
 

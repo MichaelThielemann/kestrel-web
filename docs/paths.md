@@ -8,7 +8,7 @@ every page write and read; this page describes what a site built on kestrel-web 
 ## What is unique
 
 The public path is unique per locale, not the slug. Two pages may carry the same slug as long as their
-paths differ. `pages.slug` therefore must not declare `unique: true`: a unique
+paths differ (see [Subpages](#subpages)). `pages.slug` therefore must not declare `unique: true`: a unique
 slug would reject the same slug in two places without naming the page that holds it. With a parent field
 the preset refuses such a model (`preset/routed-slug-unique`), and `site-default` refuses it at boot.
 Without one, `site-default` logs a warning. `kestrel-web-upgrade fix` removes the flag in either case.
@@ -19,6 +19,37 @@ collision. Drafts hold their paths too, so two drafts cannot share one either.
 
 A path is also rejected when it equals or lies under a path the server uses itself (`/api`, `/admin`,
 `/media`), or when its first segment is a locale code. Both are field errors on the slug.
+
+## Subpages
+
+Give `pages` a parent field and a page can sit below another:
+
+```ts
+pages: {
+  kind: "multi",
+  fields: {
+    // …
+    parent: { type: "ref", to: "pages" },
+  },
+},
+```
+
+The field must be called `parent`, reference `pages` and not be localized. Its path then starts with its
+parent's, in every locale: `/ueber-uns/team`, `/en/about-us/team`. A locale in which a parent has no slug
+of its own uses the parent's default-locale slug as the segment.
+
+- A page is reachable on its own terms: a published subpage of an unpublished parent is served at its full
+  path, with the parent's slug as a segment, while the parent itself answers `404`. Nothing else of the
+  parent reaches a visitor; the parent field is never granted to anonymous callers. The admin warns when a
+  page's address shows the slug of a parent that is not published in that locale.
+- Renaming or moving a page moves every page below it, each with an automatic redirect. A save that would
+  move more than `paths.maxCascade` paths is rejected on the field that triggered it.
+- A parent that is the page itself or one of its subpages, a chain deeper than 16 levels, and the home page
+  as a parent are field errors on `parent`. A page with subpages cannot be deleted until they move.
+- The admin's pages list opens as a tree (`GET /api/admin/pages/tree`, permission `pages.manage`), and the
+  parent picker offers neither the page itself nor its subpages.
+
+`kestrel-web-upgrade fix` offers to add the parent field (`model/parent-offer`, default no).
 
 ## Moves and redirects
 
