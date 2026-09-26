@@ -3735,8 +3735,10 @@ export interface operations {
                                     required: boolean;
                                     secret: boolean;
                                     set: boolean;
+                                    /** @description The name of the host layer that supplied the default; present only when the value comes from the module entry's defaults */
+                                    source?: string;
                                     /**
-                                     * @description set: the raw config carries the path; default: it does not and the value comes from this node's or an ancestor's default; missing: no value at all
+                                     * @description set: the raw config carries the path; default: it does not and the value comes from the entry's host-supplied defaults or from this node's or an ancestor's default; missing: no value at all
                                      * @enum {string}
                                      */
                                     status: "set" | "default" | "missing";

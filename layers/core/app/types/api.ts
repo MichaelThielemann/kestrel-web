@@ -295,6 +295,7 @@ export interface InsightsConfigVariable {
   secret: boolean
   set: boolean
   status?: 'set' | 'default' | 'missing'
+  source?: string
   value?: unknown
   redacted?: boolean
 }
