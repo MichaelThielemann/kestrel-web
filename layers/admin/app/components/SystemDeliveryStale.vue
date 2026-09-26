@@ -16,12 +16,14 @@ const canRetry = computed(() => deps.capabilities.has('retryStalePages'))
 const progressText = computed(() => (progress.value ? staleProgressText(t, progress.value) : ''))
 const lines = computed(() => (status.value ? staleLines(t, status.value) : []))
 
+const { collections } = useCollections()
+
 function busyPort(flag: Ref<boolean>): BusyPort {
   return { setBusy: (on) => { flag.value = on }, busy: () => flag.value }
 }
 
 async function onPublishAll() {
-  const result = await runAction(publishAll, { deps, ops: busyPort(publishing) })
+  const result = await runAction(publishAll, { deps, ops: busyPort(publishing), collections: collections.value.map((entry) => entry.name) })
   toastUnexpected(deps, result)
   if (result.ok) await stale.watch(result.result?.marked)
 }

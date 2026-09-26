@@ -931,6 +931,10 @@
         "previewPath": {
           "method": "POST",
           "path": "/admin/blog/path-preview"
+        },
+        "publishAll": {
+          "method": "POST",
+          "path": "/admin/publish-all/blog"
         }
       }
     }

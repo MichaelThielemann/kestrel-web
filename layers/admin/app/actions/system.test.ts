@@ -27,7 +27,7 @@ import {
 } from './system'
 import type { BusyPort } from './types'
 import { capabilityResolver } from '../utils/capabilities'
-import { fakeDeps as sharedFakeDeps } from './__fixtures__/fake-deps'
+import { fakeDeps as sharedFakeDeps, fullAccessSchema } from './__fixtures__/fake-deps'
 
 const CODE_OF: Record<number, string> = {
   400: 'VALIDATION', 401: 'UNAUTHENTICATED', 403: 'FORBIDDEN', 404: 'NOT_FOUND', 409: 'CONFLICT',
@@ -90,6 +90,18 @@ describe('publishAll', () => {
     expect(toast.success).toHaveBeenCalledWith('delivery.queued:{"marked":12}')
     expect(busyLog).toEqual([true, false])
     expect(result.ok && result.result?.marked).toBe(12)
+  })
+
+  it('re-renders every mounted collection through its own publish-all and reports the combined count', async () => {
+    const withBlog = capabilityResolver({ ...fullAccessSchema, collections: fullAccessSchema.collections.map((c) => (c.name === 'blog' ? { ...c, capabilities: { ...c.capabilities, publishAll: { method: 'POST', path: '/admin/publish-all/blog' } } } : c)) })
+    const { deps, calls, toast } = sharedFakeDeps([{ marked: 12 }, { marked: 5 }], withBlog)
+    const { ops } = fakeOps()
+
+    const result = await runAction(publishAll, { deps, ops, collections: ['pages', 'blog', 'settings'] })
+
+    expect(calls.map((call) => call.route.path)).toEqual(['/admin/publish-all/pages', '/admin/publish-all/blog'])
+    expect(result.ok && result.result?.marked).toBe(17)
+    expect(toast.success).toHaveBeenCalledWith('delivery.queued:{"marked":17}')
   })
 
   it('reports a single queued page in the singular', async () => {

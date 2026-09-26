@@ -257,6 +257,7 @@ export type MultiCollectionPipelineName<K extends string> =
   | `${K}Referrers`
   | `${K}ReferrersMany`
   | `preview${Capitalized<K>}Path`
+  | `publishAll${Capitalized<K>}`
   | `resolve${Capitalized<K>}`
   | RevisionPipelineName<K>;
 

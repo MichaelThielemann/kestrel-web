@@ -422,7 +422,9 @@
   the parent field is never granted to anonymous callers. The playground, the `create-kestrel` template and
   the preset's default collections give pages a parent field. The admin shows pages as an ARIA tree next to
   the flat list, and the parent picker leaves out the page and its subpages.
-- Publish all ("Re-render all pages and collections") also marks every mounted collection.
+- Every mounted collection gets its own publish-all, `publishAll<Name>` on `POST /admin/publish-all/<c>`
+  (collection verb `publishAll`). The admin's "Re-render all pages and collections" runs `publishAllPages` and
+  each of them and reports the combined count.
 - Admin: the pages tree is a treegrid with each page's live state, path and the list's edit and delete
   actions; the mount picker leaves out the home page and names the `maxCascade` limit (reported in the
   admin schema as `maxCascade`); removing an automatic redirect asks first; a path conflict names the

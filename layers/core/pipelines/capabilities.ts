@@ -9,7 +9,7 @@ import { revisionPipelineNames } from "./features/revisions";
 
 export const MULTI_VERBS = [
   "list", "listAll", "read", "readAny", "create", "update", "delete", "deleteTranslation",
-  "revisions", "revision", "labelRevision", "restoreRevision", "publishStatus", "referrers", "referrersMany", "previewPath", "tree",
+  "revisions", "revision", "labelRevision", "restoreRevision", "publishStatus", "referrers", "referrersMany", "previewPath", "tree", "publishAll",
 ] as const;
 
 export const SINGLE_VERBS = ["get", "set"] as const;
@@ -63,6 +63,7 @@ export function collectionVerbs(
     verbs.referrers = routed.referrers;
     verbs.referrersMany = routed.referrersMany;
     verbs.previewPath = routed.preview;
+    if (name !== "pages") verbs.publishAll = routed.publishAll;
     if (parentFieldOf(name, model) !== undefined) verbs.tree = PATH_PIPELINES.tree;
   }
   return verbs;

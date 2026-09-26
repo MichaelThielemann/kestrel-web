@@ -58,6 +58,8 @@ function mountedDelivery(collections: Record<string, CollectionModel>): { pipeli
     pipelines[names.publish] = [`delivery.publish:${name}`, "delivery.requestLlms"];
     pipelines[names.unpublish] = [`delivery.unpublish:${name}`, "delivery.requestLlms"];
     pipelines[names.publishStatus] = ["authn.requireUser", `authz.require:${name}.manage`, `delivery.readStatus:${name}`];
+    pipelines[names.publishAll] = ["authn.requireUser", `authz.require:${name}.manage`, `delivery.markAll:${name}`];
+    triggers.push({ http: `POST /admin/publish-all/${name}`, pipeline: names.publishAll });
     triggers.push({ http: `GET /admin/publish-status/${name}/:id`, pipeline: names.publishStatus });
     for (const change of ["created", "updated", "restored"]) triggers.push({ event: `${event}.${change}`, pipeline: names.publish });
     triggers.push({ event: `${event}.deleted`, pipeline: names.unpublish });
@@ -87,7 +89,7 @@ export default function delivery(context: PresetContext): FeatureModule {
     [PAGE_DELIVERY_PIPELINES.publishStatus]: ["authn.requireUser", "authz.require:pages.manage", "delivery.readStatus:pages"],
     [PAGE_DELIVERY_PIPELINES.staleStatus]: ["authn.requireUser", "authz.require:pages.manage", "delivery.readStaleStatus"],
     [PAGE_DELIVERY_PIPELINES.retryStale]: ["authn.requireUser", "authz.require:pages.manage", "delivery.retryStale"],
-    publishAllPages: ["authn.requireUser", "authz.require:pages.manage", "delivery.markAll:pages", ...mountedCollections(context.collections ?? DEFAULT_COLLECTIONS).map((name): PresetStep => `delivery.markAll:${name}`)],
+    [PAGE_DELIVERY_PIPELINES.publishAll]: ["authn.requireUser", "authz.require:pages.manage", "delivery.markAll:pages"],
     [RESUME_STALE_PIPELINE]: ["delivery.resumeStale"],
     [BUILD_CHECK_PIPELINE]: ["delivery.checkBuild"],
     repairPublicMedia: ["authn.requireUser", "authz.require:media.manage", "media.syncPublic"],

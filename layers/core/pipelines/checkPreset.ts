@@ -375,7 +375,7 @@ export function buildPreset<C extends Record<string, CollectionModel> = Record<s
     composablePipelineNames.add(dependentsPipelineName(name));
     if (isRoutedCollection(name, model)) {
       const routed = routedPipelineNames(name);
-      for (const pipeline of [routed.publish, routed.unpublish, routed.publishStatus, routed.referrers, routed.referrersMany, routed.preview, routed.resolve]) composablePipelineNames.add(pipeline);
+      for (const pipeline of [routed.publish, routed.unpublish, routed.publishStatus, routed.referrers, routed.referrersMany, routed.preview, routed.resolve, routed.publishAll]) composablePipelineNames.add(pipeline);
     }
     try {
       pipelines = mergePipelines(pipelines, pipelinesByName(generated), name, "collection");

@@ -12,7 +12,11 @@ import { opsBusy } from './steps/notify'
 import { dataReload } from './steps/route'
 import type { ApiCall, BusyPort, RefreshPort, WithDeps } from './types'
 
-export interface PublishAllInput extends WithDeps { ops: BusyPort }
+export interface PublishAllInput extends WithDeps {
+  ops: BusyPort
+  /** The collections besides pages whose documents are exported, each re-rendered through its own publish-all. */
+  collections?: readonly string[]
+}
 export interface RetryStaleInput extends WithDeps { ops: BusyPort }
 export interface ExportMediaInput extends WithDeps { ops: BusyPort }
 
@@ -156,16 +160,19 @@ export const publishAll = defineAction<PublishAllInput, PublishAllReport>({
   name: 'publishAll',
   steps: [
     opsBusy<PublishAllInput, PublishAllReport>(true),
-    apiRequest<PublishAllInput, PublishAllReport, PublishAllReport>('api.request', {
-      call: (ctx) => ({ route: ctx.input.deps.capabilities.route('publishAllPages') }),
-      onSuccess: (ctx, value) => {
-        ctx.result = value
-        ctx.input.deps.toast.success(staleCountText(ctx.input.deps.t, 'queued', value.marked))
-      },
-      onError: (ctx, err) => {
-        ctx.input.deps.toast.error(err.message ? withRunId(err.message, err.status, err.runId) : ctx.input.deps.t('delivery.failed'))
-        ctx.fail(err.message || 'delivery.failed')
-      },
+    defineUiStep<PublishAllInput, PublishAllReport>('api.request', async (ctx) => {
+      const { deps, collections = [] } = ctx.input
+      const routes = [deps.capabilities.route('publishAllPages'), ...collections.filter((name) => deps.capabilities.hasVerb(name, 'publishAll')).map((name) => deps.capabilities.verbRoute(name, 'publishAll'))]
+      let marked = 0
+      try {
+        for (const route of routes) marked += (await deps.api<PublishAllReport>(route)).marked
+      } catch (e) {
+        const message = apiErrorMessage(e)
+        deps.toast.error(message ? withRunId(message, apiErrorStatus(e), apiErrorRunId(e)) : deps.t('delivery.failed'))
+        return ctx.fail(message || 'delivery.failed')
+      }
+      ctx.result = { marked }
+      deps.toast.success(staleCountText(deps.t, 'queued', marked))
     }),
   ],
   always: [opsBusy<PublishAllInput, PublishAllReport>(false)],

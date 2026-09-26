@@ -82,7 +82,8 @@ What the preset composes for a mounted collection `blog`:
 - the collection's usual pipelines, with the path index in its writes and `_paths` in its reads;
 - `resolveBlog` on `GET /api/routes/blog/*path` and `previewBlogPath` on
   `POST /api/admin/blog/path-preview`;
-- with `delivery`: `publishBlog`, `unpublishBlog`, `blogPublishStatus`, and an `llms.txt` heading named
+- with `delivery`: `publishBlog`, `unpublishBlog`, `blogPublishStatus`, `publishAllBlog`
+  (`POST /api/admin/publish-all/blog`, which the admin's "Re-render all" runs next to the pages'), and an `llms.txt` heading named
   after the collection; with `references`: `blogReferrers` and `blogReferrersMany`, and the reference and
   link index on its writes.
 

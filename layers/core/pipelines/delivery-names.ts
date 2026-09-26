@@ -5,6 +5,7 @@ export const PAGE_DELIVERY_PIPELINES = {
   publishStatus: "pagePublishStatus",
   staleStatus: "pagesStaleStatus",
   retryStale: "retryStalePages",
+  publishAll: "publishAllPages",
 } as const;
 
 /** The pipelines the preset composes per routed collection, by role. */
@@ -16,6 +17,7 @@ export interface RoutedPipelineNames {
   referrersMany: string;
   preview: string;
   resolve: string;
+  publishAll: string;
 }
 
 /**
@@ -34,6 +36,7 @@ export function routedPipelineNames(collection: string): RoutedPipelineNames {
     referrersMany: `${lower}ReferrersMany`,
     preview: `preview${singular}Path`,
     resolve: `resolve${singular}`,
+    publishAll: collection === "pages" ? PAGE_DELIVERY_PIPELINES.publishAll : `publishAll${collection.charAt(0).toUpperCase() + collection.slice(1)}`,
   };
 }
 

@@ -438,11 +438,15 @@
     "pruneRevisions": [
       "revisions.prune"
     ],
+    "publishAllBlog": [
+      "authn.requireUser",
+      "authz.require:blog.manage",
+      "delivery.markAll:blog"
+    ],
     "publishAllPages": [
       "authn.requireUser",
       "authz.require:pages.manage",
       "delivery.markAll:pages",
-      "delivery.markAll:blog",
       "redirects.export"
     ],
     "publishBlog": [
@@ -1196,6 +1200,10 @@
     {
       "event": "page.translationRemoved",
       "pipeline": "publishPage"
+    },
+    {
+      "http": "POST /admin/publish-all/blog",
+      "pipeline": "publishAllBlog"
     },
     {
       "http": "GET /admin/publish-status/blog/:id",
