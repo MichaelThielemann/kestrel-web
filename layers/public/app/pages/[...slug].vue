@@ -1,9 +1,6 @@
 <script setup lang="ts">
 import type { LayoutKey } from '#app'
-import { contentTypes, defaultLocale, homeSlug, locales, prefixPrimary, untranslatedPages } from '~~/shared/model'
-import collectionsUi from '~~/shared/collections-ui'
-import { resolveWorkflow } from '#kestrel/collections-ui'
-import { localePath } from '#kestrel-core/app/utils/locale-path'
+import { defaultLocale, homeSlug, locales, prefixPrimary, untranslatedPages } from '~~/shared/model'
 import { isFallbackDocument, primaryPathOf } from '../utils/untranslated'
 import { resolvePageLayout } from '../utils/page-layout'
 import { isPageResponse, isRedirectResponse, redirectNavigation } from '../utils/site-redirect'
@@ -13,10 +10,6 @@ import type { PublicPageDocument, PublicSiteResponse, SiteResponse } from '#kest
 import { boundaryCast } from '#kestrel/cast'
 
 definePageMeta({ key: (route) => route.path, layout: false })
-
-const PAGES_COLLECTION = 'pages'
-const pagesModel = contentTypes[PAGES_COLLECTION]
-const pagesWorkflow = pagesModel ? resolveWorkflow(PAGES_COLLECTION, pagesModel, collectionsUi[PAGES_COLLECTION]) : undefined
 
 const route = useRoute()
 const locale = useSiteLocale()
@@ -57,31 +50,16 @@ if (page.value && isFallbackDocument(page.value, locale.value)) {
   }
 }
 
-const { data: localeLinks } = await useAsyncData<SiteLocaleLink[]>(
-  () => `site:locales:${page.value?.id ?? ''}:${locale.value}`,
-  async () => {
-    const doc = page.value
-    if (!doc) return []
-    const links: SiteLocaleLink[] = []
-    for (const target of locales) {
-      if (target === locale.value) {
-        links.push({ locale: target, path: route.path, current: true })
-        continue
-      }
-      if (doc._translations?.[target] !== true) continue
-      const sibling = await api<PublicPageDocument>(`/pages/${doc.id}`, { query: { locale: target } }).catch((e: unknown) => {
-        if (apiErrorStatus(e) !== 404) console.error(`Locale links: "${doc.id}" (${target}) could not be loaded: ${apiErrorMessage(e)}`)
-        return null
-      })
-      if (!sibling?.slug) continue
-      if (pagesWorkflow && sibling[pagesWorkflow.field] !== pagesWorkflow.live) continue
-      const path = localePath(sibling.slug === homeSlug ? '/' : `/${sibling.slug}`, target, defaultLocale, prefixPrimary)
-      links.push({ locale: target, path, current: false })
-    }
-    return links
-  },
-  { default: (): SiteLocaleLink[] => [] },
-)
+const localeLinks = computed<SiteLocaleLink[]>(() => {
+  const doc = page.value
+  if (!doc) return []
+  return locales.flatMap((target): SiteLocaleLink[] => {
+    if (target === locale.value) return [{ locale: target, path: route.path, current: true }]
+    const path = doc._paths?.[target]
+    if (doc._translations?.[target] !== true || typeof path !== 'string') return []
+    return [{ locale: target, path, current: false }]
+  })
+})
 
 const shared = useSiteLocaleLinks()
 watchEffect(() => {

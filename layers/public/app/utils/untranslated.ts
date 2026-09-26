@@ -7,6 +7,8 @@ export function isFallbackDocument(doc: PublicPageDocument, locale: string): boo
 }
 
 export function primaryPathOf(doc: PublicPageDocument, defaultLocale: string, prefixPrimary: boolean, homeSlug: string): string {
+  const path = doc._paths?.[defaultLocale]
+  if (typeof path === 'string') return path
   const slug = doc.slug === homeSlug ? '/' : `/${doc.slug}`
   return localePath(slug, defaultLocale, defaultLocale, prefixPrimary)
 }

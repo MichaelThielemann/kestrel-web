@@ -27,7 +27,7 @@ describe('the site page', () => {
     for (const path of requested) expect(path).toMatch(/\/api\/site\/about(\?|$)/)
     expect(useNuxtData('site:/about').data.value).toMatchObject({ id: 'p1' })
     expect(useNuxtData('site:/about/').data.value).toBeUndefined()
-    expect(useNuxtData('site:locales:p1:de').data.value).toEqual([{ locale: 'de', path: '/about/', current: true }])
+    expect(useSiteLocaleLinks().value).toEqual([{ locale: 'de', path: '/about/', current: true }])
   })
 
   it('keeps a page without its timestamps in the page data and the shared page, whoever the API answered', async () => {
@@ -44,6 +44,39 @@ describe('the site page', () => {
     expect(stored).not.toHaveProperty('createdAt')
     expect(stored).not.toHaveProperty('updatedAt')
     expect(useSitePage().value).not.toHaveProperty('updatedAt')
+  })
+
+  it('links the other locales through the page\'s _paths, without a request per locale', async () => {
+    const requested: string[] = []
+    unregisterAll.push(registerEndpoint('/api/site/ueber-uns/team', {
+      method: 'GET',
+      handler: (event) => {
+        requested.push(event.path)
+        return { id: 'p2', slug: 'team', title: 'Team', status: 'published', body: [], _locale: 'de', _translations: { de: true, en: true }, _paths: { de: '/ueber-uns/team', en: '/en/about-us/team' } }
+      },
+    }))
+    unregisterAll.push(registerEndpoint('/api/pages/p2', { method: 'GET', handler: (event) => { requested.push(event.path); return {} } }))
+    unregisterAll.push(registerEndpoint('/api/settings', { method: 'GET', handler: () => ({ id: 's1', title: 'Site' }) }))
+
+    await mountSuspended(SitePage, { route: '/ueber-uns/team' })
+
+    expect(useSiteLocaleLinks().value).toEqual([
+      { locale: 'de', path: '/ueber-uns/team', current: true },
+      { locale: 'en', path: '/en/about-us/team', current: false },
+    ])
+    expect(requested.filter((path) => path.startsWith('/api/pages/'))).toEqual([])
+  })
+
+  it('offers no link to a locale the page has no own translation in', async () => {
+    unregisterAll.push(registerEndpoint('/api/site/ueber-uns', {
+      method: 'GET',
+      handler: () => ({ id: 'p1', slug: 'ueber-uns', title: 'Über uns', status: 'published', body: [], _locale: 'de', _translations: { de: true, en: false }, _paths: { de: '/ueber-uns', en: '/en/ueber-uns' } }),
+    }))
+    unregisterAll.push(registerEndpoint('/api/settings', { method: 'GET', handler: () => ({ id: 's1', title: 'Site' }) }))
+
+    await mountSuspended(SitePage, { route: '/ueber-uns' })
+
+    expect(useSiteLocaleLinks().value).toEqual([{ locale: 'de', path: '/ueber-uns', current: true }])
   })
 
   it('reads /about/index.html as that path, so the site answers it as before instead of as /about', async () => {

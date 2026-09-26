@@ -59,3 +59,9 @@ describe('primaryPathOf', () => {
     expect(primaryPathOf(d, 'de', true, 'home')).toBe('/de/about')
   })
 })
+
+describe('primaryPathOf with the page\'s paths', () => {
+  it('takes the default locale\'s path, the parent\'s slug included', () => {
+    expect(primaryPathOf(doc({ slug: 'team', _paths: { de: '/ueber-uns/team', en: null } }), 'de', false, 'home')).toBe('/ueber-uns/team')
+  })
+})
