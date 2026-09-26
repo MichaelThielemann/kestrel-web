@@ -201,34 +201,22 @@ describe("site-2.0-custom (hand-written module list, eventsQueue already on, a 2
     }
   }, 60_000);
 
-  it("a second check, once the first fix has unblocked the project's own load, finds the missing relayPipelines and the forward-port for deletePage; the offer says nothing since it is already on the queue", async () => {
+  it("one fix --write --yes, running to a fixpoint, applies relayPipelines, the lanes, the delivery dependencies and the forward-port for deletePage, and a check afterwards reports none of them", async () => {
     const dir = await prepare("site-2.0-custom");
     await fixWriteYes(dir);
     const report = await check(dir);
     expect(report.tiers.load).toBe("done");
+    for (const rule of ["preset/relay-scope", "preset/queue-lanes", "preset/delivery-dependencies", "preset/override-group", "preset/override-relay", "preset/override-path-steps", "offer/event-queue"]) {
+      expect(report.findings.find((f) => f.rule === rule), rule).toBeUndefined();
+    }
+    const config = readFileSync(join(dir, "kestrel.config.ts"), "utf8");
+    expect(config).toMatch(/relayPipelines:\s*\["publishPage",\s*"unpublishPage"\]/);
+    expect(config).toMatch(/"site\.indexPath:pages"\s*\]\s*\},\s*"site\.announcePaths",\s*"events\.relay"/);
+  }, 120_000);
 
-    const relayScope = report.findings.find((f) => f.rule === "preset/relay-scope");
-    expect(relayScope?.fix.kind).toBe("auto");
-    expect(relayScope?.suggestion).toContain("relayPipelines");
-
-    expect(report.findings.find((f) => f.rule === "preset/queue-lanes")?.fix.kind).toBe("auto");
-    const dependencies = report.findings.find((f) => f.rule === "preset/delivery-dependencies");
-    expect(dependencies?.fix.kind).toBe("auto");
-    expect(dependencies?.message).toContain('dependencies.render "events"');
-
-    expect(report.findings.find((f) => f.rule === "offer/event-queue")).toBeUndefined();
-
-    const group = report.findings.find((f) => f.rule === "preset/override-group");
-    expect(group?.fix.kind).toBe("auto");
-    const relay = report.findings.find((f) => f.rule === "preset/override-relay");
-    expect(relay?.fix.kind).toBe("auto");
-  }, 60_000);
-
-  it("three fix --write --yes passes forward-port deletePage's override, add relayPipelines and bump ranges; the fixed project boots and answers POST /api/login 200", async () => {
+  it("fix --write --yes forward-ports deletePage's override, adds relayPipelines and bumps ranges; the fixed project boots and answers POST /api/login 200", async () => {
     const dir = await prepare("site-2.0-custom");
-    await fixWriteYes(dir); // pass 1: unblocks the project's own load (range bumps, sanitizeSvg)
-    await fixWriteYes(dir); // pass 2: now that it loads, the project-tier findings (relayPipelines, the override forward-port)
-    await fixWriteYes(dir); // pass 3: the path index steps, once the override's write has its atomic group
+    await fixWriteYes(dir);
 
     const config = readFileSync(join(dir, "kestrel.config.ts"), "utf8");
     expect(config).toMatch(/relayPipelines:\s*\["publishPage",\s*"unpublishPage"\]/);
@@ -248,10 +236,8 @@ describe("site-2.0-custom (hand-written module list, eventsQueue already on, a 2
     expect(status).toBe(200);
   }, 60_000);
 
-  it("a fourth fix makes no further edit at all (fully idempotent once the three passes have run)", async () => {
+  it("a second fix makes no further edit at all", async () => {
     const dir = await prepare("site-2.0-custom");
-    await fixWriteYes(dir);
-    await fixWriteYes(dir);
     await fixWriteYes(dir);
     const beforeConfig = readFileSync(join(dir, "kestrel.config.ts"), "utf8");
     const beforePkg = readFileSync(join(dir, "package.json"), "utf8");
@@ -423,15 +409,12 @@ describe("site-2.0-hand-written-direct (a literal events-direct entry and packag
     const answersFile = join(dir, "answers.json");
     const { writeFileSync } = await import("node:fs");
     writeFileSync(answersFile, JSON.stringify({ "switch-to-queue": "yes" }));
-    const exitCode = await runUpgradeCli(
+    const lines: string[] = [];
+    await runUpgradeCli(
       ["fix", "--root", dir, "--write", "--yes", "--answers", answersFile],
-      runOptionsWithMajor6({ plugins: [createLayerPlugin()], stdout: () => undefined, stderr: () => undefined }),
+      runOptionsWithMajor6({ plugins: [createLayerPlugin()], stdout: (l) => lines.push(l), stderr: (l) => lines.push(l) }),
     );
-    expect(exitCode).toBe(0);
-    // delivery-static has no literal entry here (purely presetModuleConfig()-derived), so
-    // preset/delivery-dependencies only sees the switch's presetProblems on the next round, once
-    // shared/model.ts's "eventsQueue" is actually on disk — a second plain pass picks it up, the
-    // same two-pass shape site-2.0-custom's own hand-written queue lists need.
+    expect(lines).toContain("wrote package.json");
     await fixWriteYes(dir);
 
     const pkg = JSON.parse(readFileSync(join(dir, "package.json"), "utf8"));
