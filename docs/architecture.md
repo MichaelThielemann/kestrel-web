@@ -541,7 +541,8 @@ permission `anonymous` holds (`<type>.read`, `media.read` for `media` and `media
 `x-kestrel-variant`; with `redirects`, the redirect rules' `pattern`, `target` and `status`. It names only
 members a read declares, so every path passes kestrel's check. What it leaves out is cut for anonymous
 callers: a document's `createdAt` and `updatedAt`, a media item's `folder`, timestamps, `available` and
-`variantCounts`, a variant's `bytes` and `state`, and any other file header. `roles.anonymousFields`
+`variantCounts`, a variant's `bytes` and `state`, any other file header, and — on every collection,
+unconditionally — a field named `blockAliases` (see "Page builder"). `roles.anonymousFields`
 replaces the grant of a resource it names (an empty list removes it), and `roles.fields` is passed through.
 
 `presetModuleConfig` also takes the `exclude` and `overrides` the consumer gives `definePreset`, as its
@@ -1308,6 +1309,15 @@ history reloads, so the head marker moves without a page reload.
 and components live in the consumer's `app/blocks/`. `layers/admin`'s `components/BlockRenderer.vue`
 renders the tree in-app for the live preview (no public site round-trip, no iframe/postMessage);
 `layers/public` renders the same tree for real page delivery.
+
+A block instance may carry an editor-only alias (findable in the block picker's search, shown only in
+its fields panel), but the alias never travels inside `body`: it lives in a sibling `blockAliases`
+field (`id`-keyed, `{ type: "json" }`, declared by any collection that wants the feature, next to
+`body`) so the existing field grants (`authz.fields`) keep it from anonymous callers on every pipeline
+that answers the collection — `resolvePage`, `readPage`, `listPages` and their generic-collection
+equivalents alike — the same way they already keep out any other field a consumer excludes. `#kestrel-admin/app/utils/block-tree.ts`'s
+`stripAliases`/`aliasMapOf`/`withAliasMap` move an alias between the in-memory `BlockRow` tree (which
+keeps it inline, for the picker's search) and the two separately persisted fields.
 
 ### The left pane
 `BlockTree.vue` with `root` owns the whole pane in one reading order: the page entry (which selects the
