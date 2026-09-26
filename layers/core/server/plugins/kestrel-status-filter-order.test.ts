@@ -15,6 +15,7 @@ const consumer = vi.hoisted(() => {
 
 vi.mock("~~/kestrel.config", () => ({ default: consumer.config }));
 vi.mock("~~/shared/collections-ui", () => ({ default: consumer.collectionsUi }));
+vi.mock("~~/shared/model", () => ({ prefixPrimary: false, homeSlug: "home" }));
 vi.mock("#kestrel/build-assets", () => ({ default: [] }));
 vi.mock("#kestrel/schemas", () => ({ default: { mode: "inline", schemas: {} } }));
 vi.mock("#kestrel/consumer-pipelines", () => ({ pipelines: consumer.pipelines }));
