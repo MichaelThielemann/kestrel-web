@@ -12,11 +12,10 @@ import { homeSlug, prefixPrimary } from "~~/shared/model";
 import { siteModelProblem } from "../utils/site-model";
 import { inlineTypesFor } from "../utils/inline-types";
 import { uploadLimits } from "../utils/limits";
-import { applyBundledSchemas } from "../utils/bundled-schemas";
-import { moduleConfigForStep } from "../utils/modules";
+import { layerBootInput } from "../utils/boot-input";
 import { assertMediaPaths } from "../utils/media-paths";
 import { kestrelHandlers, type KestrelHandlers } from "../utils/kestrel-handlers";
-import { contentCollections, statusFilterFailure, statusFilterProblems } from "../utils/status-filter";
+import { projectStatusFilterFailure } from "../utils/status-filter";
 import { bootWithAdminBootstrapCheck } from "../utils/admin-bootstrap";
 import { withFieldGrantHint } from "../utils/field-grant-hint";
 import type { KestrelState, KestrelStatus } from "../utils/boot-failure";
@@ -30,9 +29,7 @@ const CONTENT_LIST_STEP = "content.list";
 export type { KestrelState, KestrelStatus };
 
 function assertStatusFilters(kestrel: Kestrel): void {
-  const content = moduleConfigForStep(modules, config.modules, kestrel.steps.owner(CONTENT_LIST_STEP));
-  const shapes = pipelines.map((pipeline) => ({ name: pipeline.name, steps: pipeline.steps }));
-  const failure = statusFilterFailure(statusFilterProblems(contentCollections(content), collectionsUi, shapes));
+  const failure = projectStatusFilterFailure(modules, config.modules, kestrel.steps.owner(CONTENT_LIST_STEP), collectionsUi, pipelines);
   if (failure !== undefined) throw new Error(failure);
 }
 
@@ -76,7 +73,7 @@ export function getKestrel(): Promise<Kestrel> {
     try {
       const siteProblem = siteModelProblem(config.modules, { prefixPrimary, homeSlug });
       if (siteProblem !== undefined) throw new Error(siteProblem);
-      const kestrel = await bootWithAdminBootstrapCheck({ config: { ...config, modules: applyBundledSchemas(config.modules, bundledSchemas) }, modules, pipelines, logger: consoleLogger });
+      const kestrel = await bootWithAdminBootstrapCheck({ ...layerBootInput({ config, modules, pipelines, bundledSchemas }), logger: consoleLogger });
       assertStatusFilters(kestrel);
       await kestrel.start();
       assertMediaPaths(kestrel, modules, config.modules);

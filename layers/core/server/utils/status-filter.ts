@@ -3,6 +3,7 @@ import type { PipelineEntry } from "@michaelthielemann/kestrel/definePipeline";
 import { isGenericCollection, publicCollectionSteps } from "../../pipelines/collections";
 import type { CollectionModel } from "../../pipelines/collections";
 import type { WorkflowUi } from "../../collections-ui/workflow";
+import { moduleConfigForStep, type ConfigEntry, type ModuleLike } from "./modules";
 
 export interface PipelineShape {
   name: string;
@@ -60,4 +61,17 @@ export function statusFilterFailure(problems: readonly StatusFilterProblem[]): s
     ...lines,
     "  fix: pass the same map to the preset – definePreset({ modules, features, collections, collectionsUi })",
   ].join("\n");
+}
+
+/** The status-filter failure of a project whose `content.list` step `contentOwner` provides, `undefined` when its public read pipelines filter as declared. */
+export function projectStatusFilterFailure(
+  modules: readonly ModuleLike[],
+  configModules: readonly ConfigEntry[],
+  contentOwner: string | undefined,
+  collectionsUi: Record<string, WorkflowUi>,
+  pipelines: readonly PipelineShape[],
+): string | undefined {
+  const content = moduleConfigForStep(modules, configModules, contentOwner);
+  const shapes = pipelines.map((pipeline) => ({ name: pipeline.name, steps: pipeline.steps }));
+  return statusFilterFailure(statusFilterProblems(contentCollections(content), collectionsUi, shapes));
 }

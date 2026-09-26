@@ -95,19 +95,24 @@ function parsedModuleConfig(modules: readonly ModuleLike[], entries: readonly Co
   return isRecord(config) ? config : undefined;
 }
 
-/** Reads the booted instance's parsed configs and manifest, then throws the joined message of every media-path problem found. */
-export function assertMediaPaths(kestrel: Kestrel, modules: readonly ModuleLike[], configModules: readonly ConfigEntry[]): void {
-  const manifest = kestrel.describe();
-  const media = parsedModuleConfig(modules, configModules, kestrel.steps.owner("media.upload"));
-  const images = parsedModuleConfig(modules, configModules, kestrel.steps.owner("images.attach"));
-  const delivery: DeliveryConfig | undefined = parsedModuleConfig(modules, configModules, kestrel.steps.owner("delivery.exportLlms"));
-  const problems = mediaPathProblems({
-    media,
-    images,
-    delivery,
+/** Every media-path problem of a project, from its manifest, its step-owner lookup and its module configs. */
+export function projectMediaPathProblems(
+  manifest: { triggers: { http: readonly HttpTriggerEntry[] }; pipelines: readonly PipelineStepsEntry[] },
+  owner: (step: string) => string | undefined,
+  modules: readonly ModuleLike[],
+  configModules: readonly ConfigEntry[],
+): string[] {
+  return mediaPathProblems({
+    media: parsedModuleConfig(modules, configModules, owner("media.upload")),
+    images: parsedModuleConfig(modules, configModules, owner("images.attach")),
+    delivery: parsedModuleConfig(modules, configModules, owner("delivery.exportLlms")),
     triggers: manifest.triggers.http,
     pipelines: manifest.pipelines,
   });
-  const failure = mediaPathsFailure(problems);
+}
+
+/** Reads the booted instance's parsed configs and manifest, then throws the joined message of every media-path problem found. */
+export function assertMediaPaths(kestrel: Kestrel, modules: readonly ModuleLike[], configModules: readonly ConfigEntry[]): void {
+  const failure = mediaPathsFailure(projectMediaPathProblems(kestrel.describe(), (step) => kestrel.steps.owner(step), modules, configModules));
   if (failure !== undefined) throw new Error(failure);
 }
