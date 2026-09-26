@@ -13,12 +13,9 @@
   },
   "packageManager": "pnpm@11.2.2",
   "main": "./nuxt.config.ts",
-  "bin": {
-    "kestrel-web-upgrade": "./bin/kestrel-web-upgrade.mjs"
-  },
   "files": [
     "nuxt.config.ts",
-    "bin",
+    "cli",
     "layers",
     "!layers/**/*.test.ts",
     "!layers/**/__fixtures__",
@@ -27,6 +24,11 @@
     "README.md",
     "docs"
   ],
+  "kestrel": {
+    "plugin": "./cli/plugin.mjs",
+    "pluginApi": 4,
+    "engine": "^5.8.0"
+  },
   "publishConfig": {
     "access": "public"
   },
@@ -37,7 +39,7 @@
     "prepare": "nuxt prepare playground",
     "typecheck": "nuxt typecheck playground && tsc -p e2e",
     "lint": "nuxt prepare playground && eslint .",
-    "pretest": "tsx scripts/generate-api-types.ts --check",
+    "pretest": "tsx scripts/generate-api-types.ts --check && node scripts/kestrel-engine-range.mjs --check",
     "test": "vitest run",
     "build:packages": "pnpm -r --filter './packages/*' build",
     "generate:api-types": "tsx scripts/generate-api-types.ts",

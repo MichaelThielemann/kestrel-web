@@ -47,11 +47,17 @@ function installSignalHandler(): void {
  * fixture's own installed copy of the layer.
  */
 export function materializeFixture(name: string): string {
+  return materializeProject(`kestrel-web-upgrade-${name}`, (dir) => {
+    cpSync(resolve(dirname(fileURLToPath(import.meta.url)), name), dir, { recursive: true });
+  });
+}
+
+/** Like `materializeFixture()`, for a project whose files `fill` writes into the fresh directory. */
+export function materializeProject(prefix: string, fill: (dir: string) => void): string {
   installSignalHandler();
-  const source = resolve(dirname(fileURLToPath(import.meta.url)), name);
-  const dir = mkdtempSync(join(tmpdir(), `kestrel-web-upgrade-${name}-`));
+  const dir = mkdtempSync(join(tmpdir(), `${prefix}-`));
   active.add(dir);
-  cpSync(source, dir, { recursive: true });
+  fill(dir);
 
   const nodeModules = join(dir, "node_modules");
   mkdirSync(nodeModules, { recursive: true });

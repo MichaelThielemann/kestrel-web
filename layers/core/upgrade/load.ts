@@ -15,6 +15,10 @@ import { kestrelAliases } from "./aliases";
 import { namedExportArray } from "./edits";
 import { presetOverridesObjects } from "./locators";
 import type { CapturedPreset } from "./pipelinesCapture";
+import { layerBootInput } from "../server/utils/boot-input";
+import type { SchemaBundle } from "../server/utils/bundled-schemas";
+import type { SiteModel } from "../server/utils/site-model";
+import type { WorkflowUi } from "../collections-ui/workflow";
 
 const execFileAsync = promisify(execFile);
 
@@ -36,6 +40,35 @@ function configLoadIssue(err: unknown, configFile: string): LoadIssue {
 export interface LayerProjectData {
   presetOptions?: unknown;
   presetProblems: Array<{ code: string; pipeline?: string; message: string }>;
+  siteModel?: SiteModel;
+  collectionsUi?: Record<string, WorkflowUi>;
+}
+
+type Jiti = ReturnType<typeof createJiti>;
+
+async function importIfPresent(jiti: Jiti, file: string | undefined): Promise<Record<string, unknown> | undefined> {
+  if (file === undefined || !existsSync(file)) return undefined;
+  const mod = await jiti.import<unknown>(pathToFileURL(file).href);
+  return isRecord(mod) ? mod : undefined;
+}
+
+function schemaBundleOf(value: unknown): SchemaBundle {
+  if (isRecord(value) && typeof value.mode === "string" && isRecord(value.schemas)) return { mode: value.mode, schemas: value.schemas };
+  return { mode: "none", schemas: {} };
+}
+
+function siteModelOf(value: Record<string, unknown> | undefined): SiteModel | undefined {
+  if (value === undefined || typeof value.prefixPrimary !== "boolean" || typeof value.homeSlug !== "string") return undefined;
+  return { prefixPrimary: value.prefixPrimary, homeSlug: value.homeSlug };
+}
+
+async function serverInputs(jiti: Jiti, scratch: string, schemasFile: string | undefined): Promise<{ bundledSchemas: SchemaBundle; siteModel?: SiteModel; collectionsUi: Record<string, WorkflowUi> }> {
+  const schemas = await importIfPresent(jiti, schemasFile);
+  const model = await importIfPresent(jiti, sharedModelFile(scratch));
+  const ui = await importIfPresent(jiti, join(scratch, "shared", "collections-ui.ts"));
+  const siteModel = siteModelOf(model);
+  const collectionsUi = isRecord(ui?.default) ? boundaryCast<Record<string, WorkflowUi>>(ui.default, "host") : {};
+  return { bundledSchemas: schemaBundleOf(schemas?.default), collectionsUi, ...(siteModel === undefined ? {} : { siteModel }) };
 }
 
 /**
@@ -233,10 +266,22 @@ export async function loadLayerProject(scratch: string): Promise<LoadResult> {
     addToPipelineFiles(projectPipelinesFile, ownNames);
     const pipelineFiles: PipelineFile[] = [...pipelineFilesByFile].map(([file, names]) => ({ file, pipelines: names }));
 
-    const data: LayerProjectData = { presetProblems, ...(capture.captured.last === undefined ? {} : { presetOptions: capture.captured.last.options }) };
+    let server: Awaited<ReturnType<typeof serverInputs>> = { bundledSchemas: { mode: "none", schemas: {} }, collectionsUi: {} };
+    try {
+      server = await serverInputs(jiti, scratch, aliases["#kestrel/schemas"]);
+    } catch (err) {
+      issues.push({ file: "shared/model.ts", message: err instanceof Error ? err.message : String(err) });
+    }
+
+    const data: LayerProjectData = {
+      presetProblems,
+      collectionsUi: server.collectionsUi,
+      ...(server.siteModel === undefined ? {} : { siteModel: server.siteModel }),
+      ...(capture.captured.last === undefined ? {} : { presetOptions: capture.captured.last.options }),
+    };
 
     const project: LoadedProject = {
-      input: { config, modules, pipelines, root: scratch },
+      input: { ...layerBootInput({ config, modules, pipelines, bundledSchemas: server.bundledSchemas }), root: scratch },
       kind: "kestrel-web",
       configFile,
       moduleFiles,
