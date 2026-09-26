@@ -196,6 +196,8 @@ export type PathsRebuildReport = ResponseOf<'rebuildPaths', 200>
 
 export type AutoRedirect = ResponseOf<'listAutoRedirects', 200>[number]
 
+export type PageTreeNode = ResponseOf<'pageTree', 200>[number]
+
 export type PublishStatusEntry = ResponseOf<'pagePublishStatus', 200>[number]
 
 export type DeliveryState = PublishStatusEntry['state']

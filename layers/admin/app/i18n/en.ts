@@ -1081,4 +1081,10 @@ export const en = {
   'paths.reason.taken': 'claimed twice',
   'paths.reason.reserved': 'reserved by the server',
   'paths.reason.locale': 'starts with a language code',
+  'tree.viewLabel': 'Show as',
+  'tree.viewTree': 'Tree',
+  'tree.viewList': 'List',
+  'tree.label': '{name} by parent page',
+  'tree.empty': 'No pages yet.',
+  'tree.noPath': 'no path',
 } satisfies Record<string, string>

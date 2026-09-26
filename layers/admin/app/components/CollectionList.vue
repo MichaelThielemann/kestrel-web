@@ -20,6 +20,13 @@ const newLabel = computed(() => resolveLocalized(props.schema.label?.new, lang.v
 const localeQuery = computed(() => (props.locale ? `?locale=${props.locale}` : ''))
 
 const columns = listColumns(props.schema)
+const hasTree = computed(() => capabilities.hasVerb(collection.value, 'tree'))
+const view = ref<string | null>(hasTree.value ? 'tree' : 'list')
+const viewOptions = computed(() => [
+  { value: 'tree', label: t('tree.viewTree') },
+  { value: 'list', label: t('tree.viewList') },
+])
+const pluralLabel = computed(() => resolveLocalized(props.schema.label?.plural, lang.value) ?? props.schema.name)
 const workflow = computed(() => props.schema.workflow)
 const statusChoices = computed(() => {
   const field = workflow.value?.field
@@ -40,6 +47,7 @@ const { rows, total, fallbackTitles, error, totalPages, fetchRows } = useListRow
 })
 
 const search = ref('')
+const showTree = computed(() => hasTree.value && view.value === 'tree' && search.value.trim() === '' && selected.size === 0)
 const filteredRows = computed(() => {
   const q = search.value.trim().toLowerCase()
   if (!q) return rows.value
@@ -77,6 +85,8 @@ await fetchRows()
         >{{ loc.toUpperCase() }}</NuxtLink>
       </div>
 
+      <KestrelUiButtonGroup v-if="hasTree" v-model="view" :options="viewOptions" :aria-label="t('tree.viewLabel')" />
+
       <label class="list__search">
         <span class="list__vh">{{ t('list.search') }}</span>
         <KestrelUiTextInput v-model="search" type="search" icon="search" :placeholder="t('list.searchPlaceholder')" />
@@ -102,7 +112,9 @@ await fetchRows()
       <KestrelUiButton type="button" variant="secondary" size="sm" class="list__retry" @click="fetchRows">{{ t('common.retry') }}</KestrelUiButton>
     </KestrelUiAlert>
 
-    <div class="u-scroll">
+    <KestrelCollectionTree v-if="showTree" :collection="collection" :locale="locale ?? primary" :locale-query="localeQuery" :label="pluralLabel" />
+
+    <div v-else class="u-scroll">
       <KestrelCollectionListTable
         :rows="filteredRows"
         :columns="columns"
@@ -145,6 +157,7 @@ await fetchRows()
     <p class="list__sr-status" role="status" aria-live="polite">{{ srStatus }}</p>
 
     <KestrelCollectionListPager
+      v-if="!showTree"
       :page="page"
       :total-pages="totalPages"
       :total="total"

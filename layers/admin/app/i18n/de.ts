@@ -1083,4 +1083,10 @@ export const de: Record<CatalogKey, string> = {
   'paths.reason.taken': 'doppelt beansprucht',
   'paths.reason.reserved': 'vom Server reserviert',
   'paths.reason.locale': 'beginnt mit einem Sprachkürzel',
+  'tree.viewLabel': 'Anzeigen als',
+  'tree.viewTree': 'Baum',
+  'tree.viewList': 'Liste',
+  'tree.label': '{name} nach übergeordneter Seite',
+  'tree.empty': 'Noch keine Seiten.',
+  'tree.noPath': 'kein Pfad',
 }
