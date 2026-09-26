@@ -636,7 +636,7 @@ describe('MediaLibrary type filter', () => {
 
   function mixedItem(id: string, filename: string, contentType: string): MediaItem {
     return {
-      id, filename, folder: '', contentType, size: 10, path: `/media/${id}/${filename}`,
+      id, filename, folder: '', contentType, size: 10, path: `/media/${id}/${filename}`, available: true,
       createdAt: 1, updatedAt: 1, provenance: { origin: 'human' }, width: null, height: null, alt: null, title: null,
       description: null, variants: [], variantCounts: { done: 0, pending: 0, error: 0, failed: 0 },
     }
