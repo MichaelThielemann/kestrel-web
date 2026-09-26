@@ -1607,6 +1607,7 @@ export interface components {
                 _translations?: {
                     [key: string]: boolean;
                 };
+                blockAliases?: unknown | null;
                 body?: unknown | null;
                 createdAt: number;
                 id: string;
@@ -1731,6 +1732,7 @@ export interface components {
                     [key: string]: boolean;
                 };
                 accent?: string | null;
+                blockAliases?: unknown | null;
                 body?: unknown | null;
                 createdAt: number;
                 id: string;
@@ -1784,6 +1786,7 @@ export interface components {
             _translations?: {
                 [key: string]: boolean;
             };
+            blockAliases?: unknown | null;
             body?: unknown | null;
             createdAt: number;
             id: string;
@@ -1827,6 +1830,7 @@ export interface components {
                 [key: string]: boolean;
             };
             accent?: string | null;
+            blockAliases?: unknown | null;
             body?: unknown | null;
             createdAt: number;
             id: string;
@@ -1897,6 +1901,7 @@ export interface components {
             _translations?: {
                 [key: string]: boolean;
             };
+            blockAliases?: unknown | null;
             body?: unknown | null;
             createdAt: number;
             id: string;
@@ -1960,6 +1965,7 @@ export interface components {
                 [key: string]: boolean;
             };
             accent?: string | null;
+            blockAliases?: unknown | null;
             body?: unknown | null;
             createdAt: number;
             id: string;
@@ -2091,6 +2097,7 @@ export interface operations {
                             _translations?: {
                                 [key: string]: boolean;
                             };
+                            blockAliases?: unknown | null;
                             body?: unknown | null;
                             createdAt: number;
                             id: string;
@@ -2185,6 +2192,7 @@ export interface operations {
                         _translations?: {
                             [key: string]: boolean;
                         };
+                        blockAliases?: unknown | null;
                         body?: unknown | null;
                         createdAt: number;
                         id: string;
@@ -2570,6 +2578,7 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    blockAliases?: unknown | null;
                     body?: unknown | null;
                     /** @enum {string} */
                     locale?: "de" | "en";
@@ -2609,6 +2618,7 @@ export interface operations {
                         _translations?: {
                             [key: string]: boolean;
                         };
+                        blockAliases?: unknown | null;
                         body?: unknown | null;
                         createdAt: number;
                         id: string;
@@ -4675,6 +4685,7 @@ export interface operations {
                                 [key: string]: boolean;
                             };
                             accent?: string | null;
+                            blockAliases?: unknown | null;
                             body?: unknown | null;
                             createdAt: number;
                             id: string;
@@ -4773,6 +4784,7 @@ export interface operations {
                             [key: string]: boolean;
                         };
                         accent?: string | null;
+                        blockAliases?: unknown | null;
                         body?: unknown | null;
                         createdAt: number;
                         id: string;
@@ -5162,6 +5174,7 @@ export interface operations {
             content: {
                 "application/json": {
                     accent?: string | null;
+                    blockAliases?: unknown | null;
                     body?: unknown | null;
                     layout?: string | null;
                     /** @enum {string} */
@@ -5205,6 +5218,7 @@ export interface operations {
                             [key: string]: boolean;
                         };
                         accent?: string | null;
+                        blockAliases?: unknown | null;
                         body?: unknown | null;
                         createdAt: number;
                         id: string;
@@ -7274,6 +7288,7 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    blockAliases?: unknown | null;
                     body?: unknown | null;
                     /** @enum {string} */
                     locale?: "de" | "en";
@@ -7314,6 +7329,7 @@ export interface operations {
                         _translations?: {
                             [key: string]: boolean;
                         };
+                        blockAliases?: unknown | null;
                         body?: unknown | null;
                         createdAt: number;
                         id: string;
@@ -7570,6 +7586,7 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    blockAliases?: unknown | null;
                     body?: unknown | null;
                     /** @enum {string} */
                     locale?: "de" | "en";
@@ -7609,6 +7626,7 @@ export interface operations {
                         _translations?: {
                             [key: string]: boolean;
                         };
+                        blockAliases?: unknown | null;
                         body?: unknown | null;
                         createdAt: number;
                         id: string;
@@ -7729,6 +7747,7 @@ export interface operations {
                         _translations?: {
                             [key: string]: boolean;
                         };
+                        blockAliases?: unknown | null;
                         body?: unknown | null;
                         createdAt: number;
                         id: string;
@@ -8127,7 +8146,7 @@ export interface operations {
                     "application/json": components["schemas"]["listMedia"] | components["schemas"]["listMedia.anonymous"];
                 };
             };
-            /** @description invalid folder or unknown locale */
+            /** @description invalid folder, unknown locale or invalid type */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -9379,6 +9398,7 @@ export interface operations {
             content: {
                 "application/json": {
                     accent?: string | null;
+                    blockAliases?: unknown | null;
                     body?: unknown | null;
                     layout?: string | null;
                     /** @enum {string} */
@@ -9423,6 +9443,7 @@ export interface operations {
                             [key: string]: boolean;
                         };
                         accent?: string | null;
+                        blockAliases?: unknown | null;
                         body?: unknown | null;
                         createdAt: number;
                         id: string;
@@ -9683,6 +9704,7 @@ export interface operations {
             content: {
                 "application/json": {
                     accent?: string | null;
+                    blockAliases?: unknown | null;
                     body?: unknown | null;
                     layout?: string | null;
                     /** @enum {string} */
@@ -9726,6 +9748,7 @@ export interface operations {
                             [key: string]: boolean;
                         };
                         accent?: string | null;
+                        blockAliases?: unknown | null;
                         body?: unknown | null;
                         createdAt: number;
                         id: string;
@@ -9850,6 +9873,7 @@ export interface operations {
                             [key: string]: boolean;
                         };
                         accent?: string | null;
+                        blockAliases?: unknown | null;
                         body?: unknown | null;
                         createdAt: number;
                         id: string;
