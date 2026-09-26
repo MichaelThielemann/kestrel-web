@@ -34,7 +34,7 @@ export interface DeleteRecordInput extends WithDeps {
   collection: string
   ids: readonly string[]
   confirmed: boolean
-  pageLike?: boolean
+  hasDelivery?: boolean
   ops: BusyPort
   navigate: NavigatePort
   bypassGuard: () => void
@@ -141,9 +141,9 @@ function worstDeliveryStatus(report: DeleteReport): EventRelayStatus['status'] |
   return statuses[0]
 }
 
-function deleteDeliveryToast<I extends WithDeps & { pageLike?: boolean }>(): ActionStep<I, DeleteReport> {
+function deleteDeliveryToast<I extends WithDeps & { hasDelivery?: boolean }>(): ActionStep<I, DeleteReport> {
   return defineUiStep<I, DeleteReport>('delivery.deleteToast', (ctx) => {
-    if (!ctx.input.pageLike || ctx.result === undefined) return
+    if (!ctx.input.hasDelivery || ctx.result === undefined) return
     const status = worstDeliveryStatus(ctx.result)
     if (status !== 'error') return
     const { t, toast } = ctx.input.deps

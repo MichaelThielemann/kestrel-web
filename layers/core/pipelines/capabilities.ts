@@ -20,6 +20,13 @@ export type CollectionVerb = MultiVerb | SingleVerb;
 
 const ALL_VERBS: readonly CollectionVerb[] = [...MULTI_VERBS, ...SINGLE_VERBS];
 
+const ROUTED_COLLECTIONS: ReadonlySet<string> = new Set(["pages"]);
+
+/** Whether the preset composed this collection into the public `resolvePage` route, independent of the caller's access. */
+export function isRoutedCollection(name: string): boolean {
+  return ROUTED_COLLECTIONS.has(name);
+}
+
 function namesOf(pipelines: Partial<Record<CollectionVerb, CollectionPipeline>>): Partial<Record<CollectionVerb, string>> {
   const result: Partial<Record<CollectionVerb, string>> = {};
   for (const verb of ALL_VERBS) {
@@ -48,7 +55,7 @@ export function collectionVerbs(
     verbs.labelRevision = revisionNames.labelRevision;
     verbs.restoreRevision = revisionNames.restoreRevision;
   }
-  if (name === "pages") {
+  if (isRoutedCollection(name)) {
     verbs.publishStatus = PAGE_DELIVERY_PIPELINES.publishStatus;
     verbs.referrers = PAGE_REFERENCE_PIPELINES.referrers;
     verbs.referrersMany = PAGE_REFERENCE_PIPELINES.referrersMany;

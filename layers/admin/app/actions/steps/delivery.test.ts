@@ -7,12 +7,13 @@ import { deliveryToast, retrySuffix } from './delivery'
 
 type Input = WithDeps & { form: EditFormPort }
 
-function fakeForm(pageLike: boolean): EditFormPort {
+function fakeForm(hasDelivery: boolean): EditFormPort {
   return {
     collection: 'pages',
     id: 'p1',
     mode: 'multi',
-    pageLike,
+    deliveryEnabled: true,
+    hasDelivery,
     workflow: () => undefined,
     status: () => '',
     saving: () => false,
@@ -42,10 +43,10 @@ function ownDeliveryEvents(status: EventRelayStatus['pipelines'][number]['status
   return { status, pipelines: [{ event: 'page.published', pipeline: 'publishPage', status, attempts: 1, dead: false, error: null }] }
 }
 
-async function runDeliveryToast(events: EventRelayStatus | null) {
+async function runDeliveryToast(events: EventRelayStatus | null, hasDelivery = true) {
   const { deps, toast, t } = fakeDeps()
   const ctx: ActionContext<Input, SaveOutcome> = {
-    input: { deps, form: fakeForm(true) },
+    input: { deps, form: fakeForm(hasDelivery) },
     result: { record: null, events, failure: null, failed: false },
     fail: () => { throw new Error('unexpected fail') },
     done: () => { throw new Error('unexpected done') },
@@ -75,6 +76,12 @@ describe('deliveryToast', () => {
 
   it('shows no toast when the page has no delivery pipeline of its own', async () => {
     const { toast } = await runDeliveryToast(null)
+    expect(toast.error).not.toHaveBeenCalled()
+    expect(toast.info).not.toHaveBeenCalled()
+  })
+
+  it('shows no toast for a collection with no delivery pipelines wired', async () => {
+    const { toast } = await runDeliveryToast(ownDeliveryEvents('error'), false)
     expect(toast.error).not.toHaveBeenCalled()
     expect(toast.info).not.toHaveBeenCalled()
   })

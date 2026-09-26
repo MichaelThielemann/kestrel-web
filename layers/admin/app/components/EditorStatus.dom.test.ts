@@ -48,7 +48,7 @@ function entry(over: Partial<DeliveryEntry> = {}): DeliveryEntry {
 }
 
 async function liveLamp(delivery: DeliveryEntry) {
-  const wrapper = await mountSuspended(EditorStatus, { props: { dirty: false, pageLike: true, locale: 'en', delivery: [delivery] } })
+  const wrapper = await mountSuspended(EditorStatus, { props: { dirty: false, deliveryEnabled: true, locale: 'en', delivery: [delivery] } })
   const node = wrapper.find('.editor-status-live')
   const result = { tone: node.attributes('data-tone'), word: node.find('.editor-status-live__word').text(), label: node.attributes('aria-label') }
   wrapper.unmount()
@@ -56,6 +56,12 @@ async function liveLamp(delivery: DeliveryEntry) {
 }
 
 describe('EditorStatus delivery line and dependent re-renders', () => {
+  it('shows no delivery line for a collection with no delivery pipelines', async () => {
+    const wrapper = await mountSuspended(EditorStatus, { props: { dirty: false, deliveryEnabled: false, locale: 'en', delivery: [entry()] } })
+    expect(wrapper.find('.editor-status-live').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
   it('says the page waits for its re-render when content it shows changed', async () => {
     expect(await liveLamp(entry({ stale: true, staleSince: 2 }))).toEqual({
       tone: 'amber',
@@ -73,7 +79,7 @@ describe('EditorStatus delivery line and dependent re-renders', () => {
   })
 
   it('still offers the live page while it waits for its re-render', async () => {
-    const wrapper = await mountSuspended(EditorStatus, { props: { dirty: false, pageLike: true, locale: 'en', publicUrl: 'https://example.test/about', delivery: [entry({ stale: true })] } })
+    const wrapper = await mountSuspended(EditorStatus, { props: { dirty: false, deliveryEnabled: true, locale: 'en', publicUrl: 'https://example.test/about', delivery: [entry({ stale: true })] } })
     expect(wrapper.find('a.editor-status-open').attributes('href')).toBe('https://example.test/about')
     wrapper.unmount()
   })

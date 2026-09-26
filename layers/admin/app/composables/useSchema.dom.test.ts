@@ -27,7 +27,7 @@ const collectionsUi = defineCollectionsUi({
 
 const answer: AdminSchema = {
   locales: { all: ['de', 'en'], primary: 'de', prefixPrimary: true },
-  collections: serializeCollections(contentTypes, collectionsUi).map((collection) => ({ ...collection, capabilities: {} })),
+  collections: serializeCollections(contentTypes, collectionsUi, {}).map((collection) => ({ ...collection, capabilities: {} })),
   features: ['delivery', 'references'],
   capabilities: {},
 }

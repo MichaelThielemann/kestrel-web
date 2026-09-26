@@ -403,8 +403,9 @@ uses its own name for every pipeline (`listNews`, `readNews`, `createNews`, …)
 singular forms (`readPage`, `createPage`, …) and event names (`page.created`, not
 `pages.created`), so overrides, triggers and listeners written against those names keep working. `pages` also
 gets `resolvePage` and the references/links feature patches plus the `delivery` feature's own
-`publishPage`/`unpublishPage` event pipelines, all of which stay hardcoded to the name `"pages"` until a
-`pageLike` model marker exists — every other collection's pipelines are untouched by those features.
+`publishPage`/`unpublishPage` event pipelines, all of which stay hardcoded to the name `"pages"`
+(`capabilities.ts`'s `isRoutedCollection`, a single-collection set today) until a later change routes more
+collections through them — every other collection's pipelines are untouched by those features.
 
 A `multi` collection with at least one `localized: true` field (`collections.ts`'s `hasLocalizedField`)
 additionally gets `delete<Name>Translation` (`authn.requireUser`, `authz.require:<name>.write`,
@@ -594,11 +595,20 @@ rail link and dashboard card. An invalid `placement` value throws, in both `defi
 `defineCollectionsUi`, e.g. in tests). The `Repeater` field component nests to any depth, and row-level
 validation errors follow the same nesting. A consumer's `shared/collections-ui.ts` spreads the preset and adds its own collections, e.g. `pages`.
 The merge and validation live in `layers/core/collections-ui/serialize.ts`
-(`serializeCollections(contentTypes, ui)`), exported through `#kestrel/collections-ui`, so both the admin
-(`layers/admin/app/utils/collections.ts`, via `~~/shared/collections-ui`) and the `GET /api/admin/schema`
-route call the same function. It imports nothing but the core type module, so it stays unit-testable
-directly. `SerializedCollection` carries `editorOwned` and `workflow` alongside the fields, so a client
-needs no second look at the UI map. Enum choice labels come from
+(`serializeCollections(contentTypes, ui, routing)`), exported through `#kestrel/collections-ui`, and
+`server/utils/admin-schema.ts` (`GET /api/admin/schema`'s route) is its only real caller; a consumer
+never calls it directly. `SerializedCollection` carries `editorOwned` and `workflow` alongside the
+fields, so a client needs no second look at the UI map. It also carries `routed`, `published` and
+`hasSlug`, decided in one place (`admin-schema.ts`, from `collectionVerbs`/`isRoutedCollection` in
+`#kestrel/pipelines`) instead of from the collection's field shape: `routed` is `isRoutedCollection(name)`
+— a name check today, the same one `collectionVerbs` already used, kept as the single place that decision
+lives so a later change generalizing it touches only that function; `published` is true when the
+collection's `publishStatus` pipeline both exists and has a booted HTTP trigger, independent of the
+calling user's access; `hasSlug` is a plain `"slug" in fields` check for the list's slug column.
+`serializeCollection`/`serializeCollections` take the `routing` map as a required parameter, so a caller
+must decide it rather than silently getting `routed: false, published: false` for every collection.
+`validateReservedFields` requires `title` and `status` on a collection that is `routed` or `published`,
+not merely on one that carries a `slug` field. Enum choice labels come from
 `fieldOverrides.<field>.options.choices` (matched by value): every model value needs a matching choice,
 and every choice's `value` must be one of the model's `options` — either mismatch throws. A relation's
 `labelField` comes from `fieldOverrides.<field>.relation.labelField` (a partial override — `collection`
@@ -1105,9 +1115,9 @@ listed name is never registered.
 | `user.validate` | `actions/system.ts` | Field validation before the request; declared separately, under the same name, in `userCreate` (username + password) and `userUpdate` (username, plus the password only when one was typed). |
 | `user.patch` / `user.active` / `user.password` | `actions/system.ts` | The three halves of `userUpdate`: `PATCH /users/{id}` with only the changed fields, `POST /users/{id}/deactivate` or `/activate`, `PUT /users/{id}/password`. Each is a no-op when its part did not change, and each maps the failure through `utils/user-errors.ts` into the inline error. |
 | `user.delete` | `actions/system.ts` | `DELETE /users/{id}`, with the same error mapping. |
-| `delivery.refresh` | `steps/delivery.ts` | For a page-like collection, reloads `GET /admin/publish-status/{collection}/{id}` after a successful save, so the live lamp reflects the authoritative per-locale state in both delivery modes. |
-| `delivery.toast` | `steps/delivery.ts` | For a page-like collection, toasts when the write response's `_events.status` is `"error"` or `"pending"`, naming the retry route for the active delivery mode. |
-| `delivery.deleteToast` | `actions/editor.ts` | For a page-like collection, toasts that the page was deleted but is still online when `_events.status` of the delete response is `"error"`. |
+| `delivery.refresh` | `steps/delivery.ts` | When the caller has the collection's `publishStatus` capability, reloads `GET /admin/publish-status/{collection}/{id}` after a successful save, so the live lamp reflects the authoritative per-locale state in both delivery modes. |
+| `delivery.toast` | `steps/delivery.ts` | For a collection the schema reports as `published` (independent of the caller's own access), toasts when the write response's `_events.status` is `"error"` or `"pending"`, naming the retry route for the active delivery mode. |
+| `delivery.deleteToast` | `actions/editor.ts` | For a collection the schema reports as `published`, toasts that the record was deleted but is still online when `_events.status` of the delete response is `"error"`. |
 | `api.request:register` | `actions/system.ts` | Inline step (not the `api.request` factory): a no-op when the declared size list is empty, otherwise `PUT /admin/images/sizes`; a 409 (name collision with a `source: "config"` size) returns silently, the same as the empty-list case — nothing is written to `ctx.result` either way. Used by `imagesRegisterAndSync`. |
 | `api.request:sync` | `actions/system.ts` | The `api.request` factory under this name — the sync half of `imagesRegisterAndSync`, run after `api.request:register`. Named separately so the two requests of one action log as distinct steps, the same convention as `media.each:files`/`media.each:folders`. |
 

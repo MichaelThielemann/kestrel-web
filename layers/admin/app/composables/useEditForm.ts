@@ -2,7 +2,7 @@ import type { LayoutNode, SerializedField, Workflow } from '#kestrel-admin/types
 import type { Document } from '#kestrel-admin/types/api'
 import { boundaryCast } from '#kestrel/cast'
 import { isFieldVisible, slugify } from '#kestrel-admin/utils/kestrel'
-import { BLOCKS_FIELD } from '#kestrel-admin/utils/collections'
+import { BLOCKS_FIELD, findCollection } from '#kestrel-admin/utils/collections'
 import { buildBody, derivedSlugFields, pruneBlockProps, valuesEqual, writeKeys } from '../utils/edit-form'
 import { useEditFormHistory } from './useEditFormHistory'
 import { useEditFormDelivery } from './useEditFormDelivery'
@@ -30,7 +30,6 @@ export function useEditForm(opts: UseEditFormOptions) {
   const fieldLayout = ref<LayoutNode[] | undefined>(undefined)
   const mode = ref<'multi' | 'single'>('multi')
   const translatable = ref(false)
-  const pageLike = ref(false)
   const blocksEnabled = ref(false)
   const blocksAllowed = ref<string[] | undefined>(undefined)
   const workflow = ref<Workflow | undefined>(undefined)
@@ -60,7 +59,9 @@ export function useEditForm(opts: UseEditFormOptions) {
     setTranslations, loadPrimaryTitle, markCopied,
   } = useEditFormLocale({ deps, collection, id, mode, translatable, locale, primaryLocale, contentLocales })
 
-  const { delivery, deliveryLoading, loadDelivery } = useEditFormDelivery({ deps, collection, id, pageLike })
+  const { delivery, deliveryLoading, loadDelivery } = useEditFormDelivery({ deps, collection, id })
+  const deliveryEnabled = computed(() => capabilities.hasVerb(collection, 'publishStatus'))
+  const hasDelivery = computed(() => findCollection(schema.value, collection)?.published ?? false)
 
   const { canUndo, canRedo, recordHistory, undo, redo, resetHistory } = useEditFormHistory({
     values,
@@ -72,7 +73,7 @@ export function useEditForm(opts: UseEditFormOptions) {
 
   const { fieldKeys, rebaseline, reload, init, setInFlightSnapshot } = useEditFormLoad({
     deps, schema, collection, id, locale, values, fields, fieldLayout, mode, translatable,
-    pageLike, blocksEnabled, blocksAllowed, workflow, editorType, editorOwned, stored, baseline,
+    blocksEnabled, blocksAllowed, workflow, editorType, editorOwned, stored, baseline,
     blocksField, slugKeys, derived, following, blockErrors, rowErrors, resetHistory,
     setTranslations, loadPrimaryTitle, loadDelivery,
   })
@@ -142,7 +143,8 @@ export function useEditForm(opts: UseEditFormOptions) {
     collection,
     id,
     mode,
-    pageLike,
+    deliveryEnabled,
+    hasDelivery,
     workflow,
     statusField,
     values,
@@ -175,7 +177,8 @@ export function useEditForm(opts: UseEditFormOptions) {
     fieldLayout,
     renderableFields,
     translatable,
-    pageLike,
+    deliveryEnabled,
+    hasDelivery,
     delivery,
     deliveryLoading,
     translations,

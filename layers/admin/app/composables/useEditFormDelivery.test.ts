@@ -1,4 +1,3 @@
-import { ref } from 'vue'
 import { describe, expect, it, vi } from 'vitest'
 import { useEditFormDelivery } from './useEditFormDelivery'
 import type { ActionDeps } from '../actions/types'
@@ -19,9 +18,15 @@ function deps(overrides: Partial<ActionDeps> = {}): ActionDeps {
 }
 
 describe('useEditFormDelivery', () => {
-  it('does not fetch delivery status for a collection that is not page-like', async () => {
+  it('does not fetch delivery status for a collection with no publish-status pipeline', async () => {
     const api = vi.fn()
-    const { loadDelivery, delivery } = useEditFormDelivery({ deps: deps({ api }), collection: 'articles', id: 'p1', pageLike: ref(false) })
+    const capabilities: ActionDeps['capabilities'] = {
+      has: vi.fn(() => true),
+      route: vi.fn(() => ({ method: 'GET' as const, path: '/pipeline' })),
+      hasVerb: vi.fn(() => false),
+      verbRoute: vi.fn(() => ({ method: 'GET' as const, path: '/articles/p1/publish-status' })),
+    }
+    const { loadDelivery, delivery } = useEditFormDelivery({ deps: deps({ api, capabilities }), collection: 'articles', id: 'p1' })
 
     await loadDelivery()
 
@@ -31,21 +36,20 @@ describe('useEditFormDelivery', () => {
 
   it('does not fetch delivery status for a record that has not been saved yet', async () => {
     const api = vi.fn()
-    const { loadDelivery } = useEditFormDelivery({ deps: deps({ api }), collection: 'pages', id: 'new', pageLike: ref(true) })
+    const { loadDelivery } = useEditFormDelivery({ deps: deps({ api }), collection: 'pages', id: 'new' })
 
     await loadDelivery()
 
     expect(api).not.toHaveBeenCalled()
   })
 
-  it('loads delivery entries for a stored page-like record', async () => {
+  it('loads delivery entries for a stored, publish-status-capable record', async () => {
     const entries = [{ target: 'production', status: 'published' }]
     const api = vi.fn().mockResolvedValue(entries)
     const { loadDelivery, delivery, deliveryLoading } = useEditFormDelivery({
       deps: deps({ api }),
       collection: 'pages',
       id: 'p1',
-      pageLike: ref(true),
     })
 
     const pending = loadDelivery()
@@ -58,7 +62,7 @@ describe('useEditFormDelivery', () => {
 
   it('clears delivery entries when the request fails', async () => {
     const api = vi.fn().mockRejectedValue(new Error('network error'))
-    const { loadDelivery, delivery } = useEditFormDelivery({ deps: deps({ api }), collection: 'pages', id: 'p1', pageLike: ref(true) })
+    const { loadDelivery, delivery } = useEditFormDelivery({ deps: deps({ api }), collection: 'pages', id: 'p1' })
 
     await loadDelivery()
 

@@ -54,7 +54,8 @@ export interface EditFormPort {
   collection: string
   id: string
   mode: 'multi' | 'single'
-  pageLike: boolean
+  deliveryEnabled: boolean
+  hasDelivery: boolean
   workflow: () => Workflow | undefined
   status: () => string
   saving: () => boolean

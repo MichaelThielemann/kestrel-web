@@ -2,7 +2,8 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { boundaryCast } from "#kestrel/cast";
-import { serializeCollections, type CollectionUi, type ContentType } from "./serialize";
+import { isRoutedCollection } from "#kestrel/pipelines";
+import { serializeCollections, type CollectionRouting, type CollectionUi, type ContentType } from "./serialize";
 import { contentTypes } from "../../../playground/shared/model";
 import fieldTypes from "../../../playground/shared/field-types";
 import { customFieldTypes } from "../field-types";
@@ -16,19 +17,23 @@ const describedTypes: Record<string, ContentType> = {
 };
 const playgroundCustomTypes = customFieldTypes(contentTypes, fieldTypes);
 
+function routingFor(names: readonly string[]): Record<string, CollectionRouting> {
+  return Object.fromEntries(names.map((name) => [name, { routed: isRoutedCollection(name), published: isRoutedCollection(name) }]));
+}
+
 describe("serializeCollections golden fixture", () => {
   it("matches today's frozen playground output", () => {
     const fixture: unknown = JSON.parse(readFileSync(fileURLToPath(new URL("./__fixtures__/collections.playground.json", import.meta.url)), "utf-8"));
-    expect(serializeCollections(describedTypes, playgroundUi, playgroundCustomTypes)).toEqual(fixture);
+    expect(serializeCollections(describedTypes, playgroundUi, routingFor(Object.keys(describedTypes)), playgroundCustomTypes)).toEqual(fixture);
   });
 
   it("reports the declared field type and keeps the storage type for the admin's fallback", () => {
-    const pages = serializeCollections(describedTypes, playgroundUi, playgroundCustomTypes).find((collection) => collection.name === "pages");
+    const pages = serializeCollections(describedTypes, playgroundUi, routingFor(Object.keys(describedTypes)), playgroundCustomTypes).find((collection) => collection.name === "pages");
     expect(pages?.fields.accent).toMatchObject({ type: "color", storageType: "text" });
   });
 
   it("leaves the storage type alone when no custom type is declared for the field", () => {
-    const pages = serializeCollections(describedTypes, playgroundUi).find((collection) => collection.name === "pages");
+    const pages = serializeCollections(describedTypes, playgroundUi, routingFor(Object.keys(describedTypes))).find((collection) => collection.name === "pages");
     expect(pages?.fields.accent).toMatchObject({ type: "text" });
     expect(pages?.fields.accent?.storageType).toBeUndefined();
   });
@@ -37,34 +42,34 @@ describe("serializeCollections golden fixture", () => {
 describe("serializeCollections golden fixture: synthetic collections", () => {
   it("derives rail/system/account placement and status/body flags for news, profile and notifications", () => {
     const fixture: unknown = JSON.parse(readFileSync(fileURLToPath(new URL("./__fixtures__/collections.synthetic.json", import.meta.url)), "utf-8"));
-    expect(serializeCollections(syntheticContentTypes, syntheticCollectionsUi)).toEqual(fixture);
+    expect(serializeCollections(syntheticContentTypes, syntheticCollectionsUi, routingFor(Object.keys(syntheticContentTypes)))).toEqual(fixture);
   });
 
   it("defaults placement to rail when the UI entry does not set one", () => {
-    const [, , pages, news] = serializeCollections(syntheticContentTypes, syntheticCollectionsUi);
+    const [, , pages, news] = serializeCollections(syntheticContentTypes, syntheticCollectionsUi, routingFor(Object.keys(syntheticContentTypes)));
     expect(pages!.placement).toBe("rail");
     expect(news!.placement).toBe("rail");
   });
 
   it("throws for an invalid placement value", () => {
     const ui: Record<string, CollectionUi> = {
-      pages: { label: { singular: "p", plural: "p" }, placement: boundaryCast("nowhere", "json") },
+      widgets: { label: { singular: "w", plural: "w" }, placement: boundaryCast("nowhere", "json") },
     };
-    expect(() => serializeCollections({ pages: { kind: "multi", fields: { title: { type: "text" } } } }, ui)).toThrow(/placement/);
+    expect(() => serializeCollections({ widgets: { kind: "multi", fields: { title: { type: "text" } } } }, ui, {})).toThrow(/placement/);
   });
 
   it('throws when a multi-kind collection uses placement "system"', () => {
     const ui: Record<string, CollectionUi> = {
       news: { label: { singular: "n", plural: "n" }, placement: "system" },
     };
-    expect(() => serializeCollections({ news: { kind: "multi", fields: { title: { type: "text" } } } }, ui)).toThrow(/"news".*"multi".*"system"/);
+    expect(() => serializeCollections({ news: { kind: "multi", fields: { title: { type: "text" } } } }, ui, {})).toThrow(/"news".*"multi".*"system"/);
   });
 
   it('throws when a multi-kind collection uses placement "account"', () => {
     const ui: Record<string, CollectionUi> = {
       news: { label: { singular: "n", plural: "n" }, placement: "account" },
     };
-    expect(() => serializeCollections({ news: { kind: "multi", fields: { title: { type: "text" } } } }, ui)).toThrow(/"news".*"multi".*"account"/);
+    expect(() => serializeCollections({ news: { kind: "multi", fields: { title: { type: "text" } } } }, ui, {})).toThrow(/"news".*"multi".*"account"/);
   });
 });
 
@@ -89,42 +94,42 @@ describe("serializeCollections validation", () => {
 
   it("throws when a UI entry names a collection missing from the model", () => {
     const ui: Record<string, CollectionUi> = { ghost: { label: { singular: "g", plural: "g" } } };
-    expect(() => serializeCollections(types, ui)).toThrow(/"ghost"/);
+    expect(() => serializeCollections(types, ui, {})).toThrow(/"ghost"/);
   });
 
   it("throws when fieldLayout names a field the model lacks", () => {
     const ui: Record<string, CollectionUi> = {
       pages: { label: { singular: "p", plural: "p" }, fieldLayout: [{ kind: "row", fields: ["nope"], tracks: [1] }] },
     };
-    expect(() => serializeCollections(types, ui)).toThrow(/nope/);
+    expect(() => serializeCollections(types, ui, {})).toThrow(/nope/);
   });
 
   it("throws when fieldLabels names a field the model lacks", () => {
     const ui: Record<string, CollectionUi> = {
       pages: { label: { singular: "p", plural: "p" }, fieldLabels: { nope: "x" } },
     };
-    expect(() => serializeCollections(types, ui)).toThrow(/nope/);
+    expect(() => serializeCollections(types, ui, {})).toThrow(/nope/);
   });
 
   it("throws when fieldOverrides names a field the model lacks", () => {
     const ui: Record<string, CollectionUi> = {
       pages: { label: { singular: "p", plural: "p" }, fieldOverrides: { nope: { required: true } } },
     };
-    expect(() => serializeCollections(types, ui)).toThrow(/nope/);
+    expect(() => serializeCollections(types, ui, {})).toThrow(/nope/);
   });
 
   it("throws when editorOwned names a field the model lacks", () => {
     const ui: Record<string, CollectionUi> = {
       pages: { label: { singular: "p", plural: "p" }, editorOwned: ["nope"] },
     };
-    expect(() => serializeCollections(types, ui)).toThrow(/nope/);
+    expect(() => serializeCollections(types, ui, {})).toThrow(/nope/);
   });
 
   it("throws when slug.options.from names a missing field", () => {
     const ui: Record<string, CollectionUi> = {
       pages: { label: { singular: "p", plural: "p" }, fieldOverrides: { slug: { options: { from: "nope" } } } },
     };
-    expect(() => serializeCollections(types, ui)).toThrow(/nope/);
+    expect(() => serializeCollections(types, ui, {})).toThrow(/nope/);
   });
 
   it("throws when a model enum value has no matching fieldOverrides choice", () => {
@@ -134,7 +139,7 @@ describe("serializeCollections validation", () => {
         fieldOverrides: { status: { options: { choices: [{ value: "draft", label: "Draft" }, { value: "finished", label: "Finished" }] } } },
       },
     };
-    expect(() => serializeCollections(types, ui)).toThrow(/published/);
+    expect(() => serializeCollections(types, ui, {})).toThrow(/published/);
   });
 
   it("throws when a fieldOverrides choices.value is not in the model's enum.options", () => {
@@ -154,7 +159,7 @@ describe("serializeCollections validation", () => {
         },
       },
     };
-    expect(() => serializeCollections(types, ui)).toThrow(/archived/);
+    expect(() => serializeCollections(types, ui, {})).toThrow(/archived/);
   });
 
   it("throws when a relation labelField is missing on the target type", () => {
@@ -163,12 +168,12 @@ describe("serializeCollections validation", () => {
       authors: { kind: "multi" as const, fields: { count: { type: "number" } } },
     };
     const ui: Record<string, CollectionUi> = { pages: { label: { singular: "p", plural: "p" } } };
-    expect(() => serializeCollections(badTypes, ui)).toThrow(/author/);
+    expect(() => serializeCollections(badTypes, ui, {})).toThrow(/author/);
   });
 
   it("resolves a relation labelField to the first text field on the target type when no override is given", () => {
     const ui: Record<string, CollectionUi> = { pages: { label: { singular: "p", plural: "p" } } };
-    const [pages] = serializeCollections(types, ui);
+    const [pages] = serializeCollections(types, ui, {});
     expect(pages!.fields.author!.relation).toEqual({ collection: "authors", many: false, labelField: "name" });
   });
 
@@ -180,7 +185,7 @@ describe("serializeCollections validation", () => {
     const ui: Record<string, CollectionUi> = {
       pages: { label: { singular: "p", plural: "p" }, fieldOverrides: { author: { relation: { labelField: "nick" } } } },
     };
-    const [pages] = serializeCollections(withNick, ui);
+    const [pages] = serializeCollections(withNick, ui, {});
     expect(pages!.fields.author!.relation).toEqual({ collection: "authors", many: false, labelField: "nick" });
   });
 
@@ -191,7 +196,7 @@ describe("serializeCollections validation", () => {
         fieldLayout: [{ kind: "group", label: "g", rows: [{ kind: "row", fields: ["nope"], tracks: [1] }] }],
       },
     };
-    expect(() => serializeCollections(types, ui)).toThrow(/nope/);
+    expect(() => serializeCollections(types, ui, {})).toThrow(/nope/);
   });
 
   it("accepts fields inside a fieldLayout group's nested rows", () => {
@@ -201,12 +206,12 @@ describe("serializeCollections validation", () => {
         fieldLayout: [{ kind: "group", label: "g", rows: [{ kind: "row", fields: ["title"], tracks: [1] }] }],
       },
     };
-    expect(() => serializeCollections(types, ui)).not.toThrow();
+    expect(() => serializeCollections(types, ui, {})).not.toThrow();
   });
 
   it('validates options.from for any field of type slug, not only one literally named "slug"', () => {
     const slugTypes = {
-      pages: {
+      widgets: {
         kind: "multi" as const,
         fields: {
           path: { type: "slug", required: true },
@@ -215,9 +220,9 @@ describe("serializeCollections validation", () => {
       },
     };
     const ui: Record<string, CollectionUi> = {
-      pages: { label: { singular: "p", plural: "p" }, fieldOverrides: { path: { options: { from: "nope" } } } },
+      widgets: { label: { singular: "w", plural: "w" }, fieldOverrides: { path: { options: { from: "nope" } } } },
     };
-    expect(() => serializeCollections(slugTypes, ui)).toThrow(/nope/);
+    expect(() => serializeCollections(slugTypes, ui, {})).toThrow(/nope/);
   });
 
   const typesWithSeo = {
@@ -232,14 +237,14 @@ describe("serializeCollections validation", () => {
     const ui: Record<string, CollectionUi> = {
       pages: { label: { singular: "p", plural: "p" }, seoFields: ["nope"] },
     };
-    expect(() => serializeCollections(typesWithSeo, ui)).toThrow(/nope/);
+    expect(() => serializeCollections(typesWithSeo, ui, {})).toThrow(/nope/);
   });
 
   it("throws when seoFields is used but the collection has no seo field", () => {
     const ui: Record<string, CollectionUi> = {
       pages: { label: { singular: "p", plural: "p" }, seoFields: ["author"] },
     };
-    expect(() => serializeCollections(types, ui)).toThrow(/seo/);
+    expect(() => serializeCollections(types, ui, {})).toThrow(/seo/);
   });
 
   it("throws when a field is listed in both fieldLayout and seoFields", () => {
@@ -250,14 +255,14 @@ describe("serializeCollections validation", () => {
         seoFields: ["shareImage"],
       },
     };
-    expect(() => serializeCollections(typesWithSeo, ui)).toThrow(/shareImage/);
+    expect(() => serializeCollections(typesWithSeo, ui, {})).toThrow(/shareImage/);
   });
 
   it("excludes seoFields from the auto-generated fieldLayout", () => {
     const ui: Record<string, CollectionUi> = {
       pages: { label: { singular: "p", plural: "p" }, seoFields: ["shareImage"] },
     };
-    const [pages] = serializeCollections(typesWithSeo, ui);
+    const [pages] = serializeCollections(typesWithSeo, ui, {});
     expect(pages!.fieldLayout?.some((n) => n.kind === "row" && n.fields.includes("shareImage"))).toBe(false);
     expect(pages!.seoFields).toEqual(["shareImage"]);
   });
@@ -266,7 +271,7 @@ describe("serializeCollections validation", () => {
     const ui: Record<string, CollectionUi> = {
       pages: { label: { singular: "p", plural: "p" }, fieldOverrides: { status: { options: { display: "buttons" } } } },
     };
-    const [pages] = serializeCollections(types, ui);
+    const [pages] = serializeCollections(types, ui, {});
     expect(pages!.fields.status!.options).toEqual({
       choices: [{ value: "draft", label: "draft" }, { value: "finished", label: "finished" }, { value: "published", label: "published" }],
       display: "buttons",
@@ -280,7 +285,7 @@ describe("serializeCollections validation", () => {
 
   it("exposes layoutField true only when the model has a layout field", () => {
     const ui: Record<string, CollectionUi> = { pages: { label: { singular: "p", plural: "p" } }, authors: { label: { singular: "a", plural: "a" } } };
-    const [pages, authors] = serializeCollections(typesWithLayout, ui);
+    const [pages, authors] = serializeCollections(typesWithLayout, ui, {});
     expect(pages!.layoutField).toBe(true);
     expect(authors!.layoutField).toBe(false);
   });
@@ -290,7 +295,7 @@ describe("serializeCollections validation", () => {
       authors: { kind: "multi" as const, fields: { ...types.authors.fields, layout: { type: "text" } } },
     };
     const ui: Record<string, CollectionUi> = { authors: { label: { singular: "a", plural: "a" } } };
-    const [authors] = serializeCollections(noSlugTypes, ui);
+    const [authors] = serializeCollections(noSlugTypes, ui, {});
     expect(authors!.layoutField).toBe(false);
   });
 
@@ -300,7 +305,7 @@ describe("serializeCollections validation", () => {
       pages: { ...typesWithLayout.pages, fields: { ...typesWithLayout.pages.fields, layout: { type: "number" } } },
     };
     const ui: Record<string, CollectionUi> = { pages: { label: { singular: "p", plural: "p" } } };
-    expect(() => serializeCollections(badTypes, ui)).toThrow(/layout/);
+    expect(() => serializeCollections(badTypes, ui, {})).toThrow(/layout/);
   });
 
   it("throws when layout is localized", () => {
@@ -309,12 +314,12 @@ describe("serializeCollections validation", () => {
       pages: { ...typesWithLayout.pages, fields: { ...typesWithLayout.pages.fields, layout: { type: "text", localized: true } } },
     };
     const ui: Record<string, CollectionUi> = { pages: { label: { singular: "p", plural: "p" } } };
-    expect(() => serializeCollections(badTypes, ui)).toThrow(/layout/);
+    expect(() => serializeCollections(badTypes, ui, {})).toThrow(/layout/);
   });
 
   it("excludes layout from the auto-generated fieldLayout", () => {
     const ui: Record<string, CollectionUi> = { pages: { label: { singular: "p", plural: "p" } } };
-    const [pages] = serializeCollections(typesWithLayout, ui);
+    const [pages] = serializeCollections(typesWithLayout, ui, {});
     expect(pages!.fieldLayout?.some((n) => n.kind === "row" && n.fields.includes("layout"))).toBe(false);
   });
 
@@ -322,14 +327,14 @@ describe("serializeCollections validation", () => {
     const ui: Record<string, CollectionUi> = {
       pages: { label: { singular: "p", plural: "p" }, fieldLayout: [{ kind: "row", fields: ["layout"], tracks: [1] }] },
     };
-    expect(() => serializeCollections(typesWithLayout, ui)).toThrow(/layout/);
+    expect(() => serializeCollections(typesWithLayout, ui, {})).toThrow(/layout/);
   });
 
   it("throws when layout is named in seoFields", () => {
     const ui: Record<string, CollectionUi> = {
       pages: { label: { singular: "p", plural: "p" }, seoFields: ["layout"] },
     };
-    expect(() => serializeCollections({ ...typesWithLayout, pages: { ...typesWithLayout.pages, fields: { ...typesWithLayout.pages.fields, seo: { type: "json" } } } }, ui)).toThrow(/layout/);
+    expect(() => serializeCollections({ ...typesWithLayout, pages: { ...typesWithLayout.pages, fields: { ...typesWithLayout.pages.fields, seo: { type: "json" } } } }, ui, {})).toThrow(/layout/);
   });
 
   const typesWithLink = {
@@ -344,7 +349,7 @@ describe("serializeCollections validation", () => {
         fieldOverrides: { link: { type: "link", options: { types: ["internal", "external"], theme: "compact" } } },
       },
     };
-    const [pages] = serializeCollections(typesWithLink, ui);
+    const [pages] = serializeCollections(typesWithLink, ui, {});
     expect(pages!.fields.link!.type).toBe("link");
     expect(pages!.fields.link!.options).toEqual({ types: ["internal", "external"], theme: "compact" });
   });
@@ -353,7 +358,23 @@ describe("serializeCollections validation", () => {
 describe("reserved field names", () => {
   const uiFor = (collection: string): Record<string, CollectionUi> => ({ [collection]: { label: { singular: collection, plural: collection } } });
 
-  it('throws when a page-like type is missing "title"', () => {
+  const routed = (collection: string): Record<string, CollectionRouting> => ({ [collection]: { routed: true, published: false } });
+  const published = (collection: string): Record<string, CollectionRouting> => ({ [collection]: { routed: false, published: true } });
+
+  it('throws when a published (but not routed) type is missing "title"', () => {
+    const badTypes = {
+      articles: {
+        kind: "multi" as const,
+        fields: {
+          slug: { type: "slug", required: true },
+          status: { type: "enum", options: ["draft", "finished", "published"] },
+        },
+      },
+    };
+    expect(() => serializeCollections(badTypes, uiFor("articles"), published("articles"))).toThrow(/title/);
+  });
+
+  it('throws when a routed type is missing "title"', () => {
     const badTypes = {
       pages: {
         kind: "multi" as const,
@@ -363,10 +384,10 @@ describe("reserved field names", () => {
         },
       },
     };
-    expect(() => serializeCollections(badTypes, uiFor("pages"))).toThrow(/title/);
+    expect(() => serializeCollections(badTypes, uiFor("pages"), routed("pages"))).toThrow(/title/);
   });
 
-  it('throws when a page-like type is missing "status"', () => {
+  it('throws when a routed type is missing "status"', () => {
     const badTypes = {
       pages: {
         kind: "multi" as const,
@@ -376,7 +397,19 @@ describe("reserved field names", () => {
         },
       },
     };
-    expect(() => serializeCollections(badTypes, uiFor("pages"))).toThrow(/status/);
+    expect(() => serializeCollections(badTypes, uiFor("pages"), routed("pages"))).toThrow(/status/);
+  });
+
+  it("does not require title or status for a collection with a slug field that is neither routed nor published", () => {
+    const types = {
+      articles: {
+        kind: "multi" as const,
+        fields: {
+          slug: { type: "slug", required: true },
+        },
+      },
+    };
+    expect(() => serializeCollections(types, uiFor("articles"), {})).not.toThrow();
   });
 
   it("throws when status has a value outside the reserved set", () => {
@@ -390,7 +423,7 @@ describe("reserved field names", () => {
         },
       },
     };
-    expect(() => serializeCollections(badTypes, uiFor("pages"))).toThrow(/archived/);
+    expect(() => serializeCollections(badTypes, uiFor("pages"), {})).toThrow(/archived/);
   });
 
   it("throws when status is missing one of the three reserved values", () => {
@@ -404,7 +437,7 @@ describe("reserved field names", () => {
         },
       },
     };
-    expect(() => serializeCollections(badTypes, uiFor("pages"))).toThrow(/finished/);
+    expect(() => serializeCollections(badTypes, uiFor("pages"), {})).toThrow(/finished/);
   });
 
   it("throws when status uses renamed values instead of the reserved ones", () => {
@@ -418,7 +451,7 @@ describe("reserved field names", () => {
         },
       },
     };
-    expect(() => serializeCollections(badTypes, uiFor("pages"))).toThrow(/entwurf/);
+    expect(() => serializeCollections(badTypes, uiFor("pages"), {})).toThrow(/entwurf/);
   });
 
   it("accepts renamed status values when the collection declares a workflow for them", () => {
@@ -435,7 +468,7 @@ describe("reserved field names", () => {
     const ui: Record<string, CollectionUi> = {
       pages: { label: { singular: "Page", plural: "Pages" }, workflow: { field: "status", live: "live", draft: "entwurf" } },
     };
-    const pages = serializeCollections(types, ui)[0];
+    const pages = serializeCollections(types, ui, {})[0];
     expect(pages?.workflow).toEqual({ field: "status", live: "live", draft: "entwurf" });
     expect(pages?.status).toBe(true);
     expect(pages?.fields.status?.options?.choices).toEqual([
@@ -458,7 +491,7 @@ describe("reserved field names", () => {
     const ui: Record<string, CollectionUi> = {
       pages: { label: { singular: "Page", plural: "Pages" }, workflow: { field: "status", live: "public", draft: "entwurf" } },
     };
-    expect(() => serializeCollections(types, ui)).toThrow(/"pages".*"public".*"status"/);
+    expect(() => serializeCollections(types, ui, {})).toThrow(/"pages".*"public".*"status"/);
   });
 
   it('throws when "status" is not type enum', () => {
@@ -472,7 +505,7 @@ describe("reserved field names", () => {
         },
       },
     };
-    expect(() => serializeCollections(badTypes, uiFor("pages"))).toThrow(/status/);
+    expect(() => serializeCollections(badTypes, uiFor("pages"), {})).toThrow(/status/);
   });
 
   it('throws when "title" is not type text', () => {
@@ -486,7 +519,7 @@ describe("reserved field names", () => {
         },
       },
     };
-    expect(() => serializeCollections(badTypes, uiFor("pages"))).toThrow(/title/);
+    expect(() => serializeCollections(badTypes, uiFor("pages"), {})).toThrow(/title/);
   });
 
   it('throws when "slug" is not type slug', () => {
@@ -500,7 +533,7 @@ describe("reserved field names", () => {
         },
       },
     };
-    expect(() => serializeCollections(badTypes, uiFor("pages"))).toThrow(/slug/);
+    expect(() => serializeCollections(badTypes, uiFor("pages"), {})).toThrow(/slug/);
   });
 
   it('throws when "body" is not type json', () => {
@@ -513,7 +546,7 @@ describe("reserved field names", () => {
         },
       },
     };
-    expect(() => serializeCollections(badTypes, uiFor("authors"))).toThrow(/body/);
+    expect(() => serializeCollections(badTypes, uiFor("authors"), {})).toThrow(/body/);
   });
 
   it('throws when "seo" is not type json', () => {
@@ -526,7 +559,7 @@ describe("reserved field names", () => {
         },
       },
     };
-    expect(() => serializeCollections(badTypes, uiFor("authors"))).toThrow(/seo/);
+    expect(() => serializeCollections(badTypes, uiFor("authors"), {})).toThrow(/seo/);
   });
 
   it("accepts a minimal non-page-like collection with none of the reserved fields", () => {
@@ -538,6 +571,6 @@ describe("reserved field names", () => {
         },
       },
     };
-    expect(() => serializeCollections(minimalTypes, uiFor("authors"))).not.toThrow();
+    expect(() => serializeCollections(minimalTypes, uiFor("authors"), {})).not.toThrow();
   });
 });

@@ -19,7 +19,7 @@ export function ownDeliveryStatus(events: EventRelayStatus | null | undefined): 
 export function deliveryRefresh<I extends { form: EditFormPort }>(): ActionStep<I, SaveOutcome> {
   return defineUiStep<I, SaveOutcome>('delivery.refresh', async (ctx) => {
     const outcome = saveOutcome(ctx, 'delivery.refresh')
-    if (outcome.failed || !ctx.input.form.pageLike) return
+    if (outcome.failed || !ctx.input.form.deliveryEnabled) return
     await ctx.input.form.loadDelivery()
   })
 }
@@ -38,7 +38,7 @@ export function retrySuffix(t: Translate, queued: boolean): string {
 export function deliveryToast<I extends WithDeps & { form: EditFormPort }>(): ActionStep<I, SaveOutcome> {
   return defineUiStep<I, SaveOutcome>('delivery.toast', (ctx) => {
     const outcome = saveOutcome(ctx, 'delivery.toast')
-    if (outcome.failed || !ctx.input.form.pageLike) return
+    if (outcome.failed || !ctx.input.form.hasDelivery) return
     const status = ownDeliveryStatus(outcome.events)
     if (status === undefined || status === 'done') return
     const { t, toast } = ctx.input.deps

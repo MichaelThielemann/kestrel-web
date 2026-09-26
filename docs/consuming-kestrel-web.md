@@ -154,12 +154,15 @@ Two files have to agree on the name:
      throws); with a `workflow` (§3.5) it is checked against that instead, so you can name the values
      yourself. Either way it carries the publish workflow and gets the preset's `?status=<live>` read
      filtering (§4).
-   - `slug`, when present, must be `type: "slug"` — its presence makes the record page-like.
+   - `slug`, when present, must be `type: "slug"` — the admin shows a slug column for the collection,
+     but by itself a `slug` field does not make the record routed or published (see below).
    - `body`, when present, must be `type: "json"` — it holds blocks, and gets the preset's
      `validate.check`/`validate.sanitize`/`validate.check` steps and a `<name>.body` schema entry from
      `presetSchemas()`.
    - `seo`, when present, must be `type: "json"` — it is editor-owned.
-   - A page-like type (one with a `slug` field) must additionally have both `title` and `status`.
+   - A collection the preset routes into the public `resolvePage` route or publishes through a
+     `publishStatus` pipeline must additionally have both `title` and `status` — today that is only
+     `pages`, regardless of which fields it declares.
    - `layout` (`{ type: "text" }`, never `localized`) picks the `app/layouts/*.vue` a page-like record
      renders in — editor-owned like `seo`, see **Layouts** below.
    - No field name may start with `_`: that namespace is reserved for members the system merges onto a

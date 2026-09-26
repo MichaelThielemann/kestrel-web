@@ -98,6 +98,23 @@ describe("buildAdminSchema", () => {
     expect(fallback.locales).toEqual({ all: [...locales], primary: defaultLocale, prefixPrimary });
   });
 
+  it("reports a collection unpublished when its publish-status pipeline never booted, even though its name is routed", () => {
+    const unbooted = buildAdminSchema({
+      model: describedModel,
+      collectionsUi,
+      features,
+      prefixPrimary,
+      locales,
+      defaultLocale,
+      customTypes,
+      triggers: [],
+      access: {},
+    });
+    const pages = unbooted.collections.find((collection) => collection.name === "pages");
+    expect(pages?.routed).toBe(true);
+    expect(pages?.published).toBe(false);
+  });
+
   it("derives the pages workflow from the status enum", () => {
     const pages = schema.collections.find((collection) => collection.name === "pages");
     expect(pages?.workflow).toEqual({ field: "status", live: "published", draft: "draft", done: "finished" });

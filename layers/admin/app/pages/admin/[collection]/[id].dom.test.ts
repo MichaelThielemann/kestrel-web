@@ -1,9 +1,12 @@
 import { computed, reactive } from 'vue'
 import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { readBody } from 'h3'
+import { boundaryCast } from '#kestrel/cast'
 import type { AdminSchema, Document } from '#kestrel-admin/types/api'
 import type { SerializedField } from '#kestrel-admin/types/kestrel'
 import { en } from '#kestrel-admin/i18n/en'
+import { useToast } from '#kestrel-admin/composables/useToast'
 import RecordPage from './[id].vue'
 
 beforeEach(() => {
@@ -34,7 +37,9 @@ const { rawSchemaState } = vi.hoisted(() => {
       name: 'widgets',
       mode: 'multi',
       translatable: true,
-      pageLike: false,
+      routed: false,
+      published: false,
+      hasSlug: false,
       seo: false,
       status: false,
       layoutField: false,
@@ -168,6 +173,105 @@ describe('the record page publish gate', () => {
     await vi.waitFor(() => expect(wrapper.find('input').exists()).toBe(true))
 
     expect(wrapper.text()).toContain(en['common.publish'])
+    wrapper.unmount()
+  })
+})
+
+describe('delivery derivation from the schema, not the slug field', () => {
+  const unregisterAll: (() => void)[] = []
+
+  afterEach(() => {
+    unregisterAll.splice(0).forEach((unregister) => unregister())
+    schemaState.collection = { ...schemaState.collection, hasSlug: false, published: false, capabilities: widgetsCapabilities(false), workflow: undefined }
+  })
+
+  function saveWithFailedDelivery(publishStatusRequested: { count: number }) {
+    unregisterAll.push(registerEndpoint('/api/admin/widgets/w1', { method: 'GET', handler: () => baseRecord() }))
+    unregisterAll.push(registerEndpoint('/api/widgets/w1', {
+      method: 'PATCH',
+      handler: async (event) => {
+        const body = boundaryCast<Record<string, unknown>>(await readBody(event), 'json')
+        return {
+          ...baseRecord(),
+          ...body,
+          _events: { status: 'error', pipelines: [{ event: 'page.updated', pipeline: 'publishPage', status: 'error', attempts: 1, dead: false, error: 'boom' }] },
+        }
+      },
+    }))
+    unregisterAll.push(registerEndpoint('/api/admin/publish-status/widgets/w1', {
+      method: 'GET',
+      handler: () => { publishStatusRequested.count += 1; return [] },
+    }))
+  }
+
+  function newToastsSince(toast: ReturnType<typeof useToast>, idsBefore: ReadonlySet<number>) {
+    return toast.items.filter((item) => !idsBefore.has(item.id))
+  }
+
+  it('loads no publish status and shows no delivery toast for a collection with a slug but no delivery pipelines', async () => {
+    schemaState.collection = { ...schemaState.collection, hasSlug: true, published: false, capabilities: widgetsCapabilities(false) }
+    const publishStatusRequested = { count: 0 }
+    saveWithFailedDelivery(publishStatusRequested)
+    const toast = useToast()
+    const idsBefore = new Set(toast.items.map((item) => item.id))
+
+    const wrapper = await mountSuspended(RecordPage, { attachTo: document.body })
+    await vi.waitFor(() => expect(wrapper.find('input').exists()).toBe(true))
+
+    await wrapper.get('input').setValue('Renamed widget')
+    await wrapper.get('form').trigger('submit')
+    await vi.waitFor(() => expect(newToastsSince(toast, idsBefore).length).toBeGreaterThan(0))
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    expect(publishStatusRequested.count).toBe(0)
+    expect(document.body.querySelector('.editor-status-live')).toBeNull()
+    expect(newToastsSince(toast, idsBefore).some((item) => item.type === 'error')).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('loads the publish status and shows the delivery toast for a collection whose publish-status pipeline is wired', async () => {
+    schemaState.collection = {
+      ...schemaState.collection,
+      hasSlug: true,
+      published: true,
+      capabilities: { ...widgetsCapabilities(false), publishStatus: { method: 'GET', path: '/admin/publish-status/widgets/:id' } },
+    }
+    const publishStatusRequested = { count: 0 }
+    saveWithFailedDelivery(publishStatusRequested)
+    const toast = useToast()
+    const idsBefore = new Set(toast.items.map((item) => item.id))
+
+    const wrapper = await mountSuspended(RecordPage, { attachTo: document.body })
+    await vi.waitFor(() => expect(wrapper.find('input').exists()).toBe(true))
+
+    await wrapper.get('input').setValue('Renamed widget')
+    await wrapper.get('form').trigger('submit')
+    await vi.waitFor(() => expect(newToastsSince(toast, idsBefore).some((item) => item.type === 'error')).toBe(true))
+
+    expect(publishStatusRequested.count).toBeGreaterThan(0)
+    wrapper.unmount()
+  })
+
+  it('still shows the delivery toast for a published collection when the caller lacks the publish-status capability', async () => {
+    schemaState.collection = {
+      ...schemaState.collection,
+      hasSlug: true,
+      published: true,
+      capabilities: widgetsCapabilities(false),
+    }
+    const publishStatusRequested = { count: 0 }
+    saveWithFailedDelivery(publishStatusRequested)
+    const toast = useToast()
+    const idsBefore = new Set(toast.items.map((item) => item.id))
+
+    const wrapper = await mountSuspended(RecordPage, { attachTo: document.body })
+    await vi.waitFor(() => expect(wrapper.find('input').exists()).toBe(true))
+
+    await wrapper.get('input').setValue('Renamed widget')
+    await wrapper.get('form').trigger('submit')
+    await vi.waitFor(() => expect(newToastsSince(toast, idsBefore).some((item) => item.type === 'error')).toBe(true))
+
+    expect(publishStatusRequested.count).toBe(0)
     wrapper.unmount()
   })
 })

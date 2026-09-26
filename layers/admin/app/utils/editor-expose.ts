@@ -34,7 +34,9 @@ export interface EditorExpose {
 
   translations: Record<string, boolean>
 
-  pageLike: boolean
+  deliveryEnabled: boolean
+
+  hasDelivery: boolean
 
   delivery: DeliveryEntry[] | null
 

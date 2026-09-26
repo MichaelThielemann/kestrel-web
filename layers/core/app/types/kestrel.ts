@@ -127,7 +127,9 @@ export interface SerializedCollection {
   name: string
   mode: 'multi' | 'single'
   translatable: boolean
-  pageLike: boolean
+  routed: boolean
+  published: boolean
+  hasSlug: boolean
   seo: boolean
   status: boolean
   layoutField: boolean

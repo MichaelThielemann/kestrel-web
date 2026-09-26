@@ -13,7 +13,8 @@ export interface UseEditFormActionsOptions {
   collection: string
   id: string
   mode: Ref<'multi' | 'single'>
-  pageLike: Ref<boolean>
+  deliveryEnabled: ComputedRef<boolean>
+  hasDelivery: ComputedRef<boolean>
   workflow: Ref<Workflow | undefined>
   statusField: ComputedRef<string>
   values: Record<string, unknown>
@@ -38,7 +39,7 @@ export interface UseEditFormActionsOptions {
 
 export function useEditFormActions(opts: UseEditFormActionsOptions) {
   const {
-    deps, collection, id, mode, pageLike, workflow, statusField, values, saving, blocksField,
+    deps, collection, id, mode, deliveryEnabled, hasDelivery, workflow, statusField, values, saving, blocksField,
     fields, formError, errors, rowErrors, blockErrors, fieldKeys, dirtyKeys, bodyFor, setField,
     validateAll, validateBlocksClientSide, applySaved, loadDelivery, setInFlightSnapshot, onTranslationCopied,
   } = opts
@@ -58,7 +59,8 @@ export function useEditFormActions(opts: UseEditFormActionsOptions) {
       collection,
       id,
       mode: mode.value,
-      pageLike: pageLike.value,
+      deliveryEnabled: deliveryEnabled.value,
+      hasDelivery: hasDelivery.value,
       workflow: () => workflow.value,
       status: () => (statusField.value ? boundaryCast<string | undefined>(values[statusField.value], 'json') ?? '' : ''),
       saving: () => saving.value,

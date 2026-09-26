@@ -3,8 +3,8 @@ import type { RunResult } from "@michaelthielemann/kestrel";
 import type { AdminSchema } from "../../app/types/api";
 import type { AdminCollection } from "../../app/types/kestrel";
 import type { Feature, CollectionModel, CollectionVerb } from "#kestrel/pipelines";
-import { collectionVerbs } from "#kestrel/pipelines";
-import type { CollectionUi, ContentType, CustomFieldTypes } from "../../collections-ui";
+import { collectionVerbs, isRoutedCollection } from "#kestrel/pipelines";
+import type { CollectionRouting, CollectionUi, ContentType, CustomFieldTypes } from "../../collections-ui";
 import { serializeCollections } from "../../collections-ui";
 import type { HttpTriggerEntry, PipelineVerdict } from "./admin-capabilities";
 import { buildCapabilities, isPipelineVerdict } from "./admin-capabilities";
@@ -32,14 +32,18 @@ function toCollectionModel(type: ContentType): CollectionModel {
 }
 
 export function buildAdminSchema({ model, collectionsUi, features, prefixPrimary, locales, defaultLocale, customTypes, triggers, access }: AdminSchemaSources): AdminSchema {
-  const serialized = serializeCollections(model.types, collectionsUi, customTypes ?? {});
   const verbs: Record<string, Partial<Record<CollectionVerb, string>>> = {};
+  const routing: Record<string, CollectionRouting> = {};
   for (const name of Object.keys(model.types)) {
     const type = model.types[name];
     if (type === undefined) continue;
     verbs[name] = collectionVerbs(name, toCollectionModel(type), collectionsUi[name], customTypes?.[name]);
+    const publishStatusPipeline = verbs[name]?.publishStatus;
+    const published = publishStatusPipeline !== undefined && triggers.some((trigger) => trigger.pipeline === publishStatusPipeline);
+    routing[name] = { routed: isRoutedCollection(name), published };
   }
 
+  const serialized = serializeCollections(model.types, collectionsUi, routing, customTypes ?? {});
   const capabilities = buildCapabilities({ triggers, access, verbs });
   const collections: AdminCollection[] = serialized.map((collection) => ({
     ...collection,

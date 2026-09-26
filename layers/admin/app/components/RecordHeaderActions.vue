@@ -19,7 +19,7 @@ const props = defineProps<{
   publishBlocked: boolean
   dirty: boolean
   status?: string
-  pageLike: boolean
+  deliveryEnabled: boolean
   delivery: DeliveryEntry[] | null
   deliveryLoading: boolean
   locale?: string
@@ -110,7 +110,7 @@ function onOverflowSelect(value: string) {
       :saving="saving"
       :workflow="workflow"
       :status="status"
-      :page-like="pageLike"
+      :delivery-enabled="deliveryEnabled"
       :delivery="delivery"
       :delivery-loading="deliveryLoading"
       :locale="locale"

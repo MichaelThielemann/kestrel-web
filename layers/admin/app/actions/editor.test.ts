@@ -61,7 +61,8 @@ function fakeForm(overrides: Partial<EditFormPort> = {}, opts: { valid?: boolean
     collection: 'pages',
     id: 'p1',
     mode: 'multi',
-    pageLike: true,
+    deliveryEnabled: true,
+    hasDelivery: true,
     workflow: () => ({ field: 'status', live: 'published', draft: 'draft', done: 'finished' }),
     status: () => String(state.values.status ?? ''),
     saving: () => state.saving,
@@ -117,7 +118,7 @@ describe('saveRecord', () => {
 
   it('puts every field key in single mode', async () => {
     const { deps, calls } = fakeDeps([doc()])
-    const { form } = fakeForm({ collection: 'settings', mode: 'single', pageLike: false, fieldKeys: () => ['title'] })
+    const { form } = fakeForm({ collection: 'settings', mode: 'single', deliveryEnabled: false, fieldKeys: () => ['title'] })
 
     await runAction(saveRecord, { deps, form })
 
@@ -228,9 +229,9 @@ describe('saveRecord', () => {
     expect(state.deliveryLoads).toBe(0)
   })
 
-  it('does not refresh the publish status for a collection that is not page-like', async () => {
+  it('does not refresh the publish status for a collection with no delivery pipelines', async () => {
     const { deps } = fakeDeps([doc()])
-    const { form, state } = fakeForm({ pageLike: false })
+    const { form, state } = fakeForm({ deliveryEnabled: false })
 
     await runAction(saveRecord, { deps, form })
 
@@ -304,13 +305,22 @@ describe('saveRecord', () => {
     expect(toast.error).toHaveBeenCalledWith('editorStatus.delivery.failed' + 'editorStatus.delivery.retryDelivery:{"tab":"system.tabs.delivery"}')
   })
 
-  it('does not toast for a collection that is not page-like', async () => {
+  it('does not toast for a collection with no delivery pipelines', async () => {
     const { deps, toast } = fakeDeps([doc({ _events: { status: 'error', pipelines: [relayEntry('publishPage', 'error')] } })])
-    const { form } = fakeForm({ pageLike: false })
+    const { form } = fakeForm({ hasDelivery: false })
 
     await runAction(saveRecord, { deps, form })
 
     expect(toast.error).not.toHaveBeenCalled()
+  })
+
+  it('still toasts a delivery failure for a caller without the publish-status capability, since the toast only reads the save response', async () => {
+    const { deps, toast } = fakeDeps([doc({ _events: { status: 'error', pipelines: [relayEntry('publishPage', 'error')] } })])
+    const { form } = fakeForm({ deliveryEnabled: false, hasDelivery: true })
+
+    await runAction(saveRecord, { deps, form })
+
+    expect(toast.error).toHaveBeenCalledWith('editorStatus.delivery.failed' + 'editorStatus.delivery.retryDelivery:{"tab":"system.tabs.delivery"}')
   })
 
   it('does not turn saving off again once something else already did', async () => {
@@ -480,11 +490,11 @@ describe('deleteRecord', () => {
     expect(navigate).toHaveBeenCalled()
   })
 
-  it('toasts that a page-like record was deleted but is still online when unpublishing failed', async () => {
+  it('toasts that a deleted, delivery-enabled record is still online when unpublishing failed', async () => {
     const { deps, toast } = fakeDeps([{ _events: { status: 'error', pipelines: [{ event: 'page.deleted', pipeline: 'unpublishPage', status: 'error', attempts: 1, dead: true, error: 'boom' }] } }])
     const { input } = deleteInput(deps, ['p1'])
 
-    await runAction(deleteRecord, { ...input, pageLike: true })
+    await runAction(deleteRecord, { ...input, hasDelivery: true })
 
     expect(toast.error).toHaveBeenCalledWith('editorStatus.delivery.deleteFailed' + 'editorStatus.delivery.retryDelivery:{"tab":"system.tabs.delivery"}')
   })
@@ -493,12 +503,12 @@ describe('deleteRecord', () => {
     const { deps, toast } = fakeDeps([{ _events: { status: 'error', pipelines: [relayEntry('pageDependents', 'error'), relayEntry('unpublishPage', 'done')] } }])
     const { input } = deleteInput(deps, ['p1'])
 
-    await runAction(deleteRecord, { ...input, pageLike: true })
+    await runAction(deleteRecord, { ...input, hasDelivery: true })
 
     expect(toast.error).not.toHaveBeenCalledWith(expect.stringContaining('editorStatus.delivery.deleteFailed'))
   })
 
-  it('does not toast a delivery failure for a collection that is not page-like', async () => {
+  it('does not toast a delivery failure for a collection with no delivery pipelines', async () => {
     const { deps, toast } = fakeDeps([{ _events: { status: 'error', pipelines: [relayEntry('unpublishPage', 'error')] } }])
     const { input } = deleteInput(deps, ['p1'])
 

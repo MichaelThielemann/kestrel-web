@@ -142,7 +142,7 @@ async function confirmDelete() {
     collection,
     ids: [id],
     confirmed: true,
-    pageLike: editorRef.value?.pageLike ?? false,
+    hasDelivery: editorRef.value?.hasDelivery ?? false,
     ops: deleteOps,
     navigate,
     bypassGuard,
@@ -195,7 +195,7 @@ async function confirmDeleteTranslation() {
         :publish-blocked="publishBlocked"
         :dirty="editorRef?.dirty ?? false"
         :status="editorRef?.savedStatus"
-        :page-like="(editorRef?.pageLike ?? false) && id !== 'new'"
+        :delivery-enabled="(editorRef?.deliveryEnabled ?? false) && id !== 'new'"
         :delivery="editorRef?.delivery ?? null"
         :delivery-loading="editorRef?.deliveryLoading ?? false"
         :locale="editorRef?.locale"

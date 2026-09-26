@@ -3,6 +3,14 @@ import type { CustomFieldTypes } from "../field-types";
 import type { CollectionUi } from "./index";
 import { resolveWorkflow, validateWorkflow } from "./workflow";
 
+/** Whether the preset routed and/or published a collection, as `#kestrel/pipelines` composed it; never derived from the collection's name or field shape here. */
+export interface CollectionRouting {
+  routed: boolean;
+  published: boolean;
+}
+
+const NOT_ROUTED_OR_PUBLISHED: CollectionRouting = { routed: false, published: false };
+
 export const SEO_FIELD = "seo";
 export const LAYOUT_FIELD = "layout";
 export const TITLE_FIELD = "title";
@@ -102,15 +110,15 @@ function serializeStoredField(collection: string, name: string, f: ContentField,
   }
 }
 
-function validateReservedFields(collection: string, def: ContentType, u: CollectionUi): void {
+function validateReservedFields(collection: string, def: ContentType, u: CollectionUi, routed: boolean, published: boolean): void {
   const fields = def.fields;
-  const pageLike = SLUG_FIELD in fields;
+  const needsPageFields = routed || published;
 
-  if (pageLike && !(TITLE_FIELD in fields)) {
-    throw new Error(`collections: "${collection}" is page-like (has "${SLUG_FIELD}") and requires field "${TITLE_FIELD}"`);
+  if (needsPageFields && !(TITLE_FIELD in fields)) {
+    throw new Error(`collections: "${collection}" is routed or published and requires field "${TITLE_FIELD}"`);
   }
-  if (pageLike && !(STATUS_FIELD in fields)) {
-    throw new Error(`collections: "${collection}" is page-like (has "${SLUG_FIELD}") and requires field "${STATUS_FIELD}"`);
+  if (needsPageFields && !(STATUS_FIELD in fields)) {
+    throw new Error(`collections: "${collection}" is routed or published and requires field "${STATUS_FIELD}"`);
   }
 
   if (SLUG_FIELD in fields && fields[SLUG_FIELD].type !== "slug") {
@@ -226,10 +234,12 @@ export function serializeCollection(
   def: ContentType,
   contentTypes: Record<string, ContentType>,
   uiMap: Record<string, CollectionUi>,
+  routing: Readonly<Record<string, CollectionRouting>>,
   customTypes: CustomFieldTypes = {},
 ): SerializedCollection {
   const u = uiMap[name] ?? { label: { singular: name, plural: name }, icon: "file-text" };
-  validateReservedFields(name, def, u);
+  const { routed, published } = routing[name] ?? NOT_ROUTED_OR_PUBLISHED;
+  validateReservedFields(name, def, u, routed, published);
   validateUiFields(name, def, u);
   const owned = u.editorOwned ?? [];
   const seoFields = new Set(u.seoFields ?? []);
@@ -243,7 +253,9 @@ export function serializeCollection(
     name,
     mode: def.kind,
     translatable: Object.values(def.fields).some((f) => f.localized),
-    pageLike: "slug" in def.fields,
+    routed,
+    published,
+    hasSlug: SLUG_FIELD in def.fields,
     seo: owned.includes(SEO_FIELD) && SEO_FIELD in def.fields,
     status: "status" in def.fields,
     layoutField: LAYOUT_FIELD in def.fields && "slug" in def.fields,
@@ -265,6 +277,7 @@ export function serializeCollection(
 export function serializeCollections(
   contentTypes: Record<string, ContentType>,
   uiMap: Record<string, CollectionUi>,
+  routing: Readonly<Record<string, CollectionRouting>>,
   customTypes: CustomFieldTypes = {},
 ): SerializedCollection[] {
   for (const name of Object.keys(uiMap)) {
@@ -272,5 +285,5 @@ export function serializeCollections(
       throw new Error(`collections: "${name}" has a UI entry but no content type`);
     }
   }
-  return Object.entries(contentTypes).map(([name, def]) => serializeCollection(name, def, contentTypes, uiMap, customTypes));
+  return Object.entries(contentTypes).map(([name, def]) => serializeCollection(name, def, contentTypes, uiMap, routing, customTypes));
 }

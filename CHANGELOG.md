@@ -361,6 +361,21 @@
   - A step that throws answers `unexpected <ErrorName>` instead of its message, and a step that ends a run
     with `ctx.done()` needs `terminalOutput` (kestrel 6).
 
+- The admin schema's `SerializedCollection` no longer carries `pageLike` (derived from `"slug" in
+  fields`). It now carries `routed`, `published` and `hasSlug`, decided in one place instead of from the
+  collection's field shape: `routed` comes from `isRoutedCollection`, which names the collections the
+  preset routes into the public `resolvePage` route — by collection name, only `"pages"` today, the same
+  check `collectionVerbs` already used; `published` is true when the collection's `publishStatus`
+  pipeline both exists and actually booted (has an HTTP trigger), independent of the calling user's
+  access; `hasSlug` is the plain field check the slug column used to key off. A collection that carries a
+  `slug` field but no delivery pipelines (for example a plain `news` collection) no longer loads a
+  publish status or shows delivery toasts in the editor; only `pages` wires that way today.
+  `validateReservedFields` now requires `title` and `status` on a collection that is `routed` or
+  `published`, not on one that merely has a `slug` field. `serializeCollection`/`serializeCollections`
+  take this routing information as a required parameter (moved before the existing `customTypes`
+  parameter) instead of defaulting it, so a caller must decide it rather than silently skipping the
+  reserved-field check.
+
 ### Added
 
 - `docs/deployment.md` and `docs/consuming-kestrel-web.md` §8/§9 document how redirects are served on a

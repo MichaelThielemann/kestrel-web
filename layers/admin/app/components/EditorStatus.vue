@@ -11,7 +11,7 @@ const props = defineProps<{
 
   status?: string
 
-  pageLike?: boolean
+  deliveryEnabled?: boolean
 
   delivery?: DeliveryEntry[] | null
 
@@ -48,7 +48,7 @@ const publishedAtLabel = computed(() => {
 const deliveryEntry = computed<DeliveryEntry | null>(() => props.delivery?.find((d) => d.locale === props.locale) ?? null)
 
 const live = computed<{ tone: LiveTone; word: string; detail: string; when?: string; error?: string } | null>(() => {
-  if (props.pageLike !== true) return null
+  if (props.deliveryEnabled !== true) return null
   const entry = deliveryEntry.value
   if (!entry) {
     return props.deliveryLoading

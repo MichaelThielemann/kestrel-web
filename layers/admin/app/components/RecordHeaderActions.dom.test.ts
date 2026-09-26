@@ -23,7 +23,7 @@ const baseProps = {
   publishBlocked: false,
   dirty: false,
   status: 'draft',
-  pageLike: true,
+  deliveryEnabled: true,
   delivery: [],
   deliveryLoading: false,
   locale: 'en',

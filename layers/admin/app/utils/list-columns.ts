@@ -9,7 +9,7 @@ export interface ListColumn {
 export function listColumns(schema: SerializedCollection): ListColumn[] {
   const columns: ListColumn[] = []
   if ('title' in schema.fields) columns.push({ key: 'title', labelKey: 'list.col.title', sortable: true })
-  if (schema.pageLike) columns.push({ key: 'slug', labelKey: 'list.col.slug', sortable: true })
+  if (schema.hasSlug) columns.push({ key: 'slug', labelKey: 'list.col.slug', sortable: true })
   if (schema.status) columns.push({ key: 'status', labelKey: 'list.col.status', sortable: true })
   columns.push({ key: 'updatedAt', labelKey: 'list.col.updatedAt', sortable: true })
   return columns

@@ -17,7 +17,6 @@ export interface UseEditFormLoadOptions {
   fieldLayout: Ref<LayoutNode[] | undefined>
   mode: Ref<'multi' | 'single'>
   translatable: Ref<boolean>
-  pageLike: Ref<boolean>
   blocksEnabled: Ref<boolean>
   blocksAllowed: Ref<string[] | undefined>
   workflow: Ref<Workflow | undefined>
@@ -40,7 +39,7 @@ export interface UseEditFormLoadOptions {
 export function useEditFormLoad(opts: UseEditFormLoadOptions) {
   const {
     deps, schema, collection, id, locale, values, fields, fieldLayout, mode, translatable,
-    pageLike, blocksEnabled, blocksAllowed, workflow, editorType, editorOwned, stored, baseline,
+    blocksEnabled, blocksAllowed, workflow, editorType, editorOwned, stored, baseline,
     blocksField, slugKeys, derived, following, blockErrors, rowErrors, resetHistory,
     setTranslations, loadPrimaryTitle, loadDelivery,
   } = opts
@@ -106,7 +105,6 @@ export function useEditFormLoad(opts: UseEditFormLoadOptions) {
     fieldLayout.value = def.fieldLayout
     mode.value = def.mode
     translatable.value = def.translatable
-    pageLike.value = def.pageLike ?? false
     blocksEnabled.value = def.blocks?.enabled ?? false
     blocksAllowed.value = def.blocks?.allowed
     workflow.value = def.workflow

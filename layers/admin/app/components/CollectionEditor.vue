@@ -15,7 +15,7 @@ const { t } = useT()
 const f = useEditForm({ collection: props.collection, id: props.id, locale: props.localeParam })
 
 const {
-  formError, saving, submit, dirty, canSave, canWrite, editorType, workflow, savedStatus, undo, redo, canUndo, canRedo, pageLike, delivery, deliveryLoading,
+  formError, saving, submit, dirty, canSave, canWrite, editorType, workflow, savedStatus, undo, redo, canUndo, canRedo, deliveryEnabled, hasDelivery, delivery, deliveryLoading,
   locale, showCopyTranslation, copySourceLocales, copySourceDefault, blockErrors, revealError,
 } = f
 
@@ -57,7 +57,7 @@ defineExpose({
   recordTitle: heading,
   missingTranslation: f.missingTranslation, primaryTitle: f.primaryTitle, primaryLocale,
   locale: f.locale, translations: f.translations,
-  pageLike, delivery, deliveryLoading, slug,
+  deliveryEnabled, hasDelivery, delivery, deliveryLoading, slug,
   values: f.values,
   fieldKeys,
   blocksField: f.blocksField,

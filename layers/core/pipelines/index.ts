@@ -12,7 +12,7 @@ import { DEFAULT_COLLECTIONS, isPageLikeCollection } from "./collections";
 
 export type { CollectionModel } from "./collections";
 export type { PresetEntry } from "./compose";
-export { collectionVerbs, MULTI_VERBS, SINGLE_VERBS } from "./capabilities";
+export { collectionVerbs, isRoutedCollection, MULTI_VERBS, SINGLE_VERBS } from "./capabilities";
 export type { CollectionVerb, MultiVerb, SingleVerb } from "./capabilities";
 export type { Workflow } from "../app/types/kestrel";
 export type { PresetStep } from "../module-registry";

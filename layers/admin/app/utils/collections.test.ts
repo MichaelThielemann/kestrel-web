@@ -36,7 +36,7 @@ const collectionsUi = {
 
 const schema: AdminSchema = {
   locales: { all: ['en', 'de'], primary: 'en', prefixPrimary: false },
-  collections: serializeCollections(contentTypes, collectionsUi).map((collection) => ({ ...collection, capabilities: {} })),
+  collections: serializeCollections(contentTypes, collectionsUi, {}).map((collection) => ({ ...collection, capabilities: {} })),
   features: [],
   capabilities: {},
 }
