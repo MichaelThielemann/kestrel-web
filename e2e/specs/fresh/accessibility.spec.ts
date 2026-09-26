@@ -35,3 +35,11 @@ test("the settings have no WCAG 2.2 AA violation", async ({ page }) => {
   await expect(page.getByRole("textbox", { name: "Website-Titel" })).toHaveValue("Kestrel Beispiel");
   expect(await violations(page)).toEqual([]);
 });
+
+test("the media picker dialog has no WCAG 2.2 AA violation", async ({ page, seed }) => {
+  await page.goto(`/admin/pages/${seed.news}?locale=de`);
+  await page.getByRole("button", { name: "Share-Bild" }).click();
+  const picker = page.getByRole("dialog", { name: "Datei auswählen" });
+  await expect(picker.getByRole("button", { name: /landscape\.png/ })).toBeVisible();
+  expect(await violations(page)).toEqual([]);
+});

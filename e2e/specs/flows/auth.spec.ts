@@ -1,7 +1,7 @@
 import { ADMIN, EDITOR_STATE } from "../../support/env.ts";
 import { expect, test } from "../../support/fixtures.ts";
 
-test("an admin signs in, reaches the dashboard and signs out again", async ({ page }) => {
+test("an admin signs in, reaches the page list and signs out again", async ({ page }) => {
   await page.goto("/admin/pages");
   await expect(page).toHaveURL(/\/admin\/login/);
   await page.getByRole("textbox", { name: "Benutzername" }).fill(ADMIN.username);

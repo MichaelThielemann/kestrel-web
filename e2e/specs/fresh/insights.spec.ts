@@ -22,7 +22,10 @@ test("insights shows no secret in the page or in any answer, and marks preset va
   await expect.soft(row.getByRole("cell", { name: "Standard · Preset" })).toBeVisible();
   await expect.soft(page.getByRole("row", { name: /^retentionDays integer optional 365 365 Standard · Preset$/ })).toBeVisible();
 
+  expect.soft(await page.content()).not.toContain(hashDigest);
+
   await page.goto("/admin/insights/modules/authn/multi");
+  await expect(page.getByRole("row", { name: /^bootstrap\.passwordHash\b/ })).toBeVisible();
   await page.waitForLoadState("networkidle");
 
   const answers = await Promise.all(bodies);
