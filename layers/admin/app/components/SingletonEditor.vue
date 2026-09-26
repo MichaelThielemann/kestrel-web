@@ -47,6 +47,7 @@ useUnsavedGuard(() => editorRef.value?.dirty ?? false, () => t('editor.discardCo
       :locale-param="localeParam"
       :actions="false"
     />
+    <KestrelRedirectsAuto v-if="collection === 'redirects'" />
   </section>
 </template>
 

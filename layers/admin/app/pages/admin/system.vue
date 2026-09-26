@@ -82,6 +82,7 @@ async function setTab(value: unknown) {
           <KestrelSystemUsers v-if="tab === 'users'" />
           <KestrelSystemReferences v-else-if="tab === 'references'" />
           <KestrelSystemDelivery v-else-if="tab === 'delivery'" />
+          <KestrelSystemPaths v-else-if="tab === 'paths'" />
           <KestrelSystemReplication v-else-if="tab === 'replication'" />
           <KestrelSystemMigrations v-else-if="tab === 'migrations'" />
           <KestrelSystemEvents v-else-if="tab === 'events' && canEventsQueue" />

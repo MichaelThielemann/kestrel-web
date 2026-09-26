@@ -1,6 +1,6 @@
 import { computed } from 'vue'
 
-export const SYSTEM_FEATURE_TAB_IDS = ['users', 'references', 'delivery', 'replication', 'migrations', 'events', 'images'] as const
+export const SYSTEM_FEATURE_TAB_IDS = ['users', 'references', 'delivery', 'paths', 'replication', 'migrations', 'events', 'images'] as const
 export type SystemFeatureTabId = typeof SYSTEM_FEATURE_TAB_IDS[number]
 
 export function isSystemFeatureTab(id: string): id is SystemFeatureTabId {
@@ -18,6 +18,7 @@ export function useSystemTabs() {
   const canEvents = computed(() => capabilities.has('eventsDeliveryStatus'))
   const canEventsQueue = computed(() => capabilities.has('eventsQueueStatus'))
   const canImages = computed(() => capabilities.has('imagesStatus'))
+  const canPaths = computed(() => capabilities.has('rebuildPaths'))
 
   const systemCollections = computed(() => collections.value.filter((entry) => entry.mode === 'single' && entry.placement === 'system'))
   const collectionTabIds = computed(() => {
@@ -36,6 +37,7 @@ export function useSystemTabs() {
     if (id === 'users') return capabilities.has('listUsers')
     if (id === 'references') return hasReferences.value
     if (id === 'delivery') return canDeliver.value
+    if (id === 'paths') return canPaths.value
     if (id === 'replication') return canReplication.value
     if (id === 'migrations') return canMigrations.value
     if (id === 'events') return canEvents.value
@@ -58,5 +60,6 @@ export function useSystemTabs() {
     canEvents,
     canEventsQueue,
     canImages,
+    canPaths,
   }
 }
