@@ -113,3 +113,17 @@ describe("blockSchema and the references index", () => {
     expect(hashOf({ ...schema, $comment: "regenerated" })).toBe(hashOf(schema));
   });
 });
+
+describe("blockSchema alias", () => {
+  it("accepts a block node carrying an alias string", () => {
+    expect(validator.check("pages.body", [{ type: "gallery", alias: "hero-teaser", props: {} }]).ok).toBe(true);
+  });
+
+  it("accepts a block node without an alias", () => {
+    expect(validator.check("pages.body", [{ type: "gallery", props: {} }]).ok).toBe(true);
+  });
+
+  it("rejects a non-string alias", () => {
+    expect(validator.check("pages.body", [{ type: "gallery", alias: 42, props: {} }]).ok).toBe(false);
+  });
+});
