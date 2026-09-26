@@ -82,6 +82,31 @@ describe('field/Media load watch', () => {
   })
 })
 
+describe('field/Media picker folder hint', () => {
+  afterEach(() => {
+    apiHandler.fn = () => Promise.resolve({ items: [], total: 0 })
+  })
+
+  it('passes no initial folder to the picker when nothing is stored yet, so it falls back to the remembered folder', async () => {
+    const wrapper = await mountSuspended(FieldMedia, {
+      props: { field, name: 'hero', locale: 'en', modelValue: null },
+      global: { stubs: { KestrelMediaPicker: PickerStub } },
+    })
+
+    expect(wrapper.findComponent(PickerStub).attributes('initial-folder')).toBeUndefined()
+  })
+
+  it('passes the stored item\'s folder as the initial folder once it is known', async () => {
+    apiHandler.fn = () => Promise.resolve({ items: [mediaItem({ id: 'f1', folder: 'products' })], total: 1 })
+
+    const wrapper = await mountSuspended(FieldMedia, {
+      props: { field, name: 'hero', locale: 'en', modelValue: 'f1' },
+      global: { stubs: { KestrelMediaPicker: PickerStub } },
+    })
+    await vi.waitFor(() => expect(wrapper.findComponent(PickerStub).attributes('initial-folder')).toBe('products'))
+  })
+})
+
 describe('field/Media confirm gate', () => {
   afterEach(() => {
     apiHandler.fn = () => Promise.resolve({ items: [], total: 0 })

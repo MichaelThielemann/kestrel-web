@@ -52,7 +52,7 @@ watch(ids, async (list) => {
 const resolved = computed(() => ids.value.map((id) => ({ id, item: meta.value[id] ?? null })))
 const storedHint = computed(() => (resolved.value.some((r) => r.item !== null && !isInsertable(r.item)) ? t('field.media.storedProcessing') : ''))
 
-const initialFolder = computed(() => commonFolder(resolved.value.map((r) => r.item?.folder ?? '')))
+const initialFolder = computed(() => (resolved.value.length ? commonFolder(resolved.value.map((r) => r.item?.folder ?? '')) : undefined))
 
 const nameOf = (id: string, item: MediaItem | null, i: number) => item?.filename ?? t('field.media.itemAt', { pos: i + 1 })
 
