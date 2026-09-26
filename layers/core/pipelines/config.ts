@@ -216,7 +216,7 @@ function referenceSchemas(stored: Record<string, CollectionModel>, schemas: Reco
 
 function referencesConfig(types: Record<string, CollectionModel>, schemas: Record<string, string | Record<string, unknown>>): Record<string, unknown> {
   const indexed = referenceSchemas(contentTypesOf(types), schemas);
-  return { targets: referenceTargets(types), ...(Object.keys(indexed).length === 0 ? {} : { schemas: indexed }) };
+  return { targets: referenceTargets(types), ...(Object.keys(indexed).length === 0 ? {} : { schemas: indexed, watch: process.env.NODE_ENV !== "production" }) };
 }
 
 function deliveryTypes(types: Record<string, CollectionModel>): Record<string, Record<string, never>> {

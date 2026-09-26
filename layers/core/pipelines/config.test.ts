@@ -120,6 +120,7 @@ describe("presetModuleConfig with the playground inputs", () => {
         ...preset({
           targets: { pages: { content: "pages" }, blog: { content: "blog" }, media: { media: true } },
           schemas: Object.fromEntries(Object.entries(validated).filter(([key]) => ["blog.body", "pages.body", "redirects.rules", "settings.mounts", "settings.navigation"].includes(key))),
+          watch: process.env.NODE_ENV !== "production",
         }),
       },
       { use: "@michaelthielemann/kestrel-links-default", ...preset({ timeoutMs: 10000, concurrency: 4, recheckAfterSeconds: 21600 }) },
@@ -219,6 +220,7 @@ describe("derived references targets", () => {
     expect(fieldOf(schemas, "pages.body")).toBe("/srv/app/.nuxt/kestrel/pages.body.json");
     expect(fieldOf(schemas, "news.body")).toBe("/srv/app/.nuxt/kestrel/pages.body.json");
     expect(fieldOf(schemas, "settings.navigation")).toEqual(fieldOf(validated, "settings.navigation"));
+    expect(fieldOf(configFor(modules, "references-default"), "watch")).toBe(fieldOf(configFor(modules, "validate-jsonschema"), "watch"));
   });
 });
 

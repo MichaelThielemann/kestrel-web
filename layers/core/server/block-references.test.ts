@@ -55,30 +55,61 @@ describe("deleting what a content block still uses, over HTTP", () => {
     return String(objectField(created.json, "id"));
   }
 
-  beforeAll(async () => {
-    appRoot = mkdtempSync(join(tmpdir(), "kestrel-web-block-references-"));
-    const schemaFile = join(appRoot, "pages.body.json");
-    writeFileSync(schemaFile, JSON.stringify(blockSchema(blocks)));
-    process.env.KESTREL_APP_ROOT = appRoot;
-    process.env.KESTREL_DATA_DIR = join(appRoot, "data");
-    process.env.KESTREL_BLOCK_SCHEMA = schemaFile;
-    const { default: playground, preset } = await import("../../../playground/kestrel.config");
-    const modules = presetModules(playground.modules, { "@michaelthielemann/kestrel-insights": insights });
-    kestrel = await boot({ config: playground, modules, pipelines: preset.pipelines, logger: silentLogger });
-    await kestrel.start();
+  let legacyFile = "";
+  let legacyPage = "";
+
+  async function serve(booted: Kestrel): Promise<void> {
     const app = createApp();
-    app.use(createKestrelHandler(kestrel, { mountPath: "/api" }));
+    app.use(createKestrelHandler(booted, { mountPath: "/api" }));
     server = createServer(toNodeListener(app));
     await new Promise<void>((resolve) => server?.listen(0, "127.0.0.1", resolve));
     const address = server.address();
     base = `http://127.0.0.1:${typeof address === "object" && address !== null ? address.port : 0}`;
     const login = await fetch(`${base}/api/login`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ username: "admin", password: "change-me" }) });
     token = String(objectField(await login.json(), "token"));
+  }
+
+  async function stop(): Promise<void> {
+    await new Promise<void>((resolve) => {
+      server?.closeAllConnections();
+      server?.close(() => resolve());
+    });
+    await kestrel?.stop();
+  }
+
+  beforeAll(async () => {
+    appRoot = mkdtempSync(join(tmpdir(), "kestrel-web-block-references-"));
+    const schemaFile = join(appRoot, "pages.body.json");
+    const marked = JSON.stringify(blockSchema(blocks));
+    writeFileSync(schemaFile, marked.replaceAll(/,"x-kestrel-ref":"[a-z]+"/g, ""));
+    process.env.KESTREL_APP_ROOT = appRoot;
+    process.env.KESTREL_DATA_DIR = join(appRoot, "data");
+    process.env.KESTREL_BLOCK_SCHEMA = schemaFile;
+    const { default: playground, preset } = await import("../../../playground/kestrel.config");
+    const modules = presetModules(playground.modules, { "@michaelthielemann/kestrel-insights": insights });
+
+    kestrel = await boot({ config: playground, modules, pipelines: preset.pipelines, logger: silentLogger });
+    await kestrel.start();
+    await serve(kestrel);
+    legacyFile = await upload("legacy.pdf");
+    legacyPage = await page("legacy", [{ type: "gallery", props: { images: [legacyFile] } }]);
+    expect(objectField((await call("GET", `/admin/references/to/media?ids=${legacyFile}`)).json, legacyFile)).toEqual([]);
+    await stop();
+
+    writeFileSync(schemaFile, marked);
+    kestrel = await boot({ config: playground, modules, pipelines: preset.pipelines, logger: silentLogger });
+    await kestrel.start();
+    await serve(kestrel);
   }, 60_000);
 
+  it("guards a file a block used before its field was marked, without a manual rebuild", async () => {
+    const refused = await call("DELETE", `/media/${legacyFile}`);
+    expect(refused.status).toBe(409);
+    expect(objectField(refused.json, "error")).toBe(`media/${legacyFile} is referenced by pages/${legacyPage} (body)`);
+  });
+
   afterAll(async () => {
-    server?.close();
-    await kestrel?.stop();
+    await stop();
     delete process.env.KESTREL_APP_ROOT;
     delete process.env.KESTREL_DATA_DIR;
     delete process.env.KESTREL_BLOCK_SCHEMA;
