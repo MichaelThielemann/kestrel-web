@@ -1,7 +1,11 @@
 <script setup lang="ts">
-defineProps<{ open: boolean; multiple?: boolean; accept?: 'image' | 'any'; initialFolder?: string; initialSelected?: string[] }>()
+import { computed } from 'vue'
+
+const props = defineProps<{ open: boolean; multiple?: boolean; accept?: 'image' | 'any'; initialFolder?: string; initialSelected?: string[] }>()
 const emit = defineEmits<{ confirm: [string[]]; 'update:open': [boolean] }>()
 const { t } = useT()
+
+const effectiveInitialFolder = computed(() => props.initialFolder ?? getLastMediaFolder())
 </script>
 
 <template>
@@ -10,7 +14,7 @@ const { t } = useT()
       pick
       :multiple="multiple"
       :accept="accept ?? 'any'"
-      :initial-folder="initialFolder"
+      :initial-folder="effectiveInitialFolder"
       :initial-selected="initialSelected"
       @confirm="(ids) => { emit('confirm', ids); emit('update:open', false) }"
       @cancel="emit('update:open', false)"
