@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+### Added
+
+- Page builder: a block instance can carry an optional alias, set in its fields panel and visible only
+  there (never in the public payload's rendering, never in another field grant). The block picker's
+  search also matches an existing block's alias and jumps straight to it instead of adding a new block.
+- Media picker: reopening it (in any field, without an explicit folder) starts in the folder the user
+  last browsed, remembered per browser via `localStorage`; a field's own fixed folder still wins on its
+  first open.
+- Media library and picker: a type filter (Images / Videos / Other files) narrows the listing and
+  combines with the text search; a field whose `accept` is fixed to images only offers that one option.
+
 ### Breaking
 
 - **The layer ships no binary; `kestrel` from `@michaelthielemann/kestrel-cli` checks and upgrades a
