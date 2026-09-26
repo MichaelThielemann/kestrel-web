@@ -101,7 +101,7 @@ describe("presetModuleConfig with the playground inputs", () => {
       {
         use: "@michaelthielemann/kestrel-site-default",
         config: {
-          routes: { pages: { home: "home", liveWhen: { status: "published" }, parentField: "parent" }, blog: { mount: true, home: "-", liveWhen: { status: "published" } } },
+          routes: { pages: { home: "home", liveWhen: { status: "published" }, parentField: "parent" }, blog: { mount: true, liveWhen: { status: "published" } } },
           mounts: { type: "settings", field: "mounts" },
           prefixPrimary: false,
           reservedPaths: ["/api", "/admin", "/media"],
@@ -117,7 +117,7 @@ describe("presetModuleConfig with the playground inputs", () => {
       {
         use: "@michaelthielemann/kestrel-delivery-static",
         config: {
-          types: { pages: {}, blog: { home: "-" } },
+          types: { pages: {}, blog: {} },
           prefix: "site/",
           reservedPaths: ["/api", "/admin", "/media"],
           llms: { full: true, headings: { pages: "Pages", blog: "Blog" } },
@@ -172,7 +172,7 @@ describe("derived delivery types", () => {
     const delivery = configFor(modules, "delivery-static");
 
     expect(delivery).toEqual({
-      types: { pages: {}, news: { home: "-" } },
+      types: { pages: {}, news: {} },
       prefix: "site/",
       reservedPaths: ["/api", "/admin", "/media"],
       llms: { full: true, headings: { pages: "Pages", news: "News" } },
@@ -497,7 +497,7 @@ describe("llms", () => {
     const modules = presetModuleConfig({ ...playgroundOptions(), llms: { full: false, headings: { pages: "Seiten" }, siteUrl: "https://example.test" } });
 
     expect(configFor(modules, "delivery-static")).toEqual({
-      types: { pages: {}, blog: { home: "-" } },
+      types: { pages: {}, blog: {} },
       prefix: "site/",
       reservedPaths: ["/api", "/admin", "/media"],
       llms: { full: false, headings: { pages: "Seiten" }, siteUrl: "https://example.test" },
@@ -510,7 +510,7 @@ describe("llms", () => {
     const modules = presetModuleConfig(playgroundOptions());
 
     expect(configFor(modules, "delivery-static")).toEqual({
-      types: { pages: {}, blog: { home: "-" } },
+      types: { pages: {}, blog: {} },
       prefix: "site/",
       reservedPaths: ["/api", "/admin", "/media"],
       llms: { full: true, headings: { pages: "Pages", blog: "Blog" }, siteUrl: "https://from-env.test" },

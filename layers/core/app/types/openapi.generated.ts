@@ -556,7 +556,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Require a valid session → Requires permission pages.manage → Every pages with its parent, label and valid paths per locale */
+        /** Require a valid session → Requires permission pages.manage → Every pages with its parent, label, valid paths and live state per locale */
         get: operations["pageTree"];
         put?: never;
         post?: never;
@@ -5390,6 +5390,10 @@ export interface operations {
                     "application/json": {
                         id: string;
                         label: string;
+                        /** @description per locale: whether the document passes its route's liveWhen there */
+                        live: {
+                            [key: string]: boolean;
+                        };
                         parent: string | null;
                         /** @description public path per locale; null where the document is not reachable (site.attachPaths without ?reachable: not valid) */
                         paths: {

@@ -288,7 +288,7 @@ describe("mounted collections", () => {
       bootstrap: { username: "admin", passwordHash: "x" },
     });
     const site = modules.find((entry) => entry.use === "@michaelthielemann/kestrel-site-default")?.config;
-    expect(site).toMatchObject({ routes: { blog: { mount: true, home: "-", liveWhen: { status: "published" } } }, mounts: { type: "settings", field: "mounts" } });
+    expect(site).toMatchObject({ routes: { blog: { mount: true, liveWhen: { status: "published" } } }, mounts: { type: "settings", field: "mounts" } });
     const content = modules.find((entry) => entry.use === "@michaelthielemann/kestrel-content-default")?.config;
     expect(content).toMatchObject({ types: { settings: { fields: { mounts: { type: "json", required: true } } } } });
     expect(content).not.toMatchObject({ types: { blog: { mount: true } } });
@@ -337,7 +337,7 @@ describe("the pages workflow in resolvePage", () => {
 });
 
 describe("a mounted collection's slug", () => {
-  it("must be a slug field, whose pattern keeps every document off the collection's reserved home slug", () => {
+  it("must be a slug field", () => {
     const settings: CollectionModel = { kind: "single", fields: { title: {} } };
     const blog: CollectionModel = { kind: "multi", mount: true, fields: { slug: { type: "text" }, title: {}, status: {} } };
     const { problems } = checkPreset({ modules: direct, features: [], collections: { settings, pages, blog } });

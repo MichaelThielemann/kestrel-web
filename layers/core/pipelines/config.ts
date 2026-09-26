@@ -194,15 +194,8 @@ function referenceTargets(types: Record<string, CollectionModel>): Record<string
   return targets;
 }
 
-/**
- * The home slug a mounted collection's route and its delivery type share. `delivery-static` always names a
- * home slug, and `site-default` requires it to equal the route's; no slug can take this value, so no
- * mounted document is ever served at the address of the page it is mounted under.
- */
-export const MOUNTED_HOME_SLUG = "-";
-
-function deliveryTypes(types: Record<string, CollectionModel>): Record<string, Record<string, string>> {
-  return Object.fromEntries(routedCollections(types).map((name): [string, Record<string, string>] => [name, name === PAGES_COLLECTION ? {} : { home: MOUNTED_HOME_SLUG }]));
+function deliveryTypes(types: Record<string, CollectionModel>): Record<string, Record<string, never>> {
+  return Object.fromEntries(routedCollections(types).map((name) => [name, {}]));
 }
 
 function pluralLabel(name: string, ui: WorkflowUi | undefined): string {
@@ -270,7 +263,7 @@ function siteConfig(types: Record<string, CollectionModel>, options: PresetModul
   const mounted = mountedCollections(types);
   for (const name of mounted) {
     const model = types[name];
-    if (model !== undefined) routes[name] = { mount: true, home: MOUNTED_HOME_SLUG, liveWhen: liveWhenOf(name, model, options.collectionsUi?.[name]) };
+    if (model !== undefined) routes[name] = { mount: true, liveWhen: liveWhenOf(name, model, options.collectionsUi?.[name]) };
   }
   return {
     routes,
