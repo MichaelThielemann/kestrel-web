@@ -4,9 +4,10 @@
 
 ### Added
 
-- Page builder: a block instance can carry an optional alias, set in its fields panel and visible only
-  there (never in the public payload's rendering, never in another field grant). The block picker's
-  search also matches an existing block's alias and jumps straight to it instead of adding a new block.
+- Page builder: a block instance can carry an optional alias, set in its fields panel and never rendered
+  by the public site (it travels with the block's other data, but no block renderer reads it). The block
+  picker's search also matches an existing block's alias and jumps straight to it instead of adding a new
+  block.
 - Media picker: reopening it (in any field, without an explicit folder) starts in the folder the user
   last browsed, remembered per browser via `localStorage`; a field's own fixed folder still wins on its
   first open.
