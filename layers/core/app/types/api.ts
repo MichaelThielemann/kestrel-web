@@ -99,7 +99,7 @@ interface PublicPageFields extends PublicDocument {
 
 type NamedKeys<T> = keyof { [K in keyof T as string extends K ? never : number extends K ? never : K]: T[K] }
 
-type AnonymousPage = Exclude<AnonymousOf<'resolvePage'>, { redirect: unknown }>
+type AnonymousPage = Exclude<AnonymousOf<'resolvePage'>, { redirect: unknown } | { route: unknown }>
 
 type MatchesAnonymousPage<T> = [Exclude<NamedKeys<T>, keyof AnonymousPage>] extends [never] ? ([Extract<'createdAt' | 'updatedAt', keyof AnonymousPage>] extends [never] ? T : never) : never
 
@@ -117,10 +117,13 @@ export interface PageDocument extends PublicPageFields {
 
 export type RedirectHit = Extract<FullOf<'resolvePage'>, { redirect: unknown }>['redirect']
 
-export type SiteResponse = PageDocument | { redirect: RedirectHit }
+/** `resolvePage`'s answer for a path that belongs to a mounted collection: fetch it from `GET /routes/<type>/<path>`. */
+export interface RouteHint { route: { type: string } }
 
-/** What the public layer keeps of a `/site/*` answer: a public page or a redirect hit. */
-export type PublicSiteResponse = PublicPageDocument | { redirect: RedirectHit }
+export type SiteResponse = PageDocument | { redirect: RedirectHit } | RouteHint
+
+/** What the public layer keeps of a `/site/*` answer: a public page, a redirect hit or a route hint. */
+export type PublicSiteResponse = PublicPageDocument | { redirect: RedirectHit } | RouteHint
 
 export interface RedirectRule { from: string; to: string; status?: string }
 

@@ -79,6 +79,27 @@ describe('the site page', () => {
     expect(useSiteLocaleLinks().value).toEqual([{ locale: 'de', path: '/ueber-uns', current: true }])
   })
 
+  it('follows a route hint to the mounted collection\'s own resolve route and renders the document', async () => {
+    const requested: string[] = []
+    unregisterAll.push(registerEndpoint('/api/site/blog/hallo', { method: 'GET', handler: (event) => { requested.push(event.path); return { route: { type: 'blog' } } } }))
+    unregisterAll.push(registerEndpoint('/api/routes/blog/blog/hallo', {
+      method: 'GET',
+      handler: (event) => {
+        requested.push(event.path)
+        return { id: 'b1', slug: 'hallo', title: 'Hallo', status: 'published', body: [], _locale: 'de', _translations: { de: true }, _paths: { de: '/blog/hallo', en: null } }
+      },
+    }))
+    unregisterAll.push(registerEndpoint('/api/settings', { method: 'GET', handler: () => ({ id: 's1', title: 'Site' }) }))
+
+    const wrapper = await mountSuspended(SitePage, { route: '/blog/hallo' })
+
+    const endpoints = [...new Set(requested.map((path) => path.split('?')[0]?.replace(/^.*\/api\//, '/api/')))]
+    expect(endpoints).toEqual(['/api/site/blog/hallo', '/api/routes/blog/blog/hallo'])
+    expect(useNuxtData('site:/blog/hallo').data.value).toMatchObject({ id: 'b1' })
+    expect(useNuxtData('site:/blog/hallo').data.value).toMatchObject({ _collection: 'blog' })
+    expect(wrapper.find('article.site-page').attributes('data-collection')).toBe('blog')
+  })
+
   it('reads /about/index.html as that path, so the site answers it as before instead of as /about', async () => {
     const requested: string[] = []
     const record = (event: { path: string }) => {

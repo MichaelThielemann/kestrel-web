@@ -3,7 +3,7 @@ import type { LayoutKey } from '#app'
 import { defaultLocale, homeSlug, locales, prefixPrimary, untranslatedPages } from '~~/shared/model'
 import { isFallbackDocument, primaryPathOf } from '../utils/untranslated'
 import { resolvePageLayout } from '../utils/page-layout'
-import { isPageResponse, isRedirectResponse, redirectNavigation } from '../utils/site-redirect'
+import { isPageResponse, isRedirectResponse, isRouteHint, redirectNavigation } from '../utils/site-redirect'
 import { sitePath } from '../utils/site-path'
 import { toPublicSiteResponse } from '../utils/public-shapes'
 import type { PublicPageDocument, PublicSiteResponse, SiteResponse } from '#kestrel-core/app/types/api'
@@ -11,13 +11,21 @@ import { boundaryCast } from '#kestrel/cast'
 
 definePageMeta({ key: (route) => route.path, layout: false })
 
+const PAGES_COLLECTION = 'pages'
+
 const route = useRoute()
 const locale = useSiteLocale()
 const api = useApi()
 
 const { data, error } = await useAsyncData(
   () => `site:${sitePath(route.path)}`,
-  () => api<SiteResponse>(`/site${sitePath(route.path)}`),
+  async (): Promise<SiteResponse> => {
+    const path = sitePath(route.path)
+    const answer = await api<SiteResponse>(`/site${path}`)
+    if (!isRouteHint(answer)) return answer
+    const document = await api<SiteResponse>(`/routes/${answer.route.type}${path}`)
+    return 'id' in document ? { ...document, _collection: answer.route.type } : document
+  },
   { transform: toPublicSiteResponse },
 )
 const response = boundaryCast<Ref<PublicSiteResponse | null | undefined>>(data, 'host')
@@ -30,6 +38,8 @@ if (redirectHit) {
 const page = computed<PublicPageDocument | null>(() =>
   response.value && isPageResponse(response.value) ? response.value : null,
 )
+const collection = computed(() => collectionOf(page.value) ?? PAGES_COLLECTION)
+const collectionView = useCollectionView(() => collection.value)
 // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- resolvePageLayout may return a stale/unregistered name on purpose; NuxtLayout's fallback prop renders "default" when it isn't a real LayoutKey
 const pageLayout = computed(() => resolvePageLayout(page.value?.layout) as LayoutKey)
 
@@ -98,7 +108,8 @@ useHead(() => {
 
 <template>
   <NuxtLayout :name="pageLayout" fallback="default">
-    <article v-if="page" class="site-page">
+    <component :is="collectionView" v-if="page && collectionView" :document="page" :collection="collection" />
+    <article v-else-if="page" class="site-page" :data-collection="collection === PAGES_COLLECTION ? undefined : collection">
       <KestrelBlockRenderer :nodes="page.body ?? []" />
     </article>
   </NuxtLayout>
