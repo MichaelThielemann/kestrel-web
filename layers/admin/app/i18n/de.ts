@@ -1095,4 +1095,6 @@ export const de: Record<CatalogKey, string> = {
   'field.mounts.moves': 'Eine Änderung verschiebt {n} Adressen (Dokumente × Sprachen).',
   'field.mounts.movesAll': 'Eine Änderung verschiebt die Adresse jedes Dokuments dieser Sammlung.',
   'editor.pathTaken': 'Diese Adresse ist vergeben: {path} ({locale}).',
+  'tree.live': 'Veröffentlicht',
+  'tree.notLive': 'Nicht veröffentlicht',
 }

@@ -3,10 +3,12 @@ import type { PageTreeNode } from '#kestrel-admin/types/api'
 import type { ActionDeps } from '../actions/types'
 import { apiErrorMessage } from './useApi'
 
-/** One row of the page tree as it renders: the node, its depth and its sorted children's ids. */
+/** One row of the page tree as it renders: the node, its depth, its place among its siblings and its sorted children's ids. */
 export interface PageTreeRow {
   node: PageTreeNode
   depth: number
+  position: number
+  siblings: number
   children: string[]
 }
 
@@ -89,13 +91,14 @@ export function usePageTree(deps: Pick<ActionDeps, 'api' | 'capabilities'>, coll
     const out: PageTreeRow[] = []
     const seen = new Set<string>()
     const visit = (parent: string | null, depth: number) => {
-      for (const node of children.value.get(parent) ?? []) {
-        if (seen.has(node.id)) continue
+      const siblings = children.value.get(parent) ?? []
+      siblings.forEach((node, index) => {
+        if (seen.has(node.id)) return
         seen.add(node.id)
         const kids = (children.value.get(node.id) ?? []).map((child) => child.id)
-        out.push({ node, depth, children: kids })
+        out.push({ node, depth, position: index + 1, siblings: siblings.length, children: kids })
         if (kids.length > 0 && expanded.value.has(node.id)) visit(node.id, depth + 1)
-      }
+      })
     }
     visit(null, 0)
     return out

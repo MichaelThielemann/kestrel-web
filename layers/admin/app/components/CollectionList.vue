@@ -60,8 +60,19 @@ const filteredRows = computed(() => {
 const { selected, allSelected, headerIndeterminate, toggleRow, toggleAll, clear: clearSelection } =
   useListSelection(filteredRows)
 
+const treeRef = ref<{ load: () => Promise<void> } | null>(null)
+async function refresh() {
+  await fetchRows()
+  await treeRef.value?.load()
+}
+const liveLabel = computed(() => {
+  const live = workflow.value?.live
+  const choice = statusChoices.value.find((c) => c.value === live)
+  return choice ? (resolveLocalized(choice.label, lang.value) ?? String(live)) : t('tree.live')
+})
+
 const { busy: opsBusy, error: opsError, deleteOpen, deleteReport, askDelete, confirmDelete, setStatus } =
-  useListBatchActions(collection, fetchRows, workflow)
+  useListBatchActions(collection, refresh, workflow)
 
 const resultsLabel = computed(() => t(total.value === 1 ? 'list.result' : 'list.results', { total: total.value }))
 const srStatus = computed(() => (selected.size ? t('list.selected', { n: selected.size }) : resultsLabel.value))
@@ -112,7 +123,17 @@ await fetchRows()
       <KestrelUiButton type="button" variant="secondary" size="sm" class="list__retry" @click="fetchRows">{{ t('common.retry') }}</KestrelUiButton>
     </KestrelUiAlert>
 
-    <KestrelCollectionTree v-if="showTree" :collection="collection" :locale="locale ?? primary" :locale-query="localeQuery" :label="pluralLabel" />
+    <KestrelCollectionTree
+      v-if="showTree"
+      ref="treeRef"
+      :collection="collection"
+      :locale="locale ?? primary"
+      :locale-query="localeQuery"
+      :label="pluralLabel"
+      :live-label="liveLabel"
+      :busy="opsBusy"
+      @delete="askDelete"
+    />
 
     <div v-else class="u-scroll">
       <KestrelCollectionListTable

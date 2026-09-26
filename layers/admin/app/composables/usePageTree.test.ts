@@ -3,7 +3,7 @@ import type { PageTreeNode } from '#kestrel-admin/types/api'
 import { childrenByParent, descendantsOf } from './usePageTree'
 
 function node(id: string, parent: string | null, label = id): PageTreeNode {
-  return { id, parent, label, paths: {} }
+  return { id, parent, label, paths: {}, live: {} }
 }
 
 const nodes = [node('about', null, 'About us'), node('team', 'about', 'Team'), node('jobs', 'team', 'Jobs'), node('contact', null, 'Contact'), node('history', 'about', 'History')]

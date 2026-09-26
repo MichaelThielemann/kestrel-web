@@ -24,10 +24,10 @@ const schema: AdminSchema = {
 }
 
 const tree: PageTreeNode[] = [
-  { id: 'about', parent: null, label: 'About us', paths: {} },
-  { id: 'team', parent: 'about', label: 'Team', paths: {} },
-  { id: 'jobs', parent: 'team', label: 'Jobs', paths: {} },
-  { id: 'contact', parent: null, label: 'Contact', paths: {} },
+  { id: 'about', parent: null, label: 'About us', paths: {}, live: {} },
+  { id: 'team', parent: 'about', label: 'Team', paths: {}, live: {} },
+  { id: 'jobs', parent: 'team', label: 'Jobs', paths: {}, live: {} },
+  { id: 'contact', parent: null, label: 'Contact', paths: {}, live: {} },
 ]
 
 function editing(id: string): EditorFormContext {

@@ -1093,4 +1093,6 @@ export const en = {
   'field.mounts.moves': 'A change moves {n} addresses (documents × languages).',
   'field.mounts.movesAll': 'A change moves the address of every document of this collection.',
   'editor.pathTaken': 'This address is taken: {path} ({locale}).',
+  'tree.live': 'Published',
+  'tree.notLive': 'Not published',
 } satisfies Record<string, string>
