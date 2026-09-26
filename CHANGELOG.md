@@ -632,7 +632,8 @@
   top-level `ref` fields such as `shareImage` but not a block's `media` or `relation` field, in a
   `multiple` field, a repeater or a nested block. The generated block schema marks those fields with
   `"x-kestrel-ref"`, and `presetModuleConfig` hands the `json` field schemas to `references-default`
-  (with `watch` outside production), so such a delete answers 409 and the media library names the page
+  (with `watch` outside production; a production build hands it the bundled schemas, as the validator
+  gets them), so such a delete answers 409 and the media library names the page
   before deleting. `media` and every multi collection are always reference targets. Existing content
   needs no manual step: `references-default` rebuilds its index at the first boot after the upgrade and
   whenever targets, fields or the block schema change.

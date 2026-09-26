@@ -47,4 +47,16 @@ describe("applyBundledSchemas", () => {
     expect(out[0]?.defaults).toEqual({ from: "preset", values: { schemas: { "pages.body": { type: "array" } }, watch: true } });
     expect(out[0]?.config).toEqual({ schemas: { "events.data": { type: "object" } } });
   });
+
+  it("gives references-default the same bundled schemas as the validator", () => {
+    const references = {
+      use: "@michaelthielemann/kestrel-references-default",
+      defaults: { from: "preset", values: { targets: { media: { media: true } }, schemas: { "pages.body": "/build/pages.body.json", "blog.body": "/build/pages.body.json", "settings.navigation": "/layer/schemas/settings.navigation.json" }, watch: false } },
+    };
+    const out = applyBundledSchemas([references], { mode: "inline", schemas: { "pages.body": { type: "array" }, "settings.navigation": { type: "object" } } });
+    expect(out[0]?.defaults).toEqual({
+      from: "preset",
+      values: { targets: { media: { media: true } }, schemas: { "pages.body": { type: "array" }, "blog.body": { type: "array" }, "settings.navigation": { type: "object" } }, watch: false },
+    });
+  });
 });

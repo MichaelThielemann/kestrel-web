@@ -9,7 +9,7 @@ export interface ModuleEntry {
   defaults?: { from: string; values: Record<string, unknown> };
 }
 
-const VALIDATE_MODULE = "@michaelthielemann/kestrel-validate-jsonschema";
+const SCHEMA_MODULES = new Set(["@michaelthielemann/kestrel-validate-jsonschema", "@michaelthielemann/kestrel-references-default"]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -32,14 +32,14 @@ function replacedSchemas(schemas: Record<string, unknown>, bundle: SchemaBundle)
 }
 
 /**
- * Replaces each validate-jsonschema schema the build bundled by the bundled one: by its key, or, for a key
+ * Replaces each validate-jsonschema and references-default schema the build bundled by the bundled one: by its key, or, for a key
  * pointing at the same file as a bundled key (a mounted collection's body on the pages' block schema), by
  * that key's bundled schema. Rewrites whichever layer — the entry's own config, or a preset's defaults —
  * carries the schemas.
  */
 export function applyBundledSchemas<T extends ModuleEntry>(entries: readonly T[], bundle: SchemaBundle): T[] {
   return entries.map((entry) => {
-    if (entry.use !== VALIDATE_MODULE) return entry;
+    if (!SCHEMA_MODULES.has(entry.use)) return entry;
     const configSchemas = schemasOf(entry.config);
     const config = configSchemas !== undefined && isRecord(entry.config) ? { ...entry.config, schemas: replacedSchemas(configSchemas, bundle) } : entry.config;
     const defaults = entry.defaults;
