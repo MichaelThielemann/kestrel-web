@@ -1,6 +1,7 @@
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { extractionHash } from "@michaelthielemann/kestrel-references-default/impl";
 import { createValidator, type Validator } from "@michaelthielemann/kestrel-validate-jsonschema/impl";
 import { silentLogger } from "@michaelthielemann/kestrel/logger";
 import { boundaryCast } from "./app/utils/cast";
@@ -94,5 +95,21 @@ describe("blockSchema marks where ids of other documents live", () => {
 
   it("still validates marked fields like plain strings", () => {
     expect(check({ cover: "media-1", images: ["media-2"], author: "author-1", pages: ["page-1"] })).toBe(true);
+  });
+});
+
+describe("blockSchema and the references index", () => {
+  const model = { types: { pages: { kind: "multi" as const, fields: { body: { type: "json" as const } } } } };
+  const hashOf = (schema: Record<string, unknown>): string => extractionHash({ targets: { media: { media: true }, pages: { content: "pages" } }, schemas: { "pages.body": { schema } } }, model);
+  const unmarked = (schema: Record<string, unknown>): Record<string, unknown> => boundaryCast<Record<string, unknown>>(JSON.parse(JSON.stringify(schema).replaceAll(/,"x-kestrel-ref":"[a-z]+"/g, "")), "json");
+
+  it("changes the extraction hash when only the markers change, so the next boot rebuilds the index", () => {
+    const schema = blockSchema(blocks);
+    expect(hashOf(schema)).not.toBe(hashOf(unmarked(schema)));
+  });
+
+  it("keeps the extraction hash for a change the walk does not read", () => {
+    const schema = blockSchema(blocks);
+    expect(hashOf({ ...schema, $comment: "regenerated" })).toBe(hashOf(schema));
   });
 });
