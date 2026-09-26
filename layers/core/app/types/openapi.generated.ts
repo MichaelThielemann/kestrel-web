@@ -592,7 +592,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Require a valid session → Requires permission pages.manage → Mark every pages output for a re-render in the background, including documents that were never delivered (adds `marked` to the result) → Write redirects.json to the blobstore: editor rules first, then automatic ones (adds `redirects: { rules, skipped }` to the result) */
+        /** Require a valid session → Requires permission pages.manage → Mark every pages output for a re-render in the background, including documents that were never delivered (adds `marked` to the result) → Mark every blog output for a re-render in the background, including documents that were never delivered (adds `marked` to the result) → Write redirects.json to the blobstore: editor rules first, then automatic ones (adds `redirects: { rules, skipped }` to the result) */
         post: operations["publishAllPages"];
         delete?: never;
         options?: never;
@@ -10202,7 +10202,7 @@ export interface operations {
                     description?: string | null;
                     /** @enum {string} */
                     locale?: "de" | "en";
-                    mounts?: unknown | null;
+                    mounts: unknown;
                     navigation?: unknown | null;
                     title: string;
                     titlePosition?: ("suffix" | "prefix") | null;

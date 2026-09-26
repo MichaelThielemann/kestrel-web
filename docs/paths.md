@@ -71,7 +71,9 @@ blog: {
 It needs `slug`, `title` and `status`, and a `settings` collection: the preset adds the reserved field
 `settings.mounts`, where the admin's settings assign each mounted collection to a page. A post then lives at
 `/<page path>/<slug>` (`/blog/hallo`, `/en/blog/hello`); without an assigned page it lives at the top level,
-next to the pages. Changing the assignment moves every document of the collection, with a redirect from
+next to the pages. `settings.mounts` is one value for the whole site and required: every `PUT /api/settings`,
+in any locale, restates it, and a save without it is refused rather than resetting every collection to the
+top level. Changing the assignment moves every document of the collection, with a redirect from
 each old path, and is rejected above `paths.maxCascade`. A page that holds a collection cannot be deleted,
 and posts under an unpublished page stay reachable, like subpages.
 

@@ -290,10 +290,10 @@ describe("mounted collections", () => {
     const site = modules.find((entry) => entry.use === "@michaelthielemann/kestrel-site-default")?.config;
     expect(site).toMatchObject({ routes: { blog: { mount: true, home: "-", liveWhen: { status: "published" } } }, mounts: { type: "settings", field: "mounts" } });
     const content = modules.find((entry) => entry.use === "@michaelthielemann/kestrel-content-default")?.config;
-    expect(content).toMatchObject({ types: { settings: { fields: { mounts: { type: "json" } } } } });
+    expect(content).toMatchObject({ types: { settings: { fields: { mounts: { type: "json", required: true } } } } });
     expect(content).not.toMatchObject({ types: { blog: { mount: true } } });
     const validate = modules.find((entry) => entry.use === "@michaelthielemann/kestrel-validate-jsonschema")?.config;
-    expect(validate).toMatchObject({ schemas: { "settings.mounts": { type: ["object", "null"], properties: { blog: { type: ["string", "null"] } }, additionalProperties: false } } });
+    expect(validate).toMatchObject({ schemas: { "settings.mounts": { type: "object", properties: { blog: { type: ["string", "null"] } }, additionalProperties: false } } });
   });
 
   it("requires anonymous callers to read every routed collection", () => {

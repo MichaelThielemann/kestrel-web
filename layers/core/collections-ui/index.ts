@@ -106,7 +106,7 @@ export function presetCollectionsUi({
   collections?: Record<string, { kind?: "single" | "multi"; fields: Record<string, unknown>; mount?: boolean }>;
 }): Record<string, CollectionUi> {
   const mounted = Object.entries(collections ?? {}).filter(([name, model]) => name !== "pages" && model.mount === true).map(([name]) => name);
-  const settingsFields = { ...(collections?.settings?.fields ?? {}), ...(mounted.length > 0 ? { [MOUNTS_FIELD]: { type: "json" } } : {}) };
+  const settingsFields = { ...(collections?.settings?.fields ?? {}), ...(mounted.length > 0 ? { [MOUNTS_FIELD]: { type: "json", required: true } } : {}) };
   const titleRow = TITLE_ROW_FIELDS.filter((name) => name in settingsFields);
   const settingsLayout: LayoutNode[] | undefined = collections
     ? [
@@ -142,7 +142,7 @@ export function presetCollectionsUi({
               },
             }
           : {}),
-        ...(mounted.length > 0 ? { [MOUNTS_FIELD]: { type: "mounts", options: { collections: mounted } } } : {}),
+        ...(mounted.length > 0 ? { [MOUNTS_FIELD]: { type: "mounts", default: {}, options: { collections: mounted } } } : {}),
         navigation: {
           type: "repeater",
           options: {

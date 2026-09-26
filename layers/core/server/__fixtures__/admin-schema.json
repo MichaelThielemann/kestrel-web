@@ -267,6 +267,7 @@
             "de": "Adressen der Sammlungen"
           },
           "type": "mounts",
+          "default": {},
           "options": {
             "collections": [
               "blog"

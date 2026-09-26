@@ -106,7 +106,7 @@ export function presetSchemas({
   const mounted = mountedCollections(resolved);
   if (mounted.length > 0) {
     schemas[`settings.${MOUNTS_FIELD}`] = {
-      type: ["object", "null"],
+      type: "object",
       properties: Object.fromEntries(mounted.map((name) => [name, { type: ["string", "null"] }])),
       additionalProperties: false,
     };

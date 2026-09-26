@@ -223,7 +223,7 @@ function contentTypesOf(types: Record<string, CollectionModel>): Record<string, 
   const settings = stored.settings;
   if (settings === undefined || settings.kind !== "single") throw new Error(`presetModuleConfig: collection "${mountedCollections(types)[0] ?? ""}" is mounted, which needs a single "settings" collection to store the mount pages`);
   if (MOUNTS_FIELD in settings.fields) throw new Error(`presetModuleConfig: "settings.${MOUNTS_FIELD}" is reserved for the mount pages of mounted collections`);
-  return { ...stored, settings: { ...settings, fields: { ...settings.fields, [MOUNTS_FIELD]: { type: "json" } } } };
+  return { ...stored, settings: { ...settings, fields: { ...settings.fields, [MOUNTS_FIELD]: { type: "json", required: true } } } };
 }
 
 interface LiveStates {

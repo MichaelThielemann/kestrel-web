@@ -51,7 +51,7 @@ describe("presetModuleConfig with the playground inputs", () => {
   it("produces the module list the playground spelled out by hand, plus delivery's media publicPath", () => {
     const resolved = resolveStorageTypes(contentTypes, fieldTypes, "presetModuleConfig");
     const { mount: _mount, ...blog } = contentTypes.blog;
-    const storedTypes = { ...resolved, blog, settings: { ...resolved.settings, fields: { ...resolved.settings?.fields, mounts: { type: "json" } } } };
+    const storedTypes = { ...resolved, blog, settings: { ...resolved.settings, fields: { ...resolved.settings?.fields, mounts: { type: "json", required: true } } } };
     expect(presetModuleConfig(playgroundOptions())).toEqual([
       { use: "@michaelthielemann/kestrel-blobstore-filesystem", config: { root: resolve(DATA_DIR, "blobs") } },
       { use: "@michaelthielemann/kestrel-replication-sqlite", config: { file: DATABASE_FILE } },
