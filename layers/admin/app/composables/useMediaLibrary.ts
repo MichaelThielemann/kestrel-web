@@ -22,6 +22,7 @@ function rememberMediaFolder(path: string): void {
   if (!import.meta.client) return
   try {
     localStorage.setItem(LAST_FOLDER_KEY, path)
+  // eslint-disable-next-line no-empty
   } catch {}
 }
 
