@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import type { PipelineEntry } from "@michaelthielemann/kestrel/definePipeline";
 import type { Edit, LoadedProject, RuleContext, SourceRuleContext } from "@michaelthielemann/kestrel-upgrade/plugin";
-import { overridePathStepsRule, slugUrlRule } from "./pathRules";
+import { overridePathStepsRule, parentOfferRule, slugUrlRule } from "./pathRules";
 
 const FILE = "/fake/kestrel.config.ts";
 
@@ -141,5 +141,45 @@ describe("slugUrlRule", () => {
   it("leaves a URL read from _paths alone", async () => {
     const ctx = projectWith({ "app/utils/links.ts": "export const href = (doc: { _paths: Record<string, string> }, locale: string) => doc._paths[locale];\n" });
     expect(await slugUrlRule.check(ctx)).toEqual([]);
+  });
+});
+
+describe("parentOfferRule", () => {
+  const model = `export const contentTypes = {
+  pages: {
+    kind: "multi",
+    fields: {
+      slug: { type: "slug", required: true, localized: true },
+      title: { type: "text", required: true, localized: true },
+    },
+  },
+};
+`;
+
+  function offerContext(answer?: string, fields: Record<string, unknown> = presetOptions.collections.pages.fields): RuleContext {
+    const ctx = contextFor("", {});
+    const data = { presetProblems: [], presetOptions: { ...presetOptions, collections: { pages: { kind: "multi", fields } } } };
+    return {
+      ...ctx,
+      root: "/fake",
+      project: { ...ctx.project, data },
+      readFile: (file) => (file === "/fake/shared/model.ts" ? model : undefined),
+      answers: new Map(answer === undefined ? [] : [["model/parent-offer", answer]]),
+    };
+  }
+
+  it("asks, defaulting to no, whether pages should get a parent field", async () => {
+    const [finding] = await parentOfferRule.check(offerContext());
+    expect(finding?.fix).toMatchObject({ kind: "ask", question: "model/parent-offer", defaultValue: "no" });
+  });
+
+  it("adds the parent field to pages on a yes", async () => {
+    const [finding] = await parentOfferRule.check(offerContext("yes"));
+    if (finding?.fix.kind !== "auto") throw new Error("expected an automatic fix");
+    expect(applied(model, finding.fix.edits)).toContain('title: { type: "text", required: true, localized: true },\n      parent: { type: "ref", to: "pages" },\n    },');
+  });
+
+  it("stays silent once pages have a parent field", async () => {
+    expect(await parentOfferRule.check(offerContext(undefined, { ...presetOptions.collections.pages.fields, parent: { type: "ref", to: "pages" } }))).toEqual([]);
   });
 });

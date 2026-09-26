@@ -1,13 +1,14 @@
 import { relative } from "node:path";
-import { arrayElements, isAstNode, objectProperty, parseTs, stringValue, walk } from "@michaelthielemann/kestrel-upgrade/codemods";
+import { arrayElements, isAstNode, objectProperty, parseTs, span, stringValue, walk } from "@michaelthielemann/kestrel-upgrade/codemods";
 import type { AstNode, Edit } from "@michaelthielemann/kestrel-upgrade/codemods";
 import type { Finding, Rule, SourceRule } from "@michaelthielemann/kestrel-upgrade/plugin";
 import { pipelineSteps } from "@michaelthielemann/kestrel/definePipeline";
 import { checkPreset } from "../pipelines/checkPreset";
 import { insertAfterElement } from "./arraySplices";
 import { consumerExpressions } from "./consumerRules";
-import { layerLocateSteps } from "./locators";
-import { autoFinding, docsAnchor, fileForPipeline, manualFinding, presetOptionsCast } from "./ruleHelpers";
+import { layerLocateModelFields, layerLocateSteps } from "./locators";
+import { autoFinding, docsAnchor, fileForPipeline, manualFinding, presetOptionsCast, sharedModelFile } from "./ruleHelpers";
+import { parentFieldOf } from "../pipelines/paths";
 
 const RULE = "preset/override-path-steps";
 const CONTENT_WRITE = /^content\.(?:create|update|remove|removeTranslation|set):/;
@@ -170,5 +171,58 @@ export const slugUrlRule: SourceRule = {
       });
     }
     return findings;
+  },
+};
+
+const PARENT_OFFER = "model/parent-offer";
+const PARENT_FIELD = 'parent: { type: "ref", to: "pages" }';
+
+function insertLastProperty(file: string, source: string, fields: AstNode, text: string): Edit | undefined {
+  const properties = Array.isArray(fields.properties) ? fields.properties.filter(isAstNode) : [];
+  const last = properties.at(-1);
+  if (last === undefined) return undefined;
+  const end = span(last).end;
+  const lineStart = source.lastIndexOf("\n", span(last).start - 1) + 1;
+  const indent = /^[ \t]*/.exec(source.slice(lineStart))?.[0] ?? "";
+  const comma = /^\s*,/.test(source.slice(end)) ? source.indexOf(",", end) + 1 : end;
+  return { file, start: comma, end: comma, text: `${comma === end ? "," : ""}\n${indent}${text},` };
+}
+
+/**
+ * Offers `pages` a parent field, which turns on subpages: a page's path then starts with its parent's.
+ * Asked once, default no; a yes adds `parent: { type: "ref", to: "pages" }` to `pages.fields` in
+ * `shared/model.ts`.
+ */
+export const parentOfferRule: Rule = {
+  id: PARENT_OFFER,
+  check(ctx) {
+    const cast = presetOptionsCast(ctx);
+    const pages = cast?.collections?.pages;
+    if (pages === undefined || parentFieldOf("pages", pages) !== undefined || "parent" in pages.fields) return [];
+    const docs = docsAnchor("model-parent-offer");
+    const where = { file: "shared/model.ts" };
+    const message = "pages have no parent field; with one, a page can sit below another and its path starts with the parent's";
+    const answer = ctx.answers.get(PARENT_OFFER);
+    if (answer === undefined) {
+      return [{
+        id: PARENT_OFFER,
+        rule: PARENT_OFFER,
+        severity: "info",
+        tier: "source",
+        where,
+        message,
+        suggestion: "run fix to be asked",
+        fix: { kind: "ask", question: PARENT_OFFER, prompt: `add ${PARENT_FIELD} to pages, so pages can have subpages?`, choices: ["no", "yes"], closedChoices: true, defaultValue: "no" },
+        docs,
+      }];
+    }
+    if (answer !== "yes") return [];
+    const file = sharedModelFile(ctx);
+    const source = ctx.readFile(file);
+    const fields = source === undefined ? undefined : (ctx.locateModelFields ?? layerLocateModelFields)(parseTs(source), { use: "@michaelthielemann/kestrel-content-default", typeName: "pages" });
+    const edit = source === undefined || fields === undefined ? undefined : insertLastProperty(file, source, fields, PARENT_FIELD);
+    return [edit === undefined
+      ? manualFinding(PARENT_OFFER, PARENT_OFFER, where, message, `add ${PARENT_FIELD} to pages.fields yourself`, docs)
+      : autoFinding(PARENT_OFFER, PARENT_OFFER, where, message, `adds ${PARENT_FIELD} to pages.fields`, [edit], docs)];
   },
 };
