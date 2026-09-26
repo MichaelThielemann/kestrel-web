@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import type { PipelineEntry } from "@michaelthielemann/kestrel/definePipeline";
 import type { Edit, LoadedProject, RuleContext, SourceRuleContext } from "@michaelthielemann/kestrel-upgrade/plugin";
-import { overridePathStepsRule, parentOfferRule, slugUrlRule } from "./pathRules";
+import { overridePathStepsRule, pageLikeMountRule, parentOfferRule, slugUrlRule } from "./pathRules";
 
 const FILE = "/fake/kestrel.config.ts";
 
@@ -181,5 +181,67 @@ describe("parentOfferRule", () => {
 
   it("stays silent once pages have a parent field", async () => {
     expect(await parentOfferRule.check(offerContext(undefined, { ...presetOptions.collections.pages.fields, parent: { type: "ref", to: "pages" } }))).toEqual([]);
+  });
+});
+
+describe("pageLikeMountRule", () => {
+  const model = `export const contentTypes = {
+  pages: { kind: "multi", fields: { slug: { type: "slug" }, title: { type: "text" }, body: { type: "json" }, status: { type: "enum" } } },
+  news: {
+    kind: "multi",
+    fields: {
+      slug: { type: "slug", localized: true },
+      title: { type: "text", localized: true },
+      body: { type: "json", localized: true },
+      status: { type: "enum", localized: true },
+    },
+  },
+};
+`;
+  const config = `const modules = presetModuleConfig({
+  roles: {
+    roles: { admin: ["*"] },
+    anonymous: ["pages.read", "settings.read"],
+  },
+});
+`;
+  const news = { kind: "multi", fields: { slug: { type: "slug" }, title: { type: "text" }, body: { type: "json" }, status: { type: "enum" } } };
+
+  function mountContext(answer: string | undefined, anonymous: string[], fields: Record<string, unknown> = news.fields): RuleContext {
+    const ctx = contextFor("", {});
+    const collections = { pages: presetOptions.collections.pages, news: { kind: "multi", fields } };
+    const modules = [{ use: "@michaelthielemann/kestrel-authz-roles", config: { anonymous } }];
+    return {
+      ...ctx,
+      project: { ...ctx.project, input: { ...ctx.project.input, config: { modules, triggers: [], http: null } }, data: { presetProblems: [], presetOptions: { ...presetOptions, collections } } },
+      readFile: (file) => (file === "/fake/shared/model.ts" ? model : file === FILE ? config : undefined),
+      answers: new Map(answer === undefined ? [] : [["model/page-like-mount:news", answer]]),
+    };
+  }
+
+  it("asks, defaulting to yes, whether an unrouted page-like collection should be mounted", async () => {
+    const [finding] = await pageLikeMountRule.check(mountContext(undefined, ["pages.read"]));
+    expect(finding?.fix).toMatchObject({ kind: "ask", question: "model/page-like-mount:news", defaultValue: "yes" });
+  });
+
+  it("mounts it on a yes and lets anonymous callers who read pages read it too", async () => {
+    const [finding] = await pageLikeMountRule.check(mountContext("yes", ["pages.read", "settings.read"]));
+    if (finding?.fix.kind !== "auto") throw new Error("expected an automatic fix");
+    const modelEdits = finding.fix.edits.filter((edit) => edit.file === "/fake/shared/model.ts");
+    const configEdits = finding.fix.edits.filter((edit) => edit.file === FILE);
+    expect(applied(model, modelEdits)).toContain('  news: {\n    kind: "multi",\n    mount: true,\n    fields: {');
+    expect(applied(config, configEdits)).toContain('anonymous: ["pages.read", "settings.read", "news.read"],');
+  });
+
+  it("leaves the anonymous role alone when it does not read pages", async () => {
+    const [finding] = await pageLikeMountRule.check(mountContext("yes", ["media.read"]));
+    if (finding?.fix.kind !== "auto") throw new Error("expected an automatic fix");
+    expect(finding.fix.edits.every((edit) => edit.file === "/fake/shared/model.ts")).toBe(true);
+  });
+
+  it("leaves it to the user when the collection has no title", async () => {
+    const { title: _title, ...untitled } = news.fields;
+    const [finding] = await pageLikeMountRule.check(mountContext(undefined, ["pages.read"], untitled));
+    expect(finding?.fix.kind).toBe("manual");
   });
 });

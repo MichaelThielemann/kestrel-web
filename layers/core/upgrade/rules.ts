@@ -13,7 +13,7 @@ import type { PresetOptions } from "../pipelines/checkPreset";
 import { consumerRules } from "./consumerRules";
 import { DEPENDENTS_PROBLEM_CODES, dependentsRules } from "./dependentsRules";
 import { overrideEmitRule } from "./overrideEmit";
-import { isPathStep, overridePathStepsRule, parentOfferRule, slugUrlRule } from "./pathRules";
+import { isPathStep, overridePathStepsRule, pageLikeMountRule, parentOfferRule, slugUrlRule } from "./pathRules";
 import { addModuleEntryConfigProperty, addStringToNamedExportArray, bumpPackageJsonDependency, namedExportArray, removeStepsFromArray, wrapAtomicGroup, wrapRange } from "./edits";
 import type { SourceRange } from "./edits";
 import { layerProjectData } from "./load";
@@ -726,6 +726,7 @@ export const layerRules: readonly Rule[] = [
   overridePathStepsRule,
   slugUrlRule,
   parentOfferRule,
+  pageLikeMountRule,
   publicOverrideFieldStepRule,
   fieldGrantsRule,
   ...dependentsRules,

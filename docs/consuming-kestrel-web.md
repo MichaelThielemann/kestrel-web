@@ -1961,6 +1961,13 @@ What changes:
   the path steps; `preset/override-path-steps` inserts them (`fix`, once the write has its atomic group, so
   a 2.x override needs one more pass). Renaming a page creates an automatic `301`. Pass `homeSlug` and
   `prefixPrimary` to `presetModuleConfig()` when they differ from `"home"` and `false`.
+- Only pages and mounted collections are exported now ([`paths.md`](paths.md#mounted-collections)); a
+  2.x collection that carries `slug`, `status` and `body` loses its exported pages unless it is mounted.
+  `model/page-like-mount` asks for each such collection (default yes) and adds `mount: true` and, when
+  anonymous callers read pages, `"<collection>.read"` to `roles.anonymous`. Without an assigned page a mounted
+  collection keeps its 2.x top-level URLs.
+- Run `fix --write` until it reports nothing: a 2.x override first gets its atomic group, then its path
+  steps, and a question such as `model/parent-offer` appears only once the project loads.
 - A page whose path equals or lies under `/api`, `/admin` or `/media` is rejected, and so is a locale of
   those names.
 - An uploaded image can be put into content only once its `available` field is not `false`; the admin's

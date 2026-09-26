@@ -417,7 +417,9 @@
   the parent field is never granted to anonymous callers. The playground, the `create-kestrel` template and
   the preset's default collections give pages a parent field. The admin shows pages as an ARIA tree next to
   the flat list, and the parent picker leaves out the page and its subpages.
-- `kestrel-web-upgrade`: `model/parent-offer` asks whether pages should get a parent field.
+- `kestrel-web-upgrade`: `model/parent-offer` asks whether pages should get a parent field, and
+  `model/page-like-mount` offers `mount: true` (with the anonymous `<collection>.read`) for a 2.x collection
+  carrying `slug`, `status` and `body`, which is no longer exported otherwise.
 - Mounted collections ([`docs/paths.md`](docs/paths.md#mounted-collections)): `mount: true` on a multi
   collection gives it public paths under the page `settings.mounts` assigns to it, or at the top level. The
   preset composes `resolve<Name>` (`GET /routes/<c>/*path`), `preview<Name>Path`, per-collection delivery

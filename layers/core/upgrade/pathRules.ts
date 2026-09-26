@@ -9,6 +9,9 @@ import { consumerExpressions } from "./consumerRules";
 import { layerLocateModelFields, layerLocateSteps } from "./locators";
 import { autoFinding, docsAnchor, fileForPipeline, manualFinding, presetOptionsCast, sharedModelFile } from "./ruleHelpers";
 import { parentFieldOf } from "../pipelines/paths";
+import { isRoutedCollection } from "../pipelines/capabilities";
+import { isPageLikeCollection } from "../pipelines/collections";
+import { anonymousHolds } from "../pipelines/field-grants";
 
 const RULE = "preset/override-path-steps";
 const CONTENT_WRITE = /^content\.(?:create|update|remove|removeTranslation|set):/;
@@ -224,5 +227,116 @@ export const parentOfferRule: Rule = {
     return [edit === undefined
       ? manualFinding(PARENT_OFFER, PARENT_OFFER, where, message, `add ${PARENT_FIELD} to pages.fields yourself`, docs)
       : autoFinding(PARENT_OFFER, PARENT_OFFER, where, message, `adds ${PARENT_FIELD} to pages.fields`, [edit], docs)];
+  },
+};
+
+const PAGE_LIKE_MOUNT = "model/page-like-mount";
+
+function objectLiteralOf(root: AstNode, typeName: string): AstNode | undefined {
+  let found: AstNode | undefined;
+  walk(root, (node) => {
+    if (found !== undefined || node.type !== "ObjectExpression") return;
+    const value = objectProperty(node, typeName);
+    if (value?.type === "ObjectExpression" && objectProperty(value, "fields")?.type === "ObjectExpression") found = value;
+  });
+  return found;
+}
+
+function insertMount(file: string, source: string, typeName: string): Edit | undefined {
+  const type = objectLiteralOf(parseTs(source), typeName);
+  const properties = Array.isArray(type?.properties) ? type.properties.filter(isAstNode) : [];
+  const kind = properties.find((prop) => isAstNode(prop.key) && (prop.key.name === "kind" || prop.key.value === "kind"));
+  if (kind === undefined) return undefined;
+  const end = span(kind).end;
+  const comma = /^\s*,/.test(source.slice(end)) ? source.indexOf(",", end) + 1 : end;
+  const lineStart = source.lastIndexOf("\n", span(kind).start - 1) + 1;
+  const indent = /^[ \t]*/.exec(source.slice(lineStart))?.[0] ?? "";
+  const lineEnd = source.indexOf("\n", comma);
+  const restOfLine = source.slice(comma, lineEnd === -1 ? source.length : lineEnd).trim();
+  const separator = comma === end ? "," : "";
+  return restOfLine === "" ? { file, start: comma, end: comma, text: `${separator}\n${indent}mount: true,` } : { file, start: comma, end: comma, text: `${separator} mount: true,` };
+}
+
+function anonymousArray(root: AstNode): AstNode | undefined {
+  let found: AstNode | undefined;
+  walk(root, (node) => {
+    if (found !== undefined || node.type !== "ObjectExpression") return;
+    const anonymous = objectProperty(node, "anonymous");
+    if (anonymous?.type === "ArrayExpression" && objectProperty(node, "roles") !== undefined) found = anonymous;
+  });
+  return found;
+}
+
+function grantRead(file: string, source: string, permission: string): Edit[] | undefined {
+  const array = anonymousArray(parseTs(source));
+  if (array === undefined) return undefined;
+  const count = arrayElements(array).length;
+  if (count === 0) return undefined;
+  return insertAfterElement(source, array, count - 1, [literal(permission)]).map((splice) => ({ file, ...splice }));
+}
+
+function anonymousOf(config: unknown): string[] {
+  const modules: unknown = typeof config === "object" && config !== null ? Reflect.get(config, "modules") : undefined;
+  if (!Array.isArray(modules)) return [];
+  for (const entry of modules) {
+    if (typeof entry !== "object" || entry === null || Reflect.get(entry, "use") !== "@michaelthielemann/kestrel-authz-roles") continue;
+    const moduleConfig: unknown = Reflect.get(entry, "config");
+    const anonymous: unknown = typeof moduleConfig === "object" && moduleConfig !== null ? Reflect.get(moduleConfig, "anonymous") : undefined;
+    return Array.isArray(anonymous) ? anonymous.filter((item): item is string => typeof item === "string") : [];
+  }
+  return [];
+}
+
+/**
+ * A multi collection carrying `slug`, `status` and `body` that is not routed: a 2.x preset exported its
+ * documents at `/<slug>`, a 3.x preset exports routed collections only. Asks, defaulting to yes, whether to
+ * mount it, which keeps those top-level URLs while no page is assigned to it; a yes adds `mount: true` to the
+ * collection in `shared/model.ts` and, when anonymous callers read pages, `"<collection>.read"` to their role.
+ */
+export const pageLikeMountRule: Rule = {
+  id: PAGE_LIKE_MOUNT,
+  check(ctx) {
+    const cast = presetOptionsCast(ctx);
+    const collections = cast?.collections;
+    if (collections === undefined) return [];
+    const findings: Finding[] = [];
+    const anonymous = anonymousOf(ctx.project.input.config);
+    for (const [name, model] of Object.entries(collections)) {
+      if (!isPageLikeCollection(name, model) || isRoutedCollection(name, model)) continue;
+      const id = `${PAGE_LIKE_MOUNT}:${name}`;
+      const where = { file: "shared/model.ts" };
+      const docs = docsAnchor("model-page-like-mount");
+      const message = `"${name}" carries slug, status and body but has no public path: its documents are no longer exported to /<slug>, and their exported files stay behind`;
+      if (!("title" in model.fields)) {
+        findings.push(manualFinding(id, PAGE_LIKE_MOUNT, where, message, `give "${name}" a title field and mount: true to keep its public pages, or leave it unrouted`, docs));
+        continue;
+      }
+      const answer = ctx.answers.get(id);
+      if (answer === undefined) {
+        findings.push({
+          id,
+          rule: PAGE_LIKE_MOUNT,
+          severity: "warning",
+          tier: "source",
+          where,
+          message,
+          suggestion: "run fix to be asked",
+          fix: { kind: "ask", question: id, prompt: `mount "${name}" (mount: true), which keeps its top-level URLs until a page is assigned to it?`, choices: ["yes", "no"], closedChoices: true, defaultValue: "yes" },
+          docs,
+        });
+        continue;
+      }
+      if (answer !== "yes") continue;
+      const modelFile = sharedModelFile(ctx);
+      const modelSource = ctx.readFile(modelFile);
+      const mount = modelSource === undefined ? undefined : insertMount(modelFile, modelSource, name);
+      const needsRead = anonymousHolds(anonymous, "pages.read") && !anonymousHolds(anonymous, `${name}.read`);
+      const configSource = needsRead ? ctx.readFile(ctx.project.configFile) : undefined;
+      const read = needsRead && configSource !== undefined ? grantRead(ctx.project.configFile, configSource, `${name}.read`) : [];
+      findings.push(mount === undefined || read === undefined
+        ? manualFinding(id, PAGE_LIKE_MOUNT, where, message, `add mount: true to "${name}" in shared/model.ts${needsRead ? ` and "${name}.read" to roles.anonymous` : ""} yourself`, docs)
+        : autoFinding(id, PAGE_LIKE_MOUNT, where, message, `adds mount: true to "${name}"${needsRead ? ` and "${name}.read" to roles.anonymous` : ""}`, [mount, ...read], docs));
+    }
+    return findings;
   },
 };

@@ -523,3 +523,17 @@ describe("the real definePreset() after fix --write on hand-written queue lists 
     expect(report.findings.some((f) => f.message.includes("render-mode") || f.message.includes('dependencies.render "events"'))).toBe(false);
   }, 120_000);
 });
+
+describe("site-2.0-news (a 2.x page-like news collection next to pages)", () => {
+  it("fix --write --yes mounts news and lets anonymous callers read it, so its documents keep their public paths", async () => {
+    const dir = await prepare("site-2.0-news");
+    await fixWriteYes(dir);
+    await fixWriteYes(dir);
+    const model = readFileSync(join(dir, "shared", "model.ts"), "utf8");
+    expect(model).toMatch(/news: \{\n\s*kind: "multi",\n\s*mount: true,/);
+    expect(readFileSync(join(dir, "kestrel.config.ts"), "utf8")).toContain('"news.read"');
+    expect(await realPresetError(dir)).toBeUndefined();
+    const report = await check(dir);
+    expect(report.findings.some((f) => f.rule === "model/page-like-mount")).toBe(false);
+  }, 120_000);
+});
