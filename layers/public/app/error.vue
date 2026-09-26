@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import './assets/css/site.css'
 import { defaultLocale, prefixPrimary } from '~~/shared/model'
 import { localePath } from '#kestrel-core/app/utils/locale-path'
 

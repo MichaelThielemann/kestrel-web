@@ -1,6 +1,5 @@
 <script setup lang="ts">
 
-import '../assets/css/site.css'
 import type { NavigationItem } from '~~/shared/model'
 import { defaultLocale, prefixPrimary, locales } from '~~/shared/model'
 import { localePath } from '#kestrel-core/app/utils/locale-path'

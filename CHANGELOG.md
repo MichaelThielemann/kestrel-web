@@ -589,6 +589,10 @@
 
 ### Fixed
 
+- The editor preview iframe now loads the public site's layout CSS in a production build. Its route
+  is rendered client-side only, so a stylesheet reachable exclusively through the lazily loaded
+  default layout was never part of the initial page load; it is now registered as global app CSS.
+
 - The media library upload tile no longer announces "uploaded" to screen readers when a session
   expires mid-upload. `useMediaUpload` now fires its `onReady` callback only once an item's status
   reaches `done`; a failed upload (including the swallowed 401) shows its failed state without a

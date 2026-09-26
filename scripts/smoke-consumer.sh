@@ -71,4 +71,13 @@ check /admin/insights "200"
 check /api/me "401"
 check /api/admin/insights/manifest "401 403"
 curl -s "http://127.0.0.1:$PORT/admin/login" | grep -q "<div id=\"__nuxt\">" || { echo "admin shell missing"; exit 1; }
+
+echo "== preview loads the site's layout CSS"
+PREVIEW_HTML="$(curl -s "http://127.0.0.1:$PORT/_preview/new?embed=1")"
+echo "$PREVIEW_HTML" | grep -q "<div id=\"__nuxt\">" || { echo "preview shell missing"; exit 1; }
+PREVIEW_CSS=""
+for href in $(echo "$PREVIEW_HTML" | grep -o '/_nuxt/[^"]*\.css' | sort -u); do
+  PREVIEW_CSS="$PREVIEW_CSS$(curl -s "http://127.0.0.1:$PORT$href")"
+done
+echo "$PREVIEW_CSS" | grep -q -- "--site-bg" || { echo "preview is missing the public site's layout CSS"; exit 1; }
 echo "== ok ($WORK)"
