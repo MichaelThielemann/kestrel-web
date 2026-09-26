@@ -4,15 +4,18 @@
 
 ### Added
 
-- Page builder: a block instance can carry an optional alias, set in its fields panel and never rendered
-  by the public site (it travels with the block's other data, but no block renderer reads it). The block
-  picker's search also matches an existing block's alias and jumps straight to it instead of adding a new
-  block.
+- Page builder: a block instance can carry an optional alias, set in its fields panel. It is stripped
+  from the public site's API answer, its SSR data and the static export regardless of caller identity, so
+  it never reaches an anonymous visitor or shows up in a render; only the admin's own read of the page
+  keeps it. The block picker's search also matches an existing block's alias and jumps straight to it
+  instead of adding a new block.
 - Media picker: reopening it (in any field, without an explicit folder) starts in the folder the user
   last browsed, remembered per browser via `localStorage`; a field's own fixed folder still wins on its
   first open.
-- Media library and picker: a type filter (Images / Videos / Other files) narrows the listing and
-  combines with the text search; a field whose `accept` is fixed to images only offers that one option.
+- Media library and picker: a type filter (Images / Videos / Other files), matched server-side against
+  each item's canonical content type (requires `@michaelthielemann/kestrel-media-default` with the `type`
+  query on `media.list`), narrows the listing with correct paging and combines with the text search; a
+  field whose `accept` is fixed to images only offers that one option.
 
 ### Breaking
 
