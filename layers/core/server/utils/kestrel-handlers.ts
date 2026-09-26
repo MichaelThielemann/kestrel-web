@@ -2,7 +2,6 @@ import type { Kestrel } from "@michaelthielemann/kestrel";
 import { createKestrelHandler } from "@michaelthielemann/kestrel-h3";
 import { createError, defineEventHandler, type EventHandler } from "h3";
 import { redactingConflictLabels } from "./conflict-labels";
-import { withoutSiteBlockAliases } from "./site-privacy";
 import { MOUNT_PATH } from "../../mount-path";
 import { bootFailure, type KestrelStatus } from "./boot-failure";
 import type { ClientAddressPolicy } from "./ip-allowlist";
@@ -38,12 +37,12 @@ export function kestrelHandlers(booting: Promise<Kestrel>, wiring: KestrelHandle
   };
   return {
     kestrelHandler: booting
-      .then((kestrel) => defineEventHandler(withoutSiteBlockAliases(redactingConflictLabels(kestrel, createKestrelHandler(kestrel, {
+      .then((kestrel) => defineEventHandler(redactingConflictLabels(kestrel, createKestrelHandler(kestrel, {
         mountPath: MOUNT_PATH,
         ...clientAddressOptions(wiring.policy()),
         inlineTypes: wiring.inlineTypes(kestrel),
         maxBodyBytes: wiring.maxBodyBytes(kestrel),
-      })))))
+      }))))
       .catch(failed),
     publicMediaHandler: booting.then((kestrel) => createPublicMediaHandler(kestrel, wiring.policy())).catch(failed),
   };

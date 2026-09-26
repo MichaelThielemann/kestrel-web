@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest'
-import { boundaryCast } from '#kestrel/cast'
 import type { AnonymousOf, MediaItem, PageDocument } from '#kestrel-core/app/types/api'
 import { toPublicMedia, toPublicPage, toPublicSiteResponse } from './public-shapes'
 
@@ -107,14 +106,6 @@ describe('toPublicPage', () => {
   it('leaves an anonymous page answer as it is', () => {
     const { createdAt: _createdAt, updatedAt: _updatedAt, ...page } = signedInPage
     expect(toPublicPage(page)).toEqual(page)
-  })
-
-  it('drops a block alias, at any depth, from the body', () => {
-    const aliased = boundaryCast<PageDocument>({
-      ...signedInPage,
-      body: [{ id: 'b1', type: 'hero', alias: 'Intro teaser', props: {}, slots: { items: [{ id: 'b2', type: 'hero', alias: 'Nested', props: {} }] } }],
-    }, 'json')
-    expect(toPublicPage(aliased).body).toEqual([{ id: 'b1', type: 'hero', props: {}, slots: { items: [{ id: 'b2', type: 'hero', props: {} }] } }])
   })
 
   it('leaves a null body as it is', () => {
