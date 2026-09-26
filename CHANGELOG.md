@@ -375,8 +375,38 @@
   take this routing information as a required parameter (moved before the existing `customTypes`
   parameter) instead of defaulting it, so a caller must decide it rather than silently skipping the
   reserved-field check.
+- **A page's public path is unique, not its slug, and `site-default` owns it** ([`docs/paths.md`](docs/paths.md)).
+  `presetModuleConfig()` configures `site-default` with `routes.pages` (the home slug, and the pages
+  workflow's live status as `liveWhen`), `prefixPrimary` and the server's reserved paths, and gains the
+  options `homeSlug`, `prefixPrimary` and `paths.maxCascade`. Every page write ends its atomic group with
+  `site.indexPath:pages` and runs `site.announcePaths` right after it; a save that takes a held path
+  answers `409 CONFLICT` naming the path, its locale and the page holding it. The public page list and
+  read end with `site.attachPaths:pages?reachable` before their field cut, the admin ones with
+  `site.attachPaths:pages`, and every page answer carries `_paths` (granted to anonymous callers).
+  `pages.slug` must not be `unique`; the playground and the `create-kestrel` template drop the flag, and
+  the reserved-segment value schema on page slugs is gone (a reserved path is a slug field error from
+  `site-default`, now on the full path). An override of a page write, list or read that lacks these steps
+  fails to boot; `kestrel-web-upgrade fix` inserts them (`preset/override-path-steps`). A hand-written
+  module list must configure `site-default`'s `routes` the same way.
 
 ### Added
+
+- Automatic redirects and re-renders on every public path change: `site.pathsMoved` feeds
+  `pathsMovedRedirects` (feature `redirects`: `redirects.recordMoves`, `redirects.export`) and
+  `pathsMovedDelivery` (feature `delivery`: `delivery.markMoved`). New pipelines and routes:
+  `previewPagePath` (`POST /admin/pages/path-preview`), `rebuildPaths` (`POST /admin/paths/rebuild`,
+  `system.manage`), the `resumePaths` cron (every minute), `listAutoRedirects`
+  (`GET /admin/redirects/auto`), `removeAutoRedirect` (`DELETE /admin/redirects/auto/*path`) and, with the
+  `migrations` feature, `rebuildPathsAfterMigrations` on `migrations.applied`. The collection verb
+  `previewPath` names a routed collection's preview pipeline.
+- Admin: the slug field previews the page's full public path and names a page that already holds it, a
+  path conflict lands on the field that caused it, the pages list shows each page's path, the redirects
+  screen lists the automatic redirects with a remove action, and System → Paths rebuilds the path index
+  and reports its conflicts.
+- The public language switcher links each locale through the page's `_paths`, without a request per
+  locale; the untranslated-page redirect uses the default locale's `_paths` entry.
+- `kestrel-web-upgrade`: `preset/override-path-steps` (fix) and `consumer/slug-url` (info). The path event
+  pipelines count as safe to deliver twice for `offer/event-queue`.
 
 - `docs/deployment.md` and `docs/consuming-kestrel-web.md` §8/§9 document how redirects are served on a
   static host: the `examples/nginx-njs` edge handler as the default, a generated nginx `map` and HTML

@@ -82,7 +82,7 @@ export const contentTypes = {
   pages: {
     kind: "multi",
     fields: {
-      slug: { type: "slug", required: true, unique: true, localized: true },
+      slug: { type: "slug", required: true, localized: true },
       title: { type: "text", required: true, localized: true },
       body: { type: "json", localized: true },
       status: { type: "enum", options: ["draft", "finished", "published"], required: true, localized: true },
@@ -319,6 +319,9 @@ calls them before it has read a schema at all.
 | `eventsQueue` | no | `{}` — the `events-queue` module config (`pollMs`, `batch`, `maxAttempts`, `backoffSeconds`, `lockTtlSeconds`, `retentionDays`, `relayMs`), used only with the `eventsQueue` feature; `relayPipelines` and `lanes` are derived, and `maxAttempts`/`backoffSeconds` also set how often `delivery-static` retries a failed re-render |
 | `revisions` | no | — `{ keep?, maxSnapshotBytes?, pruneOnWrite?, maxLimit? }`, passed through to `revisions-default`; used only with the `revisions` feature (§4) |
 | `audit` | no | — `{ retentionDays? }`, passed through to `audit-persistence`; used only with the `audit` feature. It is what turns the `pruneAudit` cron on (§4) |
+| `homeSlug` | no | `"home"` — the slug `site-default` serves at a locale's root; the same value as `definePreset({ homeSlug })` |
+| `prefixPrimary` | no | `false` — `shared/model`'s `prefixPrimary`, so the `_paths` of every answer match the site's URLs |
+| `paths` | no | `{ maxCascade: 1000 }` — the most paths (documents × locales) one save may move ([`paths.md`](paths.md)) |
 | `overrides` | no | — per-module escape hatch, keyed by package name, shallow-merged onto that module's derived config |
 | `pipelines` | no | `{}` — the `exclude` and `overrides` you give `definePreset()`, the same object (`PresetPipelineChanges`); a resource whose every preset read they exclude or override without its `authz.fields` step gets no derived anonymous field grant (§4) |
 
@@ -396,7 +399,7 @@ const modules = [
       anonymous: ["pages.read", "settings.read", "media.read"],
       anonymousFields: {
         settings: ["id", "title", "titlePosition", "titleSeparator", "description", "navigation", "_locales", "_translations", "_links"],
-        pages: ["id", "slug", "title", "body", "seo", "status", "shareImage", "accent", "layout", "_locales", "_translations", "_locale", "_links", "redirect"],
+        pages: ["id", "slug", "title", "body", "seo", "status", "shareImage", "accent", "layout", "_locales", "_translations", "_locale", "_links", "redirect", "_paths"],
         media: ["id", "path", "filename", "contentType", "size", "width", "height", "alt", "title", "description", "provenance", "variants[].size", "variants[].width", "variants[].height", "variants[].format", "variants[].path"],
         mediaFile: ["headers.cache-control", "headers.x-content-provenance", "headers.x-kestrel-variant"],
         redirectRules: ["pattern", "target", "status"],
@@ -1948,7 +1951,15 @@ What changes:
   `responses/thrown-error-text` names such files next to your own modules.
 - A step of your own that ends a run with `ctx.done()` declares `terminalOutput`; without it the run fails.
   Kestrel's `steps/ctx-done-terminal-output` names every module of yours that calls `ctx.done()`.
-- Page slugs `api`, `admin` and `media`, and locales of those names, are rejected.
+- A page's public path is unique, not its slug, and `site-default` owns it ([`paths.md`](paths.md)).
+  `pages.slug` must not be `unique` any more: `fix` removes the flag (kestrel's `site/routed-slug-unique`).
+  Every page answer carries `_paths`; a link built as `` `/${page.slug}` `` is wrong for a subpage and a
+  mounted collection's document (`consumer/slug-url`). An override of a page write, list or read must keep
+  the path steps; `preset/override-path-steps` inserts them (`fix`, once the write has its atomic group, so
+  a 2.x override needs one more pass). Renaming a page creates an automatic `301`. Pass `homeSlug` and
+  `prefixPrimary` to `presetModuleConfig()` when they differ from `"home"` and `false`.
+- A page whose path equals or lies under `/api`, `/admin` or `/media` is rejected, and so is a locale of
+  those names.
 - An uploaded image can be put into content only once its `available` field is not `false`; the admin's
   media picker already enforces this.
 - A statically delivered site navigates without `/api` (§8). The first start after upgrading re-renders

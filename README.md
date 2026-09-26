@@ -123,6 +123,7 @@ overrides:
 | [`docs/consuming-kestrel-web.md`](docs/consuming-kestrel-web.md) | You are building an app on kestrel-web: install, content model, collections, backend config, blocks, images, running, deploying, upgrading. Start here. |
 | [`docs/deployment.md`](docs/deployment.md) | You are putting a build into production or operating one: environment variables, persistent volumes, a systemd unit and a Containerfile, reverse proxy, health probes, backups, restarts. |
 | [`docs/architecture.md`](docs/architecture.md) | You are changing kestrel-web itself, or need to know why it behaves the way it does: layers and aliases, the embedded backend, the pipeline preset, the admin client, the UI kit and CSS isolation, UI actions, blocks, images, delivery. |
+| [`docs/paths.md`](docs/paths.md) | Pages' public paths: what is unique, automatic redirects on a move, `_paths` in every answer, the admin's path preview, and what an override must keep. |
 | [`docs/field-types.md`](docs/field-types.md) | A field needs an editing control the built-in types don't have: the factories, the admin field registry, the generated schema, and what `field("myType")` does and does not get you. |
 | [`docs/admin-i18n.md`](docs/admin-i18n.md) | The admin's own language: the two catalogs, the language cookie, how `Localized` labels resolve, and what overriding a string costs. |
 | [`docs/migrations.md`](docs/migrations.md) | Stored content has to be rewritten after a block or model change: enabling the module, writing migrations, run modes, the admin tab. |
