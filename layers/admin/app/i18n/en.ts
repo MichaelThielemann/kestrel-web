@@ -1087,4 +1087,9 @@ export const en = {
   'tree.label': '{name} by parent page',
   'tree.empty': 'No pages yet.',
   'tree.noPath': 'no path',
+  'field.mounts.hint': 'Choose the page each collection\'s documents appear under. Without a page they get top-level addresses. A change moves the address of every document of the collection, with a redirect from each old one.',
+  'field.mounts.topLevel': 'Top level (no page)',
+  'field.mounts.path': 'Addresses: {path}',
+  'field.mounts.moves': 'A change moves {n} addresses (documents × languages).',
+  'field.mounts.movesAll': 'A change moves the address of every document of this collection.',
 } satisfies Record<string, string>

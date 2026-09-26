@@ -25,6 +25,7 @@ export const fieldComponents = shallowReactive<Partial<Record<FieldType, Compone
   richtext: defineAsyncComponent(() => import('../components/field/Richtext.vue')),
 
   repeater: defineAsyncComponent(() => import('../components/field/Repeater.vue')),
+  mounts: defineAsyncComponent(() => import('../components/field/Mounts.vue')),
 })
 
 export const resolveFieldComponent = (type: FieldType): Component | undefined => fieldComponents[type]

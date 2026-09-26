@@ -1089,4 +1089,9 @@ export const de: Record<CatalogKey, string> = {
   'tree.label': '{name} nach übergeordneter Seite',
   'tree.empty': 'Noch keine Seiten.',
   'tree.noPath': 'kein Pfad',
+  'field.mounts.hint': 'Wählen Sie die Seite, unter der die Dokumente jeder Sammlung erscheinen. Ohne Seite erhalten sie Adressen auf oberster Ebene. Eine Änderung verschiebt die Adresse jedes Dokuments der Sammlung, mit einer Weiterleitung von jeder alten.',
+  'field.mounts.topLevel': 'Oberste Ebene (keine Seite)',
+  'field.mounts.path': 'Adressen: {path}',
+  'field.mounts.moves': 'Eine Änderung verschiebt {n} Adressen (Dokumente × Sprachen).',
+  'field.mounts.movesAll': 'Eine Änderung verschiebt die Adresse jedes Dokuments dieser Sammlung.',
 }

@@ -1,5 +1,5 @@
 import type { ActionStep } from '#kestrel-core/app/utils/actions'
-import { PAGE_DELIVERY_PIPELINES } from '#kestrel-core/pipelines/delivery-names'
+import { isOwnDeliveryPipeline } from '#kestrel-core/pipelines/delivery-names'
 import type { EventRelayStatus } from '#kestrel-admin/types/api'
 import { defineUiStep } from '../define'
 import type { EditFormPort, SaveOutcome, Translate, WithDeps } from '../types'
@@ -7,12 +7,11 @@ import { saveOutcome } from './form'
 
 type RelayState = EventRelayStatus['status']
 
-const OWN_DELIVERY: readonly string[] = [PAGE_DELIVERY_PIPELINES.publish, PAGE_DELIVERY_PIPELINES.unpublish]
 const WORST_FIRST: readonly RelayState[] = ['error', 'pending', 'queued', 'done']
 
-/** How the page's own publishing or unpublishing went, folded from `_events`; the other pipelines a save starts (marking the pages that show it) never count. `undefined` when neither ran. */
+/** How the document's own publishing or unpublishing went, folded from `_events`; the other pipelines a save starts (marking the pages that show it) never count. `undefined` when neither ran. */
 export function ownDeliveryStatus(events: EventRelayStatus | null | undefined): RelayState | undefined {
-  const own = new Set((events?.pipelines ?? []).filter((entry) => OWN_DELIVERY.includes(entry.pipeline)).map((entry) => entry.status))
+  const own = new Set((events?.pipelines ?? []).filter((entry) => isOwnDeliveryPipeline(entry.pipeline)).map((entry) => entry.status))
   return WORST_FIRST.find((status) => own.has(status))
 }
 
