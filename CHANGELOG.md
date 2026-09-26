@@ -4,6 +4,12 @@
 
 ### Breaking
 
+- **A module entry `presetModuleConfig()` builds no longer carries its derived config in `config`.**
+  It moved to `defaults` (`{ from, values }`); `config` on that entry is `undefined` unless an
+  `overrides` key names it. Code that read `presetModuleConfig(...)[i].config` directly — a build
+  step, a custom module list, a test — now sees nothing there for a module the preset built. Read
+  `effectiveModuleConfig(entry)` from `@michaelthielemann/kestrel` instead; it returns the same
+  merged config either way.
 - **Events modules are now two modules.** `kestrel-events-inmemory` is the `events@1` bus and nothing
   else; delivering event-trigger pipelines is the job of exactly one delivery module. Add
   `@michaelthielemann/kestrel-events-direct` to your module list directly after
@@ -402,6 +408,15 @@
 
 ### Added
 
+- `presetModuleConfig()` now puts every value it derives into each module entry's `defaults`
+  (`{ from: "preset", values }`) instead of `config`, and only the consumer's own `overrides` into
+  `config`. `/admin/insights` shows a preset-derived value as "Default · Preset" (blue) instead of
+  "set"; a value the consumer sets directly, or an override of a preset value, still shows "set"
+  (green). Secrets redact the same way in both layers. `overrides` keeps its 2.x replace semantics: a
+  top-level key it names replaces the preset's whole value at that path, including a nested object or
+  record (an override that drops a derived role or lane, say), and setting a key to `undefined` resets
+  it to the module's own schema default instead of the preset's — none of this changes the effective
+  config of an instance with no `overrides`.
 - Automatic redirects and re-renders on every public path change: `site.pathsMoved` feeds
   `pathsMovedRedirects` (feature `redirects`: `redirects.recordMoves`, `redirects.export`) and
   `pathsMovedDelivery` (feature `delivery`: `delivery.markMoved`). New pipelines and routes:

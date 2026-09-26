@@ -41,6 +41,18 @@ without them renders an em dash in the Value column instead of failing. Modules 
 variable at all are collected behind a collapsed disclosure below the tables. The module detail page
 renders the same table component (`InsightsConfigVariables.vue`), Value column included.
 
+### Origin of a default value
+
+A module entry can carry its config as `{ config?, defaults?: { from, values } }` instead of a
+single `config` object: `presetModuleConfig()` (`layers/core/pipelines/config.ts`) builds every
+module's config this way, putting everything it derives into `defaults.values` under
+`from: "preset"` and leaving `config` to the consumer's own values and `overrides`. A variable whose
+path only `defaults.values` carries answers `status: "default"` with `source` set to that name; the
+Status column then reads "Default · Preset" instead of a bare "Default", in the same blue as any
+other default. A path `config` carries — the consumer's own, or an override of a preset value — is
+`status: "set"` and never carries `source`, the same green dot as before. Secrets redact the same way
+in both layers.
+
 ## Recent failures
 `stats().recentFailures` is a ring buffer of the last failed runs of this process, newest first, each
 `{ at, runId, pipeline, trigger: { kind, name }, status, ms, code?, step?, message? }`. Its size is the

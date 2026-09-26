@@ -322,7 +322,7 @@ calls them before it has read a schema at all.
 | `homeSlug` | no | `"home"` — the slug `site-default` serves at a locale's root; the same value as `definePreset({ homeSlug })` |
 | `prefixPrimary` | no | `false` — `shared/model`'s `prefixPrimary`, so the `_paths` of every answer match the site's URLs |
 | `paths` | no | `{ maxCascade: 1000 }` — the most paths (documents × locales) one save may move ([`paths.md`](paths.md)) |
-| `overrides` | no | — per-module escape hatch, keyed by package name, shallow-merged onto that module's derived config |
+| `overrides` | no | — per-module escape hatch, keyed by package name; becomes that module's `config`, merged over its derived defaults at boot |
 | `pipelines` | no | `{}` — the `exclude` and `overrides` you give `definePreset()`, the same object (`PresetPipelineChanges`); a resource whose every preset read they exclude or override without its `authz.fields` step gets no derived anonymous field grant (§4) |
 
 `blobstore`, `roles` and `bootstrap` have no default at all — a missing one throws naming the option
@@ -375,10 +375,17 @@ rather than booting with something plausible.
   margin follows it; set `acquireTimeoutMs` explicitly there only if you need a different margin, and keep
   it above `busyTimeoutMs`.
 
-Anything the builder doesn't expose goes through `overrides`, keyed by package name and shallow-merged
-onto that module's derived config with your keys winning — e.g.
-`overrides: { "@michaelthielemann/kestrel-replication-sqlite": { prefix: "database/", restoreOnStart: true, retentionSeconds: 604800 } }`.
-A key naming a module the built list doesn't contain — a typo, or a module whose feature is off — throws
+Anything the builder doesn't expose goes through `overrides`, keyed by package name. Every module
+`presetModuleConfig()` builds carries what it derived as `defaults`, not `config`; an override
+becomes that module's `config`, replacing the derived value at each top-level key it names — shallow,
+the same as before: a key that names a nested object or a named-key record (a role, a lane, a
+reference target, a bundled schema) replaces the whole derived value at that key rather than merging
+into it, and setting a key to `undefined` clears the preset's value there so the module's own schema
+default applies. `overrides: { "@michaelthielemann/kestrel-replication-sqlite": { prefix: "database/", restoreOnStart: true, retentionSeconds: 604800 } }`
+keeps the derived `file` — a key the override doesn't name — and sets the three it does. `/admin/insights`
+shows a path only the derived defaults still carry as "Default · Preset"; one your `config` or an
+override carries is "set", the same as a value you wrote yourself. A key naming a module the built
+list doesn't contain — a typo, or a module whose feature is off — throws
 `presetModuleConfig: overrides name module "<use>" which is not enabled`, so it can't pass silently.
 
 ### What the builder expands to
