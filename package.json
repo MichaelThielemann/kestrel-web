@@ -67,6 +67,7 @@
     "@michaelthielemann/kestrel-images-default": "^5.8.0",
     "@michaelthielemann/kestrel-links-default": "^5.8.0",
     "@michaelthielemann/kestrel-media-default": "^5.8.0",
+    "@michaelthielemann/kestrel-mfa-totp": "^5.8.0",
     "@michaelthielemann/kestrel-migrations-default": "^5.8.0",
     "@michaelthielemann/kestrel-persistence-sqlite": "^5.8.0",
     "@michaelthielemann/kestrel-ratelimit-memory": "^5.8.0",
@@ -96,7 +97,8 @@
     "reka-ui": "^2.10.1",
     "sanitize-html": "^2.17.7",
     "sass": "^1.102.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "uqr": "^0.1.3"
   },
   "peerDependencies": {
     "@dagrejs/dagre": "^3.1.1",

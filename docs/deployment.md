@@ -49,6 +49,7 @@ kestrel-web's own, all read while `kestrel.config.ts` loads:
 |---|---|---|
 | `KESTREL_APP_ROOT` | no | the directory `data/` and `data/export` resolve against; defaults to the process cwd |
 | `KESTREL_DATA_DIR` | no | overrides that: `kestrelDataDir()` returns it verbatim, and the SQLite file and blobs go under it |
+| `KESTREL_MFA_KEY` | in production, with the `mfa` feature | the key that seals the second factors' secrets (64 hex digits); `mfaKey()` throws without it under `NODE_ENV=production` and otherwise falls back to a development key with one `console.warn` |
 | `KESTREL_ADMIN_PASSWORD_HASH` | in production | the bootstrap user's password hash; `adminPasswordHash()` throws without it under `NODE_ENV=production` and otherwise falls back to the hash of `change-me` with one `console.warn` |
 | `KESTREL_BLOBSTORE` | in production | `s3` or `filesystem`; `envBlobstore()` throws in production when it is neither |
 | `KESTREL_S3_BUCKET`, `KESTREL_S3_ENDPOINT`, `KESTREL_S3_REGION`, `KESTREL_S3_ACCESS_KEY_ID`, `KESTREL_S3_SECRET_ACCESS_KEY` | with `KESTREL_BLOBSTORE=s3` | the S3 blobstore, `forcePathStyle: true`; each missing one throws naming itself |
@@ -232,6 +233,11 @@ Points that matter:
   port 80 only redirects and `Strict-Transport-Security` keeps the browser on HTTPS. Only a
   development setup reached over plain HTTP from another host sets `session: { secureCookie: false }`
   in `presetModuleConfig()`.
+- **Second factor.** With the `mfa` feature every account sets up an authenticator app at its next sign-in
+  and enters a code at each one after that. `KESTREL_MFA_KEY` (64 hex digits, `openssl rand -hex 32`) seals
+  the stored secrets: keep it out of the database and its backups, and keep it stable — a changed key makes
+  every factor unusable, and an administrator has to reset them. A user who lost the device signs in with a
+  recovery code; an administrator resets the factor under **System → Users**.
 - **Same origin.** A `POST`, `PUT`, `PATCH` or `DELETE` authenticated by the cookie is accepted only
   from the same origin (`Sec-Fetch-Site: same-origin`, or an `Origin` whose host is the request's
   `Host`); keep `proxy_set_header Host $host` so the two agree. Scripts and other clients send the

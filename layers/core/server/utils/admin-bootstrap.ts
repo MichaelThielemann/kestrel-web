@@ -1,5 +1,5 @@
 import { boot, type BootInput, type Kestrel } from "@michaelthielemann/kestrel";
-import { ADMIN_BOOTSTRAP_ROUTES } from "../../fixed-routes";
+import { ADMIN_BOOTSTRAP_ROUTES, ADMIN_OPTIONAL_BOOTSTRAP_ROUTES } from "../../fixed-routes";
 
 export interface BootstrapHttpTrigger {
   method: string;
@@ -14,7 +14,9 @@ export interface BootstrapHttpTrigger {
  * bound elsewhere, undefined when all three are in place.
  */
 export function adminBootstrapProblem(http: readonly BootstrapHttpTrigger[]): string | undefined {
-  for (const [pipeline, route] of Object.entries(ADMIN_BOOTSTRAP_ROUTES)) {
+  const routed = new Set(http.map((entry) => entry.pipeline));
+  const optional = Object.entries(ADMIN_OPTIONAL_BOOTSTRAP_ROUTES).filter(([pipeline]) => routed.has(pipeline));
+  for (const [pipeline, route] of [...Object.entries(ADMIN_BOOTSTRAP_ROUTES), ...optional]) {
     const atFixedRoute = http.some((entry) => entry.pipeline === pipeline && entry.method === route.method && entry.path === route.path);
     if (atFixedRoute) continue;
     const boundElsewhere = http.find((entry) => entry.pipeline === pipeline);

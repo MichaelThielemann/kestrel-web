@@ -8,7 +8,8 @@ import collectionsUi from "./shared/collections-ui";
 import fieldTypes from "./shared/field-types";
 
 const dataDir = kestrelDataDir();
-const features = process.env.KESTREL_PLAYGROUND_EVENTS_QUEUE === "1" ? [...modelFeatures, "eventsQueue" as const] : modelFeatures;
+const secondFactor = process.env.KESTREL_PLAYGROUND_MFA === "1";
+const features = [...modelFeatures, ...(process.env.KESTREL_PLAYGROUND_EVENTS_QUEUE === "1" ? ["eventsQueue" as const] : []), ...(secondFactor ? ["mfa" as const] : [])];
 
 const pipelineChanges: PresetPipelineChanges<typeof contentTypes> = {};
 const loginLimit = Number(process.env.KESTREL_PLAYGROUND_LOGIN_LIMIT ?? "0");
@@ -25,6 +26,7 @@ const modules = presetModuleConfig({
   fieldTypes,
   audit: { retentionDays: 365 },
   ...(ratelimit === undefined ? {} : { ratelimit }),
+  ...(secondFactor ? { mfa: { issuer: "Kestrel playground" } } : {}),
   roles: {
     roles: { admin: ["*"], editor: ["pages.*", "blog.*", "media.*", "images.read", "settings.read", "redirects.*"] },
     anonymous: ["pages.read", "blog.read", "settings.read", "media.read"],

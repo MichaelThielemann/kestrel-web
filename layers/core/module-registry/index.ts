@@ -16,6 +16,7 @@ import eventsQueue from "@michaelthielemann/kestrel-events-queue";
 import imagesDefault from "@michaelthielemann/kestrel-images-default";
 import linksDefault from "@michaelthielemann/kestrel-links-default";
 import mediaDefault from "@michaelthielemann/kestrel-media-default";
+import mfaTotp from "@michaelthielemann/kestrel-mfa-totp";
 import migrationsDefault from "@michaelthielemann/kestrel-migrations-default";
 import persistenceSqlite from "@michaelthielemann/kestrel-persistence-sqlite";
 import ratelimitMemory from "@michaelthielemann/kestrel-ratelimit-memory";
@@ -44,6 +45,7 @@ export const moduleRegistry = {
   "@michaelthielemann/kestrel-images-default": imagesDefault,
   "@michaelthielemann/kestrel-links-default": linksDefault,
   "@michaelthielemann/kestrel-media-default": mediaDefault,
+  "@michaelthielemann/kestrel-mfa-totp": mfaTotp,
   "@michaelthielemann/kestrel-migrations-default": migrationsDefault,
   "@michaelthielemann/kestrel-persistence-sqlite": persistenceSqlite,
   "@michaelthielemann/kestrel-ratelimit-memory": ratelimitMemory,

@@ -15,6 +15,7 @@ const modules = [
   { use: "@michaelthielemann/kestrel-references-default" },
   { use: "@michaelthielemann/kestrel-links-default" },
   { use: "@michaelthielemann/kestrel-revisions-default" },
+  { use: "@michaelthielemann/kestrel-mfa-totp", config: { secretKey: "5a".repeat(32) } },
   { use: "@michaelthielemann/kestrel-delivery-static" },
   { use: "@michaelthielemann/kestrel-renderer-nuxt" },
   { use: "@michaelthielemann/kestrel-redirects-default" },

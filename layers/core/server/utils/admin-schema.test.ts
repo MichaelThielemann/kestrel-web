@@ -38,6 +38,7 @@ const allModules = [
   { use: "@michaelthielemann/kestrel-ratelimit-memory" },
   { use: "@michaelthielemann/kestrel-insights" },
   { use: "@michaelthielemann/kestrel-revisions-default" },
+  { use: "@michaelthielemann/kestrel-mfa-totp", config: { secretKey: "5a".repeat(32) } },
 ];
 
 function fullAccessTriggers(): HttpTriggerEntry[] {

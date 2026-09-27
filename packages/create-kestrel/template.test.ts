@@ -152,6 +152,22 @@ describe("projectFiles", () => {
     expect(text(files({}), "kestrel.config.ts")).not.toContain("migrations:");
   });
 
+  it("offers the second factor as a feature that is not preselected", () => {
+    expect(ALL_FEATURES).toContain("mfa");
+    expect(DEFAULT_FEATURES).not.toContain("mfa");
+  });
+
+  it("with the mfa feature, writes a fresh second-factor key to .env, which the preset reads", () => {
+    const withMfa = files({ features: ["mfa"] });
+    const env = text(withMfa, ".env");
+    expect(env).toMatch(/^KESTREL_MFA_KEY=[0-9a-f]{64}$/m);
+    expect(text(files({ features: ["mfa"] }), ".env")).not.toBe(env);
+    expect(text(withMfa, ".env.example")).toContain("KESTREL_MFA_KEY=\n");
+    const without = files({});
+    expect(text(without, ".env")).not.toContain("KESTREL_MFA_KEY");
+    expect(text(without, ".env.example")).not.toContain("KESTREL_MFA_KEY");
+  });
+
   it("names the bootstrap admin and reads its hash from the environment", () => {
     const config = text(files({ adminUser: "ops" }), "kestrel.config.ts");
     expect(config).toContain('bootstrap: { username: "ops", passwordHash: adminPasswordHash() },');

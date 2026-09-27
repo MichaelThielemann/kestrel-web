@@ -12,6 +12,7 @@ export const ALL_FEATURES = [
   "insights",
   "eventsQueue",
   "revisions",
+  "mfa",
 ];
 
 export const DEFAULT_FEATURES = ["ratelimit", "sanitizeSvg", "references", "links", "delivery", "redirects", "images", "audit", "insights", "eventsQueue", "revisions"];
@@ -30,10 +31,12 @@ export const FEATURE_SUMMARY = {
   insights: "the /admin/insights page (needs three extra packages)",
   eventsQueue: "durable event queue instead of inline delivery",
   revisions: "version history for every multi collection",
+  mfa: "a second sign-in factor (authenticator app codes) every account sets up at its first sign-in",
 };
 
 export const INSIGHTS_FEATURE = "insights";
 export const MIGRATIONS_FEATURE = "migrations";
+export const MFA_FEATURE = "mfa";
 export const REDIRECTS_FEATURE = "redirects";
 
 const IMPLIED_FEATURES = { delivery: ["sanitizeSvg"] };

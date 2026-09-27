@@ -3,6 +3,7 @@ import type { TriggerConfig } from "@michaelthielemann/kestrel/defineConfig";
 import type { PresetStep } from "../../module-registry";
 import type { PresetContext, PresetModuleEntry } from "../base";
 import type { FeatureModule } from "../index";
+import { MFA_MODULE, SECOND_FACTOR_RESET_EVENT } from "./mfa";
 
 export const AUDIT_MODULE = "@michaelthielemann/kestrel-audit-persistence";
 export const AUDIT_PRUNE_PIPELINE = "pruneAudit";
@@ -30,6 +31,7 @@ export default function audit(context: PresetContext): FeatureModule {
     { http: "POST /admin/users/:id/audit/anonymize", pipeline: "retryAnonymizeAuditUser" },
     { event: "user.deleted", pipeline: "anonymizeAuditUser" },
     ...AUDITED_USER_EVENTS.map((event): TriggerConfig => ({ event, pipeline: "auditUsers" })),
+    ...(context.modules?.some((entry) => entry.use === MFA_MODULE) === true ? [{ event: SECOND_FACTOR_RESET_EVENT, pipeline: "auditUsers" }] : []),
   ];
 
   if (hasRetention(context.modules)) {

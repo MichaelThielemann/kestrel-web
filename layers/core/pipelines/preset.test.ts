@@ -288,6 +288,7 @@ describe("definePreset relay pipeline selection over feature combinations", () =
         features,
         audit: { retentionDays: 365 },
         migrations: { migrations: [] },
+        mfa: { secretKey: "5a".repeat(32) },
         roles: { roles: { admin: ["*"] }, anonymous: [] },
         bootstrap: { username: "admin", passwordHash: "x" },
       }),

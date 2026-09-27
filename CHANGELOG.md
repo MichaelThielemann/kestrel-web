@@ -31,6 +31,15 @@
   `changePassword` and `confirmPassword` per signed-in user (`passwordCheck`). `presetModuleConfig()`'s
   `ratelimit` option takes `loginAccount` and `passwordCheck` next to `login`. create-kestrel selects
   `ratelimit` by default.
+- Feature `mfa`: a second sign-in factor through the new `@michaelthielemann/kestrel-mfa-totp` module. Every
+  account sets up an authenticator app at its next sign-in (QR code or key, then a code; ten recovery codes shown
+  once) and enters a code at each sign-in after that. `presetModuleConfig()` takes
+  `mfa: { secretKey?, issuer?, enforce? }`, the key defaulting to `mfaKey()` from `#kestrel/config`, which reads
+  `KESTREL_MFA_KEY`. New routes `POST /login/second-factor`, `GET /users/second-factor` and
+  `DELETE /users/:id/second-factor`; the user list shows who
+  has a factor, and an administrator resets one (which ends that account's sessions, emits
+  `user.secondFactorReset` and is audited). create-kestrel offers `mfa` (not preselected) and writes a fresh
+  `KESTREL_MFA_KEY` to `.env`. The layer depends on `@michaelthielemann/kestrel-mfa-totp` and `uqr`.
 
 ### Upgrading
 

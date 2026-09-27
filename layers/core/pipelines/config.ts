@@ -5,6 +5,7 @@ import { MEDIA_PUBLIC_PATH, MOUNT_PATH, MOUNTS_FIELD, RESERVED_PAGE_SEGMENTS } f
 import { resolveWorkflow } from "../collections-ui/workflow";
 import type { WorkflowUi } from "../collections-ui/workflow";
 import { BLOCK_ALIASES_FIELD, BODY_FIELD } from "../collections-ui/serialize";
+import { mfaKey } from "../config";
 import { resolveStorageTypes } from "../field-types";
 import type { FieldTypes } from "../field-types";
 import { isGenericCollection } from "./collections";
@@ -50,6 +51,15 @@ export interface PresetMediaPolicy {
   maxBytes?: number;
   allowedTypes?: string[];
   deniedTypes?: string[];
+}
+
+export interface PresetMfa {
+  /** The key that seals every second factor's secret: 32 bytes as 64 hex digits or 43 base64url characters, kept outside the database; default `mfaKey()`, which reads `KESTREL_MFA_KEY`. */
+  secretKey?: string;
+  /** The name an authenticator app shows next to the account; the site title is a good choice. */
+  issuer?: string;
+  /** Who must set up a second factor before signing in; default every account. */
+  enforce?: "all" | "none" | { permissions: string[] };
 }
 
 export interface PresetRateLimit {
@@ -122,6 +132,8 @@ export interface PresetModuleConfigOptions {
   ratelimit?: PresetRateLimit;
   llms?: PresetLlms;
   migrations?: PresetMigrations;
+  /** The second-factor settings of the `mfa` feature. */
+  mfa?: PresetMfa;
   revisions?: PresetRevisions;
   audit?: PresetAudit;
   session?: PresetSession;
@@ -484,6 +496,14 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
         loginAccount: { ...(options.ratelimit?.loginAccount ?? DEFAULT_LOGIN_ACCOUNT_BUCKET), key: "username" },
         passwordCheck: { ...(options.ratelimit?.passwordCheck ?? DEFAULT_PASSWORD_CHECK_BUCKET), key: "identity" },
       },
+    }));
+  }
+  if (enabled.has("mfa")) {
+    const mfa = options.mfa ?? {};
+    modules.push(preset("@michaelthielemann/kestrel-mfa-totp", {
+      secretKey: mfa.secretKey ?? mfaKey(),
+      ...(mfa.issuer === undefined ? {} : { issuer: mfa.issuer }),
+      ...(mfa.enforce === undefined ? {} : { enforce: mfa.enforce }),
     }));
   }
   if (enabled.has("insights")) modules.push({ use: "@michaelthielemann/kestrel-insights", config: {} });

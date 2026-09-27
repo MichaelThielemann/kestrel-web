@@ -35,6 +35,17 @@ export function adminPasswordHash(): string {
   return DEVELOPMENT_ADMIN_PASSWORD_HASH;
 }
 
+const DEVELOPMENT_MFA_KEY = "6465762d6f6e6c792d6d66612d6b65792d6e6f742d666f722d70726f64756374";
+
+/** The key that seals second-factor secrets: `KESTREL_MFA_KEY` (64 hex digits or 43 base64url characters), required in production; a fixed development key otherwise, with a warning. */
+export function mfaKey(): string {
+  if (isProduction()) return requiredEnv("KESTREL_MFA_KEY");
+  const configured = envValue("KESTREL_MFA_KEY");
+  if (configured !== undefined) return configured;
+  console.warn("kestrel.config: KESTREL_MFA_KEY is not set – falling back to a development key");
+  return DEVELOPMENT_MFA_KEY;
+}
+
 export function envBlobstore(dataDir: string): BlobstoreModuleEntry {
   const choice = envValue("KESTREL_BLOBSTORE");
   if (choice === "s3") {

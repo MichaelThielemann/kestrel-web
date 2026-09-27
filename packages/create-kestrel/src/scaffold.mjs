@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { hashPassword } from "./password.mjs";
@@ -36,7 +37,7 @@ export function projectFiles(answers, versions, templateDir) {
   for (const entry of templateEntries(templateDir)) {
     files.set(targetName(entry), renderTemplate(readFileSync(join(templateDir, entry), "utf8"), values));
   }
-  files.set(ENV_FILE, envFile(answers, hashPassword(answers.password)));
+  files.set(ENV_FILE, envFile(answers, hashPassword(answers.password), randomBytes(32).toString("hex")));
   return files;
 }
 

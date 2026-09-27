@@ -1,4 +1,4 @@
-import { INSIGHTS_FEATURE, MIGRATIONS_FEATURE, REDIRECTS_FEATURE } from "./features.mjs";
+import { INSIGHTS_FEATURE, MFA_FEATURE, MIGRATIONS_FEATURE, REDIRECTS_FEATURE } from "./features.mjs";
 
 const TOKEN_PATTERN = /__[A-Z0-9_]+__/g;
 
@@ -70,6 +70,7 @@ export function templateValues(answers, versions) {
     DEFAULT_LOCALE: JSON.stringify(locales[0]),
     FEATURES: jsonList(answers.features),
     MIGRATIONS: answers.features.includes(MIGRATIONS_FEATURE) ? "{ migrations: [] }" : null,
+    MFA_KEY: answers.features.includes(MFA_FEATURE) ? "" : null,
     REDIRECTS_TYPE: answers.features.includes(REDIRECTS_FEATURE) ? '{ kind: "single", fields: { rules: { type: "json" } } }' : null,
     ADMIN_USER: JSON.stringify(answers.adminUser),
     BLOBSTORE: answers.blobstore,
@@ -81,8 +82,9 @@ export function templateValues(answers, versions) {
   };
 }
 
-export function envFile(answers, passwordHash) {
+export function envFile(answers, passwordHash, mfaKey) {
   const lines = [`KESTREL_ADMIN_PASSWORD_HASH=${passwordHash}`, `KESTREL_BLOBSTORE=${answers.blobstore}`];
+  if (answers.features.includes(MFA_FEATURE)) lines.push(`KESTREL_MFA_KEY=${mfaKey}`);
   if (answers.blobstore === "s3") {
     lines.push(
       `KESTREL_S3_BUCKET=${S3_PLACEHOLDERS.S3_BUCKET}`,

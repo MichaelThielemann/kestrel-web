@@ -32,10 +32,11 @@ import insights from "./features/insights";
 import audit, { AUDIT_MODULE, AUDIT_PRUNE_PIPELINE, AUDIT_RETENTION_KEY } from "./features/audit";
 import eventsQueue from "./features/eventsQueue";
 import revisions, { revisionPipelineNames } from "./features/revisions";
+import mfa from "./features/mfa";
 
 export type { CollectionModel } from "./collections";
 
-export type Feature = "ratelimit" | "sanitizeSvg" | "references" | "links" | "delivery" | "redirects" | "images" | "replication" | "migrations" | "audit" | "insights" | "eventsQueue" | "revisions";
+export type Feature = "ratelimit" | "sanitizeSvg" | "references" | "links" | "delivery" | "redirects" | "images" | "replication" | "migrations" | "audit" | "insights" | "eventsQueue" | "revisions" | "mfa";
 
 export interface FeatureModule {
   modules: string[];
@@ -71,7 +72,7 @@ export const staticPipelineNames = [
   "serveImageVariant", "registerImageSizes", "registerImageSizesBoot", "listImageSizes", "syncImages", "pruneImages", "retryFailedImages", "imagesStatus", "planImageVariants", "generateImageVariants", "resumeImages",
   "replicate", "replicationStatus", "replicationPoints", "replicationSnapshot", "replicationRestore",
   "listMigrations", "applyMigrations",
-  "auditAuth", "auditUsers", "anonymizeAuditUser", "retryAnonymizeAuditUser", "pruneAudit",
+  "auditAuth", "auditUsers", "anonymizeAuditUser", "setupSecondFactor", "secondFactorUsers", "resetSecondFactor", "forgetSecondFactor", "retryAnonymizeAuditUser", "pruneAudit",
   "insightsManifest", "insightsStats",
   "eventsQueueStatus", "eventsDead", "eventsRetryDead", "eventsRetryOne", "purgeEvents",
   "pageRevisions", "pageRevision", "labelPageRevision", "restorePageRevision", "pruneRevisions",
@@ -170,6 +171,7 @@ const featureFactories: Record<Feature, (context: PresetContext) => FeatureModul
   insights,
   eventsQueue,
   revisions,
+  mfa,
 };
 
 function featureKeys(factories: Record<Feature, unknown>): readonly Feature[] {

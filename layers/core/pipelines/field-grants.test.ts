@@ -32,6 +32,7 @@ const allModules: { use: string; config?: unknown }[] = [
   { use: "@michaelthielemann/kestrel-ratelimit-memory" },
   { use: "@michaelthielemann/kestrel-insights" },
   { use: "@michaelthielemann/kestrel-revisions-default" },
+  { use: "@michaelthielemann/kestrel-mfa-totp", config: { secretKey: "5a".repeat(32) } },
 ];
 const allFeatures: readonly Feature[] = featureOrder.filter((feature) => feature !== "migrations" && feature !== "eventsQueue");
 const queuedModules = allModules

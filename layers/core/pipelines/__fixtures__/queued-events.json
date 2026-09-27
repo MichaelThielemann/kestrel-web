@@ -307,6 +307,9 @@
       "media.export:<exportDir>",
       "images.export:<exportDir>"
     ],
+    "forgetSecondFactor": [
+      "mfa.forget"
+    ],
     "generateImageVariants": [
       "images.generate"
     ],
@@ -429,6 +432,7 @@
       "ratelimit.check:login",
       "ratelimit.check:loginAccount",
       "authn.login",
+      "mfa.check",
       "events.emit:auth.loggedIn",
       "events.relay"
     ],
@@ -700,6 +704,16 @@
     "republishOutput": [
       "delivery.republishOutput"
     ],
+    "resetSecondFactor": [
+      "authn.requireUser",
+      "authz.requireRole",
+      "authz.require:users.manage",
+      "authn.requireRecentAuth:300",
+      "mfa.reset",
+      "authn.endSessions",
+      "events.emit:user.secondFactorReset",
+      "events.relay"
+    ],
     "resolveBlog": [
       "authn.identifyUser",
       "authz.require:blog.read",
@@ -800,6 +814,12 @@
     "scanReferences": [
       "references.scan"
     ],
+    "secondFactorUsers": [
+      "authn.requireUser",
+      "authz.requireRole",
+      "authz.require:users.manage",
+      "mfa.listEnrolled"
+    ],
     "serveImageVariant": [
       "authn.identifyUser",
       "authz.require:media.read",
@@ -851,6 +871,11 @@
     "settingsDependents": [
       "delivery.markDependents:settings",
       "delivery.requestLlms"
+    ],
+    "setupSecondFactor": [
+      "ratelimit.check:login",
+      "ratelimit.check:loginAccount",
+      "mfa.startSetup"
     ],
     "sweepRateLimits": [
       "ratelimit.sweep"
@@ -1518,6 +1543,10 @@
       "pipeline": "auditUsers"
     },
     {
+      "event": "user.secondFactorReset",
+      "pipeline": "auditUsers"
+    },
+    {
       "cron": "45 3 * * *",
       "pipeline": "pruneAudit"
     },
@@ -1560,6 +1589,22 @@
     {
       "http": "POST /admin/blog/:id/revisions/:revisionId/restore",
       "pipeline": "restoreBlogRevision"
+    },
+    {
+      "http": "POST /login/second-factor",
+      "pipeline": "setupSecondFactor"
+    },
+    {
+      "http": "GET /users/second-factor",
+      "pipeline": "secondFactorUsers"
+    },
+    {
+      "http": "DELETE /users/:id/second-factor",
+      "pipeline": "resetSecondFactor"
+    },
+    {
+      "event": "user.deleted",
+      "pipeline": "forgetSecondFactor"
     }
   ]
 }

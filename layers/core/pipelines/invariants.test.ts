@@ -19,6 +19,7 @@ const allFeaturesRecord = {
   insights: 1,
   eventsQueue: 1,
   revisions: 1,
+  mfa: 1,
 } satisfies Record<Feature, 1>;
 
 const allModules = [
@@ -44,6 +45,7 @@ const allModules = [
   { use: "@michaelthielemann/kestrel-migrations-default" },
   { use: "@michaelthielemann/kestrel-insights" },
   { use: "@michaelthielemann/kestrel-revisions-default" },
+  { use: "@michaelthielemann/kestrel-mfa-totp", config: { secretKey: "5a".repeat(32) } },
 ];
 
 const KEEPS_HISTORICAL_NAMES = new Set(["pages"]);
