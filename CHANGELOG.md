@@ -604,7 +604,7 @@
 
 - Redirects: `redirectRules` grants `from` next to `pattern`, `target` and `status`, so `GET
   /redirects.json` and `PublicRedirectRule` carry each rule's wildcard path; the `redirects.rules` schema
-  refuses a `from` longer than 512 characters. The Node origin matches `from` in time proportional to
+  refuses a `from` longer than 512 characters and more than 1000 rules. The Node origin matches `from` in time proportional to
   the path; "Redirects at the edge" describes the same for the njs handler and the cost of the `map`
   variant.
 - Media: an upload declared as an image type or PDF whose bytes are another type is treated as that

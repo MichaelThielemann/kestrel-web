@@ -29,4 +29,10 @@ describe("redirects.rules schema", () => {
     expect(check([{ from: `/${"a".repeat(511)}`, to: "/x" }])).toBe(true);
     expect(check([{ from: `/${"a".repeat(512)}`, to: "/x" }])).toBe(false);
   });
+
+  it("refuses more than 1000 rules", () => {
+    const rules = Array.from({ length: 1001 }, (_, i) => ({ from: `/old/${i}`, to: `/new/${i}` }));
+    expect(check(rules.slice(0, 1000))).toBe(true);
+    expect(check(rules)).toBe(false);
+  });
 });
