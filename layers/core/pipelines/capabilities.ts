@@ -12,7 +12,7 @@ export const MULTI_VERBS = [
   "revisions", "revision", "labelRevision", "restoreRevision", "publishStatus", "referrers", "referrersMany", "previewPath", "tree", "publishAll",
 ] as const;
 
-export const SINGLE_VERBS = ["get", "set"] as const;
+export const SINGLE_VERBS = ["get", "getAny", "set"] as const;
 
 export type MultiVerb = (typeof MULTI_VERBS)[number];
 export type SingleVerb = (typeof SINGLE_VERBS)[number];

@@ -24,6 +24,12 @@
 
 ### Breaking
 
+- A `single` collection with a workflow (a `status` enum, or one declared in `collectionsUi`) reads through
+  `?status=<live>` on `get<Name>`: `GET /<name>` answers `404` while the stored document is not live. The
+  admin reads and edits it through the new `getAny<Name>` (`GET /admin/<name>`, `<name>.manage`), so a role
+  that edits such a single needs `<name>.manage` too. The boot check that a public read keeps its status
+  filter now covers `single` collections, so an override of `get<Name>` without the filter stops the server
+  with the collection and pipeline named.
 - A `link` field and an external `settings.navigation` link accept only `http:`, `https:`, `mailto:` and
   `tel:` targets or a site-relative one (`/…`, `#…`, `?…`); a save with any other target, `javascript:` and
   `data:` included, answers `400`, and a link value may no longer carry members its type does not store.

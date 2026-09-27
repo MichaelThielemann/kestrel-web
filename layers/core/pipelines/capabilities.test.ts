@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { collectionVerbs } from "./capabilities";
+import { collectionPipelines, collectionTriggers } from "./collections";
 import { definePreset, featureOrder } from "./index";
 import type { Feature } from "./index";
 import { syntheticContentTypes } from "./__fixtures__/synthetic-collections";
@@ -83,5 +84,24 @@ describe("collectionVerbs", () => {
     const singleVerbs = collectionVerbs("profile", { kind: "single", fields: { bio: {} } });
     expect(singleVerbs.revisions).toBeUndefined();
     expect(singleVerbs.get).toBe("getProfile");
+  });
+});
+
+describe("a single collection with a publish workflow", () => {
+  const profile = { kind: "single" as const, fields: { bio: {}, status: { type: "enum", options: ["draft", "published"] } } };
+
+  it("filters its public read on the live status and adds an admin read of the stored state", () => {
+    const pipelines = collectionPipelines("profile", profile);
+    expect(pipelines.get?.steps).toEqual(["authn.identifyUser", "authz.require:profile.read", "content.get:profile?status=published"]);
+    expect(pipelines.getAny?.steps).toEqual(["authn.requireUser", "authz.require:profile.manage", "content.get:profile"]);
+    expect(collectionVerbs("profile", profile).getAny).toBe("getAnyProfile");
+    expect(collectionTriggers("profile", profile)).toContainEqual({ http: "GET /admin/profile", pipeline: "getAnyProfile" });
+  });
+
+  it("keeps a single collection without a workflow on one unfiltered read", () => {
+    const plain = { kind: "single" as const, fields: { bio: {} } };
+    expect(collectionPipelines("profile", plain).get?.steps).toEqual(["authn.identifyUser", "authz.require:profile.read", "content.get:profile"]);
+    expect(collectionPipelines("profile", plain).getAny).toBeUndefined();
+    expect(collectionTriggers("profile", plain).map((t) => ("http" in t ? t.http : undefined))).toEqual(["GET /profile", "PUT /profile"]);
   });
 });

@@ -81,8 +81,23 @@ describe("statusFilterProblems", () => {
     expect(statusFilterProblems(news, workflowUi, overridden).map((problem) => problem.pipeline)).toEqual(["readNews"]);
   });
 
-  it("ignores single collections and the hardcoded ones", () => {
+  it("passes a single collection with a workflow when the preset built its read pipeline", () => {
     const single: Record<string, CollectionModel> = { profile: { kind: "single", fields: { status: { type: "enum", options: ["draft", "published"] } } } };
+    expect(statusFilterProblems(single, {}, shapes(single))).toEqual([]);
+  });
+
+  it("reports a single collection's public read pipeline that an override left without the status filter", () => {
+    const single: Record<string, CollectionModel> = { profile: { kind: "single", fields: { status: { type: "enum", options: ["draft", "published"] } } } };
+    const overridden = shapes(single).map((pipeline) =>
+      pipeline.name === "getProfile" ? { name: pipeline.name, steps: ["authn.identifyUser", "authz.require:profile.read", "content.get:profile"] } : pipeline,
+    );
+    expect(statusFilterProblems(single, {}, overridden)).toEqual([
+      { collection: "profile", pipeline: "getProfile", expected: "content.get:profile?status=published", actual: "content.get:profile" },
+    ]);
+  });
+
+  it("ignores a single collection without a workflow and the hardcoded ones", () => {
+    const single: Record<string, CollectionModel> = { profile: { kind: "single", fields: { bio: { type: "text" } } }, settings: { kind: "single", fields: { status: { type: "enum", options: ["draft", "published"] } } } };
     expect(statusFilterProblems(single, {}, shapes(single))).toEqual([]);
   });
 });

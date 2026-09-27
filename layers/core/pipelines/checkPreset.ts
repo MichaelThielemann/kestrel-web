@@ -552,7 +552,7 @@ export function buildPreset<C extends Record<string, CollectionModel> = Record<s
     .filter((entry) => entry.pages !== true || "pages" in collections)
     .filter((entry) => entry.parent !== true || (collections.pages !== undefined && parentFieldOf("pages", collections.pages) !== undefined))
     .map((entry) => entry.trigger);
-  triggers = [...insertCollectionTriggers(triggers, collections), ...featureTriggers];
+  triggers = [...insertCollectionTriggers(triggers, collections, options.collectionsUi), ...featureTriggers];
 
   const overrideNames = new Set(Object.keys(options.overrides ?? {}));
   const excludeNames = new Set<string>(options.exclude ?? []);

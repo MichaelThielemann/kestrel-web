@@ -78,6 +78,7 @@ export function publicCollectionSteps(name: string, model: CollectionModel, ui?:
   const steps: PublicCollectionStep[] = [];
   if (pipelines.list) steps.push({ pipeline: pipelines.list.name, base: `content.list:${name}`, step: `content.list:${name}${query}` });
   if (pipelines.read) steps.push({ pipeline: pipelines.read.name, base: `content.get:${name}`, step: `content.get:${name}${query}` });
+  if (pipelines.get) steps.push({ pipeline: pipelines.get.name, base: `content.get:${name}`, step: `content.get:${name}${query}` });
   return steps;
 }
 
@@ -163,19 +164,22 @@ export function multiCollectionPipelines(name: string, model: CollectionModel, u
   return pipelines;
 }
 
-export function singleCollectionPipelines(name: string, customFields?: Record<string, string>): Partial<Record<SingleVerb, CollectionPipeline>> {
+export function singleCollectionPipelines(name: string, model: CollectionModel, ui?: WorkflowUi, customFields?: Record<string, string>): Partial<Record<SingleVerb, CollectionPipeline>> {
   const { plural, event } = collectionNames(name);
-  return {
-    get: { name: `get${plural}`, steps: ["authn.identifyUser", `authz.require:${name}.read`, `content.get:${name}`] },
+  const statusQuery = statusQueryFor(name, model, ui);
+  const pipelines: Partial<Record<SingleVerb, CollectionPipeline>> = {
+    get: { name: `get${plural}`, steps: ["authn.identifyUser", `authz.require:${name}.read`, `content.get:${name}${statusQuery}`] },
     set: {
       name: `set${plural}`,
       steps: ["authn.requireUser", `authz.require:${name}.write`, ...customFieldChecks(name, customFields), { atomic: [`content.set:${name}`] }, `events.emit:${event}.updated`],
     },
   };
+  if (statusQuery !== "") pipelines.getAny = { name: `getAny${plural}`, steps: ["authn.requireUser", `authz.require:${name}.manage`, `content.get:${name}`] };
+  return pipelines;
 }
 
 export function collectionPipelines(name: string, model: CollectionModel, ui?: WorkflowUi, customFields?: Record<string, string>): Partial<Record<CollectionVerb, CollectionPipeline>> {
-  return model.kind === "multi" ? multiCollectionPipelines(name, model, ui, customFields) : singleCollectionPipelines(name, customFields);
+  return model.kind === "multi" ? multiCollectionPipelines(name, model, ui, customFields) : singleCollectionPipelines(name, model, ui, customFields);
 }
 
 export function buildCollectionPipelines(
@@ -205,19 +209,20 @@ export function multiCollectionTriggers(name: string, model: CollectionModel): T
   return triggers;
 }
 
-export function singleCollectionTriggers(name: string): TriggerConfig[] {
-  const pipelines = singleCollectionPipelines(name);
+export function singleCollectionTriggers(name: string, model: CollectionModel, ui?: WorkflowUi): TriggerConfig[] {
+  const pipelines = singleCollectionPipelines(name, model, ui);
   const triggers: TriggerConfig[] = [];
   if (pipelines.get) triggers.push({ http: `GET /${name}`, pipeline: pipelines.get.name });
+  if (pipelines.getAny) triggers.push({ http: `GET /admin/${name}`, pipeline: pipelines.getAny.name });
   if (pipelines.set) triggers.push({ http: `PUT /${name}`, pipeline: pipelines.set.name });
   return triggers;
 }
 
-export function collectionTriggers(name: string, model: CollectionModel): TriggerConfig[] {
-  return model.kind === "multi" ? multiCollectionTriggers(name, model) : singleCollectionTriggers(name);
+export function collectionTriggers(name: string, model: CollectionModel, ui?: WorkflowUi): TriggerConfig[] {
+  return model.kind === "multi" ? multiCollectionTriggers(name, model) : singleCollectionTriggers(name, model, ui);
 }
 
-export function insertCollectionTriggers(triggers: TriggerConfig[], collections: Record<string, CollectionModel>): TriggerConfig[] {
+export function insertCollectionTriggers(triggers: TriggerConfig[], collections: Record<string, CollectionModel>, collectionsUi?: Record<string, WorkflowUi>): TriggerConfig[] {
   const pagesModel = collections.pages;
   const resolveIndex = triggers.findIndex((trigger) => "http" in trigger && trigger.pipeline === "resolvePage");
   let result = triggers;
@@ -228,7 +233,7 @@ export function insertCollectionTriggers(triggers: TriggerConfig[], collections:
   for (const [name, model] of Object.entries(collections)) {
     if (!isGenericCollection(name) || name === "pages") continue;
     if (pagesModel && isRoutedCollection(name, model)) extra.push(...mountedTriggers(name));
-    extra.push(...collectionTriggers(name, model));
+    extra.push(...collectionTriggers(name, model, collectionsUi?.[name]));
   }
   return [...result, ...extra];
 }

@@ -153,7 +153,7 @@ Two files have to agree on the name:
      be exactly `["draft", "finished", "published"]` (any other value, missing value, or renamed value
      throws); with a `workflow` (§3.5) it is checked against that instead, so you can name the values
      yourself. Either way it carries the publish workflow and gets the preset's `?status=<live>` read
-     filtering (§4).
+     filtering (§4), on a `single` type as on a `multi` one.
    - `slug`, when present, must be `type: "slug"` — the admin shows a slug column for the collection,
      but by itself a `slug` field does not make the record routed or published (see below).
    - `body`, when present, must be `type: "json"` — it holds blocks, and gets the preset's
@@ -1075,7 +1075,11 @@ and again after it, so the stored body is schema-valid), delete is `<name>.delet
 (`GET /<name>`, `GET /admin/<name>`, `GET /admin/<name>/:id`, `GET /<name>/:id`, `POST /<name>`,
 `PATCH /<name>/:id`, `DELETE /<name>/:id`); a `single` type gets `get<Name>`/`set<Name>`
 (`<name>.read`/`<name>.write`, `get<Name>` also resolving internal links the same way `getSettings`
-does) and `GET /<name>` / `PUT /<name>`. A `multi` type with at least one `localized: true` field also
+does) and `GET /<name>` / `PUT /<name>`. A `single` type with a workflow filters `get<Name>` the same way,
+`?status=<workflow.live>`: while the stored document is not live, `GET /<name>` answers `404`, for every
+caller. It also gets `getAny<Name>` (`<name>.manage`, no filter) on `GET /admin/<name>`, which the admin's
+editor reads the document through; editing such a single in the admin therefore needs `<name>.manage` next
+to `<name>.write`. A `multi` type with at least one `localized: true` field also
 gets `delete<Name>Translation` (`<name>.write`, `content.removeTranslation:<name>`, then
 `events.emit:<event>.translationRemoved`) and `DELETE /<name>/:id/translations/:locale` — it clears one
 locale's fields instead of removing the document; the backend answers 409 on the last remaining

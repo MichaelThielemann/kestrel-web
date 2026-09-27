@@ -81,7 +81,8 @@ export function useEditFormLoad(opts: UseEditFormLoadOptions) {
   async function loadRow(): Promise<Document | null> {
     if (mode.value === 'single') {
       try {
-        return await api<Document>(capabilities.verbRoute(collection, 'get'), { query: { locale: locale.value } })
+        const verb = capabilities.hasVerb(collection, 'getAny') ? 'getAny' : 'get'
+        return await api<Document>(capabilities.verbRoute(collection, verb), { query: { locale: locale.value } })
       } catch (e) {
         if (apiErrorCode(e) !== 'NOT_FOUND') throw e
         return null

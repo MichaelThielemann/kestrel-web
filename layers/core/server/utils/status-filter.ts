@@ -39,7 +39,7 @@ export function statusFilterProblems(
   const byName = new Map(pipelines.map((pipeline) => [pipeline.name, pipelineSteps(pipeline.steps)]));
   const problems: StatusFilterProblem[] = [];
   for (const [name, model] of Object.entries(collections)) {
-    if (!isGenericCollection(name) || model.kind !== "multi") continue;
+    if (!isGenericCollection(name)) continue;
     for (const expected of publicCollectionSteps(name, model, collectionsUi[name])) {
       const steps = byName.get(expected.pipeline);
       if (steps === undefined) continue;
