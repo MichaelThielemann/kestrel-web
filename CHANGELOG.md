@@ -66,7 +66,8 @@
   their next successful sign-in. A hand-written `kestrel-ratelimit-memory` entry boots with the known-device
   budget added to its `loginAccount` bucket, with `field` set to the login's `identifier` where it is missing,
   and with `deviceCookies` from `deviceKeys()`; `preset/ratelimit-buckets` writes `knownDevices` along with a
-  missing `loginAccount`.
+  missing `loginAccount`. `kestrel upgrade check` reports a project that would sign with a random key as
+  `ops/device-key`.
 - A hand-written module list passes `collectionsUi` (the default export of `shared/collections-ui`) to
   `presetSchemas()` as well as to `definePreset()`. Without it on `presetSchemas()`, a field the collection UI
   shows as a link has no schema and the boot fails with `no schema configured for "<collection>.<field>"`;

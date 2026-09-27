@@ -14,6 +14,7 @@ import type { PresetOptions } from "../pipelines/checkPreset";
 import { consumerRules } from "./consumerRules";
 import { DEPENDENTS_PROBLEM_CODES, dependentsRules } from "./dependentsRules";
 import { ratelimitBucketsRule } from "./ratelimitBucketsRule";
+import { deviceKeyRule } from "./deviceKeyRule";
 import { hostBinaryRule } from "./hostBinaryRule";
 import { overrideEmitRule } from "./overrideEmit";
 import { isPathStep, overridePathStepsRule, pageLikeMountRule, parentOfferRule, slugUrlRule } from "./pathRules";
@@ -742,5 +743,6 @@ export const layerRules: readonly Rule[] = [
   fieldGrantsRule,
   ...dependentsRules,
   ratelimitBucketsRule,
+  deviceKeyRule,
   ...consumerRules,
 ];

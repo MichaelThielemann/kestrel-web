@@ -2159,6 +2159,10 @@ What changes:
   - `preset/ratelimit-buckets` writes the `loginAccount` (with its `knownDevices`) and `passwordCheck`
     buckets, with the layer's defaults, into a `kestrel-ratelimit-memory` entry written in `kestrel.config.ts` whose `buckets` lack
     them (`fix`). Until then the layer boots with those defaults.
+  - `ops/device-key` reports (`manual`) a project whose login remembers known devices, without the `mfa`
+    feature and without `KESTREL_DEVICE_KEY` in any env or deployment file: its device cookies are signed
+    with a random key per process, so set the variable for known devices to survive a restart and to be
+    recognised by every instance.
   - `preset/queue-lanes` sets `lanes` (and a missing `relayPipelines`) on a `kestrel-events-queue` entry
     written in `kestrel.config.ts` to what `lanesFor(features)` gives (`fix`).
   - `preset/override-emit` forward-ports a 2.x `setSettings` or `set<Name>` override in one edit (`fix`). It

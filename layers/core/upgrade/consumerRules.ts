@@ -530,7 +530,8 @@ const FORWARDING_ENV = /NUXT_KESTREL_ACCESS_(TRUSTED_HEADER|TRUST_PROXY)\b/;
 const FORWARDING_CONFIG = /\b(trustedHeader|trustProxy)\s*:/;
 const TRUSTED_PROXIES = /NUXT_KESTREL_ACCESS_TRUSTED_PROXIES|\btrustedProxies\s*:/;
 
-function deploymentFiles(dir: string, out: string[]): void {
+/** Collects the files under `dir` that may configure a deployment: env files, container, service and CI files, and config sources. */
+export function deploymentFiles(dir: string, out: string[]): void {
   let entries;
   try {
     entries = readdirSync(dir, { withFileTypes: true });
