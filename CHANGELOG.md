@@ -22,6 +22,15 @@
   query on `media.list`), narrows the listing with correct paging and combines with the text search; a
   field whose `accept` is fixed to images only offers that one option.
 
+### Upgrading
+
+- A hand-written module list passes `collectionsUi` (the default export of `shared/collections-ui`) to
+  `presetSchemas()` as well as to `definePreset()`. Without it on `presetSchemas()`, a field the collection UI
+  shows as a link has no schema and the boot fails with `no schema configured for "<collection>.<field>"`;
+  without it on `definePreset()`, the server refuses to start because that field is written unchecked.
+  `kestrel upgrade check` reports both as `preset/schemas-collections-ui`, and `fix --write` passes
+  `collectionsUi` to both calls in `kestrel.config.ts`, importing it when needed.
+
 ### Breaking
 
 - `definePreset` refuses a collection named after something the preset owns, with the collection and the
@@ -63,7 +72,8 @@
   `data:` included, answers `400`, and a link value may no longer carry members its type does not store.
   `useLinkHref()`/`linkHrefOf()` return `null` for such a target and for an internal link whose path is not a
   site path, so the starter template's and playground's hero render no link for it. `kestrel upgrade data`
-  reports stored values outside the rule as `data/link-target`.
+  reports stored values outside the rule as `data/link-target`. The server does not start while a field the
+  collection UI shows as a link lacks `validate.check:<collection>.<field>` in its write pipelines.
 - **The layer ships no binary; `kestrel` from `@michaelthielemann/kestrel-cli` checks and upgrades a
   project built on it.** Add `@michaelthielemann/kestrel-cli` to `devDependencies` at the same range as
   `@michaelthielemann/kestrel` (`kestrel upgrade fix` adds it) and run `kestrel upgrade check|fix|data`

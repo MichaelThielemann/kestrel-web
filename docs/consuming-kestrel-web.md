@@ -1332,7 +1332,10 @@ start with `http:`, `https:`, `mailto:` or `tel:` (any letter case) or be relati
 `PUT /settings` for an external navigation link. The same holds for a collection's `json` field that
 `collectionsUi` shows as a link (`fieldOverrides.<field>.type: "link"`): the preset checks it with
 `validate.check:<collection>.<field>` on every write, and `presetModuleConfig()` registers its schema. A
-hand-written module list passes the same `collectionsUi` to `presetSchemas()`. The admin shows the same rule on the field before saving.
+hand-written module list passes the same `collectionsUi` to `presetSchemas()`. The server refuses to start
+while such a field's write pipeline lacks the check (the map did not reach `definePreset()`), and the boot
+fails with `no schema configured` while the schema is missing; `kestrel upgrade check` reports both as
+`preset/schemas-collections-ui` and fixes `kestrel.config.ts`. The admin shows the same rule on the field before saving.
 
 `useLinkHref()` (and `linkHrefOf()`) applies the rule again when rendering, after dropping leading and
 trailing spaces and control characters and removing tabs and line breaks the way a browser reads an `href`:

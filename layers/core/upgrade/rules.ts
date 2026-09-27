@@ -17,6 +17,7 @@ import { hostBinaryRule } from "./hostBinaryRule";
 import { overrideEmitRule } from "./overrideEmit";
 import { isPathStep, overridePathStepsRule, pageLikeMountRule, parentOfferRule, slugUrlRule } from "./pathRules";
 import { siteModelOptionsRule } from "./siteModelRule";
+import { schemasCollectionsUiRule } from "./schemasCollectionsUiRule";
 import { addModuleEntryConfigProperty, addStringToNamedExportArray, bumpPackageJsonDependency, namedExportArray, removeStepsFromArray, wrapAtomicGroup, wrapRange } from "./edits";
 import type { SourceRange } from "./edits";
 import { layerProjectData } from "./load";
@@ -735,6 +736,7 @@ export const layerRules: readonly Rule[] = [
   parentOfferRule,
   pageLikeMountRule,
   siteModelOptionsRule,
+  schemasCollectionsUiRule,
   publicOverrideFieldStepRule,
   fieldGrantsRule,
   ...dependentsRules,
