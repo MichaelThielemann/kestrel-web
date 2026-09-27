@@ -4,8 +4,8 @@ import { createError, defineEventHandler, type EventHandler } from "h3";
 import { redactingConflictLabels } from "./conflict-labels";
 import { MOUNT_PATH } from "../../mount-path";
 import { bootFailure, type KestrelStatus } from "./boot-failure";
-import type { ClientAddressPolicy } from "./ip-allowlist";
-import { clientAddressOptions, createPublicMediaHandler } from "./public-media";
+import { clientIpOptions, type ClientAddressPolicy } from "./ip-allowlist";
+import { createPublicMediaHandler } from "./public-media";
 
 export interface KestrelHandlerWiring {
   /** The client-address policy, read once the instance has booted. */
@@ -39,7 +39,7 @@ export function kestrelHandlers(booting: Promise<Kestrel>, wiring: KestrelHandle
     kestrelHandler: booting
       .then((kestrel) => defineEventHandler(redactingConflictLabels(kestrel, createKestrelHandler(kestrel, {
         mountPath: MOUNT_PATH,
-        ...clientAddressOptions(wiring.policy()),
+        ...clientIpOptions(wiring.policy()),
         inlineTypes: wiring.inlineTypes(kestrel),
         maxBodyBytes: wiring.maxBodyBytes(kestrel),
       }))))

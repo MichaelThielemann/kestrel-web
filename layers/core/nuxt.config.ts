@@ -40,6 +40,6 @@ export default defineNuxtConfig({
     },
   },
   ignore: ["**/node_modules"],
-  runtimeConfig: { kestrel: { access: { admin: "", site: "", trustProxy: false, proxyHops: 1, trustedHeader: "" } }, public: { kestrelDebugActions: false } },
+  runtimeConfig: { kestrel: { access: { admin: "", site: "", trustProxy: false, proxyHops: 1, trustedHeader: "", trustedProxies: "" } }, public: { kestrelDebugActions: false } },
   typescript: { shim: true },
 });

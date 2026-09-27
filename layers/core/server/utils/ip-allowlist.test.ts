@@ -1,5 +1,7 @@
+import { Socket } from "node:net";
 import { describe, expect, it } from "vitest";
-import { accessScope, clientAddress, isAllowed, normalizeAddress, parseAllowlist } from "./ip-allowlist";
+import { boundaryCast } from "@michaelthielemann/kestrel/cast";
+import { accessScope, isAllowed, isInProcess, listEntries, normalizeAddress, parseAllowlist, routedPath } from "./ip-allowlist";
 
 describe("accessScope", () => {
   it("routes the admin UI, admin API, account routes and every write to the admin scope", () => {
@@ -62,26 +64,35 @@ describe("parseAllowlist / isAllowed", () => {
   });
 });
 
-describe("clientAddress", () => {
-  const sources = { socket: "10.0.0.2", forwardedFor: "203.0.113.9, 198.51.100.7, 10.0.0.3", trustedHeader: "192.0.2.44" };
-
-  it("uses the socket peer unless a proxy is trusted", () => {
-    expect(clientAddress(sources, { trustProxy: false, proxyHops: 1, trustedHeader: "" })).toBe("10.0.0.2");
+describe("routedPath", () => {
+  it("resolves literal and encoded dot segments and decodes each segment, as the API router does", () => {
+    expect(routedPath("/api/x/../users")).toBe("/api/users");
+    expect(routedPath("/api/pages/%2e%2e/users")).toBe("/api/users");
+    expect(routedPath("/api/pages/.%2E/me")).toBe("/api/me");
+    expect(routedPath("/api/./admin/pages")).toBe("/api/admin/pages");
+    expect(routedPath("/api/%61dmin/pages?x=1")).toBe("/api/admin/pages");
+    expect(routedPath("//api/users")).toBe("/api/users");
+    expect(routedPath("/api/x\\..\\users")).toBe("/api/users");
+    expect(routedPath("/kontakt/%zz")).toBe("/kontakt/%zz");
   });
 
-  it("counts X-Forwarded-For hops from the right, never the client-supplied left end", () => {
-    expect(clientAddress(sources, { trustProxy: true, proxyHops: 1, trustedHeader: "" })).toBe("10.0.0.3");
-    expect(clientAddress(sources, { trustProxy: true, proxyHops: 2, trustedHeader: "" })).toBe("198.51.100.7");
-    expect(clientAddress(sources, { trustProxy: true, proxyHops: 3, trustedHeader: "" })).toBe("203.0.113.9");
-    expect(clientAddress(sources, { trustProxy: true, proxyHops: 4, trustedHeader: "" })).toBeUndefined();
+  it("puts every resolved admin path into the admin scope", () => {
+    for (const target of ["/api/x/../users", "/api/pages/%2e%2e/users", "/api/./admin/pages", "/api/pages/.%2e/me", "/x/../admin"]) {
+      expect(accessScope(routedPath(target), "GET"), target).toBe("admin");
+    }
   });
+});
 
-  it("falls back to the socket when the proxy sent no chain", () => {
-    expect(clientAddress({ ...sources, forwardedFor: undefined }, { trustProxy: true, proxyHops: 1, trustedHeader: "" })).toBe("10.0.0.2");
+describe("isInProcess", () => {
+  it("recognizes Nitro's in-process request socket, not a network socket", () => {
+    expect(isInProcess(boundaryCast<Parameters<typeof isInProcess>[0]>({ socket: { __unenv__: {}, remoteAddress: "" } }, "host"))).toBe(true);
+    expect(isInProcess({ socket: new Socket() })).toBe(false);
   });
+});
 
-  it("prefers a trusted edge header over everything else", () => {
-    expect(clientAddress(sources, { trustProxy: true, proxyHops: 1, trustedHeader: "x-real-ip" })).toBe("192.0.2.44");
-    expect(clientAddress({ ...sources, trustedHeader: undefined }, { trustProxy: true, proxyHops: 1, trustedHeader: "x-real-ip" })).toBeUndefined();
+describe("listEntries", () => {
+  it("splits on commas and whitespace", () => {
+    expect(listEntries(" 10.0.0.1, 10.0.0.0/8  ::1 ")).toEqual(["10.0.0.1", "10.0.0.0/8", "::1"]);
+    expect(listEntries(undefined)).toEqual([]);
   });
 });

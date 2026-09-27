@@ -55,7 +55,7 @@ async function bootMediaKestrel() {
   return kestrel;
 }
 
-const OPEN_POLICY = { trustProxy: false, proxyHops: 1, trustedHeader: "" };
+const OPEN_POLICY = { trustProxy: false, proxyHops: 1, trustedHeader: "", trustedProxies: [] };
 
 function wiring(onBootFailure: (err: unknown) => void = () => {}) {
   return {

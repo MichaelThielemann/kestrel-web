@@ -1494,14 +1494,21 @@ IPv4/IPv6 addresses or CIDR ranges (`203.0.113.0/24,2001:db8::/32,10.0.0.5`). `a
 `/api/admin/*`, login/logout/me/users/migrations and every non-GET request under `/api`; `site` guards
 everything else (public pages, anonymous reads, `/api/health`; the hashed `/_nuxt/*` build assets are served
 before the check and stay reachable). A blocked request gets a bare 403.
+A path is judged after dot segments are resolved and each segment is decoded, so `/api/x/../users` counts as
+`/api/users`; the API answers 400 to such a path in any case.
 The client address is the socket peer. Behind a proxy you control, set `NUXT_KESTREL_ACCESS_TRUST_PROXY=true`
 and `NUXT_KESTREL_ACCESS_PROXY_HOPS=<n>` (default 1) — the address is then the n-th `X-Forwarded-For` entry
 counted from the right, i.e. the one your outermost trusted proxy appended; the left end is client-supplied
 and never used. If your edge sets a dedicated header instead (`NUXT_KESTREL_ACCESS_TRUSTED_HEADER=cf-connecting-ip`,
-`x-real-ip`, whatever your edge documents), that header wins and a request without it is refused, which also blocks
-callers that bypass the edge. The same proxy policy is handed to the embedded API handler, so `ctx.ip` (rate
-limiting, audit entries) resolves to the same client address as the allowlist check. An invalid entry stops the server at start. `nuxt dev` does not enforce the
-lists (its worker has no socket peer); test them on a production build. Closing both lists
+or `x-real-ip` when your proxy sets it to the peer, as the nginx example in `docs/deployment.md` does), that
+header wins; the edge must overwrite it on every request. Forwarding headers count only from a peer in
+`NUXT_KESTREL_ACCESS_TRUSTED_PROXIES` (addresses or CIDR ranges, default loopback; a Unix socket counts as
+loopback): a caller that bypasses the edge and reaches the port directly is judged by its own address. A
+request from a trusted proxy without the trusted header is refused with 403, with or without allowlists. The
+same policy is handed to the embedded API handler, so `ctx.ip` (rate limiting) resolves to the same client
+address as the allowlist check. An invalid entry stops the server at start. `nuxt dev` does not enforce the
+lists; test them on a production build, which enforces them over TCP and over a Unix socket
+(`NITRO_UNIX_SOCKET`) alike. Closing both lists
 makes a deployment private (a static site served from nginx/S3 is outside this server and is restricted
 there: nginx `allow`/`deny`, an S3 bucket policy with `aws:SourceIp`); closing only `admin` keeps the
 website public.
@@ -1519,7 +1526,7 @@ One more route comes with the layer, for the admin rather than for an operator:
 
 It needs the admin's Bearer token — it runs the preset pipeline `adminSchemaModel`
 (`authn.requireUser`, `content.describeModel`) with the request headers and the client IP (resolved under
-the same `NUXT_KESTREL_ACCESS_TRUST_PROXY`/`_PROXY_HOPS`/`_TRUSTED_HEADER` policy as every other backend
+the same `NUXT_KESTREL_ACCESS_TRUST_PROXY`/`_PROXY_HOPS`/`_TRUSTED_HEADER`/`_TRUSTED_PROXIES` policy as every other backend
 route, see above), so the session is checked by the backend, not by the Nitro layer. `collections` is the
 array `serializeCollections()` produces, in the order of your `contentTypes`, each entry carrying
 `editorOwned` and, where one is resolved, `workflow`. The 200 carries the same `cache-control: no-store`,

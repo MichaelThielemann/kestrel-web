@@ -56,6 +56,7 @@ kestrel-web's own, all read while `kestrel.config.ts` loads:
 | `NUXT_PUBLIC_SITE_URL` | no | the public origin used for preview links, canonical URLs, `llms.txt`; empty means relative paths |
 | `NUXT_KESTREL_ACCESS_ADMIN` / `_SITE` | no | the two IP allowlists (§7 of the consuming guide); empty means open |
 | `NUXT_KESTREL_ACCESS_TRUST_PROXY`, `_PROXY_HOPS`, `_TRUSTED_HEADER` | no | how the client address is taken behind a proxy |
+| `NUXT_KESTREL_ACCESS_TRUSTED_PROXIES` | no | the proxies whose forwarding headers count, addresses or CIDR ranges; empty means loopback |
 | `KESTREL_MIGRATIONS` | no | only if your `kestrel.config.ts` wires it to the migrations module's `mode` (`docs/migrations.md`) |
 
 The `KESTREL_*` rows only apply where `kestrel.config.ts` actually calls the `#kestrel/config` helpers.
@@ -187,7 +188,10 @@ CMD ["node", "--disable-warning=ExperimentalWarning", ".output/server/index.mjs"
 
 `COPY --from=build` keeps the symlinks inside `.output/server/node_modules`, so the copy caveat of §1
 does not apply here. Mount `/data` — without a volume the database is lost with the container.
-`NITRO_HOST=0.0.0.0` is needed for the port to be reachable from outside the container.
+`NITRO_HOST=0.0.0.0` is needed for the port to be reachable from outside the container. A reverse
+proxy in front of the container does not connect over loopback, so list its address (or the container
+network's gateway range) in `NUXT_KESTREL_ACCESS_TRUSTED_PROXIES`; until then its forwarding headers are
+ignored and every request counts as coming from the proxy.
 
 For a health check, use `/api/ready`: it answers 503 while the backend is still booting or its
 database is unreachable, and 200 once it can serve.
@@ -205,6 +209,7 @@ server {
     proxy_pass http://127.0.0.1:8080;
     proxy_set_header Host $host;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-Proto $scheme;
     proxy_read_timeout 300s;
   }
@@ -219,14 +224,23 @@ Points that matter:
   A proxy limit below that turns into a 413 the admin cannot explain. Keep `client_max_body_size` at
   or above `maxBytes + 1m`.
 - **Client address.** The layer takes the socket peer by default, so behind a proxy every request
-  looks like it comes from the proxy — which breaks the IP allowlists, the per-IP attempt limit on
+  looks like it comes from the proxy — which breaks the IP allowlists and the per-IP attempt limit on
   `login` (the `ratelimit` feature, five attempts per address and minute by default, preselected by
-  `create-kestrel`; without the feature `login` is not limited) and the client address in audit entries. Set `NUXT_KESTREL_ACCESS_TRUST_PROXY=true` and
-  `NUXT_KESTREL_ACCESS_PROXY_HOPS=<n>` (default 1, counted from the right of `X-Forwarded-For`), or
-  `NUXT_KESTREL_ACCESS_TRUSTED_HEADER=<header>` when your edge sets a dedicated one. With a trusted
-  header configured, a request arriving without it is refused — which also blocks callers that bypass
-  the edge. An invalid allowlist entry stops the server at start
-  (`ip allowlist: invalid entry "…"`), it is not skipped.
+  `create-kestrel`; without the feature `login` is not limited). Set `NUXT_KESTREL_ACCESS_TRUSTED_HEADER=x-real-ip` with the `X-Real-IP $remote_addr` line
+  above (or the header your edge documents, such as `cf-connecting-ip`), or
+  `NUXT_KESTREL_ACCESS_TRUST_PROXY=true` and `NUXT_KESTREL_ACCESS_PROXY_HOPS=<n>` (default 1, counted from
+  the right of `X-Forwarded-For`). The edge must set or overwrite the trusted header on every request;
+  passing on a value the client sent would let the client choose its address. Either header counts only
+  from a peer in `NUXT_KESTREL_ACCESS_TRUSTED_PROXIES` (default loopback, which covers the nginx above);
+  a caller that reaches the port directly is judged by its own address whatever it sends. A trusted
+  proxy's request without the trusted header is refused with 403, with or without allowlists. An invalid
+  allowlist or proxy entry stops the server at start (`ip allowlist: invalid entry "…"`), it is not
+  skipped.
+- **Unix socket.** Nitro listens on a Unix socket when `NITRO_UNIX_SOCKET` is set. A connection there has
+  no peer address and counts as loopback, so the proxy's header decides: set `_TRUSTED_HEADER` or
+  `_TRUST_PROXY` as above. Without either, no request has a client address: every request is refused
+  once an allowlist is set, and rate limits put all clients under one key. The server logs a warning at
+  start in that case.
 - **Paths.** Everything is one origin: `/` is the site, `/admin` the editorial UI, `/api` the backend,
   `/media/…` every media file's one public URL (an original or an image variant, served directly, not
   under `/api`), `/_nuxt/…` the hashed build assets. `api`, `admin` and `media` are reserved: a page slug

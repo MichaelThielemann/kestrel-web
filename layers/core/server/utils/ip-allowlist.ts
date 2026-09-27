@@ -1,4 +1,7 @@
-import { BlockList, isIP } from "node:net";
+import type { IncomingMessage } from "node:http";
+import { BlockList, isIP, Socket } from "node:net";
+import type { ClientAddress, ClientIpOptions, PeerRequest } from "@michaelthielemann/kestrel";
+import { createError, type H3Event } from "h3";
 
 export type AccessScope = "admin" | "site";
 
@@ -47,28 +50,63 @@ export function isAllowed(list: BlockList | null, address: string | undefined): 
   return list.check(normalized, family === 4 ? "ipv4" : "ipv6");
 }
 
-export interface ClientAddressSources {
-  socket: string | undefined;
-  forwardedFor: string | undefined;
-  trustedHeader: string | undefined;
-}
-
+/** How the client address of a request is derived: the core's peer policy, with `""` for no trusted header. */
 export interface ClientAddressPolicy {
   trustProxy: boolean;
   proxyHops: number;
   trustedHeader: string;
+  /** Peers whose forwarding headers count; empty means the core's default, loopback. */
+  trustedProxies: string[];
 }
 
-function firstAddress(value: string | undefined): string | undefined {
-  const first = (value ?? "").split(",")[0]?.trim();
-  return first ? first : undefined;
+/** The `ClientIpOptions` of the core and the h3 adapter for a policy. */
+export function clientIpOptions(policy: ClientAddressPolicy): ClientIpOptions {
+  const { trustProxy, proxyHops, trustedHeader, trustedProxies } = policy;
+  return { trustProxy, proxyHops, ...(trustedHeader === "" ? {} : { trustedHeader }), ...(trustedProxies.length === 0 ? {} : { trustedProxies }) };
 }
 
-export function clientAddress(sources: ClientAddressSources, policy: ClientAddressPolicy): string | undefined {
-  if (policy.trustedHeader !== "") return firstAddress(sources.trustedHeader);
-  if (!policy.trustProxy) return sources.socket;
-  const chain = (sources.forwardedFor ?? "").split(",").map((entry) => entry.trim()).filter((entry) => entry !== "");
-  if (chain.length === 0) return sources.socket;
-  const hops = Math.max(1, Math.trunc(policy.proxyHops));
-  return chain[chain.length - hops];
+/** The entries of a comma- or whitespace-separated list, such as `trustedProxies` from the environment. */
+export function listEntries(text: string | undefined): string[] {
+  return (text ?? "").split(/[\s,]+/).filter((part) => part !== "");
+}
+
+/**
+ * The path the API adapter routes for a request target: dot segments resolved as a URL parser does, then
+ * each segment percent-decoded. Access decisions use it so they see the path the router sees.
+ */
+export function routedPath(target: string): string {
+  const pathname = new URL(target.replace(/^[/\\]+/, "/"), "http://localhost").pathname;
+  return pathname.split("/").map((segment) => {
+    try {
+      return decodeURIComponent(segment);
+    } catch {
+      return segment;
+    }
+  }).join("/");
+}
+
+/** Whether Nitro made the request in-process (`localFetch` during SSR or a publish) rather than over a connection. */
+export function isInProcess(req: Pick<IncomingMessage, "socket">): boolean {
+  const socket: unknown = req.socket;
+  return !(socket instanceof Socket) && typeof socket === "object" && socket !== null && "__unenv__" in socket;
+}
+
+/** What `guardAccess` checks a request against. */
+export interface AccessRules {
+  admin: BlockList | null;
+  site: BlockList | null;
+  resolve: (req: PeerRequest) => ClientAddress;
+}
+
+/**
+ * Refuses a request with 403 when a trusted proxy sent it without the trusted header, or when its client
+ * address is outside the list of its scope. In-process requests pass.
+ */
+export function guardAccess(event: H3Event, rules: AccessRules): void {
+  const req = event.node.req;
+  if (isInProcess(req)) return;
+  const client = rules.resolve(req);
+  const list = rules[accessScope(routedPath(req.originalUrl ?? event.path), event.method)];
+  if (!client.missingHeader && isAllowed(list, client.ip)) return;
+  throw createError({ statusCode: 403, statusMessage: "Forbidden" });
 }

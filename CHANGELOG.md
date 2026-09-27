@@ -450,6 +450,15 @@
   client address (five per minute), also with `--yes`. It asks for an admin password of at least 12
   characters and refuses a short list of well-known passwords.
 
+- **Forwarding headers count only from a trusted proxy.** The new `NUXT_KESTREL_ACCESS_TRUSTED_PROXIES`
+  (`kestrel.access.trustedProxies`, addresses or CIDR ranges, default loopback) lists the peers whose
+  `_TRUSTED_HEADER` or `X-Forwarded-For` is read, for the IP allowlists, `ctx.ip` and rate limits alike; any
+  other peer is judged by its own address. A proxy that does not connect over loopback (a container
+  setup, a proxy on another host) must be listed. A request from a trusted proxy without the configured
+  trusted header is refused with 403 even when no allowlist is set, and with `_TRUST_PROXY` a trusted
+  proxy's request without `X-Forwarded-For` has no client address instead of the proxy's. The server
+  utility `clientAddress` is replaced by the core's `clientIpResolver`.
+
 ### Added
 
 - `presetModuleConfig()` now puts every value it derives into each module entry's `defaults`
@@ -842,6 +851,13 @@
   and paints the body with `--site-bg` and `--site-fg` under that class; the admin is unaffected. The
   `--site-*` variables and the other site tokens are now defined on `body.site-body`, which `.site`
   inherits from, so setting them on `.site-body` re-themes the page and the body alike.
+- The IP allowlists judge the path the API routes: dot segments, literal or `%2e`-encoded, are resolved
+  before the admin/site scope is decided, so `/api/x/../users` counts as `/api/users`, and the API answers
+  400 to such a path.
+- The IP allowlists are enforced for a server listening on a Unix socket (`NITRO_UNIX_SOCKET`): such a
+  connection counts as loopback and the trusted header decides. Only Nitro's in-process requests during SSR,
+  publishing and static delivery pass unchecked. Without `_TRUSTED_HEADER` or `_TRUST_PROXY` the server
+  warns at start, since no request there has a client address.
 - A path preview is redacted by the pipeline the request was routed to rather than by its path, so a
   trailing slash or a percent-encoded character in the path no longer returns the titles of documents the
   caller cannot manage.

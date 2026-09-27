@@ -294,14 +294,19 @@ server reads it from the environment and falls back to the process cwd (it decid
 and the `here()` helper of a config resolve).
 
 IP allowlists: `server/plugins/access.ts` parses `runtimeConfig.kestrel.access` (`admin`, `site`,
-`trustProxy`) into `net.BlockList`s at start (an invalid entry throws); `server/middleware/ip-allowlist.ts` maps every
-request to a scope (`utils/ip-allowlist.ts` `accessScope`: admin UI, admin/account API and all API writes
-are `admin`, everything else `site`) and answers 403 when the scope has a list and the client address is not in it. The address comes from
-`clientAddress()`: the configured trusted edge header if any (missing → refused), else with `trustProxy` the
-`X-Forwarded-For` entry `proxyHops` from the right (never the client-supplied left end; a chain shorter than
-the hop count is refused), else the socket peer. Requests without a socket peer (Nitro's internal `localFetch`
-during SSR and static delivery, and the `nuxt dev` worker behind its unix socket) pass; IPv4-mapped IPv6 addresses are checked as
-IPv4. Nitro serves the hashed `/_nuxt/*` build assets before server middleware runs, so those stay
+`trustProxy`, `proxyHops`, `trustedHeader`, `trustedProxies`) into `net.BlockList`s and the core's
+`clientIpResolver` at start (an invalid entry throws); `server/middleware/ip-allowlist.ts` calls `guardAccess`
+(`utils/ip-allowlist.ts`) for every request. It maps the request to a scope with `accessScope` (admin UI,
+admin/account API and all API writes are `admin`, everything else `site`), classifying `routedPath`: the
+path with dot segments resolved and each segment decoded, which is the path the API adapter routes, so
+`/api/x/../users` is judged as `/api/users` (the adapter itself answers 400 to it). It answers 403 when a
+trusted proxy sent the request without the configured trusted header, or when the scope has a list and the
+client address is not in it. The address is the core's: the socket peer, and only when that peer is in
+`trustedProxies` (default loopback; a Unix socket counts as loopback) the trusted header or the
+`X-Forwarded-For` entry `proxyHops` from the right. The same resolver feeds `ctx.ip` through the API and
+`/media/**` handlers. Only Nitro's in-process `localFetch` (SSR, publishing, static delivery) passes
+unchecked, recognized by its mock socket; the `nuxt dev` server does not enforce the lists. IPv4-mapped IPv6
+addresses are checked as IPv4. Nitro serves the hashed `/_nuxt/*` build assets before server middleware runs, so those stay
 reachable even with a closed `site` list — they carry no content.
 
 ## Consumer contract

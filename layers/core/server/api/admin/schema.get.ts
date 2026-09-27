@@ -1,4 +1,4 @@
-import { clientIp, responseForRun } from "@michaelthielemann/kestrel";
+import { responseForRun } from "@michaelthielemann/kestrel";
 import fieldTypes from "#kestrel/field-types";
 import collectionsUi from "~~/shared/collections-ui";
 import { contentTypes, defaultLocale, features, locales, prefixPrimary } from "~~/shared/model";
@@ -20,8 +20,7 @@ export default defineEventHandler(async (event) => {
   for (const [key, value] of Object.entries(getRequestHeaders(event))) {
     if (typeof value === "string") headers[key.toLowerCase()] = value;
   }
-  const { trustProxy, proxyHops, trustedHeader } = accessLists().policy;
-  const ip = clientIp(event.node.req, { trustProxy, proxyHops, ...(trustedHeader === "" ? {} : { trustedHeader }) });
+  const { ip } = accessLists().resolve(event.node.req);
 
   const run = await kestrel.run(PIPELINE, {
     trigger: { kind: "http", name: TRIGGER_NAME },
