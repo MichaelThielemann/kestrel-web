@@ -18,11 +18,12 @@ test("an admin signs in, reaches the page list and signs out again", async ({ pa
   expect(token).not.toBe("");
   expect(await page.evaluate(() => document.cookie)).not.toContain("kestrel_token");
   expect(await page.evaluate(() => document.cookie)).not.toContain(token);
-  expect((await page.request.post("/api/logout")).status()).toBe(403);
-  expect((await page.request.post("/api/logout", { headers: { origin: "http://elsewhere.example" } })).status()).toBe(403);
-  expect((await page.request.post("/api/logout", { headers: { "sec-fetch-site": "same-site" } })).status()).toBe(403);
-  expect((await page.request.post("/api/logout", { headers: { "content-type": "text/plain", "sec-fetch-site": "same-origin" }, data: "{}" })).status()).toBe(415);
-  expect((await page.request.get("/api/me")).status()).toBe(200);
+  const cookie = `kestrel_token=${token}`;
+  expect((await page.request.post("/api/logout", { headers: { cookie } })).status()).toBe(403);
+  expect((await page.request.post("/api/logout", { headers: { cookie, origin: "http://elsewhere.example" } })).status()).toBe(403);
+  expect((await page.request.post("/api/logout", { headers: { cookie, "sec-fetch-site": "same-site" } })).status()).toBe(403);
+  expect((await page.request.post("/api/logout", { headers: { cookie, "content-type": "text/plain", "sec-fetch-site": "same-origin" }, data: "{}" })).status()).toBe(415);
+  expect((await page.request.get("/api/me", { headers: { cookie } })).status()).toBe(200);
 
   await page.getByRole("button", { name: "Konto" }).click();
   await page.getByRole("menuitem", { name: "Abmelden" }).click();
