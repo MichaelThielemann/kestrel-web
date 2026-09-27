@@ -43,6 +43,7 @@ describe("critical user and restore actions ask for the password again after a w
       ["setPassword", "PUT /users/:id/password", { params: { id }, body: { password: "a different passphrase" } }],
       ["deactivateUser", "POST /users/:id/deactivate", { params: { id } }],
       ["activateUser", "POST /users/:id/activate", { params: { id } }],
+      ["retryAnonymizeAuditUser", "POST /admin/users/:id/audit/anonymize", { params: { id } }],
       ["deleteUser", "DELETE /users/:id", { params: { id }, body: {} }],
       ["replicationRestore", "POST /admin/replication/restore", { body: {} }],
     ];

@@ -70,6 +70,7 @@ export function templateValues(answers, versions) {
     DEFAULT_LOCALE: JSON.stringify(locales[0]),
     FEATURES: jsonList(answers.features),
     MIGRATIONS: answers.features.includes(MIGRATIONS_FEATURE) ? "{ migrations: [] }" : null,
+    AUDIT: answers.features.includes("audit") ? "{ retentionDays: 90 }" : null,
     MFA_KEY: answers.features.includes(MFA_FEATURE) ? "" : null,
     REDIRECTS_TYPE: answers.features.includes(REDIRECTS_FEATURE) ? '{ kind: "single", fields: { rules: { type: "json" } } }' : null,
     ADMIN_USER: JSON.stringify(answers.adminUser),

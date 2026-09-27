@@ -24,6 +24,7 @@ const modules = presetModuleConfig({
   bootstrap: { username: __ADMIN_USER__, passwordHash: adminPasswordHash() },
   pipelines: pipelineChanges,
   migrations: __MIGRATIONS__,
+  audit: __AUDIT__,
 });
 
 export const preset = definePreset({ modules, features, collections: contentTypes, collectionsUi, homeSlug, ...pipelineChanges });

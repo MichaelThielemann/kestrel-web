@@ -1112,7 +1112,7 @@ describe("definePreset user deletion", () => {
   it("wires the audit listener and its retry route behind users.manage", () => {
     const preset = definePreset({ modules: bothModules, features: ["revisions", "audit"] });
     expect(stepsOf(preset, "anonymizeAuditUser")).toEqual(["audit.anonymize"]);
-    expect(stepsOf(preset, "retryAnonymizeAuditUser")).toEqual(["authn.requireUser", "authz.requireRole", "authz.require:users.manage", "audit.anonymize"]);
+    expect(stepsOf(preset, "retryAnonymizeAuditUser")).toEqual(["authn.requireUser", "authz.requireRole", "authz.require:users.manage", "authn.requireRecentAuth:300", "audit.anonymize"]);
     expect(preset.triggers).toContainEqual({ event: "user.deleted", pipeline: "anonymizeAuditUser" });
     expect(preset.triggers).toContainEqual({ http: "POST /admin/users/:id/audit/anonymize", pipeline: "retryAnonymizeAuditUser" });
   });
@@ -1185,5 +1185,12 @@ describe("definePipeline", () => {
   it("rejects a misspelled step name at compile time", () => {
     // @ts-expect-error "authn.requireUsr" is not a registered step
     definePipeline({ name: "x", steps: ["authn.requireUsr"] });
+  });
+});
+
+describe("definePreset second factor", () => {
+  it("refuses the mfa feature without the ratelimit feature", () => {
+    const modules = [...baseModules, { use: "@michaelthielemann/kestrel-mfa-totp", config: { secretKey: "5a".repeat(32) } }];
+    expect(() => definePreset({ modules, features: ["mfa"] })).toThrow(/feature "mfa" needs the "ratelimit" feature/);
   });
 });

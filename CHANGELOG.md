@@ -25,7 +25,8 @@
   `user.updated`, `user.deactivated`, `user.activated`, `user.passwordSet`, `user.passwordChanged`; the
   last three are new events of `activateUser`, `setPassword` and `changePassword`), and every entry now
   carries the client address. `audit-persistence` adds failed sign-ins and password checks, 403 and 429
-  answers on its own. create-kestrel selects `audit` by default.
+  answers on its own. create-kestrel selects `audit` by default and keeps entries for 90 days
+  (`audit: { retentionDays: 90 }`).
 - The `ratelimit` feature limits failed sign-ins per account as well as all sign-ins per address
   (`loginAccount`, keyed by the field `session.identifier` names, cleared by a successful sign-in, with a
   growing block capped at `maxBlockSeconds`), counts an IPv6 address by its /64, and limits failed password
@@ -40,7 +41,8 @@
   `DELETE /users/:id/second-factor`; the user list shows who
   has a factor, and an administrator resets one (which ends that account's sessions, emits
   `user.secondFactorReset` and is audited). create-kestrel offers `mfa` (not preselected) and writes a fresh
-  `KESTREL_MFA_KEY` to `.env`. The layer depends on `@michaelthielemann/kestrel-mfa-totp` and `uqr`.
+  `KESTREL_MFA_KEY` to `.env`. The feature needs `ratelimit` (create-kestrel adds it). The layer depends on
+  `@michaelthielemann/kestrel-mfa-totp` and `uqr` (pinned to 0.1.3).
 
 ### Upgrading
 
@@ -527,8 +529,8 @@
   come from the same origin, and a non-JSON request body is answered 415. The site is served over HTTPS in
   production (see the deployment guide's reverse-proxy section); `session.secureCookie: false` in
   `presetModuleConfig()` is for a plain-HTTP development host only.
-- Creating, changing, deactivating, activating and deleting users, setting a password and restoring a
-  replication point need a password check from the last five minutes: those pipelines run
+- Creating, changing, deactivating, activating and deleting users, setting a password, anonymising a user's
+  audit entries and restoring a replication point need a password check from the last five minutes: those pipelines run
   `authn.requireRecentAuth:300` and answer `403 REAUTH_REQUIRED` otherwise. The new `confirmPassword`
   pipeline (`POST /me/confirm-password`, rate-limited with the `ratelimit` feature) renews the check, and the
   admin asks for the password in a dialog and repeats the action. `setPassword` refuses the caller's own

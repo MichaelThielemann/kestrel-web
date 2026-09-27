@@ -1,7 +1,7 @@
 import { effectiveModuleConfig } from "@michaelthielemann/kestrel";
 import type { TriggerConfig } from "@michaelthielemann/kestrel/defineConfig";
 import type { PresetStep } from "../../module-registry";
-import type { PresetContext, PresetModuleEntry } from "../base";
+import { REQUIRE_RECENT_AUTH, type PresetContext, type PresetModuleEntry } from "../base";
 import type { FeatureModule } from "../index";
 import { MFA_MODULE, SECOND_FACTOR_RESET_EVENT } from "./mfa";
 
@@ -25,7 +25,7 @@ export default function audit(context: PresetContext): FeatureModule {
     auditAuth: ["audit.record"],
     auditUsers: ["audit.record"],
     anonymizeAuditUser: ["audit.anonymize"],
-    retryAnonymizeAuditUser: ["authn.requireUser", "authz.require:users.manage", "audit.anonymize"],
+    retryAnonymizeAuditUser: ["authn.requireUser", "authz.require:users.manage", REQUIRE_RECENT_AUTH, "audit.anonymize"],
   };
   const triggers: TriggerConfig[] = [
     { http: "POST /admin/users/:id/audit/anonymize", pipeline: "retryAnonymizeAuditUser" },

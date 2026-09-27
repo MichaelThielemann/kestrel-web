@@ -585,6 +585,10 @@ export function buildPreset<C extends Record<string, CollectionModel> = Record<s
     }
   }
 
+  if (enabledFeatures.has("mfa") && !enabledFeatures.has("ratelimit")) {
+    sink.report({ code: "preset/mfa-needs-ratelimit", message: 'preset: feature "mfa" needs the "ratelimit" feature – it limits sign-ins and second-factor setups per address and per account' });
+  }
+
   if (!configuredModules.has(EVENTS_BUS_MODULE)) {
     sink.report({ code: "preset/missing-event-bus", message: `preset: every instance needs module "${EVENTS_BUS_MODULE}" – it provides events@1 – use presetModuleConfig()` });
   }

@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { afterAll, describe, expect, it } from "vitest";
 import { featureOrder } from "#kestrel/pipelines";
 import { expectedVersions, serialize } from "../../scripts/create-kestrel-versions.mjs";
-import { ALL_FEATURES, DEFAULT_FEATURES } from "./src/features.mjs";
+import { ALL_FEATURES, DEFAULT_FEATURES, normalizeFeatures } from "./src/features.mjs";
 import { renderTemplate } from "./src/render.mjs";
 import { occupants, projectFiles, readVersions, targetName, writeProject } from "./src/scaffold.mjs";
 
@@ -150,6 +150,15 @@ describe("projectFiles", () => {
   it("passes a migrations option only with the migrations feature", () => {
     expect(text(files({ features: ["migrations"] }), "kestrel.config.ts")).toContain("migrations: { migrations: [] },");
     expect(text(files({}), "kestrel.config.ts")).not.toContain("migrations:");
+  });
+
+  it("keeps audit entries for 90 days with the audit feature", () => {
+    expect(text(files({ features: ["audit"] }), "kestrel.config.ts")).toContain("audit: { retentionDays: 90 },");
+    expect(text(files({ features: ["images"] }), "kestrel.config.ts")).not.toContain("audit:");
+  });
+
+  it("brings the rate limits along with the second factor", () => {
+    expect(normalizeFeatures(["mfa"]).features).toContain("ratelimit");
   });
 
   it("offers the second factor as a feature that is not preselected", () => {

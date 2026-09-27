@@ -790,6 +790,7 @@
       "authn.requireUser",
       "authz.requireRole",
       "authz.require:users.manage",
+      "authn.requireRecentAuth:300",
       "audit.anonymize"
     ],
     "retryFailedImages": [

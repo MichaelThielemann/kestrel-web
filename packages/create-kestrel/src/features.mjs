@@ -39,7 +39,7 @@ export const MIGRATIONS_FEATURE = "migrations";
 export const MFA_FEATURE = "mfa";
 export const REDIRECTS_FEATURE = "redirects";
 
-const IMPLIED_FEATURES = { delivery: ["sanitizeSvg"] };
+const IMPLIED_FEATURES = { delivery: ["sanitizeSvg"], mfa: ["ratelimit"] };
 
 export function normalizeFeatures(requested) {
   const known = new Set(ALL_FEATURES);
