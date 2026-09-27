@@ -8150,7 +8150,7 @@ export interface operations {
                     "application/json": components["schemas"]["listMedia"] | components["schemas"]["listMedia.anonymous"];
                 };
             };
-            /** @description invalid folder, unknown locale or invalid type */
+            /** @description invalid folder, unknown locale, invalid type, or limit above maxLimit */
             400: {
                 headers: {
                     [name: string]: unknown;

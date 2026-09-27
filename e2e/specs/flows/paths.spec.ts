@@ -1,3 +1,4 @@
+import { idOf } from "../../support/api.ts";
 import { save, submitSave } from "../../support/editor.ts";
 import { ADMIN_STATE } from "../../support/env.ts";
 import { expect, test } from "../../support/fixtures.ts";
@@ -27,4 +28,18 @@ test("renaming a page answers its old path with a 301 to the new one", async ({ 
   expect(old.status()).toBe(301);
   expect(new URL(old.headers().location ?? "", "http://127.0.0.1").pathname).toBe("/ueber-uns/menschen");
   expect((await visitor.get("/ueber-uns/menschen")).status()).toBe(200);
+});
+
+test("publishing a subpage in a locale where its parent has no slug is refused at the parent field, naming the parent", async ({ page, adminApi }) => {
+  const parent = idOf(await adminApi.call("POST", "/pages", { locale: "de", slug: "nur-deutsch", title: "Nur Deutsch", status: "draft" }));
+  const child = idOf(await adminApi.call("POST", "/pages", { locale: "de", slug: "unterseite", title: "Unterseite", status: "published", parent }));
+  await page.goto(`/admin/pages/${child}?locale=en`);
+  await page.getByRole("textbox", { name: "Titel", exact: true }).fill("Subpage");
+  await page.getByRole("textbox", { name: "Slug" }).fill("subpage");
+  await page.getByRole("combobox", { name: "Status" }).selectOption({ label: "Veröffentlicht" });
+  const response = await submitSave(page);
+  expect(response.status()).toBe(400);
+  const field = page.getByRole("combobox", { name: "Übergeordnete Seite" });
+  await expect(field).toHaveAttribute("aria-invalid", "true");
+  await expect(field).toHaveAccessibleDescription(/Nur Deutsch/);
 });

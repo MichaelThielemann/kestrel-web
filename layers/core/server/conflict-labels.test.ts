@@ -70,10 +70,10 @@ describe("path conflicts over HTTP", () => {
     expect(hidden.status).toBe(409);
     expect(hidden.text).not.toContain(HOLDER);
     expect(hidden.json).toMatchObject({
-      error: "/plan (de) is taken; /en/plan (en) is taken",
+      error: "/plan (de) is taken",
       details: {
-        fields: [{ field: "slug", message: "/plan (de) is taken" }, { field: "slug", message: "/en/plan (en) is taken" }],
-        conflicts: [{ path: "/plan", type: "blog", label: "" }, { path: "/en/plan", type: "blog", label: "" }],
+        fields: [{ field: "slug", message: "/plan (de) is taken" }],
+        conflicts: [{ path: "/plan", type: "blog", label: "" }],
       },
     });
 

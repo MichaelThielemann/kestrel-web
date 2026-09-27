@@ -35,9 +35,15 @@ pages: {
 ```
 
 The field must be called `parent`, reference `pages` and not be localized. Its path then starts with its
-parent's, in every locale: `/ueber-uns/team`, `/en/about-us/team`. A locale in which a parent has no slug
-of its own uses the parent's default-locale slug as the segment of its subpages' paths; the parent itself
-has no path in that locale.
+parent's, in every locale: `/ueber-uns/team`, `/en/about-us/team`. Every segment of a path comes from a
+slug of the path's own locale; no slug of another locale ever appears in a URL. A subpage can be published
+in a locale only when every page above it has a slug there: saving it as published otherwise answers `400`
+with the error on the parent field, naming that page. Clearing a page's slug in a locale, or removing its
+translation, while subpages are published below it there answers `400` on the slug field naming them. A
+mounted collection's documents follow the same rule for the page they live under, and moving the
+collection to a page without a slug in a locale where its documents are published is refused on the
+mounts field. `kestrel upgrade data` reports stored documents published below a page without a slug in
+their locale (`data/translation-slug`).
 
 - A slug belongs to its locale. A translation is reachable only through a slug of its own: without one it
   answers `404`, gets no `_paths` entry, no static page and no automatic redirect, and a link to it in that

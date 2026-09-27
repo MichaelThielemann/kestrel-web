@@ -20,7 +20,7 @@ import type { SchemaBundle } from "../server/utils/bundled-schemas";
 import type { SiteModel } from "../server/utils/site-model";
 import { resolveWorkflow, type WorkflowUi } from "../collections-ui/workflow";
 import type { CollectionModel } from "../pipelines/collections";
-import { routedCollections } from "../pipelines/paths";
+import { MOUNTS_FIELD, mountedCollections, parentFieldOf, routedCollections } from "../pipelines/paths";
 
 const execFileAsync = promisify(execFile);
 
@@ -310,19 +310,29 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-function dataRoutesOf(types: Record<string, unknown>, collectionsUi: Record<string, WorkflowUi>): Record<string, DataRoute> {
+function collectionModelsOf(types: Record<string, unknown>): Record<string, CollectionModel> {
   const collections: Record<string, CollectionModel> = {};
   for (const [name, type] of Object.entries(types)) {
     if (!isRecord(type) || !isRecord(type.fields)) continue;
     collections[name] = { kind: type.kind === "single" ? "single" : "multi", fields: type.fields, ...(type.mount === true ? { mount: true } : {}) };
   }
+  return collections;
+}
+
+function dataRoutesOf(collections: Record<string, CollectionModel>, collectionsUi: Record<string, WorkflowUi>): Record<string, DataRoute> {
   if (collections.pages === undefined) return {};
   const routes: Record<string, DataRoute> = {};
   for (const name of routedCollections(collections)) {
     const model = collections[name];
     if (model === undefined) continue;
     const workflow = resolveWorkflow(name, model, collectionsUi[name]);
-    routes[name] = { slugField: "slug", liveWhen: workflow === undefined ? {} : { [workflow.field]: workflow.live } };
+    const parentField = parentFieldOf(name, model);
+    routes[name] = {
+      slugField: "slug",
+      liveWhen: workflow === undefined ? {} : { [workflow.field]: workflow.live },
+      ...(parentField === undefined ? {} : { parentField }),
+      ...(name !== "pages" ? { mount: true } : {}),
+    };
   }
   return routes;
 }
@@ -337,11 +347,13 @@ function dataContentModelOf(value: unknown, file: string, collectionsUi: Record<
     types[typeName] = { fields };
   }
   const locales = value.locales;
+  const collections = collectionModelsOf(value.types);
   return {
     types,
     use: "shared/model.ts",
     file,
-    routes: dataRoutesOf(value.types, collectionsUi),
+    routes: dataRoutesOf(collections, collectionsUi),
+    ...("pages" in collections && mountedCollections(collections).length > 0 ? { mounts: { type: "settings", field: MOUNTS_FIELD } } : {}),
     ...(Array.isArray(locales) ? { locales: locales.filter((l): l is string => typeof l === "string") } : {}),
     ...(typeof value.defaultLocale === "string" ? { defaultLocale: value.defaultLocale } : {}),
   };
