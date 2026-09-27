@@ -380,7 +380,7 @@ export async function loadDataModel(root: string): Promise<DataContentModel | un
 async function loadSharedCollectionsUi(root: string): Promise<Record<string, WorkflowUi>> {
   const file = join(root, "shared", "collections-ui.ts");
   if (!existsSync(file)) return {};
-  const jiti = createJiti(pathToFileURL(file).href, { alias: kestrelAliases(root, join(root, ".nuxt")), moduleCache: false, interopDefault: true });
+  const jiti = createJiti(pathToFileURL(file).href, { alias: kestrelAliases(root, join(root, ".nuxt")), moduleCache: false, fsCache: false, interopDefault: true });
   try {
     const mod = await jiti.import<{ default?: unknown }>(pathToFileURL(file).href);
     return isRecord(mod.default) ? boundaryCast<Record<string, WorkflowUi>>(mod.default, "host") : {};

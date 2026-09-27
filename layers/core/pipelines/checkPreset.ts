@@ -81,7 +81,7 @@ export interface PresetOptions<C extends Record<string, CollectionModel> = Recor
   modules: readonly { use: string; config?: unknown }[];
   features: readonly Feature[];
   collections?: C;
-  collectionsUi?: Record<string, { workflow?: Workflow }>;
+  collectionsUi?: Record<string, { workflow?: Workflow; fieldOverrides?: Record<string, { type?: string }> }>;
   fieldTypes?: FieldTypes;
   overrides?: Partial<Record<PresetPipelineName<C>, readonly PresetEntry<NoInfer<S>>[]>>;
   exclude?: readonly PresetPipelineName<C>[];
