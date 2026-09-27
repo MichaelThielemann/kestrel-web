@@ -667,8 +667,8 @@
       "authz.requireRole",
       "authz.require:users.manage",
       "authn.requireRecentAuth:300",
-      "mfa.reset",
       "authn.endSessions",
+      "mfa.reset",
       "events.emit:user.secondFactorReset",
       "events.relay"
     ],

@@ -932,7 +932,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission users.manage → Strip the user in `params.id` or the event payload's `id` from every audit entry: their identity id and every param naming them go, the event and its time stay */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission users.manage → Require that the session's password was checked within the last 300 seconds, at login or through authn.confirmPassword; otherwise 403 REAUTH_REQUIRED → Strip the user in `params.id` or the event payload's `id` from every audit entry: their identity id and every param naming them go, the event and its time stay */
         post: operations["retryAnonymizeAuditUser"];
         delete?: never;
         options?: never;
@@ -1476,7 +1476,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission users.manage → Require that the session's password was checked within the last 300 seconds, at login or through authn.confirmPassword; otherwise 403 REAUTH_REQUIRED → Remove another user's second factor and answer the one-time enrollment code its owner needs to set up a new one; follow it with a step that ends that user's sessions → End every session of the user in params.id, e.g. after its second factor was reset → Queue event "user.secondFactorReset" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission users.manage → Require that the session's password was checked within the last 300 seconds, at login or through authn.confirmPassword; otherwise 403 REAUTH_REQUIRED → End every session of the user in params.id, e.g. after its second factor was reset → Remove another user's second factor and answer the one-time enrollment code its owner needs to set up a new one; run it after a step that ends that user's sessions → Queue event "user.secondFactorReset" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
         delete: operations["resetSecondFactor"];
         options?: never;
         head?: never;
@@ -7149,7 +7149,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description missing permission users.manage */
+            /** @description the last password check is older than the window (`REAUTH_REQUIRED`) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -11606,6 +11606,7 @@ export interface operations {
                             /** @enum {string} */
                             status: "done" | "error" | "pending" | "queued";
                         };
+                        enrollmentCode: string;
                         ok: boolean;
                     };
                 };
