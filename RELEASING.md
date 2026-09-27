@@ -15,12 +15,30 @@ How to cut a release of this repository. `@michaelthielemann/kestrel-web` (the l
    changed, and run `node scripts/create-kestrel-versions.mjs` so the ranges it writes into a
    scaffolded `package.json` follow the layer version of this release.
 4. Commit, tag `v<version>`, push the commit and the tag.
-5. The `release` workflow runs on the tag: it verifies the tag matches the root package version,
-   repeats lint, typecheck, tests, the playground build and `build:packages` (the renderer's `dist/`), then publishes every package that is not on the registry
-   yet. It authenticates with npm trusted publishing (OIDC): both packages need a trusted publisher
-   on npmjs.com pointing at this repository and the workflow file `release.yml`. A package that does
-   not exist on npm yet cannot have one, so its first version is published from the terminal
-   (`./scripts/publish-new.sh`, which runs `pnpm publish` in every package whose version is not on the registry yet) and the trusted publisher is added
+5. The `release` workflow runs on the tag in two jobs:
+   - `build` (read-only token, no id token) checks out without keeping the token, installs, verifies
+     that the tag matches the root package version and that the scaffolder pins this workspace's
+     versions, repeats lint, typecheck, tests, the playground build and `build:packages`, and packs the
+     release with `node scripts/release.mjs plan`: the layer and the renderer must carry the tag version;
+     `create-kestrel` is part of the release when its version is not on the registry yet, and is left
+     out when that version is on the registry with exactly the content of this checkout; any other
+     content under an existing version stops the build (bump its version). The tarballs, `release.json`
+     and `SHA512SUMS` go up as the `release-artifacts` artifact. No dependency cache is restored
+     anywhere in the release.
+   - `publish` needs `build` and runs in the GitHub environment `release`, the only place with
+     `id-token: write`. It installs nothing: it downloads the artifact, checks every tarball against its
+     checksums and the tag, and `node scripts/release.mjs publish` runs `pnpm publish <tarball>
+     --provenance` for each one. A version that is already on the registry with different content
+     stops the job; one whose registry integrity equals the artifact's is left alone, so re-running a
+     failed `publish` job finishes the release.
+
+   Trusted publishing (OIDC, no token): every package needs a trusted publisher on npmjs.com for this
+   repository, the workflow file `release.yml` and the environment `release`. The environment has
+   required reviewers and admits only `v*` tags, so a release waits for approval before anything is
+   published. A package that does not exist on npm yet cannot have a trusted publisher, so its first
+   version is published from the terminal (`./scripts/publish-new.sh`, which runs `pnpm publish` in
+   every package whose version is not on the registry yet) and the trusted publisher is added
    afterwards.
 
-`workspace:^` on the renderer is rewritten to the real range by pnpm on pack/publish.
+`workspace:^` on the renderer is rewritten to the real range by pnpm on pack. pnpm itself is pinned,
+with its hash, by `packageManager` in `package.json`; the workflows take it from there.
