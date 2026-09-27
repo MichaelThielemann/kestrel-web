@@ -40,7 +40,8 @@
   `KESTREL_MFA_KEY`. New routes `POST /login/second-factor`, `GET /users/second-factor` and
   `DELETE /users/:id/second-factor`; the user list shows who
   has a factor, and an administrator resets one (which ends that account's sessions, emits
-  `user.secondFactorReset` and is audited). create-kestrel offers `mfa` (not preselected) and writes a fresh
+  `user.secondFactorReset`, is audited and shows a one-time enrollment code that the owner enters before
+  setting up the new factor). create-kestrel offers `mfa` (not preselected) and writes a fresh
   `KESTREL_MFA_KEY` to `.env`. The feature needs `ratelimit` (create-kestrel adds it). The layer depends on
   `@michaelthielemann/kestrel-mfa-totp` and `uqr` (pinned to 0.1.3).
 

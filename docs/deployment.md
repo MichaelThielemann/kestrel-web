@@ -239,7 +239,9 @@ Points that matter:
   and enters a code at each one after that. `KESTREL_MFA_KEY` (64 hex digits, `openssl rand -hex 32`) seals
   the stored secrets: keep it out of the database and its backups, and keep it stable — a changed key makes
   every factor unusable, and an administrator has to reset them. A user who lost the device signs in with a
-  recovery code; an administrator resets the factor under **System → Users**.
+  recovery code; an administrator resets the factor under **System → Users** and hands the owner the
+  one-time enrollment code the reset shows, which setting up the new factor requires. Ten wrong codes in a
+  row lock the factor for 15 minutes, each further lock twice as long.
 - **Same origin.** A `POST`, `PUT`, `PATCH` or `DELETE` authenticated by the cookie is accepted only
   from the same origin (`Sec-Fetch-Site: same-origin`, or an `Origin` whose host is the request's
   `Host`); keep `proxy_set_header Host $host` so the two agree. Scripts and other clients send the

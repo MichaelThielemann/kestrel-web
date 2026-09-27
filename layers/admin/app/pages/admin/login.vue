@@ -3,7 +3,7 @@ import type { SecondFactorSetup } from '../../composables/useAuth'
 
 definePageMeta({ layout: 'admin' })
 
-type Stage = { kind: 'credentials' } | { kind: 'code' } | { kind: 'setup'; setup: SecondFactorSetup } | { kind: 'recovery'; codes: string[] }
+type Stage = { kind: 'credentials' } | { kind: 'code' } | { kind: 'enrollment' } | { kind: 'setup'; setup: SecondFactorSetup } | { kind: 'recovery'; codes: string[] }
 
 const { t } = useT()
 const route = useRoute()
@@ -44,12 +44,21 @@ async function signIn(code?: string) {
   }
 }
 
-async function beginSetup() {
+async function beginSetup(enrollmentCode?: string) {
+  loading.value = true
+  error.value = null
   try {
-    stage.value = { kind: 'setup', setup: await startSecondFactorSetup(username.value, password.value) }
+    stage.value = { kind: 'setup', setup: await startSecondFactorSetup(username.value, password.value, enrollmentCode) }
   } catch (e: unknown) {
-    error.value = messageFor(e)
-    stage.value = { kind: 'credentials' }
+    if (apiErrorCode(e) === 'ENROLLMENT_CODE_REQUIRED') {
+      if (enrollmentCode !== undefined) error.value = t('secondFactor.enrollmentInvalid')
+      stage.value = { kind: 'enrollment' }
+    } else {
+      error.value = messageFor(e)
+      stage.value = { kind: 'credentials' }
+    }
+  } finally {
+    loading.value = false
   }
 }
 
@@ -83,6 +92,7 @@ async function retry() {
       <span class="login__brand-word">kestrel</span>
     </div>
     <KestrelLoginSecondFactor v-if="stage.kind === 'code'" :busy="loading" :error="error" @submit="signIn" @cancel="restart" />
+    <KestrelLoginEnrollmentCode v-else-if="stage.kind === 'enrollment'" :busy="loading" :error="error" @submit="beginSetup" @cancel="restart" />
     <KestrelLoginSecondFactorSetup v-else-if="stage.kind === 'setup'" :setup="stage.setup" :busy="loading" :error="error" @submit="signIn" @cancel="restart" />
     <KestrelLoginRecoveryCodes v-else :codes="stage.codes" @done="finish" />
   </div>

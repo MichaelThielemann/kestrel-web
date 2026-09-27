@@ -77,8 +77,8 @@ export function useAuth() {
     return r
   }
 
-  function startSecondFactorSetup(username: string, password: string) {
-    return api<SecondFactorSetup>(ADMIN_OPTIONAL_BOOTSTRAP_ROUTES.setupSecondFactor, { body: { username, password } })
+  function startSecondFactorSetup(username: string, password: string, enrollmentCode?: string) {
+    return api<SecondFactorSetup>(ADMIN_OPTIONAL_BOOTSTRAP_ROUTES.setupSecondFactor, { body: enrollmentCode === undefined ? { username, password } : { username, password, enrollmentCode } })
   }
 
   function reset() {

@@ -12,7 +12,7 @@ export default function mfa(_context: PresetContext): FeatureModule {
     pipelines: {
       setupSecondFactor: ["mfa.startSetup"],
       secondFactorUsers: ["authn.requireUser", "authz.require:users.manage", "mfa.listEnrolled"],
-      resetSecondFactor: ["authn.requireUser", "authz.require:users.manage", REQUIRE_RECENT_AUTH, "mfa.reset", "authn.endSessions", `events.emit:${SECOND_FACTOR_RESET_EVENT}`],
+      resetSecondFactor: ["authn.requireUser", "authz.require:users.manage", REQUIRE_RECENT_AUTH, "authn.endSessions", "mfa.reset", `events.emit:${SECOND_FACTOR_RESET_EVENT}`],
       forgetSecondFactor: ["mfa.forget"],
     },
     patches: [

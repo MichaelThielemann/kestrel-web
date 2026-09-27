@@ -65,8 +65,11 @@ describe("the mfa feature asks for a second factor at sign-in", () => {
 
     const reset = await call("resetSecondFactor", "DELETE /users/:id/second-factor", { headers: admin.headers, params: { id: bobId } });
     expect(reset.status).toBe(200);
+    const { enrollmentCode } = boundaryCast<{ enrollmentCode: string }>(reset.result, "host");
     expect((await call("me", "GET /me", { headers: bob.headers })).status).toBe(401);
     expect(boundaryCast<string[]>((await call("secondFactorUsers", "GET /users/second-factor", { headers: admin.headers })).result, "host")).not.toContain(bobId);
     expect(await call("login", "POST /login", { body: { username: "bob", password: "correct horse battery" } })).toMatchObject({ status: 401, code: "SECOND_FACTOR_SETUP_REQUIRED" });
+    expect(await call("setupSecondFactor", "POST /login/second-factor", { ip: nextIp(), body: { username: "bob", password: "correct horse battery" } })).toMatchObject({ status: 403, code: "ENROLLMENT_CODE_REQUIRED" });
+    expect(await call("setupSecondFactor", "POST /login/second-factor", { ip: nextIp(), body: { username: "bob", password: "correct horse battery", enrollmentCode } })).toMatchObject({ status: 200 });
   }, 60_000);
 });

@@ -107,12 +107,21 @@ test("an administrator resets another account's factor, which signs it out and a
     await page.getByRole("menuitem", { name: "Zweiten Faktor zurücksetzen" }).click();
     const confirm = page.getByRole("dialog", { name: "Zweiten Faktor zurücksetzen" });
     await confirm.getByRole("button", { name: "Zweiten Faktor zurücksetzen" }).click();
+    const enrollmentCode = (await confirm.locator(".user-reset-factor__code").textContent())?.trim() ?? "";
+    expect(enrollmentCode).toMatch(/^[A-Z2-7]{5}(-[A-Z2-7]{5}){4}$/);
+    await confirm.getByRole("button", { name: "Fertig" }).click();
     await expect(confirm).toBeHidden();
     await expect(row.getByRole("cell", { name: "Eingerichtet" })).toHaveCount(0);
 
     expect((await probe.request.get("/api/me", { headers: { cookie: `__Host-kestrel_token=${token}` } })).status()).toBe(401);
     await fillCredentials(probe, "second-factor-probe", "second factor probe passphrase");
-    await expect(probe.getByRole("heading", { level: 1, name: "Zweiten Faktor einrichten" })).toBeVisible();
+    await expect(probe.getByRole("heading", { level: 1, name: "Einrichtungscode eingeben" })).toBeVisible();
+    await probe.getByLabel("Einrichtungscode").fill("AAAAA-AAAAA-AAAAA-AAAAA-AAAAA");
+    await probe.getByRole("button", { name: "Weiter" }).click();
+    await expect(probe.getByText("Der Einrichtungscode ist falsch.")).toBeVisible();
+    await probe.getByLabel("Einrichtungscode").fill(enrollmentCode);
+    await probe.getByRole("button", { name: "Weiter" }).click();
+    await setUp(probe);
   } finally {
     await other.close();
   }

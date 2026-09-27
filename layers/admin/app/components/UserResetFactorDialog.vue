@@ -8,10 +8,12 @@ const { t } = useT()
 const deps = useActionDeps()
 const busy = ref(false)
 const error = ref<string | null>(null)
+const enrollmentCode = ref<string | null>(null)
 const open = computed(() => props.user !== null)
 
 function close() {
   error.value = null
+  enrollmentCode.value = null
   emit('update:user', null)
 }
 
@@ -20,10 +22,10 @@ async function confirm() {
   busy.value = true
   error.value = null
   try {
-    await deps.api(deps.capabilities.route('resetSecondFactor', { id: props.user.id }))
+    const answer = await deps.api<{ enrollmentCode: string }>(deps.capabilities.route('resetSecondFactor', { id: props.user.id }))
+    enrollmentCode.value = answer.enrollmentCode
     deps.toast.success(t('users.resetSecondFactorDone'))
     emit('reset')
-    close()
   } catch (e) {
     error.value = apiErrorMessage(e)
   } finally {
@@ -35,10 +37,27 @@ async function confirm() {
 <template>
   <KestrelUiDialog :open="open" :title="t('users.resetSecondFactorTitle')" @update:open="(v) => { if (!v) close() }">
     <KestrelUiAlert v-if="error" variant="error">{{ error }}</KestrelUiAlert>
-    <p>{{ t('users.resetSecondFactorConfirm', { username: props.user?.username ?? '' }) }}</p>
+    <template v-if="enrollmentCode === null">
+      <p>{{ t('users.resetSecondFactorConfirm', { username: props.user?.username ?? '' }) }}</p>
+    </template>
+    <template v-else>
+      <p>{{ t('users.enrollmentCodeHint', { username: props.user?.username ?? '' }) }}</p>
+      <p><code class="user-reset-factor__code">{{ enrollmentCode }}</code></p>
+    </template>
     <template #footer>
-      <KestrelUiButton variant="ghost" :disabled="busy" @click="close">{{ t('common.cancel') }}</KestrelUiButton>
-      <KestrelUiButton variant="danger" :loading="busy" @click="confirm">{{ t('users.resetSecondFactor') }}</KestrelUiButton>
+      <template v-if="enrollmentCode === null">
+        <KestrelUiButton variant="ghost" :disabled="busy" @click="close">{{ t('common.cancel') }}</KestrelUiButton>
+        <KestrelUiButton variant="danger" :loading="busy" @click="confirm">{{ t('users.resetSecondFactor') }}</KestrelUiButton>
+      </template>
+      <KestrelUiButton v-else variant="primary" @click="close">{{ t('users.enrollmentCodeDone') }}</KestrelUiButton>
     </template>
   </KestrelUiDialog>
 </template>
+
+<style lang="scss">
+.user-reset-factor__code {
+  font-family: ui-monospace, monospace;
+  font-size: var(--text-base);
+  word-break: break-all;
+}
+</style>
