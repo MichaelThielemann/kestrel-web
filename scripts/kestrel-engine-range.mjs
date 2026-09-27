@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 export const MANIFEST_PATH = join(ROOT, "package.json");
 export const PLUGIN_ENTRY = "./cli/plugin.mjs";
-export const PLUGIN_API = 4;
+export const PLUGIN_API = 5;
 
 export function expectedKestrelField(manifest) {
   const range = manifest.dependencies?.["@michaelthielemann/kestrel"];

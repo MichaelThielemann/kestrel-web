@@ -26,7 +26,7 @@
   ],
   "kestrel": {
     "plugin": "./cli/plugin.mjs",
-    "pluginApi": 4,
+    "pluginApi": 5,
     "engine": "^5.8.0"
   },
   "publishConfig": {
