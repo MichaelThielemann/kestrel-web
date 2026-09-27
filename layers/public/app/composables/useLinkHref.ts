@@ -1,4 +1,5 @@
 import { computed, toValue, type MaybeRefOrGetter } from 'vue'
+import { safeLinkUrl } from '#kestrel-core/app/utils/link-url'
 
 export interface ResolvableLink {
   type: string
@@ -16,9 +17,10 @@ export function linkHrefOf(value: ResolvableLink | null | undefined): string | n
     case 'internal':
       if (value.broken) return null
       if (!value.path) return '#'
+      if (!value.path.startsWith('/')) return null
       return value.hash ? `${value.path}#${value.hash}` : value.path
     case 'external':
-      return value.url ?? null
+      return value.url ? safeLinkUrl(value.url) : null
     case 'email':
       return value.email ? `mailto:${value.email}` : null
     case 'tel':

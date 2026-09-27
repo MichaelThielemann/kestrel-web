@@ -1,4 +1,5 @@
-import { dirname } from "node:path";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { extractionHash } from "@michaelthielemann/kestrel-references-default/impl";
@@ -6,6 +7,7 @@ import { createValidator, type Validator } from "@michaelthielemann/kestrel-vali
 import { silentLogger } from "@michaelthielemann/kestrel/logger";
 import { boundaryCast } from "./app/utils/cast";
 import { blockSchema } from "./block-schema";
+import { SAFE_LINK_URL_PATTERN } from "./app/utils/link-url";
 import type { SerializedBlock } from "./app/types/kestrel";
 
 const root = dirname(fileURLToPath(import.meta.url));
@@ -25,12 +27,18 @@ const blocks: SerializedBlock[] = [
 let validator: Validator;
 
 beforeAll(async () => {
-  validator = await createValidator({ schemas: { "pages.body": blockSchema(blocks) }, maxDepth: 32, maxNodes: 20_000 }, root, silentLogger);
+  validator = await createValidator({ schemas: { "pages.body": blockSchema([...blocks, linkBlock]) }, maxDepth: 32, maxNodes: 20_000 }, root, silentLogger);
 });
 
 afterAll(() => {
   validator.close();
 });
+
+const linkBlock: SerializedBlock = { name: "teaser", fields: { cta: { type: "link", required: false, unique: false } } };
+
+function checkLink(cta: unknown): boolean {
+  return validator.check("pages.body", [{ type: "teaser", props: { cta } }]).ok;
+}
 
 function check(props: Record<string, unknown>): boolean {
   return validator.check("pages.body", [{ type: "gallery", props }]).ok;
@@ -117,5 +125,36 @@ describe("blockSchema and the references index", () => {
 describe("blockSchema rejects an alias on the node itself", () => {
   it("rejects a block node carrying an alias key: it lives in the collection's blockAliases field instead", () => {
     expect(validator.check("pages.body", [{ type: "gallery", alias: "hero-teaser", props: {} }]).ok).toBe(false);
+  });
+});
+
+describe("blockSchema for link fields", () => {
+  it.each(["javascript:alert(1)", "JaVaScRiPt:alert(1)", " javascript:alert(1)", "\tjavascript:alert(1)", "data:text/html,<p>x</p>", "vbscript:msgbox(1)", "kontakt"])("rejects the external target %j", (url) => {
+    expect(checkLink({ type: "external", url })).toBe(false);
+  });
+
+  it.each(["https://example.com", "HTTPS://example.com/a?b=1", "http://example.com", "mailto:team@example.com", "tel:+4930123", "/kontakt", "#top", "?page=2"])("accepts the external target %j", (url) => {
+    expect(checkLink({ type: "external", url })).toBe(true);
+  });
+
+  it("accepts internal, email and tel links in their stored shape", () => {
+    expect(checkLink({ type: "internal", collection: "pages", id: "1", hash: "team", label: "Team" })).toBe(true);
+    expect(checkLink({ type: "email", email: "team@example.com" })).toBe(true);
+    expect(checkLink({ type: "tel", tel: "+49 30 123" })).toBe(true);
+    expect(checkLink(null)).toBe(true);
+  });
+
+  it("rejects a member the link field never stores", () => {
+    expect(checkLink({ type: "internal", collection: "pages", id: "1", path: "/elsewhere" })).toBe(false);
+    expect(checkLink({ type: "external", url: "https://example.com", href: "javascript:alert(1)" })).toBe(false);
+  });
+
+  it("uses the same target rule as the navigation schema", () => {
+    const navigation = boundaryCast<{ $defs: { link: { oneOf: Array<{ properties: Record<string, { pattern?: string }> }> } } }>(
+      JSON.parse(readFileSync(join(root, "schemas", "settings.navigation.json"), "utf8")),
+      "json",
+    );
+    const external = navigation.$defs.link.oneOf.find((branch) => branch.properties.url !== undefined);
+    expect(external?.properties.url?.pattern).toBe(SAFE_LINK_URL_PATTERN);
   });
 });

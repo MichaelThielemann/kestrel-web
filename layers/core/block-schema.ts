@@ -1,5 +1,6 @@
 import { REF_KEYWORD } from "@michaelthielemann/kestrel-references-default/impl";
 import { boundaryCast } from "./app/utils/cast";
+import { SAFE_LINK_URL_PATTERN } from "./app/utils/link-url";
 import type { SerializedBlock, SerializedField } from "./app/types/kestrel";
 import type { FieldTypes } from "./field-types";
 
@@ -36,8 +37,18 @@ function fieldSchema(field: SerializedField, fieldTypes: FieldTypes): Schema {
     case "link":
       return nullable({
         type: "object",
-        properties: { type: { type: "string", enum: ["internal", "external", "email", "tel"] }, label: { type: "string" } },
+        properties: {
+          type: { type: "string", enum: ["internal", "external", "email", "tel"] },
+          label: { type: "string" },
+          url: { type: "string", pattern: SAFE_LINK_URL_PATTERN },
+          email: { type: "string" },
+          tel: { type: "string" },
+          collection: { type: "string" },
+          id: { type: "string" },
+          hash: { type: "string" },
+        },
         required: ["type"],
+        additionalProperties: false,
       });
     case "repeater": {
       const fields = boundaryCast<Record<string, SerializedField> | undefined>(field.options?.fields, "json") ?? {};

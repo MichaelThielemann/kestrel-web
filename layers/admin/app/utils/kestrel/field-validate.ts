@@ -1,5 +1,6 @@
 import { fieldIs, type FieldDef } from '#kestrel-admin/types/kestrel'
 import { boundaryCast } from '#kestrel/cast'
+import { safeLinkUrl } from '#kestrel-core/app/utils/link-url'
 import { choiceValues, numberIsInteger } from './field-constraints.js'
 
 function isEmpty(value: unknown): boolean {
@@ -28,6 +29,14 @@ export function validateField(field: FieldDef, value: unknown): string | null {
   }
 
   if (fieldIs(field, 'json')) return null
+
+  if (fieldIs(field, 'link')) {
+    const link = typeof value === 'object' ? boundaryCast<{ type?: unknown; url?: unknown }>(value, 'json') : {}
+    if (link.type === 'external' && typeof link.url === 'string' && safeLinkUrl(link.url) === null) {
+      return 'Use an http(s), mailto or tel address, or a path starting with /, # or ?.'
+    }
+    return null
+  }
 
   if (fieldIs(field, 'datetime')) {
     const dt = field.options

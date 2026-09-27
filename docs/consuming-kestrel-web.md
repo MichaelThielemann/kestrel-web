@@ -1311,6 +1311,24 @@ path.
   arrive resolved (`href`, `path`, `broken`) — use `useLinkHref()` for link fields.
 - Read-only rendering: blocks must not write to the document; the editor owns the tree.
 
+### Link targets
+A `link` field stores `{ type, label? }` plus the member of its type: `url` (external), `email`, `tel`, or
+`collection`, `id` and `hash?` (internal). Any other member fails the page-body schema. An external `url` must
+start with `http:`, `https:`, `mailto:` or `tel:` (any letter case) or be relative to the site (`/…`, `#…`,
+`?…`); the server answers `400` for anything else, `javascript:` and `data:` included, and so does
+`PUT /settings` for an external navigation link. The admin shows the same rule on the field before saving.
+
+`useLinkHref()` (and `linkHrefOf()`) applies the rule again when rendering, after dropping leading and
+trailing spaces and control characters and removing tabs and line breaks the way a browser reads an `href`:
+a target outside the rule, such as one stored before the rule existed, gives `null`, so a block that renders
+`<a v-if="href" :href="href">` renders no link. An internal link whose resolved `path` does not start with `/`
+gives `null` as well. The admin's `linkHref()` follows the same rule for external targets. Render link fields
+through `useLinkHref()` rather than reading `url` yourself.
+
+`kestrel upgrade data` reports stored link values outside the rule (`data/link-target`), per collection and
+field, with the documents and locales that hold them. Replace those targets in the admin; the document
+cannot be saved until then.
+
 ### The generated page-body schema
 The same scan writes `.nuxt/kestrel/pages.body.json` (JSON Schema 2020-12) on every build, `nuxt prepare`
 and block change — inside the Nuxt build dir, so it needs no `.gitignore` entry and nothing to check in.

@@ -103,3 +103,15 @@ describe("settings.navigation schema", () => {
     expect(check([{ label: "Home" }])).toBe(false);
   });
 });
+
+describe("settings.navigation external link targets", () => {
+  const external = (url: string): boolean => check([{ label: "Link", link: { type: "external", url } }]);
+
+  it.each(["javascript:alert(1)", "JaVaScRiPt:alert(1)", " javascript:alert(1)", "data:text/html,<p>x</p>", "vbscript:msgbox(1)", "kontakt"])("rejects %j", (url) => {
+    expect(external(url)).toBe(false);
+  });
+
+  it.each(["https://example.com", "HTTP://example.com", "mailto:team@example.com", "tel:+4930123", "/kontakt", "#top", "?page=2"])("accepts %j", (url) => {
+    expect(external(url)).toBe(true);
+  });
+});

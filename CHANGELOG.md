@@ -24,6 +24,12 @@
 
 ### Breaking
 
+- A `link` field and an external `settings.navigation` link accept only `http:`, `https:`, `mailto:` and
+  `tel:` targets or a site-relative one (`/…`, `#…`, `?…`); a save with any other target, `javascript:` and
+  `data:` included, answers `400`, and a link value may no longer carry members its type does not store.
+  `useLinkHref()`/`linkHrefOf()` return `null` for such a target and for an internal link whose path is not a
+  site path, so the starter template's and playground's hero render no link for it. `kestrel upgrade data`
+  reports stored values outside the rule as `data/link-target`.
 - **The layer ships no binary; `kestrel` from `@michaelthielemann/kestrel-cli` checks and upgrades a
   project built on it.** Add `@michaelthielemann/kestrel-cli` to `devDependencies` at the same range as
   `@michaelthielemann/kestrel` (`kestrel upgrade fix` adds it) and run `kestrel upgrade check|fix|data`

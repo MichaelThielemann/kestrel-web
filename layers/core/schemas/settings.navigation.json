@@ -23,7 +23,7 @@
           "type": "object",
           "properties": {
             "type": { "const": "external" },
-            "url": { "type": "string", "minLength": 1 },
+            "url": { "type": "string", "minLength": 1, "pattern": "^(?:[Hh][Tt][Tt][Pp][Ss]?:|[Mm][Aa][Ii][Ll][Tt][Oo]:|[Tt][Ee][Ll]:|[/#?])" },
             "label": { "type": "string" }
           },
           "required": ["type", "url"],
