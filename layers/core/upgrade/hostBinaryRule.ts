@@ -9,25 +9,28 @@ const BINARY = "kestrel-web-upgrade";
 const REPLACEMENT = "kestrel upgrade";
 
 const ENV_PREFIX = String.raw`(?:[A-Za-z_][A-Za-z0-9_]*=\S*\s+)*(?:cross-env\s+(?:[A-Za-z_][A-Za-z0-9_]*=\S*\s+)*)?`;
-const RUNNER = String.raw`(?:pnpm\s+(?:exec\s+)?|npm\s+exec\s+(?:--\s+)?|yarn\s+(?:run\s+)?|npx\s+(?:(?:-y|--yes)\s+)?)?`;
+const FETCHING_RUNNER = String.raw`(?:npx\s+(?:(?:-y|--yes)\s+)?|npm\s+exec\s+(?:(?:-y|--yes)\s+)?(?:--\s+)?|pnpm\s+dlx\s+|yarn\s+dlx\s+|bunx\s+)`;
+const FETCHING_RUNNER_ONLY = new RegExp(String.raw`^${FETCHING_RUNNER}$`);
+const RUNNER = String.raw`(?:pnpm\s+(?:exec\s+)?|yarn\s+(?:run\s+)?|${FETCHING_RUNNER})?`;
 const END = String.raw`(?![\w@./-])`;
 const SCRIPT_TOKEN = new RegExp(String.raw`(^|[;&|]|\n)(\s*${ENV_PREFIX})(${RUNNER})${BINARY}${END}|(node_modules\/\.bin\/)${BINARY}${END}`, "g");
-const UNSCOPED_NPX = new RegExp(String.raw`(?:^|[;&|]|\n)\s*${ENV_PREFIX}npx\s+(?:(?:-y|--yes)\s+)?${BINARY}${END}`);
+const UNSCOPED_FETCH = new RegExp(String.raw`(?:^|[^\w@./-])${ENV_PREFIX}${FETCHING_RUNNER}${BINARY}${END}`);
+const SAFE_COMMANDS = "run the installed command instead (pnpm exec kestrel upgrade …, npm exec --no -- kestrel upgrade …, yarn kestrel upgrade …) or the scoped package (npx -y @michaelthielemann/kestrel-cli@6 upgrade …); the unscoped name is not this project's package";
 const FILE_TOKEN = new RegExp(String.raw`(^|[\s"'\`;&|(=]|node_modules\/\.bin\/)${BINARY}${END}`);
 const BIN_FILE = /kestrel-web\/bin\/kestrel-web-upgrade\.mjs\b/;
 
-/** The command with every `kestrel-web-upgrade` replaced by `kestrel upgrade`, also behind a runner or environment prefix; an unscoped `npx` of it becomes the local command. Unchanged when nothing matched. */
+/** The command with every `kestrel-web-upgrade` replaced by `kestrel upgrade`, also behind a runner or environment prefix; a runner that could fetch the unscoped name from the registry (`npx`, `npm exec`, `pnpm dlx`, `yarn dlx`, `bunx`) is dropped, so the script runs the installed command. Unchanged when nothing matched. */
 export function rewriteHostBinary(command: string): string {
   return command.replace(SCRIPT_TOKEN, (_match, sep: string | undefined, prefix: string | undefined, runner: string | undefined, binDir: string | undefined) => {
     if (binDir !== undefined) return `${binDir}${REPLACEMENT}`;
-    const keep = runner !== undefined && runner.startsWith("npx") ? "" : (runner ?? "");
+    const keep = runner !== undefined && FETCHING_RUNNER_ONLY.test(runner) ? "" : (runner ?? "");
     return `${sep ?? ""}${prefix ?? ""}${keep}${REPLACEMENT}`;
   });
 }
 
-/** Whether `command` runs `kestrel-web-upgrade` through an unscoped `npx`, which would fetch whatever registry package has that name. */
+/** Whether `command` runs `kestrel-web-upgrade` through a runner that fetches the unscoped name from the registry when it is not installed, which would run whatever package has that name. */
 export function runsUnscopedHostBinary(command: string): boolean {
-  return UNSCOPED_NPX.test(command);
+  return UNSCOPED_FETCH.test(command);
 }
 
 /** Whether `command` still runs `kestrel-web-upgrade` by name or by the path of its bin file. */
@@ -59,7 +62,8 @@ function scriptValues(source: string): ScriptValue[] {
   return out;
 }
 
-const SCANNED_NAMES = [/^Dockerfile/, /\.service$/, /\.ya?ml$/, /\.sh$/, /^Makefile$/, /^Procfile$/, /\.json$/, /\.[cm]?js$/, /\.[cm]?ts$/];
+const MARKDOWN = /\.md$/;
+const SCANNED_NAMES = [MARKDOWN, /^Dockerfile/, /\.service$/, /\.ya?ml$/, /\.sh$/, /^Makefile$/, /^Procfile$/, /\.json$/, /\.[cm]?js$/, /\.[cm]?ts$/];
 const SKIPPED_FILES = new Set(["package.json", "package-lock.json", "npm-shrinkwrap.json", "pnpm-lock.yaml", "yarn.lock"]);
 const SKIPPED_DIRS = new Set(["node_modules", ".git", ".nuxt", ".output"]);
 
@@ -113,7 +117,11 @@ function otherFileFindings(ctx: SourceRuleContext): Finding[] {
     source.split("\n").forEach((line, i) => {
       const where = { file, line: i + 1 };
       const id = `${RULE}:${file}:${i + 1}`;
-      if (FILE_TOKEN.test(line)) {
+      if (runsUnscopedHostBinary(line)) {
+        findings.push({ id, rule: RULE, severity: "error", tier: "source", where, message: `${basename(file)} line ${i + 1} runs ${BINARY} through a runner that can fetch an unrelated registry package of that name`, suggestion: SAFE_COMMANDS, fix: { kind: "manual" }, docs: DOCS });
+      } else if (MARKDOWN.test(file)) {
+        return;
+      } else if (FILE_TOKEN.test(line)) {
         findings.push(warning(id, where, `${basename(file)} line ${i + 1} runs ${BINARY}, which kestrel-web 3.0.0 removed`, `change the line to: ${rewriteHostBinary(line.replace(FILE_TOKEN, (_m, sep: string) => `${sep}${REPLACEMENT}`)).trim()}`));
       } else if (BIN_FILE.test(line)) {
         findings.push(warning(id, where, `${basename(file)} line ${i + 1} runs the ${BINARY} bin file kestrel-web 3.0.0 removed`, `run node_modules/.bin/kestrel upgrade … instead`));
@@ -125,7 +133,8 @@ function otherFileFindings(ctx: SourceRuleContext): Finding[] {
 
 /**
  * `scripts/host-binary`: rewrites `kestrel-web-upgrade` to `kestrel upgrade` in `package.json` scripts,
- * behind any runner or environment prefix, and warns about it in the project's other command files. It never
+ * behind any runner or environment prefix, and warns about it in the project's other command files; a line that
+ * runs it through a runner that can fetch the unscoped name is an error there, also in Markdown. It never
  * edits a dependency: kestrel's own `deps/kestrel-range` adds `@michaelthielemann/kestrel-cli`.
  */
 export const hostBinaryRule: SourceRule = {

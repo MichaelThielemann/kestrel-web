@@ -4,6 +4,7 @@ const TOKEN_PATTERN = /__[A-Z0-9_]+__/g;
 
 export const INSTALL_COMMANDS = { pnpm: "pnpm install", npm: "npm install", yarn: "yarn", bun: "bun install" };
 export const RUN_PREFIXES = { pnpm: "pnpm", npm: "npm run", yarn: "yarn", bun: "bun run" };
+export const EXEC_PREFIXES = { pnpm: "pnpm exec", npm: "npm exec --no --", yarn: "yarn", bun: "bun run" };
 
 const S3_PLACEHOLDERS = {
   S3_BUCKET: "your-bucket",
@@ -53,6 +54,7 @@ export function templateValues(answers, versions) {
     DEV_COMMAND: `${RUN_PREFIXES[answers.packageManager]} dev`,
     BUILD_COMMAND: `${RUN_PREFIXES[answers.packageManager]} build`,
     CHECK_COMMAND: `${RUN_PREFIXES[answers.packageManager]} check`,
+    KESTREL_COMMAND: `${EXEC_PREFIXES[answers.packageManager]} kestrel`,
     KESTREL_WEB_VERSION: versions.kestrelWeb,
     KESTREL_VERSION: versions.kestrel,
     KESTREL_CLI_VERSION: versions.kestrelCli,

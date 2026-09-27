@@ -559,10 +559,13 @@
   server cannot answer, and the fix for a field grant no pipeline cuts. See
   `docs/consuming-kestrel-web.md` §7.
 - `scripts/host-binary` (`kestrel upgrade`) rewrites `kestrel-web-upgrade` in `package.json` scripts to
-  `kestrel upgrade`, also behind `pnpm`, `pnpm exec`, `npm exec`, `yarn`, `cross-env` or `VAR=` prefixes,
-  and an unscoped `npx kestrel-web-upgrade`, which would fetch an unrelated registry package, to the local
-  command; it warns with file and line about the name in Dockerfiles, shell scripts, CI files and the
-  project's other command files.
+  `kestrel upgrade`, also behind `pnpm`, `pnpm exec`, `yarn`, `cross-env` or `VAR=` prefixes, and drops a
+  runner that could fetch an unrelated registry package of that name (`npx`, `npm exec` without `--no`,
+  `pnpm dlx`, `yarn dlx`, `bunx`), reporting that as an error; it warns with file and line about the name in
+  Dockerfiles, shell scripts, CI files and the project's other command files, and reports a fetching runner
+  there and in Markdown as an error.
+- A scaffolded project's README names the `kestrel` command through the chosen package manager
+  (`pnpm exec kestrel`, `npm exec --no -- kestrel`, `yarn kestrel`, `bun run kestrel`), never through `npx`.
 - `#kestrel/pipelines` exports `checkPreset(options)`, which composes a preset like `definePreset()` but
   collects every problem instead of throwing at the first.
 - `kestrel upgrade` also checks the consumer's own `app/` code against the static-export contract

@@ -1973,11 +1973,14 @@ layer has to be upgraded first:
 #### Scripts that call kestrel-web-upgrade
 
 The layer ships no binary. `scripts/host-binary` rewrites `kestrel-web-upgrade <command>` in
-`package.json` scripts to `kestrel upgrade <command>`, keeping a `pnpm`, `pnpm exec`, `npm exec`, `yarn`,
-`cross-env` or `VAR=value` prefix. An unscoped `npx kestrel-web-upgrade` is reported as an error, since npx
-would fetch and run whatever registry package has that name, and rewritten to the local `kestrel upgrade`.
+`package.json` scripts to `kestrel upgrade <command>`, keeping a `pnpm`, `pnpm exec`, `yarn`, `cross-env`
+or `VAR=value` prefix. A runner that installs a missing package on the fly (`npx`, `npm exec` without
+`--no`, `pnpm dlx`, `yarn dlx`, `bunx`) would fetch and run whatever registry package has the unscoped
+name, so such a script is reported as an error and rewritten to the local `kestrel upgrade`.
 In a Dockerfile, a shell script, a systemd unit, a CI file or any other command file of the project it
-reports the line with the command to use instead; Markdown and lockfiles are not read.
+reports the line with the command to use instead, as a warning, or as an error when a fetching runner
+calls it; in Markdown only the fetching form is reported; lockfiles are not read. kestrel's own
+`scripts/kestrel-binaries` does the same for an unscoped `npx kestrel …`.
 
 What changes:
 

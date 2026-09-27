@@ -47,7 +47,9 @@ describe("rewriteHostBinary", () => {
     ["kestrel-web-upgrade check", "kestrel upgrade check"],
     ["pnpm kestrel-web-upgrade fix --write", "pnpm kestrel upgrade fix --write"],
     ["pnpm exec kestrel-web-upgrade check", "pnpm exec kestrel upgrade check"],
-    ["npm exec -- kestrel-web-upgrade check", "npm exec -- kestrel upgrade check"],
+    ["npm exec -- kestrel-web-upgrade check", "kestrel upgrade check"],
+    ["pnpm dlx kestrel-web-upgrade check", "kestrel upgrade check"],
+    ["bunx kestrel-web-upgrade check", "kestrel upgrade check"],
     ["yarn kestrel-web-upgrade data --db data/kestrel.db", "yarn kestrel upgrade data --db data/kestrel.db"],
     ["cross-env KESTREL_UPGRADE_FORCE_MAJOR=6 kestrel-web-upgrade check", "cross-env KESTREL_UPGRADE_FORCE_MAJOR=6 kestrel upgrade check"],
     ["KESTREL_UPGRADE_FORCE_MAJOR=6 kestrel-web-upgrade check", "KESTREL_UPGRADE_FORCE_MAJOR=6 kestrel upgrade check"],
@@ -65,9 +67,13 @@ describe("rewriteHostBinary", () => {
     }
   });
 
-  it("recognises an unscoped npx only", () => {
-    expect(runsUnscopedHostBinary("npx kestrel-web-upgrade check")).toBe(true);
-    expect(runsUnscopedHostBinary("pnpm exec kestrel-web-upgrade check")).toBe(false);
+  it("recognises every runner that can fetch the unscoped name, and none that runs the installed command", () => {
+    for (const command of ["npx kestrel-web-upgrade check", "npx -y kestrel-web-upgrade check", "FOO=1 npx kestrel-web-upgrade check", "npm exec kestrel-web-upgrade check", "pnpm dlx kestrel-web-upgrade check", "yarn dlx kestrel-web-upgrade check", "bunx kestrel-web-upgrade check", "RUN npx kestrel-web-upgrade check"]) {
+      expect(runsUnscopedHostBinary(command), command).toBe(true);
+    }
+    for (const command of ["pnpm exec kestrel-web-upgrade check", "npm exec --no -- kestrel-web-upgrade check", "yarn kestrel-web-upgrade check", "kestrel-web-upgrade check"]) {
+      expect(runsUnscopedHostBinary(command), command).toBe(false);
+    }
   });
 });
 
@@ -105,6 +111,20 @@ describe("hostBinaryRule", () => {
       ["deploy/upgrade.sh", 2, "warning", "manual"],
     ]);
     expect(result[0]?.suggestion).toBe("change the line to: RUN pnpm exec kestrel upgrade check");
+  });
+
+  it("reports an unscoped npx of the command in another project file or in Markdown as an error", async () => {
+    const ctx = projectWith({
+      "package.json": packageJson({}),
+      "Dockerfile": "FROM node:22\nRUN npx kestrel-web-upgrade check\n",
+      "README.md": "Upgrade with\n\n    npx -y kestrel-web-upgrade check\n",
+    });
+    const result = await findings(ctx);
+    expect(result.map((f) => [f.where.file?.slice(ctx.root.length + 1), f.where.line, f.severity]).sort()).toEqual([
+      ["Dockerfile", 2, "error"],
+      ["README.md", 3, "error"],
+    ]);
+    for (const f of result) expect(f.suggestion).toContain("pnpm exec kestrel upgrade");
   });
 
   it("finds nothing on a project that already runs kestrel upgrade", async () => {

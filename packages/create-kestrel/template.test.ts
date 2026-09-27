@@ -183,6 +183,15 @@ describe("projectFiles", () => {
     expect(text(files({}), ".env.example")).not.toContain("scrypt$");
   });
 
+  it("names only the installed kestrel command in the README, never an unscoped npx that could fetch a foreign package", () => {
+    const expected = { pnpm: "pnpm exec kestrel", npm: "npm exec --no -- kestrel", yarn: "yarn kestrel", bun: "bun run kestrel" } as const;
+    for (const packageManager of ["pnpm", "npm", "yarn", "bun"] as const) {
+      const readme = text(files({ packageManager }), "README.md");
+      expect(readme, packageManager).not.toMatch(/\b(?:npx|bunx|dlx)\s+(?:-y\s+|--yes\s+)?kestrel\b/);
+      expect(readme, packageManager).toContain(`${expected[packageManager]} explain`);
+    }
+  });
+
   it("writes the commands of the chosen package manager into the README", () => {
     expect(text(files({ packageManager: "npm" }), "README.md")).toContain("npm run dev");
     expect(text(files({ packageManager: "yarn" }), "README.md")).toContain("yarn dev");

@@ -27,9 +27,11 @@ __CHECK_COMMAND__
 runs `kestrel check`: it loads the project the way the server does, in a scratch copy, and reports every
 boot problem (a broken pipeline, a module config the schema refuses, a preset override the layer rejects)
 without starting anything. It runs `nuxt prepare` in that copy first, so it takes a few seconds.
-`kestrel explain <pipeline>` shows the steps, triggers and event listeners of one pipeline, and
-`kestrel manifest` prints what the booted project describes; run both through your package manager
-(`pnpm exec kestrel …`, `npx kestrel …`).
+`__KESTREL_COMMAND__ explain <pipeline>` shows the steps, triggers and event listeners of one pipeline,
+and `__KESTREL_COMMAND__ manifest` prints what the booted project describes. Run `kestrel` only through
+the installed `@michaelthielemann/kestrel-cli` like this, never by its bare name through `npx`: the
+unscoped name belongs to an unrelated npm package that `npx` would download and run when the local one
+is missing.
 
 ## Where to change what
 
