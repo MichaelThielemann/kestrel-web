@@ -37,7 +37,7 @@ export function projectFiles(answers, versions, templateDir) {
   for (const entry of templateEntries(templateDir)) {
     files.set(targetName(entry), renderTemplate(readFileSync(join(templateDir, entry), "utf8"), values));
   }
-  files.set(ENV_FILE, envFile(answers, hashPassword(answers.password), randomBytes(32).toString("hex")));
+  files.set(ENV_FILE, envFile(answers, hashPassword(answers.password), randomBytes(32).toString("hex"), randomBytes(32).toString("hex")));
   return files;
 }
 

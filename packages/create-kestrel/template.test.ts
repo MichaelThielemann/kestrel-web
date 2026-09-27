@@ -177,6 +177,17 @@ describe("projectFiles", () => {
     expect(text(without, ".env.example")).not.toContain("KESTREL_MFA_KEY");
   });
 
+  it("with the rate limits, writes a fresh device-cookie key to .env, which the preset reads", () => {
+    const withLimits = files({ features: ["ratelimit"] });
+    const env = text(withLimits, ".env");
+    expect(env).toMatch(/^KESTREL_DEVICE_KEY=[0-9a-f]{64}$/m);
+    expect(text(files({ features: ["ratelimit"] }), ".env")).not.toBe(env);
+    expect(text(withLimits, ".env.example")).toContain("KESTREL_DEVICE_KEY=\n");
+    const without = files({ features: ["sanitizeSvg"] });
+    expect(text(without, ".env")).not.toContain("KESTREL_DEVICE_KEY");
+    expect(text(without, ".env.example")).not.toContain("KESTREL_DEVICE_KEY");
+  });
+
   it("names the bootstrap admin and reads its hash from the environment", () => {
     const config = text(files({ adminUser: "ops" }), "kestrel.config.ts");
     expect(config).toContain('bootstrap: { username: "ops", passwordHash: adminPasswordHash() },');

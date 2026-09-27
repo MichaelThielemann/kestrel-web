@@ -37,6 +37,7 @@ export const FEATURE_SUMMARY = {
 export const INSIGHTS_FEATURE = "insights";
 export const MIGRATIONS_FEATURE = "migrations";
 export const MFA_FEATURE = "mfa";
+export const RATELIMIT_FEATURE = "ratelimit";
 export const REDIRECTS_FEATURE = "redirects";
 
 const IMPLIED_FEATURES = { delivery: ["sanitizeSvg"], mfa: ["ratelimit"] };
