@@ -237,11 +237,16 @@ Points that matter:
   `session: { secureCookie: false }` in `presetModuleConfig()`, which drops `Secure` and the prefix.
 - **Second factor.** With the `mfa` feature every account sets up an authenticator app at its next sign-in
   and enters a code at each one after that. `KESTREL_MFA_KEY` (64 hex digits, `openssl rand -hex 32`) seals
-  the stored secrets: keep it out of the database and its backups, and keep it stable — a changed key makes
-  every factor unusable, and an administrator has to reset them. A user who lost the device signs in with a
+  the stored secrets: keep it out of the database and its backups. To change it, set the new key and pass
+  the old one in `mfa: { previousSecretKeys: [...] }`; each factor moves to the new key at its owner's next
+  sign-in. A key that opens no stored factor does not stop sign-ins, but every code for such a factor is
+  wrong until an administrator resets it. A user who lost the device signs in with a
   recovery code; an administrator resets the factor under **System → Users** and hands the owner the
   one-time enrollment code the reset shows, which setting up the new factor requires. Ten wrong codes in a
-  row lock the factor for 15 minutes, each further lock twice as long.
+  row lock the factor for 15 minutes, each further lock twice as long. When the only administrator is
+  locked out, stop the server and remove that account's row from `mfa_factors` in the SQLite database
+  (`DELETE FROM mfa_factors WHERE "userId" = '<id>';`); the account sets up a new factor at its next
+  sign-in.
 - **Same origin.** A `POST`, `PUT`, `PATCH` or `DELETE` authenticated by the cookie is accepted only
   from the same origin (`Sec-Fetch-Site: same-origin`, or an `Origin` whose host is the request's
   `Host`); keep `proxy_set_header Host $host` so the two agree. Scripts and other clients send the

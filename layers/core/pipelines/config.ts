@@ -57,6 +57,8 @@ export interface PresetMediaPolicy {
 export interface PresetMfa {
   /** The key that seals every second factor's secret: 32 bytes as 64 hex digits or 43 base64url characters, kept outside the database; default `mfaKey()`, which reads `KESTREL_MFA_KEY`. */
   secretKey?: string;
+  /** Keys `secretKey` replaced: factors sealed under one of them keep working and move to `secretKey` at their next sign-in. */
+  previousSecretKeys?: string[];
   /** The name an authenticator app shows next to the account; the site title is a good choice. */
   issuer?: string;
   /** Who must set up a second factor before signing in; default every account. */
@@ -507,6 +509,7 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
     const mfa = options.mfa ?? {};
     modules.push(preset("@michaelthielemann/kestrel-mfa-totp", {
       secretKey: mfa.secretKey ?? mfaKey(),
+      ...(mfa.previousSecretKeys === undefined ? {} : { previousSecretKeys: mfa.previousSecretKeys }),
       ...(mfa.issuer === undefined ? {} : { issuer: mfa.issuer }),
       ...(mfa.enforce === undefined ? {} : { enforce: mfa.enforce }),
     }));
