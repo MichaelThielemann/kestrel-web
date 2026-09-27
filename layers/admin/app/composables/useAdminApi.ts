@@ -4,6 +4,7 @@ import type { ApiClient, ApiRequestOptions } from '../actions/types'
 import type { ApiRoute } from '../utils/capabilities'
 import { makeReauthInterceptor } from '../utils/reauth'
 import { toApiError } from './useApi'
+import { retryAfterReauth, useReauth } from './useReauth'
 
 export function useAdminApi(): ApiClient {
   const router = useRouter()
@@ -19,11 +20,13 @@ export function useAdminApi(): ApiClient {
     credentials: 'same-origin',
     onResponseError,
   })
-  return async <T>(route: ApiRoute, options: ApiRequestOptions = {}): Promise<T> => {
+  const reauth = useReauth()
+  const once = async <T>(route: ApiRoute, options: ApiRequestOptions): Promise<T> => {
     try {
       return boundaryCast<T>(await client(route.path, { ...options, method: route.method }), 'json')
     } catch (e) {
       throw toApiError(e)
     }
   }
+  return <T>(route: ApiRoute, options: ApiRequestOptions = {}): Promise<T> => retryAfterReauth(() => once<T>(route, options), reauth.request)
 }

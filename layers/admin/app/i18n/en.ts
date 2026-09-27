@@ -637,6 +637,12 @@ export const en = {
   'account.password.new': 'New password',
   'account.password.tooShort': 'Password must be at least 12 characters.',
   'account.password.success': 'Password changed',
+  'reauth.title': 'Enter your password again',
+  'reauth.intro': 'This action changes accounts or restores data. Enter your password again to continue.',
+  'reauth.password': 'Password',
+  'reauth.confirm': 'Confirm',
+  'reauth.required': 'Enter your password.',
+  'reauth.wrong': 'The password is wrong.',
 
   'password.confirm': 'Confirm password',
   'password.mismatch': 'The passwords do not match.',

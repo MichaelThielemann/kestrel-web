@@ -785,6 +785,16 @@ with 400 `VALIDATION` and `details.unknown` before writing anything. Nobody can 
 their own account (400), and the last active holder of `users.manage` can be neither deactivated, nor
 deleted, nor stripped of that permission (409 `LAST_ADMIN`).
 
+**Recent password check.** `createUser`, `updateUser`, `setPassword`, `deactivateUser`, `activateUser`,
+`deleteUser` and, with the `replication` feature, `replicationRestore` run
+`authn.requireRecentAuth:300` after their permission check: when the session's password was last
+checked more than five minutes ago (at login, a password change, or a confirmation) they answer
+`403 REAUTH_REQUIRED`. `POST /me/confirm-password` (`confirmPassword`, `{ password }`, rate-limited like
+the login with the `ratelimit` feature) confirms it: 200 and the session counts as fresh again, 400 when
+the password is wrong. The admin asks for the password in a dialog and repeats the action on its own.
+`setPassword` refuses the caller's own account with 400; one's own password changes through
+`POST /me/password` with the current one.
+
 `DELETE /users/:id` takes an optional `{ reassignTo }` in the body: the id of an active user other
 than the one being deleted, whose name the deleted user's revisions take over. Without it the author
 reference is anonymised. An unusable target answers 400, an unknown one 404, and the user is *not*

@@ -983,6 +983,10 @@
       "method": "POST",
       "path": "/me/password"
     },
+    "confirmPassword": {
+      "method": "POST",
+      "path": "/me/confirm-password"
+    },
     "listUsers": {
       "method": "GET",
       "path": "/users"

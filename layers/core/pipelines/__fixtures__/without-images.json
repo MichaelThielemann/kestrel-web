@@ -3,6 +3,7 @@
     "activateUser": [
       "authn.requireUser",
       "authz.require:users.manage",
+      "authn.requireRecentAuth:300",
       "authn.activateUser"
     ],
     "adminSchemaModel": [
@@ -64,6 +65,11 @@
     "cleanupSessions": [
       "authn.cleanupSessions"
     ],
+    "confirmPassword": [
+      "ratelimit.check:login",
+      "authn.requireUser",
+      "authn.confirmPassword"
+    ],
     "createBlog": [
       "authn.requireUser",
       "authz.require:blog.write",
@@ -113,6 +119,7 @@
     "createUser": [
       "authn.requireUser",
       "authz.require:users.manage",
+      "authn.requireRecentAuth:300",
       "authz.validateRoles:roles",
       "authn.createUser",
       "events.emit:user.created",
@@ -121,6 +128,7 @@
     "deactivateUser": [
       "authn.requireUser",
       "authz.require:users.manage",
+      "authn.requireRecentAuth:300",
       "authn.deactivateUser",
       "events.emit:user.deactivated",
       "events.relay"
@@ -211,6 +219,7 @@
     "deleteUser": [
       "authn.requireUser",
       "authz.require:users.manage",
+      "authn.requireRecentAuth:300",
       "authn.deleteUser",
       "events.emit:user.deleted?with=result",
       "events.relay"
@@ -529,6 +538,7 @@
     "replicationRestore": [
       "authn.requireUser",
       "authz.require:system.manage",
+      "authn.requireRecentAuth:300",
       "replication.prepareRestore"
     ],
     "replicationSnapshot": [
@@ -636,6 +646,7 @@
     "setPassword": [
       "authn.requireUser",
       "authz.require:users.manage",
+      "authn.requireRecentAuth:300",
       "authn.setPassword"
     ],
     "setRedirects": [
@@ -732,6 +743,7 @@
     "updateUser": [
       "authn.requireUser",
       "authz.require:users.manage",
+      "authn.requireRecentAuth:300",
       "authz.validateRoles:roles",
       "authn.updateUser",
       "events.emit:user.updated",
@@ -762,6 +774,10 @@
     {
       "http": "POST /me/password",
       "pipeline": "changePassword"
+    },
+    {
+      "http": "POST /me/confirm-password",
+      "pipeline": "confirmPassword"
     },
     {
       "http": "GET /users",

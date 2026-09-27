@@ -15,6 +15,12 @@ export interface PresetModuleEntry {
 
 export const SETTINGS_PIPELINES = { get: "getSettings", set: "setSettings" } as const;
 
+/** How long, in seconds, a password check counts as recent for the actions that change users or restore a backup. */
+export const RECENT_AUTH_SECONDS = 300;
+
+/** The step every pipeline that changes a user or restores a backup runs after its permission check. */
+export const REQUIRE_RECENT_AUTH = `authn.requireRecentAuth:${RECENT_AUTH_SECONDS}`;
+
 export interface PresetContext {
   exportDir: string;
   homeSlug: string;
@@ -40,10 +46,12 @@ export function basePipelines(
     me: ["authn.requireUser", "authn.loadIdentity"],
     adminSchemaModel: ["authn.requireUser", "content.describeModel", "authz.describePipelineAccess"],
     changePassword: ["authn.requireUser", "authn.changePassword"],
+    confirmPassword: ["authn.requireUser", "authn.confirmPassword"],
     listUsers: ["authn.requireUser", "authz.require:users.manage", "authn.listUsers"],
     createUser: [
       "authn.requireUser",
       "authz.require:users.manage",
+      REQUIRE_RECENT_AUTH,
       "authz.validateRoles:roles",
       "authn.createUser",
       "events.emit:user.created",
@@ -52,16 +60,17 @@ export function basePipelines(
     updateUser: [
       "authn.requireUser",
       "authz.require:users.manage",
+      REQUIRE_RECENT_AUTH,
       "authz.validateRoles:roles",
       "authn.updateUser",
       "events.emit:user.updated",
     ],
     deleteUser: eventsQueued
-      ? ["authn.requireUser", "authz.require:users.manage", { atomic: ["authn.deleteUser"] }, "events.emit:user.deleted?with=result"]
-      : ["authn.requireUser", "authz.require:users.manage", "authn.deleteUser", "events.emit:user.deleted?with=result"],
-    setPassword: ["authn.requireUser", "authz.require:users.manage", "authn.setPassword"],
-    deactivateUser: ["authn.requireUser", "authz.require:users.manage", "authn.deactivateUser", "events.emit:user.deactivated"],
-    activateUser: ["authn.requireUser", "authz.require:users.manage", "authn.activateUser"],
+      ? ["authn.requireUser", "authz.require:users.manage", REQUIRE_RECENT_AUTH, { atomic: ["authn.deleteUser"] }, "events.emit:user.deleted?with=result"]
+      : ["authn.requireUser", "authz.require:users.manage", REQUIRE_RECENT_AUTH, "authn.deleteUser", "events.emit:user.deleted?with=result"],
+    setPassword: ["authn.requireUser", "authz.require:users.manage", REQUIRE_RECENT_AUTH, "authn.setPassword"],
+    deactivateUser: ["authn.requireUser", "authz.require:users.manage", REQUIRE_RECENT_AUTH, "authn.deactivateUser", "events.emit:user.deactivated"],
+    activateUser: ["authn.requireUser", "authz.require:users.manage", REQUIRE_RECENT_AUTH, "authn.activateUser"],
     cleanupSessions: ["authn.cleanupSessions"],
     [SETTINGS_PIPELINES.get]: [
       "authn.identifyUser",

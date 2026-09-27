@@ -1074,6 +1074,7 @@ describe("definePreset user deletion", () => {
     expect(stepsOf(preset, "deleteUser")).toEqual([
       "authn.requireUser",
       "authz.require:users.manage",
+      "authn.requireRecentAuth:300",
       "authn.deleteUser",
       "events.emit:user.deleted?with=result",
       "events.relay",

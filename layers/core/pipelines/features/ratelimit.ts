@@ -7,6 +7,9 @@ export default function ratelimit(_context: PresetContext): FeatureModule {
     pipelines: {
       sweepRateLimits: ["ratelimit.sweep"],
     },
-    patches: [{ pipeline: "login", steps: ["ratelimit.check:login"], at: "start" }],
+    patches: [
+      { pipeline: "login", steps: ["ratelimit.check:login"], at: "start" },
+      { pipeline: "confirmPassword", steps: ["ratelimit.check:login"], at: "start" },
+    ],
   };
 }

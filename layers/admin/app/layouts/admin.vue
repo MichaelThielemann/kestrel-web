@@ -35,6 +35,7 @@ useHead(() => ({
 
 <template>
   <KestrelUiPortalHost />
+  <KestrelReauthDialog v-if="authenticated" />
   <KestrelBootFailure v-if="failed" :error="failure" />
   <div v-else class="admin" :class="{ 'admin--rail-collapsed': railCollapsed, 'admin--rail-open': isPhone && railOpen }" :data-theme="theme">
     <div v-if="isPhone && railOpen" class="admin__scrim" aria-hidden="true" @click="closeRailOverlay" />

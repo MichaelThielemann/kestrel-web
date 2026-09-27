@@ -506,6 +506,12 @@
   come from the same origin, and a non-JSON request body is answered 415. The site is served over HTTPS in
   production (see the deployment guide's reverse-proxy section); `session.secureCookie: false` in
   `presetModuleConfig()` is for a plain-HTTP development host only.
+- Creating, changing, deactivating, activating and deleting users, setting a password and restoring a
+  replication point need a password check from the last five minutes: those pipelines run
+  `authn.requireRecentAuth:300` and answer `403 REAUTH_REQUIRED` otherwise. The new `confirmPassword`
+  pipeline (`POST /me/confirm-password`, rate-limited with the `ratelimit` feature) renews the check, and the
+  admin asks for the password in a dialog and repeats the action. `setPassword` refuses the caller's own
+  account.
 
 - **Forwarding headers count only from a trusted proxy.** The new `NUXT_KESTREL_ACCESS_TRUSTED_PROXIES`
   (`kestrel.access.trustedProxies`, addresses or CIDR ranges, default loopback) lists the peers whose

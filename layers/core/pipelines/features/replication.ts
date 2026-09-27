@@ -1,4 +1,4 @@
-import type { PresetContext } from "../base";
+import { REQUIRE_RECENT_AUTH, type PresetContext } from "../base";
 import type { FeatureModule } from "../index";
 
 export default function replication(_context: PresetContext): FeatureModule {
@@ -9,7 +9,7 @@ export default function replication(_context: PresetContext): FeatureModule {
       replicationStatus: ["authn.requireUser", "authz.require:system.manage", "replication.readStatus"],
       replicationPoints: ["authn.requireUser", "authz.require:system.manage", "replication.listPoints"],
       replicationSnapshot: ["authn.requireUser", "authz.require:system.manage", "replication.snapshot"],
-      replicationRestore: ["authn.requireUser", "authz.require:system.manage", "replication.prepareRestore"],
+      replicationRestore: ["authn.requireUser", "authz.require:system.manage", REQUIRE_RECENT_AUTH, "replication.prepareRestore"],
     },
     patches: [],
   };

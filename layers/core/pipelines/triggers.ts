@@ -16,6 +16,7 @@ export const canonicalTriggers: readonly TriggerEntry[] = [
   { trigger: { http: "POST /logout", pipeline: "logout" } },
   { trigger: { http: "GET /me", pipeline: "me" } },
   { trigger: { http: "POST /me/password", pipeline: "changePassword" } },
+  { trigger: { http: "POST /me/confirm-password", pipeline: "confirmPassword" } },
   { trigger: { http: "GET /users", pipeline: "listUsers" } },
   { trigger: { http: "POST /users", pipeline: "createUser" } },
   { trigger: { http: "GET /users/:id", pipeline: "getUser" } },

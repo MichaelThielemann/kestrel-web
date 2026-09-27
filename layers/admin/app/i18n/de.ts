@@ -639,6 +639,12 @@ export const de: Record<CatalogKey, string> = {
   'account.password.new': 'Neues Passwort',
   'account.password.tooShort': 'Das Passwort muss mindestens 12 Zeichen lang sein.',
   'account.password.success': 'Passwort geändert',
+  'reauth.title': 'Passwort erneut eingeben',
+  'reauth.intro': 'Diese Aktion ändert Konten oder stellt Daten wieder her. Geben Sie Ihr Passwort erneut ein, um fortzufahren.',
+  'reauth.password': 'Passwort',
+  'reauth.confirm': 'Bestätigen',
+  'reauth.required': 'Geben Sie Ihr Passwort ein.',
+  'reauth.wrong': 'Das Passwort ist falsch.',
 
   'password.confirm': 'Passwort bestätigen',
   'password.mismatch': 'Die Passwörter stimmen nicht überein.',
