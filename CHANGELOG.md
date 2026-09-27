@@ -602,6 +602,14 @@
 
 ### Changed
 
+- Redirects: `redirectRules` grants `from` next to `pattern`, `target` and `status`, so `GET
+  /redirects.json` and `PublicRedirectRule` carry each rule's wildcard path; the `redirects.rules` schema
+  refuses a `from` longer than 512 characters. The Node origin matches `from` in time proportional to
+  the path; "Redirects at the edge" describes the same for the njs handler and the cost of the `map`
+  variant.
+- Media: an upload declared as an image type or PDF whose bytes are another type is treated as that
+  type (so SVG or HTML markup sent as `image/png` is refused by the default `deniedTypes`), and image
+  variants are rendered only from originals whose bytes match their stored type.
 - The editor's save and delete messages report only the publishing of the page itself, not other background
   work started by the same save.
 - The dashboard shows how many event deliveries failed for good and links to System → Events: the

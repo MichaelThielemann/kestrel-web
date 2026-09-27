@@ -134,7 +134,7 @@ export interface RedirectsDocument extends Document {
   rules: RedirectRule[] | null
 }
 
-export interface PublicRedirectRule { pattern: string; target: string; status: number }
+export interface PublicRedirectRule { from: string; pattern: string; target: string; status: number }
 
 export interface SettingsDocument extends Document {
   title: string | null

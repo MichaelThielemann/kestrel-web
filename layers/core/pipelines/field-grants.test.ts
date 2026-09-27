@@ -157,7 +157,7 @@ describe("the anonymous field grants presetModuleConfig derives", () => {
       pages: ["id", "slug", "title", "body", "seo", "status", "shareImage", "accent", "layout", "_locales", "_translations", "_locale", "_links", "redirect", "_paths", "route.type"],
       media: [...MEDIA_FIELDS, ...VARIANT_FIELDS],
       mediaFile: ["headers.cache-control", "headers.x-content-provenance", "headers.x-kestrel-variant"],
-      redirectRules: ["pattern", "target", "status"],
+      redirectRules: ["from", "pattern", "target", "status"],
     });
   });
 

@@ -421,7 +421,7 @@ const modules = [
         pages: ["id", "slug", "title", "body", "seo", "status", "shareImage", "accent", "layout", "_locales", "_translations", "_locale", "_links", "redirect", "_paths"],
         media: ["id", "path", "filename", "contentType", "size", "width", "height", "alt", "title", "description", "provenance", "variants[].size", "variants[].width", "variants[].height", "variants[].format", "variants[].path"],
         mediaFile: ["headers.cache-control", "headers.x-content-provenance", "headers.x-kestrel-variant"],
-        redirectRules: ["pattern", "target", "status"],
+        redirectRules: ["from", "pattern", "target", "status"],
       },
     },
   },
@@ -689,7 +689,7 @@ its files; `x.*` and `*` count as in `authz-roles`) and for the redirect rules, 
 | `settings`, additionally | `_links` |
 | `media` | `id`, `path`, `filename`, `contentType`, `size`, `width`, `height`, `alt`, `title`, `description`, `provenance`; with `images` also `variants[].size`, `.width`, `.height`, `.format`, `.path` |
 | `mediaFile` | the headers `cache-control` and `x-content-provenance`; with `images` also `x-kestrel-variant` |
-| `redirectRules` | `pattern`, `target`, `status` (with `redirects`) |
+| `redirectRules` | `from`, `pattern`, `target`, `status` (with `redirects`) |
 
 Everything else is cut for them: a document's `createdAt` and `updatedAt`, a media item's `folder`,
 timestamps, `available` and `variantCounts`, and a variant's `bytes` and `state`.
@@ -1759,8 +1759,9 @@ way (`runtimeConfig.kestrel.access.admin`).
 ### Redirects at the edge
 
 With the `redirects` feature (§9), a publish also writes `redirects.json` next to the pages: an array of
-`{ pattern, target, status }`, each `pattern` an anchored regex and `target` its replacement with
-`$1`, `$2`, … for the capture groups. A static host serves files; nothing there reads this list unless
+`{ from, pattern, target, status }`: `from` the rule's wildcard path (`*` one segment, `**` one or
+more), `pattern` the same rule as an anchored regex, and `target` its replacement with `$1`, `$2`, … for
+the wildcards. A static host serves files; nothing there reads this list unless
 something in front of it does. Three ways to do that, in the order to prefer them:
 
 **Default: an edge handler.**
@@ -1770,7 +1771,9 @@ backend repository is a reference nginx configuration for exactly this case: two
 `js_shared_dict_zone` shared across worker processes; a cold-start burst polls every two seconds until
 the first successful fetch, then falls back to the steady interval. Every request is matched against
 the list before it reaches the static host at all — a hit returns the 30x directly with `Location` set
-from the pattern's capture groups, a miss falls through to the host unchanged. Point its `REDIRECTS_URL`
+from the wildcards of `from`, a miss falls through to the host unchanged. It matches `from` with the
+same algorithm as the Node origin, in time proportional to the path, so no request path can make a
+rule expensive. Point its `REDIRECTS_URL`
 at the exported `<prefix>redirects.json` and `ORIGIN_UPSTREAM` at your static host; the example's own
 README has the rest of the configuration and a smoke test. It needs an nginx build carrying the njs
 module (`nginx-module-njs` on Alpine/Debian) at version 0.8.1 or newer — `njs -v` inside the image
@@ -1798,7 +1801,10 @@ const ifs = [...byStatus.keys()].map(
 writeFileSync(process.argv[3], `${maps.join("\n\n")}\n\nserver {\n${ifs.join("\n")}\n}\n`);
 ```
 
-nginx groups the rules by status because `return` needs a literal status code, not a variable. Run the
+nginx groups the rules by status because `return` needs a literal status code, not a variable. A
+regex engine can take time that grows steeply with the path length for a rule with several wildcards in
+one segment (`/p/*-*-*`) on a path that almost matches; keep nginx's request line limit
+(`large_client_header_buffers`) small, or prefer the njs handler. Run the
 script after every deploy (or whenever redirects change) and `include` its output inside the `server`
 block that serves the static host, ahead of `location /`.
 

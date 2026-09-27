@@ -98,7 +98,7 @@ describe("presetModuleConfig with the playground inputs", () => {
             pages: ["id", "slug", "title", "body", "seo", "status", "shareImage", "accent", "layout", "_locales", "_translations", "_locale", "_links", "redirect", "_paths", "route.type"],
             media: ["id", "path", "filename", "contentType", "size", "width", "height", "alt", "title", "description", "provenance", "variants[].size", "variants[].width", "variants[].height", "variants[].format", "variants[].path"],
             mediaFile: ["headers.cache-control", "headers.x-content-provenance", "headers.x-kestrel-variant"],
-            redirectRules: ["pattern", "target", "status"],
+            redirectRules: ["from", "pattern", "target", "status"],
           },
         }),
       },

@@ -1089,7 +1089,7 @@ export interface paths {
         /** Identify the caller if a valid token is present → Requires permission media.read → List media, newest first; anonymous callers may only fetch by ids → Add available, variants[] and variantCounts to a media item or list (result.id or result.items); a variant whose path has no object yet is never listed → Keep only the media fields the caller may see: anonymousFields.media without an identity or a configured role; otherwise everything when one of its roles has no field grant for media, else the union of its roles' grants and the anonymous one */
         get: operations["listMedia"];
         put?: never;
-        /** Require a valid session → Requires permission media.write → Sanitize uploaded SVG files (scripts, handlers, external references removed) → Upload one or more files (multipart field `file`, repeatable). A single file returns the item; multiple files return per-file results. Idempotent: same folder, same filename and same bytes return the item that is already there, and the step then ends the pipeline itself (200), so no following step – notably events.emit:media.uploaded – runs for an upload that stored nothing → Queue event "media.uploaded" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
+        /** Require a valid session → Requires permission media.write → Sanitize uploaded SVG files, also SVG content declared as another image type (scripts, handlers, external references removed) → Upload one or more files (multipart field `file`, repeatable). A single file returns the item; multiple files return per-file results. Idempotent: same folder, same filename and same bytes return the item that is already there, and the step then ends the pipeline itself (200), so no following step – notably events.emit:media.uploaded – runs for an upload that stored nothing → Queue event "media.uploaded" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
         post: operations["uploadMedia"];
         delete?: never;
         options?: never;
@@ -1867,12 +1867,14 @@ export interface components {
             title?: string | null;
         };
         renderRedirects: {
+            from: string;
             pattern: string;
             /** @enum {integer} */
             status: 301 | 302 | 307 | 308;
             target: string;
         }[];
         "renderRedirects.anonymous": {
+            from: string;
             pattern: string;
             /** @enum {integer} */
             status: 301 | 302 | 307 | 308;

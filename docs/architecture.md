@@ -538,7 +538,7 @@ permission `anonymous` holds (`<type>.read`, `media.read` for `media` and `media
 `_links`; the public media fields (`id`, `path`, `filename`, `contentType`, `size`, `width`, `height`,
 `alt`, `title`, `description`, `provenance`) and, with `images`, `variants[].size`, `.width`, `.height`,
 `.format` and `.path`; the file headers `cache-control`, `x-content-provenance` and, with `images`,
-`x-kestrel-variant`; with `redirects`, the redirect rules' `pattern`, `target` and `status`. It names only
+`x-kestrel-variant`; with `redirects`, the redirect rules' `from`, `pattern`, `target` and `status`. It names only
 members a read declares, so every path passes kestrel's check. What it leaves out is cut for anonymous
 callers: a document's `createdAt` and `updatedAt`, a media item's `folder`, timestamps, `available` and
 `variantCounts`, a variant's `bytes` and `state`, any other file header, and — on every collection,
