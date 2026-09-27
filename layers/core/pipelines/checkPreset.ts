@@ -216,6 +216,46 @@ function effectiveConfigOf(modules: readonly { use: string; config?: unknown }[]
   return entry === undefined ? undefined : effectiveModuleConfig(entry);
 }
 
+const PUBLIC_SITE_PREFIX = "site/";
+const PUBLIC_PREFIX_SOURCES: readonly { use: string; path: readonly string[] }[] = [
+  { use: DELIVERY_STATIC_MODULE, path: ["prefix"] },
+  { use: "@michaelthielemann/kestrel-redirects-default", path: ["prefix"] },
+  { use: "@michaelthielemann/kestrel-media-default", path: ["publicCopy", "prefix"] },
+  { use: "@michaelthielemann/kestrel-images-default", path: ["publicCopy", "prefix"] },
+];
+const PRIVATE_PREFIX_SOURCES: readonly { use: string; key: string; fallback?: string }[] = [
+  { use: "@michaelthielemann/kestrel-replication-sqlite", key: "prefix", fallback: "replica/" },
+  { use: "@michaelthielemann/kestrel-backup-blobstore", key: "key" },
+];
+
+function stringAt(value: unknown, path: readonly string[]): string | undefined {
+  let current = value;
+  for (const key of path) {
+    if (typeof current !== "object" || current === null) return undefined;
+    current = Reflect.get(current, key);
+  }
+  return typeof current === "string" ? current : undefined;
+}
+
+function validatePrivatePrefixes(modules: readonly { use: string; config?: unknown }[], sink: PresetSink): void {
+  const publicPrefixes = new Set([PUBLIC_SITE_PREFIX]);
+  for (const source of PUBLIC_PREFIX_SOURCES) {
+    const prefix = stringAt(effectiveConfigOf(modules, source.use), source.path);
+    if (prefix !== undefined && prefix !== "") publicPrefixes.add(prefix);
+  }
+  for (const source of PRIVATE_PREFIX_SOURCES) {
+    if (!modules.some((entry) => entry.use === source.use)) continue;
+    const prefix = stringAt(effectiveConfigOf(modules, source.use), [source.key]) ?? source.fallback;
+    if (prefix === undefined) continue;
+    const exposed = [...publicPrefixes].find((pub) => prefix.startsWith(pub) || pub.startsWith(prefix));
+    if (exposed === undefined) continue;
+    sink.report({
+      code: "preset/private-prefix-public",
+      message: `preset: ${source.use} keeps the database under "${prefix}", which overlaps the public prefix "${exposed}" a bucket or static host may serve – choose a ${source.key} outside every public prefix`,
+    });
+  }
+}
+
 function configuredRelayPipelines(modules: readonly { use: string; config?: unknown }[]): string[] | undefined {
   const config = effectiveConfigOf(modules, EVENTS_QUEUE_MODULE);
   if (typeof config !== "object" || config === null || !("relayPipelines" in config)) return undefined;
@@ -354,6 +394,7 @@ export function buildPreset<C extends Record<string, CollectionModel> = Record<s
   validateRoutedSlugs(collections, sink);
   validateMounts(collections, options.modules, sink);
   validateHomeSlug(homeSlug, options.modules, sink);
+  validatePrivatePrefixes(options.modules, sink);
   const customFields = customFieldTypes(collections, options.fieldTypes ?? {});
   const context: PresetContext = { exportDir, homeSlug, collections, customFields, modules: options.modules, ...(options.collectionsUi === undefined ? {} : { collectionsUi: options.collectionsUi }) };
 

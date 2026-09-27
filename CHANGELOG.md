@@ -441,6 +441,11 @@
   `KESTREL_S3_ALLOW_INSECURE_ENDPOINT=true`; without it, a plain `http://` `KESTREL_S3_ENDPOINT` outside
   loopback stops the boot (a `kestrel-blobstore-s3` rule). The documented `/api/` forwarding from a static
   host proxies over TLS with certificate verification and passes the forwarding headers.
+- `definePreset()` refuses a `kestrel-replication-sqlite` prefix or a `kestrel-backup-blobstore` key that
+  overlaps a public prefix (`site/`, or the `prefix`/`publicCopy.prefix` of `delivery-static`,
+  `redirects-default`, `media-default`, `images-default`), with `preset/private-prefix-public` from
+  `checkPreset()`. `docs/deployment.md` lists which blobstore keys may be public and gives a bucket policy
+  that serves `site/*` only.
 - `create-kestrel` preselects the `ratelimit` feature, so a scaffolded project limits failed logins per
   client address (five per minute), also with `--yes`. It asks for an admin password of at least 12
   characters and refuses a short list of well-known passwords.

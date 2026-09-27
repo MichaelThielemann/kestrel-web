@@ -84,6 +84,25 @@ With `KESTREL_BLOBSTORE=s3` the second row moves into the bucket and only the da
 disk. The `site/` prefix a publish writes (page HTML, `_nuxt/`, exported media, `redirects.json`,
 `llms.txt`) lives in the blobstore either way — see §8 of the consuming guide.
 
+`site/` is the only part of the blobstore that may be public. `media/` holds every original, including
+items never published, `media-variants/` the private variants, and `replica/` (with the `replication`
+feature) snapshots of the whole database with sessions and password hashes. A bucket served straight to
+visitors grants anonymous `s3:GetObject` on `site/*` alone, never on the bucket, and no anonymous
+`s3:ListBucket`:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    { "Effect": "Allow", "Principal": "*", "Action": "s3:GetObject", "Resource": "arn:aws:s3:::example-bucket/site/*" }
+  ]
+}
+```
+
+The preset refuses to boot when the replica prefix or a `backup-blobstore` key overlaps a public prefix
+(`site/`, or the `prefix`/`publicCopy.prefix` of `delivery-static`, `redirects-default`, `media-default`
+or `images-default`): `preset: … overlaps the public prefix …`.
+
 `.wal` and `.shm` belong to the database file. A file-level copy of `kestrel.db` alone, taken while
 the process runs, is not a consistent backup.
 
@@ -268,8 +287,9 @@ health condition, and both `/api/health` and `/api/ready` keep answering normall
   `replicate` pipeline on a one-minute cron that streams the database into the blobstore, and
   **System → Replication** with the restore points, a manual snapshot and a restore. Its prefix,
   `restoreOnStart` and `retentionSeconds` are set through
-  `overrides["@michaelthielemann/kestrel-replication-sqlite"]` (§3 of the consuming guide). With an S3
-  blobstore this puts database and blobs in the same off-host place.
+  `overrides["@michaelthielemann/kestrel-replication-sqlite"]` (§3 of the consuming guide); the prefix
+  defaults to `replica/` and must stay outside `site/` (§3). With an S3 blobstore this puts database and
+  blobs in the same off-host place, which is why that bucket must never be readable beyond `site/*`.
 - **Restore-on-start ordering.** `replication-sqlite` and `backup-blobstore` declare a `before` edge on
   `persistence@1`, so the backend sets either one up before `persistence-sqlite` opens the database file
   — regardless of the order modules are listed in. A custom blobstore module you write yourself must not

@@ -225,3 +225,38 @@ describe("checkPreset: dependent re-rendering and queue lanes", () => {
     ]);
   });
 });
+
+describe("private blob prefixes", () => {
+  const replication = (config: Record<string, unknown>) => ({ use: "@michaelthielemann/kestrel-replication-sqlite", config: { file: "data/kestrel.db", ...config } });
+
+  function problemCodes(modules: readonly { use: string; config?: unknown }[]): string[] {
+    return checkPreset({ modules: [...baseModules, ...modules], features: [] }).problems.map((problem) => problem.code);
+  }
+
+  it("accepts the replica under its own default prefix next to the public site/ tree", () => {
+    expect(problemCodes([replication({})])).not.toContain("preset/private-prefix-public");
+    expect(problemCodes([replication({ prefix: "private/replica/" })])).not.toContain("preset/private-prefix-public");
+  });
+
+  it("refuses a replica prefix under the public site/ tree, naming both prefixes", () => {
+    const testOptions: PresetOptions = { modules: [...baseModules, replication({ prefix: "site/replica/" })], features: [] };
+    expect(() => definePreset(testOptions)).toThrow(/replication-sqlite.*"site\/replica\/".*public.*"site\/"/);
+    expect(problemCodes([replication({ prefix: "site/replica/" })])).toContain("preset/private-prefix-public");
+  });
+
+  it("refuses a replica prefix that contains the public tree, such as the whole store", () => {
+    expect(problemCodes([replication({ prefix: "" })])).toContain("preset/private-prefix-public");
+  });
+
+  it("refuses a replica under a public prefix configured on delivery-static or media-default", () => {
+    expect(problemCodes([{ use: "@michaelthielemann/kestrel-delivery-static", config: { prefix: "www/" } }, replication({ prefix: "www/replica/" })])).toContain("preset/private-prefix-public");
+    const mediaModules = baseModules.map((entry) => (entry.use === "@michaelthielemann/kestrel-media-default" ? { use: entry.use, config: { publicCopy: { prefix: "pub/" } } } : entry));
+    const { problems } = checkPreset({ modules: [...mediaModules, replication({ prefix: "pub/db/" })], features: [] });
+    expect(problems.map((problem) => problem.code)).toContain("preset/private-prefix-public");
+  });
+
+  it("refuses a database backup key under the public tree", () => {
+    expect(problemCodes([{ use: "@michaelthielemann/kestrel-backup-blobstore", config: { file: "data/kestrel.db", key: "site/backup/kestrel.db" } }])).toContain("preset/private-prefix-public");
+    expect(problemCodes([{ use: "@michaelthielemann/kestrel-backup-blobstore", config: { file: "data/kestrel.db", key: "backup/kestrel.db" } }])).not.toContain("preset/private-prefix-public");
+  });
+});
