@@ -141,12 +141,13 @@ describe("release publish", () => {
     expect(result.stdout).toBe("publish @example/layer@2.1.0\npublish @example/renderer@2.1.0\npublish create-kestrel@5.1.0\n");
   }, 60000);
 
-  it("fails when a planned version is already on the registry with other content", async () => {
+  it("fails before publishing anything when the last planned package is already on the registry with other content", async () => {
     await plan();
-    published.set("@example/renderer/2.1.0", { integrity: "sha512-other" });
+    published.set("create-kestrel/5.1.0", { integrity: "sha512-other" });
     const result = await publishDry();
     expect(result.code).toBe(1);
-    expect(result.stderr).toContain("@example/renderer@2.1.0 is already on the registry with different content");
+    expect(result.stderr).toContain("already on the registry with different content: create-kestrel@5.1.0; nothing of this release is published");
+    expect(result.stdout).toBe("");
   }, 60000);
 
   it("treats a version already published from this very artifact as done", async () => {
