@@ -41,7 +41,7 @@ describe("the feature list", () => {
   });
 
   it("preselects the default feature set", () => {
-    expect(DEFAULT_FEATURES).toEqual(["ratelimit", "sanitizeSvg", "references", "links", "delivery", "redirects", "images", "insights", "eventsQueue", "revisions"]);
+    expect(DEFAULT_FEATURES).toEqual(["ratelimit", "sanitizeSvg", "references", "links", "delivery", "redirects", "images", "audit", "insights", "eventsQueue", "revisions"]);
   });
 });
 

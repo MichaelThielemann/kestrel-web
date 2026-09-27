@@ -8,6 +8,9 @@ export const AUDIT_MODULE = "@michaelthielemann/kestrel-audit-persistence";
 export const AUDIT_PRUNE_PIPELINE = "pruneAudit";
 export const AUDIT_RETENTION_KEY = "retentionDays";
 
+/** The account events the `auditUsers` pipeline records: who changed which user, and how. */
+export const AUDITED_USER_EVENTS = ["user.created", "user.updated", "user.deactivated", "user.activated", "user.passwordSet", "user.passwordChanged"] as const;
+
 function hasRetention(modules: readonly PresetModuleEntry[] | undefined): boolean {
   const entry = modules?.find((candidate) => candidate.use === AUDIT_MODULE);
   const config = entry === undefined ? undefined : effectiveModuleConfig(entry);
@@ -19,12 +22,14 @@ function hasRetention(modules: readonly PresetModuleEntry[] | undefined): boolea
 export default function audit(context: PresetContext): FeatureModule {
   const pipelines: Record<string, PresetStep[]> = {
     auditAuth: ["audit.record"],
+    auditUsers: ["audit.record"],
     anonymizeAuditUser: ["audit.anonymize"],
     retryAnonymizeAuditUser: ["authn.requireUser", "authz.require:users.manage", "audit.anonymize"],
   };
   const triggers: TriggerConfig[] = [
     { http: "POST /admin/users/:id/audit/anonymize", pipeline: "retryAnonymizeAuditUser" },
     { event: "user.deleted", pipeline: "anonymizeAuditUser" },
+    ...AUDITED_USER_EVENTS.map((event): TriggerConfig => ({ event, pipeline: "auditUsers" })),
   ];
 
   if (hasRetention(context.modules)) {

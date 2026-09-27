@@ -4,7 +4,9 @@
       "authn.requireUser",
       "authz.require:users.manage",
       "authn.requireRecentAuth:300",
-      "authn.activateUser"
+      "authn.activateUser",
+      "events.emit:user.activated",
+      "events.relay"
     ],
     "adminSchemaModel": [
       "authn.requireUser",
@@ -15,6 +17,9 @@
       "audit.anonymize"
     ],
     "auditAuth": [
+      "audit.record"
+    ],
+    "auditUsers": [
       "audit.record"
     ],
     "blogDependents": [
@@ -57,7 +62,9 @@
     ],
     "changePassword": [
       "authn.requireUser",
-      "authn.changePassword"
+      "authn.changePassword",
+      "events.emit:user.passwordChanged",
+      "events.relay"
     ],
     "checkLinks": [
       "links.check"
@@ -731,7 +738,9 @@
       "authn.requireUser",
       "authz.require:users.manage",
       "authn.requireRecentAuth:300",
-      "authn.setPassword"
+      "authn.setPassword",
+      "events.emit:user.passwordSet",
+      "events.relay"
     ],
     "setRedirects": [
       "authn.requireUser",
@@ -1396,6 +1405,30 @@
     {
       "event": "user.deleted",
       "pipeline": "anonymizeAuditUser"
+    },
+    {
+      "event": "user.created",
+      "pipeline": "auditUsers"
+    },
+    {
+      "event": "user.updated",
+      "pipeline": "auditUsers"
+    },
+    {
+      "event": "user.deactivated",
+      "pipeline": "auditUsers"
+    },
+    {
+      "event": "user.activated",
+      "pipeline": "auditUsers"
+    },
+    {
+      "event": "user.passwordSet",
+      "pipeline": "auditUsers"
+    },
+    {
+      "event": "user.passwordChanged",
+      "pipeline": "auditUsers"
     },
     {
       "cron": "45 3 * * *",

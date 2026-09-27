@@ -14,7 +14,7 @@ export const ALL_FEATURES = [
   "revisions",
 ];
 
-export const DEFAULT_FEATURES = ["ratelimit", "sanitizeSvg", "references", "links", "delivery", "redirects", "images", "insights", "eventsQueue", "revisions"];
+export const DEFAULT_FEATURES = ["ratelimit", "sanitizeSvg", "references", "links", "delivery", "redirects", "images", "audit", "insights", "eventsQueue", "revisions"];
 
 export const FEATURE_SUMMARY = {
   ratelimit: "rate limit for the login route",
@@ -26,7 +26,7 @@ export const FEATURE_SUMMARY = {
   images: "derived image variants for the sizes your blocks declare",
   replication: "periodic snapshots of the SQLite database",
   migrations: "run content migrations from the admin",
-  audit: "persist login and logout events",
+  audit: "persist sign-ins, failed sign-ins, account changes, denied and rate-limited requests",
   insights: "the /admin/insights page (needs three extra packages)",
   eventsQueue: "durable event queue instead of inline delivery",
   revisions: "version history for every multi collection",

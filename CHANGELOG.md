@@ -21,6 +21,11 @@
   each item's canonical content type (requires `@michaelthielemann/kestrel-media-default` with the `type`
   query on `media.list`), narrows the listing with correct paging and combines with the text search; a
   field whose `accept` is fixed to images only offers that one option.
+- The `audit` feature records account changes through the new `auditUsers` pipeline (`user.created`,
+  `user.updated`, `user.deactivated`, `user.activated`, `user.passwordSet`, `user.passwordChanged`; the
+  last three are new events of `activateUser`, `setPassword` and `changePassword`), and every entry now
+  carries the client address. `audit-persistence` adds failed sign-ins and password checks, 403 and 429
+  answers on its own. create-kestrel selects `audit` by default.
 
 ### Upgrading
 

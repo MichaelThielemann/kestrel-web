@@ -61,7 +61,7 @@ export const staticPipelineNames = [
   "serveImageVariant", "registerImageSizes", "registerImageSizesBoot", "listImageSizes", "syncImages", "pruneImages", "retryFailedImages", "imagesStatus", "planImageVariants", "generateImageVariants", "resumeImages",
   "replicate", "replicationStatus", "replicationPoints", "replicationSnapshot", "replicationRestore",
   "listMigrations", "applyMigrations",
-  "auditAuth", "anonymizeAuditUser", "retryAnonymizeAuditUser", "pruneAudit",
+  "auditAuth", "auditUsers", "anonymizeAuditUser", "retryAnonymizeAuditUser", "pruneAudit",
   "insightsManifest", "insightsStats",
   "eventsQueueStatus", "eventsDead", "eventsRetryDead", "eventsRetryOne", "purgeEvents",
   "pageRevisions", "pageRevision", "labelPageRevision", "restorePageRevision", "pruneRevisions",

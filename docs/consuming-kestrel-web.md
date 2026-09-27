@@ -773,8 +773,8 @@ The preset wires the whole user lifecycle to `authn-multi` and guards every rout
 |---|---|---|
 | `GET /users`, `POST /users`, `GET /users/:id` | `listUsers`, `createUser`, `getUser` | the user(s) |
 | `PATCH /users/:id` | `updateUser` | the user; `{ username?, roles? }`, emits `user.updated` |
-| `PUT /users/:id/password` | `setPassword` | `{ ok: true }` |
-| `POST /users/:id/deactivate` / `/activate` | `deactivateUser`, `activateUser` | `{ ok: true }` |
+| `PUT /users/:id/password` | `setPassword` | `{ ok: true }`, emits `user.passwordSet` |
+| `POST /users/:id/deactivate` / `/activate` | `deactivateUser`, `activateUser` | `{ ok: true }`, emits `user.deactivated` / `user.activated` |
 | `DELETE /users/:id` | `deleteUser` | `{ ok: true, reassignTo: { id, name } \| null }`, a hard delete, emits `user.deleted` with the step result |
 | `POST /admin/users/:id/revisions/reassign` | `retryReassignRevisionAuthor` | with the `revisions` feature: `{ from, to, revisions }`, re-runs the author reassignment against a freshly verified target |
 | `POST /admin/users/:id/audit/anonymize` | `retryAnonymizeAuditUser` | with the `audit` feature: `{ entries }`, re-runs the audit anonymisation |
@@ -821,7 +821,7 @@ or a retry actually runs.
 | `images` | kestrel-images-default | Routes, an event and a cron job for image variants, plus boot-time size registration — see the list below the table |
 | `replication` | kestrel-replication-sqlite | `replicate` (cron), `replicationStatus`, `replicationPoints`, `replicationSnapshot`, `replicationRestore` |
 | `migrations` | kestrel-migrations-default | `listMigrations`, `applyMigrations` (`GET /admin/migrations`, `POST /admin/migrations/apply`) |
-| `audit` | kestrel-audit-persistence | `auditAuth` (on `auth.loggedIn`/`auth.loggedOut`), `anonymizeAuditUser` (on `user.deleted`), `retryAnonymizeAuditUser` (`POST /admin/users/:id/audit/anonymize`, `users.manage`), and `pruneAudit` (cron `45 3 * * *`) as soon as `audit: { retentionDays }` is configured |
+| `audit` | kestrel-audit-persistence | `auditAuth` (on `auth.loggedIn`/`auth.loggedOut`), `auditUsers` (on `user.created`, `user.updated`, `user.deactivated`, `user.activated`, `user.passwordSet`, `user.passwordChanged`), the module's own security entries (`auth.failed` for a failed sign-in or password check with the attempted username, `access.denied` for a 403, `access.rateLimited` for a 429), every entry with the client address, `anonymizeAuditUser` (on `user.deleted`), `retryAnonymizeAuditUser` (`POST /admin/users/:id/audit/anonymize`, `users.manage`), and `pruneAudit` (cron `45 3 * * *`) as soon as `audit: { retentionDays }` is configured |
 | `insights` | kestrel-insights (optional peer) | `insightsManifest`, `insightsStats` (`GET /admin/insights/manifest`, `GET /admin/insights/stats`, `insights.read`); the `/admin/insights` page |
 | `eventsQueue` | kestrel-events-queue (instead of kestrel-events-direct) | Adds `eventsQueueStatus`, `eventsDead`, `eventsRetryDead`, `eventsRetryOne` (`/admin/events/*`, `system.manage`), and `purgeEvents` (cron) — see the note below the table |
 | `revisions` | kestrel-revisions-default | Per-collection revision pipelines, routes and the history dialog in the record editor — see the list below the table |
@@ -1025,7 +1025,7 @@ What is personal is the *reference*: who wrote something, and who was logged in 
 | the user table | username, password hash, roles, active, created | `DELETE /users/:id` removes the row for good |
 | sessions | token, user id, expiry | deleted with the user, on logout, on a role or password change, and by the hourly `cleanupSessions` cron |
 | revisions (`revisions` feature) | `author: { id, name }` per revision, the username as it stood at that moment | `user.deleted` runs `reassignRevisionAuthor`, which moves every revision to the chosen user or anonymises it to `{ id: null, name: null }`; snapshots, count and order stay |
-| the audit log (`audit` feature) | who acted per login and logout, plus the route params | the same event runs `anonymizeAuditUser`, which drops the identity and every param naming that user and keeps event and time; `pruneAudit` deletes entries older than `retentionDays` |
+| the audit log (`audit` feature) | who acted per login, logout and account change, the client address, the route params, and the username tried in a failed sign-in | the same event runs `anonymizeAuditUser`, which drops the identity and every param naming that user and keeps event and time; `pruneAudit` deletes entries older than `retentionDays` |
 
 Nothing else carries a user reference: documents, media, the reference and link indexes, delivery
 status and the revision *snapshots* hold no user id.

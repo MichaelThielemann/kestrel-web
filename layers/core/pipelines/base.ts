@@ -45,7 +45,7 @@ export function basePipelines(
     logout: ["authn.requireUser", "authn.logout", "events.emit:auth.loggedOut"],
     me: ["authn.requireUser", "authn.loadIdentity"],
     adminSchemaModel: ["authn.requireUser", "content.describeModel", "authz.describePipelineAccess"],
-    changePassword: ["authn.requireUser", "authn.changePassword"],
+    changePassword: ["authn.requireUser", "authn.changePassword", "events.emit:user.passwordChanged"],
     confirmPassword: ["authn.requireUser", "authn.confirmPassword"],
     listUsers: ["authn.requireUser", "authz.require:users.manage", "authn.listUsers"],
     createUser: [
@@ -68,9 +68,9 @@ export function basePipelines(
     deleteUser: eventsQueued
       ? ["authn.requireUser", "authz.require:users.manage", REQUIRE_RECENT_AUTH, { atomic: ["authn.deleteUser"] }, "events.emit:user.deleted?with=result"]
       : ["authn.requireUser", "authz.require:users.manage", REQUIRE_RECENT_AUTH, "authn.deleteUser", "events.emit:user.deleted?with=result"],
-    setPassword: ["authn.requireUser", "authz.require:users.manage", REQUIRE_RECENT_AUTH, "authn.setPassword"],
+    setPassword: ["authn.requireUser", "authz.require:users.manage", REQUIRE_RECENT_AUTH, "authn.setPassword", "events.emit:user.passwordSet"],
     deactivateUser: ["authn.requireUser", "authz.require:users.manage", REQUIRE_RECENT_AUTH, "authn.deactivateUser", "events.emit:user.deactivated"],
-    activateUser: ["authn.requireUser", "authz.require:users.manage", REQUIRE_RECENT_AUTH, "authn.activateUser"],
+    activateUser: ["authn.requireUser", "authz.require:users.manage", REQUIRE_RECENT_AUTH, "authn.activateUser", "events.emit:user.activated"],
     cleanupSessions: ["authn.cleanupSessions"],
     [SETTINGS_PIPELINES.get]: [
       "authn.identifyUser",

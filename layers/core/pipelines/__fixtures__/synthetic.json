@@ -4,7 +4,9 @@
       "authn.requireUser",
       "authz.require:users.manage",
       "authn.requireRecentAuth:300",
-      "authn.activateUser"
+      "authn.activateUser",
+      "events.emit:user.activated",
+      "events.relay"
     ],
     "adminSchemaModel": [
       "authn.requireUser",
@@ -18,7 +20,9 @@
     ],
     "changePassword": [
       "authn.requireUser",
-      "authn.changePassword"
+      "authn.changePassword",
+      "events.emit:user.passwordChanged",
+      "events.relay"
     ],
     "cleanupSessions": [
       "authn.cleanupSessions"
@@ -380,7 +384,9 @@
       "authn.requireUser",
       "authz.require:users.manage",
       "authn.requireRecentAuth:300",
-      "authn.setPassword"
+      "authn.setPassword",
+      "events.emit:user.passwordSet",
+      "events.relay"
     ],
     "setProfile": [
       "authn.requireUser",
