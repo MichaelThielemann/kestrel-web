@@ -662,6 +662,10 @@
 
 ### Fixed
 
+- The layer's `kestrel` CLI plugin and the model reader behind `kestrel upgrade data` compile TypeScript in
+  memory only; they no longer keep a transpile cache under the system temp directory, where another local
+  account could have placed files that the next `kestrel check`, `explain`, `manifest`, `openapi` or
+  `upgrade` would load.
 - The admin's `<html>` element carries a `lang` attribute with the admin language, so screen readers
   pronounce the admin in the right language (WCAG 3.1.1).
 

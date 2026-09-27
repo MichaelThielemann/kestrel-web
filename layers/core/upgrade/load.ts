@@ -338,7 +338,7 @@ export async function loadDataModel(root: string): Promise<DataContentModel | un
   const file = sharedModelFile(root);
   if (!existsSync(file)) return undefined;
   const aliases = kestrelAliases(root, join(root, ".nuxt"));
-  const jiti = createJiti(pathToFileURL(file).href, { alias: aliases, moduleCache: false, interopDefault: true });
+  const jiti = createJiti(pathToFileURL(file).href, { alias: aliases, moduleCache: false, fsCache: false, interopDefault: true });
   try {
     const mod = await jiti.import<{ contentModel?: unknown }>(pathToFileURL(file).href);
     return dataContentModelOf(mod.contentModel, file);

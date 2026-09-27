@@ -49,7 +49,7 @@ describe("materializeFixture cleanup", () => {
         script,
         `
         import { createJiti } from "jiti";
-        const jiti = createJiti(import.meta.url, { interopDefault: true });
+        const jiti = createJiti(import.meta.url, { fsCache: false, interopDefault: true });
         const { materializeFixture } = await jiti.import(${JSON.stringify(materializePath)});
         const dir = materializeFixture("site-2.0");
         process.stdout.write(dir + "\\n");
