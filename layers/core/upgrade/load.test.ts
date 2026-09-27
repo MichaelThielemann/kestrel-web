@@ -24,4 +24,10 @@ describe("loadDataModel", () => {
     const model = await loadDataModel(root);
     expect(model?.file).toBe(resolve(root, "shared", "model.ts"));
   });
+
+  it("names every routed collection with the live status of its workflow, and the default locale", async () => {
+    const model = await loadDataModel(resolve(FIXTURES, "site-2.0"));
+    expect(model?.routes).toEqual({ pages: { slugField: "slug", liveWhen: { status: "published" } } });
+    expect(model?.defaultLocale).toBe("en");
+  });
 });

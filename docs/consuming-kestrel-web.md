@@ -196,8 +196,10 @@ ships `default.vue`, so a consumer with no layouts of its own still renders. See
 
 ### Untranslated pages
 
-The public site resolves pages with `fallback=true`, which lets a page whose translation is missing still
-be found so its primary-locale path can be resolved — but the fallback content is never rendered to a
+A page is found in a locale only through its own slug there, so a page with no translation, or a
+translation without a slug of its own, answers 404 in that locale whatever `untranslatedPages` says. The
+public site resolves pages with `fallback=true`, which fills the other empty fields of a translation that
+has its own slug from the published default locale — but that fallback content is never rendered to a
 visitor. `[...slug].vue` checks each resolved page's `_locales` map, and if any localized field is
 inherited from `defaultLocale` rather than owned by the requested locale, it applies `untranslatedPages`:
 `"redirect"` sends a 302 to the primary-locale page, `"notFound"` throws a 404. Only pages with

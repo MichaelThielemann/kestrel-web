@@ -36,7 +36,14 @@ pages: {
 
 The field must be called `parent`, reference `pages` and not be localized. Its path then starts with its
 parent's, in every locale: `/ueber-uns/team`, `/en/about-us/team`. A locale in which a parent has no slug
-of its own uses the parent's default-locale slug as the segment.
+of its own uses the parent's default-locale slug as the segment of its subpages' paths; the parent itself
+has no path in that locale.
+
+- A slug belongs to its locale. A translation is reachable only through a slug of its own: without one it
+  answers `404`, gets no `_paths` entry, no static page and no automatic redirect, and a link to it in that
+  locale is broken. Saving a translation as published without a slug of its own answers `400` with the
+  error on the slug field, through the admin and through the API alike. `kestrel upgrade data` reports
+  stored translations in that state (`data/translation-slug`).
 
 - A page is reachable on its own terms: a published subpage of an unpublished parent is served at its full
   path, with the parent's slug as a segment, while the parent itself answers `404`. Nothing else of the
@@ -132,9 +139,8 @@ and the untranslated-page redirect goes to the default locale's `_paths` entry.
 ## The admin
 
 - The slug field shows the full path the page would get, asked from `POST /api/admin/pages/path-preview`
-  while you type. It names a page that already holds the path, warns when publishing this page would take
-  a path over from a page that reaches it only through its default-locale slug, and names why a
-  published page would not be reachable.
+  while you type. It names a page that already holds the path and names why a published page would not
+  be reachable.
 - The pages list shows each page's path in the list's locale instead of its slug.
 - System → Paths rebuilds the index from the stored content (`POST /api/admin/paths/rebuild`, permission
   `system.manage`) and reports every path claimed twice or unusable. A page that lost its path in a

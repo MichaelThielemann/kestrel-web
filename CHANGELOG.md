@@ -24,6 +24,14 @@
 
 ### Breaking
 
+- A slug belongs to its locale: a page or mounted document is reachable in a locale only through a slug of
+  its own there. A translation without one answers 404 (also with `untranslatedPages: "redirect"`, which now
+  applies only to a translation that has its own slug but inherits other fields), gets no `_paths` entry,
+  static page or automatic redirect, and a link to it in that locale is broken; saving it as published
+  answers `400` on the slug field, through the admin and the API. A page without a slug in a locale still
+  gives its subpages its default-locale slug as their segment there. `kestrel upgrade data` reports stored
+  translations in that state as `data/translation-slug`, naming the default-locale slug to copy only where
+  that locale is published.
 - `GET /api/<collection>` and `GET /api/admin/<collection>` without `limit` answer at most 200 items
   (`content-default`'s `defaultLimit`, which defaults to its `maxLimit`) with the full `total`, instead of
   every match; read further pages with `offset`. The admin's lists and pickers already page.

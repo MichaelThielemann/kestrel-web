@@ -1956,8 +1956,8 @@ refresh button republishes the snapshot and forces a reload by reassigning the i
 document once the user has navigated inside the iframe.
 
 ### Untranslated pages
-`GET /site<path>` resolves with `fallback=true`, so a page missing the requested locale's edits still
-resolves — the response carries `_locales` (per field: which locale actually owns the value) and
+`GET /site<path>` finds a page only through the requested locale's own slug and resolves with
+`fallback=true`, so a translation with its own slug but missing other edits still resolves — the response carries `_locales` (per field: which locale actually owns the value) and
 `_translations` (which locales have all required localized fields). `fallback=true` is used only to
 find the document and compute its primary-locale path (`layers/public/app/utils/untranslated.ts`,
 `isFallbackDocument` / `primaryPathOf`); the fallback content itself is never rendered. `[...slug].vue`

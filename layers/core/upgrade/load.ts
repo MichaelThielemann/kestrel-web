@@ -10,7 +10,7 @@ import { boundaryCast } from "@michaelthielemann/kestrel/cast";
 import type { KestrelConfigInput } from "@michaelthielemann/kestrel";
 import type { ModuleDefinition } from "@michaelthielemann/kestrel/defineModule";
 import type { PipelineDefinition } from "@michaelthielemann/kestrel/definePipeline";
-import type { DataContentField, DataContentModel, DataContentType, LoadedProject, LoadIssue, LoadResult, PipelineFile } from "@michaelthielemann/kestrel-upgrade/plugin";
+import type { DataContentField, DataContentModel, DataContentType, DataRoute, LoadedProject, LoadIssue, LoadResult, PipelineFile } from "@michaelthielemann/kestrel-upgrade/plugin";
 import { kestrelAliases } from "./aliases";
 import { namedExportArray } from "./edits";
 import { presetOverridesObjects } from "./locators";
@@ -18,7 +18,9 @@ import type { CapturedPreset } from "./pipelinesCapture";
 import { layerBootInput } from "../server/utils/boot-input";
 import type { SchemaBundle } from "../server/utils/bundled-schemas";
 import type { SiteModel } from "../server/utils/site-model";
-import type { WorkflowUi } from "../collections-ui/workflow";
+import { resolveWorkflow, type WorkflowUi } from "../collections-ui/workflow";
+import type { CollectionModel } from "../pipelines/collections";
+import { routedCollections } from "../pipelines/paths";
 
 const execFileAsync = promisify(execFile);
 
@@ -308,7 +310,24 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-function dataContentModelOf(value: unknown, file: string): DataContentModel | undefined {
+function dataRoutesOf(types: Record<string, unknown>, collectionsUi: Record<string, WorkflowUi>): Record<string, DataRoute> {
+  const collections: Record<string, CollectionModel> = {};
+  for (const [name, type] of Object.entries(types)) {
+    if (!isRecord(type) || !isRecord(type.fields)) continue;
+    collections[name] = { kind: type.kind === "single" ? "single" : "multi", fields: type.fields, ...(type.mount === true ? { mount: true } : {}) };
+  }
+  if (collections.pages === undefined) return {};
+  const routes: Record<string, DataRoute> = {};
+  for (const name of routedCollections(collections)) {
+    const model = collections[name];
+    if (model === undefined) continue;
+    const workflow = resolveWorkflow(name, model, collectionsUi[name]);
+    routes[name] = { slugField: "slug", liveWhen: workflow === undefined ? {} : { [workflow.field]: workflow.live } };
+  }
+  return routes;
+}
+
+function dataContentModelOf(value: unknown, file: string, collectionsUi: Record<string, WorkflowUi>): DataContentModel | undefined {
   if (!isRecord(value) || !isRecord(value.types)) return undefined;
   const types: Record<string, DataContentType> = {};
   for (const [typeName, type] of Object.entries(value.types)) {
@@ -318,7 +337,14 @@ function dataContentModelOf(value: unknown, file: string): DataContentModel | un
     types[typeName] = { fields };
   }
   const locales = value.locales;
-  return { types, use: "shared/model.ts", file, ...(Array.isArray(locales) ? { locales: locales.filter((l): l is string => typeof l === "string") } : {}) };
+  return {
+    types,
+    use: "shared/model.ts",
+    file,
+    routes: dataRoutesOf(value.types, collectionsUi),
+    ...(Array.isArray(locales) ? { locales: locales.filter((l): l is string => typeof l === "string") } : {}),
+    ...(typeof value.defaultLocale === "string" ? { defaultLocale: value.defaultLocale } : {}),
+  };
 }
 
 /**
@@ -336,7 +362,19 @@ function dataContentModelOf(value: unknown, file: string): DataContentModel | un
  */
 export async function loadDataModel(root: string): Promise<DataContentModel | undefined> {
   const model = await loadSharedContentModel(root);
-  return model === undefined ? undefined : dataContentModelOf(model, sharedModelFile(root));
+  return model === undefined ? undefined : dataContentModelOf(model, sharedModelFile(root), await loadSharedCollectionsUi(root));
+}
+
+async function loadSharedCollectionsUi(root: string): Promise<Record<string, WorkflowUi>> {
+  const file = join(root, "shared", "collections-ui.ts");
+  if (!existsSync(file)) return {};
+  const jiti = createJiti(pathToFileURL(file).href, { alias: kestrelAliases(root, join(root, ".nuxt")), moduleCache: false, interopDefault: true });
+  try {
+    const mod = await jiti.import<{ default?: unknown }>(pathToFileURL(file).href);
+    return isRecord(mod.default) ? boundaryCast<Record<string, WorkflowUi>>(mod.default, "host") : {};
+  } catch {
+    return {};
+  }
 }
 
 /** The `contentModel` export of `shared/model.ts` at `root`, loaded in place like `loadDataModel`; `undefined` when the file is missing or does not load. */

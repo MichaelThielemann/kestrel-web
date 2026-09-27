@@ -2637,7 +2637,7 @@ export interface operations {
                     };
                 };
             };
-            /** @description the path is reserved or starts with a locale code */
+            /** @description the path is reserved or starts with a locale code, or the written locale is published without a slug of its own */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -5240,7 +5240,7 @@ export interface operations {
                     };
                 };
             };
-            /** @description the path is reserved or starts with a locale code */
+            /** @description the path is reserved or starts with a locale code, or the written locale is published without a slug of its own */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -7343,7 +7343,7 @@ export interface operations {
                     };
                 };
             };
-            /** @description the path is reserved or starts with a locale code */
+            /** @description the path is reserved or starts with a locale code, or the written locale is published without a slug of its own */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -7483,7 +7483,9 @@ export interface operations {
     };
     deleteBlog: {
         parameters: {
-            query?: never;
+            query?: {
+                locale?: string;
+            };
             header?: never;
             path: {
                 id: string;
@@ -7516,7 +7518,7 @@ export interface operations {
                     };
                 };
             };
-            /** @description the path is reserved or starts with a locale code */
+            /** @description the path is reserved or starts with a locale code, or the written locale is published without a slug of its own */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -7640,7 +7642,7 @@ export interface operations {
                     };
                 };
             };
-            /** @description the path is reserved or starts with a locale code */
+            /** @description the path is reserved or starts with a locale code, or the written locale is published without a slug of its own */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -7761,7 +7763,7 @@ export interface operations {
                     };
                 };
             };
-            /** @description the path is reserved or starts with a locale code */
+            /** @description the path is reserved or starts with a locale code, or the written locale is published without a slug of its own */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -9460,7 +9462,7 @@ export interface operations {
                     };
                 };
             };
-            /** @description the path is reserved or starts with a locale code */
+            /** @description the path is reserved or starts with a locale code, or the written locale is published without a slug of its own */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -9600,7 +9602,9 @@ export interface operations {
     };
     deletePage: {
         parameters: {
-            query?: never;
+            query?: {
+                locale?: string;
+            };
             header?: never;
             path: {
                 id: string;
@@ -9633,7 +9637,7 @@ export interface operations {
                     };
                 };
             };
-            /** @description the path is reserved or starts with a locale code */
+            /** @description the path is reserved or starts with a locale code, or the written locale is published without a slug of its own */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -9765,7 +9769,7 @@ export interface operations {
                     };
                 };
             };
-            /** @description the path is reserved or starts with a locale code */
+            /** @description the path is reserved or starts with a locale code, or the written locale is published without a slug of its own */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -9890,7 +9894,7 @@ export interface operations {
                     };
                 };
             };
-            /** @description the path is reserved or starts with a locale code */
+            /** @description the path is reserved or starts with a locale code, or the written locale is published without a slug of its own */
             400: {
                 headers: {
                     [name: string]: unknown;
