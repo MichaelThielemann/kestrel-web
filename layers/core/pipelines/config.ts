@@ -177,6 +177,13 @@ const DEFAULT_LLMS_HEADINGS = { [PAGES_COLLECTION]: "Pages" };
 const DEFAULT_SESSION: Required<PresetSession> = { identifier: "username", minPasswordLength: 12, sessionTtlSeconds: 86400, secureCookie: true };
 const DEFAULT_LINKS = { timeoutMs: 10000, concurrency: 4, recheckAfterSeconds: 21600 };
 
+const MEDIA_LIST_GRANTS = new Set(["*", "media.*", "media.list"]);
+
+/** Every role that may read media also lists the library: `media.list` joins a role that grants `media.read` without it. */
+export function withMediaListing(roles: Record<string, string[]>): Record<string, string[]> {
+  return Object.fromEntries(Object.entries(roles).map(([role, grants]) => [role, grants.includes("media.read") && !grants.some((grant) => MEDIA_LIST_GRANTS.has(grant)) ? [...grants, "media.list"] : grants]));
+}
+
 function requireOption<T>(value: T | undefined, name: string): T {
   if (value === undefined) throw new Error(`presetModuleConfig: option "${name}" is required`);
   return value;
@@ -426,7 +433,7 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
     bootstrap: { username: bootstrap.username, passwordHash: bootstrap.passwordHash, roles: bootstrap.roles ?? ["admin"] },
   }));
   modules.push(preset("@michaelthielemann/kestrel-authz-roles", {
-    roles: roles.roles,
+    roles: withMediaListing(roles.roles),
     anonymous: roles.anonymous,
     anonymousFields: withConsumerGrants(anonymousFieldGrants({ ...(model.locales === undefined ? {} : { locales: model.locales }), types }, features, roles.anonymous, options.pipelines), roles.anonymousFields),
     ...(roles.fields === undefined ? {} : { fields: roles.fields }),

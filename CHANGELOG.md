@@ -536,7 +536,9 @@
 - A signed-in account without a configured role may only sign out and read its own identity: the preset runs
   `authz.requireRole` after `authn.requireUser` in every pipeline but `me` and `logout`, consumer overrides
   included, so `GET /api/admin/schema` and every other route behind a login answer it 403, and the admin shows
-  it a notice with the sign-out instead of the navigation. Listing the media library needs `media.list`. The
+  it a notice with the sign-out instead of the navigation. Listing the media library and its folders needs
+  `media.list`; `presetModuleConfig()` adds it to every role that grants `media.read`, and the admin shows the
+  library only to a caller who may list its folders. The
   schema composable's `SchemaOutcome` gains `'forbidden'` and its state a `forbidden` flag.
 
 - **Forwarding headers count only from a trusted proxy.** The new `NUXT_KESTREL_ACCESS_TRUSTED_PROXIES`

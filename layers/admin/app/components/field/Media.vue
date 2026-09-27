@@ -92,7 +92,7 @@ async function onConfirm(picked: string[]) {
         </ul>
         <p v-else class="field-media__empty">{{ t('field.media.empty') }}</p>
         <KestrelUiButton
-          v-if="!disabled && capabilities.has('listMedia')"
+          v-if="!disabled && capabilities.has('listMediaFolders')"
           :id="f.id"
           type="button"
           variant="secondary"

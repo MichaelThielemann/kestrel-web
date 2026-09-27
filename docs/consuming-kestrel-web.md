@@ -1492,7 +1492,7 @@ a static export, so `delivery-static` stores rendered output byte for byte. Refe
 only once its `available` is not `false` (an unavailable item has no variant paths yet, so a page would
 link only the original). Reading a media item anonymously is by id only — `GET /api/media/:id` or
 `GET /api/media?ids=…` — listing the library or its folders needs a signed-in caller holding
-`media.list` (`media.*` grants it) and answers `401` to a public request, `403` to an account without it.
+`media.list` (`media.*` grants it, and `presetModuleConfig()` adds it to every role that grants `media.read`) and answers `401` to a public request, `403` to an account without it.
 
 See `docs/architecture.md#image-variants` for the validation rules, the discovery/registration split and
 the `<KestrelImage>` prop and fallback rules in full.

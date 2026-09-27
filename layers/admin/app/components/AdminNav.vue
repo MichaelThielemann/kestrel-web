@@ -23,7 +23,7 @@ const capabilities = useCapabilities()
     </NuxtLink>
 
     <NuxtLink
-      v-if="capabilities.has('listMedia')"
+      v-if="capabilities.has('listMediaFolders')"
       to="/admin/media"
       class="admin-nav__link rail__item"
       :class="{ 'router-link-active': isNavItemActive(route.path, '/admin/media') }"

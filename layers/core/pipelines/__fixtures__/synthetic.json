@@ -254,7 +254,7 @@
     "listMediaFolders": [
       "authn.requireUser",
       "authz.requireRole",
-      "authz.require:media.read",
+      "authz.require:media.list",
       "media.listFolders"
     ],
     "listMigrations": [

@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { boundaryCast } from "@michaelthielemann/kestrel/cast";
 import { ADMIN_PASSWORD, bootPlaygroundPreset, type BootedPreset } from "./__fixtures__/boot-preset";
 
 describe("a signed-in account without a role may only sign out and read who it is", () => {
@@ -49,4 +50,22 @@ describe("a signed-in account without a role may only sign out and read who it i
 
     expect((await call("logout", "POST /logout", { headers })).status).toBe(200);
   }, 60_000);
+
+  it("keeps the library for a role that grants media.read, and tells the admin who may browse it", async () => {
+    preset = await bootPlaygroundPreset(appRoot, { roles: { admin: ["*"], author: ["pages.*", "blog.*", "media.read", "media.write"], reader: ["pages.read"] }, anonymous: ["pages.read", "blog.read", "settings.read", "media.read"] });
+    const { call } = preset;
+    const admin = await preset.login("admin", ADMIN_PASSWORD);
+    for (const [username, roles] of [["author-one", ["author"]], ["reader-one", ["reader"]]] as const) {
+      expect((await call("createUser", "POST /users", { headers: admin, body: { username, password: "correct horse battery", roles: [...roles] } })).status).toBe(200);
+    }
+    const author = await preset.login("author-one", "correct horse battery");
+    expect((await call("listMedia", "GET /media", { headers: author })).status).toBe(200);
+    expect((await call("listMediaFolders", "GET /media/folders", { headers: author })).status).toBe(200);
+    const reader = await preset.login("reader-one", "correct horse battery");
+    expect((await call("listMediaFolders", "GET /media/folders", { headers: reader })).status).toBe(403);
+    const access = (headers: Record<string, string>) => call("adminSchemaModel", "GET /admin/schema", { headers }).then((run) => boundaryCast<{ pipelineAccess: Record<string, string> }>(run.result, "host").pipelineAccess);
+    expect((await access(author)).listMediaFolders).toBe("granted");
+    expect((await access(reader)).listMediaFolders).toBe("denied");
+  }, 60_000);
 });
+

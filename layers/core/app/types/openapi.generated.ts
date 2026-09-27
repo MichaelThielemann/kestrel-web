@@ -1208,7 +1208,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission media.read → Folders (persistent and implied) with item counts; anonymous callers are refused */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission media.list → Folders (persistent and implied) with item counts; anonymous callers are refused */
         get: operations["listMediaFolders"];
         put?: never;
         /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission media.write → Create a folder (idempotent: an existing folder is returned unchanged) */
@@ -1476,7 +1476,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission users.manage → Require that the session's password was checked within the last 300 seconds, at login or through authn.confirmPassword; otherwise 403 REAUTH_REQUIRED → Remove another user's second factor; follow it with a step that ends that user's sessions → End every session of the user in params.id, e.g. after its second factor was reset → Queue event "user.secondFactorReset" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission users.manage → Require that the session's password was checked within the last 300 seconds, at login or through authn.confirmPassword; otherwise 403 REAUTH_REQUIRED → Remove another user's second factor and answer the one-time enrollment code its owner needs to set up a new one; follow it with a step that ends that user's sessions → End every session of the user in params.id, e.g. after its second factor was reset → Queue event "user.secondFactorReset" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
         delete: operations["resetSecondFactor"];
         options?: never;
         head?: never;
@@ -7947,7 +7947,7 @@ export interface operations {
                     };
                 };
             };
-            /** @description invalid body */
+            /** @description an account name longer than 320 characters */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -7965,7 +7965,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description too many requests */
+            /** @description too many wrong codes in a row; the factor is locked for a while (`RATE_LIMITED`) */
             429: {
                 headers: {
                     /** @description seconds until the client may retry */
@@ -8009,6 +8009,7 @@ export interface operations {
             content: {
                 "application/json": {
                     email?: string;
+                    enrollmentCode?: string;
                     password: string;
                     username?: string;
                 };
@@ -8027,7 +8028,7 @@ export interface operations {
                     };
                 };
             };
-            /** @description invalid body */
+            /** @description an account name longer than 320 characters */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -8038,6 +8039,15 @@ export interface operations {
             };
             /** @description invalid credentials */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description the account needs the enrollment code a reset issued (`ENROLLMENT_CODE_REQUIRED`) */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

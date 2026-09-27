@@ -99,7 +99,7 @@ export function basePipelines(
         ],
     uploadMedia: ["authn.requireUser", "authz.require:media.write", "media.upload", "events.emit:media.uploaded"],
     exportMedia: ["authn.requireUser", "authz.require:media.manage", `media.export:${exportDir}`],
-    listMediaFolders: ["authn.requireUser", "authz.require:media.read", "media.listFolders"],
+    listMediaFolders: ["authn.requireUser", "authz.require:media.list", "media.listFolders"],
     createMediaFolder: ["authn.requireUser", "authz.require:media.write", "media.createFolder"],
     renameMediaFolder: ["authn.requireUser", "authz.require:media.write", "media.renameFolder"],
     deleteMediaFolder: ["authn.requireUser", "authz.require:media.delete", "media.listFolderItems", "media.removeFolder", "events.emit:media.deleted"],

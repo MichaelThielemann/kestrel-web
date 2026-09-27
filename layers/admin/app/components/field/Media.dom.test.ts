@@ -11,7 +11,7 @@ const { schema, apiHandler } = vi.hoisted(() => {
     locales: { all: ['en'], primary: 'en', prefixPrimary: false },
     collections: [],
     features: [],
-    capabilities: { listMedia: { method: 'GET', path: '/media' } },
+    capabilities: { listMedia: { method: 'GET', path: '/media' }, listMediaFolders: { method: 'GET', path: '/media/folders' } },
   }
   const apiHandler = { fn: (_path: string, _options?: unknown): Promise<unknown> => Promise.resolve({ items: [], total: 0 }) }
   return { schema, apiHandler }
@@ -52,6 +52,20 @@ const PickerStub = defineComponent({
 describe('field/Media load watch', () => {
   afterEach(() => {
     apiHandler.fn = () => Promise.resolve({ items: [], total: 0 })
+  })
+
+  it('offers the library only to a caller who may browse it', async () => {
+    const browse = schema.capabilities.listMediaFolders
+    const pickButton = (wrapper: Awaited<ReturnType<typeof mountSuspended>>) => wrapper.findAll('button').some((button) => button.text() === en['field.media.select'] || button.text() === en['field.media.add'])
+    const allowed = await mountSuspended(FieldMedia, { props: { field, name: 'hero', locale: 'en', modelValue: null } })
+    expect(pickButton(allowed)).toBe(true)
+    delete schema.capabilities.listMediaFolders
+    try {
+      const refused = await mountSuspended(FieldMedia, { props: { field, name: 'hero', locale: 'en', modelValue: null } })
+      expect(pickButton(refused)).toBe(false)
+    } finally {
+      if (browse !== undefined) schema.capabilities.listMediaFolders = browse
+    }
   })
 
   it('keeps a stored unavailable id and shows a hint instead of removing it', async () => {
