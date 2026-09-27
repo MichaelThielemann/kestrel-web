@@ -335,13 +335,19 @@ function dataContentModelOf(value: unknown, file: string): DataContentModel | un
  * skipping this would risk missing a genuine orphaned-column warning instead of an unnecessary import.
  */
 export async function loadDataModel(root: string): Promise<DataContentModel | undefined> {
+  const model = await loadSharedContentModel(root);
+  return model === undefined ? undefined : dataContentModelOf(model, sharedModelFile(root));
+}
+
+/** The `contentModel` export of `shared/model.ts` at `root`, loaded in place like `loadDataModel`; `undefined` when the file is missing or does not load. */
+export async function loadSharedContentModel(root: string): Promise<unknown> {
   const file = sharedModelFile(root);
   if (!existsSync(file)) return undefined;
   const aliases = kestrelAliases(root, join(root, ".nuxt"));
   const jiti = createJiti(pathToFileURL(file).href, { alias: aliases, moduleCache: false, fsCache: false, interopDefault: true });
   try {
     const mod = await jiti.import<{ contentModel?: unknown }>(pathToFileURL(file).href);
-    return dataContentModelOf(mod.contentModel, file);
+    return mod.contentModel;
   } catch {
     return undefined;
   }

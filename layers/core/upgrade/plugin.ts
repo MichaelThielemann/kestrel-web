@@ -1,7 +1,8 @@
 import type { BootCheck } from "@michaelthielemann/kestrel";
 import type { HostProblem, LoadedProject, UpgradePlugin } from "@michaelthielemann/kestrel-upgrade/plugin";
 import { layerHostProblems } from "../server/utils/host-checks";
-import { detectLayerProject, layerProjectData, loadDataModel, loadLayerProject, prepareLayerProject } from "./load";
+import { linkDataFindings } from "./linkData";
+import { detectLayerProject, layerProjectData, loadDataModel, loadLayerProject, loadSharedContentModel, prepareLayerProject } from "./load";
 import { layerLocateModelFields, layerLocateSteps } from "./locators";
 import { layerMediaWiring } from "./mediaWiring";
 import { layerRules } from "./rules";
@@ -31,7 +32,7 @@ export function layerHostChecks(project: LoadedProject, bootCheck: BootCheck): H
  * table, so it is declared known-safe here: its `setup()` only registers the `renderer@1` contract
  * kestrel-web itself provides at request time, nothing at boot. `dataModel` and `switchEdits` are hooks
  * the built-in `model/underscore-field` and `offer/event-queue` rules consult directly; this plugin does
- * not replace either rule.
+ * not replace either rule. `dataFindings` adds the layer's own stored-value checks to `kestrel upgrade data`.
  */
 export function createLayerPlugin(): UpgradePlugin {
   return {
@@ -46,6 +47,7 @@ export function createLayerPlugin(): UpgradePlugin {
     locateSteps: layerLocateSteps,
     locateModelFields: layerLocateModelFields,
     dataModel: loadDataModel,
+    dataFindings: async (db, root) => linkDataFindings(db, await loadSharedContentModel(root)),
     switchEdits: layerSwitchEdits,
     idempotentPipelines: layerIdempotentPipelines,
     mediaWiring: layerMediaWiring,
