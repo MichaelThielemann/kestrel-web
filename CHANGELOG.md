@@ -842,6 +842,9 @@
   and paints the body with `--site-bg` and `--site-fg` under that class; the admin is unaffected. The
   `--site-*` variables and the other site tokens are now defined on `body.site-body`, which `.site`
   inherits from, so setting them on `.site-body` re-themes the page and the body alike.
+- A path preview is redacted by the pipeline the request was routed to rather than by its path, so a
+  trailing slash or a percent-encoded character in the path no longer returns the titles of documents the
+  caller cannot manage.
 
 ## 2.0.1 – 2026-09-21
 

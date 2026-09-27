@@ -82,6 +82,12 @@ describe("path conflicts over HTTP", () => {
     expect(preview.text).not.toContain(HOLDER);
     expect(preview.json).toMatchObject({ path: "/plan", conflict: { type: "blog", label: "" } });
     expect((await call("POST", "/admin/pages/path-preview", admin, { locale: "de", slug: "plan" })).text).toContain(HOLDER);
+    for (const variant of ["/admin/pages/path-preview/", "/admin/pages/path-preview//", "/admin/pages/path-previe%77", "/admin/pages/path%2Dpreview"]) {
+      const answer = await call("POST", variant, writer, { locale: "de", slug: "plan" });
+      expect(answer.text, variant).not.toContain(HOLDER);
+      if (answer.status === 200) expect(answer.json, variant).toMatchObject({ conflict: { type: "blog", label: "" } });
+      else expect(answer.status, variant).toBe(404);
+    }
 
     const shown = await call("POST", "/pages", admin, { locale: "de", slug: "plan", title: "Plan", status: "draft" });
     expect(shown.status).toBe(409);

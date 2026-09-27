@@ -1,9 +1,10 @@
 import type { Kestrel } from "@michaelthielemann/kestrel";
-import { getRequestHeaders, getRequestURL, getResponseStatus, type EventHandler, type H3Event } from "h3";
+import { routedPipeline } from "@michaelthielemann/kestrel-h3";
+import { getRequestHeaders, getResponseStatus, type EventHandler, type H3Event } from "h3";
 import { collectionNames } from "../../pipelines/collections";
 
 const CONFLICT_STATUS = 409;
-const PREVIEW_SUFFIX = "/path-preview";
+const PREVIEW_STEP = "site.previewPath";
 const ACCESS_PIPELINE = "adminSchemaModel";
 
 interface Conflict {
@@ -77,11 +78,25 @@ async function readableTypes(kestrel: Kestrel, event: H3Event): Promise<(type: s
   return (type) => access[readPipelineOf(type)] === "granted";
 }
 
-/** Wraps the API handler so a path conflict or a path preview never names a document whose collection the caller cannot manage. */
+/** The pipelines that answer a path preview: those with a `site.previewPath` step. */
+export function previewPipelines(kestrel: Pick<Kestrel, "pipelines">): Set<string> {
+  const names = new Set<string>();
+  for (const [name, pipeline] of kestrel.pipelines) {
+    if (pipeline.steps.some((step) => step.name === PREVIEW_STEP || step.name.startsWith(`${PREVIEW_STEP}:`))) names.add(name);
+  }
+  return names;
+}
+
+/**
+ * Wraps the API handler so a path conflict or a path preview never names a document whose collection the
+ * caller cannot manage. A preview is recognized by the pipeline the request was routed to, not by its path.
+ */
 export function redactingConflictLabels(kestrel: Kestrel, inner: EventHandler): EventHandler {
+  const previews = previewPipelines(kestrel);
   return async (event) => {
     const answer: unknown = await inner(event);
-    if (getResponseStatus(event) === 200 && typeof answer === "string" && getRequestURL(event).pathname.endsWith(PREVIEW_SUFFIX) && answer.includes('"label"')) {
+    const pipeline = routedPipeline(event);
+    if (getResponseStatus(event) === 200 && typeof answer === "string" && pipeline !== undefined && previews.has(pipeline) && answer.includes('"label"')) {
       let preview: unknown;
       try {
         preview = JSON.parse(answer);
