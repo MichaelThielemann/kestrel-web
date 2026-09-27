@@ -26,6 +26,11 @@
   last three are new events of `activateUser`, `setPassword` and `changePassword`), and every entry now
   carries the client address. `audit-persistence` adds failed sign-ins and password checks, 403 and 429
   answers on its own. create-kestrel selects `audit` by default.
+- The `ratelimit` feature limits sign-ins per account as well as per address (`loginAccount`, keyed by the
+  username, with a growing block capped at `maxBlockSeconds`), counts an IPv6 address by its /64, and limits
+  `changePassword` and `confirmPassword` per signed-in user (`passwordCheck`). `presetModuleConfig()`'s
+  `ratelimit` option takes `loginAccount` and `passwordCheck` next to `login`. create-kestrel selects
+  `ratelimit` by default.
 
 ### Upgrading
 

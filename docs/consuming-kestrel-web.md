@@ -319,7 +319,7 @@ calls them before it has read a schema at all.
 | `bootstrap` | yes | — `{ username, passwordHash, roles? }`, `roles` defaulting to `["admin"]` |
 | `collectionsUi` | no | — your `shared/collections-ui.ts` map; the `revisions` module's `statusField`/`liveStatuses` are derived from the workflows in it |
 | `media` | no | `{ maxBytes: 5242880, allowedTypes: ["image/*", "application/pdf"], deniedTypes: ["text/html", "application/xhtml+xml"] }` |
-| `ratelimit` | no | `{ login: { limit: 5, windowSeconds: 60 } }` |
+| `ratelimit` | no | `{ login: { limit: 5, windowSeconds: 60 }, loginAccount: { limit: 10, windowSeconds: 300, maxBlockSeconds: 900 }, passwordCheck: { limit: 5, windowSeconds: 300, maxBlockSeconds: 900 } }` — `login` counts per client address (an IPv6 address by its /64), `loginAccount` per username from any address, `passwordCheck` per signed-in user on `changePassword` and `confirmPassword`; a key that keeps exceeding its budget is blocked for twice as long each time, never longer than `maxBlockSeconds` |
 | `llms` | no | `{ full: true, headings: { pages: "Pages" } }`; `siteUrl` falls back to `NUXT_PUBLIC_SITE_URL` |
 | `migrations` | with the `migrations` feature | — `{ migrations, mode? }`, the `#kestrel/migrations` list (§10); the feature without it throws |
 | `session` | no | `{ identifier: "username", minPasswordLength: 12, sessionTtlSeconds: 86400, secureCookie: true }`; the minimum applies when a password is set (bootstrap excluded), so an account whose existing password is shorter still logs in and meets the minimum at its next change |
@@ -440,7 +440,7 @@ const modules = [
   { use: "@michaelthielemann/kestrel-audit-persistence", config: {} },
   { use: "@michaelthielemann/kestrel-events-inmemory", config: {} },
   { use: "@michaelthielemann/kestrel-events-direct", config: {} },
-  { use: "@michaelthielemann/kestrel-ratelimit-memory", config: { buckets: { login: { limit: 5, windowSeconds: 60 } } } },
+  { use: "@michaelthielemann/kestrel-ratelimit-memory", config: { buckets: { login: { limit: 5, windowSeconds: 60 }, loginAccount: { limit: 10, windowSeconds: 300, maxBlockSeconds: 900, key: "username" }, passwordCheck: { limit: 5, windowSeconds: 300, maxBlockSeconds: 900, key: "identity" } } } },
   { use: "@michaelthielemann/kestrel-insights", config: {} },
 ];
 ```
@@ -812,7 +812,7 @@ or a retry actually runs.
 
 | feature | required module(s) | adds |
 |---|---|---|
-| `ratelimit` | kestrel-ratelimit-memory | `sweepRateLimits` (cron); rate-limit check step at the start of `login` |
+| `ratelimit` | kestrel-ratelimit-memory | `sweepRateLimits` (cron); `ratelimit.check:login` and `ratelimit.check:loginAccount` at the start of `login`, `ratelimit.check:passwordCheck` after `authn.requireUser` in `changePassword` and `confirmPassword` |
 | `sanitizeSvg` | kestrel-sanitize-svg | SVG sanitize step before the upload step in `uploadMedia`; only with this module configured does `layers/core` serve SVG inline (`inlineTypes`), otherwise SVGs are delivered as attachments. Required with `delivery` unless `image/svg+xml` is denied — see the note below the table |
 | `references` | kestrel-references-default | `brokenReferences`, `pageReferrers(Many)`, `mediaReferrers(Many)`, `<name>Referrers(Many)` per generic multi collection, `rebuildReferences`, `scanReferences` (cron); check/index/guard/unindex steps in the create/update/delete pipelines of `pages` and every generic multi collection, `deleteMedia`, `deleteMediaFolder`, a re-index step in each `delete…Translation`, and a re-index step after the write of `setSettings`, `setRedirects` and each generic single |
 | `links` | kestrel-links-default | `brokenLinks`, `rebuildLinks`, `checkLinks` (cron); extract/unextract steps in `createPage`, `updatePage`, `deletePage`, and a re-extract step in `deletePageTranslation` when it exists |
@@ -1188,9 +1188,9 @@ stay checked alongside your addition.
 
 - `redirects` needs a `redirects` content type in your content model (`shared/model.ts`).
 - `images` needs the `images.read`/`images.write`/`images.manage` permissions granted in your roles.
-- `ratelimit` needs a `login` bucket configured in the `kestrel-ratelimit-memory` module config —
-  `presetModuleConfig()` (§3) supplies `{ limit: 5, windowSeconds: 60 }` unless you override it.
-  Without the feature, `login` has no attempt limit at all; `create-kestrel` preselects it, and a
+- `ratelimit` needs the `login`, `loginAccount` and `passwordCheck` buckets configured in the
+  `kestrel-ratelimit-memory` module config — `presetModuleConfig()` (§3) supplies them unless you override
+  them. Without the feature, `login` has no attempt limit at all; `create-kestrel` preselects it, and a
   feature list that leaves it out should come with an equivalent limit at the edge.
 - Every collection needs its `<name>.read`/`write`/`manage`/`delete` permissions (`<name>.read`/`write`
   only for a `single` type) granted in your roles config, the same way `pages.*` already is — including

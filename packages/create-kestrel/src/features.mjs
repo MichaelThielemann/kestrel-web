@@ -17,7 +17,7 @@ export const ALL_FEATURES = [
 export const DEFAULT_FEATURES = ["ratelimit", "sanitizeSvg", "references", "links", "delivery", "redirects", "images", "audit", "insights", "eventsQueue", "revisions"];
 
 export const FEATURE_SUMMARY = {
-  ratelimit: "rate limit for the login route",
+  ratelimit: "rate limits for sign-in (per address and per account) and password checks",
   sanitizeSvg: "sanitize uploaded SVGs and serve them inline",
   references: "track which page or media a record points at",
   links: "extract and check the links inside page bodies",

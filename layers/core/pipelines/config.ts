@@ -53,7 +53,12 @@ export interface PresetMediaPolicy {
 }
 
 export interface PresetRateLimit {
+  /** Sign-in attempts per client address (an IPv6 address by its /64). */
   login?: { limit: number; windowSeconds: number };
+  /** Sign-in attempts per account, from any address; `maxBlockSeconds` bounds the growing block. */
+  loginAccount?: { limit: number; windowSeconds: number; maxBlockSeconds?: number };
+  /** Password checks of a signed-in user: changing the password and confirming it again. */
+  passwordCheck?: { limit: number; windowSeconds: number; maxBlockSeconds?: number };
 }
 
 export interface PresetLlms {
@@ -154,6 +159,8 @@ const SVG_CONTENT_TYPE = "image/svg+xml";
 const MEDIA_MODULE = "@michaelthielemann/kestrel-media-default";
 const SANITIZE_SVG_MODULE = "@michaelthielemann/kestrel-sanitize-svg";
 const DEFAULT_LOGIN_BUCKET = { limit: 5, windowSeconds: 60 };
+const DEFAULT_LOGIN_ACCOUNT_BUCKET = { limit: 10, windowSeconds: 300, maxBlockSeconds: 900 };
+const DEFAULT_PASSWORD_CHECK_BUCKET = { limit: 5, windowSeconds: 300, maxBlockSeconds: 900 };
 const DEFAULT_LLMS_HEADINGS = { [PAGES_COLLECTION]: "Pages" };
 const DEFAULT_SESSION: Required<PresetSession> = { identifier: "username", minPasswordLength: 12, sessionTtlSeconds: 86400, secureCookie: true };
 const DEFAULT_LINKS = { timeoutMs: 10000, concurrency: 4, recheckAfterSeconds: 21600 };
@@ -472,7 +479,11 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
   );
   if (enabled.has("ratelimit")) {
     modules.push(preset("@michaelthielemann/kestrel-ratelimit-memory", {
-      buckets: { login: { ...(options.ratelimit?.login ?? DEFAULT_LOGIN_BUCKET) } },
+      buckets: {
+        login: { ...(options.ratelimit?.login ?? DEFAULT_LOGIN_BUCKET) },
+        loginAccount: { ...(options.ratelimit?.loginAccount ?? DEFAULT_LOGIN_ACCOUNT_BUCKET), key: "username" },
+        passwordCheck: { ...(options.ratelimit?.passwordCheck ?? DEFAULT_PASSWORD_CHECK_BUCKET), key: "identity" },
+      },
     }));
   }
   if (enabled.has("insights")) modules.push({ use: "@michaelthielemann/kestrel-insights", config: {} });

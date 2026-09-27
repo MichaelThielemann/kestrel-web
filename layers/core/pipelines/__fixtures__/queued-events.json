@@ -62,6 +62,7 @@
     ],
     "changePassword": [
       "authn.requireUser",
+      "ratelimit.check:passwordCheck",
       "authn.changePassword",
       "events.emit:user.passwordChanged",
       "events.relay"
@@ -73,8 +74,8 @@
       "authn.cleanupSessions"
     ],
     "confirmPassword": [
-      "ratelimit.check:login",
       "authn.requireUser",
+      "ratelimit.check:passwordCheck",
       "authn.confirmPassword"
     ],
     "createBlog": [
@@ -385,6 +386,7 @@
     ],
     "login": [
       "ratelimit.check:login",
+      "ratelimit.check:loginAccount",
       "authn.login",
       "events.emit:auth.loggedIn",
       "events.relay"
