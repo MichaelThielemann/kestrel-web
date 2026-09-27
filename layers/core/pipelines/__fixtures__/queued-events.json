@@ -2,6 +2,7 @@
   "pipelines": {
     "activateUser": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:users.manage",
       "authn.requireRecentAuth:300",
       "authn.activateUser",
@@ -10,6 +11,7 @@
     ],
     "adminSchemaModel": [
       "authn.requireUser",
+      "authz.requireRole",
       "content.describeModel",
       "authz.describePipelineAccess"
     ],
@@ -27,41 +29,49 @@
     ],
     "blogPublishStatus": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:blog.manage",
       "delivery.readStatus:blog"
     ],
     "blogReferrers": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:blog.manage",
       "references.referrers:blog"
     ],
     "blogReferrersMany": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:blog.manage",
       "references.referrersMany:blog"
     ],
     "blogRevision": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:blog.manage",
       "revisions.read:blog"
     ],
     "blogRevisions": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:blog.manage",
       "revisions.list:blog"
     ],
     "brokenLinks": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:pages.manage",
       "links.report"
     ],
     "brokenReferences": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:pages.manage",
       "references.report"
     ],
     "changePassword": [
       "authn.requireUser",
+      "authz.requireRole",
       "ratelimit.check:passwordCheck",
       "authn.changePassword",
       "events.emit:user.passwordChanged",
@@ -75,11 +85,13 @@
     ],
     "confirmPassword": [
       "authn.requireUser",
+      "authz.requireRole",
       "ratelimit.check:passwordCheck",
       "authn.confirmPassword"
     ],
     "createBlog": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:blog.write",
       "validate.check:blog.body",
       "validate.sanitize:blog.body",
@@ -100,11 +112,13 @@
     ],
     "createMediaFolder": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:media.write",
       "media.createFolder"
     ],
     "createPage": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:pages.write",
       "validate.check:pages.body",
       "validate.sanitize:pages.body",
@@ -126,6 +140,7 @@
     ],
     "createUser": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:users.manage",
       "authn.requireRecentAuth:300",
       "authz.validateRoles:roles",
@@ -135,6 +150,7 @@
     ],
     "deactivateUser": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:users.manage",
       "authn.requireRecentAuth:300",
       "authn.deactivateUser",
@@ -143,6 +159,7 @@
     ],
     "deleteBlog": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:blog.delete",
       {
         "atomic": [
@@ -160,6 +177,7 @@
     ],
     "deleteBlogTranslation": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:blog.write",
       {
         "atomic": [
@@ -176,6 +194,7 @@
     ],
     "deleteMedia": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:media.delete",
       "references.guard:media",
       "media.remove",
@@ -185,6 +204,7 @@
     ],
     "deleteMediaFolder": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:media.delete",
       "media.listFolderItems",
       "references.guardAll:media",
@@ -195,6 +215,7 @@
     ],
     "deletePage": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:pages.delete",
       {
         "atomic": [
@@ -212,6 +233,7 @@
     ],
     "deletePageTranslation": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:pages.write",
       {
         "atomic": [
@@ -228,6 +250,7 @@
     ],
     "deleteUser": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:users.manage",
       "authn.requireRecentAuth:300",
       {
@@ -249,31 +272,37 @@
     ],
     "eventsDead": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:system.manage",
       "events.listDead"
     ],
     "eventsDeliveryStatus": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:system.manage",
       "events.readDeliveryStatus"
     ],
     "eventsQueueStatus": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:system.manage",
       "events.readQueueStatus"
     ],
     "eventsRetryDead": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:system.manage",
       "events.retryDead:all"
     ],
     "eventsRetryOne": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:system.manage",
       "events.retryDead:one"
     ],
     "exportMedia": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:media.manage",
       "media.export:<exportDir>",
       "images.export:<exportDir>"
@@ -303,48 +332,57 @@
     ],
     "getUser": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:users.manage",
       "authn.getUser"
     ],
     "imagesStatus": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:images.read",
       "images.readStatus"
     ],
     "insightsManifest": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:insights.read",
       "insights.readManifest"
     ],
     "insightsStats": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:insights.read",
       "insights.readStats"
     ],
     "labelBlogRevision": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:blog.write",
       "revisions.label:blog"
     ],
     "labelPageRevision": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:pages.write",
       "revisions.label:pages"
     ],
     "listAllBlog": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:blog.manage",
       "content.list:blog",
       "site.attachPaths:blog"
     ],
     "listAllPages": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:pages.manage",
       "content.list:pages",
       "site.attachPaths:pages"
     ],
     "listAutoRedirects": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:redirects.read",
       "redirects.listAuto"
     ],
@@ -357,6 +395,7 @@
     ],
     "listImageSizes": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:images.read",
       "images.listSizes"
     ],
@@ -369,6 +408,7 @@
     ],
     "listMediaFolders": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:media.read",
       "media.listFolders"
     ],
@@ -381,6 +421,7 @@
     ],
     "listUsers": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:users.manage",
       "authn.listUsers"
     ],
@@ -406,11 +447,13 @@
     ],
     "mediaReferrers": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:pages.manage",
       "references.referrers:media"
     ],
     "mediaReferrersMany": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:pages.manage",
       "references.referrersMany:media"
     ],
@@ -419,36 +462,43 @@
     ],
     "pagePublishStatus": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:pages.manage",
       "delivery.readStatus:pages"
     ],
     "pageReferrers": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:pages.manage",
       "references.referrers:pages"
     ],
     "pageReferrersMany": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:pages.manage",
       "references.referrersMany:pages"
     ],
     "pageRevision": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:pages.manage",
       "revisions.read:pages"
     ],
     "pageRevisions": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:pages.manage",
       "revisions.list:pages"
     ],
     "pageTree": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:pages.manage",
       "site.readTree:pages"
     ],
     "pagesStaleStatus": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:pages.manage",
       "delivery.readStaleStatus"
     ],
@@ -466,11 +516,13 @@
     ],
     "previewBlogPath": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:blog.write",
       "site.previewPath:blog"
     ],
     "previewPagePath": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:pages.write",
       "site.previewPath:pages"
     ],
@@ -479,6 +531,7 @@
     ],
     "pruneImages": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:images.manage",
       "images.prune"
     ],
@@ -487,11 +540,13 @@
     ],
     "publishAllBlog": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:blog.manage",
       "delivery.markAll:blog"
     ],
     "publishAllPages": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:pages.manage",
       "delivery.markAll:pages",
       "redirects.export"
@@ -509,12 +564,14 @@
     ],
     "readAnyBlog": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:blog.manage",
       "content.get:blog",
       "site.attachPaths:blog"
     ],
     "readAnyPage": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:pages.manage",
       "content.get:pages",
       "site.attachPaths:pages"
@@ -539,11 +596,13 @@
     ],
     "rebuildLinks": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:pages.manage",
       "links.rebuild"
     ],
     "rebuildPaths": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:system.manage",
       "site.planRebuild",
       {
@@ -555,6 +614,7 @@
     ],
     "rebuildReferences": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:pages.manage",
       "references.rebuild"
     ],
@@ -563,11 +623,13 @@
     ],
     "reconcileMediaDelete": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:media.manage",
       "media.reconcileDelete"
     ],
     "reconcileMediaReport": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:media.manage",
       "media.reconcile"
     ],
@@ -576,6 +638,7 @@
     ],
     "registerImageSizes": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:images.write",
       "images.register"
     ],
@@ -584,12 +647,14 @@
     ],
     "removeAutoRedirect": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:redirects.write",
       "redirects.removeAuto",
       "redirects.export"
     ],
     "renameMediaFolder": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:media.write",
       "media.renameFolder"
     ],
@@ -599,6 +664,7 @@
     ],
     "repairPublicMedia": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:media.manage",
       "media.syncPublic",
       "images.syncPublic"
@@ -608,22 +674,26 @@
     ],
     "replicationPoints": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:system.manage",
       "replication.listPoints"
     ],
     "replicationRestore": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:system.manage",
       "authn.requireRecentAuth:300",
       "replication.prepareRestore"
     ],
     "replicationSnapshot": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:system.manage",
       "replication.snapshot"
     ],
     "replicationStatus": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:system.manage",
       "replication.readStatus"
     ],
@@ -648,6 +718,7 @@
     ],
     "restoreBlogRevision": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:blog.write",
       "revisions.restore:blog",
       "validate.check:blog.body",
@@ -670,6 +741,7 @@
     ],
     "restorePageRevision": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:pages.write",
       "revisions.restore:pages",
       "validate.check:pages.body",
@@ -702,22 +774,26 @@
     ],
     "retryAnonymizeAuditUser": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:users.manage",
       "audit.anonymize"
     ],
     "retryFailedImages": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:images.manage",
       "images.retryFailed"
     ],
     "retryReassignRevisionAuthor": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:users.manage",
       "authn.verifyUser:reassignTo",
       "revisions.reassignAuthor"
     ],
     "retryStalePages": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:pages.manage",
       "delivery.retryStale"
     ],
@@ -738,6 +814,7 @@
     ],
     "setPassword": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:users.manage",
       "authn.requireRecentAuth:300",
       "authn.setPassword",
@@ -746,6 +823,7 @@
     ],
     "setRedirects": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:redirects.write",
       "validate.check:redirects.rules",
       "redirects.validate",
@@ -755,6 +833,7 @@
     ],
     "setSettings": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:settings.write",
       "validate.check:settings.navigation",
       "validate.check:settings.mounts",
@@ -778,6 +857,7 @@
     ],
     "syncImages": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:images.manage",
       "images.sync"
     ],
@@ -795,6 +875,7 @@
     ],
     "updateBlog": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:blog.write",
       "validate.check:blog.body",
       "validate.sanitize:blog.body",
@@ -815,6 +896,7 @@
     ],
     "updateMedia": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:media.write",
       "media.update",
       "events.emit:media.updated",
@@ -822,6 +904,7 @@
     ],
     "updatePage": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:pages.write",
       "validate.check:pages.body",
       "validate.sanitize:pages.body",
@@ -843,6 +926,7 @@
     ],
     "updateUser": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:users.manage",
       "authn.requireRecentAuth:300",
       "authz.validateRoles:roles",
@@ -852,6 +936,7 @@
     ],
     "uploadMedia": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:media.write",
       "sanitize.svg",
       "media.upload",

@@ -233,7 +233,8 @@ describe("preset/override-emit edits the override the project loads", () => {
   it("manual when the one override in the file is not the one the project loads", async () => {
     const ctx = contextFor(presetWith(`["authn.requireUser", "content.set:settings"]`), DIRECT, "setSettings");
     const loadedElsewhere = definePipeline({ name: "setSettings", steps: ["authn.requireUser", "authz.require:settings.write", "content.set:settings"] });
-    const other: RuleContext = { ...ctx, project: { ...ctx.project, input: { ...ctx.project.input, pipelines: [loadedElsewhere] } } };
+    const data = { ...boundaryCast<Record<string, unknown>>(ctx.project.data, "ast"), presetOptions: { modules: DIRECT.modules, features: DIRECT.features, collections, overrides: { setSettings: loadedElsewhere.steps } } };
+    const other: RuleContext = { ...ctx, project: { ...ctx.project, input: { ...ctx.project.input, pipelines: [loadedElsewhere] }, data } };
     const [emit] = await overrideEmitRule.check(other);
     expect(emit?.fix.kind).toBe("manual");
     expect(emit?.suggestion).toContain("does not hold the steps the project loads");

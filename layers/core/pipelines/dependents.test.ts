@@ -60,6 +60,7 @@ describe("settings and single collections report their writes", () => {
     for (const features of [[], ["delivery"]] satisfies Feature[][]) {
       expect(stepsOf(compose(features), "setSettings")).toEqual([
         "authn.requireUser",
+        "authz.requireRole",
         "authz.require:settings.write",
         "validate.check:settings.navigation",
         { atomic: ["content.set:settings"] },
@@ -73,6 +74,7 @@ describe("settings and single collections report their writes", () => {
     const preset = compose(["eventsQueue", "delivery"]);
     expect(stepsOf(preset, "setSettings")).toEqual([
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:settings.write",
       "validate.check:settings.navigation",
       { atomic: ["content.set:settings", "events.emit:settings.updated"] },
@@ -83,6 +85,7 @@ describe("settings and single collections report their writes", () => {
   it("writes a single collection inside an atomic group and emits <name>.updated", () => {
     expect(stepsOf(compose([]), "setProfile")).toEqual([
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:profile.write",
       { atomic: ["content.set:profile"] },
       "events.emit:profile.updated",
@@ -92,7 +95,7 @@ describe("settings and single collections report their writes", () => {
 
   it("rejects an override of setSettings that drops the group around content.set:settings", () => {
     expect(() =>
-      compose(["delivery"], { overrides: { setSettings: ["authn.requireUser", "authz.require:settings.write", "content.set:settings", "events.emit:settings.updated", "events.relay"] } }),
+      compose(["delivery"], { overrides: { setSettings: ["authn.requireUser", "authz.requireRole", "authz.require:settings.write", "content.set:settings", "events.emit:settings.updated", "events.relay"] } }),
     ).toThrow('preset: override for "setSettings" drops the atomic group around "content.set:settings"');
   });
 });
@@ -138,12 +141,12 @@ describe("dependents: marking the pages that read a change", () => {
 
   it("refuses an override that drops the emit a dependents pipeline listens to, naming the pipeline", () => {
     expect(() =>
-      compose(["delivery"], { overrides: { setSettings: ["authn.requireUser", "authz.require:settings.write", "validate.check:settings.navigation", { atomic: ["content.set:settings"] }, "events.relay"] } }),
+      compose(["delivery"], { overrides: { setSettings: ["authn.requireUser", "authz.requireRole", "authz.require:settings.write", "validate.check:settings.navigation", { atomic: ["content.set:settings"] }, "events.relay"] } }),
     ).toThrow('preset: override for "setSettings" drops "events.emit:settings.updated" – the pages that show what it writes would never be re-rendered; keep the emit, or exclude the pipeline and define your own');
-    expect(() => compose(["delivery"], { overrides: { setProfile: ["authn.requireUser", "authz.require:profile.write", { atomic: ["content.set:profile"] }, "events.relay"] } })).toThrow(
+    expect(() => compose(["delivery"], { overrides: { setProfile: ["authn.requireUser", "authz.requireRole", "authz.require:profile.write", { atomic: ["content.set:profile"] }, "events.relay"] } })).toThrow(
       'preset: override for "setProfile" drops "events.emit:profile.updated"',
     );
-    expect(() => compose(["delivery"], { overrides: { updateSpeakers: ["authn.requireUser", "authz.require:speakers.write", { atomic: ["content.update:speakers"] }, "events.relay"] } })).toThrow(
+    expect(() => compose(["delivery"], { overrides: { updateSpeakers: ["authn.requireUser", "authz.requireRole", "authz.require:speakers.write", { atomic: ["content.update:speakers"] }, "events.relay"] } })).toThrow(
       'preset: override for "updateSpeakers" drops "events.emit:speakers.updated"',
     );
   });
@@ -151,7 +154,7 @@ describe("dependents: marking the pages that read a change", () => {
   it("accepts an override that keeps the emit, and one that drops it without delivery", () => {
     const kept = compose(["delivery"], { overrides: { setProfile: ["authn.requireUser", { atomic: ["content.set:profile", "events.emit:profile.updated"] }, "events.relay"] } });
     expect(eventsTriggering(kept, "profileDependents")).toEqual(["profile.updated"]);
-    expect(() => compose([], { overrides: { setProfile: ["authn.requireUser", "authz.require:profile.write", { atomic: ["content.set:profile"] }, "events.relay"] } })).not.toThrow();
+    expect(() => compose([], { overrides: { setProfile: ["authn.requireUser", "authz.requireRole", "authz.require:profile.write", { atomic: ["content.set:profile"] }, "events.relay"] } })).not.toThrow();
   });
 
   it("drops the triggers of an excluded dependents pipeline", () => {
@@ -201,7 +204,7 @@ describe("dependents: rendering the marked pages outside the request", () => {
 
   it("makes Publish all only mark the pages, with and without images", () => {
     for (const features of [["delivery"], ["delivery", "images"], ["eventsQueue", "delivery", "images"]] satisfies Feature[][]) {
-      expect(stepsOf(compose(features), "publishAllPages")).toEqual(["authn.requireUser", "authz.require:pages.manage", "delivery.markAll:pages"]);
+      expect(stepsOf(compose(features), "publishAllPages")).toEqual(["authn.requireUser", "authz.requireRole", "authz.require:pages.manage", "delivery.markAll:pages"]);
     }
   });
 
@@ -209,9 +212,9 @@ describe("dependents: rendering the marked pages outside the request", () => {
     const preset = compose(["delivery"]);
     expect(stepsOf(preset, "resumeStalePages")).toEqual(["delivery.resumeStale"]);
     expect(preset.triggers).toContainEqual({ cron: "*/5 * * * *", pipeline: "resumeStalePages" });
-    expect(stepsOf(preset, "pagesStaleStatus")).toEqual(["authn.requireUser", "authz.require:pages.manage", "delivery.readStaleStatus"]);
+    expect(stepsOf(preset, "pagesStaleStatus")).toEqual(["authn.requireUser", "authz.requireRole", "authz.require:pages.manage", "delivery.readStaleStatus"]);
     expect(preset.triggers).toContainEqual({ http: "GET /admin/publish-status/pages", pipeline: "pagesStaleStatus" });
-    expect(stepsOf(preset, "retryStalePages")).toEqual(["authn.requireUser", "authz.require:pages.manage", "delivery.retryStale"]);
+    expect(stepsOf(preset, "retryStalePages")).toEqual(["authn.requireUser", "authz.requireRole", "authz.require:pages.manage", "delivery.retryStale"]);
     expect(preset.triggers).toContainEqual({ http: "POST /admin/publish-stale/pages/retry", pipeline: "retryStalePages" });
     expect(stepsOf(preset, "deliveryBuildCheck")).toEqual(["delivery.checkBuild"]);
     expect(preset.triggers.some((trigger) => trigger.pipeline === "deliveryBuildCheck")).toBe(false);

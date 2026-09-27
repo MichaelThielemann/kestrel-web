@@ -2,6 +2,7 @@
   "pipelines": {
     "activateUser": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:users.manage",
       "authn.requireRecentAuth:300",
       "authn.activateUser",
@@ -10,16 +11,19 @@
     ],
     "adminSchemaModel": [
       "authn.requireUser",
+      "authz.requireRole",
       "content.describeModel",
       "authz.describePipelineAccess"
     ],
     "applyMigrations": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:migrations.manage",
       "migrations.apply"
     ],
     "changePassword": [
       "authn.requireUser",
+      "authz.requireRole",
       "authn.changePassword",
       "events.emit:user.passwordChanged",
       "events.relay"
@@ -29,15 +33,18 @@
     ],
     "confirmPassword": [
       "authn.requireUser",
+      "authz.requireRole",
       "authn.confirmPassword"
     ],
     "createMediaFolder": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:media.write",
       "media.createFolder"
     ],
     "createNews": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:news.write",
       "validate.check:news.body",
       "validate.sanitize:news.body",
@@ -52,6 +59,7 @@
     ],
     "createPage": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:pages.write",
       "validate.check:pages.body",
       "validate.sanitize:pages.body",
@@ -68,6 +76,7 @@
     ],
     "createUser": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:users.manage",
       "authn.requireRecentAuth:300",
       "authz.validateRoles:roles",
@@ -77,6 +86,7 @@
     ],
     "deactivateUser": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:users.manage",
       "authn.requireRecentAuth:300",
       "authn.deactivateUser",
@@ -85,6 +95,7 @@
     ],
     "deleteMedia": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:media.delete",
       "media.remove",
       "events.emit:media.deleted",
@@ -92,6 +103,7 @@
     ],
     "deleteMediaFolder": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:media.delete",
       "media.listFolderItems",
       "media.removeFolder",
@@ -100,6 +112,7 @@
     ],
     "deleteNews": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:news.delete",
       {
         "atomic": [
@@ -111,6 +124,7 @@
     ],
     "deleteNewsTranslation": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:news.write",
       {
         "atomic": [
@@ -122,6 +136,7 @@
     ],
     "deletePage": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:pages.delete",
       {
         "atomic": [
@@ -135,6 +150,7 @@
     ],
     "deletePageTranslation": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:pages.write",
       {
         "atomic": [
@@ -148,6 +164,7 @@
     ],
     "deleteUser": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:users.manage",
       "authn.requireRecentAuth:300",
       "authn.deleteUser",
@@ -162,11 +179,13 @@
     ],
     "eventsDeliveryStatus": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:system.manage",
       "events.readDeliveryStatus"
     ],
     "exportMedia": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:media.manage",
       "media.export:<exportDir>"
     ],
@@ -203,22 +222,26 @@
     ],
     "getUser": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:users.manage",
       "authn.getUser"
     ],
     "listAllNews": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:news.manage",
       "content.list:news"
     ],
     "listAllPages": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:pages.manage",
       "content.list:pages",
       "site.attachPaths:pages"
     ],
     "listAutoRedirects": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:redirects.read",
       "redirects.listAuto"
     ],
@@ -230,11 +253,13 @@
     ],
     "listMediaFolders": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:media.read",
       "media.listFolders"
     ],
     "listMigrations": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:migrations.manage",
       "migrations.list"
     ],
@@ -253,6 +278,7 @@
     ],
     "listUsers": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:users.manage",
       "authn.listUsers"
     ],
@@ -277,16 +303,19 @@
     ],
     "previewPagePath": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:pages.write",
       "site.previewPath:pages"
     ],
     "readAnyNews": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:news.manage",
       "content.get:news"
     ],
     "readAnyPage": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:pages.manage",
       "content.get:pages",
       "site.attachPaths:pages"
@@ -306,6 +335,7 @@
     ],
     "rebuildPaths": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:system.manage",
       "site.planRebuild",
       {
@@ -329,22 +359,26 @@
     ],
     "reconcileMediaDelete": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:media.manage",
       "media.reconcileDelete"
     ],
     "reconcileMediaReport": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:media.manage",
       "media.reconcile"
     ],
     "removeAutoRedirect": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:redirects.write",
       "redirects.removeAuto",
       "redirects.export"
     ],
     "renameMediaFolder": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:media.write",
       "media.renameFolder"
     ],
@@ -371,6 +405,7 @@
     ],
     "setNotifications": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:notifications.write",
       {
         "atomic": [
@@ -382,6 +417,7 @@
     ],
     "setPassword": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:users.manage",
       "authn.requireRecentAuth:300",
       "authn.setPassword",
@@ -390,6 +426,7 @@
     ],
     "setProfile": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:profile.write",
       {
         "atomic": [
@@ -401,6 +438,7 @@
     ],
     "setRedirects": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:redirects.write",
       "validate.check:redirects.rules",
       "redirects.validate",
@@ -409,6 +447,7 @@
     ],
     "setSettings": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:settings.write",
       "validate.check:settings.navigation",
       {
@@ -421,6 +460,7 @@
     ],
     "updateMedia": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:media.write",
       "media.update",
       "events.emit:media.updated",
@@ -428,6 +468,7 @@
     ],
     "updateNews": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:news.write",
       "validate.check:news.body",
       "validate.sanitize:news.body",
@@ -442,6 +483,7 @@
     ],
     "updatePage": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:pages.write",
       "validate.check:pages.body",
       "validate.sanitize:pages.body",
@@ -458,6 +500,7 @@
     ],
     "updateUser": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:users.manage",
       "authn.requireRecentAuth:300",
       "authz.validateRoles:roles",
@@ -467,6 +510,7 @@
     ],
     "uploadMedia": [
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:media.write",
       "media.upload",
       "events.emit:media.uploaded",

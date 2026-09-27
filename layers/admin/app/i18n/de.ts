@@ -639,6 +639,8 @@ export const de: Record<CatalogKey, string> = {
   'account.password.new': 'Neues Passwort',
   'account.password.tooShort': 'Das Passwort muss mindestens 12 Zeichen lang sein.',
   'account.password.success': 'Passwort geändert',
+  'noRole.title': 'Noch kein Zugriff',
+  'noRole.message': 'Sie sind als {username} angemeldet, aber Ihr Konto hat keine Rolle. Deshalb können Sie hier nichts öffnen. Bitten Sie eine Administratorin oder einen Administrator, Ihnen eine Rolle zuzuweisen, und melden Sie sich dann erneut an.',
   'reauth.title': 'Passwort erneut eingeben',
   'reauth.intro': 'Diese Aktion ändert Konten oder stellt Daten wieder her. Geben Sie Ihr Passwort erneut ein, um fortzufahren.',
   'reauth.password': 'Passwort',

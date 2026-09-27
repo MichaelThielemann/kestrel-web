@@ -779,6 +779,12 @@ The preset wires the whole user lifecycle to `authn-multi` and guards every rout
 | `POST /admin/users/:id/revisions/reassign` | `retryReassignRevisionAuthor` | with the `revisions` feature: `{ from, to, revisions }`, re-runs the author reassignment against a freshly verified target |
 | `POST /admin/users/:id/audit/anonymize` | `retryAnonymizeAuditUser` | with the `audit` feature: `{ entries }`, re-runs the audit anonymisation |
 
+**Accounts without a role.** An account none of whose roles `presetModuleConfig`'s `roles` defines may
+sign out and read its own identity (`GET /me`), and nothing else behind a login: the preset puts
+`authz.requireRole` right after `authn.requireUser` in every pipeline but `me` and `logout` — in your
+`overrides` too — so each answers it 403, `GET /api/admin/schema` included. Public reads serve it like an
+anonymous visitor. The admin shows such an account a notice and the sign-out, no navigation.
+
 The username is the identity — there is no e-mail field. Roles are free strings, but `createUser` and
 `updateUser` reject a `roles` array containing a name absent from `presetModuleConfig`'s `roles` option
 with 400 `VALIDATION` and `details.unknown` before writing anything. Nobody can delete or deactivate
@@ -1483,8 +1489,8 @@ variant a size names, in any state, since a listed path always resolves; there i
 a static export, so `delivery-static` stores rendered output byte for byte. Reference an item in content
 only once its `available` is not `false` (an unavailable item has no variant paths yet, so a page would
 link only the original). Reading a media item anonymously is by id only — `GET /api/media/:id` or
-`GET /api/media?ids=…` — listing the library or its folders needs a signed-in caller and answers `401`
-to a public request.
+`GET /api/media?ids=…` — listing the library or its folders needs a signed-in caller holding
+`media.list` (`media.*` grants it) and answers `401` to a public request, `403` to an account without it.
 
 See `docs/architecture.md#image-variants` for the validation rules, the discovery/registration split and
 the `<KestrelImage>` prop and fallback rules in full.

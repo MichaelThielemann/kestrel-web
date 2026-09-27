@@ -21,7 +21,8 @@ const { railOpen, railCollapsed, toggleRail, closeRailOverlay } = useRailOverlay
   toggleCollapsed: toggleCookieCollapsed,
 })
 const { failed: bootFailed, error: bootError } = useBootStatus()
-const { error: schemaError } = useSchema()
+const { error: schemaError, forbidden: schemaForbidden } = useSchema()
+const noRole = computed(() => authenticated.value && schemaForbidden.value)
 const schemaFailed = computed(() => authenticated.value && schemaError.value !== null)
 const failed = computed(() => bootFailed.value || schemaFailed.value)
 const failure = computed(() => (schemaFailed.value ? schemaError.value : bootError.value))
@@ -37,6 +38,7 @@ useHead(() => ({
   <KestrelUiPortalHost />
   <KestrelReauthDialog v-if="authenticated" />
   <KestrelBootFailure v-if="failed" :error="failure" />
+  <KestrelNoRole v-else-if="noRole" />
   <div v-else class="admin" :class="{ 'admin--rail-collapsed': railCollapsed, 'admin--rail-open': isPhone && railOpen }" :data-theme="theme">
     <div v-if="isPhone && railOpen" class="admin__scrim" aria-hidden="true" @click="closeRailOverlay" />
     <aside v-if="authenticated" id="admin-rail" class="admin__rail">

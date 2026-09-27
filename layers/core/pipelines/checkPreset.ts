@@ -45,6 +45,16 @@ export interface FeatureModule {
   derive?: (pipelines: Record<string, readonly PresetEntry[]>) => Record<string, PresetEntry[]>;
 }
 
+/** The pipelines a signed-in account without a configured role may run: reading its own identity and signing out. */
+export const ROLELESS_PIPELINES: ReadonlySet<string> = new Set(["me", "logout"]);
+
+/** Puts `authz.requireRole` right after `authn.requireUser`, unless it already follows it. */
+export function withRoleRequired(entries: readonly PresetEntry[]): PresetEntry[] {
+  const at = entries.findIndex((entry) => entry === "authn.requireUser");
+  if (at === -1 || entries[at + 1] === "authz.requireRole") return [...entries];
+  return [...entries.slice(0, at + 1), "authz.requireRole", ...entries.slice(at + 1)];
+}
+
 export const staticPipelineNames = [
   "login", "logout", "me", "changePassword", "confirmPassword", "adminSchemaModel", "listUsers", "createUser", "getUser", "updateUser", "deleteUser", "setPassword", "deactivateUser", "activateUser",
   "cleanupSessions", "getSettings", "setSettings", "listPages", "listAllPages", "readPage", "readAnyPage", "resolvePage", "createPage", "updatePage",
@@ -664,7 +674,7 @@ export function buildPreset<C extends Record<string, CollectionModel> = Record<s
     }
     nextPipelines[name] = [...steps];
   }
-  pipelines = nextPipelines;
+  pipelines = Object.fromEntries(Object.entries(nextPipelines).map(([name, entries]) => [name, ROLELESS_PIPELINES.has(name) ? entries : withRoleRequired(entries)]));
 
   for (const name of Object.keys(overrides)) {
     const entries = pipelines[name];

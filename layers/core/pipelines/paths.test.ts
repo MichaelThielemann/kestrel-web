@@ -36,6 +36,7 @@ describe("path index wiring of page writes", () => {
   it("ends every page write's atomic group with the path index and announces right after it", () => {
     expect(stepsOf(preset, "createPage")).toEqual([
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:pages.write",
       "validate.check:pages.body",
       "validate.sanitize:pages.body",
@@ -47,6 +48,7 @@ describe("path index wiring of page writes", () => {
     ]);
     expect(stepsOf(preset, "deletePage")).toEqual([
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:pages.delete",
       { atomic: ["references.guard:pages", "content.remove:pages", "revisions.remove:pages", "references.unindex:pages", "links.unextract:pages", "site.indexPath:pages"] },
       "site.announcePaths",
@@ -55,6 +57,7 @@ describe("path index wiring of page writes", () => {
     ]);
     expect(stepsOf(preset, "deletePageTranslation")).toEqual([
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:pages.write",
       { atomic: ["content.removeTranslation:pages", "revisions.removeTranslation:pages", "references.index:pages", "links.extract:pages", "site.indexPath:pages"] },
       "site.announcePaths",
@@ -66,6 +69,7 @@ describe("path index wiring of page writes", () => {
   it("gives a revision restore the same index and announcement as the update it reuses", () => {
     expect(stepsOf(preset, "restorePageRevision")).toEqual([
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:pages.write",
       "revisions.restore:pages",
       "validate.check:pages.body",
@@ -87,6 +91,7 @@ describe("path index wiring of page writes", () => {
     const withQueue = definePreset({ modules: queued, features: [...features, "eventsQueue"], collections: { pages } });
     expect(stepsOf(withQueue, "updatePage")).toEqual([
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:pages.write",
       "validate.check:pages.body",
       "validate.sanitize:pages.body",
@@ -107,16 +112,16 @@ describe("path reads", () => {
   });
 
   it("adds every valid path, drafts included, to the admin list and read", () => {
-    expect(stepsOf(preset, "listAllPages")).toEqual(["authn.requireUser", "authz.require:pages.manage", "content.list:pages", "site.attachPaths:pages"]);
-    expect(stepsOf(preset, "readAnyPage")).toEqual(["authn.requireUser", "authz.require:pages.manage", "content.get:pages", "site.attachPaths:pages"]);
+    expect(stepsOf(preset, "listAllPages")).toEqual(["authn.requireUser", "authz.requireRole", "authz.require:pages.manage", "content.list:pages", "site.attachPaths:pages"]);
+    expect(stepsOf(preset, "readAnyPage")).toEqual(["authn.requireUser", "authz.requireRole", "authz.require:pages.manage", "content.get:pages", "site.attachPaths:pages"]);
   });
 });
 
 describe("path pipelines", () => {
   it("composes the preview, the rebuild and the resume cron with a pages collection", () => {
     const preset = definePreset({ modules: direct, features: [], collections: { pages } });
-    expect(stepsOf(preset, "previewPagePath")).toEqual(["authn.requireUser", "authz.require:pages.write", "site.previewPath:pages"]);
-    expect(stepsOf(preset, "rebuildPaths")).toEqual(["authn.requireUser", "authz.require:system.manage", "site.planRebuild", { atomic: ["site.applyRebuild"] }, "site.announcePaths"]);
+    expect(stepsOf(preset, "previewPagePath")).toEqual(["authn.requireUser", "authz.requireRole", "authz.require:pages.write", "site.previewPath:pages"]);
+    expect(stepsOf(preset, "rebuildPaths")).toEqual(["authn.requireUser", "authz.requireRole", "authz.require:system.manage", "site.planRebuild", { atomic: ["site.applyRebuild"] }, "site.announcePaths"]);
     expect(stepsOf(preset, "resumePaths")).toEqual(["site.resumePaths"]);
     expect(preset.triggers).toContainEqual({ http: "POST /admin/pages/path-preview", pipeline: "previewPagePath" });
     expect(preset.triggers).toContainEqual({ http: "POST /admin/paths/rebuild", pipeline: "rebuildPaths" });
@@ -127,8 +132,8 @@ describe("path pipelines", () => {
     const preset = definePreset({ modules: direct, features, collections: { pages } });
     expect(stepsOf(preset, "pathsMovedRedirects")).toEqual(["redirects.recordMoves", "redirects.export"]);
     expect(stepsOf(preset, "pathsMovedDelivery")).toEqual(["delivery.markMoved"]);
-    expect(stepsOf(preset, "listAutoRedirects")).toEqual(["authn.requireUser", "authz.require:redirects.read", "redirects.listAuto"]);
-    expect(stepsOf(preset, "removeAutoRedirect")).toEqual(["authn.requireUser", "authz.require:redirects.write", "redirects.removeAuto", "redirects.export"]);
+    expect(stepsOf(preset, "listAutoRedirects")).toEqual(["authn.requireUser", "authz.requireRole", "authz.require:redirects.read", "redirects.listAuto"]);
+    expect(stepsOf(preset, "removeAutoRedirect")).toEqual(["authn.requireUser", "authz.requireRole", "authz.require:redirects.write", "redirects.removeAuto", "redirects.export"]);
     expect(stepsOf(preset, "rebuildPathsAfterMigrations")).toEqual(["site.planRebuild", { atomic: ["site.applyRebuild"] }, "site.announcePaths"]);
     expect(preset.triggers).toContainEqual({ event: "site.pathsMoved", pipeline: "pathsMovedRedirects" });
     expect(preset.triggers).toContainEqual({ event: "site.pathsMoved", pipeline: "pathsMovedDelivery" });
@@ -176,7 +181,7 @@ describe("subpages", () => {
 
   it("composes the page tree for pages with a parent field, behind pages.manage", () => {
     const preset = definePreset({ modules: direct, features: [], collections: { pages: nested } });
-    expect(stepsOf(preset, "pageTree")).toEqual(["authn.requireUser", "authz.require:pages.manage", "site.readTree:pages"]);
+    expect(stepsOf(preset, "pageTree")).toEqual(["authn.requireUser", "authz.requireRole", "authz.require:pages.manage", "site.readTree:pages"]);
     expect(preset.triggers).toContainEqual({ http: "GET /admin/pages/tree", pipeline: "pageTree" });
   });
 
@@ -227,6 +232,7 @@ describe("mounted collections", () => {
   it("indexes a mounted collection's writes and adds _paths to its reads like pages", () => {
     expect(stepsOf(preset, "createBlog")).toEqual([
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:blog.write",
       "validate.check:blog.body",
       "validate.sanitize:blog.body",
@@ -241,11 +247,11 @@ describe("mounted collections", () => {
 
   it("gives it a public resolve route, a path preview, delivery and referrers of its own", () => {
     expect(stepsOf(preset, "resolveBlog")).toEqual(["authn.identifyUser", "authz.require:blog.read", "site.resolve:blog?status=published&fallback=true", "site.resolveLinks:blog?status=published&fallback=true", "authz.fields:blog?shape=item"]);
-    expect(stepsOf(preset, "previewBlogPath")).toEqual(["authn.requireUser", "authz.require:blog.write", "site.previewPath:blog"]);
+    expect(stepsOf(preset, "previewBlogPath")).toEqual(["authn.requireUser", "authz.requireRole", "authz.require:blog.write", "site.previewPath:blog"]);
     expect(stepsOf(preset, "publishBlog")).toEqual(["delivery.publish:blog", "delivery.requestLlms"]);
     expect(stepsOf(preset, "unpublishBlog")).toEqual(["delivery.unpublish:blog", "delivery.requestLlms"]);
-    expect(stepsOf(preset, "blogPublishStatus")).toEqual(["authn.requireUser", "authz.require:blog.manage", "delivery.readStatus:blog"]);
-    expect(stepsOf(preset, "blogReferrers")).toEqual(["authn.requireUser", "authz.require:blog.manage", "references.referrers:blog"]);
+    expect(stepsOf(preset, "blogPublishStatus")).toEqual(["authn.requireUser", "authz.requireRole", "authz.require:blog.manage", "delivery.readStatus:blog"]);
+    expect(stepsOf(preset, "blogReferrers")).toEqual(["authn.requireUser", "authz.requireRole", "authz.require:blog.manage", "references.referrers:blog"]);
     for (const trigger of [
       { http: "GET /routes/blog/*path", pipeline: "resolveBlog" },
       { http: "POST /admin/blog/path-preview", pipeline: "previewBlogPath" },
@@ -271,6 +277,7 @@ describe("mounted collections", () => {
   it("checks the mount assignment and moves the collection inside the settings write", () => {
     expect(stepsOf(preset, "setSettings")).toEqual([
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:settings.write",
       "validate.check:settings.navigation",
       "validate.check:settings.mounts",
@@ -329,8 +336,8 @@ describe("re-rendering everything", () => {
     const blog: CollectionModel = { kind: "multi", mount: true, fields: { slug: { type: "slug" }, title: {}, status: {} } };
     const withAuthz = direct.map((entry) => (entry.use.endsWith("authz-roles") ? { ...entry, config: { anonymous: ["pages.read", "blog.read"] } } : entry));
     const preset = definePreset({ modules: withAuthz, features, collections: { settings, pages, blog } });
-    expect(stepsOf(preset, "publishAllPages")).toEqual(["authn.requireUser", "authz.require:pages.manage", "delivery.markAll:pages", "redirects.export"]);
-    expect(stepsOf(preset, "publishAllBlog")).toEqual(["authn.requireUser", "authz.require:blog.manage", "delivery.markAll:blog"]);
+    expect(stepsOf(preset, "publishAllPages")).toEqual(["authn.requireUser", "authz.requireRole", "authz.require:pages.manage", "delivery.markAll:pages", "redirects.export"]);
+    expect(stepsOf(preset, "publishAllBlog")).toEqual(["authn.requireUser", "authz.requireRole", "authz.require:blog.manage", "delivery.markAll:blog"]);
     expect(preset.triggers).toContainEqual({ http: "POST /admin/publish-all/blog", pipeline: "publishAllBlog" });
     expect(collectionVerbs("blog", blog).publishAll).toBe("publishAllBlog");
   });

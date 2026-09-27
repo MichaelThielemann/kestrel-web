@@ -36,6 +36,16 @@ const apiError = (status: number, message: string) =>
   Object.assign(new Error(message), { status, name: 'ApiError', data: { error: message, code: 'INTERNAL', retryable: false } })
 
 describe('loadSchemaInto', () => {
+  it('marks an account the schema route refuses with 403 as without access, not as a failure', async () => {
+    const state = fakeState()
+    const { api } = fakeApi(apiError(403, 'this account has no role'))
+
+    expect(await loadSchemaInto(state, api, scope())).toBe('forbidden')
+    expect(state.value.forbidden).toBe(true)
+    expect(state.value.error).toBeNull()
+    expect(state.value.schema).toBeNull()
+  })
+
   it('requests the schema once and keeps it for the rest of the session', async () => {
     const state = fakeState()
     const { api, routes } = fakeApi(schema)

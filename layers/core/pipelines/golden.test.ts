@@ -166,6 +166,7 @@ describe("golden: images without references", () => {
     const deleteMediaFolder = preset.pipelines.find((pipeline) => pipeline.name === "deleteMediaFolder");
     expect(deleteMediaFolder?.steps).toEqual([
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:media.delete",
       "media.listFolderItems",
       "media.removeFolder",

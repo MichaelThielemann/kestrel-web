@@ -26,6 +26,7 @@ const schemaState = reactive(rawSchemaState)
 mockNuxtImport('useSchema', () => () => ({
   schema: computed<AdminSchema>(() => ({ locales: { all: ['en'], primary: 'en', prefixPrimary: false }, collections: [], features: [], capabilities: schemaState.capabilities })),
   error: computed(() => null),
+  forbidden: computed(() => false),
   load: () => Promise.resolve('ok' as const),
   clear: () => {},
 }))

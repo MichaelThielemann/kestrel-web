@@ -708,8 +708,8 @@ describe("boot", () => {
         news: { kind: "multi", fields: { title: { type: "text" }, status: { type: "enum", options: ["draft", "published"] } } },
       } as const;
       const privateNews = {
-        listNews: ["authn.requireUser", "authz.require:news.read", "content.list:news"],
-        readNews: ["authn.requireUser", "authz.require:news.read", "content.get:news"],
+        listNews: ["authn.requireUser", "authz.requireRole", "authz.require:news.read", "content.list:news"],
+        readNews: ["authn.requireUser", "authz.requireRole", "authz.require:news.read", "content.get:news"],
       } as const;
       const publicReads = ["pages.read", "blog.read", "settings.read", "media.read"];
 

@@ -164,7 +164,7 @@ describe("buildAdminSchema capability placement, composed from a real preset", (
   });
 
   it("keeps a pipeline whose override has no authz.require step", () => {
-    const triggers = bootedTriggers({ listUsers: ["authn.requireUser", "authn.listUsers"] });
+    const triggers = bootedTriggers({ listUsers: ["authn.requireUser", "authz.requireRole", "authn.listUsers"] });
     const { global } = buildCapabilities({ triggers, access: { listUsers: "unknown" }, verbs: {} });
     expect(global.listUsers).toEqual({ method: "GET", path: "/users" });
   });
@@ -195,7 +195,7 @@ describe("kestrel.describe() on a real boot with a customized trigger table", ()
       collectionsUi,
       fieldTypes,
       exclude: ["deleteUser"],
-      overrides: { listUsers: ["authn.requireUser", "authn.listUsers"] },
+      overrides: { listUsers: ["authn.requireUser", "authz.requireRole", "authn.listUsers"] },
     });
     const rerouted = preset.triggers.filter((trigger) => !("http" in trigger) || trigger.pipeline !== "listUsers");
     rerouted.push({ http: "GET /staff/directory", pipeline: "listUsers" });

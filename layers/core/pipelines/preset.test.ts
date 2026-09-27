@@ -32,6 +32,7 @@ describe("definePreset eventsDeliveryStatus", () => {
     const direct = definePreset({ modules: baseModules, features: [] });
     expect(direct.pipelines.find((pipeline) => pipeline.name === "eventsDeliveryStatus")?.steps).toEqual([
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:system.manage",
       "events.readDeliveryStatus",
     ]);
@@ -40,6 +41,7 @@ describe("definePreset eventsDeliveryStatus", () => {
     const queuedPreset = definePreset({ modules: queued, features: ["eventsQueue", "images"] });
     expect(queuedPreset.pipelines.find((pipeline) => pipeline.name === "eventsDeliveryStatus")?.steps).toEqual([
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:system.manage",
       "events.readDeliveryStatus",
     ]);
@@ -349,12 +351,13 @@ describe("definePreset option handling", () => {
       modules: baseModules,
       features: [],
       overrides: {
-        deletePage: ["authn.requireUser", "authz.require:pages.delete", { atomic: ["content.remove:pages"] }, "events.emit:page.deleted", "events.relay"],
+        deletePage: ["authn.requireUser", "authz.requireRole", "authz.require:pages.delete", { atomic: ["content.remove:pages"] }, "events.emit:page.deleted", "events.relay"],
       },
     });
     const deletePage = preset.pipelines.find((pipeline) => pipeline.name === "deletePage");
     expect(deletePage?.steps).toEqual([
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:pages.delete",
       { atomic: ["content.remove:pages"] },
       "events.emit:page.deleted",
@@ -367,7 +370,7 @@ describe("definePreset option handling", () => {
       definePreset({
         modules: baseModules,
         features: [],
-        overrides: { deletePage: ["authn.requireUser", "authz.require:pages.delete", "content.remove:pages", "events.emit:page.deleted"] },
+        overrides: { deletePage: ["authn.requireUser", "authz.requireRole", "authz.require:pages.delete", "content.remove:pages", "events.emit:page.deleted"] },
       }),
     ).toThrow(/"deletePage".*"content\.remove:pages"/s);
   });
@@ -377,7 +380,7 @@ describe("definePreset option handling", () => {
       modules: baseModules,
       features: [],
       overrides: {
-        deletePage: ["authn.requireUser", "authz.require:pages.delete", { atomic: ["content.remove:pages"] }, "events.emit:page.deleted", "events.relay"],
+        deletePage: ["authn.requireUser", "authz.requireRole", "authz.require:pages.delete", { atomic: ["content.remove:pages"] }, "events.emit:page.deleted", "events.relay"],
       },
     });
     expect(preset.pipelines.find((pipeline) => pipeline.name === "deletePage")?.steps).toContainEqual({ atomic: ["content.remove:pages"] });
@@ -388,7 +391,7 @@ describe("definePreset option handling", () => {
       modules: baseModules,
       features: [],
       overrides: {
-        createPage: ["authn.requireUser", "authz.require:pages.write", { atomic: ["content.set:pages"] }, "events.emit:page.created", "events.relay"],
+        createPage: ["authn.requireUser", "authz.requireRole", "authz.require:pages.write", { atomic: ["content.set:pages"] }, "events.emit:page.created", "events.relay"],
       },
     });
     expect(preset.pipelines.find((pipeline) => pipeline.name === "createPage")?.steps).toContainEqual({ atomic: ["content.set:pages"] });
@@ -400,7 +403,7 @@ describe("definePreset option handling", () => {
         modules: baseModules,
         features: [],
         overrides: {
-          deletePage: ["authn.requireUser", "authz.require:pages.delete", { atomic: ["content.remove:pages"] }, "events.emit:page.deleted"],
+          deletePage: ["authn.requireUser", "authz.requireRole", "authz.require:pages.delete", { atomic: ["content.remove:pages"] }, "events.emit:page.deleted"],
         },
       }),
     ).toThrow(/"deletePage".*"events\.relay"/s);
@@ -411,7 +414,7 @@ describe("definePreset option handling", () => {
       modules: baseModules,
       features: [],
       overrides: {
-        deletePage: ["authn.requireUser", "authz.require:pages.delete", { atomic: ["content.remove:pages"] }, "events.emit:page.deleted", "events.relay"],
+        deletePage: ["authn.requireUser", "authz.requireRole", "authz.require:pages.delete", { atomic: ["content.remove:pages"] }, "events.emit:page.deleted", "events.relay"],
       },
     });
     expect(preset.pipelines.find((pipeline) => pipeline.name === "deletePage")?.steps).toContainEqual("events.relay");
@@ -423,7 +426,7 @@ describe("definePreset option handling", () => {
       definePreset({
         modules,
         features: ["eventsQueue", "revisions"],
-        overrides: { deleteUser: ["authn.requireUser", "authz.require:users.manage", "authn.deleteUser", "events.emit:user.deleted?with=result"] },
+        overrides: { deleteUser: ["authn.requireUser", "authz.requireRole", "authz.require:users.manage", "authn.deleteUser", "events.emit:user.deleted?with=result"] },
       }),
     ).toThrow(/"deleteUser".*"authn\.deleteUser"/s);
   });
@@ -434,7 +437,7 @@ describe("definePreset option handling", () => {
       modules,
       features: ["eventsQueue", "revisions"],
       overrides: {
-        deleteUser: ["authn.requireUser", "authz.require:users.manage", { atomic: ["authn.deleteUser", "events.emit:user.deleted?with=result"] }, "events.relay"],
+        deleteUser: ["authn.requireUser", "authz.requireRole", "authz.require:users.manage", { atomic: ["authn.deleteUser", "events.emit:user.deleted?with=result"] }, "events.relay"],
       },
     });
     expect(preset.pipelines.find((pipeline) => pipeline.name === "deleteUser")?.steps).toContainEqual({
@@ -457,9 +460,9 @@ describe("definePreset option handling", () => {
     const preset = definePreset<Record<string, CollectionModel>, PresetStep | "own.step">({
       modules: baseModules,
       features: [],
-      overrides: { me: ["authn.requireUser", "own.step"] },
+      overrides: { me: ["authn.requireUser", "authz.requireRole", "own.step"] },
     });
-    expect(preset.pipelines.find((pipeline) => pipeline.name === "me")?.steps).toEqual(["authn.requireUser", "own.step"]);
+    expect(preset.pipelines.find((pipeline) => pipeline.name === "me")?.steps).toEqual(["authn.requireUser", "authz.requireRole", "own.step"]);
   });
 
   it("excludes a pipeline and its trigger", () => {
@@ -473,7 +476,7 @@ describe("definePreset option handling", () => {
       definePreset({
         modules: baseModules,
         features: [],
-        overrides: { me: ["authn.requireUser", "authn.loadIdentity"] },
+        overrides: { me: ["authn.requireUser", "authz.requireRole", "authn.loadIdentity"] },
         exclude: ["me"],
       }),
     ).toThrow();
@@ -487,8 +490,8 @@ describe("definePreset option handling", () => {
 
   it("offers the admin routes for the reconcile report and the orphan deletion", () => {
     const preset = definePreset({ modules: baseModules, features: [] });
-    expect(preset.pipelines.find((pipeline) => pipeline.name === "reconcileMediaReport")?.steps).toEqual(["authn.requireUser", "authz.require:media.manage", "media.reconcile"]);
-    expect(preset.pipelines.find((pipeline) => pipeline.name === "reconcileMediaDelete")?.steps).toEqual(["authn.requireUser", "authz.require:media.manage", "media.reconcileDelete"]);
+    expect(preset.pipelines.find((pipeline) => pipeline.name === "reconcileMediaReport")?.steps).toEqual(["authn.requireUser", "authz.requireRole", "authz.require:media.manage", "media.reconcile"]);
+    expect(preset.pipelines.find((pipeline) => pipeline.name === "reconcileMediaDelete")?.steps).toEqual(["authn.requireUser", "authz.requireRole", "authz.require:media.manage", "media.reconcileDelete"]);
     expect(preset.triggers.find((trigger) => trigger.pipeline === "reconcileMediaReport")).toEqual({ http: "POST /admin/media/reconcile", pipeline: "reconcileMediaReport" });
     expect(preset.triggers.find((trigger) => trigger.pipeline === "reconcileMediaDelete")).toEqual({ http: "POST /admin/media/reconcile/delete", pipeline: "reconcileMediaDelete" });
   });
@@ -501,7 +504,7 @@ describe("definePreset option handling", () => {
 
   it("exposes retrying the variants that gave up behind images.manage", () => {
     const preset = definePreset({ modules: [...baseModules, { use: "@michaelthielemann/kestrel-images-default" }], features: ["images"] });
-    expect(preset.pipelines.find((pipeline) => pipeline.name === "retryFailedImages")?.steps).toEqual(["authn.requireUser", "authz.require:images.manage", "images.retryFailed"]);
+    expect(preset.pipelines.find((pipeline) => pipeline.name === "retryFailedImages")?.steps).toEqual(["authn.requireUser", "authz.requireRole", "authz.require:images.manage", "images.retryFailed"]);
     expect(preset.triggers.find((trigger) => trigger.pipeline === "retryFailedImages")).toEqual({ http: "POST /admin/images/retry-failed", pipeline: "retryFailedImages" });
   });
 
@@ -601,11 +604,13 @@ describe("definePreset module coupling", () => {
     const preset = definePreset({ modules, features: ["migrations"] });
     expect(preset.pipelines.find((pipeline) => pipeline.name === "listMigrations")?.steps).toEqual([
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:migrations.manage",
       "migrations.list",
     ]);
     expect(preset.pipelines.find((pipeline) => pipeline.name === "applyMigrations")?.steps).toEqual([
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:migrations.manage",
       "migrations.apply",
     ]);
@@ -807,21 +812,25 @@ describe("definePreset eventsQueue feature", () => {
     const preset = definePreset({ modules, features: ["eventsQueue", "images"] });
     expect(preset.pipelines.find((pipeline) => pipeline.name === "eventsQueueStatus")?.steps).toEqual([
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:system.manage",
       "events.readQueueStatus",
     ]);
     expect(preset.pipelines.find((pipeline) => pipeline.name === "eventsDead")?.steps).toEqual([
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:system.manage",
       "events.listDead",
     ]);
     expect(preset.pipelines.find((pipeline) => pipeline.name === "eventsRetryDead")?.steps).toEqual([
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:system.manage",
       "events.retryDead:all",
     ]);
     expect(preset.pipelines.find((pipeline) => pipeline.name === "eventsRetryOne")?.steps).toEqual([
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:system.manage",
       "events.retryDead:one",
     ]);
@@ -896,19 +905,20 @@ describe("definePreset admin schema access guard", () => {
       definePreset({
         modules: baseModules,
         features: [],
-        overrides: { adminSchemaModel: ["authn.requireUser", "content.describeModel"] },
+        overrides: { adminSchemaModel: ["authn.requireUser", "authz.requireRole", "content.describeModel"] },
       }),
     ).toThrow('preset: override for "adminSchemaModel" drops "authz.describePipelineAccess"');
   });
 
-  it("accepts an adminSchemaModel override that keeps authz.describePipelineAccess", () => {
+  it("accepts an adminSchemaModel override that keeps authz.describePipelineAccess, and requires a role in it", () => {
     const preset = definePreset({
       modules: baseModules,
       features: [],
-      overrides: { adminSchemaModel: ["authn.requireUser", "content.describeModel", "authz.describePipelineAccess"] },
+      overrides: { adminSchemaModel: ["authn.requireUser", "authz.requireRole", "content.describeModel", "authz.describePipelineAccess"] },
     });
     expect(preset.pipelines.find((pipeline) => pipeline.name === "adminSchemaModel")?.steps).toEqual([
       "authn.requireUser",
+      "authz.requireRole",
       "content.describeModel",
       "authz.describePipelineAccess",
     ]);
@@ -1001,6 +1011,7 @@ describe("definePreset revisions feature", () => {
   it("drops the revisions of a removed document and of a removed translation, inside the atomic group", () => {
     expect(stepsOf("deletePage")).toEqual([
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:pages.delete",
       "content.remove:pages",
       "revisions.remove:pages",
@@ -1017,9 +1028,10 @@ describe("definePreset revisions feature", () => {
   it("builds the restore pipeline from the update pipeline behind its authorization, and emits a restored event", () => {
     expect(stepsOf("restorePageRevision")).toEqual([
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:pages.write",
       "revisions.restore:pages",
-      ...stepsOf("updatePage").slice(2, -2),
+      ...stepsOf("updatePage").slice(3, -2),
       "revisions.reportRestore",
       "events.emit:page.restored",
       "events.relay",
@@ -1027,13 +1039,13 @@ describe("definePreset revisions feature", () => {
   });
 
   it("reads the history with manage and writes it with write", () => {
-    expect(stepsOf("pageRevisions")).toEqual(["authn.requireUser", "authz.require:pages.manage", "revisions.list:pages"]);
-    expect(stepsOf("pageRevision")).toEqual(["authn.requireUser", "authz.require:pages.manage", "revisions.read:pages"]);
-    expect(stepsOf("labelPageRevision")).toEqual(["authn.requireUser", "authz.require:pages.write", "revisions.label:pages"]);
+    expect(stepsOf("pageRevisions")).toEqual(["authn.requireUser", "authz.requireRole", "authz.require:pages.manage", "revisions.list:pages"]);
+    expect(stepsOf("pageRevision")).toEqual(["authn.requireUser", "authz.requireRole", "authz.require:pages.manage", "revisions.read:pages"]);
+    expect(stepsOf("labelPageRevision")).toEqual(["authn.requireUser", "authz.requireRole", "authz.require:pages.write", "revisions.label:pages"]);
   });
 
   it("covers every multi collection, not just pages, and leaves single collections alone", () => {
-    expect(stepsOf("newsRevisions")).toEqual(["authn.requireUser", "authz.require:news.manage", "revisions.list:news"]);
+    expect(stepsOf("newsRevisions")).toEqual(["authn.requireUser", "authz.requireRole", "authz.require:news.manage", "revisions.list:news"]);
     expect(stepsOf("restoreNewsRevision")).toContain("revisions.restore:news");
     expect(preset.pipelines.some((pipeline) => pipeline.name.startsWith("profileRevision"))).toBe(false);
   });
@@ -1073,6 +1085,7 @@ describe("definePreset user deletion", () => {
     const preset = definePreset({ modules: baseModules, features: [] });
     expect(stepsOf(preset, "deleteUser")).toEqual([
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:users.manage",
       "authn.requireRecentAuth:300",
       "authn.deleteUser",
@@ -1086,6 +1099,7 @@ describe("definePreset user deletion", () => {
     expect(stepsOf(preset, "reassignRevisionAuthor")).toEqual(["authn.verifyUser:result.reassignTo", "revisions.reassignAuthor"]);
     expect(stepsOf(preset, "retryReassignRevisionAuthor")).toEqual([
       "authn.requireUser",
+      "authz.requireRole",
       "authz.require:users.manage",
       "authn.verifyUser:reassignTo",
       "revisions.reassignAuthor",
@@ -1097,7 +1111,7 @@ describe("definePreset user deletion", () => {
   it("wires the audit listener and its retry route behind users.manage", () => {
     const preset = definePreset({ modules: bothModules, features: ["revisions", "audit"] });
     expect(stepsOf(preset, "anonymizeAuditUser")).toEqual(["audit.anonymize"]);
-    expect(stepsOf(preset, "retryAnonymizeAuditUser")).toEqual(["authn.requireUser", "authz.require:users.manage", "audit.anonymize"]);
+    expect(stepsOf(preset, "retryAnonymizeAuditUser")).toEqual(["authn.requireUser", "authz.requireRole", "authz.require:users.manage", "audit.anonymize"]);
     expect(preset.triggers).toContainEqual({ event: "user.deleted", pipeline: "anonymizeAuditUser" });
     expect(preset.triggers).toContainEqual({ http: "POST /admin/users/:id/audit/anonymize", pipeline: "retryAnonymizeAuditUser" });
   });

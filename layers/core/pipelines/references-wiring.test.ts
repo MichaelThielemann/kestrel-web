@@ -45,7 +45,7 @@ describe("references wiring of a collection that is not mounted", () => {
   });
 
   it("answers who references one of its documents, for the admin's delete dialog", () => {
-    expect(stepsOf(preset, "authorsReferrers")).toEqual(["authn.requireUser", "authz.require:authors.manage", "references.referrers:authors"]);
+    expect(stepsOf(preset, "authorsReferrers")).toEqual(["authn.requireUser", "authz.requireRole", "authz.require:authors.manage", "references.referrers:authors"]);
     expect(preset.triggers).toContainEqual({ http: "GET /admin/references/to/authors/:id", pipeline: "authorsReferrers" });
     expect(collectionVerbs("authors", collections.authors ?? { kind: "multi", fields: {} })).toMatchObject({ referrers: "authorsReferrers", referrersMany: "authorsReferrersMany" });
   });

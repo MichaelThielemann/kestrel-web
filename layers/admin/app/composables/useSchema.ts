@@ -4,12 +4,13 @@ import type { ApiClient, ApiRequestOptions } from '../actions/types'
 import type { ApiRoute } from '../utils/capabilities'
 import { apiErrorMessage, apiErrorStatus, useApi } from './useApi'
 
-export type SchemaOutcome = 'ok' | 'unauthenticated' | 'failed'
+export type SchemaOutcome = 'ok' | 'unauthenticated' | 'forbidden' | 'failed'
 
 export interface SchemaState {
   schema: AdminSchema | null
   error: string | null
   generation: number
+  forbidden?: boolean
 }
 
 export const SCHEMA_STATE_KEY = 'kestrel-schema'
@@ -24,6 +25,7 @@ async function fetchSchema(api: ApiClient): Promise<FetchResult> {
     return { outcome: 'ok', schema, error: null }
   } catch (e) {
     if (apiErrorStatus(e) === 401) return { outcome: 'unauthenticated', schema: null, error: null }
+    if (apiErrorStatus(e) === 403) return { outcome: 'forbidden', schema: null, error: null }
     return { outcome: 'failed', schema: null, error: apiErrorMessage(e) }
   }
 }
@@ -37,7 +39,7 @@ export function loadSchemaInto(state: { value: SchemaState }, api: ApiClient, sc
   const generation = state.value.generation
   const load = fetchSchema(api).then((result) => {
     if (state.value.generation !== generation) return 'ok' as const
-    state.value = { schema: result.schema, error: result.error, generation }
+    state.value = { schema: result.schema, error: result.error, generation, forbidden: result.outcome === 'forbidden' }
     return result.outcome
   }).finally(() => { loadInFlight.delete(scope) })
   loadInFlight.set(scope, load)
@@ -85,6 +87,7 @@ export function useSchema() {
   return {
     schema: computed(() => state.value.schema),
     error: computed(() => state.value.error),
+    forbidden: computed(() => state.value.forbidden === true),
     load: () => loadSchemaInto(state, api, scope),
     clear,
     refresh: (): Promise<SchemaOutcome> => refreshSchemaInto(state, api, scope),

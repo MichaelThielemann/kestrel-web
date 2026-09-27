@@ -637,6 +637,8 @@ export const en = {
   'account.password.new': 'New password',
   'account.password.tooShort': 'Password must be at least 12 characters.',
   'account.password.success': 'Password changed',
+  'noRole.title': 'No access yet',
+  'noRole.message': 'You are signed in as {username}, but your account has no role, so there is nothing you may open here. Ask an administrator to assign you a role, then sign in again.',
   'reauth.title': 'Enter your password again',
   'reauth.intro': 'This action changes accounts or restores data. Enter your password again to continue.',
   'reauth.password': 'Password',

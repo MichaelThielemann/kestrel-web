@@ -116,11 +116,11 @@ describe("checkPreset parity with definePreset", () => {
     const testOptions = options({
       modules: baseModules,
       features: [],
-      overrides: { deletePage: ["authn.requireUser", "authz.require:pages.manage", "content.remove:pages"] },
+      overrides: { deletePage: ["authn.requireUser", "authz.requireRole", "authz.require:pages.manage", "content.remove:pages"] },
     });
     const { preset, problems } = checkPreset(testOptions);
     expect(problems.some((p) => p.code === "preset/override-drops-atomic-group" && p.pipeline === "deletePage")).toBe(true);
-    expect(preset.pipelines.find((p) => p.name === "deletePage")?.steps).toEqual(["authn.requireUser", "authz.require:pages.manage", "content.remove:pages"]);
+    expect(preset.pipelines.find((p) => p.name === "deletePage")?.steps).toEqual(["authn.requireUser", "authz.requireRole", "authz.require:pages.manage", "content.remove:pages"]);
   });
 });
 
@@ -183,14 +183,14 @@ describe("checkPreset: dependent re-rendering and queue lanes", () => {
   });
 
   it("collects an override that drops an emit a dependents pipeline listens to, naming the pipeline, and still applies it", () => {
-    const override = ["authn.requireUser", "authz.require:profile.write", { atomic: ["content.set:profile"] }, "events.relay"];
+    const override = ["authn.requireUser", "authz.requireRole", "authz.require:profile.write", { atomic: ["content.set:profile"] }, "events.relay"];
     const testOptions = options({ modules: modules(["delivery"]), features: ["delivery"], collections, overrides: { setProfile: override } });
     expectParity(testOptions, "preset/override-drops-watched-emit", "setProfile");
     expect(checkPreset(testOptions).preset.pipelines.find((p) => p.name === "setProfile")?.steps).toEqual(override);
   });
 
   it("collects an override that places events.relay before the entry carrying the pipeline's own events.emit: step", () => {
-    const override = ["authn.requireUser", "authz.require:pages.manage", "events.relay", { atomic: ["content.remove:pages", "events.emit:page.deleted"] }];
+    const override = ["authn.requireUser", "authz.requireRole", "authz.require:pages.manage", "events.relay", { atomic: ["content.remove:pages", "events.emit:page.deleted"] }];
     const testOptions = options({ modules: modules([]), features: [], collections, overrides: { deletePage: override } });
     expectParity(testOptions, "preset/override-relay-before-emit", "deletePage");
     expect(checkPreset(testOptions).preset.pipelines.find((p) => p.name === "deletePage")?.steps).toEqual(override);
@@ -198,7 +198,7 @@ describe("checkPreset: dependent re-rendering and queue lanes", () => {
 
   it("accepts an eventsQueue override that keeps events.emit outside the group but relay correctly after it: the upgrade tool's own rule offers moving it in, checkPreset does not block it", () => {
     const features = ["eventsQueue"];
-    const override = ["authn.requireUser", "authz.require:pages.manage", { atomic: ["content.remove:pages"] }, "events.emit:page.deleted", "events.relay"];
+    const override = ["authn.requireUser", "authz.requireRole", "authz.require:pages.manage", { atomic: ["content.remove:pages"] }, "events.emit:page.deleted", "events.relay"];
     const testOptions = options({ modules: modules(features), features, collections, overrides: { deletePage: override } });
     expect(checkPreset(testOptions).problems).toEqual([]);
   });

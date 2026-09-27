@@ -224,10 +224,15 @@ interface OverrideTarget {
   own: readonly PipelineEntry[];
 }
 
-function overrideTargets(ctx: RuleContext, names: readonly string[]): OverrideTarget[] {
+function ownSteps(ctx: RuleContext, cast: PresetOptions, name: string): readonly PipelineEntry[] {
+  const written = Object.entries(cast.overrides ?? {}).find(([pipeline]) => pipeline === name)?.[1];
+  return written ?? ctx.project.input.pipelines.find((p) => p.name === name)?.steps ?? [];
+}
+
+function overrideTargets(ctx: RuleContext, cast: PresetOptions, names: readonly string[]): OverrideTarget[] {
   return names.map((name) => {
     const file = fileForPipeline(ctx, name);
-    return { name, file, source: file === undefined ? undefined : ctx.readFile(file), own: ctx.project.input.pipelines.find((p) => p.name === name)?.steps ?? [] };
+    return { name, file, source: file === undefined ? undefined : ctx.readFile(file), own: ownSteps(ctx, cast, name) };
   });
 }
 
@@ -246,7 +251,7 @@ export function queueEmitPlacementEdits(ctx: RuleContext): Edit[] {
   const watched = watchedEvents(cast);
   const dropping = new Set(data.presetProblems.filter((p) => p.code === WATCHED_EMIT_PROBLEM).map((p) => p.pipeline));
   const edits: Edit[] = [];
-  for (const { name, file, source, own } of overrideTargets(ctx, Object.keys(cast.overrides ?? {}))) {
+  for (const { name, file, source, own } of overrideTargets(ctx, cast, Object.keys(cast.overrides ?? {}))) {
     const defaults = defaultSteps(queued, name);
     if (file === undefined || source === undefined || (!dropping.has(name) && !emitFollowsWriteGroup(defaults, own, watched))) continue;
     const { edit } = rewriteOverrideEmits(file, source, name, defaults, own, { keepExport: !dropping.has(name) });
@@ -259,7 +264,7 @@ export function queueEmitPlacementEdits(ctx: RuleContext): Edit[] {
 function misplacedEmitFindings(ctx: RuleContext, cast: PresetOptions, skip: ReadonlySet<string>): Finding[] {
   const watched = watchedEvents(cast);
   const names = Object.keys(cast.overrides ?? {}).filter((name) => !skip.has(name));
-  return overrideTargets(ctx, names).flatMap(({ name, file, source, own }): Finding[] => {
+  return overrideTargets(ctx, cast, names).flatMap(({ name, file, source, own }): Finding[] => {
     const defaults = defaultSteps(cast, name);
     if (!emitFollowsWriteGroup(defaults, own, watched)) return [];
     const id = `${RULE}:${name}`;
@@ -299,7 +304,7 @@ export const overrideEmitRule: Rule = {
       const docs = docsAnchor("preset-override-emit");
       const file = fileForPipeline(ctx, pipelineName);
       const source = file === undefined ? undefined : ctx.readFile(file);
-      const own = ctx.project.input.pipelines.find((p) => p.name === pipelineName)?.steps ?? [];
+      const own = ownSteps(ctx, cast, pipelineName);
       const rewrite = file === undefined || source === undefined ? { reason: "the override's file is not known" } : rewriteOverrideEmits(file, source, pipelineName, defaultSteps(cast, pipelineName), own);
       return rewrite.edit === undefined
         ? manualFinding(id, RULE, where, problem.message, `add the emit next to the write, where the 3.0 default has it, and "events.relay" after it yourself (${rewrite.reason ?? "not located"})`, docs)

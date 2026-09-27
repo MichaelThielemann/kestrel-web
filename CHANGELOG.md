@@ -522,6 +522,11 @@
   pipeline (`POST /me/confirm-password`, rate-limited with the `ratelimit` feature) renews the check, and the
   admin asks for the password in a dialog and repeats the action. `setPassword` refuses the caller's own
   account.
+- A signed-in account without a configured role may only sign out and read its own identity: the preset runs
+  `authz.requireRole` after `authn.requireUser` in every pipeline but `me` and `logout`, consumer overrides
+  included, so `GET /api/admin/schema` and every other route behind a login answer it 403, and the admin shows
+  it a notice with the sign-out instead of the navigation. Listing the media library needs `media.list`. The
+  schema composable's `SchemaOutcome` gains `'forbidden'` and its state a `forbidden` flag.
 
 - **Forwarding headers count only from a trusted proxy.** The new `NUXT_KESTREL_ACCESS_TRUSTED_PROXIES`
   (`kestrel.access.trustedProxies`, addresses or CIDR ranges, default loopback) lists the peers whose
