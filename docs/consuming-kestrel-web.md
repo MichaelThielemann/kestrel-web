@@ -1329,7 +1329,10 @@ A `link` field stores `{ type, label? }` plus the member of its type: `url` (ext
 `collection`, `id` and `hash?` (internal). Any other member fails the page-body schema. An external `url` must
 start with `http:`, `https:`, `mailto:` or `tel:` (any letter case) or be relative to the site (`/…`, `#…`,
 `?…`); the server answers `400` for anything else, `javascript:` and `data:` included, and so does
-`PUT /settings` for an external navigation link. The admin shows the same rule on the field before saving.
+`PUT /settings` for an external navigation link. The same holds for a collection's `json` field that
+`collectionsUi` shows as a link (`fieldOverrides.<field>.type: "link"`): the preset checks it with
+`validate.check:<collection>.<field>` on every write, and `presetModuleConfig()` registers its schema. A
+hand-written module list passes the same `collectionsUi` to `presetSchemas()`. The admin shows the same rule on the field before saving.
 
 `useLinkHref()` (and `linkHrefOf()`) applies the rule again when rendering, after dropping leading and
 trailing spaces and control characters and removing tabs and line breaks the way a browser reads an `href`:

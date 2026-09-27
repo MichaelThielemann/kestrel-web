@@ -416,7 +416,7 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
   }));
   modules.push(preset("@michaelthielemann/kestrel-site-default", siteConfig(types, options)));
 
-  const schemas = presetSchemas({ features, collections: declaredTypes, fieldTypes });
+  const schemas = presetSchemas({ features, collections: declaredTypes, fieldTypes, ...(options.collectionsUi === undefined ? {} : { collectionsUi: options.collectionsUi }) });
   if (enabled.has("references")) modules.push(preset("@michaelthielemann/kestrel-references-default", referencesConfig(types, schemas)));
   if (enabled.has("links")) modules.push(preset("@michaelthielemann/kestrel-links-default", { ...DEFAULT_LINKS }));
 

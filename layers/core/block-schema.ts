@@ -8,6 +8,25 @@ type Schema = Record<string, unknown>;
 
 const NODE_REF = { $ref: "#/$defs/node" };
 
+/** The JSON Schema of a stored link value: its `type` and `label`, the one member its type stores, and an external `url` restricted to `SAFE_LINK_URL_PATTERN`. */
+export function linkValueSchema(): Schema {
+  return {
+    type: "object",
+    properties: {
+      type: { type: "string", enum: ["internal", "external", "email", "tel"] },
+      label: { type: "string" },
+      url: { type: "string", pattern: SAFE_LINK_URL_PATTERN },
+      email: { type: "string" },
+      tel: { type: "string" },
+      collection: { type: "string" },
+      id: { type: "string" },
+      hash: { type: "string" },
+    },
+    required: ["type"],
+    additionalProperties: false,
+  };
+}
+
 function fieldSchema(field: SerializedField, fieldTypes: FieldTypes): Schema {
   const nullable = (schema: Schema): Schema => (field.required ? schema : { anyOf: [schema, { type: "null" }] });
   switch (field.type) {
@@ -35,21 +54,7 @@ function fieldSchema(field: SerializedField, fieldTypes: FieldTypes): Schema {
       return field.options?.multiple ? nullable({ type: "array", items: values }) : nullable(values);
     }
     case "link":
-      return nullable({
-        type: "object",
-        properties: {
-          type: { type: "string", enum: ["internal", "external", "email", "tel"] },
-          label: { type: "string" },
-          url: { type: "string", pattern: SAFE_LINK_URL_PATTERN },
-          email: { type: "string" },
-          tel: { type: "string" },
-          collection: { type: "string" },
-          id: { type: "string" },
-          hash: { type: "string" },
-        },
-        required: ["type"],
-        additionalProperties: false,
-      });
+      return nullable(linkValueSchema());
     case "repeater": {
       const fields = boundaryCast<Record<string, SerializedField> | undefined>(field.options?.fields, "json") ?? {};
       return nullable({ type: "array", items: propsSchema(fields, fieldTypes) });

@@ -13,6 +13,7 @@ import { basePipelines } from "./base";
 import { anonymousHolds, appendFieldCut, fieldCutSteps } from "./field-grants";
 import type { PresetContext } from "./base";
 import { canonicalTriggers } from "./triggers";
+import { linkOverrideFields } from "./link-fields";
 import { isRoutedCollection } from "./capabilities";
 import { parentFieldOf, routedCollections } from "./paths";
 import { routedPipelineNames } from "./delivery-names";
@@ -449,6 +450,9 @@ export function buildPreset<C extends Record<string, CollectionModel> = Record<s
   validateHomeSlug(homeSlug, options.modules, sink);
   validatePrivatePrefixes(options.modules, sink);
   const customFields = customFieldTypes(collections, options.fieldTypes ?? {});
+  for (const [name, fields] of Object.entries(linkOverrideFields(collections, options.collectionsUi))) {
+    customFields[name] = { ...Object.fromEntries(fields.map((field) => [field, "link"])), ...customFields[name] };
+  }
   const context: PresetContext = { exportDir, homeSlug, collections, customFields, modules: options.modules, ...(options.collectionsUi === undefined ? {} : { collectionsUi: options.collectionsUi }) };
 
   const pagesModel = collections.pages;

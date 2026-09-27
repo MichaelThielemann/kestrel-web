@@ -8,6 +8,8 @@ import type { FieldTypes } from "../field-types";
 import { MOUNTS_FIELD, RESERVED_PAGE_SEGMENTS } from "../mount-path";
 import { buildPreset, throwSink } from "./checkPreset";
 import { mountedCollections } from "./paths";
+import { linkOverrideFields } from "./link-fields";
+import { linkValueSchema } from "../block-schema";
 import type { CollectionModel, Feature, Preset, PresetOptions } from "./checkPreset";
 import { DEFAULT_COLLECTIONS, hasSlugValueSchema } from "./collections";
 
@@ -82,10 +84,12 @@ export function presetSchemas({
   features,
   collections,
   fieldTypes,
+  collectionsUi,
 }: {
   features: readonly Feature[];
   collections?: Record<string, CollectionModel>;
   fieldTypes?: FieldTypes;
+  collectionsUi?: Record<string, unknown>;
 }): Record<string, string | Record<string, unknown>> {
   const appRoot = process.env.KESTREL_APP_ROOT ?? process.cwd();
   const navigationConsumerPath = resolve(appRoot, "schemas/settings.navigation.json");
@@ -114,6 +118,9 @@ export function presetSchemas({
   }
   if (features.includes("redirects")) {
     schemas["redirects.rules"] = process.env.KESTREL_REDIRECTS_SCHEMA ?? fileURLToPath(new URL("../schemas/redirects.rules.json", import.meta.url));
+  }
+  for (const [name, fields] of Object.entries(linkOverrideFields(resolved, collectionsUi))) {
+    for (const field of fields) schemas[`${name}.${field}`] ??= { anyOf: [linkValueSchema(), { type: "null" }] };
   }
   for (const [target, schema] of Object.entries(fieldTypeSchemas(resolved, fieldTypes ?? {}))) schemas[target] = schema;
   return schemas;

@@ -34,25 +34,31 @@
   its own there. A translation without one answers 404 (also with `untranslatedPages: "redirect"`, which now
   applies only to a translation that has its own slug but inherits other fields), gets no `_paths` entry,
   static page or automatic redirect, and a link to it in that locale is broken; saving it as published
-  answers `400` on the slug field, through the admin and the API. A page without a slug in a locale still
-  gives its subpages its default-locale slug as their segment there. `kestrel upgrade data` reports stored
-  translations in that state as `data/translation-slug`, naming the default-locale slug to copy only where
-  that locale is published.
+  answers `400` on the slug field, through the admin and the API. Every path segment comes from a slug of
+  the path's own locale: a subpage or mounted document can be published in a locale only when every page
+  above it has a slug there (`400` on the parent field, the slug field for a mounted document, naming the
+  page), and clearing a page's slug, removing its translation or moving a mounted collection while
+  documents below are published in that locale answers `400` naming them. `kestrel upgrade data` reports
+  stored translations published without a slug and documents published below a page without a slug in
+  their locale as `data/translation-slug`, naming the default-locale slug to copy only where that locale is
+  published.
 - `GET /api/<collection>` and `GET /api/admin/<collection>` without `limit` answer at most 200 items
   (`content-default`'s `defaultLimit`, which defaults to its `maxLimit`) with the full `total`, instead of
   every match; read further pages with `offset`. The admin's lists and pickers already page.
 - Rich text keeps an element's `id` only when it starts with an ASCII letter, holds at most 64 ASCII letters,
-  digits, `-` and `_`, and is not `teleports`, `site-main` or an id starting with `nuxt`; any other id is
-  dropped, on save by the backend and on render by `useSanitizedHtml()`, which in the browser also
-  sanitizes a value taken from the server's payload again. Stored content needs no migration: an id outside
-  the rule stops rendering at once and is removed on the next save.
+  digits, `-` and `_`, and is not `teleports`, `site-main` or an id starting with `nuxt`. The backend drops
+  an id outside the pattern when it saves; `useSanitizedHtml()` drops those and the three reserved ones
+  when it renders, and in the browser also sanitizes a value taken from the server's payload again. Stored
+  content needs no migration: an id outside the rule stops rendering at once, and one outside the pattern
+  is removed on the next save.
 - A `single` collection with a workflow (a `status` enum, or one declared in `collectionsUi`) reads through
   `?status=<live>` on `get<Name>`: `GET /<name>` answers `404` while the stored document is not live. The
   admin reads and edits it through the new `getAny<Name>` (`GET /admin/<name>`, `<name>.manage`), so a role
   that edits such a single needs `<name>.manage` too. The boot check that a public read keeps its status
   filter now covers `single` collections, so an override of `get<Name>` without the filter stops the server
   with the collection and pipeline named.
-- A `link` field and an external `settings.navigation` link accept only `http:`, `https:`, `mailto:` and
+- A `link` field, a collection `json` field shown as a link through `collectionsUi.fieldOverrides`, and an
+  external `settings.navigation` link accept only `http:`, `https:`, `mailto:` and
   `tel:` targets or a site-relative one (`/…`, `#…`, `?…`); a save with any other target, `javascript:` and
   `data:` included, answers `400`, and a link value may no longer carry members its type does not store.
   `useLinkHref()`/`linkHrefOf()` return `null` for such a target and for an internal link whose path is not a
