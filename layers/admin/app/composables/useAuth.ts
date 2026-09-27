@@ -1,4 +1,4 @@
-import { ADMIN_BOOTSTRAP_ROUTES } from '#kestrel-core/fixed-routes'
+import { ADMIN_BOOTSTRAP_ROUTES, ADMIN_OPTIONAL_BOOTSTRAP_ROUTES } from '#kestrel-core/fixed-routes'
 import type { Identity, LoginResponse } from '#kestrel-admin/types/api'
 import type { ApiRequestOptions, Translate } from '../actions/types'
 import type { ApiRoute } from '../utils/capabilities'
@@ -29,6 +29,13 @@ export async function logoutAndReset(deps: LogoutDeps): Promise<void> {
   }
   deps.reset()
   await deps.navigate('/admin/login')
+}
+
+export type SignInResponse = LoginResponse & { recoveryCodes?: string[] }
+
+export interface SecondFactorSetup {
+  secret: string
+  uri: string
 }
 
 export function sessionStateFor(error: unknown): AuthState {
@@ -62,12 +69,16 @@ export function useAuth() {
     return state.value.identity !== null
   }
 
-  async function login(username: string, password: string) {
+  async function login(username: string, password: string, code?: string) {
     schema.clear()
     clearInsightsState()
-    const r = await api<LoginResponse>(ADMIN_BOOTSTRAP_ROUTES.login, { body: { username, password } })
+    const r = await api<SignInResponse>(ADMIN_BOOTSTRAP_ROUTES.login, { body: code === undefined ? { username, password } : { username, password, code } })
     state.value = { identity: r.identity, checked: true, error: null }
     return r
+  }
+
+  function startSecondFactorSetup(username: string, password: string) {
+    return api<SecondFactorSetup>(ADMIN_OPTIONAL_BOOTSTRAP_ROUTES.setupSecondFactor, { body: { username, password } })
   }
 
   function reset() {
@@ -103,6 +114,7 @@ export function useAuth() {
     checkSession,
     ensureSession,
     login,
+    startSecondFactorSetup,
     logout,
     reset,
     refreshAccess,

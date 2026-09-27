@@ -9,25 +9,29 @@ const deps = useActionDeps()
 const { identity } = useAuth()
 
 const users = ref<User[]>([])
+const enrolled = ref<ReadonlySet<string> | null>(null)
 const loadError = ref<string | null>(null)
 const busyId = ref<string | null>(null)
 
 async function load() {
   loadError.value = null
-  try { users.value = await deps.api<User[]>(deps.capabilities.route('listUsers')) }
-  catch (e) { loadError.value = apiErrorMessage(e) }
+  try {
+    users.value = await deps.api<User[]>(deps.capabilities.route('listUsers'))
+    enrolled.value = deps.capabilities.has('secondFactorUsers') ? new Set(await deps.api<string[]>(deps.capabilities.route('secondFactorUsers'))) : null
+  } catch (e) { loadError.value = apiErrorMessage(e) }
 }
 await load()
 
 const newOpen = ref(false)
 const editUser = ref<User | null>(null)
 const deleteUser = ref<User | null>(null)
+const resetFactorUser = ref<User | null>(null)
 
 const knownRoles = computed(() => [...new Set(users.value.flatMap((u) => u.roles))])
 function isSelf(u: User) { return identity.value?.id === u.id }
 
 function rowMenu(u: User) {
-  return userRowMenu(u, { self: isSelf(u), capabilities: deps.capabilities, t })
+  return userRowMenu(u, { self: isSelf(u), capabilities: deps.capabilities, t, ...(enrolled.value === null ? {} : { secondFactor: enrolled.value.has(u.id) }) })
 }
 
 async function toggleActive(u: User) {
@@ -44,6 +48,7 @@ async function toggleActive(u: User) {
 function onSelect(u: User, action: string) {
   if (action === 'edit') editUser.value = u
   if (action === 'delete') deleteUser.value = u
+  if (action === 'resetFactor') resetFactorUser.value = u
   if (action === 'toggle') void toggleActive(u)
 }
 
@@ -65,6 +70,7 @@ function formatDate(ms: number) { return dateFmt.format(new Date(ms)) }
           <th>{{ t('users.colUsername') }}</th>
           <th>{{ t('users.colRoles') }}</th>
           <th>{{ t('users.colActive') }}</th>
+          <th v-if="enrolled !== null">{{ t('users.colSecondFactor') }}</th>
           <th>{{ t('users.colCreated') }}</th>
           <th class="ui-table__col--actions"><span class="ui-table__vh">{{ t('a11y.rowActions') }}</span></th>
         </template>
@@ -73,6 +79,7 @@ function formatDate(ms: number) { return dateFmt.format(new Date(ms)) }
             <td>{{ u.username }}</td>
             <td>{{ u.roles.join(', ') }}</td>
             <td>{{ u.active ? t('users.active') : t('users.inactive') }}</td>
+            <td v-if="enrolled !== null">{{ enrolled.has(u.id) ? t('users.secondFactorOn') : t('users.secondFactorOff') }}</td>
             <td>{{ formatDate(u.createdAt) }}</td>
             <td class="ui-table__col--actions">
               <div class="ui-table__actions">
@@ -98,6 +105,7 @@ function formatDate(ms: number) { return dateFmt.format(new Date(ms)) }
       @update:user="editUser = $event"
       @saved="load"
     />
+    <KestrelUserResetFactorDialog :user="resetFactorUser" @update:user="resetFactorUser = $event" @reset="load" />
     <KestrelUserDeleteDialog
       :user="deleteUser"
       :users="users"

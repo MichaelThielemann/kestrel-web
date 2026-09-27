@@ -42,4 +42,12 @@ describe('userRowMenu', () => {
     const items = userRowMenu(user, { self: false, capabilities: resolverWith([]), t })
     expect(items).toEqual([])
   })
+
+  it('offers to reset the second factor only of a user who has one, and never on the caller\'s own row', () => {
+    const capabilities = resolverWith(['resetSecondFactor'])
+    expect(userRowMenu(user, { self: false, capabilities, t, secondFactor: true })).toEqual([{ value: 'resetFactor', label: 'users.resetSecondFactor', disabled: false }])
+    expect(userRowMenu(user, { self: false, capabilities, t, secondFactor: false })).toEqual([])
+    expect(userRowMenu(user, { self: false, capabilities, t })).toEqual([])
+    expect(userRowMenu(user, { self: true, capabilities, t, secondFactor: true })[0]?.disabled).toBe(true)
+  })
 })
