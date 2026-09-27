@@ -24,7 +24,7 @@ watch(open, (v) => { if (!v) reset() })
 async function submit() {
   error.value = null
   confirmError.value = null
-  if (next.value.length < 8) { error.value = t('account.password.tooShort'); return }
+  if (next.value.length < 12) { error.value = t('account.password.tooShort'); return }
   if (next.value !== confirm.value) { confirmError.value = t('password.mismatch'); return }
   busy.value = true
   try {

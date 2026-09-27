@@ -434,6 +434,12 @@
   `buildAdminSchema()` takes the preset's model as `collections` to read the mount flag. `routes` is a
   reserved collection name. With a mounted collection, `resolvePage` can answer `{ route: { type } }` and
   `PublicSiteResponse` gains `RouteHint`.
+- The preset's default `session.minPasswordLength` is 12, as in `kestrel-authn-multi`. It applies when a
+  password is set: an existing shorter password still logs in. The admin's password fields ask for at
+  least 12 characters.
+- `create-kestrel` preselects the `ratelimit` feature, so a scaffolded project limits failed logins per
+  client address (five per minute), also with `--yes`. It asks for an admin password of at least 12
+  characters and refuses a short list of well-known passwords.
 
 ### Added
 

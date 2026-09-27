@@ -15,13 +15,14 @@ work the same way. The package has no runtime dependencies and needs Node 22.13 
 
 Project directory and package name, package manager (prefilled from the one that started it),
 default locale and further locales, features, blobstore, and the bootstrap admin user with a
-password. The password is hashed with scrypt in the format `@michaelthielemann/kestrel-authn-multi`
+password of at least 12 characters that is not on a short list of well-known passwords. The password is hashed with scrypt in the format `@michaelthielemann/kestrel-authn-multi`
 verifies and written to `.env` as `KESTREL_ADMIN_PASSWORD_HASH`; no clear-text password and no
 credential ever reaches a scaffolded file. `.env.example` carries placeholders only.
 
-Preselected features: `sanitizeSvg`, `references`, `links`, `delivery`, `redirects`, `images`,
-`insights`, `eventsQueue`, `revisions`. The rest of what the preset knows can be switched on:
-`ratelimit`, `replication`, `migrations`, `audit`. Choosing `delivery` always brings `sanitizeSvg`
+Preselected features: `ratelimit`, `sanitizeSvg`, `references`, `links`, `delivery`, `redirects`,
+`images`, `insights`, `eventsQueue`, `revisions`. The rest of what the preset knows can be switched on:
+`replication`, `migrations`, `audit`. `ratelimit` limits failed logins per client address (five per
+minute); leave it out only when something in front of the app limits `POST /api/login` instead. Choosing `delivery` always brings `sanitizeSvg`
 along, since every uploaded file is then published next to the site.
 
 With `eventsQueue`, work that follows a write runs in a background worker: an upload answers as soon as

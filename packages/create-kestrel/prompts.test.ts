@@ -38,7 +38,7 @@ function options(argv: string[]) {
 
 describe("collectAnswers", () => {
   it("takes every default when the operator only presses enter", async () => {
-    const { io } = scriptedIo({ answers: [], secrets: ["longenough", "longenough"] });
+    const { io } = scriptedIo({ answers: [], secrets: ["long-enough-phrase", "long-enough-phrase"] });
     const answers = await collectAnswers(io, options([]), "npm");
     expect(answers).toMatchObject({
       directory: resolve("my-site"),
@@ -49,7 +49,7 @@ describe("collectAnswers", () => {
       features: DEFAULT_FEATURES,
       blobstore: "filesystem",
       adminUser: "admin",
-      password: "longenough",
+      password: "long-enough-phrase",
       generated: false,
     });
   });
@@ -76,7 +76,7 @@ describe("collectAnswers", () => {
     const { io, asked } = scriptedIo({ answers: [], secrets: [] });
     const answers = await collectAnswers(
       io,
-      options(["site", "--name", "My Site", "--pm", "bun", "--locales", "fr,de", "--features", "images", "--blobstore", "s3", "--admin-user", "ops", "--admin-password", "longenough"]),
+      options(["site", "--name", "My Site", "--pm", "bun", "--locales", "fr,de", "--features", "images", "--blobstore", "s3", "--admin-user", "ops", "--admin-password", "long-enough-phrase"]),
       "npm",
     );
     expect(asked).toEqual([]);
@@ -88,20 +88,20 @@ describe("collectAnswers", () => {
       features: ["images"],
       blobstore: "s3",
       adminUser: "ops",
-      password: "longenough",
+      password: "long-enough-phrase",
     });
   });
 
   it("repeats the password prompt until both entries match and are long enough", async () => {
-    const { io, written } = scriptedIo({ answers: [], secrets: ["short", "longenough", "different1", "longenough", "longenough"] });
+    const { io, written } = scriptedIo({ answers: [], secrets: ["too-short", "long-enough-phrase", "different1", "long-enough-phrase", "long-enough-phrase"] });
     const answers = await collectAnswers(io, options([]), "pnpm");
-    expect(answers.password).toBe("longenough");
-    expect(written).toContain("the password must have at least 8 characters");
+    expect(answers.password).toBe("long-enough-phrase");
+    expect(written).toContain("the password must have at least 12 characters");
     expect(written).toContain("the two passwords differ");
   });
 
   it("repeats a prompt whose answer is not usable", async () => {
-    const { io, written } = scriptedIo({ answers: ["", "", "", "Deutsch", "de"], secrets: ["longenough", "longenough"] });
+    const { io, written } = scriptedIo({ answers: ["", "", "", "Deutsch", "de"], secrets: ["long-enough-phrase", "long-enough-phrase"] });
     const answers = await collectAnswers(io, options([]), "pnpm");
     expect(answers.defaultLocale).toBe("de");
     expect(written).toContain('"Deutsch" is not a locale code such as "de" or "pt-BR"');
@@ -117,12 +117,24 @@ describe("collectAnswers", () => {
     const answers = await collectAnswers(io, options(["--yes"]), "pnpm");
     expect(asked).toEqual([]);
     expect(answers.generated).toBe(true);
-    expect(answers.password.length).toBeGreaterThanOrEqual(8);
+    expect(answers.password.length).toBeGreaterThanOrEqual(12);
     expect(answers.features).toEqual(DEFAULT_FEATURES);
   });
 
   it("refuses a password from a flag that is too short", async () => {
     const { io } = scriptedIo({ answers: [], secrets: [] });
     await expect(collectAnswers(io, options(["--yes", "--admin-password", "short"]), "pnpm")).rejects.toBeInstanceOf(PromptError);
+    await expect(collectAnswers(io, options(["--yes", "--admin-password", "elevenchars"]), "pnpm")).rejects.toBeInstanceOf(PromptError);
+  });
+
+  it("refuses a well-known password from a flag", async () => {
+    const { io } = scriptedIo({ answers: [], secrets: [] });
+    await expect(collectAnswers(io, options(["--yes", "--admin-password", "password1234"]), "pnpm")).rejects.toThrow(/too common/);
+  });
+
+  it("switches the login rate limit on for a run with --yes", async () => {
+    const { io } = scriptedIo({ answers: [], secrets: [] });
+    const answers = await collectAnswers(io, options(["--yes"]), "pnpm");
+    expect(answers.features).toContain("ratelimit");
   });
 });

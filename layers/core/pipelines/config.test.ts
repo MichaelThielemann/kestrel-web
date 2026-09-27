@@ -83,7 +83,7 @@ describe("presetModuleConfig with the playground inputs", () => {
         use: "@michaelthielemann/kestrel-authn-multi",
         ...preset({
           identifier: "username",
-          minPasswordLength: 8,
+          minPasswordLength: 12,
           sessionTtlSeconds: 86400,
           bootstrap: { username: "admin", passwordHash: PASSWORD_HASH, roles: ["admin"] },
         }),

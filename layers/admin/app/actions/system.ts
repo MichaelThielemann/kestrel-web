@@ -303,7 +303,7 @@ export const migrationsApply = defineAction<MigrationsApplyInput, MigrationsAppl
 const userCreateValidate: ActionStep<UserCreateInput, undefined> = defineUiStep('user.validate', (ctx) => {
   const { username, password, passwordConfirm, ops, deps } = ctx.input
   if (!username.trim()) { ops.setError?.(deps.t('users.usernameRequired')); ctx.fail('users.usernameRequired') }
-  if (password.length < 8) { ops.setError?.(deps.t('users.passwordTooShort')); ctx.fail('users.passwordTooShort') }
+  if (password.length < 12) { ops.setError?.(deps.t('users.passwordTooShort')); ctx.fail('users.passwordTooShort') }
   if (password !== passwordConfirm) { ops.setError?.(deps.t('password.mismatch')); ctx.fail('password.mismatch') }
 })
 
@@ -360,7 +360,7 @@ function rolesChanged(a: readonly string[], b: readonly string[]): boolean {
 const userUpdateValidate: ActionStep<UserUpdateInput, undefined> = defineUiStep('user.validate', (ctx) => {
   const { username, password, passwordConfirm, ops, deps } = ctx.input
   if (!username.trim()) { ops.setError?.(deps.t('users.usernameRequired')); ctx.fail('users.usernameRequired') }
-  if (password.length > 0 && password.length < 8) { ops.setError?.(deps.t('users.passwordTooShort')); ctx.fail('users.passwordTooShort') }
+  if (password.length > 0 && password.length < 12) { ops.setError?.(deps.t('users.passwordTooShort')); ctx.fail('users.passwordTooShort') }
   if (password !== passwordConfirm) { ops.setError?.(deps.t('password.mismatch')); ctx.fail('password.mismatch') }
 })
 

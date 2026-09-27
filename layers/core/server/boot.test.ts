@@ -324,6 +324,47 @@ describe("boot", () => {
       }
     }, 15000);
 
+    it("refuses the sixth failed login from one address within the window with 429", async () => {
+      const { DEFAULT_FEATURES } = await import("../../../packages/create-kestrel/src/features.mjs");
+      const { contentModel, contentTypes } = await import("../../../playground/shared/model");
+      const { default: collectionsUi } = await import("../../../playground/shared/collections-ui");
+      const { default: fieldTypes } = await import("../../../playground/shared/field-types");
+      const features = asFeatures(DEFAULT_FEATURES);
+      const loginRoot = mkdtempSync(join(tmpdir(), "kestrel-web-boot-login-limit-"));
+
+      try {
+        const modules = presetModuleConfig({
+          dataDir: loginRoot,
+          blobstore: { use: "@michaelthielemann/kestrel-blobstore-filesystem", config: { root: resolve(loginRoot, "blobs") } },
+          model: contentModel,
+          features,
+          collectionsUi,
+          fieldTypes,
+          roles: { roles: { admin: ["*"] }, anonymous: ["media.read"] },
+          bootstrap: { username: "admin", passwordHash: "scrypt$522f4ac87bfe4bcd100ba47a7d2aaec2$dbfc3f2d6cc38a76b21973d7c6f6d310a09506581c665f1f6601fd8fb3fa9bc3959689aea3e389f4d53eb8c7e70791ad4065e308763dd44609904134f0f5ee98" },
+        });
+        const preset = definePreset({ modules, features, collections: contentTypes, collectionsUi, fieldTypes });
+        const config = defineConfig({ modules, triggers: preset.triggers, http: null });
+        const bootedModules = presetModules(config.modules, { "@michaelthielemann/kestrel-insights": insights });
+        const kestrel = await boot({ config: { ...config, http: null }, modules: bootedModules, pipelines: preset.pipelines, logger: collectingLogger() });
+
+        try {
+          await kestrel.start();
+          const statuses: number[] = [];
+          for (let attempt = 0; attempt < 6; attempt++) {
+            const login = await kestrel.run("login", { trigger: { kind: "http", name: "POST /login" }, ip: "192.0.2.10", body: { username: "admin", password: `wrong-password-${attempt}` } });
+            statuses.push(login.status);
+          }
+          expect(statuses.slice(0, 5).every((status) => status !== 429)).toBe(true);
+          expect(statuses[5]).toBe(429);
+        } finally {
+          await kestrel.stop();
+        }
+      } finally {
+        rmSync(loginRoot, { recursive: true, force: true });
+      }
+    }, 15000);
+
     it("boots and starts a project scaffolded with --features delivery alone, which brings sanitizeSvg along", async () => {
       const { resolveOptions } = await import("../../../packages/create-kestrel/src/args.mjs");
       const { contentModel, contentTypes } = await import("../../../playground/shared/model");

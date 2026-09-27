@@ -318,7 +318,7 @@ calls them before it has read a schema at all.
 | `ratelimit` | no | `{ login: { limit: 5, windowSeconds: 60 } }` |
 | `llms` | no | `{ full: true, headings: { pages: "Pages" } }`; `siteUrl` falls back to `NUXT_PUBLIC_SITE_URL` |
 | `migrations` | with the `migrations` feature | — `{ migrations, mode? }`, the `#kestrel/migrations` list (§10); the feature without it throws |
-| `session` | no | `{ identifier: "username", minPasswordLength: 8, sessionTtlSeconds: 86400 }` |
+| `session` | no | `{ identifier: "username", minPasswordLength: 12, sessionTtlSeconds: 86400 }`; the minimum applies when a password is set (bootstrap excluded), so an account whose existing password is shorter still logs in and meets the minimum at its next change |
 | `eventsQueue` | no | `{}` — the `events-queue` module config (`pollMs`, `batch`, `maxAttempts`, `backoffSeconds`, `lockTtlSeconds`, `retentionDays`, `relayMs`), used only with the `eventsQueue` feature; `relayPipelines` and `lanes` are derived, and `maxAttempts`/`backoffSeconds` also set how often `delivery-static` retries a failed re-render |
 | `revisions` | no | — `{ keep?, maxSnapshotBytes?, pruneOnWrite?, maxLimit? }`, passed through to `revisions-default`; used only with the `revisions` feature (§4) |
 | `audit` | no | — `{ retentionDays? }`, passed through to `audit-persistence`; used only with the `audit` feature. It is what turns the `pruneAudit` cron on (§4) |
@@ -410,7 +410,7 @@ const modules = [
   { use: "@michaelthielemann/kestrel-sanitize-svg", config: {} },
   { use: "@michaelthielemann/kestrel-media-default", config: { prefix: "media/", publicPath: "/media", allowedTypes: ["image/*", "application/pdf"], deniedTypes: ["text/html", "application/xhtml+xml"], maxBytes: 5242880, locales: ["de", "en"], defaultLocale: "de", publicCopy: { prefix: "site/" } } },
   { use: "@michaelthielemann/kestrel-images-default", config: { publicPath: "/media", publicCopy: { prefix: "site/" } } },
-  { use: "@michaelthielemann/kestrel-authn-multi", config: { identifier: "username", minPasswordLength: 8, sessionTtlSeconds: 86400, bootstrap: { username: "admin", passwordHash: adminPasswordHash(), roles: ["admin"] } } },
+  { use: "@michaelthielemann/kestrel-authn-multi", config: { identifier: "username", minPasswordLength: 12, sessionTtlSeconds: 86400, bootstrap: { username: "admin", passwordHash: adminPasswordHash(), roles: ["admin"] } } },
   {
     use: "@michaelthielemann/kestrel-authz-roles",
     config: {
@@ -1172,6 +1172,8 @@ stay checked alongside your addition.
 - `images` needs the `images.read`/`images.write`/`images.manage` permissions granted in your roles.
 - `ratelimit` needs a `login` bucket configured in the `kestrel-ratelimit-memory` module config —
   `presetModuleConfig()` (§3) supplies `{ limit: 5, windowSeconds: 60 }` unless you override it.
+  Without the feature, `login` has no attempt limit at all; `create-kestrel` preselects it, and a
+  feature list that leaves it out should come with an equivalent limit at the edge.
 - Every collection needs its `<name>.read`/`write`/`manage`/`delete` permissions (`<name>.read`/`write`
   only for a `single` type) granted in your roles config, the same way `pages.*` already is — including
   the `anonymous` role: public reads on a new collection 403 until `<name>.read` is granted there too,

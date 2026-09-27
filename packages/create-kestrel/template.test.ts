@@ -22,7 +22,7 @@ const BASE = {
   features: [...DEFAULT_FEATURES],
   blobstore: "filesystem",
   adminUser: "admin",
-  password: "longenough",
+  password: "long-enough-phrase",
 };
 
 function files(overrides: Partial<typeof BASE>) {
@@ -41,7 +41,7 @@ describe("the feature list", () => {
   });
 
   it("preselects the default feature set", () => {
-    expect(DEFAULT_FEATURES).toEqual(["sanitizeSvg", "references", "links", "delivery", "redirects", "images", "insights", "eventsQueue", "revisions"]);
+    expect(DEFAULT_FEATURES).toEqual(["ratelimit", "sanitizeSvg", "references", "links", "delivery", "redirects", "images", "insights", "eventsQueue", "revisions"]);
   });
 });
 

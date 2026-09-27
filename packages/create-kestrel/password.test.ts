@@ -30,8 +30,19 @@ describe("generatePassword", () => {
 });
 
 describe("passwordProblem", () => {
-  it("names the minimum length", () => {
-    expect(passwordProblem("short")).toBe(`the password must have at least ${MIN_PASSWORD_LENGTH} characters`);
-    expect(passwordProblem("longenough")).toBeNull();
+  it("asks for at least twelve characters", () => {
+    expect(MIN_PASSWORD_LENGTH).toBe(12);
+    expect(passwordProblem("elevenchars")).toBe("the password must have at least 12 characters");
+    expect(passwordProblem("long-enough-phrase")).toBeNull();
+  });
+
+  it("refuses a well-known password regardless of case", () => {
+    expect(passwordProblem("password1234")).toBe("the password is too common, choose another one");
+    expect(passwordProblem("Password1234")).toBe("the password is too common, choose another one");
+    expect(passwordProblem("123456789012")).toBe("the password is too common, choose another one");
+  });
+
+  it("refuses a single character repeated", () => {
+    expect(passwordProblem("aaaaaaaaaaaaaaa")).toBe("the password is too common, choose another one");
   });
 });

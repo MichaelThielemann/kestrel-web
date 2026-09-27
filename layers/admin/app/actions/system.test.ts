@@ -370,7 +370,7 @@ describe('userCreate', () => {
     const { ops, errors } = fakeOps()
     const { refresh, calls: refreshCalls } = fakeRefresh()
 
-    const result = await runAction(userCreate, { deps, username: '  ', password: 'longenough', passwordConfirm: 'longenough', roles: [], ops, refresh })
+    const result = await runAction(userCreate, { deps, username: '  ', password: 'long-enough-phrase', passwordConfirm: 'long-enough-phrase', roles: [], ops, refresh })
 
     expect(result.ok).toBe(false)
     expect(calls.length).toBe(0)
@@ -383,7 +383,7 @@ describe('userCreate', () => {
     const { ops, errors } = fakeOps()
     const { refresh } = fakeRefresh()
 
-    await runAction(userCreate, { deps, username: 'bob', password: 'short12', passwordConfirm: 'short12', roles: [], ops, refresh })
+    await runAction(userCreate, { deps, username: 'bob', password: 'elevenchars', passwordConfirm: 'elevenchars', roles: [], ops, refresh })
 
     expect(calls.length).toBe(0)
     expect(errors).toEqual(['users.passwordTooShort'])
@@ -394,7 +394,7 @@ describe('userCreate', () => {
     const { ops, errors } = fakeOps()
     const { refresh, calls: refreshCalls } = fakeRefresh()
 
-    const result = await runAction(userCreate, { deps, username: 'bob', password: 'longenough', passwordConfirm: 'different', roles: [], ops, refresh })
+    const result = await runAction(userCreate, { deps, username: 'bob', password: 'long-enough-phrase', passwordConfirm: 'different', roles: [], ops, refresh })
 
     expect(result.ok).toBe(false)
     expect(calls.length).toBe(0)
@@ -407,10 +407,10 @@ describe('userCreate', () => {
     const { ops } = fakeOps()
     const { refresh, calls: refreshCalls } = fakeRefresh()
 
-    const result = await runAction(userCreate, { deps, username: '  bob  ', password: 'longenough', passwordConfirm: 'longenough', roles: ['editor'], ops, refresh })
+    const result = await runAction(userCreate, { deps, username: '  bob  ', password: 'long-enough-phrase', passwordConfirm: 'long-enough-phrase', roles: ['editor'], ops, refresh })
 
     expect(result.ok).toBe(true)
-    expect(calls).toEqual([{ route: { method: 'POST', path: '/users' }, body: { username: 'bob', password: 'longenough', roles: ['editor'] }, query: undefined }])
+    expect(calls).toEqual([{ route: { method: 'POST', path: '/users' }, body: { username: 'bob', password: 'long-enough-phrase', roles: ['editor'] }, query: undefined }])
     expect(toast.success).toHaveBeenCalledWith('users.created')
     expect(refreshCalls.length).toBe(1)
   })
@@ -420,7 +420,7 @@ describe('userCreate', () => {
     const { ops, errors } = fakeOps()
     const { refresh, calls: refreshCalls } = fakeRefresh()
 
-    const result = await runAction(userCreate, { deps, username: 'bob', password: 'longenough', passwordConfirm: 'longenough', roles: [], ops, refresh })
+    const result = await runAction(userCreate, { deps, username: 'bob', password: 'long-enough-phrase', passwordConfirm: 'long-enough-phrase', roles: [], ops, refresh })
 
     expect(result.ok).toBe(false)
     expect(errors).toContain('username taken')
@@ -552,7 +552,7 @@ describe('userUpdate', () => {
     const { ops, errors } = fakeOps()
     const { refresh } = fakeRefresh()
 
-    await runAction(userUpdate, { deps, userId: 'u1', username: 'bob', roles: ['editor'], active: true, password: 'short12', passwordConfirm: 'short12', initial, ops, refresh })
+    await runAction(userUpdate, { deps, userId: 'u1', username: 'bob', roles: ['editor'], active: true, password: 'elevenchars', passwordConfirm: 'elevenchars', initial, ops, refresh })
 
     expect(calls.length).toBe(0)
     expect(errors).toEqual(['users.passwordTooShort'])
@@ -576,12 +576,12 @@ describe('userUpdate', () => {
     const { ops } = fakeOps()
     const { refresh } = fakeRefresh()
 
-    await runAction(userUpdate, { deps, userId: 'u1', username: 'bob', roles: ['admin', 'editor'], active: false, password: 'longenough', passwordConfirm: 'longenough', initial, ops, refresh })
+    await runAction(userUpdate, { deps, userId: 'u1', username: 'bob', roles: ['admin', 'editor'], active: false, password: 'long-enough-phrase', passwordConfirm: 'long-enough-phrase', initial, ops, refresh })
 
     expect(calls).toEqual([
       { route: { method: 'PATCH', path: '/users/u1' }, body: { roles: ['admin', 'editor'] }, query: undefined },
       { route: { method: 'POST', path: '/users/u1/deactivate' }, body: undefined, query: undefined },
-      { route: { method: 'PUT', path: '/users/u1/password' }, body: { password: 'longenough' }, query: undefined },
+      { route: { method: 'PUT', path: '/users/u1/password' }, body: { password: 'long-enough-phrase' }, query: undefined },
     ])
   })
 
@@ -602,7 +602,7 @@ describe('userUpdate', () => {
     const { ops, errors, busyLog } = fakeOps()
     const { refresh, calls: refreshCalls } = fakeRefresh()
 
-    const result = await runAction(userUpdate, { deps, userId: 'u1', username: 'ada', roles: ['editor'], active: true, password: 'longenough', passwordConfirm: 'longenough', initial, ops, refresh })
+    const result = await runAction(userUpdate, { deps, userId: 'u1', username: 'ada', roles: ['editor'], active: true, password: 'long-enough-phrase', passwordConfirm: 'long-enough-phrase', initial, ops, refresh })
 
     expect(result.ok).toBe(false)
     expect(calls.length).toBe(1)

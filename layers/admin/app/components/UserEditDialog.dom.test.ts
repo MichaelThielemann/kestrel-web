@@ -93,8 +93,8 @@ describe('UserEditDialog', () => {
     const texts = document.body.querySelectorAll<HTMLInputElement>('input[type="text"]')
     setInputValue(texts[0]!, 'ada')
     const passwords = document.body.querySelectorAll<HTMLInputElement>('input[type="password"]')
-    setInputValue(passwords[0]!, 'longenough')
-    setInputValue(passwords[1]!, 'longenough')
+    setInputValue(passwords[0]!, 'long-enough-phrase')
+    setInputValue(passwords[1]!, 'long-enough-phrase')
     await nextTick()
 
     submitForm()

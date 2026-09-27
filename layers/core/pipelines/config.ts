@@ -153,7 +153,7 @@ const MEDIA_MODULE = "@michaelthielemann/kestrel-media-default";
 const SANITIZE_SVG_MODULE = "@michaelthielemann/kestrel-sanitize-svg";
 const DEFAULT_LOGIN_BUCKET = { limit: 5, windowSeconds: 60 };
 const DEFAULT_LLMS_HEADINGS = { [PAGES_COLLECTION]: "Pages" };
-const DEFAULT_SESSION: Required<PresetSession> = { identifier: "username", minPasswordLength: 8, sessionTtlSeconds: 86400 };
+const DEFAULT_SESSION: Required<PresetSession> = { identifier: "username", minPasswordLength: 12, sessionTtlSeconds: 86400 };
 const DEFAULT_LINKS = { timeoutMs: 10000, concurrency: 4, recheckAfterSeconds: 21600 };
 
 function requireOption<T>(value: T | undefined, name: string): T {

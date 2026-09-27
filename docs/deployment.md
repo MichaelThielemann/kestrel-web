@@ -199,8 +199,9 @@ Points that matter:
   A proxy limit below that turns into a 413 the admin cannot explain. Keep `client_max_body_size` at
   or above `maxBytes + 1m`.
 - **Client address.** The layer takes the socket peer by default, so behind a proxy every request
-  looks like it comes from the proxy — which breaks the IP allowlists, per-IP rate limiting on
-  `login` and the client address in audit entries. Set `NUXT_KESTREL_ACCESS_TRUST_PROXY=true` and
+  looks like it comes from the proxy — which breaks the IP allowlists, the per-IP attempt limit on
+  `login` (the `ratelimit` feature, five attempts per address and minute by default, preselected by
+  `create-kestrel`; without the feature `login` is not limited) and the client address in audit entries. Set `NUXT_KESTREL_ACCESS_TRUST_PROXY=true` and
   `NUXT_KESTREL_ACCESS_PROXY_HOPS=<n>` (default 1, counted from the right of `X-Forwarded-For`), or
   `NUXT_KESTREL_ACCESS_TRUSTED_HEADER=<header>` when your edge sets a dedicated one. With a trusted
   header configured, a request arriving without it is refused — which also blocks callers that bypass
