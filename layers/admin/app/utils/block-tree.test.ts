@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { aliasMapOf, collectAliasedBlocks, findInTree, moveToIndex, stripAliases, updateAliasById, withAliasMap } from './block-tree'
+import { aliasMapOf, collectAliasedBlocks, findInTree, moveToIndex, stripAliases, updateAliasById, withAliasMap, withLocaleAliasMap } from './block-tree'
 import type { BlockRow } from './block-tree'
 
 function block(id: string): BlockRow {
@@ -113,5 +113,22 @@ describe('withAliasMap', () => {
   it('ignores an id in the map that no block has', () => {
     const blocks = [block('a')]
     expect(withAliasMap(blocks, { missing: 'x' })).toEqual(blocks)
+  })
+})
+
+describe('withLocaleAliasMap', () => {
+  it('sets a locale absent from an undefined field', () => {
+    expect(withLocaleAliasMap(undefined, 'de', { b1: 'Startseiten-Teaser' })).toEqual({ de: { b1: 'Startseiten-Teaser' } })
+  })
+
+  it('saving de then en keeps both locales, since block ids differ per locale body', () => {
+    const afterDe = withLocaleAliasMap(undefined, 'de', { b1: 'Startseiten-Teaser' })
+    const afterEn = withLocaleAliasMap(afterDe, 'en', { b2: 'Homepage teaser' })
+    expect(afterEn).toEqual({ de: { b1: 'Startseiten-Teaser' }, en: { b2: 'Homepage teaser' } })
+  })
+
+  it('replaces only the given locale, leaving every other locale untouched', () => {
+    const current = { de: { b1: 'Alt' }, en: { b2: 'Old' } }
+    expect(withLocaleAliasMap(current, 'de', { b1: 'Neu' })).toEqual({ de: { b1: 'Neu' }, en: { b2: 'Old' } })
   })
 })

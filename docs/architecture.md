@@ -1312,13 +1312,18 @@ renders the tree in-app for the live preview (no public site round-trip, no ifra
 
 A block instance may carry an editor-only alias (findable in the block picker's search, shown only in
 its fields panel), but the alias never travels inside `body`: it lives in a sibling `blockAliases`
-field (`id`-keyed, `{ type: "json" }`) the preset derives automatically for every collection whose
-editor is `"blocks"` and which has a `body` field — a consumer never declares it — so the existing
-field grants (`authz.fields`) keep it from anonymous callers on every pipeline
-that answers the collection — `resolvePage`, `readPage`, `listPages` and their generic-collection
-equivalents alike — the same way they already keep out any other field a consumer excludes. `#kestrel-admin/app/utils/block-tree.ts`'s
-`stripAliases`/`aliasMapOf`/`withAliasMap` move an alias between the in-memory `BlockRow` tree (which
-keeps it inline, for the picker's search) and the two separately persisted fields.
+field (`{ type: "json" }`) the preset derives automatically for every collection whose editor is
+`"blocks"` and which has a `body` field — a consumer never declares it — so the existing field grants
+(`authz.fields`) keep it from anonymous callers on every pipeline that answers the collection —
+`resolvePage`, `readPage`, `listPages` and their generic-collection equivalents alike — the same way
+they already keep out any other field a consumer excludes. The field is deliberately not localized
+(a localized field's name still shows up in `_locales`' per-field origin map, which is granted
+anonymously for every other localized field): instead it holds one `id`-keyed alias map per locale,
+`{ [locale]: { [blockId]: alias } }`, since block ids differ per locale body. `BlocksBody.vue` reads
+and writes only the current locale's map, via `#kestrel-admin/app/utils/block-tree.ts`'s
+`withLocaleAliasMap`, leaving every other locale's aliases untouched. That same file's
+`stripAliases`/`aliasMapOf`/`withAliasMap` move a locale's alias map between the in-memory `BlockRow`
+tree (which keeps it inline, for the picker's search) and the two separately persisted fields.
 
 ### The left pane
 `BlockTree.vue` with `root` owns the whole pane in one reading order: the page entry (which selects the

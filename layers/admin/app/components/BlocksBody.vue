@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import type { SerializedBlock } from '#kestrel-admin/types/kestrel'
 import type { BlockNode } from '#kestrel-admin/types/api'
-import type { BlockTreeCtx } from '../utils/block-tree'
-import { collectAliasedBlocks, errorBearingIds, firstMatchingId } from '../utils/block-tree'
+import type { BlockTreeCtx, LocaleAliasMaps } from '../utils/block-tree'
+import { collectAliasedBlocks, errorBearingIds, firstMatchingId, withLocaleAliasMap } from '../utils/block-tree'
 import { BLOCK_ALIASES_FIELD } from '../utils/collections'
 import { boundaryCast } from '#kestrel/cast'
 
@@ -18,14 +18,15 @@ const content = computed<unknown[]>({
   get: () => boundaryCast<unknown[] | undefined>(values[key], 'json') ?? [],
   set: (v) => setField(key, v),
 })
-const aliases = computed(() => boundaryCast<Record<string, string> | undefined>(values[BLOCK_ALIASES_FIELD], 'json'))
+const localeAliasMaps = computed(() => boundaryCast<LocaleAliasMaps | undefined>(values[BLOCK_ALIASES_FIELD], 'json'))
+const aliases = computed(() => localeAliasMaps.value?.[locale.value])
 const tree = useBlockTree(
   content,
   byName,
   undefined,
   (v, coalesceAs) => setField(key, v, coalesceAs),
   aliases,
-  (map) => setField(BLOCK_ALIASES_FIELD, map, 'content:aliases'),
+  (map) => setField(BLOCK_ALIASES_FIELD, withLocaleAliasMap(localeAliasMaps.value, locale.value, map), 'content:aliases'),
 )
 const { selectedId, selectedBlock } = tree
 

@@ -10,7 +10,8 @@ import { createKestrelHandler } from "@michaelthielemann/kestrel-h3";
 import insights from "@michaelthielemann/kestrel-insights";
 import { presetModules } from "#kestrel/modules";
 
-const ALIAS = "Startseiten-Teaser";
+const ALIAS_DE = "Startseiten-Teaser";
+const ALIAS_EN = "Homepage teaser";
 
 describe("a block's alias never reaches an anonymous caller, on any pipeline that returns a page", () => {
   let appRoot = "";
@@ -48,10 +49,21 @@ describe("a block's alias never reaches an anonymous caller, on any pipeline tha
     base = `http://127.0.0.1:${typeof address === "object" && address !== null ? address.port : 0}`;
 
     const admin = await login("admin", "change-me");
-    const body = [{ id: "b1", type: "hero", props: {} }];
-    const created = await call("POST", "/pages", admin, { locale: "de", slug: "home", title: "Startseite", status: "published", body, blockAliases: { b1: ALIAS } });
+    const bodyDe = [{ id: "b1", type: "hero", props: {} }];
+    const created = await call("POST", "/pages", admin, { locale: "de", slug: "home", title: "Startseite", status: "published", body: bodyDe, blockAliases: { de: { b1: ALIAS_DE } } });
     expect(created.status).toBe(200);
     pageId = typeof created.json === "object" && created.json !== null ? String(Reflect.get(created.json, "id")) : "";
+
+    const bodyEn = [{ id: "b2", type: "hero", props: {} }];
+    const updated = await call("PATCH", `/pages/${pageId}`, admin, {
+      locale: "en",
+      slug: "home",
+      title: "Home",
+      status: "published",
+      body: bodyEn,
+      blockAliases: { de: { b1: ALIAS_DE }, en: { b2: ALIAS_EN } },
+    });
+    expect(updated.status).toBe(200);
   }, 60_000);
 
   afterAll(async () => {
@@ -62,37 +74,43 @@ describe("a block's alias never reaches an anonymous caller, on any pipeline tha
     rmSync(appRoot, { recursive: true, force: true });
   });
 
-  it("keeps the alias out of resolvePage's answer, with or without a trailing slash", async () => {
+  it("keeps both locales' aliases out of resolvePage's answer, with or without a trailing slash", async () => {
     for (const path of ["/site", "/site/", "/site/home", "/site//home"]) {
       const answer = await call("GET", path, undefined);
-      expect(answer.text).not.toContain(ALIAS);
+      expect(answer.text).not.toContain(ALIAS_DE);
+      expect(answer.text).not.toContain(ALIAS_EN);
       expect(answer.text).not.toContain("blockAliases");
     }
   });
 
-  it("keeps the alias out of resolvePage's answer for a percent-encoded path", async () => {
+  it("keeps both locales' aliases out of resolvePage's answer for a percent-encoded path", async () => {
     const answer = await call("GET", "/%73ite/home", undefined);
-    expect(answer.text).not.toContain(ALIAS);
+    expect(answer.text).not.toContain(ALIAS_DE);
+    expect(answer.text).not.toContain(ALIAS_EN);
     expect(answer.text).not.toContain("blockAliases");
   });
 
-  it("keeps the alias out of readPage's answer", async () => {
+  it("keeps both locales' aliases out of readPage's answer", async () => {
     const answer = await call("GET", `/pages/${pageId}`, undefined);
-    expect(answer.text).not.toContain(ALIAS);
+    expect(answer.text).not.toContain(ALIAS_DE);
+    expect(answer.text).not.toContain(ALIAS_EN);
     expect(answer.text).not.toContain("blockAliases");
   });
 
-  it("keeps the alias out of listPages' answer", async () => {
+  it("keeps both locales' aliases out of listPages' answer", async () => {
     const answer = await call("GET", "/pages", undefined);
-    expect(answer.text).not.toContain(ALIAS);
+    expect(answer.text).not.toContain(ALIAS_DE);
+    expect(answer.text).not.toContain(ALIAS_EN);
     expect(answer.text).not.toContain("blockAliases");
   });
 
-  it("still gives the admin's own read of the page its alias", async () => {
+  it("still gives the admin's own read of the page both locales' aliases, since saving de then en kept both", async () => {
     const admin = await login("admin", "change-me");
     const own = await call("GET", `/pages/${pageId}`, admin);
-    expect(own.text).toContain(ALIAS);
+    expect(own.text).toContain(ALIAS_DE);
+    expect(own.text).toContain(ALIAS_EN);
     const list = await call("GET", "/pages", admin);
-    expect(list.text).toContain(ALIAS);
+    expect(list.text).toContain(ALIAS_DE);
+    expect(list.text).toContain(ALIAS_EN);
   });
 });

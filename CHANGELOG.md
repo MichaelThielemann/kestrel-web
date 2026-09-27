@@ -6,11 +6,14 @@
 
 - Page builder: a block instance can carry an optional alias, set in its fields panel. The preset derives a
   `blockAliases` field, and its editor-owned grant, automatically for every collection whose editor is
-  `"blocks"` and which has a `body` field; a consumer never declares it. It is editor-only by the same field
-  grants that already keep other fields from anonymous callers, so it never reaches an anonymous visitor on
-  any pipeline that answers a page, in the public site's SSR data or in the static export, and never on the
-  block itself. The block picker's search also matches an existing block's alias and jumps straight to it
-  instead of adding a new block.
+  `"blocks"` and which has a `body` field; a consumer never declares it. The field itself is not localized
+  (a localized field's name would otherwise still show up in `_locales`' per-field origin map for anonymous
+  callers); instead it holds one alias map per locale (`{ [locale]: { [blockId]: alias } }`), since block ids
+  differ per locale body, and the editor merges only the current locale's map into it on save, leaving every
+  other locale's aliases untouched. It is editor-only by the same field grants that already keep other fields
+  from anonymous callers, so it never reaches an anonymous visitor on any pipeline that answers a page, in the
+  public site's SSR data or in the static export, and never on the block itself. The block picker's search
+  also matches an existing block's alias and jumps straight to it instead of adding a new block.
 - Media picker: reopening it starts in the folder the user last browsed, remembered per browser via
   `localStorage`; a field that already holds an item keeps opening in that item's folder every time, and
   only an empty field falls back to the remembered one.

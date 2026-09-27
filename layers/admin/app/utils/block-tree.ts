@@ -168,6 +168,14 @@ export function withAliasMap(blocks: BlockRow[], aliases: Record<string, string>
   return out
 }
 
+/** A collection's `blockAliases` field, one alias map per locale: block ids differ per locale body. */
+export type LocaleAliasMaps = Record<string, Record<string, string>>
+
+/** Replaces `locale`'s map in `current`, leaving every other locale's aliases untouched. */
+export function withLocaleAliasMap(current: LocaleAliasMaps | undefined, locale: string, map: Record<string, string>): LocaleAliasMaps {
+  return { ...current, [locale]: map }
+}
+
 export function collectAliasedBlocks(blocks: BlockRow[]): AliasedBlockEntry[] {
   const out: AliasedBlockEntry[] = []
   function walk(arr: BlockRow[]): void {
