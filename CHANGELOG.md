@@ -24,6 +24,11 @@
 
 ### Breaking
 
+- Rich text keeps an element's `id` only when it starts with an ASCII letter, holds at most 64 ASCII letters,
+  digits, `-` and `_`, and is not `teleports`, `site-main` or an id starting with `nuxt`; any other id is
+  dropped, on save by the backend and on render by `useSanitizedHtml()`, which in the browser also
+  sanitizes a value taken from the server's payload again. Stored content needs no migration: an id outside
+  the rule stops rendering at once and is removed on the next save.
 - A `single` collection with a workflow (a `status` enum, or one declared in `collectionsUi`) reads through
   `?status=<live>` on `get<Name>`: `GET /<name>` answers `404` while the stored document is not live. The
   admin reads and edits it through the new `getAny<Name>` (`GET /admin/<name>`, `<name>.manage`), so a role

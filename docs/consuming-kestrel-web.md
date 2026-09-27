@@ -1312,7 +1312,12 @@ path.
   keys by a hash of its input instead: identical content across instances correctly shares one entry,
   and different content never collides.
 - Rich text goes through `useSanitizedHtml()` (SSR-safe, same allowlist as the backend); internal links
-  arrive resolved (`href`, `path`, `broken`) — use `useLinkHref()` for link fields.
+  arrive resolved (`href`, `path`, `broken`) — use `useLinkHref()` for link fields. An element keeps its `id`
+  only when the id starts with an ASCII letter and holds at most 64 ASCII letters, digits, `-` and `_` (the
+  backend applies the same rule on save) and is none of the ids the page itself uses: `teleports`,
+  `site-main` and anything starting with `nuxt`, in any letter case. Other ids are dropped, the element
+  stays, so `<h2 id="team">` still works as an anchor. In the browser, a value taken from the server's
+  payload is sanitized again before it renders; a clean value renders unchanged.
 - Read-only rendering: blocks must not write to the document; the editor owns the tree.
 
 ### Link targets

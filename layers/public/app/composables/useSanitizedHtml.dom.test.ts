@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { sanitizeInBrowser } from './useSanitizedHtml'
+import { cachedSanitizedHtml, sanitizeInBrowser } from './useSanitizedHtml'
 
 describe('sanitizeInBrowser', () => {
   it('removes script tags and their content', async () => {
@@ -33,4 +33,30 @@ describe('sanitizeInBrowser', () => {
       DOMPurify.isSupported = wasSupported
     }
   })
+
+  it.each(['__NUXT_DATA__', '__nuxt', 'teleports', 'nuxt-loading', 'site-main', '_x', '1-intro'])('drops the id %j and keeps the element', async (id) => {
+    expect(await sanitizeInBrowser(`<div id="${id}">Text</div>`)).toBe('<div>Text</div>')
+  })
+
+  it('keeps a letter-led anchor id', async () => {
+    expect(await sanitizeInBrowser('<h2 id="team-2026">Team</h2>')).toBe('<h2 id="team-2026">Team</h2>')
+  })
 })
+
+describe('cachedSanitizedHtml', () => {
+  const app = (value: unknown) => ({ isHydrating: true, payload: { data: { k: value } }, static: { data: {} } })
+
+  it('sanitizes a cached value again before the browser renders it', () => {
+    expect(cachedSanitizedHtml('k', app('<p>ok</p><img src="x" onerror="alert(1)">'), { cause: 'initial' })).toBe('<p>ok</p><img src="x">')
+  })
+
+  it('returns a clean cached value unchanged, so hydration sees the server markup', () => {
+    const clean = '<p>Line<br />two &amp; more</p>'
+    expect(cachedSanitizedHtml('k', app(clean), { cause: 'initial' })).toBe(clean)
+  })
+
+  it('passes a missing value through', () => {
+    expect(cachedSanitizedHtml('k', app(undefined), { cause: 'initial' })).toBeUndefined()
+  })
+})
+
