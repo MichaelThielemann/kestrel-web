@@ -18,6 +18,9 @@ test("an admin signs in, reaches the page list and signs out again", async ({ pa
   expect(token).not.toBe("");
   expect(await page.evaluate(() => document.cookie)).not.toContain("__Host-kestrel_token");
   expect(await page.evaluate(() => document.cookie)).not.toContain(token);
+  const device = (await page.context().cookies()).find((cookie) => cookie.name === "__Host-kestrel_device");
+  expect(device).toMatchObject({ httpOnly: true, secure: true, sameSite: "Strict", path: "/" });
+  expect(await page.evaluate(() => document.cookie)).not.toContain("__Host-kestrel_device");
   const cookie = `__Host-kestrel_token=${token}`;
   expect((await page.request.post("/api/logout", { headers: { cookie } })).status()).toBe(403);
   expect((await page.request.post("/api/logout", { headers: { cookie, origin: "http://elsewhere.example" } })).status()).toBe(403);
@@ -30,6 +33,7 @@ test("an admin signs in, reaches the page list and signs out again", async ({ pa
   await expect(page).toHaveURL(/\/admin\/login/);
   const me = await page.request.get("/api/me", { headers: { authorization: `Bearer ${token}` } });
   expect(me.status()).toBe(401);
+  expect((await page.context().cookies()).find((cookie) => cookie.name === "__Host-kestrel_device")?.value).toBe(device?.value);
 });
 
 test.describe("an editor without admin rights", () => {

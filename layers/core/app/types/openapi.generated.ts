@@ -1020,7 +1020,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Rate limit bucket login, counted by client address → Rate limit bucket loginAccount, counted by username → Log in with credentials; the token comes back in the body and in an HttpOnly session cookie → After authn.login: check the second factor with payload.code (a time-based or a recovery code). A refusal ends the session the login opened; a code that confirms a new factor adds result.recoveryCodes, shown once → Queue event "auth.loggedIn" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
+        /** Rate limit bucket login, counted by client address → Rate limit bucket loginAccount, counted by username; a device with a valid device cookie for the account is counted in its own budget instead → Log in with credentials; the token comes back in the body and in an HttpOnly session cookie → After authn.login: check the second factor with payload.code (a time-based or a recovery code). A refusal ends the session the login opened; a code that confirms a new factor adds result.recoveryCodes, shown once. From a known device, wrong codes neither count towards nor wait for the factor's lock → After a successful sign-in: hand the device a signed device cookie bound to the account bucket loginAccount counts by, so its next sign-ins count against the device's own budget → Queue event "auth.loggedIn" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
         post: operations["login"];
         delete?: never;
         options?: never;
@@ -1037,7 +1037,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Rate limit bucket login, counted by client address → Rate limit bucket loginAccount, counted by username → Check the password through authn@1 and start setting up a second factor: answers the new secret and its otpauth URI to the caller it identified; the next login with a code for it confirms it */
+        /** Rate limit bucket login, counted by client address → Rate limit bucket loginAccount, counted by username; a device with a valid device cookie for the account is counted in its own budget instead → Check the password through authn@1 and start setting up a second factor: answers the new secret and its otpauth URI to the caller it identified; the next login with a code for it confirms it */
         post: operations["setupSecondFactor"];
         delete?: never;
         options?: never;

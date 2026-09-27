@@ -405,6 +405,7 @@
       "ratelimit.check:loginAccount",
       "authn.login",
       "mfa.check",
+      "ratelimit.rememberDevice:loginAccount",
       "events.emit:auth.loggedIn",
       "events.relay"
     ],

@@ -35,7 +35,7 @@ describe("preset/ratelimit-buckets", () => {
     expect(findings[0]?.severity).toBe("warning");
     const edits = findings[0]?.fix.kind === "auto" ? findings[0].fix.edits : [];
     const { text } = applyEdits(SOURCE, edits);
-    expect(text).toContain('buckets: { login: { limit: 5, windowSeconds: 60 }, loginAccount: { limit: 10, windowSeconds: 300, maxBlockSeconds: 900, key: "username", field: "email", counts: "failures" }, passwordCheck: { limit: 5, windowSeconds: 300, maxBlockSeconds: 900, key: "identity", counts: "failures" } }');
+    expect(text).toContain('buckets: { login: { limit: 5, windowSeconds: 60 }, loginAccount: { limit: 10, windowSeconds: 300, maxBlockSeconds: 900, key: "username", field: "email", counts: "failures", knownDevices: { limit: 10, windowSeconds: 300, maxBlockSeconds: 900 } }, passwordCheck: { limit: 5, windowSeconds: 300, maxBlockSeconds: 900, key: "identity", counts: "failures" } }');
   });
 
   it("finds nothing once every checked bucket is written, or for an entry the preset builds", async () => {

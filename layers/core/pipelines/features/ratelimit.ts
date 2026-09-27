@@ -9,6 +9,7 @@ export default function ratelimit(_context: PresetContext): FeatureModule {
     },
     patches: [
       { pipeline: "login", steps: ["ratelimit.check:login", "ratelimit.check:loginAccount"], at: "start" },
+      { pipeline: "login", steps: ["ratelimit.rememberDevice:loginAccount"], at: "before", anchor: "events.emit:auth.loggedIn" },
       { pipeline: "confirmPassword", steps: ["ratelimit.check:passwordCheck"], at: "after", anchor: "authn.requireUser" },
       { pipeline: "changePassword", steps: ["ratelimit.check:passwordCheck"], at: "after", anchor: "authn.requireUser" },
     ],

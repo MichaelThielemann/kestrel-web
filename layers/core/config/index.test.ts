@@ -1,6 +1,6 @@
 import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { adminPasswordHash, envBlobstore, kestrelDataDir, requiredEnv } from "./index";
+import { adminPasswordHash, deviceKey, envBlobstore, kestrelDataDir, requiredEnv } from "./index";
 
 const DEVELOPMENT_ADMIN_PASSWORD_HASH =
   "scrypt$522f4ac87bfe4bcd100ba47a7d2aaec2$dbfc3f2d6cc38a76b21973d7c6f6d310a09506581c665f1f6601fd8fb3fa9bc3959689aea3e389f4d53eb8c7e70791ad4065e308763dd44609904134f0f5ee98";
@@ -10,6 +10,7 @@ const MANAGED = [
   "KESTREL_DATA_DIR",
   "KESTREL_APP_ROOT",
   "KESTREL_ADMIN_PASSWORD_HASH",
+  "KESTREL_DEVICE_KEY",
   "KESTREL_BLOBSTORE",
   "KESTREL_S3_BUCKET",
   "KESTREL_S3_ENDPOINT",
@@ -96,6 +97,27 @@ describe("adminPasswordHash", () => {
 
     expect(adminPasswordHash()).toBe(DEVELOPMENT_ADMIN_PASSWORD_HASH);
     expect(warn).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("deviceKey", () => {
+  it("returns KESTREL_DEVICE_KEY when it is set, in production too, and stays quiet", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("KESTREL_DEVICE_KEY", "ab".repeat(32));
+    expect(deviceKey()).toBe("ab".repeat(32));
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("falls back to one random key per process without it, and warns in production that known devices do not survive a restart", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const first = deviceKey();
+    expect(first).toMatch(/^[0-9a-f]{64}$/);
+    expect(deviceKey()).toBe(first);
+    expect(warn).not.toHaveBeenCalled();
+    vi.stubEnv("NODE_ENV", "production");
+    expect(deviceKey()).toBe(first);
+    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/KESTREL_DEVICE_KEY is not set.*restart/));
   });
 });
 

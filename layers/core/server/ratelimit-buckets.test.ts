@@ -45,7 +45,7 @@ describe("a ratelimit-memory entry written by hand with only the login bucket", 
   it("boots with the layer's account and password buckets added, keeping the written login bucket", () => {
     expect(buckets).toEqual({
       login: { limit: 5, windowSeconds: 60 },
-      loginAccount: { limit: 10, windowSeconds: 300, maxBlockSeconds: 900, key: "username", field: "username", counts: "failures" },
+      loginAccount: { limit: 10, windowSeconds: 300, maxBlockSeconds: 900, key: "username", field: "username", counts: "failures", knownDevices: { limit: 10, windowSeconds: 300, maxBlockSeconds: 900 } },
       passwordCheck: { limit: 5, windowSeconds: 300, maxBlockSeconds: 900, key: "identity", counts: "failures" },
     });
   });

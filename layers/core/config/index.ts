@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { resolve } from "node:path";
 
 const DEVELOPMENT_ADMIN_PASSWORD_HASH =
@@ -44,6 +45,17 @@ export function mfaKey(): string {
   if (configured !== undefined) return configured;
   console.warn("kestrel.config: KESTREL_MFA_KEY is not set – falling back to a development key");
   return DEVELOPMENT_MFA_KEY;
+}
+
+let processDeviceKey: string | undefined;
+
+/** The key that signs the device cookies of known devices: `KESTREL_DEVICE_KEY` (64 hex digits or 43 base64url characters); without it, a random key for the life of the process, with a warning in production, so known devices sign in against the account's budget again after a restart. */
+export function deviceKey(): string {
+  const configured = envValue("KESTREL_DEVICE_KEY");
+  if (configured !== undefined) return configured;
+  if (isProduction()) console.warn("kestrel.config: KESTREL_DEVICE_KEY is not set – known devices are forgotten at every restart");
+  processDeviceKey ??= randomBytes(32).toString("hex");
+  return processDeviceKey;
 }
 
 export function envBlobstore(dataDir: string): BlobstoreModuleEntry {

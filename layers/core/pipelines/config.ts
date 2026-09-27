@@ -5,7 +5,7 @@ import { MEDIA_PUBLIC_PATH, MOUNT_PATH, MOUNTS_FIELD, RESERVED_PAGE_SEGMENTS } f
 import { resolveWorkflow } from "../collections-ui/workflow";
 import type { WorkflowUi } from "../collections-ui/workflow";
 import { BLOCK_ALIASES_FIELD, BODY_FIELD } from "../collections-ui/serialize";
-import { mfaKey } from "../config";
+import { deviceKey, mfaKey } from "../config";
 import { resolveStorageTypes } from "../field-types";
 import type { FieldTypes } from "../field-types";
 import { isGenericCollection } from "./collections";
@@ -72,6 +72,10 @@ export interface PresetRateLimit {
   loginAccount?: { limit: number; windowSeconds: number; maxBlockSeconds?: number };
   /** Password checks of a signed-in user: changing the password and confirming it again. */
   passwordCheck?: { limit: number; windowSeconds: number; maxBlockSeconds?: number };
+  /** Sign-in attempts from each device the account signed in from before, counted in place of `loginAccount`, so a block of the account does not stop its owner's devices. */
+  knownDevice?: { limit: number; windowSeconds: number; maxBlockSeconds?: number };
+  /** How the cookies of known devices are signed: `secretKey` (32 bytes as 64 hex digits or 43 base64url characters; default `deviceKey()`, which reads `KESTREL_DEVICE_KEY`), `previousSecretKeys` it replaced, whose cookies stay valid until they expire, and `maxAgeSeconds` (default 30 days). */
+  deviceCookies?: { secretKey?: string; previousSecretKeys?: string[]; maxAgeSeconds?: number };
 }
 
 export interface PresetLlms {
@@ -500,8 +504,14 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
     modules.push(preset("@michaelthielemann/kestrel-ratelimit-memory", {
       buckets: {
         login: layerBucket("login", session.identifier, options.ratelimit?.login),
-        loginAccount: layerBucket("loginAccount", session.identifier, options.ratelimit?.loginAccount),
+        loginAccount: layerBucket("loginAccount", session.identifier, options.ratelimit?.loginAccount, options.ratelimit?.knownDevice),
         passwordCheck: layerBucket("passwordCheck", session.identifier, options.ratelimit?.passwordCheck),
+      },
+      deviceCookies: {
+        secretKey: options.ratelimit?.deviceCookies?.secretKey ?? deviceKey(),
+        ...(options.ratelimit?.deviceCookies?.previousSecretKeys === undefined ? {} : { previousSecretKeys: options.ratelimit.deviceCookies.previousSecretKeys }),
+        ...(options.ratelimit?.deviceCookies?.maxAgeSeconds === undefined ? {} : { maxAgeSeconds: options.ratelimit.deviceCookies.maxAgeSeconds }),
+        secure: session.secureCookie,
       },
     }));
   }

@@ -319,7 +319,7 @@ calls them before it has read a schema at all.
 | `bootstrap` | yes | — `{ username, passwordHash, roles? }`, `roles` defaulting to `["admin"]` |
 | `collectionsUi` | no | — your `shared/collections-ui.ts` map; the `revisions` module's `statusField`/`liveStatuses` are derived from the workflows in it |
 | `media` | no | `{ maxBytes: 5242880, allowedTypes: ["image/*", "application/pdf"], deniedTypes: ["text/html", "application/xhtml+xml"] }` |
-| `ratelimit` | no | `{ login: { limit: 5, windowSeconds: 60 }, loginAccount: { limit: 10, windowSeconds: 300, maxBlockSeconds: 900 }, passwordCheck: { limit: 5, windowSeconds: 300, maxBlockSeconds: 900 } }` — `login` counts every attempt per client address (an IPv6 address by its /64); `loginAccount` counts failed sign-ins per account from any address, keyed on the field `session.identifier` names, and a successful sign-in clears it; `passwordCheck` counts failed password checks per signed-in user on `changePassword` and `confirmPassword`; a key that keeps exceeding its budget is blocked for twice as long each time, never longer than `maxBlockSeconds` |
+| `ratelimit` | no | `{ login: { limit: 5, windowSeconds: 60 }, loginAccount: { limit: 10, windowSeconds: 300, maxBlockSeconds: 900 }, passwordCheck: { limit: 5, windowSeconds: 300, maxBlockSeconds: 900 }, knownDevice: { limit: 10, windowSeconds: 300, maxBlockSeconds: 900 } }` — `login` counts every attempt per client address (an IPv6 address by its /64); `loginAccount` counts failed sign-ins per account from any address, keyed on the field `session.identifier` names, and a successful sign-in clears it; `knownDevice` counts failed sign-ins of a browser that carries the device cookie of an earlier sign-in to that account, in place of `loginAccount`, so a blocked account stays open to its owner's browsers; `deviceCookies: { secretKey?, previousSecretKeys?, maxAgeSeconds? }` signs those cookies, the key defaulting to `deviceKey()` from `#kestrel/config`, which reads `KESTREL_DEVICE_KEY` (a random key per process without it), `maxAgeSeconds` to 30 days; `passwordCheck` counts failed password checks per signed-in user on `changePassword` and `confirmPassword`; a key that keeps exceeding its budget is blocked for twice as long each time, never longer than `maxBlockSeconds` |
 | `llms` | no | `{ full: true, headings: { pages: "Pages" } }`; `siteUrl` falls back to `NUXT_PUBLIC_SITE_URL` |
 | `migrations` | with the `migrations` feature | — `{ migrations, mode? }`, the `#kestrel/migrations` list (§10); the feature without it throws |
 | `mfa` | no | `{}` — `{ secretKey?, previousSecretKeys?, issuer?, enforce? }`, used only with the `mfa` feature: `secretKey` seals every second factor's secret (32 bytes as 64 hex digits; default `mfaKey()` from `#kestrel/config`, which reads `KESTREL_MFA_KEY` and requires it in production), `previousSecretKeys` lists keys it replaced, whose factors keep working, `issuer` is the name an authenticator app shows, `enforce` (`"all"` default, `"none"`, `{ permissions }`) who must set a factor up |
@@ -441,7 +441,7 @@ const modules = [
   { use: "@michaelthielemann/kestrel-audit-persistence", config: {} },
   { use: "@michaelthielemann/kestrel-events-inmemory", config: {} },
   { use: "@michaelthielemann/kestrel-events-direct", config: {} },
-  { use: "@michaelthielemann/kestrel-ratelimit-memory", config: { buckets: { login: { limit: 5, windowSeconds: 60 }, loginAccount: { limit: 10, windowSeconds: 300, maxBlockSeconds: 900, key: "username", field: "username", counts: "failures" }, passwordCheck: { limit: 5, windowSeconds: 300, maxBlockSeconds: 900, key: "identity", counts: "failures" } } } },
+  { use: "@michaelthielemann/kestrel-ratelimit-memory", config: { buckets: { login: { limit: 5, windowSeconds: 60 }, loginAccount: { limit: 10, windowSeconds: 300, maxBlockSeconds: 900, key: "username", field: "username", counts: "failures", knownDevices: { limit: 10, windowSeconds: 300, maxBlockSeconds: 900 } }, passwordCheck: { limit: 5, windowSeconds: 300, maxBlockSeconds: 900, key: "identity", counts: "failures" } }, deviceCookies: { secretKey: deviceKey(), secure: true } } },
   { use: "@michaelthielemann/kestrel-insights", config: {} },
 ];
 ```
@@ -819,7 +819,7 @@ or a retry actually runs.
 
 | feature | required module(s) | adds |
 |---|---|---|
-| `ratelimit` | kestrel-ratelimit-memory | `sweepRateLimits` (cron); `ratelimit.check:login` and `ratelimit.check:loginAccount` at the start of `login`, `ratelimit.check:passwordCheck` after `authn.requireUser` in `changePassword` and `confirmPassword` |
+| `ratelimit` | kestrel-ratelimit-memory | `sweepRateLimits` (cron); `ratelimit.check:login` and `ratelimit.check:loginAccount` at the start of `login` and `ratelimit.rememberDevice:loginAccount` before its `events.emit:auth.loggedIn`, `ratelimit.check:passwordCheck` after `authn.requireUser` in `changePassword` and `confirmPassword` |
 | `sanitizeSvg` | kestrel-sanitize-svg | SVG sanitize step before the upload step in `uploadMedia`; only with this module configured does `layers/core` serve SVG inline (`inlineTypes`), otherwise SVGs are delivered as attachments. Required with `delivery` unless `image/svg+xml` is denied — see the note below the table |
 | `references` | kestrel-references-default | `brokenReferences`, `pageReferrers(Many)`, `mediaReferrers(Many)`, `<name>Referrers(Many)` per generic multi collection, `rebuildReferences`, `scanReferences` (cron); check/index/guard/unindex steps in the create/update/delete pipelines of `pages` and every generic multi collection, `deleteMedia`, `deleteMediaFolder`, a re-index step in each `delete…Translation`, and a re-index step after the write of `setSettings`, `setRedirects` and each generic single |
 | `links` | kestrel-links-default | `brokenLinks`, `rebuildLinks`, `checkLinks` (cron); extract/unextract steps in `createPage`, `updatePage`, `deletePage`, and a re-extract step in `deletePageTranslation` when it exists |
@@ -1198,7 +1198,9 @@ stay checked alongside your addition.
 - `images` needs the `images.read`/`images.write`/`images.manage` permissions granted in your roles.
 - `ratelimit` needs the `login`, `loginAccount` and `passwordCheck` buckets configured in the
   `kestrel-ratelimit-memory` module config — `presetModuleConfig()` (§3) supplies them unless you override
-  them. A hand-written entry that leaves one out boots with the layer's default for it. Without the feature, `login` has no attempt limit at all; `create-kestrel` preselects it, and a
+  them. A hand-written entry that leaves one out boots with the layer's default for it, and one whose
+  `loginAccount` has no `knownDevices`, or which has no `deviceCookies`, boots with the layer's defaults for
+  those. Without the feature, `login` has no attempt limit at all; `create-kestrel` preselects it, and a
   feature list that leaves it out should come with an equivalent limit at the edge.
 - Every collection needs its `<name>.read`/`write`/`manage`/`delete` permissions (`<name>.read`/`write`
   only for a `single` type) granted in your roles config, the same way `pages.*` already is — including
@@ -2154,8 +2156,8 @@ What changes:
     (`fix`): on an entry written in `kestrel.config.ts` it adds them or corrects `render`; on an entry
     `presetModuleConfig()` builds with other features than `definePreset()` gets, it adds an `overrides`
     entry for the module to that call.
-  - `preset/ratelimit-buckets` writes the `loginAccount` and `passwordCheck` buckets, with the layer's
-    defaults, into a `kestrel-ratelimit-memory` entry written in `kestrel.config.ts` whose `buckets` lack
+  - `preset/ratelimit-buckets` writes the `loginAccount` (with its `knownDevices`) and `passwordCheck`
+    buckets, with the layer's defaults, into a `kestrel-ratelimit-memory` entry written in `kestrel.config.ts` whose `buckets` lack
     them (`fix`). Until then the layer boots with those defaults.
   - `preset/queue-lanes` sets `lanes` (and a missing `relayPipelines`) on a `kestrel-events-queue` entry
     written in `kestrel.config.ts` to what `lanesFor(features)` gives (`fix`).

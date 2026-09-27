@@ -49,6 +49,7 @@ kestrel-web's own, all read while `kestrel.config.ts` loads:
 |---|---|---|
 | `KESTREL_APP_ROOT` | no | the directory `data/` and `data/export` resolve against; defaults to the process cwd |
 | `KESTREL_DATA_DIR` | no | overrides that: `kestrelDataDir()` returns it verbatim, and the SQLite file and blobs go under it |
+| `KESTREL_DEVICE_KEY` | in production, with the `ratelimit` feature | the key that signs the device cookies of known devices (64 hex digits); `deviceKey()` falls back to a random key per process without it, with one `console.warn` under `NODE_ENV=production`, so a restart forgets every known device until its next sign-in |
 | `KESTREL_MFA_KEY` | in production, with the `mfa` feature | the key that seals the second factors' secrets (64 hex digits); `mfaKey()` throws without it under `NODE_ENV=production` and otherwise falls back to a development key with one `console.warn` |
 | `KESTREL_ADMIN_PASSWORD_HASH` | in production | the bootstrap user's password hash; `adminPasswordHash()` throws without it under `NODE_ENV=production` and otherwise falls back to the hash of `change-me` with one `console.warn` |
 | `KESTREL_BLOBSTORE` | in production | `s3` or `filesystem`; `envBlobstore()` throws in production when it is neither |
@@ -247,6 +248,17 @@ Points that matter:
   locked out, stop the server and remove that account's row from `mfa_factors` in the SQLite database
   (`DELETE FROM mfa_factors WHERE "userId" = '<id>';`); the account sets up a new factor at its next
   sign-in.
+- **Known devices.** With the `ratelimit` feature, ten wrong passwords for an account within five minutes
+  block it for every browser that has not signed in to it before, for up to 15 minutes at a time. A browser
+  that has keeps the `__Host-kestrel_device` cookie from its last successful sign-in (`HttpOnly`, `Secure`,
+  `SameSite=Strict`, valid for 30 days, bound to that one account) and signs in within a budget of its own,
+  so the owner is not locked out by someone else's guesses. The same holds for wrong second-factor codes:
+  from a known device they neither count towards nor wait for the factor's lock. `KESTREL_DEVICE_KEY`
+  (64 hex digits, `openssl rand -hex 32`) signs the cookies; keep it out of the database and its backups.
+  To change it, set the new key and pass the old one in `ratelimit: { deviceCookies: { previousSecretKeys:
+  [...] } }`; cookies signed under it stay valid until they expire. A browser holds one device cookie, for
+  the account that signed in last there. The budgets live in the server's memory: a restart clears every
+  block, and the cookies stay valid across it as long as the key does.
 - **Same origin.** A `POST`, `PUT`, `PATCH` or `DELETE` authenticated by the cookie is accepted only
   from the same origin (`Sec-Fetch-Site: same-origin`, or an `Origin` whose host is the request's
   `Host`); keep `proxy_set_header Host $host` so the two agree. Scripts and other clients send the
