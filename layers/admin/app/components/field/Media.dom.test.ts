@@ -56,7 +56,7 @@ describe('field/Media load watch', () => {
 
   it('offers the library only to a caller who may browse it', async () => {
     const browse = schema.capabilities.listMediaFolders
-    const pickButton = (wrapper: Awaited<ReturnType<typeof mountSuspended>>) => wrapper.findAll('button').some((button) => button.text() === en['field.media.select'] || button.text() === en['field.media.add'])
+    const pickButton = (wrapper: { findAll: (selector: string) => Array<{ text: () => string }> }) => wrapper.findAll('button').some((button) => button.text() === en['field.media.select'] || button.text() === en['field.media.add'])
     const allowed = await mountSuspended(FieldMedia, { props: { field, name: 'hero', locale: 'en', modelValue: null } })
     expect(pickButton(allowed)).toBe(true)
     delete schema.capabilities.listMediaFolders
