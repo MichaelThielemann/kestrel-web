@@ -47,6 +47,7 @@ export function envBlobstore(dataDir: string): BlobstoreModuleEntry {
         accessKeyId: requiredEnv("KESTREL_S3_ACCESS_KEY_ID"),
         secretAccessKey: requiredEnv("KESTREL_S3_SECRET_ACCESS_KEY"),
         forcePathStyle: true,
+        ...(envValue("KESTREL_S3_ALLOW_INSECURE_ENDPOINT") === "true" ? { allowInsecureEndpoint: true } : {}),
       },
     };
   }

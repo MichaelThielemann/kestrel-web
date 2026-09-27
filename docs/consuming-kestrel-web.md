@@ -1748,8 +1748,23 @@ re-renders failed.
 **Hybrid: forwarding `/api/` to the origin.** A static host may forward the API:
 
 ```nginx
-location /api/ { proxy_pass http://origin; }
+location /api/ {
+  proxy_pass https://origin.example.com;
+  proxy_ssl_server_name on;
+  proxy_ssl_verify on;
+  proxy_ssl_trusted_certificate /etc/ssl/certs/ca-certificates.crt;
+  proxy_set_header Host origin.example.com;
+  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  proxy_set_header X-Forwarded-Proto $scheme;
+}
 ```
+
+Login passwords, admin tokens and session cookies cross this hop, so it runs over TLS with the origin's
+certificate verified. Plain `http://` is only acceptable when the origin listens on the same machine
+(loopback). The origin sees the static host as its peer: configure it to trust exactly that one proxy hop
+(`NUXT_KESTREL_ACCESS_TRUST_PROXY=true`, `NUXT_KESTREL_ACCESS_PROXY_HOPS=1`, see
+[`deployment.md`](deployment.md)), or every visitor shares the proxy's address in the login attempt limit
+and the access lists.
 
 Use it for features of your own that need the API after load (a form, a search). It changes nothing in the
 exported app: navigation still reads the target pages' HTML, and `useApi()` reads stay refused on static

@@ -437,6 +437,10 @@
 - The preset's default `session.minPasswordLength` is 12, as in `kestrel-authn-multi`. It applies when a
   password is set: an existing shorter password still logs in. The admin's password fields ask for at
   least 12 characters.
+- `envBlobstore()` passes `allowInsecureEndpoint: true` to the S3 blobstore when
+  `KESTREL_S3_ALLOW_INSECURE_ENDPOINT=true`; without it, a plain `http://` `KESTREL_S3_ENDPOINT` outside
+  loopback stops the boot (a `kestrel-blobstore-s3` rule). The documented `/api/` forwarding from a static
+  host proxies over TLS with certificate verification and passes the forwarding headers.
 - `create-kestrel` preselects the `ratelimit` feature, so a scaffolded project limits failed logins per
   client address (five per minute), also with `--yes`. It asks for an admin password of at least 12
   characters and refuses a short list of well-known passwords.

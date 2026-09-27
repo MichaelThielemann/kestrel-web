@@ -117,6 +117,16 @@ describe("envBlobstore", () => {
     });
   });
 
+  it("passes allowInsecureEndpoint only when KESTREL_S3_ALLOW_INSECURE_ENDPOINT is true", () => {
+    vi.stubEnv("KESTREL_BLOBSTORE", "s3");
+    stubS3Env();
+    expect(envBlobstore("/srv/app/data").config).not.toHaveProperty("allowInsecureEndpoint");
+    vi.stubEnv("KESTREL_S3_ALLOW_INSECURE_ENDPOINT", "false");
+    expect(envBlobstore("/srv/app/data").config).not.toHaveProperty("allowInsecureEndpoint");
+    vi.stubEnv("KESTREL_S3_ALLOW_INSECURE_ENDPOINT", "true");
+    expect(envBlobstore("/srv/app/data").config).toMatchObject({ allowInsecureEndpoint: true });
+  });
+
   it("throws naming the missing s3 variable", () => {
     vi.stubEnv("KESTREL_BLOBSTORE", "s3");
     stubS3Env();
