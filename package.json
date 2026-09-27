@@ -66,7 +66,7 @@
     "@michaelthielemann/kestrel-h3": "^5.8.0",
     "@michaelthielemann/kestrel-images-default": "^5.8.0",
     "@michaelthielemann/kestrel-links-default": "^5.8.0",
-    "@michaelthielemann/kestrel-media-default": "^5.9.0",
+    "@michaelthielemann/kestrel-media-default": "^5.8.0",
     "@michaelthielemann/kestrel-migrations-default": "^5.8.0",
     "@michaelthielemann/kestrel-persistence-sqlite": "^5.8.0",
     "@michaelthielemann/kestrel-ratelimit-memory": "^5.8.0",
