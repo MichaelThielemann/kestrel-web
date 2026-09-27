@@ -1,9 +1,10 @@
 import { effectiveModuleConfig } from "@michaelthielemann/kestrel";
 import { pipelineSteps, type PipelineEntry } from "@michaelthielemann/kestrel/definePipeline";
-import { deviceKey } from "../config";
+import { deviceKeys, type SigningKeys } from "../config";
 
 export const RATELIMIT_MODULE = "@michaelthielemann/kestrel-ratelimit-memory";
 const AUTHN_MODULE = "@michaelthielemann/kestrel-authn-multi";
+const MFA_MODULE = "@michaelthielemann/kestrel-mfa-totp";
 const CHECK_PREFIX = "ratelimit.check:";
 const REMEMBER_PREFIX = "ratelimit.rememberDevice:";
 
@@ -61,14 +62,22 @@ export function secureCookies(modules: readonly Entry[]): boolean {
   return !(isRecord(config) && config.secureCookie === false);
 }
 
+function mfaKeys(modules: readonly Entry[]): SigningKeys | undefined {
+  const mfa = modules.find((entry) => entry.use === MFA_MODULE);
+  const config = mfa === undefined ? undefined : effectiveModuleConfig(mfa);
+  if (!isRecord(config) || typeof config.secretKey !== "string") return undefined;
+  const previous = Array.isArray(config.previousSecretKeys) ? config.previousSecretKeys.filter((key): key is string => typeof key === "string") : [];
+  return previous.length === 0 ? { secretKey: config.secretKey } : { secretKey: config.secretKey, previousSecretKeys: previous };
+}
+
 function stepArgs(pipelines: readonly { steps: readonly PipelineEntry[] }[], prefix: string): Set<string> {
   return new Set(pipelines.flatMap((def) => pipelineSteps(def.steps)).filter((step) => step.startsWith(prefix)).map((step) => step.slice(prefix.length)));
 }
 
 /**
  * Adds, as defaults, every layer bucket a pipeline checks that the ratelimit-memory entry does not configure, the
- * known-device budget of a bucket a pipeline remembers devices for, and the device cookies' key; configured values
- * stay as they are.
+ * login field to a written `loginAccount` without one, the known-device budget of a bucket a pipeline remembers
+ * devices for, and the device cookies' keys; configured values stay as they are.
  */
 export function withLayerBuckets<E extends Entry>(modules: readonly E[], pipelines: readonly { steps: readonly PipelineEntry[] }[]): E[] {
   const checked = stepArgs(pipelines, CHECK_PREFIX);
@@ -84,13 +93,15 @@ export function withLayerBuckets<E extends Entry>(modules: readonly E[], pipelin
     }));
     const values = entry.defaults?.values ?? {};
     const defaultBuckets = isRecord(values.buckets) ? values.buckets : {};
-    const devices = Object.fromEntries([...remembered].flatMap((name) => {
-      const bucket = buckets[name];
-      if (!isRecord(bucket) || "knownDevices" in bucket) return [];
+    const devices = Object.fromEntries(Object.entries(buckets).flatMap(([name, bucket]) => {
+      if (!isRecord(bucket)) return [];
+      const field = name === "loginAccount" && bucket.key === "username" && !("field" in bucket) ? { field: identifier } : {};
+      const known = remembered.has(name) && !("knownDevices" in bucket) ? { knownDevices: { ...DEFAULT_DEVICE_LIMITS } } : {};
+      if (Object.keys(field).length === 0 && Object.keys(known).length === 0) return [];
       const base = defaultBuckets[name];
-      return [[name, { ...(isRecord(base) ? base : {}), knownDevices: { ...DEFAULT_DEVICE_LIMITS } }]];
+      return [[name, { ...(isRecord(base) ? base : {}), ...field, ...known }]];
     }));
-    const cookies = remembered.size > 0 && !(isRecord(effective) && "deviceCookies" in effective) ? { deviceCookies: { secretKey: deviceKey(), secure: secureCookies(modules) } } : {};
+    const cookies = remembered.size > 0 && !(isRecord(effective) && "deviceCookies" in effective) ? { deviceCookies: { ...deviceKeys(mfaKeys(modules)), secure: secureCookies(modules) } } : {};
     if (Object.keys(missing).length === 0 && Object.keys(devices).length === 0 && Object.keys(cookies).length === 0) return entry;
     return { ...entry, defaults: { from: entry.defaults?.from ?? "preset", values: { ...values, ...cookies, buckets: { ...defaultBuckets, ...devices, ...missing } } } };
   });

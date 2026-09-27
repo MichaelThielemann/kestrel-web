@@ -101,9 +101,9 @@ describe("known devices with a ratelimit-memory entry written by hand", () => {
     rmSync(appRoot, { recursive: true, force: true });
   });
 
-  it("boots with the layer's known-device budget and device cookies added to the written account bucket", () => {
+  it("boots with the login field, the layer's known-device budget and device cookies added to the written account bucket", () => {
     expect(config).toMatchObject({
-      buckets: { loginAccount: { limit: 10, windowSeconds: 300, key: "username", counts: "failures", knownDevices: { limit: 10, windowSeconds: 300, maxBlockSeconds: 900 } } },
+      buckets: { loginAccount: { limit: 10, windowSeconds: 300, key: "username", field: "username", counts: "failures", knownDevices: { limit: 10, windowSeconds: 300, maxBlockSeconds: 900 } } },
       deviceCookies: { secure: true },
     });
     const cookies: unknown = Reflect.get(Object(config), "deviceCookies");

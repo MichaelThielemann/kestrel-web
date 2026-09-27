@@ -7,7 +7,7 @@ import eventsQueueModule from "@michaelthielemann/kestrel-events-queue";
 import { lanesFor, presetSchemas } from "./index";
 import type { Feature } from "./index";
 import type { CollectionModel } from "./collections";
-import { deviceKey } from "../config";
+import { deviceKeys } from "../config";
 import { resolveStorageTypes } from "../field-types";
 import { contentModel, contentTypes, features } from "../../../playground/shared/model";
 import fieldTypes from "../../../playground/shared/field-types";
@@ -146,7 +146,7 @@ describe("presetModuleConfig with the playground inputs", () => {
       { use: "@michaelthielemann/kestrel-audit-persistence", ...preset({}) },
       { use: "@michaelthielemann/kestrel-events-inmemory", config: {} },
       { use: "@michaelthielemann/kestrel-events-direct", config: {} },
-      { use: "@michaelthielemann/kestrel-ratelimit-memory", ...preset({ buckets: { login: { limit: 5, windowSeconds: 60 }, loginAccount: { limit: 10, windowSeconds: 300, maxBlockSeconds: 900, key: "username", field: "username", counts: "failures", knownDevices: { limit: 10, windowSeconds: 300, maxBlockSeconds: 900 } }, passwordCheck: { limit: 5, windowSeconds: 300, maxBlockSeconds: 900, key: "identity", counts: "failures" } }, deviceCookies: { secretKey: deviceKey(), secure: true } }) },
+      { use: "@michaelthielemann/kestrel-ratelimit-memory", ...preset({ buckets: { login: { limit: 5, windowSeconds: 60 }, loginAccount: { limit: 10, windowSeconds: 300, maxBlockSeconds: 900, key: "username", field: "username", counts: "failures", knownDevices: { limit: 10, windowSeconds: 300, maxBlockSeconds: 900 } }, passwordCheck: { limit: 5, windowSeconds: 300, maxBlockSeconds: 900, key: "identity", counts: "failures" } }, deviceCookies: { secretKey: deviceKeys().secretKey, secure: true } }) },
       { use: "@michaelthielemann/kestrel-insights", config: {} },
     ]);
   });
@@ -642,7 +642,7 @@ describe("options", () => {
       defaultLocale: "de",
       publicCopy: { prefix: "site/" },
     });
-    expect(configFor(modules, "ratelimit-memory")).toEqual({ buckets: { login: { limit: 3, windowSeconds: 120 }, loginAccount: { limit: 10, windowSeconds: 300, maxBlockSeconds: 900, key: "username", field: "email", counts: "failures", knownDevices: { limit: 10, windowSeconds: 300, maxBlockSeconds: 900 } }, passwordCheck: { limit: 5, windowSeconds: 300, maxBlockSeconds: 900, key: "identity", counts: "failures" } }, deviceCookies: { secretKey: deviceKey(), secure: false } });
+    expect(configFor(modules, "ratelimit-memory")).toEqual({ buckets: { login: { limit: 3, windowSeconds: 120 }, loginAccount: { limit: 10, windowSeconds: 300, maxBlockSeconds: 900, key: "username", field: "email", counts: "failures", knownDevices: { limit: 10, windowSeconds: 300, maxBlockSeconds: 900 } }, passwordCheck: { limit: 5, windowSeconds: 300, maxBlockSeconds: 900, key: "identity", counts: "failures" } }, deviceCookies: { secretKey: deviceKeys().secretKey, secure: false } });
     expect(configFor(modules, "authn-multi")).toEqual({
       identifier: "email",
       minPasswordLength: 12,
@@ -708,6 +708,16 @@ describe("options", () => {
     const config = configFor(modules, "ratelimit-memory");
     expect(fieldOf(fieldOf(config, "buckets"), "loginAccount")).toMatchObject({ knownDevices: { limit: 4, windowSeconds: 120 } });
     expect(fieldOf(config, "deviceCookies")).toEqual({ secretKey: "ab".repeat(32), previousSecretKeys: ["cd".repeat(32)], maxAgeSeconds: 3600, secure: true });
+  });
+
+  it("signs the device cookies with the second factor's keys when the mfa feature is on and no device key is given", () => {
+    const modules = presetModuleConfig({
+      ...playgroundOptions(),
+      features: [...features, "mfa"],
+      mfa: { secretKey: "cd".repeat(32), previousSecretKeys: ["ef".repeat(32)] },
+    });
+    expect(fieldOf(configFor(modules, "ratelimit-memory"), "deviceCookies")).toEqual({ secretKey: "cd".repeat(32), previousSecretKeys: ["ef".repeat(32)], secure: true });
+    expect(configFor(modules, "mfa-totp")).toMatchObject({ secretKey: "cd".repeat(32), previousSecretKeys: ["ef".repeat(32)] });
   });
 
   it("falls back to the schema default, not the preset's, when an override sets a key to undefined", () => {

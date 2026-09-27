@@ -35,13 +35,14 @@
   `kestrel-ratelimit-memory` entry without them boots with their defaults, and `kestrel upgrade`'s
   `preset/ratelimit-buckets` writes them into it. create-kestrel selects `ratelimit` by default.
 - Known devices: after a successful sign-in the `ratelimit` feature hands the browser a signed device cookie
-  (`__Host-kestrel_device`, `HttpOnly`, `Secure`, `SameSite=Strict`, 30 days, bound to the account). Sign-ins
+  (`__Host-kestrel_device`, `HttpOnly`, `Secure`, `SameSite=Strict`, 30 days, bound to the exact name of the account that signed in). Sign-ins
   carrying it count against that device's own budget (`ratelimit.knownDevice`, default 10 failures per 5
   minutes, blocked up to 15 minutes) instead of `loginAccount`, so someone who blocks an account with wrong
   passwords, or with wrong codes after a leaked password, no longer locks its owner out on a browser that
   signed in before. `presetModuleConfig()`'s `ratelimit` option takes `knownDevice` and
-  `deviceCookies: { secretKey?, previousSecretKeys?, maxAgeSeconds? }`, the key defaulting to `deviceKey()`
-  from `#kestrel/config`, which reads `KESTREL_DEVICE_KEY`. `login` gains
+  `deviceCookies: { secretKey?, previousSecretKeys?, maxAgeSeconds? }`, the keys defaulting to `deviceKeys()`
+  from `#kestrel/config`: `KESTREL_DEVICE_KEY` when set, else the `mfa` feature's keys (the module derives a
+  key of its own from them), else a random key per process. `login` gains
   `ratelimit.rememberDevice:loginAccount` before `events.emit:auth.loggedIn`. create-kestrel writes a fresh
   `KESTREL_DEVICE_KEY` to `.env` with the `ratelimit` feature.
 - Feature `mfa`: a second sign-in factor through the new `@michaelthielemann/kestrel-mfa-totp` module. Every
@@ -58,11 +59,14 @@
 
 ### Upgrading
 
-- Set `KESTREL_DEVICE_KEY` (64 hex digits, `openssl rand -hex 32`) in production. Without it the layer signs
-  device cookies with a random key per process and warns at startup; sign-ins still work, but every restart
-  forgets the known devices until their next successful sign-in. A hand-written `kestrel-ratelimit-memory`
-  entry boots with the known-device budget added to its `loginAccount` bucket and with `deviceCookies`
-  from `deviceKey()`; `preset/ratelimit-buckets` writes `knownDevices` along with a missing `loginAccount`.
+- Known devices need no new setting with the `mfa` feature: the device cookies are signed with a key derived
+  from `KESTREL_MFA_KEY` and follow its rotation. Without `mfa`, set `KESTREL_DEVICE_KEY` (64 hex digits,
+  `openssl rand -hex 32`) in production; without it the layer signs with a random key per process and warns
+  once, so sign-ins still work but every restart, and every other instance, forgets the known devices until
+  their next successful sign-in. A hand-written `kestrel-ratelimit-memory` entry boots with the known-device
+  budget added to its `loginAccount` bucket, with `field` set to the login's `identifier` where it is missing,
+  and with `deviceCookies` from `deviceKeys()`; `preset/ratelimit-buckets` writes `knownDevices` along with a
+  missing `loginAccount`.
 - A hand-written module list passes `collectionsUi` (the default export of `shared/collections-ui`) to
   `presetSchemas()` as well as to `definePreset()`. Without it on `presetSchemas()`, a field the collection UI
   shows as a link has no schema and the boot fails with `no schema configured for "<collection>.<field>"`;

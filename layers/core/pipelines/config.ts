@@ -5,7 +5,7 @@ import { MEDIA_PUBLIC_PATH, MOUNT_PATH, MOUNTS_FIELD, RESERVED_PAGE_SEGMENTS } f
 import { resolveWorkflow } from "../collections-ui/workflow";
 import type { WorkflowUi } from "../collections-ui/workflow";
 import { BLOCK_ALIASES_FIELD, BODY_FIELD } from "../collections-ui/serialize";
-import { deviceKey, mfaKey } from "../config";
+import { deviceKeys, mfaKey, type SigningKeys } from "../config";
 import { resolveStorageTypes } from "../field-types";
 import type { FieldTypes } from "../field-types";
 import { isGenericCollection } from "./collections";
@@ -74,7 +74,7 @@ export interface PresetRateLimit {
   passwordCheck?: { limit: number; windowSeconds: number; maxBlockSeconds?: number };
   /** Sign-in attempts from each device the account signed in from before, counted in place of `loginAccount`, so a block of the account does not stop its owner's devices. */
   knownDevice?: { limit: number; windowSeconds: number; maxBlockSeconds?: number };
-  /** How the cookies of known devices are signed: `secretKey` (32 bytes as 64 hex digits or 43 base64url characters; default `deviceKey()`, which reads `KESTREL_DEVICE_KEY`), `previousSecretKeys` it replaced, whose cookies stay valid until they expire, and `maxAgeSeconds` (default 30 days). */
+  /** How the cookies of known devices are signed: `secretKey` (32 bytes as 64 hex digits or 43 base64url characters; default `deviceKeys()`: `KESTREL_DEVICE_KEY`, else the `mfa` feature's keys), `previousSecretKeys` it replaced, whose cookies stay valid until they expire, and `maxAgeSeconds` (default 30 days). */
   deviceCookies?: { secretKey?: string; previousSecretKeys?: string[]; maxAgeSeconds?: number };
 }
 
@@ -500,7 +500,12 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
         })
       : { use: "@michaelthielemann/kestrel-events-direct", config: {} },
   );
+  const mfaOptions = options.mfa ?? {};
+  const mfaKeys: SigningKeys | undefined = enabled.has("mfa") ? { secretKey: mfaOptions.secretKey ?? mfaKey(), ...(mfaOptions.previousSecretKeys === undefined ? {} : { previousSecretKeys: mfaOptions.previousSecretKeys }) } : undefined;
   if (enabled.has("ratelimit")) {
+    const ownDeviceKey = options.ratelimit?.deviceCookies?.secretKey;
+    const deviceSigning: SigningKeys = ownDeviceKey === undefined ? deviceKeys(mfaKeys) : { secretKey: ownDeviceKey };
+    const previousDeviceKeys = options.ratelimit?.deviceCookies?.previousSecretKeys ?? deviceSigning.previousSecretKeys;
     modules.push(preset("@michaelthielemann/kestrel-ratelimit-memory", {
       buckets: {
         login: layerBucket("login", session.identifier, options.ratelimit?.login),
@@ -508,18 +513,17 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
         passwordCheck: layerBucket("passwordCheck", session.identifier, options.ratelimit?.passwordCheck),
       },
       deviceCookies: {
-        secretKey: options.ratelimit?.deviceCookies?.secretKey ?? deviceKey(),
-        ...(options.ratelimit?.deviceCookies?.previousSecretKeys === undefined ? {} : { previousSecretKeys: options.ratelimit.deviceCookies.previousSecretKeys }),
+        secretKey: deviceSigning.secretKey,
+        ...(previousDeviceKeys === undefined ? {} : { previousSecretKeys: previousDeviceKeys }),
         ...(options.ratelimit?.deviceCookies?.maxAgeSeconds === undefined ? {} : { maxAgeSeconds: options.ratelimit.deviceCookies.maxAgeSeconds }),
         secure: session.secureCookie,
       },
     }));
   }
-  if (enabled.has("mfa")) {
-    const mfa = options.mfa ?? {};
+  if (mfaKeys !== undefined) {
+    const mfa = mfaOptions;
     modules.push(preset("@michaelthielemann/kestrel-mfa-totp", {
-      secretKey: mfa.secretKey ?? mfaKey(),
-      ...(mfa.previousSecretKeys === undefined ? {} : { previousSecretKeys: mfa.previousSecretKeys }),
+      ...mfaKeys,
       ...(mfa.issuer === undefined ? {} : { issuer: mfa.issuer }),
       ...(mfa.enforce === undefined ? {} : { enforce: mfa.enforce }),
     }));

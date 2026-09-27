@@ -49,7 +49,7 @@ kestrel-web's own, all read while `kestrel.config.ts` loads:
 |---|---|---|
 | `KESTREL_APP_ROOT` | no | the directory `data/` and `data/export` resolve against; defaults to the process cwd |
 | `KESTREL_DATA_DIR` | no | overrides that: `kestrelDataDir()` returns it verbatim, and the SQLite file and blobs go under it |
-| `KESTREL_DEVICE_KEY` | in production, with the `ratelimit` feature | the key that signs the device cookies of known devices (64 hex digits); `deviceKey()` falls back to a random key per process without it, with one `console.warn` under `NODE_ENV=production`, so a restart forgets every known device until its next sign-in |
+| `KESTREL_DEVICE_KEY` | in production, with the `ratelimit` feature and without `mfa` | the key that signs the device cookies of known devices (64 hex digits); `deviceKeys()` uses the `mfa` feature's keys without it, and otherwise a random key per process, with one `console.warn` under `NODE_ENV=production`, so a restart forgets every known device until its next sign-in |
 | `KESTREL_MFA_KEY` | in production, with the `mfa` feature | the key that seals the second factors' secrets (64 hex digits); `mfaKey()` throws without it under `NODE_ENV=production` and otherwise falls back to a development key with one `console.warn` |
 | `KESTREL_ADMIN_PASSWORD_HASH` | in production | the bootstrap user's password hash; `adminPasswordHash()` throws without it under `NODE_ENV=production` and otherwise falls back to the hash of `change-me` with one `console.warn` |
 | `KESTREL_BLOBSTORE` | in production | `s3` or `filesystem`; `envBlobstore()` throws in production when it is neither |
@@ -251,12 +251,16 @@ Points that matter:
 - **Known devices.** With the `ratelimit` feature, ten wrong passwords for an account within five minutes
   block it for every browser that has not signed in to it before, for up to 15 minutes at a time. A browser
   that has keeps the `__Host-kestrel_device` cookie from its last successful sign-in (`HttpOnly`, `Secure`,
-  `SameSite=Strict`, valid for 30 days, bound to that one account) and signs in within a budget of its own,
+  `SameSite=Strict`, valid for 30 days, bound to the exact name of that one account) and signs in within a
+  budget of its own,
   so the owner is not locked out by someone else's guesses. The same holds for wrong second-factor codes:
-  from a known device they neither count towards nor wait for the factor's lock. `KESTREL_DEVICE_KEY`
-  (64 hex digits, `openssl rand -hex 32`) signs the cookies; keep it out of the database and its backups.
-  To change it, set the new key and pass the old one in `ratelimit: { deviceCookies: { previousSecretKeys:
-  [...] } }`; cookies signed under it stay valid until they expire. A browser holds one device cookie, for
+  from a known device they neither count towards nor wait for the factor's lock. With the `mfa` feature the
+  cookies are signed with a key derived from `KESTREL_MFA_KEY` and its previous keys, so its rotation covers
+  them too. Without it, `KESTREL_DEVICE_KEY` (64 hex digits, `openssl rand -hex 32`) signs them, and it also
+  takes precedence when both are set; keep it out of the database and its backups. To change it, set the new
+  key and pass the old one in `ratelimit: { deviceCookies: { previousSecretKeys: [...] } }`; cookies signed
+  under it stay valid until they expire. Signing out, a new password or a reset factor leave a device
+  cookie valid; it only ever grants a sign-in budget, never a session. A browser holds one device cookie, for
   the account that signed in last there. The budgets live in the server's memory: a restart clears every
   block, and the cookies stay valid across it as long as the key does.
 - **Same origin.** A `POST`, `PUT`, `PATCH` or `DELETE` authenticated by the cookie is accepted only

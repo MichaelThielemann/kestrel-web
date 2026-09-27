@@ -47,15 +47,31 @@ export function mfaKey(): string {
   return DEVELOPMENT_MFA_KEY;
 }
 
-let processDeviceKey: string | undefined;
+/** A signing key and the keys it replaced. */
+export interface SigningKeys {
+  secretKey: string;
+  previousSecretKeys?: string[];
+}
 
-/** The key that signs the device cookies of known devices: `KESTREL_DEVICE_KEY` (64 hex digits or 43 base64url characters); without it, a random key for the life of the process, with a warning in production, so known devices sign in against the account's budget again after a restart. */
-export function deviceKey(): string {
+let processDeviceKey: string | undefined;
+let warnedDeviceKey = false;
+
+/**
+ * The keys that sign the device cookies of known devices: `KESTREL_DEVICE_KEY` (64 hex digits or 43 base64url
+ * characters) when it is set; otherwise `fromMfa`, the second-factor keys, from which ratelimit-memory derives a
+ * key of its own; otherwise a random key for the life of the process, with one warning in production, so known
+ * devices sign in against the account's budget again after a restart.
+ */
+export function deviceKeys(fromMfa?: SigningKeys): SigningKeys {
   const configured = envValue("KESTREL_DEVICE_KEY");
-  if (configured !== undefined) return configured;
-  if (isProduction()) console.warn("kestrel.config: KESTREL_DEVICE_KEY is not set – known devices are forgotten at every restart");
+  if (configured !== undefined) return { secretKey: configured };
+  if (fromMfa !== undefined) return fromMfa.previousSecretKeys === undefined ? { secretKey: fromMfa.secretKey } : { secretKey: fromMfa.secretKey, previousSecretKeys: fromMfa.previousSecretKeys };
+  if (isProduction() && !warnedDeviceKey) {
+    warnedDeviceKey = true;
+    console.warn("kestrel.config: KESTREL_DEVICE_KEY is not set and the mfa feature is off – known devices are forgotten at every restart");
+  }
   processDeviceKey ??= randomBytes(32).toString("hex");
-  return processDeviceKey;
+  return { secretKey: processDeviceKey };
 }
 
 export function envBlobstore(dataDir: string): BlobstoreModuleEntry {
