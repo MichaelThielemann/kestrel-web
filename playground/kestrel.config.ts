@@ -11,6 +11,8 @@ const dataDir = kestrelDataDir();
 const features = process.env.KESTREL_PLAYGROUND_EVENTS_QUEUE === "1" ? [...modelFeatures, "eventsQueue" as const] : modelFeatures;
 
 const pipelineChanges: PresetPipelineChanges<typeof contentTypes> = {};
+const loginLimit = Number(process.env.KESTREL_PLAYGROUND_LOGIN_LIMIT ?? "0");
+const ratelimit = loginLimit > 0 ? { login: { limit: loginLimit, windowSeconds: 60 }, loginAccount: { limit: loginLimit, windowSeconds: 60 } } : undefined;
 
 const modules = presetModuleConfig({
   dataDir,
@@ -22,6 +24,7 @@ const modules = presetModuleConfig({
   prefixPrimary,
   fieldTypes,
   audit: { retentionDays: 365 },
+  ...(ratelimit === undefined ? {} : { ratelimit }),
   roles: {
     roles: { admin: ["*"], editor: ["pages.*", "blog.*", "media.*", "images.read", "settings.read", "redirects.*"] },
     anonymous: ["pages.read", "blog.read", "settings.read", "media.read"],
