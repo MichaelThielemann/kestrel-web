@@ -9,7 +9,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Require a valid session → Requires permission blog.manage → List blog → Add _paths (locale → path) to the blog result, every valid path including drafts */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission blog.manage → List blog → Add _paths (locale → path) to the blog result, every valid path including drafts */
         get: operations["listAllBlog"];
         put?: never;
         post?: never;
@@ -26,7 +26,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Require a valid session → Requires permission blog.manage → One blog document → Add _paths (locale → path) to the blog result, every valid path including drafts */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission blog.manage → One blog document → Add _paths (locale → path) to the blog result, every valid path including drafts */
         get: operations["readAnyBlog"];
         put?: never;
         post?: never;
@@ -43,7 +43,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Require a valid session → Requires permission blog.manage → Revisions of one blog document and locale, newest first and without snapshots */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission blog.manage → Revisions of one blog document and locale, newest first and without snapshots */
         get: operations["blogRevisions"];
         put?: never;
         post?: never;
@@ -60,14 +60,14 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Require a valid session → Requires permission blog.manage → One revision of a blog document including its snapshot and, where the content model is known, the dry run of its restore under `restore` */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission blog.manage → One revision of a blog document including its snapshot and, where the content model is known, the dry run of its restore under `restore` */
         get: operations["blogRevision"];
         put?: never;
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
-        /** Require a valid session → Requires permission blog.write → Name a blog revision, or clear its name with null; a labelled revision is never pruned */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission blog.write → Name a blog revision, or clear its name with null; a labelled revision is never pruned */
         patch: operations["labelBlogRevision"];
         trace?: never;
     };
@@ -80,7 +80,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Require a valid session → Requires permission blog.write → Put a blog revision's snapshot into the body, so the steps behind it save it like any other write and branch the history at that revision; fields the model has dropped since are left out → Validate payload field blog.body against its JSON Schema → Sanitize HTML at format:"html" positions of payload field blog.body → Validate payload field blog.body against its JSON Schema → Referenced ids of blog must exist → Update a blog → Record the saved blog document from the result as a revision; its parent is the head, or the revision a restore put on the context → Index the references of a blog document → Index external links of blog → Queue event "blog.restored" for the subscribed handler pipelines; the worker delivers it after this run → Recompute the public paths of the saved blog (result.id, else params.id) and of every document whose path depends on it; last step of the write's atomic group → After the write's atomic group: patches the in-memory path table from the committed rows and raises site.pathsMoved; never fails the run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) → Add what the restore of this run left out to the result as `restore`; without a known content model the result stays as it is */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission blog.write → Put a blog revision's snapshot into the body, so the steps behind it save it like any other write and branch the history at that revision; fields the model has dropped since are left out → Validate payload field blog.body against its JSON Schema → Sanitize HTML at format:"html" positions of payload field blog.body → Validate payload field blog.body against its JSON Schema → Referenced ids of blog must exist → Update a blog → Record the saved blog document from the result as a revision; its parent is the head, or the revision a restore put on the context → Index the references of a blog document → Index external links of blog → Queue event "blog.restored" for the subscribed handler pipelines; the worker delivers it after this run → Recompute the public paths of the saved blog (result.id, else params.id) and of every document whose path depends on it; last step of the write's atomic group → After the write's atomic group: patches the in-memory path table from the committed rows and raises site.pathsMoved; never fails the run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) → Add what the restore of this run left out to the result as `restore`; without a known content model the result stays as it is */
         post: operations["restoreBlogRevision"];
         delete?: never;
         options?: never;
@@ -97,7 +97,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Require a valid session → Requires permission blog.write → The public path a blog would get for payload { id?, locale?, slug, parent? }, whether it would be reachable and why not; writes nothing */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission blog.write → The public path a blog would get for payload { id?, locale?, slug, parent? }, whether it would be reachable and why not; writes nothing */
         post: operations["previewBlogPath"];
         delete?: never;
         options?: never;
@@ -112,7 +112,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Require a valid session → Requires permission system.manage → Dead-letter events, most recently failed first */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission system.manage → Dead-letter events, most recently failed first */
         get: operations["eventsDead"];
         put?: never;
         post?: never;
@@ -131,7 +131,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Require a valid session → Requires permission system.manage → Requeue the dead-letter event named by params.id */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission system.manage → Requeue the dead-letter event named by params.id */
         post: operations["eventsRetryOne"];
         delete?: never;
         options?: never;
@@ -146,7 +146,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Require a valid session → Requires permission system.manage → Dead-letter rows of the queue across every process: deliveries that used up maxAttempts and wait for events.retryDead */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission system.manage → Dead-letter rows of the queue across every process: deliveries that used up maxAttempts and wait for events.retryDead */
         get: operations["eventsDeliveryStatus"];
         put?: never;
         post?: never;
@@ -165,7 +165,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Require a valid session → Requires permission system.manage → Requeue every dead-letter event */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission system.manage → Requeue every dead-letter event */
         post: operations["eventsRetryDead"];
         delete?: never;
         options?: never;
@@ -180,7 +180,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Require a valid session → Requires permission system.manage → Queue counters per state, the oldest pending event, the worker state of this process, and pending/running/oldestPendingAt per configured lane */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission system.manage → Queue counters per state, the oldest pending event, the worker state of this process, and pending/running/oldestPendingAt per configured lane */
         get: operations["eventsQueueStatus"];
         put?: never;
         post?: never;
@@ -199,7 +199,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Require a valid session → Requires permission images.manage → Retire the variants of sizes that are no longer declared: their paths keep answering with the original's bytes until the item is deleted */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission images.manage → Retire the variants of sizes that are no longer declared: their paths keep answering with the original's bytes until the item is deleted */
         post: operations["pruneImages"];
         delete?: never;
         options?: never;
@@ -216,7 +216,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Require a valid session → Requires permission images.manage → Put every variant that gave up after maxAttempts back to pending with a fresh attempt budget – all of them, or one media item's (id from params.id or payload.id) – and start the work that regenerates them */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission images.manage → Put every variant that gave up after maxAttempts back to pending with a fresh attempt budget – all of them, or one media item's (id from params.id or payload.id) – and start the work that regenerates them */
         post: operations["retryFailedImages"];
         delete?: never;
         options?: never;
@@ -231,9 +231,9 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Require a valid session → Requires permission images.read → Effective sizes (defaults/config merged with the sizes registered in this process) */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission images.read → Effective sizes (defaults/config merged with the sizes registered in this process) */
         get: operations["listImageSizes"];
-        /** Require a valid session → Requires permission images.write → Replace the sizes registered by this instance – code-declared sizes are held in memory, never stored */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission images.write → Replace the sizes registered by this instance – code-declared sizes are held in memory, never stored */
         put: operations["registerImageSizes"];
         post?: never;
         delete?: never;
@@ -249,7 +249,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Require a valid session → Requires permission images.read → Sizes with usage/variant counts, current job, the variants that gave up with their last error, and sizes whose variants are left over from a size the code no longer declares */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission images.read → Sizes with usage/variant counts, current job, the variants that gave up with their last error, and sizes whose variants are left over from a size the code no longer declares */
         get: operations["imagesStatus"];
         put?: never;
         post?: never;
@@ -268,7 +268,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Require a valid session → Requires permission images.manage → Start a sync job, or resume a paused/error/stale one */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission images.manage → Start a sync job, or resume a paused/error/stale one */
         post: operations["syncImages"];
         delete?: never;
         options?: never;
@@ -283,7 +283,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Require a valid session → Requires permission insights.read → The static manifest of this instance: modules, contracts, config schemas, steps, pipelines, triggers and boot warnings */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission insights.read → The static manifest of this instance: modules, contracts, config schemas, steps, pipelines, triggers and boot warnings */
         get: operations["insightsManifest"];
         put?: never;
         post?: never;
@@ -300,7 +300,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Require a valid session → Requires permission insights.read → Live counters of this process: runs, pipelines, steps, events, and the most recent failed runs */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission insights.read → Live counters of this process: runs, pipelines, steps, events, and the most recent failed runs */
         get: operations["insightsStats"];
         put?: never;
         post?: never;
@@ -317,7 +317,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Require a valid session → Requires permission pages.manage → Broken links */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission pages.manage → Broken links */
         get: operations["brokenLinks"];
         put?: never;
         post?: never;
@@ -336,7 +336,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Require a valid session → Requires permission pages.manage → Rebuild the link index */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission pages.manage → Rebuild the link index */
         post: operations["rebuildLinks"];
         delete?: never;
         options?: never;
@@ -353,7 +353,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Require a valid session → Requires permission media.manage → Copy every ready media item to /var/lib/kestrel/export/<folder>/<filename> → Copy every done variant of a ready media item to /var/lib/kestrel/export/<folder>/<filename>.<size>.<ext> */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission media.manage → Copy every ready media item to /var/lib/kestrel/export/<folder>/<filename> → Copy every done variant of a ready media item to /var/lib/kestrel/export/<folder>/<filename>.<size>.<ext> */
         post: operations["exportMedia"];
         delete?: never;
         options?: never;
@@ -370,7 +370,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Require a valid session → Requires permission media.manage → Compare the blobs under the media prefix with the media_items rows; with `delete` also removes blobs that no row points at (rows are never deleted) */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission media.manage → Compare the blobs under the media prefix with the media_items rows; with `delete` also removes blobs that no row points at (rows are never deleted) */
         post: operations["reconcileMediaReport"];
         delete?: never;
         options?: never;
@@ -387,7 +387,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Require a valid session → Requires permission media.manage → Like media.reconcile, but always deletes the orphan blobs – the deletion is in the pipeline, not in the request */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission media.manage → Like media.reconcile, but always deletes the orphan blobs – the deletion is in the pipeline, not in the request */
         post: operations["reconcileMediaDelete"];
         delete?: never;
         options?: never;
@@ -404,7 +404,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Require a valid session → Requires permission media.manage → Reconcile the public copies of every ready item's original with the stored items: fail abandoned uploads, finish interrupted deletes, write missing or mismatched copies, and remove copies of failed or deleted items and foreign files (adds _publicMedia: { written, removed, missing } to the result) → Reconcile the public copies of every ready item's variants and retired paths with the stored rows: place missing sizes, write missing or mismatched copies, and remove copies of deleted items and foreign files (adds _publicVariants: { written, removed, planned, missing } to the result) */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission media.manage → Reconcile the public copies of every ready item's original with the stored items: fail abandoned uploads, finish interrupted deletes, write missing or mismatched copies, and remove copies of failed or deleted items and foreign files (adds _publicMedia: { written, removed, missing } to the result) → Reconcile the public copies of every ready item's variants and retired paths with the stored rows: place missing sizes, write missing or mismatched copies, and remove copies of deleted items and foreign files (adds _publicVariants: { written, removed, planned, missing } to the result) */
         post: operations["repairPublicMedia"];
         delete?: never;
         options?: never;
@@ -419,7 +419,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Require a valid session → Requires permission migrations.manage → Applied migrations (ledger, oldest first) and still-pending migrations (config order) */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission migrations.manage → Applied migrations (ledger, oldest first) and still-pending migrations (config order) */
         get: operations["listMigrations"];
         put?: never;
         post?: never;
@@ -438,7 +438,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Require a valid session → Requires permission migrations.manage → Apply every pending migration; payload.dry === true reports the changes without writing */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission migrations.manage → Apply every pending migration; payload.dry === true reports the changes without writing */
         post: operations["applyMigrations"];
         delete?: never;
         options?: never;
@@ -453,7 +453,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Require a valid session → Requires permission pages.manage → List pages → Add _paths (locale → path) to the pages result, every valid path including drafts */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission pages.manage → List pages → Add _paths (locale → path) to the pages result, every valid path including drafts */
         get: operations["listAllPages"];
         put?: never;
         post?: never;
@@ -470,7 +470,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Require a valid session → Requires permission pages.manage → One pages document → Add _paths (locale → path) to the pages result, every valid path including drafts */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission pages.manage → One pages document → Add _paths (locale → path) to the pages result, every valid path including drafts */
         get: operations["readAnyPage"];
         put?: never;
         post?: never;
@@ -487,7 +487,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Require a valid session → Requires permission pages.manage → Revisions of one pages document and locale, newest first and without snapshots */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission pages.manage → Revisions of one pages document and locale, newest first and without snapshots */
         get: operations["pageRevisions"];
         put?: never;
         post?: never;
@@ -504,14 +504,14 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Require a valid session → Requires permission pages.manage → One revision of a pages document including its snapshot and, where the content model is known, the dry run of its restore under `restore` */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission pages.manage → One revision of a pages document including its snapshot and, where the content model is known, the dry run of its restore under `restore` */
         get: operations["pageRevision"];
         put?: never;
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
-        /** Require a valid session → Requires permission pages.write → Name a pages revision, or clear its name with null; a labelled revision is never pruned */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission pages.write → Name a pages revision, or clear its name with null; a labelled revision is never pruned */
         patch: operations["labelPageRevision"];
         trace?: never;
     };
@@ -524,7 +524,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Require a valid session → Requires permission pages.write → Put a pages revision's snapshot into the body, so the steps behind it save it like any other write and branch the history at that revision; fields the model has dropped since are left out → Validate payload field pages.body against its JSON Schema → Sanitize HTML at format:"html" positions of payload field pages.body → Validate payload field pages.body against its JSON Schema → Validate payload field pages.accent against its JSON Schema → Referenced ids of pages must exist → Update a pages → Record the saved pages document from the result as a revision; its parent is the head, or the revision a restore put on the context → Index the references of a pages document → Index external links of pages → Queue event "page.restored" for the subscribed handler pipelines; the worker delivers it after this run → Recompute the public paths of the saved pages (result.id, else params.id) and of every document whose path depends on it; last step of the write's atomic group → After the write's atomic group: patches the in-memory path table from the committed rows and raises site.pathsMoved; never fails the run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) → Add what the restore of this run left out to the result as `restore`; without a known content model the result stays as it is */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission pages.write → Put a pages revision's snapshot into the body, so the steps behind it save it like any other write and branch the history at that revision; fields the model has dropped since are left out → Validate payload field pages.body against its JSON Schema → Sanitize HTML at format:"html" positions of payload field pages.body → Validate payload field pages.body against its JSON Schema → Validate payload field pages.accent against its JSON Schema → Referenced ids of pages must exist → Update a pages → Record the saved pages document from the result as a revision; its parent is the head, or the revision a restore put on the context → Index the references of a pages document → Index external links of pages → Queue event "page.restored" for the subscribed handler pipelines; the worker delivers it after this run → Recompute the public paths of the saved pages (result.id, else params.id) and of every document whose path depends on it; last step of the write's atomic group → After the write's atomic group: patches the in-memory path table from the committed rows and raises site.pathsMoved; never fails the run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) → Add what the restore of this run left out to the result as `restore`; without a known content model the result stays as it is */
         post: operations["restorePageRevision"];
         delete?: never;
         options?: never;
@@ -541,7 +541,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Require a valid session → Requires permission pages.write → The public path a pages would get for payload { id?, locale?, slug, parent? }, whether it would be reachable and why not; writes nothing */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission pages.write → The public path a pages would get for payload { id?, locale?, slug, parent? }, whether it would be reachable and why not; writes nothing */
         post: operations["previewPagePath"];
         delete?: never;
         options?: never;
@@ -556,7 +556,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Require a valid session → Requires permission pages.manage → Every pages with its parent, label, valid paths and live state per locale */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission pages.manage → Every pages with its parent, label, valid paths and live state per locale */
         get: operations["pageTree"];
         put?: never;
         post?: never;
@@ -575,7 +575,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Require a valid session → Requires permission system.manage → Recompute every routed document's paths from content@1 outside any group (adds `rebuild` to the result) → Write the planned paths inside one atomic group; saves committed since the plan are recomputed there → After the write's atomic group: patches the in-memory path table from the committed rows and raises site.pathsMoved; never fails the run */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission system.manage → Recompute every routed document's paths from content@1 outside any group (adds `rebuild` to the result) → Write the planned paths inside one atomic group; saves committed since the plan are recomputed there → After the write's atomic group: patches the in-memory path table from the committed rows and raises site.pathsMoved; never fails the run */
         post: operations["rebuildPaths"];
         delete?: never;
         options?: never;
@@ -592,7 +592,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Require a valid session → Requires permission blog.manage → Mark every blog output for a re-render in the background, including documents that were never delivered (adds `marked` to the result) */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission blog.manage → Mark every blog output for a re-render in the background, including documents that were never delivered (adds `marked` to the result) */
         post: operations["publishAllBlog"];
         delete?: never;
         options?: never;
@@ -609,7 +609,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Require a valid session → Requires permission pages.manage → Mark every pages output for a re-render in the background, including documents that were never delivered (adds `marked` to the result) → Write redirects.json to the blobstore: editor rules first, then automatic ones (adds `redirects: { rules, skipped }` to the result) */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission pages.manage → Mark every pages output for a re-render in the background, including documents that were never delivered (adds `marked` to the result) → Write redirects.json to the blobstore: editor rules first, then automatic ones (adds `redirects: { rules, skipped }` to the result) */
         post: operations["publishAllPages"];
         delete?: never;
         options?: never;
@@ -626,7 +626,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Require a valid session → Requires permission pages.manage → Reset the attempts of every output whose re-render failed maxAttempts times and start it again (adds `retried` to the result) */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission pages.manage → Reset the attempts of every output whose re-render failed maxAttempts times and start it again (adds `retried` to the result) */
         post: operations["retryStalePages"];
         delete?: never;
         options?: never;
@@ -641,7 +641,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Require a valid session → Requires permission blog.manage → Publish status per locale of a blog */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission blog.manage → Publish status per locale of a blog */
         get: operations["blogPublishStatus"];
         put?: never;
         post?: never;
@@ -658,7 +658,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Require a valid session → Requires permission pages.manage → How many outputs wait for a re-render, failed it, are rendering or have unknown dependencies, the oldest mark, and the renders this process abandoned at the timeout */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission pages.manage → How many outputs wait for a re-render, failed it, are rendering or have unknown dependencies, the oldest mark, and the renders this process abandoned at the timeout */
         get: operations["pagesStaleStatus"];
         put?: never;
         post?: never;
@@ -675,7 +675,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Require a valid session → Requires permission pages.manage → Publish status per locale of a pages */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission pages.manage → Publish status per locale of a pages */
         get: operations["pagePublishStatus"];
         put?: never;
         post?: never;
@@ -692,7 +692,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Require a valid session → Requires permission redirects.read → Effective automatic redirects (a moved document's old path, sorted by from) */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission redirects.read → Effective automatic redirects (a moved document's old path, sorted by from) */
         get: operations["listAutoRedirects"];
         put?: never;
         post?: never;
@@ -712,7 +712,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Require a valid session → Requires permission redirects.write → Turn the automatic redirect at params.path into a removed tombstone; a replay of the move that created it cannot restore it → Write redirects.json to the blobstore: editor rules first, then automatic ones (adds `redirects: { rules, skipped }` to the result) */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission redirects.write → Turn the automatic redirect at params.path into a removed tombstone; a replay of the move that created it cannot restore it → Write redirects.json to the blobstore: editor rules first, then automatic ones (adds `redirects: { rules, skipped }` to the result) */
         delete: operations["removeAutoRedirect"];
         options?: never;
         head?: never;
@@ -726,7 +726,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Require a valid session → Requires permission pages.manage → Broken references */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission pages.manage → Broken references */
         get: operations["brokenReferences"];
         put?: never;
         post?: never;
@@ -745,7 +745,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Require a valid session → Requires permission pages.manage → Rebuild the reference index */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission pages.manage → Rebuild the reference index */
         post: operations["rebuildReferences"];
         delete?: never;
         options?: never;
@@ -760,7 +760,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Require a valid session → Requires permission blog.manage → Documents referencing each of up to 200 blog ids */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission blog.manage → Documents referencing each of up to 200 blog ids */
         get: operations["blogReferrersMany"];
         put?: never;
         post?: never;
@@ -777,7 +777,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Require a valid session → Requires permission blog.manage → Documents referencing a blog */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission blog.manage → Documents referencing a blog */
         get: operations["blogReferrers"];
         put?: never;
         post?: never;
@@ -794,7 +794,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Require a valid session → Requires permission pages.manage → Documents referencing each of up to 200 media ids */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission pages.manage → Documents referencing each of up to 200 media ids */
         get: operations["mediaReferrersMany"];
         put?: never;
         post?: never;
@@ -811,7 +811,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Require a valid session → Requires permission pages.manage → Documents referencing a media */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission pages.manage → Documents referencing a media */
         get: operations["mediaReferrers"];
         put?: never;
         post?: never;
@@ -828,7 +828,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Require a valid session → Requires permission pages.manage → Documents referencing each of up to 200 pages ids */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission pages.manage → Documents referencing each of up to 200 pages ids */
         get: operations["pageReferrersMany"];
         put?: never;
         post?: never;
@@ -845,7 +845,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Require a valid session → Requires permission pages.manage → Documents referencing a pages */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission pages.manage → Documents referencing a pages */
         get: operations["pageReferrers"];
         put?: never;
         post?: never;
@@ -862,7 +862,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Require a valid session → Requires permission system.manage → Restore points (snapshots and WAL segments) */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission system.manage → Restore points (snapshots and WAL segments) */
         get: operations["replicationPoints"];
         put?: never;
         post?: never;
@@ -881,7 +881,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Require a valid session → Requires permission system.manage → Rebuild the database at a point in time next to the live file; applied on next start */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission system.manage → Require that the session's password was checked within the last 300 seconds, at login or through authn.confirmPassword; otherwise 403 REAUTH_REQUIRED → Rebuild the database at a point in time next to the live file; applied on next start */
         post: operations["replicationRestore"];
         delete?: never;
         options?: never;
@@ -898,7 +898,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Require a valid session → Requires permission system.manage → Start a new generation with a full snapshot */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission system.manage → Start a new generation with a full snapshot */
         post: operations["replicationSnapshot"];
         delete?: never;
         options?: never;
@@ -913,7 +913,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Require a valid session → Requires permission system.manage → Replication status */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission system.manage → Replication status */
         get: operations["replicationStatus"];
         put?: never;
         post?: never;
@@ -932,7 +932,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Require a valid session → Requires permission users.manage → Strip the user in `params.id` or the event payload's `id` from every audit entry: their identity id and every param naming them go, the event and its time stay */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission users.manage → Strip the user in `params.id` or the event payload's `id` from every audit entry: their identity id and every param naming them go, the event and its time stay */
         post: operations["retryAnonymizeAuditUser"];
         delete?: never;
         options?: never;
@@ -949,7 +949,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Require a valid session → Requires permission users.manage → Verify the user reference at payload.reassignTo: it must be a user id, { id }, or null. Writes its canonical { id, name } to verifiedUser, or null when there was none to verify. authn.verifyUser:reassignTo reads payload.reassignTo; authn.verifyUser:result.reassignTo reads payload.result.reassignTo, the shape an event hands over → Replace the author of every revision written by the user in `params.id` or the event payload's `id`, with the canonical `{ id, name }` a preceding step's `verifiedUser` (e.g. `authn.verifyUser`) verified. Without a target, the anonymous author `{ id: null, name: null }` */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission users.manage → Verify the user reference at payload.reassignTo: it must be a user id, { id }, or null. Writes its canonical { id, name } to verifiedUser, or null when there was none to verify. authn.verifyUser:reassignTo reads payload.reassignTo; authn.verifyUser:result.reassignTo reads payload.result.reassignTo, the shape an event hands over → Replace the author of every revision written by the user in `params.id` or the event payload's `id`, with the canonical `{ id, name }` a preceding step's `verifiedUser` (e.g. `authn.verifyUser`) verified. Without a target, the anonymous author `{ id: null, name: null }` */
         post: operations["retryReassignRevisionAuthor"];
         delete?: never;
         options?: never;
@@ -964,10 +964,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Identify the caller if a valid token is present → Requires permission blog.read → List blog → Add _paths (locale → path) to the blog result, reachable paths only → Keep only the blog fields the caller may see: anonymousFields.blog without an identity or a configured role; otherwise everything when one of its roles has no field grant for blog, else the union of its roles' grants and the anonymous one */
+        /** Identify the caller if a valid token is present; a state-changing request authenticated by the session cookie must come from the same origin → Requires permission blog.read → List blog → Add _paths (locale → path) to the blog result, reachable paths only → Keep only the blog fields the caller may see: anonymousFields.blog without an identity or a configured role; otherwise everything when one of its roles has no field grant for blog, else the union of its roles' grants and the anonymous one */
         get: operations["listBlog"];
         put?: never;
-        /** Require a valid session → Requires permission blog.write → Validate payload field blog.body against its JSON Schema → Sanitize HTML at format:"html" positions of payload field blog.body → Validate payload field blog.body against its JSON Schema → Referenced ids of blog must exist → Create a blog → Record the saved blog document from the result as a revision; its parent is the head, or the revision a restore put on the context → Index the references of a blog document → Index external links of blog → Queue event "blog.created" for the subscribed handler pipelines; the worker delivers it after this run → Recompute the public paths of the saved blog (result.id, else params.id) and of every document whose path depends on it; last step of the write's atomic group → After the write's atomic group: patches the in-memory path table from the committed rows and raises site.pathsMoved; never fails the run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission blog.write → Validate payload field blog.body against its JSON Schema → Sanitize HTML at format:"html" positions of payload field blog.body → Validate payload field blog.body against its JSON Schema → Referenced ids of blog must exist → Create a blog → Record the saved blog document from the result as a revision; its parent is the head, or the revision a restore put on the context → Index the references of a blog document → Index external links of blog → Queue event "blog.created" for the subscribed handler pipelines; the worker delivers it after this run → Recompute the public paths of the saved blog (result.id, else params.id) and of every document whose path depends on it; last step of the write's atomic group → After the write's atomic group: patches the in-memory path table from the committed rows and raises site.pathsMoved; never fails the run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
         post: operations["createBlog"];
         delete?: never;
         options?: never;
@@ -982,15 +982,15 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Identify the caller if a valid token is present → Requires permission blog.read → One blog document → Add _paths (locale → path) to the blog result, reachable paths only → Keep only the blog fields the caller may see: anonymousFields.blog without an identity or a configured role; otherwise everything when one of its roles has no field grant for blog, else the union of its roles' grants and the anonymous one */
+        /** Identify the caller if a valid token is present; a state-changing request authenticated by the session cookie must come from the same origin → Requires permission blog.read → One blog document → Add _paths (locale → path) to the blog result, reachable paths only → Keep only the blog fields the caller may see: anonymousFields.blog without an identity or a configured role; otherwise everything when one of its roles has no field grant for blog, else the union of its roles' grants and the anonymous one */
         get: operations["readBlog"];
         put?: never;
         post?: never;
-        /** Require a valid session → Requires permission blog.delete → Refuse deletion while blog is referenced → Delete a blog → Drop every revision of a blog document, in every locale → Drop indexed references of a blog document → Drop indexed links of blog → Queue event "blog.deleted" for the subscribed handler pipelines; the worker delivers it after this run → Recompute the public paths of the saved blog (result.id, else params.id) and of every document whose path depends on it; last step of the write's atomic group → After the write's atomic group: patches the in-memory path table from the committed rows and raises site.pathsMoved; never fails the run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission blog.delete → Refuse deletion while blog is referenced → Delete a blog → Drop every revision of a blog document, in every locale → Drop indexed references of a blog document → Drop indexed links of blog → Queue event "blog.deleted" for the subscribed handler pipelines; the worker delivers it after this run → Recompute the public paths of the saved blog (result.id, else params.id) and of every document whose path depends on it; last step of the write's atomic group → After the write's atomic group: patches the in-memory path table from the committed rows and raises site.pathsMoved; never fails the run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
         delete: operations["deleteBlog"];
         options?: never;
         head?: never;
-        /** Require a valid session → Requires permission blog.write → Validate payload field blog.body against its JSON Schema → Sanitize HTML at format:"html" positions of payload field blog.body → Validate payload field blog.body against its JSON Schema → Referenced ids of blog must exist → Update a blog → Record the saved blog document from the result as a revision; its parent is the head, or the revision a restore put on the context → Index the references of a blog document → Index external links of blog → Queue event "blog.updated" for the subscribed handler pipelines; the worker delivers it after this run → Recompute the public paths of the saved blog (result.id, else params.id) and of every document whose path depends on it; last step of the write's atomic group → After the write's atomic group: patches the in-memory path table from the committed rows and raises site.pathsMoved; never fails the run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission blog.write → Validate payload field blog.body against its JSON Schema → Sanitize HTML at format:"html" positions of payload field blog.body → Validate payload field blog.body against its JSON Schema → Referenced ids of blog must exist → Update a blog → Record the saved blog document from the result as a revision; its parent is the head, or the revision a restore put on the context → Index the references of a blog document → Index external links of blog → Queue event "blog.updated" for the subscribed handler pipelines; the worker delivers it after this run → Recompute the public paths of the saved blog (result.id, else params.id) and of every document whose path depends on it; last step of the write's atomic group → After the write's atomic group: patches the in-memory path table from the committed rows and raises site.pathsMoved; never fails the run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
         patch: operations["updateBlog"];
         trace?: never;
     };
@@ -1004,7 +1004,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Require a valid session → Requires permission blog.write → Remove one translation of a blog (locale from the route or ?locale=); the document stays in its other locales → Drop the revisions of one locale of a blog document → Index the references of a blog document → Index external links of blog → Queue event "blog.translationRemoved" for the subscribed handler pipelines; the worker delivers it after this run → Recompute the public paths of the saved blog (result.id, else params.id) and of every document whose path depends on it; last step of the write's atomic group → After the write's atomic group: patches the in-memory path table from the committed rows and raises site.pathsMoved; never fails the run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission blog.write → Remove one translation of a blog (locale from the route or ?locale=); the document stays in its other locales → Drop the revisions of one locale of a blog document → Index the references of a blog document → Index external links of blog → Queue event "blog.translationRemoved" for the subscribed handler pipelines; the worker delivers it after this run → Recompute the public paths of the saved blog (result.id, else params.id) and of every document whose path depends on it; last step of the write's atomic group → After the write's atomic group: patches the in-memory path table from the committed rows and raises site.pathsMoved; never fails the run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
         delete: operations["deleteBlogTranslation"];
         options?: never;
         head?: never;
@@ -1020,7 +1020,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Rate limit bucket login → Log in with credentials → Queue event "auth.loggedIn" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
+        /** Rate limit bucket login, counted by client address → Rate limit bucket loginAccount, counted by username → Log in with credentials; the token comes back in the body and in an HttpOnly session cookie → Queue event "auth.loggedIn" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
         post: operations["login"];
         delete?: never;
         options?: never;
@@ -1037,7 +1037,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Require a valid session → End the current session → Queue event "auth.loggedOut" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → End the current session and remove the session cookie → Queue event "auth.loggedOut" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
         post: operations["logout"];
         delete?: never;
         options?: never;
@@ -1052,10 +1052,27 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Require a valid session → Current identity */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Current identity */
         get: operations["me"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/confirm-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Rate limit bucket passwordCheck, counted by identity → Confirm the caller's password; marks the session as freshly authenticated for authn.requireRecentAuth */
+        post: operations["confirmPassword"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1071,7 +1088,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Require a valid session → Change own password */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Rate limit bucket passwordCheck, counted by identity → Change own password → Queue event "user.passwordChanged" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
         post: operations["changePassword"];
         delete?: never;
         options?: never;
@@ -1086,10 +1103,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Identify the caller if a valid token is present → Requires permission media.read → List media, newest first; anonymous callers may only fetch by ids → Add available, variants[] and variantCounts to a media item or list (result.id or result.items); a variant whose path has no object yet is never listed → Keep only the media fields the caller may see: anonymousFields.media without an identity or a configured role; otherwise everything when one of its roles has no field grant for media, else the union of its roles' grants and the anonymous one */
+        /** Identify the caller if a valid token is present; a state-changing request authenticated by the session cookie must come from the same origin → Requires permission media.read → List media, newest first; anonymous callers may only fetch by ids → Add available, variants[] and variantCounts to a media item or list (result.id or result.items); a variant whose path has no object yet is never listed → Keep only the media fields the caller may see: anonymousFields.media without an identity or a configured role; otherwise everything when one of its roles has no field grant for media, else the union of its roles' grants and the anonymous one */
         get: operations["listMedia"];
         put?: never;
-        /** Require a valid session → Requires permission media.write → Sanitize uploaded SVG files, also SVG content declared as another image type (scripts, handlers, external references removed) → Upload one or more files (multipart field `file`, repeatable). A single file returns the item; multiple files return per-file results. Idempotent: same folder, same filename and same bytes return the item that is already there, and the step then ends the pipeline itself (200), so no following step – notably events.emit:media.uploaded – runs for an upload that stored nothing → Queue event "media.uploaded" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission media.write → Sanitize uploaded SVG files, also SVG content declared as another image type (scripts, handlers, external references removed) → Upload one or more files (multipart field `file`, repeatable). A single file returns the item; multiple files return per-file results. Idempotent: same folder, same filename and same bytes return the item that is already there, and the step then ends the pipeline itself (200), so no following step – notably events.emit:media.uploaded – runs for an upload that stored nothing → Queue event "media.uploaded" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
         post: operations["uploadMedia"];
         delete?: never;
         options?: never;
@@ -1104,15 +1121,15 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Identify the caller if a valid token is present → Requires permission media.read → Media metadata → Add available, variants[] and variantCounts to a media item or list (result.id or result.items); a variant whose path has no object yet is never listed → Keep only the media fields the caller may see: anonymousFields.media without an identity or a configured role; otherwise everything when one of its roles has no field grant for media, else the union of its roles' grants and the anonymous one */
+        /** Identify the caller if a valid token is present; a state-changing request authenticated by the session cookie must come from the same origin → Requires permission media.read → Media metadata → Add available, variants[] and variantCounts to a media item or list (result.id or result.items); a variant whose path has no object yet is never listed → Keep only the media fields the caller may see: anonymousFields.media without an identity or a configured role; otherwise everything when one of its roles has no field grant for media, else the union of its roles' grants and the anonymous one */
         get: operations["getMedia"];
         put?: never;
         post?: never;
-        /** Require a valid session → Requires permission media.delete → Refuse deletion while media is referenced → Delete file and metadata: end the item's readiness, then remove copy, blob and row, then a final sweep → Delete one media item's variants and retired paths (blob + rows) → Queue event "media.deleted" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission media.delete → Refuse deletion while media is referenced → Delete file and metadata: end the item's readiness, then remove copy, blob and row, then a final sweep → Delete one media item's variants and retired paths (blob + rows) → Queue event "media.deleted" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
         delete: operations["deleteMedia"];
         options?: never;
         head?: never;
-        /** Require a valid session → Requires permission media.write → Rename, move, set provenance or texts (alt/title/description per locale); the file's key and path never change → Queue event "media.updated" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission media.write → Rename, move, set provenance or texts (alt/title/description per locale); the file's key and path never change → Queue event "media.updated" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
         patch: operations["updateMedia"];
         trace?: never;
     };
@@ -1123,7 +1140,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Identify the caller if a valid token is present → Requires permission media.read → The file at its public URL (params.id, params.name); the name must be the one it was uploaded under → Keep only the mediaFile fields the caller may see: anonymousFields.mediaFile without an identity or a configured role; otherwise everything when one of its roles has no field grant for mediaFile, else the union of its roles' grants and the anonymous one */
+        /** Identify the caller if a valid token is present; a state-changing request authenticated by the session cookie must come from the same origin → Requires permission media.read → The file at its public URL (params.id, params.name); the name must be the one it was uploaded under → Keep only the mediaFile fields the caller may see: anonymousFields.mediaFile without an identity or a configured role; otherwise everything when one of its roles has no field grant for mediaFile, else the union of its roles' grants and the anonymous one */
         get: operations["serveMediaFile"];
         put?: never;
         post?: never;
@@ -1140,7 +1157,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Identify the caller if a valid token is present → Requires permission media.read → The file itself → Keep only the mediaFile fields the caller may see: anonymousFields.mediaFile without an identity or a configured role; otherwise everything when one of its roles has no field grant for mediaFile, else the union of its roles' grants and the anonymous one */
+        /** Identify the caller if a valid token is present; a state-changing request authenticated by the session cookie must come from the same origin → Requires permission media.read → The file itself → Keep only the mediaFile fields the caller may see: anonymousFields.mediaFile without an identity or a configured role; otherwise everything when one of its roles has no field grant for mediaFile, else the union of its roles' grants and the anonymous one */
         get: operations["downloadMedia"];
         put?: never;
         post?: never;
@@ -1157,7 +1174,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Identify the caller if a valid token is present → Requires permission media.read → The variant at its public URL (params.id, params.file), or the original's bytes when no render is at that path yet; x-kestrel-variant: original marks the fallback → Keep only the mediaFile fields the caller may see: anonymousFields.mediaFile without an identity or a configured role; otherwise everything when one of its roles has no field grant for mediaFile, else the union of its roles' grants and the anonymous one */
+        /** Identify the caller if a valid token is present; a state-changing request authenticated by the session cookie must come from the same origin → Requires permission media.read → The variant at its public URL (params.id, params.file), or the original's bytes when no render is at that path yet; x-kestrel-variant: original marks the fallback → Keep only the mediaFile fields the caller may see: anonymousFields.mediaFile without an identity or a configured role; otherwise everything when one of its roles has no field grant for mediaFile, else the union of its roles' grants and the anonymous one */
         get: operations["serveImageVariant"];
         put?: never;
         post?: never;
@@ -1174,10 +1191,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Require a valid session → Requires permission media.read → Folders (persistent and implied) with item counts; anonymous callers are refused */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission media.read → Folders (persistent and implied) with item counts; anonymous callers are refused */
         get: operations["listMediaFolders"];
         put?: never;
-        /** Require a valid session → Requires permission media.write → Create a folder (idempotent: an existing folder is returned unchanged) */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission media.write → Create a folder (idempotent: an existing folder is returned unchanged) */
         post: operations["createMediaFolder"];
         delete?: never;
         options?: never;
@@ -1195,11 +1212,11 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Require a valid session → Requires permission media.delete → Item ids in a folder, for use with references.guardAll:media before removeFolder → Refuse while any of result.ids of media is referenced → Delete a folder and everything in it (each item as media.remove) → Delete variants for every id in result.ids (from media.listFolderItems or media.removeFolder) → Queue event "media.deleted" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission media.delete → Item ids in a folder, for use with references.guardAll:media before removeFolder → Refuse while any of result.ids of media is referenced → Delete a folder and everything in it (each item as media.remove) → Delete variants for every id in result.ids (from media.listFolderItems or media.removeFolder) → Queue event "media.deleted" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
         delete: operations["deleteMediaFolder"];
         options?: never;
         head?: never;
-        /** Require a valid session → Requires permission media.write → Rename or move a folder (metadata only: keys and paths do not change) */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission media.write → Rename or move a folder (metadata only: keys and paths do not change) */
         patch: operations["renameMediaFolder"];
         trace?: never;
     };
@@ -1210,10 +1227,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Identify the caller if a valid token is present → Requires permission pages.read → List pages → Add _paths (locale → path) to the pages result, reachable paths only → Keep only the pages fields the caller may see: anonymousFields.pages without an identity or a configured role; otherwise everything when one of its roles has no field grant for pages, else the union of its roles' grants and the anonymous one */
+        /** Identify the caller if a valid token is present; a state-changing request authenticated by the session cookie must come from the same origin → Requires permission pages.read → List pages → Add _paths (locale → path) to the pages result, reachable paths only → Keep only the pages fields the caller may see: anonymousFields.pages without an identity or a configured role; otherwise everything when one of its roles has no field grant for pages, else the union of its roles' grants and the anonymous one */
         get: operations["listPages"];
         put?: never;
-        /** Require a valid session → Requires permission pages.write → Validate payload field pages.body against its JSON Schema → Sanitize HTML at format:"html" positions of payload field pages.body → Validate payload field pages.body against its JSON Schema → Validate payload field pages.accent against its JSON Schema → Referenced ids of pages must exist → Create a pages → Record the saved pages document from the result as a revision; its parent is the head, or the revision a restore put on the context → Index the references of a pages document → Index external links of pages → Queue event "page.created" for the subscribed handler pipelines; the worker delivers it after this run → Recompute the public paths of the saved pages (result.id, else params.id) and of every document whose path depends on it; last step of the write's atomic group → After the write's atomic group: patches the in-memory path table from the committed rows and raises site.pathsMoved; never fails the run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission pages.write → Validate payload field pages.body against its JSON Schema → Sanitize HTML at format:"html" positions of payload field pages.body → Validate payload field pages.body against its JSON Schema → Validate payload field pages.accent against its JSON Schema → Referenced ids of pages must exist → Create a pages → Record the saved pages document from the result as a revision; its parent is the head, or the revision a restore put on the context → Index the references of a pages document → Index external links of pages → Queue event "page.created" for the subscribed handler pipelines; the worker delivers it after this run → Recompute the public paths of the saved pages (result.id, else params.id) and of every document whose path depends on it; last step of the write's atomic group → After the write's atomic group: patches the in-memory path table from the committed rows and raises site.pathsMoved; never fails the run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
         post: operations["createPage"];
         delete?: never;
         options?: never;
@@ -1228,15 +1245,15 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Identify the caller if a valid token is present → Requires permission pages.read → One pages document → Add _paths (locale → path) to the pages result, reachable paths only → Keep only the pages fields the caller may see: anonymousFields.pages without an identity or a configured role; otherwise everything when one of its roles has no field grant for pages, else the union of its roles' grants and the anonymous one */
+        /** Identify the caller if a valid token is present; a state-changing request authenticated by the session cookie must come from the same origin → Requires permission pages.read → One pages document → Add _paths (locale → path) to the pages result, reachable paths only → Keep only the pages fields the caller may see: anonymousFields.pages without an identity or a configured role; otherwise everything when one of its roles has no field grant for pages, else the union of its roles' grants and the anonymous one */
         get: operations["readPage"];
         put?: never;
         post?: never;
-        /** Require a valid session → Requires permission pages.delete → Refuse deletion while pages is referenced → Delete a pages → Drop every revision of a pages document, in every locale → Drop indexed references of a pages document → Drop indexed links of pages → Queue event "page.deleted" for the subscribed handler pipelines; the worker delivers it after this run → Recompute the public paths of the saved pages (result.id, else params.id) and of every document whose path depends on it; last step of the write's atomic group → After the write's atomic group: patches the in-memory path table from the committed rows and raises site.pathsMoved; never fails the run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission pages.delete → Refuse deletion while pages is referenced → Delete a pages → Drop every revision of a pages document, in every locale → Drop indexed references of a pages document → Drop indexed links of pages → Queue event "page.deleted" for the subscribed handler pipelines; the worker delivers it after this run → Recompute the public paths of the saved pages (result.id, else params.id) and of every document whose path depends on it; last step of the write's atomic group → After the write's atomic group: patches the in-memory path table from the committed rows and raises site.pathsMoved; never fails the run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
         delete: operations["deletePage"];
         options?: never;
         head?: never;
-        /** Require a valid session → Requires permission pages.write → Validate payload field pages.body against its JSON Schema → Sanitize HTML at format:"html" positions of payload field pages.body → Validate payload field pages.body against its JSON Schema → Validate payload field pages.accent against its JSON Schema → Referenced ids of pages must exist → Update a pages → Record the saved pages document from the result as a revision; its parent is the head, or the revision a restore put on the context → Index the references of a pages document → Index external links of pages → Queue event "page.updated" for the subscribed handler pipelines; the worker delivers it after this run → Recompute the public paths of the saved pages (result.id, else params.id) and of every document whose path depends on it; last step of the write's atomic group → After the write's atomic group: patches the in-memory path table from the committed rows and raises site.pathsMoved; never fails the run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission pages.write → Validate payload field pages.body against its JSON Schema → Sanitize HTML at format:"html" positions of payload field pages.body → Validate payload field pages.body against its JSON Schema → Validate payload field pages.accent against its JSON Schema → Referenced ids of pages must exist → Update a pages → Record the saved pages document from the result as a revision; its parent is the head, or the revision a restore put on the context → Index the references of a pages document → Index external links of pages → Queue event "page.updated" for the subscribed handler pipelines; the worker delivers it after this run → Recompute the public paths of the saved pages (result.id, else params.id) and of every document whose path depends on it; last step of the write's atomic group → After the write's atomic group: patches the in-memory path table from the committed rows and raises site.pathsMoved; never fails the run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
         patch: operations["updatePage"];
         trace?: never;
     };
@@ -1250,7 +1267,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Require a valid session → Requires permission pages.write → Remove one translation of a pages (locale from the route or ?locale=); the document stays in its other locales → Drop the revisions of one locale of a pages document → Index the references of a pages document → Index external links of pages → Queue event "page.translationRemoved" for the subscribed handler pipelines; the worker delivers it after this run → Recompute the public paths of the saved pages (result.id, else params.id) and of every document whose path depends on it; last step of the write's atomic group → After the write's atomic group: patches the in-memory path table from the committed rows and raises site.pathsMoved; never fails the run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission pages.write → Remove one translation of a pages (locale from the route or ?locale=); the document stays in its other locales → Drop the revisions of one locale of a pages document → Index the references of a pages document → Index external links of pages → Queue event "page.translationRemoved" for the subscribed handler pipelines; the worker delivers it after this run → Recompute the public paths of the saved pages (result.id, else params.id) and of every document whose path depends on it; last step of the write's atomic group → After the write's atomic group: patches the in-memory path table from the committed rows and raises site.pathsMoved; never fails the run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
         delete: operations["deletePageTranslation"];
         options?: never;
         head?: never;
@@ -1264,9 +1281,9 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Identify the caller if a valid token is present → Requires permission redirects.read → One redirects document → Keep only the redirects fields the caller may see: anonymousFields.redirects without an identity or a configured role; otherwise everything when one of its roles has no field grant for redirects, else the union of its roles' grants and the anonymous one */
+        /** Identify the caller if a valid token is present; a state-changing request authenticated by the session cookie must come from the same origin → Requires permission redirects.read → One redirects document → Keep only the redirects fields the caller may see: anonymousFields.redirects without an identity or a configured role; otherwise everything when one of its roles has no field grant for redirects, else the union of its roles' grants and the anonymous one */
         get: operations["getRedirects"];
-        /** Require a valid session → Requires permission redirects.write → Validate payload field redirects.rules against its JSON Schema → Compile the redirect rules of the payload; VALIDATION names the offending row, also for a rule that redirects into an active automatic redirect → Replace the redirects document → Index the references of a redirects document → Write redirects.json to the blobstore: editor rules first, then automatic ones (adds `redirects: { rules, skipped }` to the result) */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission redirects.write → Validate payload field redirects.rules against its JSON Schema → Compile the redirect rules of the payload; VALIDATION names the offending row, also for a rule that redirects into an active automatic redirect → Replace the redirects document → Index the references of a redirects document → Write redirects.json to the blobstore: editor rules first, then automatic ones (adds `redirects: { rules, skipped }` to the result) */
         put: operations["setRedirects"];
         post?: never;
         delete?: never;
@@ -1299,7 +1316,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Identify the caller if a valid token is present → Requires permission blog.read → Resolve a site path to a blog document (default locale unprefixed) → Replace internal kestrel:<type>:<id> references in the blog document with public paths (_links map added) → Keep only the blog fields the caller may see: anonymousFields.blog without an identity or a configured role; otherwise everything when one of its roles has no field grant for blog, else the union of its roles' grants and the anonymous one */
+        /** Identify the caller if a valid token is present; a state-changing request authenticated by the session cookie must come from the same origin → Requires permission blog.read → Resolve a site path to a blog document (default locale unprefixed) → Replace internal kestrel:<type>:<id> references in the blog document with public paths (_links map added) → Keep only the blog fields the caller may see: anonymousFields.blog without an identity or a configured role; otherwise everything when one of its roles has no field grant for blog, else the union of its roles' grants and the anonymous one */
         get: operations["resolveBlog"];
         put?: never;
         post?: never;
@@ -1316,9 +1333,9 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Identify the caller if a valid token is present → Requires permission settings.read → One settings document → Replace internal kestrel:<type>:<id> references in the settings document with public paths (_links map added) → Keep only the settings fields the caller may see: anonymousFields.settings without an identity or a configured role; otherwise everything when one of its roles has no field grant for settings, else the union of its roles' grants and the anonymous one */
+        /** Identify the caller if a valid token is present; a state-changing request authenticated by the session cookie must come from the same origin → Requires permission settings.read → One settings document → Replace internal kestrel:<type>:<id> references in the settings document with public paths (_links map added) → Keep only the settings fields the caller may see: anonymousFields.settings without an identity or a configured role; otherwise everything when one of its roles has no field grant for settings, else the union of its roles' grants and the anonymous one */
         get: operations["getSettings"];
-        /** Require a valid session → Requires permission settings.write → Validate payload field settings.navigation against its JSON Schema → Validate payload field settings.mounts against its JSON Schema → Replace the settings document → Queue event "settings.updated" for the subscribed handler pipelines; the worker delivers it after this run → Validate the stored mount assignment and move every document of each collection whose mount page changed; last step of the settings write's atomic group → After the write's atomic group: patches the in-memory path table from the committed rows and raises site.pathsMoved; never fails the run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) → Index the references of a settings document */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission settings.write → Validate payload field settings.navigation against its JSON Schema → Validate payload field settings.mounts against its JSON Schema → Replace the settings document → Queue event "settings.updated" for the subscribed handler pipelines; the worker delivers it after this run → Validate the stored mount assignment and move every document of each collection whose mount page changed; last step of the settings write's atomic group → After the write's atomic group: patches the in-memory path table from the committed rows and raises site.pathsMoved; never fails the run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) → Index the references of a settings document */
         put: operations["setSettings"];
         post?: never;
         delete?: never;
@@ -1334,7 +1351,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Identify the caller if a valid token is present → Requires permission pages.read → End the pipeline with { redirect: { to, status } } on an editor rule or an automatic redirect (a moved document's old path); pass through otherwise → End the run with { route: { type } } when params.path is reachable and belongs to a routed collection other than pages; pass through otherwise → Resolve a site path to a pages document (default locale unprefixed) → Replace internal kestrel:<type>:<id> references in the pages document with public paths (_links map added) → Keep only the pages fields the caller may see: anonymousFields.pages without an identity or a configured role; otherwise everything when one of its roles has no field grant for pages, else the union of its roles' grants and the anonymous one */
+        /** Identify the caller if a valid token is present; a state-changing request authenticated by the session cookie must come from the same origin → Requires permission pages.read → End the pipeline with { redirect: { to, status } } on an editor rule or an automatic redirect (a moved document's old path); pass through otherwise → End the run with { route: { type } } when params.path is reachable and belongs to a routed collection other than pages; pass through otherwise → Resolve a site path to a pages document (default locale unprefixed) → Replace internal kestrel:<type>:<id> references in the pages document with public paths (_links map added) → Keep only the pages fields the caller may see: anonymousFields.pages without an identity or a configured role; otherwise everything when one of its roles has no field grant for pages, else the union of its roles' grants and the anonymous one */
         get: operations["resolvePage"];
         put?: never;
         post?: never;
@@ -1351,10 +1368,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Require a valid session → Requires permission users.manage → List users */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission users.manage → List users */
         get: operations["listUsers"];
         put?: never;
-        /** Require a valid session → Requires permission users.manage → Validate the role names at payload.roles against the configured roles; an absent value passes. authz.validateRoles:roles reads payload.roles, the shape authn.createUser and authn.updateUser accept → Create a user → Queue event "user.created" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission users.manage → Require that the session's password was checked within the last 300 seconds, at login or through authn.confirmPassword; otherwise 403 REAUTH_REQUIRED → Validate the role names at payload.roles against the configured roles; an absent value passes. authz.validateRoles:roles reads payload.roles, the shape authn.createUser and authn.updateUser accept → Create a user → Queue event "user.created" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
         post: operations["createUser"];
         delete?: never;
         options?: never;
@@ -1369,15 +1386,15 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Require a valid session → Requires permission users.manage → One user */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission users.manage → One user */
         get: operations["getUser"];
         put?: never;
         post?: never;
-        /** Require a valid session → Requires permission users.manage → Delete a user and their sessions for good; `reassignTo` names the active user their authored history moves to, without it the history is anonymised → Queue event "user.deleted?with=result" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission users.manage → Require that the session's password was checked within the last 300 seconds, at login or through authn.confirmPassword; otherwise 403 REAUTH_REQUIRED → Delete a user and their sessions for good; `reassignTo` names the active user their authored history moves to, without it the history is anonymised → Queue event "user.deleted?with=result" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
         delete: operations["deleteUser"];
         options?: never;
         head?: never;
-        /** Require a valid session → Requires permission users.manage → Validate the role names at payload.roles against the configured roles; an absent value passes. authz.validateRoles:roles reads payload.roles, the shape authn.createUser and authn.updateUser accept → Rename a user or set their roles (a role change ends their sessions) → Queue event "user.updated" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission users.manage → Require that the session's password was checked within the last 300 seconds, at login or through authn.confirmPassword; otherwise 403 REAUTH_REQUIRED → Validate the role names at payload.roles against the configured roles; an absent value passes. authz.validateRoles:roles reads payload.roles, the shape authn.createUser and authn.updateUser accept → Rename a user or set their roles (a role change ends their sessions) → Queue event "user.updated" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
         patch: operations["updateUser"];
         trace?: never;
     };
@@ -1390,7 +1407,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Require a valid session → Requires permission users.manage → Activate a user */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission users.manage → Require that the session's password was checked within the last 300 seconds, at login or through authn.confirmPassword; otherwise 403 REAUTH_REQUIRED → Activate a user → Queue event "user.activated" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
         post: operations["activateUser"];
         delete?: never;
         options?: never;
@@ -1407,7 +1424,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Require a valid session → Requires permission users.manage → Deactivate a user (ends their sessions) → Queue event "user.deactivated" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission users.manage → Require that the session's password was checked within the last 300 seconds, at login or through authn.confirmPassword; otherwise 403 REAUTH_REQUIRED → Deactivate a user (ends their sessions) → Queue event "user.deactivated" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
         post: operations["deactivateUser"];
         delete?: never;
         options?: never;
@@ -1423,7 +1440,7 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Require a valid session → Requires permission users.manage → Set a user's password (ends their sessions) */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission users.manage → Require that the session's password was checked within the last 300 seconds, at login or through authn.confirmPassword; otherwise 403 REAUTH_REQUIRED → Set another user's password (ends their sessions); one's own password changes only through changePassword → Queue event "user.passwordSet" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
         put: operations["setPassword"];
         post?: never;
         delete?: never;
@@ -6858,7 +6875,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description missing permission system.manage */
+            /** @description the last password check is older than the window (`REAUTH_REQUIRED`) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -7979,6 +7996,15 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description a state-changing request authenticated by the session cookie is not from the same origin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             /** @description internal error */
             500: {
                 headers: {
@@ -8033,6 +8059,103 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description a state-changing request authenticated by the session cookie is not from the same origin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description temporarily unavailable; retry after the Retry-After header */
+            503: {
+                headers: {
+                    /** @description seconds until the client may retry */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    confirmPassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    email?: string;
+                    password: string;
+                    username?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description ok */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        ok: boolean;
+                    };
+                };
+            };
+            /** @description the password is missing or wrong */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description this account has no role */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description too many requests */
+            429: {
+                headers: {
+                    /** @description seconds until the client may retry */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             /** @description internal error */
             500: {
                 headers: {
@@ -8066,7 +8189,9 @@ export interface operations {
             content: {
                 "application/json": {
                     currentPassword: string;
+                    email?: string;
                     newPassword: string;
+                    username?: string;
                 };
             };
         };
@@ -8078,6 +8203,19 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        _events: {
+                            pipelines: {
+                                attempts: number;
+                                dead: boolean;
+                                error: string | null;
+                                event: string;
+                                pipeline: string;
+                                /** @enum {string} */
+                                status: "done" | "error" | "pending" | "queued";
+                            }[];
+                            /** @enum {string} */
+                            status: "done" | "error" | "pending" | "queued";
+                        };
                         ok: boolean;
                     };
                 };
@@ -8100,6 +8238,26 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description this account has no role */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description too many requests */
+            429: {
+                headers: {
+                    /** @description seconds until the client may retry */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             /** @description internal error */
             500: {
                 headers: {
@@ -8109,7 +8267,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description temporarily unavailable; retry after the Retry-After header */
+            /** @description the event could not be persisted */
             503: {
                 headers: {
                     /** @description seconds until the client may retry */
@@ -9006,7 +9164,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description missing permission media.read */
+            /** @description with an authz module, no listPermission */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -10631,7 +10789,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description missing permission users.manage */
+            /** @description the last password check is older than the window (`REAUTH_REQUIRED`) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -10809,7 +10967,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description missing permission users.manage */
+            /** @description the last password check is older than the window (`REAUTH_REQUIRED`) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -10922,7 +11080,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description missing permission users.manage */
+            /** @description the last password check is older than the window (`REAUTH_REQUIRED`) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -10989,6 +11147,19 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        _events: {
+                            pipelines: {
+                                attempts: number;
+                                dead: boolean;
+                                error: string | null;
+                                event: string;
+                                pipeline: string;
+                                /** @enum {string} */
+                                status: "done" | "error" | "pending" | "queued";
+                            }[];
+                            /** @enum {string} */
+                            status: "done" | "error" | "pending" | "queued";
+                        };
                         ok: boolean;
                     };
                 };
@@ -11011,7 +11182,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description missing permission users.manage */
+            /** @description the last password check is older than the window (`REAUTH_REQUIRED`) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -11038,7 +11209,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description temporarily unavailable; retry after the Retry-After header */
+            /** @description the event could not be persisted */
             503: {
                 headers: {
                     /** @description seconds until the client may retry */
@@ -11104,7 +11275,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description missing permission users.manage */
+            /** @description the last password check is older than the window (`REAUTH_REQUIRED`) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -11177,11 +11348,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        _events: {
+                            pipelines: {
+                                attempts: number;
+                                dead: boolean;
+                                error: string | null;
+                                event: string;
+                                pipeline: string;
+                                /** @enum {string} */
+                                status: "done" | "error" | "pending" | "queued";
+                            }[];
+                            /** @enum {string} */
+                            status: "done" | "error" | "pending" | "queued";
+                        };
                         ok: boolean;
                     };
                 };
             };
-            /** @description password missing or too short */
+            /** @description password missing or too short, or the caller's own account */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -11199,7 +11383,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description missing permission users.manage */
+            /** @description the last password check is older than the window (`REAUTH_REQUIRED`) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -11226,7 +11410,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description temporarily unavailable; retry after the Retry-After header */
+            /** @description the event could not be persisted */
             503: {
                 headers: {
                     /** @description seconds until the client may retry */
