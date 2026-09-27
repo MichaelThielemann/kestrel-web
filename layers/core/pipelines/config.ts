@@ -4,6 +4,7 @@ import { mediaTypeAllowed } from "@michaelthielemann/kestrel-contracts/helpers/m
 import { MEDIA_PUBLIC_PATH, MOUNT_PATH, MOUNTS_FIELD, RESERVED_PAGE_SEGMENTS } from "../mount-path";
 import { resolveWorkflow } from "../collections-ui/workflow";
 import type { WorkflowUi } from "../collections-ui/workflow";
+import { BLOCK_ALIASES_FIELD, BODY_FIELD } from "../collections-ui/serialize";
 import { resolveStorageTypes } from "../field-types";
 import type { FieldTypes } from "../field-types";
 import { isGenericCollection } from "./collections";
@@ -108,7 +109,7 @@ export interface PresetModuleConfigOptions {
   features: readonly Feature[];
   roles: PresetRoles;
   bootstrap: PresetBootstrap;
-  collectionsUi?: Record<string, WorkflowUi>;
+  collectionsUi?: Record<string, WorkflowUi & { editor?: "fields" | "blocks" }>;
   fieldTypes?: FieldTypes;
   media?: PresetMediaPolicy;
   ratelimit?: PresetRateLimit;
@@ -205,6 +206,15 @@ function referenceTargets(types: Record<string, CollectionModel>): Record<string
 
 function isJsonField(field: unknown): boolean {
   return typeof field === "object" && field !== null && "type" in field && field.type === "json";
+}
+
+function withDerivedBlockAliases(types: Record<string, CollectionModel>, collectionsUi: Record<string, { editor?: "fields" | "blocks" }> | undefined): Record<string, CollectionModel> {
+  const result: Record<string, CollectionModel> = {};
+  for (const [name, model] of Object.entries(types)) {
+    const derives = collectionsUi?.[name]?.editor === "blocks" && BODY_FIELD in model.fields && !(BLOCK_ALIASES_FIELD in model.fields);
+    result[name] = derives ? { ...model, fields: { ...model.fields, [BLOCK_ALIASES_FIELD]: { type: "json" } } } : model;
+  }
+  return result;
 }
 
 function referenceSchemas(stored: Record<string, CollectionModel>, schemas: Record<string, string | Record<string, unknown>>): Record<string, string | Record<string, unknown>> {
@@ -350,7 +360,7 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
   const bootstrap = requireOption(options.bootstrap, "bootstrap");
   const declaredTypes = requireOption(model.types, "model.types");
   const fieldTypes = options.fieldTypes ?? {};
-  const types: Record<string, CollectionModel> = resolveStorageTypes(declaredTypes, fieldTypes, "presetModuleConfig");
+  const types: Record<string, CollectionModel> = withDerivedBlockAliases(resolveStorageTypes(declaredTypes, fieldTypes, "presetModuleConfig"), options.collectionsUi);
 
   for (const locale of [...(model.locales ?? []), ...(model.defaultLocale === undefined ? [] : [model.defaultLocale])]) {
     if ((RESERVED_PAGE_SEGMENTS as readonly string[]).includes(locale)) {

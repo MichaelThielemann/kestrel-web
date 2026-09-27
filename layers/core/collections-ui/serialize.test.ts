@@ -13,7 +13,8 @@ import { syntheticCollectionsUi } from "./__fixtures__/synthetic-collections-ui"
 
 const describedTypes: Record<string, ContentType> = {
   ...contentTypes,
-  pages: { ...contentTypes.pages, fields: { ...contentTypes.pages.fields, accent: { type: "text" } } },
+  pages: { ...contentTypes.pages, fields: { ...contentTypes.pages.fields, accent: { type: "text" }, blockAliases: { type: "json" } } },
+  blog: { ...contentTypes.blog, fields: { ...contentTypes.blog.fields, blockAliases: { type: "json" } } },
   settings: { ...contentTypes.settings, fields: { ...contentTypes.settings.fields, mounts: { type: "json" } } },
 };
 const playgroundCustomTypes = customFieldTypes(contentTypes, fieldTypes);

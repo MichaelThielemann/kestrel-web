@@ -516,7 +516,41 @@ describe("feature gating", () => {
     const modules = presetModuleConfig({ ...playgroundOptions(), model: { types }, features: ["revisions"] });
     expect(configFor(modules, "revisions-default")).toEqual({});
   });
+});
 
+describe("derived blockAliases field", () => {
+  it("adds a blockAliases field to a collection whose editor is blocks and which has a body field, without the consumer declaring it", () => {
+    const types: Record<string, CollectionModel> = { pages: { kind: "multi", fields: { slug: {}, title: {}, body: {} } } };
+    const collectionsUi = { pages: { editor: "blocks" as const } };
+    const modules = presetModuleConfig({ ...playgroundOptions(), model: { types }, collectionsUi });
+    expect(fieldOf(configFor(modules, "content-default"), "types")).toEqual({ pages: { kind: "multi", fields: { slug: {}, title: {}, body: {}, blockAliases: { type: "json" } } } });
+  });
+
+  it("does not add a blockAliases field to a fields-editor collection or one without a body field", () => {
+    const types: Record<string, CollectionModel> = {
+      pages: { kind: "multi", fields: { slug: {}, title: {} } },
+      authors: { kind: "multi", fields: { name: {}, body: {} } },
+    };
+    const collectionsUi = { pages: { editor: "fields" as const } };
+    const modules = presetModuleConfig({ ...playgroundOptions(), model: { types }, collectionsUi });
+    const stored = fieldOf(configFor(modules, "content-default"), "types");
+    expect(fieldOf(fieldOf(stored, "pages"), "fields")).not.toHaveProperty("blockAliases");
+    expect(fieldOf(fieldOf(stored, "authors"), "fields")).not.toHaveProperty("blockAliases");
+  });
+
+  it("leaves an already-declared blockAliases field untouched instead of overwriting it", () => {
+    const types: Record<string, CollectionModel> = {
+      pages: { kind: "multi", fields: { slug: {}, title: {}, body: {}, blockAliases: { type: "json", required: true } } },
+    };
+    const collectionsUi = { pages: { editor: "blocks" as const } };
+    const modules = presetModuleConfig({ ...playgroundOptions(), model: { types }, collectionsUi });
+    expect(fieldOf(fieldOf(fieldOf(configFor(modules, "content-default"), "types"), "pages"), "fields")).toEqual({
+      slug: {}, title: {}, body: {}, blockAliases: { type: "json", required: true },
+    });
+  });
+});
+
+describe("feature gating: events-queue and migrations", () => {
   it("replaces events-direct by events-queue with the eventsQueue feature and passes the option through, keeping the bus", () => {
     const names = moduleNames(presetModuleConfig({ ...playgroundOptions(), features: ["eventsQueue"], eventsQueue: { pollMs: 200, maxAttempts: 3 } }));
     expect(names).toContain("@michaelthielemann/kestrel-events-queue");

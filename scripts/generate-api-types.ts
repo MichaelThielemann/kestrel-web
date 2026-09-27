@@ -18,6 +18,8 @@ const fieldTypes = defineFieldTypes({
   color: { storage: "text", schema: { type: "string", pattern: "^#[0-9a-f]{6}$" }, empty: "#2266cc" },
 });
 
+const collectionsUi = { pages: { editor: "blocks" as const }, blog: { editor: "blocks" as const } };
+
 const features = featureOrder;
 
 const workDir = mkdtempSync(join(tmpdir(), "kestrel-openapi-"));
@@ -40,6 +42,7 @@ async function main(): Promise<void> {
         blobstore: { use: "@michaelthielemann/kestrel-blobstore-filesystem", config: { root: join(dataDir, "blobs") } },
         model: contentModel,
         features,
+        collectionsUi,
         fieldTypes,
         audit: { retentionDays: 365 },
         migrations: { migrations: [] },

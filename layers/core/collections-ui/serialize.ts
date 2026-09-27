@@ -16,6 +16,8 @@ export const LAYOUT_FIELD = "layout";
 export const TITLE_FIELD = "title";
 export const STATUS_FIELD = "status";
 export const BODY_FIELD = "body";
+/** A block instance's alias by block id, editor-owned automatically wherever the preset derives it (see `presetModuleConfig`). */
+export const BLOCK_ALIASES_FIELD = "blockAliases";
 export const SLUG_FIELD = "slug";
 export const STATUS_VALUES = ["draft", "finished", "published"] as const;
 
@@ -241,13 +243,14 @@ export function serializeCollection(
   const { routed, published } = routing[name] ?? NOT_ROUTED_OR_PUBLISHED;
   validateReservedFields(name, def, u, routed, published);
   validateUiFields(name, def, u);
-  const owned = u.editorOwned ?? [];
+  const editor = u.editor ?? "fields";
+  const derivesAliases = editor === "blocks" && BLOCK_ALIASES_FIELD in def.fields;
+  const owned = derivesAliases && !(u.editorOwned ?? []).includes(BLOCK_ALIASES_FIELD) ? [...(u.editorOwned ?? []), BLOCK_ALIASES_FIELD] : (u.editorOwned ?? []);
   const seoFields = new Set(u.seoFields ?? []);
   const fields: Record<string, SerializedField> = {};
   for (const [key, f] of Object.entries(def.fields)) {
     fields[key] = mergeField(serializeField(name, key, f, def, contentTypes, u, customTypes[name]?.[key]), u.fieldOverrides?.[key]);
   }
-  const editor = u.editor ?? "fields";
   const workflow = resolveWorkflow(name, def, u);
   return {
     name,
@@ -268,7 +271,7 @@ export function serializeCollection(
     fields,
     fieldLayout: u.fieldLayout ?? Object.keys(fields).filter((k) => !owned.includes(k) && !seoFields.has(k) && k !== LAYOUT_FIELD).map((k) => ({ kind: "row", fields: [k], tracks: [1] })),
     seoFields: u.seoFields,
-    editorOwned: u.editorOwned,
+    editorOwned: owned.length ? owned : undefined,
     workflow,
     actions: [],
   };

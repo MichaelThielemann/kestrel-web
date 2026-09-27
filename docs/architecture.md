@@ -1312,8 +1312,9 @@ renders the tree in-app for the live preview (no public site round-trip, no ifra
 
 A block instance may carry an editor-only alias (findable in the block picker's search, shown only in
 its fields panel), but the alias never travels inside `body`: it lives in a sibling `blockAliases`
-field (`id`-keyed, `{ type: "json" }`, declared by any collection that wants the feature, next to
-`body`) so the existing field grants (`authz.fields`) keep it from anonymous callers on every pipeline
+field (`id`-keyed, `{ type: "json" }`) the preset derives automatically for every collection whose
+editor is `"blocks"` and which has a `body` field — a consumer never declares it — so the existing
+field grants (`authz.fields`) keep it from anonymous callers on every pipeline
 that answers the collection — `resolvePage`, `readPage`, `listPages` and their generic-collection
 equivalents alike — the same way they already keep out any other field a consumer excludes. `#kestrel-admin/app/utils/block-tree.ts`'s
 `stripAliases`/`aliasMapOf`/`withAliasMap` move an alias between the in-memory `BlockRow` tree (which

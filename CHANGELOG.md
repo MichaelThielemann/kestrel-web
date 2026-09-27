@@ -4,13 +4,13 @@
 
 ### Added
 
-- Page builder: a block instance can carry an optional alias, set in its fields panel. It is stored in a
-  new `blockAliases` field next to a collection's `body`, editor-only by the same field grants that already
-  keep other fields from anonymous callers, so it never reaches an anonymous visitor on any pipeline that
-  answers a page, in the public site's SSR data or in the static export, and never on the block itself. The
-  block picker's search also matches an existing block's alias and jumps straight to it instead of adding a
-  new block. A collection that wants this declares its own `blockAliases: { type: "json" }` field next to
-  `body` (see `docs/field-types.md`); without it the alias is kept in memory but never saved.
+- Page builder: a block instance can carry an optional alias, set in its fields panel. The preset derives a
+  `blockAliases` field, and its editor-owned grant, automatically for every collection whose editor is
+  `"blocks"` and which has a `body` field; a consumer never declares it. It is editor-only by the same field
+  grants that already keep other fields from anonymous callers, so it never reaches an anonymous visitor on
+  any pipeline that answers a page, in the public site's SSR data or in the static export, and never on the
+  block itself. The block picker's search also matches an existing block's alias and jumps straight to it
+  instead of adding a new block.
 - Media picker: reopening it starts in the folder the user last browsed, remembered per browser via
   `localStorage`; a field that already holds an item keeps opening in that item's folder every time, and
   only an empty field falls back to the remembered one.

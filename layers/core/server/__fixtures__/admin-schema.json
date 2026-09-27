@@ -518,16 +518,6 @@
           },
           "type": "json"
         },
-        "blockAliases": {
-          "required": false,
-          "unique": false,
-          "localized": false,
-          "label": {
-            "en": "Block aliases",
-            "de": "Block-Aliasnamen"
-          },
-          "type": "json"
-        },
         "seo": {
           "required": false,
           "unique": false,
@@ -614,6 +604,12 @@
           "unique": false,
           "localized": false,
           "type": "text"
+        },
+        "blockAliases": {
+          "required": false,
+          "unique": false,
+          "localized": false,
+          "type": "json"
         }
       },
       "fieldLayout": [
@@ -661,8 +657,8 @@
       ],
       "editorOwned": [
         "body",
-        "blockAliases",
-        "seo"
+        "seo",
+        "blockAliases"
       ],
       "workflow": {
         "field": "status",
@@ -804,16 +800,6 @@
           },
           "type": "json"
         },
-        "blockAliases": {
-          "required": false,
-          "unique": false,
-          "localized": false,
-          "label": {
-            "en": "Block aliases",
-            "de": "Block-Aliasnamen"
-          },
-          "type": "json"
-        },
         "seo": {
           "required": false,
           "unique": false,
@@ -853,6 +839,12 @@
             ],
             "display": "select"
           }
+        },
+        "blockAliases": {
+          "required": false,
+          "unique": false,
+          "localized": false,
+          "type": "json"
         }
       },
       "fieldLayout": [
@@ -879,8 +871,8 @@
       ],
       "editorOwned": [
         "body",
-        "blockAliases",
-        "seo"
+        "seo",
+        "blockAliases"
       ],
       "workflow": {
         "field": "status",

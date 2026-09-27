@@ -1,6 +1,7 @@
 import { pipelineSteps } from "@michaelthielemann/kestrel/definePipeline";
 import type { PipelineEntry } from "@michaelthielemann/kestrel/definePipeline";
 import type { PresetStep } from "../module-registry";
+import { BLOCK_ALIASES_FIELD } from "../collections-ui/serialize";
 import { isRoutedCollection } from "./capabilities";
 import { collectionPipelines, isGenericCollection } from "./collections";
 import { mountedCollections, parentFieldOf } from "./paths";
@@ -23,8 +24,6 @@ const REDIRECT_RULE_FIELDS = ["pattern", "target", "status"];
 const LOCALE_MEMBERS = ["_locales", "_translations"];
 const MEDIA_READ = "media.read";
 const FIELD_STEP = "authz.fields:";
-
-const BLOCK_ALIASES_FIELD = "blockAliases";
 
 function holds(granted: readonly string[], permission: string): boolean {
   return granted.some((grant) => grant === "*" || grant === permission || (grant.endsWith(".*") && permission.startsWith(grant.slice(0, -1))));
