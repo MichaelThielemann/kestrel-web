@@ -266,6 +266,18 @@ describe("the lanes of a hand-written queue entry", () => {
   });
 });
 
+describe("a project with a collection named like the preset's own pipelines", () => {
+  it("reports it as an error naming the collection and why", async () => {
+    const collections = { pages: { kind: "multi" as const, fields: { slug: {}, title: {}, body: {}, status: {} } }, system: { kind: "multi" as const, fields: { title: {} } } };
+    const { problems } = checkPreset({ modules: [{ use: "@michaelthielemann/kestrel-content-default" }], features: [], collections });
+    const findings = await presetProblemsRule.check(contextFor({ source: "", modules: [], features: [], problems }));
+    const reserved = findings.filter((f) => f.rule === "preset/collection-name-reserved");
+    expect(reserved).toHaveLength(1);
+    expect(reserved[0]).toMatchObject({ severity: "error", fix: { kind: "manual" } });
+    expect(reserved[0]?.message).toContain('"system" is reserved: ');
+  });
+});
+
 describe("an override of setSettings", () => {
   const source = `export const preset = definePreset({\n  modules,\n  features,\n  overrides: {\n    setSettings: ["authn.requireUser", "authz.require:settings.write", "validate.check:settings.navigation", "content.set:settings", "delivery.exportLlms"],\n  },\n});\n`;
   const override = ["authn.requireUser", "authz.require:settings.write", "validate.check:settings.navigation", "content.set:settings", "delivery.exportLlms"];

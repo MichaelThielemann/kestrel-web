@@ -102,7 +102,9 @@ declaration, usable on a collection field and on a block prop — goes in the op
 `shared/field-types.ts`: [`docs/field-types.md`](field-types.md).
 
 A collection name must match `^[a-z][a-z0-9_]*$`, the pattern the backend's content and validation
-modules accept; `definePreset` rejects anything else at config time.
+modules accept, and must not be one the preset keeps for itself (`system`, `images`, `insights`, … — see
+[`field-types.md`](field-types.md#collection-names)); `definePreset` rejects anything else at config time,
+naming the collection and the reason.
 
 `features` is the single source for the `Feature[]` list, typed against `#kestrel/pipelines`'s `Feature`
 union so an unknown name fails to typecheck rather than throwing at compose time. `kestrel.config.ts`

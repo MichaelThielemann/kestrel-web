@@ -97,6 +97,15 @@ export type ContentFieldType =
 type name, so `definePreset` rejects anything else at config time rather than letting the app build
 and fail at boot. `blogPosts` is not a legal collection name; `blog_posts` is.
 
+Some names belong to the preset itself, and `definePreset` refuses them with the reason, so the server does
+not start: `admin`, `events`, `health`, `images`, `insights`, `links`, `login`, `logout`, `me`, `media`,
+`migrations`, `paths`, `references`, `replication`, `routes`, `site`, `system` and `users`. The list is not
+kept by hand: it holds the prefix of every permission the preset's own pipelines require (a collection
+named `system` would grant `system.*` to its editors, which also opens replication restore and event
+retries), the first segment of each of the preset's own routes and the segment after `/admin/`, and the
+admin's own pages. `pages`, `settings` and `redirects` are collections the preset composes itself and stay
+allowed. `reservedCollectionNames()` from `#kestrel/pipelines` answers the current list with each reason.
+
 ## What a factory returns
 
 `layers/core/app/utils/field-factories.ts` is auto-imported into every app file. Each factory builds a

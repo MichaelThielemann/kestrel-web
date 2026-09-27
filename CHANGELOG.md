@@ -24,6 +24,12 @@
 
 ### Breaking
 
+- `definePreset` refuses a collection named after something the preset owns, with the collection and the
+  reason, so the server does not start: every permission prefix its own pipelines require (`system`,
+  `images`, `insights`, `migrations`, `users`, `media`), the first segment of its own routes and the
+  segment after `/admin/` (`events`, `links`, `paths`, `references`, `replication`, …) and the admin's own
+  pages. Rename such a collection before upgrading; `kestrel upgrade check` reports it as
+  `preset/collection-name-reserved`. The new `reservedCollectionNames()` answers the list with the reasons.
 - A slug belongs to its locale: a page or mounted document is reachable in a locale only through a slug of
   its own there. A translation without one answers 404 (also with `untranslatedPages: "redirect"`, which now
   applies only to a translation that has its own slug but inherits other fields), gets no `_paths` entry,

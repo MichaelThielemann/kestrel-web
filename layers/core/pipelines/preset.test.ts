@@ -1,4 +1,4 @@
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { effectiveModuleConfig } from "@michaelthielemann/kestrel";
 import { boundaryCast } from "@michaelthielemann/kestrel/cast";
 import { pipelineSteps } from "@michaelthielemann/kestrel/definePipeline";
@@ -9,6 +9,7 @@ import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import { definePipeline, definePreset, featureOrder, lanesFor, presetSchemas } from "./index";
 import type { CollectionModel, Feature, PresetStep } from "./index";
 import { presetModuleConfig } from "./config";
+import { checkPreset, reservedCollectionNames } from "./checkPreset";
 
 const baseModules = [
   { use: "@michaelthielemann/kestrel-authn-multi" },
@@ -932,6 +933,38 @@ describe("definePreset collection name validation", () => {
       );
     },
   );
+
+  it.each(["system", "images", "insights", "migrations", "references", "replication", "events", "links", "paths"])(
+    "throws for the collection name %s, which the preset's own pipelines or admin pages use, and says why",
+    (name) => {
+      for (const kind of ["single", "multi"] as const) {
+        expect(() => definePreset({ modules: baseModules, features: [], collections: { [name]: { kind, fields: {} } } })).toThrow(new RegExp(`preset: collection name "${name}" is reserved: .+`));
+      }
+    },
+  );
+
+  it("reserves every permission prefix the preset's own pipelines require, derived from the composed pipelines", () => {
+    const first = checkPreset({ modules: baseModules, features: [...featureOrder] });
+    const needed = new Set(first.problems.flatMap((problem) => /requires module "([^"]+)"/.exec(problem.message)?.[1] ?? []));
+    const { preset } = checkPreset({ modules: [...baseModules, ...[...needed].map((use) => ({ use }))], features: [...featureOrder] });
+    const prefixes = new Set<string>();
+    for (const pipeline of preset.pipelines) {
+      for (const step of pipelineSteps(pipeline.steps)) {
+        const prefix = /^authz\.require:([a-z][a-z0-9_]*)\./.exec(step)?.[1];
+        if (prefix !== undefined && !["pages", "settings", "redirects"].includes(prefix)) prefixes.add(prefix);
+      }
+    }
+    expect(prefixes.size).toBeGreaterThan(5);
+    const reserved = reservedCollectionNames();
+    for (const prefix of prefixes) expect(reserved.has(prefix), prefix).toBe(true);
+    expect(reserved.has("pages") || reserved.has("settings") || reserved.has("redirects")).toBe(false);
+  });
+
+  it("reserves the name of every page of its own the admin has", () => {
+    const pages = readdirSync(join(import.meta.dirname, "../../admin/app/pages/admin")).map((entry) => entry.replace(/\.vue$/, "")).filter((entry) => /^[a-z][a-z0-9_]*$/.test(entry) && entry !== "index");
+    expect(pages.length).toBeGreaterThan(3);
+    for (const page of pages) expect(reservedCollectionNames().has(page), page).toBe(true);
+  });
 
   it("accepts the snake_case names the backend accepts", () => {
     expect(() => definePreset({ modules: baseModules, features: [], collections: { news_item: { kind: "multi", fields: {} } } })).not.toThrow();

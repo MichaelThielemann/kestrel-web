@@ -303,7 +303,59 @@ function hasRedirectsRulesSchema(config: unknown): boolean {
 const PAGE_REQUIRING_FEATURES: readonly Feature[] = ["references", "links", "delivery"];
 
 const COLLECTION_NAME_PATTERN = /^[a-z][a-z0-9_]*$/;
-const RESERVED_COLLECTION_NAMES = new Set(["site", "media", "users", "health", "login", "logout", "me", "admin", "routes"]);
+const SERVER_ROUTE_NAMES = ["site", "media", "users", "health", "login", "logout", "me", "admin", "routes"];
+const ADMIN_PAGE_NAMES = ["insights", "login", "media", "references", "system", "users"];
+const COLLECTIONS_WITH_OWN_PIPELINES = new Set(["pages", "settings", "redirects"]);
+let reservedNames: ReadonlyMap<string, string> | undefined;
+
+function httpPathOf(trigger: TriggerConfig): string | undefined {
+  return "http" in trigger ? trigger.http.split(" ")[1] : undefined;
+}
+
+/**
+ * Every collection name the preset keeps for itself, with the reason: the prefix of every
+ * `authz.require:<prefix>.*` permission its own pipelines (base and every feature) require, the first
+ * segment of each of its own HTTP routes and the segment after `/admin/`, the server's own routes and the
+ * admin's own pages. `pages`, `settings` and `redirects` are collections the preset composes itself and
+ * are never reserved.
+ */
+export function reservedCollectionNames(): ReadonlyMap<string, string> {
+  if (reservedNames !== undefined) return reservedNames;
+  const reasons = new Map<string, string>();
+  const add = (name: string | undefined, reason: string): void => {
+    if (name === undefined || !COLLECTION_NAME_PATTERN.test(name) || COLLECTIONS_WITH_OWN_PIPELINES.has(name) || reasons.has(name)) return;
+    reasons.set(name, reason);
+  };
+  const context: PresetContext = { exportDir: "", homeSlug: "home", collections: DEFAULT_COLLECTIONS, customFields: {} };
+  const own: Array<{ pipelines: Record<string, readonly PresetEntry[]>; triggers: readonly TriggerConfig[] }> = [
+    { pipelines: basePipelines(context, DEFAULT_COLLECTIONS), triggers: canonicalTriggers.map((entry) => entry.trigger) },
+    ...featureOrder.map((feature) => {
+      const module = featureFactories[feature](context);
+      return { pipelines: module.pipelines, triggers: module.triggers ?? [] };
+    }),
+  ];
+  for (const { pipelines } of own) {
+    for (const [pipeline, steps] of Object.entries(pipelines)) {
+      for (const step of pipelineSteps(steps)) {
+        const prefix = /^authz\.require:([a-z][a-z0-9_]*)\./.exec(step)?.[1];
+        add(prefix, `the preset's pipeline "${pipeline}" requires "${prefix ?? ""}.*" permissions, which the collection's own permissions would grant`);
+      }
+    }
+  }
+  for (const { triggers } of own) {
+    for (const trigger of triggers) {
+      const path = httpPathOf(trigger);
+      if (path === undefined) continue;
+      const [first, second] = path.split("/").filter((segment) => segment !== "");
+      add(first, `the preset's route ${path} starts with it`);
+      if (first === "admin") add(second, `the preset's route ${path} lies where the collection's admin routes would`);
+    }
+  }
+  for (const name of SERVER_ROUTE_NAMES) add(name, `the server answers /${name} itself`);
+  for (const name of ADMIN_PAGE_NAMES) add(name, `the admin has its own page /admin/${name}`);
+  reservedNames = reasons;
+  return reasons;
+}
 const AUTHZ_MODULE = "@michaelthielemann/kestrel-authz-roles";
 
 function anonymousPermissions(modules: readonly { use: string; config?: unknown }[]): string[] | undefined {
@@ -353,8 +405,9 @@ function validateCollectionNames(collections: Record<string, CollectionModel>, s
           `preset: collection name "${name}" must match ${COLLECTION_NAME_PATTERN} (lowercase letters, digits and underscores, starting with a letter)`
           + " – kestrel-content-default and kestrel-validate-jsonschema reject anything else at boot",
       });
-    } else if (RESERVED_COLLECTION_NAMES.has(name)) {
-      sink.report({ code: "preset/collection-name-reserved", message: `preset: collection name "${name}" is reserved` });
+    } else {
+      const reason = reservedCollectionNames().get(name);
+      if (reason !== undefined) sink.report({ code: "preset/collection-name-reserved", message: `preset: collection name "${name}" is reserved: ${reason}` });
     }
   }
 }

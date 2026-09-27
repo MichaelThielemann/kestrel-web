@@ -45,6 +45,7 @@ export {
   lanesFor,
   RELAY_CANDIDATE_PIPELINES,
   relayPipelinesFor,
+  reservedCollectionNames,
   staticPipelineNames,
 } from "./checkPreset";
 export type {
