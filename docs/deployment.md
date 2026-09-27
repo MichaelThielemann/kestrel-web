@@ -232,8 +232,12 @@ Points that matter:
   the right of `X-Forwarded-For`). The edge must set or overwrite the trusted header on every request;
   passing on a value the client sent would let the client choose its address. Either header counts only
   from a peer in `NUXT_KESTREL_ACCESS_TRUSTED_PROXIES` (default loopback, which covers the nginx above);
-  a caller that reaches the port directly is judged by its own address whatever it sends. A trusted
-  proxy's request without the trusted header is refused with 403, with or without allowlists. An invalid
+  a caller that reaches the port directly is judged by its own address whatever it sends, and the server
+  logs `forwarding header from <peer> ignored` once per peer and hour — the sign of a proxy missing from
+  the list. A trusted proxy's request without the trusted header is refused with 403, with or without
+  allowlists, except a `GET` of `/api/health` or `/api/ready`: a load balancer's or the platform's probe
+  rarely carries the header, so it is judged by its peer address against the `site` list and answered
+  with `{ "ok": … }` or `{ "ready": … }` alone. An invalid
   allowlist or proxy entry stops the server at start (`ip allowlist: invalid entry "…"`), it is not
   skipped.
 - **Unix socket.** Nitro listens on a Unix socket when `NITRO_UNIX_SOCKET` is set. A connection there has

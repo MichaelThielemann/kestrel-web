@@ -96,17 +96,49 @@ export interface AccessRules {
   admin: BlockList | null;
   site: BlockList | null;
   resolve: (req: PeerRequest) => ClientAddress;
+  /** Told the peer of each request whose forwarding headers were ignored; rate-limits its own output. */
+  warnForwarding?: (peer: string | undefined) => void;
+}
+
+/** The liveness and readiness routes a load balancer or platform probes, often without the proxy's client header. */
+export const PROBE_PATHS: ReadonlySet<string> = new Set(["/api/health", "/api/ready"]);
+
+const withoutClientHeader = new WeakSet<H3Event>();
+
+/** Whether `guardAccess` admitted this probe although the trusted header was missing; its answer should then say no more than up or down. */
+export function answeredWithoutClientHeader(event: H3Event): boolean {
+  return withoutClientHeader.has(event);
+}
+
+/** A probe answer cut to its `ok` or `ready` member when the probe came without the trusted header. */
+export function probeBody(event: H3Event, body: object, key: "ok" | "ready"): object {
+  if (!answeredWithoutClientHeader(event)) return body;
+  const value: unknown = Reflect.get(body, key);
+  return { [key]: value };
+}
+
+function isProbe(event: H3Event): boolean {
+  if (event.method !== "GET" && event.method !== "HEAD") return false;
+  const target = event.node.req.originalUrl ?? event.path;
+  return PROBE_PATHS.has(target.split("?", 1)[0] ?? "");
 }
 
 /**
  * Refuses a request with 403 when a trusted proxy sent it without the trusted header, or when its client
- * address is outside the list of its scope. In-process requests pass.
+ * address is outside the list of its scope. A probe of `PROBE_PATHS` without the trusted header is judged
+ * by its peer address instead and marked for a minimal answer. In-process requests pass.
  */
 export function guardAccess(event: H3Event, rules: AccessRules): void {
   const req = event.node.req;
   if (isInProcess(req)) return;
   const client = rules.resolve(req);
+  if (client.forwardingIgnored) rules.warnForwarding?.(req.socket?.remoteAddress);
+  const probe = client.missingHeader && isProbe(event);
+  const address = probe ? req.socket?.remoteAddress : client.ip;
   const list = rules[accessScope(routedPath(req.originalUrl ?? event.path), event.method)];
-  if (!client.missingHeader && isAllowed(list, client.ip)) return;
+  if ((!client.missingHeader || probe) && isAllowed(list, address)) {
+    if (probe) withoutClientHeader.add(event);
+    return;
+  }
   throw createError({ statusCode: 403, statusMessage: "Forbidden" });
 }

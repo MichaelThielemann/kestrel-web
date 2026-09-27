@@ -1503,8 +1503,12 @@ and never used. If your edge sets a dedicated header instead (`NUXT_KESTREL_ACCE
 or `x-real-ip` when your proxy sets it to the peer, as the nginx example in `docs/deployment.md` does), that
 header wins; the edge must overwrite it on every request. Forwarding headers count only from a peer in
 `NUXT_KESTREL_ACCESS_TRUSTED_PROXIES` (addresses or CIDR ranges, default loopback; a Unix socket counts as
-loopback): a caller that bypasses the edge and reaches the port directly is judged by its own address. A
-request from a trusted proxy without the trusted header is refused with 403, with or without allowlists. The
+loopback): a caller that bypasses the edge and reaches the port directly is judged by its own address, and
+the server logs `forwarding header from <peer> ignored` once per peer and hour. A request from a trusted
+proxy without the trusted header is refused with 403, with or without allowlists; only `GET /api/health`
+and `GET /api/ready` are answered then, judged by the peer address against the `site` list and cut to
+`{ ok }` or `{ ready }`, so health probes keep working. Nitro's in-process requests during SSR pass the
+lists; the headers they pass on are believed for `ctx.ip`. The
 same policy is handed to the embedded API handler, so `ctx.ip` (rate limiting) resolves to the same client
 address as the allowlist check. An invalid entry stops the server at start. `nuxt dev` does not enforce the
 lists; test them on a production build, which enforces them over TCP and over a Unix socket
@@ -2078,6 +2082,11 @@ What changes:
   exported by an earlier release keeps calling `/api` on navigation until it is rendered again; forwarding
   `/api/` to the origin (§8, hybrid) keeps such a site working in the meantime. `check`/`fix` reminds you of
   this once, with `ops/publish-all`, whenever `delivery` is on.
+- The proxy's forwarding headers count only from a peer in `NUXT_KESTREL_ACCESS_TRUSTED_PROXIES`, default
+  loopback (§7, "Restricting access by IP"). Before deploying, find the address your proxy and your
+  platform's health check connect from and list it unless it is loopback; otherwise every request is
+  attributed to the proxy. `check` names each file that sets `_TRUSTED_HEADER` or `_TRUST_PROXY` without
+  the list, with `ops/trusted-proxies`, and the server log names each peer whose headers it ignored.
 - Pages are re-rendered when content they show changes (§8, "Pages that show other content"). An override
   of `setSettings` or of a single collection's `set<Name>` must keep the new atomic group around its
   `content.set:` step, and keep or gain its `events.emit:settings.updated` / `events.emit:<name>.updated`

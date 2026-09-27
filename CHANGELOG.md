@@ -456,7 +456,13 @@
   other peer is judged by its own address. A proxy that does not connect over loopback (a container
   setup, a proxy on another host) must be listed. A request from a trusted proxy without the configured
   trusted header is refused with 403 even when no allowlist is set, and with `_TRUST_PROXY` a trusted
-  proxy's request without `X-Forwarded-For` has no client address instead of the proxy's. The server
+  proxy's request without `X-Forwarded-For` has no client address instead of the proxy's; only
+  `GET /api/health` and `GET /api/ready` still answer without the trusted header, judged by the peer
+  address against the `site` list and with `{ ok }` or `{ ready }` alone. A request from an untrusted
+  peer that carries the forwarding header is logged once per peer and hour, and `check`'s new info rule
+  `ops/trusted-proxies` names each project file that sets `_TRUSTED_HEADER` or `_TRUST_PROXY` without
+  `_TRUSTED_PROXIES`. **Upgrading:** find the address your proxy and your platform's health check
+  connect from and list it in `NUXT_KESTREL_ACCESS_TRUSTED_PROXIES` unless it is loopback. The server
   utility `clientAddress` is replaced by the core's `clientIpResolver`.
 
 ### Added

@@ -1,4 +1,5 @@
 import { getKestrel, getKestrelState } from "../plugins/kestrel";
+import { probeBody } from "../utils/ip-allowlist";
 import { readinessFromHealth } from "../utils/readiness";
 
 const started = Date.now();
@@ -7,15 +8,15 @@ export default defineEventHandler(async (event) => {
   const status = getKestrelState();
   if (status.state !== "ready") {
     setResponseStatus(event, 503);
-    return { ready: false, ...status, code: status.state };
+    return probeBody(event, { ready: false, ...status, code: status.state }, "ready");
   }
 
   const kestrel = await getKestrel();
   const readiness = readinessFromHealth(kestrel);
   if (!readiness.ready) {
     setResponseStatus(event, 503);
-    return readiness;
+    return probeBody(event, readiness, "ready");
   }
 
-  return { ready: true, uptimeSeconds: Math.floor((Date.now() - started) / 1000) };
+  return probeBody(event, { ready: true, uptimeSeconds: Math.floor((Date.now() - started) / 1000) }, "ready");
 });

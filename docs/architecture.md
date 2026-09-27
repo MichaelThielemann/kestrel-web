@@ -301,7 +301,10 @@ admin/account API and all API writes are `admin`, everything else `site`), class
 path with dot segments resolved and each segment decoded, which is the path the API adapter routes, so
 `/api/x/../users` is judged as `/api/users` (the adapter itself answers 400 to it). It answers 403 when a
 trusted proxy sent the request without the configured trusted header, or when the scope has a list and the
-client address is not in it. The address is the core's: the socket peer, and only when that peer is in
+client address is not in it; a `GET` of `/api/health` or `/api/ready` without the trusted header is judged
+by the peer address instead and answered with `{ ok }` or `{ ready }` alone (`probeBody`). A request whose
+forwarding header was ignored because the peer is not a trusted proxy is logged through the core's
+`forwardingWarner`, once per peer and hour. The address is the core's: the socket peer, and only when that peer is in
 `trustedProxies` (default loopback; a Unix socket counts as loopback) the trusted header or the
 `X-Forwarded-For` entry `proxyHops` from the right. The same resolver feeds `ctx.ip` through the API and
 `/media/**` handlers. Only Nitro's in-process `localFetch` (SSR, publishing, static delivery) passes

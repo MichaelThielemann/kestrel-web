@@ -8,7 +8,7 @@ import { createApp, createEvent, createRouter, eventHandler, toNodeListener } fr
 import { clientIpResolver, type Kestrel, type Route } from "@michaelthielemann/kestrel";
 import { boundaryCast } from "@michaelthielemann/kestrel/cast";
 import { createKestrelHandler } from "@michaelthielemann/kestrel-h3";
-import { clientIpOptions, guardAccess, parseAllowlist, type AccessRules, type ClientAddressPolicy } from "./utils/ip-allowlist";
+import { answeredWithoutClientHeader, clientIpOptions, guardAccess, parseAllowlist, probeBody, type AccessRules, type ClientAddressPolicy } from "./utils/ip-allowlist";
 
 const ROUTES: Route[] = [
   { method: "GET", segments: ["users"], pipeline: "listUsers" },
@@ -28,15 +28,19 @@ interface Access {
   policy?: Partial<ClientAddressPolicy>;
 }
 
+const warned: Array<string | undefined> = [];
+
 function rules({ admin, site, policy }: Access): AccessRules {
   const full: ClientAddressPolicy = { trustProxy: false, proxyHops: 1, trustedHeader: "", trustedProxies: [], ...policy };
-  return { admin: parseAllowlist(admin), site: parseAllowlist(site), resolve: clientIpResolver(clientIpOptions(full)) };
+  return { admin: parseAllowlist(admin), site: parseAllowlist(site), resolve: clientIpResolver(clientIpOptions(full)), warnForwarding: (peer) => warned.push(peer) };
 }
 
 function nitroLikeApp(access: AccessRules): Server {
   const app = createApp();
   app.use(eventHandler((event) => guardAccess(event, access)));
   const router = createRouter({ preemptive: true });
+  router.get("/api/ready", eventHandler((event) => probeBody(event, { uptimeSeconds: 1, ready: true }, "ready")));
+  router.get("/api/health", eventHandler((event) => ({ minimal: answeredWithoutClientHeader(event) })));
   router.use("/api/**", eventHandler(createKestrelHandler(runner, { mountPath: "/api" })));
   router.use("/**", eventHandler(() => "page"));
   app.use(router);
@@ -76,16 +80,22 @@ async function listenUnix(access: Access): Promise<Target> {
   return { socketPath };
 }
 
-function get(target: Target, path: string, headers: Record<string, string> = {}): Promise<number> {
+function send(target: Target, path: string, headers: Record<string, string> = {}): Promise<{ status: number; body: string }> {
   return new Promise((resolve, reject) => {
     const where = "port" in target ? { host: "127.0.0.1", port: target.port } : { socketPath: target.socketPath };
     const req = request({ ...where, path, headers }, (res) => {
-      res.resume();
-      res.on("end", () => resolve(res.statusCode ?? 0));
+      let body = "";
+      res.setEncoding("utf8");
+      res.on("data", (chunk: string) => { body += chunk; });
+      res.on("end", () => resolve({ status: res.statusCode ?? 0, body }));
     });
     req.on("error", reject);
     req.end();
   });
+}
+
+async function get(target: Target, path: string, headers: Record<string, string> = {}): Promise<number> {
+  return (await send(target, path, headers)).status;
 }
 
 describe("admin allowlist with the API adapter behind it", () => {
@@ -125,6 +135,37 @@ describe("client address for the allowlists", () => {
     expect(await get(target, "/")).toBe(403);
     expect(await get(target, "/api/pages")).toBe(403);
     expect(await get(target, "/", { "x-real-ip": "203.0.113.9" })).toBe(200);
+  });
+});
+
+describe("health and readiness probes", () => {
+  it("answer a trusted proxy's probe without the trusted header, with the minimal body", async () => {
+    const target = await listenTcp({ policy: { trustedHeader: "x-real-ip" } });
+    expect(await send(target, "/api/ready")).toEqual({ status: 200, body: '{"ready":true}' });
+    expect(await send(target, "/api/health")).toEqual({ status: 200, body: '{"minimal":true}' });
+    expect(await send(target, "/api/ready", { "x-real-ip": "203.0.113.9" })).toEqual({ status: 200, body: '{"uptimeSeconds":1,"ready":true}' });
+    expect(await get(target, "/api/pages")).toBe(403);
+    expect(await get(target, "/api/x/../ready")).toBe(403);
+  });
+
+  it("judge such a probe by its peer address against the site list", async () => {
+    const inside = await listenTcp({ site: "127.0.0.1", admin: "10.0.0.0/8", policy: { trustedHeader: "x-real-ip" } });
+    expect(await get(inside, "/api/ready")).toBe(200);
+    expect(await get(inside, "/")).toBe(403);
+    await closeServer();
+    const outside = await listenTcp({ site: "10.0.0.0/8", policy: { trustedHeader: "x-real-ip" } });
+    expect(await get(outside, "/api/ready")).toBe(403);
+  });
+});
+
+describe("ignored forwarding headers", () => {
+  it("are reported with the peer that sent them", async () => {
+    warned.length = 0;
+    const target = await listenTcp({ policy: { trustedHeader: "x-real-ip", trustedProxies: ["192.0.2.1"] } });
+    expect(await get(target, "/")).toBe(200);
+    expect(warned).toEqual([]);
+    expect(await get(target, "/", { "x-real-ip": "10.9.9.9" })).toBe(200);
+    expect(warned).toEqual(["127.0.0.1"]);
   });
 });
 
