@@ -960,6 +960,10 @@ describe("definePreset collection name validation", () => {
     expect(reserved.has("pages") || reserved.has("settings") || reserved.has("redirects")).toBe(false);
   });
 
+  it.each(["system", "images", "insights", "migrations"])("gives the permission its own pipelines require as the reason %s is reserved", (name) => {
+    expect(reservedCollectionNames().get(name)).toContain(`"${name}.*" permissions`);
+  });
+
   it("reserves the name of every page of its own the admin has", () => {
     const pages = readdirSync(join(import.meta.dirname, "../../admin/app/pages/admin")).map((entry) => entry.replace(/\.vue$/, "")).filter((entry) => /^[a-z][a-z0-9_]*$/.test(entry) && entry !== "index");
     expect(pages.length).toBeGreaterThan(3);
