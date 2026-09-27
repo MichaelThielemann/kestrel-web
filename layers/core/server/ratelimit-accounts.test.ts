@@ -45,4 +45,20 @@ describe("sign-ins and password checks are limited per account as well as per ad
     for (let i = 0; i < 8; i++) statuses.push((await preset.call("changePassword", "POST /me/password", { headers, body: { currentPassword: `guess-${i}`, newPassword: "a new passphrase" }, ip: `203.0.113.${i}` })).status);
     expect(statuses).toEqual([400, 400, 400, 400, 400, 429, 429, 429]);
   }, 60_000);
+
+  it("with e-mail sign-in, counts the e-mail the login reads, whatever else the body names", async () => {
+    preset = await bootPlaygroundPreset(appRoot, undefined, { session: { identifier: "email" } });
+    const statuses: number[] = [];
+    for (let i = 0; i < 14; i++) statuses.push((await preset.call("login", "POST /login", { body: { email: "admin", username: `decoy-${i}`, password: "not the password" }, ip: `198.51.100.${i}` })).status);
+    expect(statuses.slice(0, 10).every((status) => status === 401)).toBe(true);
+    expect(statuses.slice(10).every((status) => status === 429)).toBe(true);
+  }, 60_000);
+
+  it("never spends an account's budget on its own successful sign-ins, and a success clears earlier failures", async () => {
+    preset = await bootPlaygroundPreset(appRoot);
+    for (let i = 0; i < 9; i++) expect((await preset.call("login", "POST /login", { body: { username: "admin", password: "wrong" }, ip: `203.0.113.${i}` })).status).toBe(401);
+    for (let i = 0; i < 15; i++) expect((await preset.call("login", "POST /login", { body: { username: "admin", password: ADMIN_PASSWORD }, ip: `192.0.2.${i}` })).status).toBe(200);
+    for (let i = 0; i < 9; i++) expect((await preset.call("login", "POST /login", { body: { username: "admin", password: "wrong" }, ip: `203.0.113.${50 + i}` })).status).toBe(401);
+    expect((await preset.call("login", "POST /login", { body: { username: "admin", password: ADMIN_PASSWORD }, ip: "192.0.2.99" })).status).toBe(200);
+  }, 60_000);
 });

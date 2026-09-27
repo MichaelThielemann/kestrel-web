@@ -26,9 +26,10 @@
   last three are new events of `activateUser`, `setPassword` and `changePassword`), and every entry now
   carries the client address. `audit-persistence` adds failed sign-ins and password checks, 403 and 429
   answers on its own. create-kestrel selects `audit` by default.
-- The `ratelimit` feature limits sign-ins per account as well as per address (`loginAccount`, keyed by the
-  username, with a growing block capped at `maxBlockSeconds`), counts an IPv6 address by its /64, and limits
-  `changePassword` and `confirmPassword` per signed-in user (`passwordCheck`). `presetModuleConfig()`'s
+- The `ratelimit` feature limits failed sign-ins per account as well as all sign-ins per address
+  (`loginAccount`, keyed by the field `session.identifier` names, cleared by a successful sign-in, with a
+  growing block capped at `maxBlockSeconds`), counts an IPv6 address by its /64, and limits failed password
+  checks in `changePassword` and `confirmPassword` per signed-in user (`passwordCheck`). `presetModuleConfig()`'s
   `ratelimit` option takes `loginAccount` and `passwordCheck` next to `login`. create-kestrel selects
   `ratelimit` by default.
 - Feature `mfa`: a second sign-in factor through the new `@michaelthielemann/kestrel-mfa-totp` module. Every
@@ -518,8 +519,9 @@
 - `create-kestrel` preselects the `ratelimit` feature, so a scaffolded project limits failed logins per
   client address (five per minute), also with `--yes`. It asks for an admin password of at least 12
   characters and refuses a short list of well-known passwords.
-- The admin no longer reads or writes the `kestrel_token` cookie: the login response sets it (`HttpOnly`,
-  `Secure`, `SameSite=Strict`), logout removes it, and every admin request relies on the browser sending it.
+- The admin no longer reads or writes the session cookie: the login response sets it as
+  `__Host-kestrel_token` (`HttpOnly`, `Secure`, `SameSite=Strict`, `Path=/`), logout removes it, a cookie
+  named `kestrel_token` is no longer read (everyone signs in once more), and every admin request relies on the browser sending it.
   `useApiToken()` and `TOKEN_COOKIE` are removed from the admin composables, and `sessionStateFor()` answers
   the session state alone. A `POST`, `PUT`, `PATCH` or `DELETE` to `/api` authenticated by the cookie must
   come from the same origin, and a non-JSON request body is answered 415. The site is served over HTTPS in

@@ -493,8 +493,8 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
     modules.push(preset("@michaelthielemann/kestrel-ratelimit-memory", {
       buckets: {
         login: { ...(options.ratelimit?.login ?? DEFAULT_LOGIN_BUCKET) },
-        loginAccount: { ...(options.ratelimit?.loginAccount ?? DEFAULT_LOGIN_ACCOUNT_BUCKET), key: "username" },
-        passwordCheck: { ...(options.ratelimit?.passwordCheck ?? DEFAULT_PASSWORD_CHECK_BUCKET), key: "identity" },
+        loginAccount: { ...(options.ratelimit?.loginAccount ?? DEFAULT_LOGIN_ACCOUNT_BUCKET), key: "username", field: session.identifier, counts: "failures" },
+        passwordCheck: { ...(options.ratelimit?.passwordCheck ?? DEFAULT_PASSWORD_CHECK_BUCKET), key: "identity", counts: "failures" },
       },
     }));
   }
