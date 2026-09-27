@@ -377,7 +377,7 @@ describe.skipIf(!ENABLED)("a static export of the playground", () => {
       const loggedOut = await new Api(base).login(editorName, "parity-passphrase");
       await loggedOut.call("POST", "/logout");
       const render = async (path: string, token: string | null): Promise<{ body: string; payload: Json }> => {
-        const html = await (await fetch(`${base}${path}`, { headers: token === null ? {} : { cookie: `kestrel_token=${token}` } })).text();
+        const html = await (await fetch(`${base}${path}`, { headers: token === null ? {} : { cookie: `__Host-kestrel_token=${token}` } })).text();
         return { body: /<body[\s\S]*<\/body>/.exec(html)?.[0] ?? "", payload: payloadOf(html) };
       };
       for (const path of PUBLISHED_PATHS) {

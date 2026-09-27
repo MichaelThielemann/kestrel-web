@@ -10,7 +10,7 @@ test("creating a user after a while asks for the password again and then goes th
   await page.getByLabel("Passwort", { exact: true }).fill(ADMIN.password);
   await page.getByRole("button", { name: "Anmelden" }).click();
   await expect(page).not.toHaveURL(/\/admin\/login/);
-  const token = (await page.context().cookies()).find((cookie) => cookie.name === "kestrel_token")?.value ?? "";
+  const token = (await page.context().cookies()).find((cookie) => cookie.name === "__Host-kestrel_token")?.value ?? "";
   ageSessionAuth(token, 600);
 
   await page.goto("/admin/system?tab=users");

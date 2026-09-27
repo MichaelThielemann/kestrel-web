@@ -97,8 +97,8 @@ test("an administrator resets another account's factor, which signs it out and a
     const probe = await other.newPage();
     await fillCredentials(probe, "second-factor-probe", "second factor probe passphrase");
     await setUp(probe);
-    const token = (await other.cookies()).find((cookie) => cookie.name === "kestrel_token")?.value ?? "";
-    expect((await probe.request.get("/api/me", { headers: { cookie: `kestrel_token=${token}` } })).status()).toBe(200);
+    const token = (await other.cookies()).find((cookie) => cookie.name === "__Host-kestrel_token")?.value ?? "";
+    expect((await probe.request.get("/api/me", { headers: { cookie: `__Host-kestrel_token=${token}` } })).status()).toBe(200);
 
     await page.reload();
     const row = page.getByRole("row", { name: /second-factor-probe/ });
@@ -110,7 +110,7 @@ test("an administrator resets another account's factor, which signs it out and a
     await expect(confirm).toBeHidden();
     await expect(row.getByRole("cell", { name: "Eingerichtet" })).toHaveCount(0);
 
-    expect((await probe.request.get("/api/me", { headers: { cookie: `kestrel_token=${token}` } })).status()).toBe(401);
+    expect((await probe.request.get("/api/me", { headers: { cookie: `__Host-kestrel_token=${token}` } })).status()).toBe(401);
     await fillCredentials(probe, "second-factor-probe", "second factor probe passphrase");
     await expect(probe.getByRole("heading", { level: 1, name: "Zweiten Faktor einrichten" })).toBeVisible();
   } finally {

@@ -4,7 +4,7 @@ import { ADMIN, ADMIN_STATE, BASE_URL, EDITOR, EDITOR_STATE, SEED_FILE } from ".
 import { seedPlayground } from "./seed.ts";
 
 function writeState(file: string, token: string | null): void {
-  const cookie = { name: "kestrel_token", value: token ?? "", domain: "127.0.0.1", path: "/", expires: -1, httpOnly: true, secure: true, sameSite: "Strict" };
+  const cookie = { name: "__Host-kestrel_token", value: token ?? "", domain: "127.0.0.1", path: "/", expires: -1, httpOnly: true, secure: true, sameSite: "Strict" };
   writeFileSync(file, JSON.stringify({ cookies: [cookie], origins: [] }));
 }
 

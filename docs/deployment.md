@@ -227,12 +227,14 @@ server {
 
 Points that matter:
 
-- **HTTPS only.** The login sets the session in the `kestrel_token` cookie with `HttpOnly`, `Secure`
-  and `SameSite=Strict`; admin script never reads or writes it. A browser refuses a `Secure` cookie
-  over plain HTTP from anything but `localhost`, and the cookie must never travel unencrypted, so
-  port 80 only redirects and `Strict-Transport-Security` keeps the browser on HTTPS. Only a
-  development setup reached over plain HTTP from another host sets `session: { secureCookie: false }`
-  in `presetModuleConfig()`.
+- **HTTPS only.** The login sets the session in the `__Host-kestrel_token` cookie with `HttpOnly`,
+  `Secure`, `SameSite=Strict` and `Path=/`; admin script never reads or writes it, and the `__Host-` prefix
+  keeps another origin of the same site from planting its own. A cookie named `kestrel_token` is no longer
+  read, so everyone signs in once more after the upgrade. The cookie must never travel unencrypted: port
+  80 only redirects and `Strict-Transport-Security` keeps the browser on HTTPS. Chrome and Firefox accept
+  the `Secure` cookie on `http://localhost` and `http://127.0.0.1`, so local development needs nothing; a
+  development setup reached over plain HTTP from another host (or a browser that refuses it) sets
+  `session: { secureCookie: false }` in `presetModuleConfig()`, which drops `Secure` and the prefix.
 - **Second factor.** With the `mfa` feature every account sets up an authenticator app at its next sign-in
   and enters a code at each one after that. `KESTREL_MFA_KEY` (64 hex digits, `openssl rand -hex 32`) seals
   the stored secrets: keep it out of the database and its backups, and keep it stable — a changed key makes

@@ -12,13 +12,13 @@ test("an admin signs in, reaches the page list and signs out again", async ({ pa
   await page.getByLabel("Passwort", { exact: true }).fill(ADMIN.password);
   await page.getByRole("button", { name: "Anmelden" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Seiten" })).toBeVisible();
-  const session = (await page.context().cookies()).find((cookie) => cookie.name === "kestrel_token");
+  const session = (await page.context().cookies()).find((cookie) => cookie.name === "__Host-kestrel_token");
   expect(session).toMatchObject({ httpOnly: true, secure: true, sameSite: "Strict", path: "/" });
   const token = session?.value ?? "";
   expect(token).not.toBe("");
-  expect(await page.evaluate(() => document.cookie)).not.toContain("kestrel_token");
+  expect(await page.evaluate(() => document.cookie)).not.toContain("__Host-kestrel_token");
   expect(await page.evaluate(() => document.cookie)).not.toContain(token);
-  const cookie = `kestrel_token=${token}`;
+  const cookie = `__Host-kestrel_token=${token}`;
   expect((await page.request.post("/api/logout", { headers: { cookie } })).status()).toBe(403);
   expect((await page.request.post("/api/logout", { headers: { cookie, origin: "http://elsewhere.example" } })).status()).toBe(403);
   expect((await page.request.post("/api/logout", { headers: { cookie, "sec-fetch-site": "same-site" } })).status()).toBe(403);

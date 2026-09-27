@@ -25,7 +25,7 @@ function readSeed(): Seed {
 
 function sessionFrom(stateFile: string, baseUrl: string): Api {
   const cookies = readJson(stateFile).cookies;
-  const cookie = Array.isArray(cookies) ? cookies.find((entry: unknown) => isRecord(entry) && entry.name === "kestrel_token") : undefined;
+  const cookie = Array.isArray(cookies) ? cookies.find((entry: unknown) => isRecord(entry) && entry.name === "__Host-kestrel_token") : undefined;
   const api = new Api(baseUrl);
   api.token = isRecord(cookie) && typeof cookie.value === "string" ? cookie.value : null;
   return api;

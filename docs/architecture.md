@@ -137,7 +137,7 @@ module's shape directly instead.
 ## Runtime
 ```
 browser (Nuxt SPA, /admin/**)
-   │  useApi()  →  /api/*  (HttpOnly session cookie kestrel_token)
+   │  useApi()  →  /api/*  (HttpOnly session cookie __Host-kestrel_token)
    ▼
 Nitro  server/api/[...].ts  →  createKestrelHandler(kestrel, { mountPath: "/api" })
        server/plugins/kestrel.ts  (layers/core)  boots once per process:
