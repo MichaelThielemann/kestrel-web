@@ -24,6 +24,9 @@
 
 ### Breaking
 
+- `GET /api/<collection>` and `GET /api/admin/<collection>` without `limit` answer at most 200 items
+  (`content-default`'s `defaultLimit`, which defaults to its `maxLimit`) with the full `total`, instead of
+  every match; read further pages with `offset`. The admin's lists and pickers already page.
 - Rich text keeps an element's `id` only when it starts with an ASCII letter, holds at most 64 ASCII letters,
   digits, `-` and `_`, and is not `teleports`, `site-main` or an id starting with `nuxt`; any other id is
   dropped, on save by the backend and on render by `useSanitizedHtml()`, which in the browser also

@@ -1069,7 +1069,7 @@ Every entry in `collections` (§2) gets its own pipelines and triggers, generate
 `layers/core/pipelines/collections.ts`: a `multi` type gets `list<Name>`, `listAll<Name>`, `read<Name>`,
 `readAny<Name>`, `create<Name>`, `update<Name>`, `delete<Name>` (list/read are `authz.require:<name>.read`
 + `?status=<workflow.live>` when the type has a workflow (§3.5), listAll/readAny are `<name>.manage` with no
-filter, create/update are `<name>.write` plus the `validate.check`/`validate.sanitize`/`validate.check:<name>.body`
+filter; a list without `limit` answers at most 200 items with the full `total`, so page with `offset`, create/update are `<name>.write` plus the `validate.check`/`validate.sanitize`/`validate.check:<name>.body`
 steps when the type has a `body` field (checked before sanitizing, which needs a schema-valid structure,
 and again after it, so the stored body is schema-valid), delete is `<name>.delete`) and the matching routes
 (`GET /<name>`, `GET /admin/<name>`, `GET /admin/<name>/:id`, `GET /<name>/:id`, `POST /<name>`,
