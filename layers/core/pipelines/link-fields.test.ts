@@ -2,7 +2,8 @@ import { afterAll, describe, expect, it } from "vitest";
 import { createValidator, type Validator } from "@michaelthielemann/kestrel-validate-jsonschema/impl";
 import { silentLogger } from "@michaelthielemann/kestrel/logger";
 import { pipelineSteps } from "@michaelthielemann/kestrel/definePipeline";
-import { definePreset, presetSchemas } from "./index";
+import { effectiveModuleConfig } from "@michaelthielemann/kestrel";
+import { definePreset, presetModuleConfig, presetSchemas } from "./index";
 import type { CollectionModel } from "./index";
 
 const collections: Record<string, CollectionModel> = {
@@ -41,5 +42,21 @@ describe("a json field the collection UI shows as a link", () => {
     expect(validator.check("news.cta", { type: "external", url: "https://example.com" }).ok).toBe(true);
     expect(validator.check("news.cta", { type: "internal", collection: "pages", id: "1" }).ok).toBe(true);
     expect(validator.check("news.cta", null).ok).toBe(true);
+  });
+
+  it("gets its schema from presetModuleConfig() when the collection UI is passed there", () => {
+    const modules = presetModuleConfig({
+      dataDir: "/tmp/link-fields",
+      blobstore: { use: "@michaelthielemann/kestrel-blobstore-filesystem", config: { root: "/tmp/link-fields/blobs" } },
+      model: { types: collections },
+      features: [],
+      collectionsUi,
+      roles: { roles: { admin: ["*"] }, anonymous: [] },
+      bootstrap: { username: "admin", passwordHash: "x" },
+    });
+    const validate = modules.find((entry) => entry.use === "@michaelthielemann/kestrel-validate-jsonschema");
+    const config = validate === undefined ? undefined : effectiveModuleConfig(validate);
+    const schemas: unknown = typeof config === "object" && config !== null ? Reflect.get(config, "schemas") : undefined;
+    expect(Object.keys(typeof schemas === "object" && schemas !== null ? schemas : {})).toEqual(expect.arrayContaining(["news.cta", "notice.more"]));
   });
 });

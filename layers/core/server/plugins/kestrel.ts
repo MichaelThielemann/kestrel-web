@@ -16,6 +16,7 @@ import { layerBootInput } from "../utils/boot-input";
 import { assertMediaPaths } from "../utils/media-paths";
 import { kestrelHandlers, type KestrelHandlers } from "../utils/kestrel-handlers";
 import { projectStatusFilterFailure } from "../utils/status-filter";
+import { projectLinkCheckFailure } from "../utils/link-checks";
 import { bootWithAdminBootstrapCheck } from "../utils/admin-bootstrap";
 import { withFieldGrantHint } from "../utils/field-grant-hint";
 import type { KestrelState, KestrelStatus } from "../utils/boot-failure";
@@ -31,6 +32,8 @@ export type { KestrelState, KestrelStatus };
 function assertStatusFilters(kestrel: Kestrel): void {
   const failure = projectStatusFilterFailure(modules, config.modules, kestrel.steps.owner(CONTENT_LIST_STEP), collectionsUi, pipelines);
   if (failure !== undefined) throw new Error(failure);
+  const links = projectLinkCheckFailure(modules, config.modules, kestrel.steps.owner(CONTENT_LIST_STEP), collectionsUi, pipelines);
+  if (links !== undefined) throw new Error(links);
 }
 
 async function registerImageSizes(kestrel: Kestrel): Promise<void> {

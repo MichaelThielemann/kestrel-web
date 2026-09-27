@@ -109,7 +109,7 @@ export interface PresetModuleConfigOptions {
   features: readonly Feature[];
   roles: PresetRoles;
   bootstrap: PresetBootstrap;
-  collectionsUi?: Record<string, WorkflowUi & { editor?: "fields" | "blocks" }>;
+  collectionsUi?: Record<string, WorkflowUi & { editor?: "fields" | "blocks"; fieldOverrides?: Record<string, { type?: string }> }>;
   fieldTypes?: FieldTypes;
   media?: PresetMediaPolicy;
   ratelimit?: PresetRateLimit;

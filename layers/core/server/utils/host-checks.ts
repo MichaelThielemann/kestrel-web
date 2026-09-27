@@ -7,6 +7,7 @@ import { projectMediaPathProblems } from "./media-paths";
 import type { ConfigEntry, ModuleLike } from "./modules";
 import { siteModelProblem, type SiteModel } from "./site-model";
 import { projectStatusFilterFailure, type PipelineShape } from "./status-filter";
+import { projectLinkCheckFailure } from "./link-checks";
 
 const OWNER = "kestrel-web";
 
@@ -58,7 +59,8 @@ export function layerHostProblems(input: LayerHostCheckInput): HostProblem[] {
     problems.push(
       ...guarded("status-filter", () => {
         const failure = projectStatusFilterFailure(input.modules, input.configModules, owner("content.list"), input.collectionsUi, input.pipelines);
-        return failure === undefined ? [] : [error("status-filter", failure)];
+        const links = projectLinkCheckFailure(input.modules, input.configModules, owner("content.list"), input.collectionsUi, input.pipelines);
+        return [...(failure === undefined ? [] : [error("status-filter", failure)]), ...(links === undefined ? [] : [error("link-check", links)])];
       }),
     );
     if (input.complete) {

@@ -65,6 +65,16 @@ describe("layerHostProblems", () => {
     expect(problems[0]?.reason).toContain("the module list and the config entries must be in the same order");
   });
 
+  it("reports a field the collection UI shows as a link that the write pipelines do not check", () => {
+    const content = { name: "content/default" };
+    const configModules = [{ use: "@michaelthielemann/kestrel-content-default", config: { types: { news: { kind: "multi", fields: { cta: { type: "json" } } } } } }];
+    const pipelines = [{ name: "createNews", steps: ["authn.requireUser", "content.create:news"] }];
+    const collectionsUi = { news: { fieldOverrides: { cta: { type: "link" } } } };
+    const problems = layerHostProblems(input({ modules: [content], configModules, pipelines, collectionsUi, manifest: manifest({ steps: [{ name: "content.list", module: "content/default", factory: false, description: {} }] }) }));
+    expect(problems.map((p) => p.code)).toEqual(["link-check"]);
+    expect(problems[0]?.reason).toContain("validate.check:news.cta");
+  });
+
   it("adds the field grant fix as a warning for an uncut grant authz/roles refuses", () => {
     const bootErrors: BootProblem[] = [
       { code: "config-invalid", owner: "authz/roles", reason: 'anonymousFields grants fields of "news", but no pipeline ends with authz.fields:news' },
