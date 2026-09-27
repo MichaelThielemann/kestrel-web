@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import type { SourceRuleContext } from "@michaelthielemann/kestrel-upgrade/plugin";
-import { mediaUrlFromIdRule, privateFieldsRule, publishAllRule, routeCacheRule, settingsKeyRule, unstableKeyRule } from "./consumerRules";
+import { mediaUrlFromIdRule, privateFieldsRule, publishAllRule, routeCacheRule, settingsKeyRule, trustedProxiesRule, unstableKeyRule } from "./consumerRules";
 
 const created: string[] = [];
 
@@ -265,5 +265,26 @@ describe("privateFieldsRule", () => {
     const findings = await privateFieldsRule.check(ctx);
     expect(findings).toHaveLength(1);
     expect(findings[0]?.where.file).toContain("stamp.ts");
+  });
+});
+
+describe("trustedProxiesRule", () => {
+  it("names each deployment file that sets a forwarding policy without trusted proxies", async () => {
+    const ctx = projectWith({
+      ".deployment/start.sh": "export NUXT_KESTREL_ACCESS_TRUSTED_HEADER=cf-connecting-ip\nnode .output/server/index.mjs\n",
+      "deploy/app.env": "NUXT_KESTREL_ACCESS_TRUST_PROXY=true\n",
+      "nuxt.config.ts": "export default defineNuxtConfig({ runtimeConfig: { kestrel: { access: { trustProxy: true } } } });\n",
+      "app/pages/index.vue": "<template><p>trustProxy</p></template>\n",
+      "node_modules/x/start.sh": "NUXT_KESTREL_ACCESS_TRUST_PROXY=true\n",
+    });
+    const findings = await trustedProxiesRule.check(ctx);
+    expect(findings.map((f) => f.where.file?.slice(ctx.root.length + 1)).sort()).toEqual([".deployment/start.sh", "deploy/app.env", "nuxt.config.ts"]);
+    expect(findings.every((f) => f.severity === "info" && f.fix.kind === "none")).toBe(true);
+    expect(findings[0]?.message).toContain("NUXT_KESTREL_ACCESS_TRUSTED_PROXIES");
+  });
+
+  it("stays quiet when the project lists trusted proxies or sets no forwarding policy", async () => {
+    expect(await trustedProxiesRule.check(projectWith({ "start.sh": "NUXT_KESTREL_ACCESS_TRUSTED_HEADER=x-real-ip\nNUXT_KESTREL_ACCESS_TRUSTED_PROXIES=10.0.0.0/8\n" }))).toEqual([]);
+    expect(await trustedProxiesRule.check(projectWith({ "start.sh": "NUXT_KESTREL_ACCESS_ADMIN=10.0.0.0/8\n" }))).toEqual([]);
   });
 });

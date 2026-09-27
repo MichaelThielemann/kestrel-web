@@ -523,4 +523,63 @@ export const privateFieldsRule: SourceRule = {
   },
 };
 
-export const consumerRules: readonly SourceRule[] = [settingsKeyRule, mediaUrlFromIdRule, unstableKeyRule, routeCacheRule, publishAllRule, privateFieldsRule];
+const DEPLOYMENT_EXTENSIONS = [".sh", ".env", ".yml", ".yaml", ".toml", ".conf", ".service", ".json", ".ts", ".mjs", ".js"];
+const DEPLOYMENT_NAMES = /^(Dockerfile|Containerfile|Procfile|\.env(\..+)?)$/;
+const LOCKFILES = new Set(["pnpm-lock.yaml", "package-lock.json", "yarn.lock", "package.json"]);
+const FORWARDING_ENV = /NUXT_KESTREL_ACCESS_(TRUSTED_HEADER|TRUST_PROXY)\b/;
+const FORWARDING_CONFIG = /\b(trustedHeader|trustProxy)\s*:/;
+const TRUSTED_PROXIES = /NUXT_KESTREL_ACCESS_TRUSTED_PROXIES|\btrustedProxies\s*:/;
+
+function deploymentFiles(dir: string, out: string[]): void {
+  let entries;
+  try {
+    entries = readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  for (const entry of entries) {
+    if (entry.isDirectory()) {
+      if (!SKIP_DIRS.has(entry.name) && entry.name !== ".git") deploymentFiles(join(dir, entry.name), out);
+      continue;
+    }
+    if (LOCKFILES.has(entry.name)) continue;
+    if (DEPLOYMENT_NAMES.test(entry.name) || DEPLOYMENT_EXTENSIONS.some((ext) => entry.name.endsWith(ext))) out.push(join(dir, entry.name));
+  }
+}
+
+function setsForwarding(file: string, source: string): boolean {
+  if (FORWARDING_ENV.test(source)) return true;
+  return /(^|[/\\])nuxt\.config\.[cm]?[jt]s$/.test(file) && FORWARDING_CONFIG.test(source);
+}
+
+/**
+ * 3.0 reads the proxy's forwarding headers only from a peer in `NUXT_KESTREL_ACCESS_TRUSTED_PROXIES`, which
+ * defaults to loopback. A project that sets a trusted header or `trustProxy` without that list is named per
+ * file, so a proxy that connects from another address is listed before the upgrade goes live.
+ */
+export const trustedProxiesRule: SourceRule = {
+  id: "ops/trusted-proxies",
+  needs: "source",
+  check(ctx) {
+    const files: string[] = [];
+    deploymentFiles(ctx.root, files);
+    const sources = files.flatMap((file) => {
+      const source = ctx.readFile(file);
+      return source === undefined ? [] : [{ file, source }];
+    });
+    if (sources.some(({ source }) => TRUSTED_PROXIES.test(source))) return [];
+    return sources.filter(({ file, source }) => setsForwarding(file, source)).map(({ file }): Finding => ({
+      id: `ops/trusted-proxies:${relative(ctx.root, file)}`,
+      rule: "ops/trusted-proxies",
+      severity: "info",
+      tier: "source",
+      where: { file },
+      message: "this file sets a trusted header or trustProxy, but the project sets no NUXT_KESTREL_ACCESS_TRUSTED_PROXIES; forwarding headers now count only from a trusted proxy, which defaults to loopback, so a proxy connecting from any other address is ignored and every request is attributed to it",
+      suggestion: "find the address your proxy (and the platform's health check) connects from, and set NUXT_KESTREL_ACCESS_TRUSTED_PROXIES to it unless it is loopback; the server log names every peer whose forwarding headers it ignored",
+      fix: { kind: "none" },
+      docs: docsAnchor("ops-trusted-proxies"),
+    }));
+  },
+};
+
+export const consumerRules: readonly SourceRule[] = [settingsKeyRule, mediaUrlFromIdRule, unstableKeyRule, routeCacheRule, publishAllRule, privateFieldsRule, trustedProxiesRule];
