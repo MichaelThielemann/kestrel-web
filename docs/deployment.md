@@ -318,6 +318,12 @@ health condition, and both `/api/health` and `/api/ready` keep answering normall
   understands SQLite WAL. `kestrel.db` on its own, copied from a running server, is not restorable.
 - **Blobs.** Filesystem blobs are an ordinary directory; S3 blobs are covered by bucket versioning or
   replication.
+- **What a copy contains.** A replica, a snapshot or a file-level backup holds the whole database:
+  content, drafts, the audit log and every user's scrypt password hash. Sessions are stored only as a
+  digest of their token, so a copy does not sign anyone in, but the password hashes can be attacked
+  offline. Give the bucket or backup target the same access control as the server itself: a private
+  bucket, credentials only the server and the operator hold, encryption at rest where the provider
+  offers it.
 - **Restoring** replaces the database file and the blobstore together. They reference each other:
   media rows point at blobs, and **System → Images**' reconcile reports the rows and blobs that no
   longer match after a partial restore (`blobsWithoutRow` / `rowsWithoutBlob`).
