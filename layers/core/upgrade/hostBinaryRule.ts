@@ -9,12 +9,15 @@ const BINARY = "kestrel-web-upgrade";
 const REPLACEMENT = "kestrel upgrade";
 
 const ENV_PREFIX = String.raw`(?:[A-Za-z_][A-Za-z0-9_]*=\S*\s+)*(?:cross-env\s+(?:[A-Za-z_][A-Za-z0-9_]*=\S*\s+)*)?`;
-const FETCHING_RUNNER = String.raw`(?:npx\s+(?:(?:-y|--yes)\s+)?|npm\s+exec\s+(?:(?:-y|--yes)\s+)?(?:--\s+)?|pnpm\s+dlx\s+|yarn\s+dlx\s+|bunx\s+)`;
+const RUNNER_COMMAND = String.raw`(?:npx|pnpx|bunx|npm\s+(?:exec|x)|pnpm\s+dlx|yarn\s+dlx)`;
+const RUNNER_FLAG = String.raw`(?:--(?!no(?:-install)?\b|package\b)[a-z][\w-]*(?:=\S+)?|-(?!p\b)[a-zA-Z]+)\s+`;
+const FETCHING_RUNNER = String.raw`${RUNNER_COMMAND}\s+(?:${RUNNER_FLAG})*(?:--\s+)?`;
 const FETCHING_RUNNER_ONLY = new RegExp(String.raw`^${FETCHING_RUNNER}$`);
 const RUNNER = String.raw`(?:pnpm\s+(?:exec\s+)?|yarn\s+(?:run\s+)?|${FETCHING_RUNNER})?`;
-const END = String.raw`(?![\w@./-])`;
+const END = String.raw`(?![\w@/-]|\.\w)`;
 const SCRIPT_TOKEN = new RegExp(String.raw`(^|[;&|]|\n)(\s*${ENV_PREFIX})(${RUNNER})${BINARY}${END}|(node_modules\/\.bin\/)${BINARY}${END}`, "g");
 const UNSCOPED_FETCH = new RegExp(String.raw`(?:^|[^\w@./-])${ENV_PREFIX}${FETCHING_RUNNER}${BINARY}${END}`);
+const UNSCOPED_PACKAGE = new RegExp(String.raw`(?:^|[^\w@./-])${RUNNER_COMMAND}\s+(?:\S+\s+)*?(?:-p\s+|--package[=\s]\s*)${BINARY}(?:@\S*)?${END}`);
 const SAFE_COMMANDS = "run the installed command instead (pnpm exec kestrel upgrade …, npm exec --no -- kestrel upgrade …, yarn kestrel upgrade …) or the scoped package (npx -y @michaelthielemann/kestrel-cli@6 upgrade …); the unscoped name is not this project's package";
 const FILE_TOKEN = new RegExp(String.raw`(^|[\s"'\`;&|(=]|node_modules\/\.bin\/)${BINARY}${END}`);
 const BIN_FILE = /kestrel-web\/bin\/kestrel-web-upgrade\.mjs\b/;
@@ -30,7 +33,7 @@ export function rewriteHostBinary(command: string): string {
 
 /** Whether `command` runs `kestrel-web-upgrade` through a runner that fetches the unscoped name from the registry when it is not installed, which would run whatever package has that name. */
 export function runsUnscopedHostBinary(command: string): boolean {
-  return UNSCOPED_FETCH.test(command);
+  return UNSCOPED_FETCH.test(command) || UNSCOPED_PACKAGE.test(command);
 }
 
 /** Whether `command` still runs `kestrel-web-upgrade` by name or by the path of its bin file. */
@@ -97,6 +100,10 @@ function scriptFindings(ctx: SourceRuleContext): Finding[] {
   const findings: Finding[] = [];
   for (const value of scriptValues(source)) {
     const rewritten = rewriteHostBinary(value.raw);
+    if (rewritten === value.raw && runsUnscopedHostBinary(value.raw)) {
+      findings.push({ id: `${RULE}:script:${value.name}`, rule: RULE, severity: "error", tier: "source", where: { file }, message: `script "${value.name}" runs ${BINARY} through a runner that can fetch an unrelated registry package of that name, in a form this rule cannot rewrite: ${value.raw}`, suggestion: SAFE_COMMANDS, fix: { kind: "manual" }, docs: DOCS });
+      continue;
+    }
     if (stillRunsHostBinary(rewritten)) {
       findings.push(warning(`${RULE}:unrewritten:${value.name}`, { file }, `script "${value.name}" still runs ${BINARY}, which kestrel-web 3.0.0 removed, in a form this rule cannot rewrite: ${rewritten}`, `run "${REPLACEMENT} …" instead`));
     }

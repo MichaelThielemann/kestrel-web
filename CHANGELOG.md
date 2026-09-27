@@ -569,8 +569,9 @@
   `docs/consuming-kestrel-web.md` §7.
 - `scripts/host-binary` (`kestrel upgrade`) rewrites `kestrel-web-upgrade` in `package.json` scripts to
   `kestrel upgrade`, also behind `pnpm`, `pnpm exec`, `yarn`, `cross-env` or `VAR=` prefixes, and drops a
-  runner that could fetch an unrelated registry package of that name (`npx`, `npm exec` without `--no`,
-  `pnpm dlx`, `yarn dlx`, `bunx`), reporting that as an error; it warns with file and line about the name in
+  runner that could fetch an unrelated registry package of that name (`npx`/`pnpx` and `npm exec`/`npm x`
+  without `--no`, `pnpm dlx`, `yarn dlx`, `bunx`, with any flags; a `-p`/`--package` form is reported
+  without an edit), reporting that as an error; it warns with file and line about the name in
   Dockerfiles, shell scripts, CI files and the project's other command files, and reports a fetching runner
   there and in Markdown as an error.
 - A scaffolded project's README names the `kestrel` command through the chosen package manager

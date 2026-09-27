@@ -1989,9 +1989,10 @@ layer has to be upgraded first:
 
 The layer ships no binary. `scripts/host-binary` rewrites `kestrel-web-upgrade <command>` in
 `package.json` scripts to `kestrel upgrade <command>`, keeping a `pnpm`, `pnpm exec`, `yarn`, `cross-env`
-or `VAR=value` prefix. A runner that installs a missing package on the fly (`npx`, `npm exec` without
-`--no`, `pnpm dlx`, `yarn dlx`, `bunx`) would fetch and run whatever registry package has the unscoped
-name, so such a script is reported as an error and rewritten to the local `kestrel upgrade`.
+or `VAR=value` prefix. A runner that installs a missing package on the fly (`npx`/`pnpx` and
+`npm exec`/`npm x` without `--no`, `pnpm dlx`, `yarn dlx`, `bunx`, with any flags, or naming the package
+through `-p`/`--package`) would fetch and run whatever registry package has the unscoped name, so such a
+script is reported as an error and rewritten to the local `kestrel upgrade` (a `-p` form without an edit).
 In a Dockerfile, a shell script, a systemd unit, a CI file or any other command file of the project it
 reports the line with the command to use instead, as a warning, or as an error when a fetching runner
 calls it; in Markdown only the fetching form is reported; lockfiles are not read. kestrel's own
