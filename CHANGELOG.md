@@ -499,6 +499,13 @@
 - `create-kestrel` preselects the `ratelimit` feature, so a scaffolded project limits failed logins per
   client address (five per minute), also with `--yes`. It asks for an admin password of at least 12
   characters and refuses a short list of well-known passwords.
+- The admin no longer reads or writes the `kestrel_token` cookie: the login response sets it (`HttpOnly`,
+  `Secure`, `SameSite=Strict`), logout removes it, and every admin request relies on the browser sending it.
+  `useApiToken()` and `TOKEN_COOKIE` are removed from the admin composables, and `sessionStateFor()` answers
+  the session state alone. A `POST`, `PUT`, `PATCH` or `DELETE` to `/api` authenticated by the cookie must
+  come from the same origin, and a non-JSON request body is answered 415. The site is served over HTTPS in
+  production (see the deployment guide's reverse-proxy section); `session.secureCookie: false` in
+  `presetModuleConfig()` is for a plain-HTTP development host only.
 
 - **Forwarding headers count only from a trusted proxy.** The new `NUXT_KESTREL_ACCESS_TRUSTED_PROXIES`
   (`kestrel.access.trustedProxies`, addresses or CIDR ranges, default loopback) lists the peers whose

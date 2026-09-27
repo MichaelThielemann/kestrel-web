@@ -200,8 +200,16 @@ database is unreachable, and 200 once it can serve.
 
 ```nginx
 server {
+  listen 80;
+  server_name example.com;
+  return 301 https://$host$request_uri;
+}
+
+server {
   listen 443 ssl;
   server_name example.com;
+
+  add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
 
   client_max_body_size 6m;
 
@@ -217,6 +225,18 @@ server {
 ```
 
 Points that matter:
+
+- **HTTPS only.** The login sets the session in the `kestrel_token` cookie with `HttpOnly`, `Secure`
+  and `SameSite=Strict`; admin script never reads or writes it. A browser refuses a `Secure` cookie
+  over plain HTTP from anything but `localhost`, and the cookie must never travel unencrypted, so
+  port 80 only redirects and `Strict-Transport-Security` keeps the browser on HTTPS. Only a
+  development setup reached over plain HTTP from another host sets `session: { secureCookie: false }`
+  in `presetModuleConfig()`.
+- **Same origin.** A `POST`, `PUT`, `PATCH` or `DELETE` authenticated by the cookie is accepted only
+  from the same origin (`Sec-Fetch-Site: same-origin`, or an `Origin` whose host is the request's
+  `Host`); keep `proxy_set_header Host $host` so the two agree. Scripts and other clients send the
+  token from `POST /api/login` as `Authorization: Bearer` instead, and request bodies go out as
+  `content-type: application/json` — any other body type is answered 415.
 
 - **Body size.** Media uploads go through `POST /api/media` as multipart. The limit is the
   `media.maxBytes` of your module config (default 5 MiB) plus 1 MiB of multipart overhead, and the

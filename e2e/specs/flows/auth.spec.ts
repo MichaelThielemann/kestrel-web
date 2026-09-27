@@ -12,8 +12,17 @@ test("an admin signs in, reaches the page list and signs out again", async ({ pa
   await page.getByLabel("Passwort", { exact: true }).fill(ADMIN.password);
   await page.getByRole("button", { name: "Anmelden" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Seiten" })).toBeVisible();
-  const token = (await page.context().cookies()).find((cookie) => cookie.name === "kestrel_token")?.value ?? "";
+  const session = (await page.context().cookies()).find((cookie) => cookie.name === "kestrel_token");
+  expect(session).toMatchObject({ httpOnly: true, secure: true, sameSite: "Strict", path: "/" });
+  const token = session?.value ?? "";
   expect(token).not.toBe("");
+  expect(await page.evaluate(() => document.cookie)).not.toContain("kestrel_token");
+  expect(await page.evaluate(() => document.cookie)).not.toContain(token);
+  expect((await page.request.post("/api/logout")).status()).toBe(403);
+  expect((await page.request.post("/api/logout", { headers: { origin: "http://elsewhere.example" } })).status()).toBe(403);
+  expect((await page.request.post("/api/logout", { headers: { "sec-fetch-site": "same-site" } })).status()).toBe(403);
+  expect((await page.request.post("/api/logout", { headers: { "content-type": "text/plain", "sec-fetch-site": "same-origin" }, data: "{}" })).status()).toBe(415);
+  expect((await page.request.get("/api/me")).status()).toBe(200);
 
   await page.getByRole("button", { name: "Konto" }).click();
   await page.getByRole("menuitem", { name: "Abmelden" }).click();

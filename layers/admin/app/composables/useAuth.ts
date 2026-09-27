@@ -31,19 +31,13 @@ export async function logoutAndReset(deps: LogoutDeps): Promise<void> {
   await deps.navigate('/admin/login')
 }
 
-export interface SessionCheckOutcome {
-  clearToken: boolean
-  state: AuthState
-}
-
-export function sessionStateFor(error: unknown): SessionCheckOutcome {
-  if (apiErrorStatus(error) === 401) return { clearToken: true, state: { identity: null, checked: true, error: null } }
-  return { clearToken: false, state: { identity: null, checked: true, error: apiErrorMessage(error) } }
+export function sessionStateFor(error: unknown): AuthState {
+  if (apiErrorStatus(error) === 401) return { identity: null, checked: true, error: null }
+  return { identity: null, checked: true, error: apiErrorMessage(error) }
 }
 
 export function useAuth() {
   const state = useState<AuthState>('kestrel-auth', () => ({ identity: null, checked: false, error: null }))
-  const token = useApiToken()
   const rawApi = useApi()
   const api = <T,>(route: ApiRoute, options?: ApiRequestOptions): Promise<T> => rawApi<T>(route.path, { ...options, method: route.method })
   const { t } = useT()
@@ -52,39 +46,31 @@ export function useAuth() {
   const capabilities = useCapabilities()
 
   async function checkSession() {
-    if (!token.value) {
-      state.value = { identity: null, checked: true, error: null }
-      return false
-    }
     const previousId = state.value.identity?.id
     try {
       const me = await api<Identity>(ADMIN_BOOTSTRAP_ROUTES.me)
       state.value = { identity: me, checked: true, error: null }
       if (previousId !== undefined && previousId !== me.id) { schema.clear(); clearInsightsState() }
     } catch (e) {
-      const outcome = sessionStateFor(e)
-      if (outcome.clearToken) token.value = null
-      state.value = outcome.state
+      state.value = sessionStateFor(e)
     }
     return state.value.identity !== null
   }
 
   async function ensureSession() {
     if (!state.value.checked) await checkSession()
-    return state.value.identity !== null && !!token.value
+    return state.value.identity !== null
   }
 
   async function login(username: string, password: string) {
     schema.clear()
     clearInsightsState()
     const r = await api<LoginResponse>(ADMIN_BOOTSTRAP_ROUTES.login, { body: { username, password } })
-    token.value = r.token
     state.value = { identity: r.identity, checked: true, error: null }
     return r
   }
 
   function reset() {
-    token.value = null
     state.value = { identity: null, checked: true, error: null }
     schema.clear()
     clearInsightsState()
@@ -111,7 +97,7 @@ export function useAuth() {
 
   return {
     identity: computed(() => state.value.identity),
-    authenticated: computed(() => state.value.identity !== null && !!token.value),
+    authenticated: computed(() => state.value.identity !== null),
     username: computed(() => state.value.identity?.claims.username ?? ''),
     error: computed(() => state.value.error),
     checkSession,

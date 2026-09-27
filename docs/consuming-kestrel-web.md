@@ -322,7 +322,7 @@ calls them before it has read a schema at all.
 | `ratelimit` | no | `{ login: { limit: 5, windowSeconds: 60 } }` |
 | `llms` | no | `{ full: true, headings: { pages: "Pages" } }`; `siteUrl` falls back to `NUXT_PUBLIC_SITE_URL` |
 | `migrations` | with the `migrations` feature | — `{ migrations, mode? }`, the `#kestrel/migrations` list (§10); the feature without it throws |
-| `session` | no | `{ identifier: "username", minPasswordLength: 12, sessionTtlSeconds: 86400 }`; the minimum applies when a password is set (bootstrap excluded), so an account whose existing password is shorter still logs in and meets the minimum at its next change |
+| `session` | no | `{ identifier: "username", minPasswordLength: 12, sessionTtlSeconds: 86400, secureCookie: true }`; the minimum applies when a password is set (bootstrap excluded), so an account whose existing password is shorter still logs in and meets the minimum at its next change |
 | `eventsQueue` | no | `{}` — the `events-queue` module config (`pollMs`, `batch`, `maxAttempts`, `backoffSeconds`, `lockTtlSeconds`, `retentionDays`, `relayMs`), used only with the `eventsQueue` feature; `relayPipelines` and `lanes` are derived, and `maxAttempts`/`backoffSeconds` also set how often `delivery-static` retries a failed re-render |
 | `revisions` | no | — `{ keep?, maxSnapshotBytes?, pruneOnWrite?, maxLimit? }`, passed through to `revisions-default`; used only with the `revisions` feature (§4) |
 | `audit` | no | — `{ retentionDays? }`, passed through to `audit-persistence`; used only with the `audit` feature. It is what turns the `pruneAudit` cron on (§4) |

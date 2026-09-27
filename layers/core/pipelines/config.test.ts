@@ -85,6 +85,7 @@ describe("presetModuleConfig with the playground inputs", () => {
           identifier: "username",
           minPasswordLength: 12,
           sessionTtlSeconds: 86400,
+          secureCookie: true,
           bootstrap: { username: "admin", passwordHash: PASSWORD_HASH, roles: ["admin"] },
         }),
       },
@@ -626,7 +627,7 @@ describe("options", () => {
       ...playgroundOptions(),
       media: { maxBytes: 20971520, allowedTypes: ["image/*", "video/*"], deniedTypes: ["text/html"] },
       ratelimit: { login: { limit: 3, windowSeconds: 120 } },
-      session: { identifier: "email", minPasswordLength: 12, sessionTtlSeconds: 3600 },
+      session: { identifier: "email", minPasswordLength: 12, sessionTtlSeconds: 3600, secureCookie: false },
       bootstrap: { username: "root", passwordHash: PASSWORD_HASH, roles: ["admin", "editor"] },
     });
 
@@ -645,6 +646,7 @@ describe("options", () => {
       identifier: "email",
       minPasswordLength: 12,
       sessionTtlSeconds: 3600,
+      secureCookie: false,
       bootstrap: { username: "root", passwordHash: PASSWORD_HASH, roles: ["admin", "editor"] },
     });
   });

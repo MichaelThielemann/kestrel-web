@@ -1,7 +1,7 @@
 import { boundaryCast } from '#kestrel/cast'
 import type { ApiRoute } from '../utils/capabilities'
 import { apiUrl } from '../utils/capabilities'
-import { toApiError, useApiToken } from './useApi'
+import { toApiError } from './useApi'
 
 export interface UploadProgress { loaded: number; total: number; percent: number }
 
@@ -19,14 +19,10 @@ function parseJsonBody(text: string): unknown {
 }
 
 export function useUploadTransport(): UploadTransport {
-  const token = useApiToken()
-
   return function uploadRequest<T>(route: ApiRoute, body: FormData, onProgress?: UploadProgressCallback): Promise<T> {
     return new Promise<T>((resolve, reject) => {
       const xhr = new XMLHttpRequest()
       xhr.open(route.method, apiUrl(route))
-      const bearer = token.value
-      if (bearer) xhr.setRequestHeader('authorization', `Bearer ${bearer}`)
       xhr.upload.onprogress = (event) => {
         if (!onProgress) return
         const total = event.lengthComputable ? event.total : 0

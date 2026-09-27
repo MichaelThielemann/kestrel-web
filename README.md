@@ -92,7 +92,7 @@ overrides:
 ## Conventions
 
 - Backend routes go through `useAdminApi()` with a route from `useCapabilities()` in `layers/admin`, or
-  `useApi()` in `layers/public` (Bearer token from cookie `kestrel_token`); never `$fetch('/api/…')` for
+  `useApi()` in `layers/public` (the session travels in the server-set `HttpOnly` cookie `kestrel_token`); never `$fetch('/api/…')` for
   `/api/*` and never a hand-written path literal in `layers/admin`.
 - The consumer owns its content model and feature selection (`shared/model.ts`), its Kestrel config
   (`kestrel.config.ts`), its admin collection UI (`shared/collections-ui.ts`) and its block library

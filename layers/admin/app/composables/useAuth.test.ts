@@ -58,21 +58,17 @@ describe('logoutAndReset', () => {
 })
 
 describe('sessionStateFor', () => {
-  it('clears the token on a 401', () => {
+  it('signs the caller out on a 401', () => {
     const error = Object.assign(new Error('expired'), { status: 401, name: 'ApiError', data: { error: 'expired', code: 'UNAUTHENTICATED' } })
-    const outcome = sessionStateFor(error)
-    expect(outcome).toEqual({ clearToken: true, state: { identity: null, checked: true, error: null } })
+    expect(sessionStateFor(error)).toEqual({ identity: null, checked: true, error: null })
   })
 
-  it('keeps the token and carries a message for a 500', () => {
+  it('carries a message for a 500', () => {
     const error = Object.assign(new Error('boom'), { status: 500, name: 'ApiError', data: { error: 'boom', code: 'INTERNAL' } })
-    const outcome = sessionStateFor(error)
-    expect(outcome).toEqual({ clearToken: false, state: { identity: null, checked: true, error: 'boom' } })
+    expect(sessionStateFor(error)).toEqual({ identity: null, checked: true, error: 'boom' })
   })
 
-  it('keeps the token for a network failure with no status', () => {
-    const outcome = sessionStateFor(new Error('fetch failed'))
-    expect(outcome.clearToken).toBe(false)
-    expect(outcome.state.error).toBe('fetch failed')
+  it('carries a message for a network failure with no status', () => {
+    expect(sessionStateFor(new Error('fetch failed')).error).toBe('fetch failed')
   })
 })

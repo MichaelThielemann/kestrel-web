@@ -100,6 +100,8 @@ export interface PresetSession {
   identifier?: "username" | "email";
   minPasswordLength?: number;
   sessionTtlSeconds?: number;
+  /** Mark the session cookie `Secure` (default); `false` only to sign in over plain HTTP from another host during development. */
+  secureCookie?: boolean;
 }
 
 export interface PresetModuleConfigOptions {
@@ -153,7 +155,7 @@ const MEDIA_MODULE = "@michaelthielemann/kestrel-media-default";
 const SANITIZE_SVG_MODULE = "@michaelthielemann/kestrel-sanitize-svg";
 const DEFAULT_LOGIN_BUCKET = { limit: 5, windowSeconds: 60 };
 const DEFAULT_LLMS_HEADINGS = { [PAGES_COLLECTION]: "Pages" };
-const DEFAULT_SESSION: Required<PresetSession> = { identifier: "username", minPasswordLength: 12, sessionTtlSeconds: 86400 };
+const DEFAULT_SESSION: Required<PresetSession> = { identifier: "username", minPasswordLength: 12, sessionTtlSeconds: 86400, secureCookie: true };
 const DEFAULT_LINKS = { timeoutMs: 10000, concurrency: 4, recheckAfterSeconds: 21600 };
 
 function requireOption<T>(value: T | undefined, name: string): T {
@@ -401,6 +403,7 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
     identifier: session.identifier,
     minPasswordLength: session.minPasswordLength,
     sessionTtlSeconds: session.sessionTtlSeconds,
+    secureCookie: session.secureCookie,
     bootstrap: { username: bootstrap.username, passwordHash: bootstrap.passwordHash, roles: bootstrap.roles ?? ["admin"] },
   }));
   modules.push(preset("@michaelthielemann/kestrel-authz-roles", {

@@ -19,12 +19,6 @@ export class ApiError extends Error {
   }
 }
 
-export const TOKEN_COOKIE = 'kestrel_token'
-
-export function useApiToken() {
-  return useCookie<string | null>(TOKEN_COOKIE, { sameSite: 'strict', maxAge: 60 * 60 * 24, default: () => null })
-}
-
 interface FetchErrorLike { status?: number; statusCode?: number; data?: Partial<ApiErrorBody> | string; message?: string }
 
 export function toApiError(e: unknown): ApiError {
@@ -68,19 +62,7 @@ function refusedOnStaticSite(method: string, path: string): ApiError {
 }
 
 export function useApi() {
-  const token = useApiToken()
-  const client = $fetch.create({
-    baseURL: MOUNT_PATH,
-    retry: 0,
-    onRequest({ options }) {
-      const t = token.value
-      if (t) {
-        const headers = new Headers(options.headers)
-        headers.set('authorization', `Bearer ${t}`)
-        options.headers = headers
-      }
-    },
-  })
+  const client = $fetch.create({ baseURL: MOUNT_PATH, retry: 0, credentials: 'same-origin' })
   return async <T>(path: string, options: Parameters<typeof client>[1] = {}): Promise<T> => {
     const method = (options.method ?? 'GET').toUpperCase()
     if (STATIC_SITE_READS.has(method) && isStaticDelivery()) throw refusedOnStaticSite(method, path)
