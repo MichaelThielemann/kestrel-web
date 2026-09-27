@@ -31,8 +31,9 @@
   (`loginAccount`, keyed by the field `session.identifier` names, cleared by a successful sign-in, with a
   growing block capped at `maxBlockSeconds`), counts an IPv6 address by its /64, and limits failed password
   checks in `changePassword` and `confirmPassword` per signed-in user (`passwordCheck`). `presetModuleConfig()`'s
-  `ratelimit` option takes `loginAccount` and `passwordCheck` next to `login`. create-kestrel selects
-  `ratelimit` by default.
+  `ratelimit` option takes `loginAccount` and `passwordCheck` next to `login`. A hand-written
+  `kestrel-ratelimit-memory` entry without them boots with their defaults, and `kestrel upgrade`'s
+  `preset/ratelimit-buckets` writes them into it. create-kestrel selects `ratelimit` by default.
 - Feature `mfa`: a second sign-in factor through the new `@michaelthielemann/kestrel-mfa-totp` module. Every
   account sets up an authenticator app at its next sign-in (QR code or key, then a code; ten recovery codes shown
   once) and enters a code at each sign-in after that. `presetModuleConfig()` takes

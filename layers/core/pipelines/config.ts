@@ -9,6 +9,7 @@ import { mfaKey } from "../config";
 import { resolveStorageTypes } from "../field-types";
 import type { FieldTypes } from "../field-types";
 import { isGenericCollection } from "./collections";
+import { layerBucket } from "./ratelimit-buckets";
 import { anonymousFieldGrants, withConsumerGrants } from "./field-grants";
 import { mountedCollections, parentFieldOf, routedCollections } from "./paths";
 import type { PipelineChanges } from "./field-grants";
@@ -170,9 +171,6 @@ const DEFAULT_MEDIA_DENIED_TYPES = ["text/html", "application/xhtml+xml"];
 const SVG_CONTENT_TYPE = "image/svg+xml";
 const MEDIA_MODULE = "@michaelthielemann/kestrel-media-default";
 const SANITIZE_SVG_MODULE = "@michaelthielemann/kestrel-sanitize-svg";
-const DEFAULT_LOGIN_BUCKET = { limit: 5, windowSeconds: 60 };
-const DEFAULT_LOGIN_ACCOUNT_BUCKET = { limit: 10, windowSeconds: 300, maxBlockSeconds: 900 };
-const DEFAULT_PASSWORD_CHECK_BUCKET = { limit: 5, windowSeconds: 300, maxBlockSeconds: 900 };
 const DEFAULT_LLMS_HEADINGS = { [PAGES_COLLECTION]: "Pages" };
 const DEFAULT_SESSION: Required<PresetSession> = { identifier: "username", minPasswordLength: 12, sessionTtlSeconds: 86400, secureCookie: true };
 const DEFAULT_LINKS = { timeoutMs: 10000, concurrency: 4, recheckAfterSeconds: 21600 };
@@ -499,9 +497,9 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
   if (enabled.has("ratelimit")) {
     modules.push(preset("@michaelthielemann/kestrel-ratelimit-memory", {
       buckets: {
-        login: { ...(options.ratelimit?.login ?? DEFAULT_LOGIN_BUCKET) },
-        loginAccount: { ...(options.ratelimit?.loginAccount ?? DEFAULT_LOGIN_ACCOUNT_BUCKET), key: "username", field: session.identifier, counts: "failures" },
-        passwordCheck: { ...(options.ratelimit?.passwordCheck ?? DEFAULT_PASSWORD_CHECK_BUCKET), key: "identity", counts: "failures" },
+        login: layerBucket("login", session.identifier, options.ratelimit?.login),
+        loginAccount: layerBucket("loginAccount", session.identifier, options.ratelimit?.loginAccount),
+        passwordCheck: layerBucket("passwordCheck", session.identifier, options.ratelimit?.passwordCheck),
       },
     }));
   }

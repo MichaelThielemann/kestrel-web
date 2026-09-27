@@ -115,6 +115,29 @@ export function addModuleEntryConfigProperty(file: string, source: string, use: 
   return { file, ...insertion };
 }
 
+/**
+ * Adds `propertyTexts` to the object literal at `path` inside the `config` of a `{ use: "<use>", config: {...} }`
+ * entry anywhere in the file. `undefined` when the entry or any object on the path is not an object literal,
+ * or the target already has one of `keys`.
+ */
+export function addModuleEntryNestedConfigProperties(file: string, source: string, use: string, path: readonly string[], keys: readonly string[], propertyTexts: readonly string[]): Edit | undefined {
+  const root = parseTs(source);
+  let found: AstNode | undefined;
+  walk(root, (node) => {
+    if (found !== undefined || node.type !== "ObjectExpression") return;
+    if (stringValue(objectProperty(node, "use")) === use) found = node;
+  });
+  if (found === undefined) return undefined;
+  let target = objectProperty(found, "config");
+  for (const key of path) {
+    if (target === undefined || target.type !== "ObjectExpression") return undefined;
+    target = objectProperty(target, key);
+  }
+  if (target === undefined || target.type !== "ObjectExpression") return undefined;
+  if (keys.some((key) => objectProperty(target, key) !== undefined)) return undefined;
+  return { file, ...propertyInsertion(source, target, propertyTexts) };
+}
+
 export interface StepWindowOptions {
   pipelineName: string;
   members: readonly string[];

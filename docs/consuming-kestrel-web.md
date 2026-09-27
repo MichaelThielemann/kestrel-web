@@ -441,7 +441,7 @@ const modules = [
   { use: "@michaelthielemann/kestrel-audit-persistence", config: {} },
   { use: "@michaelthielemann/kestrel-events-inmemory", config: {} },
   { use: "@michaelthielemann/kestrel-events-direct", config: {} },
-  { use: "@michaelthielemann/kestrel-ratelimit-memory", config: { buckets: { login: { limit: 5, windowSeconds: 60 }, loginAccount: { limit: 10, windowSeconds: 300, maxBlockSeconds: 900, key: "username" }, passwordCheck: { limit: 5, windowSeconds: 300, maxBlockSeconds: 900, key: "identity" } } } },
+  { use: "@michaelthielemann/kestrel-ratelimit-memory", config: { buckets: { login: { limit: 5, windowSeconds: 60 }, loginAccount: { limit: 10, windowSeconds: 300, maxBlockSeconds: 900, key: "username", field: "username", counts: "failures" }, passwordCheck: { limit: 5, windowSeconds: 300, maxBlockSeconds: 900, key: "identity", counts: "failures" } } } },
   { use: "@michaelthielemann/kestrel-insights", config: {} },
 ];
 ```
@@ -1198,7 +1198,7 @@ stay checked alongside your addition.
 - `images` needs the `images.read`/`images.write`/`images.manage` permissions granted in your roles.
 - `ratelimit` needs the `login`, `loginAccount` and `passwordCheck` buckets configured in the
   `kestrel-ratelimit-memory` module config — `presetModuleConfig()` (§3) supplies them unless you override
-  them. Without the feature, `login` has no attempt limit at all; `create-kestrel` preselects it, and a
+  them. A hand-written entry that leaves one out boots with the layer's default for it. Without the feature, `login` has no attempt limit at all; `create-kestrel` preselects it, and a
   feature list that leaves it out should come with an equivalent limit at the edge.
 - Every collection needs its `<name>.read`/`write`/`manage`/`delete` permissions (`<name>.read`/`write`
   only for a `single` type) granted in your roles config, the same way `pages.*` already is — including
@@ -2154,6 +2154,9 @@ What changes:
     (`fix`): on an entry written in `kestrel.config.ts` it adds them or corrects `render`; on an entry
     `presetModuleConfig()` builds with other features than `definePreset()` gets, it adds an `overrides`
     entry for the module to that call.
+  - `preset/ratelimit-buckets` writes the `loginAccount` and `passwordCheck` buckets, with the layer's
+    defaults, into a `kestrel-ratelimit-memory` entry written in `kestrel.config.ts` whose `buckets` lack
+    them (`fix`). Until then the layer boots with those defaults.
   - `preset/queue-lanes` sets `lanes` (and a missing `relayPipelines`) on a `kestrel-events-queue` entry
     written in `kestrel.config.ts` to what `lanesFor(features)` gives (`fix`).
   - `preset/override-emit` forward-ports a 2.x `setSettings` or `set<Name>` override in one edit (`fix`). It
