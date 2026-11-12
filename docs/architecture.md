@@ -721,6 +721,21 @@ collection, the expected filter and the fix in the message.
   refused for their size or type. `cancel()` aborts the running request and removes the waiting items;
   `useMediaUpload` disposes the runner when its component unmounts, so no callback runs afterwards.
   A new batch on an idle queue first drops the finished items of the previous run.
+- Upload UI in `MediaLibrary.vue`, the same in the media library and in the media picker. Choosing or dropping
+  files opens `MediaUploadDialog.vue`, which lists each file with its size, marks a file over the limit from
+  `GET /limits` as "too large (size, limit)" before anything is sent, and confirms with "Upload N files", N
+  counting only the files that will be sent; the oversized ones still join the run and end failed without a
+  request. While the queue holds anything, `MediaUploadPanel.vue` sits below the listing: a header with
+  "X of N uploaded, F failed", an overall bar, "Retry failed", "Cancel" while something waits or runs and
+  "Close" once the run is over, and a scrolling list of `MediaUploadRow.vue`, one per file (waiting,
+  uploading with percent, processing, done, failed with its message and a retry, cancelled). The panel never
+  closes on its own; "Close" drops the finished items. The header is the only live region for uploads:
+  its summary and the image-variant follow-up ("Generating variants…", "Variants ready: …") are polite, and
+  a 401 puts one `role="alert"` line into it; rows carry no live region and no alert. The grid tiles of the
+  open folder (`MediaUploadTile.vue`) show the same states and offer retry and dismiss on a failed or
+  cancelled file. No toast is raised per file; the panel is in view whenever the queue holds anything, so
+  there is no summary toast either. `utils/upload-state.ts` maps an item's state to the icon, text, bar and
+  message both the row and the tile show.
 - `app/composables/useAuth.ts` — login/logout/me/change password/`refreshAccess()` (own-role change);
   gating goes through `useCapabilities()` (`has(pipeline)`/`hasVerb(collection, verb)`), not a role
   table.
@@ -783,8 +798,14 @@ Kit inventory:
 - `Menu.vue` — right-click context menu.
 - `NumberInput.vue` — numeric input with min/max/step and an optional suffix.
 - `Popover.vue` — anchored popover with a trigger slot.
+- `Progress.vue` — progress bar, determinate or indeterminate, `size` `sm|md` and `tone` `default|success|danger`.
+- `ProgressRow.vue` — one row of a progress list: `leading` slot, truncated title with a tooltip, meta text,
+  a thin bar, the status as icon and text (or the `status` slot), a message line and an `actions` slot. A
+  row narrower than 28rem puts the status below the title. It knows nothing about what it tracks.
 - `Richtext.vue` / `RichtextToolbar.vue` — the TipTap editor and its toolbar.
 - `Select.vue` — native select styled like the other controls.
+- `Spinner.vue` — the busy ring `Button.vue` shows while `loading`; it stops rotating under
+  `prefers-reduced-motion`.
 - `TabList.vue` — the horizontal tab strip the system and insights screens sit in.
 - `Table.vue` / `TableSort.vue` — the table shell (`head`/`body` slots, sticky header, `plain` for a table
   inlined in a card: no frame, no header fill, no row hover) and its sortable column header.
@@ -1252,7 +1273,8 @@ Where a message lands is part of the behaviour, not a detail:
   only on a clean run;
 - media folder create, rename and delete, media meta and provenance edits, and user create and
   set-password — the inline dialog error only, no toast; a success toast only on success;
-- media upload — no toast; the failed file's tile or row shows the message, a 401 included;
+- media upload — no toast; the failed file's row in the upload panel and its grid tile show the message, a
+  401 included;
 - media drag-and-drop move, user toggle,
   publish-all, retrying failed re-renders, media export, snapshot and restore, references rebuild and
   links rebuild — toast only;

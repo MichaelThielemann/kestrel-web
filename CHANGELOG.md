@@ -583,9 +583,29 @@
   instead of a bare progress callback. A transport that replaces `useUploadTransport()` reads the callback
   from `options.onProgress` and aborts on `options.signal`. `UploadStatus` gains `'cancelled'`, and
   `useMediaUpload()`'s `onError` fires for every failed file, a 401 included.
+- The media library's upload list is replaced: `MediaUploadQueue` is gone, `MediaUploadPanel` and
+  `MediaUploadRow` take its place, and `MediaToolbar` has no `status` prop any more, because the panel is the
+  only live region for uploads. `useMediaLibraryUploads()` returns `followUp` (the image-variant line) in
+  place of `status` and no `queueRows`; `useUploadTiles()` returns no `queueRows`; `uploadStatusLine` and
+  `UploadStatusInputs` are removed from `useMediaUpload`. An app that overrides one of these components
+  or reads one of these fields moves to the panel. The admin translation keys `media.uploading`,
+  `media.uploadUploaded`, `media.uploadFailed`, `media.uploadSkipped`, `media.tile.announceUploaded` and
+  `upload.tooLarge` are removed.
 
 ### Added
 
+- Media upload panel: in the media library and in the media picker, uploads show in a panel below the
+  listing with "X of N uploaded, F failed", an overall bar, "Retry failed", "Cancel" while files wait or run
+  and "Close" once the run is over; it never closes by itself. Each file has a row with a preview or type
+  icon, its size, a thin bar and its state as icon and text: waiting, uploading with percent, processing,
+  done, failed with the reason and a retry, or cancelled. The grid tiles of the open folder show the same
+  states and offer a retry. The upload dialog marks a file over the upload limit as "Too large (size,
+  limit)" before anything is sent, and its button names how many files will be sent ("Upload 3 files").
+- Admin UI kit: `Progress` takes `size` (`sm`, `md`) and `tone` (`default`, `success`, `danger`); the new
+  `Spinner` is the busy ring `Button` shows while loading and stands still under `prefers-reduced-motion`;
+  the new `ProgressRow` is one row of a progress list (leading slot, truncated title with tooltip, meta,
+  thin bar, status as icon and text, message line, actions slot). The icon set gains `circle-check`,
+  `circle-x` and `rotate-ccw`.
 - `presetModuleConfig()` now puts every value it derives into each module entry's `defaults`
   (`{ from: "preset", values }`) instead of `config`, and only the consumer's own `overrides` into
   `config`. `/admin/insights` shows a preset-derived value as "Default · Preset" (blue) instead of
