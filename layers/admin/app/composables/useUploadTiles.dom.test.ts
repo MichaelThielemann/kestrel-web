@@ -1,6 +1,6 @@
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import { describe, expect, it, vi } from 'vitest'
-import { defineComponent, h, ref } from 'vue'
+import { defineComponent, h, nextTick, ref } from 'vue'
 import type { MediaItem } from '#kestrel-admin/types/api'
 import type { UploadItem } from './useMediaUpload'
 import { useUploadTiles } from './useUploadTiles'
@@ -39,21 +39,19 @@ async function setup(initial: { queue: UploadItem[]; view: 'grid' | 'table'; fol
 }
 
 describe('useUploadTiles', () => {
-  it('puts an in-progress upload for the open folder into the grid tiles, not the queue', async () => {
+  it('puts an in-progress upload for the open folder into the grid tiles', async () => {
     const { api } = await setup({ queue: [uploadItem({ folder: '' })], view: 'grid', folder: '' })
 
     expect(api.gridTileUploads.value).toHaveLength(1)
-    expect(api.queueRows.value).toHaveLength(0)
   })
 
-  it('puts an upload for another folder into the queue, not the grid tiles', async () => {
+  it('shows no tile for an upload into another folder', async () => {
     const { api } = await setup({ queue: [uploadItem({ folder: 'other' })], view: 'grid', folder: '' })
 
     expect(api.gridTileUploads.value).toHaveLength(0)
-    expect(api.queueRows.value).toHaveLength(1)
   })
 
-  it('in table view, every active upload is a queue row and none are grid tiles', async () => {
+  it('shows no tiles in table view', async () => {
     const { api } = await setup({
       queue: [uploadItem({ id: 'u1', folder: '' }), uploadItem({ id: 'u2', folder: 'other' })],
       view: 'table',
@@ -61,7 +59,6 @@ describe('useUploadTiles', () => {
     })
 
     expect(api.gridTileUploads.value).toHaveLength(0)
-    expect(api.queueRows.value).toHaveLength(2)
   })
 
   it('keeps a done upload for the open folder visible as a tile until its folder settles', async () => {
@@ -78,7 +75,6 @@ describe('useUploadTiles', () => {
     api.markSettled('')
 
     expect(api.gridTileUploads.value).toHaveLength(0)
-    expect(api.queueRows.value).toHaveLength(0)
   })
 
   it('does not resurrect a promoted upload when the user navigates to a folder with no listing yet', async () => {
@@ -90,36 +86,38 @@ describe('useUploadTiles', () => {
 
     folder.value = 'sub'
     expect(api.gridTileUploads.value).toHaveLength(0)
-    expect(api.queueRows.value).toHaveLength(0)
 
     folder.value = ''
     expect(api.gridTileUploads.value).toHaveLength(0)
-    expect(api.queueRows.value).toHaveLength(0)
   })
 
-  it('promotes a done upload into another folder immediately, without waiting for a settle call', async () => {
+  it('promotes a done upload into another folder immediately, so it shows no tile there later', async () => {
     const done = uploadItem({ id: 'u1', folder: 'sub', status: 'done', result: mediaItem('f1') })
-    const { api } = await setup({ queue: [done], view: 'grid', folder: '' })
+    const { api, folder } = await setup({ queue: [done], view: 'grid', folder: '' })
 
-    expect(api.queueRows.value).toHaveLength(0)
+    folder.value = 'sub'
+
     expect(api.gridTileUploads.value).toHaveLength(0)
   })
 
-  it('keeps a failed upload tracked even without a result', async () => {
+  it('keeps a failed or cancelled upload as a tile even without a result', async () => {
     const failed = uploadItem({ id: 'u1', status: 'failed', message: 'boom' })
-    const { api } = await setup({ queue: [failed], view: 'grid', folder: '' })
+    const cancelled = uploadItem({ id: 'u2', status: 'cancelled', message: 'Cancelled' })
+    const { api } = await setup({ queue: [failed, cancelled], view: 'grid', folder: '' })
 
-    expect(api.gridTileUploads.value).toHaveLength(1)
+    expect(api.gridTileUploads.value).toHaveLength(2)
   })
 
-  it('releases the preview once an upload stops being tracked', async () => {
+  it('keeps the preview while the item is in the queue and releases it once the item leaves the queue', async () => {
     const item = uploadItem({ id: 'u1', status: 'done', result: mediaItem('f1') })
-    const { api, release } = await setup({ queue: [item], view: 'grid', folder: '' })
-    expect(api.gridTileUploads.value).toHaveLength(1)
+    const { api, queue, release } = await setup({ queue: [item], view: 'grid', folder: '' })
 
     api.markSettled('')
-    await Promise.resolve()
+    await nextTick()
+    expect(release).not.toHaveBeenCalled()
 
+    queue.value = []
+    await nextTick()
     expect(release).toHaveBeenCalledWith('u1')
   })
 

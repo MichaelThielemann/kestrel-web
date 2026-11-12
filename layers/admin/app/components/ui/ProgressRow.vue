@@ -1,23 +1,5 @@
 <script setup lang="ts">
-import type { IconName } from '../../utils/icons'
-
-export type ProgressRowTone = 'default' | 'muted' | 'success' | 'danger'
-
-export interface ProgressRowStatus {
-  text: string
-  icon?: IconName
-  tone?: ProgressRowTone
-  /** Shows the kit spinner in place of the icon. */
-  busy?: boolean
-}
-
-export interface ProgressRowProgress {
-  /** Percent, 0–100; leave it out for an indeterminate bar. */
-  value?: number
-  label: string
-  valueText?: string
-  tone?: 'default' | 'success' | 'danger'
-}
+import type { ProgressRowProgress, ProgressRowStatus, ProgressRowTone } from '../../utils/progress-row'
 
 withDefaults(defineProps<{
   title: string

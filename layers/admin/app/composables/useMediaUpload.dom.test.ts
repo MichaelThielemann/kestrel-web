@@ -125,7 +125,7 @@ describe('useMediaUpload', () => {
 
       expect(runningNames()).toEqual(['a.png', 'b.png'])
       expect(statuses(api)).toEqual([['huge.png', 'failed'], ['a.png', 'done'], ['b.png', 'done']])
-      expect(api.queue.value[0]?.message).toBe(en['upload.tooLarge'].replace('{size}', '60.0 MB').replace('{limit}', '20.0 MB'))
+      expect(api.queue.value[0]?.message).toBe(en['media.upload.tooLargeShort'].replace('{size}', '60.0 MB').replace('{limit}', '20.0 MB'))
       expect(api.queue.value[0]?.code).toBe('TOO_LARGE')
       wrapper.unmount()
     })

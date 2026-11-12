@@ -8,7 +8,6 @@ type View = 'grid' | 'table'
 const props = defineProps<{
   view: View
   search: string
-  status?: string
   disabled?: boolean
   canUpload: boolean
   canCreateFolder: boolean
@@ -82,8 +81,6 @@ const fileInput = ref<{ open: () => void } | null>(null)
       <span v-if="resultLabel" class="media-toolbar__count" aria-live="polite">{{ resultLabel }}</span>
     </div>
 
-    <p class="media-toolbar__status" role="status" aria-live="polite">{{ status }}</p>
-
     <div class="media-toolbar__actions">
       <KestrelUiButtonGroup v-model="viewModel" :options="VIEW_OPTIONS" :aria-label="t('mediaToolbar.viewAriaLabel')" />
       <template v-if="canUpload || canCreateFolder">
@@ -115,15 +112,7 @@ const fileInput = ref<{ open: () => void } | null>(null)
     display: flex;
     align-items: center;
     gap: var(--space-2);
-  }
-
-  &__status {
-    flex: 1 1 auto;
-    min-width: 0;
-    margin-inline-start: auto;
-    text-align: end;
-    color: var(--color-text-muted);
-    font-size: var(--text-sm);
+    margin-inline-end: auto;
   }
 
   &__count {

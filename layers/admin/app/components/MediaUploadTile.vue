@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { UploadItem } from '../composables/useMediaUpload'
+import { uploadStateView } from '../utils/upload-state'
 
 const props = defineProps<{
   item: UploadItem
@@ -10,8 +11,9 @@ const props = defineProps<{
   chipDone?: number
   chipTotal?: number
   processing?: boolean
+  retryable?: boolean
 }>()
-const emit = defineEmits<{ dismiss: [id: string] }>()
+const emit = defineEmits<{ dismiss: [id: string]; retry: [id: string] }>()
 const { t } = useT()
 
 const ready = computed(() => props.item.status === 'done')
@@ -22,29 +24,36 @@ const progressValue = computed(() => {
   if (props.item.status === 'uploading') return props.item.totalKnown ? props.item.progress : undefined
   return undefined
 })
-const progressText = computed(() => {
-  if (props.item.status === 'queued') return t('media.tile.queued')
-  if (props.item.status === 'uploading' && props.item.totalKnown) return t('media.tile.percent', { percent: props.item.progress })
-  return t('media.tile.processing')
-})
+const state = computed(() => uploadStateView(props.item, t))
+const progressText = computed(() => state.value.status.text)
 </script>
 
 <template>
   <div class="media-upload-tile" :aria-busy="!ready && !failed">
-    <div v-if="failed" class="media-upload-tile__failed">
+    <div v-if="failed" class="media-upload-tile__failed" :class="{ 'media-upload-tile__failed--cancelled': item.status === 'cancelled' }">
       <span class="media-upload-tile__thumb-wrap">
-        <span class="media-upload-tile__badge" aria-hidden="true"><KestrelUiIcon name="triangle-alert" :size="24" /></span>
+        <span class="media-upload-tile__badge" aria-hidden="true"><KestrelUiIcon :name="state.status.icon ?? 'circle-x'" :size="24" /></span>
       </span>
       <p class="media-upload-tile__name">{{ item.filename }}</p>
-      <p class="media-upload-tile__message">{{ item.message }}</p>
-      <KestrelUiButton
-        type="button"
-        variant="ghost"
-        size="sm"
-        icon="x"
-        :aria-label="t('media.upload.dismiss', { name: item.filename })"
-        @click="emit('dismiss', item.id)"
-      />
+      <p class="media-upload-tile__message">{{ state.message ?? state.status.text }}</p>
+      <div class="media-upload-tile__actions">
+        <KestrelUiButton
+          v-if="retryable"
+          variant="ghost"
+          size="sm"
+          icon="rotate-ccw"
+          :aria-label="t('media.upload.retryName', { name: item.filename })"
+          @click="emit('retry', item.id)"
+        >{{ t('common.retry') }}</KestrelUiButton>
+        <KestrelUiButton
+          type="button"
+          variant="ghost"
+          size="sm"
+          icon="x"
+          :aria-label="t('media.upload.dismiss', { name: item.filename })"
+          @click="emit('dismiss', item.id)"
+        />
+      </div>
     </div>
     <template v-else>
       <span class="media-upload-tile__thumb-wrap">
@@ -67,6 +76,7 @@ const progressText = computed(() => {
         :value-text="progressText"
       />
       <span class="media-upload-tile__name">{{ item.filename }}</span>
+      <span v-if="!ready" class="media-upload-tile__status" aria-hidden="true">{{ progressText }}</span>
     </template>
   </div>
 </template>
@@ -148,9 +158,26 @@ const progressText = computed(() => {
   text-align: center;
 }
 
+.media-upload-tile__failed--cancelled {
+  color: var(--color-text-muted);
+}
+
 .media-upload-tile__message {
   font-size: var(--text-xs);
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
+}
+
+.media-upload-tile__status {
+  margin-top: calc(var(--space-1) * -1);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.media-upload-tile__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-1);
 }
 </style>

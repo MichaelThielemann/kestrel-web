@@ -1,7 +1,7 @@
 import { computed, type Ref } from 'vue'
 import type { Translate } from '#kestrel-admin/actions/types'
 import { useAnnouncer } from './useAnnouncer'
-import { uploadStatusLine, useMediaUpload, type UploadItem } from './useMediaUpload'
+import { useMediaUpload, type UploadItem } from './useMediaUpload'
 import { useUploadPreview } from './useUploadPreview'
 import { useUploadTiles } from './useUploadTiles'
 import { useVariantWatch } from './useVariantWatch'
@@ -20,7 +20,6 @@ export function useMediaLibraryUploads(options: UseMediaLibraryUploadsOptions) {
   const { message: announcement, announce } = useAnnouncer()
 
   function onReady(item: UploadItem) {
-    announce(t('media.tile.announceUploaded', { name: item.filename }))
     if (!item.result?.contentType?.startsWith('image/')) return
     variantWatch.track(item.result.id, {
       onReady: () => announce(t('media.tile.announceReady', { name: item.filename })),
@@ -35,13 +34,7 @@ export function useMediaLibraryUploads(options: UseMediaLibraryUploadsOptions) {
   })
   const tiles = useUploadTiles({ queue: upload.queue, view, folder, preview, dismiss: upload.dismiss })
 
-  const uploadStatus = computed(() => uploadStatusLine({
-    active: upload.active.value,
-    done: upload.counts.value.done,
-    failed: upload.counts.value.failed,
-    processing: upload.queue.value.some((i) => i.status === 'processing'),
-    variantsPending: variantWatch.hasPending.value,
-  }, t))
+  const followUp = computed(() => announcement.value || (variantWatch.hasPending.value ? t('media.upload.processing') : ''))
 
   return {
     queue: upload.queue,
@@ -57,12 +50,11 @@ export function useMediaLibraryUploads(options: UseMediaLibraryUploadsOptions) {
     maxUploadBytes: upload.maxUploadBytes,
     limitError: upload.limitError,
     gridTileUploads: tiles.gridTileUploads,
-    queueRows: tiles.queueRows,
     onDismissUpload: tiles.onDismissUpload,
     previewFor: preview.previewFor,
     variantResults: variantWatch.results,
     stalledIds: variantWatch.stalled,
     track: variantWatch.track,
-    status: computed(() => announcement.value || uploadStatus.value),
+    followUp,
   }
 }

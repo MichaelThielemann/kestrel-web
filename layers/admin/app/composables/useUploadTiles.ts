@@ -26,21 +26,24 @@ export function useUploadTiles(options: UseUploadTilesOptions) {
     }
   })
 
-  const trackedUploads = computed(() => queue.value.filter((i) => i.status === 'failed' || !promoted.value.has(i.id)))
-  const gridTileUploads = computed(() => (view.value === 'grid' ? trackedUploads.value.filter((i) => i.folder === folder.value) : []))
-  const queueRows = computed(() => (view.value === 'grid' ? trackedUploads.value.filter((i) => i.folder !== folder.value) : trackedUploads.value))
+  const gridTileUploads = computed(() => (view.value === 'grid'
+    ? queue.value.filter((i) => i.folder === folder.value && (i.status !== 'done' || !promoted.value.has(i.id)))
+    : []))
 
-  watch(trackedUploads, (curr, prev) => {
-    const currIds = new Set(curr.map((i) => i.id))
-    for (const item of prev ?? []) if (!currIds.has(item.id)) preview.release(item.id)
+  const stopReleaseWatch = watch(() => queue.value.map((i) => i.id), (curr, prev) => {
+    const currIds = new Set(curr)
+    for (const id of prev ?? []) if (!currIds.has(id)) preview.release(id)
   })
 
-  onUnmounted(() => preview.releaseAll())
+  onUnmounted(() => {
+    stopReleaseWatch()
+    preview.releaseAll()
+  })
 
   function onDismissUpload(id: string) {
     preview.release(id)
     dismiss(id)
   }
 
-  return { gridTileUploads, queueRows, markSettled, onDismissUpload }
+  return { gridTileUploads, markSettled, onDismissUpload }
 }

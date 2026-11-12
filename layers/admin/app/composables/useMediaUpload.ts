@@ -1,7 +1,6 @@
 import { ref, computed, getCurrentScope, onScopeDispose } from 'vue'
 import type { MediaItem, Provenance } from '#kestrel-admin/types/api'
 import { upload } from '#kestrel-admin/actions/media'
-import type { Translate } from '#kestrel-admin/actions/types'
 import { toastUnexpected } from '#kestrel-admin/actions/steps/notify'
 import type { PendingUpload } from '../utils/dnd'
 import { humanizeSize } from '../utils/library'
@@ -36,19 +35,6 @@ export interface UseMediaUploadOptions extends UploadCallbacks {
 
 export function uploadFailed(item: Pick<UploadItem, 'status'>): boolean {
   return item.status === 'failed'
-}
-
-export interface UploadStatusInputs { active: boolean; done: number; failed: number; processing: boolean; variantsPending: boolean }
-
-export function uploadStatusLine(inputs: UploadStatusInputs, t: Translate): string {
-  const parts: string[] = []
-  if (inputs.active) {
-    const failed = inputs.failed ? `, ${inputs.failed} ${t('media.uploadFailed')}` : ''
-    parts.push(`${t('media.uploading')}${inputs.done} ${t('media.uploadUploaded')}${failed}`)
-  }
-  if (inputs.processing) parts.push(t('media.tile.processing'))
-  else if (inputs.variantsPending) parts.push(t('media.upload.processing'))
-  return parts.join(' · ')
 }
 
 export function useMediaUpload(options: UseMediaUploadOptions = {}) {
@@ -90,7 +76,7 @@ export function useMediaUpload(options: UseMediaUploadOptions = {}) {
     if (max !== null && exceedsUploadLimit(pending.file.size, max)) {
       item.status = 'failed'
       item.code = 'TOO_LARGE'
-      item.message = deps.t('upload.tooLarge', { size: humanizeSize(pending.file.size), limit: humanizeSize(max) })
+      item.message = deps.t('media.upload.tooLargeShort', { size: humanizeSize(pending.file.size), limit: humanizeSize(max) })
     }
     queue.value.push(item)
     return queue.value[queue.value.length - 1]!

@@ -34,7 +34,7 @@ const opsPort: BusyPort = {
 }
 
 const mediaUploads = useMediaLibraryUploads({ folder, view, fetchLibrary: lib.fetchLibrary, t })
-const { gridTileUploads, queueRows, onDismissUpload: dismissUpload, previewFor, variantResults, stalledIds, limitError, track } = mediaUploads
+const { gridTileUploads, onDismissUpload: dismissUpload, previewFor, variantResults, stalledIds, limitError, track } = mediaUploads
 
 const pickState = useMediaPick({
   pick: props.pick === true, multiple: props.multiple === true, initialSelected: props.initialSelected ?? [],
@@ -44,6 +44,10 @@ const { isSelectedItem, selectedFileIds, hasBlockedSelection, confirming, refusa
 
 function onDismissUpload(id: string) {
   dismissUpload(id)
+  void nextTick(() => mediaLibraryRef.value?.focus())
+}
+function onCloseUploads() {
+  mediaUploads.clearFinished()
   void nextTick(() => mediaLibraryRef.value?.focus())
 }
 
@@ -180,7 +184,6 @@ const localizedMenu = computed(() => menuItems.value.map((s) => ({
     <KestrelMediaToolbar
       :view="view"
       :search="search"
-      :status="mediaUploads.status.value"
       :disabled="!!error"
       :can-upload="mediaCaps.canUpload.value"
       :can-create-folder="mediaCaps.canCreateFolder.value"
@@ -199,8 +202,8 @@ const localizedMenu = computed(() => menuItems.value.map((s) => ({
         <KestrelUiAlert v-if="error" variant="error">{{ error }}</KestrelUiAlert>
         <p v-else-if="!loading && !items.length && !(view === 'grid' && gridTileUploads.length)" class="media-library__empty">{{ t('media.folderEmpty') }}</p>
         <KestrelMediaGrid v-else-if="view === 'grid'" :items="items" :is-selected="isSelectedItem" :drop-target-path="dropFolder" :parent-path="parentPath" :up-label="t('media.parentFolder')" :pick="pick"
-          :uploads="gridTileUploads" :upload-preview="previewFor" :variant-override="variantResults" :stalled-ids="stalledIds" :stored-ids="storedIds"
-          @navigate="lib.navigate" @select="onSelect" @open="onOpenItem" @dragstart="onItemDragStart" @dragend="onItemDragEnd" @dismiss-upload="onDismissUpload" />
+          :uploads="gridTileUploads" :upload-preview="previewFor" :can-retry-upload="mediaUploads.canRetry" :variant-override="variantResults" :stalled-ids="stalledIds" :stored-ids="storedIds"
+          @navigate="lib.navigate" @select="onSelect" @open="onOpenItem" @dragstart="onItemDragStart" @dragend="onItemDragEnd" @dismiss-upload="onDismissUpload" @retry-upload="mediaUploads.retry" />
         <KestrelMediaTable v-else :items="items" :is-selected="isSelectedItem" :drop-target-path="dropFolder" :sort="sort" :parent-path="parentPath" :up-label="t('media.parentFolder')" :pick="pick" :variant-override="variantResults" :stored-ids="storedIds" @navigate="lib.navigate" @select="onSelect" @open="onOpenItem" @sort="lib.setSort" @dragstart="onItemDragStart" @dragend="onItemDragEnd" />
       </div>
     </KestrelUiMenu>
@@ -213,13 +216,25 @@ const localizedMenu = computed(() => menuItems.value.map((s) => ({
       @update:page="lib.setPage"
       @update:per-page="lib.setPerPage"
     />
-    <KestrelMediaUploadQueue v-if="queueRows.length" :items="queueRows" @dismiss="onDismissUpload" />
+    <KestrelMediaUploadPanel
+      v-if="mediaUploads.queue.value.length"
+      :items="mediaUploads.queue.value"
+      :summary="mediaUploads.summary.value"
+      :can-retry="mediaUploads.canRetry"
+      :preview-for="previewFor"
+      :follow-up="mediaUploads.followUp.value"
+      @retry="mediaUploads.retry"
+      @retry-failed="mediaUploads.retryFailed"
+      @cancel="mediaUploads.cancel"
+      @close="onCloseUploads"
+    />
     <KestrelUiAlert v-if="limitError" variant="error">{{ limitError }}</KestrelUiAlert>
     <KestrelMediaPickBar v-if="pick" :count="selectedFileIds.length" :blocked="hasBlockedSelection" :confirming="confirming" :refusal="refusal" @confirm="pickState.confirm" @cancel="emit('cancel')" />
     <KestrelMediaUploadDialog
       :open="uploadOpen"
       :uploads="pendingUploads"
       :folder="folder"
+      :max-bytes="mediaUploads.maxUploadBytes.value"
       @confirm="onConfirmUpload"
       @update:open="(v) => { if (!v) { uploadOpen = false; pendingUploads = [] } }"
     />

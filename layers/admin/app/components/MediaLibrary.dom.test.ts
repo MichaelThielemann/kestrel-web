@@ -63,7 +63,7 @@ async function confirmUpload(wrapper: VueWrapper, file: File) {
   selectFile(boundaryCast<HTMLInputElement>(wrapper.get('input[type="file"]').element, 'dom'), file)
   await vi.waitFor(() => expect(document.body.querySelector('.ui-dialog__content')).toBeTruthy())
   const dialog = document.body.querySelector('.ui-dialog__content')
-  const confirmButton = Array.from(dialog?.querySelectorAll('button') ?? []).find((b) => b.textContent?.trim() === en['mediaToolbar.upload'])
+  const confirmButton = Array.from(dialog?.querySelectorAll('button') ?? []).find((b) => b.textContent?.trim() === en['media.upload.confirmOne'])
   if (!confirmButton) throw new Error('expected the upload dialog to render a confirm button')
   confirmButton.click()
   await nextTick()
@@ -83,7 +83,7 @@ describe('MediaLibrary upload status', () => {
     schema.features = []
   })
 
-  it('shows progress while uploading and clears the status line once the file is done', async () => {
+  it('shows progress in the upload panel while uploading and reports the file done when it finishes', async () => {
     unregisterAll.push(registerEndpoint('/api/media/folders', { method: 'GET', handler: () => [] }))
     unregisterAll.push(registerEndpoint('/api/media', { method: 'GET', handler: () => ({ items: [], total: 0 }) }))
     unregisterAll.push(registerEndpoint('/api/limits', { method: 'GET', handler: () => ({ maxUploadBytes: null }) }))
@@ -97,22 +97,24 @@ describe('MediaLibrary upload status', () => {
     await vi.waitFor(() => expect(document.body.querySelector('.ui-dialog__content')).toBeTruthy())
     const dialog = document.body.querySelector('.ui-dialog__content')
     if (!dialog) throw new Error('expected the upload dialog to render')
-    const confirmButton = Array.from(dialog.querySelectorAll('button')).find((b) => b.textContent?.trim() === en['mediaToolbar.upload'])
+    const confirmButton = Array.from(dialog.querySelectorAll('button')).find((b) => b.textContent?.trim() === en['media.upload.confirmOne'])
     if (!confirmButton) throw new Error('expected the upload dialog to render a confirm button')
     confirmButton.click()
     await nextTick()
 
-    await vi.waitFor(() => expect(wrapper.get('[role="status"]').text()).not.toBe(''))
-    expect(wrapper.get('[role="status"]').text()).toContain(en['media.uploading'].trim())
+    await vi.waitFor(() => expect(wrapper.find('.media-upload-panel').exists()).toBe(true))
+    expect(wrapper.get('.media-upload-panel [aria-live="polite"]').text()).toContain('0 of 1 uploaded')
+    expect(wrapper.find('.media-toolbar [role="status"]').exists()).toBe(false)
 
-    const progressbar = wrapper.get('[role="progressbar"]')
+    const progressbar = wrapper.get('.media-upload-tile [role="progressbar"]')
     expect(progressbar.attributes('aria-valuenow')).toBe('50')
     expect(progressbar.attributes('aria-valuemin')).toBe('0')
     expect(progressbar.attributes('aria-valuemax')).toBe('100')
 
     uploadControl.state.deliver?.({ id: 'f1', contentType: 'image/jpeg' })
-    await vi.waitFor(() => expect(wrapper.get('[role="status"]').text()).toBe(''))
-    expect(wrapper.find('[role="progressbar"]').exists()).toBe(false)
+    await vi.waitFor(() => expect(wrapper.get('.media-upload-panel [aria-live="polite"]').text()).toContain('1 of 1 uploaded'))
+    expect(wrapper.get('.media-upload-panel [aria-live="polite"]').text()).toContain(en['media.upload.done'])
+    expect(wrapper.find('.media-upload-tile [role="progressbar"]').exists()).toBe(false)
   })
 
   it('keeps a failed item visible with its message until dismissed', async () => {
@@ -129,7 +131,7 @@ describe('MediaLibrary upload status', () => {
     await vi.waitFor(() => expect(document.body.querySelector('.ui-dialog__content')).toBeTruthy())
     const dialog = document.body.querySelector('.ui-dialog__content')
     if (!dialog) throw new Error('expected the upload dialog to render')
-    const confirmButton = Array.from(dialog.querySelectorAll('button')).find((b) => b.textContent?.trim() === en['mediaToolbar.upload'])
+    const confirmButton = Array.from(dialog.querySelectorAll('button')).find((b) => b.textContent?.trim() === en['media.upload.confirmOne'])
     if (!confirmButton) throw new Error('expected the upload dialog to render a confirm button')
     confirmButton.click()
     await nextTick()
@@ -142,7 +144,8 @@ describe('MediaLibrary upload status', () => {
     }))
 
     await vi.waitFor(() => expect(wrapper.find('.media-upload-tile__failed').exists()).toBe(true))
-    expect(wrapper.get('[role="status"]').text()).toBe('')
+    expect(wrapper.get('.media-upload-panel [aria-live="polite"]').text()).toContain('0 of 1 uploaded, 1 failed')
+    expect(wrapper.get('.media-upload-panel').text()).toContain('File type is not allowed')
     expect(wrapper.get('.media-upload-tile__failed').text()).toContain('File type is not allowed')
 
     const dismissButton = wrapper.get(`[aria-label="${en['media.upload.dismiss'].replace('{name}', 'bad.exe')}"]`)
@@ -185,7 +188,7 @@ describe('MediaLibrary upload status', () => {
     await vi.waitFor(() => expect(document.body.querySelector('.ui-dialog__content')).toBeTruthy())
     const dialog = document.body.querySelector('.ui-dialog__content')
     if (!dialog) throw new Error('expected the upload dialog to render')
-    const confirmButton = Array.from(dialog.querySelectorAll('button')).find((b) => b.textContent?.trim() === en['mediaToolbar.upload'])
+    const confirmButton = Array.from(dialog.querySelectorAll('button')).find((b) => b.textContent?.trim() === en['media.upload.confirmOne'])
     if (!confirmButton) throw new Error('expected the upload dialog to render a confirm button')
     confirmButton.click()
     await nextTick()
@@ -231,7 +234,7 @@ describe('MediaLibrary upload status', () => {
 
     selectFile(boundaryCast<HTMLInputElement>(wrapper.get('input[type="file"]').element, 'dom'), new File(['x'], 'photo.jpg', { type: 'image/jpeg' }))
     await vi.waitFor(() => expect(document.body.querySelector('.ui-dialog__content')).toBeTruthy())
-    const confirmButton = Array.from(document.body.querySelectorAll('.ui-dialog__content button')).find((b) => b.textContent?.trim() === en['mediaToolbar.upload'])
+    const confirmButton = Array.from(document.body.querySelectorAll('.ui-dialog__content button')).find((b) => b.textContent?.trim() === en['media.upload.confirmOne'])
     if (!(confirmButton instanceof HTMLElement)) throw new Error('expected the upload dialog to render a confirm button')
     confirmButton.click()
     await vi.waitFor(() => expect(uploadControl.state.deliver).not.toBeNull())
@@ -281,7 +284,7 @@ describe('MediaLibrary upload status', () => {
     await vi.waitFor(() => expect(document.body.querySelector('.ui-dialog__content')).toBeTruthy())
     const dialog = document.body.querySelector('.ui-dialog__content')
     if (!dialog) throw new Error('expected the upload dialog to render')
-    const confirmButton = Array.from(dialog.querySelectorAll('button')).find((b) => b.textContent?.trim() === en['mediaToolbar.upload'])
+    const confirmButton = Array.from(dialog.querySelectorAll('button')).find((b) => b.textContent?.trim() === en['media.upload.confirmOne'])
     if (!confirmButton) throw new Error('expected the upload dialog to render a confirm button')
     confirmButton.click()
     await nextTick()
@@ -290,7 +293,7 @@ describe('MediaLibrary upload status', () => {
     uploaded = true
     uploadControl.state.deliver?.({ id: 'f1', contentType: 'image/jpeg' })
 
-    await vi.waitFor(() => expect(wrapper.get('[role="status"]').text()).toContain('Variants ready: photo.jpg'), { timeout: 8000 })
+    await vi.waitFor(() => expect(wrapper.get('.media-upload-panel [aria-live="polite"]').text()).toContain('Variants ready: photo.jpg'), { timeout: 8000 })
   }, 10000)
 
   it('does not bring a finished upload back as a stuck processing tile after navigating to another folder', async () => {
@@ -324,7 +327,7 @@ describe('MediaLibrary upload status', () => {
     await vi.waitFor(() => expect(document.body.querySelector('.ui-dialog__content')).toBeTruthy())
     const dialog = document.body.querySelector('.ui-dialog__content')
     if (!dialog) throw new Error('expected the upload dialog to render')
-    const confirmButton = Array.from(dialog.querySelectorAll('button')).find((b) => b.textContent?.trim() === en['mediaToolbar.upload'])
+    const confirmButton = Array.from(dialog.querySelectorAll('button')).find((b) => b.textContent?.trim() === en['media.upload.confirmOne'])
     if (!confirmButton) throw new Error('expected the upload dialog to render a confirm button')
     confirmButton.click()
     await nextTick()
@@ -340,10 +343,10 @@ describe('MediaLibrary upload status', () => {
 
     await vi.waitFor(() => expect(wrapper.find('.media-library__empty').exists()).toBe(true))
     expect(wrapper.find('.media-upload-tile').exists()).toBe(false)
-    expect(wrapper.find('[role="progressbar"]').exists()).toBe(false)
+    expect(wrapper.find('.media-library__items [role="progressbar"]').exists()).toBe(false)
   })
 
-  it('announces the file name through the live region once the upload succeeds', async () => {
+  it('announces the finished run once through the panel and closes the panel only when asked', async () => {
     unregisterAll.push(registerEndpoint('/api/media/folders', { method: 'GET', handler: () => [] }))
     unregisterAll.push(registerEndpoint('/api/media', { method: 'GET', handler: () => ({ items: [], total: 0 }) }))
     unregisterAll.push(registerEndpoint('/api/limits', { method: 'GET', handler: () => ({ maxUploadBytes: null }) }))
@@ -356,7 +359,7 @@ describe('MediaLibrary upload status', () => {
     await vi.waitFor(() => expect(document.body.querySelector('.ui-dialog__content')).toBeTruthy())
     const dialog = document.body.querySelector('.ui-dialog__content')
     if (!dialog) throw new Error('expected the upload dialog to render')
-    const confirmButton = Array.from(dialog.querySelectorAll('button')).find((b) => b.textContent?.trim() === en['mediaToolbar.upload'])
+    const confirmButton = Array.from(dialog.querySelectorAll('button')).find((b) => b.textContent?.trim() === en['media.upload.confirmOne'])
     if (!confirmButton) throw new Error('expected the upload dialog to render a confirm button')
     confirmButton.click()
     await nextTick()
@@ -364,7 +367,14 @@ describe('MediaLibrary upload status', () => {
     await vi.waitFor(() => expect(uploadControl.state.deliver).not.toBeNull())
     uploadControl.state.deliver?.({ id: 'f1', contentType: 'application/pdf' })
 
-    await vi.waitFor(() => expect(wrapper.get('[role="status"]').text()).toContain('photo.jpg uploaded'), { timeout: 2000 })
+    await vi.waitFor(() => expect(wrapper.get('.media-upload-panel [aria-live="polite"]').text()).toContain(en['media.upload.done']), { timeout: 2000 })
+    expect(wrapper.findAll('[aria-live]').filter((region) => region.text().includes('photo.jpg'))).toHaveLength(0)
+
+    const close = wrapper.get('.media-upload-panel').findAll('button').find((b) => b.text() === en['common.close'])
+    if (!close) throw new Error('expected the finished panel to offer Close')
+    await close.trigger('click')
+    expect(wrapper.find('.media-upload-panel').exists()).toBe(false)
+    expect(document.activeElement).toBe(wrapper.get('.media-library').element)
   })
 
   it('adds a second batch to the running one instead of clearing it', async () => {
@@ -387,6 +397,55 @@ describe('MediaLibrary upload status', () => {
 
     uploadControl.state.deliver?.({ id: 'f1', contentType: 'application/pdf' })
     await vi.waitFor(() => expect(uploadControl.state.signals).toHaveLength(2))
+  })
+
+  it('cancels from the panel: the running upload is aborted and the waiting files leave the list', async () => {
+    unregisterAll.push(registerEndpoint('/api/media/folders', { method: 'GET', handler: () => [] }))
+    unregisterAll.push(registerEndpoint('/api/media', { method: 'GET', handler: () => ({ items: [], total: 0 }) }))
+    unregisterAll.push(registerEndpoint('/api/limits', { method: 'GET', handler: () => ({ maxUploadBytes: null }) }))
+    uploadControl.reset()
+
+    const wrapper = await mountSuspended(MediaLibrary, { attachTo: document.body })
+    onTestFinished(() => wrapper.unmount())
+
+    await confirmUpload(wrapper, new File(['x'], 'first.pdf', { type: 'application/pdf' }))
+    await vi.waitFor(() => expect(uploadControl.state.signals).toHaveLength(1))
+    await confirmUpload(wrapper, new File(['x'], 'second.pdf', { type: 'application/pdf' }))
+    await vi.waitFor(() => expect(wrapper.findAll('.media-upload-panel__list > li')).toHaveLength(2))
+
+    const cancel = wrapper.get('.media-upload-panel').findAll('button').find((b) => b.text() === en['common.cancel'])
+    if (!cancel) throw new Error('expected the running panel to offer Cancel')
+    await cancel.trigger('click')
+
+    expect(uploadControl.state.signals[0]?.aborted).toBe(true)
+    await vi.waitFor(() => expect(wrapper.findAll('.media-upload-panel__list > li')).toHaveLength(1))
+    const panel = wrapper.get('.media-upload-panel')
+    expect(panel.text()).toContain('first.pdf')
+    expect(panel.text()).toContain(en['media.upload.cancelled'])
+    expect(panel.text()).not.toContain('second.pdf')
+    expect(uploadControl.state.signals).toHaveLength(1)
+  })
+
+  it('retries a failed file from its panel row', async () => {
+    unregisterAll.push(registerEndpoint('/api/media/folders', { method: 'GET', handler: () => [] }))
+    unregisterAll.push(registerEndpoint('/api/media', { method: 'GET', handler: () => ({ items: [], total: 0 }) }))
+    unregisterAll.push(registerEndpoint('/api/limits', { method: 'GET', handler: () => ({ maxUploadBytes: null }) }))
+    uploadControl.reset()
+
+    const wrapper = await mountSuspended(MediaLibrary, { attachTo: document.body })
+    onTestFinished(() => wrapper.unmount())
+
+    await confirmUpload(wrapper, new File(['x'], 'flaky.pdf', { type: 'application/pdf' }))
+    await vi.waitFor(() => expect(uploadControl.state.signals).toHaveLength(1))
+    uploadControl.state.fail?.(Object.assign(new Error('busy'), { status: 503, name: 'ApiError', data: { error: 'busy', code: 'UNAVAILABLE', retryable: true } }))
+
+    const retry = '.media-upload-panel [aria-label="Retry flaky.pdf"]'
+    await vi.waitFor(() => expect(wrapper.find(retry).exists()).toBe(true))
+    await wrapper.get(retry).trigger('click')
+
+    await vi.waitFor(() => expect(uploadControl.state.signals).toHaveLength(2))
+    uploadControl.state.deliver?.({ id: 'f1', contentType: 'application/pdf' })
+    await vi.waitFor(() => expect(wrapper.get('.media-upload-panel [aria-live="polite"]').text()).toContain('1 of 1 uploaded'))
   })
 
   it('aborts the running upload when the library unmounts', async () => {

@@ -15,6 +15,7 @@ const props = defineProps<{
   upLabel?: string
   uploads?: readonly UploadItem[]
   uploadPreview?: (id: string) => string | undefined
+  canRetryUpload?: (item: UploadItem) => boolean
   variantOverride?: ReadonlyMap<string, VariantWatchEntry>
   stalledIds?: ReadonlySet<string>
   storedIds?: ReadonlySet<string>
@@ -27,6 +28,7 @@ const emit = defineEmits<{
   dragstart: [LibraryItem, DragEvent]
   dragend: []
   dismissUpload: [string]
+  retryUpload: [string]
 }>()
 const { t } = useT()
 const mods = (e: MouseEvent) => ({ toggle: e.ctrlKey || e.metaKey, range: e.shiftKey })
@@ -114,7 +116,9 @@ function uploadProcessing(upload: UploadItem): boolean {
         :chip-done="uploadChipFor(upload)?.done"
         :chip-total="uploadChipFor(upload)?.total"
         :processing="uploadProcessing(upload)"
+        :retryable="canRetryUpload?.(upload)"
         @dismiss="emit('dismissUpload', $event)"
+        @retry="emit('retryUpload', $event)"
       />
     </li>
     <template v-for="item in items" :key="itemKey(item)">

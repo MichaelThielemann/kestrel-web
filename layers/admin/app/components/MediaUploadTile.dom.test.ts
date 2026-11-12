@@ -83,4 +83,33 @@ describe('MediaUploadTile', () => {
 
     expect(wrapper.find('[aria-describedby]').exists()).toBe(false)
   })
+
+  it('offers retry on a failed tile that can succeed again, and emits the item id', async () => {
+    const wrapper = await mountSuspended(MediaUploadTile, { props: { item: item({ status: 'failed', code: 'NETWORK', message: 'No connection' }), retryable: true } })
+
+    await wrapper.get('[aria-label="Retry a.png"]').trigger('click')
+
+    expect(wrapper.emitted('retry')).toEqual([['u1']])
+  })
+
+  it('offers no retry on a tile refused for its size', async () => {
+    const wrapper = await mountSuspended(MediaUploadTile, { props: { item: item({ status: 'failed', code: 'TOO_LARGE', message: 'Too large' }), retryable: false } })
+
+    expect(wrapper.find('[aria-label="Retry a.png"]').exists()).toBe(false)
+    expect(wrapper.find('[aria-label="Dismiss error for a.png"]').exists()).toBe(true)
+  })
+
+  it('shows a cancelled tile with its state text and a retry', async () => {
+    const wrapper = await mountSuspended(MediaUploadTile, { props: { item: item({ status: 'cancelled', message: 'Cancelled' }), retryable: true } })
+
+    expect(wrapper.get('.media-upload-tile__failed').text()).toContain('Cancelled')
+    expect(wrapper.find('[aria-label="Retry a.png"]').exists()).toBe(true)
+  })
+
+  it('names the state in text below the bar while the file waits', async () => {
+    const wrapper = await mountSuspended(MediaUploadTile, { props: { item: item({ status: 'queued', progress: 0 }) } })
+
+    expect(wrapper.get('.media-upload-tile__status').text()).toBe('Waiting…')
+  })
 })
+
