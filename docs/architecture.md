@@ -731,7 +731,7 @@ collection, the expected filter and the fix in the message.
 - Upload UI in `MediaLibrary.vue`, the same in the media library and in the media picker. Choosing or dropping
   files opens `MediaUploadDialog.vue`, which lists each file with its size, marks a file over the limit from
   `GET /limits` as "too large (size, limit)" before anything is sent, and confirms with "Upload N files", N
-  counting only the files that will be sent; the oversized ones still join the run and end failed without a
+  counting only the files that will be sent, as its description does, which also names the skipped count; the oversized ones still join the run and end failed without a
   request. While the queue holds anything, `MediaUploadPanel.vue` sits below the listing: a header with
   "X of N uploaded, F failed", an overall bar, "Retry failed uploads", "Cancel" while something waits or runs and
   "Close" once the run is over, and a scrolling list of `MediaUploadRow.vue`, one per file (waiting,

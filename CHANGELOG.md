@@ -589,8 +589,9 @@
   place of `status` and no `queueRows`; `useUploadTiles()` returns no `queueRows`; `uploadStatusLine` and
   `UploadStatusInputs` are removed from `useMediaUpload`. An app that overrides one of these components
   or reads one of these fields moves to the panel. The admin translation keys `media.uploading`,
-  `media.uploadUploaded`, `media.uploadFailed`, `media.uploadSkipped`, `media.tile.announceUploaded` and
-  `upload.tooLarge` are removed.
+  `media.uploadUploaded`, `media.uploadFailed`, `media.uploadSkipped`, `media.tile.announceUploaded`,
+  `media.upload.desc` and `upload.tooLarge` are removed; `media.upload.descOne`/`descCount` and
+  `media.upload.skippedOne`/`skippedCount` describe the upload dialog.
 
 ### Added
 
@@ -600,7 +601,8 @@
   icon, its size, a thin bar and its state as icon and text: waiting, uploading with percent, processing,
   done, failed with the reason and a retry, or cancelled. The grid tiles of the open folder show the same
   states and offer a retry. The upload dialog marks a file over the upload limit as "Too large (size,
-  limit)" before anything is sent, and its button names how many files will be sent ("Upload 3 files").
+  limit)" before anything is sent; its description and its button count only the files that will be sent
+  ("Upload 3 files") and the description names how many are skipped.
 - Admin UI kit: `Progress` takes `size` (`sm`, `md`) and `tone` (`default`, `success`, `danger`); the new
   `Spinner` is the busy ring `Button` shows while loading and stands still under `prefers-reduced-motion`;
   the new `ProgressRow` is one row of a progress list (leading slot, truncated title with tooltip, meta,

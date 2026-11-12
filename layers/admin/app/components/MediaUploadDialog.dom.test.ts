@@ -50,6 +50,18 @@ describe('MediaUploadDialog', () => {
     expect(confirmButton()?.disabled).toBe(false)
   })
 
+  it('describes only the files that will be sent and how many are skipped', async () => {
+    await mountDialog([sized('huge.jpg', 60 * MiB), sized('a.jpg', 1024), sized('b.jpg', 1024)], 20 * MiB)
+
+    expect(dialog().querySelector('.ui-dialog__desc')?.textContent).toBe('Uploading 2 files to /. 1 file will be skipped.')
+  })
+
+  it('describes a single file in the singular and mentions no skip when nothing is skipped', async () => {
+    await mountDialog([sized('a.jpg', 1024)], 20 * MiB)
+
+    expect(dialog().querySelector('.ui-dialog__desc')?.textContent).toBe('Uploading 1 file to /.')
+  })
+
   it('names a single file in the singular', async () => {
     await mountDialog([sized('a.jpg', 1024)], null)
 

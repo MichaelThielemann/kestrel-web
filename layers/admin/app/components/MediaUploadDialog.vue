@@ -27,6 +27,13 @@ const rows = computed(() => props.uploads.map((u) => {
 }))
 const sendable = computed(() => rows.value.filter((r) => !r.tooLarge).length)
 const confirmLabel = computed(() => (sendable.value === 1 ? t('media.upload.confirmOne') : t('media.upload.confirmCount', { n: sendable.value })))
+const description = computed(() => {
+  const folder = displayFolderPath(props.folder)
+  const sending = sendable.value === 1 ? t('media.upload.descOne', { folder }) : t('media.upload.descCount', { n: sendable.value, folder })
+  const skipped = rows.value.length - sendable.value
+  if (!skipped) return sending
+  return `${sending} ${skipped === 1 ? t('media.upload.skippedOne') : t('media.upload.skippedCount', { n: skipped })}`
+})
 
 const originOptions = computed(() => PROVENANCE_ORIGINS.map((v) => ({ label: t(`media.provenance.${v}`), value: v })))
 const originModel = computed<string | null>({
@@ -47,7 +54,7 @@ function confirm() {
     :open="open"
     nested
     :title="t('media.upload.title')"
-    :description="t('media.upload.desc', { count: uploads.length, folder: displayFolderPath(folder) })"
+    :description="description"
     @update:open="(v) => emit('update:open', v)"
   >
     <ul class="media-upload__list" tabindex="0" :aria-label="t('media.upload.title')">
