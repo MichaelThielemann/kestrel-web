@@ -33,7 +33,8 @@ const opsPort: BusyPort = {
   setConflict: (refs) => { opConflict.value = refs },
 }
 
-const mediaUploads = useMediaLibraryUploads({ folder, view, fetchLibrary: lib.fetchLibrary, t })
+const mediaLibraryRef = ref<HTMLElement | null>(null)
+const mediaUploads = useMediaLibraryUploads({ folder, view, fetchLibrary: lib.fetchLibrary, t, root: mediaLibraryRef })
 const { gridTileUploads, onDismissUpload: dismissUpload, previewFor, variantResults, stalledIds, limitError, track } = mediaUploads
 
 const pickState = useMediaPick({
@@ -55,7 +56,6 @@ const newFolderOpen = ref(false)
 const uploadOpen = ref(false)
 const pendingUploads = ref<PendingUpload[]>([])
 
-const mediaLibraryRef = ref<HTMLElement | null>(null)
 let focusReturnTimer: ReturnType<typeof setTimeout> | null = null
 onUnmounted(() => { if (focusReturnTimer) clearTimeout(focusReturnTimer) })
 const { viewerOpen, viewerFile, viewerBusy, viewerError, openViewer, closeViewer, onSaveViewer } = useMediaViewerState({

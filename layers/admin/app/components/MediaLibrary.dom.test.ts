@@ -578,9 +578,15 @@ describe('MediaLibrary upload status', () => {
     expect(wrapper.find('.media-upload-panel [aria-label="Retry second.pdf"]').exists()).toBe(true)
   }, 10_000)
 
-  it('keeps keyboard focus on the grid tile when its file is retried', async () => {
+  it('keeps keyboard focus on the grid tile when its file is retried, then moves it to the listed file once the upload succeeds', async () => {
+    let uploaded = false
+    const listed = {
+      id: 'f1', filename: 'flaky.pdf', folder: '', contentType: 'application/pdf', size: 1, key: 'f1', checksum: null, path: '/media/f1/flaky.pdf',
+      status: 'ready', createdAt: 1, updatedAt: 1, provenance: { origin: 'human' }, width: null, height: null,
+      alt: null, title: null, description: null, variants: [], variantCounts: { done: 0, pending: 0, error: 0, failed: 0 },
+    }
     unregisterAll.push(registerEndpoint('/api/media/folders', { method: 'GET', handler: () => [] }))
-    unregisterAll.push(registerEndpoint('/api/media', { method: 'GET', handler: () => ({ items: [], total: 0 }) }))
+    unregisterAll.push(registerEndpoint('/api/media', { method: 'GET', handler: () => (uploaded ? { items: [listed], total: 1 } : { items: [], total: 0 }) }))
     unregisterAll.push(registerEndpoint('/api/limits', { method: 'GET', handler: () => ({ maxUploadBytes: null }) }))
     uploadControl.reset()
 
@@ -600,6 +606,11 @@ describe('MediaLibrary upload status', () => {
     await nextTick()
     expect(document.activeElement).not.toBe(document.body)
     expect(document.activeElement).toBe(wrapper.get('.media-upload-tile').element)
+
+    uploaded = true
+    uploadControl.state.deliver?.({ id: 'f1', contentType: 'application/pdf' })
+    await vi.waitFor(() => expect(wrapper.find('.media-upload-tile').exists()).toBe(false))
+    await vi.waitFor(() => expect(document.activeElement).toBe(wrapper.get('[data-file-id="f1"]').element))
   })
 
   it('aborts the running upload when the library unmounts', async () => {

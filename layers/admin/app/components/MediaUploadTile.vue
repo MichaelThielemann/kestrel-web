@@ -35,7 +35,7 @@ function retry() {
 </script>
 
 <template>
-  <div ref="root" class="media-upload-tile" tabindex="-1" :aria-busy="!ready && !failed">
+  <div ref="root" class="media-upload-tile" tabindex="-1" :data-upload-id="item.id" :aria-busy="!ready && !failed">
     <div v-if="failed" class="media-upload-tile__failed" :class="{ 'media-upload-tile__failed--muted': state.tone === 'muted' }">
       <span class="media-upload-tile__thumb-wrap">
         <span class="media-upload-tile__badge" aria-hidden="true"><KestrelUiIcon :name="state.status.icon ?? 'circle-x'" :size="24" /></span>

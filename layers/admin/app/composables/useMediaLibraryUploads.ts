@@ -1,4 +1,4 @@
-import { computed, type Ref } from 'vue'
+import { computed, nextTick, type Ref } from 'vue'
 import type { Translate } from '#kestrel-admin/actions/types'
 import { useAnnouncer } from './useAnnouncer'
 import { useMediaUpload, type UploadItem } from './useMediaUpload'
@@ -11,10 +11,12 @@ export interface UseMediaLibraryUploadsOptions {
   view: Ref<'grid' | 'table'>
   fetchLibrary: () => Promise<void>
   t: Translate
+  /** The library element; keyboard focus falls back to it when the tile holding focus leaves the grid. */
+  root: Ref<HTMLElement | null>
 }
 
 export function useMediaLibraryUploads(options: UseMediaLibraryUploadsOptions) {
-  const { folder, view, fetchLibrary, t } = options
+  const { folder, view, fetchLibrary, t, root } = options
   const preview = useUploadPreview()
   const variantWatch = useVariantWatch()
   const { message: announcement, announce } = useAnnouncer()
@@ -32,10 +34,27 @@ export function useMediaLibraryUploads(options: UseMediaLibraryUploadsOptions) {
     onReady,
     onSettled: ({ stopped }) => {
       if (stopped) { variantWatch.pause(); return }
-      const settledFolder = folder.value
-      void fetchLibrary().then(() => tiles.markSettled(settledFolder))
+      void refreshLibrary(folder.value)
     },
   })
+
+  function focusedTileUpload(): UploadItem | undefined {
+    if (!import.meta.client) return undefined
+    const id = document.activeElement?.closest<HTMLElement>('.media-upload-tile')?.dataset.uploadId
+    return id ? upload.queue.value.find((i) => i.id === id) : undefined
+  }
+
+  async function refreshLibrary(settledFolder: string) {
+    await fetchLibrary()
+    const focused = focusedTileUpload()
+    tiles.markSettled(settledFolder)
+    if (focused?.status !== 'done') return
+    await nextTick()
+    if (document.activeElement && document.activeElement !== document.body) return
+    const listed = Array.from(root.value?.querySelectorAll<HTMLElement>('[data-file-id]') ?? []).find((el) => el.dataset.fileId === focused.result?.id)
+    const target = listed ?? root.value
+    target?.focus()
+  }
   const tiles = useUploadTiles({ queue: upload.queue, view, folder, preview, dismiss: upload.dismiss })
 
   const followUp = computed(() => announcement.value || (variantWatch.hasPending.value ? t('media.upload.processing') : ''))
