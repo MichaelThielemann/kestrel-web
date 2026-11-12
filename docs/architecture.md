@@ -733,7 +733,7 @@ collection, the expected filter and the fix in the message.
   `GET /limits` as "too large (size, limit)" before anything is sent, and confirms with "Upload N files", N
   counting only the files that will be sent; the oversized ones still join the run and end failed without a
   request. While the queue holds anything, `MediaUploadPanel.vue` sits below the listing: a header with
-  "X of N uploaded, F failed", an overall bar, "Retry failed", "Cancel" while something waits or runs and
+  "X of N uploaded, F failed", an overall bar, "Retry failed uploads", "Cancel" while something waits or runs and
   "Close" once the run is over, and a scrolling list of `MediaUploadRow.vue`, one per file (waiting,
   uploading with percent, processing, done, failed with its message and a retry, cancelled). The panel never
   closes on its own; "Close" drops the finished items. The header is the only live region for uploads:

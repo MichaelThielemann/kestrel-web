@@ -595,7 +595,7 @@
 ### Added
 
 - Media upload panel: in the media library and in the media picker, uploads show in a panel below the
-  listing with "X of N uploaded, F failed", an overall bar, "Retry failed", "Cancel" while files wait or run
+  listing with "X of N uploaded, F failed", an overall bar, "Retry failed uploads", "Cancel" while files wait or run
   and "Close" once the run is over; it never closes by itself. Each file has a row with a preview or type
   icon, its size, a thin bar and its state as icon and text: waiting, uploading with percent, processing,
   done, failed with the reason and a retry, or cancelled. The grid tiles of the open folder show the same

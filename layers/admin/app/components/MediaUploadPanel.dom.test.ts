@@ -61,7 +61,7 @@ describe('MediaUploadPanel', () => {
     expect(wrapper.emitted('close')).toHaveLength(1)
   })
 
-  it('offers "Retry failed" only when a failed file can be retried', async () => {
+  it('offers "Retry failed uploads" only when a failed file can be retried', async () => {
     const onlyTooLarge = await mount([item({ status: 'failed', code: 'TOO_LARGE', message: 'Too large' })])
     const retryable = await mount([item({ status: 'failed', code: 'NETWORK', message: 'No connection' })])
 

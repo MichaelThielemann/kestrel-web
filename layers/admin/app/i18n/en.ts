@@ -613,7 +613,7 @@ export const en = {
   'media.upload.done': 'Done',
   'media.upload.failed': 'Failed',
   'media.upload.retryName': 'Retry {name}',
-  'media.upload.retryFailed': 'Retry failed',
+  'media.upload.retryFailed': 'Retry failed uploads',
   'media.upload.cancelAll': 'Cancel uploads',
   'media.upload.closePanel': 'Close uploads',
   'media.upload.tooLargeShort': 'Too large ({size}, limit {limit})',

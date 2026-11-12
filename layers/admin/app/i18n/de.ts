@@ -599,7 +599,7 @@ export const de: Record<CatalogKey, string> = {
   'media.upload.processing': 'Varianten werden erzeugt…',
   'media.upload.progressLabel': 'Wird hochgeladen: {name}',
   'media.upload.dismiss': 'Fehlermeldung zu {name} schließen',
-  'media.upload.sessionExpired': 'Anmeldung abgelaufen — erneut anmelden, dann erneut versuchen',
+  'media.upload.sessionExpired': 'Anmeldung abgelaufen – bitte neu anmelden und dann erneut versuchen',
   'media.upload.network': 'Keine Verbindung zum Server',
   'media.upload.timeout': 'Der Server hat zu lange nicht geantwortet',
   'media.upload.unavailable': 'Der Server ist gerade nicht erreichbar',
