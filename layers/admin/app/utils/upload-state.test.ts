@@ -6,12 +6,12 @@ const t: Translate = (key, params) => (params ? `${key} ${JSON.stringify(params)
 const base = { filename: 'a.png', progress: 0 }
 
 describe('uploadStateView', () => {
-  it('shows a waiting upload muted, with a clock and an empty bar', () => {
+  it('shows a waiting upload muted, with a clock and no bar', () => {
     const view = uploadStateView({ ...base, status: 'queued' }, t)
 
     expect(view.tone).toBe('muted')
     expect(view.status).toEqual({ text: 'media.tile.queued', icon: 'clock', tone: 'muted' })
-    expect(view.progress?.value).toBe(0)
+    expect(view.progress).toBeUndefined()
   })
 
   it('shows the percent of a running upload when the total is known, else an indeterminate bar', () => {
@@ -20,6 +20,7 @@ describe('uploadStateView', () => {
 
     expect(known.status.text).toBe('media.tile.percent {"percent":42}')
     expect(known.progress?.value).toBe(42)
+    expect(known.progress?.label).toBe('media.upload.progressLabel {"name":"a.png"}')
     expect(unknown.status.text).toBe('media.upload.uploading')
     expect(unknown.progress?.value).toBeUndefined()
   })
@@ -28,13 +29,14 @@ describe('uploadStateView', () => {
     const view = uploadStateView({ ...base, status: 'processing', progress: 100 }, t)
 
     expect(view.status).toEqual({ text: 'media.tile.processing', busy: true })
+    expect(view.progress).toMatchObject({ value: 100, label: 'media.upload.progressLabel {"name":"a.png"}' })
   })
 
-  it('shows a finished upload with a check and a full success bar', () => {
+  it('shows a finished upload with a check and no bar', () => {
     const view = uploadStateView({ ...base, status: 'done', progress: 100 }, t)
 
     expect(view.status).toEqual({ text: 'media.upload.done', icon: 'circle-check', tone: 'success' })
-    expect(view.progress).toMatchObject({ value: 100, tone: 'success' })
+    expect(view.progress).toBeUndefined()
   })
 
   it('shows a failed upload with its message and no bar', () => {

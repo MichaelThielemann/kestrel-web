@@ -742,7 +742,8 @@ collection, the expected filter and the fix in the message.
   open folder (`MediaUploadTile.vue`) show the same states and offer retry and dismiss on a failed or
   cancelled file. No toast is raised per file; the panel is in view whenever the queue holds anything, so
   there is no summary toast either. `utils/upload-state.ts` maps an item's state to the icon, text, bar and
-  message both the row and the tile show.
+  message both the row and the tile show; a row has a bar, named "Progress: <file>", only while its file
+  uploads or is processed, since the status text already says waiting, done or failed.
 - `app/composables/useAuth.ts` — login/logout/me/change password/`refreshAccess()` (own-role change);
   gating goes through `useCapabilities()` (`has(pipeline)`/`hasVerb(collection, verb)`), not a role
   table.

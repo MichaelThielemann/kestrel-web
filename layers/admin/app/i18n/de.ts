@@ -600,7 +600,7 @@ export const de: Record<CatalogKey, string> = {
   'media.upload.skippedCount': '{n} Dateien werden übersprungen.',
   'media.upload.originHint': 'KI-generierte Dateien kennzeichnen (EU AI Act Art. 50).',
   'media.upload.processing': 'Varianten werden erzeugt…',
-  'media.upload.progressLabel': 'Wird hochgeladen: {name}',
+  'media.upload.progressLabel': 'Fortschritt: {name}',
   'media.upload.dismiss': 'Fehlermeldung zu {name} schließen',
   'media.upload.sessionExpired': 'Anmeldung abgelaufen – bitte neu anmelden und dann erneut versuchen',
   'media.upload.network': 'Keine Verbindung zum Server',

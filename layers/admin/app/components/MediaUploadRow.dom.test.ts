@@ -16,6 +16,7 @@ describe('MediaUploadRow', () => {
     expect(wrapper.text()).toContain('2.0 KB')
     expect(wrapper.get('.ui-progress-row__status').text()).toBe(en['media.tile.queued'])
     expect(wrapper.classes()).toContain('ui-progress-row--muted')
+    expect(wrapper.find('[role="progressbar"]').exists()).toBe(false)
   })
 
   it('shows the percent on a named progress bar while uploading', async () => {
@@ -23,7 +24,7 @@ describe('MediaUploadRow', () => {
 
     const bar = wrapper.get('[role="progressbar"]')
     expect(bar.attributes('aria-valuenow')).toBe('42')
-    expect(bar.attributes('aria-label')).toBe('Uploading: holiday.jpg')
+    expect(bar.attributes('aria-label')).toBe('Progress: holiday.jpg')
     expect(wrapper.get('.ui-progress-row__status').text()).toBe('42 %')
   })
 
@@ -40,6 +41,7 @@ describe('MediaUploadRow', () => {
     const status = wrapper.get('.ui-progress-row__status')
     expect(status.text()).toBe(en['media.upload.done'])
     expect(status.find('svg[data-icon="circle-check"]').exists()).toBe(true)
+    expect(wrapper.find('[role="progressbar"]').exists()).toBe(false)
   })
 
   it('shows the failure message and a retry button that emits the item id', async () => {

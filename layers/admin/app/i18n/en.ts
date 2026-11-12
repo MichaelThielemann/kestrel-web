@@ -598,7 +598,7 @@ export const en = {
   'media.upload.skippedCount': '{n} files will be skipped.',
   'media.upload.originHint': 'Declare AI-generated files (EU AI Act Art. 50).',
   'media.upload.processing': 'Generating variants…',
-  'media.upload.progressLabel': 'Uploading: {name}',
+  'media.upload.progressLabel': 'Progress: {name}',
   'media.upload.dismiss': 'Dismiss error for {name}',
   'media.upload.sessionExpired': 'Session expired — sign in again, then retry',
   'media.upload.network': 'No connection to the server',
