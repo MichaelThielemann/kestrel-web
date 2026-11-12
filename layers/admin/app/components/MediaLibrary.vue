@@ -288,6 +288,7 @@ const localizedMenu = computed(() => menuItems.value.map((s) => ({
 
   flex: 1 1 auto;
   min-height: 0;
+  overflow-y: auto;
 }
 
 .media-library > :not(.media-library__items) {
@@ -295,7 +296,7 @@ const localizedMenu = computed(() => menuItems.value.map((s) => ({
 }
 .media-library__items {
   flex: 1 1 auto;
-  min-height: 0;
+  min-height: min(10rem, 25svh);
   overflow: auto;
 }
 
