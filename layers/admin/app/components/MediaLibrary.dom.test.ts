@@ -450,9 +450,13 @@ describe('MediaLibrary upload status', () => {
 
     const retry = '.media-upload-panel [aria-label="Retry flaky.pdf"]'
     await vi.waitFor(() => expect(wrapper.find(retry).exists()).toBe(true))
+    boundaryCast<HTMLElement>(wrapper.get(retry).element, 'dom').focus()
     await wrapper.get(retry).trigger('click')
 
     await vi.waitFor(() => expect(uploadControl.state.signals).toHaveLength(2))
+    await nextTick()
+    expect(document.activeElement).not.toBe(document.body)
+    expect(document.activeElement).toBe(wrapper.get('.media-upload-panel__list > li').element)
     uploadControl.state.deliver?.({ id: 'f1', contentType: 'application/pdf' })
     await vi.waitFor(() => expect(wrapper.get('.media-upload-panel [aria-live="polite"]').text()).toContain('1 of 1 uploaded'))
   })
@@ -484,6 +488,30 @@ describe('MediaLibrary upload status', () => {
     expect(navigateCalls).toEqual([])
     expect(wrapper.find('.media-upload-panel [aria-label="Retry first.pdf"]').exists()).toBe(true)
     expect(wrapper.find('.media-upload-panel [aria-label="Retry second.pdf"]').exists()).toBe(true)
+  })
+
+  it('keeps keyboard focus on the grid tile when its file is retried', async () => {
+    unregisterAll.push(registerEndpoint('/api/media/folders', { method: 'GET', handler: () => [] }))
+    unregisterAll.push(registerEndpoint('/api/media', { method: 'GET', handler: () => ({ items: [], total: 0 }) }))
+    unregisterAll.push(registerEndpoint('/api/limits', { method: 'GET', handler: () => ({ maxUploadBytes: null }) }))
+    uploadControl.reset()
+
+    const wrapper = await mountSuspended(MediaLibrary, { attachTo: document.body })
+    onTestFinished(() => wrapper.unmount())
+
+    await confirmUpload(wrapper, new File(['x'], 'flaky.pdf', { type: 'application/pdf' }))
+    await vi.waitFor(() => expect(uploadControl.state.signals).toHaveLength(1))
+    uploadControl.state.fail?.(Object.assign(new Error('busy'), { status: 503, name: 'ApiError', data: { error: 'busy', code: 'UNAVAILABLE', retryable: true } }))
+
+    const retry = '.media-upload-tile [aria-label="Retry flaky.pdf"]'
+    await vi.waitFor(() => expect(wrapper.find(retry).exists()).toBe(true))
+    boundaryCast<HTMLElement>(wrapper.get(retry).element, 'dom').focus()
+    await wrapper.get(retry).trigger('click')
+
+    await vi.waitFor(() => expect(uploadControl.state.signals).toHaveLength(2))
+    await nextTick()
+    expect(document.activeElement).not.toBe(document.body)
+    expect(document.activeElement).toBe(wrapper.get('.media-upload-tile').element)
   })
 
   it('aborts the running upload when the library unmounts', async () => {

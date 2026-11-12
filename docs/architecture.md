@@ -742,9 +742,10 @@ collection, the expected filter and the fix in the message.
   its summary and the image-variant follow-up ("Generating variants…", "Variants ready: …") are polite, and
   a 401 puts one `role="alert"` line into it; rows carry no live region and no alert. The grid tiles of the
   open folder (`MediaUploadTile.vue`) show the same states and offer retry and dismiss on a failed or
-  cancelled file. No toast is raised per file; the panel is in view whenever the queue holds anything, so
+  cancelled file. A retry from a row or a tile moves keyboard focus to that row or tile, since the retry
+  button disappears once the file is queued again. No toast is raised per file; the panel is in view whenever the queue holds anything, so
   there is no summary toast either. `utils/upload-state.ts` maps an item's state to the icon, text, bar and
-  message both the row and the tile show; a row has a bar, named "Progress: <file>", only while its file
+  message both the row and the tile show, and a run's summary to the panel header (`uploadRunView`); a row has a bar, named "Progress: <file>", only while its file
   uploads or is processed, since the status text already says waiting, done or failed.
 - `app/composables/useAuth.ts` — login/logout/me/change password/`refreshAccess()` (own-role change);
   gating goes through `useCapabilities()` (`has(pipeline)`/`hasVerb(collection, verb)`), not a role

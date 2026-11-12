@@ -2,6 +2,7 @@
 import { computed, nextTick, ref, watch } from 'vue'
 import type { UploadItem } from '../composables/useMediaUpload'
 import type { UploadSummary } from '../utils/upload-queue'
+import { uploadRunView } from '../utils/upload-state'
 
 const props = defineProps<{
   items: readonly UploadItem[]
@@ -13,18 +14,8 @@ const props = defineProps<{
 const emit = defineEmits<{ retry: [id: string]; retryFailed: []; cancel: []; close: [] }>()
 const { t } = useT()
 
-const countText = computed(() => {
-  const { done, total, failed, cancelled } = props.summary
-  if (failed && cancelled) return t('media.upload.summaryFailedCancelled', { done, total, failed, cancelled })
-  if (cancelled) return t('media.upload.summaryCancelled', { done, total, cancelled })
-  return failed ? t('media.upload.summaryFailed', { done, total, failed }) : t('media.upload.summary', { done, total })
-})
-
-const finished = computed(() => {
-  const { failed, cancelled } = props.summary
-  if (!failed && !cancelled) return { icon: 'circle-check' as const, tone: 'success', text: t('media.upload.done') }
-  return { icon: failed ? ('circle-x' as const) : ('x' as const), tone: failed ? 'danger' : 'muted', text: t('media.upload.finished') }
-})
+const run = computed(() => uploadRunView(props.summary, t))
+const countText = computed(() => run.value.countText)
 
 const overall = computed(() => {
   if (!props.items.length) return 0
@@ -32,13 +23,17 @@ const overall = computed(() => {
   return ((props.summary.settled + partial) / props.items.length) * 100
 })
 
-const overallTone = computed(() => {
-  if (!props.summary.finished) return 'default'
-  if (props.summary.failed) return 'danger'
-  return props.summary.done === props.summary.total ? 'success' : 'default'
-})
 const retryableFailed = computed(() => props.items.some((item) => item.status === 'failed' && props.canRetry(item)))
 const actions = ref<HTMLElement | null>(null)
+const list = ref<HTMLElement | null>(null)
+
+function retryRow(id: string) {
+  emit('retry', id)
+  void nextTick(() => {
+    const rows = list.value?.querySelectorAll<HTMLElement>(':scope > li') ?? []
+    Array.from(rows).find((row) => row.dataset.uploadId === id)?.focus()
+  })
+}
 let keepFocus = false
 
 function refocus() {
@@ -66,8 +61,8 @@ const sessionMessage = computed(() => props.items.find((item) => item.status ===
     <header class="media-upload-panel__head">
       <div class="media-upload-panel__summary" aria-live="polite">
         <p class="media-upload-panel__count">
-          <span v-if="summary.finished" class="media-upload-panel__finished" :class="`media-upload-panel__finished--${finished.tone}`">
-            <KestrelUiIcon :name="finished.icon" :size="16" /> {{ finished.text }}
+          <span v-if="summary.finished" class="media-upload-panel__finished" :class="`media-upload-panel__finished--${run.finished.tone}`">
+            <KestrelUiIcon :name="run.finished.icon" :size="16" /> {{ run.finished.text }}
           </span>
           <span>{{ countText }}</span>
         </p>
@@ -78,14 +73,14 @@ const sessionMessage = computed(() => props.items.find((item) => item.status ===
         <KestrelUiButton v-if="!summary.finished" size="sm" variant="secondary" :aria-label="t('media.upload.cancelAll')" @click="act('cancel')">{{ t('common.cancel') }}</KestrelUiButton>
         <KestrelUiButton v-else size="sm" variant="secondary" :aria-label="t('media.upload.closePanel')" @click="emit('close')">{{ t('common.close') }}</KestrelUiButton>
       </div>
-      <KestrelUiProgress class="media-upload-panel__overall" :value="overall" :label="t('media.upload.overall')" :value-text="countText" :tone="overallTone" />
+      <KestrelUiProgress class="media-upload-panel__overall" :value="overall" :label="t('media.upload.overall')" :value-text="countText" :tone="run.barTone" />
       <p v-if="sessionMessage" class="media-upload-panel__alert" role="alert">
         <KestrelUiIcon name="triangle-alert" :size="16" /> {{ sessionMessage }}
       </p>
     </header>
-    <ul class="media-upload-panel__list" tabindex="0" :aria-label="t('media.upload.panelLabel')">
-      <li v-for="item in items" :key="item.id">
-        <KestrelMediaUploadRow :item="item" :preview="previewFor?.(item.id)" :retryable="canRetry(item)" @retry="emit('retry', $event)" />
+    <ul ref="list" class="media-upload-panel__list" tabindex="0" :aria-label="t('media.upload.panelLabel')">
+      <li v-for="item in items" :key="item.id" :data-upload-id="item.id" tabindex="-1">
+        <KestrelMediaUploadRow :item="item" :preview="previewFor?.(item.id)" :retryable="canRetry(item)" @retry="retryRow" />
       </li>
     </ul>
   </section>
@@ -182,6 +177,10 @@ const sessionMessage = computed(() => props.items.find((item) => item.status ===
   overflow-y: auto;
 
   @include mixins.focus-ring;
+
+  > li {
+    @include mixins.focus-ring;
+  }
 
   > li + li {
     border-top: 1px solid var(--color-border);

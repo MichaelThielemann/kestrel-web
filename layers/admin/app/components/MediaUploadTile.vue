@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import type { UploadItem } from '../composables/useMediaUpload'
 import { uploadStateView } from '../utils/upload-state'
 
@@ -26,10 +26,16 @@ const progressValue = computed(() => {
 })
 const state = computed(() => uploadStateView(props.item, t))
 const progressText = computed(() => state.value.status.text)
+const root = ref<HTMLElement | null>(null)
+
+function retry() {
+  emit('retry', props.item.id)
+  void nextTick(() => root.value?.focus())
+}
 </script>
 
 <template>
-  <div class="media-upload-tile" :aria-busy="!ready && !failed">
+  <div ref="root" class="media-upload-tile" tabindex="-1" :aria-busy="!ready && !failed">
     <div v-if="failed" class="media-upload-tile__failed" :class="{ 'media-upload-tile__failed--cancelled': item.status === 'cancelled' }">
       <span class="media-upload-tile__thumb-wrap">
         <span class="media-upload-tile__badge" aria-hidden="true"><KestrelUiIcon :name="state.status.icon ?? 'circle-x'" :size="24" /></span>
@@ -43,7 +49,7 @@ const progressText = computed(() => state.value.status.text)
             size="sm"
             icon="rotate-ccw"
             :aria-label="t('media.upload.retryName', { name: item.filename })"
-            @click="emit('retry', item.id)"
+            @click="retry"
           />
           <template #content>{{ t('common.retry') }}</template>
         </KestrelUiTooltip>
@@ -84,7 +90,11 @@ const progressText = computed(() => state.value.status.text)
 </template>
 
 <style lang="scss">
+@use '../assets/scss/mixins';
+
 .media-upload-tile {
+  @include mixins.focus-ring;
+
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
