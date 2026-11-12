@@ -131,7 +131,19 @@ describe('MediaUploadPanel', () => {
 
     const alerts = wrapper.findAll('[role="alert"]')
     expect(alerts).toHaveLength(1)
-    expect(alerts[0]?.text()).toBe(message)
+    expect(alerts[0]?.text()).toContain(message)
+  })
+
+  it('sends the user to sign in again in another tab, so the files to retry stay on this page', async () => {
+    const message = en['media.upload.sessionExpired']
+    const wrapper = await mount([item({ status: 'failed', code: 'UNAUTHENTICATED', message })])
+
+    expect(message).toContain('another tab')
+    const link = wrapper.get('[role="alert"] a')
+    expect(link.text()).toBe(en['media.upload.signInNewTab'])
+    expect(link.attributes('href')).toBe('/admin/login')
+    expect(link.attributes('target')).toBe('_blank')
+    expect(link.attributes('rel')).toBe('noopener')
   })
 
   it('shows the image-variant follow-up inside its live region', async () => {

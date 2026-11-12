@@ -79,6 +79,7 @@ const sessionMessage = computed(() => props.items.find((item) => item.status ===
       <KestrelUiProgress class="media-upload-panel__overall" :value="overall" :label="t('media.upload.overall')" :value-text="countText" :tone="run.barTone" />
       <p v-if="sessionMessage" class="media-upload-panel__alert" role="alert">
         <KestrelUiIcon name="triangle-alert" :size="16" /> {{ sessionMessage }}
+        <a href="/admin/login" target="_blank" rel="noopener">{{ t('media.upload.signInNewTab') }}</a>
       </p>
     </header>
     <ul ref="list" class="media-upload-panel__list" tabindex="0" :aria-label="t('media.upload.panelLabel')">
@@ -165,11 +166,17 @@ const sessionMessage = computed(() => props.items.find((item) => item.status ===
 
 .media-upload-panel__alert {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-1) var(--space-2);
   margin: 0;
   font-size: var(--text-sm);
   color: var(--color-danger);
+
+  a {
+    color: inherit;
+    font-weight: var(--weight-medium);
+  }
 }
 
 .media-upload-panel__list {
