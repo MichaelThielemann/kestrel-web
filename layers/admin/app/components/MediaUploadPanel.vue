@@ -51,6 +51,10 @@ function act(name: 'retryFailed' | 'cancel') {
   void nextTick(refocus)
 }
 
+const endAction = computed(() => props.summary.finished
+  ? { text: t('common.close'), label: t('media.upload.closePanel'), run: () => emit('close') }
+  : { text: t('common.cancel'), label: t('media.upload.cancelAll'), run: () => act('cancel') })
+
 watch(() => props.summary.finished, () => { void nextTick(refocus) })
 
 const sessionMessage = computed(() => props.items.find((item) => item.status === 'failed' && item.code === 'UNAUTHENTICATED')?.message)
@@ -70,8 +74,7 @@ const sessionMessage = computed(() => props.items.find((item) => item.status ===
       </div>
       <div ref="actions" class="media-upload-panel__actions">
         <KestrelUiButton v-if="retryableFailed" size="sm" variant="secondary" icon="rotate-ccw" @click="act('retryFailed')">{{ t('media.upload.retryFailed') }}</KestrelUiButton>
-        <KestrelUiButton v-if="!summary.finished" size="sm" variant="secondary" :aria-label="t('media.upload.cancelAll')" @click="act('cancel')">{{ t('common.cancel') }}</KestrelUiButton>
-        <KestrelUiButton v-else size="sm" variant="secondary" :aria-label="t('media.upload.closePanel')" @click="emit('close')">{{ t('common.close') }}</KestrelUiButton>
+        <KestrelUiButton size="sm" variant="secondary" :aria-label="endAction.label" @click="endAction.run">{{ endAction.text }}</KestrelUiButton>
       </div>
       <KestrelUiProgress class="media-upload-panel__overall" :value="overall" :label="t('media.upload.overall')" :value-text="countText" :tone="run.barTone" />
       <p v-if="sessionMessage" class="media-upload-panel__alert" role="alert">

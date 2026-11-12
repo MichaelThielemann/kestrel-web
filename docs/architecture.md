@@ -736,7 +736,8 @@ collection, the expected filter and the fix in the message.
   counting only the files that will be sent, as its description does, which also names the skipped count; the oversized ones still join the run and end failed without a
   request. While the queue holds anything, `MediaUploadPanel.vue` sits below the listing: a header with
   "X of N uploaded, F failed", an overall bar, "Retry failed uploads", "Cancel" while something waits or runs and
-  "Close" once the run is over, and a scrolling list of `MediaUploadRow.vue`, one per file (waiting,
+  "Close" once the run is over (one button whose label and action switch, so keyboard focus stays on it when
+  the run ends), and a scrolling list of `MediaUploadRow.vue`, one per file (waiting,
   uploading with percent, processing, done, failed with its message and a retry, cancelled). Once the run is
   over the header says "Done" with a success check only when every file was uploaded, and otherwise
   "Finished" with a failure icon (a plain cross when files were only cancelled); the summary then also counts

@@ -1,5 +1,6 @@
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import { describe, expect, it } from 'vitest'
+import { nextTick } from 'vue'
 import { en } from '#kestrel-admin/i18n/en'
 import type { UploadItem } from '../composables/useMediaUpload'
 import { isRetryable, summarizeUploads } from '../utils/upload-queue'
@@ -161,5 +162,21 @@ describe('MediaUploadPanel', () => {
     expect(button(running, en['common.cancel'])?.attributes('aria-label')).toBe(en['media.upload.cancelAll'])
     expect(button(finished, en['common.close'])?.attributes('aria-label')).toBe(en['media.upload.closePanel'])
   })
-})
+  it('keeps keyboard focus on the header button when the last file settles while Cancel has focus', async () => {
+    const running = item({ status: 'uploading', progress: 40, totalKnown: true })
+    const wrapper = await mountSuspended(MediaUploadPanel, {
+      props: { items: [running], summary: summarizeUploads([running]), canRetry: isRetryable },
+      attachTo: document.body,
+    })
+    button(wrapper, en['common.cancel'])!.element.focus()
 
+    const settled = { ...running, status: 'done' as const, progress: 100 }
+    await wrapper.setProps({ items: [settled], summary: summarizeUploads([settled]) })
+    await nextTick()
+
+    const close = button(wrapper, en['common.close'])
+    expect(close).toBeDefined()
+    expect(document.activeElement).toBe(close!.element)
+    wrapper.unmount()
+  })
+})
