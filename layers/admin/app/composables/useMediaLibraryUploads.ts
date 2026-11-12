@@ -31,7 +31,7 @@ export function useMediaLibraryUploads(options: UseMediaLibraryUploadsOptions) {
     onQueued: (item) => { void preview.generate(item.id, item.file) },
     onReady,
     onSettled: ({ stopped }) => {
-      if (stopped) return
+      if (stopped) { variantWatch.pause(); return }
       const settledFolder = folder.value
       void fetchLibrary().then(() => tiles.markSettled(settledFolder))
     },

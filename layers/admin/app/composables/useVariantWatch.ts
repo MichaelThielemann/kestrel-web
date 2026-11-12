@@ -28,6 +28,7 @@ export function useVariantWatch() {
   let timer: ReturnType<typeof setTimeout> | null = null
   let visibilityHandler: (() => void) | null = null
   let disposed = false
+  let paused = false
 
   function nextDelay(): number {
     const delay = BACKOFF_STEPS_MS[step] ?? STEADY_POLL_MS
@@ -41,14 +42,14 @@ export function useVariantWatch() {
 
   function schedule(ms: number) {
     clearTimer()
-    if (disposed) return
+    if (disposed || paused) return
     if (tracked.value.size === 0) return
     if (import.meta.client && document.hidden) return
     timer = setTimeout(() => { void poll() }, ms)
   }
 
   async function poll(): Promise<void> {
-    if (tracked.value.size === 0) return
+    if (paused || tracked.value.size === 0) return
     if (!capabilities.has('listMedia')) return
     const ids = [...tracked.value].slice(0, MAX_IDS_PER_CALL)
     try {
@@ -86,11 +87,18 @@ export function useVariantWatch() {
     if (!has('images')) return
     stalled.value.delete(id)
     if (cbs) callbacks.set(id, cbs)
-    if (tracked.value.has(id)) return
+    const resume = paused
+    paused = false
+    if (tracked.value.has(id) && !resume) return
     tracked.value.add(id)
     step = 0
     lastChangeAt = Date.now()
     schedule(0)
+  }
+
+  function pause() {
+    paused = true
+    clearTimer()
   }
 
   function entryFor(id: string): VariantWatchEntry | undefined {
@@ -113,5 +121,5 @@ export function useVariantWatch() {
     if (visibilityHandler) document.removeEventListener('visibilitychange', visibilityHandler)
   })
 
-  return { track, entryFor, isStalled, hasPending, results, stalled }
+  return { track, pause, entryFor, isStalled, hasPending, results, stalled }
 }

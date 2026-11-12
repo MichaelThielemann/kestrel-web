@@ -309,6 +309,26 @@ describe('useVariantWatch', () => {
     wrapper.unmount()
   })
 
+  it('sends no poll while paused, also on a visibility change, and resumes on the next track', async () => {
+    vi.useFakeTimers()
+    apiHandler.fn = () => Promise.resolve({ items: [mediaItem()], total: 1 })
+
+    const { wrapper, api } = await mountProbe()
+    api.track('f1')
+    await vi.advanceTimersByTimeAsync(0)
+    expect(apiCalls).toHaveLength(1)
+
+    api.pause()
+    document.dispatchEvent(new Event('visibilitychange'))
+    await vi.advanceTimersByTimeAsync(30_000)
+    expect(apiCalls).toHaveLength(1)
+
+    api.track('f1')
+    await vi.advanceTimersByTimeAsync(0)
+    expect(apiCalls).toHaveLength(2)
+    wrapper.unmount()
+  })
+
   it('stops tracking on a 401 instead of retrying', async () => {
     vi.useFakeTimers()
     let call = 0

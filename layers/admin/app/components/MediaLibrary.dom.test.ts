@@ -533,6 +533,51 @@ describe('MediaLibrary upload status', () => {
     expect(wrapper.find('.media-upload-panel [aria-label="Retry second.pdf"]').exists()).toBe(true)
   })
 
+  it('stops polling image variants once an expired session stopped the run, so nothing leaves the page', async () => {
+    schema.features = ['images']
+    let expired = false
+    const photo = {
+      id: 'f1', filename: 'photo.jpg', folder: '', contentType: 'image/jpeg', size: 10, key: 'f1', checksum: null,
+      status: 'ready', createdAt: 1, updatedAt: 1, provenance: { origin: 'human' }, width: null, height: null,
+      alt: null, title: null, description: null, variants: [],
+      variantCounts: { done: 1, pending: 4, error: 0, failed: 0 },
+    }
+    let idsCalls = 0
+    unregisterAll.push(registerEndpoint('/api/media/folders', { method: 'GET', handler: () => [] }))
+    unregisterAll.push(registerEndpoint('/api/media', {
+      method: 'GET',
+      handler: (event) => {
+        if (typeof getQuery(event).ids === 'string') idsCalls++
+        if (expired) {
+          setResponseStatus(event, 401)
+          return { error: 'unauthenticated', code: 'UNAUTHENTICATED' }
+        }
+        return typeof getQuery(event).ids === 'string' ? { items: [photo], total: 1 } : { items: [], total: 0 }
+      },
+    }))
+    unregisterAll.push(registerEndpoint('/api/limits', { method: 'GET', handler: () => ({ maxUploadBytes: null }) }))
+    uploadControl.reset()
+
+    const wrapper = await mountSuspended(MediaLibrary, { attachTo: document.body, route: '/admin/media' })
+    onTestFinished(() => wrapper.unmount())
+    navigateCalls.length = 0
+
+    await confirmUpload(wrapper, [new File(['x'], 'photo.jpg', { type: 'image/jpeg' }), new File(['x'], 'second.pdf', { type: 'application/pdf' })])
+    await vi.waitFor(() => expect(uploadControl.state.signals).toHaveLength(1))
+    uploadControl.state.deliver?.({ id: 'f1', contentType: 'image/jpeg' })
+    await vi.waitFor(() => expect(idsCalls).toBe(1))
+    await vi.waitFor(() => expect(uploadControl.state.signals).toHaveLength(2))
+    expired = true
+    uploadControl.state.fail?.(unauthenticated())
+
+    await vi.waitFor(() => expect(wrapper.get('.media-upload-panel [aria-live="polite"]').text()).toContain('1 of 2 uploaded, 1 failed'))
+    await new Promise((resolve) => setTimeout(resolve, 2500))
+
+    expect(navigateCalls).toEqual([])
+    expect(idsCalls).toBe(1)
+    expect(wrapper.find('.media-upload-panel [aria-label="Retry second.pdf"]').exists()).toBe(true)
+  }, 10_000)
+
   it('keeps keyboard focus on the grid tile when its file is retried', async () => {
     unregisterAll.push(registerEndpoint('/api/media/folders', { method: 'GET', handler: () => [] }))
     unregisterAll.push(registerEndpoint('/api/media', { method: 'GET', handler: () => ({ items: [], total: 0 }) }))
