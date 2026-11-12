@@ -581,36 +581,45 @@
   utility `clientAddress` is replaced by the core's `clientIpResolver`.
 - `UploadTransport` takes an options object as its third argument, `{ onProgress?, signal?, timeoutMs? }`,
   instead of a bare progress callback. A transport that replaces `useUploadTransport()` reads the callback
-  from `options.onProgress` and aborts on `options.signal`. `UploadStatus` gains `'cancelled'`, and
-  `useMediaUpload()`'s `onError` fires for every failed file, a 401 included.
-- The media library's upload list is replaced: `MediaUploadQueue` is gone, `MediaUploadPanel` and
-  `MediaUploadRow` take its place, and `MediaToolbar` has no `status` prop any more, because the panel is the
-  only live region for uploads (while it is closed, a status line of the library carries the image-variant
-  line). `useMediaLibraryUploads()` returns `followUp` (the image-variant line) in
-  place of `status` and no `queueRows`; `useUploadTiles()` returns no `queueRows`; `uploadStatusLine` and
-  `UploadStatusInputs` are removed from `useMediaUpload`. An app that overrides one of these components
-  or reads one of these fields moves to the panel. The admin translation keys `media.uploading`,
-  `media.uploadUploaded`, `media.uploadFailed`, `media.uploadSkipped`, `media.tile.announceUploaded`,
-  `media.upload.desc` and `upload.tooLarge` are removed; `media.upload.descOne`/`descCount` and
-  `media.upload.skippedOne`/`skippedCount` describe the upload dialog.
+  from `options.onProgress`, aborts the request when `options.signal` aborts and gives up after
+  `options.timeoutMs`. `UploadStatus` gains `'cancelled'` and `'skipped'`, and a file over the upload
+  limit is `skipped` rather than `failed`. `useMediaUpload()` calls `onError` for every failed file, a 401
+  included, and never for a skipped one.
+- The media library's upload list is replaced. `MediaUploadQueue` is removed; `MediaUploadPanel` and
+  `MediaUploadRow` take its place. `MediaToolbar` has no `status` prop, since the panel is the only live
+  region for uploads. `useMediaLibraryUploads()` takes `root`, the library element, instead of `onError`,
+  and returns `followUp`, the image-variant line, in place of `status`. Neither it nor `useUploadTiles()`
+  returns `queueRows`, and `uploadStatusLine` and `UploadStatusInputs` are removed from `useMediaUpload`.
+  An app that overrides one of these components or reads one of these fields moves to the panel.
+- The admin translation keys `media.uploading`, `media.uploadUploaded`, `media.uploadFailed`,
+  `media.uploadSkipped`, `media.uploadError`, `media.tile.announceUploaded`, `media.upload.desc` and
+  `upload.tooLarge` are removed, so an override of one of them is reported as an unknown key. The upload
+  dialog's description uses `media.upload.descOne`, `media.upload.descCount`, `media.upload.skippedOne`
+  and `media.upload.skippedCount`. `media.upload.dismiss` reads "Dismiss {name}", since it also dismisses
+  a cancelled or skipped file.
 
 ### Added
 
-- Media upload panel: in the media library and in the media picker, uploads show in a panel below the
-  listing with "X of N uploaded, F failed", an overall bar, "Retry failed uploads", "Cancel" while files wait or run
-  and "Close" once the run is over, when it says "Done" with a check only if every file was uploaded and
-  "Finished" with a failure icon and the failed and cancelled counts otherwise; it never closes by itself. Each file has a row with a preview or type
-  icon, its size, a thin bar while it uploads or is processed, and its state as icon and text: waiting, uploading with percent, processing,
-  done, failed with the reason and a retry, or cancelled. The grid tiles of the open folder show the same
-  states and offer a retry. The upload dialog marks a file over the upload limit as "Too large (size,
-  limit)" before anything is sent; its description and its button count only the files that will be sent
-  ("Upload 3 files") and the description names how many are skipped.
-- Admin UI kit: `Progress` takes `size` (`sm`, `md`) and `tone` (`default`, `success`, `danger`); the new
-  `Spinner` is the busy ring `Button` shows while loading and stands still under `prefers-reduced-motion`;
-  the new `ProgressRow` is one row of a progress list (leading slot, title with tooltip that wraps in narrow
-  rows and, when cut off in wide ones, takes keyboard focus to show its tooltip, meta,
-  thin bar, status as icon and text, message line, actions slot). The icon set gains `circle-check`,
-  `circle-x` and `rotate-ccw`.
+- Media upload panel. In the media library and in the media picker, uploads show in a panel below the
+  listing. Its header counts the files ("3 of 5 uploaded, 1 failed, 1 skipped"), shows an overall bar and
+  offers "Retry failed uploads". One button reads "Cancel" while files wait or run and "Close" once the
+  run is over. A finished run reads "Done" with a check when every file sent was uploaded, and "Finished"
+  with a failure icon otherwise; the panel never closes by itself. Each file has a row with a preview or
+  type icon, its size and its state: waiting, uploading with a percentage, processing, done, failed with
+  the reason and a retry button, cancelled, or skipped with the reason. A row shows a thin bar only while
+  its file uploads or is processed. The grid tiles of the open folder show the same states. The upload
+  dialog marks a file over the upload limit as skipped, "Too large (size, limit)", before anything is
+  sent, and its description and its button count only the files that will be sent. Adding files to an idle
+  panel drops the finished files of the last run and keeps the failed ones that can still be retried.
+- `useMediaUpload()` gains `retry(id)`, `retryFailed()`, `cancel()`, `canRetry(item)`, `clearFinished()`
+  and a `summary` of counts and bytes, and its `onSettled` receives `{ stopped }`. `cancel()` drops the
+  waiting files and aborts the running request; a file whose body is already sent finishes processing.
+- Admin UI kit: `Progress` takes `size` (`sm`, `md`) and `tone` (`default`, `success`, `danger`). The new
+  `Spinner` is the busy ring that `Button` shows while loading; it stands still under
+  `prefers-reduced-motion`. The new `ProgressRow` is one row of a progress list: a leading slot, a title,
+  meta text, a thin bar, the status as icon and text, a message line and an actions slot. In a narrow row
+  the title wraps; in a wide row a title cut off with an ellipsis takes keyboard focus to show its full
+  text in a tooltip. The icon set gains `circle-check`, `circle-x` and `rotate-ccw`.
 - `presetModuleConfig()` now puts every value it derives into each module entry's `defaults`
   (`{ from: "preset", values }`) instead of `config`, and only the consumer's own `overrides` into
   `config`. `/admin/insights` shows a preset-derived value as "Default · Preset" (blue) instead of
@@ -831,21 +840,19 @@
 
 ### Fixed
 
-- Media uploads: a failed file no longer holds up or affects the others, and no file stays "queued" for
-  good. A request that is aborted or times out ends as failed instead of hanging, a callback that throws no
-  longer ends the run, and files dropped while a batch is uploading join that batch instead of clearing it.
-  An expired session shows "Session expired" on the file and stops the run; the remaining files show the
-  same message and upload once retried. A stopped run does not refresh the library, so the page stays put
-  and keeps the files to retry instead of going to the sign-in page. `useMediaUpload()`'s `onSettled`
-  receives `{ stopped }`. Adding files to an idle panel drops the finished files of the last run but keeps
-  the failed ones that can still be retried. A failure without an error answer from kestrel names the cause
-  (no connection, timeout, server unavailable, refused as too large) together with its HTTP status; a 2xx
-  answer without a JSON object, or one reached through a redirect to another address (a proxy's sign-in or
-  block page), fails with its status instead of counting as uploaded.
-  `useMediaUpload()` gains `retry(id)`, `retryFailed()`, `cancel()`, `canRetry(item)`, `clearFinished()`
-  and a `summary` of counts and bytes; `cancel()` lets a file whose body is fully sent finish processing
-  instead of marking it cancelled; closing the media picker aborts the running upload and drops the
-  waiting ones. The upload no longer shows a toast for each failed file.
+- Media uploads: a failed file no longer holds up or affects the others, and no file stays waiting for
+  good. Every request settles once, as done, failed or cancelled. A request without an answer fails as a
+  timeout after two minutes plus the time to send the file at 32 KiB/s. A callback that throws no longer
+  ends the run, and files added during a run join it. An expired session stops the run: that file and the
+  ones still waiting show "Session expired — sign in again in another tab, then retry", and the panel
+  links to the sign-in page in a new tab. Until the next upload succeeds, the library neither refreshes
+  nor polls image variants, so no request sends the page to the sign-in form and the files stay to be
+  retried. A failure without an error answer from kestrel names its cause (no connection, timeout, server
+  unavailable, refused as too large) together with the HTTP status. A 2xx answer that is not a JSON
+  object, or that arrived through a redirect to another address such as a proxy's sign-in page, fails
+  instead of counting as uploaded. Closing the media picker aborts the running upload and drops the
+  waiting ones. No toast is raised per failed file. After a retry from a grid tile, keyboard focus moves
+  to the uploaded file once the library lists it.
 - The layer's `kestrel` CLI plugin and the model reader behind `kestrel upgrade data` compile TypeScript in
   memory only; they no longer keep a transpile cache under the system temp directory, where another local
   account could have placed files that the next `kestrel check`, `explain`, `manifest`, `openapi` or

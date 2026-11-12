@@ -703,56 +703,70 @@ collection, the expected filter and the fix in the message.
   `ApiError { status, code, retryable, message, runId, step?, details? }`. `retryable` is `true` for a `503`
   (with a `Retry-After` header) or `429`; the UI offers a retry and names the `Retry-After` seconds when
   present (`editor.retryable`).
-- `app/composables/useUploadTransport.ts` — the one exception to `useApi.ts`: the multipart
-  `POST /media` upload, which needs `upload.onprogress` (`$fetch` has none). An `XMLHttpRequest`-based
-  transport with the same Bearer token source as `useApi.ts`. It takes `(route, body, { onProgress, signal,
-  timeoutMs })`: a `{ loaded, total, percent }` progress callback, an `AbortSignal` that aborts the request,
-  and an optional timeout. Every request settles exactly once. A kestrel error answer becomes the same
-  `ApiError` as in `useApi.ts`; everything else becomes an `UploadTransportError` (a subclass of `ApiError`)
-  that keeps the HTTP status: `NETWORK`, `ABORTED` or `TIMEOUT` with status 0 when no answer arrived, and
-  for an answer without kestrel's JSON error body (a proxy or gateway page) `PAYLOAD_TOO_LARGE` (413),
-  `TIMEOUT` (408, 504), `UNAVAILABLE` (502, 503) or `HTTP`. A 2xx answer counts as a success only when its
-  body is a JSON object and it did not arrive through a redirect away from the requested address; a sign-in
-  page behind an auth proxy or a firewall's block page fails with `HTTP` and its status. Used only by the `upload` action's
-  `upload.request` step (**UI actions**).
-- `app/utils/upload-queue.ts` — the framework-free runner behind `useMediaUpload`. One runner per queue
-  picks the `queued` items of a live list in order (concurrency 1 unless configured), so a batch added
-  while it runs is appended, not started separately. Each item ends `done`, `failed` or `cancelled` even
-  when its upload or a callback throws. A 401 stops the run and gives the waiting items the same
-  "session expired" message; the idle callback then receives `{ stopped: true }` and the media library
-  skips its refresh, whose 401 would make the reauth interceptor leave the page and drop the files.
-  `retry(id)` and `retryFailed()` queue failed items again, except files
-  refused for their size or type. `cancel()` removes the waiting items and aborts a request whose body is
-  still being sent; a file already `processing` has reached kestrel, which stores it whether or not the
-  client waits, so it runs to its end and settles `done` or `failed` rather than claiming to be cancelled.
-  `useMediaUpload` disposes the runner when its component unmounts, which aborts every request and runs no callback afterwards, also
-  when the unmount happens while `GET /limits` is still loading: the files of that call are then not queued.
-  A new batch on an idle queue first drops the finished items of the previous run, except failed files that
-  can still be retried (a run stopped by an expired session keeps its files until they are retried or the
-  panel is closed).
-- Upload UI in `MediaLibrary.vue`, the same in the media library and in the media picker. Choosing or dropping
-  files opens `MediaUploadDialog.vue`, which lists each file with its size, marks a file over the limit from
-  `GET /limits` as "too large (size, limit)" before anything is sent, and confirms with "Upload N files", N
-  counting only the files that will be sent, as its description does, which also names the skipped count; the oversized ones still join the run and end failed without a
-  request. While the queue holds anything, `MediaUploadPanel.vue` sits below the listing: a header with
-  "X of N uploaded, F failed", an overall bar, "Retry failed uploads", "Cancel" while something waits or runs and
-  "Close" once the run is over (one button whose label and action switch, so keyboard focus stays on it when
-  the run ends), and a scrolling list of `MediaUploadRow.vue`, one per file (waiting,
-  uploading with percent, processing, done, failed with its message and a retry, cancelled). Once the run is
-  over the header says "Done" with a success check only when every file was uploaded, and otherwise
-  "Finished" with a failure icon (a plain cross when files were only cancelled); the summary then also counts
-  the cancelled files. The panel never closes on its own; "Close" drops the finished items. The header is the only live region for uploads:
-  its summary and the image-variant follow-up ("Generating variants…", "Variants ready: …") are polite, and
-  a 401 puts one `role="alert"` line into it; rows carry no live region and no alert. While no panel is shown (nothing
-  uploaded yet, or after "Close"), `MediaLibrary.vue` renders the follow-up in a `role="status"` line of its
-  own in the panel's place, so a picker opened on a file whose variants are still being generated says so,
-  and a variant result after "Close" is still announced; the two never exist at once. The grid tiles of the
-  open folder (`MediaUploadTile.vue`) show the same states and offer retry and dismiss on a failed or
-  cancelled file. A retry from a row or a tile moves keyboard focus to that row or tile, since the retry
-  button disappears once the file is queued again. No toast is raised per file; the panel is in view whenever the queue holds anything, so
-  there is no summary toast either. `utils/upload-state.ts` maps an item's state to the icon, text, bar and
-  message both the row and the tile show, and a run's summary to the panel header (`uploadRunView`); a row has a bar, named "Progress: <file>", only while its file
-  uploads or is processed, since the status text already says waiting, done or failed.
+- `app/composables/useUploadTransport.ts` — the one exception to `useApi.ts`: the multipart `POST /media`
+  upload, which needs `upload.onprogress` (`$fetch` has none). An `XMLHttpRequest`-based transport with
+  the same Bearer token source as `useApi.ts`. It takes
+  `(route, body, { onProgress, signal, timeoutMs })`: a `{ loaded, total, percent }` progress callback, an
+  `AbortSignal` that aborts the request, and a timeout. Every request settles exactly once. A kestrel
+  error answer becomes the same `ApiError` as in `useApi.ts`. Everything else becomes an
+  `UploadTransportError`, a subclass of `ApiError` that keeps the HTTP status: `NETWORK`, `ABORTED` or
+  `TIMEOUT` with status 0 when no answer arrived, and, for an answer without kestrel's JSON error body
+  such as a proxy or gateway page, `PAYLOAD_TOO_LARGE` (413), `TIMEOUT` (408, 504), `UNAVAILABLE` (502,
+  503) or `HTTP`. A 2xx answer counts as a success only when its body is a JSON object and it did not
+  arrive through a redirect away from the requested address, so a sign-in page behind an auth proxy or a
+  firewall's block page fails with `HTTP` and its status. Used only by the `upload` action's
+  `upload.request` step (**UI actions**), which sets the timeout with `uploadTimeoutMs(size)`: two minutes
+  for kestrel to store and process the file, plus the time to send it at 32 KiB/s.
+- `app/utils/upload-queue.ts` — the framework-free runner behind `useMediaUpload`. It works on a live list
+  and picks its `queued` items in order, one at a time unless configured otherwise, so a batch added
+  during a run joins it. Every item ends `done`, `failed`, `cancelled` or `skipped`, also when its upload
+  or a callback throws. `skipped` is set before the run for a file over the upload limit from
+  `GET /limits`, which is never sent. A 401 stops the run: the waiting items fail with the same "session
+  expired" message, and the idle callback receives `{ stopped: true }`. `retry(id)` and `retryFailed()`
+  queue failed and cancelled items again, except files refused for their size or type. `cancel()` removes
+  the waiting items and aborts a request whose body is still being sent. A file already `processing` has
+  reached kestrel, which stores it whether or not the client waits, so it runs to its end and settles
+  `done` or `failed`. `useMediaUpload` disposes the runner when its component unmounts: every request is
+  aborted, no callback runs afterwards, and files whose `GET /limits` call was still loading are not
+  queued. A new batch on an idle queue drops the finished items of the last run but keeps the failed files
+  that can still be retried.
+- Upload UI in `MediaLibrary.vue`, the same in the media library and in the media picker;
+  `useMediaLibraryUploads()` connects the queue to the library.
+  - Dialog. Choosing or dropping files opens `MediaUploadDialog.vue`. It lists each file with its size and
+    marks a file over the limit from `GET /limits` as skipped, "Too large (size, limit)", in a muted row.
+    Its description and its confirm button ("Upload 3 files") count only the files that will be sent; the
+    description adds how many are skipped.
+  - Panel. While the queue holds anything, `MediaUploadPanel.vue` sits below the listing. Its header shows
+    the summary ("3 of 4 uploaded, 1 failed, 1 skipped"; skipped files are not part of the total), an
+    overall bar and "Retry failed uploads" while a failed file can be retried. One button reads "Cancel"
+    during the run and "Close" afterwards, so keyboard focus stays on it when the run ends. A finished run
+    reads "Done" with a check when every file sent was uploaded, otherwise "Finished" with a failure icon,
+    or with a plain cross when files were only cancelled. The panel never closes by itself; "Close" drops
+    the finished items.
+  - Rows. Below the header, a list with its own scroll bar holds one `MediaUploadRow.vue` per file.
+    `utils/upload-state.ts` maps the file's state to what the row shows: waiting, uploading with a
+    percentage, processing, done, failed with the reason and a retry button, cancelled, or skipped in a
+    muted tone with the reason. A row has a bar, named "Progress: <file>", only while its file uploads or
+    is processed. `uploadRunView` in the same file builds the header from the run's summary.
+  - Layout. The library scrolls as a whole when the listing, kept at least `min(10rem, 25svh)` tall, and
+    the panel do not fit, so on a short screen or at a high zoom neither is cut off.
+  - Announcements. The panel header is the only live region for uploads. Its summary and the image-variant
+    follow-up ("Generating variants…", "Variants ready: …") are polite. An expired session adds one
+    `role="alert"` line that asks the user to sign in again in another tab and links to the sign-in page
+    with `target="_blank"`; the rows carry no live region. While no panel is shown, `MediaLibrary.vue`
+    renders the follow-up in a `role="status"` line of its own in the panel's place; the two never exist
+    at once.
+  - Expired session. A run stopped by a 401 does not refresh the library, and `useVariantWatch().pause()`
+    stops the image-variant polls until the next file is tracked after a successful upload. A 401 on
+    either request would make the reauth interceptor leave the page and drop the files that wait to be
+    retried.
+  - Grid tiles. The tiles of the open folder (`MediaUploadTile.vue`) show the same states and offer retry
+    and dismiss on a failed, cancelled or skipped file. A retry from a row or a tile moves keyboard focus
+    to that row or tile, since the retry button disappears once the file is queued again. When the library
+    then lists the uploaded file and the tile leaves the grid, focus moves to the listed file, or to the
+    library when the file is not listed.
+  - Toasts. No toast is raised per file. The panel is in view whenever the queue holds anything, so there
+    is no summary toast either.
 - `app/composables/useAuth.ts` — login/logout/me/change password/`refreshAccess()` (own-role change);
   gating goes through `useCapabilities()` (`has(pipeline)`/`hasVerb(collection, verb)`), not a role
   table.
@@ -1178,7 +1192,7 @@ listed name is never registered.
 | `data.reload:files` / `data.reload:folders` | `actions/media.ts` | A reload that only fires when its batch actually had items; `deleteItems` runs one for files, one for folders. |
 | `guard.filesDeleted` / `guard.foldersDeleted` | `actions/media.ts` | Fails `deleteItems`'s main sequence when the file batch, respectively the folder batch, reported any failure. |
 | `media.applyTargets` | `actions/media.ts` | Does the one write `renameOrMove` needs: a file rename, a folder rename, or a multi-target move. |
-| `upload.begin` / `upload.request` / `upload.settle` | `actions/media.ts` | Marks the queued item `'uploading'` (`progress` 0) and clears an earlier attempt's message and code; sends the multipart POST through the injected `useUploadTransport` transport with the caller's abort signal, updating `progress` from its callback and switching to `'processing'` at 100% until the response arrives. A failure sets `'failed'`, the error code and a translated message (`media.upload.sessionExpired` for a 401, the HTTP status appended for an answer that did not come from kestrel); an abort sets `'cancelled'`. Then seeds `ctx.result` with the item. |
+| `upload.begin` / `upload.request` / `upload.settle` | `actions/media.ts` | Marks the queued item `'uploading'` (`progress` 0) and clears an earlier attempt's message and code; sends the multipart POST through the injected `useUploadTransport` transport with the caller's abort signal and a timeout from `uploadTimeoutMs()`, updating `progress` from its callback and switching to `'processing'` at 100% until the response arrives. A failure sets `'failed'`, the error code and a translated message (`media.upload.sessionExpired` for a 401, the HTTP status appended for an answer that did not come from kestrel); an abort sets `'cancelled'`. Then seeds `ctx.result` with the item. |
 | `user.validate` | `actions/system.ts` | Field validation before the request; declared separately, under the same name, in `userCreate` (username + password) and `userUpdate` (username, plus the password only when one was typed). |
 | `user.patch` / `user.active` / `user.password` | `actions/system.ts` | The three halves of `userUpdate`: `PATCH /users/{id}` with only the changed fields, `POST /users/{id}/deactivate` or `/activate`, `PUT /users/{id}/password`. Each is a no-op when its part did not change, and each maps the failure through `utils/user-errors.ts` into the inline error. |
 | `user.delete` | `actions/system.ts` | `DELETE /users/{id}`, with the same error mapping. |
