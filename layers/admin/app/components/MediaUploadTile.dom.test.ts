@@ -99,7 +99,7 @@ describe('MediaUploadTile', () => {
     expect(wrapper.get('.media-upload-tile__failed').text()).toContain('Too large')
 
     expect(wrapper.find('[aria-label="Retry a.png"]').exists()).toBe(false)
-    expect(wrapper.find('[aria-label="Dismiss error for a.png"]').exists()).toBe(true)
+    expect(wrapper.find('[aria-label="Dismiss a.png"]').exists()).toBe(true)
   })
 
   it('shows a cancelled tile with its state text and a retry', async () => {
@@ -107,6 +107,7 @@ describe('MediaUploadTile', () => {
 
     expect(wrapper.get('.media-upload-tile__failed').text()).toContain('Cancelled')
     expect(wrapper.find('[aria-label="Retry a.png"]').exists()).toBe(true)
+    expect(wrapper.find('[aria-label="Dismiss a.png"]').exists()).toBe(true)
   })
 
   it('names the state in text below the bar while the file waits', async () => {

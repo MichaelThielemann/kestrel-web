@@ -599,7 +599,7 @@ export const en = {
   'media.upload.originHint': 'Declare AI-generated files (EU AI Act Art. 50).',
   'media.upload.processing': 'Generating variants…',
   'media.upload.progressLabel': 'Progress: {name}',
-  'media.upload.dismiss': 'Dismiss error for {name}',
+  'media.upload.dismiss': 'Dismiss {name}',
   'media.upload.sessionExpired': 'Session expired — sign in again in another tab, then retry',
   'media.upload.signInNewTab': 'Open sign-in in a new tab',
   'media.upload.network': 'No connection to the server',
