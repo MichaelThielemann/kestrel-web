@@ -14,8 +14,16 @@ const emit = defineEmits<{ retry: [id: string]; retryFailed: []; cancel: []; clo
 const { t } = useT()
 
 const countText = computed(() => {
-  const { done, total, failed } = props.summary
+  const { done, total, failed, cancelled } = props.summary
+  if (failed && cancelled) return t('media.upload.summaryFailedCancelled', { done, total, failed, cancelled })
+  if (cancelled) return t('media.upload.summaryCancelled', { done, total, cancelled })
   return failed ? t('media.upload.summaryFailed', { done, total, failed }) : t('media.upload.summary', { done, total })
+})
+
+const finished = computed(() => {
+  const { failed, cancelled } = props.summary
+  if (!failed && !cancelled) return { icon: 'circle-check' as const, tone: 'success', text: t('media.upload.done') }
+  return { icon: failed ? ('circle-x' as const) : ('x' as const), tone: failed ? 'danger' : 'muted', text: t('media.upload.finished') }
 })
 
 const overall = computed(() => {
@@ -58,8 +66,8 @@ const sessionMessage = computed(() => props.items.find((item) => item.status ===
     <header class="media-upload-panel__head">
       <div class="media-upload-panel__summary" aria-live="polite">
         <p class="media-upload-panel__count">
-          <span v-if="summary.finished" class="media-upload-panel__done">
-            <KestrelUiIcon name="circle-check" :size="16" /> {{ t('media.upload.done') }}
+          <span v-if="summary.finished" class="media-upload-panel__finished" :class="`media-upload-panel__finished--${finished.tone}`">
+            <KestrelUiIcon :name="finished.icon" :size="16" /> {{ finished.text }}
           </span>
           <span>{{ countText }}</span>
         </p>
@@ -119,14 +127,22 @@ const sessionMessage = computed(() => props.items.find((item) => item.status ===
   font-weight: var(--weight-medium);
 }
 
-.media-upload-panel__done {
+.media-upload-panel__finished {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
+}
 
-  .ui-icon {
-    color: var(--color-success);
-  }
+.media-upload-panel__finished--success .ui-icon {
+  color: var(--color-success);
+}
+
+.media-upload-panel__finished--danger .ui-icon {
+  color: var(--color-danger);
+}
+
+.media-upload-panel__finished--muted .ui-icon {
+  color: var(--color-text-muted);
 }
 
 .media-upload-panel__follow-up {

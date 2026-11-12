@@ -735,8 +735,10 @@ collection, the expected filter and the fix in the message.
   request. While the queue holds anything, `MediaUploadPanel.vue` sits below the listing: a header with
   "X of N uploaded, F failed", an overall bar, "Retry failed uploads", "Cancel" while something waits or runs and
   "Close" once the run is over, and a scrolling list of `MediaUploadRow.vue`, one per file (waiting,
-  uploading with percent, processing, done, failed with its message and a retry, cancelled). The panel never
-  closes on its own; "Close" drops the finished items. The header is the only live region for uploads:
+  uploading with percent, processing, done, failed with its message and a retry, cancelled). Once the run is
+  over the header says "Done" with a success check only when every file was uploaded, and otherwise
+  "Finished" with a failure icon (a plain cross when files were only cancelled); the summary then also counts
+  the cancelled files. The panel never closes on its own; "Close" drops the finished items. The header is the only live region for uploads:
   its summary and the image-variant follow-up ("Generating variants…", "Variants ready: …") are polite, and
   a 401 puts one `role="alert"` line into it; rows carry no live region and no alert. The grid tiles of the
   open folder (`MediaUploadTile.vue`) show the same states and offer retry and dismiss on a failed or

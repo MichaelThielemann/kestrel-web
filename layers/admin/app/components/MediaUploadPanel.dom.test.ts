@@ -61,6 +61,48 @@ describe('MediaUploadPanel', () => {
     expect(wrapper.emitted('close')).toHaveLength(1)
   })
 
+  it('shows a success check in the finished header only when every file was uploaded', async () => {
+    const wrapper = await mount([item({ status: 'done', progress: 100 })])
+
+    const head = wrapper.get('.media-upload-panel__head')
+    expect(head.find('svg[data-icon="circle-check"]').exists()).toBe(true)
+    expect(head.find('svg[data-icon="circle-x"]').exists()).toBe(false)
+  })
+
+  it('says "Finished" with a failure icon, not a success check, when files failed', async () => {
+    const message = en['media.upload.sessionExpired']
+    const wrapper = await mount([
+      item({ status: 'failed', code: 'UNAUTHENTICATED', message }),
+      item({ status: 'failed', code: 'UNAUTHENTICATED', message }),
+    ])
+
+    const live = wrapper.get('[aria-live="polite"]')
+    expect(live.text()).toContain(en['media.upload.finished'])
+    expect(live.text()).not.toContain(en['media.upload.done'])
+    expect(live.text()).toContain('0 of 2 uploaded, 2 failed')
+    expect(live.find('svg[data-icon="circle-check"]').exists()).toBe(false)
+    expect(live.find('.media-upload-panel__finished--danger svg[data-icon="circle-x"]').exists()).toBe(true)
+  })
+
+  it('counts cancelled files in the summary and does not call a cancelled run done', async () => {
+    const wrapper = await mount([
+      item({ status: 'done', progress: 100 }),
+      item({ status: 'failed', code: 'NETWORK', message: 'No connection' }),
+      item({ status: 'cancelled' }),
+    ])
+
+    const live = wrapper.get('[aria-live="polite"]')
+    expect(live.text()).toContain('1 of 3 uploaded, 1 failed, 1 cancelled')
+    expect(live.text()).toContain(en['media.upload.finished'])
+    expect(live.find('svg[data-icon="circle-check"]').exists()).toBe(false)
+
+    const onlyCancelled = await mount([item({ status: 'done', progress: 100 }), item({ status: 'cancelled' })])
+    const quiet = onlyCancelled.get('[aria-live="polite"]')
+    expect(quiet.text()).toContain('1 of 2 uploaded, 1 cancelled')
+    expect(quiet.text()).toContain(en['media.upload.finished'])
+    expect(quiet.find('svg[data-icon="circle-check"]').exists()).toBe(false)
+  })
+
   it('offers "Retry failed uploads" only when a failed file can be retried', async () => {
     const onlyTooLarge = await mount([item({ status: 'failed', code: 'TOO_LARGE', message: 'Too large' })])
     const retryable = await mount([item({ status: 'failed', code: 'NETWORK', message: 'No connection' })])
