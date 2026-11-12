@@ -37,14 +37,16 @@ const progressText = computed(() => state.value.status.text)
       <p class="media-upload-tile__name">{{ item.filename }}</p>
       <p class="media-upload-tile__message">{{ state.message ?? state.status.text }}</p>
       <div class="media-upload-tile__actions">
-        <KestrelUiButton
-          v-if="retryable"
-          variant="ghost"
-          size="sm"
-          icon="rotate-ccw"
-          :aria-label="t('media.upload.retryName', { name: item.filename })"
-          @click="emit('retry', item.id)"
-        >{{ t('common.retry') }}</KestrelUiButton>
+        <KestrelUiTooltip v-if="retryable">
+          <KestrelUiButton
+            variant="ghost"
+            size="sm"
+            icon="rotate-ccw"
+            :aria-label="t('media.upload.retryName', { name: item.filename })"
+            @click="emit('retry', item.id)"
+          />
+          <template #content>{{ t('common.retry') }}</template>
+        </KestrelUiTooltip>
         <KestrelUiButton
           type="button"
           variant="ghost"
@@ -143,6 +145,7 @@ const progressText = computed(() => state.value.status.text)
 }
 
 .media-upload-tile__name {
+  max-width: 100%;
   font-size: var(--text-sm);
   overflow: hidden;
   text-overflow: ellipsis;

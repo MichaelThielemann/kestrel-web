@@ -102,4 +102,22 @@ describe('MediaUploadPanel', () => {
 
     expect(wrapper.get('.media-upload-panel__list').attributes('tabindex')).toBe('0')
   })
+
+  it('colours the overall bar by how the finished run went', async () => {
+    const clean = await mount([item({ status: 'done', progress: 100 })])
+    const withFailure = await mount([item({ status: 'done', progress: 100 }), item({ status: 'failed', code: 'NETWORK', message: 'No connection' })])
+    const overall = `[role="progressbar"][aria-label="${en['media.upload.overall']}"]`
+
+    expect(clean.get(overall).classes()).toContain('ui-progress--success')
+    expect(withFailure.get(overall).classes()).toContain('ui-progress--danger')
+  })
+
+  it('names its Cancel and Close buttons after the uploads, keeping the visible word in the name', async () => {
+    const running = await mount([item()])
+    const finished = await mount([item({ status: 'done', progress: 100 })])
+
+    expect(button(running, en['common.cancel'])?.attributes('aria-label')).toBe(en['media.upload.cancelAll'])
+    expect(button(finished, en['common.close'])?.attributes('aria-label')).toBe(en['media.upload.closePanel'])
+  })
 })
+

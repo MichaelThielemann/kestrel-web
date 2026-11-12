@@ -616,6 +616,8 @@ export const de: Record<CatalogKey, string> = {
   'media.upload.failed': 'Fehlgeschlagen',
   'media.upload.retryName': '{name} erneut versuchen',
   'media.upload.retryFailed': 'Fehlgeschlagene erneut versuchen',
+  'media.upload.cancelAll': 'Uploads abbrechen',
+  'media.upload.closePanel': 'Uploads schließen',
   'media.upload.tooLargeShort': 'Zu groß ({size}, Limit {limit})',
   'media.upload.confirmOne': '1 Datei hochladen',
   'media.upload.confirmCount': '{n} Dateien hochladen',

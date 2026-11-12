@@ -49,7 +49,7 @@ test("an uploaded file is picked as a share image and then refuses deletion whil
   await page.getByRole("button", { name: "Hochladen" }).click();
   await (await chooser).setFiles({ name: "teaser.png", mimeType: "image/png", buffer: gradientPng(800, 500, [200, 60, 60], [60, 60, 200]) });
   const uploaded = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname === "/api/media");
-  await page.getByRole("dialog", { name: "Dateien hochladen" }).getByRole("button", { name: "Hochladen" }).click();
+  await page.getByRole("dialog", { name: "Dateien hochladen" }).getByRole("button", { name: "1 Datei hochladen" }).click();
   const upload = await uploaded;
   expect(upload.status()).toBeLessThan(300);
   const body: unknown = await upload.json();

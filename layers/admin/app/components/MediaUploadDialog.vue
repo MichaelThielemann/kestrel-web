@@ -93,6 +93,7 @@ function confirm() {
   padding: 0;
   max-height: 14rem;
   overflow: auto;
+  border-block: 1px solid var(--color-border);
 
   > li + li {
     border-top: 1px solid var(--color-border);

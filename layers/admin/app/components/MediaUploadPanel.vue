@@ -24,7 +24,11 @@ const overall = computed(() => {
   return ((props.summary.settled + partial) / props.items.length) * 100
 })
 
-const overallTone = computed(() => (props.summary.finished && props.summary.done === props.summary.total ? 'success' : 'default'))
+const overallTone = computed(() => {
+  if (!props.summary.finished) return 'default'
+  if (props.summary.failed) return 'danger'
+  return props.summary.done === props.summary.total ? 'success' : 'default'
+})
 const retryableFailed = computed(() => props.items.some((item) => item.status === 'failed' && props.canRetry(item)))
 const actions = ref<HTMLElement | null>(null)
 let keepFocus = false
@@ -63,8 +67,8 @@ const sessionMessage = computed(() => props.items.find((item) => item.status ===
       </div>
       <div ref="actions" class="media-upload-panel__actions">
         <KestrelUiButton v-if="retryableFailed" size="sm" variant="secondary" icon="rotate-ccw" @click="act('retryFailed')">{{ t('media.upload.retryFailed') }}</KestrelUiButton>
-        <KestrelUiButton v-if="!summary.finished" size="sm" variant="secondary" @click="act('cancel')">{{ t('common.cancel') }}</KestrelUiButton>
-        <KestrelUiButton v-else size="sm" variant="secondary" @click="emit('close')">{{ t('common.close') }}</KestrelUiButton>
+        <KestrelUiButton v-if="!summary.finished" size="sm" variant="secondary" :aria-label="t('media.upload.cancelAll')" @click="act('cancel')">{{ t('common.cancel') }}</KestrelUiButton>
+        <KestrelUiButton v-else size="sm" variant="secondary" :aria-label="t('media.upload.closePanel')" @click="emit('close')">{{ t('common.close') }}</KestrelUiButton>
       </div>
       <KestrelUiProgress class="media-upload-panel__overall" :value="overall" :label="t('media.upload.overall')" :value-text="countText" :tone="overallTone" />
       <p v-if="sessionMessage" class="media-upload-panel__alert" role="alert">
@@ -92,8 +96,8 @@ const sessionMessage = computed(() => props.items.find((item) => item.status ===
 }
 
 .media-upload-panel__head {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2) var(--space-3);
   padding: var(--space-3) var(--space-4);
@@ -101,6 +105,7 @@ const sessionMessage = computed(() => props.items.find((item) => item.status ===
 }
 
 .media-upload-panel__summary {
+  flex: 1 1 14rem;
   min-width: 0;
 }
 
@@ -132,6 +137,8 @@ const sessionMessage = computed(() => props.items.find((item) => item.status ===
 
 .media-upload-panel__actions {
   display: flex;
+  flex: 0 1 auto;
+  margin-inline-start: auto;
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: var(--space-2);
@@ -139,7 +146,7 @@ const sessionMessage = computed(() => props.items.find((item) => item.status ===
 
 .media-upload-panel__overall,
 .media-upload-panel__alert {
-  grid-column: 1 / -1;
+  flex-basis: 100%;
 }
 
 .media-upload-panel__alert {
@@ -155,7 +162,7 @@ const sessionMessage = computed(() => props.items.find((item) => item.status ===
   list-style: none;
   margin: 0;
   padding: 0 var(--space-4);
-  max-height: min(16rem, 35vh);
+  max-height: min(16rem, 30vh);
   overflow-y: auto;
 
   @include mixins.focus-ring;

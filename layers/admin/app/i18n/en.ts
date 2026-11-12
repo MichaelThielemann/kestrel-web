@@ -614,6 +614,8 @@ export const en = {
   'media.upload.failed': 'Failed',
   'media.upload.retryName': 'Retry {name}',
   'media.upload.retryFailed': 'Retry failed',
+  'media.upload.cancelAll': 'Cancel uploads',
+  'media.upload.closePanel': 'Close uploads',
   'media.upload.tooLargeShort': 'Too large ({size}, limit {limit})',
   'media.upload.confirmOne': 'Upload 1 file',
   'media.upload.confirmCount': 'Upload {n} files',
