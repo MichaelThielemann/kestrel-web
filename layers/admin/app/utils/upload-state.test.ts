@@ -56,10 +56,22 @@ describe('uploadStateView', () => {
     expect(view.status.text).toBe('media.upload.cancelled')
     expect(view.message).toBeUndefined()
   })
+
+  it('shows a file skipped for its size muted, with the reason and no bar', () => {
+    const view = uploadStateView({ ...base, status: 'skipped', message: 'Too large (60.0 MB, limit 20.0 MB)' }, t)
+
+    expect(view.tone).toBe('muted')
+    expect(view.status).toEqual({ text: 'media.upload.wasSkipped', icon: 'minus', tone: 'muted' })
+    expect(view.message).toBe('Too large (60.0 MB, limit 20.0 MB)')
+    expect(view.progress).toBeUndefined()
+  })
 })
 
 describe('uploadRunView', () => {
-  const run = (...states: QueueEntry['status'][]) => uploadRunView(summarizeUploads(states.map((status, i) => ({ id: `${i}`, status, progress: 0, file: { size: 1 } }))), t)
+  const run = (...states: QueueEntry['status'][]) => {
+    const items = states.map((status, i) => ({ id: `${i}`, status, progress: 0, file: { size: 1 } }))
+    return uploadRunView(summarizeUploads(items), t, items)
+  }
 
   it('counts done and total while the run goes on, with a plain bar', () => {
     const view = run('done', 'uploading', 'queued')
@@ -78,14 +90,32 @@ describe('uploadRunView', () => {
   it('calls a run with failures finished, with a failure icon and a danger bar', () => {
     const view = run('failed', 'failed')
 
-    expect(view.countText).toBe('media.upload.summaryFailed {"done":0,"total":2,"failed":2}')
+    expect(view.countText).toBe('media.upload.summary {"done":0,"total":2}, media.upload.countFailed {"n":2}')
     expect(view.finished).toEqual({ text: 'media.upload.finished', icon: 'circle-x', tone: 'danger' })
     expect(view.barTone).toBe('danger')
   })
 
   it('counts cancelled files and does not call a cancelled run done', () => {
-    expect(run('done', 'cancelled').countText).toBe('media.upload.summaryCancelled {"done":1,"total":2,"cancelled":1}')
+    expect(run('done', 'cancelled').countText).toBe('media.upload.summary {"done":1,"total":2}, media.upload.countCancelled {"n":1}')
     expect(run('done', 'cancelled').finished).toEqual({ text: 'media.upload.finished', icon: 'x', tone: 'muted' })
-    expect(run('done', 'failed', 'cancelled').countText).toBe('media.upload.summaryFailedCancelled {"done":1,"total":3,"failed":1,"cancelled":1}')
+    expect(run('done', 'failed', 'cancelled').countText).toBe('media.upload.summary {"done":1,"total":3}, media.upload.countFailed {"n":1}, media.upload.countCancelled {"n":1}')
+  })
+
+  it('calls a run done when every file sent was uploaded, and counts the skipped ones apart', () => {
+    const view = run('done', 'done', 'skipped')
+
+    expect(view.countText).toBe('media.upload.summary {"done":2,"total":2}, media.upload.countSkipped {"n":1}')
+    expect(view.finished).toEqual({ text: 'media.upload.done', icon: 'circle-check', tone: 'success' })
+    expect(view.barTone).toBe('success')
+  })
+
+  it('puts the files settled and the share sent of the running ones into the overall percent, leaving skipped files out', () => {
+    const items: QueueEntry[] = [
+      { id: 'a', status: 'done', progress: 100, file: { size: 1 } },
+      { id: 'b', status: 'uploading', progress: 50, file: { size: 1 } },
+      { id: 'c', status: 'skipped', progress: 0, file: { size: 1 } },
+    ]
+
+    expect(uploadRunView(summarizeUploads(items), t, items).overall).toBe(75)
   })
 })

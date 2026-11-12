@@ -40,6 +40,8 @@ describe('MediaUploadDialog', () => {
     expect(rows).toHaveLength(2)
     expect(rows[0]?.textContent).toContain('Too large (60.0 MB, limit 20.0 MB)')
     expect(rows[0]?.textContent).toContain(en['media.upload.skipped'])
+    expect(rows[0]?.classList).toContain('ui-progress-row--muted')
+    expect(rows[0]?.querySelector('svg[data-icon="minus"]')).toBeTruthy()
     expect(rows[1]?.querySelector('.ui-progress-row__message')).toBeNull()
   })
 

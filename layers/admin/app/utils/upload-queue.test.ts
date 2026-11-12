@@ -349,6 +349,7 @@ describe('isRetryable', () => {
     ['failed', 'TOO_LARGE', false],
     ['failed', 'PAYLOAD_TOO_LARGE', false],
     ['failed', 'UNSUPPORTED', false],
+    ['skipped', 'TOO_LARGE', false],
     ['done', undefined, false],
     ['queued', undefined, false],
   ] as const)('%s with code %s is retryable: %s', (status, code, expected) => {
@@ -368,9 +369,18 @@ describe('summarizeUploads', () => {
     ])
 
     expect(summary).toEqual({
-      total: 6, queued: 1, active: 2, done: 1, failed: 1, cancelled: 1, settled: 3,
+      total: 6, queued: 1, active: 2, done: 1, failed: 1, cancelled: 1, skipped: 0, settled: 3,
       bytesTotal: 3000, bytesSent: 1400, finished: false,
     })
+  })
+
+  it('counts a skipped file on its own, outside the total, the settled files and the bytes', () => {
+    const summary = summarizeUploads([
+      entry('a', { status: 'done', file: { size: 1000 } }),
+      entry('b', { status: 'skipped', code: 'TOO_LARGE', file: { size: 9000 } }),
+    ])
+
+    expect(summary).toMatchObject({ total: 1, done: 1, skipped: 1, failed: 0, settled: 1, bytesTotal: 1000, bytesSent: 1000, finished: true })
   })
 
   it('is finished once nothing waits or runs', () => {

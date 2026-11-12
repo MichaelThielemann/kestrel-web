@@ -118,14 +118,17 @@ describe('useMediaUpload', () => {
   })
 
   describe('a file over the limit among valid files', () => {
-    it('never sends the oversized file and uploads the rest', async () => {
+    it('never sends the oversized file, skips it without counting it as an error and uploads the rest', async () => {
       limits(() => ({ maxUploadBytes: 20 * MiB }))
+      const onError = vi.fn()
 
-      const { wrapper, api } = await mountProbe()
+      const { wrapper, api } = await mountProbe({ onError })
       await api.enqueue([file('huge.png', 60 * MiB), file('a.png'), file('b.png')], '')
 
       expect(runningNames()).toEqual(['a.png', 'b.png'])
-      expect(statuses(api)).toEqual([['huge.png', 'failed'], ['a.png', 'done'], ['b.png', 'done']])
+      expect(statuses(api)).toEqual([['huge.png', 'skipped'], ['a.png', 'done'], ['b.png', 'done']])
+      expect(onError).not.toHaveBeenCalled()
+      expect(api.summary.value).toMatchObject({ total: 2, done: 2, skipped: 1, failed: 0 })
       expect(api.queue.value[0]?.message).toBe(en['media.upload.tooLargeShort'].replace('{size}', '60.0 MB').replace('{limit}', '20.0 MB'))
       expect(api.queue.value[0]?.code).toBe('TOO_LARGE')
       wrapper.unmount()
@@ -237,7 +240,7 @@ describe('useMediaUpload', () => {
 
     const { wrapper, api } = await mountProbe()
     await api.enqueue([file('ok.png', 1), file('a.png', 1), file('b.png', 1), file('huge.png', 100)], '')
-    expect(statuses(api)).toEqual([['ok.png', 'done'], ['a.png', 'failed'], ['b.png', 'failed'], ['huge.png', 'failed']])
+    expect(statuses(api)).toEqual([['ok.png', 'done'], ['a.png', 'failed'], ['b.png', 'failed'], ['huge.png', 'skipped']])
 
     await api.enqueue([file('c.png', 1)], '')
 

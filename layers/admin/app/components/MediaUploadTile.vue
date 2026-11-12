@@ -17,7 +17,7 @@ const emit = defineEmits<{ dismiss: [id: string]; retry: [id: string] }>()
 const { t } = useT()
 
 const ready = computed(() => props.item.status === 'done')
-const failed = computed(() => props.item.status === 'failed' || props.item.status === 'cancelled')
+const failed = computed(() => props.item.status === 'failed' || props.item.status === 'cancelled' || props.item.status === 'skipped')
 const fallbackIcon = computed(() => (props.item.file.type.startsWith('image/') ? 'image' : 'file-text'))
 const progressValue = computed(() => {
   if (props.item.status === 'queued') return 0
@@ -36,7 +36,7 @@ function retry() {
 
 <template>
   <div ref="root" class="media-upload-tile" tabindex="-1" :aria-busy="!ready && !failed">
-    <div v-if="failed" class="media-upload-tile__failed" :class="{ 'media-upload-tile__failed--cancelled': item.status === 'cancelled' }">
+    <div v-if="failed" class="media-upload-tile__failed" :class="{ 'media-upload-tile__failed--muted': state.tone === 'muted' }">
       <span class="media-upload-tile__thumb-wrap">
         <span class="media-upload-tile__badge" aria-hidden="true"><KestrelUiIcon :name="state.status.icon ?? 'circle-x'" :size="24" /></span>
       </span>
@@ -171,7 +171,7 @@ function retry() {
   text-align: center;
 }
 
-.media-upload-tile__failed--cancelled {
+.media-upload-tile__failed--muted {
   color: var(--color-text-muted);
 }
 

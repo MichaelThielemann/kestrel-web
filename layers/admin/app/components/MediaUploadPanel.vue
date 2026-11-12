@@ -14,14 +14,8 @@ const props = defineProps<{
 const emit = defineEmits<{ retry: [id: string]; retryFailed: []; cancel: []; close: [] }>()
 const { t } = useT()
 
-const run = computed(() => uploadRunView(props.summary, t))
+const run = computed(() => uploadRunView(props.summary, t, props.items))
 const countText = computed(() => run.value.countText)
-
-const overall = computed(() => {
-  if (!props.items.length) return 0
-  const partial = props.items.reduce((sum, item) => (item.status === 'uploading' || item.status === 'processing' ? sum + item.progress / 100 : sum), 0)
-  return ((props.summary.settled + partial) / props.items.length) * 100
-})
 
 const retryableFailed = computed(() => props.items.some((item) => item.status === 'failed' && props.canRetry(item)))
 const actions = ref<HTMLElement | null>(null)
@@ -76,7 +70,7 @@ const sessionMessage = computed(() => props.items.find((item) => item.status ===
         <KestrelUiButton v-if="retryableFailed" size="sm" variant="secondary" icon="rotate-ccw" @click="act('retryFailed')">{{ t('media.upload.retryFailed') }}</KestrelUiButton>
         <KestrelUiButton size="sm" variant="secondary" :aria-label="endAction.label" @click="endAction.run">{{ endAction.text }}</KestrelUiButton>
       </div>
-      <KestrelUiProgress class="media-upload-panel__overall" :value="overall" :label="t('media.upload.overall')" :value-text="countText" :tone="run.barTone" />
+      <KestrelUiProgress class="media-upload-panel__overall" :value="run.overall" :label="t('media.upload.overall')" :value-text="countText" :tone="run.barTone" />
       <p v-if="sessionMessage" class="media-upload-panel__alert" role="alert">
         <KestrelUiIcon name="triangle-alert" :size="16" /> {{ sessionMessage }}
         <a href="/admin/login" target="_blank" rel="noopener">{{ t('media.upload.signInNewTab') }}</a>

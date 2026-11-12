@@ -82,7 +82,7 @@ export function useMediaUpload(options: UseMediaUploadOptions = {}) {
   function addItem(pending: PendingUpload, provenance: Provenance | undefined, max: number | null): UploadItem {
     const item: UploadItem = { id: `u${++seq}`, file: pending.file, filename: pending.file.name, folder: pending.folder, provenance, status: 'queued', progress: 0 }
     if (max !== null && exceedsUploadLimit(pending.file.size, max)) {
-      item.status = 'failed'
+      item.status = 'skipped'
       item.code = 'TOO_LARGE'
       item.message = deps.t('media.upload.tooLargeShort', { size: humanizeSize(pending.file.size), limit: humanizeSize(max) })
     }

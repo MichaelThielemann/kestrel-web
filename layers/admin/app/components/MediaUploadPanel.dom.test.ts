@@ -104,8 +104,22 @@ describe('MediaUploadPanel', () => {
     expect(quiet.find('svg[data-icon="circle-check"]').exists()).toBe(false)
   })
 
+  it('shows a file skipped for its size as a muted row and calls the run done when every sent file was uploaded', async () => {
+    const wrapper = await mount([item({ status: 'done', progress: 100 }), item({ status: 'skipped', code: 'TOO_LARGE', message: 'Too large (60.0 MB, limit 20.0 MB)' })])
+
+    const live = wrapper.get('[aria-live="polite"]')
+    expect(live.text()).toContain('1 of 1 uploaded, 1 skipped')
+    expect(live.text()).toContain(en['media.upload.done'])
+    expect(live.find('svg[data-icon="circle-check"]').exists()).toBe(true)
+    const skipped = wrapper.findAll('.ui-progress-row')[1]
+    expect(skipped?.classes()).toContain('ui-progress-row--muted')
+    expect(skipped?.text()).toContain(en['media.upload.wasSkipped'])
+    expect(skipped?.text()).toContain('Too large (60.0 MB, limit 20.0 MB)')
+    expect(wrapper.find('.ui-progress--danger').exists()).toBe(false)
+  })
+
   it('offers "Retry failed uploads" only when a failed file can be retried', async () => {
-    const onlyTooLarge = await mount([item({ status: 'failed', code: 'TOO_LARGE', message: 'Too large' })])
+    const onlyTooLarge = await mount([item({ status: 'skipped', code: 'TOO_LARGE', message: 'Too large' })])
     const retryable = await mount([item({ status: 'failed', code: 'NETWORK', message: 'No connection' })])
 
     expect(button(onlyTooLarge, en['media.upload.retryFailed'])).toBeUndefined()

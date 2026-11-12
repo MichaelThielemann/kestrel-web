@@ -1,4 +1,5 @@
-export type QueueStatus = 'queued' | 'uploading' | 'processing' | 'done' | 'failed' | 'cancelled'
+/** `skipped` marks a file the client refused before sending it, such as one over the upload limit. */
+export type QueueStatus = 'queued' | 'uploading' | 'processing' | 'done' | 'failed' | 'cancelled' | 'skipped'
 
 /** The fields of an upload the queue reads and writes. */
 export interface QueueEntry {
@@ -44,7 +45,7 @@ export interface UploadQueue {
   dispose: () => void
 }
 
-const FINAL = new Set<QueueStatus>(['done', 'failed', 'cancelled'])
+const FINAL = new Set<QueueStatus>(['done', 'failed', 'cancelled', 'skipped'])
 const PERMANENT_CODES = new Set(['TOO_LARGE', 'PAYLOAD_TOO_LARGE', 'UNSUPPORTED'])
 
 /** Whether sending the item again could succeed: it failed or was cancelled, and not for its size or type. */
@@ -179,6 +180,7 @@ export function createUploadQueue<I extends QueueEntry>(options: UploadQueueOpti
 }
 
 export interface UploadSummary {
+  /** Files to be sent: every item but the skipped ones. */
   total: number
   queued: number
   /** Uploading or processing. */
@@ -186,6 +188,8 @@ export interface UploadSummary {
   done: number
   failed: number
   cancelled: number
+  /** Refused before sending; counted in no other field. */
+  skipped: number
   /** Done, failed or cancelled. */
   settled: number
   bytesTotal: number
@@ -196,8 +200,13 @@ export interface UploadSummary {
 }
 
 export function summarizeUploads(items: readonly QueueEntry[]): UploadSummary {
-  const summary: UploadSummary = { total: items.length, queued: 0, active: 0, done: 0, failed: 0, cancelled: 0, settled: 0, bytesTotal: 0, bytesSent: 0, finished: false }
+  const summary: UploadSummary = { total: 0, queued: 0, active: 0, done: 0, failed: 0, cancelled: 0, skipped: 0, settled: 0, bytesTotal: 0, bytesSent: 0, finished: false }
   for (const item of items) {
+    if (item.status === 'skipped') {
+      summary.skipped++
+      continue
+    }
+    summary.total++
     summary.bytesTotal += item.file.size
     if (item.status === 'queued') summary.queued++
     else if (item.status === 'uploading' || item.status === 'processing') {
@@ -209,6 +218,6 @@ export function summarizeUploads(items: readonly QueueEntry[]): UploadSummary {
       if (item.status === 'done') summary.bytesSent += item.file.size
     }
   }
-  summary.finished = summary.total > 0 && summary.queued === 0 && summary.active === 0
+  summary.finished = items.length > 0 && summary.queued === 0 && summary.active === 0
   return summary
 }

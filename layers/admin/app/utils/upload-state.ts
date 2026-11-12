@@ -29,22 +29,29 @@ export function uploadStateView(item: Entry, t: Translate): UploadStateView {
       return { tone: 'danger', status: { text: t('media.upload.failed'), icon: 'circle-x', tone: 'danger' }, message: item.message }
     case 'cancelled':
       return { tone: 'muted', status: { text: t('media.upload.cancelled'), icon: 'x', tone: 'muted' } }
+    case 'skipped':
+      return { tone: 'muted', status: { text: t('media.upload.wasSkipped'), icon: 'minus', tone: 'muted' }, message: item.message }
   }
 }
 
-/** How a whole run shows in the panel header: the summary line, the finished status and the overall bar's tone. */
+/** How a whole run shows in the panel header: the summary line, the finished status, the overall bar's percent and tone. */
 export interface UploadRunView {
   countText: string
   finished: Required<Pick<ProgressRowStatus, 'text' | 'icon' | 'tone'>>
+  /** Settled files plus the sent share of the running ones, in percent of the files to be sent. */
+  overall: number
   barTone: NonNullable<ProgressRowProgress['tone']>
 }
 
-export function uploadRunView(summary: UploadSummary, t: Translate): UploadRunView {
-  const { done, total, failed, cancelled } = summary
-  let countText = t('media.upload.summary', { done, total })
-  if (failed && cancelled) countText = t('media.upload.summaryFailedCancelled', { done, total, failed, cancelled })
-  else if (cancelled) countText = t('media.upload.summaryCancelled', { done, total, cancelled })
-  else if (failed) countText = t('media.upload.summaryFailed', { done, total, failed })
+export function uploadRunView(summary: UploadSummary, t: Translate, items: readonly Pick<QueueEntry, 'status' | 'progress'>[]): UploadRunView {
+  const { done, total, failed, cancelled, skipped } = summary
+  const parts = [t('media.upload.summary', { done, total })]
+  if (failed) parts.push(t('media.upload.countFailed', { n: failed }))
+  if (cancelled) parts.push(t('media.upload.countCancelled', { n: cancelled }))
+  if (skipped) parts.push(t('media.upload.countSkipped', { n: skipped }))
+  const countText = parts.join(', ')
+  const running = items.reduce((sum, item) => (item.status === 'uploading' || item.status === 'processing' ? sum + item.progress / 100 : sum), 0)
+  const overall = total ? ((summary.settled + running) / total) * 100 : 0
   const clean = !failed && !cancelled
   const finished: UploadRunView['finished'] = clean
     ? { text: t('media.upload.done'), icon: 'circle-check', tone: 'success' }
@@ -52,5 +59,5 @@ export function uploadRunView(summary: UploadSummary, t: Translate): UploadRunVi
   let barTone: UploadRunView['barTone'] = 'default'
   if (summary.finished && failed) barTone = 'danger'
   else if (summary.finished && done === total) barTone = 'success'
-  return { countText, finished, barTone }
+  return { countText, finished, overall, barTone }
 }

@@ -92,8 +92,11 @@ describe('MediaUploadTile', () => {
     expect(wrapper.emitted('retry')).toEqual([['u1']])
   })
 
-  it('offers no retry on a tile refused for its size', async () => {
-    const wrapper = await mountSuspended(MediaUploadTile, { props: { item: item({ status: 'failed', code: 'TOO_LARGE', message: 'Too large' }), retryable: false } })
+  it('shows a tile skipped for its size muted, with its reason and without a retry', async () => {
+    const wrapper = await mountSuspended(MediaUploadTile, { props: { item: item({ status: 'skipped', code: 'TOO_LARGE', message: 'Too large' }), retryable: false } })
+
+    expect(wrapper.get('.media-upload-tile__failed').classes()).toContain('media-upload-tile__failed--muted')
+    expect(wrapper.get('.media-upload-tile__failed').text()).toContain('Too large')
 
     expect(wrapper.find('[aria-label="Retry a.png"]').exists()).toBe(false)
     expect(wrapper.find('[aria-label="Dismiss error for a.png"]').exists()).toBe(true)

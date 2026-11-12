@@ -63,8 +63,8 @@ function confirm() {
           :title="row.upload.file.name"
           :meta="row.meta"
           :message="row.message"
-          :tone="row.tooLarge ? 'danger' : 'default'"
-          :status="row.tooLarge ? { text: t('media.upload.skipped'), icon: 'circle-x', tone: 'danger' } : undefined"
+          :tone="row.tooLarge ? 'muted' : 'default'"
+          :status="row.tooLarge ? { text: t('media.upload.skipped'), icon: 'minus', tone: 'muted' } : undefined"
         />
       </li>
     </ul>
