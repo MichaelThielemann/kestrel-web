@@ -10,12 +10,11 @@ export interface UseMediaLibraryUploadsOptions {
   folder: Ref<string>
   view: Ref<'grid' | 'table'>
   fetchLibrary: () => Promise<void>
-  onError: (item: UploadItem) => void
   t: Translate
 }
 
 export function useMediaLibraryUploads(options: UseMediaLibraryUploadsOptions) {
-  const { folder, view, fetchLibrary, onError, t } = options
+  const { folder, view, fetchLibrary, t } = options
   const preview = useUploadPreview()
   const variantWatch = useVariantWatch()
   const { message: announcement, announce } = useAnnouncer()
@@ -33,7 +32,6 @@ export function useMediaLibraryUploads(options: UseMediaLibraryUploadsOptions) {
     onQueued: (item) => { void preview.generate(item.id, item.file) },
     onReady,
     onSettled: () => { const settledFolder = folder.value; void fetchLibrary().then(() => tiles.markSettled(settledFolder)) },
-    onError,
   })
   const tiles = useUploadTiles({ queue: upload.queue, view, folder, preview, dismiss: upload.dismiss })
 
@@ -46,8 +44,17 @@ export function useMediaLibraryUploads(options: UseMediaLibraryUploadsOptions) {
   }, t))
 
   return {
+    queue: upload.queue,
+    active: upload.active,
+    summary: upload.summary,
     enqueueUploads: upload.enqueueUploads,
-    reset: upload.reset,
+    retry: upload.retry,
+    retryFailed: upload.retryFailed,
+    cancel: upload.cancel,
+    canRetry: upload.canRetry,
+    clearFinished: upload.clearFinished,
+    ensureUploadLimit: upload.ensureUploadLimit,
+    maxUploadBytes: upload.maxUploadBytes,
     limitError: upload.limitError,
     gridTileUploads: tiles.gridTileUploads,
     queueRows: tiles.queueRows,

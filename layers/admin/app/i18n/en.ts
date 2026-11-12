@@ -416,7 +416,6 @@ export const en = {
   'media.uploadUploaded': 'uploaded',
   'media.uploadFailed': 'failed',
   'media.uploadSkipped': 'skipped',
-  'media.uploadError': '{name}: {reason}',
   'media.uploadFailedReason': 'Upload failed',
   'media.selected': 'selected',
   'media.useSelected': 'Use selected',

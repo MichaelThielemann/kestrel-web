@@ -31,11 +31,16 @@ const uploadControl = vi.hoisted(() => {
   const state: {
     deliver: ((value: { id: string, contentType?: string }) => void) | null
     fail: ((error: unknown) => void) | null
-  } = { deliver: null, fail: null }
-  const transport = (_route: ApiRoute, _body: FormData, options?: { onProgress?: (progress: { loaded: number, total: number, percent: number }) => void }) => {
+    signals: AbortSignal[]
+  } = { deliver: null, fail: null, signals: [] }
+  const transport = (_route: ApiRoute, _body: FormData, options?: { onProgress?: (progress: { loaded: number, total: number, percent: number }) => void, signal?: AbortSignal }) => {
     const onProgress = options?.onProgress
     onProgress?.({ loaded: 5, total: 10, percent: 50 })
     return new Promise<{ id: string, contentType?: string }>((resolve, reject) => {
+      if (options?.signal) {
+        state.signals.push(options.signal)
+        options.signal.addEventListener('abort', () => reject(Object.assign(new Error('Upload aborted'), { status: 0, name: 'ApiError', data: { error: 'Upload aborted', code: 'ABORTED' } })))
+      }
       state.deliver = (value) => {
         onProgress?.({ loaded: 10, total: 10, percent: 100 })
         resolve(value)
@@ -43,7 +48,7 @@ const uploadControl = vi.hoisted(() => {
       state.fail = (error) => reject(error)
     })
   }
-  const reset = () => { state.deliver = null; state.fail = null }
+  const reset = () => { state.deliver = null; state.fail = null; state.signals = [] }
   return { state, transport, reset }
 })
 
@@ -52,6 +57,17 @@ mockNuxtImport('useUploadTransport', () => () => uploadControl.transport)
 function selectFile(input: HTMLInputElement, file: File) {
   Object.defineProperty(input, 'files', { value: [file], configurable: true })
   input.dispatchEvent(new Event('change'))
+}
+
+async function confirmUpload(wrapper: VueWrapper, file: File) {
+  selectFile(boundaryCast<HTMLInputElement>(wrapper.get('input[type="file"]').element, 'dom'), file)
+  await vi.waitFor(() => expect(document.body.querySelector('.ui-dialog__content')).toBeTruthy())
+  const dialog = document.body.querySelector('.ui-dialog__content')
+  const confirmButton = Array.from(dialog?.querySelectorAll('button') ?? []).find((b) => b.textContent?.trim() === en['mediaToolbar.upload'])
+  if (!confirmButton) throw new Error('expected the upload dialog to render a confirm button')
+  confirmButton.click()
+  await nextTick()
+  await vi.waitFor(() => expect(document.body.querySelector('.ui-dialog__content')).toBeNull())
 }
 
 describe('MediaLibrary upload status', () => {
@@ -349,6 +365,43 @@ describe('MediaLibrary upload status', () => {
     uploadControl.state.deliver?.({ id: 'f1', contentType: 'application/pdf' })
 
     await vi.waitFor(() => expect(wrapper.get('[role="status"]').text()).toContain('photo.jpg uploaded'), { timeout: 2000 })
+  })
+
+  it('adds a second batch to the running one instead of clearing it', async () => {
+    unregisterAll.push(registerEndpoint('/api/media/folders', { method: 'GET', handler: () => [] }))
+    unregisterAll.push(registerEndpoint('/api/media', { method: 'GET', handler: () => ({ items: [], total: 0 }) }))
+    unregisterAll.push(registerEndpoint('/api/limits', { method: 'GET', handler: () => ({ maxUploadBytes: null }) }))
+    uploadControl.reset()
+
+    const wrapper = await mountSuspended(MediaLibrary, { attachTo: document.body })
+    onTestFinished(() => wrapper.unmount())
+
+    await confirmUpload(wrapper, new File(['x'], 'first.pdf', { type: 'application/pdf' }))
+    await vi.waitFor(() => expect(uploadControl.state.signals).toHaveLength(1))
+    await confirmUpload(wrapper, new File(['x'], 'second.pdf', { type: 'application/pdf' }))
+
+    await vi.waitFor(() => expect(wrapper.findAll('.media-upload-tile')).toHaveLength(2))
+    expect(wrapper.text()).toContain('first.pdf')
+    expect(wrapper.text()).toContain('second.pdf')
+    expect(uploadControl.state.signals).toHaveLength(1)
+
+    uploadControl.state.deliver?.({ id: 'f1', contentType: 'application/pdf' })
+    await vi.waitFor(() => expect(uploadControl.state.signals).toHaveLength(2))
+  })
+
+  it('aborts the running upload when the library unmounts', async () => {
+    unregisterAll.push(registerEndpoint('/api/media/folders', { method: 'GET', handler: () => [] }))
+    unregisterAll.push(registerEndpoint('/api/media', { method: 'GET', handler: () => ({ items: [], total: 0 }) }))
+    unregisterAll.push(registerEndpoint('/api/limits', { method: 'GET', handler: () => ({ maxUploadBytes: null }) }))
+    uploadControl.reset()
+
+    const wrapper = await mountSuspended(MediaLibrary, { attachTo: document.body })
+
+    await confirmUpload(wrapper, new File(['x'], 'first.pdf', { type: 'application/pdf' }))
+    await vi.waitFor(() => expect(uploadControl.state.signals).toHaveLength(1))
+    wrapper.unmount()
+
+    expect(uploadControl.state.signals[0]?.aborted).toBe(true)
   })
 })
 

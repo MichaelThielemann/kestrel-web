@@ -8,7 +8,6 @@ import type { LibraryItem } from '../utils/library'
 import { joinFolder } from '../utils/library'
 import type { PendingUpload } from '../utils/dnd'
 import type { DropResult } from '../composables/useMediaDnd'
-import type { UploadItem } from '../composables/useMediaUpload'
 import { toOpItem, effectiveTargets, type OpItem } from '../utils/ops'
 
 const props = defineProps<{ pick?: boolean; multiple?: boolean; accept?: 'image' | 'any'; initialFolder?: string; initialSelected?: string[] }>()
@@ -18,7 +17,6 @@ const lib = useMediaLibrary({ urlSync: !props.pick, accept: props.accept, initia
 const { folder, view, search, sort, items, files, parentPath, isSelected, loading, error, allFolderPaths, counts: folderCounts, page, perPage, total, totalPages } = lib
 
 const { t } = useT()
-const toast = useToast()
 const deps = useActionDeps()
 const { schema } = useSchema()
 const mediaCaps = useMediaCapabilities()
@@ -35,8 +33,7 @@ const opsPort: BusyPort = {
   setConflict: (refs) => { opConflict.value = refs },
 }
 
-const onUploadError = (item: UploadItem) => toast.error(t('media.uploadError', { name: item.filename, reason: item.message || t('media.uploadFailedReason') }))
-const mediaUploads = useMediaLibraryUploads({ folder, view, fetchLibrary: lib.fetchLibrary, onError: onUploadError, t })
+const mediaUploads = useMediaLibraryUploads({ folder, view, fetchLibrary: lib.fetchLibrary, t })
 const { gridTileUploads, queueRows, onDismissUpload: dismissUpload, previewFor, variantResults, stalledIds, limitError, track } = mediaUploads
 
 const pickState = useMediaPick({
@@ -93,7 +90,7 @@ function onSelect(item: LibraryItem, mods: { toggle: boolean; range: boolean }) 
 
 function queueUploads(pending: PendingUpload[]) {
   if (error.value || !pending.length || !mediaCaps.canUpload.value) return
-  mediaUploads.reset()
+  void mediaUploads.ensureUploadLimit()
   pendingUploads.value = pending
   uploadOpen.value = true
 }

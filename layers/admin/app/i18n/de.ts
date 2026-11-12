@@ -418,7 +418,6 @@ export const de: Record<CatalogKey, string> = {
   'media.uploadUploaded': 'hochgeladen',
   'media.uploadFailed': 'fehlgeschlagen',
   'media.uploadSkipped': 'übersprungen',
-  'media.uploadError': '{name}: {reason}',
   'media.uploadFailedReason': 'Upload fehlgeschlagen',
   'media.selected': 'ausgewählt',
   'media.useSelected': 'Auswahl verwenden',
