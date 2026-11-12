@@ -298,4 +298,25 @@ describe('useMediaUpload', () => {
     expect(onSettled).not.toHaveBeenCalled()
     expect(onError).not.toHaveBeenCalled()
   })
+
+  it('queues nothing and calls nothing when the owner unmounts while the upload limit is loading', async () => {
+    let answerLimits: ((value: unknown) => void) | undefined
+    limits(() => new Promise((resolve) => { answerLimits = resolve }))
+    const onQueued = vi.fn()
+    const onError = vi.fn()
+    const onSettled = vi.fn()
+
+    const { wrapper, api } = await mountProbe({ onQueued, onError, onSettled })
+    const run = api.enqueue([file('huge.png', 100), file('small.png', 1)], '')
+    await vi.waitFor(() => expect(answerLimits).toBeDefined())
+    wrapper.unmount()
+    answerLimits?.({ maxUploadBytes: 10 })
+    await run
+
+    expect(api.queue.value).toEqual([])
+    expect(runningNames()).toEqual([])
+    expect(onQueued).not.toHaveBeenCalled()
+    expect(onError).not.toHaveBeenCalled()
+    expect(onSettled).not.toHaveBeenCalled()
+  })
 })

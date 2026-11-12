@@ -66,7 +66,8 @@ export function useMediaUpload(options: UseMediaUploadOptions = {}) {
     onItemSettled: notifySettled,
     onIdle: (run) => options.onSettled?.(run),
   })
-  if (getCurrentScope()) onScopeDispose(() => runner.dispose())
+  let disposed = false
+  if (getCurrentScope()) onScopeDispose(() => { disposed = true; runner.dispose() })
 
   function clearFinished() {
     queue.value = queue.value.filter((i) => i.status === 'queued' || i.status === 'uploading' || i.status === 'processing')
@@ -93,6 +94,7 @@ export function useMediaUpload(options: UseMediaUploadOptions = {}) {
 
   async function enqueueUploads(uploads: PendingUpload[], provenance?: Provenance) {
     await ensureUploadLimit()
+    if (disposed) return
     if (!active.value) clearFinished()
     const added = uploads.map((u) => addItem(u, provenance, maxUploadBytes.value))
     for (const item of added) {

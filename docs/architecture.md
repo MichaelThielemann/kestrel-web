@@ -723,7 +723,8 @@ collection, the expected filter and the fix in the message.
   skips its refresh, whose 401 would make the reauth interceptor leave the page and drop the files.
   `retry(id)` and `retryFailed()` queue failed items again, except files
   refused for their size or type. `cancel()` aborts the running request and removes the waiting items;
-  `useMediaUpload` disposes the runner when its component unmounts, so no callback runs afterwards.
+  `useMediaUpload` disposes the runner when its component unmounts, so no callback runs afterwards, also
+  when the unmount happens while `GET /limits` is still loading: the files of that call are then not queued.
   A new batch on an idle queue first drops the finished items of the previous run.
 - Upload UI in `MediaLibrary.vue`, the same in the media library and in the media picker. Choosing or dropping
   files opens `MediaUploadDialog.vue`, which lists each file with its size, marks a file over the limit from
