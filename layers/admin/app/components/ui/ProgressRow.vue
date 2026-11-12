@@ -13,56 +13,65 @@ withDefaults(defineProps<{
 
 <template>
   <div class="ui-progress-row" :class="`ui-progress-row--${tone}`">
-    <span v-if="$slots.leading" class="ui-progress-row__leading"><slot name="leading" /></span>
-    <div class="ui-progress-row__main">
-      <div class="ui-progress-row__line">
-        <KestrelUiTooltip>
-          <span class="ui-progress-row__title">{{ title }}</span>
-          <template #content>{{ title }}</template>
-        </KestrelUiTooltip>
-        <span v-if="meta" class="ui-progress-row__meta">{{ meta }}</span>
+    <div class="ui-progress-row__body">
+      <span v-if="$slots.leading" class="ui-progress-row__leading"><slot name="leading" /></span>
+      <div class="ui-progress-row__main">
+        <div class="ui-progress-row__line">
+          <KestrelUiTooltip>
+            <span class="ui-progress-row__title">{{ title }}</span>
+            <template #content>{{ title }}</template>
+          </KestrelUiTooltip>
+          <span v-if="meta" class="ui-progress-row__meta">{{ meta }}</span>
+        </div>
+        <KestrelUiProgress
+          v-if="progress"
+          size="sm"
+          :value="progress.value"
+          :label="progress.label"
+          :value-text="progress.valueText"
+          :tone="progress.tone"
+        />
+        <p v-if="message" class="ui-progress-row__message">{{ message }}</p>
       </div>
-      <KestrelUiProgress
-        v-if="progress"
-        size="sm"
-        :value="progress.value"
-        :label="progress.label"
-        :value-text="progress.valueText"
-        :tone="progress.tone"
-      />
-      <p v-if="message" class="ui-progress-row__message">{{ message }}</p>
+      <span
+        v-if="$slots.status || status"
+        class="ui-progress-row__status"
+        :class="status?.tone ? `ui-progress-row__status--${status.tone}` : undefined"
+      >
+        <slot name="status">
+          <template v-if="status">
+            <KestrelUiSpinner v-if="status.busy" class="ui-progress-row__status-icon" />
+            <KestrelUiIcon v-else-if="status.icon" :name="status.icon" :size="16" class="ui-progress-row__status-icon" />
+            <span>{{ status.text }}</span>
+          </template>
+        </slot>
+      </span>
+      <span v-if="$slots.actions" class="ui-progress-row__actions"><slot name="actions" /></span>
     </div>
-    <span
-      v-if="$slots.status || status"
-      class="ui-progress-row__status"
-      :class="status?.tone ? `ui-progress-row__status--${status.tone}` : undefined"
-    >
-      <slot name="status">
-        <template v-if="status">
-          <KestrelUiSpinner v-if="status.busy" class="ui-progress-row__status-icon" />
-          <KestrelUiIcon v-else-if="status.icon" :name="status.icon" :size="16" class="ui-progress-row__status-icon" />
-          <span>{{ status.text }}</span>
-        </template>
-      </slot>
-    </span>
-    <span v-if="$slots.actions" class="ui-progress-row__actions"><slot name="actions" /></span>
   </div>
 </template>
 
 <style lang="scss">
 .ui-progress-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
+  container-type: inline-size;
   min-width: 0;
   padding-block: var(--space-2);
   font-size: var(--text-sm);
 }
 
+.ui-progress-row__body {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-areas: 'leading main status actions';
+  align-items: center;
+  row-gap: var(--space-1);
+}
+
 .ui-progress-row__leading {
+  grid-area: leading;
+  margin-inline-end: var(--space-3);
   display: grid;
   place-items: center;
-  flex: none;
   width: 2rem;
   height: 2rem;
   overflow: hidden;
@@ -78,8 +87,8 @@ withDefaults(defineProps<{
 }
 
 .ui-progress-row__main {
+  grid-area: main;
   display: flex;
-  flex: 1 1 auto;
   flex-direction: column;
   gap: var(--space-1);
   min-width: 0;
@@ -120,8 +129,9 @@ withDefaults(defineProps<{
 }
 
 .ui-progress-row__status {
+  grid-area: status;
+  margin-inline-start: var(--space-3);
   display: inline-flex;
-  flex: none;
   align-items: center;
   gap: var(--space-1);
   color: var(--color-text);
@@ -142,9 +152,24 @@ withDefaults(defineProps<{
 }
 
 .ui-progress-row__actions {
+  grid-area: actions;
+  margin-inline-start: var(--space-2);
   display: inline-flex;
-  flex: none;
   align-items: center;
   gap: var(--space-1);
+}
+
+@container (max-width: 28rem) {
+  .ui-progress-row__body {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      'leading main actions'
+      'leading status actions';
+  }
+
+  .ui-progress-row__status {
+    justify-self: start;
+    margin-inline-start: 0;
+  }
 }
 </style>
