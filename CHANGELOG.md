@@ -832,7 +832,8 @@
   An expired session shows "Session expired" on the file and stops the run; the remaining files show the
   same message and upload once retried. A stopped run does not refresh the library, so the page stays put
   and keeps the files to retry instead of going to the sign-in page. `useMediaUpload()`'s `onSettled`
-  receives `{ stopped }`. A failure without an error answer from kestrel names the cause
+  receives `{ stopped }`. Adding files to an idle panel drops the finished files of the last run but keeps
+  the failed ones that can still be retried. A failure without an error answer from kestrel names the cause
   (no connection, timeout, server unavailable, refused as too large) together with its HTTP status; a 2xx
   answer without a JSON object, or one reached through a redirect to another address (a proxy's sign-in or
   block page), fails with its status instead of counting as uploaded.

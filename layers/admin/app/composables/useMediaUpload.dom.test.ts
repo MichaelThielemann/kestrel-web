@@ -230,6 +230,22 @@ describe('useMediaUpload', () => {
     wrapper.unmount()
   })
 
+  it('keeps the files a stopped run offers to retry when a new batch arrives, and drops the rest', async () => {
+    limits(() => ({ maxUploadBytes: 10 }))
+    transportControl.state.outcomes.set('a.png', [sessionExpired()])
+
+    const { wrapper, api } = await mountProbe()
+    await api.enqueue([file('ok.png', 1), file('a.png', 1), file('b.png', 1), file('huge.png', 100)], '')
+    expect(statuses(api)).toEqual([['ok.png', 'done'], ['a.png', 'failed'], ['b.png', 'failed'], ['huge.png', 'failed']])
+
+    await api.enqueue([file('c.png', 1)], '')
+
+    expect(statuses(api)).toEqual([['a.png', 'failed'], ['b.png', 'failed'], ['c.png', 'done']])
+    expect(api.retryFailed()).toBe(2)
+    await vi.waitFor(() => expect(statuses(api)).toEqual([['a.png', 'done'], ['b.png', 'done'], ['c.png', 'done']]))
+    wrapper.unmount()
+  })
+
   it('retries a single failed file', async () => {
     limits(() => ({ maxUploadBytes: null }))
     transportControl.state.outcomes.set('a.png', [new UploadTransportError(0, 'Network error', 'NETWORK')])

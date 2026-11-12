@@ -69,8 +69,14 @@ export function useMediaUpload(options: UseMediaUploadOptions = {}) {
   let disposed = false
   if (getCurrentScope()) onScopeDispose(() => { disposed = true; runner.dispose() })
 
+  const unsettled = (i: UploadItem) => i.status === 'queued' || i.status === 'uploading' || i.status === 'processing'
+
   function clearFinished() {
-    queue.value = queue.value.filter((i) => i.status === 'queued' || i.status === 'uploading' || i.status === 'processing')
+    queue.value = queue.value.filter(unsettled)
+  }
+
+  function clearForNewBatch() {
+    queue.value = queue.value.filter((i) => unsettled(i) || (i.status === 'failed' && isRetryable(i)))
   }
 
   function addItem(pending: PendingUpload, provenance: Provenance | undefined, max: number | null): UploadItem {
@@ -95,7 +101,7 @@ export function useMediaUpload(options: UseMediaUploadOptions = {}) {
   async function enqueueUploads(uploads: PendingUpload[], provenance?: Provenance) {
     await ensureUploadLimit()
     if (disposed) return
-    if (!active.value) clearFinished()
+    if (!active.value) clearForNewBatch()
     const added = uploads.map((u) => addItem(u, provenance, maxUploadBytes.value))
     for (const item of added) {
       if (item.status === 'queued') safely(() => options.onQueued?.(item))

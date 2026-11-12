@@ -725,7 +725,9 @@ collection, the expected filter and the fix in the message.
   refused for their size or type. `cancel()` aborts the running request and removes the waiting items;
   `useMediaUpload` disposes the runner when its component unmounts, so no callback runs afterwards, also
   when the unmount happens while `GET /limits` is still loading: the files of that call are then not queued.
-  A new batch on an idle queue first drops the finished items of the previous run.
+  A new batch on an idle queue first drops the finished items of the previous run, except failed files that
+  can still be retried (a run stopped by an expired session keeps its files until they are retried or the
+  panel is closed).
 - Upload UI in `MediaLibrary.vue`, the same in the media library and in the media picker. Choosing or dropping
   files opens `MediaUploadDialog.vue`, which lists each file with its size, marks a file over the limit from
   `GET /limits` as "too large (size, limit)" before anything is sent, and confirms with "Upload N files", N
