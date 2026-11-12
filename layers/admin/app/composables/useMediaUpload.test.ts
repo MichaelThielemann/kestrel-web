@@ -1,6 +1,7 @@
 import { computed, ref } from 'vue'
 import { describe, expect, it } from 'vitest'
-import { nextLimitState, uploadFailed, type UploadLimitState } from './useMediaUpload'
+import { uploadFailed } from './useMediaUpload'
+import { nextLimitState, type UploadLimitState } from './useUploadLimit'
 
 describe('uploadFailed', () => {
   it('fires for every failed item, with or without a message', () => {

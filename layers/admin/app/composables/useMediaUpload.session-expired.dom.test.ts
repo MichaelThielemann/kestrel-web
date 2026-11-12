@@ -1,6 +1,8 @@
 import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { describe, expect, it, vi } from 'vitest'
-import { defineComponent, h } from 'vue'
+import { computed, defineComponent, h } from 'vue'
+import { en } from '#kestrel-admin/i18n/en'
+import type { AdminSchema } from '#kestrel-admin/types/api'
 import { useMediaUpload } from './useMediaUpload'
 
 const sessionExpiredError = Object.assign(new Error('nope'), {
@@ -10,6 +12,19 @@ const sessionExpiredError = Object.assign(new Error('nope'), {
 })
 
 mockNuxtImport('useUploadTransport', () => () => () => Promise.reject(sessionExpiredError))
+
+const schema: AdminSchema = {
+  locales: { all: ['en'], primary: 'en', prefixPrimary: false },
+  collections: [],
+  features: [],
+  capabilities: { uploadMedia: { method: 'POST', path: '/media' } },
+}
+mockNuxtImport('useSchema', () => () => ({
+  schema: computed(() => schema),
+  error: computed(() => null),
+  load: () => Promise.resolve('ok' as const),
+  clear: () => {},
+}))
 
 async function mountProbe(cb: Parameters<typeof useMediaUpload>[0]) {
   let api: ReturnType<typeof useMediaUpload> | undefined
@@ -25,7 +40,7 @@ async function mountProbe(cb: Parameters<typeof useMediaUpload>[0]) {
 }
 
 describe('useMediaUpload on a session-expired response', () => {
-  it('leaves the item failed and does not announce it as ready', async () => {
+  it('fails the item with a visible session-expired message and reports it, never as ready', async () => {
     registerEndpoint('/api/limits', { method: 'GET', handler: () => ({ maxUploadBytes: null }) })
     const onReady = vi.fn()
     const onError = vi.fn()
@@ -34,6 +49,8 @@ describe('useMediaUpload on a session-expired response', () => {
     await api.enqueueUploads([{ file: new File(['x'], 'small.png'), folder: '' }])
 
     expect(api.queue.value[0]?.status).toBe('failed')
+    expect(api.queue.value[0]?.message).toBe(en['media.upload.sessionExpired'])
+    expect(onError).toHaveBeenCalledTimes(1)
     expect(onReady).not.toHaveBeenCalled()
     wrapper.unmount()
   })

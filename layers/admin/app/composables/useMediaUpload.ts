@@ -1,5 +1,4 @@
-import { ref, computed } from 'vue'
-import { LAYER_ROUTES } from '#kestrel-core/fixed-routes'
+import { ref, computed, getCurrentScope, onScopeDispose } from 'vue'
 import type { MediaItem, Provenance } from '#kestrel-admin/types/api'
 import { upload } from '#kestrel-admin/actions/media'
 import type { Translate } from '#kestrel-admin/actions/types'
@@ -7,19 +6,16 @@ import { toastUnexpected } from '#kestrel-admin/actions/steps/notify'
 import type { PendingUpload } from '../utils/dnd'
 import { humanizeSize } from '../utils/library'
 import { exceedsUploadLimit } from '../utils/upload-limit'
-import { apiErrorMessage } from './useApi'
-import { useAdminApi } from './useAdminApi'
+import { createUploadQueue, isRetryable, summarizeUploads, type QueueEntry, type QueueStatus } from '../utils/upload-queue'
+import { useUploadLimit } from './useUploadLimit'
 import { useUploadTransport } from './useUploadTransport'
 
-export type UploadStatus = 'queued' | 'uploading' | 'processing' | 'done' | 'failed' | 'cancelled'
+export type UploadStatus = QueueStatus
 
-export interface UploadItem {
-  id: string; file: File; filename: string; folder: string
-  status: UploadStatus
-  progress: number
+export interface UploadItem extends QueueEntry {
+  file: File; filename: string; folder: string
+  provenance?: Provenance
   totalKnown?: boolean
-  message?: string
-  code?: string
   result?: MediaItem
 }
 
@@ -31,6 +27,11 @@ export interface UploadCallbacks {
   onSettled?: () => void
 
   onError?: (item: UploadItem) => void
+}
+
+export interface UseMediaUploadOptions extends UploadCallbacks {
+  /** Uploads that run at the same time; 1 when unset. */
+  concurrency?: number
 }
 
 export function uploadFailed(item: Pick<UploadItem, 'status'>): boolean {
@@ -50,96 +51,87 @@ export function uploadStatusLine(inputs: UploadStatusInputs, t: Translate): stri
   return parts.join(' · ')
 }
 
-export interface UploadLimitState {
-  maxUploadBytes: number | null
-  fetched: boolean
-  limitError: string | null
-}
-
-export type LimitFetchOutcome =
-  | { ok: true, maxUploadBytes: number | null }
-  | { ok: false, message: string }
-
-export function nextLimitState(previous: UploadLimitState, outcome: LimitFetchOutcome): UploadLimitState {
-  if (outcome.ok) return { maxUploadBytes: outcome.maxUploadBytes, fetched: true, limitError: null }
-  return { ...previous, limitError: outcome.message }
-}
-
-function useUploadLimit() {
-  const api = useAdminApi()
-  const maxUploadBytes = useState<number | null>('kestrel-upload-limit', () => null)
-  const fetched = useState<boolean>('kestrel-upload-limit-fetched', () => false)
-  const limitError = useState<string | null>('kestrel-upload-limit-error', () => null)
-
-  async function ensure() {
-    if (fetched.value) return
-    let outcome: LimitFetchOutcome
-    try {
-      const r = await api<{ maxUploadBytes: number | null }>(LAYER_ROUTES.limits)
-      outcome = { ok: true, maxUploadBytes: r.maxUploadBytes }
-    } catch (e) {
-      outcome = { ok: false, message: apiErrorMessage(e) }
-    }
-    const next = nextLimitState({ maxUploadBytes: maxUploadBytes.value, fetched: fetched.value, limitError: limitError.value }, outcome)
-    maxUploadBytes.value = next.maxUploadBytes
-    fetched.value = next.fetched
-    limitError.value = next.limitError
-  }
-
-  return { maxUploadBytes, limitError, ensure }
-}
-
-export function useMediaUpload(cb: UploadCallbacks = {}) {
+export function useMediaUpload(options: UseMediaUploadOptions = {}) {
   const deps = useActionDeps()
   const transport = useUploadTransport()
   const queue = ref<UploadItem[]>([])
   const { maxUploadBytes, limitError, ensure: ensureUploadLimit } = useUploadLimit()
   let seq = 0
-  const active = computed(() => queue.value.some((i) => i.status === 'queued' || i.status === 'uploading' || i.status === 'processing'))
-  const counts = computed(() => ({
-    total: queue.value.length,
-    done: queue.value.filter((i) => i.status === 'done').length,
-    failed: queue.value.filter((i) => i.status === 'failed').length,
-  }))
 
-  async function uploadItem(item: UploadItem, provenance?: Provenance) {
-    const result = await runAction(upload, { deps, item, provenance, transport })
-    toastUnexpected(deps, result)
-    if (item.status === 'done') cb.onReady?.(item)
-    else if (uploadFailed(item)) cb.onError?.(item)
+  const summary = computed(() => summarizeUploads(queue.value))
+  const active = computed(() => summary.value.queued + summary.value.active > 0)
+  const counts = computed(() => ({ total: summary.value.total, done: summary.value.done, failed: summary.value.failed }))
+
+  function notifySettled(item: UploadItem) {
+    if (item.status === 'done') options.onReady?.(item)
+    else if (uploadFailed(item)) options.onError?.(item)
+  }
+
+  const runner = createUploadQueue<UploadItem>({
+    items: () => queue.value,
+    concurrency: options.concurrency,
+    upload: async (item, signal) => {
+      const result = await runAction(upload, { deps, item, provenance: item.provenance, transport, signal })
+      toastUnexpected(deps, result)
+    },
+    failUnexpected: (item) => { item.message = deps.t('media.uploadFailedReason') },
+    stopOn: (item) => item.code === 'UNAUTHENTICATED',
+    onItemSettled: notifySettled,
+    onIdle: () => options.onSettled?.(),
+  })
+  if (getCurrentScope()) onScopeDispose(() => runner.dispose())
+
+  function clearFinished() {
+    queue.value = queue.value.filter((i) => i.status === 'queued' || i.status === 'uploading' || i.status === 'processing')
+  }
+
+  function addItem(pending: PendingUpload, provenance: Provenance | undefined, max: number | null): UploadItem {
+    const item: UploadItem = { id: `u${++seq}`, file: pending.file, filename: pending.file.name, folder: pending.folder, provenance, status: 'queued', progress: 0 }
+    if (max !== null && exceedsUploadLimit(pending.file.size, max)) {
+      item.status = 'failed'
+      item.code = 'TOO_LARGE'
+      item.message = deps.t('upload.tooLarge', { size: humanizeSize(pending.file.size), limit: humanizeSize(max) })
+    }
+    queue.value.push(item)
+    return queue.value[queue.value.length - 1]!
+  }
+
+  function safely(callback: () => void) {
+    try {
+      callback()
+    } catch (error) {
+      console.error(error)
+    }
   }
 
   async function enqueueUploads(uploads: PendingUpload[], provenance?: Provenance) {
     await ensureUploadLimit()
-    const max = maxUploadBytes.value
-    const added: UploadItem[] = []
-    for (const u of uploads) {
-      const item: UploadItem = { id: `u${++seq}`, file: u.file, filename: u.file.name, folder: u.folder, status: 'queued', progress: 0 }
-      if (exceedsUploadLimit(u.file.size, max) && max !== null) {
-        item.status = 'failed'
-        item.message = deps.t('upload.tooLarge', { size: humanizeSize(u.file.size), limit: humanizeSize(max) })
-      }
-      queue.value.push(item)
-      added.push(queue.value[queue.value.length - 1]!)
-      if (item.status === 'queued') cb.onQueued?.(item)
-    }
+    if (!active.value) clearFinished()
+    const added = uploads.map((u) => addItem(u, provenance, maxUploadBytes.value))
     for (const item of added) {
-      if (item.status === 'queued') await uploadItem(item, provenance)
-      else if (uploadFailed(item)) cb.onError?.(item)
+      if (item.status === 'queued') safely(() => options.onQueued?.(item))
+      else safely(() => notifySettled(item))
     }
-    cb.onSettled?.()
+    await runner.start()
   }
 
   function enqueue(files: File[], folder: string, provenance?: Provenance) {
     return enqueueUploads(files.map((file) => ({ file, folder })), provenance)
   }
 
-  function reset() { queue.value = [] }
+  function reset() {
+    runner.cancel()
+    queue.value = []
+  }
 
   function dismiss(id: string) {
     const index = queue.value.findIndex((i) => i.id === id)
     if (index !== -1) queue.value.splice(index, 1)
   }
 
-  return { queue, active, counts, limitError, enqueue, enqueueUploads, reset, dismiss }
+  return {
+    queue, active, counts, summary, limitError, maxUploadBytes, ensureUploadLimit,
+    enqueue, enqueueUploads, reset, dismiss, clearFinished,
+    retry: runner.retry, retryFailed: runner.retryFailed, cancel: runner.cancel, canRetry: isRetryable,
+  }
 }
