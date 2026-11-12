@@ -57,7 +57,7 @@ defineExpose({ focus })
     :disabled="disabled || loading"
     :aria-busy="loading || undefined"
   >
-    <span v-if="loading" class="ui-button__spinner" aria-hidden="true" />
+    <KestrelUiSpinner v-if="loading" class="ui-button__spinner" />
     <KestrelUiIcon v-else-if="icon" :name="icon" class="ui-button__icon" />
     <template v-if="$slots.default">
       <span v-if="!unstyled" class="ui-button__label"><slot /></span>
@@ -154,15 +154,6 @@ defineExpose({ focus })
       background: var(--color-danger-soft, var(--color-hover));
     }
   }
-
-  &__spinner {
-    width: 1em;
-    height: 1em;
-    border: 2px solid currentColor;
-    border-top-color: transparent;
-    border-radius: var(--radius-full);
-    animation: ui-button-spin var(--motion-base) linear infinite;
-  }
 }
 
 #{$root} :where(.ui-button--icon) {
@@ -217,11 +208,5 @@ defineExpose({ focus })
 .ui-button--icon,
 .ui-button--bare {
   @include mixins.focus-ring;
-}
-
-@keyframes ui-button-spin {
-  to {
-    transform: rotate(360deg);
-  }
 }
 </style>

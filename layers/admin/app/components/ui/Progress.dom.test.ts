@@ -27,4 +27,20 @@ describe('KestrelUiProgress', () => {
 
     expect(wrapper.get('[role="progressbar"]').attributes('aria-valuenow')).toBe('100')
   })
+
+  it('defaults to the medium size and the default tone', async () => {
+    const wrapper = await mountSuspended(Progress, { props: { value: 10, label: 'Uploading' } })
+
+    const bar = wrapper.get('[role="progressbar"]')
+    expect(bar.classes()).toContain('ui-progress--md')
+    expect(bar.classes()).toContain('ui-progress--default')
+  })
+
+  it('renders the small size and a success or danger tone', async () => {
+    const success = await mountSuspended(Progress, { props: { value: 100, label: 'Done', size: 'sm', tone: 'success' } })
+    const danger = await mountSuspended(Progress, { props: { value: 30, label: 'Failed', size: 'sm', tone: 'danger' } })
+
+    expect(success.get('[role="progressbar"]').classes()).toEqual(expect.arrayContaining(['ui-progress--sm', 'ui-progress--success']))
+    expect(danger.get('[role="progressbar"]').classes()).toEqual(expect.arrayContaining(['ui-progress--sm', 'ui-progress--danger']))
+  })
 })

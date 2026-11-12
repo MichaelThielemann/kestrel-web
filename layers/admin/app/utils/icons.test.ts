@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { sanitizeIconSvg } from './icons'
+import { isIconName, resolveIconBody, sanitizeIconSvg } from './icons'
 
 describe('sanitizeIconSvg', () => {
   it('removes script tags', () => {
@@ -48,5 +48,14 @@ describe('sanitizeIconSvg', () => {
   it('drops unknown tags but keeps their allowlisted attributes off the output entirely', () => {
     const result = sanitizeIconSvg('<style>.a{fill:red}</style><path d="M0 0"/>')
     expect(result).not.toContain('<style')
+  })
+})
+
+describe('status icons', () => {
+  it.each(['circle-check', 'circle-x', 'rotate-ccw'])('ships %s with a body that survives sanitizing', (name) => {
+    expect(isIconName(name)).toBe(true)
+    const body = resolveIconBody(name)
+    expect(body).toContain('<path')
+    expect(sanitizeIconSvg(body)).toBe(body)
   })
 })

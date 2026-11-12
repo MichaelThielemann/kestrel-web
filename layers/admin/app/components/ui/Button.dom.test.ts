@@ -58,4 +58,14 @@ describe('KestrelUiButton', () => {
     expect(large.classes()).toContain('ui-button--icon')
     expect(large.classes()).toContain('ui-button--icon-lg')
   })
+
+  it('shows the kit spinner instead of the icon while loading, and is busy and disabled', async () => {
+    const wrapper = await mountSuspended(Button, { props: { loading: true, icon: 'x' }, slots: { default: () => 'Save' } })
+
+    const button = wrapper.get('button')
+    expect(button.attributes('aria-busy')).toBe('true')
+    expect(button.attributes('disabled')).toBeDefined()
+    expect(wrapper.find('.ui-spinner').exists()).toBe(true)
+    expect(wrapper.find('svg[data-icon="x"]').exists()).toBe(false)
+  })
 })

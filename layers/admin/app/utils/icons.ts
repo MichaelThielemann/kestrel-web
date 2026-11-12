@@ -10,7 +10,8 @@ export type IconName =
   | 'eraser' | 'undo' | 'redo' | 'link' | 'link-2'
   | 'external-link' | 'triangle-alert' | 'globe'
   | 'eye' | 'eye-off'
-  | 'monitor' | 'tablet' | 'smartphone' | 'rotate-cw'
+  | 'monitor' | 'tablet' | 'smartphone' | 'rotate-cw' | 'rotate-ccw'
+  | 'circle-check' | 'circle-x'
   | 'clock' | 'history' | 'user' | 'users' | 'star' | 'activity' | 'lock'
 
 export const icons: Record<IconName, string> = {
@@ -19,6 +20,9 @@ export const icons: Record<IconName, string> = {
   'tablet': '<rect width="16" height="20" x="4" y="2" rx="2" ry="2"/><line x1="12" x2="12.01" y1="18" y2="18"/>',
   'smartphone': '<rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/>',
   'rotate-cw': '<path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/>',
+  'rotate-ccw': '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>',
+  'circle-check': '<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>',
+  'circle-x': '<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>',
   'clock': '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
   'history': '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/>',
   'lock': '<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
