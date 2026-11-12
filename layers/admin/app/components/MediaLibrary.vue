@@ -216,8 +216,14 @@ const localizedMenu = computed(() => menuItems.value.map((s) => ({
       @update:page="lib.setPage"
       @update:per-page="lib.setPerPage"
     />
+    <p
+      v-if="!mediaUploads.queue.value.length"
+      class="media-library__follow-up"
+      :class="{ 'media-library__follow-up--empty': !mediaUploads.followUp.value }"
+      role="status"
+    >{{ mediaUploads.followUp.value }}</p>
     <KestrelMediaUploadPanel
-      v-if="mediaUploads.queue.value.length"
+      v-else
       :items="mediaUploads.queue.value"
       :summary="mediaUploads.summary.value"
       :can-retry="mediaUploads.canRetry"
@@ -304,6 +310,16 @@ const localizedMenu = computed(() => menuItems.value.map((s) => ({
   font-size: var(--text-lg);
   border-radius: var(--radius-md);
   pointer-events: none;
+}
+
+.media-library__follow-up {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.media-library__follow-up--empty {
+  margin-block-start: calc(var(--space-4) * -1);
 }
 
 .media-library__empty {

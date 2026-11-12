@@ -585,7 +585,8 @@
   `useMediaUpload()`'s `onError` fires for every failed file, a 401 included.
 - The media library's upload list is replaced: `MediaUploadQueue` is gone, `MediaUploadPanel` and
   `MediaUploadRow` take its place, and `MediaToolbar` has no `status` prop any more, because the panel is the
-  only live region for uploads. `useMediaLibraryUploads()` returns `followUp` (the image-variant line) in
+  only live region for uploads (while it is closed, a status line of the library carries the image-variant
+  line). `useMediaLibraryUploads()` returns `followUp` (the image-variant line) in
   place of `status` and no `queueRows`; `useUploadTiles()` returns no `queueRows`; `uploadStatusLine` and
   `UploadStatusInputs` are removed from `useMediaUpload`. An app that overrides one of these components
   or reads one of these fields moves to the panel. The admin translation keys `media.uploading`,

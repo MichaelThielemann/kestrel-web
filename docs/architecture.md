@@ -740,7 +740,10 @@ collection, the expected filter and the fix in the message.
   "Finished" with a failure icon (a plain cross when files were only cancelled); the summary then also counts
   the cancelled files. The panel never closes on its own; "Close" drops the finished items. The header is the only live region for uploads:
   its summary and the image-variant follow-up ("Generating variants…", "Variants ready: …") are polite, and
-  a 401 puts one `role="alert"` line into it; rows carry no live region and no alert. The grid tiles of the
+  a 401 puts one `role="alert"` line into it; rows carry no live region and no alert. While no panel is shown (nothing
+  uploaded yet, or after "Close"), `MediaLibrary.vue` renders the follow-up in a `role="status"` line of its
+  own in the panel's place, so a picker opened on a file whose variants are still being generated says so,
+  and a variant result after "Close" is still announced; the two never exist at once. The grid tiles of the
   open folder (`MediaUploadTile.vue`) show the same states and offer retry and dismiss on a failed or
   cancelled file. A retry from a row or a tile moves keyboard focus to that row or tile, since the retry
   button disappears once the file is queued again. No toast is raised per file; the panel is in view whenever the queue holds anything, so
