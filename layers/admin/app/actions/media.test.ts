@@ -3,7 +3,7 @@ import type { Capability } from '#kestrel-admin/types/kestrel'
 import { describe, expect, it, vi } from 'vitest'
 import { boundaryCast } from '#kestrel/cast'
 import { runAction } from '#kestrel-core/app/utils/actions'
-import { createFolder, deleteItems, previewDeleteItems, renameOrMove, setMediaMeta, setMediaProvenance, upload } from './media'
+import { createFolder, deleteItems, previewDeleteItems, renameOrMove, setMediaMeta, setMediaProvenance, upload, uploadTimeoutMs } from './media'
 import type { UploadItem } from '../composables/useMediaUpload'
 import { UploadTransportError, type UploadRequestOptions, type UploadTransport } from '../composables/useUploadTransport'
 import type { ApiRoute } from '../utils/capabilities'
@@ -583,6 +583,24 @@ describe('upload', () => {
 
     expect(item.status).toBe('failed')
     expect(item.message).toBe(`media.upload.httpStatus:${JSON.stringify({ message: key, status })}`)
+  })
+
+  it('gives every request a timeout that grows with the file size', async () => {
+    const { deps } = fakeDeps()
+    const seen: Array<number | undefined> = []
+    const transport: UploadTransport = <T>(_route: ApiRoute, _body: FormData, options?: UploadRequestOptions) => {
+      seen.push(options?.timeoutMs)
+      return Promise.resolve(boundaryCast<T>({ id: 'f1' }, 'json'))
+    }
+    const big = new File(['x'], 'big.png')
+    Object.defineProperty(big, 'size', { value: 20 * 1024 * 1024 })
+
+    await runAction(upload, { deps, item: uploadItem(), transport })
+    await runAction(upload, { deps, item: uploadItem({ file: big }), transport })
+
+    expect(seen).toEqual([uploadTimeoutMs(1), uploadTimeoutMs(20 * 1024 * 1024)])
+    expect(uploadTimeoutMs(0)).toBe(120_000)
+    expect(uploadTimeoutMs(20 * 1024 * 1024)).toBe(120_000 + 640_000)
   })
 
   it('names a timeout without a status when no answer arrived', async () => {

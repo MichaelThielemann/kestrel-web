@@ -287,6 +287,17 @@ function buildUploadBody(item: UploadItem, provenance: Provenance | undefined): 
   return fd
 }
 
+const UPLOAD_TIMEOUT_BASE_MS = 120_000
+const UPLOAD_MIN_BYTES_PER_SECOND = 32 * 1024
+
+/**
+ * How long one upload request may take before it fails with `TIMEOUT`: two minutes for kestrel to store and
+ * process the file, plus the time to send it at 32 KiB/s, a floor below which an upload would not finish anyway.
+ */
+export function uploadTimeoutMs(bytes: number): number {
+  return UPLOAD_TIMEOUT_BASE_MS + Math.ceil((bytes * 1000) / UPLOAD_MIN_BYTES_PER_SECOND)
+}
+
 const uploadBegin = defineUiStep<UploadInput, UploadItem>('upload.begin', (ctx) => {
   const { item } = ctx.input
   item.status = 'uploading'
@@ -303,7 +314,7 @@ const uploadRequest = defineUiStep<UploadInput, UploadItem>('upload.request', as
     if (progress.percent >= 100 && item.status === 'uploading') item.status = 'processing'
   }
   try {
-    item.result = await transport<MediaItem>(deps.capabilities.route('uploadMedia'), buildUploadBody(item, provenance), { onProgress, signal })
+    item.result = await transport<MediaItem>(deps.capabilities.route('uploadMedia'), buildUploadBody(item, provenance), { onProgress, signal, timeoutMs: uploadTimeoutMs(item.file.size) })
     item.status = 'done'
     item.progress = 100
   } catch (e) {
