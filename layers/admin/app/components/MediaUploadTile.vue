@@ -15,7 +15,7 @@ const emit = defineEmits<{ dismiss: [id: string] }>()
 const { t } = useT()
 
 const ready = computed(() => props.item.status === 'done')
-const failed = computed(() => props.item.status === 'failed')
+const failed = computed(() => props.item.status === 'failed' || props.item.status === 'cancelled')
 const fallbackIcon = computed(() => (props.item.file.type.startsWith('image/') ? 'image' : 'file-text'))
 const progressValue = computed(() => {
   if (props.item.status === 'queued') return 0

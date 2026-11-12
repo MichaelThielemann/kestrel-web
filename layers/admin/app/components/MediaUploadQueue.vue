@@ -15,7 +15,7 @@ const { t } = useT()
         <span class="media-upload-queue__size">{{ humanizeSize(item.file.size) }}</span>
       </div>
 
-      <div v-if="item.status === 'failed'" class="media-upload-queue__failed">
+      <div v-if="item.status === 'failed' || item.status === 'cancelled'" class="media-upload-queue__failed">
         <span class="media-upload-queue__message">{{ item.message }}</span>
         <KestrelUiButton
           type="button"

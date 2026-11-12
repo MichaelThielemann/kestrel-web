@@ -3,20 +3,13 @@ import { describe, expect, it } from 'vitest'
 import { nextLimitState, uploadFailed, type UploadLimitState } from './useMediaUpload'
 
 describe('uploadFailed', () => {
-  it('fires for a non-401 error even when the server message is empty', () => {
-    expect(uploadFailed({ status: 'failed', message: '' })).toBe(true)
+  it('fires for every failed item, with or without a message', () => {
+    expect(uploadFailed({ status: 'failed' })).toBe(true)
   })
 
-  it('fires for a non-401 error with a message', () => {
-    expect(uploadFailed({ status: 'failed', message: 'file exceeds 5.0 MB' })).toBe(true)
-  })
-
-  it('stays quiet on the swallowed 401, where message is never set', () => {
-    expect(uploadFailed({ status: 'failed', message: undefined })).toBe(false)
-  })
-
-  it('stays quiet outside the failed state', () => {
-    expect(uploadFailed({ status: 'done', message: undefined })).toBe(false)
+  it('stays quiet outside the failed state, including a cancelled upload', () => {
+    expect(uploadFailed({ status: 'done' })).toBe(false)
+    expect(uploadFailed({ status: 'cancelled' })).toBe(false)
   })
 })
 

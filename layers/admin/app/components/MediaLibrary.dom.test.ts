@@ -32,7 +32,8 @@ const uploadControl = vi.hoisted(() => {
     deliver: ((value: { id: string, contentType?: string }) => void) | null
     fail: ((error: unknown) => void) | null
   } = { deliver: null, fail: null }
-  const transport = (_route: ApiRoute, _body: FormData, onProgress?: (progress: { loaded: number, total: number, percent: number }) => void) => {
+  const transport = (_route: ApiRoute, _body: FormData, options?: { onProgress?: (progress: { loaded: number, total: number, percent: number }) => void }) => {
+    const onProgress = options?.onProgress
     onProgress?.({ loaded: 5, total: 10, percent: 50 })
     return new Promise<{ id: string, contentType?: string }>((resolve, reject) => {
       state.deliver = (value) => {

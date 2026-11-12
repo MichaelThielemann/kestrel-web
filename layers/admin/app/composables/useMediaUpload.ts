@@ -11,7 +11,7 @@ import { apiErrorMessage } from './useApi'
 import { useAdminApi } from './useAdminApi'
 import { useUploadTransport } from './useUploadTransport'
 
-export type UploadStatus = 'queued' | 'uploading' | 'processing' | 'done' | 'failed'
+export type UploadStatus = 'queued' | 'uploading' | 'processing' | 'done' | 'failed' | 'cancelled'
 
 export interface UploadItem {
   id: string; file: File; filename: string; folder: string
@@ -19,6 +19,7 @@ export interface UploadItem {
   progress: number
   totalKnown?: boolean
   message?: string
+  code?: string
   result?: MediaItem
 }
 
@@ -32,8 +33,8 @@ export interface UploadCallbacks {
   onError?: (item: UploadItem) => void
 }
 
-export function uploadFailed(item: Pick<UploadItem, 'status' | 'message'>): boolean {
-  return item.status === 'failed' && item.message !== undefined
+export function uploadFailed(item: Pick<UploadItem, 'status'>): boolean {
+  return item.status === 'failed'
 }
 
 export interface UploadStatusInputs { active: boolean; done: number; failed: number; processing: boolean; variantsPending: boolean }

@@ -3,7 +3,7 @@ import type { Capability } from '#kestrel-admin/types/kestrel'
 import { defineAction, type ActionContext, type ActionStep } from '#kestrel-core/app/utils/actions'
 import { ApiError, apiErrorCode, apiErrorDetails, apiErrorMessage, apiErrorRetryable, apiErrorRunId, apiErrorStatus, retryableMessage, withRunId } from '../composables/useApi'
 import type { UploadItem } from '../composables/useMediaUpload'
-import type { UploadTransport } from '../composables/useUploadTransport'
+import { UploadTransportError, type UploadProgress, type UploadTransport } from '../composables/useUploadTransport'
 import { humanizeSize, joinFolder, parentFolder } from '../utils/library'
 import type { OpItem } from '../utils/ops'
 import { referencedBy } from '../utils/references'
@@ -67,6 +67,7 @@ export interface UploadInput extends WithDeps {
   item: UploadItem
   provenance?: Provenance
   transport: UploadTransport
+  signal?: AbortSignal
 }
 
 function mapFolderError(code: string, message: string, t: Translate): string {
@@ -256,11 +257,26 @@ function provenanceField(p: Provenance | undefined): string {
 
 const humanizeByteCounts = (message: string) => message.replace(/(\d+) bytes/g, (_, n: string) => humanizeSize(Number(n)))
 
-function uploadMessage(t: Translate, code: string, message: string): string {
-  const detail = humanizeByteCounts(message)
+const UPSTREAM_MESSAGE_KEYS: Record<string, string> = {
+  PAYLOAD_TOO_LARGE: 'media.upload.rejectedTooLarge',
+  TIMEOUT: 'media.upload.timeout',
+  UNAVAILABLE: 'media.upload.unavailable',
+}
+
+function upstreamMessage(t: Translate, e: UploadTransportError): string {
+  if (e.code === 'NETWORK') return t('media.upload.network')
+  const message = t(UPSTREAM_MESSAGE_KEYS[e.code] ?? 'media.uploadFailedReason')
+  return e.status > 0 ? t('media.upload.httpStatus', { message, status: e.status }) : message
+}
+
+function uploadMessage(t: Translate, e: unknown): string {
+  const code = apiErrorCode(e)
+  if (code === 'UNAUTHENTICATED') return t('media.upload.sessionExpired')
+  if (e instanceof UploadTransportError) return upstreamMessage(t, e)
+  const detail = humanizeByteCounts(apiErrorMessage(e))
   if (code === 'PAYLOAD_TOO_LARGE') return t('media.uploadTooLarge', { detail })
   if (code === 'UNSUPPORTED') return t('media.uploadUnsupported', { detail })
-  return detail
+  return detail ? t('media.upload.failedDetail', { detail }) : t('media.uploadFailedReason')
 }
 
 function buildUploadBody(item: UploadItem, provenance: Provenance | undefined): FormData {
@@ -272,23 +288,33 @@ function buildUploadBody(item: UploadItem, provenance: Provenance | undefined): 
 }
 
 const uploadBegin = defineUiStep<UploadInput, UploadItem>('upload.begin', (ctx) => {
-  ctx.input.item.status = 'uploading'
-  ctx.input.item.progress = 0
+  const { item } = ctx.input
+  item.status = 'uploading'
+  item.progress = 0
+  item.message = undefined
+  item.code = undefined
 })
 
 const uploadRequest = defineUiStep<UploadInput, UploadItem>('upload.request', async (ctx) => {
-  const { item, provenance, transport, deps } = ctx.input
+  const { item, provenance, transport, signal, deps } = ctx.input
+  const onProgress = (progress: UploadProgress) => {
+    item.progress = progress.percent
+    item.totalKnown = progress.total > 0
+    if (progress.percent >= 100 && item.status === 'uploading') item.status = 'processing'
+  }
   try {
-    item.result = await transport<MediaItem>(deps.capabilities.route('uploadMedia'), buildUploadBody(item, provenance), (progress) => {
-      item.progress = progress.percent
-      item.totalKnown = progress.total > 0
-      if (progress.percent >= 100 && item.status === 'uploading') item.status = 'processing'
-    })
+    item.result = await transport<MediaItem>(deps.capabilities.route('uploadMedia'), buildUploadBody(item, provenance), { onProgress, signal })
     item.status = 'done'
     item.progress = 100
   } catch (e) {
+    item.code = apiErrorCode(e)
+    if (item.code === 'ABORTED') {
+      item.status = 'cancelled'
+      item.message = deps.t('media.upload.cancelled')
+      return
+    }
     item.status = 'failed'
-    if (apiErrorCode(e) !== 'UNAUTHENTICATED') item.message = uploadMessage(deps.t, apiErrorCode(e), apiErrorMessage(e))
+    item.message = uploadMessage(deps.t, e)
   }
 })
 

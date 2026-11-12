@@ -5,7 +5,7 @@ import { boundaryCast } from '#kestrel/cast'
 import { runAction } from '#kestrel-core/app/utils/actions'
 import { createFolder, deleteItems, previewDeleteItems, renameOrMove, setMediaMeta, setMediaProvenance, upload } from './media'
 import type { UploadItem } from '../composables/useMediaUpload'
-import type { UploadProgress, UploadTransport } from '../composables/useUploadTransport'
+import { UploadTransportError, type UploadRequestOptions, type UploadTransport } from '../composables/useUploadTransport'
 import type { ApiRoute } from '../utils/capabilities'
 import { fakeDeps } from './__fixtures__/fake-deps'
 
@@ -448,7 +448,8 @@ describe('upload', () => {
     const item = uploadItem()
     let sawProcessingBeforeSettling = false
     let deliver: (value: { id: string }) => void = () => {}
-    const transport: UploadTransport = <T>(_route: ApiRoute, _body: FormData, onProgress?: (progress: UploadProgress) => void) => {
+    const transport: UploadTransport = <T>(_route: ApiRoute, _body: FormData, options?: UploadRequestOptions) => {
+      const onProgress = options?.onProgress
       onProgress?.({ loaded: 5, total: 10, percent: 50 })
       return new Promise<T>((resolve) => {
         deliver = (value) => {
@@ -477,9 +478,9 @@ describe('upload', () => {
     const { transport } = fakeTransport([{ id: 'f1' }])
     const item = uploadItem()
     const originalTransport = transport
-    const nonComputable: UploadTransport = <T>(route: ApiRoute, body: FormData, onProgress?: (progress: UploadProgress) => void) => {
-      onProgress?.({ loaded: 5, total: 0, percent: 0 })
-      return originalTransport<T>(route, body, onProgress)
+    const nonComputable: UploadTransport = <T>(route: ApiRoute, body: FormData, options?: UploadRequestOptions) => {
+      options?.onProgress?.({ loaded: 5, total: 0, percent: 0 })
+      return originalTransport<T>(route, body, options)
     }
 
     await runAction(upload, { deps, item, transport: nonComputable })
@@ -490,8 +491,8 @@ describe('upload', () => {
   it('marks the total known once the transport reports a real total', async () => {
     const { deps } = fakeDeps()
     const item = uploadItem()
-    const transport: UploadTransport = <T>(_route: ApiRoute, _body: FormData, onProgress?: (progress: UploadProgress) => void) => {
-      onProgress?.({ loaded: 5, total: 10, percent: 50 })
+    const transport: UploadTransport = <T>(_route: ApiRoute, _body: FormData, options?: UploadRequestOptions) => {
+      options?.onProgress?.({ loaded: 5, total: 10, percent: 50 })
       return Promise.resolve(boundaryCast<T>({ id: 'f1' }, 'json'))
     }
 
@@ -522,7 +523,7 @@ describe('upload', () => {
     expect(item.message).toBe('media.uploadUnsupported:{"detail":"type image/tiff is not allowed"}')
   })
 
-  it('leaves the message unset on a 401', async () => {
+  it('names an expired session on a 401 and records its code', async () => {
     const { deps } = fakeDeps()
     const { transport } = fakeTransport([apiError(401, 'nope')])
     const item = uploadItem()
@@ -530,7 +531,105 @@ describe('upload', () => {
     await runAction(upload, { deps, item, transport })
 
     expect(item.status).toBe('failed')
+    expect(item.code).toBe('UNAUTHENTICATED')
+    expect(item.message).toBe('media.upload.sessionExpired')
+  })
+
+  it('wraps any other kestrel error in a translated message', async () => {
+    const { deps } = fakeDeps()
+    const { transport } = fakeTransport([apiError(500, 'disk full')])
+    const item = uploadItem()
+
+    await runAction(upload, { deps, item, transport })
+
+    expect(item.status).toBe('failed')
+    expect(item.code).toBe('INTERNAL')
+    expect(item.message).toBe('media.upload.failedDetail:{"detail":"disk full"}')
+  })
+
+  it('falls back to a generic message when kestrel sends none', async () => {
+    const { deps } = fakeDeps()
+    const { transport } = fakeTransport([apiError(500, '')])
+    const item = uploadItem()
+
+    await runAction(upload, { deps, item, transport })
+
+    expect(item.message).toBe('media.uploadFailedReason')
+  })
+
+  it('names a lost connection without a status', async () => {
+    const { deps } = fakeDeps()
+    const { transport } = fakeTransport([new UploadTransportError(0, 'Network error', 'NETWORK')])
+    const item = uploadItem()
+
+    await runAction(upload, { deps, item, transport })
+
+    expect(item.status).toBe('failed')
+    expect(item.code).toBe('NETWORK')
+    expect(item.message).toBe('media.upload.network')
+  })
+
+  it.each([
+    [413, 'PAYLOAD_TOO_LARGE', 'media.upload.rejectedTooLarge'],
+    [504, 'TIMEOUT', 'media.upload.timeout'],
+    [502, 'UNAVAILABLE', 'media.upload.unavailable'],
+    [500, 'HTTP', 'media.uploadFailedReason'],
+  ])('adds the HTTP status to a %i answer that did not come from kestrel', async (status, code, key) => {
+    const { deps } = fakeDeps()
+    const { transport } = fakeTransport([new UploadTransportError(status, 'Gateway', code)])
+    const item = uploadItem()
+
+    await runAction(upload, { deps, item, transport })
+
+    expect(item.status).toBe('failed')
+    expect(item.message).toBe(`media.upload.httpStatus:${JSON.stringify({ message: key, status })}`)
+  })
+
+  it('names a timeout without a status when no answer arrived', async () => {
+    const { deps } = fakeDeps()
+    const { transport } = fakeTransport([new UploadTransportError(0, 'Upload timed out', 'TIMEOUT')])
+    const item = uploadItem()
+
+    await runAction(upload, { deps, item, transport })
+
+    expect(item.message).toBe('media.upload.timeout')
+  })
+
+  it('marks an aborted upload cancelled, not failed', async () => {
+    const { deps } = fakeDeps()
+    const { transport } = fakeTransport([new UploadTransportError(0, 'Upload aborted', 'ABORTED')])
+    const item = uploadItem()
+
+    await runAction(upload, { deps, item, transport })
+
+    expect(item.status).toBe('cancelled')
+    expect(item.message).toBe('media.upload.cancelled')
+  })
+
+  it('hands the abort signal to the transport', async () => {
+    const { deps } = fakeDeps()
+    const controller = new AbortController()
+    let received: AbortSignal | undefined
+    const transport: UploadTransport = <T>(_route: ApiRoute, _body: FormData, options?: UploadRequestOptions) => {
+      received = options?.signal
+      return Promise.resolve(boundaryCast<T>({ id: 'f1' }, 'json'))
+    }
+
+    await runAction(upload, { deps, item: uploadItem(), transport, signal: controller.signal })
+
+    expect(received).toBe(controller.signal)
+  })
+
+  it('clears the message and code of an earlier attempt when the upload succeeds', async () => {
+    const { deps } = fakeDeps()
+    const { transport } = fakeTransport([{ id: 'f1' }])
+    const item = uploadItem({ status: 'queued', message: 'media.upload.network', code: 'NETWORK' })
+
+    await runAction(upload, { deps, item, transport })
+
+    expect(item.status).toBe('done')
     expect(item.message).toBeUndefined()
+    expect(item.code).toBeUndefined()
   })
 })
 
