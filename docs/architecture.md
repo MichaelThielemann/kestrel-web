@@ -815,7 +815,9 @@ Kit inventory:
 - `Progress.vue` — progress bar, determinate or indeterminate, `size` `sm|md` and `tone` `default|success|danger`.
 - `ProgressRow.vue` — one row of a progress list: `leading` slot, truncated title with a tooltip, meta text,
   a thin bar, the status as icon and text (or the `status` slot), a message line and an `actions` slot. A
-  row narrower than 28rem puts the status below the title. It knows nothing about what it tracks.
+  row narrower than 28rem puts the status below the title and wraps the title instead of cutting it off;
+  in a wider row a title cut off with an ellipsis joins the tab order (measured by `useOverflowing()`), so
+  its tooltip with the full name opens on keyboard focus too. It knows nothing about what it tracks.
 - `Richtext.vue` / `RichtextToolbar.vue` — the TipTap editor and its toolbar.
 - `Select.vue` — native select styled like the other controls.
 - `Spinner.vue` — the busy ring `Button.vue` shows while `loading`; it stops rotating under

@@ -1,7 +1,37 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { mountSuspended } from '@nuxt/test-utils/runtime'
-import { describe, expect, it } from 'vitest'
-import { h } from 'vue'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { h, nextTick } from 'vue'
 import ProgressRow from './ProgressRow.vue'
+
+const progressRowSource = readFileSync(resolve(process.cwd(), 'layers/admin/app/components/ui/ProgressRow.vue'), 'utf-8')
+
+class FakeResizeObserver {
+  static all: FakeResizeObserver[] = []
+  targets: Element[] = []
+  disconnected = false
+  constructor(private readonly callback: () => void) {
+    FakeResizeObserver.all.push(this)
+  }
+
+  observe(target: Element) {
+    this.targets.push(target)
+  }
+
+  disconnect() {
+    this.disconnected = true
+  }
+
+  fire() {
+    this.callback()
+  }
+}
+
+function measure(element: Element, scrollWidth: number, clientWidth: number) {
+  Object.defineProperty(element, 'scrollWidth', { value: scrollWidth, configurable: true })
+  Object.defineProperty(element, 'clientWidth', { value: clientWidth, configurable: true })
+}
 
 describe('KestrelUiProgressRow', () => {
   it('shows the title, the meta text and a status with icon and text', async () => {
@@ -66,5 +96,47 @@ describe('KestrelUiProgressRow', () => {
 
     expect(wrapper.find('.ui-progress-row__leading').exists()).toBe(false)
     expect(wrapper.find('.ui-progress-row__actions').exists()).toBe(false)
+  })
+})
+
+describe('KestrelUiProgressRow title without hover', () => {
+  afterEach(() => {
+    FakeResizeObserver.all = []
+    vi.unstubAllGlobals()
+  })
+
+  it('lets a truncated title take keyboard focus, so its tooltip can show the full name', async () => {
+    vi.stubGlobal('ResizeObserver', FakeResizeObserver)
+    const wrapper = await mountSuspended(ProgressRow, { props: { title: 'panorama-of-the-old-town-at-sunset.jpg' } })
+    const title = wrapper.get('.ui-progress-row__title')
+    expect(title.attributes('tabindex')).toBeUndefined()
+
+    measure(title.element, 400, 120)
+    FakeResizeObserver.all.forEach((observer) => observer.fire())
+    await nextTick()
+    expect(title.attributes('tabindex')).toBe('0')
+
+    measure(title.element, 120, 120)
+    FakeResizeObserver.all.forEach((observer) => observer.fire())
+    await nextTick()
+    expect(title.attributes('tabindex')).toBeUndefined()
+  })
+
+  it('stops watching the title size when it unmounts', async () => {
+    vi.stubGlobal('ResizeObserver', FakeResizeObserver)
+    const wrapper = await mountSuspended(ProgressRow, { props: { title: 'a.png' } })
+    const observers = FakeResizeObserver.all.filter((observer) => observer.targets.includes(wrapper.get('.ui-progress-row__title').element))
+    expect(observers).toHaveLength(1)
+
+    wrapper.unmount()
+    expect(observers[0]?.disconnected).toBe(true)
+  })
+
+  it('wraps the title in narrow rows instead of cutting it off', () => {
+    const narrow = progressRowSource.slice(progressRowSource.indexOf('@container (max-width: 28rem)'))
+    const titleRule = narrow.slice(narrow.indexOf('.ui-progress-row__title'), narrow.indexOf('}', narrow.indexOf('.ui-progress-row__title')))
+
+    expect(titleRule).toContain('white-space: normal')
+    expect(titleRule).toContain('overflow-wrap: anywhere')
   })
 })

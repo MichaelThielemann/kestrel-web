@@ -607,7 +607,8 @@
   ("Upload 3 files") and the description names how many are skipped.
 - Admin UI kit: `Progress` takes `size` (`sm`, `md`) and `tone` (`default`, `success`, `danger`); the new
   `Spinner` is the busy ring `Button` shows while loading and stands still under `prefers-reduced-motion`;
-  the new `ProgressRow` is one row of a progress list (leading slot, truncated title with tooltip, meta,
+  the new `ProgressRow` is one row of a progress list (leading slot, title with tooltip that wraps in narrow
+  rows and, when cut off in wide ones, takes keyboard focus to show its tooltip, meta,
   thin bar, status as icon and text, message line, actions slot). The icon set gains `circle-check`,
   `circle-x` and `rotate-ccw`.
 - `presetModuleConfig()` now puts every value it derives into each module entry's `defaults`

@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import type { ProgressRowProgress, ProgressRowStatus, ProgressRowTone } from '../../utils/progress-row'
+import { useOverflowing } from '../../composables/useOverflowing'
 
 withDefaults(defineProps<{
   title: string
@@ -9,6 +11,9 @@ withDefaults(defineProps<{
   message?: string
   tone?: ProgressRowTone
 }>(), { tone: 'default' })
+
+const titleEl = ref<HTMLElement | null>(null)
+const truncated = useOverflowing(titleEl)
 </script>
 
 <template>
@@ -18,7 +23,7 @@ withDefaults(defineProps<{
       <div class="ui-progress-row__main">
         <div class="ui-progress-row__line">
           <KestrelUiTooltip>
-            <span class="ui-progress-row__title">{{ title }}</span>
+            <span ref="titleEl" class="ui-progress-row__title" :tabindex="truncated ? 0 : undefined">{{ title }}</span>
             <template #content>{{ title }}</template>
           </KestrelUiTooltip>
           <span v-if="meta" class="ui-progress-row__meta">{{ meta }}</span>
@@ -52,6 +57,8 @@ withDefaults(defineProps<{
 </template>
 
 <style lang="scss">
+@use '../../assets/scss/mixins';
+
 .ui-progress-row {
   container-type: inline-size;
   min-width: 0;
@@ -102,10 +109,13 @@ withDefaults(defineProps<{
 }
 
 .ui-progress-row__title {
+  @include mixins.focus-ring;
+
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  border-radius: var(--radius-sm);
 }
 
 .ui-progress-row__meta {
@@ -165,6 +175,11 @@ withDefaults(defineProps<{
     grid-template-areas:
       'leading main actions'
       'leading status actions';
+  }
+
+  .ui-progress-row__title {
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 
   .ui-progress-row__status {
