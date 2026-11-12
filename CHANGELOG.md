@@ -843,7 +843,8 @@
   answer without a JSON object, or one reached through a redirect to another address (a proxy's sign-in or
   block page), fails with its status instead of counting as uploaded.
   `useMediaUpload()` gains `retry(id)`, `retryFailed()`, `cancel()`, `canRetry(item)`, `clearFinished()`
-  and a `summary` of counts and bytes; closing the media picker aborts the running upload and drops the
+  and a `summary` of counts and bytes; `cancel()` lets a file whose body is fully sent finish processing
+  instead of marking it cancelled; closing the media picker aborts the running upload and drops the
   waiting ones. The upload no longer shows a toast for each failed file.
 - The layer's `kestrel` CLI plugin and the model reader behind `kestrel upgrade data` compile TypeScript in
   memory only; they no longer keep a transpile cache under the system temp directory, where another local

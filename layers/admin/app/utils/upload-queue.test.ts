@@ -243,6 +243,45 @@ describe('createUploadQueue', () => {
     expect(onIdle).toHaveBeenCalledTimes(1)
   })
 
+  it('lets an upload whose body is fully sent finish on cancel and removes the waiting ones', async () => {
+    const items = [entry('a'), entry('b'), entry('c')]
+    const { queue, uploads, onIdle } = setup(items)
+
+    const idle = queue.start()
+    await flush()
+    const running = uploads.pending[0]!
+    running.item.status = 'processing'
+    queue.cancel()
+    await flush()
+
+    expect(running.signal.aborted).toBe(false)
+    expect(items.map((i) => i.name)).toEqual(['a'])
+
+    await uploads.settle('a', { status: 'done' })
+    await idle
+
+    expect(items.map((i) => [i.name, i.status])).toEqual([['a', 'done']])
+    expect(onIdle).toHaveBeenCalledTimes(1)
+  })
+
+  it('aborts an upload that has not started sending yet on cancel', async () => {
+    const items = [entry('a')]
+    const started: AbortSignal[] = []
+    const { queue } = setup(items, {
+      upload: (_item, signal) => {
+        started.push(signal)
+        return new Promise<void>((resolve) => signal.addEventListener('abort', () => resolve()))
+      },
+    })
+
+    const idle = queue.start()
+    queue.cancel()
+    await idle
+
+    expect(started).toHaveLength(1)
+    expect(started[0]!.aborted).toBe(true)
+  })
+
   it('runs again after a cancel when new items arrive', async () => {
     const items = [entry('a')]
     const { queue, uploads } = setup(items)
@@ -276,6 +315,20 @@ describe('createUploadQueue', () => {
     items.push(entry('c'))
     await queue.start()
     expect(uploads.pending).toHaveLength(0)
+  })
+
+  it('dispose aborts an upload whose body is fully sent as well', async () => {
+    const items = [entry('a')]
+    const { queue, uploads } = setup(items)
+
+    const idle = queue.start()
+    await flush()
+    const running = uploads.pending[0]!
+    running.item.status = 'processing'
+    queue.dispose()
+    await idle
+
+    expect(running.signal.aborted).toBe(true)
   })
 
   it('resolves start() at once when nothing is waiting, without an idle call', async () => {

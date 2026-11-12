@@ -722,8 +722,10 @@ collection, the expected filter and the fix in the message.
   "session expired" message; the idle callback then receives `{ stopped: true }` and the media library
   skips its refresh, whose 401 would make the reauth interceptor leave the page and drop the files.
   `retry(id)` and `retryFailed()` queue failed items again, except files
-  refused for their size or type. `cancel()` aborts the running request and removes the waiting items;
-  `useMediaUpload` disposes the runner when its component unmounts, so no callback runs afterwards, also
+  refused for their size or type. `cancel()` removes the waiting items and aborts a request whose body is
+  still being sent; a file already `processing` has reached kestrel, which stores it whether or not the
+  client waits, so it runs to its end and settles `done` or `failed` rather than claiming to be cancelled.
+  `useMediaUpload` disposes the runner when its component unmounts, which aborts every request and runs no callback afterwards, also
   when the unmount happens while `GET /limits` is still loading: the files of that call are then not queued.
   A new batch on an idle queue first drops the finished items of the previous run, except failed files that
   can still be retried (a run stopped by an expired session keeps its files until they are retried or the

@@ -38,9 +38,9 @@ export interface UploadQueue {
   retry: (id: string) => boolean
   /** Queues every retryable failed item again and returns how many. */
   retryFailed: () => number
-  /** Aborts the running uploads and removes the waiting items. */
+  /** Removes the waiting items and aborts the running uploads; an item in `processing` has its body sent and runs to its end. */
   cancel: () => void
-  /** Cancels and ignores every later call; no callback runs any more. */
+  /** Removes the waiting items, aborts every running upload and ignores every later call; no callback runs any more. */
   dispose: () => void
 }
 
@@ -56,7 +56,7 @@ export function isRetryable(item: Pick<QueueEntry, 'status' | 'code'>): boolean 
 export function createUploadQueue<I extends QueueEntry>(options: UploadQueueOptions<I>): UploadQueue {
   const { items, concurrency = 1 } = options
   const reportError = options.reportError ?? ((error: unknown) => console.error(error))
-  const controllers = new Map<string, AbortController>()
+  const controllers = new Map<string, { item: I; controller: AbortController }>()
   let workers = 0
   let disposed = false
   let stopped = false
@@ -88,7 +88,7 @@ export function createUploadQueue<I extends QueueEntry>(options: UploadQueueOpti
 
   async function runOne(item: I) {
     const controller = new AbortController()
-    controllers.set(item.id, controller)
+    controllers.set(item.id, { item, controller })
     try {
       await options.upload(item, controller.signal)
     } catch (error) {
@@ -154,18 +154,25 @@ export function createUploadQueue<I extends QueueEntry>(options: UploadQueueOpti
     return failed.length
   }
 
-  function cancel() {
+  function removeWaiting() {
     const list = items()
     for (let i = list.length - 1; i >= 0; i--) {
       const item = list[i]!
       if (item.status === 'queued' && !controllers.has(item.id)) list.splice(i, 1)
     }
-    for (const controller of controllers.values()) controller.abort()
+  }
+
+  function cancel() {
+    removeWaiting()
+    for (const { item, controller } of controllers.values()) {
+      if (item.status !== 'processing') controller.abort()
+    }
   }
 
   function dispose() {
     disposed = true
-    cancel()
+    removeWaiting()
+    for (const { controller } of controllers.values()) controller.abort()
   }
 
   return { start, retry, retryFailed, cancel, dispose }

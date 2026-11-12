@@ -8,13 +8,14 @@ import { useMediaUpload } from './useMediaUpload'
 import { UploadTransportError } from './useUploadTransport'
 
 const transportControl = vi.hoisted(() => {
-  interface Call { name: string, signal?: AbortSignal, resolve: (value: unknown) => void, reject: (error: unknown) => void }
+  interface Progress { loaded: number, total: number, percent: number }
+  interface Call { name: string, signal?: AbortSignal, onProgress?: (progress: Progress) => void, resolve: (value: unknown) => void, reject: (error: unknown) => void }
   const state: { calls: Call[], hold: boolean, outcomes: Map<string, unknown[]> } = { calls: [], hold: false, outcomes: new Map() }
   const abortedError = () => Object.assign(new Error('Upload aborted'), { name: 'ApiError', status: 0, data: { error: 'Upload aborted', code: 'ABORTED' } })
-  const transport = (_route: unknown, body: FormData, options?: { signal?: AbortSignal }) => new Promise((resolve, reject) => {
+  const transport = (_route: unknown, body: FormData, options?: { signal?: AbortSignal, onProgress?: (progress: Progress) => void }) => new Promise((resolve, reject) => {
     const file = body.get('file')
     const name = file instanceof File ? file.name : ''
-    const call: Call = { name, signal: options?.signal, resolve, reject }
+    const call: Call = { name, signal: options?.signal, onProgress: options?.onProgress, resolve, reject }
     state.calls.push(call)
     options?.signal?.addEventListener('abort', () => reject(abortedError()))
     const scripted = state.outcomes.get(name)?.shift()
@@ -291,6 +292,33 @@ describe('useMediaUpload', () => {
     expect(statuses(api)).toEqual([['a.png', 'cancelled']])
     expect(runningNames()).toEqual(['a.png'])
     expect(onSettled).toHaveBeenCalledTimes(1)
+    wrapper.unmount()
+  })
+
+  it('cancel() lets an upload whose body is fully sent finish and removes the waiting ones', async () => {
+    limits(() => ({ maxUploadBytes: null }))
+    transportControl.state.hold = true
+    const onSettled = vi.fn()
+    const onReady = vi.fn()
+
+    const { wrapper, api } = await mountProbe({ onSettled, onReady })
+    const run = api.enqueue([file('a.png'), file('b.png')], '')
+    await vi.waitFor(() => expect(runningNames()).toEqual(['a.png']))
+    const call = transportControl.state.calls[0]!
+    call.onProgress?.({ loaded: 1024, total: 1024, percent: 100 })
+    expect(statuses(api)).toEqual([['a.png', 'processing'], ['b.png', 'queued']])
+
+    api.cancel()
+    expect(call.signal?.aborted).toBe(false)
+    expect(statuses(api)).toEqual([['a.png', 'processing']])
+
+    call.resolve({ id: 'id-a.png' })
+    await run
+
+    expect(statuses(api)).toEqual([['a.png', 'done']])
+    expect(onReady).toHaveBeenCalledTimes(1)
+    expect(onSettled).toHaveBeenCalledTimes(1)
+    expect(runningNames()).toEqual(['a.png'])
     wrapper.unmount()
   })
 
