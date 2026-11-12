@@ -21,8 +21,8 @@ export interface UploadQueueOptions<I extends QueueEntry> {
   failUnexpected: (item: I, error: unknown) => void
   /** Called once per item that reached a final state. */
   onItemSettled?: (item: I) => void
-  /** Called when the last running upload finished and nothing is waiting. */
-  onIdle?: () => void
+  /** Called when the last running upload finished and nothing is waiting; `stopped` when the stop condition ended this run. */
+  onIdle?: (run: { stopped: boolean }) => void
   /** When it holds for a settled item, the waiting items fail with that item's code and message. */
   stopOn?: (item: I) => boolean
   /** Uploads that run at the same time; 1 when unset. */
@@ -59,6 +59,7 @@ export function createUploadQueue<I extends QueueEntry>(options: UploadQueueOpti
   const controllers = new Map<string, AbortController>()
   let workers = 0
   let disposed = false
+  let stopped = false
   let idleWaiters: (() => void)[] = []
 
   const waiting = () => items().filter((i) => i.status === 'queued' && !controllers.has(i.id))
@@ -76,6 +77,7 @@ export function createUploadQueue<I extends QueueEntry>(options: UploadQueueOpti
   }
 
   function stopAfter(cause: I) {
+    stopped = true
     for (const item of waiting()) {
       item.status = 'failed'
       item.code = cause.code
@@ -107,7 +109,9 @@ export function createUploadQueue<I extends QueueEntry>(options: UploadQueueOpti
   function finishWorker() {
     workers--
     if (workers > 0) return
-    if (!disposed) safely(() => options.onIdle?.())
+    const run = { stopped }
+    stopped = false
+    if (!disposed) safely(() => options.onIdle?.(run))
     const resolve = idleWaiters
     idleWaiters = []
     resolve.forEach((fn) => fn())

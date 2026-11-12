@@ -1,5 +1,5 @@
 import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
-import { getQuery } from 'h3'
+import { getQuery, setResponseStatus } from 'h3'
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { computed, nextTick } from 'vue'
 import type { VueWrapper } from '@vue/test-utils'
@@ -54,16 +54,25 @@ const uploadControl = vi.hoisted(() => {
 
 mockNuxtImport('useUploadTransport', () => () => uploadControl.transport)
 
+const { navigateCalls } = vi.hoisted(() => ({ navigateCalls: [] as unknown[] }))
+mockNuxtImport('navigateTo', () => (to: unknown) => { navigateCalls.push(to); return Promise.resolve() })
+
+const unauthenticated = () => Object.assign(new Error('unauthenticated'), { status: 401, name: 'ApiError', data: { error: 'unauthenticated', code: 'UNAUTHENTICATED', retryable: false } })
+
 function selectFile(input: HTMLInputElement, file: File) {
   Object.defineProperty(input, 'files', { value: [file], configurable: true })
   input.dispatchEvent(new Event('change'))
 }
 
-async function confirmUpload(wrapper: VueWrapper, file: File) {
-  selectFile(boundaryCast<HTMLInputElement>(wrapper.get('input[type="file"]').element, 'dom'), file)
+async function confirmUpload(wrapper: VueWrapper, file: File | File[]) {
+  const files = Array.isArray(file) ? file : [file]
+  const input = boundaryCast<HTMLInputElement>(wrapper.get('input[type="file"]').element, 'dom')
+  Object.defineProperty(input, 'files', { value: files, configurable: true })
+  input.dispatchEvent(new Event('change'))
   await vi.waitFor(() => expect(document.body.querySelector('.ui-dialog__content')).toBeTruthy())
   const dialog = document.body.querySelector('.ui-dialog__content')
-  const confirmButton = Array.from(dialog?.querySelectorAll('button') ?? []).find((b) => b.textContent?.trim() === en['media.upload.confirmOne'])
+  const label = files.length === 1 ? en['media.upload.confirmOne'] : en['media.upload.confirmCount'].replace('{n}', String(files.length))
+  const confirmButton = Array.from(dialog?.querySelectorAll('button') ?? []).find((b) => b.textContent?.trim() === label)
   if (!confirmButton) throw new Error('expected the upload dialog to render a confirm button')
   confirmButton.click()
   await nextTick()
@@ -446,6 +455,35 @@ describe('MediaLibrary upload status', () => {
     await vi.waitFor(() => expect(uploadControl.state.signals).toHaveLength(2))
     uploadControl.state.deliver?.({ id: 'f1', contentType: 'application/pdf' })
     await vi.waitFor(() => expect(wrapper.get('.media-upload-panel [aria-live="polite"]').text()).toContain('1 of 1 uploaded'))
+  })
+
+  it('keeps a run stopped by an expired session on the page, without a refresh that would sign the user out', async () => {
+    let expired = false
+    const listing = (payload: unknown) => (event: Parameters<typeof setResponseStatus>[0]) => {
+      if (!expired) return payload
+      setResponseStatus(event, 401)
+      return { error: 'unauthenticated', code: 'UNAUTHENTICATED' }
+    }
+    unregisterAll.push(registerEndpoint('/api/media/folders', { method: 'GET', handler: listing([]) }))
+    unregisterAll.push(registerEndpoint('/api/media', { method: 'GET', handler: listing({ items: [], total: 0 }) }))
+    unregisterAll.push(registerEndpoint('/api/limits', { method: 'GET', handler: () => ({ maxUploadBytes: null }) }))
+    uploadControl.reset()
+
+    const wrapper = await mountSuspended(MediaLibrary, { attachTo: document.body, route: '/admin/media' })
+    onTestFinished(() => wrapper.unmount())
+    navigateCalls.length = 0
+
+    await confirmUpload(wrapper, [new File(['x'], 'first.pdf', { type: 'application/pdf' }), new File(['x'], 'second.pdf', { type: 'application/pdf' })])
+    await vi.waitFor(() => expect(uploadControl.state.signals).toHaveLength(1))
+    expired = true
+    uploadControl.state.fail?.(unauthenticated())
+
+    await vi.waitFor(() => expect(wrapper.get('.media-upload-panel [aria-live="polite"]').text()).toContain('0 of 2 uploaded, 2 failed'))
+    await new Promise((resolve) => setTimeout(resolve, 100))
+
+    expect(navigateCalls).toEqual([])
+    expect(wrapper.find('.media-upload-panel [aria-label="Retry first.pdf"]').exists()).toBe(true)
+    expect(wrapper.find('.media-upload-panel [aria-label="Retry second.pdf"]').exists()).toBe(true)
   })
 
   it('aborts the running upload when the library unmounts', async () => {

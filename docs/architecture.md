@@ -717,7 +717,9 @@ collection, the expected filter and the fix in the message.
   picks the `queued` items of a live list in order (concurrency 1 unless configured), so a batch added
   while it runs is appended, not started separately. Each item ends `done`, `failed` or `cancelled` even
   when its upload or a callback throws. A 401 stops the run and gives the waiting items the same
-  "session expired" message; `retry(id)` and `retryFailed()` queue failed items again, except files
+  "session expired" message; the idle callback then receives `{ stopped: true }` and the media library
+  skips its refresh, whose 401 would make the reauth interceptor leave the page and drop the files.
+  `retry(id)` and `retryFailed()` queue failed items again, except files
   refused for their size or type. `cancel()` aborts the running request and removes the waiting items;
   `useMediaUpload` disposes the runner when its component unmounts, so no callback runs afterwards.
   A new batch on an idle queue first drops the finished items of the previous run.

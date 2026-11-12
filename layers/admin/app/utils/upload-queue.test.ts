@@ -97,6 +97,7 @@ describe('createUploadQueue', () => {
 
     expect(items.map((i) => i.status)).toEqual(['done', 'done'])
     expect(onIdle).toHaveBeenCalledTimes(1)
+    expect(onIdle).toHaveBeenCalledWith({ stopped: false })
   })
 
   it('fails an item whose upload throws and carries on with the next one', async () => {
@@ -143,7 +144,7 @@ describe('createUploadQueue', () => {
 
   it('stops when an item hits the stop condition and gives the rest its code and message', async () => {
     const items = [entry('a'), entry('b'), entry('c')]
-    const { queue, uploads, onItemSettled } = setup(items)
+    const { queue, uploads, onItemSettled, onIdle } = setup(items)
 
     const idle = queue.start()
     await flush()
@@ -157,6 +158,22 @@ describe('createUploadQueue', () => {
       ['failed', 'UNAUTHENTICATED', 'session expired'],
     ])
     expect(onItemSettled).toHaveBeenCalledTimes(3)
+    expect(onIdle).toHaveBeenCalledExactlyOnceWith({ stopped: true })
+  })
+
+  it('reports a stopped run only for the run that stopped', async () => {
+    const items = [entry('a')]
+    const { queue, uploads, onIdle } = setup(items)
+
+    const first = queue.start()
+    await flush()
+    await uploads.settle('a', { status: 'failed', code: 'UNAUTHENTICATED', message: 'session expired' })
+    await first
+    queue.retry('a')
+    await flush()
+    await uploads.settle('a', { status: 'done' })
+
+    expect(onIdle.mock.calls).toEqual([[{ stopped: true }], [{ stopped: false }]])
   })
 
   it('retries one failed item and leaves the others alone', async () => {

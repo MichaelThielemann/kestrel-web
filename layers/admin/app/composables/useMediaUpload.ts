@@ -23,7 +23,8 @@ export interface UploadCallbacks {
 
   onReady?: (item: UploadItem) => void
 
-  onSettled?: () => void
+  /** Called when the queue is idle; `stopped` when an expired session ended the run. */
+  onSettled?: (run: { stopped: boolean }) => void
 
   onError?: (item: UploadItem) => void
 }
@@ -63,7 +64,7 @@ export function useMediaUpload(options: UseMediaUploadOptions = {}) {
     failUnexpected: (item) => { item.message = deps.t('media.uploadFailedReason') },
     stopOn: (item) => item.code === 'UNAUTHENTICATED',
     onItemSettled: notifySettled,
-    onIdle: () => options.onSettled?.(),
+    onIdle: (run) => options.onSettled?.(run),
   })
   if (getCurrentScope()) onScopeDispose(() => runner.dispose())
 

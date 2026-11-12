@@ -830,7 +830,9 @@
   good. A request that is aborted or times out ends as failed instead of hanging, a callback that throws no
   longer ends the run, and files dropped while a batch is uploading join that batch instead of clearing it.
   An expired session shows "Session expired" on the file and stops the run; the remaining files show the
-  same message and upload once retried. A failure without an error answer from kestrel names the cause
+  same message and upload once retried. A stopped run does not refresh the library, so the page stays put
+  and keeps the files to retry instead of going to the sign-in page. `useMediaUpload()`'s `onSettled`
+  receives `{ stopped }`. A failure without an error answer from kestrel names the cause
   (no connection, timeout, server unavailable, refused as too large) together with its HTTP status.
   `useMediaUpload()` gains `retry(id)`, `retryFailed()`, `cancel()`, `canRetry(item)`, `clearFinished()`
   and a `summary` of counts and bytes; closing the media picker aborts the running upload and drops the

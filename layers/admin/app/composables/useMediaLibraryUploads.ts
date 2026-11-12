@@ -30,7 +30,11 @@ export function useMediaLibraryUploads(options: UseMediaLibraryUploadsOptions) {
   const upload = useMediaUpload({
     onQueued: (item) => { void preview.generate(item.id, item.file) },
     onReady,
-    onSettled: () => { const settledFolder = folder.value; void fetchLibrary().then(() => tiles.markSettled(settledFolder)) },
+    onSettled: ({ stopped }) => {
+      if (stopped) return
+      const settledFolder = folder.value
+      void fetchLibrary().then(() => tiles.markSettled(settledFolder))
+    },
   })
   const tiles = useUploadTiles({ queue: upload.queue, view, folder, preview, dismiss: upload.dismiss })
 
