@@ -705,9 +705,22 @@ collection, the expected filter and the fix in the message.
   present (`editor.retryable`).
 - `app/composables/useUploadTransport.ts` — the one exception to `useApi.ts`: the multipart
   `POST /media` upload, which needs `upload.onprogress` (`$fetch` has none). An `XMLHttpRequest`-based
-  transport with the same Bearer token source as `useApi.ts` and the same `ApiError` mapping for a
-  non-2xx response or a network error, plus a `{ loaded, total, percent }` progress callback. Used only
-  by the `upload` action's `upload.request` step (**UI actions**).
+  transport with the same Bearer token source as `useApi.ts`. It takes `(route, body, { onProgress, signal,
+  timeoutMs })`: a `{ loaded, total, percent }` progress callback, an `AbortSignal` that aborts the request,
+  and an optional timeout. Every request settles exactly once. A kestrel error answer becomes the same
+  `ApiError` as in `useApi.ts`; everything else becomes an `UploadTransportError` (a subclass of `ApiError`)
+  that keeps the HTTP status: `NETWORK`, `ABORTED` or `TIMEOUT` with status 0 when no answer arrived, and
+  for an answer without kestrel's JSON error body (a proxy or gateway page) `PAYLOAD_TOO_LARGE` (413),
+  `TIMEOUT` (408, 504), `UNAVAILABLE` (502, 503) or `HTTP`. Used only by the `upload` action's
+  `upload.request` step (**UI actions**).
+- `app/utils/upload-queue.ts` — the framework-free runner behind `useMediaUpload`. One runner per queue
+  picks the `queued` items of a live list in order (concurrency 1 unless configured), so a batch added
+  while it runs is appended, not started separately. Each item ends `done`, `failed` or `cancelled` even
+  when its upload or a callback throws. A 401 stops the run and gives the waiting items the same
+  "session expired" message; `retry(id)` and `retryFailed()` queue failed items again, except files
+  refused for their size or type. `cancel()` aborts the running request and removes the waiting items;
+  `useMediaUpload` disposes the runner when its component unmounts, so no callback runs afterwards.
+  A new batch on an idle queue first drops the finished items of the previous run.
 - `app/composables/useAuth.ts` — login/logout/me/change password/`refreshAccess()` (own-role change);
   gating goes through `useCapabilities()` (`has(pipeline)`/`hasVerb(collection, verb)`), not a role
   table.
@@ -1125,7 +1138,7 @@ listed name is never registered.
 | `data.reload:files` / `data.reload:folders` | `actions/media.ts` | A reload that only fires when its batch actually had items; `deleteItems` runs one for files, one for folders. |
 | `guard.filesDeleted` / `guard.foldersDeleted` | `actions/media.ts` | Fails `deleteItems`'s main sequence when the file batch, respectively the folder batch, reported any failure. |
 | `media.applyTargets` | `actions/media.ts` | Does the one write `renameOrMove` needs: a file rename, a folder rename, or a multi-target move. |
-| `upload.begin` / `upload.request` / `upload.settle` | `actions/media.ts` | Marks the queued item `'uploading'` (`progress` 0); sends the multipart POST through the injected `useUploadTransport` transport, updating `progress` from its callback and switching to `'processing'` at 100% until the response arrives; then seeds `ctx.result` with the item. |
+| `upload.begin` / `upload.request` / `upload.settle` | `actions/media.ts` | Marks the queued item `'uploading'` (`progress` 0) and clears an earlier attempt's message and code; sends the multipart POST through the injected `useUploadTransport` transport with the caller's abort signal, updating `progress` from its callback and switching to `'processing'` at 100% until the response arrives. A failure sets `'failed'`, the error code and a translated message (`media.upload.sessionExpired` for a 401, the HTTP status appended for an answer that did not come from kestrel); an abort sets `'cancelled'`. Then seeds `ctx.result` with the item. |
 | `user.validate` | `actions/system.ts` | Field validation before the request; declared separately, under the same name, in `userCreate` (username + password) and `userUpdate` (username, plus the password only when one was typed). |
 | `user.patch` / `user.active` / `user.password` | `actions/system.ts` | The three halves of `userUpdate`: `PATCH /users/{id}` with only the changed fields, `POST /users/{id}/deactivate` or `/activate`, `PUT /users/{id}/password`. Each is a no-op when its part did not change, and each maps the failure through `utils/user-errors.ts` into the inline error. |
 | `user.delete` | `actions/system.ts` | `DELETE /users/{id}`, with the same error mapping. |
@@ -1239,7 +1252,8 @@ Where a message lands is part of the behaviour, not a detail:
   only on a clean run;
 - media folder create, rename and delete, media meta and provenance edits, and user create and
   set-password — the inline dialog error only, no toast; a success toast only on success;
-- media drag-and-drop move, media upload (except a 401, which the reauth interceptor owns), user toggle,
+- media upload — no toast; the failed file's tile or row shows the message, a 401 included;
+- media drag-and-drop move, user toggle,
   publish-all, retrying failed re-renders, media export, snapshot and restore, references rebuild and
   links rebuild — toast only;
 - replication `notFound` — the inline alert, no toast;

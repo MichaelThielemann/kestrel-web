@@ -579,6 +579,10 @@
   `_TRUSTED_PROXIES`. **Upgrading:** find the address your proxy and your platform's health check
   connect from and list it in `NUXT_KESTREL_ACCESS_TRUSTED_PROXIES` unless it is loopback. The server
   utility `clientAddress` is replaced by the core's `clientIpResolver`.
+- `UploadTransport` takes an options object as its third argument, `{ onProgress?, signal?, timeoutMs? }`,
+  instead of a bare progress callback. A transport that replaces `useUploadTransport()` reads the callback
+  from `options.onProgress` and aborts on `options.signal`. `UploadStatus` gains `'cancelled'`, and
+  `useMediaUpload()`'s `onError` fires for every failed file, a 401 included.
 
 ### Added
 
@@ -802,6 +806,15 @@
 
 ### Fixed
 
+- Media uploads: a failed file no longer holds up or affects the others, and no file stays "queued" for
+  good. A request that is aborted or times out ends as failed instead of hanging, a callback that throws no
+  longer ends the run, and files dropped while a batch is uploading join that batch instead of clearing it.
+  An expired session shows "Session expired" on the file and stops the run; the remaining files show the
+  same message and upload once retried. A failure without an error answer from kestrel names the cause
+  (no connection, timeout, server unavailable, refused as too large) together with its HTTP status.
+  `useMediaUpload()` gains `retry(id)`, `retryFailed()`, `cancel()`, `canRetry(item)`, `clearFinished()`
+  and a `summary` of counts and bytes; closing the media picker aborts the running upload and drops the
+  waiting ones. The upload no longer shows a toast for each failed file.
 - The layer's `kestrel` CLI plugin and the model reader behind `kestrel upgrade data` compile TypeScript in
   memory only; they no longer keep a transpile cache under the system temp directory, where another local
   account could have placed files that the next `kestrel check`, `explain`, `manifest`, `openapi` or
