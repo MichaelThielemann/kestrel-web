@@ -711,7 +711,9 @@ collection, the expected filter and the fix in the message.
   `ApiError` as in `useApi.ts`; everything else becomes an `UploadTransportError` (a subclass of `ApiError`)
   that keeps the HTTP status: `NETWORK`, `ABORTED` or `TIMEOUT` with status 0 when no answer arrived, and
   for an answer without kestrel's JSON error body (a proxy or gateway page) `PAYLOAD_TOO_LARGE` (413),
-  `TIMEOUT` (408, 504), `UNAVAILABLE` (502, 503) or `HTTP`. Used only by the `upload` action's
+  `TIMEOUT` (408, 504), `UNAVAILABLE` (502, 503) or `HTTP`. A 2xx answer counts as a success only when its
+  body is a JSON object and it did not arrive through a redirect away from the requested address; a sign-in
+  page behind an auth proxy or a firewall's block page fails with `HTTP` and its status. Used only by the `upload` action's
   `upload.request` step (**UI actions**).
 - `app/utils/upload-queue.ts` — the framework-free runner behind `useMediaUpload`. One runner per queue
   picks the `queued` items of a live list in order (concurrency 1 unless configured), so a batch added

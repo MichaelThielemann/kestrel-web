@@ -22,6 +22,8 @@ export type UploadTransport = <T>(route: ApiRoute, body: FormData, options?: Upl
  * An upload that failed without an error answer from kestrel: no answer at all (`NETWORK`, `ABORTED`, `TIMEOUT`
  * with status 0), or an answer without kestrel's JSON error body, such as a proxy or gateway page. Its code is
  * `PAYLOAD_TOO_LARGE` (413), `TIMEOUT` (408, 504), `UNAVAILABLE` (502, 503) or `HTTP`; `status` keeps the HTTP status.
+ * A 2xx answer whose body is not a JSON object, or that arrived after a redirect away from the requested address
+ * (a sign-in or block page), is an `HTTP` failure too.
  */
 export class UploadTransportError extends ApiError {}
 
@@ -39,6 +41,15 @@ function parseJsonBody(text: string): unknown {
 function isKestrelErrorBody(data: unknown): boolean {
   return typeof data === 'object' && data !== null && 'code' in data && typeof data.code === 'string'
     && 'error' in data && typeof data.error === 'string'
+}
+
+function isJsonObject(data: unknown): data is object {
+  return typeof data === 'object' && data !== null && !Array.isArray(data)
+}
+
+function redirectedAway(xhr: XMLHttpRequest, requested: string): boolean {
+  if (!xhr.responseURL || !import.meta.client) return false
+  return new URL(xhr.responseURL).href !== new URL(requested, window.location.href).href
 }
 
 function errorAnswer(status: number, statusText: string, data: unknown): ApiError {
@@ -63,7 +74,8 @@ export function useUploadTransport(): UploadTransport {
         signal?.removeEventListener('abort', onSignal)
         outcome()
       }
-      xhr.open(route.method, apiUrl(route))
+      const url = apiUrl(route)
+      xhr.open(route.method, url)
       if (timeoutMs) xhr.timeout = timeoutMs
       xhr.upload.onprogress = (event) => {
         if (!onProgress || settled) return
@@ -73,7 +85,9 @@ export function useUploadTransport(): UploadTransport {
       }
       xhr.onload = () => settle(() => {
         const data = parseJsonBody(xhr.responseText)
-        if (xhr.status >= 200 && xhr.status < 300) resolve(boundaryCast<T>(data, 'json'))
+        const success = xhr.status >= 200 && xhr.status < 300
+        if (success && isJsonObject(data) && !redirectedAway(xhr, url)) resolve(boundaryCast<T>(data, 'json'))
+        else if (success) reject(new UploadTransportError(xhr.status, xhr.statusText || `HTTP ${xhr.status}`, 'HTTP'))
         else reject(errorAnswer(xhr.status, xhr.statusText, data))
       })
       xhr.onerror = () => settle(() => reject(new UploadTransportError(0, 'Network error', 'NETWORK')))

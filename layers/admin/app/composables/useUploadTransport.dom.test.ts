@@ -11,6 +11,7 @@ class FakeXhr {
   status = 0
   statusText = ''
   responseText = ''
+  responseURL = ''
   timeout = 0
   sent: unknown = null
   aborted = 0
@@ -38,10 +39,11 @@ class FakeXhr {
     this.onabort?.()
   }
 
-  respond(status: number, body: string, statusText = '') {
+  respond(status: number, body: string, statusText = '', responseURL = '') {
     this.status = status
     this.statusText = statusText
     this.responseText = body
+    this.responseURL = responseURL
     this.onload?.()
   }
 }
@@ -76,6 +78,35 @@ describe('useUploadTransport', () => {
     await expect(pending).resolves.toEqual({ id: 'f1' })
     expect(current().method).toBe('POST')
     expect(current().url).toMatch(/\/media$/)
+  })
+
+  it('resolves a 2xx answer that came from the requested address', async () => {
+    const pending = useUploadTransport()<{ id: string }>(route, new FormData())
+    current().respond(201, '{"id":"f1"}', 'Created', new URL(current().url, window.location.href).href)
+
+    await expect(pending).resolves.toEqual({ id: 'f1' })
+  })
+
+  it('rejects a 2xx answer without a JSON object as an answer from elsewhere, keeping its status', async () => {
+    for (const body of ['<html>blocked</html>', '', '"ok"', '[]']) {
+      const pending = useUploadTransport()(route, new FormData())
+      current().respond(200, body, 'OK')
+
+      const error = await rejection(pending)
+      expect(error).toBeInstanceOf(UploadTransportError)
+      expect(error.code).toBe('HTTP')
+      expect(error.status).toBe(200)
+    }
+  })
+
+  it('rejects a 2xx answer that arrived after a redirect to another address', async () => {
+    const pending = useUploadTransport()(route, new FormData())
+    current().respond(200, '{"id":"login"}', 'OK', new URL('/sign-in?next=/admin/media', window.location.href).href)
+
+    const error = await rejection(pending)
+    expect(error).toBeInstanceOf(UploadTransportError)
+    expect(error.code).toBe('HTTP')
+    expect(error.status).toBe(200)
   })
 
   it('reports progress through the options object', async () => {
