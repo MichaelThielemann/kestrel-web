@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import { focusFits } from '@michaelthielemann/kestrel-images-default/framing'
 import type { MediaFramingRatio, MediaRect } from '#kestrel-admin/types/api'
 import { displayCrop, type FramingDraft } from '../utils/media-crop'
@@ -9,6 +9,13 @@ const emit = defineEmits<{ focus: [MediaRect | null] }>()
 const { t } = useT()
 
 const focus = computed({ get: () => props.draft.focus, set: (rect: MediaRect | null) => emit('focus', rect) })
+const select = ref<{ focus: () => void } | null>(null)
+
+async function clearFocus(): Promise<void> {
+  focus.value = null
+  await nextTick()
+  select.value?.focus()
+}
 const previews = computed(() => props.ratios.map((ratio) => ({
   key: ratio.key,
   sizes: ratio.sizes.join(', '),
@@ -22,10 +29,10 @@ const previews = computed(() => props.ratios.map((ratio) => ({
   <div class="media-crop-focus">
     <div class="media-crop-focus__editor">
       <p class="media-crop-focus__intro">{{ t('mediaCrop.focusIntro') }}</p>
-      <KestrelUiRectSelect v-model="focus" :src="src" :alt="alt" :label="t('mediaCrop.focusLabel')" :disabled="disabled" />
+      <KestrelUiRectSelect ref="select" v-model="focus" :src="src" :alt="alt" :label="t('mediaCrop.focusLabel')" :disabled="disabled" />
       <div class="media-crop-focus__actions">
         <span class="media-crop-focus__state">{{ focus ? t('mediaCrop.focusSet') : t('mediaCrop.noFocus') }}</span>
-        <KestrelUiButton variant="ghost" size="sm" icon="eraser" data-test="crop-clear-focus" :disabled="disabled || !focus" @click="focus = null">{{ t('mediaCrop.clearFocus') }}</KestrelUiButton>
+        <KestrelUiButton variant="ghost" size="sm" icon="eraser" data-test="crop-clear-focus" :disabled="disabled || !focus" @click="clearFocus">{{ t('mediaCrop.clearFocus') }}</KestrelUiButton>
       </div>
     </div>
     <section v-if="previews.length" class="media-crop-focus__previews" :aria-label="t('mediaCrop.previews')">

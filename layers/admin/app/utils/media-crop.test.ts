@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { centredCrop, cropForRatio } from '@michaelthielemann/kestrel-images-default/framing'
 import type { MediaItem } from '../types/api'
-import { canFrame, coverSizesOf, displayCrop, previewStyle, sameFraming, smallerSizes, uniqueReferrers } from './media-crop'
+import { canFrame, coverSizesOf, cropSource, displayCrop, previewStyle, sameFraming, smallerSizes, uniqueReferrers } from './media-crop'
 
 function item(over: Partial<MediaItem> = {}): MediaItem {
   return {
@@ -22,6 +22,32 @@ describe('canFrame', () => {
     expect(canFrame(item({ contentType: 'application/pdf' }))).toBe(false)
     expect(canFrame(item({ framing: { focus: null, crops: {}, width: null, height: null, ratios: [] } }))).toBe(false)
     expect(canFrame(null)).toBe(false)
+  })
+})
+
+describe('cropSource', () => {
+  const variant = (size: string, width: number, state: 'done' | 'pending' = 'done') => ({ size, width, height: Math.round(width * 2 / 3), format: 'webp', bytes: 1, state, path: `/media/m1/variants/${size}.webp` })
+  const ratios = [{ key: '1:1', sizes: ['avatar'], manual: false, fits: true, crop: null }]
+
+  it('shows the original when a browser displays its type', () => {
+    expect(cropSource(item())).toBe('/media/m1/a.jpg')
+    expect(cropSource(item({ contentType: 'image/webp' }))).toBe('/media/m1/a.jpg')
+  })
+
+  it('shows the largest finished variant that keeps the whole image when a browser cannot display the original', () => {
+    const tiff = item({
+      contentType: 'image/tiff',
+      path: '/media/m1/a.tif',
+      variants: [variant('small', 640), variant('avatar', 2000), variant('large', 1600), variant('xl', 2400, 'pending')],
+      framing: { focus: null, crops: {}, width: 1200, height: 800, ratios },
+    })
+    expect(cropSource(tiff)).toBe('/media/m1/variants/large.webp')
+  })
+
+  it('has nothing to show for such an original before a whole-image variant is finished', () => {
+    const tiff = item({ contentType: 'image/tiff', variants: [variant('avatar', 96), variant('large', 1600, 'pending')], framing: { focus: null, crops: {}, width: 1200, height: 800, ratios } })
+    expect(cropSource(tiff)).toBeNull()
+    expect(canFrame(tiff)).toBe(false)
   })
 })
 

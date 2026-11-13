@@ -2,6 +2,7 @@
 import { computed, nextTick, ref, toRef, useId, watch } from 'vue'
 import type { MediaItem, MediaRect } from '#kestrel-admin/types/api'
 import { useMediaCropEditor } from '../composables/useMediaCropEditor'
+import { cropSource } from '../utils/media-crop'
 
 const props = defineProps<{ open: boolean, item: MediaItem | null }>()
 const emit = defineEmits<{ 'update:open': [boolean], saved: [MediaItem] }>()
@@ -16,7 +17,7 @@ const selected = ref('')
 const status = ref('')
 const hasCover = computed(() => ratios.value.length > 0)
 const tabs = computed(() => [{ id: 'focus', label: t('mediaCrop.tab.focus') }, { id: 'crop', label: t('mediaCrop.tab.crop') }])
-const src = computed(() => props.item?.path ?? '')
+const src = computed(() => (props.item ? cropSource(props.item) ?? props.item.path : ''))
 const alt = computed(() => props.item?.alt ?? props.item?.filename ?? '')
 const panelAttrs = (id: string) => (hasCover.value ? { 'role': 'tabpanel', 'id': `${idPrefix}-panel-${id}`, 'aria-labelledby': `${idPrefix}-tab-${id}` } : {})
 
@@ -46,6 +47,7 @@ function onOpenAutoFocus(event: Event): void {
   })
 }
 
+const saveButton = ref<{ focus: () => void } | null>(null)
 let discardConfirmed = false
 const confirmDiscard = () => confirm(t('mediaCrop.discardConfirm'))
 
@@ -71,6 +73,8 @@ async function onSave(): Promise<void> {
   const saved = await editor.save()
   if (!saved) {
     status.value = error.value
+    await nextTick()
+    saveButton.value?.focus()
     return
   }
   status.value = ''
@@ -117,7 +121,7 @@ async function onSave(): Promise<void> {
     </div>
     <template #footer>
       <KestrelUiButton variant="ghost" :disabled="busy" @click="onOpenChange(false)">{{ t('common.cancel') }}</KestrelUiButton>
-      <KestrelUiButton variant="primary" :loading="busy" :disabled="busy || !dirty" @click="onSave">{{ t('common.save') }}</KestrelUiButton>
+      <KestrelUiButton ref="saveButton" variant="primary" :loading="busy" :disabled="busy || !dirty" @click="onSave">{{ t('common.save') }}</KestrelUiButton>
     </template>
   </KestrelUiDialog>
 </template>

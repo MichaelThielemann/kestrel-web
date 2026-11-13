@@ -161,9 +161,11 @@ describe('MediaCropEditor', () => {
     expect(q('[data-test="crop-state"]')?.textContent).toBe(en['mediaCrop.manual'])
     expect(q('[data-key="1:1"] .media-crop-tiles__state')?.textContent).toBe(en['mediaCrop.manual'])
 
+    q<HTMLElement>('[data-test="crop-reset"]')?.focus()
     q('[data-test="crop-reset"]')?.click()
     await nextTick()
     expect(q('[data-test="crop-state"]')?.textContent).toBe(en['mediaCrop.auto'])
+    await vi.waitFor(() => expect(document.activeElement).toBe(q('.ui-crop-frame__frame')))
     await vi.waitFor(() => expect(q('[role="status"]')?.textContent).toBe(en['mediaCrop.resetDone'].replace('{key}', '1:1')))
     wrapper.unmount()
   })
@@ -250,19 +252,74 @@ describe('MediaCropEditor', () => {
     wrapper.unmount()
   })
 
-  it('shows why a save failed and stays open', async () => {
+  it('shows why a save failed, stays open and puts keyboard focus back on Save', async () => {
+    let fail: (error: unknown) => void = () => {}
     api.answer = (call) => (call.method === 'PUT'
-      ? Promise.reject(Object.assign(new Error('focus.x must be a number from 0 to 1'), { status: 400, name: 'ApiError', data: { error: 'focus.x must be a number from 0 to 1', code: 'VALIDATION' } }))
+      ? new Promise((_resolve, reject) => { fail = reject })
       : Promise.resolve([]))
     const wrapper = await mountEditor(photo())
 
     key(q('.ui-rect-select__surface'), 'Enter')
     await nextTick()
+    button(en['common.save'])?.focus()
     button(en['common.save'])?.click()
+    await vi.waitFor(() => expect(button(en['common.save'])?.hasAttribute('disabled')).toBe(true))
+    button(en['common.save'])?.blur()
+    fail(Object.assign(new Error('focus.x must be a number from 0 to 1'), { status: 400, name: 'ApiError', data: { error: 'focus.x must be a number from 0 to 1', code: 'VALIDATION' } }))
 
     await vi.waitFor(() => expect(q('.media-crop__error')?.textContent).toContain('focus.x must be a number from 0 to 1'))
     expect(wrapper.emitted('saved')).toBeUndefined()
+    await vi.waitFor(() => expect(document.activeElement).toBe(button(en['common.save'])))
     expect(q('[role="dialog"]')).not.toBeNull()
     wrapper.unmount()
+  })
+
+  it('shows a finished whole-image variant when a browser cannot display the original', async () => {
+    const tiff: MediaItem = {
+      ...photo(),
+      contentType: 'image/tiff',
+      path: '/media/m1/harbour.tif',
+      variants: [
+        { size: 'large', width: 1200, height: 800, format: 'webp', bytes: 1, state: 'done', path: '/media/m1/variants/large.webp?v=2' },
+        { size: 'teaser', width: 480, height: 320, format: 'webp', bytes: 1, state: 'done', path: '/media/m1/variants/teaser.webp' },
+      ],
+    }
+    const wrapper = await mountEditor(tiff)
+
+    expect(q('.ui-rect-select__image')?.getAttribute('src')).toBe('/media/m1/variants/large.webp?v=2')
+    expect(qa('[data-test="crop-preview"] img').map((img) => img.getAttribute('src'))).toEqual(['/media/m1/variants/large.webp?v=2', '/media/m1/variants/large.webp?v=2'])
+    wrapper.unmount()
+  })
+
+  it('keeps keyboard focus on the focus area when the focus is removed', async () => {
+    const wrapper = await mountEditor(photo({ focus: { x: 0.25, y: 0.25, w: 0.5, h: 0.5 } }))
+
+    const clear = q<HTMLButtonElement>('[data-test="crop-clear-focus"]')
+    clear?.focus()
+    clear?.click()
+    await nextTick()
+    expect(clear?.disabled).toBe(true)
+    await vi.waitFor(() => expect(document.activeElement).toBe(q('.ui-rect-select__surface')))
+    wrapper.unmount()
+  })
+
+  it('says a crop is smaller than a size the server renders but the build does not declare', async () => {
+    schema.capabilities.listImageSizes = { method: 'GET', path: '/admin/images/sizes' }
+    api.answer = (call) => Promise.resolve(call.path === '/admin/images/sizes'
+      ? [{ name: 'banner', width: 2400, height: 800, fit: 'cover', format: 'webp', quality: 82, source: 'config', updatedAt: 1 }]
+      : [])
+    try {
+      const wrapper = await mountEditor(photo({
+        ratios: [{ key: '3:1', sizes: ['banner'], manual: true, fits: true, crop: null }],
+        crops: { '3:1': { x: 0, y: 0, w: 0.5, h: 0.25 } },
+      }))
+
+      tabs()[1]?.click()
+      await nextTick()
+      await vi.waitFor(() => expect(q('[data-test="crop-smaller"]')?.textContent).toBe(en['mediaCrop.smaller'].replace('{sizes}', 'banner')))
+      wrapper.unmount()
+    } finally {
+      delete schema.capabilities.listImageSizes
+    }
   })
 })

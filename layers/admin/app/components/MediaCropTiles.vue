@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import { focusFits } from '@michaelthielemann/kestrel-images-default/framing'
 import type { MediaFramingRatio, MediaRect } from '#kestrel-admin/types/api'
 import { displayCrop, smallerSizes, type CropSize, type FramingDraft } from '../utils/media-crop'
@@ -32,6 +32,13 @@ const crop = computed({
   set: (rect: MediaRect | null) => { if (active.value) emit('crop', active.value.key, rect) },
 })
 const stateLabel = (manual: boolean) => (manual ? t('mediaCrop.manual') : t('mediaCrop.auto'))
+const frame = ref<{ focus: () => void } | null>(null)
+
+async function reset(): Promise<void> {
+  crop.value = null
+  await nextTick()
+  frame.value?.focus()
+}
 </script>
 
 <template>
@@ -56,12 +63,13 @@ const stateLabel = (manual: boolean) => (manual ? t('mediaCrop.manual') : t('med
       <div class="media-crop-tiles__head">
         <h3 class="media-crop-tiles__title">{{ t('mediaCrop.ratioTitle', { key: active.key, sizes: active.sizes.join(', ') }) }}</h3>
         <span class="media-crop-tiles__state" :data-state="active.manual ? 'manual' : 'auto'" data-test="crop-state">{{ stateLabel(active.manual) }}</span>
-        <KestrelUiButton variant="ghost" size="sm" icon="rotate-ccw" data-test="crop-reset" :disabled="disabled || !active.manual" @click="crop = null">{{ t('mediaCrop.reset') }}</KestrelUiButton>
+        <KestrelUiButton variant="ghost" size="sm" icon="rotate-ccw" data-test="crop-reset" :disabled="disabled || !active.manual" @click="reset">{{ t('mediaCrop.reset') }}</KestrelUiButton>
       </div>
       <KestrelUiAlert v-if="!active.fits" variant="warning" data-test="crop-misses">{{ t('mediaCrop.focusMissesDetail') }}</KestrelUiAlert>
       <KestrelUiAlert v-if="smaller.length" variant="info" data-test="crop-smaller">{{ t('mediaCrop.smaller', { sizes: smaller.join(', ') }) }}</KestrelUiAlert>
       <KestrelUiCropFrame
         :key="active.key"
+        ref="frame"
         v-model="crop"
         :src="src"
         :alt="alt"

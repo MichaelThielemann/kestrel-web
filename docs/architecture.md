@@ -957,8 +957,12 @@ Kit inventory:
   frame holds exactly what the server renders, the cut centred on `focus` while no crop is set. Dragging pans,
   the wheel and a two-finger pinch zoom around the pointer; the arrow keys pan by 1 % of the image (Shift
   10 %), `+` and `-` zoom; a slider with zoom buttons and numeric left, top and zoom fields do the same
-  without dragging. Zoom stops where the crop's shorter side reaches 64 pixels, or at `maxZoom` (8). The
-  pointer and wheel logic is `usePanZoom()` on top of `usePointerDrag()`.
+  without dragging. A typed number applies on Enter or when the field is left (or on a step with its
+  arrows), not digit by digit. Zoom stops at the closest whole-pixel crop within the limit where the crop's
+  shorter side reaches 64 pixels, or `maxZoom` (8); the slider and the zoom field end there, and a zoom button
+  that reaches its end hands keyboard focus to the slider. A crop that would not keep its ratio within the 2 %
+  the server allows (on an image a few dozen pixels high) is not set, so the ratio stays automatic. The
+  pointer and wheel logic is `usePanZoom()` on top of `usePointerDrag()`; `focus()` is exposed.
 - `DatePicker.vue` / `DateRangePicker.vue` / `TimeInput.vue` — ISO date, date-range and time entry.
 - `Dialog.vue` — modal with title, optional description, footer slot and `md|lg|xl|screen` sizes. It
   re-emits `openAutoFocus` (prevent it and focus another element to choose where focus starts) and
@@ -984,8 +988,10 @@ Kit inventory:
   across the image to draw it, drag its body to move it and one of its eight 24 × 24 px handles to resize it,
   double-click for a point (`w` and `h` 0). The focused image takes the arrow keys to move it by 1 % (Shift
   10 %), Alt with the arrow keys to resize it, Enter to create a centred one and Delete to remove it; numeric
-  left, top, width and height fields in percent do the same without dragging. Pointer handling is
-  `usePointerDrag()`, the geometry `utils/rect-select.ts`.
+  left, top, width and height fields in percent do the same without dragging. A draw starts once the
+  pointer has moved 4 pixels, and one that stays under 1 % of the image wide or high gives back the rectangle
+  it replaced, so a click or tap beside the rectangle keeps it. Pointer handling is `usePointerDrag()` (its
+  `threshold` option), the geometry `utils/rect-select.ts`; `focus()` is exposed.
 - `Richtext.vue` / `RichtextToolbar.vue` — the TipTap editor and its toolbar.
 - `Select.vue` — native select styled like the other controls.
 - `Slider.vue` — a labelled native range input bound to a number, with `min`, `max`, `step`, an optional

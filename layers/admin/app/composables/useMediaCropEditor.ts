@@ -3,7 +3,7 @@ import { imageSizes } from '#kestrel/image-sizes'
 import type { MediaItem, MediaRect, ReferenceTo } from '#kestrel-admin/types/api'
 import { setMediaFraming } from '#kestrel-admin/actions/media'
 import type { BusyPort } from '#kestrel-admin/actions/types'
-import { coverSizesOf, sameFraming, uniqueReferrers, type FramingDraft } from '../utils/media-crop'
+import { coverSizesOf, sameFraming, uniqueReferrers, type CropSize, type FramingDraft } from '../utils/media-crop'
 
 function draftOf(item: MediaItem | null): FramingDraft {
   const framing = item?.framing
@@ -22,7 +22,7 @@ export function useMediaCropEditor(item: Ref<MediaItem | null>, open: Ref<boolea
   const width = computed(() => item.value?.framing.width ?? 0)
   const height = computed(() => item.value?.framing.height ?? 0)
   const ratios = computed(() => item.value?.framing.ratios ?? [])
-  const sizes = coverSizesOf(imageSizes)
+  const sizes = ref<CropSize[]>(coverSizesOf(imageSizes))
   const dirty = computed(() => !sameFraming(draft.value, stored.value))
 
   async function loadUsage(id: string): Promise<void> {
@@ -36,12 +36,23 @@ export function useMediaCropEditor(item: Ref<MediaItem | null>, open: Ref<boolea
     }
   }
 
+  async function loadSizes(): Promise<void> {
+    if (!deps.capabilities.has('listImageSizes')) return
+    try {
+      const listed = await deps.api<CropSize[]>(deps.capabilities.route('listImageSizes'))
+      sizes.value = coverSizesOf(listed)
+    } catch {
+      sizes.value = coverSizesOf(imageSizes)
+    }
+  }
+
   const stop = watch([open, () => item.value?.id], ([isOpen]) => {
     if (!isOpen) return
     stored.value = draftOf(item.value)
     draft.value = draftOf(item.value)
     error.value = ''
     if (item.value) void loadUsage(item.value.id)
+    void loadSizes()
   }, { immediate: true })
   onUnmounted(stop)
 
