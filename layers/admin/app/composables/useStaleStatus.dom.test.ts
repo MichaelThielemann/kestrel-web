@@ -74,7 +74,7 @@ describe('useStaleStatus', () => {
     wrapper.unmount()
   })
 
-  it('polls every two seconds while pages wait, tracks the progress and stops at zero', async () => {
+  it('polls every two seconds while pages wait, tracks the progress and stops a few seconds after zero', async () => {
     vi.useFakeTimers()
     answering(staleStatus({ stale: 4 }), staleStatus({ stale: 3 }), staleStatus({ stale: 1 }), staleStatus())
     const { wrapper, api } = await mountProbe()
@@ -91,8 +91,37 @@ describe('useStaleStatus', () => {
     await vi.advanceTimersByTimeAsync(4000)
     expect(api.status.value?.stale).toBe(0)
     expect(api.progress.value).toBeNull()
-    await vi.advanceTimersByTimeAsync(10_000)
-    expect(apiCalls).toHaveLength(4)
+    await vi.advanceTimersByTimeAsync(20_000)
+    expect(apiCalls).toHaveLength(7)
+    wrapper.unmount()
+  })
+
+  it('keeps polling after the backlog drains until the index and llms-full exports that follow it are shown', async () => {
+    vi.useFakeTimers()
+    const failed = { indexes: { at: 1, entries: 3, error: null, skipped: false }, llmsFull: { at: 1, entries: 0, error: 'could not read the stored HTML', skipped: false } }
+    const exported = { indexes: { at: 2, entries: 3, error: null, skipped: false }, llmsFull: { at: 5, entries: 3, error: null, skipped: false } }
+    answering(staleStatus({ stale: 2, exports: failed }), staleStatus({ exports: failed }), staleStatus({ exports: failed }), staleStatus({ exports: exported }))
+    const { wrapper, api } = await mountProbe()
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(api.status.value?.stale).toBe(0)
+    expect(api.status.value?.exports.llmsFull?.error).toBe('could not read the stored HTML')
+    await vi.advanceTimersByTimeAsync(4000)
+    expect(api.status.value?.exports).toEqual(exported)
+    wrapper.unmount()
+  })
+
+  it('keeps polling for the exports after watch() even when the backlog is already empty', async () => {
+    vi.useFakeTimers()
+    const exported = { indexes: { at: 9, entries: 4, error: null, skipped: false }, llmsFull: null }
+    answering(staleStatus(), staleStatus(), staleStatus({ exports: exported }))
+    const { wrapper, api } = await mountProbe()
+    await vi.advanceTimersByTimeAsync(0)
+    await api.watch(0)
+    expect(apiCalls).toHaveLength(2)
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(api.status.value?.exports).toEqual(exported)
+    await vi.advanceTimersByTimeAsync(20_000)
+    expect(apiCalls.length).toBeLessThanOrEqual(5)
     wrapper.unmount()
   })
 

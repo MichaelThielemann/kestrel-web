@@ -3,13 +3,15 @@ import type { StaleStatus } from '#kestrel-admin/types/api'
 import { staleAnnouncement } from '../utils/stale-messages'
 
 const POLL_MS = 2000
+const EXPORT_TAIL_MS = 3000 + POLL_MS
 
 export interface StaleProgress { done: number, total: number, percent: number }
 
 /**
  * The static delivery's re-render backlog (`GET /admin/publish-status/pages`): loaded on mount, then polled every
- * two seconds while pages wait, paused while the document is hidden, with at most one request in flight; a load
- * asked for while one runs follows it. `progress` counts from the largest backlog seen since it last reached zero,
+ * two seconds while pages wait and for five more seconds after the backlog drains or `watch()` is called, so the
+ * index and llms-full exports that trail the re-renders by up to three seconds are shown; paused while the document
+ * is hidden, with at most one request in flight; a load asked for while one runs follows it. `progress` counts from the largest backlog seen since it last reached zero,
  * or from the number `watch()` was told was just queued. `announcement` changes only when pages start waiting, a
  * re-render fails or the backlog ends, so a polite live region reading it is not repeated on every poll.
  */
@@ -29,6 +31,7 @@ export function useStaleStatus() {
   let disposed = false
   let inFlight: Promise<void> | null = null
   let again = false
+  let tailUntil = 0
 
   const progress = computed<StaleProgress | null>(() => {
     const stale = status.value?.stale ?? 0
@@ -50,6 +53,7 @@ export function useStaleStatus() {
       const next = await api<StaleStatus>(capabilities.route('pagesStaleStatus'))
       if (disposed) return
       announcement.value = staleAnnouncement(t, status.value, next) ?? announcement.value
+      if ((status.value?.stale ?? 0) > 0 && next.stale === 0) tailUntil = Date.now() + EXPORT_TAIL_MS
       status.value = next
       loadError.value = null
       total.value = next.stale === 0 ? 0 : Math.max(total.value, next.stale)
@@ -60,7 +64,7 @@ export function useStaleStatus() {
 
   function schedule(): void {
     clearTimer()
-    if (disposed || document.hidden || (status.value?.stale ?? 0) === 0) return
+    if (disposed || document.hidden || ((status.value?.stale ?? 0) === 0 && Date.now() >= tailUntil)) return
     timer = setTimeout(() => { void tick() }, POLL_MS)
   }
 
@@ -88,6 +92,7 @@ export function useStaleStatus() {
 
   async function watch(queued?: number): Promise<void> {
     if (queued !== undefined && queued > 0) total.value = Math.max(total.value, queued)
+    tailUntil = Date.now() + EXPORT_TAIL_MS
     await tick()
   }
 
