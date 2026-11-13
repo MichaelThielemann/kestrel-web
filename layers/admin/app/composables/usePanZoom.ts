@@ -23,6 +23,12 @@ function round(value: number): number {
   return Math.round(value * 10000) / 10000
 }
 
+interface View {
+  cx: number
+  cy: number
+  z: number
+}
+
 function sameCrop(a: PixelCrop, b: PixelCrop): boolean {
   return a.left === b.left && a.top === b.top && a.width === b.width && a.height === b.height
 }
@@ -56,18 +62,60 @@ export function usePanZoom(frame: Ref<HTMLElement | null>, opts: PanZoomOptions)
     return closest ? Math.max(1, base.width / closest.width) : 1
   })
 
+  let view: (View & { shown: PixelCrop }) | null = null
+  let gesture = false
+
   function storable(rect: MediaRect): boolean {
     return parseFraming({ crops: { [opts.ratio()]: rect } }, { width: opts.width(), height: opts.height() }).ok
+  }
+
+  function commitCrop(next: PixelCrop): boolean {
+    const [w, h] = [opts.width(), opts.height()]
+    const rect = { x: next.left / w, y: next.top / h, w: next.width / w, h: next.height / h }
+    if (!storable(rect)) return false
+    opts.commit(rect)
+    return true
   }
 
   function place(cx: number, cy: number, nextZoom: number): void {
     const current = crop.value
     if (!current || opts.disabled()) return
-    const [w, h] = [opts.width(), opts.height()]
+    view = null
     const next = cropAt(cx, cy, Math.min(maxZoom.value, Math.max(1, nextZoom)))
-    if (!next || sameCrop(next, current)) return
-    const rect = { x: next.left / w, y: next.top / h, w: next.width / w, h: next.height / h }
-    if (storable(rect)) opts.commit(rect)
+    if (next && !sameCrop(next, current)) commitCrop(next)
+  }
+
+  function clampView(next: View): View | null {
+    const base = centred.value
+    if (!base) return null
+    const z = Math.min(maxZoom.value, Math.max(1, next.z))
+    const [halfW, halfH] = [base.width / z / 2, base.height / z / 2]
+    const cx = Math.min(opts.width() - halfW, Math.max(halfW, next.cx))
+    const cy = Math.min(opts.height() - halfH, Math.max(halfH, next.cy))
+    return { cx, cy, z }
+  }
+
+  function moveView(change: (from: View) => View): void {
+    const current = crop.value
+    if (!current || opts.disabled()) return
+    const held = view !== null && (gesture || sameCrop(view.shown, current)) ? view : null
+    const from = held ?? { cx: current.left + current.width / 2, cy: current.top + current.height / 2, z: zoom.value }
+    const next = clampView(change(from))
+    const target = next && cropAt(next.cx, next.cy, next.z)
+    if (!next || !target) return
+    const shown = held?.shown ?? current
+    if (sameCrop(target, shown)) view = { ...next, shown }
+    else view = commitCrop(target) ? { ...next, shown: target } : null
+  }
+
+  function scaleView(from: View, factor: number, anchor: PointerDragPoint): View {
+    const base = centred.value
+    if (!base) return from
+    const z = Math.min(maxZoom.value, Math.max(1, from.z * factor))
+    const [cw, ch] = [base.width / from.z, base.height / from.z]
+    const a = { x: from.cx - cw / 2 + anchor.x * cw, y: from.cy - ch / 2 + anchor.y * ch }
+    const keep = from.z / z
+    return { cx: a.x + (from.cx - a.x) * keep, cy: a.y + (from.cy - a.y) * keep, z }
   }
 
   function centre(): PointerDragPoint {
@@ -129,11 +177,19 @@ export function usePanZoom(frame: Ref<HTMLElement | null>, opts: PanZoomOptions)
   }
 
   const { dragging } = usePointerDrag(frame, {
-    move: (_point, delta) => {
-      const current = crop.value
-      if (current) panBy(-delta.x * current.width, -delta.y * current.height)
+    start: () => {
+      view = null
+      gesture = true
     },
-    pinch: (scale, anchor) => zoomBy(scale, anchor),
+    move: (_point, delta) => moveView((from) => {
+      const base = centred.value
+      if (!base) return from
+      return { ...from, cx: from.cx - (delta.x * base.width) / from.z, cy: from.cy - (delta.y * base.height) / from.z }
+    }),
+    pinch: (scale, anchor) => moveView((from) => scaleView(from, scale, anchor)),
+    end: () => {
+      gesture = false
+    },
     disabled: opts.disabled,
   })
 
@@ -145,7 +201,7 @@ export function usePanZoom(frame: Ref<HTMLElement | null>, opts: PanZoomOptions)
       ? { x: (event.clientX - box.left) / box.width, y: (event.clientY - box.top) / box.height }
       : undefined
     const delta = event.deltaMode === 1 ? event.deltaY * LINE_HEIGHT : event.deltaY
-    zoomBy(Math.exp(-delta * WHEEL_SPEED), anchor)
+    moveView((from) => scaleView(from, Math.exp(-delta * WHEEL_SPEED), anchor ?? { x: 0.5, y: 0.5 }))
   }
 
   let wheelTarget: HTMLElement | null = null

@@ -39,6 +39,28 @@ function wheel(deltaY: number, clientX: number, clientY: number): WheelEvent {
   return new WheelEvent('wheel', { deltaY, clientX, clientY, bubbles: true, cancelable: true })
 }
 
+const SMALL = { ratio: '1:1', width: 1200, height: 700 }
+
+function squareCropOf(rect: MediaRect | undefined): PixelCrop | null {
+  return rect ? cropForRatio({ focus: null, crops: { '1:1': rect } }, '1:1', SMALL.width, SMALL.height) ?? null : null
+}
+
+function squareRect(left: number, top: number, side: number): MediaRect {
+  return { x: left / SMALL.width, y: top / SMALL.height, w: side / SMALL.width, h: side / SMALL.height }
+}
+
+function pointerEvent(type: string, pointerId: number, clientX: number, clientY: number): MouseEvent {
+  const event = new MouseEvent(type, { clientX, clientY, bubbles: true, cancelable: true })
+  Object.defineProperty(event, 'pointerId', { value: pointerId })
+  return event
+}
+
+function squareFrame(wrapper: Awaited<ReturnType<typeof mountFrame>>['wrapper']): Element {
+  const frame = wrapper.get('.ui-crop-frame__frame').element
+  frame.getBoundingClientRect = () => ({ left: 0, top: 0, right: 600, bottom: 600, width: 600, height: 600, x: 0, y: 0, toJSON: () => ({}) })
+  return frame
+}
+
 describe('KestrelUiCropFrame', () => {
   it('names the frame, explains its keys and keeps it in the tab order', async () => {
     const { wrapper } = await mountFrame(null)
@@ -238,6 +260,70 @@ describe('KestrelUiCropFrame', () => {
     await frame.trigger('keydown', { key: 'ArrowDown' })
     await frame.trigger('keydown', { key: 'ArrowUp', shiftKey: true })
     expect(emitted).toEqual([])
+    wrapper.unmount()
+  })
+
+  it('follows a slow drag at a high zoom, where one screen pixel is less than half an image pixel', async () => {
+    const { wrapper, emitted } = await mountFrame(squareRect(500, 262, 175), null, SMALL)
+    const frame = squareFrame(wrapper)
+
+    frame.dispatchEvent(pointerEvent('pointerdown', 1, 300, 300))
+    for (let x = 301; x <= 400; x++) {
+      frame.dispatchEvent(pointerEvent('pointermove', 1, x, 300))
+      await nextTick()
+    }
+    frame.dispatchEvent(pointerEvent('pointerup', 1, 400, 300))
+    await nextTick()
+    const crop = squareCropOf(emitted.at(-1))
+    expect(crop?.width).toBe(175)
+    expect(Math.abs((crop?.left ?? 0) - (500 - (100 / 600) * 175))).toBeLessThanOrEqual(1)
+    wrapper.unmount()
+  })
+
+  it('keeps a slow drag under the pointer where one screen pixel is most of an image pixel', async () => {
+    const { wrapper, emitted } = await mountFrame(squareRect(300, 100, 467), null, SMALL)
+    const frame = squareFrame(wrapper)
+
+    frame.dispatchEvent(pointerEvent('pointerdown', 1, 300, 300))
+    for (let x = 301; x <= 360; x++) {
+      frame.dispatchEvent(pointerEvent('pointermove', 1, x, 300))
+      await nextTick()
+    }
+    frame.dispatchEvent(pointerEvent('pointerup', 1, 360, 300))
+    await nextTick()
+    const crop = squareCropOf(emitted.at(-1))
+    expect(Math.abs((crop?.left ?? 0) - (300 - (60 / 600) * 467))).toBeLessThanOrEqual(1)
+    wrapper.unmount()
+  })
+
+  it('follows a slow pinch at a high zoom by the total change of the finger distance', async () => {
+    const { wrapper, emitted } = await mountFrame(squareRect(530, 280, 140), null, SMALL)
+    const frame = squareFrame(wrapper)
+
+    frame.dispatchEvent(pointerEvent('pointerdown', 1, 100, 300))
+    frame.dispatchEvent(pointerEvent('pointerdown', 2, 400, 300))
+    for (let x = 401; x <= 440; x++) {
+      frame.dispatchEvent(pointerEvent('pointermove', 2, x, 300))
+      await nextTick()
+    }
+    frame.dispatchEvent(pointerEvent('pointerup', 2, 440, 300))
+    frame.dispatchEvent(pointerEvent('pointerup', 1, 100, 300))
+    await nextTick()
+    const crop = squareCropOf(emitted.at(-1))
+    expect(Math.abs((crop?.width ?? 0) - 140 * (300 / 340))).toBeLessThanOrEqual(1)
+    wrapper.unmount()
+  })
+
+  it('adds up small wheel steps instead of dropping them', async () => {
+    const { wrapper, emitted } = await mountFrame(squareRect(500, 262, 175), null, SMALL)
+    const frame = squareFrame(wrapper)
+
+    for (let i = 0; i < 50; i++) {
+      frame.dispatchEvent(wheel(-1, 300, 300))
+      await nextTick()
+    }
+    const crop = squareCropOf(emitted.at(-1))
+    expect(Math.abs((crop?.width ?? 0) - 175 / Math.exp(0.1))).toBeLessThanOrEqual(1)
     wrapper.unmount()
   })
 })
