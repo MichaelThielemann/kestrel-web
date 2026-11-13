@@ -24,7 +24,7 @@ async function submit() {
     await api(capabilities.route('confirmPassword'), { body: { password: password.value } })
     reauth.settle(true)
   } catch (e) {
-    error.value = apiErrorStatus(e) === 400 ? t('reauth.wrong') : apiErrorText(t, e)
+    error.value = apiErrorStatus(e) === 400 ? t('reauth.wrong') : apiErrorText(t, e, t('reauth.failed'))
   } finally {
     busy.value = false
   }

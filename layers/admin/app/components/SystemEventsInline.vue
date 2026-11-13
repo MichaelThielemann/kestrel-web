@@ -25,7 +25,7 @@ async function load() {
       loadError.value = null
     } else {
       notFound.value = false
-      loadError.value = apiErrorText(t, e)
+      loadError.value = apiErrorText(t, e, t('events.dashLoadError'))
     }
   } finally {
     inFlight = false

@@ -150,18 +150,30 @@ export function failureText(t: Translate, message: string, trace: FailureTrace):
   return message ? t('error.withReference', { message: withoutFinalPeriod(message), reference }) : reference
 }
 
-/**
- * The text an inline error display shows for anything a request threw: the message of the answer, or `fallback`
- * when it carries none or no server answered, with the HTTP status and the error id as `failureText` adds them.
- */
-export function apiErrorText(t: Translate, e: unknown, fallback = ''): string {
-  const err = toApiError(e)
-  return failureText(t, err.reached ? err.message || fallback : fallback, err)
+const MODULE_PREFIX = /^[a-z][\w-]*(?:\/[\w-]+)?:\s+/
+
+/** A message of a kestrel answer as the admin shows it: without the `module:` or `scope/module:` prefix in front. */
+export function serverDetail(message: string): string {
+  return message.replace(MODULE_PREFIX, '').trim()
 }
 
-/** The message of an answer to show for a failed request, or `fallback` when there is none or no server answered. */
-export function answeredMessage(err: { message?: string, reached?: boolean }, fallback: string): string {
-  return err.reached !== false && err.message ? err.message : fallback
+/**
+ * `lead`, the translated text that names what failed, followed by the message of the answer as `serverDetail`
+ * shows it; `lead` alone when the answer carries no message or no server answered the request.
+ */
+export function answeredMessage(t: Translate, err: { message?: string, reached?: boolean }, lead: string): string {
+  const detail = err.reached === false || !err.message ? '' : serverDetail(err.message)
+  if (!detail) return lead
+  return lead ? t('error.detail', { lead: lead.replace(/[.:]$/, ''), detail }) : detail
+}
+
+/**
+ * The text an inline error display shows for anything a request threw: `lead` and the message of the answer as
+ * `answeredMessage` joins them, with the HTTP status and the error id as `failureText` adds them.
+ */
+export function apiErrorText(t: Translate, e: unknown, lead: string): string {
+  const err = toApiError(e)
+  return failureText(t, answeredMessage(t, err, lead), err)
 }
 
 export const retryableMessage = (t: Translate, details?: ApiErrorDetails): string => {

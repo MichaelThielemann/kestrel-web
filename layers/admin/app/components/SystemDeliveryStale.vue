@@ -47,7 +47,7 @@ async function onRetry() {
       <div class="delivery-stale">
         <p v-if="loadError" class="delivery-stale__line" data-tone="failed" role="alert">
           <KestrelUiIcon name="triangle-alert" :size="16" />
-          <span>{{ t('delivery.staleLoadError') }} {{ loadError }}</span>
+          <span>{{ loadError }}</span>
         </p>
         <p v-for="line in lines" :key="line.tone" class="delivery-stale__line" :data-tone="line.tone">
           <KestrelUiIcon :name="line.icon" :size="16" />

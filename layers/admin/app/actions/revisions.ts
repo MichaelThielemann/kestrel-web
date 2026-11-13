@@ -1,6 +1,6 @@
 import type { RestoreReport, RevisionDetail, RevisionPage, RevisionRestoreResponse, RevisionSummary } from '#kestrel-admin/types/api'
 import { defineAction } from '#kestrel-core/app/utils/actions'
-import { failureText } from '../composables/useApi'
+import { answeredMessage, failureText } from '../composables/useApi'
 import { apiRequest } from './steps/api'
 import { dialogConfirm } from './steps/guard'
 import { opsBusy, toastSuccess } from './steps/notify'
@@ -84,10 +84,11 @@ export const restoreRevision = defineAction<RestoreRevisionInput, RestoreReport 
       },
       onError: (ctx, err) => {
         const problems = restoreProblems(err.details, ctx.input.fieldLabels)
+        const { t } = ctx.input.deps
         const message = err.code === 'CONFLICT'
-          ? ctx.input.deps.t('revisions.skippedCannotRestore')
-          : [err.message, ...problems].join(' — ')
-        ctx.input.ops.setError?.(failureText(ctx.input.deps.t, message, err))
+          ? t('revisions.skippedCannotRestore')
+          : [answeredMessage(t, err, t('revisions.restoreFailed')), ...problems].join(' — ')
+        ctx.input.ops.setError?.(failureText(t, message, err))
         ctx.fail(message)
       },
     }),
@@ -115,8 +116,9 @@ export const labelRevision = defineAction<LabelRevisionInput, RevisionSummary>({
         ctx.result = summary
       },
       onError: (ctx, err) => {
-        ctx.input.ops.setError?.(failureText(ctx.input.deps.t, err.message, err))
-        ctx.fail(err.message)
+        const { t } = ctx.input.deps
+        ctx.input.ops.setError?.(failureText(t, answeredMessage(t, err, t('revisions.labelFailed')), err))
+        ctx.fail(err.message || 'revisions.labelFailed')
       },
     }),
     toastSuccess<LabelRevisionInput, RevisionSummary>((ctx) => ({ key: ctx.input.label === null ? 'revisions.labelCleared' : 'revisions.labelSaved' })),

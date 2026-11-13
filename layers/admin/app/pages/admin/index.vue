@@ -41,7 +41,7 @@ async function loadCounts() {
           c.countError = null
         } catch (e) {
           c.count = null
-          c.countError = apiErrorText(t, e)
+          c.countError = apiErrorText(t, e, t('dash.countError'))
         }
       }),
     capabilities.has('listMedia')
@@ -51,7 +51,7 @@ async function loadCounts() {
             mediaCountError.value = null
           } catch (e) {
             mediaCount.value = null
-            mediaCountError.value = apiErrorText(t, e)
+            mediaCountError.value = apiErrorText(t, e, t('dash.countError'))
           }
         })()
       : Promise.resolve(),
@@ -62,7 +62,7 @@ async function loadCounts() {
             usersCountError.value = null
           } catch (e) {
             usersCount.value = null
-            usersCountError.value = apiErrorText(t, e)
+            usersCountError.value = apiErrorText(t, e, t('dash.countError'))
           }
         })()
       : Promise.resolve(),
@@ -79,7 +79,7 @@ async function loadBroken() {
     brokenError.value = null
   } catch (e) {
     brokenCount.value = 0
-    brokenError.value = apiErrorText(t, e)
+    brokenError.value = apiErrorText(t, e, t('refs.loadError'))
   }
 }
 
@@ -95,7 +95,7 @@ const noCollectionsDefined = computed(() => collections.value.length === 0)
     <p class="dash__lede">{{ t('dash.lede') }}</p>
     <p v-if="brokenError" class="dash__alert" role="alert">
       <KestrelUiIcon name="triangle-alert" :size="18" />
-      <span>{{ t('refs.loadError') }} {{ brokenError }}</span>
+      <span>{{ brokenError }}</span>
     </p>
     <NuxtLink v-else-if="brokenCount" to="/admin/system?tab=references" class="dash__alert">
       <KestrelUiIcon name="triangle-alert" :size="18" />

@@ -18,7 +18,7 @@ async function load() {
   try {
     users.value = await deps.api<User[]>(deps.capabilities.route('listUsers'))
     enrolled.value = deps.capabilities.has('secondFactorUsers') ? new Set(await deps.api<string[]>(deps.capabilities.route('secondFactorUsers'))) : null
-  } catch (e) { loadError.value = apiErrorText(t, e) }
+  } catch (e) { loadError.value = apiErrorText(t, e, t('users.loadError')) }
 }
 await load()
 

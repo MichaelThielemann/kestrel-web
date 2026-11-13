@@ -1,6 +1,6 @@
 import type { ApiErrorDetails, MediaFolder, MediaFolderRenameResponse, MediaItem, Provenance } from '#kestrel-admin/types/api'
 import { defineAction, type ActionContext, type ActionStep } from '#kestrel-core/app/utils/actions'
-import { answerTimedOut, ApiError, apiErrorCode, apiErrorDetails, apiErrorMessage, apiErrorReached, apiErrorRequestId, apiErrorRetryable, apiErrorRunId, apiErrorStatus, failureText, retryableMessage, toApiError } from '../composables/useApi'
+import { answeredMessage, answerTimedOut, type ApiError, apiErrorCode, failureText, retryableMessage, serverDetail, toApiError } from '../composables/useApi'
 import type { UploadItem } from '../composables/useMediaUpload'
 import { UploadTransportError, type UploadProgress, type UploadTransport } from '../composables/useUploadTransport'
 import { humanizeSize, joinFolder, parentFolder } from '../utils/library'
@@ -72,10 +72,10 @@ export interface UploadInput extends WithDeps {
   signal?: AbortSignal
 }
 
-function mapFolderError(code: string, message: string, t: Translate): string {
-  if (code === 'NOT_FOUND') return t('media.folderNotFound')
-  if (code === 'CONFLICT') return t('media.folderConflict')
-  return message
+function folderErrorMessage(t: Translate, err: { code: string, message: string, reached?: boolean }, lead: string): string {
+  if (err.code === 'NOT_FOUND') return t('media.folderNotFound')
+  if (err.code === 'CONFLICT') return t('media.folderConflict')
+  return answeredMessage(t, err, lead)
 }
 
 export const createFolder = defineAction<CreateFolderInput, MediaFolder>({
@@ -86,8 +86,9 @@ export const createFolder = defineAction<CreateFolderInput, MediaFolder>({
       call: (ctx) => ({ route: ctx.input.deps.capabilities.route('createMediaFolder'), body: { path: ctx.input.path } }),
       onSuccess: (ctx, value) => { ctx.result = value },
       onError: (ctx, err) => {
-        const message = mapFolderError(err.code, err.message, ctx.input.deps.t)
-        ctx.input.ops.setError?.(failureText(ctx.input.deps.t, message, err))
+        const { t } = ctx.input.deps
+        const message = folderErrorMessage(t, err, t('media.folderCreateFailed'))
+        ctx.input.ops.setError?.(failureText(t, message, err))
         ctx.fail(message)
       },
     }),
@@ -96,21 +97,26 @@ export const createFolder = defineAction<CreateFolderInput, MediaFolder>({
   always: [opsBusy<CreateFolderInput, MediaFolder>(false)],
 })
 
+class FolderRequestError extends Error {
+  constructor(readonly failure: unknown) {
+    super('folder request failed')
+  }
+}
+
 async function patchFolder(deps: ActionDeps, path: string, to: string): Promise<MediaFolderRenameResponse> {
   try {
     return await deps.api<MediaFolderRenameResponse>(deps.capabilities.route('renameMediaFolder', { path }), { body: { path: to } })
   } catch (e) {
-    throw new ApiError(
-      apiErrorStatus(e),
-      mapFolderError(apiErrorCode(e), apiErrorMessage(e), deps.t),
-      apiErrorCode(e),
-      apiErrorRetryable(e),
-      apiErrorRunId(e),
-      undefined,
-      apiErrorDetails(e),
-      { requestId: apiErrorRequestId(e), reached: apiErrorReached(e) },
-    )
+    throw new FolderRequestError(e)
   }
+}
+
+function applyFailureMessage(t: Translate, target: RenameOrMoveTarget, e: unknown): { err: ApiError, message: string } {
+  const folder = e instanceof FolderRequestError
+  const err = toApiError(folder ? e.failure : e)
+  const lead = t(target.kind === 'move' ? 'media.moveFailed' : 'media.renameFailed')
+  if (err.retryable) return { err, message: retryableMessage(t, err.details) }
+  return { err, message: folder ? folderErrorMessage(t, err, lead) : answeredMessage(t, err, lead) }
 }
 
 const applyTargets = defineUiStep<RenameOrMoveInput, RenameOrMoveResult>('media.applyTargets', async (ctx) => {
@@ -142,17 +148,17 @@ const applyTargets = defineUiStep<RenameOrMoveInput, RenameOrMoveResult>('media.
       }
     }
   } catch (e) {
-    const message = apiErrorMessage(e)
+    const { err, message } = applyFailureMessage(deps.t, target, e)
     result.failed = true
     result.message = message
-    result.status = apiErrorStatus(e)
-    result.code = apiErrorCode(e)
-    result.retryable = apiErrorRetryable(e)
-    result.runId = apiErrorRunId(e)
-    result.details = apiErrorDetails(e)
-    result.requestId = apiErrorRequestId(e)
-    result.reached = apiErrorReached(e)
-    ops.setError?.(failureText(deps.t, result.retryable ? retryableMessage(deps.t, result.details) : message, toApiError(e)))
+    result.status = err.status
+    result.code = err.code
+    result.retryable = err.retryable
+    result.runId = err.runId
+    result.details = err.details
+    result.requestId = err.requestId
+    result.reached = err.reached
+    ops.setError?.(failureText(deps.t, message, err))
     ctx.fail(message)
   }
 })
@@ -167,8 +173,8 @@ export const renameOrMove = defineAction<RenameOrMoveInput, RenameOrMoveResult>(
   always: [
     opsBusy<RenameOrMoveInput, RenameOrMoveResult>(false),
     toastError<RenameOrMoveInput, RenameOrMoveResult>((ctx) =>
-      (ctx.input.notify === 'toast' && ctx.result?.message
-        ? { message: ctx.result.message, status: ctx.result.status, runId: ctx.result.runId, requestId: ctx.result.requestId, reached: ctx.result.reached, retryable: ctx.result.retryable, details: ctx.result.details }
+      (ctx.input.notify === 'toast' && ctx.result?.failed && ctx.result.message
+        ? { message: ctx.result.message, status: ctx.result.status, runId: ctx.result.runId, requestId: ctx.result.requestId, reached: ctx.result.reached }
         : null)),
   ],
 })
@@ -215,7 +221,8 @@ export const deleteItems = defineAction<DeleteItemsInput, DeleteItemsResult>({
         }
         const { t } = ctx.input.deps
         const name = ctx.input.files.find((f) => f.id === item.id)?.filename ?? item.id
-        const message = item.reached === false ? name : t('media.deleteBlocked', { name, reason: item.message })
+        const reason = item.reached === false || !item.message ? '' : serverDetail(item.message)
+        const message = reason ? t('media.deleteBlocked', { name, reason }) : name
         ctx.input.ops.setError?.(failureText(t, message, item))
       },
       onDone: (ctx, report) => {
@@ -229,7 +236,8 @@ export const deleteItems = defineAction<DeleteItemsInput, DeleteItemsResult>({
       signal: (ctx) => ctx.input.signal,
       onProgress: (ctx, done) => ctx.input.onProgress?.(ctx.input.files.length + done, ctx.input.files.length + ctx.input.folderPaths.length),
       onItemError: (ctx, item) => {
-        ctx.input.ops.setError?.(failureText(ctx.input.deps.t, item.message ?? '', item))
+        const { t } = ctx.input.deps
+        ctx.input.ops.setError?.(failureText(t, answeredMessage(t, item, t('media.folderDeleteFailed', { name: item.id })), item))
       },
       onDone: (ctx, report) => {
         const result = { files: ctx.result?.files ?? EMPTY_EACH_REPORT, folders: report }
@@ -267,8 +275,6 @@ function upstreamMessage(t: Translate, e: UploadTransportError): string {
   return t('media.upload.unreached', { cause, detail })
 }
 
-const MODULE_PREFIX = /^[\w-]+\/[\w-]+:\s*/
-
 function tooLargeMessage(t: Translate, message: string, file: File): string {
   const limit = /\bfile exceeds (\d+) bytes/.exec(message)?.[1]
   if (limit) return t('media.upload.tooLargeShort', { size: humanizeSize(file.size), limit: humanizeSize(Number(limit)) })
@@ -283,7 +289,7 @@ function unsupportedMessage(t: Translate, message: string, file: File): string {
 function kestrelMessage(t: Translate, e: ApiError, file: File): string {
   if (e.code === 'PAYLOAD_TOO_LARGE') return tooLargeMessage(t, e.message, file)
   if (e.code === 'UNSUPPORTED') return unsupportedMessage(t, e.message, file)
-  const detail = humanizeByteCounts(e.message.replace(MODULE_PREFIX, ''))
+  const detail = humanizeByteCounts(serverDetail(e.message))
   return detail ? t('media.upload.failedDetail', { detail }) : t('media.uploadFailedReason')
 }
 
@@ -378,8 +384,9 @@ export const setMediaMeta = defineAction<SetMediaMetaInput, MediaItem>({
       call: (ctx) => ({ route: ctx.input.deps.capabilities.route('updateMedia', { id: ctx.input.id }), body: { locale: ctx.input.locale, ...ctx.input.fields } }),
       onSuccess: (ctx, value) => { ctx.result = value },
       onError: (ctx, err) => {
-        ctx.input.ops.setError?.(failureText(ctx.input.deps.t, err.message, err))
-        ctx.fail(err.message)
+        const { t } = ctx.input.deps
+        ctx.input.ops.setError?.(failureText(t, answeredMessage(t, err, t('media.metaSaveFailed')), err))
+        ctx.fail(err.message || 'media.metaSaveFailed')
       },
     }),
     dataReload<SetMediaMetaInput, MediaItem>(),
@@ -395,8 +402,9 @@ export const setMediaProvenance = defineAction<SetMediaProvenanceInput, MediaIte
       call: (ctx) => ({ route: ctx.input.deps.capabilities.route('updateMedia', { id: ctx.input.id }), body: { provenance: ctx.input.provenance } }),
       onSuccess: (ctx, value) => { ctx.result = value },
       onError: (ctx, err) => {
-        ctx.input.ops.setError?.(failureText(ctx.input.deps.t, err.message, err))
-        ctx.fail(err.message)
+        const { t } = ctx.input.deps
+        ctx.input.ops.setError?.(failureText(t, answeredMessage(t, err, t('media.provenanceSaveFailed')), err))
+        ctx.fail(err.message || 'media.provenanceSaveFailed')
       },
     }),
     dataReload<SetMediaProvenanceInput, MediaItem>(),

@@ -1,8 +1,8 @@
 import type { ApiErrorDetails } from '#kestrel-admin/types/api'
 import type { ActionContext, ActionResult, ActionStep } from '#kestrel-core/app/utils/actions'
-import { failureText, retryableMessage, type FailureTrace } from '../../composables/useApi'
+import { answeredMessage, failureText, retryableMessage, type FailureTrace } from '../../composables/useApi'
 import { defineUiStep } from '../define'
-import type { ActionDeps, BusyPort, EachReport, ToastPort, Translate, WithDeps } from '../types'
+import type { ActionDeps, BusyPort, EachItemResult, EachReport, ToastPort, Translate, WithDeps } from '../types'
 
 export interface ToastErrorPick {
   key?: string
@@ -26,11 +26,19 @@ export function toastFailureText(deps: { toast: Pick<ToastPort, 'error'> }, text
   else deps.toast.error(text)
 }
 
-/** The last failure message of `report` with the HTTP status and the error id of its request, see `failureText`; null when it has none. */
-export function lastFailureText(t: Translate, report: EachReport<unknown>): string | null {
-  if (!report.lastMessage) return null
+/**
+ * The last failure of `report` as `leadKey`, translated with the item's `id`, followed by the message of its answer
+ * and the HTTP status and the error id of its request, see `answeredMessage` and `failureText`; null when it has none.
+ */
+export function lastFailureText(t: Translate, report: EachReport<unknown>, leadKey: string): string | null {
   const last = [...report.results].reverse().find((item) => !item.ok)
-  return failureText(t, report.lastMessage, last ?? {})
+  if (!last) return null
+  return failureText(t, answeredMessage(t, last, t(leadKey, { id: last.id })), last)
+}
+
+/** Toasts the failure of `item` as `leadKey`, translated with the item's `id`, see `lastFailureText`. */
+export function toastItemFailure(deps: { t: Translate, toast: Pick<ToastPort, 'error'> }, item: EachItemResult<unknown>, leadKey: string): void {
+  toastFailure(deps, answeredMessage(deps.t, item, deps.t(leadKey, { id: item.id })), item)
 }
 
 /** Toasts `message` with the HTTP status and the error id of the failed request, see `failureText`. */

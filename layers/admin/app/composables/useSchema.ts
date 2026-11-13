@@ -39,7 +39,7 @@ export function loadSchemaInto(state: { value: SchemaState }, api: ApiClient, sc
   const generation = state.value.generation
   const load = fetchSchema(api).then((result) => {
     if (state.value.generation !== generation) return 'ok' as const
-    const error = result.outcome === 'failed' ? apiErrorText(t, result.failure) : null
+    const error = result.outcome === 'failed' ? apiErrorText(t, result.failure, t('bootFailure.schemaLoadError')) : null
     state.value = { schema: result.schema, error, generation, forbidden: result.outcome === 'forbidden' }
     return result.outcome
   }).finally(() => { loadInFlight.delete(scope) })

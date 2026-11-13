@@ -4,7 +4,7 @@ import { referencedBy } from '../utils/references'
 import { previewDeleteAction } from './shared'
 import { apiEach } from './steps/api'
 import { dialogConfirm, guardAnySucceeded, guardSelection } from './steps/guard'
-import { lastFailureText, opsBusy, opsError, toastFailure, toastSummary, toastSuccess } from './steps/notify'
+import { lastFailureText, opsBusy, opsError, toastItemFailure, toastSummary, toastSuccess } from './steps/notify'
 import { listRefresh } from './steps/route'
 import type { BusyPort, EachReport, RefreshPort, WithDeps } from './types'
 
@@ -49,13 +49,13 @@ export const bulkSetStatus = defineAction<BulkStatusInput, EachReport<unknown>>(
       }),
       policy: 'continue',
       onItemError: (ctx, item) => {
-        if (item.message) toastFailure(ctx.input.deps, item.message, item)
+        toastItemFailure(ctx.input.deps, item, 'list.statusFailed')
       },
       onDone: (ctx, report) => {
         ctx.result = report
       },
     }),
-    opsError<BulkStatusInput, EachReport<unknown>>((ctx) => (ctx.result && ctx.result.failed > 0 ? lastFailureText(ctx.input.deps.t, ctx.result) : null)),
+    opsError<BulkStatusInput, EachReport<unknown>>((ctx) => (ctx.result && ctx.result.failed > 0 ? lastFailureText(ctx.input.deps.t, ctx.result, 'list.statusFailed') : null)),
     toastSummary<BulkStatusInput, EachReport<unknown>>((ctx) => ({
       report: eachReport(ctx, 'toastSummary'),
       successKey: ctx.input.live ? 'toast.published' : 'toast.unpublished',
@@ -85,13 +85,13 @@ export const bulkDelete = defineAction<BulkDeleteInput, EachReport<unknown>>({
             return
           }
         }
-        if (item.message) toastFailure(ctx.input.deps, item.message, item)
+        toastItemFailure(ctx.input.deps, item, 'editor.deleteFailed')
       },
       onDone: (ctx, report) => {
         ctx.result = report
       },
     }),
-    guardAnySucceeded<BulkDeleteInput>(),
+    guardAnySucceeded<BulkDeleteInput>('editor.deleteFailed'),
     listRefresh<BulkDeleteInput, EachReport<unknown>>(),
     toastSuccess<BulkDeleteInput, EachReport<unknown>>(() => ({ key: 'toast.deleted' })),
   ],

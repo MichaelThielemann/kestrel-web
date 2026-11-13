@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { runAction } from '#kestrel-core/app/utils/actions'
 import type { Workflow } from '#kestrel-admin/types/kestrel'
 import type { ApiErrorDetails } from '#kestrel-admin/types/api'
-import { fakeDeps, referencedFailure } from './__fixtures__/fake-deps'
+import { fakeDeps, ledFailure, referencedFailure } from './__fixtures__/fake-deps'
 import { bulkDelete, bulkSetStatus, previewBulkDelete } from './list'
 
 const CODE_OF: Record<number, string> = {
@@ -59,7 +59,7 @@ describe('bulkSetStatus', () => {
     expect(calls[0]).toMatchObject({ body: { status: 'draft', locale: 'de' } })
   })
 
-  it('continues past a failed item, toasts it, and skips the success toast', async () => {
+  it('continues past a failed item, toasts it with the document it failed for, and skips the success toast', async () => {
     const { deps, calls, toast } = fakeDeps([null, apiError(400, 'slug must be unique'), null])
     const ops = fakeOps()
     const refresh = vi.fn()
@@ -68,9 +68,10 @@ describe('bulkSetStatus', () => {
 
     expect(result.ok).toBe(true)
     expect(calls).toHaveLength(3)
-    expect(toast.error).toHaveBeenCalledWith(referencedFailure('slug must be unique', 400))
+    const shown = referencedFailure(ledFailure('list.statusFailed:{"id":"b"}', 'slug must be unique'), 400)
+    expect(toast.error).toHaveBeenCalledWith(shown)
     expect(toast.success).not.toHaveBeenCalled()
-    expect(ops.setError).toHaveBeenCalledWith(referencedFailure('slug must be unique', 400))
+    expect(ops.setError).toHaveBeenCalledWith(shown)
     expect(refresh).toHaveBeenCalledTimes(1)
   })
 
@@ -83,7 +84,7 @@ describe('bulkSetStatus', () => {
 
     expect(result.ok).toBe(true)
     expect(toast.error).toHaveBeenCalledTimes(3)
-    expect(ops.setError).toHaveBeenCalledWith(referencedFailure('third', 400))
+    expect(ops.setError).toHaveBeenCalledWith(referencedFailure(ledFailure('list.statusFailed:{"id":"c"}', 'third'), 400))
     expect(refresh).toHaveBeenCalledTimes(1)
   })
 
@@ -198,7 +199,7 @@ describe('bulkDelete', () => {
 
     expect(result).toEqual({ ok: false, error: 'pages/x is referenced by pages/y (body)' })
     expect(toast.error).toHaveBeenCalledWith('refs.conflictAfterPrecheck pages/y (body)')
-    expect(ops.setError).toHaveBeenCalledWith(referencedFailure('pages/x is referenced by pages/y (body)', 409))
+    expect(ops.setError).toHaveBeenCalledWith(referencedFailure(ledFailure('editor.deleteFailed:{"id":"x"}', 'pages/x is referenced by pages/y (body)'), 409))
     expect(toast.success).not.toHaveBeenCalled()
     expect(refresh).not.toHaveBeenCalled()
   })

@@ -1,6 +1,6 @@
 import type { EventRelayStatus, EventsRetryResult, ImagesJob, ImagesPruneResult, ImagesRetryFailedResult, ImagesStatus, MediaExportReport, MediaReconcileReport, MediaRepairPublicReport, MigrationsApplyResult, MigrationsDryRunResult, PublishAllReport, RebuildReport, ReplicationRestoreResult, ReplicationSnapshotResult, RetryStaleReport, UserDeleteResponse, UserReassignTarget } from '#kestrel-admin/types/api'
 import { defineAction, type ActionContext, type ActionStep } from '#kestrel-core/app/utils/actions'
-import { answeredMessage, apiErrorCode, apiErrorMessage, apiErrorStatus, failureText, toApiError } from '../composables/useApi'
+import { answeredMessage, apiErrorCode, failureText, toApiError } from '../composables/useApi'
 import { humanizeSize } from '../utils/library'
 import { staleCountText } from '../utils/stale-messages'
 import { userErrorMessage } from '../utils/user-errors'
@@ -168,7 +168,7 @@ export const publishAll = defineAction<PublishAllInput, PublishAllReport>({
         for (const route of routes) marked += (await deps.api<PublishAllReport>(route)).marked
       } catch (e) {
         const err = toApiError(e)
-        toastFailure(deps, answeredMessage(err, deps.t('delivery.failed')), err)
+        toastFailure(deps, answeredMessage(deps.t, err, deps.t('delivery.failed')), err)
         return ctx.fail(err.message || 'delivery.failed')
       }
       ctx.result = { marked }
@@ -189,7 +189,7 @@ export const retryStale = defineAction<RetryStaleInput, RetryStaleReport>({
         ctx.input.deps.toast.success(staleCountText(ctx.input.deps.t, 'retried', value.retried))
       },
       onError: (ctx, err) => {
-        toastFailure(ctx.input.deps, answeredMessage(err, ctx.input.deps.t('delivery.failed')), err)
+        toastFailure(ctx.input.deps, answeredMessage(ctx.input.deps.t, err, ctx.input.deps.t('delivery.failed')), err)
         ctx.fail(err.message || 'delivery.failed')
       },
     }),
@@ -215,7 +215,7 @@ export const exportMedia = defineAction<ExportMediaInput, MediaExportReport>({
         }))
       },
       onError: (ctx, err) => {
-        toastFailure(ctx.input.deps, answeredMessage(err, ctx.input.deps.t('delivery.exportFailed')), err)
+        toastFailure(ctx.input.deps, answeredMessage(ctx.input.deps.t, err, ctx.input.deps.t('delivery.exportFailed')), err)
         ctx.fail(err.message || 'delivery.exportFailed')
       },
     }),
@@ -235,7 +235,7 @@ export const replicationSnapshot = defineAction<SnapshotInput, ReplicationSnapsh
       },
       onError: (ctx, err) => {
         if (err.code === 'NOT_FOUND') ctx.input.onNotFound()
-        else toastFailure(ctx.input.deps, err.message, err)
+        else toastFailure(ctx.input.deps, answeredMessage(ctx.input.deps.t, err, ctx.input.deps.t('replication.snapshotFailed')), err)
         ctx.fail(err.message || 'replication.snapshotFailed')
       },
     }),
@@ -254,7 +254,7 @@ export const replicationRestore = defineAction<RestoreInput, ReplicationRestoreR
       onSuccess: (ctx, value) => { ctx.result = value },
       onError: (ctx, err) => {
         if (err.code === 'NOT_FOUND') toastFailure(ctx.input.deps, ctx.input.deps.t('replication.restoreNotFound'), err)
-        else toastFailure(ctx.input.deps, err.message, err)
+        else toastFailure(ctx.input.deps, answeredMessage(ctx.input.deps.t, err, ctx.input.deps.t('replication.restoreFailed')), err)
         ctx.fail(err.message || 'replication.restoreFailed')
       },
     }),
@@ -271,7 +271,7 @@ export const migrationsDryRun = defineAction<MigrationsDryRunInput, MigrationsDr
       call: (ctx) => ({ route: ctx.input.deps.capabilities.route('applyMigrations'), body: { dry: true } }),
       onSuccess: (ctx, value) => { ctx.result = value },
       onError: (ctx, err) => {
-        toastFailure(ctx.input.deps, err.message, err)
+        toastFailure(ctx.input.deps, answeredMessage(ctx.input.deps.t, err, ctx.input.deps.t('migrations.dryRunFailed')), err)
         ctx.fail(err.message || 'migrations.dryRunFailed')
       },
     }),
@@ -291,7 +291,7 @@ export const migrationsApply = defineAction<MigrationsApplyInput, MigrationsAppl
         ctx.input.deps.toast.success(ctx.input.deps.t('migrations.applyDone', { count: value.applied.length }))
       },
       onError: (ctx, err) => {
-        toastFailure(ctx.input.deps, err.message, err)
+        toastFailure(ctx.input.deps, answeredMessage(ctx.input.deps.t, err, ctx.input.deps.t('migrations.applyFailed')), err)
         ctx.fail(err.message || 'migrations.applyFailed')
       },
     }),
@@ -318,7 +318,11 @@ export const userCreate = defineAction<UserCreateInput, undefined>({
         body: { username: ctx.input.username.trim(), password: ctx.input.password, roles: ctx.input.roles },
       }),
       onSuccess: (ctx) => { ctx.input.deps.toast.success(ctx.input.deps.t('users.created')) },
-      onError: (ctx, err) => { ctx.input.ops.setError?.(failureText(ctx.input.deps.t, err.message, err)); ctx.fail(err.message) },
+      onError: (ctx, err) => {
+        const { t } = ctx.input.deps
+        ctx.input.ops.setError?.(failureText(t, answeredMessage(t, err, t('users.createFailed')), err))
+        ctx.fail(err.message || 'users.createFailed')
+      },
     }),
     dataReload<UserCreateInput, undefined>(),
   ],
@@ -347,8 +351,9 @@ async function callUser<I extends WithDeps & { ops: BusyPort }>(ctx: ActionConte
   try {
     await ctx.input.deps.api(call.route, { ...(call.body === undefined ? {} : { body: call.body }) })
   } catch (e) {
-    const message = userErrorMessage(ctx.input.deps.t, operation, { status: apiErrorStatus(e), code: apiErrorCode(e), message: apiErrorMessage(e) })
-    ctx.input.ops.setError?.(failureText(ctx.input.deps.t, message, toApiError(e)))
+    const err = toApiError(e)
+    const message = userErrorMessage(ctx.input.deps.t, operation, err)
+    ctx.input.ops.setError?.(failureText(ctx.input.deps.t, message, err))
     ctx.fail(message)
   }
 }
@@ -406,9 +411,9 @@ const userDeleteRequest: ActionStep<UserDeleteInput, UserDeleteOutcome> = define
     const value = await deps.api<UserDeleteResponse>(deps.capabilities.route('deleteUser', { id: userId }), { body: { reassignTo } })
     ctx.result = { reassignTo: value.reassignTo, events: value._events ?? null }
   } catch (e) {
-    const failure = { status: apiErrorStatus(e), code: apiErrorCode(e), message: apiErrorMessage(e) }
-    const message = userErrorMessage(deps.t, reassignTo === null ? 'delete' : 'reassign', failure)
-    ops.setError?.(failureText(deps.t, message, toApiError(e)))
+    const err = toApiError(e)
+    const message = userErrorMessage(deps.t, reassignTo === null ? 'delete' : 'reassign', err)
+    ops.setError?.(failureText(deps.t, message, err))
     ctx.fail(message)
   }
 })
@@ -452,7 +457,7 @@ export const referencesRebuild = defineAction<ReferencesRebuildInput, RebuildRep
         ctx.input.deps.toast.success(ctx.input.deps.t('refs.rebuildDone', { documents: value.documents, entries: value.entries }))
       },
       onError: (ctx, err) => {
-        toastFailure(ctx.input.deps, answeredMessage(err, ctx.input.deps.t('refs.rebuildFailed')), err)
+        toastFailure(ctx.input.deps, answeredMessage(ctx.input.deps.t, err, ctx.input.deps.t('refs.rebuildFailed')), err)
         ctx.fail(err.message)
       },
     }),
@@ -472,7 +477,7 @@ export const linksRebuild = defineAction<LinksRebuildInput, RebuildReport>({
         ctx.input.deps.toast.success(ctx.input.deps.t('references.links.rebuildDone', { documents: value.documents, entries: value.entries }))
       },
       onError: (ctx, err) => {
-        toastFailure(ctx.input.deps, answeredMessage(err, ctx.input.deps.t('references.links.rebuildFailed')), err)
+        toastFailure(ctx.input.deps, answeredMessage(ctx.input.deps.t, err, ctx.input.deps.t('references.links.rebuildFailed')), err)
         ctx.fail(err.message)
       },
     }),
@@ -490,8 +495,8 @@ export const previewPrune = defineAction<PreviewPruneInput, PrunePreview>({
         ctx.result = { sizes: [...value.orphaned.sizes], variants: value.orphaned.variants }
       },
       onError: (ctx, err) => {
-        toastFailure(ctx.input.deps, err.message, err)
-        ctx.fail(err.message)
+        toastFailure(ctx.input.deps, answeredMessage(ctx.input.deps.t, err, ctx.input.deps.t('images.loadError')), err)
+        ctx.fail(err.message || 'images.loadError')
       },
     }),
     guardSelection<PreviewPruneInput, PrunePreview>((ctx) => ctx.result?.sizes ?? []),
@@ -510,7 +515,7 @@ export const prune = defineAction<ImagesPruneInput, ImagesPruneResult>({
         ctx.input.deps.toast.success(ctx.input.deps.t('images.pruneDone'))
       },
       onError: (ctx, err) => {
-        const message = answeredMessage(err, ctx.input.deps.t('images.pruneFailed'))
+        const message = answeredMessage(ctx.input.deps.t, err, ctx.input.deps.t('images.pruneFailed'))
         ctx.input.ops.setError?.(failureText(ctx.input.deps.t, message, err))
         toastFailure(ctx.input.deps, message, err)
         ctx.fail(message)
@@ -533,7 +538,7 @@ export const imagesRetryFailed = defineAction<ImagesRetryFailedInput, ImagesRetr
         ctx.input.deps.toast.success(ctx.input.deps.t('images.retryFailedDone', { variants: value.variants, media: value.media }))
       },
       onError: (ctx, err) => {
-        const message = answeredMessage(err, ctx.input.deps.t('images.retryFailedError'))
+        const message = answeredMessage(ctx.input.deps.t, err, ctx.input.deps.t('images.retryFailedError'))
         ctx.input.ops.setError?.(failureText(ctx.input.deps.t, message, err))
         toastFailure(ctx.input.deps, message, err)
         ctx.fail(message)
@@ -554,7 +559,7 @@ export const mediaReconcile = defineAction<MediaReconcileInput, MediaReconcileRe
         ctx.result = value
       },
       onError: (ctx, err) => {
-        const message = answeredMessage(err, ctx.input.deps.t('media.reconcile.failed'))
+        const message = answeredMessage(ctx.input.deps.t, err, ctx.input.deps.t('media.reconcile.failed'))
         ctx.input.ops.setError?.(failureText(ctx.input.deps.t, message, err))
         toastFailure(ctx.input.deps, message, err)
         ctx.fail(message)
@@ -576,7 +581,7 @@ export const mediaReconcileDelete = defineAction<MediaReconcileDeleteInput, Medi
         ctx.input.deps.toast.success(ctx.input.deps.t('media.reconcile.deleteDone', { count: value.blobsWithoutRow.length }))
       },
       onError: (ctx, err) => {
-        const message = answeredMessage(err, ctx.input.deps.t('media.reconcile.failed'))
+        const message = answeredMessage(ctx.input.deps.t, err, ctx.input.deps.t('media.reconcile.failed'))
         ctx.input.ops.setError?.(failureText(ctx.input.deps.t, message, err))
         toastFailure(ctx.input.deps, message, err)
         ctx.fail(message)
@@ -600,7 +605,7 @@ export const repairPublicMedia = defineAction<RepairPublicMediaInput, MediaRepai
         ctx.input.deps.toast.success(ctx.input.deps.t('delivery.repairPublicDone', { written, removed, missing }))
       },
       onError: (ctx, err) => {
-        toastFailure(ctx.input.deps, answeredMessage(err, ctx.input.deps.t('delivery.repairPublicFailed')), err)
+        toastFailure(ctx.input.deps, answeredMessage(ctx.input.deps.t, err, ctx.input.deps.t('delivery.repairPublicFailed')), err)
         ctx.fail(err.message || 'delivery.repairPublicFailed')
       },
     }),
@@ -614,9 +619,9 @@ const registerSizes: ActionStep<ImagesRegisterInput, ImagesJob> = defineUiStep('
     await ctx.input.deps.api(ctx.input.deps.capabilities.route('registerImageSizes'), { body: { sizes: [...ctx.input.sizes] } })
   } catch (e) {
     if (apiErrorCode(e) === 'CONFLICT') return
-    const message = apiErrorMessage(e)
-    toastFailure(ctx.input.deps, message, toApiError(e))
-    ctx.fail(message)
+    const err = toApiError(e)
+    toastFailure(ctx.input.deps, answeredMessage(ctx.input.deps.t, err, ctx.input.deps.t('images.registerFailed')), err)
+    ctx.fail(err.message || 'images.registerFailed')
   }
 })
 
@@ -628,8 +633,8 @@ const syncAfterRegister: ActionStep<ImagesRegisterInput, ImagesJob> = apiRequest
   },
   onError: (ctx, err) => {
     if (err.code === 'CONFLICT') return
-    toastFailure(ctx.input.deps, err.message, err)
-    ctx.fail(err.message)
+    toastFailure(ctx.input.deps, answeredMessage(ctx.input.deps.t, err, ctx.input.deps.t('images.jobFailed')), err)
+    ctx.fail(err.message || 'images.jobFailed')
   },
 })
 
@@ -656,7 +661,7 @@ export const eventsRetryAll = defineAction<EventsRetryAllInput, EventsRetryResul
         ctx.input.deps.toast.success(ctx.input.deps.t('events.retriedAll', { count: value.retried }))
       },
       onError: (ctx, err) => {
-        toastFailure(ctx.input.deps, answeredMessage(err, ctx.input.deps.t('events.retryFailed')), err)
+        toastFailure(ctx.input.deps, answeredMessage(ctx.input.deps.t, err, ctx.input.deps.t('events.retryFailed')), err)
         ctx.fail(err.message || 'events.retryFailed')
       },
     }),
@@ -677,7 +682,7 @@ export const eventsRetryOne = defineAction<EventsRetryOneInput, EventsRetryResul
       },
       onError: (ctx, err) => {
         if (err.code === 'NOT_FOUND') toastFailure(ctx.input.deps, ctx.input.deps.t('events.retryNotFound'), err)
-        else toastFailure(ctx.input.deps, answeredMessage(err, ctx.input.deps.t('events.retryFailed')), err)
+        else toastFailure(ctx.input.deps, answeredMessage(ctx.input.deps.t, err, ctx.input.deps.t('events.retryFailed')), err)
         ctx.fail(err.message || 'events.retryFailed')
       },
     }),

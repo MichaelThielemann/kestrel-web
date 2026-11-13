@@ -79,14 +79,15 @@ describe('sessionStateFor', () => {
 
   it('carries a message with the HTTP status for a 500', () => {
     const error = Object.assign(new Error('boom'), { status: 500, name: 'ApiError', data: { error: 'boom', code: 'INTERNAL' } })
-    expect(sessionStateFor(error, echo)).toEqual({ identity: null, checked: true, error: echo('error.withReference', { message: 'boom', reference: 'HTTP 500' }) })
+    expect(sessionStateFor(error, echo)).toEqual({ identity: null, checked: true, error: echo('error.withReference', { message: echo('error.detail', { lead: 'bootFailure.sessionCheckFailed', detail: 'boom' }), reference: 'HTTP 500' }) })
   })
 
   it('carries a message for a network failure with no status', () => {
-    expect(sessionStateFor(new Error('fetch failed'), echo).error).toBe('fetch failed')
+    expect(sessionStateFor(new Error('fetch failed'), echo).error).toBe(echo('error.detail', { lead: 'bootFailure.sessionCheckFailed', detail: 'fetch failed' }))
   })
   it('carries the translated note with the status and the id when the request did not reach the server', () => {
     const error = new ApiError(502, 'Request failed', 'INTERNAL', false, undefined, undefined, undefined, { requestId: 'f0e1d2c3b4a5', reached: false })
-    expect(sessionStateFor(error, echo).error).toBe(echo('error.unreached', { reference: `HTTP 502 · ${echo('error.id', { id: 'f0e1d2c3b4a5' })}` }))
+    const hint = echo('error.unreached', { reference: `HTTP 502 · ${echo('error.id', { id: 'f0e1d2c3b4a5' })}` })
+    expect(sessionStateFor(error, echo).error).toBe(echo('error.withHint', { message: 'bootFailure.sessionCheckFailed', hint }))
   })
 })

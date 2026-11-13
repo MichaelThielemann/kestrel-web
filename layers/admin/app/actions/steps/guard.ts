@@ -41,11 +41,11 @@ export function dialogConfirm<I, R = unknown>(pick: (ctx: ActionContext<I, R>) =
   })
 }
 
-export function guardAnySucceeded<I extends WithDeps & { ops: BusyPort }>(): ActionStep<I, EachReport<unknown>> {
+export function guardAnySucceeded<I extends WithDeps & { ops: BusyPort }>(leadKey: string): ActionStep<I, EachReport<unknown>> {
   return defineUiStep<I, EachReport<unknown>>('guard.anySucceeded', (ctx) => {
     const report = ctx.result
-    if (!report || report.succeeded > 0 || !report.lastMessage) return
-    ctx.input.ops.setError?.(lastFailureText(ctx.input.deps.t, report))
-    ctx.fail(report.lastMessage)
+    if (!report || report.succeeded > 0 || report.failed === 0) return
+    ctx.input.ops.setError?.(lastFailureText(ctx.input.deps.t, report, leadKey))
+    ctx.fail(report.lastMessage || 'guard.anySucceeded')
   })
 }

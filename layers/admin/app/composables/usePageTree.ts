@@ -79,7 +79,7 @@ export function usePageTree(deps: Pick<ActionDeps, 'api' | 'capabilities' | 't'>
     try {
       nodes.value = await deps.api<PageTreeNode[]>(deps.capabilities.verbRoute(collection, 'tree'))
     } catch (e) {
-      error.value = apiErrorText(deps.t, e)
+      error.value = apiErrorText(deps.t, e, deps.t('tree.loadError'))
     } finally {
       loading.value = false
     }

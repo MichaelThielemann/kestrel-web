@@ -14,14 +14,14 @@ try {
   status.value = await api<StaleStatus>(capabilities.route('pagesStaleStatus'))
 } catch (e) {
   if (apiErrorCode(e) === 'NOT_FOUND') notFound.value = true
-  else loadError.value = apiErrorText(t, e)
+  else loadError.value = apiErrorText(t, e, t('delivery.staleLoadError'))
 }
 </script>
 
 <template>
   <p v-if="loadError" class="dash__alert" role="alert">
     <KestrelUiIcon name="triangle-alert" :size="18" />
-    <span>{{ t('delivery.staleLoadError') }} {{ loadError }}</span>
+    <span>{{ loadError }}</span>
   </p>
   <NuxtLink v-else-if="!notFound && status && status.failed > 0" to="/admin/system?tab=delivery" class="dash__alert">
     <KestrelUiIcon name="triangle-alert" :size="18" />

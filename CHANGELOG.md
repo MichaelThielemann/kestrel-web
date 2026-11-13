@@ -80,9 +80,16 @@
   string `statusMessage` and no `error`), for uploads as for every other request; any other JSON body, such
   as a gateway's `{ statusCode, message }`, counts as written in front of the server. A host server error
   carries no message of its own, so the admin shows its translated text with the status and the id instead
-  of the fetch library's `[METHOD] "url": status` line. `ApiError` carries `requestId`
-  and `reached`; `failureText()` composes such a message and `apiErrorText(t, e, fallback?)` gives the text
-  an inline error display shows.
+  of the fetch library's `[METHOD] "url": status` line. Every message names what failed in the admin's
+  language and puts the server's detail after it without kestrel's module prefix ("Changing the password
+  failed — current password is wrong (HTTP 400 · error ID …)" instead of "authn/multi: current password is
+  wrong"); a failed delete or status change in a list names the document it failed for. Save errors in the
+  editor name the status and the id also for a refused validation, a taken path, a body too large and an
+  unsupported content type. A status the admin translates (no role, wrong password, the own account, a
+  vanished user) is read as kestrel's verdict only when kestrel or the host server answered. `ApiError`
+  carries `requestId` and `reached`; `failureText()` composes such a message, `answeredMessage(t, err,
+  lead)` puts the translated lead in front of the server's detail, `serverDetail()` drops the module prefix,
+  and `apiErrorText(t, e, lead)` gives the text an inline error display shows.
 - Page builder: a block instance can carry an optional alias, set in its fields panel. The preset derives a
   `blockAliases` field, and its editor-owned grant, automatically for every collection whose editor is
   `"blocks"` and which has a `body` field; a consumer never declares it. The field itself is not localized

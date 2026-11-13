@@ -31,7 +31,7 @@ export function useUploadLimit() {
       const r = await api<{ maxUploadBytes: number | null }>(LAYER_ROUTES.limits)
       outcome = { ok: true, maxUploadBytes: r.maxUploadBytes }
     } catch (e) {
-      outcome = { ok: false, message: apiErrorText(t, e) }
+      outcome = { ok: false, message: apiErrorText(t, e, t('media.limitLoadError')) }
     }
     const next = nextLimitState({ maxUploadBytes: maxUploadBytes.value, fetched: fetched.value, limitError: limitError.value }, outcome)
     maxUploadBytes.value = next.maxUploadBytes

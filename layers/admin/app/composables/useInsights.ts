@@ -35,7 +35,7 @@ export function useInsights() {
 
   function fail(e: unknown) {
     state.value.availability = availabilityOf(apiErrorStatus(e), apiErrorCode(e))
-    state.value.error = apiErrorText(t, e)
+    state.value.error = apiErrorText(t, e, t('insights.loadError'))
   }
 
   async function loadManifest(force = false): Promise<InsightsManifest | null> {
@@ -63,7 +63,7 @@ export function useInsights() {
       if (state.value.availability !== 'ok') {
         fail(e)
       } else {
-        state.value.statsError = apiErrorText(t, e)
+        state.value.statsError = apiErrorText(t, e, t('insights.statsLoadError'))
       }
       return null
     }

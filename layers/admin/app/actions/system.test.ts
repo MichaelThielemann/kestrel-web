@@ -28,7 +28,7 @@ import {
 } from './system'
 import type { BusyPort } from './types'
 import { capabilityResolver } from '../utils/capabilities'
-import { fakeDeps as sharedFakeDeps, fullAccessSchema, noAnswerFailure, referencedFailure, unansweredFetchError } from './__fixtures__/fake-deps'
+import { fakeDeps as sharedFakeDeps, fullAccessSchema, ledFailure, noAnswerFailure, referencedFailure, unansweredFetchError } from './__fixtures__/fake-deps'
 
 const CODE_OF: Record<number, string> = {
   400: 'VALIDATION', 401: 'UNAUTHENTICATED', 403: 'FORBIDDEN', 404: 'NOT_FOUND', 409: 'CONFLICT',
@@ -120,14 +120,14 @@ describe('publishAll', () => {
     expect(toast.success).toHaveBeenCalledWith('delivery.queuedOne:{"marked":1}')
   })
 
-  it('toasts the raw error message and fails the action', async () => {
+  it('toasts what failed with the error message and fails the action', async () => {
     const { deps, toast } = fakeDeps([apiError(500, 'boom')])
     const { ops, busyLog } = fakeOps()
 
     const result = await runAction(publishAll, { deps, ops })
 
     expect(result.ok).toBe(false)
-    expect(toast.error).toHaveBeenCalledWith(referencedFailure('boom', 500))
+    expect(toast.error).toHaveBeenCalledWith(referencedFailure(ledFailure('delivery.failed', 'boom'), 500))
     expect(busyLog).toEqual([true, false])
   })
 
@@ -198,14 +198,14 @@ describe('exportMedia', () => {
     expect(toast.success).toHaveBeenCalledWith('delivery.exportDone:{"written":4,"skipped":1,"missing":0,"conflicts":2,"variantsWritten":6,"variantsSkipped":3}')
   })
 
-  it('toasts the raw error message and fails the action', async () => {
+  it('toasts what failed with the error message and fails the action', async () => {
     const { deps, toast } = fakeDeps([apiError(500, 'boom')])
     const { ops, busyLog } = fakeOps()
 
     const result = await runAction(exportMedia, { deps, ops })
 
     expect(result.ok).toBe(false)
-    expect(toast.error).toHaveBeenCalledWith(referencedFailure('boom', 500))
+    expect(toast.error).toHaveBeenCalledWith(referencedFailure(ledFailure('delivery.exportFailed', 'boom'), 500))
     expect(busyLog).toEqual([true, false])
   })
 
@@ -266,7 +266,7 @@ describe('replicationSnapshot', () => {
 
     await runAction(replicationSnapshot, { deps, ops, onNotFound, refresh })
 
-    expect(toast.error).toHaveBeenCalledWith(referencedFailure('boom', 500))
+    expect(toast.error).toHaveBeenCalledWith(referencedFailure(ledFailure('replication.snapshotFailed', 'boom'), 500))
     expect(onNotFound).not.toHaveBeenCalled()
     expect(refreshCalls.length).toBe(0)
   })
@@ -318,14 +318,14 @@ describe('replicationRestore', () => {
     expect(refreshCalls.length).toBe(0)
   })
 
-  it('toasts the raw message on any other error', async () => {
+  it('toasts what failed with the message on any other error', async () => {
     const { deps, toast } = fakeDeps([apiError(500, 'boom')])
     const { ops } = fakeOps()
     const { refresh } = fakeRefresh()
 
     await runAction(replicationRestore, { deps, point: { generation: 'g1' }, ops, refresh })
 
-    expect(toast.error).toHaveBeenCalledWith(referencedFailure('boom', 500))
+    expect(toast.error).toHaveBeenCalledWith(referencedFailure(ledFailure('replication.restoreFailed', 'boom'), 500))
   })
 })
 
@@ -347,7 +347,7 @@ describe('migrationsDryRun', () => {
     const result = await runAction(migrationsDryRun, { deps, ops })
 
     expect(result.ok).toBe(false)
-    expect(toast.error).toHaveBeenCalledWith(referencedFailure('boom', 500))
+    expect(toast.error).toHaveBeenCalledWith(referencedFailure(ledFailure('migrations.dryRunFailed', 'boom'), 500))
   })
 })
 
@@ -384,7 +384,7 @@ describe('migrationsApply', () => {
 
     await runAction(migrationsApply, { deps, confirmed: true, ops, refresh })
 
-    expect(toast.error).toHaveBeenCalledWith(referencedFailure('boom', 500))
+    expect(toast.error).toHaveBeenCalledWith(referencedFailure(ledFailure('migrations.applyFailed', 'boom'), 500))
     expect(refreshCalls.length).toBe(0)
   })
 })
@@ -448,7 +448,7 @@ describe('userCreate', () => {
     const result = await runAction(userCreate, { deps, username: 'bob', password: 'long-enough-phrase', passwordConfirm: 'long-enough-phrase', roles: [], ops, refresh })
 
     expect(result.ok).toBe(false)
-    expect(errors).toContain(referencedFailure('username taken', 409))
+    expect(errors).toContain(referencedFailure(ledFailure('users.createFailed', 'username taken'), 409))
     expect(toast.success).not.toHaveBeenCalled()
     expect(toast.error).not.toHaveBeenCalled()
     expect(refreshCalls.length).toBe(0)
@@ -461,7 +461,7 @@ describe('userCreate', () => {
 
     await runAction(userCreate, { deps, username: 'bob', password: 'long-enough-phrase', passwordConfirm: 'long-enough-phrase', roles: [], ops, refresh })
 
-    expect(errors).toContain(noAnswerFailure('', '0a0b0c0d0e0f'))
+    expect(errors).toContain(noAnswerFailure('users.createFailed', '0a0b0c0d0e0f'))
   })
 })
 
@@ -480,7 +480,7 @@ describe('referencesRebuild', () => {
     expect(refreshCalls.length).toBe(1)
   })
 
-  it('toasts the raw error message and skips the reload', async () => {
+  it('toasts what failed with the error message and skips the reload', async () => {
     const { deps, toast } = fakeDeps([apiError(500, 'boom')])
     const { ops, busyLog } = fakeOps()
     const { refresh, calls: refreshCalls } = fakeRefresh()
@@ -488,7 +488,7 @@ describe('referencesRebuild', () => {
     const result = await runAction(referencesRebuild, { deps, ops, refresh })
 
     expect(result.ok).toBe(false)
-    expect(toast.error).toHaveBeenCalledWith(referencedFailure('boom', 500))
+    expect(toast.error).toHaveBeenCalledWith(referencedFailure(ledFailure('refs.rebuildFailed', 'boom'), 500))
     expect(refreshCalls.length).toBe(0)
     expect(busyLog).toEqual([true, false])
   })
@@ -509,7 +509,7 @@ describe('linksRebuild', () => {
     expect(refreshCalls.length).toBe(1)
   })
 
-  it('toasts the raw error message and skips the reload', async () => {
+  it('toasts what failed with the error message and skips the reload', async () => {
     const { deps, toast } = fakeDeps([apiError(500, 'boom')])
     const { ops, busyLog } = fakeOps()
     const { refresh, calls: refreshCalls } = fakeRefresh()
@@ -517,7 +517,7 @@ describe('linksRebuild', () => {
     const result = await runAction(linksRebuild, { deps, ops, refresh })
 
     expect(result.ok).toBe(false)
-    expect(toast.error).toHaveBeenCalledWith(referencedFailure('boom', 500))
+    expect(toast.error).toHaveBeenCalledWith(referencedFailure(ledFailure('references.links.rebuildFailed', 'boom'), 500))
     expect(refreshCalls.length).toBe(0)
     expect(busyLog).toEqual([true, false])
   })
@@ -561,7 +561,7 @@ describe('userToggle', () => {
     const result = await runAction(userToggle, { deps, userId: 'u1', active: true, ops, refresh })
 
     expect(result.ok).toBe(false)
-    expect(toast.error).toHaveBeenCalledWith(referencedFailure('boom', 500))
+    expect(toast.error).toHaveBeenCalledWith(referencedFailure(ledFailure('users.toggleFailed', 'boom'), 500))
     expect(refreshCalls.length).toBe(0)
     expect(busyLog).toEqual([true, false])
   })
@@ -653,7 +653,7 @@ describe('userUpdate', () => {
 
     await runAction(userUpdate, { deps, userId: 'u1', username: 'ada', roles: ['editor'], active: true, password: '', passwordConfirm: '', initial, ops, refresh })
 
-    expect(errors).toContain(noAnswerFailure('', '0a0b0c0d0e0f'))
+    expect(errors).toContain(noAnswerFailure('users.saveFailed', '0a0b0c0d0e0f'))
   })
 
   it('shows the last-administrator message when the role change is refused', async () => {
@@ -801,7 +801,7 @@ describe('userDelete', () => {
 
     await runAction(userDelete, { deps, userId: 'u1', reassignTo: null, confirmed: true, ops, refresh })
 
-    expect(errors).toContain(noAnswerFailure('', '0a0b0c0d0e0f'))
+    expect(errors).toContain(noAnswerFailure('users.deleteFailed', '0a0b0c0d0e0f'))
   })
 })
 
@@ -849,7 +849,7 @@ describe('prune', () => {
     expect(busyLog).toEqual([true, false])
   })
 
-  it('sets the inline error and toasts verbatim on a 400, and clears busy', async () => {
+  it('sets the inline error and toasts what failed with the server detail on a 400, and clears busy', async () => {
     const message = 'images: size "thumb" is not a registered size'
     const { deps, toast } = fakeDeps([apiError(400, message)])
     const { ops, errors, busyLog } = fakeOps()
@@ -858,8 +858,8 @@ describe('prune', () => {
     const result = await runAction(prune, { deps, sizes: ['thumb'], confirmed: true, ops, refresh })
 
     expect(result.ok).toBe(false)
-    expect(errors).toContain(referencedFailure(message, 400))
-    expect(toast.error).toHaveBeenCalledWith(referencedFailure(message, 400))
+    expect(errors).toContain(referencedFailure(ledFailure('images.pruneFailed', 'size "thumb" is not a registered size'), 400))
+    expect(toast.error).toHaveBeenCalledWith(referencedFailure(ledFailure('images.pruneFailed', 'size "thumb" is not a registered size'), 400))
     expect(refreshCalls.length).toBe(0)
     expect(busyLog).toEqual([true, false])
   })
@@ -917,8 +917,8 @@ describe('imagesRetryFailed', () => {
     const result = await runAction(imagesRetryFailed, { deps, variants: 4, confirmed: true, ops, refresh })
 
     expect(result.ok).toBe(false)
-    expect(errors).toContain(referencedFailure(message, 409))
-    expect(toast.error).toHaveBeenCalledWith(referencedFailure(message, 409))
+    expect(errors).toContain(referencedFailure(ledFailure('images.retryFailedError', 'shutting down'), 409))
+    expect(toast.error).toHaveBeenCalledWith(referencedFailure(ledFailure('images.retryFailedError', 'shutting down'), 409))
     expect(refreshCalls.length).toBe(0)
     expect(busyLog).toEqual([true, false])
   })
@@ -946,8 +946,8 @@ describe('mediaReconcile', () => {
     const result = await runAction(mediaReconcile, { deps, ops })
 
     expect(result.ok).toBe(false)
-    expect(errors).toContain(referencedFailure(message, 403))
-    expect(toast.error).toHaveBeenCalledWith(referencedFailure(message, 403))
+    expect(errors).toContain(referencedFailure(ledFailure('media.reconcile.failed', 'not allowed'), 403))
+    expect(toast.error).toHaveBeenCalledWith(referencedFailure(ledFailure('media.reconcile.failed', 'not allowed'), 403))
     expect(busyLog).toEqual([true, false])
   })
 })
@@ -1057,7 +1057,7 @@ describe('imagesRegisterAndSync', () => {
 
     expect(result.ok).toBe(false)
     expect(calls.length).toBe(1)
-    expect(toast.error).toHaveBeenCalledWith(referencedFailure('boom', 500))
+    expect(toast.error).toHaveBeenCalledWith(referencedFailure(ledFailure('images.registerFailed', 'boom'), 500))
     expect(refreshCalls.length).toBe(0)
     expect(busyLog).toEqual([true, false])
   })
@@ -1090,7 +1090,7 @@ describe('eventsRetryAll', () => {
     expect(refreshCalls.length).toBe(0)
   })
 
-  it('toasts the raw error message and skips the reload', async () => {
+  it('toasts what failed with the error message and skips the reload', async () => {
     const { deps, toast } = fakeMigrationsOrEventsDeps([apiError(500, 'boom')])
     const { ops } = fakeOps()
     const { refresh, calls: refreshCalls } = fakeRefresh()
@@ -1098,7 +1098,7 @@ describe('eventsRetryAll', () => {
     const result = await runAction(eventsRetryAll, { deps, ops, refresh, count: 2 })
 
     expect(result.ok).toBe(false)
-    expect(toast.error).toHaveBeenCalledWith(referencedFailure('boom', 500))
+    expect(toast.error).toHaveBeenCalledWith(referencedFailure(ledFailure('events.retryFailed', 'boom'), 500))
     expect(refreshCalls.length).toBe(0)
   })
 })
@@ -1129,7 +1129,7 @@ describe('eventsRetryOne', () => {
     expect(refreshCalls.length).toBe(0)
   })
 
-  it('toasts the raw error message on any other error', async () => {
+  it('toasts what failed with the error message on any other error', async () => {
     const { deps, toast } = fakeMigrationsOrEventsDeps([apiError(500, 'boom')])
     const { ops } = fakeOps()
     const { refresh, calls: refreshCalls } = fakeRefresh()
@@ -1137,7 +1137,7 @@ describe('eventsRetryOne', () => {
     const result = await runAction(eventsRetryOne, { deps, ops, refresh, id: 'evt-1' })
 
     expect(result.ok).toBe(false)
-    expect(toast.error).toHaveBeenCalledWith(referencedFailure('boom', 500))
+    expect(toast.error).toHaveBeenCalledWith(referencedFailure(ledFailure('events.retryFailed', 'boom'), 500))
     expect(refreshCalls.length).toBe(0)
   })
 })

@@ -19,7 +19,7 @@ async function load() {
   try {
     list.value = await deps.api<MigrationsListResult>(deps.capabilities.route('listMigrations'))
   } catch (e) {
-    loadError.value = apiErrorText(t, e)
+    loadError.value = apiErrorText(t, e, t('migrations.loadError'))
   }
 }
 await load()

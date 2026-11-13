@@ -3,7 +3,7 @@ import { defineAction, runAction, type ActionContext } from '#kestrel-core/app/u
 import { ApiError } from '../../composables/useApi'
 import type { ActionDeps, ApiClient, EditFormPort, SaveFailure, SaveOutcome, WithDeps } from '../types'
 import type { ApiRoute } from '../../utils/capabilities'
-import { fullAccessCapabilities, fullAccessSchema, referencedFailure } from '../__fixtures__/fake-deps'
+import { fullAccessCapabilities, fullAccessSchema, ledFailure, referencedFailure } from '../__fixtures__/fake-deps'
 import { capabilityResolver } from '../../utils/capabilities'
 import { apiWrite } from './api'
 import { formMapErrors, formReset } from './form'
@@ -75,7 +75,7 @@ describe('formMapErrors', () => {
       details: { fields: [{ field: 'title', message: 'is required' }, { field: 'slug', message: 'is not unique' }] },
     })
     expect(state.fieldErrors).toEqual({ title: 'is required', slug: 'is not unique' })
-    expect(state.formError).toBe('pages: title is required; slug is not unique')
+    expect(state.formError).toBe(referencedFailure(ledFailure('editor.saveFailed', 'title is required; slug is not unique'), 400))
   })
 
   it('ignores details that name no known field and falls back to text matching', () => {
@@ -86,7 +86,7 @@ describe('formMapErrors', () => {
   it('falls back to text matching when the body carries no details', () => {
     const state = runMapErrors({ status: 400, code: 'VALIDATION', retryable: false, message: 'slug is already taken' })
     expect(state.fieldErrors).toEqual({ slug: 'slug is already taken' })
-    expect(state.formError).toBe('slug is already taken')
+    expect(state.formError).toBe(referencedFailure(ledFailure('editor.saveFailed', 'slug is already taken'), 400))
   })
 
   it('prefixes an additionalProperties schema problem with a plain-language sentence, keeping the backend text', () => {
@@ -98,17 +98,23 @@ describe('formMapErrors', () => {
       message,
       details: { problems: [{ path: '$.locale', message: 'is not allowed by additionalProperties: false' }] },
     })
-    expect(state.formError).toBe(`editor.unknownFieldSent ${message}`)
+    expect(state.formError).toBe(referencedFailure(`editor.unknownFieldSent ${message}`, 400))
   })
 
   it('names the HTTP status and the error id of a server error', () => {
-    expect(runMapErrors({ status: 500, code: 'INTERNAL', retryable: false, message: 'boom', requestId: 'a1b2c3d4e5f6' }).formError).toBe(referencedFailure('boom', 500, 'a1b2c3d4e5f6'))
+    expect(runMapErrors({ status: 500, code: 'INTERNAL', retryable: false, message: 'boom', requestId: 'a1b2c3d4e5f6' }).formError).toBe(referencedFailure(ledFailure('editor.saveFailed', 'boom'), 500, 'a1b2c3d4e5f6'))
     expect(runMapErrors({ status: 500, code: 'INTERNAL', retryable: false, message: '', runId: 'run-1' }).formError).toBe(referencedFailure('editor.saveFailed', 500, 'run-1'))
   })
 
-  it('says that a save without an answer did not reach the server', () => {
+  it('says that saving failed and that the request did not reach the server', () => {
+    const hint = `error.unreached:${JSON.stringify({ reference: `HTTP 502 · error.id:${JSON.stringify({ id: 'f0e1d2c3b4a5' })}` })}`
     expect(runMapErrors({ status: 502, code: 'INTERNAL', retryable: false, message: 'Request failed', requestId: 'f0e1d2c3b4a5', reached: false }).formError)
-      .toBe(`error.unreached:${JSON.stringify({ reference: `HTTP 502 · error.id:${JSON.stringify({ id: 'f0e1d2c3b4a5' })}` })}`)
+      .toBe(`error.withHint:${JSON.stringify({ message: 'editor.saveFailed', hint })}`)
+  })
+
+  it('takes the translated text for a host server answer that carries no message of its own', () => {
+    expect(runMapErrors({ status: 403, code: 'INTERNAL', retryable: false, message: '', requestId: 'a1b2c3d4e5f6' }).formError)
+      .toBe(referencedFailure('editor.saveFailed', 403, 'a1b2c3d4e5f6'))
   })
 
   it('maps a DANGLING_REF body like a validation error', () => {
@@ -126,8 +132,9 @@ describe('formMapErrors', () => {
   })
 
   it('maps a CONFLICT body onto the form error', () => {
-    expect(runMapErrors({ status: 409, code: 'CONFLICT', retryable: false, message: 'slug already used' }).formError).toBe('slug already used')
-    expect(runMapErrors({ status: 409, code: 'CONFLICT', retryable: false, message: '' }).formError).toBe('editor.saveConflict')
+    expect(runMapErrors({ status: 409, code: 'CONFLICT', retryable: false, message: 'slug already used', requestId: 'a1b2c3d4e5f6' }).formError)
+      .toBe(referencedFailure(ledFailure('editor.saveConflict', 'slug already used'), 409, 'a1b2c3d4e5f6'))
+    expect(runMapErrors({ status: 409, code: 'CONFLICT', retryable: false, message: '' }).formError).toBe(referencedFailure('editor.saveConflict', 409))
   })
 
   it('maps a taken public path onto the slug field, naming the page that holds it', () => {
@@ -140,7 +147,7 @@ describe('formMapErrors', () => {
       details: { fields: [{ field: 'slug', message }], conflicts: [{ path: '/ueber-uns', locale: 'de', type: 'pages', id: 'p2', label: 'About us', moving: { type: 'pages', id: 'p1' } }] },
     })
     expect(state.fieldErrors).toEqual({ slug: message })
-    expect(state.formError).toBe(message)
+    expect(state.formError).toBe(referencedFailure(ledFailure('editor.saveConflict', message), 409))
   })
 
   it('names a taken path by its path only when the caller cannot read the collection that holds it', () => {
@@ -155,7 +162,7 @@ describe('formMapErrors', () => {
     }, withoutBlog)
     const pathOnly = 'editor.pathTaken:{"path":"/team","locale":"DE"}'
     expect(state.fieldErrors).toEqual({ slug: pathOnly })
-    expect(state.formError).toBe(pathOnly)
+    expect(state.formError).toBe(referencedFailure(pathOnly, 409))
     expect(JSON.stringify(state)).not.toContain('Unreleased')
   })
 
@@ -173,9 +180,11 @@ describe('formMapErrors', () => {
     expect(state.fieldErrors).toEqual({ parent: message })
   })
 
-  it('gives 413 and 415 their own messages', () => {
-    expect(runMapErrors({ status: 413, code: 'PAYLOAD_TOO_LARGE', retryable: false, message: 'body exceeds 1048576 bytes' }).formError).toBe('editor.tooLarge')
-    expect(runMapErrors({ status: 415, code: 'UNSUPPORTED', retryable: false, message: 'type not allowed' }).formError).toBe('editor.unsupportedType')
+  it('gives 413 and 415 their own messages, with the HTTP status and the error id', () => {
+    expect(runMapErrors({ status: 413, code: 'PAYLOAD_TOO_LARGE', retryable: false, message: 'body exceeds 1048576 bytes', requestId: 'a1b2c3d4e5f6' }).formError)
+      .toBe(referencedFailure('editor.tooLarge', 413, 'a1b2c3d4e5f6'))
+    expect(runMapErrors({ status: 415, code: 'UNSUPPORTED', retryable: false, message: 'type not allowed', requestId: 'a1b2c3d4e5f6' }).formError)
+      .toBe(referencedFailure('editor.unsupportedType', 415, 'a1b2c3d4e5f6'))
   })
 
   it('offers a retry for retryable errors and names the Retry-After seconds when present', () => {
@@ -192,7 +201,8 @@ describe('api.write to form.mapErrors', () => {
   it('carries details.fields from a 400 through the outcome onto the fields', async () => {
     const { form, state } = fakeForm()
     const api = (() => Promise.reject(new ApiError(400, 'pages: title is required', 'VALIDATION', false, 'run-9', 'content.save', { fields: [{ field: 'title', message: 'is required' }] }))) as ApiClient
-    const deps: ActionDeps = { api, t: vi.fn((key: string) => key), toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() }, capabilities: fullAccessCapabilities }
+    const t = vi.fn((key: string, params?: Record<string, unknown>) => (params ? `${key}:${JSON.stringify(params)}` : key))
+    const deps: ActionDeps = { api, t, toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() }, capabilities: fullAccessCapabilities }
     const action = defineAction<WithDeps & { form: EditFormPort }, SaveOutcome>({
       name: 'save',
       steps: [formReset(), apiWrite(), formMapErrors()],
@@ -209,6 +219,6 @@ describe('api.write to form.mapErrors', () => {
       details: { fields: [{ field: 'title', message: 'is required' }] },
     })
     expect(state.fieldErrors).toEqual({ title: 'is required' })
-    expect(state.formError).toBe('pages: title is required')
+    expect(state.formError).toBe(referencedFailure(ledFailure('editor.saveFailed', 'title is required'), 400, 'run-9'))
   })
 })

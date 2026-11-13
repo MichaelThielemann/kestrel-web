@@ -8,7 +8,7 @@ import { ApiError } from '../composables/useApi'
 import { FAILURE_TOAST_MS } from './steps/notify'
 import { UploadTransportError, type UploadRequestOptions, type UploadTransport } from '../composables/useUploadTransport'
 import type { ApiRoute } from '../utils/capabilities'
-import { fakeDeps, noAnswerFailure, referencedFailure, unansweredFetchError } from './__fixtures__/fake-deps'
+import { fakeDeps, ledFailure, noAnswerFailure, referencedFailure, unansweredFetchError } from './__fixtures__/fake-deps'
 
 const CODE_OF: Record<number, string> = {
   400: 'VALIDATION', 401: 'UNAUTHENTICATED', 403: 'FORBIDDEN', 404: 'NOT_FOUND', 409: 'CONFLICT',
@@ -62,13 +62,13 @@ describe('createFolder', () => {
     expect(ops.setError).toHaveBeenCalledWith(referencedFailure('media.folderConflict', 409))
   })
 
-  it('passes a 500 message through unmapped', async () => {
-    const { deps } = fakeDeps([apiError(500, 'boom')])
+  it('names what failed in front of an unmapped 500 message', async () => {
+    const { deps } = fakeDeps([apiError(500, 'media: boom')])
     const ops = fakeOps()
 
     await runAction(createFolder, { deps, path: 'a/b', ops, refresh: vi.fn(() => undefined) })
 
-    expect(ops.setError).toHaveBeenCalledWith(referencedFailure('boom', 500))
+    expect(ops.setError).toHaveBeenCalledWith(referencedFailure(ledFailure('media.folderCreateFailed', 'boom'), 500))
   })
 
   it('says that a folder request without an answer did not reach the server, with its error id', async () => {
@@ -77,7 +77,7 @@ describe('createFolder', () => {
 
     await runAction(createFolder, { deps, path: 'a/b', ops, refresh: vi.fn(() => undefined) })
 
-    expect(ops.setError).toHaveBeenCalledWith(noAnswerFailure('', '0a0b0c0d0e0f'))
+    expect(ops.setError).toHaveBeenCalledWith(noAnswerFailure('media.folderCreateFailed', '0a0b0c0d0e0f'))
   })
 })
 
@@ -94,7 +94,7 @@ describe('renameOrMove', () => {
     expect(calls).toEqual([{ route: { method: 'PATCH', path: '/media/f1' }, body: { filename: 'new.jpg' }, query: undefined }])
   })
 
-  it('surfaces a raw 409 message for a file rename', async () => {
+  it('surfaces a 409 message for a file rename after what failed', async () => {
     const { deps, toast } = fakeDeps([apiError(409, 'filename taken')])
     const ops = fakeOps()
 
@@ -103,8 +103,8 @@ describe('renameOrMove', () => {
     })
 
     expect(result.ok).toBe(false)
-    expect(ops.setError).toHaveBeenCalledWith(referencedFailure('filename taken', 409))
-    expect(toast.error).toHaveBeenCalledWith(referencedFailure('filename taken', 409))
+    expect(ops.setError).toHaveBeenCalledWith(referencedFailure(ledFailure('media.renameFailed', 'filename taken'), 409))
+    expect(toast.error).toHaveBeenCalledWith(referencedFailure(ledFailure('media.renameFailed', 'filename taken'), 409))
   })
 
   it('names the run id in a server error toast when the request id is unknown', async () => {
@@ -115,8 +115,8 @@ describe('renameOrMove', () => {
       deps, target: { kind: 'file-rename', id: 'f1', filename: 'new.jpg' }, notify: 'toast', ops, refresh: vi.fn(() => undefined),
     })
 
-    expect(toast.error).toHaveBeenCalledWith(referencedFailure('boom', 500, 'run-7'), FAILURE_TOAST_MS)
-    expect(ops.setError).toHaveBeenCalledWith(referencedFailure('boom', 500, 'run-7'))
+    expect(toast.error).toHaveBeenCalledWith(referencedFailure(ledFailure('media.renameFailed', 'boom'), 500, 'run-7'), FAILURE_TOAST_MS)
+    expect(ops.setError).toHaveBeenCalledWith(referencedFailure(ledFailure('media.renameFailed', 'boom'), 500, 'run-7'))
   })
 
   it('renames a folder and maps a 409 through the shared mapper', async () => {
@@ -186,7 +186,7 @@ describe('renameOrMove', () => {
     expect(result.ok).toBe(false)
     expect(calls).toHaveLength(1)
     expect(refresh).not.toHaveBeenCalled()
-    expect(ops.setError).toHaveBeenCalledWith(referencedFailure('boom', 500))
+    expect(ops.setError).toHaveBeenCalledWith(referencedFailure(ledFailure('media.moveFailed', 'boom'), 500))
   })
 
   it('only toasts the failure when notify is toast', async () => {
@@ -200,7 +200,7 @@ describe('renameOrMove', () => {
     await runAction(renameOrMove, {
       deps: toastDeps, target: { kind: 'file-rename', id: 'f1', filename: 'x' }, notify: 'toast', ops: fakeOps(), refresh: vi.fn(() => undefined),
     })
-    expect(toastToast.error).toHaveBeenCalledWith(referencedFailure('boom', 500))
+    expect(toastToast.error).toHaveBeenCalledWith(referencedFailure(ledFailure('media.renameFailed', 'boom'), 500))
   })
 })
 
@@ -357,7 +357,7 @@ describe('deleteItems', () => {
       deps, files: [], folderPaths: ['a'], recursive: false, confirmed: true, ops, refresh: vi.fn(() => undefined),
     })
 
-    expect(ops.setError).toHaveBeenCalledWith(referencedFailure('boom', 500))
+    expect(ops.setError).toHaveBeenCalledWith(referencedFailure(ledFailure('media.folderDeleteFailed:{"name":"a"}', 'boom'), 500))
   })
 
   it('deletes folders after files and only sends recursive when asked', async () => {
@@ -760,7 +760,7 @@ describe('setMediaMeta', () => {
     const result = await runAction(setMediaMeta, { deps, id: 'f1', locale: 'en', fields: { alt: 'a photo' }, ops, refresh })
 
     expect(result.ok).toBe(false)
-    expect(ops.setError).toHaveBeenCalledWith(referencedFailure('boom', 500))
+    expect(ops.setError).toHaveBeenCalledWith(referencedFailure(ledFailure('media.metaSaveFailed', 'boom'), 500))
     expect(refresh).not.toHaveBeenCalled()
   })
 
@@ -770,7 +770,7 @@ describe('setMediaMeta', () => {
 
     await runAction(setMediaMeta, { deps, id: 'f1', locale: 'en', fields: { alt: 'a photo' }, ops, refresh: vi.fn(() => undefined) })
 
-    expect(ops.setError).toHaveBeenCalledWith(noAnswerFailure('', '0a0b0c0d0e0f'))
+    expect(ops.setError).toHaveBeenCalledWith(noAnswerFailure('media.metaSaveFailed', '0a0b0c0d0e0f'))
   })
 })
 
@@ -795,7 +795,7 @@ describe('setMediaProvenance', () => {
     const result = await runAction(setMediaProvenance, { deps, id: 'f1', provenance: { origin: 'ai' }, ops, refresh })
 
     expect(result.ok).toBe(false)
-    expect(ops.setError).toHaveBeenCalledWith(referencedFailure('boom', 500))
+    expect(ops.setError).toHaveBeenCalledWith(referencedFailure(ledFailure('media.provenanceSaveFailed', 'boom'), 500))
     expect(refresh).not.toHaveBeenCalled()
   })
 })

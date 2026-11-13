@@ -37,6 +37,11 @@ export function referencedFailure(message: string, status: number, id?: string):
   return `error.withReference:${JSON.stringify({ message, reference })}`
 }
 
+/** The text `answeredMessage` builds under the fake `t` of `fakeDeps`: `lead` followed by the message of the answer. */
+export function ledFailure(lead: string, detail: string): string {
+  return `error.detail:${JSON.stringify({ lead, detail })}`
+}
+
 /** A `$fetch` error of a request sent with `requestId` that got no answer at all. */
 export function unansweredFetchError(requestId: string): Error {
   return Object.assign(new Error('[POST] "/admin/api/x": <no response> Failed to fetch'), {

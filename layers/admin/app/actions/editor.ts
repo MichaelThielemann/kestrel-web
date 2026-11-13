@@ -1,6 +1,7 @@
 import type { EventRelayStatus } from '#kestrel-admin/types/api'
 import type { SerializedField } from '#kestrel-admin/types/kestrel'
 import { defineAction, type ActionStep } from '#kestrel-core/app/utils/actions'
+import { answeredMessage } from '../composables/useApi'
 import { previewDeleteAction } from './shared'
 import { translationSourceValues } from '../utils/translation-copy'
 import { apiEach, apiRequest, apiWrite } from './steps/api'
@@ -8,7 +9,7 @@ import { deliveryRefresh, deliveryToast, isQueuedDelivery, ownDeliveryStatus, re
 import { formMapErrors, formOutcome, formRebaseline, formReset, formRevealError, formSaving, formSetStatus, formValidate } from './steps/form'
 import { dialogConfirm, guardAnySucceeded, guardBypass, guardStatus, guardTab, guardUnsaved } from './steps/guard'
 import { defineUiStep } from './define'
-import { opsBusy, toastFailure, toastFailureText, toastSuccess } from './steps/notify'
+import { opsBusy, toastFailure, toastFailureText, toastItemFailure, toastSuccess } from './steps/notify'
 import { routeNavigate } from './steps/route'
 import type { BusyPort, ConfirmPort, EachReport, EditFormPort, NavigatePort, QueryValue, SaveOutcome, Translate, WithDeps } from './types'
 
@@ -164,14 +165,14 @@ export const deleteRecord = defineAction<DeleteRecordInput, DeleteReport>({
       call: (ctx, id) => ({ route: ctx.input.deps.capabilities.verbRoute(ctx.input.collection, 'delete', { id }) }),
       policy: 'continue',
       onItemError: (ctx, item) => {
-        if (item.message) toastFailure(ctx.input.deps, item.message, item)
+        toastItemFailure(ctx.input.deps, item, 'editor.deleteFailed')
       },
       onDone: (ctx, report) => {
         ctx.result = report
       },
     }),
     deleteDeliveryToast<DeleteRecordInput>(),
-    guardAnySucceeded<DeleteRecordInput>(),
+    guardAnySucceeded<DeleteRecordInput>('editor.deleteFailed'),
     guardBypass<DeleteRecordInput, DeleteReport>(),
     routeNavigate<DeleteRecordInput, DeleteReport>((ctx) => ({ kind: 'path', to: ctx.input.to })),
     toastSuccess<DeleteRecordInput, DeleteReport>(() => ({ key: 'toast.deleted' })),
@@ -188,7 +189,8 @@ export const deleteTranslation = defineAction<DeleteTranslationInput, undefined>
       call: (ctx) => ({ route: ctx.input.deps.capabilities.verbRoute(ctx.input.collection, 'deleteTranslation', { id: ctx.input.id, locale: ctx.input.locale }) }),
       onSuccess: () => {},
       onError: (ctx, err) => {
-        toastFailure(ctx.input.deps, err.message, err)
+        const { t } = ctx.input.deps
+        toastFailure(ctx.input.deps, answeredMessage(t, err, t('editor.translationDeleteFailed')), err)
         ctx.fail(err.message)
       },
     }),
@@ -210,7 +212,8 @@ export const copyTranslation = defineAction<CopyTranslationInput, undefined>({
         for (const [name, value] of Object.entries(values)) ctx.input.form.setField(name, value)
       },
       onError: (ctx, err) => {
-        toastFailure(ctx.input.deps, err.message, err)
+        const { t } = ctx.input.deps
+        toastFailure(ctx.input.deps, answeredMessage(t, err, t('localeBar.copyFailed', { locale: ctx.input.source.toUpperCase() })), err)
         ctx.fail(err.message)
       },
     }),

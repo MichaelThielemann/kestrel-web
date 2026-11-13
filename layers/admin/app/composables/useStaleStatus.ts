@@ -54,7 +54,7 @@ export function useStaleStatus() {
       loadError.value = null
       total.value = next.stale === 0 ? 0 : Math.max(total.value, next.stale)
     } catch (e) {
-      if (!disposed) loadError.value = apiErrorText(t, e)
+      if (!disposed) loadError.value = apiErrorText(t, e, t('delivery.staleLoadError'))
     }
   }
 

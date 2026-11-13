@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { userErrorMessage } from './user-errors'
 
-const t = (key: string) => key
+const t = (key: string, params?: Record<string, unknown>) => (params ? `${key}:${JSON.stringify(params)}` : key)
 
 describe('userErrorMessage', () => {
   it('names the last administrator per operation', () => {
@@ -23,8 +23,17 @@ describe('userErrorMessage', () => {
     expect(userErrorMessage(t, 'deactivate', { status: 400, code: 'VALIDATION', message: 'you cannot deactivate yourself' })).toBe('users.cannotDeactivateSelf')
   })
 
-  it('keeps the backend message for every other failure', () => {
-    expect(userErrorMessage(t, 'update', { status: 400, code: 'VALIDATION', message: 'username or roles is required' })).toBe('username or roles is required')
-    expect(userErrorMessage(t, 'password', { status: 400, code: 'VALIDATION', message: 'password too short' })).toBe('password too short')
+  it('names what failed in front of the backend message, without its module prefix, for every other failure', () => {
+    expect(userErrorMessage(t, 'update', { status: 400, code: 'VALIDATION', message: 'users: username or roles is required' }))
+      .toBe(t('error.detail', { lead: 'users.saveFailed', detail: 'username or roles is required' }))
+    expect(userErrorMessage(t, 'password', { status: 400, code: 'VALIDATION', message: 'password too short' }))
+      .toBe(t('error.detail', { lead: 'users.saveFailed', detail: 'password too short' }))
+    expect(userErrorMessage(t, 'activate', { status: 500, code: 'INTERNAL', message: '' })).toBe('users.toggleFailed')
+  })
+
+  it('never reads a status of an answer no server gave as a verdict of kestrel', () => {
+    expect(userErrorMessage(t, 'delete', { status: 400, code: 'INTERNAL', message: 'Request failed', reached: false })).toBe('users.deleteFailed')
+    expect(userErrorMessage(t, 'reassign', { status: 404, code: 'INTERNAL', message: 'Request failed', reached: false })).toBe('users.deleteFailed')
+    expect(userErrorMessage(t, 'update', { status: 404, code: 'INTERNAL', message: 'Request failed', reached: false })).toBe('users.saveFailed')
   })
 })

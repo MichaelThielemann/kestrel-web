@@ -33,7 +33,7 @@ async function load() {
     dead.value = d.items
   } catch (e) {
     if (apiErrorCode(e) === 'NOT_FOUND') notFound.value = true
-    else loadError.value = apiErrorText(t, e)
+    else loadError.value = apiErrorText(t, e, t('events.dashLoadError'))
   } finally {
     inFlight = false
   }

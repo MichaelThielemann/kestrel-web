@@ -41,7 +41,7 @@ export interface SecondFactorSetup {
 
 export function sessionStateFor(error: unknown, t: Translate): AuthState {
   if (apiErrorStatus(error) === 401) return { identity: null, checked: true, error: null }
-  return { identity: null, checked: true, error: apiErrorText(t, error) }
+  return { identity: null, checked: true, error: apiErrorText(t, error, t('bootFailure.sessionCheckFailed')) }
 }
 
 export function useAuth() {

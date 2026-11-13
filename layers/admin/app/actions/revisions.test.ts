@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { runAction } from '#kestrel-core/app/utils/actions'
 import { labelRevision, loadRevisions, readRevision, restoreRevision } from './revisions'
 import type { BusyPort } from './types'
-import { fakeDeps, noAnswerFailure, referencedFailure, unansweredFetchError } from './__fixtures__/fake-deps'
+import { fakeDeps, ledFailure, noAnswerFailure, referencedFailure, unansweredFetchError } from './__fixtures__/fake-deps'
 
 const CODE_OF: Record<number, string> = { 400: 'VALIDATION', 404: 'NOT_FOUND', 409: 'CONFLICT', 500: 'INTERNAL' }
 
@@ -104,7 +104,7 @@ describe('restoreRevision', () => {
     const result = await runAction(restoreRevision, { deps, ...scope, revisionId: 'r1', confirmed: true, fieldLabels: LABELS, ops, refresh: vi.fn() })
 
     expect(result.ok).toBe(false)
-    expect(errors[1]).toBe(referencedFailure('pages.body: invalid — Title: required — /body/0: unknown block type "teaserGrid"', 400))
+    expect(errors[1]).toBe(referencedFailure(`${ledFailure('revisions.restoreFailed', 'pages.body: invalid')} — Title: required — /body/0: unknown block type "teaserGrid"`, 400))
   })
 
   it('says that a restore without an answer did not reach the server, with its error id', async () => {
@@ -113,7 +113,7 @@ describe('restoreRevision', () => {
     const result = await runAction(restoreRevision, { deps, ...scope, revisionId: 'r1', confirmed: true, fieldLabels: LABELS, ops, refresh: vi.fn() })
 
     expect(result.ok).toBe(false)
-    expect(errors[1]).toBe(noAnswerFailure('', '0a0b0c0d0e0f'))
+    expect(errors[1]).toBe(noAnswerFailure('revisions.restoreFailed', '0a0b0c0d0e0f'))
   })
 })
 
@@ -143,7 +143,7 @@ describe('labelRevision', () => {
     const result = await runAction(labelRevision, { deps, ...scope, revisionId: 'r1', label: 'x', ops })
 
     expect(result.ok).toBe(false)
-    expect(errors).toEqual([null, referencedFailure('gone', 404)])
+    expect(errors).toEqual([null, referencedFailure(ledFailure('revisions.labelFailed', 'gone'), 404)])
     expect(toast.success).not.toHaveBeenCalled()
   })
 
@@ -152,6 +152,6 @@ describe('labelRevision', () => {
     const { ops, errors } = fakeOps()
     await runAction(labelRevision, { deps, ...scope, revisionId: 'r1', label: 'x', ops })
 
-    expect(errors).toEqual([null, noAnswerFailure('', '0a0b0c0d0e0f')])
+    expect(errors).toEqual([null, noAnswerFailure('revisions.labelFailed', '0a0b0c0d0e0f')])
   })
 })

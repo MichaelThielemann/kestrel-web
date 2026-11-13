@@ -7,7 +7,7 @@ import type { SerializedField } from '#kestrel-admin/types/kestrel'
 import { copyTranslation, deleteRecord, deleteTranslation, discardRecord, leaveEditor, previewDeleteRecord, saveRecord, setStatus, switchSystemTab } from './editor'
 import type { ActionDeps, EditFormPort } from './types'
 import type { RowErrorMap } from '../utils/row-errors'
-import { fakeDeps, noAnswerFailure, referencedFailure, unansweredFetchError } from './__fixtures__/fake-deps'
+import { fakeDeps, ledFailure, noAnswerFailure, referencedFailure, unansweredFetchError } from './__fixtures__/fake-deps'
 import { ApiError } from '../composables/useApi'
 
 type RelayEntry = EventRelayStatus['pipelines'][number]
@@ -160,7 +160,7 @@ describe('saveRecord', () => {
 
     expect(result.ok).toBe(false)
     expect([...boundaryCast<Map<string, unknown[]>>(state.blockErrors, 'json').keys()]).toEqual(['b1'])
-    expect(state.formError).toBe('editor.blocksHaveProblems:{"n":1}')
+    expect(state.formError).toBe(referencedFailure('editor.blocksHaveProblems:{"n":1}', 400))
   })
 
   it('maps a 400 row error onto the repeater field', async () => {
@@ -170,7 +170,7 @@ describe('saveRecord', () => {
     await runAction(saveRecord, { deps, form })
 
     expect(state.rowErrors).toEqual({ rules: { 1: 'from is required' } })
-    expect(state.formError).toBe('pages: Row 2: from is required')
+    expect(state.formError).toBe(referencedFailure(ledFailure('editor.saveFailed', 'Row 2: from is required'), 400))
   })
 
   it('maps a generic 400 json-schema error onto the repeater field, nested arbitrarily deep', async () => {
@@ -182,7 +182,7 @@ describe('saveRecord', () => {
     expect(state.rowErrors).toEqual({
       blocks: { 0: { fields: { items: { rows: { 1: { fields: { label: 'Enter at least 1 characters.' } } } } } } },
     })
-    expect(state.formError).toBe('pages.blocks: /0/items/1/label must NOT have fewer than 1 characters')
+    expect(state.formError).toBe(referencedFailure(ledFailure('editor.saveFailed', 'pages.blocks: /0/items/1/label must NOT have fewer than 1 characters'), 400))
   })
 
   it('maps a plain 400 onto a field and the form error', async () => {
@@ -192,14 +192,14 @@ describe('saveRecord', () => {
     await runAction(saveRecord, { deps, form })
 
     expect(state.fieldErrors).toEqual({ slug: 'slug must be unique' })
-    expect(state.formError).toBe('slug must be unique')
+    expect(state.formError).toBe(referencedFailure(ledFailure('editor.saveFailed', 'slug must be unique'), 400))
   })
 
   it('falls back to the conflict and failure messages', async () => {
     const conflict = fakeDeps([apiError(409, '')])
     const conflictForm = fakeForm()
     await runAction(saveRecord, { deps: conflict.deps, form: conflictForm.form })
-    expect(conflictForm.state.formError).toBe('editor.saveConflict')
+    expect(conflictForm.state.formError).toBe(referencedFailure('editor.saveConflict', 409))
 
     const failure = fakeDeps([apiError(500, '')])
     const failureForm = fakeForm()
@@ -484,8 +484,9 @@ describe('deleteRecord', () => {
     const result = await runAction(deleteRecord, input)
 
     expect(result).toEqual({ ok: false, error: 'pages/p1 is referenced by pages/p2 (body)' })
-    expect(toast.error).toHaveBeenCalledWith(referencedFailure('pages/p1 is referenced by pages/p2 (body)', 409))
-    expect(ops.setError).toHaveBeenCalledWith(referencedFailure('pages/p1 is referenced by pages/p2 (body)', 409))
+    const shown = referencedFailure(ledFailure('editor.deleteFailed:{"id":"p1"}', 'pages/p1 is referenced by pages/p2 (body)'), 409)
+    expect(toast.error).toHaveBeenCalledWith(shown)
+    expect(ops.setError).toHaveBeenCalledWith(shown)
     expect(navigate).not.toHaveBeenCalled()
   })
 
@@ -495,7 +496,7 @@ describe('deleteRecord', () => {
 
     await runAction(deleteRecord, input)
 
-    expect(ops.setError).toHaveBeenCalledWith(noAnswerFailure('', '0a0b0c0d0e0f'))
+    expect(ops.setError).toHaveBeenCalledWith(noAnswerFailure('editor.deleteFailed:{"id":"p1"}', '0a0b0c0d0e0f'))
   })
 
   it('continues past a failed id when others succeed', async () => {
@@ -578,14 +579,14 @@ describe('deleteTranslation', () => {
     expect(ops.setBusy.mock.calls).toEqual([[true], [false]])
   })
 
-  it('shows the backend message on a 409 and stays in the editor', async () => {
+  it('shows what failed with the backend message on a 409 and stays in the editor', async () => {
     const { deps, toast } = fakeDeps([apiError(409, 'en is the last translation – remove the document')])
     const { input, navigate } = translationInput(deps)
 
     const result = await runAction(deleteTranslation, input)
 
     expect(result).toEqual({ ok: false, error: 'en is the last translation – remove the document' })
-    expect(toast.error).toHaveBeenCalledWith(referencedFailure('en is the last translation – remove the document', 409))
+    expect(toast.error).toHaveBeenCalledWith(referencedFailure(ledFailure('editor.translationDeleteFailed', 'en is the last translation – remove the document'), 409))
     expect(navigate).not.toHaveBeenCalled()
   })
 })
@@ -637,7 +638,16 @@ describe('copyTranslation', () => {
     const result = await runAction(copyTranslation, { deps, form, fields, source: 'de', confirmed: true })
 
     expect(result).toEqual({ ok: false, error: 'not found' })
-    expect(toast.error).toHaveBeenCalledWith(referencedFailure('not found', 404))
+    expect(toast.error).toHaveBeenCalledWith(referencedFailure(ledFailure('localeBar.copyFailed:{"locale":"DE"}', 'not found'), 404))
+  })
+
+  it('names what failed when the source request got no answer', async () => {
+    const { deps, toast } = fakeDeps([unansweredFetchError('0a0b0c0d0e0f')])
+    const { form } = fakeForm()
+
+    await runAction(copyTranslation, { deps, form, fields, source: 'de', confirmed: true })
+
+    expect(toast.error).toHaveBeenCalledWith(noAnswerFailure('localeBar.copyFailed:{"locale":"DE"}', '0a0b0c0d0e0f'), 0)
   })
 })
 

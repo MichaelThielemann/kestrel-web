@@ -1,6 +1,6 @@
 import type { ApiErrorDetails } from '#kestrel-admin/types/api'
 import type { ActionContext, ActionStep } from '#kestrel-core/app/utils/actions'
-import { failureText, retryableMessage } from '../../composables/useApi'
+import { answeredMessage, failureText, retryableMessage } from '../../composables/useApi'
 import type { BlockErrors } from '../../composables/useEditFormValidation'
 import { blockErrorFromPointer, fieldErrorsFromDetails, fieldFromErrorMessage, hasAdditionalPropertiesProblem, parseBodyErrors, parseRowErrors } from '../../utils/edit-form'
 import { parseSchemaRowErrors } from '../../utils/row-errors'
@@ -12,7 +12,7 @@ export function saveOutcome<I>(ctx: ActionContext<I, SaveOutcome>, step: string)
   return ctx.result
 }
 
-function mapBodyError(t: Translate, form: EditFormPort, message: string): boolean {
+function mapBodyError(t: Translate, form: EditFormPort, message: string, setFormError: (text: string) => void): boolean {
   const blocksField = form.blocksField()
   if (!blocksField) return false
   const bodyErrors = parseBodyErrors(message, `${form.collection}.${blocksField}`)
@@ -30,7 +30,7 @@ function mapBodyError(t: Translate, form: EditFormPort, message: string): boolea
   if (!map.size) return false
 
   form.setBlockErrors(map)
-  form.setFormError(t('editor.blocksHaveProblems', { n: map.size }))
+  setFormError(t('editor.blocksHaveProblems', { n: map.size }))
   return true
 }
 
@@ -41,7 +41,6 @@ function mapRowError(form: EditFormPort, message: string): boolean {
   if (!rows.length) return false
 
   form.setRowErrors(repeater, Object.fromEntries(rows.map((row) => [row.row, row.message])))
-  form.setFormError(message)
   return true
 }
 
@@ -59,7 +58,6 @@ function mapSchemaRowError(form: EditFormPort, message: string): boolean {
   if (!tree) return false
 
   form.setRowErrors(repeater, tree)
-  form.setFormError(message)
   return true
 }
 
@@ -132,16 +130,22 @@ export function formMapErrors<I extends WithDeps & { form: EditFormPort }>(): Ac
     const failure = saveOutcome(ctx, 'form.mapErrors').failure
     if (!failure) return
     const { code, retryable, message, details } = failure
+    const { t } = deps
+    const setFormError = (text: string) => form.setFormError(failureText(t, text, failure))
+    const answered = (leadKey: string) => answeredMessage(t, failure, t(leadKey))
 
     if (code === 'VALIDATION' || code === 'DANGLING_REF') {
-      if (mapBodyError(deps.t, form, message)) return
-      if (mapRowError(form, message)) return
-      if (mapSchemaRowError(form, message)) return
+      const shown = answered('editor.saveFailed')
+      if (mapBodyError(t, form, message, setFormError)) return
+      if (mapRowError(form, message) || mapSchemaRowError(form, message)) {
+        setFormError(shown)
+        return
+      }
       if (!mapFieldDetails(form, details)) {
         const key = fieldFromErrorMessage(message, form.fieldKeys())
         if (key) form.setFieldError(key, message)
       }
-      form.setFormError(hasAdditionalPropertiesProblem(details) ? `${deps.t('editor.unknownFieldSent')} ${message}` : message)
+      setFormError(hasAdditionalPropertiesProblem(details) ? `${t('editor.unknownFieldSent')} ${message}` : shown)
       return
     }
 
@@ -149,26 +153,26 @@ export function formMapErrors<I extends WithDeps & { form: EditFormPort }>(): Ac
       const visible = withReadableOccupants(deps, details)
       mapFieldDetails(form, visible)
       const hidden = visible !== details ? [...new Set((visible?.fields ?? []).map((field) => field.message))].join('; ') : ''
-      form.setFormError(hidden || message || deps.t('editor.saveConflict'))
+      setFormError(hidden || answered('editor.saveConflict'))
       return
     }
 
     if (code === 'PAYLOAD_TOO_LARGE') {
-      form.setFormError(deps.t('editor.tooLarge'))
+      setFormError(t('editor.tooLarge'))
       return
     }
 
     if (code === 'UNSUPPORTED') {
-      form.setFormError(deps.t('editor.unsupportedType'))
+      setFormError(t('editor.unsupportedType'))
       return
     }
 
     if (retryable) {
-      form.setFormError(failureText(deps.t, retryableMessage(deps.t, details), failure))
+      setFormError(retryableMessage(t, details))
       return
     }
 
-    form.setFormError(failureText(deps.t, message || deps.t('editor.saveFailed'), failure))
+    setFormError(answered('editor.saveFailed'))
   })
 }
 

@@ -27,7 +27,7 @@ async function confirm() {
     deps.toast.success(t('users.resetSecondFactorDone'))
     emit('reset')
   } catch (e) {
-    error.value = apiErrorText(t, e)
+    error.value = apiErrorText(t, e, t('users.resetSecondFactorFailed'))
   } finally {
     busy.value = false
   }

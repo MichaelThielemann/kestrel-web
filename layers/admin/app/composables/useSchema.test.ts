@@ -87,7 +87,7 @@ describe('loadSchemaInto', () => {
 
     expect(await loadSchemaInto(state, api, scope(), echo)).toBe('failed')
     expect(state.value.schema).toBeNull()
-    expect(state.value.error).toBe(echo('error.withReference', { message: 'database is busy', reference: 'HTTP 503' }))
+    expect(state.value.error).toBe(echo('error.withReference', { message: echo('error.detail', { lead: 'bootFailure.schemaLoadError', detail: 'database is busy' }), reference: 'HTTP 503' }))
   })
 
   it('shows the translated note with the status and the error id when the request did not reach the server', async () => {
@@ -95,7 +95,8 @@ describe('loadSchemaInto', () => {
     const { api } = fakeApi(new ApiError(502, 'Request failed', 'INTERNAL', false, undefined, undefined, undefined, { requestId: 'f0e1d2c3b4a5', reached: false }))
 
     expect(await loadSchemaInto(state, api, scope(), echo)).toBe('failed')
-    expect(state.value.error).toBe(echo('error.unreached', { reference: `HTTP 502 · ${echo('error.id', { id: 'f0e1d2c3b4a5' })}` }))
+    const hint = echo('error.unreached', { reference: `HTTP 502 · ${echo('error.id', { id: 'f0e1d2c3b4a5' })}` })
+    expect(state.value.error).toBe(echo('error.withHint', { message: 'bootFailure.schemaLoadError', hint }))
   })
 
   it('retries after a failure, since nothing was cached', async () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import * as useApiModule from './useApi'
-import { answeredByServer, ApiError, apiErrorCode, apiErrorMessage, apiErrorRetryable, apiErrorRunId, apiErrorStatus, apiErrorText, failureText, retryableMessage, toApiError } from './useApi'
+import { answeredByServer, answeredMessage, ApiError, apiErrorCode, apiErrorMessage, apiErrorRetryable, apiErrorRunId, apiErrorStatus, apiErrorText, failureText, retryableMessage, serverDetail, toApiError } from './useApi'
 
 describe('useApi.ts exports', () => {
   it('never exports mediaFileUrl, which would build a download URL without the downloadMedia capability', () => {
@@ -198,25 +198,72 @@ describe('failureText', () => {
   })
 })
 
-describe('apiErrorText', () => {
+describe('serverDetail', () => {
+  it('drops the module prefix kestrel puts in front of a message, with or without a scope', () => {
+    expect(serverDetail('authn/multi: current password is wrong')).toBe('current password is wrong')
+    expect(serverDetail('redirects: no automatic redirect at /alt')).toBe('no automatic redirect at /alt')
+    expect(serverDetail('images: size "thumb" has no variants')).toBe('size "thumb" has no variants')
+    expect(serverDetail('media-default: storage is read-only')).toBe('storage is read-only')
+  })
+
+  it('keeps a message without such a prefix, and a colon that is part of the text', () => {
+    expect(serverDetail('disk full')).toBe('disk full')
+    expect(serverDetail('Timeout: 30s')).toBe('Timeout: 30s')
+    expect(serverDetail('pages.title: must be a string')).toBe('pages.title: must be a string')
+    expect(serverDetail('at 10:30 the job stopped')).toBe('at 10:30 the job stopped')
+  })
+})
+
+describe('answeredMessage', () => {
   const t = (key: string, params?: Record<string, unknown>) => (params ? `${key}:${JSON.stringify(params)}` : key)
 
-  it('names the HTTP status and the error id after the message of an answered request', () => {
-    const err = new ApiError(500, 'disk full', 'INTERNAL', false, undefined, undefined, undefined, { requestId: 'a1b2c3d4e5f6' })
-    expect(apiErrorText(t, err)).toBe(t('error.withReference', { message: 'disk full', reference: `HTTP 500 · ${t('error.id', { id: 'a1b2c3d4e5f6' })}` }))
+  it('puts the translated lead in front of the message of the answer without its module prefix', () => {
+    expect(answeredMessage(t, { message: 'migrations: apply is running', reached: true }, 'Applying failed.'))
+      .toBe(t('error.detail', { lead: 'Applying failed', detail: 'apply is running' }))
   })
 
-  it('takes the fallback in front of the reference when the answer carries no message', () => {
+  it('drops a trailing colon of the lead', () => {
+    expect(answeredMessage(t, { message: 'disk full' }, 'The status could not be loaded:'))
+      .toBe(t('error.detail', { lead: 'The status could not be loaded', detail: 'disk full' }))
+  })
+
+  it('takes the lead alone when the answer carries no message or no server answered', () => {
+    expect(answeredMessage(t, { message: '', reached: true }, 'Saving failed.')).toBe('Saving failed.')
+    expect(answeredMessage(t, { message: 'Request failed', reached: false }, 'Saving failed.')).toBe('Saving failed.')
+  })
+
+  it('takes the message alone without a lead', () => {
+    expect(answeredMessage(t, { message: 'users: name taken' }, '')).toBe('name taken')
+  })
+})
+
+describe('apiErrorText', () => {
+  const t = (key: string, params?: Record<string, unknown>) => (params ? `${key}:${JSON.stringify(params)}` : key)
+  const reference = (status: number, id: string) => `HTTP ${status} · ${t('error.id', { id })}`
+
+  it('names what failed, the message of the answer, the HTTP status and the error id', () => {
+    const err = new ApiError(400, 'authn/multi: current password is wrong', 'VALIDATION', false, undefined, undefined, undefined, { requestId: '3f9a2c7b1e04' })
+    expect(apiErrorText(t, err, 'account.password.failed'))
+      .toBe(t('error.withReference', { message: t('error.detail', { lead: 'account.password.failed', detail: 'current password is wrong' }), reference: reference(400, '3f9a2c7b1e04') }))
+  })
+
+  it('takes the lead in front of the reference when the answer carries no message', () => {
     const err = new ApiError(500, '', 'INTERNAL', false, undefined, undefined, undefined, { requestId: 'a1b2c3d4e5f6' })
-    expect(apiErrorText(t, err, 'list.loadError')).toBe(t('error.withReference', { message: 'list.loadError', reference: `HTTP 500 · ${t('error.id', { id: 'a1b2c3d4e5f6' })}` }))
+    expect(apiErrorText(t, err, 'list.loadError')).toBe(t('error.withReference', { message: 'list.loadError', reference: reference(500, 'a1b2c3d4e5f6') }))
   })
 
-  it('shows the message of an error that no request threw unchanged', () => {
-    expect(apiErrorText(t, new Error('boom'))).toBe('boom')
+  it('puts the lead in front of the message of an error that no request threw', () => {
+    expect(apiErrorText(t, new Error('boom'), 'list.loadError')).toBe(t('error.detail', { lead: 'list.loadError', detail: 'boom' }))
   })
 
-  it('shows the translated note with the status and the id when the request did not reach the server', () => {
+  it('keeps the lead in front of the note with the status and the id when the request did not reach the server', () => {
     const err = new ApiError(502, 'Request failed', 'INTERNAL', false, undefined, undefined, undefined, { requestId: 'f0e1d2c3b4a5', reached: false })
-    expect(apiErrorText(t, err)).toBe(t('error.unreached', { reference: `HTTP 502 · ${t('error.id', { id: 'f0e1d2c3b4a5' })}` }))
+    expect(apiErrorText(t, err, 'list.loadError.'))
+      .toBe(t('error.withHint', { message: 'list.loadError', hint: t('error.unreached', { reference: reference(502, 'f0e1d2c3b4a5') }) }))
+  })
+
+  it('shows the translated text of a host server answer instead of the text the fetch error was built with', () => {
+    const fetchError = { status: 403, data: { error: true, statusCode: 403, statusMessage: 'Forbidden' }, message: '[PATCH] "/api/pages/p1": 403 Forbidden', options: { headers: new Headers({ 'x-request-id': 'a1b2c3d4e5f6' }) }, response: { headers: new Headers() } }
+    expect(apiErrorText(t, fetchError, 'editor.saveFailed')).toBe(t('error.withReference', { message: 'editor.saveFailed', reference: reference(403, 'a1b2c3d4e5f6') }))
   })
 })
