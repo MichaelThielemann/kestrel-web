@@ -34,7 +34,22 @@ With the `delivery` feature, every published page is written as static HTML unde
   Set `disallow` on a staging server that runs a production build. A changed policy is written at the next
   start.
 
-Crawlers read `robots.txt` only at the root of a host, so serve it there.
+The Node server does not serve these four files: it answers `/robots.txt`, `/sitemap.xml`, `/llms.txt` and
+`/llms-full.txt` with 404, and a crawler takes a missing `robots.txt` as allowing everything, so a
+`disallow` policy keeps crawlers out only once the host serves the exported file. Serve the four paths from
+the export at the root of the host, next to the proxy to the Node server, for example with nginx and the
+filesystem blobstore, where `<data dir>` is `KESTREL_DATA_DIR` or `data/` under the app root:
+
+```nginx
+location = /robots.txt { root <data dir>/blobs/site; add_header Cache-Control "no-cache"; }
+location = /sitemap.xml { root <data dir>/blobs/site; add_header Cache-Control "no-cache"; }
+location = /llms.txt { root <data dir>/blobs/site; add_header Cache-Control "no-cache"; }
+location = /llms-full.txt { root <data dir>/blobs/site; add_header Cache-Control "no-cache"; }
+```
+
+With an S3 blobstore, proxy each path to its object under `site/` instead. §7 of the deployment guide,
+<https://github.com/MichaelThielemann/kestrel-web/blob/main/docs/deployment.md>, has the details, including a
+site below the host's root.
 
 ## Checking the project
 

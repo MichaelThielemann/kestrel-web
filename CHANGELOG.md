@@ -13,7 +13,9 @@
   `indexes`, and `refreshLlms` runs `delivery.exportLlmsFull`; the queue holds them back 1000 ms and 3000 ms
   (`delaysFor(features)`), so one export follows a burst of saves and llms-full.txt trails the re-renders it
   reads. Without the queue, delivery-static's loop exports the index files one second after the first request
-  (`dependencies.indexesDelayMs: 1000`). Neither delay can be changed through `presetModuleConfig()`.
+  (`dependencies.indexesDelayMs: 1000`). Neither delay can be changed through `presetModuleConfig()`. The Node
+  server does not serve the four files; behind a proxy to it, serve them from the export's `site/` prefix at the
+  host's root (`docs/deployment.md` §7, "Index files").
 - With `delivery`, `presetModuleConfig()` passes `NUXT_PUBLIC_SITE_URL`, normalised the way
   `@michaelthielemann/kestrel-delivery-static/site-url` does it, to delivery-static as its top-level `siteUrl`;
   the variable is the one source of the site URL for the index files and the pages alike. It takes `sitemap`

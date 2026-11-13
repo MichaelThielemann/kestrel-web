@@ -55,8 +55,8 @@ kestrel-web's own, all read while `kestrel.config.ts` loads:
 | `KESTREL_BLOBSTORE` | in production | `s3` or `filesystem`; `envBlobstore()` throws in production when it is neither |
 | `KESTREL_S3_BUCKET`, `KESTREL_S3_ENDPOINT`, `KESTREL_S3_REGION`, `KESTREL_S3_ACCESS_KEY_ID`, `KESTREL_S3_SECRET_ACCESS_KEY` | with `KESTREL_BLOBSTORE=s3` | the S3 blobstore, `forcePathStyle: true`; each missing one throws naming itself |
 | `KESTREL_S3_ALLOW_INSECURE_ENDPOINT` | no | `true` lets `KESTREL_S3_ENDPOINT` be plain `http://` outside loopback (`localhost`, `127.0.0.0/8`, `[::1]`), with a warning at every boot; otherwise such an endpoint stops the boot, since credentials, objects and replica snapshots would cross the network unencrypted |
-| `NUXT_PUBLIC_SITE_URL` | no, but expected with `delivery` | the public site's absolute URL, with a base path when the site lives below the host's root; the editor's preview links, every exported page's `<link rel="canonical">` and `og:url`, `sitemap.xml`, the `Sitemap:` line of `robots.txt` and the URLs in `llms.txt` are built from it. Empty: no canonical link, no `sitemap.xml`, paths in `llms.txt`, and a warning at boot. A change re-renders every page at the next start |
-| `KESTREL_ROBOTS_POLICY` | no | `allow` or `disallow` for `robots.txt`, read by `presetModuleConfig()` when its `robots` option has no `policy`; unset means `allow` in a production build, whatever `NODE_ENV` the process has, and `disallow` under `nuxt dev`, with a warning at boot. Set `disallow` on a staging server. A change is written at the next start |
+| `NUXT_PUBLIC_SITE_URL` | no, but expected with `delivery` | the public site's absolute URL, with a base path when the site lives below the host's root; the editor's preview links, every exported page's `<link rel="canonical">` and `og:url`, `sitemap.xml`, the `Sitemap:` line of `robots.txt` and the URLs in `llms.txt` are built from it. Empty: no canonical link, no `sitemap.xml`, paths in `llms.txt`, and a warning at boot. A change re-renders every page at the next start. The Node server does not serve `sitemap.xml`; crawlers reach it only where the host serves the export's `site/` prefix (§7, "Index files") |
+| `KESTREL_ROBOTS_POLICY` | no | `allow` or `disallow` for `robots.txt`, read by `presetModuleConfig()` when its `robots` option has no `policy`; unset means `allow` in a production build, whatever `NODE_ENV` the process has, and `disallow` under `nuxt dev`, with a warning at boot. Set `disallow` on a staging server. A change is written at the next start. The Node server answers `/robots.txt` with 404, which crawlers take as allowing everything: the policy keeps them out only where the host serves the export's `robots.txt` at its root (§7, "Index files") |
 | `NUXT_KESTREL_ACCESS_ADMIN` / `_SITE` | no | the two IP allowlists (§7 of the consuming guide); empty means open |
 | `NUXT_KESTREL_ACCESS_TRUST_PROXY`, `_PROXY_HOPS`, `_TRUSTED_HEADER` | no | how the client address is taken behind a proxy |
 | `NUXT_KESTREL_ACCESS_TRUSTED_PROXIES` | no | the proxies whose forwarding headers count, addresses or CIDR ranges; empty means loopback |
@@ -217,6 +217,11 @@ server {
 
   client_max_body_size 6m;
 
+  location = /robots.txt { root /srv/mysite/data/blobs/site; add_header Cache-Control "no-cache"; }
+  location = /sitemap.xml { root /srv/mysite/data/blobs/site; add_header Cache-Control "no-cache"; }
+  location = /llms.txt { root /srv/mysite/data/blobs/site; add_header Cache-Control "no-cache"; }
+  location = /llms-full.txt { root /srv/mysite/data/blobs/site; add_header Cache-Control "no-cache"; }
+
   location / {
     proxy_pass http://127.0.0.1:8080;
     proxy_set_header Host $host;
@@ -229,6 +234,20 @@ server {
 ```
 
 Points that matter:
+
+- **Index files.** With `delivery`, `robots.txt`, `sitemap.xml`, `llms.txt` and `llms-full.txt` are written to
+  the blobstore under `site/` (`<dataDir>/blobs/site/` with the filesystem blobstore of §5), and the Node server
+  does not serve them: it answers `/robots.txt`, `/sitemap.xml`, `/llms.txt` and `/llms-full.txt` with 404. A
+  crawler takes a missing `robots.txt` as allowing everything, so `KESTREL_ROBOTS_POLICY=disallow` keeps a
+  staging server out of search results only when the host serves the exported file. The four exact-match
+  locations above do that next to the proxy; nginx's user needs read access to that directory. With an S3
+  blobstore, whose bucket grants anonymous reads on `site/*` (§3), proxy each one to its object instead, for
+  example `location = /robots.txt { proxy_pass https://example-bucket.s3.eu-central-1.amazonaws.com/site/robots.txt; }`;
+  on a CDN, route the four paths to the `site/` prefix of the same origin. A file the site does not write
+  (`sitemap.xml` without a site URL, `llms-full.txt` without `llms.full`) answers 404. With a base path in
+  `NUXT_PUBLIC_SITE_URL`, `robots.txt` stays at the host's root and the other three move below the base path
+  (`location = /site/sitemap.xml { alias /srv/mysite/data/blobs/site/sitemap.xml; }`). A static host that
+  serves the whole export (§8 of the consuming guide) serves them already.
 
 - **HTTPS only.** The login sets the session in the `__Host-kestrel_token` cookie with `HttpOnly`,
   `Secure`, `SameSite=Strict` and `Path=/`; admin script never reads or writes it, and the `__Host-` prefix

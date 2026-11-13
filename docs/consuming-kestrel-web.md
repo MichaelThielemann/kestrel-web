@@ -1867,7 +1867,9 @@ server that runs a production build.
 `robots: false` leaves `robots.txt` to you, and `sitemap: false` `sitemap.xml`; set them before the first start,
 which overwrites a file of that name under the prefix. `robots: false` leaves a `robots.txt` the export already
 wrote in place: delete `<prefix>robots.txt` by hand. Crawlers read `robots.txt` only at the root of a host: with a
-base path in the site URL, serve one at the host's root yourself.
+base path in the site URL, serve one at the host's root yourself. The Node server serves none of the four index
+files, so a deployment that proxies the site to it serves them from the export (`docs/deployment.md` §7, "Index
+files"); a static host for the whole export serves them already.
 
 Configure the llms files under `llms`: `full: true` writes `llms-full.txt`, `headings` maps a type to its
 section heading (default: the type name). The editor's "SEO & GEO" section explains the double use to editors.
