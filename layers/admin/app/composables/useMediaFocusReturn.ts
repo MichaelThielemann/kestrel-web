@@ -8,16 +8,35 @@ export interface UseMediaFocusReturnOptions {
   keyboard: { focus: (key: string) => void; focusActive: () => boolean }
 }
 
-/** Puts focus back into the media listing once the DOM and any closing dialog settled: on a given item, else on the active item, else on the library root. */
+function typing(): boolean {
+  const active = document.activeElement
+  if (active instanceof HTMLTextAreaElement || active instanceof HTMLSelectElement) return true
+  if (active instanceof HTMLInputElement) return !['checkbox', 'radio', 'button', 'submit', 'reset'].includes(active.type)
+  return active instanceof HTMLElement && active.isContentEditable
+}
+
+/** Puts focus back into the media listing once the DOM and any closing dialog settled: on a given item, else on the active item, else on the library root. Focus counts as adrift when it was lost or fell to an element that holds the library, such as the dialog around a picker. */
 export function useMediaFocusReturn(opts: UseMediaFocusReturnOptions) {
   let timer: ReturnType<typeof setTimeout> | null = null
-  onUnmounted(() => { if (timer) clearTimeout(timer) })
+  let mounted = true
+  onUnmounted(() => {
+    mounted = false
+    if (timer) clearTimeout(timer)
+  })
 
   function later(run: () => void) {
     void nextTick().then(() => {
+      if (!mounted) return
       if (timer) clearTimeout(timer)
       timer = setTimeout(run, 0)
     })
+  }
+
+  function adrift(): boolean {
+    if (focusLost()) return true
+    const root = opts.root.value
+    const active = document.activeElement
+    return root !== null && active !== null && active.contains(root)
   }
 
   function refocus(key?: string) {
@@ -28,11 +47,11 @@ export function useMediaFocusReturn(opts: UseMediaFocusReturnOptions) {
   return {
     later,
     refocus,
-    /** After a run in the listing: back into it when focus was lost or is still inside the library. */
-    settle: () => later(() => { if (focusLost() || opts.root.value?.contains(document.activeElement)) refocus() }),
-    /** After a restore: on the first restored file still listed, when focus was lost. */
-    restored: (fileIds: readonly string[]) => later(() => {
-      if (focusLost()) refocus(fileIds.map((id) => `file:${id}`).find((key) => opts.keys.value.includes(key)))
+    /** After a run in the listing: back into it when focus is adrift or still inside the library. */
+    settle: () => later(() => { if (adrift() || opts.root.value?.contains(document.activeElement)) refocus() }),
+    /** After a restore: on the first restored file still listed. `requested` is set when this view offered the undo that ran; focus then moves unless the user is typing, otherwise only when it is adrift. */
+    restored: (fileIds: readonly string[], requested = false) => later(() => {
+      if (requested ? !typing() : adrift()) refocus(fileIds.map((id) => `file:${id}`).find((key) => opts.keys.value.includes(key)))
     }),
     toRoot: () => later(() => opts.root.value?.focus()),
   }

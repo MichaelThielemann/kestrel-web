@@ -26,6 +26,8 @@ export interface UseMediaBulkActionsOptions {
   onRemoved?: (fileIds: string[]) => void
   /** Called once a removal is over with nothing left to report, after its dialog closed if it had one. */
   onSettled?: () => void
+  /** Called with the file ids an undo offered here brought back, once the views reloaded. */
+  onRestored?: (fileIds: readonly string[]) => void
   onDeletedFromViewer: () => void
 }
 
@@ -41,7 +43,7 @@ export function useMediaBulkActions(opts: UseMediaBulkActionsOptions) {
   const { has: hasFeature } = useFeatures()
   const { schema } = useSchema()
   const { t } = useT()
-  const undo = useMediaUndo({ inline: opts.inlineUndo === true })
+  const undo = useMediaUndo({ inline: opts.inlineUndo === true, onRestored: (ids) => opts.onRestored?.(ids) })
 
   const trashing = computed(() => schema.value?.mediaTrash === true)
   const state = ref<RemovalDialogState | null>(null)

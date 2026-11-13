@@ -14,8 +14,8 @@ export interface UndoNotice { type: RunMessage['type']; message: string; undo?: 
 /** An offer kept back while a dialog is open: its message and, where the role may restore, the undo. */
 export interface HeldUndo { message: string; undo?: () => void }
 
-/** The undo of a move to the trash. In a toast by default; `inline` keeps the offer and the outcome in `notice` for the view to show, which a modal dialog needs because a toast outside it is out of reach. An offer made with `hold` waits in `held` for a dialog to show: `runHeld` undoes it from there, and `release` makes the usual offer once the dialog closed. The restore reloads every mounted media view, not only the one that offered it. */
-export function useMediaUndo(opts: { inline: boolean }) {
+/** The undo of a move to the trash. In a toast by default; `inline` keeps the offer and the outcome in `notice` for the view to show, which a modal dialog needs because a toast outside it is out of reach. An offer made with `hold` waits in `held` for a dialog to show: `runHeld` undoes it from there, and `release` makes the usual offer once the dialog closed. The restore reloads every mounted media view, not only the one that offered it; `onRestored` then hears the ids that came back. */
+export function useMediaUndo(opts: { inline: boolean; onRestored?: (fileIds: readonly string[]) => void }) {
   const deps = useActionDeps()
   const capabilities = useCapabilities()
   const toasts = useToast()
@@ -62,7 +62,9 @@ export function useMediaUndo(opts: { inline: boolean }) {
     })
     toastUnexpected(deps, r)
     const report = (r.ok ? r.result : undefined) ?? reported.report
-    if (report) say(restoreMessages(t, report, (id) => names.get(id) ?? id))
+    if (!report) return
+    say(restoreMessages(t, report, (id) => names.get(id) ?? id))
+    if (report.done.length) opts.onRestored?.(report.done)
   }
 
   function dismiss() {

@@ -59,6 +59,7 @@ const removal = useMediaBulkActions({
   canDeleteTargets: (targets) => mediaCaps.canDeleteTargets(targets),
   onRemoved: (ids) => pickState.forget(ids),
   onSettled: () => focusReturn.settle(),
+  onRestored: (ids) => focusReturn.restored(ids, true),
   onDeletedFromViewer: () => {
     closeViewer()
     focusReturn.toRoot()

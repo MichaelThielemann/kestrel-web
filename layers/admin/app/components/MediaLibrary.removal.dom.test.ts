@@ -1,7 +1,7 @@
 import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { createError, getQuery, readBody } from 'h3'
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
-import { computed, nextTick } from 'vue'
+import { computed, defineComponent, h, nextTick } from 'vue'
 import type { VueWrapper } from '@vue/test-utils'
 import { boundaryCast } from '#kestrel/cast'
 import { en } from '#kestrel-admin/i18n/en'
@@ -155,13 +155,20 @@ async function mountLibrary(props: Record<string, unknown> = {}, route?: string)
   return wrapper
 }
 
+async function mountInHost(props: Record<string, unknown>) {
+  const Host = defineComponent({ setup: () => () => h('div', { class: 'test-host', tabindex: -1 }, [h(MediaLibrary, props)]) })
+  const outer = await mountSuspended(Host, { attachTo: document.body })
+  onTestFinished(() => outer.unmount())
+  return { wrapper: outer.getComponent(MediaLibrary), host: boundaryCast<HTMLElement>(outer.get('.test-host').element, 'dom') }
+}
+
 async function select(wrapper: VueWrapper, name: string) {
   const box = wrapper.findAll<HTMLInputElement>('input[type="checkbox"]').find((b) => b.attributes('aria-label') === text('media.selection.selectItem', { name }))
   if (!box) throw new Error(`expected a checkbox for ${name}`)
   await box.setValue(true)
 }
 
-const barButton = (wrapper: VueWrapper, label: string) => wrapper.findAll('.media-selection-bar button').find((b) => b.text() === label || b.attributes('aria-label') === label)
+const barButton = (wrapper: Pick<VueWrapper, 'findAll'>, label: string) => wrapper.findAll('.media-selection-bar button').find((b) => b.text() === label || b.attributes('aria-label') === label)
 const dialog = () => document.body.querySelector('.ui-dialog__content')
 const dialogButton = (label: string) => Array.from(document.body.querySelectorAll<HTMLButtonElement>('.ui-dialog__content button')).find((b) => b.textContent?.trim() === label)
 const toast = (message: string) => useToast().items.find((item) => item.message === message)
@@ -313,6 +320,50 @@ describe('MediaLibrary focus after a removal', () => {
     undo.focus()
     undo.click()
 
+    await vi.waitFor(() => expect(document.activeElement).toBe(wrapper.get('[data-test="file-f1"]').element))
+  })
+
+  it('focuses the restored tile after an undo from the picker when focus fell to a container of the library', async () => {
+    files = [media('f1', 'a.jpg'), media('f2', 'b.jpg')]
+    const { wrapper, host } = await mountInHost({ pick: true, multiple: true })
+    await vi.waitFor(() => expect(wrapper.find('[data-test="file-f2"]').exists()).toBe(true))
+    await wrapper.get('[data-test="file-f1"]').trigger('click')
+    await barButton(wrapper, en['media.selection.trash'])?.trigger('click')
+    await vi.waitFor(() => expect(wrapper.find('[data-test="media-undo"]').exists()).toBe(true))
+
+    boundaryCast<HTMLElement>(wrapper.get('[data-test="media-undo"]').element, 'dom').click()
+    host.focus()
+
+    await vi.waitFor(() => expect(document.activeElement).toBe(wrapper.get('[data-test="file-f1"]').element))
+  })
+
+  it('puts focus back on the listing after a move in the picker when focus fell to a container of the library', async () => {
+    files = [media('f1', 'a.jpg'), media('f2', 'b.jpg'), media('f3', 'c.jpg')]
+    const { wrapper, host } = await mountInHost({ pick: true, multiple: true })
+    await vi.waitFor(() => expect(wrapper.find('[data-test="file-f3"]').exists()).toBe(true))
+    await wrapper.get('[data-test="file-f1"]').trigger('click')
+    await wrapper.get('[data-test="file-f2"]').trigger('click')
+    boundaryCast<HTMLElement>(wrapper.get('[data-test="file-f3"]').element, 'dom').focus()
+
+    await barButton(wrapper, en['media.selection.trash'])?.trigger('click')
+    host.focus()
+
+    await vi.waitFor(() => expect(wrapper.find('[data-test="file-f1"]').exists()).toBe(false))
+    await vi.waitFor(() => expect(document.activeElement).toBe(wrapper.get('[data-test="file-f3"]').element))
+  })
+
+  it('focuses the restored tile after the undo in the toast, wherever focus went meanwhile', async () => {
+    files = [media('f1', 'a.jpg'), media('f2', 'b.jpg')]
+    const wrapper = await mountLibrary()
+    await vi.waitFor(() => expect(wrapper.find('[data-test="file-f2"]').exists()).toBe(true))
+    await select(wrapper, 'a.jpg')
+    await barButton(wrapper, en['media.selection.trash'])?.trigger('click')
+    await vi.waitFor(() => expect(toast(en['media.trash.moved'])?.action).toBeDefined())
+
+    boundaryCast<HTMLElement>(wrapper.get('[data-test="media-trash-entry"]').element, 'dom').focus()
+    toast(en['media.trash.moved'])?.action?.run()
+
+    await vi.waitFor(() => expect(wrapper.find('[data-test="file-f1"]').exists()).toBe(true))
     await vi.waitFor(() => expect(document.activeElement).toBe(wrapper.get('[data-test="file-f1"]').element))
   })
 })
