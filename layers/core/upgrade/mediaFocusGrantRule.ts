@@ -15,6 +15,10 @@ function strings(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === "string") : [];
 }
 
+function keepsVariants(path: string): boolean {
+  return path === "variants" || path.startsWith("variants[]") || path.startsWith("variants.");
+}
+
 function authzConfig(ctx: RuleContext): Record<string, unknown> | undefined {
   const entry = ctx.project.input.config.modules.find((candidate) => candidate.use === AUTHZ_ROLES_MODULE);
   return entry === undefined ? undefined : recordOf(effectiveModuleConfig(entry));
@@ -34,7 +38,7 @@ export const mediaFocusGrantRule: Rule = {
     const authz = authzConfig(ctx);
     if (authz === undefined || !anonymousHolds(strings(authz.anonymous), "media.read")) return [];
     const media = strings(recordOf(authz.anonymousFields)?.media);
-    if (media.includes("focus") || !media.some((path) => path.startsWith("variants[]"))) return [];
+    if (media.includes("focus") || !media.some(keepsVariants)) return [];
     const finding: Finding = {
       id: RULE,
       rule: RULE,

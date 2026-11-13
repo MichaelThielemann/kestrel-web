@@ -747,8 +747,8 @@ editor's page data on the Node site then keeps the fields visitors lose. It goes
 the static export, rendered without a session, keeps the narrowed shape.
 
 With `images`, the derived `media` grant carries `focus` next to the variant fields: `KestrelImage`
-reads it to place the image in its box (§6). A narrowed `media` grant that keeps `variants[]`
-fields but leaves out `focus` starts, and `KestrelImage` then sets no `object-position`: an original or an
+reads it to place the image in its box (§6). A narrowed `media` grant that keeps `variants`
+(whole or as `variants[]` fields) but leaves out `focus` starts, and `KestrelImage` then sets no `object-position`: an original or an
 `inside` variant shown in a box of another ratio stays centred. `cover` variants are still cut around the
 focus or the manual crop by kestrel. `kestrel upgrade check` reports it as `preset/media-focus-grant`.
 
@@ -2381,7 +2381,7 @@ What changes:
     with a random key per process, so set the variable for known devices to survive a restart and to be
     recognised by every instance.
   - `preset/media-focus-grant` reports (`manual`) a `roles.anonymousFields.media` grant that keeps
-    `variants[]` fields for visitors but not `focus`: `KestrelImage` then sets no `object-position`, so an
+    `variants` (whole or as `variants[]` fields) for visitors but not `focus`: `KestrelImage` then sets no `object-position`, so an
     original or `inside` variant in a box of another ratio stays centred (`cover` variants are still cut
     around the focus).
   - `preset/queue-lanes` sets `lanes` (and a missing `relayPipelines`) on a `kestrel-events-queue` entry

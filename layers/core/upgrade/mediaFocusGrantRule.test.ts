@@ -33,6 +33,13 @@ describe("preset/media-focus-grant", () => {
     expect(findings[0]?.suggestion).toContain('"focus"');
   });
 
+  it("warns as well when the grant keeps the whole variants member but not the focus", async () => {
+    const findings = await mediaFocusGrantRule.check(contextFor({ grants: { media: ["id", "path", "width", "height", "alt", "variants"] } }));
+    expect(findings).toHaveLength(1);
+    expect(findings[0]?.rule).toBe("preset/media-focus-grant");
+    expect(await mediaFocusGrantRule.check(contextFor({ grants: { media: ["id", "variants"] } }))).toHaveLength(1);
+  });
+
   it("says nothing once the grant names the focus", async () => {
     expect(await mediaFocusGrantRule.check(contextFor({ grants: { media: ["id", "path", "focus", "variants[].path"] } }))).toEqual([]);
   });
