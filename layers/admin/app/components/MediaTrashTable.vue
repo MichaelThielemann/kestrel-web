@@ -1,0 +1,89 @@
+<script setup lang="ts">
+import type { MediaTrashItem } from '#kestrel-admin/types/api'
+import { displayFolderPath, humanizeSize } from '../utils/library'
+
+const props = defineProps<{
+  items: MediaTrashItem[]
+  selected: Set<string>
+  allSelected: boolean
+  headerIndeterminate: boolean
+  busy: boolean
+  canRestore: boolean
+  canPurge: boolean
+  now: number
+}>()
+const emit = defineEmits<{ toggleRow: [id: string, on: boolean]; toggleAll: [on: boolean]; restore: [ids: string[]]; purge: [ids: string[]] }>()
+
+const { t, lang } = useT()
+const DAY_MS = 86_400_000
+
+const trashedOn = (item: MediaTrashItem) => new Date(item.trashedAt).toLocaleString(lang.value, { dateStyle: 'medium', timeStyle: 'short' })
+const expiresIn = (item: MediaTrashItem) => {
+  const days = Math.max(0, Math.ceil((item.expiresAt - props.now) / DAY_MS))
+  return new Intl.RelativeTimeFormat(lang.value, { numeric: 'auto' }).format(days, 'day')
+}
+const expiresOn = (item: MediaTrashItem) => new Date(item.expiresAt).toLocaleDateString(lang.value, { dateStyle: 'medium' })
+const origin = (item: MediaTrashItem) => (item.folder ? displayFolderPath(item.folder) : t('media.trash.rootFolder'))
+</script>
+
+<template>
+  <KestrelUiTable class="media-trash-table">
+    <template #head>
+      <th class="ui-table__col--select" scope="col">
+        <KestrelUiCheckbox standalone :model-value="allSelected" :indeterminate="headerIndeterminate" :aria-label="t('media.selection.selectAllPage')"
+          @update:model-value="(v) => emit('toggleAll', v)" />
+      </th>
+      <th scope="col">{{ t('media.colName') }}</th>
+      <th scope="col">{{ t('media.trash.colOrigin') }}</th>
+      <th scope="col">{{ t('media.trash.colTrashed') }}</th>
+      <th scope="col">{{ t('media.trash.colExpires') }}</th>
+      <th class="ui-table__col--actions" scope="col"><span class="ui-table__vh">{{ t('a11y.rowActions') }}</span></th>
+    </template>
+    <template #body>
+      <tr v-for="item in items" :key="item.id" :class="{ 'is-selected': selected.has(item.id) }">
+        <td class="ui-table__col--select">
+          <KestrelUiCheckbox standalone :model-value="selected.has(item.id)" :aria-label="t('media.selection.selectItem', { name: item.filename })"
+            @update:model-value="(v) => emit('toggleRow', item.id, v)" />
+        </td>
+        <td>
+          <span class="media-trash-table__name">
+            <KestrelMediaThumb class="media-trash-table__icon" :path="null" :content-type="item.contentType" />
+            <span class="media-trash-table__file">{{ item.filename }}</span>
+          </span>
+          <span class="media-trash-table__size">{{ humanizeSize(item.size) }}</span>
+        </td>
+        <td>{{ origin(item) }}</td>
+        <td>{{ trashedOn(item) }}</td>
+        <td><time :datetime="new Date(item.expiresAt).toISOString()" :title="expiresOn(item)">{{ expiresIn(item) }}</time></td>
+        <td class="ui-table__col--actions">
+          <div class="ui-table__actions">
+            <KestrelUiButton v-if="canRestore" variant="ghost" size="sm" icon="rotate-ccw" :disabled="busy" :aria-label="t('media.trash.restoreItem', { name: item.filename })" @click="emit('restore', [item.id])" />
+            <KestrelUiButton v-if="canPurge" variant="danger-ghost" size="sm" icon="trash" :disabled="busy" :aria-label="t('media.trash.purgeItem', { name: item.filename })" @click="emit('purge', [item.id])" />
+          </div>
+        </td>
+      </tr>
+    </template>
+  </KestrelUiTable>
+</template>
+
+<style lang="scss" scoped>
+.media-trash-table__name {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.media-trash-table__icon {
+  flex: 0 0 auto;
+  width: 1.5rem;
+  height: 1.5rem;
+}
+.media-trash-table__icon :deep(svg) { width: 1.25rem; height: 1.25rem; }
+.media-trash-table__file { overflow-wrap: anywhere; }
+.media-trash-table__size {
+  display: block;
+  padding-inline-start: calc(1.5rem + var(--space-2));
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+</style>

@@ -1,0 +1,155 @@
+import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
+import { readBody } from 'h3'
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
+import { computed } from 'vue'
+import type { VueWrapper } from '@vue/test-utils'
+import { boundaryCast } from '#kestrel/cast'
+import { en } from '#kestrel-admin/i18n/en'
+import type { AdminSchema, MediaTrashItem } from '#kestrel-admin/types/api'
+import MediaTrash from './MediaTrash.vue'
+
+const capabilities: AdminSchema['capabilities'] = {
+  listMediaTrash: { method: 'GET', path: '/media/trash' },
+  restoreMedia: { method: 'POST', path: '/media/trash/restore' },
+  purgeMedia: { method: 'POST', path: '/media/trash/purge' },
+  emptyMediaTrash: { method: 'POST', path: '/media/trash/empty' },
+}
+const schema: AdminSchema = { locales: { all: ['en'], primary: 'en', prefixPrimary: false }, collections: [], features: [], capabilities: { ...capabilities } }
+mockNuxtImport('useSchema', () => () => ({
+  schema: computed(() => schema),
+  error: computed(() => null),
+  load: () => Promise.resolve('ok' as const),
+  clear: () => {},
+}))
+
+const DAY = 86_400_000
+
+function trashedItem(id: string, filename: string, folder = ''): MediaTrashItem {
+  const trashedAt = Date.now() - DAY
+  return {
+    id, filename, folder, contentType: 'image/png', size: 2048, path: null, trashedAt, expiresAt: trashedAt + 30 * DAY,
+    createdAt: 1, updatedAt: 1, provenance: { origin: 'human' }, width: null, height: null, alt: null, title: null, description: null,
+  }
+}
+
+const text = (key: keyof typeof en, params: Record<string, string | number> = {}) =>
+  Object.entries(params).reduce<string>((s, [k, v]) => s.replace(`{${k}}`, String(v)), en[key])
+
+const unregisterAll: (() => void)[] = []
+const posted: { path: string; body: unknown }[] = []
+let items: MediaTrashItem[] = []
+
+function post(path: string, answer: (ids: string[]) => unknown) {
+  unregisterAll.push(registerEndpoint(`/api${path}`, {
+    method: 'POST',
+    handler: async (event) => {
+      const body = boundaryCast<{ ids?: string[] }>(await readBody(event), 'json')
+      posted.push({ path, body })
+      return answer(body.ids ?? items.map((item) => item.id))
+    },
+  }))
+}
+
+beforeEach(async () => {
+  posted.length = 0
+  items = [trashedItem('f1', 'a.png', 'docs'), trashedItem('f2', 'b.png')]
+  useToast().clear()
+  schema.capabilities = { ...capabilities }
+  unregisterAll.push(registerEndpoint('/api/admin/schema', { method: 'GET', handler: () => schema }))
+  unregisterAll.push(registerEndpoint('/api/media/trash', { method: 'GET', handler: () => ({ items, total: items.length }) }))
+  post('/media/trash/restore', (ids) => {
+    items = items.filter((item) => !ids.includes(item.id))
+    return { ids, skipped: [], renamed: [], unchanged: [], trashVersions: {} }
+  })
+  post('/media/trash/purge', (ids) => {
+    const kept: string[] = ids.filter((id) => id === 'f2')
+    items = items.filter((item) => !ids.includes(item.id) || kept.includes(item.id))
+    return { ids: ids.filter((id) => !kept.includes(id)), skipped: kept.map((id) => ({ id, reason: 'referenced' })) }
+  })
+  post('/media/trash/empty', (ids) => {
+    items = []
+    return { ids, skipped: [] }
+  })
+  await useSchema().load()
+})
+
+afterEach(() => {
+  unregisterAll.splice(0).forEach((unregister) => unregister())
+})
+
+async function mountTrash() {
+  const wrapper = await mountSuspended(MediaTrash, { attachTo: document.body })
+  onTestFinished(() => wrapper.unmount())
+  await vi.waitFor(() => expect(wrapper.findAll('tbody tr')).toHaveLength(items.length))
+  return wrapper
+}
+
+async function select(wrapper: VueWrapper, name: string) {
+  const box = wrapper.findAll<HTMLInputElement>('tbody input[type="checkbox"]').find((b) => b.attributes('aria-label') === text('media.selection.selectItem', { name }))
+  await box?.setValue(true)
+}
+
+const button = (wrapper: VueWrapper, label: string) => wrapper.findAll('button').find((b) => b.text() === label || b.attributes('aria-label') === label)
+const dialog = () => document.body.querySelector('.ui-dialog__content')
+const dialogButton = (label: string) => Array.from(document.body.querySelectorAll<HTMLButtonElement>('.ui-dialog__content button')).find((b) => b.textContent?.trim() === label)
+
+describe('MediaTrash', () => {
+  it('lists each item with its folder and when it is deleted for good', async () => {
+    const wrapper = await mountTrash()
+    const first = wrapper.findAll('tbody tr')[0]
+    expect(first?.text()).toContain('a.png')
+    expect(first?.text()).toContain('docs')
+    expect(first?.find('time').text()).toBe(new Intl.RelativeTimeFormat('en', { numeric: 'auto' }).format(29, 'day'))
+    expect(wrapper.findAll('tbody tr')[1]?.text()).toContain(en['media.trash.rootFolder'])
+  })
+
+  it('restores the selection at once', async () => {
+    const wrapper = await mountTrash()
+    await select(wrapper, 'a.png')
+    await button(wrapper, en['media.trash.restore'])?.trigger('click')
+
+    await vi.waitFor(() => expect(wrapper.findAll('tbody tr')).toHaveLength(1))
+    expect(posted).toEqual([{ path: '/media/trash/restore', body: { ids: ['f1'] } }])
+    expect(useToast().items.some((item) => item.message === en['media.trash.restored'])).toBe(true)
+  })
+
+  it('deletes for good only after a dialog that starts on Cancel, and reports an item still in use as kept', async () => {
+    const wrapper = await mountTrash()
+    await select(wrapper, 'a.png')
+    await select(wrapper, 'b.png')
+    await button(wrapper, en['media.trash.purge'])?.trigger('click')
+
+    await vi.waitFor(() => expect(dialog()?.textContent).toContain(text('media.remove.title.purge', { what: text('media.remove.filesPlural', { n: 2 }) })))
+    expect(dialog()?.querySelector('img')).toBeNull()
+    await vi.waitFor(() => expect(document.activeElement?.textContent?.trim()).toBe(en['common.cancel']))
+    expect(posted).toEqual([])
+
+    dialogButton(text('media.remove.confirm.purge', { what: text('media.remove.filesPlural', { n: 2 }) }))?.click()
+
+    await vi.waitFor(() => expect(dialog()?.textContent).toContain(en['media.remove.title.partial']))
+    expect(posted).toEqual([{ path: '/media/trash/purge', body: { ids: ['f1', 'f2'] } }])
+    expect(dialog()?.textContent).toContain('b.png')
+    expect(dialog()?.textContent).toContain(en['media.trash.reason.referenced'])
+    await vi.waitFor(() => expect(wrapper.findAll('tbody tr')).toHaveLength(1))
+  })
+
+  it('empties the trash after a dialog', async () => {
+    const wrapper = await mountTrash()
+    await button(wrapper, en['media.trash.emptyAll'])?.trigger('click')
+    await vi.waitFor(() => expect(dialog()?.textContent).toContain(en['media.remove.title.empty']))
+
+    dialogButton(en['media.remove.confirm.empty'])?.click()
+
+    await vi.waitFor(() => expect(wrapper.text()).toContain(en['media.trash.empty']))
+    expect(posted).toEqual([{ path: '/media/trash/empty', body: {} }])
+  })
+
+  it('shows neither restore nor delete to a role without them', async () => {
+    schema.capabilities = { listMediaTrash: capabilities.listMediaTrash! }
+    const wrapper = await mountTrash()
+    await select(wrapper, 'a.png')
+    expect(button(wrapper, en['media.trash.restore'])).toBeUndefined()
+    expect(button(wrapper, en['media.trash.purge'])).toBeUndefined()
+    expect(button(wrapper, text('media.trash.restoreItem', { name: 'a.png' }))).toBeUndefined()
+  })
+})
