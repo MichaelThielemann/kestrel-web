@@ -20,7 +20,8 @@ const title = computed(() => {
 const confirmLabel = computed(() => t(`media.remove.confirm.${mode.value}`, { what: what.value }))
 const preview = computed(() => props.state?.entries.slice(0, PREVIEW) ?? [])
 const more = computed(() => Math.max(0, (props.state?.entries.length ?? 0) - PREVIEW))
-const inUse = computed(() => (props.state?.finished ? [] : (props.state?.entries.filter((e) => e.refs.length) ?? [])))
+const uniquePages = (refs: ReferenceTo[]) => refs.filter((r, i) => refs.findIndex((o) => o.type === r.type && o.id === r.id) === i)
+const inUse = computed(() => (props.state?.finished ? [] : (props.state?.entries.filter((e) => e.refs.length) ?? []).map((e) => ({ ...e, refs: uniquePages(e.refs) }))))
 const problems = computed(() => [
   ...(props.state?.failures ?? []).map((p) => ({ ...p, kept: false })),
   ...(props.state?.skipped ?? []).map((p) => ({ ...p, kept: true })),
@@ -86,7 +87,7 @@ function onOpenAutoFocus(e: Event) {
 <style lang="scss" scoped>
 .media-remove__preview {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(5.5rem, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(6rem, 8rem));
   gap: var(--space-2);
   margin: 0 0 var(--space-2);
   padding: 0;

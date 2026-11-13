@@ -67,6 +67,7 @@ const origin = (item: MediaTrashItem) => (item.folder ? displayFolderPath(item.f
 </template>
 
 <style lang="scss" scoped>
+.media-trash-table { min-width: 40rem; }
 .media-trash-table__name {
   display: inline-flex;
   align-items: center;

@@ -36,7 +36,7 @@ const { target: portalTarget } = useAdminPortal()
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-md);
   padding: var(--space-1);
-  z-index: var(--z-dropdown);
+  z-index: var(--z-popover);
 }
 .ui-menu__item {
   display: block;

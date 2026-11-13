@@ -215,6 +215,7 @@ function uploadProcessing(upload: UploadItem): boolean {
   background: var(--color-surface);
   box-shadow: var(--shadow-sm);
 }
+.media-grid__menu :deep(.media-grid__menu-trigger) { min-inline-size: 1.75rem; min-block-size: 1.75rem; }
 .media-grid__tile { display: flex; flex-direction: column; gap: var(--space-2); width: 100%; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-2); cursor: pointer; text-align: left; }
 .media-grid__tile:hover { border-color: var(--color-border-strong); }
 
@@ -232,7 +233,9 @@ function uploadProcessing(upload: UploadItem): boolean {
   position: absolute;
   top: var(--space-1);
   right: var(--space-1);
+  max-width: calc(100% - 1.75rem);
   padding: 0 var(--space-1);
+  text-align: end;
   border-radius: var(--radius-sm);
   background: var(--color-scrim);
   color: var(--color-on-primary);
