@@ -1584,6 +1584,14 @@ path and gains a `?v=` query once the new render is there, and the pages that sh
 `KestrelImage` sets `object-position` from the centre of `focus`, which visitors receive with the variants,
 so an image keeps its focus in view on the original and on an `inside` variant too.
 
+The admin's crop editor opens from the media viewer ("Adjust crop") and from the crop button on an image
+chosen in a media field. Its focus tab previews each ratio of the `cover` sizes; its fine-crop tab shows one
+tile per ratio, automatic until a crop is set by hand. Ratios are exact, so `1000x562` and `1600x900` get two
+tiles, although `pickImageSources` lists both in one `srcset`. A crop narrower or lower than a size of its
+ratio delivers that variant smaller, which the editor points out. The editor computes every cut with
+`@michaelthielemann/kestrel-images-default/framing`, the functions the server renders with. A framing
+belongs to the media item, so it applies wherever the image is used.
+
 See `docs/architecture.md#image-variants` for the validation rules, the discovery/registration split and
 the `<KestrelImage>` prop and fallback rules in full.
 

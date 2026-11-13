@@ -23,6 +23,13 @@
   alone and take their values as numbers too. The admin may import
   `@michaelthielemann/kestrel-images-default/framing`; `kestrel/no-backend-in-ui-layers` keeps refusing the
   package's other entry points.
+- Admin: a crop editor for images. The media viewer offers "Adjust crop" for an image to a role that may write
+  media and run `setMediaFraming`, and a media field offers it as an icon button on each chosen image that is in
+  the library, not in the trash. The editor marks the focus with a live preview per ratio of the `cover` sizes,
+  and adjusts the crop of each ratio, manual or automatic, with a reset to automatic, a warning when the focus
+  does not fit and a note when a crop is smaller than a size, whose variant is then delivered smaller. Without a
+  `cover` size it edits the focus only and says why. It names how many records use the image, asks before
+  Escape or Cancel drops unsaved changes and saves through `PUT /media/:id/framing`.
 - Static delivery keeps `sitemap.xml`, `robots.txt`, `llms.txt` and `llms-full.txt` current. Every pipeline that
   changes what they list asks for an export instead of writing it in the request: `publishPage`,
   `unpublishPage` and the publish pipelines of every mounted collection, `settingsDependents`, `publishAllPages`
