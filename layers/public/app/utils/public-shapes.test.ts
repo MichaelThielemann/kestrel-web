@@ -20,6 +20,8 @@ const stored: MediaItem = {
   available: true,
   variants: [{ size: 'content', width: 640, height: 480, format: 'webp', bytes: 2048, state: 'pending', path: '/media/m1/variants/content.webp' }],
   variantCounts: { done: 0, pending: 1, error: 0, failed: 0 },
+  focus: { x: 0.5, y: 0.1, w: 0.25, h: 0.2 },
+  framing: { focus: { x: 0.5, y: 0.1, w: 0.25, h: 0.2 }, crops: {}, width: 1200, height: 900, ratios: [] },
 }
 
 describe('toPublicMedia', () => {
@@ -36,13 +38,24 @@ describe('toPublicMedia', () => {
       title: 'Tree',
       description: 'A tree in a field',
       provenance: { origin: 'human' },
+      focus: { x: 0.5, y: 0.1, w: 0.25, h: 0.2 },
       variants: [{ size: 'content', width: 640, height: 480, format: 'webp', path: '/media/m1/variants/content.webp' }],
     })
   })
 
+  it('keeps a variant path with its version query as the server answered it', () => {
+    const versioned: MediaItem = { ...stored, variants: [{ size: 'content', width: 640, height: 480, format: 'webp', bytes: 2048, state: 'done', path: '/media/m1/variants/content.webp?v=k3j9' }] }
+    expect(toPublicMedia(versioned).variants[0]?.path).toBe('/media/m1/variants/content.webp?v=k3j9')
+  })
+
+  it('gives an answer without a focus, as the media reads answer without images, a null focus', () => {
+    const { focus: _focus, framing: _framing, variants: _variants, ...withoutImages } = stored
+    expect(toPublicMedia(withoutImages).focus).toBeNull()
+  })
+
   it('drops the library folder, the timestamps, the variant counts and every variant\'s state', () => {
     const shaped = toPublicMedia(stored)
-    for (const key of ['folder', 'createdAt', 'updatedAt', 'variantCounts', 'available']) expect(shaped).not.toHaveProperty(key)
+    for (const key of ['folder', 'createdAt', 'updatedAt', 'variantCounts', 'available', 'framing']) expect(shaped).not.toHaveProperty(key)
     for (const variant of shaped.variants) {
       expect(variant).not.toHaveProperty('state')
       expect(variant).not.toHaveProperty('bytes')
@@ -62,6 +75,7 @@ const anonymous: AnonymousOf<'getMedia'> = {
   title: 'Tree',
   description: 'A tree in a field',
   provenance: { origin: 'human' },
+  focus: { x: 0.5, y: 0.1, w: 0.25, h: 0.2 },
   variants: [{ size: 'content', width: 640, height: 480, format: 'webp', path: '/media/m1/variants/content.webp' }],
 }
 

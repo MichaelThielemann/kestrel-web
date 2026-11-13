@@ -101,7 +101,7 @@ describe('MediaPicker', () => {
     const file: MediaItem = {
       id: 'f1', filename: 'a.jpg', folder: '', contentType: 'image/jpeg', size: 1, path: '/media/f1/a.jpg', available: true,
       createdAt: 1, updatedAt: 1, provenance: { origin: 'human' }, width: null, height: null, alt: null, title: null,
-      description: null, variants: [], variantCounts: { done: 0, pending: 0, error: 0, failed: 0 },
+      description: null, variants: [], variantCounts: { done: 0, pending: 0, error: 0, failed: 0 }, focus: null, framing: { focus: null, crops: {}, width: null, height: null, ratios: [] },
     }
     unregisterAll.push(registerEndpoint('/api/media/folders', { method: 'GET', handler: () => emptyFolders }))
     unregisterAll.push(registerEndpoint('/api/media', { method: 'GET', handler: () => ({ items: [file], total: 1 }) }))
@@ -127,7 +127,7 @@ describe('MediaPicker', () => {
     const files: MediaItem[] = ['f1', 'f2'].map((id) => ({
       id, filename: `${id}.jpg`, folder: '', contentType: 'image/jpeg', size: 1, path: `/media/${id}/${id}.jpg`, available: true,
       createdAt: 1, updatedAt: 1, provenance: { origin: 'human' }, width: null, height: null, alt: null, title: null,
-      description: null, variants: [], variantCounts: { done: 0, pending: 0, error: 0, failed: 0 },
+      description: null, variants: [], variantCounts: { done: 0, pending: 0, error: 0, failed: 0 }, focus: null, framing: { focus: null, crops: {}, width: null, height: null, ratios: [] },
     }))
     const trashed = new Set<string>()
     const previous = schema.capabilities

@@ -161,6 +161,15 @@ export type MediaVariant = MediaItemResponse['variants'][number]
 
 export type MediaVariantCounts = MediaItemResponse['variantCounts']
 
+/** A rectangle normalised to 0..1 on the original after its EXIF orientation: `x`/`y` its top-left corner; a focus with `w` and `h` of 0 is a point. */
+export type MediaRect = NonNullable<MediaItemResponse['focus']>
+
+/** An image's focus, its manual crops by reduced ratio key, the oriented original's dimensions and, per ratio of the `cover` sizes, the crop it renders with. */
+export type MediaFraming = MediaItemResponse['framing']
+
+/** One ratio of the `cover` sizes in `MediaFraming.ratios`. */
+export type MediaFramingRatio = MediaFraming['ratios'][number]
+
 export type MediaItem = MediaItemResponse
 
 export interface MediaFolder { folder: string; count: number }

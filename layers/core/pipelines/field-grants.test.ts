@@ -131,7 +131,7 @@ describe("the preset's field cut on public reads", () => {
 const DATA_DIR = "/srv/kestrel/data";
 const PASSWORD_HASH = "scrypt$522f4ac87bfe4bcd100ba47a7d2aaec2$dbfc3f2d6cc38a76b21973d7c6f6d310a09506581c665f1f6601fd8fb3fa9bc3959689aea3e389f4d53eb8c7e70791ad4065e308763dd44609904134f0f5ee98";
 const MEDIA_FIELDS = ["id", "path", "filename", "contentType", "size", "width", "height", "alt", "title", "description", "provenance"];
-const VARIANT_FIELDS = ["variants[].size", "variants[].width", "variants[].height", "variants[].format", "variants[].path"];
+const IMAGE_FIELDS = ["focus", "variants[].size", "variants[].width", "variants[].height", "variants[].format", "variants[].path"];
 const PUBLIC_READS = ["pages.read", "settings.read", "media.read"];
 
 function authzConfig(options: { model?: PresetContentModel; features: readonly Feature[]; roles?: Record<string, unknown> }): Record<string, unknown> {
@@ -156,7 +156,7 @@ describe("the anonymous field grants presetModuleConfig derives", () => {
     expect(authzConfig({ features: ["delivery", "sanitizeSvg", "images", "redirects"] }).anonymousFields).toEqual({
       settings: ["id", "title", "titlePosition", "titleSeparator", "description", "navigation", "_locales", "_translations", "_links"],
       pages: ["id", "slug", "title", "body", "seo", "status", "shareImage", "accent", "layout", "_locales", "_translations", "_locale", "_links", "redirect", "_paths", "route.type"],
-      media: [...MEDIA_FIELDS, ...VARIANT_FIELDS],
+      media: [...MEDIA_FIELDS, ...IMAGE_FIELDS],
       mediaFile: ["headers.cache-control", "headers.x-content-provenance", "headers.x-kestrel-variant"],
       redirectRules: ["from", "pattern", "target", "status"],
     });

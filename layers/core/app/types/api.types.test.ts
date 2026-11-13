@@ -8,7 +8,21 @@ interface ExpectedMediaItem {
   createdAt: number
   description: string | null
   filename: string
+  focus: { h: number; w: number; x: number; y: number } | null
   folder: string
+  framing: {
+    crops: { [key: string]: { h: number; w: number; x: number; y: number } }
+    focus: { h: number; w: number; x: number; y: number } | null
+    height: number | null
+    ratios: {
+      crop: { height: number; left: number; top: number; width: number } | null
+      fits: boolean
+      key: string
+      manual: boolean
+      sizes: string[]
+    }[]
+    width: number | null
+  }
   height: number | null
   id: string
   path: string
@@ -155,6 +169,8 @@ describe('the public API types keep exactly their published shape', () => {
   it('AnonymousOf reads the anonymous answer of an operation that documents one, and refuses any other', () => {
     expectTypeOf<AnonymousOf<'getMedia'>>().toHaveProperty('path')
     expectTypeOf<AnonymousOf<'getMedia'>>().not.toHaveProperty('folder')
+    expectTypeOf<AnonymousOf<'getMedia'>['focus']>().toEqualTypeOf<{ h: number; w: number; x: number; y: number } | null>()
+    expectTypeOf<AnonymousOf<'getMedia'>>().not.toHaveProperty('framing')
     // @ts-expect-error createPage documents no anonymous answer
     expectTypeOf<AnonymousOf<'createPage'>>().toBeNever()
   })

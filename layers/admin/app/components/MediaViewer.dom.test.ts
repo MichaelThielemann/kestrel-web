@@ -22,7 +22,7 @@ const file: MediaItem = {
   alt: null,
   title: null,
   description: null,
-  variantCounts: { done: 0, pending: 0, error: 0, failed: 0 },
+  variantCounts: { done: 0, pending: 0, error: 0, failed: 0 }, focus: null, framing: { focus: null, crops: {}, width: null, height: null, ratios: [] },
   variants: [],
 }
 

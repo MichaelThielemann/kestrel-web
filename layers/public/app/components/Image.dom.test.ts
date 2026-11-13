@@ -25,7 +25,7 @@ function item(over: Partial<MediaItem> = {}): MediaItem {
     description: null,
     available: true,
     variants: [],
-    variantCounts: { done: 0, pending: 0, error: 0, failed: 0 },
+    variantCounts: { done: 0, pending: 0, error: 0, failed: 0 }, focus: null, framing: { focus: null, crops: {}, width: null, height: null, ratios: [] },
     ...over,
   }
 }

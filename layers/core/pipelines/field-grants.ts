@@ -17,7 +17,7 @@ export type FieldCutShape = "item" | "list" | "array" | "file";
 export type FieldGrants = Record<string, string[]>;
 
 const MEDIA_FIELDS = ["id", "path", "filename", "contentType", "size", "width", "height", "alt", "title", "description", "provenance"];
-const VARIANT_FIELDS = ["variants[].size", "variants[].width", "variants[].height", "variants[].format", "variants[].path"];
+const IMAGE_FIELDS = ["focus", "variants[].size", "variants[].width", "variants[].height", "variants[].format", "variants[].path"];
 const FILE_HEADERS = ["headers.cache-control", "headers.x-content-provenance"];
 const VARIANT_HEADER = "headers.x-kestrel-variant";
 const REDIRECT_RULE_FIELDS = ["from", "pattern", "target", "status"];
@@ -111,7 +111,7 @@ export interface FieldGrantModel {
  * its `id`, the locale members when the model has locales, the resolved links and the redirect hit on pages,
  * the public paths (`_paths`) on a routed collection, never the parent field of pages, never a `blockAliases`
  * field (the page builder's editor-only block aliases, on any collection that declares one);
- * the resolved links on settings; the public media fields, with the variant fields under `images`; the file
+ * the resolved links on settings; the public media fields, with the focus and the variant fields under `images`; the file
  * headers; the redirect rules' fields. Only members a read declares are named, so every path passes
  * `authz-roles`' boot check.
  */
@@ -134,7 +134,7 @@ export function anonymousFieldGrants(model: FieldGrantModel, features: readonly 
     if (name === "pages" && mountedCollections(model.types).length > 0) fields.push("route.type");
     grants[name] = fields;
   }
-  if (holds(anonymous, MEDIA_READ) && cut.has("media")) grants.media = [...MEDIA_FIELDS, ...(images ? VARIANT_FIELDS : [])];
+  if (holds(anonymous, MEDIA_READ) && cut.has("media")) grants.media = [...MEDIA_FIELDS, ...(images ? IMAGE_FIELDS : [])];
   if (holds(anonymous, MEDIA_READ) && cut.has("mediaFile")) grants.mediaFile = [...FILE_HEADERS, ...(images ? [VARIANT_HEADER] : [])];
   if (cut.has("redirectRules")) grants.redirectRules = [...REDIRECT_RULE_FIELDS];
   return grants;

@@ -13,7 +13,7 @@ function mediaItem(id: string): MediaItem {
   return {
     id, filename: 'a.png', folder: '', contentType: 'image/png', size: 1, path: `/media/${id}/a.png`, available: true,
     createdAt: 1, updatedAt: 1, provenance: { origin: 'human' }, width: null, height: null, alt: null, title: null,
-    description: null, variants: [], variantCounts: { done: 1, pending: 0, error: 0, failed: 0 },
+    description: null, variants: [], variantCounts: { done: 1, pending: 0, error: 0, failed: 0 }, focus: null, framing: { focus: null, crops: {}, width: null, height: null, ratios: [] },
   }
 }
 

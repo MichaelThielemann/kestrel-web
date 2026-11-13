@@ -8,7 +8,7 @@ function file(id: string): LibraryItem {
   const f: MediaItem = {
     id, filename: `${id}.jpg`, folder: '', contentType: 'image/jpeg', size: 1, path: `/media/${id}/${id}.jpg`, available: true,
     createdAt: 1, updatedAt: 1, provenance: { origin: 'human' }, width: null, height: null,
-    alt: null, title: null, description: null, variants: [], variantCounts: { done: 0, pending: 0, error: 0, failed: 0 },
+    alt: null, title: null, description: null, variants: [], variantCounts: { done: 0, pending: 0, error: 0, failed: 0 }, focus: null, framing: { focus: null, crops: {}, width: null, height: null, ratios: [] },
   }
   return { type: 'file', file: f }
 }

@@ -747,6 +747,7 @@ describe("fieldGrantsRule", () => {
     expect(findings).toHaveLength(1);
     expect(findings[0]).toMatchObject({ rule: "preset/field-grants", severity: "info", fix: { kind: "none" } });
     expect(findings[0]?.suggestion).toContain('pages: ["id", "slug", "title", "body", "_locales", "_translations", "_locale", "_links", "_paths"]');
+    expect(findings[0]?.suggestion).toContain('"focus", "variants[].size"');
     expect(findings[0]?.suggestion).toContain('"variants[].path"');
     expect(findings[0]?.suggestion).not.toContain("settings:");
   });

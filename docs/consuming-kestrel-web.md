@@ -734,7 +734,7 @@ roles: {
   anonymous: ["pages.read", "settings.read", "media.read"],
   anonymousFields: {
     pages: ["id", "slug", "title", "body", "seo", "status", "shareImage", "_locales", "_translations", "_locale", "_links", "redirect"],
-    media: ["id", "path", "alt", "width", "height", "variants[].path", "variants[].width"],
+    media: ["id", "path", "alt", "width", "height", "focus", "variants[].path", "variants[].width"],
   },
   fields: { reviewer: { pages: ["createdAt", "updatedAt"] } },
 },
@@ -745,6 +745,11 @@ visitor receives under the derived `pages` grant, so with it a signed-in editor,
 visitor get the same page data on the Node site. A narrowed grant cuts only the visitor's answer: an
 editor's page data on the Node site then keeps the fields visitors lose. It goes to the editor alone, and
 the static export, rendered without a session, keeps the narrowed shape.
+
+With `images`, the derived `media` grant carries `focus` next to the variant fields: `KestrelImage`
+reads it to place the image in its box (§6). A narrowed `media` grant that keeps `variants[]`
+fields but leaves out `focus` starts, and every public image then stays cut around its centre;
+`kestrel upgrade check` reports it as `preset/media-focus-grant`.
 
 A path is relative to one item of the answer: `title` keeps the member whole, `provenance.origin` keeps
 `provenance` holding only `origin`, `variants[].path` keeps each variant holding only `path`. `fields`
@@ -2345,6 +2350,8 @@ What changes:
     feature and without `KESTREL_DEVICE_KEY` in any env or deployment file: its device cookies are signed
     with a random key per process, so set the variable for known devices to survive a restart and to be
     recognised by every instance.
+  - `preset/media-focus-grant` reports (`manual`) a `roles.anonymousFields.media` grant that keeps
+    `variants[]` fields for visitors but not `focus`: public images then ignore the focus an editor sets.
   - `preset/queue-lanes` sets `lanes` (and a missing `relayPipelines`) on a `kestrel-events-queue` entry
     written in `kestrel.config.ts` to what `lanesFor(features)` gives (`fix`).
   - `preset/override-emit` forward-ports a 2.x `setSettings` or `set<Name>` override in one edit (`fix`). It

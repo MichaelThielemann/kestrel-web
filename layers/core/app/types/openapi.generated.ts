@@ -1120,7 +1120,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Identify the caller if a valid token is present; a state-changing request authenticated by the session cookie must come from the same origin → Requires permission media.read → List media, newest first; anonymous callers may only fetch by ids → Add available, variants[] and variantCounts to a media item or list (result.id or result.items); a variant whose path has no object yet is never listed, and a hidden item lists no variants and is not available → Keep only the media fields the caller may see: anonymousFields.media without an identity or a configured role; otherwise everything when one of its roles has no field grant for media, else the union of its roles' grants and the anonymous one */
+        /** Identify the caller if a valid token is present; a state-changing request authenticated by the session cookie must come from the same origin → Requires permission media.read → List media, newest first; anonymous callers may only fetch by ids → Add available, variants[], variantCounts, focus and framing to a media item or list (result.id or result.items); a variant whose path has no object yet is never listed, a hidden item lists no variants and is not available, and framing.ratios has one entry per ratio of the cover sizes → Keep only the media fields the caller may see: anonymousFields.media without an identity or a configured role; otherwise everything when one of its roles has no field grant for media, else the union of its roles' grants and the anonymous one */
         get: operations["listMedia"];
         put?: never;
         /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission media.write → Sanitize uploaded SVG files, also SVG content declared as another image type (scripts, handlers, external references removed) → Upload one or more files (multipart field `file`, repeatable). A single file returns the item; multiple files return per-file results. Idempotent: same folder, same filename and same bytes return the item that is already there, and the step then ends the pipeline itself (200), so no following step – notably events.emit:media.uploaded – runs for an upload that stored nothing → Queue event "media.uploaded" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
@@ -1138,7 +1138,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Identify the caller if a valid token is present; a state-changing request authenticated by the session cookie must come from the same origin → Requires permission media.read → Media metadata → Add available, variants[] and variantCounts to a media item or list (result.id or result.items); a variant whose path has no object yet is never listed, and a hidden item lists no variants and is not available → Keep only the media fields the caller may see: anonymousFields.media without an identity or a configured role; otherwise everything when one of its roles has no field grant for media, else the union of its roles' grants and the anonymous one */
+        /** Identify the caller if a valid token is present; a state-changing request authenticated by the session cookie must come from the same origin → Requires permission media.read → Media metadata → Add available, variants[], variantCounts, focus and framing to a media item or list (result.id or result.items); a variant whose path has no object yet is never listed, a hidden item lists no variants and is not available, and framing.ratios has one entry per ratio of the cover sizes → Keep only the media fields the caller may see: anonymousFields.media without an identity or a configured role; otherwise everything when one of its roles has no field grant for media, else the union of its roles' grants and the anonymous one */
         get: operations["getMedia"];
         put?: never;
         post?: never;
@@ -1177,6 +1177,23 @@ export interface paths {
         /** Identify the caller if a valid token is present; a state-changing request authenticated by the session cookie must come from the same origin → Requires permission media.read → The file itself → Keep only the mediaFile fields the caller may see: anonymousFields.mediaFile without an identity or a configured role; otherwise everything when one of its roles has no field grant for mediaFile, else the union of its roles' grants and the anonymous one */
         get: operations["downloadMedia"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/media/{id}/framing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission media.write → Replace the framing of one media item (params.id): a focus rectangle and manual crops keyed by reduced ratio, normalised to 0..1 on the oriented original; an empty one removes it. Re-plans the item, so each cover size whose crop changes renders again at its path while the old variant keeps being served; raises images.variantsChanged when the focus changes → Generate variants for one media item (id from params.id or payload.id), or for each id in payload.ids (unknown ids are skipped) → Media metadata → Add available, variants[], variantCounts, focus and framing to a media item or list (result.id or result.items); a variant whose path has no object yet is never listed, a hidden item lists no variants and is not available, and framing.ratios has one entry per ratio of the cover sizes */
+        put: operations["setMediaFraming"];
         post?: never;
         delete?: never;
         options?: never;
@@ -1608,7 +1625,46 @@ export interface components {
             createdAt: number;
             description: string | null;
             filename: string;
+            focus: {
+                h: number;
+                w: number;
+                x: number;
+                y: number;
+            } | null;
             folder: string;
+            framing: {
+                /** @description manual crops keyed by reduced ratio, e.g. "16:9" */
+                crops: {
+                    [key: string]: {
+                        h: number;
+                        w: number;
+                        x: number;
+                        y: number;
+                    };
+                };
+                focus: {
+                    h: number;
+                    w: number;
+                    x: number;
+                    y: number;
+                } | null;
+                /** @description height of the original after its EXIF orientation */
+                height: number | null;
+                ratios: {
+                    crop: {
+                        height: number;
+                        left: number;
+                        top: number;
+                        width: number;
+                    } | null;
+                    fits: boolean;
+                    key: string;
+                    manual: boolean;
+                    sizes: string[];
+                }[];
+                /** @description width of the original after its EXIF orientation, which the rectangles and pixel crops refer to */
+                width: number | null;
+            };
             height: number | null;
             id: string;
             /** @description the file's one public URL, <publicPath>/<id>/<name>; the name is fixed at upload, so renaming or moving the item never changes it */
@@ -1647,6 +1703,12 @@ export interface components {
             contentType: string;
             description: string | null;
             filename: string;
+            focus: {
+                h: number;
+                w: number;
+                x: number;
+                y: number;
+            } | null;
             height: number | null;
             id: string;
             /** @description the file's one public URL, <publicPath>/<id>/<name>; the name is fixed at upload, so renaming or moving the item never changes it */
@@ -1804,7 +1866,46 @@ export interface components {
                 createdAt: number;
                 description: string | null;
                 filename: string;
+                focus: {
+                    h: number;
+                    w: number;
+                    x: number;
+                    y: number;
+                } | null;
                 folder: string;
+                framing: {
+                    /** @description manual crops keyed by reduced ratio, e.g. "16:9" */
+                    crops: {
+                        [key: string]: {
+                            h: number;
+                            w: number;
+                            x: number;
+                            y: number;
+                        };
+                    };
+                    focus: {
+                        h: number;
+                        w: number;
+                        x: number;
+                        y: number;
+                    } | null;
+                    /** @description height of the original after its EXIF orientation */
+                    height: number | null;
+                    ratios: {
+                        crop: {
+                            height: number;
+                            left: number;
+                            top: number;
+                            width: number;
+                        } | null;
+                        fits: boolean;
+                        key: string;
+                        manual: boolean;
+                        sizes: string[];
+                    }[];
+                    /** @description width of the original after its EXIF orientation, which the rectangles and pixel crops refer to */
+                    width: number | null;
+                };
                 height: number | null;
                 id: string;
                 /** @description the file's one public URL, <publicPath>/<id>/<name>; the name is fixed at upload, so renaming or moving the item never changes it */
@@ -1846,6 +1947,12 @@ export interface components {
                 contentType: string;
                 description: string | null;
                 filename: string;
+                focus: {
+                    h: number;
+                    w: number;
+                    x: number;
+                    y: number;
+                } | null;
                 height: number | null;
                 id: string;
                 /** @description the file's one public URL, <publicPath>/<id>/<name>; the name is fixed at upload, so renaming or moving the item never changes it */
@@ -8352,9 +8459,7 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    email?: string;
                     password: string;
-                    username?: string;
                 };
             };
         };
@@ -8441,9 +8546,7 @@ export interface operations {
             content: {
                 "application/json": {
                     currentPassword: string;
-                    email?: string;
                     newPassword: string;
-                    username?: string;
                 };
             };
         };
@@ -9268,6 +9371,185 @@ export interface operations {
                 };
             };
             /** @description no field grant on mediaFile for a caller without an identity or a configured role */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description temporarily unavailable; retry after the Retry-After header */
+            503: {
+                headers: {
+                    /** @description seconds until the client may retry */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    setMediaFraming: {
+        parameters: {
+            query?: {
+                locale?: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description manual crops keyed by reduced ratio, e.g. "16:9" */
+                    crops?: {
+                        [key: string]: {
+                            h: number;
+                            w: number;
+                            x: number;
+                            y: number;
+                        };
+                    };
+                    focus?: {
+                        h: number;
+                        w: number;
+                        x: number;
+                        y: number;
+                    } | null;
+                };
+            };
+        };
+        responses: {
+            /** @description ok */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        alt: string | null;
+                        available: boolean;
+                        contentType: string;
+                        createdAt: number;
+                        description: string | null;
+                        filename: string;
+                        focus: {
+                            h: number;
+                            w: number;
+                            x: number;
+                            y: number;
+                        } | null;
+                        folder: string;
+                        framing: {
+                            /** @description manual crops keyed by reduced ratio, e.g. "16:9" */
+                            crops: {
+                                [key: string]: {
+                                    h: number;
+                                    w: number;
+                                    x: number;
+                                    y: number;
+                                };
+                            };
+                            focus: {
+                                h: number;
+                                w: number;
+                                x: number;
+                                y: number;
+                            } | null;
+                            /** @description height of the original after its EXIF orientation */
+                            height: number | null;
+                            ratios: {
+                                crop: {
+                                    height: number;
+                                    left: number;
+                                    top: number;
+                                    width: number;
+                                } | null;
+                                fits: boolean;
+                                key: string;
+                                manual: boolean;
+                                sizes: string[];
+                            }[];
+                            /** @description width of the original after its EXIF orientation, which the rectangles and pixel crops refer to */
+                            width: number | null;
+                        };
+                        height: number | null;
+                        id: string;
+                        /** @description the file's one public URL, <publicPath>/<id>/<name>; the name is fixed at upload, so renaming or moving the item never changes it */
+                        path: string;
+                        /** @description who made the file; anything but human is flagged on download (X-Content-Provenance); an upload without provenance is recorded as unknown */
+                        provenance: {
+                            at?: number;
+                            model?: string;
+                            /** @enum {string} */
+                            origin: "human" | "ai" | "mixed" | "unknown";
+                            tool?: string;
+                        };
+                        size: number;
+                        title: string | null;
+                        updatedAt: number;
+                        variantCounts: {
+                            done: number;
+                            error: number;
+                            failed: number;
+                            pending: number;
+                        };
+                        variants: {
+                            bytes: number;
+                            format: string;
+                            height: number;
+                            path: string;
+                            size: string;
+                            /** @enum {string} */
+                            state: "pending" | "done" | "error" | "failed";
+                            width: number;
+                        }[];
+                        width: number | null;
+                    };
+                };
+            };
+            /** @description unknown locale */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description missing permission media.write */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -11046,8 +11328,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    /** @enum {string} */
-                    locale?: "de" | "en";
                     rules?: unknown | null;
                 };
             };

@@ -25,7 +25,7 @@ function file(over: Partial<MediaItem> = {}): MediaItem {
   return {
     id: 'f1', filename: 'a.jpg', folder: '', contentType: 'image/jpeg', size: 1, path: '/media/f1/a.jpg', available: true,
     createdAt: 1, updatedAt: 1, provenance: { origin: 'human' }, width: null, height: null,
-    alt: null, title: null, description: null, variants: [], variantCounts: { done: 0, pending: 1, error: 0, failed: 0 },
+    alt: null, title: null, description: null, variants: [], variantCounts: { done: 0, pending: 1, error: 0, failed: 0 }, focus: null, framing: { focus: null, crops: {}, width: null, height: null, ratios: [] },
     ...over,
   }
 }

@@ -6,10 +6,10 @@ export type PublicMediaItem = AnonymousOf<'getMedia'>
 /** The fields of an image variant a visitor may see. */
 export type PublicMediaVariant = PublicMediaItem['variants'][number]
 
-/** A media answer for any caller: the anonymous fields, and variants only when the images feature adds them. */
-export type MediaAnswer = Omit<PublicMediaItem, 'variants'> & { variants?: readonly PublicMediaVariant[] }
+/** A media answer for any caller: the anonymous fields, and the focus and variants only when the images feature adds them. */
+export type MediaAnswer = Omit<PublicMediaItem, 'variants' | 'focus'> & { variants?: readonly PublicMediaVariant[]; focus?: PublicMediaItem['focus'] }
 
-/** Reduces a media item to its public fields: no library folder, no timestamps, no variant counts, no variant state; an item without variants gets an empty list. */
+/** Reduces a media item to its public fields: no library folder, no timestamps, no variant counts, no variant state, no framing; an item without variants gets an empty list and one without a focus a `null` focus. */
 export function toPublicMedia(item: MediaAnswer): PublicMediaItem {
   return {
     id: item.id,
@@ -23,6 +23,7 @@ export function toPublicMedia(item: MediaAnswer): PublicMediaItem {
     title: item.title,
     description: item.description,
     provenance: item.provenance,
+    focus: item.focus ?? null,
     variants: (item.variants ?? []).map((variant) => ({ size: variant.size, width: variant.width, height: variant.height, format: variant.format, path: variant.path })),
   }
 }

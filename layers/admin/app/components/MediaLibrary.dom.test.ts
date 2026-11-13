@@ -262,7 +262,7 @@ describe('MediaLibrary upload status', () => {
     const uploadedItem = (available: boolean): MediaItem => ({
       id: 'f1', filename: 'photo.jpg', folder: '', contentType: 'image/jpeg', size: 10, path: '/media/f1/photo.jpg', available,
       createdAt: 1, updatedAt: 1, provenance: { origin: 'human' }, width: null, height: null, alt: null, title: null,
-      description: null, variants: [], variantCounts: { done: 1, pending: 2, error: 0, failed: 0 },
+      description: null, variants: [], variantCounts: { done: 1, pending: 2, error: 0, failed: 0 }, focus: null, framing: { focus: null, crops: {}, width: null, height: null, ratios: [] },
     })
     unregisterAll.push(registerEndpoint('/api/media/folders', { method: 'GET', handler: () => [] }))
     unregisterAll.push(registerEndpoint('/api/media', {
@@ -773,7 +773,7 @@ function pickItem(id: string, filename: string, folder: string, available: boole
   return {
     id, filename, folder, contentType: 'image/jpeg', size: 10, path: `/media/${id}/${filename}`, available,
     createdAt: 1, updatedAt: 1, provenance: { origin: 'human' }, width: null, height: null, alt: null, title: null,
-    description: null, variants: [], variantCounts: { done: 0, pending: available ? 0 : 1, error: 0, failed: 0 },
+    description: null, variants: [], variantCounts: { done: 0, pending: available ? 0 : 1, error: 0, failed: 0 }, focus: null, framing: { focus: null, crops: {}, width: null, height: null, ratios: [] },
   }
 }
 
@@ -1009,7 +1009,7 @@ describe('MediaLibrary type filter', () => {
     return {
       id, filename, folder: '', contentType, size: 10, path: `/media/${id}/${filename}`, available: true,
       createdAt: 1, updatedAt: 1, provenance: { origin: 'human' }, width: null, height: null, alt: null, title: null,
-      description: null, variants: [], variantCounts: { done: 0, pending: 0, error: 0, failed: 0 },
+      description: null, variants: [], variantCounts: { done: 0, pending: 0, error: 0, failed: 0 }, focus: null, framing: { focus: null, crops: {}, width: null, height: null, ratios: [] },
     }
   }
 
@@ -1136,7 +1136,7 @@ describe('MediaLibrary viewer delete flow', () => {
       alt: null,
       title: null,
       description: null,
-      variantCounts: { done: 0, pending: 0, error: 0, failed: 0 },
+      variantCounts: { done: 0, pending: 0, error: 0, failed: 0 }, focus: null, framing: { focus: null, crops: {}, width: null, height: null, ratios: [] },
       variants: [],
     }
     let deleteCalls = 0
@@ -1208,7 +1208,7 @@ describe('MediaLibrary delete warning for a file a content block uses', () => {
       alt: null,
       title: null,
       description: null,
-      variantCounts: { done: 0, pending: 0, error: 0, failed: 0 },
+      variantCounts: { done: 0, pending: 0, error: 0, failed: 0 }, focus: null, framing: { focus: null, crops: {}, width: null, height: null, ratios: [] },
       variants: [],
     }
     let deleteCalls = 0
@@ -1273,7 +1273,7 @@ describe('MediaLibrary read-only capabilities', () => {
       alt: null,
       title: null,
       description: null,
-      variantCounts: { done: 0, pending: 0, error: 0, failed: 0 },
+      variantCounts: { done: 0, pending: 0, error: 0, failed: 0 }, focus: null, framing: { focus: null, crops: {}, width: null, height: null, ratios: [] },
       variants: [],
     }
     const emptyFolders: MediaFolder[] = []

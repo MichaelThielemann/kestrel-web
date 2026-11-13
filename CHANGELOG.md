@@ -4,6 +4,16 @@
 
 ### Added
 
+- Images can carry a focus and a manual crop per aspect ratio (kestrel's images-default "Focus and crop"). With
+  `images`, the preset composes `setMediaFraming` behind `PUT /media/:id/framing` (`media.write`): it stores the
+  framing, renders the `cover` variants whose cut changed within the request and answers the item like
+  `getMedia`, with or without `eventsQueue`. The admin schema lists it as a capability. The preset refuses an
+  override that drops `images.generate` after `images.setFraming`, and one that emits `images.planned` from any
+  pipeline but `planImageVariants`.
+- With `images`, the derived anonymous `media` grant carries `focus`, and `toPublicMedia()` keeps it (`null`
+  for an answer without one). `MediaItem` gains `focus` and `framing`; `MediaRect`, `MediaFraming` and
+  `MediaFramingRatio` are exported from the API types. `kestrel upgrade check` reports a narrowed
+  `roles.anonymousFields.media` that keeps the variants but not `focus` (`preset/media-focus-grant`).
 - Static delivery keeps `sitemap.xml`, `robots.txt`, `llms.txt` and `llms-full.txt` current. Every pipeline that
   changes what they list asks for an export instead of writing it in the request: `publishPage`,
   `unpublishPage` and the publish pipelines of every mounted collection, `settingsDependents`, `publishAllPages`
