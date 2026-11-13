@@ -4,6 +4,7 @@ import { idOf, isRecord, until, type Api } from "../../support/api.ts";
 import { ADMIN_STATE } from "../../support/env.ts";
 import { expect, test } from "../../support/fixtures.ts";
 import { gradientPng } from "../../support/png.ts";
+import { withExifOrientation } from "../../support/webp.ts";
 
 const WCAG_22_AA = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
 const COVER_SIZES = ["teaser", "avatar"];
@@ -35,10 +36,15 @@ async function uploadRendered(api: Api, filename: string, color: [number, number
 }
 
 async function setFocus(editor: Locator, rect: { x: number; y: number; w: number; h: number }): Promise<void> {
-  for (const [label, value] of [["Breite", rect.w], ["Höhe", rect.h], ["Links", rect.x], ["Oben", rect.y]] as const) {
+  for (const [label, value] of [["Links", rect.x], ["Oben", rect.y], ["Breite", rect.w], ["Höhe", rect.h]] as const) {
     const input = editor.getByRole("spinbutton", { name: label, exact: true });
-    await input.fill(String(value));
+    await input.focus();
+    await input.press("ControlOrMeta+a");
+    await input.pressSequentially(String(value));
     await input.press("Tab");
+  }
+  for (const [label, value] of [["Links", rect.x], ["Oben", rect.y], ["Breite", rect.w], ["Höhe", rect.h]] as const) {
+    await expect(editor.getByRole("spinbutton", { name: label, exact: true })).toHaveValue(String(value));
   }
 }
 
@@ -140,4 +146,59 @@ test("the crop editor opened at the image of a media field changes the image's f
   const item = await adminApi.call("GET", `/media/${id}`);
   expect(item.focus).toEqual({ x: 0.35, y: 0.25, w: 0.5, h: 0.5 });
   await expect(page.getByRole("button", { name: "Speichern" })).toBeDisabled();
+});
+
+test("a zoom typed into an unchanged crop editor is saved by a single click on Save", async ({ page, adminApi }) => {
+  const { id } = await uploadRendered(adminApi, "framing-click.png", [40, 160, 90]);
+
+  await page.goto("/admin/media");
+  await page.getByRole("button", { name: /^framing-click\.png/ }).dblclick();
+  const viewer = page.getByRole("dialog", { name: "framing-click.png" });
+  await viewer.getByRole("button", { name: "Ausschnitt anpassen" }).click();
+  const editor = page.getByRole("dialog", { name: "Ausschnitt: framing-click.png" });
+  await editor.getByRole("tab", { name: "Feinschnitt" }).click();
+  const save = editor.getByRole("button", { name: "Speichern" });
+  await expect(save).toBeDisabled();
+
+  const zoom = editor.locator('[data-test="crop-detail"]').getByRole("spinbutton", { name: "Zoom", exact: true });
+  await zoom.focus();
+  await page.keyboard.press("ControlOrMeta+a");
+  await zoom.pressSequentially("200");
+  const saved = page.waitForResponse((response) => response.request().method() === "PUT" && new URL(response.url()).pathname === `/api/media/${id}/framing`);
+  await save.click();
+  expect((await saved).status()).toBe(200);
+  await expect(editor).toBeHidden();
+});
+
+test("the crop editor shows a WebP tagged as turned upright, as kestrel cuts it", async ({ page, adminApi }) => {
+  await page.goto("/admin/media");
+  const encoded = await page.evaluate(() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 800;
+    canvas.height = 400;
+    const context = canvas.getContext("2d");
+    if (context) {
+      context.fillStyle = "rgb(30, 90, 200)";
+      context.fillRect(0, 0, 800, 400);
+      context.fillStyle = "rgb(240, 240, 240)";
+      context.fillRect(0, 0, 200, 400);
+    }
+    return canvas.toDataURL("image/webp", 0.9);
+  });
+  const webp = withExifOrientation(Buffer.from(encoded.split(",")[1] ?? "", "base64"), 800, 400, 6);
+  const id = idOf(await adminApi.upload("framing-turned.webp", webp));
+  await until("the whole-image variants of framing-turned.webp", async () => {
+    const item = await adminApi.call("GET", `/media/${id}`);
+    const framing = isRecord(item.framing) ? item.framing : {};
+    const variants = Array.isArray(item.variants) ? item.variants.filter(isRecord) : [];
+    return framing.width === 400 && framing.height === 800 && variants.some((variant) => variant.size === "thumb" && variant.state === "done");
+  });
+
+  await page.reload();
+  await page.getByRole("button", { name: /^framing-turned\.webp/ }).dblclick();
+  await page.getByRole("dialog", { name: "framing-turned.webp" }).getByRole("button", { name: "Ausschnitt anpassen" }).click();
+  const editor = page.getByRole("dialog", { name: "Ausschnitt: framing-turned.webp" });
+  const image = editor.locator(".ui-rect-select__image");
+  await expect(image).toHaveAttribute("src", /\/variants\//);
+  await expect.poll(() => image.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0 && img.naturalHeight / img.naturalWidth)).toBe(2);
 });
