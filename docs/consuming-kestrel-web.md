@@ -2359,8 +2359,12 @@ What changes:
 - Static delivery writes `sitemap.xml` and `robots.txt` next to `llms.txt` and `llms-full.txt` and keeps
   all four current (§8, "Index files"). Set `NUXT_PUBLIC_SITE_URL` before the first start, or pages carry no
   canonical link and no sitemap is written, and decide the robots policy: without `robots.policy` or `KESTREL_ROBOTS_POLICY` a
-  production build allows crawlers, `nuxt dev` keeps them out, and a `robots.txt` of your own in
-  `public/` or at the web server now competes with the exported one. The first start overwrites a
+  production build allows crawlers, `nuxt dev` keeps them out. The Node server never serves the exported
+  `robots.txt`: it answers `/robots.txt` from `public/` or else with 404, which crawlers take as allowing
+  everything, so the policy, `disallow` on a staging server included, takes effect only where the host
+  serves `site/robots.txt` at its root ([`deployment.md`](deployment.md) §7, "Index files"). Behind a plain
+  proxy to the Node server, a `robots.txt` of your own in `public/` is the one crawlers get; keep it until
+  the host serves the exported file, which a `robots.txt` of your own then competes with. The first start overwrites a
   `robots.txt` or `sitemap.xml` under the prefix, so set `robots: false` (and `sitemap: false` for a sitemap of
   your own) before it; afterwards `<prefix>robots.txt` must be deleted by hand. Every site page now sets its
   canonical link, `og:url` and `og:site_name`, which replace tags of the same key from `app.vue`, a layout, a

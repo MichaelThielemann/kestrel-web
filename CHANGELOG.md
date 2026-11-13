@@ -243,8 +243,12 @@
   that `allow` in a production build and `disallow` under `nuxt dev`, and warns once. A production build is one
   whatever `NODE_ENV` the started process has: `nuxt build` fixes it inside the server bundle, so
   `node .output/server/index.mjs` without it allows crawlers. A staging server that runs a production build needs
-  `disallow` (`KESTREL_ROBOTS_POLICY=disallow`). A `robots.txt` of your own, served from `public/` or by the web
-  server, competes with the exported one, and the first start overwrites a `robots.txt` or `sitemap.xml` it finds
+  `disallow` (`KESTREL_ROBOTS_POLICY=disallow`) and a host that serves the exported `site/robots.txt` at its
+  root (`docs/deployment.md` §7, "Index files"): the Node server never serves that file, and answers
+  `/robots.txt` from `public/` or else with 404, which crawlers take as allowing everything. Behind a plain
+  proxy to the Node server, a `public/robots.txt` of your own is the one crawlers get, so keep it until the
+  host serves the exported file. Where the host does, a `robots.txt` of your own, served from `public/` or by
+  the web server, competes with the exported one, and the first start overwrites a `robots.txt` or `sitemap.xml` it finds
   under the prefix: set `robots: false` (and `sitemap: false` for a sitemap of your own) before that start to
   keep yours. Once overwritten, `robots: false` leaves the exported `<prefix>robots.txt` in place; delete it by
   hand.
