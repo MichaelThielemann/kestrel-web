@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import type { ReferenceTo } from '#kestrel-admin/types/api'
 import type { HeldUndo } from '../composables/useMediaUndo'
+import type { ProgressRowStatus } from '../utils/progress-row'
 import { itemCountLabel, type RemovalDialogState } from '../utils/media-removal'
 
 const props = defineProps<{ state: RemovalDialogState | null; busy?: boolean; error?: string | null; conflict?: ReferenceTo[] | null; undo?: HeldUndo | null }>()
@@ -23,23 +24,30 @@ const preview = computed(() => props.state?.entries.slice(0, PREVIEW) ?? [])
 const more = computed(() => Math.max(0, (props.state?.entries.length ?? 0) - PREVIEW))
 const uniquePages = (refs: ReferenceTo[]) => refs.filter((r, i) => refs.findIndex((o) => o.type === r.type && o.id === r.id) === i)
 const inUse = computed(() => (props.state?.finished ? [] : (props.state?.entries.filter((e) => e.refs.length) ?? []).map((e) => ({ ...e, refs: uniquePages(e.refs) }))))
+const failedStatus = computed<ProgressRowStatus>(() => ({ text: t('media.remove.failed'), icon: 'circle-x', tone: 'danger' }))
+const keptStatus = computed<ProgressRowStatus>(() => ({ text: t('media.remove.kept'), icon: 'info', tone: 'muted' }))
 const problems = computed(() => [
-  ...(props.state?.failures ?? []).map((p) => ({ ...p, kept: false })),
-  ...(props.state?.skipped ?? []).map((p) => ({ ...p, kept: true })),
+  ...(props.state?.failures ?? []).map((p) => ({ ...p, tone: 'danger' as const, status: failedStatus.value })),
+  ...(props.state?.skipped ?? []).map((p) => ({ ...p, tone: 'default' as const, status: p.gone ? undefined : keptStatus.value })),
 ])
 const progress = computed(() => props.state?.progress ?? null)
 const stoppable = computed(() => props.busy === true && props.state?.stoppable === true)
 const cancelLabel = computed(() => (stoppable.value ? t('media.remove.stop') : props.state?.finished ? t('media.remove.close') : t('common.cancel')))
 const held = computed(() => (props.state?.finished ? (props.undo ?? null) : null))
+const outcome = computed(() => (props.state?.finished ? [t('media.remove.title.partial'), held.value?.message].filter(Boolean).join('. ') : ''))
 
 const recursive = ref(false)
 watch(() => props.state === null, (closed) => { if (closed) recursive.value = false })
 
 const cancelButton = ref<{ focus: () => void } | null>(null)
+const undoButton = ref<{ focus: () => void } | null>(null)
 function onOpenAutoFocus(e: Event) {
   e.preventDefault()
   cancelButton.value?.focus()
 }
+watch(() => props.state, (next, prev) => {
+  if (next?.finished && prev && !prev.finished) void nextTick(() => (undoButton.value ?? cancelButton.value)?.focus())
+})
 </script>
 
 <template>
@@ -70,11 +78,11 @@ function onOpenAutoFocus(e: Event) {
         :label="t('media.remove.progress')" :value-text="t('media.remove.progressText', { done: progress.done, total: progress.total })" />
       <div v-if="problems.length" class="media-remove__problems">
         <p class="media-remove__heading">{{ t('media.remove.notRemoved') }}</p>
-        <KestrelUiProgressRow v-for="p in problems" :key="p.id" :title="p.name" :message="p.reason" :tone="p.kept ? 'default' : 'danger'"
-          :status="p.kept ? { text: t('media.remove.kept'), icon: 'info', tone: 'muted' } : { text: t('media.remove.failed'), icon: 'circle-x', tone: 'danger' }" />
+        <KestrelUiProgressRow v-for="p in problems" :key="p.id" :title="p.name" :message="p.reason" :tone="p.tone" :status="p.status" />
       </div>
       <p v-if="state.cancelled" class="media-remove__muted">{{ t('media.remove.cancelled') }}</p>
       <p v-if="held" class="media-remove__moved">{{ held.message }}</p>
+      <KestrelUiLiveStatus :message="outcome" />
       <div v-if="conflict?.length" class="media-remove__in-use">
         <p class="media-remove__heading">{{ t('refs.conflictAfterPrecheck') }}</p>
         <KestrelReferrerList :refs="conflict" />
@@ -82,7 +90,7 @@ function onOpenAutoFocus(e: Event) {
       <KestrelUiAlert v-else-if="error && !problems.length" variant="error">{{ error }}</KestrelUiAlert>
     </template>
     <template #footer>
-      <KestrelUiButton v-if="held?.undo" variant="ghost" icon="rotate-ccw" data-test="remove-undo" @click="emit('undo')">{{ t('media.trash.undo') }}</KestrelUiButton>
+      <KestrelUiButton v-if="held?.undo" ref="undoButton" variant="ghost" icon="rotate-ccw" data-test="remove-undo" @click="emit('undo')">{{ t('media.trash.undo') }}</KestrelUiButton>
       <KestrelUiButton ref="cancelButton" variant="ghost" data-test="remove-cancel" :disabled="busy && !stoppable" @click="emit('cancel')">{{ cancelLabel }}</KestrelUiButton>
       <KestrelUiButton v-if="!state?.finished" variant="danger" :loading="busy" :disabled="busy" @click="emit('confirm', recursive)">{{ confirmLabel }}</KestrelUiButton>
     </template>

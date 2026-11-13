@@ -10,8 +10,8 @@ export type RemovalMode = 'delete' | 'trash' | 'purge' | 'empty'
 /** One file the removal dialog lists; `path` is null for an item without a public copy, which shows its type icon. */
 export interface RemovalEntry { id: string; name: string; path: string | null; contentType?: string; refs: ReferenceTo[] }
 
-/** An item that was not removed, with the reason in words. */
-export interface RemovalProblem { id: string; name: string; reason: string }
+/** An item that was not removed, with the reason in words; `gone` marks one that no longer existed, which needs no action. */
+export interface RemovalProblem { id: string; name: string; reason: string; gone?: boolean }
 
 export interface RemovalDialogState {
   mode: RemovalMode
@@ -45,9 +45,11 @@ export function itemCountLabel(t: Translate, files: number, folders: number): st
   return f
 }
 
+const NOT_FOUND = 'not_found'
+
 const REASON_KEYS: Record<string, string> = {
   referenced: 'media.trash.reason.referenced',
-  not_found: 'media.trash.reason.notFound',
+  [NOT_FOUND]: 'media.trash.reason.notFound',
   not_trashed: 'media.trash.reason.notTrashed',
 }
 
@@ -57,10 +59,20 @@ export function reportProblems(t: Translate, report: BulkReport, nameOf: (id: st
     failures: report.failed.map((f) => ({ id: f.id, name: nameOf(f.id), reason: f.message })),
     skipped: report.skipped.map((s) => {
       const key = REASON_KEYS[s.reason]
-      return { id: s.id, name: nameOf(s.id), reason: key ? t(key) : s.reason }
+      return { id: s.id, name: nameOf(s.id), reason: key ? t(key) : s.reason, ...(s.reason === NOT_FOUND ? { gone: true } : {}) }
     }),
     cancelled: report.cancelled,
   }
+}
+
+/** The ids a removal skipped because they no longer existed. */
+export function goneIds(report: BulkReport): string[] {
+  return report.skipped.filter((s) => s.reason === NOT_FOUND).map((s) => s.id)
+}
+
+/** Whether a removal left something to report: a failure, a stop, or a skipped item that still exists. */
+export function hasProblems(problems: Pick<RemovalDialogState, 'failures' | 'skipped' | 'cancelled'>): boolean {
+  return problems.failures.length > 0 || problems.cancelled || problems.skipped.some((p) => !p.gone)
 }
 
 /** A message about the outcome of a run, with the tone of a toast. */

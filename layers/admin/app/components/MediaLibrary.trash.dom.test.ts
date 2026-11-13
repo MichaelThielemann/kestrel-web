@@ -1,5 +1,5 @@
 import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
-import { getQuery, readBody } from 'h3'
+import { createError, getQuery, readBody } from 'h3'
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { computed, defineComponent, h, nextTick, ref } from 'vue'
 import type { VueWrapper } from '@vue/test-utils'
@@ -42,9 +42,10 @@ const text = (key: keyof typeof en, params: Record<string, string | number> = {}
 const unregisterAll: (() => void)[] = []
 const trashed = new Set<string>()
 const posted: { path: string; body: unknown }[] = []
+let folderList: string[] = []
 
 function serve(files: MediaItem[], answer: (ids: string[]) => { ids: string[]; skipped: { id: string; reason: string }[] } = (ids) => ({ ids, skipped: [] })) {
-  unregisterAll.push(registerEndpoint('/api/media/folders', { method: 'GET', handler: () => [] }))
+  unregisterAll.push(registerEndpoint('/api/media/folders', { method: 'GET', handler: () => folderList.map((folder) => ({ folder, count: 0 })) }))
   unregisterAll.push(registerEndpoint('/api/media', {
     method: 'GET',
     handler: (event) => {
@@ -79,8 +80,20 @@ function serve(files: MediaItem[], answer: (ids: string[]) => { ids: string[]; s
   }))
 }
 
+function failFolderTrash(path: string) {
+  folderList = [...folderList, path]
+  unregisterAll.push(registerEndpoint(`/api/media/trash/folders/${path}`, {
+    method: 'POST',
+    handler: () => {
+      posted.push({ path: `/media/trash/folders/${path}`, body: null })
+      throw createError({ statusCode: 500, statusMessage: 'disk full' })
+    },
+  }))
+}
+
 beforeEach(async () => {
   trashed.clear()
+  folderList = []
   posted.length = 0
   useToast().clear()
   schema.capabilities = { ...trashCapabilities }
@@ -183,8 +196,28 @@ describe('MediaLibrary with the trash', () => {
     expect(posted).toEqual([])
   })
 
-  it('lists an item the server left alone and keeps it selected while the rest leaves', async () => {
-    serve([media('f1', 'a.jpg'), media('f2', 'b.jpg')], (ids) => ({ ids: ids.filter((id) => id !== 'f2'), skipped: [{ id: 'f2', reason: 'not_found' }] }))
+  it('lists an item whose move failed and keeps it selected while the rest leaves', async () => {
+    serve([media('f1', 'a.jpg'), media('f2', 'b.jpg')])
+    failFolderTrash('drafts')
+    const wrapper = await mountLibrary()
+    await vi.waitFor(() => expect(wrapper.find('[data-test="folder-drafts"]').exists()).toBe(true))
+
+    await select(wrapper, 'drafts')
+    await select(wrapper, 'a.jpg')
+    await barButton(wrapper, en['media.selection.trash'])?.trigger('click')
+
+    await vi.waitFor(() => expect(dialog()?.textContent).toContain(en['media.remove.title.partial']))
+    expect(dialog()?.textContent).toContain('drafts')
+    expect(dialog()?.textContent).toContain(en['media.remove.failed'])
+    await vi.waitFor(() => expect(wrapper.find('[data-test="file-f1"]').exists()).toBe(false))
+    expect(wrapper.get('[data-test="folder-drafts"]').attributes('aria-pressed')).toBe('true')
+  })
+
+  it('treats an item gone before the move as removed and opens no report for it', async () => {
+    serve([media('f1', 'a.jpg'), media('f2', 'b.jpg')], (ids) => {
+      trashed.add('f2')
+      return { ids: ids.filter((id) => id !== 'f2'), skipped: [{ id: 'f2', reason: 'not_found' }] }
+    })
     const wrapper = await mountLibrary()
     await vi.waitFor(() => expect(wrapper.find('[data-test="file-f2"]').exists()).toBe(true))
 
@@ -192,20 +225,34 @@ describe('MediaLibrary with the trash', () => {
     await select(wrapper, 'b.jpg')
     await barButton(wrapper, en['media.selection.trash'])?.trigger('click')
 
+    await vi.waitFor(() => expect(useToast().items.find((item) => item.message === en['media.trash.moved'])?.action).toBeDefined())
+    expect(dialog()).toBeNull()
+    await vi.waitFor(() => expect(wrapper.find('[data-test="file-f2"]').exists()).toBe(false))
+  })
+
+  it('names an item already gone without calling it kept when the report opens for another one', async () => {
+    serve([media('f1', 'a.jpg'), media('f2', 'b.jpg')], (ids) => ({ ids: ids.filter((id) => id !== 'f2'), skipped: [{ id: 'f2', reason: 'not_found' }] }))
+    failFolderTrash('drafts')
+    const wrapper = await mountLibrary()
+    await vi.waitFor(() => expect(wrapper.find('[data-test="folder-drafts"]').exists()).toBe(true))
+
+    await select(wrapper, 'drafts')
+    await select(wrapper, 'b.jpg')
+    await barButton(wrapper, en['media.selection.trash'])?.trigger('click')
+
     await vi.waitFor(() => expect(dialog()?.textContent).toContain(en['media.remove.title.partial']))
-    expect(dialog()?.textContent).toContain('b.jpg')
     expect(dialog()?.textContent).toContain(en['media.trash.reason.notFound'])
-    await vi.waitFor(() => expect(wrapper.find('[data-test="file-f1"]').exists()).toBe(false))
-    expect(wrapper.get('[data-test="file-f2"]').attributes('aria-pressed')).toBe('true')
+    expect(dialog()?.textContent).not.toContain(en['media.remove.kept'])
   })
 
   it('offers the undo inside the result dialog and hands it to a toast once the dialog closes', async () => {
-    serve([media('f1', 'a.jpg'), media('f2', 'b.jpg')], (ids) => ({ ids: ids.filter((id) => id !== 'f2'), skipped: [{ id: 'f2', reason: 'not_found' }] }))
+    serve([media('f1', 'a.jpg'), media('f2', 'b.jpg')])
+    failFolderTrash('drafts')
     const wrapper = await mountLibrary()
-    await vi.waitFor(() => expect(wrapper.find('[data-test="file-f2"]').exists()).toBe(true))
+    await vi.waitFor(() => expect(wrapper.find('[data-test="folder-drafts"]').exists()).toBe(true))
 
+    await select(wrapper, 'drafts')
     await select(wrapper, 'a.jpg')
-    await select(wrapper, 'b.jpg')
     await barButton(wrapper, en['media.selection.trash'])?.trigger('click')
 
     await vi.waitFor(() => expect(dialog()?.textContent).toContain(en['media.remove.title.partial']))
@@ -220,11 +267,12 @@ describe('MediaLibrary with the trash', () => {
   })
 
   it('undoes from inside the result dialog, which closes it', async () => {
-    serve([media('f1', 'a.jpg'), media('f2', 'b.jpg')], (ids) => ({ ids: ids.filter((id) => id !== 'f2'), skipped: [{ id: 'f2', reason: 'not_found' }] }))
+    serve([media('f1', 'a.jpg'), media('f2', 'b.jpg')])
+    failFolderTrash('drafts')
     const wrapper = await mountLibrary()
-    await vi.waitFor(() => expect(wrapper.find('[data-test="file-f2"]').exists()).toBe(true))
+    await vi.waitFor(() => expect(wrapper.find('[data-test="folder-drafts"]').exists()).toBe(true))
+    await select(wrapper, 'drafts')
     await select(wrapper, 'a.jpg')
-    await select(wrapper, 'b.jpg')
     await barButton(wrapper, en['media.selection.trash'])?.trigger('click')
     await vi.waitFor(() => expect(dialogButton(en['media.trash.undo'])).toBeDefined())
 
@@ -234,6 +282,30 @@ describe('MediaLibrary with the trash', () => {
     await vi.waitFor(() => expect(posted.at(-1)).toEqual({ path: '/media/trash/restore', body: { ids: ['f1'] } }))
     await vi.waitFor(() => expect(wrapper.find('[data-test="file-f1"]').exists()).toBe(true))
     expect(useToast().items.some((item) => item.message === en['media.trash.moved'])).toBe(false)
+  })
+
+  it('moves focus to the undo and announces the outcome once a run in the open dialog ends with something to report', async () => {
+    schema.features = ['references' satisfies Feature]
+    schema.capabilities.mediaReferrersMany = { method: 'GET', path: '/admin/references/to/media' }
+    unregisterAll.push(registerEndpoint('/api/admin/references/to/media', { method: 'GET', handler: () => ({ f1: [{ type: 'pages', field: 'hero', id: 'p1' }] }) }))
+    serve([media('f1', 'a.jpg'), media('f2', 'b.jpg')])
+    failFolderTrash('drafts')
+    const wrapper = await mountLibrary()
+    await vi.waitFor(() => expect(wrapper.find('[data-test="folder-drafts"]').exists()).toBe(true))
+
+    await select(wrapper, 'drafts')
+    await select(wrapper, 'a.jpg')
+    await barButton(wrapper, en['media.selection.trash'])?.trigger('click')
+    await vi.waitFor(() => expect(document.activeElement?.textContent?.trim()).toBe(en['common.cancel']))
+
+    const what = text('media.remove.both', { files: en['media.remove.files'], folders: en['media.remove.folders'] })
+    dialogButton(text('media.remove.confirm.trash', { what }))?.click()
+
+    await vi.waitFor(() => expect(dialog()?.textContent).toContain(en['media.remove.title.partial']))
+    await vi.waitFor(() => expect(document.activeElement).toBe(dialogButton(en['media.trash.undo'])))
+    const status = dialog()?.querySelector('[role="status"]')?.textContent ?? ''
+    expect(status).toContain(en['media.remove.title.partial'])
+    expect(status).toContain(en['media.trash.moved'])
   })
 
   it('hides Delete from a role that may delete for good but not move to the trash', async () => {

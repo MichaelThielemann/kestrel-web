@@ -7,7 +7,7 @@ import { trashItems, type BulkReport } from '../actions/mediaTrash'
 import { toastUnexpected } from '../actions/steps/notify'
 import type { ActionDeps, BusyPort, RefreshPort } from '../actions/types'
 import { folderIsEmpty } from '../utils/library'
-import { countMessage, removalState, reportProblems, trashOutcome, type RemovalDialogState, type RemovalEntry, type RemovalProblem, type TrashOutcome } from '../utils/media-removal'
+import { countMessage, goneIds, hasProblems, removalState, reportProblems, trashOutcome, type RemovalDialogState, type RemovalEntry, type RemovalProblem, type TrashOutcome } from '../utils/media-removal'
 import { resolveFileTargets, type OpItem } from '../utils/ops'
 import { referencedBy } from '../utils/references'
 import { notifyMediaRemoved } from './useMediaChanges'
@@ -38,7 +38,7 @@ const folderPathsOf = (items: OpItem[]) => items.flatMap((item) => (item.type ==
 const entryOf = (file: MediaItem, refs: RemovalEntry['refs'] = []): RemovalEntry => ({ id: file.id, name: file.filename, path: file.path, contentType: file.contentType, refs })
 const isBelow = (file: MediaItem, paths: readonly string[]) => paths.some((p) => file.folder === p || file.folder.startsWith(`${p}/`))
 
-/** Removing media from the library and the picker. With the trash composed on the site, files and folders move there at once with an undo; a dialog comes first only when a file is in use or its use could not be checked. Without the trash, a dialog confirms the final delete. A run in a dialog can be stopped between requests, so Stop is offered only while another request is left to send. Every item is reported: removed ones leave the listing, failed ones stay and stay selected. When a move ends in the dialog with something left to report, its undo waits in that dialog and goes to the usual toast or notice once the dialog closes. Only the latest request's reference check counts. */
+/** Removing media from the library and the picker. With the trash composed on the site, files and folders move there at once with an undo; a dialog comes first only when a file is in use or its use could not be checked. Without the trash, a dialog confirms the final delete. A run in a dialog can be stopped between requests, so Stop is offered only while another request is left to send. Every item is reported: removed ones leave the listing, failed ones stay and stay selected, and one already gone counts as removed and opens no report by itself. When a move ends in the dialog with something left to report, its undo waits in that dialog and goes to the usual toast or notice once the dialog closes. Only the latest request's reference check counts. */
 export function useMediaBulkActions(opts: UseMediaBulkActionsOptions) {
   const { has: hasFeature } = useFeatures()
   const { schema } = useSchema()
@@ -127,9 +127,9 @@ export function useMediaBulkActions(opts: UseMediaBulkActionsOptions) {
     toastUnexpected(deps, r)
     const report = (r.ok ? r.result : undefined) ?? reported.report
     if (!report) return
-    removed(report.done)
+    removed([...report.done, ...goneIds(report)])
     const problems = reportProblems(t, report, nameOf)
-    const left = problems.failures.length > 0 || problems.skipped.length > 0 || problems.cancelled
+    const left = hasProblems(problems)
     const outcome = trashOutcome(targets, report, before)
     if (outcome.moved || outcome.emptied) undo.offer(trashMessage(outcome), outcome.undoIds, new Map(entries.map((e) => [e.id, e.name])), { hold: left })
     finish(left ? problems : null, 'trash')

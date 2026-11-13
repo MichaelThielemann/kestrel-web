@@ -171,6 +171,25 @@ describe('MediaTrash', () => {
     await vi.waitFor(() => expect(document.activeElement?.textContent).toBe(en['media.trash.title']))
   })
 
+  it('reports nothing for an item already gone when it is deleted for good', async () => {
+    unregisterAll.splice(0).forEach((unregister) => unregister())
+    unregisterAll.push(registerEndpoint('/api/admin/schema', { method: 'GET', handler: () => schema }))
+    unregisterAll.push(registerEndpoint('/api/media/trash', { method: 'GET', handler: () => ({ items, total: items.length }) }))
+    post('/media/trash/purge', (ids) => {
+      items = items.filter((item) => !ids.includes(item.id))
+      return { ids: ids.filter((id) => id !== 'f2'), skipped: [{ id: 'f2', reason: 'not_found' }] }
+    })
+    const wrapper = await mountTrash()
+    await select(wrapper, 'a.png')
+    await select(wrapper, 'b.png')
+    await button(wrapper, en['media.trash.purge'])?.trigger('click')
+    await vi.waitFor(() => expect(dialog()).toBeTruthy())
+    dialogButton(text('media.remove.confirm.purge', { what: text('media.remove.filesPlural', { n: 2 }) }))?.click()
+
+    await vi.waitFor(() => expect(wrapper.findAll('tbody tr')).toHaveLength(0))
+    await vi.waitFor(() => expect(dialog()).toBeNull())
+  })
+
   it('announces the selection count in a status region that stays mounted', async () => {
     const wrapper = await mountTrash()
     const status = wrapper.get('.ui-live-status')

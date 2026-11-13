@@ -7,7 +7,7 @@ import { WHOLE_TRASH, emptyTrash, purgeItems, restoreItems, type BulkReport } fr
 import { toastUnexpected } from '../actions/steps/notify'
 import type { ApiClient } from '../actions/types'
 import type { CapabilityResolver } from '../utils/capabilities'
-import { countMessage, removalState, reportProblems, restoreMessages, type RemovalDialogState } from '../utils/media-removal'
+import { countMessage, hasProblems, removalState, reportProblems, restoreMessages, type RemovalDialogState } from '../utils/media-removal'
 import { onMediaChanged } from './useMediaChanges'
 
 /** The number of items in the media trash, for the library's entry to it; `null` while unknown or without access. */
@@ -185,7 +185,7 @@ export function useMediaTrash(opts: { onSettled?: () => void } = {}) {
   function settle(report: BulkReport) {
     if (report.done.length) toasts.success(countMessage(t, 'media.trash.purged', report.done.length))
     const problems = reportProblems(t, report, nameOf)
-    if (problems.failures.length || problems.skipped.length || problems.cancelled) {
+    if (hasProblems(problems)) {
       if (dialog.value) dialog.value = { ...dialog.value, ...problems, progress: null, stoppable: false, finished: true }
       return
     }
