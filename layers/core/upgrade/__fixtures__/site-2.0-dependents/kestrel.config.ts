@@ -30,6 +30,7 @@ export const preset = definePreset({
   collections: contentTypes,
   collectionsUi,
   overrides: {
+    // @ts-expect-error -- the inline export step of the 2.x line, which delivery-static 6 does not have
     setSettings: ["authn.requireUser", "authz.require:settings.write", "validate.check:settings.navigation", "content.set:settings", "delivery.exportLlms"],
   },
 });

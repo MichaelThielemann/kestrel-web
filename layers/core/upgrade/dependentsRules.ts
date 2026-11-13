@@ -2,22 +2,23 @@ import { join, relative } from "node:path";
 import { effectiveModuleConfig } from "@michaelthielemann/kestrel";
 import { findCalls, firstArgument, isAstNode, objectProperty, parseTs, propertyKeyName, stringValue, walk } from "@michaelthielemann/kestrel-upgrade/codemods";
 import type { AstNode } from "@michaelthielemann/kestrel-upgrade/codemods";
-import type { Finding, Rule, RuleContext, SourceRule, SourceRuleContext } from "@michaelthielemann/kestrel-upgrade/plugin";
+import type { Edit, Finding, Rule, RuleContext, SourceRule, SourceRuleContext } from "@michaelthielemann/kestrel-upgrade/plugin";
 import { pipelineSteps } from "@michaelthielemann/kestrel/definePipeline";
-import { lanesFor, relayPipelinesFor } from "../pipelines/checkPreset";
+import { delaysFor, lanesFor, relayPipelinesFor } from "../pipelines/checkPreset";
 import type { Feature } from "../pipelines/checkPreset";
 import { consumerScripts } from "./consumerRules";
 import { QUEUE_DEFAULT_BACKOFF_SECONDS, QUEUE_DEFAULT_MAX_ATTEMPTS } from "../pipelines/config";
-import { MEDIA_DEPENDENT_EVENTS } from "../pipelines/features/delivery";
+import { MEDIA_DEPENDENT_EVENTS, REFRESH_INDEXES_PIPELINE, REQUEST_INDEXES_STEP } from "../pipelines/features/delivery";
 import { mediaTrashEnabled } from "../pipelines/media-trash";
-import { addModuleEntryConfigProperty, hasModuleEntry, setDependenciesRender, setModuleEntryConfigProperties, setPresetModuleConfigOverride } from "./edits";
+import { addModuleEntryConfigProperty, addModuleEntryNestedConfigProperties, hasModuleEntry, removeStepsFromArray, setDependenciesRender, setModuleEntryConfigProperties, setPresetModuleConfigOverride } from "./edits";
 import type { PropertyText } from "./edits";
 import { layerProjectData } from "./load";
 import { MEDIA_PUBLIC_PATH, MOUNT_PATH } from "../mount-path";
 import type { HttpTriggerEntry } from "../server/utils/admin-capabilities";
 import { mediaPathProblems } from "../server/utils/media-paths";
 import type { DeliveryConfig, PipelineStepsEntry } from "../server/utils/media-paths";
-import { deliveryEnabled, docsAnchor, presetOptionsCast } from "./ruleHelpers";
+import { layerLocateSteps } from "./locators";
+import { deliveryEnabled, docsAnchor, fileForPipeline, presetOptionsCast } from "./ruleHelpers";
 
 const DELIVERY_STATIC_MODULE = "@michaelthielemann/kestrel-delivery-static";
 const RENDERER_NUXT_MODULE = "@michaelthielemann/kestrel-renderer-nuxt";
@@ -31,6 +32,8 @@ export const DEPENDENTS_PROBLEM_CODES: ReadonlySet<string> = new Set([
   "preset/render-mode-needs-queue",
   "preset/page-renders-lane",
   "preset/generate-image-variants-lane",
+  "preset/index-exports-lane",
+  "preset/delay-pipeline-unknown",
 ]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -167,12 +170,75 @@ function lanesLiteral(lanes: Record<string, string[]>): string {
   return `{ ${Object.entries(lanes).map(([lane, members]) => `${lane}: [${members.map((m) => `"${m}"`).join(", ")}]`).join(", ")} }`;
 }
 
+function delaysLiteral(delays: Record<string, number>): string {
+  return `{ ${Object.entries(delays).map(([pipeline, ms]) => `${pipeline}: ${ms}`).join(", ")} }`;
+}
+
+const LANE_PROBLEM_CODES = ["preset/page-renders-lane", "preset/generate-image-variants-lane", "preset/index-exports-lane"];
+const INDEX_LANE_PROBLEM = "preset/index-exports-lane";
+const DELAY_PROBLEM = "preset/delay-pipeline-unknown";
+const INDEX_LANE = "indexes";
+
+function problemCodesOf(ctx: RuleContext, codes: readonly string[]): Set<string> {
+  const data = layerProjectData(ctx.project);
+  return new Set((data?.presetProblems ?? []).filter((problem) => codes.includes(problem.code)).map((problem) => problem.code));
+}
+
+interface LanePart {
+  message: string;
+  severity: "error" | "warning";
+  edits?: Edit[];
+  manual?: string;
+}
+
+function lanesParts(ctx: RuleContext, config: Record<string, unknown> | undefined, features: readonly Feature[], source: string | undefined): LanePart[] {
+  const lanes = lanesFor(features);
+  const literal = lanesLiteral(lanes);
+  const problems = problemsOf(ctx, LANE_PROBLEM_CODES);
+  const codes = problemCodesOf(ctx, LANE_PROBLEM_CODES);
+  const file = ctx.project.configFile;
+  if (config === undefined || !("lanes" in config)) {
+    const properties: PropertyText[] = [{ key: "lanes", text: `lanes: ${literal}` }];
+    if (config === undefined || !("relayPipelines" in config)) {
+      properties.unshift({ key: "relayPipelines", text: `relayPipelines: [${relayPipelinesFor(features).map((p) => `"${p}"`).join(", ")}]` });
+    }
+    const delays = delaysFor(features);
+    if (Object.keys(delays).length > 0 && (config === undefined || !("delayMs" in config))) properties.push({ key: "delayMs", text: `delayMs: ${delaysLiteral(delays)}` });
+    const edit = source === undefined ? undefined : setModuleEntryConfigProperties(file, source, EVENTS_QUEUE_MODULE, properties);
+    const message = `${EVENTS_QUEUE_MODULE} has no lanes, so page re-renders, the index exports and image variants would run in the main lane and delay uploads, publishing and the login audit`;
+    return [edit === undefined ? { message, severity: "error", manual: `add lanes: ${literal} (lanesFor(features))` } : { message, severity: "error", edits: [edit] }];
+  }
+  if (problems.length === 0) return [];
+  const configured: unknown = config.lanes;
+  const members = typeof configured === "object" && configured !== null ? Object.values(configured).flat() : [];
+  const onlyIndexLane = codes.size === 1 && codes.has(INDEX_LANE_PROBLEM);
+  const addable = onlyIndexLane && typeof configured === "object" && configured !== null && !(INDEX_LANE in configured) && !members.includes(REFRESH_INDEXES_PIPELINE);
+  const edit = addable && source !== undefined ? addModuleEntryNestedConfigProperties(file, source, EVENTS_QUEUE_MODULE, ["lanes"], [INDEX_LANE], [`${INDEX_LANE}: ["${REFRESH_INDEXES_PIPELINE}"]`]) : undefined;
+  return [edit === undefined ? { message: problems.join("; "), severity: "error", manual: `set lanes to ${literal} (lanesFor(features))` } : { message: problems.join("; "), severity: "error", edits: [edit] }];
+}
+
+function delayParts(ctx: RuleContext, config: Record<string, unknown> | undefined, features: readonly Feature[], source: string | undefined, lanesRewritten: boolean): LanePart[] {
+  const delays = delaysFor(features);
+  if (Object.keys(delays).length === 0) return [];
+  const literal = delaysLiteral(delays);
+  if (config !== undefined && "delayMs" in config) {
+    const problems = problemsOf(ctx, [DELAY_PROBLEM]);
+    return problems.length === 0 ? [] : [{ message: problems.join("; "), severity: "error", manual: `set delayMs to ${literal} (delaysFor(features))` }];
+  }
+  if (lanesRewritten) return [];
+  const edit = source === undefined ? undefined : addModuleEntryConfigProperty(ctx.project.configFile, source, EVENTS_QUEUE_MODULE, "delayMs", `delayMs: ${literal}`);
+  const message = `${EVENTS_QUEUE_MODULE} has no delayMs, so every save exports sitemap.xml, robots.txt and llms.txt at once instead of once per burst, and llms-full.txt does not trail the re-renders it reads`;
+  return [edit === undefined ? { message, severity: "warning", manual: `add delayMs: ${literal} (delaysFor(features))` } : { message, severity: "warning", edits: [edit] }];
+}
+
 /**
- * A hand-written `kestrel-events-queue` entry without `lanes`: page re-renders, the `llms.txt` export and
- * image variants would all run in the queue's main lane and delay uploads, publishing and the login audit,
- * and the preset refuses it. Sets `lanes` to `lanesFor(features)` (and `relayPipelines` to
- * `relayPipelinesFor(features)` when that is missing too) in one edit of the entry's config; manual when
- * the entry is not a literal in `kestrel.config.ts`, or its `lanes` exist but leave a pipeline out.
+ * A hand-written `kestrel-events-queue` entry whose `lanes` or `delayMs` differ from what `presetModuleConfig()`
+ * gives: without lanes, page re-renders, the index exports and image variants all run in the queue's main lane and
+ * delay uploads, publishing and the login audit, and the preset refuses it; without `delayMs`, every save exports
+ * the index files at once. Sets `lanes` to `lanesFor(features)` (and `relayPipelines` to `relayPipelinesFor(features)`
+ * when that is missing too) and `delayMs` to `delaysFor(features)` in one edit of the entry's config, adds the
+ * `indexes` lane to existing lanes that only lack it, and adds a missing `delayMs`; manual when the entry is not a
+ * literal in `kestrel.config.ts`, or its `lanes` or `delayMs` exist but name the wrong pipelines.
  */
 export const queueLanesRule: Rule = {
   id: "preset/queue-lanes",
@@ -181,52 +247,67 @@ export const queueLanesRule: Rule = {
     if (cast === undefined) return [];
     const entry = (cast.modules ?? []).find((m) => m.use === EVENTS_QUEUE_MODULE);
     const features: readonly Feature[] = cast.features ?? [];
-    const lanes = lanesFor(features);
-    if (entry === undefined || Object.keys(lanes).length === 0) return [];
+    if (entry === undefined || Object.keys(lanesFor(features)).length === 0) return [];
     const rule = "preset/queue-lanes";
     const where = { module: EVENTS_QUEUE_MODULE, file: ctx.project.configFile };
-    const literal = lanesLiteral(lanes);
-    const problems = problemsOf(ctx, ["preset/page-renders-lane", "preset/generate-image-variants-lane"]);
     const config = configOf(entry);
-    if (config !== undefined && "lanes" in config) {
-      if (problems.length === 0) return [];
-      return [finding(rule, rule, "error", where, problems.join("; "), `set lanes to ${literal} (lanesFor(features)) on ${EVENTS_QUEUE_MODULE}`, { kind: "manual" })];
-    }
-    const properties: PropertyText[] = [{ key: "lanes", text: `lanes: ${literal}` }];
-    if (config === undefined || !("relayPipelines" in config)) {
-      properties.unshift({ key: "relayPipelines", text: `relayPipelines: [${relayPipelinesFor(features).map((p) => `"${p}"`).join(", ")}]` });
-    }
     const source = ctx.readFile(ctx.project.configFile);
-    const edit = source === undefined ? undefined : setModuleEntryConfigProperties(ctx.project.configFile, source, EVENTS_QUEUE_MODULE, properties);
-    const message = `${EVENTS_QUEUE_MODULE} has no lanes, so page re-renders and image variants would run in the main lane and delay uploads, publishing and the login audit`;
-    return edit === undefined
-      ? [finding(rule, rule, "error", where, message, `add lanes: ${literal} (lanesFor(features)) to ${EVENTS_QUEUE_MODULE}'s config`, { kind: "manual" })]
-      : [finding(rule, rule, "error", where, message, `sets lanes to ${literal}, what lanesFor(features) gives`, { kind: "auto", edits: [edit] })];
+    const lanes = lanesParts(ctx, config, features, source);
+    const lanesRewritten = config === undefined || !("lanes" in config);
+    const parts = [...lanes, ...delayParts(ctx, config, features, source, lanesRewritten)];
+    if (parts.length === 0) return [];
+    const message = parts.map((part) => part.message).join("; ");
+    const severity = parts.some((part) => part.severity === "error") ? "error" : "warning";
+    const manual = parts.flatMap((part) => (part.manual === undefined ? [] : [part.manual]));
+    if (manual.length > 0) return [finding(rule, rule, severity, where, message, `${manual.join(" and ")} on ${EVENTS_QUEUE_MODULE}`, { kind: "manual" })];
+    const edits = parts.flatMap((part) => part.edits ?? []);
+    const suggestion = `sets lanes to ${lanesLiteral(lanesFor(features))} and delayMs to ${delaysLiteral(delaysFor(features))}, what lanesFor(features) and delaysFor(features) give`;
+    return [finding(rule, rule, severity, where, message, suggestion, { kind: "auto", edits })];
   },
 };
 
-/** An override of `setSettings` that still runs `delivery.exportLlms` writes `llms.txt` inside the settings request; the preset requests the export after the re-renders instead. Information only; an override that also lacks the emit is left to `preset/override-emit`, which drops the export. */
+/**
+ * An override of `setSettings` that runs `delivery.exportLlms`, which is not a step of delivery-static: boot
+ * fails on it. `settingsDependents` re-renders the pages after the emit and requests the index exports, so the fix
+ * removes the step when that pipeline runs `delivery.requestIndexes` on an event the override emits. An override that also
+ * lacks the emit is left to `preset/override-emit`, which drops the export.
+ */
 export const settingsLlmsRule: Rule = {
   id: "preset/settings-llms",
   check(ctx) {
     const cast = presetOptionsCast(ctx);
     const override = cast?.overrides?.setSettings;
-    if (override === undefined || !pipelineSteps(override).includes("delivery.exportLlms")) return [];
+    if (override === undefined || !pipelineSteps(override).some(isInlineLlmsExport)) return [];
     if (problemsOf(ctx, ["preset/override-drops-watched-emit"]).length > 0) return [];
+    const emitted = pipelineSteps(override).filter((step) => step.startsWith("events.emit:")).map((step) => step.slice("events.emit:".length).split("?")[0] ?? "");
+    const requested = ctx.project.input.config.triggers.some((trigger) => "event" in trigger && emitted.includes(trigger.event) && runsIndexRequest(ctx, trigger.pipeline));
+    if (!requested) return [];
     const rule = "preset/settings-llms";
+    const file = fileForPipeline(ctx, SETTINGS_PIPELINE);
+    const source = file === undefined ? undefined : ctx.readFile(file);
+    const arrays = source === undefined ? [] : (ctx.locateSteps ?? layerLocateSteps)(parseTs(source), SETTINGS_PIPELINE);
+    const edits = file === undefined || source === undefined ? [] : arrays.flatMap((array) => removeStepsFromArray(file, source, array, isInlineLlmsExport));
+    const message = `override for "${SETTINGS_PIPELINE}" still runs "${INLINE_LLMS_EXPORT}", which delivery-static no longer has; boot fails on it`;
+    const suggestion = `remove "${INLINE_LLMS_EXPORT}" and keep the emit: settingsDependents re-renders the pages and runs "${REQUEST_INDEXES_STEP}" after them`;
     return [
-      finding(
-        rule,
-        rule,
-        "info",
-        { pipeline: "setSettings" },
-        'override for "setSettings" still runs "delivery.exportLlms", which writes llms.txt inside the settings request',
-        'remove "delivery.exportLlms" and keep "events.emit:settings.updated": settingsDependents re-renders the pages and requests the export after them',
-        { kind: "none" },
-      ),
+      edits.length > 0
+        ? finding(rule, rule, "error", { pipeline: SETTINGS_PIPELINE }, message, `removes "${INLINE_LLMS_EXPORT}"; settingsDependents runs "${REQUEST_INDEXES_STEP}" after the re-renders`, { kind: "auto", edits })
+        : finding(rule, rule, "error", { pipeline: SETTINGS_PIPELINE }, message, `${suggestion}, by hand`, { kind: "manual" }),
     ];
   },
 };
+
+const SETTINGS_PIPELINE = "setSettings";
+const INLINE_LLMS_EXPORT = "delivery.exportLlms";
+
+function isInlineLlmsExport(step: string): boolean {
+  return step === INLINE_LLMS_EXPORT || step.startsWith(`${INLINE_LLMS_EXPORT}?`);
+}
+
+function runsIndexRequest(ctx: RuleContext, pipeline: string): boolean {
+  const def = ctx.project.input.pipelines.find((candidate) => candidate.name === pipeline);
+  return def !== undefined && pipelineSteps(def.steps).includes(REQUEST_INDEXES_STEP);
+}
 
 const TRIGGER_FILES = ["kestrel.config.ts", join("pipelines", "index.ts")];
 

@@ -16,7 +16,7 @@ import { DEPENDENTS_PROBLEM_CODES, dependentsRules } from "./dependentsRules";
 import { ratelimitBucketsRule } from "./ratelimitBucketsRule";
 import { deviceKeyRule } from "./deviceKeyRule";
 import { hostBinaryRule } from "./hostBinaryRule";
-import { overrideEmitRule } from "./overrideEmit";
+import { droppedEmitRewrite, overrideEmitRule } from "./overrideEmit";
 import { isPathStep, overridePathStepsRule, pageLikeMountRule, parentOfferRule, slugUrlRule } from "./pathRules";
 import { siteModelOptionsRule } from "./siteModelRule";
 import { schemasCollectionsUiRule } from "./schemasCollectionsUiRule";
@@ -236,12 +236,19 @@ function emittedEventsOf(steps: readonly string[]): string[] {
   return steps.filter((s) => s.startsWith("events.emit:")).map((s) => s.slice("events.emit:".length).split("?")[0]!);
 }
 
+const INDEX_REQUEST_STEP = "delivery.requestIndexes";
+
 function relayedPipelineRunsStep(ctx: RuleContext, events: readonly string[], step: string): boolean {
   const triggered = new Set(ctx.project.input.config.triggers.filter((t) => "event" in t && events.includes(t.event)).map((t) => t.pipeline));
+  const covering = step === DELIVERY_EXPORT_STEP ? [step, INDEX_REQUEST_STEP] : [step];
   return [...triggered].some((name) => {
     const def = ctx.project.input.pipelines.find((p) => p.name === name);
-    return def !== undefined && pipelineSteps(def.steps).includes(step);
+    return def !== undefined && pipelineSteps(def.steps).some((s) => covering.includes(s));
   });
+}
+
+function goneNote(steps: readonly string[]): string {
+  return steps.includes(DELIVERY_EXPORT_STEP) ? `; "${DELIVERY_EXPORT_STEP}" is gone, and that pipeline runs "${INDEX_REQUEST_STEP}" in its place` : "";
 }
 
 function removableDeliverySteps(ctx: RuleContext, ownSteps: readonly string[]): string[] {
@@ -255,8 +262,9 @@ function removableDeliverySteps(ctx: RuleContext, ownSteps: readonly string[]): 
  * event-triggered pipeline (`publishPage` for pages today) reached through the relay. Auto-removes those
  * steps from the override's own step array when the 3.0 default of the same pipeline no longer has them
  * AND an event the override emits triggers a pipeline that runs them — the exact condition that makes
- * keeping them a double publish, never a guess. Own pipelines defined directly in `pipelines/index.ts`
- * (not overrides of a preset pipeline) are not covered here.
+ * keeping them a double publish, never a guess. `delivery.exportLlms`, which is not a step of delivery-static,
+ * counts as run there when that pipeline runs `delivery.requestIndexes`. Own pipelines defined directly in
+ * `pipelines/index.ts` (not overrides of a preset pipeline) are not covered here.
  */
 export const overrideDeliveryRule: Rule = {
   id: "preset/override-delivery",
@@ -279,7 +287,7 @@ export const overrideDeliveryRule: Rule = {
       const id = `preset/override-delivery:${pipelineName}`;
       const where = { pipeline: pipelineName };
       const docs = docsAnchor("preset-override-delivery");
-      const message = `override for "${pipelineName}" still runs ${removable.map((s) => `"${s}"`).join(", ")}, which the 3.0 default moved to the pipeline its event relays to — publishing twice`;
+      const message = `override for "${pipelineName}" still runs ${removable.map((s) => `"${s}"`).join(", ")}, which the 3.0 default moved to the pipeline its event relays to — publishing twice${goneNote(removable)}`;
       const file = fileForPipeline(ctx, pipelineName);
       const source = file === undefined ? undefined : ctx.readFile(file);
       if (file === undefined || source === undefined) {
@@ -302,7 +310,7 @@ export const overrideDeliveryRule: Rule = {
 /**
  * A pipeline defined directly in `pipelines/index.ts` (not an override) that still runs
  * `delivery.publish`/`unpublish`/`exportLlms` while emitting an event a relay pipeline runs the same
- * steps for also publishes twice. Asks rather than auto-applying, since this is the consumer's own pipeline
+ * steps for (`delivery.requestIndexes` in place of `delivery.exportLlms`) also publishes twice. Asks rather than auto-applying, since this is the consumer's own pipeline
  * rather than a known 2.x default shape — but the same provably-correct condition `preset/override-delivery`
  * requires before acting gates the question here too, so "remove" is a safe default.
  */
@@ -329,7 +337,7 @@ export const ownPipelineDeliveryRule: Rule = {
       const where = { pipeline: pipelineName };
       const docs = docsAnchor("preset-own-pipeline-delivery");
       const stepList = removable.map((s) => `"${s}"`).join(", ");
-      const message = `pipeline "${pipelineName}" still runs ${stepList} while emitting an event that also triggers a relay pipeline running them — publishing twice`;
+      const message = `pipeline "${pipelineName}" still runs ${stepList} while emitting an event that also triggers a relay pipeline running them — publishing twice${goneNote(removable)}`;
       const questionId = `own-pipeline-delivery:${pipelineName}`;
       const answer = ctx.answers.get(questionId);
 
@@ -424,6 +432,7 @@ export const overrideGroupRule: Rule = {
     if (cast === undefined || data === undefined) return [];
     const problems = data.presetProblems.filter((p) => p.code === "preset/override-drops-atomic-group" && p.pipeline !== undefined);
     if (problems.length === 0) return [];
+    const emitOwned = new Set(data.presetProblems.filter((p) => p.code === WATCHED_EMIT_PROBLEM).map((p) => p.pipeline));
     const locate = ctx.locateSteps ?? layerLocateSteps;
     const findings: Finding[] = [];
     for (const problem of problems) {
@@ -440,6 +449,11 @@ export const overrideGroupRule: Rule = {
         continue;
       }
       const result = wrapAtomicGroup(file, source, { pipelineName, members, locateSteps: locate });
+      const emitRewrite = result.kind === "wrapped" && emitOwned.has(pipelineName) ? droppedEmitRewrite(ctx, cast, pipelineName).edit : undefined;
+      if (emitRewrite !== undefined) {
+        findings.push(autoFinding(id, rule, where, problem.message, `wraps ${members.map((m) => `"${m}"`).join(", ")} in an atomic group, matching the 3.0 default, in the edit that also adds the emit`, [emitRewrite], docs));
+        continue;
+      }
       if (result.kind === "wrapped") {
         findings.push(autoFinding(id, rule, where, problem.message, `wraps ${members.map((m) => `"${m}"`).join(", ")} in an atomic group, matching the 3.0 default`, [result.edit], docs));
         continue;

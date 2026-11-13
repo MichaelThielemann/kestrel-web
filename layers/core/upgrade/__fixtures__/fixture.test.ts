@@ -220,7 +220,7 @@ describe("site-2.0-custom (hand-written module list, eventsQueue already on, a 2
 
     const config = readFileSync(join(dir, "kestrel.config.ts"), "utf8");
     expect(config).toMatch(/relayPipelines:\s*\["publishPage",\s*"unpublishPage"\]/);
-    expect(config).toMatch(/lanes:\s*\{\s*pages:\s*\["republishOutput",\s*"refreshLlms"\],\s*variants:\s*\["generateImageVariants"\]\s*\}/);
+    expect(config).toMatch(/lanes:\s*\{\s*pages:\s*\["republishOutput",\s*"refreshLlms"\],\s*indexes:\s*\["refreshIndexes"\],\s*variants:\s*\["generateImageVariants"\]\s*\},\s*delayMs:\s*\{\s*refreshIndexes:\s*1000,\s*refreshLlms:\s*3000\s*\}/);
     expect(config).toContain('overrides: { "@michaelthielemann/kestrel-delivery-static": { dependencies: { render: "events", rendererReadsDocument: true, maxAttempts: 5, backoffSeconds: [5, 30, 120, 600] } } }');
     expect(await realPresetError(dir)).toBeUndefined();
     expect(configCompileErrors(join(dir, "kestrel.config.ts"))).toEqual([]);
@@ -351,7 +351,38 @@ describe("site-2.0-dependents (a literal delivery-static entry, a 2.x setSetting
     expect(config).not.toContain('"delivery.exportLlms"');
     expect(await realPresetError(dir)).toBeUndefined();
     expect(configCompileErrors(join(dir, "kestrel.config.ts"))).toEqual([]);
+
+    const project = await loadProject(dir);
+    const box = sandboxBootInput(project.input, { dir });
+    const bootCheck = await checkBoot(box.input, { setup: box.setup });
+    expect(bootCheck.errors).toEqual([]);
   }, 60_000);
+
+  it("an override of setSettings that keeps its emit and still runs delivery.exportLlms loses that step with fix --write --yes, and the fixed project boots", async () => {
+    const dir = await prepare("site-2.0-dependents");
+    const { writeFileSync } = await import("node:fs");
+    const configFile = join(dir, "kestrel.config.ts");
+    const original = readFileSync(configFile, "utf8");
+    const inline = '"validate.check:settings.navigation", "content.set:settings", "delivery.exportLlms"]';
+    expect(original).toContain(inline);
+    writeFileSync(configFile, original.replace(inline, '"validate.check:settings.navigation", { atomic: ["content.set:settings"] }, "events.emit:settings.updated", "events.relay", "delivery.exportLlms"]'));
+
+    const before = await check(dir);
+    const settingsLlms = before.findings.find((f) => f.rule === "preset/settings-llms");
+    expect(settingsLlms).toMatchObject({ severity: "error", fix: { kind: "auto" } });
+
+    await fixWriteYes(dir);
+    const config = readFileSync(configFile, "utf8");
+    expect(config).toContain('{ atomic: ["content.set:settings"] }, "events.emit:settings.updated", "events.relay"]');
+    expect(config).not.toContain("delivery.exportLlms");
+    expect(config).not.toContain("delivery.requestIndexes");
+    expect(await realPresetError(dir)).toBeUndefined();
+
+    const project = await loadProject(dir);
+    const box = sandboxBootInput(project.input, { dir });
+    const bootCheck = await checkBoot(box.input, { setup: box.setup });
+    expect(bootCheck.errors).toEqual([]);
+  }, 90_000);
 
   const eventPipelines = ["generateImageVariants", "publishPage", "unpublishPage", "reassignRevisionAuthor", "pageDependents", "mediaDependents", "syncPublicMedia"];
 

@@ -269,7 +269,7 @@ export const preset = definePreset({
 
   function deliveryContextFor(source: string): RuleContext {
     const updatePageSteps = ["authn.requireUser", { atomic: ["references.check:pages", "content.update:pages", "references.index:pages", "links.extract:pages"] }, "delivery.publish:pages", "delivery.exportLlms", "events.emit:page.updated", "events.relay"];
-    const publishPageSteps = ["delivery.publish:pages", "delivery.exportLlms"];
+    const publishPageSteps = ["delivery.publish:pages", "delivery.requestIndexes"];
     const project: LoadedProject = {
       input: {
         config: { modules: [], triggers: [{ pipeline: "publishPage", event: "page.updated" }], http: null },
@@ -295,10 +295,11 @@ export const preset = definePreset({
     };
   }
 
-  it("removes delivery.publish and delivery.exportLlms from a forward-ported override, automatically", async () => {
+  it("removes delivery.publish and delivery.exportLlms from a forward-ported override, automatically, once the relayed pipeline requests the index exports", async () => {
     const ctx = deliveryContextFor(DELIVERY_SOURCE);
     const [finding] = await overrideDeliveryRule.check(ctx);
     expect(finding?.fix.kind).toBe("auto");
+    expect(finding?.message).toContain('"delivery.exportLlms" is gone, and that pipeline runs "delivery.requestIndexes" in its place');
     if (finding?.fix.kind !== "auto") throw new Error("expected auto");
     let patched = DELIVERY_SOURCE;
     for (const edit of [...finding.fix.edits].sort((a, b) => b.start - a.start)) patched = patched.slice(0, edit.start) + edit.text + patched.slice(edit.end);
@@ -372,7 +373,7 @@ export const pipelines = [
         modules: [],
         pipelines: [
           { name: "customUpdatePage", steps: OWN_STEPS },
-          { name: "publishPage", steps: ["delivery.publish:pages", "delivery.exportLlms"] },
+          { name: "publishPage", steps: ["delivery.publish:pages", "delivery.requestIndexes"] },
         ],
       },
       kind: "kestrel-web",
@@ -393,6 +394,8 @@ export const pipelines = [
 
   it("asks, defaulting to remove, when an own pipeline double-publishes", async () => {
     const [finding] = await ownPipelineDeliveryRule.check(ownContextFor({}));
+    expect(finding?.message).toContain('"delivery.publish:pages", "delivery.exportLlms"');
+    expect(finding?.message).toContain('"delivery.exportLlms" is gone, and that pipeline runs "delivery.requestIndexes" in its place');
     expect(finding?.fix).toMatchObject({ kind: "ask", question: "own-pipeline-delivery:customUpdatePage", choices: ["remove", "keep"], defaultValue: "remove" });
   });
 
@@ -501,7 +504,7 @@ export const preset = definePreset({
         modules: [],
         pipelines: [
           { name: "updatePage", steps: COMBINED_STEPS },
-          { name: "publishPage", steps: ["delivery.publish:pages", "delivery.exportLlms"] },
+          { name: "publishPage", steps: ["delivery.publish:pages", "delivery.requestIndexes"] },
         ],
       },
       kind: "kestrel-web",

@@ -3,9 +3,9 @@ import { join } from "node:path";
 import { findCalls, firstArgument, objectProperty, parseTs, replaceModuleListEntry, span, stringValue, walk } from "@michaelthielemann/kestrel-upgrade/codemods";
 import type { Edit, LoadedProject, RuleContext, SwitchEditsResult } from "@michaelthielemann/kestrel-upgrade/plugin";
 import { boundaryCast } from "@michaelthielemann/kestrel/cast";
-import { lanesFor } from "../pipelines/checkPreset";
+import { delaysFor, lanesFor } from "../pipelines/checkPreset";
 import type { Feature, PresetOptions } from "../pipelines/checkPreset";
-import { PAGE_DELIVERY_PIPELINES, REFRESH_LLMS_PIPELINE, REPUBLISH_OUTPUT_PIPELINE, dependentsPipelineNames } from "../pipelines/features/delivery";
+import { PAGE_DELIVERY_PIPELINES, REFRESH_INDEXES_PIPELINE, REFRESH_LLMS_PIPELINE, REPUBLISH_OUTPUT_PIPELINE, dependentsPipelineNames } from "../pipelines/features/delivery";
 import { PATH_PIPELINES } from "../pipelines/paths";
 import { addStringToNamedExportArray, dependenciesRender, hasModuleEntry, setDependenciesRender } from "./edits";
 import { renderDependenciesText } from "./dependentsRules";
@@ -79,10 +79,18 @@ function importsEventsDirectLiteral(source: string): boolean {
   return source.includes(`"${EVENTS_DIRECT_PACKAGE}"`) || source.includes(`'${EVENTS_DIRECT_PACKAGE}'`);
 }
 
+function queuedFeatures(ctx: RuleContext): Feature[] {
+  return [...(presetOptionsCast(ctx)?.features ?? []), "eventsQueue"];
+}
+
 function queuedLanes(ctx: RuleContext): string {
-  const features: readonly Feature[] = presetOptionsCast(ctx)?.features ?? [];
-  const lanes = lanesFor([...features, "eventsQueue"]);
+  const lanes = lanesFor(queuedFeatures(ctx));
   return Object.entries(lanes).map(([lane, members]) => `${lane}: [${members.map((m) => `"${m}"`).join(", ")}]`).join(", ");
+}
+
+function queuedDelays(ctx: RuleContext): string {
+  const delays = Object.entries(delaysFor(queuedFeatures(ctx)));
+  return delays.length === 0 ? "" : `, delayMs: { ${delays.map(([pipeline, ms]) => `${pipeline}: ${ms}`).join(", ")} }`;
 }
 
 function presetModuleConfigReactsToFeatures(source: string): boolean {
@@ -111,7 +119,7 @@ function handWrittenModuleListEdit(ctx: RuleContext, relayPipelines: readonly st
   const source = ctx.readFile(ctx.project.configFile);
   if (source === undefined || !importsEventsDirectLiteral(source)) return undefined;
   if (presetModuleConfigReactsToFeatures(source)) return removeModuleListEntry(ctx.project.configFile, source, EVENTS_DIRECT_PACKAGE);
-  const config = `{ relayPipelines: [${relayPipelines.map((p) => `"${p}"`).join(", ")}], lanes: { ${queuedLanes(ctx)} } }`;
+  const config = `{ relayPipelines: [${relayPipelines.map((p) => `"${p}"`).join(", ")}], lanes: { ${queuedLanes(ctx)} }${queuedDelays(ctx)} }`;
   return replaceModuleListEntry(ctx.project.configFile, source, { use: EVENTS_DIRECT_PACKAGE, newUse: EVENTS_QUEUE_PACKAGE, config });
 }
 
@@ -136,7 +144,7 @@ function hasAtMostOneDeliveryModule(ctx: RuleContext): boolean {
  * locate makes the whole switch manual and names which one. That second part is left out entirely (not
  * offered, not required) when the project already has more than one delivery module — the features edit
  * alone then yields exactly one `events-queue` entry, from `presetModuleConfig()`'s own reactive one.
- * The replacing entry also gets the `lanes` of `lanesFor(features)`, and a `kestrel-delivery-static` entry
+ * The replacing entry also gets the `lanes` of `lanesFor(features)` and the `delayMs` of `delaysFor(features)`, and a `kestrel-delivery-static` entry
  * written literally in `kestrel.config.ts` gets `dependencies.render: "events"` as a part of its own, since
  * the preset refuses queue delivery with background renders. An override whose watched emit the queue's
  * default runs inside the write's group gets it placed there, as a part of its own
@@ -165,6 +173,7 @@ export async function layerSwitchEdits(ctx: RuleContext, relayPipelines: readonl
 
 const ALWAYS_IDEMPOTENT_PIPELINES: readonly string[] = [
   REPUBLISH_OUTPUT_PIPELINE,
+  REFRESH_INDEXES_PIPELINE,
   REFRESH_LLMS_PIPELINE,
   PAGE_DELIVERY_PIPELINES.publish,
   PAGE_DELIVERY_PIPELINES.unpublish,
@@ -185,8 +194,8 @@ function presetOptionsOf(project: LoadedProject): PresetOptions | undefined {
 /**
  * Every event-triggered pipeline of the preset's own that `offer/event-queue` can skip its
  * `idempotent:<pipeline>` question for, because the module that runs it already guarantees running it
- * twice for one event is safe: `republishOutput` and `refreshLlms` check the current row before writing
- * and are pure recomputations; `publishPage`/`unpublishPage` and each generic collection's own
+ * twice for one event is safe: `republishOutput` checks the current row before writing, and it,
+ * `refreshIndexes` and `refreshLlms` are pure recomputations; `publishPage`/`unpublishPage` and each generic collection's own
  * `<name>Dependents` (plus `settingsDependents`/`mediaDependents`) write through an optimistic version
  * check or a plain state overwrite, never an increment; `generateImageVariants` dedupes in-process by
  * media id and every write is itself state-checked; `auditAuth` and `anonymizeAuditUser` dedupe by the

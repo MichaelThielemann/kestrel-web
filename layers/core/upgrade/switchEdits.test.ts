@@ -111,12 +111,12 @@ describe("layerSwitchEdits", () => {
     expect(patched).not.toContain("kestrel-events-direct");
   });
 
-  it("gives the replacing events-queue entry the lanes its features need once it runs on the queue", async () => {
+  it("gives the replacing events-queue entry the lanes and delays its features need once it runs on the queue", async () => {
     const source = `import { defineConfig } from "@michaelthielemann/kestrel/defineConfig";\nexport default defineConfig({ modules: [{ use: "@michaelthielemann/kestrel-events-direct" }], triggers: [], http: null });\n`;
     const result = await layerSwitchEdits(contextFor({ files: { [CONFIG_FILE]: source }, features: ["delivery", "images"] }), ["publishPage", "unpublishPage"]);
     const edit = result.parts["kestrel.config.ts's hand-written events-direct entry"]![0]!;
     const patched = source.slice(0, edit.start) + edit.text + source.slice(edit.end);
-    expect(patched).toMatch(/lanes:\s*\{\s*pages:\s*\["republishOutput",\s*"refreshLlms"\],\s*variants:\s*\["generateImageVariants"\]\s*\}/);
+    expect(patched).toMatch(/lanes:\s*\{\s*pages:\s*\["republishOutput",\s*"refreshLlms"\],\s*indexes:\s*\["refreshIndexes"\],\s*variants:\s*\["generateImageVariants"\]\s*\},\s*delayMs:\s*\{\s*refreshIndexes:\s*1000,\s*refreshLlms:\s*3000\s*\}/);
   });
 
   it("switches a literal delivery-static entry to queue renders, as a part of its own", async () => {
@@ -170,7 +170,7 @@ function projectWith(data?: Record<string, unknown>): LoadedProject {
   };
 }
 
-const ALWAYS_IDEMPOTENT = ["republishOutput", "refreshLlms", "publishPage", "unpublishPage", "generateImageVariants", "auditAuth", "anonymizeAuditUser"];
+const ALWAYS_IDEMPOTENT = ["republishOutput", "refreshIndexes", "refreshLlms", "publishPage", "unpublishPage", "generateImageVariants", "auditAuth", "anonymizeAuditUser"];
 
 describe("layerIdempotentPipelines", () => {
   it("includes every pipeline the preset's own modules guarantee idempotent, plus each collection's dependents pipeline", () => {

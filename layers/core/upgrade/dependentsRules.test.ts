@@ -30,11 +30,17 @@ interface ProjectShape {
   problems?: { code: string; pipeline?: string; message: string }[];
   overrides?: Record<string, unknown>;
   exclude?: string[];
+  pipelines?: Record<string, PipelineEntry[]>;
+  triggers?: { event: string; pipeline: string }[];
 }
 
 function contextFor(shape: ProjectShape): RuleContext {
   const project: LoadedProject = {
-    input: { config: { modules: [], triggers: [], http: null }, modules: [], pipelines: Object.entries(shape.overrides ?? {}).map(([name, steps]) => definePipeline({ name, steps: stepsOf(steps) })) },
+    input: {
+      config: { modules: [], triggers: shape.triggers ?? [], http: null },
+      modules: [],
+      pipelines: Object.entries({ ...shape.pipelines, ...shape.overrides }).map(([name, steps]) => definePipeline({ name, steps: stepsOf(steps) })),
+    },
     kind: "kestrel-web",
     configFile: FILE,
     moduleFiles: new Map(),
@@ -216,14 +222,15 @@ describe("the layer's own media-path wiring (the publicPath/publicCopy/reservedP
 });
 
 describe("the lanes of a hand-written queue entry", () => {
-  const lanes = '{ pages: ["republishOutput", "refreshLlms"], variants: ["generateImageVariants"] }';
+  const lanes = '{ pages: ["republishOutput", "refreshLlms"], indexes: ["refreshIndexes"], variants: ["generateImageVariants"] }';
+  const delays = "{ refreshIndexes: 1000, refreshLlms: 3000 }";
 
   it("sets lanes to lanesFor(features), keeping the entry's own config", async () => {
     const source = `const modules = [{ use: "${QUEUE}", config: { pollMs: 200, relayPipelines: ["publishPage", "unpublishPage"] } }];\n`;
     const ctx = contextFor({ source, modules: [{ use: QUEUE, config: { pollMs: 200, relayPipelines: ["publishPage", "unpublishPage"] } }], features: ["eventsQueue", "delivery", "images"] });
     const findings = await queueLanesRule.check(ctx);
     expect(findings[0]?.fix.kind).toBe("auto");
-    expect(patched(source, findings)).toBe(`const modules = [{ use: "${QUEUE}", config: { pollMs: 200, relayPipelines: ["publishPage", "unpublishPage"], lanes: ${lanes} } }];\n`);
+    expect(patched(source, findings)).toBe(`const modules = [{ use: "${QUEUE}", config: { pollMs: 200, relayPipelines: ["publishPage", "unpublishPage"], lanes: ${lanes}, delayMs: ${delays} } }];\n`);
   });
 
   it("adds relayPipelines and lanes to an empty config in one edit that composes with the relay scope fix", async () => {
@@ -231,18 +238,52 @@ describe("the lanes of a hand-written queue entry", () => {
     const ctx = contextFor({ source, modules: [{ use: QUEUE, config: {} }], features: ["eventsQueue", "delivery", "images"] });
     const findings = [...(await relayScopeRule.check(ctx)), ...(await queueLanesRule.check(ctx))];
     expect(findings.map((f) => f.fix.kind)).toEqual(["auto", "auto"]);
-    expect(patched(source, findings)).toBe(`const modules = [{ use: "${QUEUE}", config: { relayPipelines: ["publishPage", "unpublishPage"], lanes: ${lanes} } }];\n`);
+    expect(patched(source, findings)).toBe(`const modules = [{ use: "${QUEUE}", config: { relayPipelines: ["publishPage", "unpublishPage"], lanes: ${lanes}, delayMs: ${delays} } }];\n`);
   });
 
   it("adds a config to an entry without one", async () => {
     const source = `const modules = [{ use: "${QUEUE}" }];\n`;
     const findings = await queueLanesRule.check(contextFor({ source, modules: [{ use: QUEUE }], features: ["eventsQueue", "delivery"] }));
-    expect(patched(source, findings)).toBe(`const modules = [{ use: "${QUEUE}", config: { relayPipelines: ["publishPage", "unpublishPage"], lanes: { pages: ["republishOutput", "refreshLlms"] } } }];\n`);
+    expect(patched(source, findings)).toBe(`const modules = [{ use: "${QUEUE}", config: { relayPipelines: ["publishPage", "unpublishPage"], lanes: { pages: ["republishOutput", "refreshLlms"], indexes: ["refreshIndexes"] }, delayMs: ${delays} } }];\n`);
+  });
+
+  it("adds the indexes lane to lanes that only lack it, and the missing delayMs, keeping the entry's own lanes", async () => {
+    const source = `const modules = [{ use: "${QUEUE}", config: { lanes: { pages: ["republishOutput", "refreshLlms"], mine: ["myPipeline"] } } }];\n`;
+    const ctx = contextFor({
+      source,
+      modules: [{ use: QUEUE, config: { lanes: { pages: ["republishOutput", "refreshLlms"], mine: ["myPipeline"] } } }],
+      features: ["eventsQueue", "delivery"],
+      problems: [{ code: "preset/index-exports-lane", pipeline: "refreshIndexes", message: "the index export needs its lane" }],
+    });
+    const findings = await queueLanesRule.check(ctx);
+    expect(findings).toHaveLength(1);
+    expect(findings[0]).toMatchObject({ severity: "error", fix: { kind: "auto" } });
+    expect(findings[0]?.message).toContain("the index export needs its lane");
+    expect(patched(source, findings)).toBe(`const modules = [{ use: "${QUEUE}", config: { lanes: { pages: ["republishOutput", "refreshLlms"], mine: ["myPipeline"], indexes: ["refreshIndexes"] }, delayMs: ${delays} } }];\n`);
+  });
+
+  it("adds a missing delayMs as a warning when the lanes are right, and says nothing once it is there", async () => {
+    const fullLanes = '{ pages: ["republishOutput", "refreshLlms"], indexes: ["refreshIndexes"] }';
+    const source = `const modules = [{ use: "${QUEUE}", config: { lanes: ${fullLanes} } }];\n`;
+    const config = { lanes: { pages: ["republishOutput", "refreshLlms"], indexes: ["refreshIndexes"] } };
+    const findings = await queueLanesRule.check(contextFor({ source, modules: [{ use: QUEUE, config }], features: ["eventsQueue", "delivery"] }));
+    expect(findings[0]).toMatchObject({ severity: "warning", fix: { kind: "auto" } });
+    expect(patched(source, findings)).toBe(`const modules = [{ use: "${QUEUE}", config: { lanes: ${fullLanes}, delayMs: ${delays} } }];\n`);
+    const complete = { ...config, delayMs: { refreshIndexes: 1000, refreshLlms: 3000 } };
+    expect(await queueLanesRule.check(contextFor({ source, modules: [{ use: QUEUE, config: complete }], features: ["eventsQueue", "delivery"] }))).toEqual([]);
+  });
+
+  it("stays manual when delayMs names a pipeline the preset does not compose", async () => {
+    const config = { lanes: { pages: ["republishOutput", "refreshLlms"], indexes: ["refreshIndexes"] }, delayMs: { refreshIndexes: 1000, refreshLlms: 3000, retired: 10 } };
+    const findings = await queueLanesRule.check(
+      contextFor({ source: "", modules: [{ use: QUEUE, config }], features: ["eventsQueue", "delivery"], problems: [{ code: "preset/delay-pipeline-unknown", pipeline: "retired", message: "retired is not composed" }] }),
+    );
+    expect(findings[0]).toMatchObject({ severity: "error", message: "retired is not composed", fix: { kind: "manual" } });
   });
 
   it("stays manual when the lanes exist but leave page renders or variants out, and says nothing when no lane is needed", async () => {
-    const source = `const modules = [{ use: "${QUEUE}", config: { lanes: {} } }];\n`;
-    const ctx = contextFor({ source, modules: [{ use: QUEUE, config: { lanes: {} } }], features: ["eventsQueue", "delivery"], problems: [{ code: "preset/page-renders-lane", message: "renders need their lane" }] });
+    const source = `const modules = [{ use: "${QUEUE}", config: { lanes: {}, delayMs: { refreshIndexes: 1000, refreshLlms: 3000 } } }];\n`;
+    const ctx = contextFor({ source, modules: [{ use: QUEUE, config: { lanes: {}, delayMs: { refreshIndexes: 1000, refreshLlms: 3000 } } }], features: ["eventsQueue", "delivery"], problems: [{ code: "preset/page-renders-lane", message: "renders need their lane" }] });
     const findings = await queueLanesRule.check(ctx);
     expect(findings[0]?.fix.kind).toBe("manual");
     expect(findings[0]?.message).toBe("renders need their lane");
@@ -259,6 +300,8 @@ describe("the lanes of a hand-written queue entry", () => {
         { code: "preset/generate-image-variants-lane", pipeline: "generateImageVariants", message: "b" },
         { code: "preset/render-mode-needs-events", message: "c" },
         { code: "preset/override-drops-watched-emit", pipeline: "setSettings", message: "d" },
+        { code: "preset/index-exports-lane", pipeline: "refreshIndexes", message: "f" },
+        { code: "preset/delay-pipeline-unknown", pipeline: "retired", message: "g" },
         { code: "preset/lane-pipeline-unknown", pipeline: "refreshLlms", message: "e" },
       ],
     });
@@ -294,12 +337,25 @@ describe("an override of setSettings", () => {
     { use: "@michaelthielemann/kestrel-events-direct" },
   ];
 
-  it("notes an inline llms.txt export as information", async () => {
-    const findings = await settingsLlmsRule.check(contextFor({ source, modules, features: [], overrides: { setSettings: override } }));
+  const emitting = ["authn.requireUser", "authz.require:settings.write", { atomic: ["content.set:settings"] }, "events.emit:settings.updated", "delivery.exportLlms?full=1", "events.relay"];
+  const emittingSource = `export const preset = definePreset({\n  overrides: {\n    setSettings: ["authn.requireUser", "authz.require:settings.write", { atomic: ["content.set:settings"] }, "events.emit:settings.updated", "delivery.exportLlms?full=1", "events.relay"],\n  },\n});\n`;
+  const dependents = { settingsDependents: ["delivery.markDependents:settings", "delivery.requestIndexes"] satisfies PipelineEntry[] };
+  const settingsTrigger = [{ event: "settings.updated", pipeline: "settingsDependents" }];
+
+  it("removes the export step delivery-static no longer has, as an error, when settingsDependents requests the index exports after the emit", async () => {
+    const ctx = contextFor({ source: emittingSource, modules, features: ["delivery"], overrides: { setSettings: emitting }, pipelines: dependents, triggers: settingsTrigger });
+    const findings = await settingsLlmsRule.check(ctx);
     expect(findings).toHaveLength(1);
-    expect(findings[0]?.severity).toBe("info");
-    expect(findings[0]?.where.pipeline).toBe("setSettings");
-    expect(await settingsLlmsRule.check(contextFor({ source, modules, features: [], overrides: { setSettings: override.slice(0, 4) } }))).toEqual([]);
+    expect(findings[0]).toMatchObject({ severity: "error", where: { pipeline: "setSettings" }, fix: { kind: "auto" } });
+    expect(patched(emittingSource, findings)).toBe(
+      `export const preset = definePreset({\n  overrides: {\n    setSettings: ["authn.requireUser", "authz.require:settings.write", { atomic: ["content.set:settings"] }, "events.emit:settings.updated", "events.relay"],\n  },\n});\n`,
+    );
+  });
+
+  it("says nothing without the export step, or when no pipeline on the emitted event requests the index exports", async () => {
+    const without = emitting.filter((step) => step !== "delivery.exportLlms?full=1");
+    expect(await settingsLlmsRule.check(contextFor({ source: emittingSource, modules, features: ["delivery"], overrides: { setSettings: without }, pipelines: dependents, triggers: settingsTrigger }))).toEqual([]);
+    expect(await settingsLlmsRule.check(contextFor({ source: emittingSource, modules, features: ["delivery"], overrides: { setSettings: emitting } }))).toEqual([]);
   });
 
   it("gets its write wrapped in the atomic group the default now has, automatically", async () => {
@@ -337,7 +393,7 @@ describe("an override of setSettings", () => {
     const collections = { settings: { kind: "single" as const, fields: {} }, pages: { kind: "multi" as const, fields: { slug: {}, title: {}, body: {}, status: {} } } };
     const direct = [...modules, { use: RENDERER }, { use: DELIVERY_STATIC, config: {} }];
     expect(checkPreset({ modules: direct, features: ["delivery"], collections, overrides: { setSettings: fixed } }).problems).toEqual([]);
-    const queued = [...modules.filter((m) => m.use !== "@michaelthielemann/kestrel-events-direct"), { use: QUEUE, config: { lanes: { pages: ["republishOutput", "refreshLlms"] } } }, { use: RENDERER }, { use: DELIVERY_STATIC, config: { dependencies: { render: "events" } } }];
+    const queued = [...modules.filter((m) => m.use !== "@michaelthielemann/kestrel-events-direct"), { use: QUEUE, config: { lanes: { pages: ["republishOutput", "refreshLlms"], indexes: ["refreshIndexes"] } } }, { use: RENDERER }, { use: DELIVERY_STATIC, config: { dependencies: { render: "events" } } }];
     expect(checkPreset({ modules: queued, features: ["delivery", "eventsQueue"], collections, overrides: { setSettings: fixed } }).problems).toEqual([]);
   });
 

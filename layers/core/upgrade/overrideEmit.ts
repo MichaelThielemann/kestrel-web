@@ -281,6 +281,18 @@ function misplacedEmitFindings(ctx: RuleContext, cast: PresetOptions, skip: Read
 }
 
 /**
+ * The rewrite `preset/override-emit` gives an override that drops a watched emit: one edit of its whole step
+ * array that also wraps the write in its atomic group. `preset/override-group` offers the same edit for such an
+ * override, so the two never leave two separate edits inside that array.
+ */
+export function droppedEmitRewrite(ctx: RuleContext, cast: PresetOptions, pipelineName: string): EmitRewrite {
+  const file = fileForPipeline(ctx, pipelineName);
+  const source = file === undefined ? undefined : ctx.readFile(file);
+  if (file === undefined || source === undefined) return { reason: "the override's file is not known" };
+  return rewriteOverrideEmits(file, source, pipelineName, defaultSteps(cast, pipelineName), ownSteps(ctx, cast, pipelineName));
+}
+
+/**
  * An override that drops an `events.emit:` step a dependents pipeline listens to (a 2.x `setSettings` or
  * `set<Name>` override never had one) stops the pages showing what it writes from being re-rendered, and the
  * preset refuses it. Adds the emit next to the write and `events.relay` after it, as the 3.0 default has
@@ -302,10 +314,7 @@ export const overrideEmitRule: Rule = {
       const id = `${RULE}:${pipelineName}`;
       const where = { pipeline: pipelineName };
       const docs = docsAnchor("preset-override-emit");
-      const file = fileForPipeline(ctx, pipelineName);
-      const source = file === undefined ? undefined : ctx.readFile(file);
-      const own = ownSteps(ctx, cast, pipelineName);
-      const rewrite = file === undefined || source === undefined ? { reason: "the override's file is not known" } : rewriteOverrideEmits(file, source, pipelineName, defaultSteps(cast, pipelineName), own);
+      const rewrite = droppedEmitRewrite(ctx, cast, pipelineName);
       return rewrite.edit === undefined
         ? manualFinding(id, RULE, where, problem.message, `add the emit next to the write, where the 3.0 default has it, and "events.relay" after it yourself (${rewrite.reason ?? "not located"})`, docs)
         : autoFinding(id, RULE, where, problem.message, "adds the emit next to the write and events.relay after it, as the 3.0 default has them, and drops an inline llms.txt export", [rewrite.edit], docs);
