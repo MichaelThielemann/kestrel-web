@@ -1140,6 +1140,15 @@ trash and is named in the answer's `skipped` with `reason: "referenced"`. `trash
 read a trashed or restored item. `schedules: { purgeExpiredMedia }` moves the nightly run; a schedule for it
 while the trash is off throws.
 
+In the admin, "Delete" in the media library and the media picker moves the selection to the trash without
+asking and offers "Undo" in a toast for 8 seconds (longer while the pointer or focus rests on it) to roles
+with `media.write`. It asks first only when a file, or a file inside a selected folder, is used by a page, or
+when the site tracks references and the role may not look them up. "Trash (n)" next to the folder path opens
+the trash: restore, delete permanently and empty, each item with the date it is deleted for good. A media
+field that holds a trashed item names it and says it is in the trash. Trashed files keep using storage until
+they are purged; with `media.trashRetentionDays: 0` the admin deletes for good after a dialog, as without
+the trash.
+
 ### Options
 
 `definePreset({ modules, features, collections?, collectionsUi?, overrides?, exclude?, schedules?, exportDir?, homeSlug? })`:

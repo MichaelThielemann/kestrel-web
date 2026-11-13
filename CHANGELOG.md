@@ -11,6 +11,14 @@
   selection, Space toggles, Ctrl/Cmd+A selects the page, Escape clears it (in the picker, a second Escape
   closes the dialog), Delete and Backspace delete. Search, sorting, paging and refreshes keep the visible
   part of the selection instead of clearing it.
+- Media trash in the admin: deleting in the media library or the picker moves the items to the trash with an
+  "Undo" toast (8 seconds, held while hovered or focused; only for roles with `media.write`). A dialog comes
+  first only when a page uses one of the files, a file inside a selected folder included, or when the use
+  could not be checked; it names the pages per file. "Trash (n)" beside the folder path opens the trash view
+  (`/admin/media?trash=1`): restore, delete permanently and empty, with each item's folder and the date it is
+  deleted for good; files still in use are kept and named. Removal runs in requests of at most 200 ids and
+  reports every item that was not removed, which stays selected. A single pick gives each file a "…" menu
+  with its delete entry. A media field names an item that lies in the trash and says so.
 - Admin kit: `KestrelUiBulkBar`, the toolbar the collection list and the media library share for a selection;
   toasts take an optional action (`push(type, message, { timeout, action: { label, run } })`) and pause while
   hovered or focused; `KestrelUiDialog` re-emits `openAutoFocus` and `escapeKeyDown`; `KestrelUiCheckbox`
@@ -815,6 +823,12 @@
 
 ### Changed
 
+- Media library and picker: "Delete" moves files and folders to the media trash instead of deleting them, so
+  their files keep using storage until the nightly purge, 30 days later by default
+  (`media.trashRetentionDays`; `0` keeps the final delete behind a dialog). A page that shows a trashed item
+  is published without it, and the item comes back with its URL on restore; when the page is re-rendered
+  between the two depends on `delivery`. Without the trash, the final delete now tries every selected item,
+  reports each failure and reloads once at the end instead of stopping at the first failure.
 - Redirects: `redirectRules` grants `from` next to `pattern`, `target` and `status`, so `GET
   /redirects.json` and `PublicRedirectRule` carry each rule's wildcard path; the `redirects.rules` schema
   refuses a `from` longer than 512 characters and more than 1000 rules. The Node origin matches `from` in time proportional to

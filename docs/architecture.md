@@ -810,8 +810,8 @@ collection, the expected filter and the fix in the message.
     click on a tile or row toggles it instead of selecting it alone or opening a folder; Ctrl/Cmd-click
     toggles and Shift-click selects a range at any time. Upload tiles are never selectable.
   - Bar. `MediaSelectionBar.vue` (on the kit's `BulkBar`) takes the toolbar's place in the library while
-    anything is selected: the count, "Select all n on this page", "Delete" when the role may delete
-    everything selected (not rendered otherwise) and "Clear selection". In a multi-pick it sits below the
+    anything is selected: the count, "Select all n on this page", "Move to trash" ("Delete" without the
+    trash) when the role may delete everything selected (not rendered otherwise) and "Clear selection". In a multi-pick it sits below the
     toolbar, so search and upload stay reachable, and "Use selected" stays in the footer. The upload panel
     and the follow-up line are not part of the toolbar and stay where they are.
   - Keyboard (`useMediaKeyboard()`, one listener on the listing). The tiles or rows are one tab stop
@@ -822,6 +822,29 @@ collection, the expected filter and the fix in the message.
     In the picker the first Escape clears the selection and the next one closes the dialog
     (`Dialog.vue`'s `escapeKeyDown`). The shortcuts are shown in the tooltips of the bar's buttons and
     exposed as `aria-keyshortcuts`.
+  - Removal (`useMediaBulkActions()`, one flow for the bar, the context menu, Delete/Backspace, the
+    viewer and the picker). With the `trashMedia` capability, the selection moves to the trash at once
+    through `trashItems` (`actions/mediaTrash.ts`) and a toast says how many items moved; it carries an
+    "Undo" action (`restoreItems` with the same ids) for roles that hold `restoreMedia` and stays 8 seconds,
+    longer while hovered or focused. Before that, `previewDeleteItems` (`actions/mediaPrecheck.ts`) looks up
+    the referrers of every file and of every file below a selected folder (`listMedia` with `folder` and
+    `recursive`), 200 ids per `mediaReferrersMany` request. `MediaDeleteDialog.vue` opens first only when a
+    file is in use, or when the site tracks references and the lookup did not finish (refused, failed or no
+    route for the role); it names the pages per file, starts on "Cancel" and shows progress with "Stop" once
+    a run takes more than one request. Items the server leaves alone (`skipped`) or whose request failed are
+    listed in the dialog by name and reason, stay in the listing and stay selected; the rest leave, and a
+    multi-pick forgets them. Without the trash the same dialog confirms the final delete (`deleteItems`).
+  - Single pick. Without checkboxes, every file tile and row has a "…" menu (the kit `ActionMenu`) whose
+    only entry deletes that file; the context menu stays.
+  - Trash. The path bar links to `/admin/media?trash=1` as "Trash (n)" for roles with `listMediaTrash`;
+    `pages/admin/media.vue` then renders `MediaTrash.vue` instead of the library. It lists one page of
+    trashed items (`MediaTrashTable.vue`: name, folder, trashed on, when it is deleted for good) with the
+    list selection (`useListSelection`) and the kit `BulkBar`: "Restore" runs at once and reports renamed
+    items in a toast, "Delete permanently" and "Empty trash" go through `MediaDeleteDialog.vue`, which keeps
+    items still in use listed as kept. A trashed item has no public copy, so the dialog shows type icons.
+  - Media field. An id the library no longer lists is looked up in the trash (`findTrashed()`, the 1000
+    most recently trashed items); a hit shows its name with "In the trash" and a warning that pages show
+    nothing in its place until it is restored.
 - Folder create/rename/move/delete, file rename/move, upload, and per-file meta/provenance edits are
   declared actions in `app/actions/media.ts` (`createFolder`, `renameOrMove`, `deleteItems`, `upload`,
   `setMediaMeta`, `setMediaProvenance`), called directly with `runAction` from `MediaLibrary.vue` and
@@ -843,7 +866,8 @@ a script `/* eslint-disable … */`) do not work there; a suppression that is ge
 site, not the admin UI.
 
 Kit inventory:
-- `ActionMenu.vue` — dropdown menu behind a caller-styled trigger button.
+- `ActionMenu.vue` — dropdown menu behind a caller-styled trigger button; `triggerTabindex` lets a roving
+  listing keep the trigger out of the tab order except on the active item.
 - `Alert.vue` — inline message box; `role="alert"` for warning/error, `role="status"` otherwise.
 - `Brand.vue` — the decorative product mark.
 - `Button.vue` — every button and button-shaped link (`to` renders a `NuxtLink`).
@@ -1214,6 +1238,8 @@ listed name is never registered.
 | `api.each` | `steps/api.ts` | One request per id, sequentially, with policy `'continue'` or `'stop'`, a per-item error hook and one report at the end. |
 | `media.each:files` / `media.each:folders` | `actions/media.ts` | The `api.each` factory under batch-specific names, so `deleteItems`'s file batch and its later folder batch log as distinct steps. |
 | `references.precheck` | `steps/api.ts` | One `GET /admin/references/to/{target}/{id}` per id, to warn before a delete. |
+| `media.precheck` | `actions/mediaPrecheck.ts` | The files below the folders being removed, then their referrers and those of the files, 200 ids per `mediaReferrersMany` request (one request per id without it); keeps the referrers per file and whether the lookup finished. |
+| `media.trash` / `media.restore` / `media.purge` / `media.emptyTrash` | `actions/mediaTrash.ts` | One request per block of at most 200 ids (one per folder for `media.trash`); collects `ids`, `skipped` and `renamed` from the answers and every id of a failed block, stops between blocks once the input's `signal` aborts and reports each block to `onProgress`. |
 | `form.reset` | `steps/form.ts` | Seeds `ctx.result` and clears form, field and row errors. |
 | `form.validate` | `steps/form.ts` | Runs client field validation and, only if that passes, client block validation. |
 | `form.setStatus` | `steps/form.ts` | Writes the requested status into the form before the save. |
@@ -1230,7 +1256,7 @@ listed name is never registered.
 | `route.navigate` | `steps/route.ts` | Awaits the `NavigatePort` with a path or a query destination. |
 | `list.refresh` | `steps/route.ts` | Awaits the `RefreshPort`. |
 | `data.reload` | `steps/route.ts` | The same factory under the name the media and system screens use. |
-| `data.reload:files` / `data.reload:folders` | `actions/media.ts` | A reload that only fires when its batch actually had items; `deleteItems` runs one for files, one for folders. |
+| `data.reload:media` | `actions/media.ts` | A reload that only fires when `deleteItems` had files or folders, once after both batches. |
 | `guard.filesDeleted` / `guard.foldersDeleted` | `actions/media.ts` | Fails `deleteItems`'s main sequence when the file batch, respectively the folder batch, reported any failure. |
 | `media.applyTargets` | `actions/media.ts` | Does the one write `renameOrMove` needs: a file rename, a folder rename, or a multi-target move. |
 | `upload.begin` / `upload.request` / `upload.settle` | `actions/media.ts` | Marks the queued item `'uploading'` (`progress` 0) and clears an earlier attempt's message and code; sends the multipart POST through the injected `useUploadTransport` transport with the caller's abort signal and a timeout from `uploadTimeoutMs()`, updating `progress` from its callback and switching to `'processing'` at 100% until the response arrives. A failure sets `'failed'`, the error code and a translated message: `media.upload.sessionExpired` for a 401, the refused content type or the file size and limit for a 415 or 413, the kestrel message without its `<module>/<name>:` prefix otherwise, and the HTTP status appended for an answer that did not come from kestrel; an abort sets `'cancelled'`. Then seeds `ctx.result` with the item. |
@@ -1268,8 +1294,12 @@ untouched — a document with extra sibling members (`_locales`, `_translations`
 | `bulkDelete` | `actions/list.ts` | `dialog.confirm`, `ops.busy:on`, `api.each`, `guard.anySucceeded`, `list.refresh`, `toast.success`; always `ops.busy:off` | `useListBatchActions.confirmDelete` |
 | `createFolder` | `actions/media.ts` | `ops.busy:on`, `api.request`, `data.reload`; always `ops.busy:off` | `MediaLibrary.vue`, new folder and drop |
 | `renameOrMove` | `actions/media.ts` | `ops.busy:on`, `media.applyTargets`, `data.reload`; always `ops.busy:off`, `toast.error` | `MediaLibrary.vue`, rename dialog and drag-and-drop |
-| `deleteItems` | `actions/media.ts` | `dialog.confirm`, `ops.busy:on`, `media.each:files`, `data.reload:files`, `guard.filesDeleted`, `media.each:folders`, `data.reload:folders`, `guard.foldersDeleted`, `toast.success`; always `ops.busy:off` | `MediaLibrary.vue`, delete dialog |
-| `previewDeleteItems` | `actions/media.ts` | `references.precheck` | `MediaLibrary.vue`, delete dialog preview |
+| `deleteItems` | `actions/media.ts` | `dialog.confirm`, `ops.busy:on`, `media.each:files` and `media.each:folders` (both try every item and hand the per-item report to the input's `report`), `data.reload:media`, `guard.filesDeleted`, `guard.foldersDeleted`, `toast.success`; always `ops.busy:off` | `useMediaBulkActions`, final delete without the trash |
+| `previewDeleteItems` | `actions/mediaPrecheck.ts` | `media.precheck` | `useMediaBulkActions`, before a move to the trash or a final delete |
+| `trashItems` | `actions/mediaTrash.ts` | `media.trash`, `data.reload` | `useMediaBulkActions` |
+| `restoreItems` | `actions/mediaTrash.ts` | `media.restore`, `data.reload` | the undo toast and `MediaTrash.vue` |
+| `purgeItems` | `actions/mediaTrash.ts` | `media.purge`, `data.reload` | `MediaTrash.vue`, "Delete permanently" |
+| `emptyTrash` | `actions/mediaTrash.ts` | `media.emptyTrash`, `data.reload` | `MediaTrash.vue`, "Empty trash" |
 | `upload` | `actions/media.ts` | `upload.begin`, `api.request`, `upload.settle` | `useMediaUpload`, once per queued file |
 | `setMediaMeta` | `actions/media.ts` | `ops.busy:on`, `api.request` (inline error only on failure, no toast either way), `data.reload`; always `ops.busy:off` | `MediaLibrary.vue`, media viewer save |
 | `setMediaProvenance` | `actions/media.ts` | `ops.busy:on`, `api.request` (inline error only on failure, no toast either way), `data.reload`; always `ops.busy:off` | `MediaLibrary.vue`, media viewer save |
