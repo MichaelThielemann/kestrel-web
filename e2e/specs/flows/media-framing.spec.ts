@@ -1,5 +1,5 @@
 import { AxeBuilder } from "@axe-core/playwright";
-import type { Locator, Page } from "@playwright/test";
+import type { APIRequestContext, Locator, Page } from "@playwright/test";
 import { idOf, isRecord, until, type Api } from "../../support/api.ts";
 import { ADMIN_STATE } from "../../support/env.ts";
 import { expect, test } from "../../support/fixtures.ts";
@@ -33,6 +33,16 @@ async function uploadRendered(api: Api, filename: string, color: [number, number
     return COVER_SIZES.every((size) => paths[size] !== undefined);
   });
   return { id, paths };
+}
+
+async function srcsetSizes(visitor: APIRequestContext, path: string, alt: string): Promise<string[]> {
+  const html = await (await visitor.get(path)).text();
+  const image = [...html.matchAll(/<img\b[^>]*>/g)].map((match) => match[0]).find((tag) => tag.includes(`alt="${alt}"`)) ?? "";
+  const srcset = /\ssrcset="([^"]*)"/.exec(image)?.[1] ?? "";
+  return srcset.split(",").flatMap((candidate) => {
+    const size = /\/variants\/([a-z][a-z0-9-]*)\.[a-z]+(?:\?v=[^\s]+)?\s+\d+w$/.exec(candidate.trim())?.[1];
+    return size === undefined ? [] : [size];
+  });
 }
 
 async function setFocus(editor: Locator, rect: { x: number; y: number; w: number; h: number }): Promise<void> {
@@ -201,4 +211,76 @@ test("the crop editor shows a WebP tagged as turned upright, as kestrel cuts it"
   const image = editor.locator(".ui-rect-select__image");
   await expect(image).toHaveAttribute("src", /\/variants\//);
   await expect.poll(() => image.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0 && img.naturalHeight / img.naturalWidth)).toBe(2);
+});
+
+test("a 3:2 image's srcset on a public page offers the uncut 3:2 cover variant with the whole-image widths, and leaves it out once that ratio is cut by hand", async ({ adminApi, visitor }) => {
+  const id = idOf(await adminApi.upload("framing-srcset.png", gradientPng(1200, 800, [90, 40, 160], [240, 240, 240])));
+  await until("the variants of framing-srcset.png", async () => {
+    const paths = await renderedPaths(adminApi, id);
+    return ["thumb", "small", "medium", "teaser"].every((size) => paths[size] !== undefined);
+  });
+  const alt = "Ein violetter Verlauf";
+  await adminApi.call("POST", "/pages", { locale: "de", slug: "bildsrcset", title: "Bild-srcset", status: "published", body: [{ id: "s1", type: "image", props: { image: id, alt } }] });
+  await expect.poll(async () => (await visitor.get("/bildsrcset")).status(), { timeout: 60_000 }).toBe(200);
+
+  const before = await srcsetSizes(visitor, "/bildsrcset", alt);
+  expect(before).toEqual(expect.arrayContaining(["thumb", "teaser", "small", "medium"]));
+  expect(before).not.toContain("avatar");
+
+  await adminApi.call("PUT", `/media/${id}/framing`, { crops: { "3:2": { x: 0, y: 0, w: 0.5, h: 0.5 } } });
+  await until("the teaser variant to show the manual crop", async () => {
+    const item = await adminApi.call("GET", `/media/${id}`);
+    const teaser = (Array.isArray(item.variants) ? item.variants.filter(isRecord) : []).find((variant) => variant.size === "teaser");
+    return teaser?.state === "done" && isRecord(teaser.crop) && teaser.crop.width === 600;
+  });
+  await expect.poll(() => srcsetSizes(visitor, "/bildsrcset", alt), { timeout: 60_000 }).not.toContain("teaser");
+  expect(await srcsetSizes(visitor, "/bildsrcset", alt)).toEqual(expect.arrayContaining(["thumb", "small", "medium"]));
+});
+
+test("the crop editor shows an upside-down WebP, whose width and height survive its orientation, from its whole-image variant only", async ({ page, adminApi }) => {
+  await page.goto("/admin/media");
+  const encoded = await page.evaluate(() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 800;
+    canvas.height = 400;
+    const context = canvas.getContext("2d");
+    if (context) {
+      context.fillStyle = "rgb(30, 90, 200)";
+      context.fillRect(0, 0, 800, 400);
+      context.fillStyle = "rgb(240, 240, 240)";
+      context.fillRect(0, 0, 200, 400);
+    }
+    return canvas.toDataURL("image/webp", 0.9);
+  });
+  const webp = withExifOrientation(Buffer.from(encoded.split(",")[1] ?? "", "base64"), 800, 400, 3);
+  const id = idOf(await adminApi.upload("framing-upside-down.webp", webp));
+  await until("the whole-image variants of framing-upside-down.webp", async () => {
+    const item = await adminApi.call("GET", `/media/${id}`);
+    const framing = isRecord(item.framing) ? item.framing : {};
+    const variants = Array.isArray(item.variants) ? item.variants.filter(isRecord) : [];
+    return framing.width === 800 && framing.height === 400 && variants.some((variant) => variant.size === "thumb" && variant.state === "done");
+  });
+
+  await page.reload();
+  await page.getByRole("button", { name: /^framing-upside-down\.webp/ }).dblclick();
+  await page.getByRole("dialog", { name: "framing-upside-down.webp" }).getByRole("button", { name: "Ausschnitt anpassen" }).click();
+  const editor = page.getByRole("dialog", { name: "Ausschnitt: framing-upside-down.webp" });
+  const image = editor.locator(".ui-rect-select__image");
+  await expect(image).toHaveAttribute("src", /\/variants\//);
+  await expect.poll(() => image.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
+  const light = await image.evaluate((img: HTMLImageElement) => {
+    const canvas = document.createElement("canvas");
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    const context = canvas.getContext("2d");
+    if (!context) return null;
+    context.drawImage(img, 0, 0);
+    const brightness = (x: number) => {
+      const [r = 0, g = 0, b = 0] = context.getImageData(Math.round(x * img.naturalWidth), Math.round(img.naturalHeight / 2), 1, 1).data;
+      return (r + g + b) / 3;
+    };
+    return { left: brightness(0.05), right: brightness(0.95) };
+  });
+  expect(light?.right).toBeGreaterThan(200);
+  expect(light?.left).toBeLessThan(160);
 });
