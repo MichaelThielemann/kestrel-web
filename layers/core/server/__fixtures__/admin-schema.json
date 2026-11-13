@@ -1151,6 +1151,10 @@
       "method": "PATCH",
       "path": "/media/:id"
     },
+    "setMediaFraming": {
+      "method": "PUT",
+      "path": "/media/:id/framing"
+    },
     "deleteMedia": {
       "method": "DELETE",
       "path": "/media/:id"

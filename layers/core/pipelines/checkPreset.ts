@@ -72,7 +72,7 @@ export const staticPipelineNames = [
   "publishPage", "unpublishPage", "pagePublishStatus", "publishAllPages",
   "pageDependents", "settingsDependents", "mediaDependents", "republishOutput", "refreshIndexes", "refreshLlms", "resumeStalePages", "deliveryBuildCheck", "retryStalePages", "pagesStaleStatus",
   "getRedirects", "setRedirects", "renderRedirects",
-  "serveImageVariant", "registerImageSizes", "registerImageSizesBoot", "listImageSizes", "syncImages", "pruneImages", "retryFailedImages", "imagesStatus", "planImageVariants", "generateImageVariants", "resumeImages",
+  "serveImageVariant", "registerImageSizes", "registerImageSizesBoot", "listImageSizes", "syncImages", "pruneImages", "retryFailedImages", "imagesStatus", "planImageVariants", "generateImageVariants", "resumeImages", "setMediaFraming",
   "replicate", "replicationStatus", "replicationPoints", "replicationSnapshot", "replicationRestore",
   "listMigrations", "applyMigrations",
   "auditAuth", "auditUsers", "anonymizeAuditUser", "setupSecondFactor", "secondFactorUsers", "resetSecondFactor", "forgetSecondFactor", "retryAnonymizeAuditUser", "pruneAudit",
@@ -778,6 +778,23 @@ export function buildPreset<C extends Record<string, CollectionModel> = Record<s
   const adminSchemaModel = pipelines.adminSchemaModel;
   if (adminSchemaModel !== undefined && !pipelineSteps(adminSchemaModel).includes("authz.describePipelineAccess")) {
     sink.report({ code: "preset/override-drops-schema-access", pipeline: "adminSchemaModel", message: 'preset: override for "adminSchemaModel" drops "authz.describePipelineAccess" – the admin reads the caller\'s pipeline access from it' });
+  }
+
+  const setMediaFraming = pipelines.setMediaFraming;
+  if (setMediaFraming !== undefined) {
+    const steps = pipelineSteps(setMediaFraming);
+    const stored = steps.indexOf("images.setFraming");
+    if (stored === -1 || !steps.slice(stored + 1).includes("images.generate")) {
+      sink.report({
+        code: "preset/set-media-framing-renders",
+        pipeline: "setMediaFraming",
+        message: 'preset: override for "setMediaFraming" must run "images.generate" after "images.setFraming" – the re-cut variants would wait for the repair pass',
+      });
+    }
+  }
+  for (const [name, entries] of Object.entries(pipelines)) {
+    if (name === "planImageVariants" || !emitsOf(entries).includes("images.planned")) continue;
+    sink.report({ code: "preset/images-planned-emitter", pipeline: name, message: `preset: override for "${name}" emits "images.planned" – only "planImageVariants" raises it` });
   }
 
   const generateImageVariants = pipelines.generateImageVariants;

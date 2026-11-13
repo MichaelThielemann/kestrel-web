@@ -69,6 +69,7 @@ export const canonicalTriggers: readonly TriggerEntry[] = [
   { trigger: { http: `GET ${MEDIA_PUBLIC_PATH}/:id/variants/:file`, pipeline: "serveImageVariant" }, feature: "images" },
   { trigger: { http: `GET ${MEDIA_PUBLIC_PATH}/:id/:name`, pipeline: "serveMediaFile" } },
   { trigger: { http: "PATCH /media/:id", pipeline: "updateMedia" } },
+  { trigger: { http: "PUT /media/:id/framing", pipeline: "setMediaFraming" }, feature: "images" },
   { trigger: { http: "DELETE /media/:id", pipeline: "deleteMedia" } },
   { trigger: { http: "PUT /admin/images/sizes", pipeline: "registerImageSizes" }, feature: "images" },
   { trigger: { http: "GET /admin/images/sizes", pipeline: "listImageSizes" }, feature: "images" },

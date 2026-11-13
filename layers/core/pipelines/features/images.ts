@@ -24,6 +24,7 @@ export default function images({ exportDir, eventsQueued, mediaTrash }: PresetCo
     imagesStatus: ["authn.requireUser", "authz.require:images.read", "images.readStatus"],
     generateImageVariants: ["images.generate"],
     resumeImages: ["images.resume"],
+    setMediaFraming: ["authn.requireUser", "authz.require:media.write", "images.setFraming", "images.generate", "media.get", "images.attach"],
   };
   const triggers: TriggerConfig[] = [];
   if (eventsQueued) {

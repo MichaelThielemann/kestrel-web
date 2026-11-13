@@ -841,6 +841,15 @@
       "media.serve",
       "authz.fields:mediaFile?shape=file"
     ],
+    "setMediaFraming": [
+      "authn.requireUser",
+      "authz.requireRole",
+      "authz.require:media.write",
+      "images.setFraming",
+      "images.generate",
+      "media.get",
+      "images.attach"
+    ],
     "setPassword": [
       "authn.requireUser",
       "authz.requireRole",
@@ -1248,6 +1257,10 @@
     {
       "http": "PATCH /media/:id",
       "pipeline": "updateMedia"
+    },
+    {
+      "http": "PUT /media/:id/framing",
+      "pipeline": "setMediaFraming"
     },
     {
       "http": "DELETE /media/:id",

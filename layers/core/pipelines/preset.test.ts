@@ -115,6 +115,47 @@ describe("definePreset image-variant queue guards", () => {
   });
 });
 
+describe("definePreset media framing", () => {
+  const directModules = [...baseModules, { use: "@michaelthielemann/kestrel-images-default" }];
+  const queuedModules = [...withQueueInsteadOfDirect(baseModules, VARIANT_LANES), { use: "@michaelthielemann/kestrel-images-default" }];
+  const framingSteps = ["authn.requireUser", "authz.requireRole", "authz.require:media.write", "images.setFraming", "images.generate", "media.get", "images.attach"];
+
+  it("stores the framing, renders the re-cut variants in the request and answers the item with its variants, in direct delivery", () => {
+    const preset = definePreset({ modules: directModules, features: ["images"] });
+    expect(preset.pipelines.find((pipeline) => pipeline.name === "setMediaFraming")?.steps).toEqual(framingSteps);
+    expect(preset.triggers).toContainEqual({ http: "PUT /media/:id/framing", pipeline: "setMediaFraming" });
+  });
+
+  it("composes the same pipeline with the queue and leaves images.planned to planImageVariants alone", () => {
+    const preset = definePreset({ modules: queuedModules, features: ["eventsQueue", "images"] });
+    expect(preset.pipelines.find((pipeline) => pipeline.name === "setMediaFraming")?.steps).toEqual(framingSteps);
+    const emitters = preset.pipelines.filter((pipeline) => pipelineSteps(pipeline.steps).includes("events.emit:images.planned")).map((pipeline) => pipeline.name);
+    expect(emitters).toEqual(["planImageVariants"]);
+  });
+
+  it("has no framing pipeline or route without the images feature", () => {
+    const preset = definePreset({ modules: baseModules, features: [] });
+    expect(preset.pipelines.some((pipeline) => pipeline.name === "setMediaFraming")).toBe(false);
+    expect(preset.triggers.some((trigger) => trigger.pipeline === "setMediaFraming")).toBe(false);
+  });
+
+  it("rejects an override for setMediaFraming that does not render after storing the framing", () => {
+    expect(() =>
+      definePreset({ modules: directModules, features: ["images"], overrides: { setMediaFraming: ["authn.requireUser", "authz.require:media.write", "images.setFraming", "media.get", "images.attach"] } }),
+    ).toThrow('preset: override for "setMediaFraming" must run "images.generate" after "images.setFraming" – the re-cut variants would wait for the repair pass');
+  });
+
+  it("rejects an override for setMediaFraming that emits images.planned, which only planImageVariants raises", () => {
+    expect(() =>
+      definePreset({
+        modules: queuedModules,
+        features: ["eventsQueue", "images"],
+        overrides: { setMediaFraming: ["authn.requireUser", "authz.require:media.write", "images.setFraming", "images.generate", "events.emit:images.planned", "events.relay"] },
+      }),
+    ).toThrow('preset: override for "setMediaFraming" emits "images.planned" – only "planImageVariants" raises it');
+  });
+});
+
 describe("definePreset relay pipeline selection", () => {
   const relayCollections: Record<string, CollectionModel> = {
     pages: { kind: "multi", fields: { slug: { type: "slug" }, title: {}, body: {}, status: {} } },

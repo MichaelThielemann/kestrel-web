@@ -105,6 +105,8 @@ describe("adminSchemaModel run to admin schema", () => {
     expect(schema.body.capabilities.deleteUser).toBeUndefined();
     expect(schema.body.capabilities.replicationStatus).toBeUndefined();
     expect(schema.body.capabilities.changePassword).toEqual({ method: "POST", path: "/me/password" });
+    expect(schema.body.capabilities.setMediaFraming).toEqual({ method: "PUT", path: "/media/:id/framing" });
+    expect(schema.body.capabilities.syncImages).toBeUndefined();
 
     const pages = schema.body.collections.find((collection) => collection.name === "pages");
     expect(pages?.capabilities.update).toEqual({ method: "PATCH", path: "/pages/:id" });

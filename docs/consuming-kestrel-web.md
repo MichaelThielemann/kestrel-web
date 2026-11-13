@@ -872,6 +872,11 @@ placeholder, which is what makes the item `available`; `generateImageVariants` (
 event it raises) then renders each size in the queue's `variants` lane, so a batch of uploads becomes
 usable file by file without waiting for the renders behind it. Every media module always answers its
 public URL directly: base pipeline `serveMediaFile` (`/media/:id/:name`) alongside `serveImageVariant`.
+`setMediaFraming` (`PUT /media/:id/framing`, `media.write`) stores an image's focus and its manual crops
+(`images.setFraming`), renders the `cover` variants whose cut changed within the request
+(`images.generate`) and answers the item like `getMedia`, with or without `eventsQueue`. It raises no
+`images.planned`, which `planImageVariants` alone emits; an override must keep `images.generate` after
+`images.setFraming`, or the re-cut variants wait for the `resumeImages` cron.
 
 **`delivery` details:** the three delivery steps are not steps of a page write pipeline any more.
 `createPage`, `updatePage`, `deletePage`, `deletePageTranslation` and `restorePageRevision` only emit
