@@ -11,6 +11,7 @@ const props = defineProps<{
   canRestore: boolean
   canPurge: boolean
   now: number
+  inUse: ReadonlySet<string>
 }>()
 const emit = defineEmits<{ toggleRow: [id: string, on: boolean]; toggleAll: [on: boolean]; restore: [ids: string[]]; purge: [ids: string[]] }>()
 
@@ -19,7 +20,7 @@ const DAY_MS = 86_400_000
 
 const trashedOn = (item: MediaTrashItem) => new Date(item.trashedAt).toLocaleString(lang.value, { dateStyle: 'medium', timeStyle: 'short' })
 const expiresIn = (item: MediaTrashItem) => {
-  const days = Math.max(0, Math.ceil((item.expiresAt - props.now) / DAY_MS))
+  const days = Math.ceil((item.expiresAt - props.now) / DAY_MS)
   return new Intl.RelativeTimeFormat(lang.value, { numeric: 'auto' }).format(days, 'day')
 }
 const expiresOn = (item: MediaTrashItem) => new Date(item.expiresAt).toLocaleDateString(lang.value, { dateStyle: 'medium' })
@@ -54,7 +55,11 @@ const origin = (item: MediaTrashItem) => (item.folder ? displayFolderPath(item.f
         </td>
         <td>{{ origin(item) }}</td>
         <td>{{ trashedOn(item) }}</td>
-        <td><time :datetime="new Date(item.expiresAt).toISOString()" :title="expiresOn(item)">{{ expiresIn(item) }}</time></td>
+        <td>
+          <span v-if="inUse.has(item.id)" class="media-trash-table__kept">{{ t('media.trash.keptInUse') }}</span>
+          <span v-else-if="item.expiresAt <= now">{{ t('media.trash.expiresNext') }}</span>
+          <time v-else :datetime="new Date(item.expiresAt).toISOString()" :title="expiresOn(item)">{{ expiresIn(item) }}</time>
+        </td>
         <td class="ui-table__col--actions">
           <div class="ui-table__actions">
             <KestrelUiButton v-if="canRestore" variant="ghost" size="sm" icon="rotate-ccw" :disabled="busy" :aria-label="t('media.trash.restoreItem', { name: item.filename })" @click="emit('restore', [item.id])" />
@@ -81,6 +86,9 @@ const origin = (item: MediaTrashItem) => (item.folder ? displayFolderPath(item.f
 }
 .media-trash-table__icon :deep(svg) { width: 1.25rem; height: 1.25rem; }
 .media-trash-table__file { overflow-wrap: anywhere; }
+.media-trash-table__kept { color: var(--color-text-muted); }
+.media-trash-table tbody tr.is-selected { background: var(--color-active); box-shadow: inset 2px 0 0 var(--color-primary); }
+.media-trash-table tbody tr:hover .media-trash-table__size { color: var(--color-text); }
 .media-trash-table__size {
   display: block;
   padding-inline-start: calc(1.5rem + var(--space-2));

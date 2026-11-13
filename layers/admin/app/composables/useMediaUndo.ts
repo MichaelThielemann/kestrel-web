@@ -1,4 +1,4 @@
-import { ref } from 'vue'
+import { ref, shallowRef } from 'vue'
 import { runAction } from '#kestrel-core/app/utils/actions'
 import { restoreItems, type BulkReport } from '../actions/mediaTrash'
 import { toastUnexpected } from '../actions/steps/notify'
@@ -11,13 +11,17 @@ export const UNDO_TIMEOUT_MS = 8000
 /** What the view shows in place of a toast: a message and, while it can still be undone, the undo. */
 export interface UndoNotice { type: RunMessage['type']; message: string; undo?: () => void }
 
-/** The undo of a move to the trash. In a toast by default; `inline` keeps the offer and the outcome in `notice` for the view to show, which a modal dialog needs because a toast outside it is out of reach. The restore reloads every mounted media view, not only the one that offered it. */
+/** An offer kept back while a dialog is open: its message and, where the role may restore, the undo. */
+export interface HeldUndo { message: string; undo?: () => void }
+
+/** The undo of a move to the trash. In a toast by default; `inline` keeps the offer and the outcome in `notice` for the view to show, which a modal dialog needs because a toast outside it is out of reach. An offer made with `hold` waits in `held` for a dialog to show: `runHeld` undoes it from there, and `release` makes the usual offer once the dialog closed. The restore reloads every mounted media view, not only the one that offered it. */
 export function useMediaUndo(opts: { inline: boolean }) {
   const deps = useActionDeps()
   const capabilities = useCapabilities()
   const toasts = useToast()
   const { t } = useT()
   const notice = ref<UndoNotice | null>(null)
+  const held = shallowRef<HeldUndo | null>(null)
 
   function say(messages: RunMessage[], undo?: () => void) {
     if (!messages.length) return
@@ -32,9 +36,22 @@ export function useMediaUndo(opts: { inline: boolean }) {
     }
   }
 
-  function offer(message: string, ids: readonly string[], names: ReadonlyMap<string, string>) {
+  function offer(message: string, ids: readonly string[], names: ReadonlyMap<string, string>, opts: { hold?: boolean } = {}) {
     const undo = ids.length && capabilities.has('restoreMedia') ? () => { void run(ids, names) } : undefined
-    say([{ type: 'success', message }], undo)
+    if (opts.hold) held.value = { message, ...(undo ? { undo } : {}) }
+    else say([{ type: 'success', message }], undo)
+  }
+
+  function release() {
+    const offered = held.value
+    held.value = null
+    if (offered) say([{ type: 'success', message: offered.message }], offered.undo)
+  }
+
+  function runHeld() {
+    const offered = held.value
+    held.value = null
+    offered?.undo?.()
   }
 
   async function run(ids: readonly string[], names: ReadonlyMap<string, string>) {
@@ -48,7 +65,10 @@ export function useMediaUndo(opts: { inline: boolean }) {
     if (report) say(restoreMessages(t, report, (id) => names.get(id) ?? id))
   }
 
-  function dismiss() { notice.value = null }
+  function dismiss() {
+    notice.value = null
+    held.value = null
+  }
 
-  return { notice, offer, dismiss }
+  return { notice, held, offer, release, runHeld, dismiss }
 }

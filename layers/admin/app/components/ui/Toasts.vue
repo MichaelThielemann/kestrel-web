@@ -5,6 +5,11 @@ const toasts = useToast()
 const { t } = useT()
 const { target: portalTarget } = useAdminPortal()
 
+function spoken(toast: { message: string; action?: { label: string } }): string {
+  if (!toast.action) return toast.message
+  return t('toast.withAction', { message: toast.message.replace(/[.!?]$/, ''), action: toast.action.label })
+}
+
 function onFocusOut(id: number, e: FocusEvent) {
   const toast = e.currentTarget
   const next = e.relatedTarget
@@ -20,12 +25,12 @@ onUnmounted(() => toasts.clear())
     <div class="admin-portal">
       <div class="ui-toasts__live" aria-live="polite" role="status">
         <template v-for="toast in toasts.items" :key="`p-${toast.id}`">
-          <div v-if="toast.type !== 'error'">{{ toast.message }}</div>
+          <div v-if="toast.type !== 'error'">{{ spoken(toast) }}</div>
         </template>
       </div>
       <div class="ui-toasts__live" aria-live="assertive" role="alert">
         <template v-for="toast in toasts.items" :key="`a-${toast.id}`">
-          <div v-if="toast.type === 'error'">{{ toast.message }}</div>
+          <div v-if="toast.type === 'error'">{{ spoken(toast) }}</div>
         </template>
       </div>
       <div class="ui-toasts" role="region" :aria-label="t('toast.region')">

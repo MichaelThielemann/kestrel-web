@@ -19,7 +19,7 @@ const trashCapabilities: AdminSchema['capabilities'] = {
   restoreMedia: { method: 'POST', path: '/media/trash/restore' },
   listMediaTrash: { method: 'GET', path: '/media/trash' },
 }
-const schema: AdminSchema = { locales: { all: ['en'], primary: 'en', prefixPrimary: false }, collections: [], features: [], capabilities: { ...trashCapabilities } }
+const schema: AdminSchema = { locales: { all: ['en'], primary: 'en', prefixPrimary: false }, collections: [], features: [], capabilities: { ...trashCapabilities }, mediaTrash: true }
 mockNuxtImport('useSchema', () => () => ({
   schema: computed(() => schema),
   error: computed(() => null),
@@ -138,6 +138,7 @@ beforeEach(async () => {
   useToast().clear()
   schema.capabilities = { ...trashCapabilities }
   schema.features = []
+  schema.mediaTrash = true
   unregisterAll.push(registerEndpoint('/api/admin/schema', { method: 'GET', handler: () => schema }))
   unregisterAll.push(registerEndpoint('/api/limits', { method: 'GET', handler: () => ({ maxUploadBytes: null }) }))
   serve()
@@ -322,6 +323,46 @@ describe('MediaLibrary final delete without the trash', () => {
       listMediaFolders: trashCapabilities.listMediaFolders!, listMedia: trashCapabilities.listMedia!,
       deleteMedia: trashCapabilities.deleteMedia!, deleteMediaFolder: trashCapabilities.deleteMediaFolder!,
     }
+    delete schema.mediaTrash
+  })
+
+  it('keeps the in-use warning of the current dialog when the check of an earlier one answers late', async () => {
+    files = [media('f1', 'a.jpg'), media('f2', 'b.jpg')]
+    schema.features = ['references']
+    schema.capabilities.mediaReferrersMany = { method: 'GET', path: '/admin/references/to/media' }
+    let releaseFirst = () => {}
+    const first = new Promise<void>((resolve) => { releaseFirst = resolve })
+    let firstAnswered = false
+    unregisterAll.push(registerEndpoint('/api/admin/references/to/media', {
+      method: 'GET',
+      handler: async (event) => {
+        const ids = String(getQuery(event).ids)
+        if (ids === 'f1') {
+          await first
+          firstAnswered = true
+          return {}
+        }
+        return { f2: [{ type: 'pages', field: 'hero', id: 'p1' }] }
+      },
+    }))
+    const wrapper = await mountLibrary()
+    await vi.waitFor(() => expect(wrapper.find('[data-test="file-f2"]').exists()).toBe(true))
+
+    await select(wrapper, 'a.jpg')
+    await barButton(wrapper, en['media.selection.delete'])?.trigger('click')
+    await vi.waitFor(() => expect(dialog()).toBeTruthy())
+    dialogButton(en['common.cancel'])?.click()
+    await vi.waitFor(() => expect(dialog()).toBeNull())
+
+    await wrapper.findAll<HTMLInputElement>('input[type="checkbox"]').find((b) => b.attributes('aria-label') === text('media.selection.selectItem', { name: 'a.jpg' }))?.setValue(false)
+    await select(wrapper, 'b.jpg')
+    await barButton(wrapper, en['media.selection.delete'])?.trigger('click')
+    await vi.waitFor(() => expect(dialog()?.querySelector('.media-remove__in-use')?.textContent).toContain('b.jpg'))
+
+    releaseFirst()
+    await vi.waitFor(() => expect(firstAnswered).toBe(true))
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    expect(dialog()?.querySelector('.media-remove__in-use')?.textContent).toContain('b.jpg')
   })
 
   it('stops after the request under way when Stop is pressed, and keeps the dialog to say so', async () => {

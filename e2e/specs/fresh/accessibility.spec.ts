@@ -37,10 +37,24 @@ test("the media library with a selection has no WCAG 2.2 AA violation", async ({
   expect(await violations(page)).toEqual([]);
 });
 
-test("the media trash has no WCAG 2.2 AA violation", async ({ page }) => {
+test("the media trash has no WCAG 2.2 AA violation, empty, with an item and with a selection", async ({ page, seed, adminApi }) => {
   await page.goto("/admin/media?trash=1");
   await expect(page.getByRole("heading", { name: "Papierkorb" })).toBeVisible();
   expect(await violations(page)).toEqual([]);
+
+  await adminApi.call("POST", "/media/trash", { ids: [seed.spare] });
+  try {
+    await page.reload();
+    await expect(page.getByRole("button", { name: "Papierkorb leeren" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "spare.png wiederherstellen" })).toBeVisible();
+    expect(await violations(page)).toEqual([]);
+
+    await page.getByRole("checkbox", { name: /^spare\.png auswählen$/ }).check();
+    await expect(page.getByRole("toolbar", { name: "1 Element ausgewählt" })).toBeVisible();
+    expect(await violations(page)).toEqual([]);
+  } finally {
+    await adminApi.call("POST", "/media/trash/restore", { ids: [seed.spare] });
+  }
 });
 
 test("the settings have no WCAG 2.2 AA violation", async ({ page }) => {

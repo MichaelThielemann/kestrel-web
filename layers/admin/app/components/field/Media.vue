@@ -6,6 +6,7 @@ import { fieldIs } from '#kestrel-admin/types/kestrel'
 import { commonFolder } from '#kestrel-admin/utils/library'
 import { isDisclosed, provenanceLabelKey, provenanceOrigin } from '#kestrel-admin/utils/provenance'
 import { isInsertable } from '#kestrel-admin/utils/media-insert'
+import { onMediaChanged, onMediaRemoved } from '#kestrel-admin/composables/useMediaChanges'
 
 const props = defineProps<FieldComponentProps>()
 const model = defineModel<string | string[] | null>()
@@ -37,8 +38,7 @@ function removeId(id: string) {
   else model.value = null
 }
 
-watch(ids, async (list) => {
-  const missing = list.filter((id) => !(id in meta.value))
+async function resolve(missing: string[]) {
   if (!missing.length) return
   for (const id of missing) meta.value[id] = null
   if (!capabilities.has('listMedia')) return
@@ -50,7 +50,20 @@ watch(ids, async (list) => {
   } catch {
     return
   }
-}, { immediate: true })
+}
+
+watch(ids, (list) => resolve(list.filter((id) => !(id in meta.value))), { immediate: true })
+
+function reresolve(changed: readonly string[]) {
+  const held = ids.value.filter((id) => changed.includes(id))
+  if (!held.length) return
+  const keep = <T>(record: Record<string, T>) => Object.fromEntries(Object.entries(record).filter(([id]) => !held.includes(id)))
+  meta.value = keep(meta.value)
+  trashed.value = keep(trashed.value)
+  return resolve(held)
+}
+onMediaRemoved(reresolve)
+onMediaChanged(({ restored }) => reresolve(restored))
 
 const resolved = computed(() => ids.value.map((id) => ({ id, item: meta.value[id] ?? null })))
 const storedHint = computed(() => (resolved.value.some((r) => r.item !== null && !isInsertable(r.item)) ? t('field.media.storedProcessing') : ''))

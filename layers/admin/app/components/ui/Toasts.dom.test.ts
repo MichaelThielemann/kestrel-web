@@ -21,6 +21,15 @@ describe('Toasts', () => {
     wrapper.unmount()
   })
 
+  it('tells the polite live region that a toast carries an action', async () => {
+    const wrapper = await mountSuspended(Toasts, { attachTo: document.body })
+    useToast().push('success', '2 items moved to the trash', { timeout: 8000, action: { label: 'Undo', run: () => {} } })
+    await nextTick()
+
+    expect(document.body.querySelector('.ui-toasts__live[role="status"]')?.textContent?.trim()).toBe('2 items moved to the trash. Undo available in the notifications.')
+    wrapper.unmount()
+  })
+
   it('renders the action as a button that runs it and dismisses the toast', async () => {
     const run = vi.fn()
     const wrapper = await mountSuspended(Toasts, { attachTo: document.body })

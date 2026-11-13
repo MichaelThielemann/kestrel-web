@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onUnmounted, ref } from 'vue'
 import { focusLost } from '../composables/useMediaKeyboard'
+import { useMediaViewSwitch } from '../composables/useMediaViewSwitch'
 import { countMessage } from '../utils/media-removal'
 
 const { t } = useT()
@@ -10,7 +11,8 @@ const heading = ref<HTMLElement | null>(null)
 let actedAt = 0
 let focusTimer: ReturnType<typeof setTimeout> | null = null
 const trash = useMediaTrash({ onSettled: () => { void nextTick(() => { focusTimer = setTimeout(returnFocus, 0) }) } })
-const { items, total, page, perPage, totalPages, loading, busy, error, dialog, selection } = trash
+const { items, total, page, perPage, totalPages, loading, busy, error, dialog, selection, inUse } = trash
+useMediaViewSwitch(root, () => heading.value)
 
 const now = ref(Date.now())
 const clock = setInterval(() => { now.value = Date.now() }, 60_000)
@@ -66,7 +68,7 @@ function onKeydown(e: KeyboardEvent) {
     <div v-else class="media-trash__table">
       <KestrelMediaTrashTable
         :items="items" :selected="selection.selected" :all-selected="selection.allSelected.value" :header-indeterminate="selection.headerIndeterminate.value"
-        :busy="busy" :can-restore="trash.canRestore.value" :can-purge="trash.canPurge.value" :now="now"
+        :busy="busy" :can-restore="trash.canRestore.value" :can-purge="trash.canPurge.value" :now="now" :in-use="inUse"
         @toggle-row="selection.toggleRow" @toggle-all="selection.toggleAll" @restore="onRestore" @purge="onPurge"
       />
     </div>

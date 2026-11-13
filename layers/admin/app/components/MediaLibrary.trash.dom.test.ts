@@ -1,13 +1,14 @@
 import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { getQuery, readBody } from 'h3'
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
-import { computed } from 'vue'
+import { computed, defineComponent, h, nextTick, ref } from 'vue'
 import type { VueWrapper } from '@vue/test-utils'
 import { boundaryCast } from '#kestrel/cast'
 import { en } from '#kestrel-admin/i18n/en'
 import type { AdminSchema, MediaItem } from '#kestrel-admin/types/api'
 import type { Feature } from '#kestrel/pipelines'
 import MediaLibrary from './MediaLibrary.vue'
+import MediaTrash from './MediaTrash.vue'
 
 const trashCapabilities: AdminSchema['capabilities'] = {
   listMediaFolders: { method: 'GET', path: '/media/folders' },
@@ -19,7 +20,7 @@ const trashCapabilities: AdminSchema['capabilities'] = {
   restoreMedia: { method: 'POST', path: '/media/trash/restore' },
   listMediaTrash: { method: 'GET', path: '/media/trash' },
 }
-const schema: AdminSchema = { locales: { all: ['en'], primary: 'en', prefixPrimary: false }, collections: [], features: [], capabilities: { ...trashCapabilities } }
+const schema: AdminSchema = { locales: { all: ['en'], primary: 'en', prefixPrimary: false }, collections: [], features: [], capabilities: { ...trashCapabilities }, mediaTrash: true }
 mockNuxtImport('useSchema', () => () => ({
   schema: computed(() => schema),
   error: computed(() => null),
@@ -84,6 +85,7 @@ beforeEach(async () => {
   useToast().clear()
   schema.capabilities = { ...trashCapabilities }
   schema.features = []
+  schema.mediaTrash = true
   unregisterAll.push(registerEndpoint('/api/admin/schema', { method: 'GET', handler: () => schema }))
   unregisterAll.push(registerEndpoint('/api/limits', { method: 'GET', handler: () => ({ maxUploadBytes: null }) }))
   await useSchema().load()
@@ -197,6 +199,69 @@ describe('MediaLibrary with the trash', () => {
     expect(wrapper.get('[data-test="file-f2"]').attributes('aria-pressed')).toBe('true')
   })
 
+  it('offers the undo inside the result dialog and hands it to a toast once the dialog closes', async () => {
+    serve([media('f1', 'a.jpg'), media('f2', 'b.jpg')], (ids) => ({ ids: ids.filter((id) => id !== 'f2'), skipped: [{ id: 'f2', reason: 'not_found' }] }))
+    const wrapper = await mountLibrary()
+    await vi.waitFor(() => expect(wrapper.find('[data-test="file-f2"]').exists()).toBe(true))
+
+    await select(wrapper, 'a.jpg')
+    await select(wrapper, 'b.jpg')
+    await barButton(wrapper, en['media.selection.trash'])?.trigger('click')
+
+    await vi.waitFor(() => expect(dialog()?.textContent).toContain(en['media.remove.title.partial']))
+    expect(dialog()?.textContent).toContain(en['media.trash.moved'])
+    expect(dialogButton(en['media.trash.undo'])).toBeDefined()
+    expect(useToast().items.some((item) => item.action)).toBe(false)
+
+    dialogButton(en['media.remove.close'])?.click()
+    await vi.waitFor(() => expect(dialog()).toBeNull())
+    const toast = useToast().items.find((item) => item.message === en['media.trash.moved'])
+    expect(toast?.action?.label).toBe(en['media.trash.undo'])
+  })
+
+  it('undoes from inside the result dialog, which closes it', async () => {
+    serve([media('f1', 'a.jpg'), media('f2', 'b.jpg')], (ids) => ({ ids: ids.filter((id) => id !== 'f2'), skipped: [{ id: 'f2', reason: 'not_found' }] }))
+    const wrapper = await mountLibrary()
+    await vi.waitFor(() => expect(wrapper.find('[data-test="file-f2"]').exists()).toBe(true))
+    await select(wrapper, 'a.jpg')
+    await select(wrapper, 'b.jpg')
+    await barButton(wrapper, en['media.selection.trash'])?.trigger('click')
+    await vi.waitFor(() => expect(dialogButton(en['media.trash.undo'])).toBeDefined())
+
+    dialogButton(en['media.trash.undo'])?.click()
+
+    await vi.waitFor(() => expect(dialog()).toBeNull())
+    await vi.waitFor(() => expect(posted.at(-1)).toEqual({ path: '/media/trash/restore', body: { ids: ['f1'] } }))
+    await vi.waitFor(() => expect(wrapper.find('[data-test="file-f1"]').exists()).toBe(true))
+    expect(useToast().items.some((item) => item.message === en['media.trash.moved'])).toBe(false)
+  })
+
+  it('hides Delete from a role that may delete for good but not move to the trash', async () => {
+    schema.capabilities = { ...trashCapabilities }
+    delete schema.capabilities.trashMedia
+    delete schema.capabilities.trashMediaFolder
+    serve([media('f1', 'a.jpg')])
+    const wrapper = await mountLibrary()
+    await vi.waitFor(() => expect(wrapper.find('[data-test="file-f1"]').exists()).toBe(true))
+
+    await select(wrapper, 'a.jpg')
+    expect(barButton(wrapper, en['media.selection.trash'])).toBeUndefined()
+    expect(barButton(wrapper, en['media.selection.delete'])).toBeUndefined()
+  })
+
+  it('moves to the trash for a role that may trash but not delete for good', async () => {
+    schema.capabilities = { ...trashCapabilities }
+    delete schema.capabilities.deleteMedia
+    delete schema.capabilities.deleteMediaFolder
+    serve([media('f1', 'a.jpg')])
+    const wrapper = await mountLibrary()
+    await vi.waitFor(() => expect(wrapper.find('[data-test="file-f1"]').exists()).toBe(true))
+
+    await select(wrapper, 'a.jpg')
+    await barButton(wrapper, en['media.selection.trash'])?.trigger('click')
+    await vi.waitFor(() => expect(posted).toEqual([{ path: '/media/trash', body: { ids: ['f1'] } }]))
+  })
+
   it('drops a trashed pick so it is never confirmed into the field', async () => {
     serve([media('f1', 'a.jpg'), media('f2', 'b.jpg')])
     const wrapper = await mountLibrary({ pick: true, multiple: true })
@@ -221,5 +286,36 @@ describe('MediaLibrary with the trash', () => {
     const trigger = wrapper.find(`button[aria-label="${text('media.menu.more', { name: 'a.jpg' })}"]`)
     expect(trigger.exists()).toBe(true)
     expect(wrapper.find('[data-test="media-trash-entry"]').exists()).toBe(false)
+  })
+})
+
+describe('MediaLibrary and the trash view switching', () => {
+  it('puts focus on the trash heading after the trash entry was pressed, and on the library after the way back', async () => {
+    serve([media('f1', 'a.jpg')])
+    trashed.add('f0')
+    const showTrash = ref(false)
+    const Host = defineComponent({ setup: () => () => (showTrash.value ? h(MediaTrash) : h(MediaLibrary)) })
+    const wrapper = await mountSuspended(Host, { attachTo: document.body })
+    onTestFinished(() => wrapper.unmount())
+    await vi.waitFor(() => expect(wrapper.find('[data-test="media-trash-entry"]').exists()).toBe(true))
+
+    boundaryCast<HTMLElement>(wrapper.get('[data-test="media-trash-entry"]').element, 'dom').focus()
+    showTrash.value = true
+    await nextTick()
+    await vi.waitFor(() => expect(document.activeElement?.textContent).toBe(en['media.trash.title']))
+
+    boundaryCast<HTMLElement>(wrapper.get('[data-test="media-trash-back"]').element, 'dom').focus()
+    showTrash.value = false
+    await nextTick()
+    await vi.waitFor(() => expect(document.activeElement?.classList.contains('media-library')).toBe(true))
+  })
+
+  it('leaves focus alone when a view mounts without the other one handing over', async () => {
+    serve([media('f1', 'a.jpg')])
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
+    const trashView = await mountSuspended(MediaTrash, { attachTo: document.body })
+    onTestFinished(() => trashView.unmount())
+    await vi.waitFor(() => expect(trashView.text()).toContain(en['media.trash.empty']))
+    expect(document.activeElement).toBe(document.body)
   })
 })

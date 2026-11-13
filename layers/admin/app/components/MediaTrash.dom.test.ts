@@ -1,5 +1,5 @@
 import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
-import { getQuery, readBody } from 'h3'
+import { createError, getQuery, readBody } from 'h3'
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { computed } from 'vue'
 import type { VueWrapper } from '@vue/test-utils'
@@ -38,6 +38,7 @@ const text = (key: keyof typeof en, params: Record<string, string | number> = {}
 const unregisterAll: (() => void)[] = []
 const posted: { path: string; body: unknown }[] = []
 let items: MediaTrashItem[] = []
+let gate: Promise<void> | null = null
 
 function post(path: string, answer: (ids: string[]) => unknown) {
   unregisterAll.push(registerEndpoint(`/api${path}`, {
@@ -45,6 +46,7 @@ function post(path: string, answer: (ids: string[]) => unknown) {
     handler: async (event) => {
       const body = boundaryCast<{ ids?: string[] }>(await readBody(event), 'json')
       posted.push({ path, body })
+      if (gate) await gate
       return answer(body.ids ?? items.map((item) => item.id))
     },
   }))
@@ -52,6 +54,7 @@ function post(path: string, answer: (ids: string[]) => unknown) {
 
 beforeEach(async () => {
   posted.length = 0
+  gate = null
   items = [trashedItem('f1', 'a.png', 'docs'), trashedItem('f2', 'b.png')]
   useToast().clear()
   schema.capabilities = { ...capabilities }
@@ -210,5 +213,76 @@ describe('MediaTrash', () => {
     onTestFinished(() => wrapper.unmount())
 
     await vi.waitFor(() => expect(wrapper.get('[data-test="media-trash-back"]').attributes('href')).toBe('/admin/media?folder=events'))
+  })
+
+  it('keeps Cancel, disabled, while a single request runs, since nothing is left to stop between requests', async () => {
+    let release = () => {}
+    gate = new Promise((resolve) => { release = resolve })
+    const wrapper = await mountTrash()
+    await button(wrapper, en['media.trash.emptyAll'])?.trigger('click')
+    await vi.waitFor(() => expect(dialog()).toBeTruthy())
+    dialogButton(en['media.remove.confirm.empty'])?.click()
+    await vi.waitFor(() => expect(posted).toHaveLength(1))
+
+    expect(dialogButton(en['media.remove.stop'])).toBeUndefined()
+    const cancel = document.body.querySelector<HTMLButtonElement>('[data-test="remove-cancel"]')
+    expect(cancel?.textContent?.trim()).toBe(en['common.cancel'])
+    expect(cancel?.disabled).toBe(true)
+
+    release()
+    await vi.waitFor(() => expect(dialog()).toBeNull())
+  })
+
+  it('names a failed empty after the trash, not with an empty title', async () => {
+    unregisterAll.push(registerEndpoint('/api/media/trash/empty', { method: 'POST', handler: () => { throw createError({ statusCode: 503, statusMessage: 'unavailable' }) } }))
+    const wrapper = await mountTrash()
+    await button(wrapper, en['media.trash.emptyAll'])?.trigger('click')
+    dialogButton(en['media.remove.confirm.empty'])?.click()
+
+    await vi.waitFor(() => expect(dialog()?.textContent).toContain(en['media.remove.title.partial']))
+    const titles = Array.from(dialog()?.querySelectorAll('.media-remove__problems .ui-progress-row__title') ?? []).map((el) => el.textContent?.trim())
+    expect(titles).toEqual([en['media.trash.title']])
+  })
+
+  it('names an item the empty kept by its file name, also when it is not on the page shown', async () => {
+    items = Array.from({ length: 30 }, (_, i) => trashedItem(`t${i}`, `t${i}.png`))
+    unregisterAll.push(registerEndpoint('/api/media/trash', {
+      method: 'GET',
+      handler: (event) => {
+        const query = getQuery(event)
+        const offset = Number(query.offset ?? 0)
+        const limit = Number(query.limit ?? 25)
+        return { items: items.slice(offset, offset + limit), total: items.length }
+      },
+    }))
+    unregisterAll.push(registerEndpoint('/api/media/trash/empty', {
+      method: 'POST',
+      handler: () => {
+        const kept = items.filter((item) => item.id === 't29')
+        const ids = items.filter((item) => item.id !== 't29').map((item) => item.id)
+        items = [...items.slice(0, 26).filter((item) => item.id !== 't29'), ...kept]
+        return { ids, skipped: kept.map((item) => ({ id: item.id, reason: 'referenced' })) }
+      },
+    }))
+    const wrapper = await mountSuspended(MediaTrash, { attachTo: document.body })
+    onTestFinished(() => wrapper.unmount())
+    await vi.waitFor(() => expect(wrapper.findAll('tbody tr')).toHaveLength(25))
+    await button(wrapper, en['media.trash.emptyAll'])?.trigger('click')
+    dialogButton(en['media.remove.confirm.empty'])?.click()
+
+    await vi.waitFor(() => expect(dialog()?.textContent).toContain(en['media.remove.title.partial']))
+    await vi.waitFor(() => expect(dialog()?.querySelector('.media-remove__problems')?.textContent).toContain('t29.png'))
+  })
+
+  it('says an item in use stays instead of promising a date, and an expired one goes with the next cleanup', async () => {
+    schema.capabilities.mediaReferrersMany = { method: 'GET', path: '/admin/references/to/media' }
+    unregisterAll.push(registerEndpoint('/api/admin/references/to/media', { method: 'GET', handler: () => ({ f2: [{ type: 'pages', field: 'hero', id: 'p1' }] }) }))
+    items = [{ ...trashedItem('f1', 'a.png'), expiresAt: Date.now() - DAY }, trashedItem('f2', 'b.png')]
+    const wrapper = await mountTrash()
+
+    await vi.waitFor(() => expect(wrapper.findAll('tbody tr')[1]?.text()).toContain(en['media.trash.keptInUse']))
+    expect(wrapper.findAll('tbody tr')[1]?.find('time').exists()).toBe(false)
+    expect(wrapper.findAll('tbody tr')[0]?.text()).toContain(en['media.trash.expiresNext'])
+    expect(wrapper.findAll('tbody tr')[0]?.text()).not.toContain(new Intl.RelativeTimeFormat('en', { numeric: 'auto' }).format(0, 'day'))
   })
 })

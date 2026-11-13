@@ -23,6 +23,8 @@ export interface RemovalDialogState {
   nonEmptyFolders: boolean
   /** Blocks sent so far; shown only when there is more than one. */
   progress: { done: number; total: number } | null
+  /** A stop can still take effect: the run has another request to send after the one under way. */
+  stoppable: boolean
   failures: RemovalProblem[]
   skipped: RemovalProblem[]
   cancelled: boolean
@@ -31,7 +33,7 @@ export interface RemovalDialogState {
 }
 
 export function removalState(mode: RemovalMode, init: Partial<RemovalDialogState> = {}): RemovalDialogState {
-  return { mode, files: 0, folders: 0, entries: [], unverified: false, nonEmptyFolders: false, progress: null, failures: [], skipped: [], cancelled: false, finished: false, ...init }
+  return { mode, files: 0, folders: 0, entries: [], unverified: false, nonEmptyFolders: false, progress: null, stoppable: false, failures: [], skipped: [], cancelled: false, finished: false, ...init }
 }
 
 /** "3 files and 1 folder", "1 file", "2 folders". */

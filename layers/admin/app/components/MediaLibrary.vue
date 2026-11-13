@@ -6,6 +6,7 @@ import { isPickGated } from '../utils/media-insert'
 import type { SelectMods } from '../composables/useMediaSelection'
 import { focusLost, gridCells, gridColumns } from '../composables/useMediaKeyboard'
 import { onMediaChanged } from '../composables/useMediaChanges'
+import { useMediaViewSwitch } from '../composables/useMediaViewSwitch'
 import { countMessage } from '../utils/media-removal'
 
 const props = defineProps<{ pick?: boolean; multiple?: boolean; accept?: 'image' | 'any'; initialFolder?: string; initialSelected?: string[] }>()
@@ -120,6 +121,7 @@ const { contextMenu, onContextMenu, onMenuSelect, tileMenu, onTileMenu } = useMe
 })
 
 onMounted(() => { if (mode === 'library') void trashCount.refresh() })
+if (mode === 'library') useMediaViewSwitch(mediaLibraryRef, () => mediaLibraryRef.value)
 
 const trashEntry = computed(() => `/admin/media?trash=1${folder.value ? `&folder=${encodeURIComponent(folder.value)}` : ''}`)
 
@@ -188,8 +190,8 @@ defineExpose({ clearSelection: selection.clearListed })
     />
     <KestrelUiAlert v-if="opError && !removal.open.value && !renameOpen && !viewerOpen && !newFolderOpen" variant="error">{{ opError }}</KestrelUiAlert>
     <KestrelMediaDeleteDialog
-      :state="removal.state.value" :busy="opsBusy" :error="opError" :conflict="opConflict"
-      @confirm="removal.confirm" @cancel="() => { removal.cancel(); if (!opsBusy) opConflict = null }"
+      :state="removal.state.value" :busy="opsBusy" :error="opError" :conflict="opConflict" :undo="removal.heldUndo.value"
+      @confirm="removal.confirm" @cancel="() => { removal.cancel(); if (!opsBusy) opConflict = null }" @undo="removal.undoHeld"
     />
     <KestrelMediaRenameDialog
       :open="renameOpen" :name="renameName" :kind="renameTarget?.type" :busy="opsBusy" :error="opError"

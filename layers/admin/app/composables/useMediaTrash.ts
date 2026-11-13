@@ -1,8 +1,9 @@
 import { computed, onMounted, ref } from 'vue'
-import type { MediaTrashItem, MediaTrashPage } from '#kestrel-admin/types/api'
+import type { MediaTrashItem, MediaTrashPage, ReferenceTo } from '#kestrel-admin/types/api'
 import { DEFAULT_PER_PAGE, clampPerPage } from '#kestrel-admin/utils/kestrel'
 import { runAction } from '#kestrel-core/app/utils/actions'
-import { emptyTrash, purgeItems, restoreItems, type BulkReport } from '../actions/mediaTrash'
+import { inBlocks } from '../actions/mediaPrecheck'
+import { WHOLE_TRASH, emptyTrash, purgeItems, restoreItems, type BulkReport } from '../actions/mediaTrash'
 import { toastUnexpected } from '../actions/steps/notify'
 import type { ApiClient } from '../actions/types'
 import type { CapabilityResolver } from '../utils/capabilities'
@@ -43,7 +44,22 @@ export async function findTrashed(api: ApiClient, capabilities: CapabilityResolv
   return found
 }
 
-/** The media trash view: one page of trashed items, a selection of them, restoring at once and deleting for good after a dialog. `onSettled` runs once a restore or a final delete is over and its dialog closed, so the view can put focus back. */
+/** The ids among `ids` that pages still use, looked up in blocks; empty without the lookup or when it fails. */
+export async function referencedIds(api: ApiClient, capabilities: CapabilityResolver, ids: readonly string[]): Promise<Set<string>> {
+  const used = new Set<string>()
+  if (!ids.length || !capabilities.has('mediaReferrersMany')) return used
+  try {
+    for (const block of inBlocks(ids)) {
+      const found = await api<Record<string, ReferenceTo[]>>(capabilities.route('mediaReferrersMany'), { query: { ids: block.join(',') } })
+      for (const id of block) if (found[id]?.length) used.add(id)
+    }
+  } catch {
+    used.clear()
+  }
+  return used
+}
+
+/** The media trash view: one page of trashed items, which of them pages still use, a selection of them, restoring at once and deleting for good after a dialog. Stop is offered only while another request is left to send. A kept item off the page shown is named by a lookup in the trash. `onSettled` runs once a restore or a final delete is over and its dialog closed, so the view can put focus back. */
 export function useMediaTrash(opts: { onSettled?: () => void } = {}) {
   const api = useAdminApi()
   const capabilities = useCapabilities()
@@ -60,6 +76,7 @@ export function useMediaTrash(opts: { onSettled?: () => void } = {}) {
   const busy = ref(false)
   const error = ref<string | null>(null)
   const dialog = ref<RemovalDialogState | null>(null)
+  const inUse = ref<ReadonlySet<string>>(new Set())
   const totalPages = computed(() => Math.max(1, Math.ceil(total.value / perPage.value)))
   const selection = useListSelection(computed(() => items.value))
   let pending: string[] = []
@@ -70,7 +87,8 @@ export function useMediaTrash(opts: { onSettled?: () => void } = {}) {
   const canPurge = computed(() => capabilities.has('purgeMedia'))
   const canEmpty = computed(() => capabilities.has('emptyMediaTrash'))
   let names = new Map<string, string>()
-  const nameOf = (id: string) => names.get(id) ?? items.value.find((item) => item.id === id)?.filename ?? id
+  const knownName = (id: string) => names.get(id) ?? items.value.find((item) => item.id === id)?.filename
+  const nameOf = (id: string) => (id === WHOLE_TRASH ? t('media.trash.title') : (knownName(id) ?? id))
 
   async function load() {
     const my = ++token
@@ -83,6 +101,7 @@ export function useMediaTrash(opts: { onSettled?: () => void } = {}) {
       if (my !== token) return
       items.value = res.items
       total.value = res.total
+      void referencedIds(api, capabilities, res.items.map((item) => item.id)).then((used) => { if (my === token) inUse.value = used })
       const listed = new Set(res.items.map((item) => item.id))
       for (const id of [...selection.selected]) if (!listed.has(id)) selection.selected.delete(id)
       if (!res.items.length && page.value > 1) {
@@ -126,35 +145,48 @@ export function useMediaTrash(opts: { onSettled?: () => void } = {}) {
   function askEmpty() {
     if (!canEmpty.value || !total.value) return
     pending = []
+    names = new Map(items.value.map((item) => [item.id, item.filename]))
     dialog.value = removalState('empty', { files: total.value })
   }
 
   function onProgress(done: number, all: number) {
-    if (dialog.value && all > 1) dialog.value = { ...dialog.value, progress: { done, total: all } }
+    if (dialog.value && all > 1) dialog.value = { ...dialog.value, progress: { done, total: all }, stoppable: done < all - 1 }
   }
 
   async function confirm() {
     const current = dialog.value
     if (!current || current.finished || busy.value) return
     busy.value = true
-    controller = new AbortController()
+    const purging = current.mode !== 'empty'
+    controller = purging ? new AbortController() : null
+    dialog.value = { ...current, stoppable: purging && inBlocks(pending).length > 1 }
     const reported: { report?: BulkReport } = {}
     const report = (rep: BulkReport) => { reported.report = rep }
     const r = current.mode === 'empty'
       ? await runAction(emptyTrash, { deps, refresh: load, report })
-      : await runAction(purgeItems, { deps, ids: pending, refresh: load, signal: controller.signal, onProgress, report })
-    busy.value = false
+      : await runAction(purgeItems, { deps, ids: pending, refresh: load, signal: controller?.signal, onProgress, report })
     controller = null
     toastUnexpected(deps, r)
     const outcome = (r.ok ? r.result : undefined) ?? reported.report
+    if (outcome?.skipped.length) await nameKept(outcome)
+    busy.value = false
     if (outcome) settle(outcome)
+  }
+
+  async function nameKept(report: BulkReport) {
+    const unknown = report.skipped.map((s) => s.id).filter((id) => id !== WHOLE_TRASH && knownName(id) === undefined)
+    try {
+      for (const [id, filename] of await findTrashed(api, capabilities, unknown)) names.set(id, filename)
+    } catch {
+      return
+    }
   }
 
   function settle(report: BulkReport) {
     if (report.done.length) toasts.success(countMessage(t, 'media.trash.purged', report.done.length))
     const problems = reportProblems(t, report, nameOf)
     if (problems.failures.length || problems.skipped.length || problems.cancelled) {
-      if (dialog.value) dialog.value = { ...dialog.value, ...problems, progress: null, finished: true }
+      if (dialog.value) dialog.value = { ...dialog.value, ...problems, progress: null, stoppable: false, finished: true }
       return
     }
     dialog.value = null
@@ -162,8 +194,8 @@ export function useMediaTrash(opts: { onSettled?: () => void } = {}) {
   }
 
   function cancel() {
-    if (controller) {
-      controller.abort()
+    if (busy.value) {
+      if (dialog.value?.stoppable) controller?.abort()
       return
     }
     const settled = dialog.value?.finished === true
@@ -175,7 +207,7 @@ export function useMediaTrash(opts: { onSettled?: () => void } = {}) {
   onMediaChanged(() => load())
 
   return {
-    items, total, page, perPage, totalPages, loading, busy, error, dialog, selection,
+    items, total, page, perPage, totalPages, loading, busy, error, dialog, selection, inUse,
     canRestore, canPurge, canEmpty, load, setPage, setPerPage, restore, askPurge, askEmpty, confirm, cancel,
   }
 }

@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import type { ReferenceTo } from '#kestrel-admin/types/api'
+import type { HeldUndo } from '../composables/useMediaUndo'
 import { itemCountLabel, type RemovalDialogState } from '../utils/media-removal'
 
-const props = defineProps<{ state: RemovalDialogState | null; busy?: boolean; error?: string | null; conflict?: ReferenceTo[] | null }>()
-const emit = defineEmits<{ confirm: [boolean]; cancel: [] }>()
+const props = defineProps<{ state: RemovalDialogState | null; busy?: boolean; error?: string | null; conflict?: ReferenceTo[] | null; undo?: HeldUndo | null }>()
+const emit = defineEmits<{ confirm: [boolean]; cancel: []; undo: [] }>()
 
 const { t } = useT()
 const PREVIEW = 4
@@ -27,7 +28,9 @@ const problems = computed(() => [
   ...(props.state?.skipped ?? []).map((p) => ({ ...p, kept: true })),
 ])
 const progress = computed(() => props.state?.progress ?? null)
-const cancelLabel = computed(() => (props.busy ? t('media.remove.stop') : props.state?.finished ? t('media.remove.close') : t('common.cancel')))
+const stoppable = computed(() => props.busy === true && props.state?.stoppable === true)
+const cancelLabel = computed(() => (stoppable.value ? t('media.remove.stop') : props.state?.finished ? t('media.remove.close') : t('common.cancel')))
+const held = computed(() => (props.state?.finished ? (props.undo ?? null) : null))
 
 const recursive = ref(false)
 watch(() => props.state === null, (closed) => { if (closed) recursive.value = false })
@@ -71,6 +74,7 @@ function onOpenAutoFocus(e: Event) {
           :status="p.kept ? { text: t('media.remove.kept'), icon: 'info', tone: 'muted' } : { text: t('media.remove.failed'), icon: 'circle-x', tone: 'danger' }" />
       </div>
       <p v-if="state.cancelled" class="media-remove__muted">{{ t('media.remove.cancelled') }}</p>
+      <p v-if="held" class="media-remove__moved">{{ held.message }}</p>
       <div v-if="conflict?.length" class="media-remove__in-use">
         <p class="media-remove__heading">{{ t('refs.conflictAfterPrecheck') }}</p>
         <KestrelReferrerList :refs="conflict" />
@@ -78,7 +82,8 @@ function onOpenAutoFocus(e: Event) {
       <KestrelUiAlert v-else-if="error && !problems.length" variant="error">{{ error }}</KestrelUiAlert>
     </template>
     <template #footer>
-      <KestrelUiButton ref="cancelButton" variant="ghost" data-test="remove-cancel" @click="emit('cancel')">{{ cancelLabel }}</KestrelUiButton>
+      <KestrelUiButton v-if="held?.undo" variant="ghost" icon="rotate-ccw" data-test="remove-undo" @click="emit('undo')">{{ t('media.trash.undo') }}</KestrelUiButton>
+      <KestrelUiButton ref="cancelButton" variant="ghost" data-test="remove-cancel" :disabled="busy && !stoppable" @click="emit('cancel')">{{ cancelLabel }}</KestrelUiButton>
       <KestrelUiButton v-if="!state?.finished" variant="danger" :loading="busy" :disabled="busy" @click="emit('confirm', recursive)">{{ confirmLabel }}</KestrelUiButton>
     </template>
   </KestrelUiDialog>
@@ -135,5 +140,7 @@ function onOpenAutoFocus(e: Event) {
   margin-top: var(--space-2);
 }
 .media-remove__progress,
-.media-remove__problems { margin-top: var(--space-3); }
+.media-remove__problems,
+.media-remove__moved { margin-top: var(--space-3); }
+.media-remove__moved { margin-bottom: 0; font-size: var(--text-sm); }
 </style>

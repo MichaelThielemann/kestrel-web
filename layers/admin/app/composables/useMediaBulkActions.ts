@@ -2,7 +2,7 @@ import { computed, ref, type Ref } from 'vue'
 import type { MediaItem } from '#kestrel-admin/types/api'
 import { runAction } from '#kestrel-core/app/utils/actions'
 import { deleteItems, type DeleteItemsResult } from '../actions/media'
-import { needsWarning, previewDeleteItems, type DeletePrecheck } from '../actions/mediaPrecheck'
+import { inBlocks, needsWarning, previewDeleteItems, type DeletePrecheck } from '../actions/mediaPrecheck'
 import { trashItems, type BulkReport } from '../actions/mediaTrash'
 import { toastUnexpected } from '../actions/steps/notify'
 import type { ActionDeps, BusyPort, RefreshPort } from '../actions/types'
@@ -10,6 +10,7 @@ import { folderIsEmpty } from '../utils/library'
 import { countMessage, removalState, reportProblems, trashOutcome, type RemovalDialogState, type RemovalEntry, type RemovalProblem, type TrashOutcome } from '../utils/media-removal'
 import { resolveFileTargets, type OpItem } from '../utils/ops'
 import { referencedBy } from '../utils/references'
+import { notifyMediaRemoved } from './useMediaChanges'
 import { useMediaUndo } from './useMediaUndo'
 
 export interface UseMediaBulkActionsOptions {
@@ -35,15 +36,14 @@ const folderPathsOf = (items: OpItem[]) => items.flatMap((item) => (item.type ==
 const entryOf = (file: MediaItem, refs: RemovalEntry['refs'] = []): RemovalEntry => ({ id: file.id, name: file.filename, path: file.path, contentType: file.contentType, refs })
 const isBelow = (file: MediaItem, paths: readonly string[]) => paths.some((p) => file.folder === p || file.folder.startsWith(`${p}/`))
 
-/** Removing media from the library and the picker. With the trash, files and folders move there at once with an undo; a dialog comes first only when a file is in use or its use could not be checked. Without the trash, a dialog confirms the final delete. Both runs can be stopped between requests. Every item is reported: removed ones leave the listing, failed ones stay and stay selected. */
+/** Removing media from the library and the picker. With the trash composed on the site, files and folders move there at once with an undo; a dialog comes first only when a file is in use or its use could not be checked. Without the trash, a dialog confirms the final delete. A run in a dialog can be stopped between requests, so Stop is offered only while another request is left to send. Every item is reported: removed ones leave the listing, failed ones stay and stay selected. When a move ends in the dialog with something left to report, its undo waits in that dialog and goes to the usual toast or notice once the dialog closes. Only the latest request's reference check counts. */
 export function useMediaBulkActions(opts: UseMediaBulkActionsOptions) {
-  const capabilities = useCapabilities()
   const { has: hasFeature } = useFeatures()
   const { schema } = useSchema()
   const { t } = useT()
   const undo = useMediaUndo({ inline: opts.inlineUndo === true })
 
-  const trashing = computed(() => capabilities.has('trashMedia'))
+  const trashing = computed(() => schema.value?.mediaTrash === true)
   const state = ref<RemovalDialogState | null>(null)
   let targets: OpItem[] = []
   let listed: MediaItem[] = []
@@ -51,10 +51,10 @@ export function useMediaBulkActions(opts: UseMediaBulkActionsOptions) {
   let entries: RemovalEntry[] = []
   let fromViewer = false
   let controller: AbortController | null = null
+  let request = 0
 
   const nameOf = (id: string) => entries.find((e) => e.id === id)?.name ?? opts.files.value.find((f) => f.id === id)?.filename ?? id
   const counts = () => ({ files: fileIdsOf(targets).length, folders: folderPathsOf(targets).length })
-  const canTrash = (folderPaths: string[]) => trashing.value && (folderPaths.length === 0 || capabilities.has('trashMediaFolder'))
 
   async function precheck(listFolders: boolean): Promise<DeletePrecheck> {
     const deps = opts.deps()
@@ -73,6 +73,7 @@ export function useMediaBulkActions(opts: UseMediaBulkActionsOptions) {
 
   async function askRemove(items: OpItem[], origin: 'menu' | 'viewer' = 'menu') {
     if (!items.length || !opts.canDeleteTargets(items) || opts.ops.busy()) return
+    const my = ++request
     opts.ops.setError?.(null)
     undo.dismiss()
     fromViewer = origin === 'viewer'
@@ -80,17 +81,18 @@ export function useMediaBulkActions(opts: UseMediaBulkActionsOptions) {
     listed = resolveFileTargets(items, opts.files.value)
     below = []
     entries = listed.map((f) => entryOf(f))
-    const folderPaths = folderPathsOf(items)
-    if (!canTrash(folderPaths)) {
-      const nonEmptyFolders = folderPaths.some((path) => !folderIsEmpty(path, opts.folderCounts.value))
+    if (!trashing.value) {
+      const nonEmptyFolders = folderPathsOf(items).some((path) => !folderIsEmpty(path, opts.folderCounts.value))
       state.value = removalState('delete', { ...counts(), entries, nonEmptyFolders })
       const report = await precheck(true)
+      if (my !== request) return
       entries = withReferences(report)
       if (state.value?.mode === 'delete') state.value = { ...state.value, entries, unverified: needsWarning(report) && !report.checked }
       return
     }
     opts.ops.setBusy(true)
     const report = await precheck(false).finally(() => opts.ops.setBusy(false))
+    if (my !== request) return
     entries = withReferences(report)
     if (!needsWarning(report)) {
       await moveToTrash()
@@ -100,27 +102,35 @@ export function useMediaBulkActions(opts: UseMediaBulkActionsOptions) {
   }
 
   function onProgress(done: number, total: number) {
-    if (state.value && total > 1) state.value = { ...state.value, progress: { done, total } }
+    if (state.value && total > 1) state.value = { ...state.value, progress: { done, total }, stoppable: done < total - 1 }
+  }
+
+  function startRun(requests: number): AbortSignal {
+    const run = new AbortController()
+    controller = run
+    if (state.value) state.value = { ...state.value, stoppable: requests > 1 }
+    return run.signal
   }
 
   async function moveToTrash() {
     const deps = opts.deps()
     const before = new Map(opts.folderCounts.value)
     const reported: { report?: BulkReport } = {}
-    controller = new AbortController()
+    const signal = startRun(inBlocks(fileIdsOf(targets)).length + folderPathsOf(targets).length)
     opts.ops.setBusy(true)
     const r = await runAction(trashItems, {
-      deps, fileIds: fileIdsOf(targets), folderPaths: folderPathsOf(targets), refresh: opts.refresh, signal: controller.signal, onProgress,
+      deps, fileIds: fileIdsOf(targets), folderPaths: folderPathsOf(targets), refresh: opts.refresh, signal, onProgress,
       report: (report) => { reported.report = report },
     }).finally(() => { opts.ops.setBusy(false); controller = null })
     toastUnexpected(deps, r)
     const report = (r.ok ? r.result : undefined) ?? reported.report
     if (!report) return
-    if (report.done.length) opts.onRemoved?.(report.done)
+    removed(report.done)
     const problems = reportProblems(t, report, nameOf)
+    const left = problems.failures.length > 0 || problems.skipped.length > 0 || problems.cancelled
     const outcome = trashOutcome(targets, report, before)
-    if (outcome.moved || outcome.emptied) undo.offer(trashMessage(outcome), outcome.undoIds, new Map(entries.map((e) => [e.id, e.name])))
-    finish(problems.failures.length || problems.skipped.length || problems.cancelled ? problems : null, 'trash')
+    if (outcome.moved || outcome.emptied) undo.offer(trashMessage(outcome), outcome.undoIds, new Map(entries.map((e) => [e.id, e.name])), { hold: left })
+    finish(left ? problems : null, 'trash')
   }
 
   function trashMessage({ moved, emptied }: TrashOutcome): string {
@@ -141,27 +151,37 @@ export function useMediaBulkActions(opts: UseMediaBulkActionsOptions) {
   async function deleteForGood(recursive: boolean) {
     const deps = opts.deps()
     const reported: { result?: DeleteItemsResult } = {}
-    controller = new AbortController()
+    const signal = startRun(listed.length + folderPathsOf(targets).length)
     const r = await runAction(deleteItems, {
       deps, files: listed, folderPaths: folderPathsOf(targets), recursive, confirmed: true, ops: opts.ops, refresh: opts.refresh,
-      signal: controller.signal, onProgress, report: (result) => { reported.result = result },
+      signal, onProgress, report: (result) => { reported.result = result },
     }).finally(() => { controller = null })
     toastUnexpected(deps, r)
     const result = reported.result
     if (!result) return
     const removedFolders = result.folders.results.filter((item) => item.ok).map((item) => item.id)
-    const removed = [...result.files.results.filter((item) => item.ok).map((item) => item.id), ...below.filter((f) => isBelow(f, removedFolders)).map((f) => f.id)]
-    if (removed.length) opts.onRemoved?.(removed)
+    const gone = [...result.files.results.filter((item) => item.ok).map((item) => item.id), ...below.filter((f) => isBelow(f, removedFolders)).map((f) => f.id)]
+    removed(gone)
     const failures = deleteProblems(result)
     const cancelled = result.files.cancelled === true || result.folders.cancelled === true
     finish(failures.length || cancelled ? { failures, skipped: [], cancelled } : null, 'delete')
   }
 
+  function removed(fileIds: string[]) {
+    if (!fileIds.length) return
+    opts.onRemoved?.(fileIds)
+    void notifyMediaRemoved(fileIds)
+  }
+
   function finish(problems: Problems | null, mode: RemovalDialogState['mode']) {
     if (problems) {
-      state.value = { ...(state.value ?? removalState(mode, { ...counts(), entries })), ...problems, progress: null, finished: true }
+      state.value = { ...(state.value ?? removalState(mode, { ...counts(), entries })), ...problems, progress: null, stoppable: false, finished: true }
       return
     }
+    settle()
+  }
+
+  function settle() {
     const viewer = fromViewer
     close()
     if (viewer) opts.onDeletedFromViewer()
@@ -177,15 +197,24 @@ export function useMediaBulkActions(opts: UseMediaBulkActionsOptions) {
 
   function cancel() {
     if (controller) {
-      controller.abort()
+      if (state.value?.stoppable) controller.abort()
       return
     }
-    const settle = state.value?.finished === true && !fromViewer
+    const finished = state.value?.finished === true
+    const settles = finished && !fromViewer
     close()
-    if (settle) opts.onSettled?.()
+    if (settles) opts.onSettled?.()
+    if (finished) undo.release()
+  }
+
+  function undoHeld() {
+    if (!state.value?.finished || !undo.held.value) return
+    settle()
+    undo.runHeld()
   }
 
   function close() {
+    request++
     state.value = null
     targets = []
     listed = []
@@ -194,5 +223,5 @@ export function useMediaBulkActions(opts: UseMediaBulkActionsOptions) {
     fromViewer = false
   }
 
-  return { state, open: computed(() => state.value !== null), trashing, askRemove, confirm, cancel, undoNotice: undo.notice, dismissUndo: undo.dismiss }
+  return { state, open: computed(() => state.value !== null), trashing, askRemove, confirm, cancel, undoHeld, heldUndo: undo.held, undoNotice: undo.notice, dismissUndo: undo.dismiss }
 }

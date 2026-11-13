@@ -4,6 +4,7 @@ import { computed, defineComponent } from 'vue'
 import type { AdminSchema, MediaItem } from '#kestrel-admin/types/api'
 import type { FieldDef } from '#kestrel-admin/types/kestrel'
 import { en } from '#kestrel-admin/i18n/en'
+import { notifyMediaChanged, notifyMediaRemoved } from '../../composables/useMediaChanges'
 import FieldMedia from './Media.vue'
 
 const { schema, apiHandler } = vi.hoisted(() => {
@@ -109,6 +110,35 @@ describe('field/Media load watch', () => {
       expect(wrapper.find('.field-media__filename').text()).toBe('old-hero.jpg')
       expect(wrapper.find('.field-media__trashed').text()).toBe(en['field.media.trashed'])
       expect(wrapper.text()).toContain(en['field.media.trashedHint'])
+      expect(wrapper.emitted('update:modelValue')).toBeUndefined()
+    } finally {
+      delete schema.capabilities.listMediaTrash
+    }
+  })
+
+  it('marks a held item as trashed once it leaves the library elsewhere, and shows it again once restored', async () => {
+    schema.capabilities.listMediaTrash = { method: 'GET', path: '/media/trash' }
+    let inTrash = false
+    apiHandler.fn = (route) => {
+      const trash = JSON.stringify(route).includes('/media/trash')
+      if (trash) return Promise.resolve(inTrash ? { items: [{ id: 'f1', filename: 'hero.jpg' }], total: 1 } : { items: [], total: 0 })
+      return Promise.resolve(inTrash ? { items: [], total: 0 } : { items: [mediaItem({ id: 'f1', filename: 'hero.jpg' })], total: 1 })
+    }
+    try {
+      const wrapper = await mountSuspended(FieldMedia, { props: { field, name: 'hero', locale: 'en', modelValue: 'f1' } })
+      await vi.waitFor(() => expect(wrapper.find('.field-media__filename').text()).toBe('hero.jpg'))
+      expect(wrapper.find('.field-media__trashed').exists()).toBe(false)
+
+      inTrash = true
+      await notifyMediaRemoved(['f1', 'other'])
+      await vi.waitFor(() => expect(wrapper.find('.field-media__trashed').exists()).toBe(true))
+      expect(wrapper.find('img').exists()).toBe(false)
+      expect(wrapper.text()).toContain(en['field.media.trashedHint'])
+
+      inTrash = false
+      await notifyMediaChanged({ restored: ['f1'] })
+      await vi.waitFor(() => expect(wrapper.find('.field-media__trashed').exists()).toBe(false))
+      expect(wrapper.find('.field-media__filename').text()).toBe('hero.jpg')
       expect(wrapper.emitted('update:modelValue')).toBeUndefined()
     } finally {
       delete schema.capabilities.listMediaTrash

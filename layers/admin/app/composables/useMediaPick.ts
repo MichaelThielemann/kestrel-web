@@ -1,5 +1,6 @@
 import { computed, ref, shallowRef, watch, type Ref } from 'vue'
 import type { ListPage, MediaItem } from '#kestrel-admin/types/api'
+import { inBlocks } from '../actions/mediaPrecheck'
 import { isInsertable, isPickGated } from '../utils/media-insert'
 import type { MediaSelection } from './useMediaSelection'
 import type { VariantWatchEntry } from './useVariantWatch'
@@ -17,7 +18,7 @@ export interface UseMediaPickOptions {
   onConfirm: (ids: string[]) => void
 }
 
-/** Confirmation for the media library in pick mode: availability gates only the ids this pick adds, never an id the field already holds, and a selected tile can always be deselected. Confirming emits the selection as it stands once every added id, including one picked while a check ran, passed the check; an added id missing from the check's answer leaves the selection and is refused. */
+/** Confirmation for the media library in pick mode: availability gates only the ids this pick adds, never an id the field already holds, and a selected tile can always be deselected. Confirming emits the selection as it stands once every added id, including one picked while a check ran, passed the check; an added id missing from the check's answer leaves the selection and is refused. The check asks in blocks and asks again for the ids an answer left out until an answer adds none, so a server that answers fewer ids per request than it was sent never makes a pick look gone. */
 export function useMediaPick(options: UseMediaPickOptions) {
   const { pick, files, fresh, track, selection } = options
   const api = useAdminApi()
@@ -61,13 +62,28 @@ export function useMediaPick(options: UseMediaPickOptions) {
     return notices.join(' ')
   })
 
+  async function lookUp(ids: string[]): Promise<MediaItem[]> {
+    const found: MediaItem[] = []
+    for (const block of inBlocks(ids)) {
+      for (let rest = block; rest.length;) {
+        const page = await api<ListPage<MediaItem>>(capabilities.route('listMedia'), { query: { ids: rest.join(','), locale: primary.value } })
+        const answered = new Set(page.items.map((item) => item.id))
+        const next = rest.filter((id) => !answered.has(id))
+        found.push(...page.items.filter((item) => rest.includes(item.id)))
+        if (next.length === rest.length) break
+        rest = next
+      }
+    }
+    return found
+  }
+
   async function recheck(ids: string[]): Promise<boolean> {
     try {
-      const page = await api<ListPage<MediaItem>>(capabilities.route('listMedia'), { query: { ids: ids.join(','), locale: primary.value } })
-      const bad = page.items.filter((item) => !isInsertable(item))
+      const items = await lookUp(ids)
+      const bad = items.filter((item) => !isInsertable(item))
       refused.value = new Map(bad.map((item) => [item.id, { name: item.filename, seen: fresh.value.get(item.id) }]))
       for (const item of bad) track(item.id)
-      const found = new Set(page.items.map((item) => item.id))
+      const found = new Set(items.map((item) => item.id))
       const gone = ids.filter((id) => !found.has(id))
       if (gone.length) {
         missing.value = gone.map((id) => listed.value.get(id)?.filename ?? id)

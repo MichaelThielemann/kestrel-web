@@ -100,3 +100,27 @@ describe('MediaTable pick-mode gating', () => {
     expect(wrapper.find('.media-table__processing').exists()).toBe(true)
   })
 })
+
+describe('MediaTable row actions', () => {
+  it('keeps the keys pressed on a row\'s "…" button away from the row and the listing', async () => {
+    const wrapper = await mountSuspended(MediaTable, {
+      props: { items: [libraryItem(file())], isSelected: () => false, pick: true, tileMenu: [{ label: 'Move to trash', value: 'delete', danger: true }] },
+      attachTo: document.body,
+    })
+    const heard: string[] = []
+    const listen = (e: KeyboardEvent) => { heard.push(e.key) }
+    document.addEventListener('keydown', listen)
+    try {
+      const trigger = wrapper.get('[data-test="row-file-f1"] .ui-table__col--actions button')
+      for (const key of [' ', 'Enter', 'ArrowDown', 'Home', 'Tab', 'Escape']) {
+        trigger.element.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }))
+      }
+      expect(wrapper.emitted('open')).toBeUndefined()
+      expect(wrapper.emitted('select')).toBeUndefined()
+      expect(heard).toEqual(['Tab', 'Escape'])
+    } finally {
+      document.removeEventListener('keydown', listen)
+      wrapper.unmount()
+    }
+  })
+})

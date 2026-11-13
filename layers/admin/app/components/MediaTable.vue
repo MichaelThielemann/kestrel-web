@@ -31,6 +31,10 @@ const mods = (e: { ctrlKey: boolean; metaKey: boolean; shiftKey: boolean }) => (
 const tabindexFor = (key: string) => rovingTabindex(key, props.rovingKey)
 const hasCheckbox = (item: LibraryItem) => props.checkboxes === true && (props.isSelectable?.(item) ?? true)
 const name = (item: LibraryItem) => (item.type === 'folder' ? item.folder.name : item.file.filename)
+const MENU_KEYS = new Set([' ', 'Enter', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End'])
+function keepMenuKeys(e: KeyboardEvent) {
+  if (MENU_KEYS.has(e.key)) e.stopPropagation()
+}
 
 function onFolder(item: LibraryItem, path: string, e: MouseEvent | KeyboardEvent) {
   if (e.ctrlKey || e.metaKey || e.shiftKey || (props.selecting && e instanceof MouseEvent)) emit('select', item, mods(e))
@@ -111,7 +115,7 @@ const dimensions = (f: MediaItem) => (f.width != null && f.height != null ? `${f
           <td>{{ humanizeSize(item.file.size) }}</td>
           <td>{{ dimensions(item.file) }}</td>
           <td>{{ uploaded(item.file) }}</td>
-          <td v-if="tileMenu?.length" class="ui-table__col--actions" @click.stop @dblclick.stop>
+          <td v-if="tileMenu?.length" class="ui-table__col--actions" @click.stop @dblclick.stop @keydown="keepMenuKeys">
             <KestrelUiActionMenu :items="tileMenu" :label="t('media.menu.more', { name: item.file.filename })" trigger-class="ui-button--icon ui-button--icon-sm"
               :trigger-tabindex="tabindexFor(itemKey(item))" @select="(value: string) => emit('tileMenu', item, value)"><KestrelUiIcon name="more-horizontal" :size="16" /></KestrelUiActionMenu>
           </td>

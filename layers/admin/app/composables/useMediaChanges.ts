@@ -7,8 +7,17 @@ export interface MediaChange {
 }
 
 type MediaChangeListener = (change: MediaChange) => void | Promise<void>
+type MediaRemovedListener = (fileIds: readonly string[]) => void | Promise<void>
 
 const listeners = new Set<MediaChangeListener>()
+const removedListeners = new Set<MediaRemovedListener>()
+
+function subscribe<L>(set: Set<L>, listener: L): () => void {
+  set.add(listener)
+  const stop = () => { set.delete(listener) }
+  if (getCurrentInstance()) onUnmounted(stop)
+  return stop
+}
 
 /** Tells every mounted media view about a change and resolves once each has reloaded. */
 export async function notifyMediaChanged(change: MediaChange): Promise<void> {
@@ -17,8 +26,16 @@ export async function notifyMediaChanged(change: MediaChange): Promise<void> {
 
 /** Calls `listener` on every media change until the calling component unmounts or the returned stop function runs. */
 export function onMediaChanged(listener: MediaChangeListener): () => void {
-  listeners.add(listener)
-  const stop = () => { listeners.delete(listener) }
-  if (getCurrentInstance()) onUnmounted(stop)
-  return stop
+  return subscribe(listeners, listener)
+}
+
+/** Tells every mounted listener that these files left the library, to the trash or for good, and resolves once each has handled it. */
+export async function notifyMediaRemoved(fileIds: readonly string[]): Promise<void> {
+  if (!fileIds.length) return
+  await Promise.all([...removedListeners].map(async (listener) => { await listener(fileIds) }))
+}
+
+/** Calls `listener` with the file ids of every removal until the calling component unmounts or the returned stop function runs. */
+export function onMediaRemoved(listener: MediaRemovedListener): () => void {
+  return subscribe(removedListeners, listener)
 }

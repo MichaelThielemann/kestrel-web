@@ -15,6 +15,9 @@ export interface BulkFailure { id: string; message: string }
 
 export interface BulkRename { id: string; from: string; to: string }
 
+/** The id a failed empty-trash request is reported under; it names the whole trash, not an item. */
+export const WHOLE_TRASH = ''
+
 /** A folder whose trash request succeeded, with the ids it moved; `moved` is empty for a folder that held nothing to trash, which is then gone. */
 export interface BulkFolder { path: string; moved: string[] }
 
@@ -125,11 +128,11 @@ export const purgeItems = defineAction<TrashIdsInput, BulkReport>({
   ],
 })
 
-/** Deletes everything in the trash for good, except the items still in use. */
+/** Deletes everything in the trash for good, except the items still in use; a failure is reported under `WHOLE_TRASH`. */
 export const emptyTrash = defineAction<BulkInput, BulkReport>({
   name: 'emptyTrash',
   steps: [
-    bulkStep<BulkInput>('media.emptyTrash', (ctx) => [{ route: ctx.input.deps.capabilities.route('emptyMediaTrash'), body: {}, ids: [''] }]),
+    bulkStep<BulkInput>('media.emptyTrash', (ctx) => [{ route: ctx.input.deps.capabilities.route('emptyMediaTrash'), body: {}, ids: [WHOLE_TRASH] }]),
     reload<BulkInput>(),
   ],
 })

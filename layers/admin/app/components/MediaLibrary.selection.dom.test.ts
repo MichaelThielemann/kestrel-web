@@ -44,7 +44,7 @@ const deleted: string[] = []
 
 interface Listing { folders?: string[]; files: Record<string, MediaItem[]> }
 
-function serve(listing: Listing, byId: (id: string) => MediaItem | undefined = () => undefined) {
+function serve(listing: Listing, byId: (id: string) => MediaItem | undefined = () => undefined, idCap = Infinity) {
   unregisterAll.push(registerEndpoint('/api/media/folders', {
     method: 'GET',
     handler: () => (listing.folders ?? []).map((folder) => ({ folder, count: listing.files[folder]?.length ?? 0 })),
@@ -54,7 +54,7 @@ function serve(listing: Listing, byId: (id: string) => MediaItem | undefined = (
     handler: (event) => {
       const query = getQuery(event)
       if (typeof query.ids === 'string') {
-        const items = query.ids.split(',').map(byId).filter((item): item is MediaItem => item !== undefined)
+        const items = query.ids.split(',').slice(0, idCap).map(byId).filter((item): item is MediaItem => item !== undefined)
         return { items, total: items.length }
       }
       const q = typeof query.q === 'string' ? query.q : ''
@@ -206,10 +206,14 @@ describe('MediaLibrary selection in the grid', () => {
     await vi.waitFor(() => expect(wrapper.find('[data-test="file-f3"]').exists()).toBe(true))
 
     await checkbox(wrapper, 'b.jpg').setValue(true)
-    const first = wrapper.get('[data-test="file-f1"]')
-    boundaryCast<HTMLElement>(first.element, 'dom').focus()
-    await key(first, { key: 'Delete' })
-    await vi.waitFor(() => expect(document.body.querySelector('.ui-dialog__content')?.textContent).toContain('1 file'))
+    await wrapper.get('[data-test="file-f1"]').trigger('dblclick')
+    const remove = await vi.waitFor(() => {
+      const button = document.body.querySelector<HTMLElement>('.media-viewer__delete')
+      if (!button) throw new Error('no viewer delete')
+      return button
+    })
+    remove.click()
+    await vi.waitFor(() => expect(Array.from(document.body.querySelectorAll('.ui-dialog__content')).some((d) => d.textContent?.includes('Delete 1 file'))).toBe(true))
     const confirmDelete = Array.from(document.body.querySelectorAll('.ui-dialog__content button')).find((b) => b.textContent?.trim() === text('media.remove.confirm.delete', { what: '1 file' }))
     confirmDelete?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
 
@@ -348,6 +352,27 @@ describe('MediaLibrary keyboard selection', () => {
     await vi.waitFor(() => expect(document.body.querySelector('.ui-dialog__content')?.textContent).toContain('1 file'))
   })
 
+  it('deletes the selection with Delete while focus sits on a tile outside it', async () => {
+    serve({ files: { '': [media('f1', 'sand.jpg'), media('f2', 'dusk.jpg'), media('f3', 'glacier.jpg')] } })
+    const wrapper = await mountLibrary()
+    await vi.waitFor(() => expect(wrapper.find('[data-test="file-f3"]').exists()).toBe(true))
+    const first = wrapper.get('[data-test="file-f1"]')
+    boundaryCast<HTMLElement>(first.element, 'dom').focus()
+
+    await key(first, { key: ' ' })
+    await key(first, { key: 'ArrowRight' })
+    await key(focused()!, { key: ' ' })
+    await key(focused()!, { key: 'ArrowRight' })
+    expect(focused()).toBe(wrapper.get('[data-test="file-f3"]').element)
+    await key(focused()!, { key: 'Delete' })
+
+    await vi.waitFor(() => expect(document.body.querySelector('.ui-dialog__content')?.textContent).toContain('2 files'))
+    const listed = document.body.querySelector('.media-remove__preview')?.textContent ?? ''
+    expect(listed).toContain('sand.jpg')
+    expect(listed).toContain('dusk.jpg')
+    expect(listed).not.toContain('glacier.jpg')
+  })
+
   it('ignores the keys while typing in the search field', async () => {
     serve({ files: { '': [media('f1', 'a.jpg')] } })
     const wrapper = await mountLibrary()
@@ -403,6 +428,20 @@ describe('MediaLibrary multi-pick selection', () => {
 
     await useSelectedButton(wrapper).trigger('click')
     await vi.waitFor(() => expect(wrapper.emitted('confirm')).toEqual([[['f2']]]))
+  })
+
+  it('checks the picks in blocks the server answers in full, so no pick past its id cap counts as gone', async () => {
+    const all = Array.from({ length: 5 }, (_, i) => media(`f${i}`, `${i}.jpg`))
+    const byId = new Map(all.map((f) => [f.id, f]))
+    serve({ files: { '': all } }, (id) => byId.get(id), 2)
+    const wrapper = await mountLibrary({ pick: true, multiple: true })
+    await vi.waitFor(() => expect(wrapper.find('[data-test="file-f4"]').exists()).toBe(true))
+
+    for (const f of all) await wrapper.get(`[data-test="file-${f.id}"]`).trigger('click')
+    await useSelectedButton(wrapper).trigger('click')
+
+    await vi.waitFor(() => expect(wrapper.emitted('confirm')).toEqual([[all.map((f) => f.id)]]))
+    expect(wrapper.text()).not.toContain(en['media.pick.missing'].split(':')[0])
   })
 
   it('shows the bar with only the visible picks and keeps search reachable', async () => {

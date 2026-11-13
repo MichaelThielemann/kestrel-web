@@ -137,7 +137,11 @@ describe('MediaPicker', () => {
       trashMedia: { method: 'POST', path: '/media/trash' },
       restoreMedia: { method: 'POST', path: '/media/trash/restore' },
     }
-    unregisterAll.push(() => { schema.capabilities = previous })
+    schema.mediaTrash = true
+    unregisterAll.push(() => {
+      schema.capabilities = previous
+      delete schema.mediaTrash
+    })
     unregisterAll.push(registerEndpoint('/api/admin/schema', { method: 'GET', handler: () => schema }))
     await useSchema().load()
     unregisterAll.push(registerEndpoint('/api/media/folders', { method: 'GET', handler: () => emptyFolders }))

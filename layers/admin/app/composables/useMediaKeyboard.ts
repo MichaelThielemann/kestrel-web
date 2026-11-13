@@ -61,7 +61,7 @@ function isEditable(target: EventTarget | null): boolean {
   return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement || target.isContentEditable
 }
 
-/** Keyboard model of the media library: one tab stop (roving tabindex), arrow keys move it (up and down by row), Shift+arrow selects from the anchor to the focus, Space toggles, Ctrl/Cmd+A selects the page, Escape clears the listed selection, Delete and Backspace delete. The selection bar takes Ctrl/Cmd+A, Escape and Delete/Backspace through `onBarKeydown`. Keys pressed in a form field or outside a tile, row or the bar are left alone. */
+/** Keyboard model of the media library: one tab stop (roving tabindex), arrow keys move it (up and down by row), Shift+arrow selects from the anchor to the focus, Space toggles, Ctrl/Cmd+A selects the page, Escape clears the listed selection, Delete and Backspace delete the selection wherever focus is, or the focused item when nothing is selected or in a single pick. The selection bar takes Ctrl/Cmd+A, Escape and Delete/Backspace through `onBarKeydown`. Keys pressed in a form field or outside a tile, row or the bar are left alone. */
 export function useMediaKeyboard(opts: UseMediaKeyboardOptions) {
   const { root, keys, selection } = opts
   const focusKey = ref<string | null>(null)
@@ -112,6 +112,11 @@ export function useMediaKeyboard(opts: UseMediaKeyboardOptions) {
     return true
   }
 
+  function deleteTargets(item: LibraryItem): OpItem[] {
+    if (selection.mode !== 'pick-single' && selection.count.value > 0) return selection.selectedTargets()
+    return selection.isSelectable(item) ? effectiveTargets(item, selection.isSelected, selection.selectedItems.value).map(toOpItem) : []
+  }
+
   function onKeydown(e: KeyboardEvent) {
     if (e.isComposing || isEditable(e.target)) return
     const key = keyOf(e.target)
@@ -124,9 +129,9 @@ export function useMediaKeyboard(opts: UseMediaKeyboardOptions) {
     } else if (e.key === ' ' && item) {
       e.preventDefault()
       selection.toggle(item)
-    } else if ((e.key === 'Delete' || e.key === 'Backspace') && item && selection.isSelectable(item)) {
+    } else if ((e.key === 'Delete' || e.key === 'Backspace') && item && deleteTargets(item).length) {
       e.preventDefault()
-      opts.onDelete(effectiveTargets(item, selection.isSelected, selection.selectedItems.value).map(toOpItem))
+      opts.onDelete(deleteTargets(item))
     } else {
       onSelectionKey(e, false)
     }
