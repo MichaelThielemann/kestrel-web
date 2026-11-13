@@ -16,13 +16,28 @@ const props = defineProps<{
   pick?: boolean
   variantOverride?: ReadonlyMap<string, VariantWatchEntry>
   storedIds?: ReadonlySet<string>
+  rovingKey?: string | null
+  checkboxes?: boolean
+  selecting?: boolean
+  isSelectable?: (item: LibraryItem) => boolean
+  allSelected?: boolean
+  someSelected?: boolean
 }>()
-const emit = defineEmits<{ navigate: [string]; select: [LibraryItem, { toggle: boolean; range: boolean }]; open: [LibraryItem]; dragstart: [LibraryItem, DragEvent]; dragend: []; sort: [string] }>()
+const emit = defineEmits<{ navigate: [string]; select: [LibraryItem, { toggle: boolean; range: boolean }]; selectAll: [boolean]; open: [LibraryItem]; dragstart: [LibraryItem, DragEvent]; dragend: []; sort: [string] }>()
 const ariaSort = (field: string): 'ascending' | 'descending' | 'none' => (props.sort === field ? 'ascending' : props.sort === `-${field}` ? 'descending' : 'none')
 const mods = (e: { ctrlKey: boolean; metaKey: boolean; shiftKey: boolean }) => ({ toggle: e.ctrlKey || e.metaKey, range: e.shiftKey })
+const tabindexFor = (key: string) => (props.rovingKey === undefined ? 0 : key === props.rovingKey ? 0 : -1)
+const hasCheckbox = (item: LibraryItem) => props.checkboxes === true && (props.isSelectable?.(item) ?? true)
+const name = (item: LibraryItem) => (item.type === 'folder' ? item.folder.name : item.file.filename)
+let checkRange = false
+function onCheckClick(e: MouseEvent) { checkRange = e.shiftKey }
+function onCheck(item: LibraryItem) {
+  emit('select', item, { toggle: !checkRange, range: checkRange })
+  checkRange = false
+}
 
 function onFolder(item: LibraryItem, path: string, e: MouseEvent | KeyboardEvent) {
-  if (e.ctrlKey || e.metaKey || e.shiftKey) emit('select', item, mods(e))
+  if (e.ctrlKey || e.metaKey || e.shiftKey || (props.selecting && e instanceof MouseEvent)) emit('select', item, mods(e))
   else emit('navigate', path)
 }
 function gatedFile(item: LibraryItem): boolean {
@@ -45,8 +60,12 @@ const dimensions = (f: MediaItem) => (f.width != null && f.height != null ? `${f
 </script>
 
 <template>
-  <KestrelUiTable class="media-table">
+  <KestrelUiTable class="media-table" role="grid" :aria-multiselectable="checkboxes ? 'true' : 'false'">
     <template #head>
+      <th v-if="checkboxes" class="ui-table__col--select" scope="col">
+        <KestrelUiCheckbox standalone :model-value="!!allSelected" :indeterminate="!!someSelected" :aria-label="t('media.selection.selectAllPage')"
+          @update:model-value="(v) => emit('selectAll', v)" />
+      </th>
       <th scope="col" :aria-sort="ariaSort('filename')"><KestrelUiTableSort field="filename" :sort="sort ?? ''" @sort="emit('sort', $event)">{{ t('media.colName') }}</KestrelUiTableSort></th>
       <th scope="col">{{ t('media.colType') }}</th>
       <th scope="col" :aria-sort="ariaSort('size')"><KestrelUiTableSort field="size" :sort="sort ?? ''" @sort="emit('sort', $event)">{{ t('media.colSize') }}</KestrelUiTableSort></th>
@@ -56,14 +75,16 @@ const dimensions = (f: MediaItem) => (f.width != null && f.height != null ? `${f
     <template #body>
       <tr v-if="parentPath != null" class="media-table__row media-table__row--up" data-test="row-folder-up"
         :data-drop-folder="parentPath" :class="{ 'is-drop-target': parentPath === dropTargetPath }"
-        tabindex="0" :aria-label="upLabel"
+        data-roving-key="up" :tabindex="tabindexFor('up')" :aria-label="upLabel"
         @click="emit('navigate', parentPath)" @keydown.enter.space.prevent="emit('navigate', parentPath)">
+        <td v-if="checkboxes" class="ui-table__col--select"></td>
         <td><span aria-hidden="true"><KestrelUiIcon name="folder" :size="15" /></span> ..</td>
         <td>{{ t('media.typeFolder') }}</td><td>—</td><td>—</td><td>—</td>
       </tr>
       <tr v-for="item in items" :key="itemKey(item)" class="media-table__row"
         :class="{ 'is-selected': isSelected(item), 'is-drop-target': item.type === 'folder' && item.folder.path === dropTargetPath, 'is-blocked': item.type === 'file' && blockedFile(item) }"
-        :aria-selected="isSelected(item)" :aria-disabled="(item.type === 'file' && blockedFile(item)) || undefined" tabindex="0"
+        :aria-selected="isSelected(item)" :aria-disabled="(item.type === 'file' && blockedFile(item)) || undefined"
+        :data-roving-key="itemKey(item)" :tabindex="tabindexFor(itemKey(item))"
         :data-drop-folder="item.type === 'folder' ? item.folder.path : undefined"
         :data-file-id="item.type === 'file' ? item.file.id : undefined"
         :data-test="item.type === 'folder' ? `row-folder-${item.folder.path}` : `row-file-${item.file.id}`"
@@ -71,9 +92,12 @@ const dimensions = (f: MediaItem) => (f.width != null && f.height != null ? `${f
         @click="item.type === 'folder' ? onFolder(item, item.folder.path, $event) : onFile(item, $event)"
         @dblclick="item.type === 'file' && onFileOpen(item)"
         @keydown.enter.prevent="item.type === 'folder' ? onFolder(item, item.folder.path, $event) : onFileOpen(item)"
-        @keydown.space.prevent="item.type === 'folder' ? emit('select', item, { toggle: true, range: false }) : onFile(item, $event)"
         @dragstart="(e) => emit('dragstart', item, e)"
         @dragend="emit('dragend')">
+        <td v-if="checkboxes" class="ui-table__col--select" @click.stop @dblclick.stop>
+          <KestrelUiCheckbox v-if="hasCheckbox(item)" standalone tabindex="-1" :model-value="isSelected(item)" :disabled="item.type === 'file' && blockedFile(item)"
+            :aria-label="t('media.selection.selectItem', { name: name(item) })" @click="onCheckClick" @update:model-value="onCheck(item)" />
+        </td>
         <template v-if="item.type === 'folder'">
           <td><span aria-hidden="true"><KestrelUiIcon name="folder" :size="15" /></span> {{ item.folder.name }}</td>
           <td>{{ t('media.typeFolder') }}</td><td>—</td><td>—</td><td>—</td>

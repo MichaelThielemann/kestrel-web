@@ -20,6 +20,10 @@ const props = defineProps<{
   stalledIds?: ReadonlySet<string>
   storedIds?: ReadonlySet<string>
   pick?: boolean
+  rovingKey?: string | null
+  checkboxes?: boolean
+  selecting?: boolean
+  isSelectable?: (item: LibraryItem) => boolean
 }>()
 const emit = defineEmits<{
   navigate: [string]
@@ -32,9 +36,17 @@ const emit = defineEmits<{
 }>()
 const { t } = useT()
 const mods = (e: MouseEvent) => ({ toggle: e.ctrlKey || e.metaKey, range: e.shiftKey })
+const tabindexFor = (key: string) => (props.rovingKey === undefined ? undefined : key === props.rovingKey ? 0 : -1)
+const hasCheckbox = (item: LibraryItem) => props.checkboxes === true && (props.isSelectable?.(item) ?? true)
+let checkRange = false
+function onCheckClick(e: MouseEvent) { checkRange = e.shiftKey }
+function onCheck(item: LibraryItem) {
+  emit('select', item, { toggle: !checkRange, range: checkRange })
+  checkRange = false
+}
 
 function onFolder(item: LibraryItem, path: string, e: MouseEvent) {
-  if (e.ctrlKey || e.metaKey || e.shiftKey) emit('select', item, mods(e))
+  if (e.ctrlKey || e.metaKey || e.shiftKey || props.selecting) emit('select', item, mods(e))
   else emit('navigate', path)
 }
 function gatedFile(item: LibraryItem): boolean {
@@ -77,10 +89,11 @@ function uploadProcessing(upload: UploadItem): boolean {
 </script>
 
 <template>
-  <ul class="media-grid">
+  <ul class="media-grid" :class="{ 'is-selecting': selecting }">
     <li v-if="parentPath != null" class="media-grid__cell">
 
       <KestrelUiButton variant="bare" class="media-grid__tile media-grid__tile--folder" data-test="folder-up"
+        data-roving-key="up" :tabindex="tabindexFor('up')"
         :data-drop-folder="parentPath" :class="{ 'is-drop-target': parentPath === dropTargetPath }"
         :aria-label="upLabel" @click="emit('navigate', parentPath)">
         <span class="media-grid__thumb-wrap">
@@ -91,13 +104,17 @@ function uploadProcessing(upload: UploadItem): boolean {
     </li>
     <template v-for="item in items" :key="itemKey(item)">
       <li v-if="item.type === 'folder'" class="media-grid__cell">
+        <span v-if="hasCheckbox(item)" class="media-grid__check">
+          <KestrelUiCheckbox standalone tabindex="-1" :model-value="isSelected(item)" :aria-label="t('media.selection.selectItem', { name: item.folder.name })"
+            @click="onCheckClick" @update:model-value="onCheck(item)" />
+        </span>
         <KestrelUiButton variant="bare" class="media-grid__tile media-grid__tile--folder"
           :data-test="`folder-${item.folder.path}`" :aria-pressed="isSelected(item)"
           :data-drop-folder="item.folder.path"
+          :data-roving-key="itemKey(item)" :tabindex="tabindexFor(itemKey(item))"
           :class="{ 'is-selected': isSelected(item), 'is-drop-target': item.folder.path === dropTargetPath }"
           draggable="true"
           @click="onFolder(item, item.folder.path, $event)"
-          @keydown.space.prevent="emit('select', item, { toggle: true, range: false })"
           @dragstart="(e: DragEvent) => emit('dragstart', item, e)"
           @dragend="emit('dragend')">
           <span class="media-grid__thumb-wrap">
@@ -123,9 +140,14 @@ function uploadProcessing(upload: UploadItem): boolean {
     </li>
     <template v-for="item in items" :key="itemKey(item)">
       <li v-if="item.type === 'file'" class="media-grid__cell">
+        <span v-if="hasCheckbox(item)" class="media-grid__check">
+          <KestrelUiCheckbox standalone tabindex="-1" :model-value="isSelected(item)" :disabled="blockedFile(item)" :aria-label="t('media.selection.selectItem', { name: item.file.filename })"
+            @click="onCheckClick" @update:model-value="onCheck(item)" />
+        </span>
         <KestrelUiButton variant="bare" class="media-grid__tile media-grid__tile--file"
           :data-test="`file-${item.file.id}`" :aria-pressed="isSelected(item)"
           :aria-disabled="blockedFile(item) || undefined"
+          :data-roving-key="itemKey(item)" :tabindex="tabindexFor(itemKey(item))"
           :data-file-id="item.file.id"
           :class="{ 'is-selected': isSelected(item), 'is-blocked': blockedFile(item) }"
           draggable="true"
@@ -165,6 +187,17 @@ function uploadProcessing(upload: UploadItem): boolean {
 
 <style lang="scss" scoped>
 .media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(8rem, 1fr)); gap: var(--space-3); list-style: none; padding: 0; margin: 0; }
+.media-grid__cell { position: relative; }
+.media-grid__check {
+  position: absolute;
+  top: var(--space-1);
+  left: var(--space-1);
+  z-index: 1;
+  display: inline-flex;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
 .media-grid__tile { display: flex; flex-direction: column; gap: var(--space-2); width: 100%; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-2); cursor: pointer; text-align: left; }
 .media-grid__tile:hover { border-color: var(--color-border-strong); }
 
@@ -181,7 +214,7 @@ function uploadProcessing(upload: UploadItem): boolean {
 .media-grid__ai {
   position: absolute;
   top: var(--space-1);
-  left: var(--space-1);
+  right: var(--space-1);
   padding: 0 var(--space-1);
   border-radius: var(--radius-sm);
   background: var(--color-scrim);
