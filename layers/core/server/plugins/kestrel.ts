@@ -21,7 +21,7 @@ import { bootWithAdminBootstrapCheck } from "../utils/admin-bootstrap";
 import { withFieldGrantHint } from "../utils/field-grant-hint";
 import type { KestrelState, KestrelStatus } from "../utils/boot-failure";
 import { rendererTarget } from "../utils/renderer-target";
-import { checkDeliveryBuild, deliverySiteUrl } from "../utils/build-check";
+import { checkDeliveryBuild, siteUrlMismatch } from "../utils/build-check";
 import { accessLists } from "./access";
 
 const IMAGES_REGISTER_PIPELINE = "registerImageSizesBoot";
@@ -45,6 +45,7 @@ async function registerImageSizes(kestrel: Kestrel): Promise<void> {
 
 let instance: Promise<Kestrel> | undefined;
 let runningBuild: string | undefined;
+let runningSiteUrl: string | undefined;
 let state: KestrelState = "booting";
 let bootError: string | undefined;
 
@@ -81,7 +82,9 @@ export function getKestrel(): Promise<Kestrel> {
       await kestrel.start();
       assertMediaPaths(kestrel, modules, config.modules);
       await registerImageSizes(kestrel);
-      await checkDeliveryBuild(kestrel, { build: runningBuild, siteUrl: deliverySiteUrl(config.modules), dev: import.meta.dev, pipelines, logger: consoleLogger });
+      const mismatch = siteUrlMismatch(config.modules, runningSiteUrl);
+      if (mismatch !== undefined) consoleLogger.warn?.(mismatch);
+      await checkDeliveryBuild(kestrel, { build: runningBuild, siteUrl: runningSiteUrl, dev: import.meta.dev, pipelines, logger: consoleLogger });
       state = "ready";
       return kestrel;
     } catch (err) {
@@ -94,8 +97,10 @@ export function getKestrel(): Promise<Kestrel> {
 }
 
 export default defineNitroPlugin((nitro) => {
-  const app = useRuntimeConfig().app;
+  const runtime = useRuntimeConfig();
+  const app = runtime.app;
   runningBuild = app.buildId;
+  runningSiteUrl = runtime.public.siteUrl;
   setNuxtRenderer(rendererTarget(nitro, app, buildAssets, import.meta.dev));
 
   const handlers = kestrelHandlers(getKestrel(), {

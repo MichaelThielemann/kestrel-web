@@ -152,12 +152,6 @@ export interface PresetModuleConfigOptions {
   media?: PresetMediaPolicy;
   ratelimit?: PresetRateLimit;
   llms?: PresetLlms;
-  /**
-   * The public site's absolute URL, `http` or `https`, with a base path when the site lives below the host's root;
-   * default `NUXT_PUBLIC_SITE_URL`. sitemap.xml, robots.txt's `Sitemap:` line, llms.txt and every page's canonical
-   * link are built from it, so without it no sitemap.xml is written.
-   */
-  siteUrl?: string;
   /** Whether delivery-static writes sitemap.xml; default `true`. */
   sitemap?: boolean;
   robots?: PresetRobots;
@@ -409,17 +403,19 @@ function renderDependencies(queued: boolean, queue: PresetEventsQueue | undefine
 
 let warnedWithoutSiteUrl = false;
 
-function siteUrlOf(options: PresetModuleConfigOptions): string | undefined {
-  if (options.llms !== undefined && "siteUrl" in options.llms) {
-    throw new Error("presetModuleConfig: llms.siteUrl moved to the top-level siteUrl option, which llms.txt, sitemap.xml, robots.txt and the canonical links share");
+function assertNoLlmsSiteUrl(llms: PresetLlms | undefined): void {
+  if (llms !== undefined && "siteUrl" in llms) {
+    throw new Error("presetModuleConfig: llms.siteUrl is gone – sitemap.xml, llms.txt and every page's canonical link, og:url and og:image take the site URL from NUXT_PUBLIC_SITE_URL; remove llms.siteUrl and set NUXT_PUBLIC_SITE_URL instead");
   }
-  const fromEnv = process.env.NUXT_PUBLIC_SITE_URL;
-  const value = options.siteUrl ?? (typeof fromEnv === "string" && fromEnv.length > 0 ? fromEnv : undefined);
-  if (value === undefined) return undefined;
+}
+
+function deliverySiteUrl(): string | undefined {
+  const value = process.env.NUXT_PUBLIC_SITE_URL;
+  if (value === undefined || value === "") return undefined;
   try {
     return normalizeSiteUrl(value);
   } catch (err) {
-    throw new Error(`presetModuleConfig: siteUrl "${value}" is not a site URL – ${err instanceof Error ? err.message : String(err)}`, { cause: err });
+    throw new Error(`presetModuleConfig: NUXT_PUBLIC_SITE_URL "${value}" is not a site URL – ${err instanceof Error ? err.message : String(err)}`, { cause: err });
   }
 }
 
@@ -440,7 +436,7 @@ function robotsWithPolicy(robots: PresetRobots | undefined): PresetRobots {
 function warnWithoutSiteUrl(): void {
   if (warnedWithoutSiteUrl) return;
   warnedWithoutSiteUrl = true;
-  console.warn("presetModuleConfig: no siteUrl is set – no sitemap.xml is written, llms.txt lists paths instead of URLs and pages carry no canonical link; set NUXT_PUBLIC_SITE_URL or pass siteUrl");
+  console.warn("presetModuleConfig: NUXT_PUBLIC_SITE_URL is not set, so the site has no site URL – no sitemap.xml is written, llms.txt lists paths instead of URLs and pages carry no canonical link");
 }
 
 export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEntry[] {
@@ -463,7 +459,7 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
   const enabled = new Set<Feature>(features);
   const databaseFile = resolve(dataDir, DATABASE_FILE);
   const session = { ...DEFAULT_SESSION, ...options.session };
-  const siteUrl = siteUrlOf(options);
+  assertNoLlmsSiteUrl(options.llms);
   const publicCopy = enabled.has("delivery") ? { publicCopy: { prefix: SITE_PREFIX } } : {};
   const mediaAllowedTypes = options.media?.allowedTypes ?? DEFAULT_MEDIA_ALLOWED_TYPES;
   const mediaDeniedTypes = options.media?.deniedTypes ?? DEFAULT_MEDIA_DENIED_TYPES;
@@ -520,6 +516,7 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
   }));
 
   if (enabled.has("delivery")) {
+    const siteUrl = deliverySiteUrl();
     if (siteUrl === undefined) warnWithoutSiteUrl();
     modules.push({ use: "@michaelthielemann/kestrel-renderer-nuxt", config: {} });
     modules.push(preset("@michaelthielemann/kestrel-delivery-static", {

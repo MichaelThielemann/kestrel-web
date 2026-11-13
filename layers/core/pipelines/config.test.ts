@@ -611,8 +611,9 @@ describe("feature gating: events-queue and migrations", () => {
 });
 
 describe("site URL, sitemap, robots and llms", () => {
-  it("takes siteUrl from the option in its normalised form, at the top level of delivery-static's config", () => {
-    const modules = presetModuleConfig({ ...playgroundOptions(), siteUrl: "https://Example.test/de/", llms: { full: false, headings: { pages: "Seiten" } } });
+  it("takes the site URL from NUXT_PUBLIC_SITE_URL in its normalised form, at the top level of delivery-static's config", () => {
+    vi.stubEnv("NUXT_PUBLIC_SITE_URL", "https://Example.test/de/");
+    const modules = presetModuleConfig({ ...playgroundOptions(), llms: { full: false, headings: { pages: "Seiten" } } });
 
     expect(configFor(modules, "delivery-static")).toEqual({
       types: { pages: {}, blog: {} },
@@ -626,7 +627,8 @@ describe("site URL, sitemap, robots and llms", () => {
   });
 
   it("gives the same URLs as the sitemap's normalisation: the home page ends in a slash, every other page has none", () => {
-    const siteUrl = fieldOf(configFor(presetModuleConfig({ ...playgroundOptions(), siteUrl: "https://example.test:443/de/" }), "delivery-static"), "siteUrl");
+    vi.stubEnv("NUXT_PUBLIC_SITE_URL", "https://example.test:443/de/");
+    const siteUrl = fieldOf(configFor(presetModuleConfig(playgroundOptions()), "delivery-static"), "siteUrl");
     expect(siteUrl).toBe(normalizeSiteUrl("https://example.test/de"));
     expect(pageUrl(typeof siteUrl === "string" ? siteUrl : undefined, "/")).toBe("https://example.test/de/");
     expect(pageUrl(typeof siteUrl === "string" ? siteUrl : undefined, "/about")).toBe("https://example.test/de/about");
@@ -643,23 +645,32 @@ describe("site URL, sitemap, robots and llms", () => {
     }
   });
 
-  it("refuses llms.siteUrl, which moved to the top-level siteUrl, and a site URL that is not one", () => {
+  it("refuses llms.siteUrl, pointing at NUXT_PUBLIC_SITE_URL, and a NUXT_PUBLIC_SITE_URL that is not a site URL", () => {
     const moved = { ...playgroundOptions(), llms: boundaryCast<PresetModuleConfigOptions["llms"]>({ siteUrl: "https://example.test" }, "json") };
-    expect(() => presetModuleConfig(moved)).toThrow("presetModuleConfig: llms.siteUrl moved to the top-level siteUrl option");
-    expect(() => presetModuleConfig({ ...playgroundOptions(), siteUrl: "example.test" })).toThrow('presetModuleConfig: siteUrl "example.test" is not a site URL');
+    expect(() => presetModuleConfig(moved)).toThrow("presetModuleConfig: llms.siteUrl is gone – sitemap.xml, llms.txt and every page's canonical link, og:url and og:image take the site URL from NUXT_PUBLIC_SITE_URL; remove llms.siteUrl and set NUXT_PUBLIC_SITE_URL instead");
+    vi.stubEnv("NUXT_PUBLIC_SITE_URL", "example.test");
+    expect(() => presetModuleConfig(playgroundOptions())).toThrow('presetModuleConfig: NUXT_PUBLIC_SITE_URL "example.test" is not a site URL');
+  });
+
+  it("reads NUXT_PUBLIC_SITE_URL only with the delivery feature, so a site without it starts whatever the variable holds", () => {
+    for (const raw of ["https://user:secret@staging.example.test", "https://example.test/?preview=1", "example.test"]) {
+      vi.stubEnv("NUXT_PUBLIC_SITE_URL", raw);
+      expect(() => presetModuleConfig({ ...playgroundOptions(), features: ["images"] })).not.toThrow();
+    }
   });
 
   it("warns once at boot when delivery has no site URL, and not with one", async () => {
-    vi.stubEnv("NUXT_PUBLIC_SITE_URL", "");
+    vi.stubEnv("NUXT_PUBLIC_SITE_URL", "https://example.test");
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     vi.resetModules();
     const fresh = await import("./config");
-    fresh.presetModuleConfig({ ...playgroundOptions(), siteUrl: "https://example.test" });
-    expect(warn.mock.calls.filter(([message]) => String(message).includes("no siteUrl"))).toEqual([]);
+    fresh.presetModuleConfig(playgroundOptions());
+    expect(warn.mock.calls.filter(([message]) => String(message).includes("no site URL"))).toEqual([]);
+    vi.stubEnv("NUXT_PUBLIC_SITE_URL", "");
     fresh.presetModuleConfig(playgroundOptions());
     fresh.presetModuleConfig(playgroundOptions());
-    expect(warn.mock.calls.filter(([message]) => String(message).includes("no siteUrl"))).toEqual([
-      ["presetModuleConfig: no siteUrl is set – no sitemap.xml is written, llms.txt lists paths instead of URLs and pages carry no canonical link; set NUXT_PUBLIC_SITE_URL or pass siteUrl"],
+    expect(warn.mock.calls.filter(([message]) => String(message).includes("no site URL"))).toEqual([
+      ["presetModuleConfig: NUXT_PUBLIC_SITE_URL is not set, so the site has no site URL – no sitemap.xml is written, llms.txt lists paths instead of URLs and pages carry no canonical link"],
     ]);
     warn.mockRestore();
   });
@@ -683,21 +694,6 @@ describe("site URL, sitemap, robots and llms", () => {
     expect(fieldOf(configFor(modules, "delivery-static"), "sitemap")).toBe(false);
     expect(fieldOf(configFor(modules, "delivery-static"), "robots")).toEqual({ policy: "disallow", extra: ["Disallow: /preview/"] });
     expect(fieldOf(configFor(presetModuleConfig({ ...playgroundOptions(), robots: false }), "delivery-static"), "robots")).toBe(false);
-  });
-
-  it("falls back to NUXT_PUBLIC_SITE_URL", () => {
-    vi.stubEnv("NUXT_PUBLIC_SITE_URL", "https://from-env.test");
-    const modules = presetModuleConfig(playgroundOptions());
-
-    expect(configFor(modules, "delivery-static")).toEqual({
-      types: { pages: {}, blog: {} },
-      prefix: "site/",
-      reservedPaths: ["/api", "/admin", "/media"],
-      robots: { policy: "disallow" },
-      siteUrl: "https://from-env.test",
-      llms: { full: true, headings: { pages: "Pages", blog: "Blog" } },
-      dependencies: { render: "background", rendererReadsDocument: true, indexesDelayMs: 1000 },
-    });
   });
 });
 

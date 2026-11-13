@@ -11,7 +11,7 @@ export type BuildCheckHost = Pick<Kestrel, "run">;
 export interface BuildCheckOptions {
   /** The running build's id (`useRuntimeConfig().app.buildId`). */
   build: string | undefined;
-  /** delivery-static's normalised `siteUrl` (`deliverySiteUrl`), part of the build key: the pages hold absolute URLs built from it. */
+  /** The site URL the pages build their canonical link, `og:url` and `og:image` from (`public.siteUrl`, `NUXT_PUBLIC_SITE_URL`); part of the build key in its normalised form. */
   siteUrl?: string | undefined;
   /** A dev server starts a new build on every start, so it never checks. */
   dev: boolean;
@@ -20,12 +20,29 @@ export interface BuildCheckOptions {
   logger: { error(message: string, fields?: Record<string, unknown>): void };
 }
 
-/** delivery-static's `siteUrl` from a module list, in the form `normalizeSiteUrl` gives it; `undefined` without one. */
-export function deliverySiteUrl(modules: readonly { use: string; config?: unknown; defaults?: { from: string; values: Record<string, unknown> } }[]): string | undefined {
+function normalized(siteUrl: unknown): string | undefined {
+  if (typeof siteUrl !== "string" || siteUrl === "") return undefined;
+  try {
+    return normalizeSiteUrl(siteUrl);
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * A warning when delivery-static builds sitemap.xml and llms.txt from another site URL than the pages build their
+ * canonical link, `og:url` and `og:image` from (`pagesSiteUrl`, the runtime config's `public.siteUrl`), compared in
+ * normalised form; `undefined` when they agree or no delivery-static entry is configured.
+ */
+export function siteUrlMismatch(modules: readonly { use: string; config?: unknown; defaults?: { from: string; values: Record<string, unknown> } }[], pagesSiteUrl: string | undefined): string | undefined {
   const entry = modules.find((candidate) => candidate.use === DELIVERY_STATIC_MODULE);
-  const config = entry === undefined ? undefined : effectiveModuleConfig(entry);
-  const siteUrl: unknown = typeof config === "object" && config !== null ? Reflect.get(config, "siteUrl") : undefined;
-  return typeof siteUrl === "string" ? normalizeSiteUrl(siteUrl) : undefined;
+  if (entry === undefined) return undefined;
+  const config = effectiveModuleConfig(entry);
+  const delivery = normalized(typeof config === "object" && config !== null ? Reflect.get(config, "siteUrl") : undefined);
+  const pages = normalized(pagesSiteUrl);
+  if (delivery === pages) return undefined;
+  const written = delivery === undefined ? "with no siteUrl" : `with siteUrl "${delivery}"`;
+  return `delivery-static writes sitemap.xml and llms.txt ${written}, but the pages build their canonical link, og:url and og:image from NUXT_PUBLIC_SITE_URL "${pages ?? pagesSiteUrl ?? ""}" – give both the same URL`;
 }
 
 /**
@@ -39,7 +56,7 @@ export async function checkDeliveryBuild(kestrel: BuildCheckHost, options: Build
   if (options.dev || options.build === undefined || options.build === "") return false;
   if (!options.pipelines.some((pipeline) => pipeline.name === BUILD_CHECK_PIPELINE)) return false;
   try {
-    const run = await kestrel.run(BUILD_CHECK_PIPELINE, { trigger: { kind: "event", name: "boot" }, payload: { build: `${options.build}|${options.siteUrl ?? ""}` } });
+    const run = await kestrel.run(BUILD_CHECK_PIPELINE, { trigger: { kind: "event", name: "boot" }, payload: { build: `${options.build}|${normalized(options.siteUrl) ?? ""}` } });
     if (run.status >= 400) {
       options.logger.error(FAILED, { status: run.status, reason: run.error ?? "" });
     }

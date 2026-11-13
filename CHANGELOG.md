@@ -14,15 +14,17 @@
   (`delaysFor(features)`), so one export follows a burst of saves and llms-full.txt trails the re-renders it
   reads. Without the queue, delivery-static's loop exports the index files one second after the first request
   (`dependencies.indexesDelayMs: 1000`). Neither delay can be changed through `presetModuleConfig()`.
-- `presetModuleConfig()` takes `siteUrl` (default `NUXT_PUBLIC_SITE_URL`), normalised the way
-  `@michaelthielemann/kestrel-delivery-static/site-url` does it and passed to delivery-static at the top level,
-  plus `sitemap` and `robots` (`{ policy?: "allow" | "disallow", extra?: string[] }` or `false`). With
-  `delivery` and no site URL it warns once.
+- With `delivery`, `presetModuleConfig()` passes `NUXT_PUBLIC_SITE_URL`, normalised the way
+  `@michaelthielemann/kestrel-delivery-static/site-url` does it, to delivery-static as its top-level `siteUrl`;
+  the variable is the one source of the site URL for the index files and the pages alike. It takes `sitemap`
+  and `robots` (`{ policy?: "allow" | "disallow", extra?: string[] }` or `false`) as well. With `delivery` and
+  no site URL it warns once.
 - `deliveryBuildCheck` runs the `checkRestored` step of replication-sqlite (or else backup-blobstore) when that
   module restores persistence-sqlite's database file, directly before `delivery.checkBuild`, so a restored
   database re-renders every page even with an unchanged build.
-- The server passes `<buildId>|<siteUrl>` to `deliveryBuildCheck`, so a changed site URL re-renders every page
-  and its absolute URLs.
+- The server passes `<buildId>|<siteUrl>` to `deliveryBuildCheck`, with the normalised `public.siteUrl` the
+  pages are rendered with, so a changed `NUXT_PUBLIC_SITE_URL` re-renders every page and its absolute URLs. It
+  warns at start when delivery-static's `siteUrl` (a hand-written entry, or an override) differs from it.
 - Every site page carries `<link rel="canonical">` and `og:url` when a site URL is set, built with
   `normalizeSiteUrl` and `pageUrl` from `@michaelthielemann/kestrel-delivery-static/site-url` exactly like
   the sitemap's `<loc>` (the home page ends in `/`, every other page has no trailing slash, a base path is
@@ -182,8 +184,8 @@
 
 ### Upgrading
 
-- `llms.siteUrl` of `presetModuleConfig()` moved to the top-level `siteUrl` option; the old key fails with a
-  message naming the new one. A hand-written `kestrel-events-queue` entry needs `indexes: ["refreshIndexes"]` in
+- `llms.siteUrl` of `presetModuleConfig()` is gone: set `NUXT_PUBLIC_SITE_URL` to its value wherever the server
+  runs. The old key fails with a message naming the variable. A hand-written `kestrel-events-queue` entry needs `indexes: ["refreshIndexes"]` in
   its `lanes` (the preset refuses it otherwise, `preset/index-exports-lane`) and gets
   `delayMs: { refreshIndexes: 1000, refreshLlms: 3000 }`; `kestrel upgrade fix --write` adds both
   (`preset/queue-lanes`). `delayMs` naming a preset pipeline that is not composed is refused
@@ -234,8 +236,11 @@
   crawlers. A staging server that runs a production build needs `disallow` (`KESTREL_ROBOTS_POLICY=disallow`
   with `envRobots()`). A `robots.txt` of your own, served from `public/` or by the web server, competes with the
   exported one; `robots: false` keeps yours.
-- `presetModuleConfig({ llms: { siteUrl } })` throws: the site URL is the top-level `siteUrl` option (default
-  `NUXT_PUBLIC_SITE_URL`). `delivery.exportLlms` is no longer a step and stops the boot as an unknown step;
+- `presetModuleConfig({ llms: { siteUrl } })` throws: the site URL comes only from `NUXT_PUBLIC_SITE_URL`.
+  With `delivery`, `NUXT_PUBLIC_SITE_URL` must be an absolute `http` or `https` URL without credentials, a
+  query or a fragment, or the config does not load (`presetModuleConfig: NUXT_PUBLIC_SITE_URL "…" is not a
+  site URL`); a preview-link URL such as `https://user:pass@staging.example.org` that 2.x accepted stops the
+  server. Without `delivery` the variable is not checked. `delivery.exportLlms` is no longer a step and stops the boot as an unknown step;
   a hand-written `kestrel-events-queue` entry without the `indexes` lane is refused
   (`preset/index-exports-lane`). "Upgrading" above lists the upgrade rules that fix each.
 - `definePreset` refuses a collection named after something the preset owns, with the collection and the

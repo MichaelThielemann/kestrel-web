@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { checkDeliveryBuild, deliverySiteUrl } from "./build-check";
+import { checkDeliveryBuild, siteUrlMismatch } from "./build-check";
 import type { BuildCheckHost } from "./build-check";
 
 const composed = [{ name: "deliveryBuildCheck" }, { name: "publishPage" }];
@@ -24,7 +24,7 @@ describe("checkDeliveryBuild", () => {
 
   it("gives a changed site URL a different build key, so the pages are rendered again with their new absolute URLs", async () => {
     const kestrel = host();
-    await checkDeliveryBuild(kestrel, { build: "b-2026", siteUrl: "https://example.org", dev: false, pipelines: composed, logger: logger() });
+    await checkDeliveryBuild(kestrel, { build: "b-2026", siteUrl: "https://Example.org/", dev: false, pipelines: composed, logger: logger() });
     await checkDeliveryBuild(kestrel, { build: "b-2026", siteUrl: "https://example.com", dev: false, pipelines: composed, logger: logger() });
     await checkDeliveryBuild(kestrel, { build: "b-2026", siteUrl: undefined, dev: false, pipelines: composed, logger: logger() });
     const builds = kestrel.run.mock.calls.map((call: unknown[]) => JSON.stringify(call[1]));
@@ -64,14 +64,24 @@ describe("checkDeliveryBuild", () => {
   });
 });
 
-describe("deliverySiteUrl", () => {
-  it("reads delivery-static's siteUrl in its normalised form, from the config or the preset's defaults", () => {
-    expect(deliverySiteUrl([{ use: "@michaelthielemann/kestrel-delivery-static", config: { siteUrl: "https://Example.org/de/" } }])).toBe("https://example.org/de");
-    expect(deliverySiteUrl([{ use: "@michaelthielemann/kestrel-delivery-static", defaults: { from: "preset", values: { siteUrl: "https://example.org" } } }])).toBe("https://example.org");
+describe("siteUrlMismatch", () => {
+  const delivery = (siteUrl?: string) => [{ use: "@michaelthielemann/kestrel-delivery-static", defaults: { from: "preset", values: siteUrl === undefined ? {} : { siteUrl } } }];
+
+  it("stays silent when delivery-static and the pages use the same site URL, compared in normalised form", () => {
+    expect(siteUrlMismatch(delivery("https://example.org/de"), "https://Example.org:443/de/")).toBeUndefined();
+    expect(siteUrlMismatch([{ use: "@michaelthielemann/kestrel-delivery-static", config: { siteUrl: "https://example.org" } }], "https://example.org/")).toBeUndefined();
+    expect(siteUrlMismatch(delivery(), "")).toBeUndefined();
   });
 
-  it("answers undefined without delivery-static or without a siteUrl", () => {
-    expect(deliverySiteUrl([])).toBeUndefined();
-    expect(deliverySiteUrl([{ use: "@michaelthielemann/kestrel-delivery-static", config: { types: {} } }])).toBeUndefined();
+  it("stays silent without delivery-static", () => {
+    expect(siteUrlMismatch([], "https://example.org")).toBeUndefined();
+  });
+
+  it("names both URLs when sitemap.xml and the canonical links would differ, also when one of them is missing", () => {
+    expect(siteUrlMismatch(delivery("https://example.org"), "https://www.example.org")).toBe(
+      'delivery-static writes sitemap.xml and llms.txt with siteUrl "https://example.org", but the pages build their canonical link, og:url and og:image from NUXT_PUBLIC_SITE_URL "https://www.example.org" – give both the same URL',
+    );
+    expect(siteUrlMismatch(delivery("https://example.org"), "")).toContain('NUXT_PUBLIC_SITE_URL ""');
+    expect(siteUrlMismatch(delivery(), "https://example.org")).toContain('with no siteUrl');
   });
 });

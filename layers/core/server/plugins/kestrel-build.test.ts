@@ -30,10 +30,11 @@ const cleanups: (() => Promise<void> | void)[] = [];
 afterEach(async () => {
   for (const cleanup of cleanups.splice(0).reverse()) await cleanup();
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
 });
 
 describe("the kestrel Nitro plugin with static delivery", () => {
-  it("marks every published page for a re-render once after start when the build changed, and stores the build with the normalised site URL", async () => {
+  it("marks every published page for a re-render once after start when the build changed, and keys the build by the site URL the pages are rendered with", async () => {
     const appRoot = mkdtempSync(join(tmpdir(), "kestrel-web-nitro-build-"));
     cleanups.push(() => rmSync(appRoot, { recursive: true, force: true }));
     process.env.KESTREL_BLOCK_SCHEMA = resolve(appRoot, "pages.body.json");
@@ -44,6 +45,7 @@ describe("the kestrel Nitro plugin with static delivery", () => {
       pages: { kind: "multi" as const, fields: { slug: { type: "slug" }, title: { type: "text" }, body: { type: "json" }, status: { type: "enum", options: ["draft", "published"] } } },
     };
     const features = ["delivery", "sanitizeSvg"] as const;
+    vi.stubEnv("NUXT_PUBLIC_SITE_URL", "https://example.org");
     const modules = presetModuleConfig({
       dataDir: appRoot,
       blobstore: { use: "@michaelthielemann/kestrel-blobstore-filesystem", config: { root: resolve(appRoot, "blobs") } },
@@ -51,7 +53,6 @@ describe("the kestrel Nitro plugin with static delivery", () => {
       features,
       roles: { roles: { admin: ["*"] }, anonymous: ["pages.read", "settings.read", "media.read"] },
       bootstrap: { username: "admin", passwordHash: PASSWORD_HASH },
-      siteUrl: "https://Example.org/",
     });
     const preset = definePreset({ modules, features, collections });
     const config = defineConfig({ modules, triggers: preset.triggers, http: null });
@@ -60,7 +61,9 @@ describe("the kestrel Nitro plugin with static delivery", () => {
     consumer.modules = presetModules(config.modules);
 
     vi.stubGlobal("defineNitroPlugin", (plugin: unknown) => plugin);
-    vi.stubGlobal("useRuntimeConfig", () => ({ app: { baseURL: "/", buildAssetsDir: "/_nuxt/", cdnURL: "", buildId: "build-2026-09" } }));
+    vi.stubGlobal("useRuntimeConfig", () => ({ app: { baseURL: "/", buildAssetsDir: "/_nuxt/", cdnURL: "", buildId: "build-2026-09" }, public: { siteUrl: "https://WWW.example.org/" } }));
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    cleanups.push(() => warn.mockRestore());
     const { default: plugin, getKestrel } = await import("./kestrel");
     const closeHooks: (() => Promise<void>)[] = [];
     plugin(boundaryCast<Parameters<typeof plugin>[0]>({
@@ -73,6 +76,13 @@ describe("the kestrel Nitro plugin with static delivery", () => {
     const persistence = kestrel.contracts.find(PERSISTENCE);
     if (persistence === undefined) throw new Error("expected persistence@1");
     const stored = await persistence.findOne("delivery_state", { id: "build" });
-    expect(stored).toMatchObject({ ok: true, value: { value: "build-2026-09|https://example.org" } });
+    expect(stored).toMatchObject({ ok: true, value: { value: "build-2026-09|https://www.example.org" } });
+    const lines = warn.mock.calls.map(([line]) => String(line)).filter((line) => line.includes("siteUrl"));
+    expect(lines.map((line): unknown => JSON.parse(line))).toEqual([
+      expect.objectContaining({
+        level: "warn",
+        message: 'delivery-static writes sitemap.xml and llms.txt with siteUrl "https://example.org", but the pages build their canonical link, og:url and og:image from NUXT_PUBLIC_SITE_URL "https://www.example.org" – give both the same URL',
+      }),
+    ]);
   }, 20000);
 });

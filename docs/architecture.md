@@ -2097,10 +2097,12 @@ An exported page is refreshed when content it shows changes. The recording and t
 the public site's absolute base URL — the editor status's "open page" link, shown once a page is live
 (`EditorStatus.vue`, computed in `pages/admin/[collection]/[id].vue`) — and the SERP preview
 (`SeoFields.vue`). Empty by default; set it in a consumer's `.env` once the public site has a real host.
-`presetModuleConfig()` takes the same variable as its default `siteUrl`, normalises it with
-`normalizeSiteUrl` from `@michaelthielemann/kestrel-delivery-static/site-url` and passes it to
-`delivery-static`'s top-level `siteUrl`, from which sitemap.xml, robots.txt's `Sitemap:` line and llms.txt
-are built. `[...slug].vue` builds the canonical link and `og:url` with `canonicalUrl()`
+With `delivery`, `presetModuleConfig()` reads the same variable, normalises it with `normalizeSiteUrl` from
+`@michaelthielemann/kestrel-delivery-static/site-url` and passes it to `delivery-static`'s top-level
+`siteUrl`, from which sitemap.xml, robots.txt's `Sitemap:` line and llms.txt are built; it has no option of
+its own for the site URL. The server plugin keys `deliveryBuildCheck` by the normalised `public.siteUrl` and
+warns at start when `delivery-static`'s `siteUrl` differs from it (`siteUrlMismatch` in
+`layers/core/server/utils/build-check.ts`). `[...slug].vue` builds the canonical link and `og:url` with `canonicalUrl()`
 (`layers/core/app/utils/canonical.ts`), which uses the same `normalizeSiteUrl` and `pageUrl`, so a page's
 canonical URL is its sitemap `<loc>`; `config.test.ts` pins that. That subpath imports nothing, which is why
 it is the one delivery-static import the UI layers may make (`kestrel/no-backend-in-ui-layers`).

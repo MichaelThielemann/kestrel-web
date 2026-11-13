@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { boot, defineConfig, defineModule, definePipeline, effectiveModuleConfig, isOk, KestrelBootError, type Logger, type ModuleDefinition } from "@michaelthielemann/kestrel";
 import { failure } from "@michaelthielemann/kestrel/errors";
 import { err } from "@michaelthielemann/kestrel/result";
@@ -58,6 +58,10 @@ function asFeatures(names: readonly string[]): Feature[] {
 }
 
 describe("boot", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   describe("playground config", () => {
     let appRoot: string;
 
@@ -148,6 +152,7 @@ describe("boot", () => {
       const { default: fieldTypes } = await import("../../../playground/shared/field-types");
       const dataDir = appRoot;
       const eventsQueueFeatures = [...features, "eventsQueue"] as const;
+      vi.stubEnv("NUXT_PUBLIC_SITE_URL", "https://example.org");
 
       const modules = presetModuleConfig({
         dataDir,
@@ -157,7 +162,6 @@ describe("boot", () => {
         collectionsUi,
         fieldTypes,
         audit: { retentionDays: 365 },
-        siteUrl: "https://example.org",
         robots: { policy: "disallow" },
         roles: {
           roles: { admin: ["*"] },
@@ -282,6 +286,7 @@ describe("boot", () => {
       const { default: collectionsUi } = await import("../../../playground/shared/collections-ui");
       const { default: fieldTypes } = await import("../../../playground/shared/field-types");
       const features = asFeatures(DEFAULT_FEATURES);
+      vi.stubEnv("NUXT_PUBLIC_SITE_URL", "https://example.org");
 
       const modules = presetModuleConfig({
         dataDir: appRoot,
@@ -290,7 +295,6 @@ describe("boot", () => {
         features,
         collectionsUi,
         fieldTypes,
-        siteUrl: "https://example.org",
         robots: { policy: "allow" },
         roles: { roles: { admin: ["*"] }, anonymous: ["media.read"] },
         bootstrap: { username: "admin", passwordHash: "scrypt$522f4ac87bfe4bcd100ba47a7d2aaec2$dbfc3f2d6cc38a76b21973d7c6f6d310a09506581c665f1f6601fd8fb3fa9bc3959689aea3e389f4d53eb8c7e70791ad4065e308763dd44609904134f0f5ee98" },

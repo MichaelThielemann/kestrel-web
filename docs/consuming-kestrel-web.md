@@ -320,8 +320,7 @@ calls them before it has read a schema at all.
 | `collectionsUi` | no | — your `shared/collections-ui.ts` map; the `revisions` module's `statusField`/`liveStatuses` are derived from the workflows in it |
 | `media` | no | `{ maxBytes: 5242880, allowedTypes: ["image/*", "application/pdf"], deniedTypes: ["text/html", "application/xhtml+xml"], trashRetentionDays: 30 }` — `trashRetentionDays` is how long a trashed item waits before the nightly `purgeExpiredMedia` deletes it; `0` composes no trash pipelines, so restore or empty the trash before setting it (§4, "The media trash") |
 | `ratelimit` | no | `{ login: { limit: 5, windowSeconds: 60 }, loginAccount: { limit: 10, windowSeconds: 300, maxBlockSeconds: 900 }, passwordCheck: { limit: 5, windowSeconds: 300, maxBlockSeconds: 900 }, knownDevice: { limit: 10, windowSeconds: 300, maxBlockSeconds: 900 } }` — `login` counts every attempt per client address (an IPv6 address by its /64); `loginAccount` counts failed sign-ins per account from any address, keyed on the field `session.identifier` names, and a successful sign-in clears it; `knownDevice` counts failed sign-ins of a browser that carries the device cookie of an earlier sign-in to that account, in place of `loginAccount`, so a blocked account stays open to its owner's browsers; `deviceCookies: { secretKey?, previousSecretKeys?, maxAgeSeconds? }` signs those cookies, the keys defaulting to `deviceKeys()` from `#kestrel/config`: `KESTREL_DEVICE_KEY`, else the `mfa` feature's keys, else a random key per process, `maxAgeSeconds` to 30 days; `passwordCheck` counts failed password checks per signed-in user on `changePassword` and `confirmPassword`; a key that keeps exceeding its budget is blocked for twice as long each time, never longer than `maxBlockSeconds` |
-| `llms` | no | `{ full: true, headings: { pages: "Pages" } }` — `full` also writes `llms-full.txt`, `headings` names each type's section (§8, "Index files"); `llms.siteUrl` is refused, use `siteUrl` |
-| `siteUrl` | no | `NUXT_PUBLIC_SITE_URL` — the public site's absolute `http(s)` URL, with a base path when the site lives below the host's root; normalised (host lower-cased, default port and trailing slashes dropped) and passed to `delivery-static`, which builds `sitemap.xml`, the `Sitemap:` line of `robots.txt` and the llms URLs from it. Without one, `delivery` warns once at boot and no `sitemap.xml` is written |
+| `llms` | no | `{ full: true, headings: { pages: "Pages" } }` — `full` also writes `llms-full.txt`, `headings` names each type's section (§8, "Index files"); `llms.siteUrl` is refused: the site URL is `NUXT_PUBLIC_SITE_URL` (§8, "Site URL") |
 | `sitemap` | no | `true` — `false` writes no `sitemap.xml` |
 | `robots` | no | `{}` — `{ policy?: "allow" \| "disallow", extra?: string[] }` for `robots.txt`; without `policy`, `allow` in a production build and `disallow` under `nuxt dev`, with a warning at boot. `extra` lines follow the policy verbatim. `false` leaves `robots.txt` to you. `envRobots()` from `#kestrel/config` reads the policy from `KESTREL_ROBOTS_POLICY` |
 | `migrations` | with the `migrations` feature | — `{ migrations, mode? }`, the `#kestrel/migrations` list (§10); the feature without it throws |
@@ -439,7 +438,7 @@ const modules = [
   { use: "@michaelthielemann/kestrel-links-default", config: { timeoutMs: 10000, concurrency: 4, recheckAfterSeconds: 21600 } },
   { use: "@michaelthielemann/kestrel-validate-jsonschema", config: { schemas: presetSchemas({ features, collections: contentTypes }), watch: process.env.NODE_ENV !== "production" } },
   { use: "@michaelthielemann/kestrel-renderer-nuxt", config: {} },
-  { use: "@michaelthielemann/kestrel-delivery-static", config: { types: { pages: {} }, prefix: "site/", reservedPaths: ["/api", "/admin", "/media"], siteUrl: "https://example.org", llms: { full: true, headings: { pages: "Pages" } }, dependencies: { render: "background", rendererReadsDocument: true, indexesDelayMs: 1000 } } },
+  { use: "@michaelthielemann/kestrel-delivery-static", config: { types: { pages: {} }, prefix: "site/", reservedPaths: ["/api", "/admin", "/media"], siteUrl: process.env.NUXT_PUBLIC_SITE_URL || undefined, robots: { policy: process.env.NODE_ENV === "production" ? "allow" : "disallow" }, llms: { full: true, headings: { pages: "Pages" } }, dependencies: { render: "background", rendererReadsDocument: true, indexesDelayMs: 1000 } } },
   { use: "@michaelthielemann/kestrel-redirects-default", config: { prefix: "site/" } },
   { use: "@michaelthielemann/kestrel-audit-persistence", config: {} },
   { use: "@michaelthielemann/kestrel-events-inmemory", config: {} },
@@ -448,6 +447,10 @@ const modules = [
   { use: "@michaelthielemann/kestrel-insights", config: {} },
 ];
 ```
+
+Give a hand-written `delivery-static` entry its `siteUrl` from `NUXT_PUBLIC_SITE_URL`, as above: the pages
+build their canonical link, `og:url` and `og:image` from that variable, and the server warns at start when the
+entry's `siteUrl` differs from it (§8, "Site URL").
 
 ### `#kestrel/config` — the environment plumbing
 
@@ -931,8 +934,8 @@ it like this:
   Delivery shows; `retryStalePages` (`POST /admin/publish-stale/pages/retry`) gives the pages whose
   re-render failed every attempt new attempts. Both need `pages.manage`.
 - `deliveryBuildCheck` (`delivery.checkBuild`, `delivery.requestIndexes`) has no trigger: the layer runs it
-  once after start in a production server, with the running build's id and the site URL as
-  `<buildId>|<siteUrl>`. A new build or a changed site URL marks every page, so each deploy re-renders the
+  once after start in a production server, with the running build's id and the pages' site URL
+  (`NUXT_PUBLIC_SITE_URL`, normalised) as `<buildId>|<siteUrl>`. A new build or a changed site URL marks every page, so each deploy re-renders the
   site in the background with the code that is now running, and every start exports the index files once.
   When `replication` (or else a `backup-blobstore` entry) restores persistence-sqlite's database file, its
   `checkRestored` step runs directly before `delivery.checkBuild`, so a start on a restored database
@@ -1818,14 +1821,18 @@ export (§4, the `delivery` notes), and the export runs on its own.
 A failed export never fails a save and never stops a render; the queue retries it, and its outcome (time,
 entries, error, skipped) is shown under System → Delivery.
 
-**Site URL.** `siteUrl` (`NUXT_PUBLIC_SITE_URL`) is the public site's absolute URL, with a base path when the
-site lives below the host's root (`https://example.org/site`). The home page's URL is `siteUrl + "/"`, every
-other page's is `siteUrl` plus its path, without a trailing slash. `sitemap.xml`'s `<loc>`, each page's
-`<link rel="canonical">` and its `og:url` are built the same way, from `normalizeSiteUrl` and `pageUrl` of
-`@michaelthielemann/kestrel-delivery-static/site-url`, so they always match. The page reads the site URL from
-the runtime config `public.siteUrl`, which is `NUXT_PUBLIC_SITE_URL`; when you pass `siteUrl` to
-`presetModuleConfig()` yourself, set that variable to the same value. Without a site URL no `sitemap.xml` is
-written, `llms.txt` lists paths instead of URLs and pages carry no canonical link or `og:url`. Every page also
+**Site URL.** `NUXT_PUBLIC_SITE_URL` is the public site's absolute `http` or `https` URL, with a base path when
+the site lives below the host's root (`https://example.org/site`), and the only place the site URL is set.
+The pages read it as the runtime config `public.siteUrl` for their canonical link, `og:url` and `og:image`;
+with `delivery`, `presetModuleConfig()` reads it while the config loads and passes it to `delivery-static` as
+`siteUrl` for `sitemap.xml`, the `Sitemap:` line of `robots.txt` and `llms.txt`. The home page's URL is the
+site URL plus `/`, every other page's is the site URL plus its path, without a trailing slash; `<loc>`,
+`<link rel="canonical">` and `og:url` are built the same way, from `normalizeSiteUrl` and `pageUrl` of
+`@michaelthielemann/kestrel-delivery-static/site-url`, so they always match. With `delivery`, a value that is
+not such a URL (no scheme, credentials, a query or a fragment) stops the config from loading. Without a site
+URL no `sitemap.xml` is written, `llms.txt` lists paths instead of URLs, pages carry no canonical link or
+`og:url`, and the server warns at start. When a hand-written `delivery-static` entry, or an override of its
+`siteUrl`, holds another URL than the variable, the server warns at start, naming both. Every page also
 carries `og:site_name`, the site settings title.
 
 **Robots policy.** `robots.policy` decides what `robots.txt` says: `allow` lets crawlers in, `disallow`
@@ -2325,8 +2332,9 @@ What changes:
   `public/` or at the web server now competes with the exported one (`robots: false` keeps yours). The upgrade
   tool covers the rest:
   - kestrel's `delivery/site-url` moves `llms.siteUrl` of a hand-written `kestrel-delivery-static` entry to
-    its top-level `siteUrl`; `presetModuleConfig({ llms: { siteUrl } })` throws, naming the top-level
-    `siteUrl` option, so move that one yourself.
+    its top-level `siteUrl`; take that value from `NUXT_PUBLIC_SITE_URL` (§3, "What the builder expands
+    to"). `presetModuleConfig({ llms: { siteUrl } })` throws, since the preset takes the site URL only from
+    `NUXT_PUBLIC_SITE_URL`; remove the key and set the variable to its value wherever the server runs.
   - kestrel's `delivery/export-llms` rewrites a `delivery.exportLlms` step, which no longer exists and
     stops the boot, to `delivery.requestIndexes`. `preset/settings-llms` removes it from a `setSettings`
     override instead when `settingsDependents` already requests the export, and `preset/override-delivery`

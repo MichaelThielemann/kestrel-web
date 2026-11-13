@@ -62,7 +62,7 @@ describe("the kestrel Nitro plugin's status-filter check", () => {
     consumer.collectionsUi = { news: { workflow: { field: "status", live: "live", draft: "pending" } } };
 
     vi.stubGlobal("defineNitroPlugin", (plugin: unknown) => plugin);
-    vi.stubGlobal("useRuntimeConfig", () => ({ app: { baseURL: "/", buildAssetsDir: "/_nuxt/", cdnURL: "" } }));
+    vi.stubGlobal("useRuntimeConfig", () => ({ app: { baseURL: "/", buildAssetsDir: "/_nuxt/", cdnURL: "" }, public: { siteUrl: "" } }));
     const { default: plugin, getKestrel } = await import("./kestrel");
 
     const closeHooks: (() => Promise<void>)[] = [];

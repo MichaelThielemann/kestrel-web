@@ -78,7 +78,7 @@ describe("the kestrel Nitro plugin", () => {
     consumer.modules = presetModules(config.modules);
 
     vi.stubGlobal("defineNitroPlugin", (plugin: unknown) => plugin);
-    vi.stubGlobal("useRuntimeConfig", () => ({ app: { baseURL: "/", buildAssetsDir: "/_nuxt/", cdnURL: "" } }));
+    vi.stubGlobal("useRuntimeConfig", () => ({ app: { baseURL: "/", buildAssetsDir: "/_nuxt/", cdnURL: "" }, public: { siteUrl: "" } }));
     const { default: plugin, getKestrel } = await import("./kestrel");
 
     const closeHooks: (() => Promise<void>)[] = [];
