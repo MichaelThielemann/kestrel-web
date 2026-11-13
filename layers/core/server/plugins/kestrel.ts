@@ -21,7 +21,7 @@ import { bootWithAdminBootstrapCheck } from "../utils/admin-bootstrap";
 import { withFieldGrantHint } from "../utils/field-grant-hint";
 import type { KestrelState, KestrelStatus } from "../utils/boot-failure";
 import { rendererTarget } from "../utils/renderer-target";
-import { checkDeliveryBuild } from "../utils/build-check";
+import { checkDeliveryBuild, deliverySiteUrl } from "../utils/build-check";
 import { accessLists } from "./access";
 
 const IMAGES_REGISTER_PIPELINE = "registerImageSizesBoot";
@@ -81,7 +81,7 @@ export function getKestrel(): Promise<Kestrel> {
       await kestrel.start();
       assertMediaPaths(kestrel, modules, config.modules);
       await registerImageSizes(kestrel);
-      await checkDeliveryBuild(kestrel, { build: runningBuild, dev: import.meta.dev, pipelines, logger: consoleLogger });
+      await checkDeliveryBuild(kestrel, { build: runningBuild, siteUrl: deliverySiteUrl(config.modules), dev: import.meta.dev, pipelines, logger: consoleLogger });
       state = "ready";
       return kestrel;
     } catch (err) {

@@ -33,7 +33,7 @@ afterEach(async () => {
 });
 
 describe("the kestrel Nitro plugin with static delivery", () => {
-  it("marks every published page for a re-render once after start when the build changed, and stores the build", async () => {
+  it("marks every published page for a re-render once after start when the build changed, and stores the build with the normalised site URL", async () => {
     const appRoot = mkdtempSync(join(tmpdir(), "kestrel-web-nitro-build-"));
     cleanups.push(() => rmSync(appRoot, { recursive: true, force: true }));
     process.env.KESTREL_BLOCK_SCHEMA = resolve(appRoot, "pages.body.json");
@@ -51,6 +51,7 @@ describe("the kestrel Nitro plugin with static delivery", () => {
       features,
       roles: { roles: { admin: ["*"] }, anonymous: ["pages.read", "settings.read", "media.read"] },
       bootstrap: { username: "admin", passwordHash: PASSWORD_HASH },
+      siteUrl: "https://Example.org/",
     });
     const preset = definePreset({ modules, features, collections });
     const config = defineConfig({ modules, triggers: preset.triggers, http: null });
@@ -72,6 +73,6 @@ describe("the kestrel Nitro plugin with static delivery", () => {
     const persistence = kestrel.contracts.find(PERSISTENCE);
     if (persistence === undefined) throw new Error("expected persistence@1");
     const stored = await persistence.findOne("delivery_state", { id: "build" });
-    expect(stored).toMatchObject({ ok: true, value: { value: "build-2026-09" } });
+    expect(stored).toMatchObject({ ok: true, value: { value: "build-2026-09|https://example.org" } });
   }, 20000);
 });
