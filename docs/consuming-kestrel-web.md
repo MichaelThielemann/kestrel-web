@@ -20,7 +20,7 @@ Everything else is optional.
 | §7 Run it | first login, where data lives, deploying, IP allowlists, health probes |
 | §8–§10 Optional | static delivery, redirects, content migrations |
 | §11 Upgrading | moving to a newer kestrel-web |
-| [`deployment.md`](deployment.md) | Running the build in production: environment, persistent volumes, systemd and container examples, reverse proxy, backups, restarts |
+| [`deployment.md`](deployment.md) | Running the build in production: environment, persistent volumes, systemd and container examples, reverse proxy, backups, restarts, reading the logs |
 | [`field-types.md`](field-types.md) | How a field type reaches the editor and the schema, and how to declare your own in `shared/field-types.ts` |
 | [`admin-i18n.md`](admin-i18n.md) | The admin UI's own language: overriding its strings and adding a language from `shared/admin-i18n.ts`, and how `Localized` labels resolve against it |
 
