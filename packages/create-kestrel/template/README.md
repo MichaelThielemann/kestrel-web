@@ -18,6 +18,23 @@ git-ignored and never leaves the machine. Create further users under **System â†
 server, set `KESTREL_ADMIN_PASSWORD_HASH`, `KESTREL_BLOBSTORE` and the `KESTREL_S3_*` variables in the
 process environment instead. See `.env.example` for the full list.
 
+## Site URL and robots.txt
+
+With the `delivery` feature, every published page is written as static HTML under `data/blobs/site/` (or the
+`site/` prefix of the S3 bucket), together with `sitemap.xml`, `robots.txt`, `llms.txt` and `llms-full.txt`.
+
+- `NUXT_PUBLIC_SITE_URL` is the public site's absolute URL, such as `https://example.org` or, for a site
+  below the host's root, `https://example.org/site`. Every page's canonical link and `og:url`, the
+  sitemap's URLs, the `Sitemap:` line in `robots.txt` and the links in the llms files are built from it.
+  Without it no `sitemap.xml` is written, pages carry no canonical link and the server warns at start.
+  Changing it re-renders every published page at the next start.
+- `KESTREL_ROBOTS_POLICY` decides what `robots.txt` says: `allow` lets crawlers in, `disallow` keeps them
+  out. Left unset, crawlers are allowed when `NODE_ENV` is `production` and kept out otherwise, and the
+  server warns at start. Set `disallow` on a staging server that runs a production build. A changed policy
+  is written at the next start.
+
+Crawlers read `robots.txt` only at the root of a host, so serve it there.
+
 ## Checking the project
 
 ```bash

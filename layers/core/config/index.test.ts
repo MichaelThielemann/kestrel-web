@@ -1,6 +1,6 @@
 import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { adminPasswordHash, deviceKeys, envBlobstore, kestrelDataDir, requiredEnv } from "./index";
+import { adminPasswordHash, deviceKeys, envBlobstore, envRobots, kestrelDataDir, requiredEnv } from "./index";
 
 const DEVELOPMENT_ADMIN_PASSWORD_HASH =
   "scrypt$522f4ac87bfe4bcd100ba47a7d2aaec2$dbfc3f2d6cc38a76b21973d7c6f6d310a09506581c665f1f6601fd8fb3fa9bc3959689aea3e389f4d53eb8c7e70791ad4065e308763dd44609904134f0f5ee98";
@@ -17,6 +17,7 @@ const MANAGED = [
   "KESTREL_S3_REGION",
   "KESTREL_S3_ACCESS_KEY_ID",
   "KESTREL_S3_SECRET_ACCESS_KEY",
+  "KESTREL_ROBOTS_POLICY",
 ];
 
 const S3_ENV: [string, string][] = [
@@ -187,5 +188,25 @@ describe("envBlobstore", () => {
     vi.stubEnv("NODE_ENV", "production");
 
     expect(() => envBlobstore("/srv/app/data")).toThrow('kestrel.config: KESTREL_BLOBSTORE must be "s3" or "filesystem" in production');
+  });
+});
+
+describe("envRobots", () => {
+  it("leaves the policy to delivery-static's NODE_ENV default when KESTREL_ROBOTS_POLICY is unset or empty", () => {
+    expect(envRobots()).toEqual({});
+    vi.stubEnv("KESTREL_ROBOTS_POLICY", "");
+    expect(envRobots()).toEqual({});
+  });
+
+  it("passes allow and disallow through", () => {
+    vi.stubEnv("KESTREL_ROBOTS_POLICY", "allow");
+    expect(envRobots()).toEqual({ policy: "allow" });
+    vi.stubEnv("KESTREL_ROBOTS_POLICY", "disallow");
+    expect(envRobots()).toEqual({ policy: "disallow" });
+  });
+
+  it("refuses any other value", () => {
+    vi.stubEnv("KESTREL_ROBOTS_POLICY", "Allow");
+    expect(() => envRobots()).toThrow('kestrel.config: KESTREL_ROBOTS_POLICY must be "allow" or "disallow", not "Allow"');
   });
 });

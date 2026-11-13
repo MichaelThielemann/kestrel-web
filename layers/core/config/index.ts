@@ -74,6 +74,18 @@ export function deviceKeys(fromMfa?: SigningKeys): SigningKeys {
   return { secretKey: processDeviceKey };
 }
 
+/**
+ * presetModuleConfig's `robots` option from `KESTREL_ROBOTS_POLICY`: `allow` lets crawlers in, `disallow` keeps them
+ * out. Unset or empty, the policy is left out, so delivery-static allows crawlers when `NODE_ENV` is `production` and
+ * keeps them out otherwise, with a warning at boot. Any other value throws.
+ */
+export function envRobots(): { policy?: "allow" | "disallow" } {
+  const value = envValue("KESTREL_ROBOTS_POLICY");
+  if (value === undefined) return {};
+  if (value === "allow" || value === "disallow") return { policy: value };
+  throw new Error(`kestrel.config: KESTREL_ROBOTS_POLICY must be "allow" or "disallow", not ${JSON.stringify(value)}`);
+}
+
 export function envBlobstore(dataDir: string): BlobstoreModuleEntry {
   const choice = envValue("KESTREL_BLOBSTORE");
   if (choice === "s3") {

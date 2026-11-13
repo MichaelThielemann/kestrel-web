@@ -1,5 +1,5 @@
 import { defineConfig } from "@michaelthielemann/kestrel/defineConfig";
-import { adminPasswordHash, envBlobstore, kestrelDataDir } from "#kestrel/config";
+import { adminPasswordHash, envBlobstore, envRobots, kestrelDataDir } from "#kestrel/config";
 import { definePreset, presetModuleConfig } from "#kestrel/pipelines";
 import type { PresetPipelineChanges } from "#kestrel/pipelines";
 import { contentModel, contentTypes, features, homeSlug, prefixPrimary } from "./shared/model";
@@ -17,6 +17,7 @@ const modules = presetModuleConfig({
   collectionsUi,
   homeSlug,
   prefixPrimary,
+  robots: envRobots(),
   roles: {
     roles: { admin: ["*"], editor: ["pages.*", "media.*", "images.read", "settings.read", "redirects.*"] },
     anonymous: ["pages.read", "settings.read", "media.read"],

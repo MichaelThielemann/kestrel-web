@@ -214,6 +214,14 @@ describe("projectFiles", () => {
     expect(filesystem).not.toContain("KESTREL_S3_");
   });
 
+  it("reads the robots.txt policy from KESTREL_ROBOTS_POLICY, which .env.example lists and .env leaves unset", () => {
+    const map = files({});
+    expect(text(map, "kestrel.config.ts")).toContain("robots: envRobots(),");
+    expect(text(map, "kestrel.config.ts")).toContain('import { adminPasswordHash, envBlobstore, envRobots, kestrelDataDir } from "#kestrel/config";');
+    expect(text(map, ".env.example")).toContain("KESTREL_ROBOTS_POLICY=\n");
+    expect(text(map, ".env")).not.toContain("KESTREL_ROBOTS_POLICY");
+  });
+
   it("leaves the password hash out of .env.example", () => {
     expect(text(files({}), ".env.example")).toContain("KESTREL_ADMIN_PASSWORD_HASH=\n");
     expect(text(files({}), ".env.example")).not.toContain("scrypt$");
