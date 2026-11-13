@@ -318,7 +318,7 @@ calls them before it has read a schema at all.
 | `roles` | yes | — `{ roles, anonymous, anonymousFields?, fields? }` for `authz-roles`; the field grants of the resources `anonymous` may read are derived, `anonymousFields` replaces the grant of each resource it names (an empty list removes it), `fields` is passed through (see §4, "What a visitor without a session receives") |
 | `bootstrap` | yes | — `{ username, passwordHash, roles? }`, `roles` defaulting to `["admin"]` |
 | `collectionsUi` | no | — your `shared/collections-ui.ts` map; the `revisions` module's `statusField`/`liveStatuses` are derived from the workflows in it |
-| `media` | no | `{ maxBytes: 5242880, allowedTypes: ["image/*", "application/pdf"], deniedTypes: ["text/html", "application/xhtml+xml"], trashRetentionDays: 30 }` — `trashRetentionDays` is how long a trashed item waits before the nightly `purgeExpiredMedia` deletes it; `0` composes no trash pipelines (§4, "The media trash") |
+| `media` | no | `{ maxBytes: 5242880, allowedTypes: ["image/*", "application/pdf"], deniedTypes: ["text/html", "application/xhtml+xml"], trashRetentionDays: 30 }` — `trashRetentionDays` is how long a trashed item waits before the nightly `purgeExpiredMedia` deletes it; `0` composes no trash pipelines, so restore or empty the trash before setting it (§4, "The media trash") |
 | `ratelimit` | no | `{ login: { limit: 5, windowSeconds: 60 }, loginAccount: { limit: 10, windowSeconds: 300, maxBlockSeconds: 900 }, passwordCheck: { limit: 5, windowSeconds: 300, maxBlockSeconds: 900 }, knownDevice: { limit: 10, windowSeconds: 300, maxBlockSeconds: 900 } }` — `login` counts every attempt per client address (an IPv6 address by its /64); `loginAccount` counts failed sign-ins per account from any address, keyed on the field `session.identifier` names, and a successful sign-in clears it; `knownDevice` counts failed sign-ins of a browser that carries the device cookie of an earlier sign-in to that account, in place of `loginAccount`, so a blocked account stays open to its owner's browsers; `deviceCookies: { secretKey?, previousSecretKeys?, maxAgeSeconds? }` signs those cookies, the keys defaulting to `deviceKeys()` from `#kestrel/config`: `KESTREL_DEVICE_KEY`, else the `mfa` feature's keys, else a random key per process, `maxAgeSeconds` to 30 days; `passwordCheck` counts failed password checks per signed-in user on `changePassword` and `confirmPassword`; a key that keeps exceeding its budget is blocked for twice as long each time, never longer than `maxBlockSeconds` |
 | `llms` | no | `{ full: true, headings: { pages: "Pages" } }`; `siteUrl` falls back to `NUXT_PUBLIC_SITE_URL` |
 | `migrations` | with the `migrations` feature | — `{ migrations, mode? }`, the `#kestrel/migrations` list (§10); the feature without it throws |
@@ -1140,14 +1140,20 @@ trash and is named in the answer's `skipped` with `reason: "referenced"`. `trash
 read a trashed or restored item. `schedules: { purgeExpiredMedia }` moves the nightly run; a schedule for it
 while the trash is off throws.
 
-In the admin, "Delete" in the media library and the media picker moves the selection to the trash without
-asking and offers "Undo" in a toast for 8 seconds (longer while the pointer or focus rests on it) to roles
-with `media.write`. It asks first only when a file, or a file inside a selected folder, is used by a page, or
-when the site tracks references and the role may not look them up. "Trash (n)" next to the folder path opens
-the trash: restore, delete permanently and empty, each item with the date it is deleted for good. A media
-field that holds a trashed item names it and says it is in the trash. Trashed files keep using storage until
-they are purged; with `media.trashRetentionDays: 0` the admin deletes for good after a dialog, as without
-the trash.
+In the admin, "Move to trash" in the media library and the media picker moves the selection to the trash
+without asking and offers "Undo" in a toast for 8 seconds (longer while the pointer or focus rests on it) to
+roles with `media.write`; when the move ends in a dialog that reports items left behind, the undo sits in
+that dialog. It asks first only when a file, or a file inside a selected folder, is used by a page, or when
+the site tracks references and the role may not look them up. The admin offers the delete to roles that may
+reach `trashMedia` (and `trashMediaFolder` for folders); a role that may only reach `deleteMedia` gets no
+delete while the trash is on, and `GET /api/admin/schema` says whether it is through `mediaTrash: true`.
+"Trash (n)" next to the folder path opens the trash: restore, delete permanently and empty, each item with
+the date it is deleted for good, or, with `references`, "In use – stays" for an item a page still uses. A
+media field that holds a trashed item names it and says it is in the trash. Trashed files keep using storage
+until they are purged; with `media.trashRetentionDays: 0` the admin deletes for good after a dialog, as
+without the trash. Restore or empty the trash before setting `0`: items left in it cannot be listed,
+restored or purged while the trash is off, keep using storage, and still count as existing media, so the
+pages that reference them render without them.
 
 ### Options
 
@@ -2110,7 +2116,10 @@ What changes:
   `media.deleted` follows only when an item is deleted for good from the trash, at the earliest
   `trashRetentionDays` later, and never while a page still uses it. A trigger of your own on `media.deleted`
   needs one on `media.trashed` too, and an override of `deleteMedia` or `deleteMediaFolder` does not run for
-  deletes in the admin; set `media.trashRetentionDays: 0` to keep deleting at once.
+  deletes in the admin; set `media.trashRetentionDays: 0` to keep deleting at once (restore or empty the trash
+  first, since items left in it cannot be reached while the trash is off). An `exclude` of `deleteMedia` or
+  `deleteMediaFolder` leaves the trash and its final deletes (`purgeMedia`, `emptyMediaTrash`, the nightly
+  `purgeExpiredMedia`) in place; exclude those as well, or set `media.trashRetentionDays: 0`.
 - Media items carry one public URL, `path`, next to `variants[].path`; both now come from the API as
   data. Remove any code that built `/api/media/<id>/file` or a variant URL from an id and read `path`
   from the item instead. `mediaFileUrl` and `mediaVariantUrl` are gone from the admin composables, and

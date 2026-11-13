@@ -824,15 +824,25 @@ collection, the expected filter and the fix in the message.
     same column of the next row, counting the cells of upload tiles, or to the nearest tile of that row when
     that cell is an upload. Shift+arrow selects from the anchor to the focus on top of what was selected
     before, so moving back shrinks it; Space toggles the focused item, Ctrl/Cmd+A selects the page, Escape
-    clears the listed selection, Delete and Backspace open the delete flow for the selection (or the focused
-    item when it is not selected). In the bar, Ctrl/Cmd+A, Escape and Delete/Backspace act on the selection
+    clears the listed selection, Delete and Backspace open the delete flow for the selection wherever focus
+    is, and for the focused item only while nothing is selected (in a single pick, always the focused
+    item). In the bar, Ctrl/Cmd+A, Escape and Delete/Backspace act on the selection
     too, and focus goes back to the listing when Escape removes the bar. Keys typed in a form field or on
     an upload tile are left alone. In the picker the first Escape clears the listed picks and the next one
     closes the dialog (`Dialog.vue`'s `escapeKeyDown`). The shortcuts are shown in the tooltips of the bar's
     buttons and exposed as `aria-keyshortcuts`. After a removal, focus goes to the item that took the
-    removed one's place, or to the listing; after an undo, to the first restored item.
+    removed one's place, or to the listing; after an undo, to the first restored item. In the table, the
+    keys pressed on a row's "…" button (Space, Enter, the arrows, Home, End) stay with its menu and do not
+    reach the row or the listing.
+  - View switch (`useMediaViewSwitch()`). When the library unmounts with focus inside it, as when "Trash
+    (n)" is pressed, the trash view puts focus on its heading; the way back puts it on the library. A view
+    mounted without that hand-over leaves focus alone.
   - Removal (`useMediaBulkActions()`, one flow for the bar, the context menu, Delete/Backspace, the
-    viewer and the picker). With the `trashMedia` capability, the selection moves to the trash at once
+    viewer and the picker). Whether a delete moves to the trash is a property of the site, not of the role:
+    the admin schema carries `mediaTrash: true` when the trash pipelines are composed, whatever the caller
+    may reach. Then Delete is offered to roles that hold `trashMedia` (and `trashMediaFolder` for folders),
+    and a role without them gets no delete at all, never the final `deleteMedia`. With the trash, the
+    selection moves to the trash at once
     through `trashItems` (`actions/mediaTrash.ts`) and a toast says how many items moved (`trashOutcome()`
     in `utils/media-removal.ts`: a folder whose request moved nothing is named as an empty folder deleted,
     as are the empty folders below a trashed one, since a restore recreates only folders that hold
@@ -843,13 +853,20 @@ collection, the expected filter and the fix in the message.
     through `notifyMediaChanged()` (`useMediaChanges.ts`), so an undo from a toast that outlived its library
     also refreshes the trash view. In the picker, whose modal dialog keeps focus and the screen reader
     inside it, the undo and its outcome show in `MediaUndoNotice.vue` above the listing instead of a toast.
+    When a move ends in `MediaDeleteDialog.vue` with something left to report, the same reasoning holds for
+    that dialog: it names what moved and carries the "Undo" button itself, which closes it and restores;
+    closing it without undoing makes the usual offer, as a toast or in the picker's notice. Removals and
+    restores also reach the media fields through `notifyMediaRemoved()` and `notifyMediaChanged()`, which
+    look the held ids up again, so a field marks an item trashed from its picker at once.
     Every trash action hands its per-item report to `report` before the reload, so a failed reload still
     leaves the undo, the forgotten picks and the dialog's report. Before that, `previewDeleteItems` (`actions/mediaPrecheck.ts`) looks up
     the referrers of every file and of every file below a selected folder (`listMedia` with `folder` and
     `recursive`), 200 ids per `mediaReferrersMany` request. `MediaDeleteDialog.vue` opens first only when a
     file is in use, or when the site tracks references and the lookup did not finish (refused, failed or no
-    route for the role); it names the pages per file, starts on "Cancel" and shows progress with "Stop" once
-    a run takes more than one request. Items the server leaves alone (`skipped`) or whose request failed are
+    route for the role); it names the pages per file, starts on "Cancel" and shows progress once a run takes
+    more than one request. A check that answers after a newer delete request opened the dialog is dropped.
+    "Stop" replaces "Cancel" only while another request is left to send after the one under way; during
+    the last or only request, "Cancel" stays disabled. Items the server leaves alone (`skipped`) or whose request failed are
     listed in the dialog by name and reason, stay in the listing and stay selected; the rest leave, and a
     multi-pick forgets them, the files below a removed folder included. "Stop" aborts the run between two
     requests, in the trash and in the final delete; the dialog then stays open and says what was not sent,
@@ -862,8 +879,11 @@ collection, the expected filter and the fix in the message.
     trashed items (`MediaTrashTable.vue`: name, folder, trashed on, when it is deleted for good) with the
     list selection (`useListSelection`) and the kit `BulkBar`: "Restore" runs at once and reports renamed
     and skipped items in a toast, "Delete permanently" and "Empty trash" go through `MediaDeleteDialog.vue`,
-    which keeps items still in use listed as kept. A trashed item has no public copy, so the dialog shows
-    type icons. Only the answer to the latest page request is shown. After a restore or a delete for good,
+    which keeps items still in use listed as kept, named by file name also when they are not on the page
+    shown (looked up with `findTrashed()`); a failed "Empty trash" is reported under "Trash". With
+    `mediaReferrersMany`, the rows of items that pages still use say "In use – stays" in place of a date,
+    since the purge keeps them, and a row past its date says it goes with the next cleanup. A trashed item
+    has no public copy, so the dialog shows type icons. Only the answer to the latest page request is shown. After a restore or a delete for good,
     focus goes to the checkbox of the row that took its place, or to the heading once the page is empty.
     The entry and the way back carry the library's folder (`?trash=1&folder=…`), and a page emptied by a
     removal falls back to the last page, in the trash as in the library.
@@ -940,7 +960,9 @@ Kit inventory:
   { timeout, action: { label, run } })` adds a button that runs the action and dismisses the toast; a
   bare number as the third argument is still the timeout. A toast's timeout pauses while the pointer
   rests on it or focus is inside it, the timer is cleared on dismiss and when the host unmounts, and
-  over the limit of four the oldest toast without an action goes first.
+  over the limit of four the oldest toast without an action goes first. The live region speaks a toast
+  with an action as "<message>. <label> available in the notifications.", so a screen reader learns that
+  the action exists and where it is.
 - `Tooltip.vue` — hover and focus tooltip.
 
 Adding a variant: extend the kit component rather than dropping back to a raw element. A button variant is

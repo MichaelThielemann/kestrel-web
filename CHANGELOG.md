@@ -6,26 +6,35 @@
 
 - Media library and picker: visible multi-selection. Every grid tile has a checkbox beside it and the table a
   checkbox column with a header checkbox for the page; while anything is selected, a selection bar takes the
-  toolbar's place with the count, "Select all n on this page", "Delete" (only for roles that may delete) and
-  "Clear selection"; the bar lies over the toolbar, so the listing keeps its place. The listing is one tab
+  toolbar's place with the count, "Select all n on this page", "Move to trash" ("Delete" without the trash;
+  only for roles that may delete) and "Clear selection"; the bar lies over the toolbar, so the listing keeps its place. The listing is one tab
   stop: arrow keys move through it (up and down by the tile on screen, past upload tiles), Shift+arrow
   selects from the anchor to the focus, Space toggles, Ctrl/Cmd+A selects the page, Escape clears it (in
-  the picker, a second Escape closes the dialog), Delete and Backspace delete; in the bar, Ctrl/Cmd+A,
-  Escape and Delete work too. A status region that stays mounted announces the count and a cleared
+  the picker, a second Escape closes the dialog), Delete and Backspace delete the selection wherever focus is
+  (the focused item only while nothing is selected); in the bar, Ctrl/Cmd+A, Escape and Delete work too.
+  Switching between the library and the trash view keeps focus: on the trash heading, or on the library on
+  the way back. A status region that stays mounted announces the count and a cleared
   selection. Search, sorting, paging and refreshes keep the visible part of the selection instead of
   clearing it; in a multi-pick, clearing drops only the listed picks, and the bar counts them as "selected
   here". Focus moves to the next item after a removal and to the restored item after an undo.
 - Media trash in the admin: deleting in the media library or the picker moves the items to the trash with an
   "Undo" toast (8 seconds, held while hovered or focused; only for roles with `media.write`), which brings
   back only what the move put in the trash; in the picker the undo shows inside the dialog instead, where
-  focus and screen readers reach it. An empty folder is named as deleted, not as moved. A dialog comes
+  focus and screen readers reach it, and when a move ends in a dialog that lists items left behind, that
+  dialog carries the undo and the toast follows once it closes. The toast's live region says that an undo
+  is available. An empty folder is named as deleted, not as moved. A dialog comes
   first only when a page uses one of the files, a file inside a selected folder included, or when the use
   could not be checked; it names the pages per file. "Trash (n)" beside the folder path opens the trash view
   (`/admin/media?trash=1`): restore, delete permanently and empty, with each item's folder and the date it is
-  deleted for good; files still in use are kept and named. Removal runs in requests of at most 200 ids and
+  deleted for good, or "In use – stays" for an item a page still uses; files still in use are kept and named
+  by file name, also when they are off the page shown. Removal runs in requests of at most 200 ids and
   reports every item that was not removed, which stays selected; "Stop" ends the run after the request under
-  way, in the trash and in the final delete without it. A single pick gives each file a "…" menu with its
-  delete entry. A media field names an item that lies in the trash and says so.
+  way, in the trash and in the final delete without it, and is offered only while another request is left
+  to send. A single pick gives each file a "…" menu with its
+  delete entry. A media field names an item that lies in the trash and says so, also right after it was
+  trashed from its own picker. With the trash on, the admin offers the delete to roles that may reach
+  `trashMedia` (and `trashMediaFolder` for folders) and never falls back to the final delete for a role that
+  may not; `GET /api/admin/schema` carries `mediaTrash: true` while the trash pipelines are composed.
 - Admin kit: `KestrelUiBulkBar`, the toolbar the collection list and the media library share for a selection
   (its count is plain text; announce it through a status region that stays mounted, such as the new
   `KestrelUiLiveStatus`); toasts take an optional action (`push(type, message, { timeout, action: { label,
@@ -104,8 +113,17 @@
   `trashRetentionDays` later), never while a page still uses it. A trigger of your own on `media.deleted`, for
   example one that clears a CDN or a mirror, also needs one on `media.trashed` (and on `media.restored` to
   undo its work); an override of `deleteMedia` or `deleteMediaFolder` does not run for deletes in the admin, so
-  move its steps into the trash and purge pipelines, or set `media.trashRetentionDays: 0`. `kestrel upgrade
-  check` reports both as `runtime/media-trash-deletes`.
+  move its steps into the trash and purge pipelines, or set `media.trashRetentionDays: 0`. An `exclude` of
+  `deleteMedia` or `deleteMediaFolder` does not turn the trash off: `trashMedia`, `purgeMedia`,
+  `emptyMediaTrash` and the nightly `purgeExpiredMedia` still move and delete media, so exclude them as well or
+  set `media.trashRetentionDays: 0`. Restore or empty the trash before setting `0`: items left in it cannot be
+  listed, restored or purged while the trash is off. `kestrel upgrade check` reports all three as
+  `runtime/media-trash-deletes`.
+- Admin strings: `media.selected`, `media.deleteSummary`, `media.file`, `media.files`, `media.folder` and
+  `media.folders` are gone. Their texts live in `media.selection.*` (the selection count), `media.remove.*`
+  (the removal dialog's titles, counts such as `media.remove.files`/`filesPlural`/`folders`/`foldersPlural`,
+  and buttons) and `media.trash.*`; an override of the old keys in `shared/admin-i18n.ts` has to move to the
+  new ones, or `pnpm typecheck` fails on the unknown key.
 - Known devices need no new setting with the `mfa` feature: the device cookies are signed with a key derived
   from `KESTREL_MFA_KEY` and follow its rotation. Without `mfa`, set `KESTREL_DEVICE_KEY` (64 hex digits,
   `openssl rand -hex 32`) in production; without it the layer signs with a random key per process and warns
