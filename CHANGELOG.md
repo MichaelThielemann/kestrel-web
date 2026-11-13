@@ -270,8 +270,13 @@
   public reads resolve internal links in that form: `presetModuleConfig()` passes `prefixPrimary` to
   delivery-static, and `definePreset()` adds `prefixPrimary=true` to the `site.resolveLinks` rules when
   site-default has it. Nothing is exported at `/` any more; redirect `/` to the default locale's home page on a
-  static host. The server refuses to boot when a hand-written delivery-static entry's `prefixPrimary` differs
-  from `shared/model`'s.
+  static host, and delete the root page an older version exported there (`site/index.html`): neither the
+  export nor the one-time removal of leftover page files touches it, so a host that serves an existing file
+  before a redirect keeps showing that frozen copy at `/`. An override of a public read (`resolvePage`,
+  `getSettings`, `resolve<Name>`) keeps the `site.resolveLinks` rules it names: add `&prefixPrimary=true` to
+  them, or its pages and navigation keep linking to unprefixed paths, which the export no longer writes. The
+  server refuses to boot when a hand-written delivery-static entry's `prefixPrimary` differs from
+  `shared/model`'s.
 - `presetModuleConfig({ llms: { siteUrl } })` throws: the site URL comes only from `NUXT_PUBLIC_SITE_URL`.
   With `delivery`, `NUXT_PUBLIC_SITE_URL` must be an absolute `http` or `https` URL without credentials, a
   query or a fragment, or the config does not load (`presetModuleConfig: NUXT_PUBLIC_SITE_URL "…" is not a
