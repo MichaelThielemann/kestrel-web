@@ -3,7 +3,7 @@ import { boundaryCast } from '#kestrel/cast'
 import { MOUNT_PATH } from '#kestrel-core/mount-path'
 import { isStaticDelivery } from '#kestrel-core/app/utils/static-delivery'
 import type { Translate } from '../actions/types'
-import { headerOf, requestIdOfFetchError, setRequestId } from '../utils/request-id'
+import { headerOf, REQUEST_ID_HEADER, requestIdOfFetchError, setRequestId } from '../utils/request-id'
 
 /** Where a failed request can be found again: the id it was sent with, and whether a server behind the proxy answered it. */
 export interface ApiErrorTrace {
@@ -71,6 +71,28 @@ function answerMessage(err: FetchErrorLike, body: Partial<ApiErrorBody> | undefi
   if (typeof err.data === 'string') return err.data
   if (body !== undefined || err.response !== undefined) return ''
   return err.message ?? UNREACHED_MESSAGE
+}
+
+/** What `refuseAnswerFromFront` reads of a `$fetch` request and its answer. */
+export interface AnswerContext {
+  options: { headers: Headers, responseType?: string }
+  response?: { ok: boolean, status: number, redirected: boolean, headers: Headers, _data?: unknown }
+}
+
+/**
+ * A `$fetch` `onResponse` interceptor: rejects a 2xx answer written in front of kestrel and the host server, such
+ * as the sign-in or block page of an auth proxy, as an `ApiError` that did not reach the server, with the id the
+ * request was sent with. Such an answer is not JSON, or it arrived after a redirect. A request that asks for
+ * another `responseType` is left alone.
+ */
+export function refuseAnswerFromFront(context: AnswerContext): void {
+  const { response, options } = context
+  if (!response?.ok || options.responseType !== undefined) return
+  const json = /\bjson\b/i.test(response.headers.get('content-type') ?? '')
+  const page = !json && response._data !== undefined && response._data !== null && response._data !== ''
+  if (!response.redirected && !page) return
+  const requestId = options.headers.get(REQUEST_ID_HEADER) ?? undefined
+  throw new ApiError(response.status, UNREACHED_MESSAGE, 'HTTP', false, undefined, undefined, undefined, { requestId, reached: false })
 }
 
 /** The `ApiError` for anything a request threw; `trace` overrides the id and the reach the error itself shows. */
@@ -195,7 +217,7 @@ function refusedOnStaticSite(method: string, path: string): ApiError {
 }
 
 export function useApi() {
-  const client = $fetch.create({ baseURL: MOUNT_PATH, retry: 0, credentials: 'same-origin', onRequest: setRequestId })
+  const client = $fetch.create({ baseURL: MOUNT_PATH, retry: 0, credentials: 'same-origin', onRequest: setRequestId, onResponse: refuseAnswerFromFront })
   return async <T>(path: string, options: Parameters<typeof client>[1] = {}): Promise<T> => {
     const method = (options.method ?? 'GET').toUpperCase()
     if (STATIC_SITE_READS.has(method) && isStaticDelivery()) throw refusedOnStaticSite(method, path)

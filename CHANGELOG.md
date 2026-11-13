@@ -78,7 +78,10 @@
   An answer counts as the server's when it carries `X-Kestrel-Run-Id`, or when its body is a kestrel error
   (string `error` and `code`) or a Nitro or h3 error (number `statusCode` with `error: true`, or with a
   string `statusMessage` and no `error`), for uploads as for every other request; any other JSON body, such
-  as a gateway's `{ statusCode, message }`, counts as written in front of the server. A host server error
+  as a gateway's `{ statusCode, message }`, counts as written in front of the server, and so does a 2xx
+  answer that is not JSON or arrived after a redirect, such as an auth proxy's sign-in page: an API request
+  fails with the note instead of taking the page as its result, as an upload already did
+  (`refuseAnswerFromFront()`, the `onResponse` interceptor of both admin clients). A host server error
   carries no message of its own, so the admin shows its translated text with the status and the id instead
   of the fetch library's `[METHOD] "url": status` line. Every message names what failed in the admin's
   language and puts the server's detail after it without kestrel's module prefix ("Changing the password

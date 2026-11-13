@@ -187,4 +187,27 @@ describe('every admin request carries a fresh request id', () => {
 
     wrapper.unmount()
   })
+
+  it('rejects a sign-in page an auth proxy answered with 200 in place of the save as not reached, on both clients', async () => {
+    unregisterAll.push(registerEndpoint('/api/probe-signin', {
+      method: 'GET',
+      handler: (event) => {
+        event.node.res.setHeader('content-type', 'text/html; charset=utf-8')
+        return '<html><body><form action="/sso/login">Sign in</form></body></html>'
+      },
+    }))
+
+    const { wrapper, call, plainCall } = await mountProbe()
+    for (const request of [() => call({ method: 'GET', path: '/probe-signin' }), () => plainCall('/probe-signin')]) {
+      const refused = await request().then(() => null, (e: unknown) => e)
+
+      if (!(refused instanceof ApiError)) throw new Error('expected an ApiError')
+      expect(refused.status).toBe(200)
+      expect(refused.reached).toBe(false)
+      expect(refused.message).not.toContain('<html>')
+      expect(refused.requestId).toMatch(/^[0-9a-f]{12}$/)
+    }
+
+    wrapper.unmount()
+  })
 })

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import * as useApiModule from './useApi'
-import { answeredByServer, answeredMessage, ApiError, apiErrorCode, apiErrorMessage, apiErrorRetryable, apiErrorRunId, apiErrorStatus, apiErrorText, failureText, retryableMessage, serverDetail, toApiError } from './useApi'
+import { answeredByServer, answeredMessage, ApiError, refuseAnswerFromFront, apiErrorCode, apiErrorMessage, apiErrorRetryable, apiErrorRunId, apiErrorStatus, apiErrorText, failureText, retryableMessage, serverDetail, toApiError } from './useApi'
 
 describe('useApi.ts exports', () => {
   it('never exports mediaFileUrl, which would build a download URL without the downloadMedia capability', () => {
@@ -265,5 +265,49 @@ describe('apiErrorText', () => {
   it('shows the translated text of a host server answer instead of the text the fetch error was built with', () => {
     const fetchError = { status: 403, data: { error: true, statusCode: 403, statusMessage: 'Forbidden' }, message: '[PATCH] "/api/pages/p1": 403 Forbidden', options: { headers: new Headers({ 'x-request-id': 'a1b2c3d4e5f6' }) }, response: { headers: new Headers() } }
     expect(apiErrorText(t, fetchError, 'editor.saveFailed')).toBe(t('error.withReference', { message: 'editor.saveFailed', reference: reference(403, 'a1b2c3d4e5f6') }))
+  })
+})
+
+describe('refuseAnswerFromFront', () => {
+  const sent = { headers: new Headers({ 'x-request-id': 'a1b2c3d4e5f6' }) }
+  const answer = (init: { status?: number, type?: string, redirected?: boolean, data?: unknown }) => ({
+    ok: (init.status ?? 200) < 300,
+    status: init.status ?? 200,
+    redirected: init.redirected ?? false,
+    headers: new Headers(init.type ? { 'content-type': init.type } : {}),
+    _data: init.data,
+  })
+  const refusal = (context: Parameters<typeof refuseAnswerFromFront>[0]): unknown => {
+    try {
+      refuseAnswerFromFront(context)
+      return null
+    } catch (e) {
+      return e
+    }
+  }
+
+  it('lets a JSON answer, an empty answer and an error answer through', () => {
+    expect(refusal({ options: sent, response: answer({ type: 'application/json', data: { id: 'p1' } }) })).toBeNull()
+    expect(refusal({ options: sent, response: answer({ type: 'application/problem+json', data: [] }) })).toBeNull()
+    expect(refusal({ options: sent, response: answer({ status: 204 }) })).toBeNull()
+    expect(refusal({ options: sent, response: answer({ status: 502, type: 'text/html', data: '<html>502</html>' }) })).toBeNull()
+  })
+
+  it('rejects a 2xx page that is not JSON as an answer that did not reach the server, with the request id', () => {
+    const refused = refusal({ options: sent, response: answer({ type: 'text/html', data: '<html>Sign in</html>' }) })
+    if (!(refused instanceof ApiError)) throw new Error('expected an ApiError')
+    expect(refused.reached).toBe(false)
+    expect(refused.status).toBe(200)
+    expect(refused.requestId).toBe('a1b2c3d4e5f6')
+    expect(refused.message).not.toContain('<html>')
+  })
+
+  it('rejects a 2xx answer reached by a redirect, even one written as JSON', () => {
+    const refused = refusal({ options: sent, response: answer({ type: 'application/json', redirected: true, data: { ok: true } }) })
+    expect(refused instanceof ApiError && refused.reached).toBe(false)
+  })
+
+  it('leaves an answer alone whose caller asked for another response type', () => {
+    expect(refusal({ options: { ...sent, responseType: 'blob' }, response: answer({ type: 'image/png', redirected: true, data: 'binary' }) })).toBeNull()
   })
 })

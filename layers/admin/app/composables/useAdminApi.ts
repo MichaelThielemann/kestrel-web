@@ -4,7 +4,7 @@ import type { ApiClient, ApiRequestOptions } from '../actions/types'
 import type { ApiRoute } from '../utils/capabilities'
 import { makeReauthInterceptor } from '../utils/reauth'
 import { setRequestId } from '../utils/request-id'
-import { toApiError } from './useApi'
+import { refuseAnswerFromFront, toApiError } from './useApi'
 import { retryAfterReauth, useReauth } from './useReauth'
 
 export function useAdminApi(): ApiClient {
@@ -20,6 +20,7 @@ export function useAdminApi(): ApiClient {
     retry: 0,
     credentials: 'same-origin',
     onRequest: setRequestId,
+    onResponse: refuseAnswerFromFront,
     onResponseError,
   })
   const reauth = useReauth()

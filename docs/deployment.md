@@ -489,8 +489,9 @@ journalctl -u mysite | grep 3f9a2c7b1e04
 - **No line, and the admin says the request did not reach the server or was refused in front of it**: the
   answer carried no `X-Kestrel-Run-Id` and its body was neither a kestrel error nor an error of the host
   server, so it came from the proxy or a gateway in front of the app (`HTTP 413`, `HTTP 502`), also one
-  that writes its errors as JSON, or nothing came back at all (`no answer`: connection lost). Look the id up
-  in the proxy's access log.
+  that writes its errors as JSON, or nothing came back at all (`no answer`: connection lost). A `HTTP 200`
+  here is a page such as an auth proxy's sign-in page, answered instead of JSON or after a redirect. Look
+  the id up in the proxy's access log.
 - **No line, and the admin says the server may still have processed the request**: the answer did not come in
   time (`HTTP 504` from the proxy, or the browser's own upload timeout). kestrel may still finish the request
   and log it under the same id later; search again, then look in the proxy's access log.
