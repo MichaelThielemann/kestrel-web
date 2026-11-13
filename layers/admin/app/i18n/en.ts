@@ -682,6 +682,13 @@ export const en = {
   'rectSelect.y': 'Top',
   'rectSelect.w': 'Width',
   'rectSelect.h': 'Height',
+  'cropFrame.help': 'Drag the image to move the crop; zoom with the wheel, two fingers or the slider. With the keyboard: the arrow keys move the crop, with Shift in larger steps, plus and minus zoom.',
+  'cropFrame.fields': 'Position in percent of the image and zoom',
+  'cropFrame.x': 'Left',
+  'cropFrame.y': 'Top',
+  'cropFrame.zoom': 'Zoom',
+  'cropFrame.zoomIn': 'Zoom in',
+  'cropFrame.zoomOut': 'Zoom out',
 
   'datePicker.openCalendar': 'Open calendar',
   'datePicker.previousMonth': 'Previous month',

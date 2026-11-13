@@ -17,6 +17,12 @@
 - `KestrelImage` sets `object-position` from the centre of the item's `focus` on a variant, on the original that
   stands in for it while it renders and on the original itself; `focusObjectPosition()` answers that value.
   `pickImageSources` passes a variant path with its `?v=` query through unchanged, in `src` and `srcset`.
+- Admin kit: `KestrelUiSlider` (a labelled range input), `KestrelUiRectSelect` (draw, move and resize a
+  rectangle on an image, or set a point) and `KestrelUiCropFrame` (a frame in an aspect ratio over an image that
+  pans and zooms, showing the cut images-default renders). Both work with the pointer, touch and the keyboard
+  alone and take their values as numbers too. The admin may import
+  `@michaelthielemann/kestrel-images-default/framing`; `kestrel/no-backend-in-ui-layers` keeps refusing the
+  package's other entry points.
 - Static delivery keeps `sitemap.xml`, `robots.txt`, `llms.txt` and `llms-full.txt` current. Every pipeline that
   changes what they list asks for an export instead of writing it in the request: `publishPage`,
   `unpublishPage` and the publish pipelines of every mounted collection, `settingsDependents`, `publishAllPages`

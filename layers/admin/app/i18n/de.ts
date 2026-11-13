@@ -684,6 +684,13 @@ export const de: Record<CatalogKey, string> = {
   'rectSelect.y': 'Oben',
   'rectSelect.w': 'Breite',
   'rectSelect.h': 'Höhe',
+  'cropFrame.help': 'Bild ziehen verschiebt den Ausschnitt; zoomen mit dem Mausrad, zwei Fingern oder dem Schieberegler. Mit der Tastatur: Pfeiltasten verschieben den Ausschnitt, mit Umschalt in größeren Schritten, Plus und Minus zoomen.',
+  'cropFrame.fields': 'Position in Prozent des Bildes und Zoom',
+  'cropFrame.x': 'Links',
+  'cropFrame.y': 'Oben',
+  'cropFrame.zoom': 'Zoom',
+  'cropFrame.zoomIn': 'Vergrößern',
+  'cropFrame.zoomOut': 'Verkleinern',
 
   'datePicker.openCalendar': 'Kalender öffnen',
   'datePicker.previousMonth': 'Vorheriger Monat',

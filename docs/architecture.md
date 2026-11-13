@@ -949,6 +949,15 @@ Kit inventory:
   `standalone` wraps a checkbox that no other label wraps (a table cell, a tile) in a label with a
   24 × 24 px click target; the caller's attributes stay on the input either way.
 - `Combobox.vue` — searchable single/multi select with reorderable selection.
+- `CropFrame.vue` — a fixed frame in an aspect ratio (`ratio`, a reduced key such as `"16:9"`) over an image
+  that pans and zooms below it, bound to a manual crop (`v-model`, a rectangle normalised to the image as
+  displayed, `null` for automatic) on an image of `width` × `height` pixels after EXIF orientation. It shows the
+  cut through `cropForRatio` and `centredCrop` of `@michaelthielemann/kestrel-images-default/framing`, so the
+  frame holds exactly what the server renders, the cut centred on `focus` while no crop is set. Dragging pans,
+  the wheel and a two-finger pinch zoom around the pointer; the arrow keys pan by 1 % of the image (Shift
+  10 %), `+` and `-` zoom; a slider with zoom buttons and numeric left, top and zoom fields do the same
+  without dragging. Zoom stops where the crop's shorter side reaches 64 pixels, or at `maxZoom` (8). The
+  pointer and wheel logic is `usePanZoom()` on top of `usePointerDrag()`.
 - `DatePicker.vue` / `DateRangePicker.vue` / `TimeInput.vue` — ISO date, date-range and time entry.
 - `Dialog.vue` — modal with title, optional description, footer slot and `md|lg|xl|screen` sizes. It
   re-emits `openAutoFocus` (prevent it and focus another element to choose where focus starts) and
