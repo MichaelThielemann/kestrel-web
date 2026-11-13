@@ -1,6 +1,7 @@
 import { effectiveModuleConfig } from "@michaelthielemann/kestrel";
 
 const SITE_MODULE = "@michaelthielemann/kestrel-site-default";
+const DELIVERY_MODULE = "@michaelthielemann/kestrel-delivery-static";
 
 /** What `shared/model` says about the site's public URLs, which the public layer builds links with. */
 export interface SiteModel {
@@ -13,9 +14,9 @@ function field(value: unknown, key: string): unknown {
 }
 
 /**
- * Why the configured `site-default` disagrees with `shared/model`, or `undefined` when it agrees: its
- * `prefixPrimary` must equal the model's, or every `_paths` entry of the default locale has the wrong form, and
- * its pages route must serve the model's `homeSlug` at the root.
+ * Why the configured `site-default` or `delivery-static` disagrees with `shared/model`, or `undefined` when they
+ * agree: both must have the model's `prefixPrimary`, or every `_paths` entry, canonical link or exported path of
+ * the default locale has the wrong form, and the pages route must serve the model's `homeSlug` at the root.
  */
 export function siteModelProblem(modules: readonly { use: string; config?: unknown }[], model: SiteModel): string | undefined {
   const entry = modules.find((candidate) => candidate.use === SITE_MODULE);
@@ -25,6 +26,11 @@ export function siteModelProblem(modules: readonly { use: string; config?: unkno
   const configured = field(site, "prefixPrimary") === true;
   if (configured !== model.prefixPrimary) {
     return `site-default has prefixPrimary ${String(configured)} but shared/model has ${String(model.prefixPrimary)} – pass prefixPrimary from shared/model to presetModuleConfig()`;
+  }
+  const deliveryEntry = modules.find((candidate) => candidate.use === DELIVERY_MODULE);
+  const delivered = deliveryEntry === undefined ? undefined : field(effectiveModuleConfig(deliveryEntry), "prefixPrimary") === true;
+  if (delivered !== undefined && delivered !== model.prefixPrimary) {
+    return `delivery-static has prefixPrimary ${String(delivered)} but shared/model has ${String(model.prefixPrimary)} – pass prefixPrimary from shared/model to presetModuleConfig(), or give a hand-written delivery-static entry the same prefixPrimary`;
   }
   const home = field(pages, "home");
   if (home !== model.homeSlug) {

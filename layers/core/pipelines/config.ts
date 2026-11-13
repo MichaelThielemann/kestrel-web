@@ -524,6 +524,7 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
     modules.push(preset("@michaelthielemann/kestrel-delivery-static", {
       types: deliveryTypes(types),
       prefix: SITE_PREFIX,
+      prefixPrimary: options.prefixPrimary ?? false,
       reservedPaths: [...RESERVED_PATHS],
       ...(siteUrl === undefined ? {} : { siteUrl }),
       ...(options.sitemap === undefined ? {} : { sitemap: options.sitemap }),

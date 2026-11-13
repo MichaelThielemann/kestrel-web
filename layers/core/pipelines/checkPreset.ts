@@ -490,7 +490,8 @@ export function buildPreset<C extends Record<string, CollectionModel> = Record<s
   for (const [name, fields] of Object.entries(linkOverrideFields(collections, options.collectionsUi))) {
     customFields[name] = { ...Object.fromEntries(fields.map((field) => [field, "link"])), ...customFields[name] };
   }
-  const context: PresetContext = { exportDir, homeSlug, collections, customFields, modules: options.modules, ...(options.collectionsUi === undefined ? {} : { collectionsUi: options.collectionsUi }) };
+  const prefixPrimary = Reflect.get(Object(effectiveConfigOf(options.modules, "@michaelthielemann/kestrel-site-default")), "prefixPrimary") === true;
+  const context: PresetContext = { exportDir, homeSlug, prefixPrimary, collections, customFields, modules: options.modules, ...(options.collectionsUi === undefined ? {} : { collectionsUi: options.collectionsUi }) };
 
   const pagesModel = collections.pages;
   context.pagesTranslatable = pagesModel !== undefined && pagesModel.kind === "multi" && hasLocalizedField(pagesModel);

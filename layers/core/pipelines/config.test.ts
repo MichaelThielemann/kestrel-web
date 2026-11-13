@@ -141,6 +141,7 @@ describe("presetModuleConfig with the playground inputs", () => {
         ...preset({
           types: { pages: {}, blog: {} },
           prefix: "site/",
+          prefixPrimary: false,
           reservedPaths: ["/api", "/admin", "/media"],
           robots: { policy: "disallow" },
           llms: { full: true, headings: { pages: "Pages", blog: "Blog" } },
@@ -249,6 +250,7 @@ describe("derived delivery types", () => {
     expect(delivery).toEqual({
       types: { pages: {}, news: {} },
       prefix: "site/",
+      prefixPrimary: false,
       reservedPaths: ["/api", "/admin", "/media"],
       robots: { policy: "disallow" },
       llms: { full: true, headings: { pages: "Pages", news: "News" } },
@@ -619,6 +621,7 @@ describe("site URL, sitemap, robots and llms", () => {
     expect(configFor(modules, "delivery-static")).toEqual({
       types: { pages: {}, blog: {} },
       prefix: "site/",
+      prefixPrimary: false,
       reservedPaths: ["/api", "/admin", "/media"],
       robots: { policy: "disallow" },
       siteUrl: "https://example.test/de",
@@ -705,6 +708,14 @@ describe("site URL, sitemap, robots and llms", () => {
     vi.stubEnv("KESTREL_ROBOTS_POLICY", "Allow");
     expect(() => fresh.presetModuleConfig(playgroundOptions())).toThrow('kestrel.config: KESTREL_ROBOTS_POLICY must be "allow" or "disallow", not "Allow"');
     warn.mockRestore();
+  });
+
+  it("gives delivery-static the prefixPrimary site-default gets, so exported paths, sitemap <loc> and _paths agree", () => {
+    for (const prefixPrimary of [true, false, undefined]) {
+      const modules = presetModuleConfig({ ...playgroundOptions(), ...(prefixPrimary === undefined ? {} : { prefixPrimary }) });
+      expect(fieldOf(configFor(modules, "delivery-static"), "prefixPrimary")).toBe(prefixPrimary ?? false);
+      expect(fieldOf(configFor(modules, "delivery-static"), "prefixPrimary")).toBe(fieldOf(configFor(modules, "site-default"), "prefixPrimary"));
+    }
   });
 
   it("passes sitemap and robots through to delivery-static", () => {

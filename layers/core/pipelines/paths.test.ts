@@ -386,3 +386,31 @@ describe("a mounted collection named page", () => {
     expect(problems.map((problem) => problem.code)).toContain("preset/mount-invalid");
   });
 });
+
+describe("internal links with every locale prefixed", () => {
+  const settings: CollectionModel = { kind: "single", fields: { title: { type: "text" } } };
+  const blog: CollectionModel = { kind: "multi", mount: true, fields: { slug: { type: "slug", localized: true }, title: { localized: true }, body: { localized: true }, status: { localized: true } } };
+  const collections = { settings, pages, blog };
+  const withAuthz = direct.map((entry) => (entry.use.endsWith("authz-roles") ? { ...entry, config: { anonymous: ["pages.read", "blog.read"] } } : entry));
+  const prefixed = [...withAuthz, { use: "@michaelthielemann/kestrel-site-default", config: { routes: { pages: { home: "home" }, blog: { mount: true } }, prefixPrimary: true } }];
+
+  it("resolves links in the prefixed form of the default locale, while a page is still found under either form", () => {
+    const preset = definePreset({ modules: prefixed, features, collections });
+    expect(stepsOf(preset, "resolvePage")).toEqual([
+      "authn.identifyUser",
+      "authz.require:pages.read",
+      "redirects.lookup",
+      "site.route:pages?home=home&status=published&fallback=true",
+      "site.resolve:pages?home=home&status=published&fallback=true",
+      "site.resolveLinks:pages?home=home&status=published&fallback=true&prefixPrimary=true",
+      "authz.fields:pages?shape=item",
+    ]);
+    expect(stepsOf(preset, "resolveBlog")).toEqual(["authn.identifyUser", "authz.require:blog.read", "site.resolve:blog?status=published&fallback=true", "site.resolveLinks:blog?status=published&fallback=true&prefixPrimary=true", "authz.fields:blog?shape=item"]);
+    expect(stepsOf(preset, "getSettings")).toContain("site.resolveLinks:settings?home=home&status=published&fallback=true&prefixPrimary=true");
+  });
+
+  it("keeps the unprefixed rules when site-default leaves the default locale unprefixed", () => {
+    const preset = definePreset({ modules: withAuthz, features, collections });
+    expect(stepsOf(preset, "getSettings")).toContain("site.resolveLinks:settings?home=home&status=published&fallback=true");
+  });
+});

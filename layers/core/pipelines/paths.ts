@@ -75,8 +75,13 @@ export function resolveRules(name: string, model: CollectionModel, ui?: Workflow
   return workflow === undefined ? "fallback=true" : `${encodeURIComponent(workflow.field)}=${encodeURIComponent(workflow.live)}&fallback=true`;
 }
 
+/** The rules a public read's `site.resolveLinks` runs with: `rules`, plus `prefixPrimary=true` when site-default prefixes the default locale, so links take the form of `_paths` and the exported paths. */
+export function linkRules(rules: string, prefixPrimary: boolean | undefined): string {
+  return prefixPrimary === true ? `${rules}&prefixPrimary=true` : rules;
+}
+
 /** The preview and public resolve pipelines of every mounted collection. */
-export function mountedPipelines(collections: Record<string, CollectionModel>, ui?: Record<string, WorkflowUi>): Record<string, PresetEntry<PresetStep>[]> {
+export function mountedPipelines(collections: Record<string, CollectionModel>, ui?: Record<string, WorkflowUi>, prefixPrimary?: boolean): Record<string, PresetEntry<PresetStep>[]> {
   const pipelines: Record<string, PresetEntry<PresetStep>[]> = {};
   for (const name of mountedCollections(collections)) {
     const model = collections[name];
@@ -84,7 +89,7 @@ export function mountedPipelines(collections: Record<string, CollectionModel>, u
     const names = routedPipelineNames(name);
     const rules = resolveRules(name, model, ui?.[name]);
     pipelines[names.preview] = ["authn.requireUser", `authz.require:${name}.write`, `site.previewPath:${name}`];
-    pipelines[names.resolve] = ["authn.identifyUser", `authz.require:${name}.read`, `site.resolve:${name}?${rules}`, `site.resolveLinks:${name}?${rules}`];
+    pipelines[names.resolve] = ["authn.identifyUser", `authz.require:${name}.read`, `site.resolve:${name}?${rules}`, `site.resolveLinks:${name}?${linkRules(rules, prefixPrimary)}`];
   }
   return pipelines;
 }

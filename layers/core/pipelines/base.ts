@@ -4,7 +4,7 @@ import type { CustomFieldTypes } from "../field-types";
 import type { PresetEntry } from "./compose";
 import { customFieldChecks } from "./collections";
 import { MOUNTS_FIELD } from "../mount-path";
-import { mountedCollections, mountedPipelines, pageRules, pathPipelines } from "./paths";
+import { linkRules, mountedCollections, mountedPipelines, pageRules, pathPipelines } from "./paths";
 import { mediaTrashPipelines } from "./media-trash";
 import type { CollectionModel } from "./collections";
 
@@ -25,6 +25,8 @@ export const REQUIRE_RECENT_AUTH = `authn.requireRecentAuth:${RECENT_AUTH_SECOND
 export interface PresetContext {
   exportDir: string;
   homeSlug: string;
+  /** Whether site-default prefixes the default locale too; the public reads then resolve internal links in that form. */
+  prefixPrimary?: boolean;
   pagesTranslatable?: boolean;
   /** Whether the `eventsQueue` feature is enabled; set once by `definePreset` before the base pipelines are built. */
   eventsQueued?: boolean;
@@ -37,7 +39,7 @@ export interface PresetContext {
 }
 
 export function basePipelines(
-  { exportDir, homeSlug, customFields, eventsQueued, collectionsUi, mediaTrash }: PresetContext,
+  { exportDir, homeSlug, prefixPrimary, customFields, eventsQueued, collectionsUi, mediaTrash }: PresetContext,
   collections: Record<string, CollectionModel>,
 ): Record<string, PresetEntry<PresetStep>[]> {
   const mounts = "pages" in collections && mountedCollections(collections).length > 0;
@@ -79,7 +81,7 @@ export function basePipelines(
       "authn.identifyUser",
       "authz.require:settings.read",
       "content.get:settings",
-      `site.resolveLinks:settings?home=${homeSlug}&status=published&fallback=true`,
+      `site.resolveLinks:settings?${linkRules(`home=${homeSlug}&status=published&fallback=true`, prefixPrimary)}`,
     ],
     [SETTINGS_PIPELINES.set]: mounts
       ? [
@@ -125,9 +127,9 @@ export function basePipelines(
       "authz.require:pages.read",
       ...routeHint,
       `site.resolve:pages?${siteRules}`,
-      `site.resolveLinks:pages?${siteRules}`,
+      `site.resolveLinks:pages?${linkRules(siteRules, prefixPrimary)}`,
     ];
-    Object.assign(pipelines, pathPipelines(collections.pages), mountedPipelines(collections, collectionsUi));
+    Object.assign(pipelines, pathPipelines(collections.pages), mountedPipelines(collections, collectionsUi, prefixPrimary));
   }
 
   return pipelines;
