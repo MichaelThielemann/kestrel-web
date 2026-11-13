@@ -1586,12 +1586,16 @@ above) wherever a box has a fixed ratio. A re-cut variant keeps its path and its
 new `?v=` query once the new render is there; the query is opaque, so use the path as the API returns it.
 The pages that show the image are published again.
 `KestrelImage` sets `object-position` from the centre of `focus`, which visitors receive with the variants,
-so an image keeps its focus in view on the original and on an `inside` variant too.
+on the original and on an `inside` variant, so a box that crops them keeps the focus in view. A variant of
+a declared `cover` size keeps the default centre, since kestrel already cut it around the focus or the
+crop. `KestrelImage` reads the declared sizes to tell them apart and never puts a `cover` variant into the
+`srcset` of another size, or an `inside` variant into a `cover` size's `srcset`; a `cover` size set only in
+images-default's own `sizes` config is not declared in the build, so declare every `cover` size here.
 
 The admin's crop editor opens from the media viewer ("Adjust crop") and from the crop button on an image
 chosen in a media field. Its focus tab previews each ratio of the `cover` sizes; its fine-crop tab shows one
 tile per ratio, automatic until a crop is set by hand. Ratios are exact, so `1000x562` and `1600x900` get two
-tiles, although `pickImageSources` lists both in one `srcset`. A crop narrower or lower than a size of its
+tiles, and `KestrelImage` gives each ratio key a `srcset` of its own. A crop narrower or lower than a size of its
 ratio delivers that variant smaller, which the editor points out. Without a `cover` size the editor offers
 the focus alone and says why. Every action works with the pointer, touch or the keyboard, and the focus
 and the crop take numbers too. The editor computes every cut with

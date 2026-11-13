@@ -1845,6 +1845,13 @@ present), `only` (restrict the `srcset` candidates to specific size names), `alt
   square) and `teaser` (480×320, 3:2) in one `srcset`. Consequence for a consumer declaring its own
   sizes: a `cover` size forms its own `srcset` family and is never mixed with `inside` sizes, even when
   both are named through `only`.
+- **A `srcset` never mixes cuts.** `KestrelImage` passes the declared sizes (`#kestrel/image-sizes`) to
+  `pickImageSources`. A focus or a manual crop makes a `cover` variant a different picture from the
+  `inside` variants of its ratio, so the ratio alone no longer tells them apart: for a declared `cover` size
+  the candidates are the variants of the declared `cover` sizes with the same exact ratio key (they share
+  one cut), and for any other size the variants of the declared `cover` sizes are left out. On a width tie
+  the named variant stays. A size kestrel renders that no build declares (one set only in images-default's
+  own `sizes` config) is grouped by ratio alone, so declare every `cover` size the site renders.
 - **`width`/`height` come from the named variant's planned dimensions**, decided from the original at
   plan time and identical to what the eventual render produces — never the original's own dimensions
   while a variant is still pending, so `<img width height>` and the `cover`/`inside` box are correct from
@@ -1856,11 +1863,15 @@ present), `only` (restrict the `srcset` candidates to specific size names), `alt
   path already had (a new crop, a changed size). The query is opaque: `pickImageSources` passes the path
   through as it is, in `src` and in `srcset`, and the ratio grouping reads only `width`/`height`. A check
   that compares an exported URL with a file strips the query first.
-- **`object-position` follows the focus.** With a `focus` on the item, `KestrelImage` adds
-  `object-position: <x + w/2> <y + h/2>` (percent of the image, `focusObjectPosition`), on a variant, on
-  the original that stands in for it while it renders, and on the original when no variant is named. A
-  `cover` variant is already cut around the focus by the server; the position keeps the focus in view when
-  the box crops further, or when a site's CSS gives the original `object-fit: cover`.
+- **`object-position` follows the focus on the whole image.** With a `focus` on the item, `KestrelImage`
+  adds `object-position: <x + w/2> <y + h/2>` (percent of the image, `focusObjectPosition`) on the original
+  when no variant is named, and on a variant of any size that is not a declared `cover` size (an `inside`
+  variant, and the original that stands in for it while it renders). Those show the whole image, so the
+  focus centre is where the position puts it, and a box that crops them (a site's CSS with
+  `object-fit: cover`) keeps the focus in view. A variant of a declared `cover` size gets no position: the
+  server cut it around the focus or the manual crop, so the focus sits elsewhere in it than on the original,
+  and the default centre suits it better. The original that stands in for a `cover` variant before its first
+  render is centred as well.
 - **`alt=""` stays possible**: the prop is `alt?: string | null`, and the template's `altText` is
   `props.alt ?? item.value?.alt ?? ''` — an explicit empty string from the block (a purely decorative
   image) is not coalesced away, only `undefined`/`null` fall through to the media's own alt text and

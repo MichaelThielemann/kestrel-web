@@ -6,6 +6,9 @@ export type PublicMediaItem = AnonymousOf<'getMedia'>
 /** The fields of an image variant a visitor may see. */
 export type PublicMediaVariant = PublicMediaItem['variants'][number]
 
+/** A media item `KestrelImage` and `pickImageSources` take: the public fields, with the focus optional. */
+export type ImageMedia = Omit<PublicMediaItem, 'focus'> & { focus?: PublicMediaItem['focus'] }
+
 /** A media answer for any caller: the anonymous fields, and the focus and variants only when the images feature adds them. */
 export type MediaAnswer = Omit<PublicMediaItem, 'variants' | 'focus'> & { variants?: readonly PublicMediaVariant[]; focus?: PublicMediaItem['focus'] }
 

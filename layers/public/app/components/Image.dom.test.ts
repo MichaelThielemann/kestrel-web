@@ -90,4 +90,24 @@ describe('KestrelImage', () => {
 
     expect(wrapper.get('img').attributes('style')).not.toContain('object-position')
   })
+
+  it('leaves a variant of a declared cover size at the default position, since the server already cut it around the focus', async () => {
+    const media = item({
+      focus: { x: 0.1, y: 0.5, w: 0.3, h: 0.2 },
+      variants: [variant({ size: 'teaser', width: 480, height: 320, path: '/media/m1/variants/teaser.webp?v=2' })],
+    })
+    const wrapper = await mountSuspended(KestrelImage, { props: { media, size: 'teaser' } })
+    const style = wrapper.get('img').attributes('style') ?? ''
+
+    expect(style).toContain('aspect-ratio: 480 / 320')
+    expect(style).not.toContain('object-position')
+  })
+
+  it('takes a media literal without a focus', async () => {
+    const { focus: _focus, ...media } = item({ variants: [variant()] })
+    const wrapper = await mountSuspended(KestrelImage, { props: { media, size: 'content' } })
+
+    expect(wrapper.get('img').attributes('src')).toBe('/media/m1/variants/content.webp')
+    expect(wrapper.get('img').attributes('style')).not.toContain('object-position')
+  })
 })

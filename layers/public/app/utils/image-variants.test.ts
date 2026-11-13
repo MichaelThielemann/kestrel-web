@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { focusObjectPosition, pickImageSources } from './image-variants'
+import { focusObjectPosition, pickImageSources, type DeclaredImageSize } from './image-variants'
+import type { ImageMedia } from './public-shapes'
 import type { MediaItem, MediaVariant } from '#kestrel-core/app/types/api'
 
 function variant(over: Partial<MediaVariant>): MediaVariant {
@@ -211,6 +212,82 @@ describe('pickImageSources', () => {
     expect(pickImageSources(media, 'hero')?.srcset).toBe('/media/m1/variants/hero-small.webp 800w, /media/m1/variants/hero.webp?v=a7f3c2 1600w')
     expect(pickImageSources(media, 'square')?.srcset).toBe('/media/m1/variants/square.webp?v=55e1aa 600w')
     expect(pickImageSources(media, 'content')?.srcset).toBe('/media/m1/variants/thumb.webp?v=0c4d2b 320w, /media/m1/variants/content.webp 1200w')
+  })
+
+  describe('with the declared sizes', () => {
+    const defaults = [
+      variant({ size: 'thumb', width: 320, height: 180, path: '/media/m1/variants/thumb.webp' }),
+      variant({ size: 'small', width: 640, height: 360, path: '/media/m1/variants/small.webp' }),
+      variant({ size: 'medium', width: 1024, height: 576, path: '/media/m1/variants/medium.webp' }),
+      variant({ size: 'large', width: 1600, height: 900, path: '/media/m1/variants/large.webp' }),
+      variant({ size: 'xl', width: 2400, height: 1350, path: '/media/m1/variants/xl.webp' }),
+    ]
+    const hero: DeclaredImageSize = { name: 'hero', width: 1600, height: 900, fit: 'cover' }
+
+    it('gives a cover size of the original\'s own ratio a srcset of its ratio key\'s cover variants only, never the uncut ones', () => {
+      const media = item({
+        width: 4000,
+        height: 2250,
+        variants: [
+          ...defaults,
+          variant({ size: 'hero', width: 1600, height: 900, path: '/media/m1/variants/hero.webp?v=3' }),
+          variant({ size: 'hero-small', width: 800, height: 450, path: '/media/m1/variants/hero-small.webp?v=3' }),
+        ],
+      })
+      const sizes = [hero, { name: 'hero-small', width: 800, height: 450, fit: 'cover' as const }]
+      const sources = pickImageSources(media, 'hero', undefined, sizes)
+      expect(sources?.src).toBe('/media/m1/variants/hero.webp?v=3')
+      expect(sources?.srcset).toBe('/media/m1/variants/hero-small.webp?v=3 800w, /media/m1/variants/hero.webp?v=3 1600w')
+    })
+
+    it('keeps the named variant on a width tie with another variant of its cut', () => {
+      const media = item({
+        width: 4000,
+        height: 2250,
+        variants: [
+          variant({ size: 'banner', width: 1600, height: 900, path: '/media/m1/variants/banner.webp' }),
+          variant({ size: 'hero', width: 1600, height: 900, path: '/media/m1/variants/hero.webp' }),
+        ],
+      })
+      const sizes = [hero, { name: 'banner', width: 1600, height: 900, fit: 'cover' as const }]
+      expect(pickImageSources(media, 'hero', undefined, sizes)?.srcset).toBe('/media/m1/variants/hero.webp 1600w')
+    })
+
+    it('leaves a declared cover size out of the srcset of an inside size, even at the same ratio', () => {
+      const media = item({
+        width: 1200,
+        height: 800,
+        variants: [
+          variant({ size: 'thumb', width: 320, height: 213, path: '/media/m1/variants/thumb.webp' }),
+          variant({ size: 'teaser', width: 480, height: 320, path: '/media/m1/variants/teaser.webp?v=2' }),
+          variant({ size: 'small', width: 640, height: 427, path: '/media/m1/variants/small.webp' }),
+          variant({ size: 'content', width: 1200, height: 800, path: '/media/m1/variants/content.webp' }),
+        ],
+      })
+      const sizes: DeclaredImageSize[] = [{ name: 'teaser', width: 480, height: 320, fit: 'cover' }, { name: 'content', width: 1200, fit: 'inside' }]
+      expect(pickImageSources(media, 'content', undefined, sizes)?.srcset).toBe(
+        '/media/m1/variants/thumb.webp 320w, /media/m1/variants/small.webp 640w, /media/m1/variants/content.webp 1200w',
+      )
+      expect(pickImageSources(media, 'unknown', undefined, sizes)?.srcset).not.toContain('teaser')
+    })
+
+    it('marks a source as cut only when it links a variant of a declared cover size', () => {
+      const media = item({
+        width: 4000,
+        height: 2250,
+        variants: [...defaults, variant({ size: 'hero', width: 1600, height: 900, path: '/media/m1/variants/hero.webp' })],
+      })
+      expect(pickImageSources(media, 'hero', undefined, [hero])?.cut).toBe(true)
+      expect(pickImageSources(media, 'large', undefined, [hero])?.cut).toBe(false)
+      expect(pickImageSources(media, 'missing', undefined, [hero])?.cut).toBe(false)
+      expect(pickImageSources(media, 'hero')?.cut).toBe(false)
+    })
+  })
+
+  it('takes an item without a focus', () => {
+    const { focus: _focus, ...rest } = item({ variants: [variant({ size: 'content', width: 1200, height: 900, path: '/media/m1/variants/content.webp' })] })
+    const media: ImageMedia = rest
+    expect(pickImageSources(media, 'content')?.src).toBe('/media/m1/variants/content.webp')
   })
 
   it('never returns a URL containing "api"', () => {

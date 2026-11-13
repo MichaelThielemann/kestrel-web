@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import type { PublicMediaItem } from '../utils/public-shapes'
+import { imageSizes } from '#kestrel/image-sizes'
+import type { ImageMedia } from '../utils/public-shapes'
 
 const props = withDefaults(defineProps<{
-  media: string | PublicMediaItem | null
+  media: string | ImageMedia | null
   size: string
   sizes?: string
   only?: string[]
@@ -20,10 +21,10 @@ const inline = computed(() => (typeof props.media === 'object' ? props.media : n
 const { data: fetched } = await useMediaItem(() => (inline.value ? null : id.value), locale)
 
 const item = computed(() => inline.value ?? fetched.value ?? null)
-const sources = computed(() => pickImageSources(item.value, props.size, props.only))
+const sources = computed(() => pickImageSources(item.value, props.size, props.only, imageSizes))
 const altText = computed(() => props.alt ?? item.value?.alt ?? '')
 const boxStyle = computed(() => {
-  const objectPosition = focusObjectPosition(item.value?.focus)
+  const objectPosition = sources.value?.cut ? undefined : focusObjectPosition(item.value?.focus)
   const position = objectPosition === undefined ? {} : { objectPosition }
   if (sources.value?.variant) return { aspectRatio: `${sources.value.width} / ${sources.value.height}`, objectFit: 'cover' as const, ...position }
   return objectPosition === undefined ? undefined : position
