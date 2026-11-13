@@ -99,6 +99,19 @@ describe('loadSchemaInto', () => {
     expect(state.value.error).toBe(echo('error.withHint', { message: 'bootFailure.schemaLoadError', hint }))
   })
 
+  it('never reads a 401 or 403 that a proxy or gateway wrote in front of the server as a missing session or role', async () => {
+    const refusedInFront = (status: number) => new ApiError(status, 'Request failed', 'INTERNAL', false, undefined, undefined, undefined, { requestId: 'f0e1d2c3b4a5', reached: false })
+    for (const status of [401, 403]) {
+      const state = fakeState()
+      const { api } = fakeApi(refusedInFront(status))
+
+      expect(await loadSchemaInto(state, api, scope(), echo)).toBe('failed')
+      expect(state.value.forbidden).toBe(false)
+      const hint = echo('error.unreached', { reference: `HTTP ${status} · ${echo('error.id', { id: 'f0e1d2c3b4a5' })}` })
+      expect(state.value.error).toBe(echo('error.withHint', { message: 'bootFailure.schemaLoadError', hint }))
+    }
+  })
+
   it('retries after a failure, since nothing was cached', async () => {
     const state = fakeState()
     const failing = fakeApi(apiError(500, 'boom'))

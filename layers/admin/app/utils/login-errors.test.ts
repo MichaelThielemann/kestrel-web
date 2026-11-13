@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { ApiError } from '../composables/useApi'
-import { signInErrorMessage } from './login-errors'
+import { reauthErrorMessage, signInErrorMessage } from './login-errors'
 
 const t = (key: string, params?: Record<string, unknown>) => (params ? `${key}:${JSON.stringify(params)}` : key)
 const id = (value: string) => t('error.id', { id: value })
@@ -30,5 +30,22 @@ describe('signInErrorMessage', () => {
       message: 'login.error',
       hint: t('error.unreached', { reference: `error.noAnswer · ${id('0a0b0c0d0e0f')}` }),
     }))
+  })
+})
+
+describe('reauthErrorMessage', () => {
+  it('names a wrong password that kestrel refused without a reference', () => {
+    expect(reauthErrorMessage(t, new ApiError(400, 'authn/multi: password is wrong', 'VALIDATION', false, undefined, undefined, undefined, { requestId: 'a1b2c3d4e5f6' }))).toBe('reauth.wrong')
+  })
+
+  it('never reads a 400 a proxy wrote in front of the server as a wrong password', () => {
+    const refused = new ApiError(400, 'Request failed', 'INTERNAL', false, undefined, undefined, undefined, { requestId: 'f0e1d2c3b4a5', reached: false })
+    const hint = t('error.unreached', { reference: `HTTP 400 · ${id('f0e1d2c3b4a5')}` })
+    expect(reauthErrorMessage(t, refused)).toBe(t('error.withHint', { message: 'reauth.failed', hint }))
+  })
+
+  it('names what failed, the status and the error id of any other answer', () => {
+    const failed = new ApiError(500, '', 'INTERNAL', false, undefined, undefined, undefined, { requestId: 'a1b2c3d4e5f6' })
+    expect(reauthErrorMessage(t, failed)).toBe(t('error.withReference', { message: 'reauth.failed', reference: `HTTP 500 · ${id('a1b2c3d4e5f6')}` }))
   })
 })

@@ -2,7 +2,7 @@ import { LAYER_ROUTES } from '#kestrel-core/fixed-routes'
 import type { AdminSchema } from '#kestrel-admin/types/api'
 import type { ApiClient, ApiRequestOptions, Translate } from '../actions/types'
 import type { ApiRoute } from '../utils/capabilities'
-import { apiErrorStatus, apiErrorText, useApi } from './useApi'
+import { apiErrorText, toApiError, useApi } from './useApi'
 
 export type SchemaOutcome = 'ok' | 'unauthenticated' | 'forbidden' | 'failed'
 
@@ -24,9 +24,10 @@ async function fetchSchema(api: ApiClient): Promise<FetchResult> {
     const schema = await api<AdminSchema>(LAYER_ROUTES.schema)
     return { outcome: 'ok', schema }
   } catch (e) {
-    if (apiErrorStatus(e) === 401) return { outcome: 'unauthenticated', schema: null }
-    if (apiErrorStatus(e) === 403) return { outcome: 'forbidden', schema: null }
-    return { outcome: 'failed', schema: null, failure: e }
+    const err = toApiError(e)
+    if (err.reached && err.status === 401) return { outcome: 'unauthenticated', schema: null }
+    if (err.reached && err.status === 403) return { outcome: 'forbidden', schema: null }
+    return { outcome: 'failed', schema: null, failure: err }
   }
 }
 

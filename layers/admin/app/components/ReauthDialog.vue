@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { reauthErrorMessage } from '../utils/login-errors'
 const { t } = useT()
 const reauth = useReauth()
 const api = useAdminApi()
@@ -24,7 +25,7 @@ async function submit() {
     await api(capabilities.route('confirmPassword'), { body: { password: password.value } })
     reauth.settle(true)
   } catch (e) {
-    error.value = apiErrorStatus(e) === 400 ? t('reauth.wrong') : apiErrorText(t, e, t('reauth.failed'))
+    error.value = reauthErrorMessage(t, e)
   } finally {
     busy.value = false
   }
