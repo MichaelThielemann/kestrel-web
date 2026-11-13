@@ -15,6 +15,8 @@ export interface UploadItem extends QueueEntry {
   file: File; filename: string; folder: string
   provenance?: Provenance
   totalKnown?: boolean
+  /** The `x-request-id` of the last failed attempt, the error id its message names. */
+  requestId?: string
   result?: MediaItem
 }
 

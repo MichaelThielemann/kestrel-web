@@ -257,7 +257,7 @@ describe('useMediaUpload', () => {
     const { wrapper, api } = await mountProbe()
     await api.enqueue([file('a.png'), file('b.png')], '')
     const failed = api.queue.value[0]!
-    expect(failed.message).toBe(en['media.upload.network'])
+    expect(failed.message?.startsWith(en['media.upload.network'])).toBe(true)
 
     expect(api.retry(failed.id)).toBe(true)
     await vi.waitFor(() => expect(statuses(api)).toEqual([['a.png', 'done'], ['b.png', 'done']]))

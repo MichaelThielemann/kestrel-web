@@ -10,6 +10,7 @@ const { t } = useT()
 
 const view = computed(() => uploadStateView(props.item, t))
 const fallbackIcon = computed(() => (props.item.file.type.startsWith('image/') ? 'image' : 'file-text'))
+const errorId = computed(() => (props.item.status === 'failed' ? props.item.requestId : undefined))
 </script>
 
 <template>
@@ -26,8 +27,9 @@ const fallbackIcon = computed(() => (props.item.file.type.startsWith('image/') ?
       <img v-if="preview" :src="preview" alt="">
       <KestrelUiIcon v-else :name="fallbackIcon" :size="16" />
     </template>
-    <template v-if="retryable" #actions>
-      <KestrelUiTooltip>
+    <template v-if="retryable || errorId" #actions>
+      <KestrelErrorIdCopy v-if="errorId" :id="errorId" />
+      <KestrelUiTooltip v-if="retryable">
         <KestrelUiButton
           variant="icon"
           size="md"

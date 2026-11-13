@@ -1,6 +1,6 @@
 import type { ApiErrorDetails, MediaFolder, MediaFolderRenameResponse, MediaItem, Provenance } from '#kestrel-admin/types/api'
 import { defineAction, type ActionContext, type ActionStep } from '#kestrel-core/app/utils/actions'
-import { ApiError, apiErrorCode, apiErrorDetails, apiErrorMessage, apiErrorRetryable, apiErrorRunId, apiErrorStatus, retryableMessage, withRunId } from '../composables/useApi'
+import { ApiError, apiErrorCode, apiErrorDetails, apiErrorMessage, apiErrorRetryable, apiErrorRunId, apiErrorStatus, failureText, retryableMessage, toApiError, withRunId } from '../composables/useApi'
 import type { UploadItem } from '../composables/useMediaUpload'
 import { UploadTransportError, type UploadProgress, type UploadTransport } from '../composables/useUploadTransport'
 import { humanizeSize, joinFolder, parentFolder } from '../utils/library'
@@ -254,9 +254,8 @@ const UPSTREAM_MESSAGE_KEYS: Record<string, string> = {
 }
 
 function upstreamMessage(t: Translate, e: UploadTransportError): string {
-  if (e.code === 'NETWORK') return t('media.upload.network')
-  const message = t(UPSTREAM_MESSAGE_KEYS[e.code] ?? 'media.uploadFailedReason')
-  return e.status > 0 ? t('media.upload.httpStatus', { message, status: e.status }) : message
+  const cause = e.code === 'NETWORK' ? t('media.upload.network') : t(UPSTREAM_MESSAGE_KEYS[e.code] ?? 'media.uploadFailedReason')
+  return t('media.upload.unreached', { cause, detail: failureText(t, '', e) })
 }
 
 const MODULE_PREFIX = /^[\w-]+\/[\w-]+:\s*/
@@ -272,15 +271,18 @@ function unsupportedMessage(t: Translate, message: string, file: File): string {
   return type ? t('media.uploadUnsupported', { detail: type }) : t('media.upload.unsupported')
 }
 
-function uploadMessage(t: Translate, e: unknown, file: File): string {
-  const code = apiErrorCode(e)
-  if (code === 'UNAUTHENTICATED') return t('media.upload.sessionExpired')
-  if (e instanceof UploadTransportError) return upstreamMessage(t, e)
-  const message = apiErrorMessage(e)
-  if (code === 'PAYLOAD_TOO_LARGE') return tooLargeMessage(t, message, file)
-  if (code === 'UNSUPPORTED') return unsupportedMessage(t, message, file)
-  const detail = humanizeByteCounts(message.replace(MODULE_PREFIX, ''))
+function kestrelMessage(t: Translate, e: ApiError, file: File): string {
+  if (e.code === 'PAYLOAD_TOO_LARGE') return tooLargeMessage(t, e.message, file)
+  if (e.code === 'UNSUPPORTED') return unsupportedMessage(t, e.message, file)
+  const detail = humanizeByteCounts(e.message.replace(MODULE_PREFIX, ''))
   return detail ? t('media.upload.failedDetail', { detail }) : t('media.uploadFailedReason')
+}
+
+function uploadMessage(t: Translate, e: unknown, file: File): string {
+  if (apiErrorCode(e) === 'UNAUTHENTICATED') return t('media.upload.sessionExpired')
+  if (e instanceof UploadTransportError) return upstreamMessage(t, e)
+  const err = toApiError(e)
+  return failureText(t, kestrelMessage(t, err, file), err)
 }
 
 function buildUploadBody(item: UploadItem, provenance: Provenance | undefined): FormData {
@@ -308,6 +310,7 @@ const uploadBegin = defineUiStep<UploadInput, UploadItem>('upload.begin', (ctx) 
   item.progress = 0
   item.message = undefined
   item.code = undefined
+  item.requestId = undefined
 })
 
 const uploadRequest = defineUiStep<UploadInput, UploadItem>('upload.request', async (ctx) => {
@@ -329,6 +332,7 @@ const uploadRequest = defineUiStep<UploadInput, UploadItem>('upload.request', as
       return
     }
     item.status = 'failed'
+    if (item.code !== 'UNAUTHENTICATED') item.requestId = toApiError(e).requestId
     item.message = uploadMessage(deps.t, e, item.file)
   }
 })

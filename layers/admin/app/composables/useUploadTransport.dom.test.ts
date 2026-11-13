@@ -14,6 +14,7 @@ class FakeXhr {
   responseURL = ''
   timeout = 0
   sent: unknown = null
+  headers: Record<string, string> = {}
   aborted = 0
   onload: Handler = null
   onerror: Handler = null
@@ -28,6 +29,10 @@ class FakeXhr {
   open(method: string, url: string) {
     this.method = method
     this.url = url
+  }
+
+  setRequestHeader(name: string, value: string) {
+    this.headers[name.toLowerCase()] = value
   }
 
   send(body: unknown) {
@@ -218,5 +223,38 @@ describe('useUploadTransport', () => {
 
     await expect(pending).resolves.toEqual({ id: 'f1' })
     expect(xhr.aborted).toBe(0)
+  })
+
+  it('sends a fresh x-request-id with every upload', async () => {
+    const first = useUploadTransport()(route, new FormData())
+    const firstId = current().headers['x-request-id']
+    current().respond(201, '{"id":"f1"}')
+    await first
+    const second = useUploadTransport()(route, new FormData())
+    const secondId = current().headers['x-request-id']
+    current().respond(201, '{"id":"f2"}')
+    await second
+
+    expect(firstId).toMatch(/^[0-9a-f]{12}$/)
+    expect(secondId).toMatch(/^[0-9a-f]{12}$/)
+    expect(secondId).not.toBe(firstId)
+  })
+
+  it('keeps the request id on every rejection and tells a kestrel answer from none', async () => {
+    const outcomes: [string, (xhr: FakeXhr) => void, boolean][] = [
+      ['kestrel error', (xhr) => xhr.respond(415, '{"error":"no","code":"UNSUPPORTED"}'), true],
+      ['proxy page', (xhr) => xhr.respond(413, '<html>413</html>', 'Request Entity Too Large'), false],
+      ['network error', (xhr) => xhr.onerror?.(), false],
+      ['timeout', (xhr) => xhr.ontimeout?.(), false],
+    ]
+    for (const [, settle, reached] of outcomes) {
+      const pending = useUploadTransport()(route, new FormData())
+      const sentId = current().headers['x-request-id']
+      settle(current())
+
+      const error = await rejection(pending)
+      expect(error.requestId).toBe(sentId)
+      expect(error.reached).toBe(reached)
+    }
   })
 })

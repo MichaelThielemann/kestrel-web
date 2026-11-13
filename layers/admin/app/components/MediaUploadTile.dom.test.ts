@@ -115,5 +115,12 @@ describe('MediaUploadTile', () => {
 
     expect(wrapper.get('.media-upload-tile__status').text()).toBe('Waiting…')
   })
-})
 
+  it('offers to copy the error id of a failed upload', async () => {
+    const failed = await mountSuspended(MediaUploadTile, { props: { item: item({ status: 'failed', message: 'Refused', requestId: 'f0e1d2c3b4a5' }) } })
+    const withoutId = await mountSuspended(MediaUploadTile, { props: { item: item({ status: 'failed', message: 'Refused' }) } })
+
+    expect(failed.find('[aria-label="Copy error ID f0e1d2c3b4a5"]').exists()).toBe(true)
+    expect(withoutId.find('[aria-label^="Copy error ID"]').exists()).toBe(false)
+  })
+})

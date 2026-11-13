@@ -55,6 +55,18 @@ describe('MediaUploadRow', () => {
     expect(wrapper.emitted('retry')).toEqual([['u1']])
   })
 
+  it('offers to copy the error id of a failed upload', async () => {
+    const failed = await mountSuspended(MediaUploadRow, {
+      props: { item: item({ status: 'failed', message: 'Refused as too large (HTTP 413 · error ID a1b2c3d4e5f6)', requestId: 'a1b2c3d4e5f6' }) },
+    })
+    const withoutId = await mountSuspended(MediaUploadRow, { props: { item: item({ status: 'failed', message: 'Too large' }) } })
+    const done = await mountSuspended(MediaUploadRow, { props: { item: item({ status: 'done', requestId: 'a1b2c3d4e5f6' }) } })
+
+    expect(failed.find('[aria-label="Copy error ID a1b2c3d4e5f6"]').exists()).toBe(true)
+    expect(withoutId.find('[aria-label^="Copy error ID"]').exists()).toBe(false)
+    expect(done.find('[aria-label^="Copy error ID"]').exists()).toBe(false)
+  })
+
   it('offers no retry for a file that cannot succeed again', async () => {
     const wrapper = await mountSuspended(MediaUploadRow, { props: { item: item({ status: 'failed', code: 'TOO_LARGE', message: 'Too large' }), retryable: false } })
 

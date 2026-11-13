@@ -4,6 +4,7 @@ import { boundaryCast } from '#kestrel/cast'
 import { runAction } from '#kestrel-core/app/utils/actions'
 import { createFolder, deleteItems, renameOrMove, setMediaMeta, setMediaProvenance, upload, uploadTimeoutMs, type DeleteItemsResult } from './media'
 import type { UploadItem } from '../composables/useMediaUpload'
+import { ApiError } from '../composables/useApi'
 import { UploadTransportError, type UploadRequestOptions, type UploadTransport } from '../composables/useUploadTransport'
 import type { ApiRoute } from '../utils/capabilities'
 import { fakeDeps } from './__fixtures__/fake-deps'
@@ -501,6 +502,11 @@ describe('upload', () => {
     expect(item.totalKnown).toBe(true)
   })
 
+  const withStatus = (message: string, status: number) => `error.withReference:${JSON.stringify({ message, reference: `HTTP ${status}` })}`
+  const idRef = (id: string) => `error.id:${JSON.stringify({ id })}`
+  const unreached = (cause: string, reference: string) =>
+    `media.upload.unreached:${JSON.stringify({ cause, detail: `error.unreached:${JSON.stringify({ reference })}` })}`
+
   function sizedItem(size: number, type = '') {
     const file = new File(['x'], 'a.bin', { type })
     Object.defineProperty(file, 'size', { value: size })
@@ -521,7 +527,7 @@ describe('upload', () => {
     await runAction(upload, { deps, item, transport })
 
     expect(item.status).toBe('failed')
-    expect(item.message).toBe(expected)
+    expect(item.message).toBe(withStatus(expected, status))
   })
 
   it('names an expired session on a 401 and records its code', async () => {
@@ -545,7 +551,7 @@ describe('upload', () => {
 
     expect(item.status).toBe('failed')
     expect(item.code).toBe('INTERNAL')
-    expect(item.message).toBe('media.upload.failedDetail:{"detail":"disk full"}')
+    expect(item.message).toBe(withStatus('media.upload.failedDetail:{"detail":"disk full"}', 500))
   })
 
   it('falls back to a generic message when kestrel sends none', async () => {
@@ -555,7 +561,7 @@ describe('upload', () => {
 
     await runAction(upload, { deps, item, transport })
 
-    expect(item.message).toBe('media.uploadFailedReason')
+    expect(item.message).toBe(withStatus('media.uploadFailedReason', 500))
   })
 
   it('names a lost connection without a status', async () => {
@@ -567,7 +573,7 @@ describe('upload', () => {
 
     expect(item.status).toBe('failed')
     expect(item.code).toBe('NETWORK')
-    expect(item.message).toBe('media.upload.network')
+    expect(item.message).toBe(unreached('media.upload.network', 'error.noAnswer'))
   })
 
   it.each([
@@ -575,7 +581,7 @@ describe('upload', () => {
     [504, 'TIMEOUT', 'media.upload.timeout'],
     [502, 'UNAVAILABLE', 'media.upload.unavailable'],
     [500, 'HTTP', 'media.uploadFailedReason'],
-  ])('adds the HTTP status to a %i answer that did not come from kestrel', async (status, code, key) => {
+  ])('says that a %i answer which did not come from kestrel was refused in front of the server, with its status', async (status, code, key) => {
     const { deps } = fakeDeps()
     const { transport } = fakeTransport([new UploadTransportError(status, 'Gateway', code)])
     const item = uploadItem()
@@ -583,7 +589,7 @@ describe('upload', () => {
     await runAction(upload, { deps, item, transport })
 
     expect(item.status).toBe('failed')
-    expect(item.message).toBe(`media.upload.httpStatus:${JSON.stringify({ message: key, status })}`)
+    expect(item.message).toBe(unreached(key, `HTTP ${status}`))
   })
 
   it('gives every request a timeout that grows with the file size', async () => {
@@ -611,7 +617,42 @@ describe('upload', () => {
 
     await runAction(upload, { deps, item, transport })
 
-    expect(item.message).toBe('media.upload.timeout')
+    expect(item.message).toBe(unreached('media.upload.timeout', 'error.noAnswer'))
+  })
+
+  it('names the HTTP status and the error id of a kestrel refusal and keeps the id on the entry', async () => {
+    const { deps } = fakeDeps()
+    const refusal = new ApiError(415, 'type not allowed', 'UNSUPPORTED', false, 'run-5', undefined, undefined, { requestId: 'a1b2c3d4e5f6' })
+    const { transport } = fakeTransport([refusal])
+    const item = uploadItem()
+
+    await runAction(upload, { deps, item, transport })
+
+    expect(item.requestId).toBe('a1b2c3d4e5f6')
+    expect(item.message).toBe(`error.withReference:${JSON.stringify({ message: 'media.upload.unsupported', reference: `HTTP 415 · ${idRef('a1b2c3d4e5f6')}` })}`)
+  })
+
+  it('names the error id of an upload a proxy refused in front of the server', async () => {
+    const { deps } = fakeDeps()
+    const refusal = new UploadTransportError(413, 'Request Entity Too Large', 'PAYLOAD_TOO_LARGE', false, undefined, undefined, undefined, { requestId: 'f0e1d2c3b4a5' })
+    const { transport } = fakeTransport([refusal])
+    const item = uploadItem()
+
+    await runAction(upload, { deps, item, transport })
+
+    expect(item.requestId).toBe('f0e1d2c3b4a5')
+    expect(item.message).toBe(unreached('media.upload.rejectedTooLarge', `HTTP 413 · ${idRef('f0e1d2c3b4a5')}`))
+  })
+
+  it('forgets the error id of an earlier attempt when the upload starts again', async () => {
+    const { deps } = fakeDeps()
+    const { transport } = fakeTransport([{ id: 'f1' }])
+    const item = uploadItem({ status: 'failed', requestId: 'old-attempt' })
+
+    await runAction(upload, { deps, item, transport })
+
+    expect(item.status).toBe('done')
+    expect(item.requestId).toBeUndefined()
   })
 
   it('marks an aborted upload cancelled, not failed', async () => {

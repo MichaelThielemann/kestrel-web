@@ -1,6 +1,7 @@
 import { boundaryCast } from '#kestrel/cast'
 import type { ApiRoute } from '../utils/capabilities'
 import { apiUrl } from '../utils/capabilities'
+import { newRequestId, REQUEST_ID_HEADER } from '../utils/request-id'
 import { ApiError, toApiError } from './useApi'
 
 export interface UploadProgress { loaded: number; total: number; percent: number }
@@ -23,9 +24,15 @@ export type UploadTransport = <T>(route: ApiRoute, body: FormData, options?: Upl
  * with status 0), or an answer without kestrel's JSON error body, such as a proxy or gateway page. Its code is
  * `PAYLOAD_TOO_LARGE` (413), `TIMEOUT` (408, 504), `UNAVAILABLE` (502, 503) or `HTTP`; `status` keeps the HTTP status.
  * A 2xx answer whose body is not a JSON object, or that arrived after a redirect away from the requested address
- * (a sign-in or block page), is an `HTTP` failure too.
+ * (a sign-in or block page), is an `HTTP` failure too. `reached` is false.
  */
-export class UploadTransportError extends ApiError {}
+export class UploadTransportError extends ApiError {
+  override readonly reached = false
+}
+
+function transportError(status: number, message: string, code: string, requestId: string): UploadTransportError {
+  return new UploadTransportError(status, message, code, false, undefined, undefined, undefined, { requestId })
+}
 
 const UPSTREAM_CODES: Record<number, string> = { 408: 'TIMEOUT', 413: 'PAYLOAD_TOO_LARGE', 502: 'UNAVAILABLE', 503: 'UNAVAILABLE', 504: 'TIMEOUT' }
 
@@ -52,17 +59,18 @@ function redirectedAway(xhr: XMLHttpRequest, requested: string): boolean {
   return new URL(xhr.responseURL).href !== new URL(requested, window.location.href).href
 }
 
-function errorAnswer(status: number, statusText: string, data: unknown): ApiError {
-  if (isKestrelErrorBody(data)) return toApiError({ status, data })
-  return new UploadTransportError(status, statusText || `HTTP ${status}`, UPSTREAM_CODES[status] ?? 'HTTP')
+function errorAnswer(status: number, statusText: string, data: unknown, requestId: string): ApiError {
+  if (isKestrelErrorBody(data)) return toApiError({ status, data }, { requestId })
+  return transportError(status, statusText || `HTTP ${status}`, UPSTREAM_CODES[status] ?? 'HTTP', requestId)
 }
 
 export function useUploadTransport(): UploadTransport {
   return function uploadRequest<T>(route: ApiRoute, body: FormData, options: UploadRequestOptions = {}): Promise<T> {
     const { onProgress, signal, timeoutMs } = options
+    const requestId = newRequestId()
     return new Promise<T>((resolve, reject) => {
       if (signal?.aborted) {
-        reject(new UploadTransportError(0, 'Upload aborted', 'ABORTED'))
+        reject(transportError(0, 'Upload aborted', 'ABORTED', requestId))
         return
       }
       const xhr = new XMLHttpRequest()
@@ -76,6 +84,7 @@ export function useUploadTransport(): UploadTransport {
       }
       const url = apiUrl(route)
       xhr.open(route.method, url)
+      xhr.setRequestHeader(REQUEST_ID_HEADER, requestId)
       if (timeoutMs) xhr.timeout = timeoutMs
       xhr.upload.onprogress = (event) => {
         if (!onProgress || settled) return
@@ -87,12 +96,12 @@ export function useUploadTransport(): UploadTransport {
         const data = parseJsonBody(xhr.responseText)
         const success = xhr.status >= 200 && xhr.status < 300
         if (success && isJsonObject(data) && !redirectedAway(xhr, url)) resolve(boundaryCast<T>(data, 'json'))
-        else if (success) reject(new UploadTransportError(xhr.status, xhr.statusText || `HTTP ${xhr.status}`, 'HTTP'))
-        else reject(errorAnswer(xhr.status, xhr.statusText, data))
+        else if (success) reject(transportError(xhr.status, xhr.statusText || `HTTP ${xhr.status}`, 'HTTP', requestId))
+        else reject(errorAnswer(xhr.status, xhr.statusText, data, requestId))
       })
-      xhr.onerror = () => settle(() => reject(new UploadTransportError(0, 'Network error', 'NETWORK')))
-      xhr.onabort = () => settle(() => reject(new UploadTransportError(0, 'Upload aborted', 'ABORTED')))
-      xhr.ontimeout = () => settle(() => reject(new UploadTransportError(0, 'Upload timed out', 'TIMEOUT')))
+      xhr.onerror = () => settle(() => reject(transportError(0, 'Network error', 'NETWORK', requestId)))
+      xhr.onabort = () => settle(() => reject(transportError(0, 'Upload aborted', 'ABORTED', requestId)))
+      xhr.ontimeout = () => settle(() => reject(transportError(0, 'Upload timed out', 'TIMEOUT', requestId)))
       signal?.addEventListener('abort', onSignal, { once: true })
       xhr.send(body)
     })

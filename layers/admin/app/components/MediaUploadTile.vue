@@ -26,6 +26,7 @@ const progressValue = computed(() => {
 })
 const state = computed(() => uploadStateView(props.item, t))
 const progressText = computed(() => state.value.status.text)
+const errorId = computed(() => (props.item.status === 'failed' ? props.item.requestId : undefined))
 const root = ref<HTMLElement | null>(null)
 
 function retry() {
@@ -43,6 +44,7 @@ function retry() {
       <p class="media-upload-tile__name">{{ item.filename }}</p>
       <p class="media-upload-tile__message">{{ state.message ?? state.status.text }}</p>
       <div class="media-upload-tile__actions">
+        <KestrelErrorIdCopy v-if="errorId" :id="errorId" variant="ghost" size="sm" />
         <KestrelUiTooltip v-if="retryable">
           <KestrelUiButton
             variant="ghost"
