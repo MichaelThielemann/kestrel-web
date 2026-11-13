@@ -3,7 +3,7 @@ import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-uti
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { AdminSchema } from '#kestrel-admin/types/api'
 import { useAdminApi } from './useAdminApi'
-import { useApi } from './useApi'
+import { ApiError, useApi } from './useApi'
 import { useAuth } from './useAuth'
 import { useSchema } from './useSchema'
 
@@ -122,6 +122,68 @@ describe('the admin client is intercepted on its own, with no global patching', 
 
     expect(navigateCalls).toEqual([])
     expect(callOrder).toEqual([])
+
+    wrapper.unmount()
+  })
+})
+
+describe('every admin request carries a fresh request id', () => {
+  const unregisterAll: (() => void)[] = []
+
+  afterEach(() => {
+    unregisterAll.splice(0).forEach((unregister) => unregister())
+    navigateCalls.length = 0
+    callOrder.length = 0
+  })
+
+  it('sends a new x-request-id on each call of both clients and keeps it on the error of a refused call', async () => {
+    const seen: (string | undefined)[] = []
+    unregisterAll.push(registerEndpoint('/api/probe-ok', { method: 'GET', handler: (event) => { seen.push(event.node.req.headers['x-request-id']?.toString()); return { ok: true } } }))
+    unregisterAll.push(registerEndpoint('/api/probe-409', {
+      method: 'GET',
+      handler: (event) => {
+        seen.push(event.node.req.headers['x-request-id']?.toString())
+        event.node.res.statusCode = 409
+        return { error: 'conflict', code: 'CONFLICT', retryable: false }
+      },
+    }))
+
+    const { wrapper, call, plainCall } = await mountProbe()
+
+    await call({ method: 'GET', path: '/probe-ok' })
+    await plainCall('/probe-ok')
+    const refused = await call({ method: 'GET', path: '/probe-409' }).then(() => null, (e: unknown) => e)
+
+    expect(seen).toHaveLength(3)
+    for (const id of seen) expect(id).toMatch(/^[0-9a-f]{12}$/)
+    expect(new Set(seen).size).toBe(3)
+    expect(refused).toBeInstanceOf(ApiError)
+    if (!(refused instanceof ApiError)) throw new Error('expected an ApiError')
+    expect(refused.status).toBe(409)
+    expect(refused.requestId).toBe(seen[2])
+    expect(refused.reached).toBe(true)
+
+    wrapper.unmount()
+  })
+
+  it('marks a page a proxy wrote in place of an answer as not reached, without its HTML as the message', async () => {
+    unregisterAll.push(registerEndpoint('/api/probe-proxy', {
+      method: 'GET',
+      handler: (event) => {
+        event.node.res.statusCode = 502
+        event.node.res.setHeader('content-type', 'text/html')
+        return '<html><body>502 Bad Gateway</body></html>'
+      },
+    }))
+
+    const { wrapper, plainCall } = await mountProbe()
+    const refused = await plainCall('/probe-proxy').then(() => null, (e: unknown) => e)
+
+    if (!(refused instanceof ApiError)) throw new Error('expected an ApiError')
+    expect(refused.status).toBe(502)
+    expect(refused.reached).toBe(false)
+    expect(refused.message).not.toContain('<html>')
+    expect(refused.requestId).toMatch(/^[0-9a-f]{12}$/)
 
     wrapper.unmount()
   })

@@ -81,6 +81,13 @@ export const de: Record<CatalogKey, string> = {
   'toast.region': 'Benachrichtigungen',
   'toast.dismiss': 'Schließen',
   'toast.withAction': '{message}. {action} in den Benachrichtigungen verfügbar.',
+  'error.withReference': '{message} ({reference})',
+  'error.id': 'Fehler-ID {id}',
+  'error.noAnswer': 'keine Antwort',
+  'error.unreached': 'Die Anfrage hat den Server nicht erreicht oder wurde vorher abgelehnt ({reference})',
+  'error.idCopy': 'Fehler-ID {id} kopieren',
+  'error.idCopied': 'Fehler-ID kopiert',
+  'error.idCopyFailed': 'Die Fehler-ID konnte nicht kopiert werden.',
 
   'list.translations': 'Übersetzungen',
   'list.deadRefs': 'Verweise',

@@ -79,6 +79,13 @@ export const en = {
   'toast.region': 'Notifications',
   'toast.dismiss': 'Dismiss',
   'toast.withAction': '{message}. {action} available in the notifications.',
+  'error.withReference': '{message} ({reference})',
+  'error.id': 'error ID {id}',
+  'error.noAnswer': 'no answer',
+  'error.unreached': 'The request did not reach the server or was refused in front of it ({reference})',
+  'error.idCopy': 'Copy error ID {id}',
+  'error.idCopied': 'Error ID copied',
+  'error.idCopyFailed': 'The error ID could not be copied.',
 
   'list.translations': 'Translations',
   'list.deadRefs': 'Refs',

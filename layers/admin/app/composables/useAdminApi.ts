@@ -3,6 +3,7 @@ import { boundaryCast } from '#kestrel/cast'
 import type { ApiClient, ApiRequestOptions } from '../actions/types'
 import type { ApiRoute } from '../utils/capabilities'
 import { makeReauthInterceptor } from '../utils/reauth'
+import { setRequestId } from '../utils/request-id'
 import { toApiError } from './useApi'
 import { retryAfterReauth, useReauth } from './useReauth'
 
@@ -18,6 +19,7 @@ export function useAdminApi(): ApiClient {
     baseURL: MOUNT_PATH,
     retry: 0,
     credentials: 'same-origin',
+    onRequest: setRequestId,
     onResponseError,
   })
   const reauth = useReauth()
