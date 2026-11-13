@@ -166,7 +166,7 @@ describe('SystemDeliveryStale', () => {
     expect(failed?.get('.delivery-exports__text').text()).toBe(text('delivery.indexExportFailed', { at: time }))
     expect(failed?.get('.delivery-exports__error').text()).toBe('blobstore unavailable')
     expect(skipped?.attributes('data-tone')).toBe('skipped')
-    expect(skipped?.get('.delivery-exports__text').text()).toBe(text('delivery.indexExportSkipped', { at: time }))
+    expect(skipped?.get('.delivery-exports__text').text()).toBe(text('delivery.llmsFullExportSkipped', { at: time }))
     expect(skipped?.find('.delivery-exports__error').exists()).toBe(false)
     wrapper.unmount()
   })
