@@ -318,6 +318,30 @@ describe('MediaCropEditor', () => {
     wrapper.unmount()
   })
 
+  it('asks before Escape drops a typed crop number that is not committed yet', async () => {
+    const ask = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    const wrapper = await mountEditor(photo())
+
+    tabs()[1]?.click()
+    await nextTick()
+    const zoom = q<HTMLInputElement>('input[data-field="zoom"]')
+    zoom?.focus()
+    if (zoom) zoom.value = '250'
+    zoom?.dispatchEvent(new Event('input', { bubbles: true }))
+    await nextTick()
+    key(zoom, 'Escape')
+    await nextTick()
+    expect(ask).toHaveBeenCalledWith(en['mediaCrop.discardConfirm'])
+    expect(wrapper.emitted('update:open')).toBeUndefined()
+    expect(q('[role="dialog"]')).not.toBeNull()
+
+    ask.mockReturnValue(true)
+    key(zoom, 'Escape')
+    await nextTick()
+    expect(wrapper.emitted('update:open')).toEqual([[false]])
+    wrapper.unmount()
+  })
+
   it('shows why a save failed, stays open and puts keyboard focus back on Save', async () => {
     let fail: (error: unknown) => void = () => {}
     api.answer = (call) => (call.method === 'PUT'

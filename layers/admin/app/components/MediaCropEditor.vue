@@ -52,9 +52,10 @@ function onOpenAutoFocus(event: Event): void {
 const saveButton = ref<{ focus: () => void } | null>(null)
 let discardConfirmed = false
 const confirmDiscard = () => confirm(t('mediaCrop.discardConfirm'))
+const unsaved = () => dirty.value || pending.value
 
 function onEscape(event: KeyboardEvent): void {
-  if (!dirty.value) return
+  if (!unsaved()) return
   if (confirmDiscard()) discardConfirmed = true
   else event.preventDefault()
 }
@@ -64,7 +65,7 @@ function onOpenChange(value: boolean): void {
     emit('update:open', true)
     return
   }
-  if (dirty.value && !discardConfirmed && !confirmDiscard()) return
+  if (unsaved() && !discardConfirmed && !confirmDiscard()) return
   discardConfirmed = false
   emit('update:open', false)
 }
