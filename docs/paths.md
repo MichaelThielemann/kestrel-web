@@ -160,7 +160,7 @@ and the untranslated-page redirect goes to the default locale's `_paths` entry.
 | option | default | meaning |
 |---|---|---|
 | `homeSlug` | `"home"` | the slug served at a locale's root; pass the same value as `definePreset({ homeSlug })` |
-| `prefixPrimary` | `false` | pass `shared/model`'s `prefixPrimary`, so `_paths` match the site's URLs |
+| `prefixPrimary` | `false` | pass `shared/model`'s `prefixPrimary`, so `_paths` match the site's URLs; `delivery-static` gets the same value, and `definePreset()` resolves internal links in that form |
 | `paths.maxCascade` | `1000` | the most paths (documents × locales) one save may move; a larger save is rejected, and while one runs every other request waits |
 
 A page is reachable in a locale when it satisfies its workflow's live status there (`status: "published"`

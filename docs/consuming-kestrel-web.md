@@ -330,7 +330,7 @@ calls them before it has read a schema at all.
 | `revisions` | no | — `{ keep?, maxSnapshotBytes?, pruneOnWrite?, maxLimit? }`, passed through to `revisions-default`; used only with the `revisions` feature (§4) |
 | `audit` | no | — `{ retentionDays? }`, passed through to `audit-persistence`; used only with the `audit` feature. It is what turns the `pruneAudit` cron on (§4) |
 | `homeSlug` | no | `"home"` — the slug `site-default` serves at a locale's root; the same value as `definePreset({ homeSlug })` |
-| `prefixPrimary` | no | `false` — `shared/model`'s `prefixPrimary`, so the `_paths` of every answer match the site's URLs |
+| `prefixPrimary` | no | `false` — `shared/model`'s `prefixPrimary`, passed to `site-default` and `delivery-static`, so the `_paths` of every answer, internal links, the exported paths and the sitemap match the site's URLs |
 | `paths` | no | `{ maxCascade: 1000 }` — the most paths (documents × locales) one save may move ([`paths.md`](paths.md)) |
 | `overrides` | no | — per-module escape hatch, keyed by package name; becomes that module's `config`, merged over its derived defaults at boot |
 | `pipelines` | no | `{}` — the `exclude` and `overrides` you give `definePreset()`, the same object (`PresetPipelineChanges`); a resource whose every preset read they exclude or override without its `authz.fields` step gets no derived anonymous field grant (§4) |
@@ -1844,7 +1844,11 @@ with `delivery`, `presetModuleConfig()` reads it while the config loads and pass
 `siteUrl` for `sitemap.xml`, the `Sitemap:` line of `robots.txt` and `llms.txt`. The home page's URL is the
 site URL plus `/`, every other page's is the site URL plus its path, without a trailing slash; `<loc>`,
 `<link rel="canonical">` and `og:url` are built the same way, from `normalizeSiteUrl` and `pageUrl` of
-`@michaelthielemann/kestrel-delivery-static/site-url`, so they always match. With `delivery`, a value that is
+`@michaelthielemann/kestrel-delivery-static/site-url`, so they always match. With `prefixPrimary = true` in
+`shared/model`, the canonical link, `<loc>`, the exported path and every internal link carry the default locale's
+prefix too (`/de/about`, the home page `/de`), and nothing is exported at `/`: let the host redirect `/` to
+the default locale's home page. The Node server still answers a default-locale path without the prefix, under
+the prefixed canonical link. With `delivery`, a value that is
 not such a URL (no scheme, credentials, a query or a fragment) stops the config from loading. Without a site
 URL no `sitemap.xml` is written, `llms.txt` lists paths instead of URLs, pages carry no canonical link or
 `og:url`, and the server warns at start. When a hand-written `delivery-static` entry, or an override of its
@@ -2282,7 +2286,7 @@ What changes:
   anonymous callers read pages, `"<collection>.read"` to `roles.anonymous`. Without an assigned page a mounted
   collection keeps its 2.x top-level URLs.
 - `presetModuleConfig()` takes `homeSlug` and `prefixPrimary` from `shared/model`, and the server refuses to
-  boot when `site-default` disagrees with them. `preset/site-model-options` passes both (and `homeSlug` to
+  boot when `site-default`, or `delivery-static` on `prefixPrimary`, disagrees with them. `preset/site-model-options` passes both (and `homeSlug` to
   `definePreset()`); it is an error when `shared/model` sets `prefixPrimary = true` or another home slug.
 - `fix --write` repeats its checks until nothing more changes, so a 2.x override gets its atomic group and
   its path steps in one run. After a dependency change it asks for `pnpm install`; run `fix --write` once more

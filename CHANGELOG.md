@@ -259,6 +259,13 @@
   `reservedPaths` stay; the preset reserves `/api`, `/admin` and `/media`, and an override of `reservedPaths`
   replaces those three, so list them with your own:
   `overrides: { "@michaelthielemann/kestrel-delivery-static": { reservedPaths: ["/api", "/admin", "/media", "/microsite"] } }`.
+- With `prefixPrimary = true` in `shared/model`, static delivery exports every default-locale page under its
+  prefix (`/de/about`, the home page at `/de`), where its canonical link, `og:url` and `_paths` point, and the
+  public reads resolve internal links in that form: `presetModuleConfig()` passes `prefixPrimary` to
+  delivery-static, and `definePreset()` adds `prefixPrimary=true` to the `site.resolveLinks` rules when
+  site-default has it. Nothing is exported at `/` any more; redirect `/` to the default locale's home page on a
+  static host. The server refuses to boot when a hand-written delivery-static entry's `prefixPrimary` differs
+  from `shared/model`'s.
 - `presetModuleConfig({ llms: { siteUrl } })` throws: the site URL comes only from `NUXT_PUBLIC_SITE_URL`.
   With `delivery`, `NUXT_PUBLIC_SITE_URL` must be an absolute `http` or `https` URL without credentials, a
   query or a fragment, or the config does not load (`presetModuleConfig: NUXT_PUBLIC_SITE_URL "…" is not a

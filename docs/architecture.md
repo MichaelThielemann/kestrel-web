@@ -320,7 +320,7 @@ An app that extends `kestrel-web` provides, at its root:
 | `kestrel.config.ts` | `defineConfig({ modules, triggers, http: null })` — the backend's module config and HTTP-trigger routing; also exports `preset` (`definePreset({ modules, features, collections, ...pipelineChanges })`, see **Pipeline presets**; the same `pipelineChanges` go to `presetModuleConfig({ pipelines })`). The `modules` list comes from `presetModuleConfig()` (see **Consumer module config**); writing it out by hand stays supported. |
 | `kestrel.modules.ts` *(optional)* | The module *implementations*, one per entry in `kestrel.config.ts`'s `modules`, same order. Needed only when a `modules` entry isn't a standard `@michaelthielemann/kestrel-*` package — see **Module registry**. |
 | `pipelines/index.ts` *(optional)* | Exports `pipelines`, the list of pipeline definitions referenced by `kestrel.config.ts` triggers — `[...preset.pipelines, ...ownPipelines]`. Needed only once you have pipelines of your own. |
-| `shared/model.ts` | The content model — `locales`, `defaultLocale`, `prefixPrimary` (whether public URLs prefix the default locale too — the backend never does), `contentTypes` — and `features`, the `Feature[]` list passed to `definePreset`/`presetSchemas`/`presetCollectionsUi`. Backend config: consumed by `kestrel.config.ts`, by `shared/collections-ui.ts` and, server-side, by the `GET /api/admin/schema` route (so backend and admin UI can't drift). The admin browser bundle does not import it. |
+| `shared/model.ts` | The content model — `locales`, `defaultLocale`, `prefixPrimary` (whether public URLs prefix the default locale too; the backend resolves a default-locale path with or without the prefix, and builds `_paths`, internal links and the exported paths with it), `contentTypes` — and `features`, the `Feature[]` list passed to `definePreset`/`presetSchemas`/`presetCollectionsUi`. Backend config: consumed by `kestrel.config.ts`, by `shared/collections-ui.ts` and, server-side, by the `GET /api/admin/schema` route (so backend and admin UI can't drift). The admin browser bundle does not import it. |
 | `shared/collections-ui.ts` | The admin UI for each collection: labels, icon, editor, field layout/labels/overrides, and the optional `workflow`. `defineCollectionsUi({ ...presetCollectionsUi({ features }), ...ownEntries }, contentTypes)`, see **Collection UI**. |
 | `shared/field-types.ts` *(optional)* | Field types of your own: `defineFieldTypes({ color: { storage, schema, empty } })`. Passed to `presetModuleConfig`/`definePreset` as `fieldTypes`, read by the blocks module at build time and by the admin through `#kestrel/field-types`. See `docs/field-types.md`. |
 | `app/blocks/*.vue` | One SFC per block. Its `defineProps({ … field factories … })` IS the block schema and its `defineBlock({ … })` the block metadata; the file name is the block name. No registry, index or definitions file. |
@@ -2110,7 +2110,11 @@ its own for the site URL. The server plugin keys `deliveryBuildCheck` by the nor
 warns at start when `delivery-static`'s `siteUrl` differs from it (`siteUrlMismatch` in
 `layers/core/server/utils/build-check.ts`). `[...slug].vue` builds the canonical link and `og:url` with `canonicalUrl()`
 (`layers/core/app/utils/canonical.ts`), which uses the same `normalizeSiteUrl` and `pageUrl`, so a page's
-canonical URL is its sitemap `<loc>`; `config.test.ts` pins that. That subpath imports nothing, which is why
+canonical URL is its sitemap `<loc>`; `config.test.ts` pins that. The path is the same too: `presetModuleConfig()`
+passes `prefixPrimary` to `delivery-static` as well as to `site-default`, `definePreset()` adds `prefixPrimary=true`
+to the `site.resolveLinks` rules of the public reads when `site-default` has it, `siteModelProblem` refuses to boot
+when either module differs from `shared/model`, and `server/prefixed-export.test.ts` checks an export with every
+locale prefixed. That subpath imports nothing, which is why
 it is the one delivery-static import the UI layers may make (`kestrel/no-backend-in-ui-layers`).
 
 ## Public site (`layers/public`)
