@@ -106,6 +106,16 @@ describe('exportAnnouncement', () => {
     expect(exportAnnouncement(tFor(en), skippedAt(1), failedAt(2), format, all)).toBe('llms-full.txt: Export failed at <2>: EACCES: llms-full.txt')
     expect(exportAnnouncement(tFor(en), exports({ llmsFull: ok(1) }), failedAt(2), format, all)).toBe('llms-full.txt: Export failed at <2>: EACCES: llms-full.txt')
   })
+
+  it('reads out the first outcome recorded since a wait began even when it repeats the failure or skip before it, and stays quiet for later repeats in that wait', () => {
+    const failedAt = (at: number) => exports({ indexes: ok(1), llmsFull: { at, entries: 0, error: 'EACCES: llms-full.txt', skipped: false } })
+    const skippedAt = (at: number) => exports({ indexes: ok(1), llmsFull: { at, entries: 0, error: null, skipped: true } })
+    expect(exportAnnouncement(tFor(en), failedAt(1), failedAt(9), format, all, failedAt(1))).toBe('llms-full.txt: Export failed at <9>: EACCES: llms-full.txt')
+    expect(exportAnnouncement(tFor(en), skippedAt(1), skippedAt(9), format, all, skippedAt(1))).toMatch(/^llms-full\.txt: Skipped at <9>/)
+    expect(exportAnnouncement(tFor(en), failedAt(9), failedAt(11), format, all, failedAt(1))).toBeNull()
+    expect(exportAnnouncement(tFor(en), failedAt(1), failedAt(1), format, all, failedAt(1))).toBeNull()
+    expect(exportAnnouncement(tFor(en), null, failedAt(9), format, all, failedAt(1))).toBeNull()
+  })
 })
 
 describe('exportsRecordedSince', () => {

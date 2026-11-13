@@ -2093,8 +2093,10 @@ An exported page is refreshed when content it shows changes. The recording and t
   with one for an outcome newer than the drain-time status: of the llms-full.txt export that trails the
   re-renders, for at most a minute from the drain, or, without `llms.full`, of the index export a last
   re-render asks for when it moved a page or started or stopped serving one, for at most the `refreshIndexes`
-  window plus two polls; paused while the document is hidden; a newly recorded export that failed or was skipped
-  is read out in the panel's polite live region) for System › Static delivery, which also lists
+  window plus two polls; paused while the document is hidden; the polite live region reads out the first
+  outcome of each export after `watch()` or a drain that failed or was skipped, even one that repeats the
+  failure before it, and within that wait or without one only an outcome that starts to fail or to be skipped
+  or fails with another error) for System › Static delivery, which also lists
   the last index export, named by the files the admin schema says are written (`robots` and `sitemap` from
   `robotsOf()` and `sitemapOf()` in `server/utils/admin-schema.ts`), and, while the schema carries
   `llmsFull: true` (`llmsFullOf()`, from delivery-static's `llms.full`), the last llms-full.txt export from its

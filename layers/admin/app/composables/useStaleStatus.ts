@@ -10,7 +10,7 @@ const INDEX_TAIL_MS = INDEX_EXPORT_DELAYS.refreshIndexes + 2 * POLL_MS
 
 type ExportId = keyof StaleStatus['exports']
 
-interface ExportWait { since: StaleStatus['exports'] | null, ids: ExportId[], until: number }
+interface ExportWait { since: StaleStatus['exports'], ids: ExportId[], until: number }
 
 export interface StaleProgress { done: number, total: number, percent: number }
 
@@ -23,8 +23,9 @@ export interface StaleProgress { done: number, total: number, percent: number }
  * for does, for at most a few seconds. Paused while the document is hidden, with at most one request in flight; a load asked for while one runs follows
  * it. `progress` counts from the largest backlog seen since it last reached zero, or from the number `watch()` was
  * told was just queued. `announcement` changes only when pages start waiting, a re-render fails, the backlog ends
- * or an export starts to fail or to be skipped, or fails with another error, so a polite live region reading it is not
- * repeated on every poll.
+ * or an export fails or is skipped: the first outcome of each export after `watch()` and after a drained backlog, and
+ * any later one only when it starts to fail or to be skipped or fails with another error, so a polite live region
+ * reading it is not repeated on every poll.
  */
 export function useStaleStatus() {
   const api = useAdminApi()
@@ -66,9 +67,9 @@ export function useStaleStatus() {
       const next = await api<StaleStatus>(capabilities.route('pagesStaleStatus'))
       if (disposed) return
       const previous = status.value
-      const said = [staleAnnouncement(t, previous, next), exportAnnouncement(t, previous?.exports ?? null, next.exports, exportFormat(lang.value), files.value)].filter((text) => text !== null)
-      if (said.length > 0) announcement.value = said.join(' ')
       if (exportWait !== null && Date.now() >= exportWait.until) exportWait = null
+      const said = [staleAnnouncement(t, previous, next), exportAnnouncement(t, previous?.exports ?? null, next.exports, exportFormat(lang.value), files.value, exportWait?.since ?? null)].filter((text) => text !== null)
+      if (said.length > 0) announcement.value = said.join(' ')
       if (previous !== null && previous.stale > 0 && next.stale === 0) {
         exportWait = files.value.llmsFull
           ? { since: next.exports, ids: ['llmsFull'], until: Date.now() + EXPORT_WAIT_MS }
@@ -113,7 +114,7 @@ export function useStaleStatus() {
 
   async function watch(queued?: number): Promise<void> {
     if (queued !== undefined && queued > 0) total.value = Math.max(total.value, queued)
-    exportWait = { since: status.value?.exports ?? null, ids: files.value.llmsFull ? ['indexes', 'llmsFull'] : ['indexes'], until: Date.now() + EXPORT_WAIT_MS }
+    exportWait = { since: status.value?.exports ?? { indexes: null, llmsFull: null }, ids: files.value.llmsFull ? ['indexes', 'llmsFull'] : ['indexes'], until: Date.now() + EXPORT_WAIT_MS }
     await tick()
   }
 

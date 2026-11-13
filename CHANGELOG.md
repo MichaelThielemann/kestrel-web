@@ -42,8 +42,10 @@
   rendered output yet. After Publish all or Retry the panel keeps loading until both exports show their new
   outcome, for at most a minute. Once a backlog drains it keeps loading until the llms-full.txt export that
   follows the re-renders is shown, for at most a minute from the drain, or, without `llms.full`, for a few
-  seconds until the index export a last re-render that moved a page asks for. It reads out an export that
-  failed or was skipped to screen readers.
+  seconds until the index export a last re-render that moved a page asks for. It reads out to screen readers
+  the first outcome of each export after Publish all, Retry or a drained backlog that failed or was skipped,
+  even when it repeats the error shown before, and any later one only when the export starts to fail or to be
+  skipped or fails with another error.
   `GET /api/admin/schema` carries `llmsFull: true` while `llms.full` is on, `robots: true`
   unless `robots` is `false`, and `sitemap: true` while a sitemap is written (a site URL, `sitemap` not `false`).
 - `KESTREL_ROBOTS_POLICY` (`allow` or `disallow`) sets the `robots.txt` policy when `presetModuleConfig()`'s

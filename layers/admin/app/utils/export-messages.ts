@@ -71,21 +71,27 @@ function recordedSince(before: ExportOutcome | null | undefined, outcome: Export
   return outcome !== null && (before == null || outcome.at > before.at)
 }
 
-function newlyFailedOrSkipped(before: ExportOutcome | null | undefined, outcome: ExportOutcome | null): boolean {
-  if (!recordedSince(before, outcome) || (outcome.error === null && !outcome.skipped)) return false
+function failedOrSkipped(outcome: ExportOutcome): boolean {
+  return outcome.error !== null || outcome.skipped
+}
+
+function newlyFailedOrSkipped(before: ExportOutcome | null | undefined, outcome: ExportOutcome | null, since: ExportOutcome | null | undefined, waiting: boolean): boolean {
+  if (!recordedSince(before, outcome) || !failedOrSkipped(outcome)) return false
+  if (waiting && !recordedSince(since, before ?? null)) return true
   return before == null || before.error !== outcome.error || before.skipped !== outcome.skipped
 }
 
 /**
  * What a polite live region says when an export the site writes recorded an outcome since `previous` that failed or
- * was skipped where `previous` had not, or failed with another error: each such row's name, text and error. `null`
- * on the first load (`previous` null), when no new outcome failed or was skipped, and when it repeats the failure or
- * skip `previous` already showed.
+ * was skipped: each such row's name, text and error. While a wait that began at `since` runs, the first outcome
+ * recorded after `since` is always read out; otherwise, and for later outcomes in that wait, only one that failed or
+ * was skipped where `previous` had not, or failed with another error. `null` on the first load (`previous` null) and
+ * when nothing is to be read out.
  */
-export function exportAnnouncement(t: Translate, previous: StaleStatus['exports'] | null, next: StaleStatus['exports'], format: ExportFormat, files: IndexFiles): string | null {
+export function exportAnnouncement(t: Translate, previous: StaleStatus['exports'] | null, next: StaleStatus['exports'], format: ExportFormat, files: IndexFiles, since: StaleStatus['exports'] | null = null): string | null {
   if (previous === null) return null
   const said = exportLines(t, next, format, files)
-    .filter((entry) => newlyFailedOrSkipped(previous[entry.id], next[entry.id]))
+    .filter((entry) => newlyFailedOrSkipped(previous[entry.id], next[entry.id], since?.[entry.id], since !== null))
     .map((entry) => `${entry.name}: ${entry.text}${entry.error === null ? '' : ` ${entry.error}`}`)
   return said.length === 0 ? null : said.join(' ')
 }

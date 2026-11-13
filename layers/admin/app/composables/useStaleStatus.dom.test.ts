@@ -174,6 +174,55 @@ describe('useStaleStatus', () => {
     wrapper.unmount()
   })
 
+  it('reads out an export that still fails with the same error when watch() sees its next outcome', async () => {
+    vi.useFakeTimers()
+    schema.llmsFull = true
+    const written = { at: 1, entries: 3, error: null, skipped: false }
+    const failedAt = (at: number) => ({ indexes: written, llmsFull: { at, entries: 0, error: 'EACCES: llms-full.txt', skipped: false } })
+    answering(staleStatus({ exports: failedAt(1) }), staleStatus({ exports: failedAt(1) }), staleStatus({ exports: failedAt(9) }))
+    const { wrapper, api } = await mountProbe()
+    await vi.advanceTimersByTimeAsync(0)
+    await api.watch(0)
+    expect(api.announcement.value).toBe('')
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(api.status.value?.exports.llmsFull?.at).toBe(9)
+    expect(api.announcement.value).toMatch(/^llms-full\.txt: Export failed at .+: EACCES: llms-full\.txt$/)
+    wrapper.unmount()
+  })
+
+  it('reads out an export that still fails with the same error after a drained backlog', async () => {
+    vi.useFakeTimers()
+    schema.llmsFull = true
+    const written = { at: 1, entries: 3, error: null, skipped: false }
+    const failedAt = (at: number) => ({ indexes: written, llmsFull: { at, entries: 0, error: 'EACCES: llms-full.txt', skipped: false } })
+    answering(staleStatus({ stale: 2, exports: failedAt(1) }), staleStatus({ exports: failedAt(1) }), staleStatus({ exports: failedAt(9) }))
+    const { wrapper, api } = await mountProbe()
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(api.announcement.value).toBe('Every published page shows its current content.')
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(api.announcement.value).toMatch(/^llms-full\.txt: Export failed at .+: EACCES: llms-full\.txt$/)
+    wrapper.unmount()
+  })
+
+  it('reads out a failure that repeats the one before once after watch() and once after the drain, not on the polls between', async () => {
+    vi.useFakeTimers()
+    schema.llmsFull = true
+    const written = { at: 1, entries: 3, error: null, skipped: false }
+    const failedAt = (at: number) => ({ indexes: written, llmsFull: { at, entries: 0, error: 'EACCES: llms-full.txt', skipped: false } })
+    answering(staleStatus({ exports: failedAt(1) }), staleStatus({ stale: 3, exports: failedAt(5) }), staleStatus({ stale: 2, exports: failedAt(7) }), staleStatus({ exports: failedAt(7) }), staleStatus({ exports: failedAt(9) }))
+    const { wrapper, api } = await mountProbe()
+    await vi.advanceTimersByTimeAsync(0)
+    const said: string[] = []
+    const stop = watch(api.announcement, (text) => { if (text.includes('llms-full.txt:')) said.push(text) })
+    await api.watch(3)
+    await vi.advanceTimersByTimeAsync(6000)
+    expect(api.status.value?.exports.llmsFull?.at).toBe(9)
+    expect(said).toHaveLength(2)
+    expect(said.every((text) => /llms-full\.txt: Export failed at .+: EACCES: llms-full\.txt$/.test(text))).toBe(true)
+    stop()
+    wrapper.unmount()
+  })
+
   it('keeps the exports watch() waits for across the drain, so an index export during the backlog and the llms-full export after it end the wait', async () => {
     vi.useFakeTimers()
     schema.llmsFull = true
