@@ -164,6 +164,47 @@ describe('MediaLibrary upload status', () => {
     expect(document.activeElement).toBe(wrapper.get('.media-library').element)
   })
 
+  it('keeps upload tiles out of the selection: no checkbox, no tab stop, and Space, Delete and Ctrl+A on them do nothing', async () => {
+    const listed = {
+      id: 'f1', filename: 'listed.pdf', folder: '', contentType: 'application/pdf', size: 1, path: '/media/f1/listed.pdf', available: true,
+      createdAt: 1, updatedAt: 1, provenance: { origin: 'human' }, width: null, height: null,
+      alt: null, title: null, description: null, variants: [], variantCounts: { done: 0, pending: 0, error: 0, failed: 0 },
+    }
+    unregisterAll.push(registerEndpoint('/api/media/folders', { method: 'GET', handler: () => [] }))
+    unregisterAll.push(registerEndpoint('/api/media', { method: 'GET', handler: () => ({ items: [listed], total: 1 }) }))
+    unregisterAll.push(registerEndpoint('/api/limits', { method: 'GET', handler: () => ({ maxUploadBytes: null }) }))
+    uploadControl.reset()
+
+    const wrapper = await mountSuspended(MediaLibrary, { attachTo: document.body })
+    onTestFinished(() => wrapper.unmount())
+    await vi.waitFor(() => expect(wrapper.find('[data-test="file-f1"]').exists()).toBe(true))
+
+    await confirmUpload(wrapper, new File(['x'], 'bad.exe', { type: 'application/octet-stream' }))
+    await vi.waitFor(() => expect(uploadControl.state.fail).not.toBeNull())
+    uploadControl.state.fail?.(Object.assign(new Error('not allowed'), { status: 415, name: 'ApiError', data: { error: 'not allowed', code: 'UNSUPPORTED', retryable: false } }))
+    await vi.waitFor(() => expect(wrapper.find('.media-upload-tile__failed').exists()).toBe(true))
+
+    const tile = wrapper.get('.media-upload-tile')
+    expect(tile.find('input[type="checkbox"]').exists()).toBe(false)
+    expect(tile.element.closest('[data-roving-key]')).toBeNull()
+    expect(tile.find('[data-roving-key]').exists()).toBe(false)
+
+    const dismiss = wrapper.get(`[aria-label="${en['media.upload.dismiss'].replace('{name}', 'bad.exe')}"]`)
+    const press = async (init: KeyboardEventInit) => {
+      dismiss.element.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init }))
+      await nextTick()
+    }
+    await press({ key: 'a', ctrlKey: true })
+    expect(wrapper.find('.media-selection-bar').exists()).toBe(false)
+
+    await wrapper.get(`input[aria-label="${en['media.selection.selectItem'].replace('{name}', 'listed.pdf')}"]`).setValue(true)
+    await press({ key: 'Delete' })
+    await press({ key: ' ' })
+    await press({ key: 'Backspace' })
+    expect(document.body.querySelector('.ui-dialog__content')).toBeNull()
+    expect(wrapper.get('[data-test="file-f1"]').attributes('aria-pressed')).toBe('true')
+  })
+
   it('shows a variant-pending chip once the upload response arrives, then loses it after the next poll', async () => {
     schema.features = ['images']
     let uploaded = false

@@ -1,27 +1,25 @@
 import { computed, ref, shallowRef, watch, type Ref } from 'vue'
 import type { ListPage, MediaItem } from '#kestrel-admin/types/api'
-import type { LibraryItem } from '../utils/library'
 import { isInsertable, isPickGated } from '../utils/media-insert'
+import type { MediaSelection } from './useMediaSelection'
 import type { VariantWatchEntry } from './useVariantWatch'
 
 export interface UseMediaPickOptions {
   pick: boolean
-  multiple: boolean
   /** Ids the field already holds; they are never gated on availability. */
   initialSelected: readonly string[]
-  items: Ref<LibraryItem[]>
   files: Ref<MediaItem[]>
-  isSelected: (item: LibraryItem) => boolean
-  select: (item: LibraryItem) => void
+  /** The library selection; in multi-pick it holds the picks. */
+  selection: Pick<MediaSelection, 'selectedFileIds' | 'forget'>
   /** The freshest polled state per id; it wins over the listing. */
   fresh: Ref<ReadonlyMap<string, VariantWatchEntry>>
   track: (id: string) => void
   onConfirm: (ids: string[]) => void
 }
 
-/** Selection and confirmation for the media library in pick mode: availability gates only the ids this pick adds, never an id the field already holds, and a selected tile can always be deselected. Confirming emits the selection as it stands once every added id, including one picked while a check ran, passed the check. */
+/** Confirmation for the media library in pick mode: availability gates only the ids this pick adds, never an id the field already holds, and a selected tile can always be deselected. Confirming emits the selection as it stands once every added id, including one picked while a check ran, passed the check; an added id missing from the check's answer leaves the selection and is refused. */
 export function useMediaPick(options: UseMediaPickOptions) {
-  const { pick, multiple, items, files, fresh, track } = options
+  const { pick, files, fresh, track, selection } = options
   const api = useAdminApi()
   const capabilities = useCapabilities()
   const { primary } = useContentLocales()
@@ -29,10 +27,10 @@ export function useMediaPick(options: UseMediaPickOptions) {
 
   const stored: ReadonlySet<string> = new Set(options.initialSelected)
   const listed = ref<Map<string, MediaItem>>(new Map())
-  const picked = ref<Set<string>>(new Set(pick && multiple ? options.initialSelected : []))
   const confirming = ref(false)
   const refused = shallowRef<ReadonlyMap<string, { name: string; seen: VariantWatchEntry | undefined }>>(new Map())
   const checkFailed = ref(false)
+  const missing = ref<string[]>([])
 
   watch(files, (list) => {
     for (const f of list) {
@@ -41,25 +39,12 @@ export function useMediaPick(options: UseMediaPickOptions) {
     }
   }, { immediate: true })
 
-  const isSelectedItem = (i: LibraryItem) => (pick && multiple
-    ? i.type === 'file' && picked.value.has(i.file.id)
-    : options.isSelected(i))
-
-  function select(item: LibraryItem) {
+  function resetNotice() {
     checkFailed.value = false
-    if (!multiple) { options.select(item); return }
-    if (item.type !== 'file') return
-    const next = new Set(picked.value)
-    if (next.has(item.file.id)) next.delete(item.file.id)
-    else next.add(item.file.id)
-    picked.value = next
+    missing.value = []
   }
 
-  const selectedFileIds = computed(() => (pick && multiple
-    ? [...picked.value]
-    : items.value
-      .filter((i): i is Extract<LibraryItem, { type: 'file' }> => i.type === 'file' && options.isSelected(i))
-      .map((i) => i.file.id)))
+  const selectedFileIds = selection.selectedFileIds
 
   const hasBlockedSelection = computed(() => selectedFileIds.value.some((id) => isPickGated(id, fresh.value.get(id) ?? listed.value.get(id), stored)))
 
@@ -69,8 +54,11 @@ export function useMediaPick(options: UseMediaPickOptions) {
     return latest === undefined || latest === seen || !isInsertable(latest)
   }))
   const refusal = computed(() => {
-    if (stillRefused.value.length) return t('media.pick.refused', { names: stillRefused.value.map(([, { name }]) => name).join(', ') })
-    return checkFailed.value ? t('media.pick.checkFailed') : ''
+    const notices: string[] = []
+    if (missing.value.length) notices.push(t('media.pick.missing', { names: missing.value.join(', ') }))
+    if (stillRefused.value.length) notices.push(t('media.pick.refused', { names: stillRefused.value.map(([, { name }]) => name).join(', ') }))
+    if (checkFailed.value) notices.push(t('media.pick.checkFailed'))
+    return notices.join(' ')
   })
 
   async function recheck(ids: string[]): Promise<boolean> {
@@ -79,7 +67,13 @@ export function useMediaPick(options: UseMediaPickOptions) {
       const bad = page.items.filter((item) => !isInsertable(item))
       refused.value = new Map(bad.map((item) => [item.id, { name: item.filename, seen: fresh.value.get(item.id) }]))
       for (const item of bad) track(item.id)
-      return bad.length === 0
+      const found = new Set(page.items.map((item) => item.id))
+      const gone = ids.filter((id) => !found.has(id))
+      if (gone.length) {
+        missing.value = gone.map((id) => listed.value.get(id)?.filename ?? id)
+        selection.forget(gone)
+      }
+      return bad.length === 0 && gone.length === 0
     } catch {
       checkFailed.value = true
       return false
@@ -93,7 +87,7 @@ export function useMediaPick(options: UseMediaPickOptions) {
   async function confirm() {
     if (confirming.value || !selectedFileIds.value.length) return
     refused.value = new Map()
-    checkFailed.value = false
+    resetNotice()
     confirming.value = true
     try {
       const checked = new Set<string>()
@@ -107,5 +101,9 @@ export function useMediaPick(options: UseMediaPickOptions) {
     }
   }
 
-  return { storedIds: stored, isSelectedItem, select, selectedFileIds, hasBlockedSelection, confirming, refusal, confirm }
+  function forget(ids: readonly string[]) {
+    selection.forget(ids)
+  }
+
+  return { storedIds: stored, resetNotice, forget, selectedFileIds, hasBlockedSelection, confirming, refusal, confirm }
 }

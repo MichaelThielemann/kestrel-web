@@ -1,7 +1,7 @@
 import { getQuery } from 'h3'
 import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { computed } from 'vue'
+import { computed, nextTick } from 'vue'
 import type { AdminSchema, ListPage, MediaFolder, MediaItem } from '#kestrel-admin/types/api'
 import MediaPicker from './MediaPicker.vue'
 import MediaUploadDialog from './MediaUploadDialog.vue'
@@ -94,6 +94,32 @@ describe('MediaPicker', () => {
     const wrapper = await mountSuspended(MediaPicker, { props: { open: true, initialFolder: 'products' } })
     await vi.waitFor(() => expect(requestedFolder).toBe('products'))
 
+    wrapper.unmount()
+  })
+
+  it('clears the selection on the first Escape and closes on the next one', async () => {
+    const file: MediaItem = {
+      id: 'f1', filename: 'a.jpg', folder: '', contentType: 'image/jpeg', size: 1, path: '/media/f1/a.jpg', available: true,
+      createdAt: 1, updatedAt: 1, provenance: { origin: 'human' }, width: null, height: null, alt: null, title: null,
+      description: null, variants: [], variantCounts: { done: 0, pending: 0, error: 0, failed: 0 },
+    }
+    unregisterAll.push(registerEndpoint('/api/media/folders', { method: 'GET', handler: () => emptyFolders }))
+    unregisterAll.push(registerEndpoint('/api/media', { method: 'GET', handler: () => ({ items: [file], total: 1 }) }))
+
+    const wrapper = await mountSuspended(MediaPicker, { props: { open: true, multiple: true }, attachTo: document.body })
+    await vi.waitFor(() => expect(document.body.querySelector('[data-test="file-f1"]')).toBeTruthy())
+    document.body.querySelector<HTMLButtonElement>('[data-test="file-f1"]')?.click()
+    await nextTick()
+    expect(document.body.querySelector('[data-test="file-f1"]')?.getAttribute('aria-pressed')).toBe('true')
+
+    const escape = () => document.body.querySelector('.ui-dialog__content')?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+    escape()
+    await nextTick()
+    expect(document.body.querySelector('[data-test="file-f1"]')?.getAttribute('aria-pressed')).toBe('false')
+    expect(wrapper.emitted('update:open')).toBeUndefined()
+
+    escape()
+    await vi.waitFor(() => expect(wrapper.emitted('update:open')).toEqual([[false]]))
     wrapper.unmount()
   })
 })

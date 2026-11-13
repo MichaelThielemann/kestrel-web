@@ -15,6 +15,8 @@ export interface UseMediaDeleteOptions {
   schema: Ref<AdminSchema | null>
   canDeleteTargets: (targets: OpItem[]) => boolean
   onDeletedFromViewer: () => void
+  /** Called with the deleted targets once a delete succeeded. */
+  onDeleted?: (targets: OpItem[]) => void
 }
 
 /** Delete state and the two-step preview/confirm flow, shared by the row menu and the viewer's delete button. */
@@ -60,6 +62,7 @@ export function useMediaDelete(opts: UseMediaDeleteOptions) {
     if (!r.ok) return
     deleteOpen.value = false
     deleteTargets.value = []
+    opts.onDeleted?.(targets)
     if (deleteFromViewer.value) {
       deleteFromViewer.value = false
       opts.onDeletedFromViewer()

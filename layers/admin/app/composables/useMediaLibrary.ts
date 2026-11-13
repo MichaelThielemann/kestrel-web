@@ -2,7 +2,7 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from '#imports'
 import type { ListPage, MediaFolder, MediaItem } from '#kestrel-admin/types/api'
 import { DEFAULT_PER_PAGE, clampPerPage } from '#kestrel-admin/utils/kestrel'
-import { itemKey, computeRange, parentFolder, folderCounts, childFolders, type LibraryItem, type MediaTypeFilter } from '../utils/library'
+import { parentFolder, folderCounts, childFolders, type LibraryItem, type MediaTypeFilter } from '../utils/library'
 
 const VIEW_KEY = 'kestrel-media-view'
 const LAST_FOLDER_KEY = 'kestrel-media-last-folder'
@@ -53,8 +53,6 @@ export function useMediaLibrary(opts: { urlSync?: boolean; accept?: 'image' | 'a
   const perPage = ref(DEFAULT_PER_PAGE)
   const loading = ref(false)
   const error = ref<string | null>(null)
-  const selected = ref<Set<string>>(new Set())
-  let anchorKey: string | null = null
   let token = 0
 
   if (import.meta.client) {
@@ -76,8 +74,6 @@ export function useMediaLibrary(opts: { urlSync?: boolean; accept?: 'image' | 'a
   })
 
   const parentPath = computed(() => parentFolder(folder.value))
-  const orderedKeys = computed(() => items.value.map(itemKey))
-  const count = computed(() => selected.value.size)
 
   function checkFolder() {
     error.value = folder.value !== '' && !counts.value.has(folder.value) ? t('media.folderNotFound') : null
@@ -134,7 +130,6 @@ export function useMediaLibrary(opts: { urlSync?: boolean; accept?: 'image' | 'a
     folder.value = path
     rememberMediaFolder(path)
     page.value = 1
-    clear()
     checkFolder()
     void fetchFiles()
   }
@@ -145,7 +140,6 @@ export function useMediaLibrary(opts: { urlSync?: boolean; accept?: 'image' | 'a
     if (accept === 'image') return
     typeFilter.value = v
     page.value = 1
-    clear()
     void fetchFiles()
   }
 
@@ -160,20 +154,8 @@ export function useMediaLibrary(opts: { urlSync?: boolean; accept?: 'image' | 'a
     void fetchFiles()
   }
 
-  function setPage(p: number) { page.value = p; clear(); void fetchFiles() }
-  function setPerPage(n: number) { perPage.value = clampPerPage(n); page.value = 1; clear(); void fetchFiles() }
-
-  const isSelected = (item: LibraryItem) => selected.value.has(itemKey(item))
-  function select(item: LibraryItem) { const k = itemKey(item); selected.value = new Set([k]); anchorKey = k }
-  function toggle(item: LibraryItem) {
-    const k = itemKey(item); const s = new Set(selected.value)
-    if (s.has(k)) s.delete(k)
-    else s.add(k)
-    selected.value = s; anchorKey = k
-  }
-  function range(item: LibraryItem) { selected.value = computeRange(orderedKeys.value, anchorKey ?? itemKey(item), itemKey(item), selected.value) }
-  function clear() { selected.value = new Set(); anchorKey = null }
-  function selectAll() { selected.value = new Set(orderedKeys.value) }
+  function setPage(p: number) { page.value = p; void fetchFiles() }
+  function setPerPage(n: number) { perPage.value = clampPerPage(n); page.value = 1; void fetchFiles() }
 
   if (urlSync) {
     watch(() => route.query.folder, (q) => {
@@ -183,7 +165,6 @@ export function useMediaLibrary(opts: { urlSync?: boolean; accept?: 'image' | 'a
       folder.value = next
       rememberMediaFolder(next)
       page.value = 1
-      clear()
       checkFolder()
       void fetchFiles()
     })
@@ -194,8 +175,7 @@ export function useMediaLibrary(opts: { urlSync?: boolean; accept?: 'image' | 'a
   return {
     folder, folders, files, search, sort, view, loading, error,
     page, perPage, total, totalPages, typeFilter, accept,
-    items, parentPath, orderedKeys, count, selected, allFolderPaths, counts,
+    items, parentPath, allFolderPaths, counts,
     fetchLibrary, navigate, setSearch, setView, setSort, setPage, setPerPage, setTypeFilter,
-    isSelected, select, toggle, range, clear, selectAll,
   }
 }
