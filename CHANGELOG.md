@@ -34,7 +34,9 @@
 - System → Delivery lists the last export of `sitemap.xml`, `robots.txt` and `llms.txt` (naming only the files the
   site writes) and, while delivery-static's `llms.full` is on, the last export of `llms-full.txt`: when, with how
   many entries, or when and with which error it failed, or that it was skipped because published pages had no
-  rendered output yet. `GET /api/admin/schema` carries `llmsFull: true` while `llms.full` is on, `robots: true`
+  rendered output yet. After a backlog drains the panel keeps loading until both exports show their new outcome,
+  for at most a minute, and reads out an export that failed or was skipped to screen readers.
+  `GET /api/admin/schema` carries `llmsFull: true` while `llms.full` is on, `robots: true`
   unless `robots` is `false`, and `sitemap: true` while a sitemap is written (a site URL, `sitemap` not `false`).
 - `KESTREL_ROBOTS_POLICY` (`allow` or `disallow`) sets the `robots.txt` policy when `presetModuleConfig()`'s
   `robots` option has none; any other value stops the config from loading, and unset, the production-build

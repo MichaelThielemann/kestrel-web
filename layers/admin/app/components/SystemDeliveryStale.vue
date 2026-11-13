@@ -7,7 +7,7 @@ import { staleLines, staleProgressText } from '../utils/stale-messages'
 const { t } = useT()
 const deps = useActionDeps()
 const stale = useStaleStatus()
-const { status, loadError, announcement, available, progress } = stale
+const { status, loadError, announcement, available, progress, files } = stale
 
 const publishing = ref(false)
 const retrying = ref(false)
@@ -17,8 +17,6 @@ const progressText = computed(() => (progress.value ? staleProgressText(t, progr
 const lines = computed(() => (status.value ? staleLines(t, status.value) : []))
 
 const { collections } = useCollections()
-const { schema } = useSchema()
-const files = computed(() => ({ sitemap: schema.value?.sitemap === true, robots: schema.value?.robots === true, llmsFull: schema.value?.llmsFull === true }))
 
 function busyPort(flag: Ref<boolean>): BusyPort {
   return { setBusy: (on) => { flag.value = on }, busy: () => flag.value }

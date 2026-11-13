@@ -59,6 +59,7 @@ describe('useStaleStatus', () => {
   afterEach(() => {
     apiCalls.splice(0)
     schema.capabilities = { pagesStaleStatus: { method: 'GET', path: '/admin/publish-status/pages' } }
+    delete schema.llmsFull
     setHidden(false)
     vi.useRealTimers()
   })
@@ -74,9 +75,10 @@ describe('useStaleStatus', () => {
     wrapper.unmount()
   })
 
-  it('polls every two seconds while pages wait, tracks the progress and stops a few seconds after zero', async () => {
+  it('polls every two seconds while pages wait, tracks the progress and stops once the export after zero is shown', async () => {
     vi.useFakeTimers()
-    answering(staleStatus({ stale: 4 }), staleStatus({ stale: 3 }), staleStatus({ stale: 1 }), staleStatus())
+    const exported = { indexes: { at: 7, entries: 4, error: null, skipped: false }, llmsFull: null }
+    answering(staleStatus({ stale: 4 }), staleStatus({ stale: 3 }), staleStatus({ stale: 1 }), staleStatus(), staleStatus(), staleStatus({ exports: exported }))
     const { wrapper, api } = await mountProbe()
     await vi.advanceTimersByTimeAsync(0)
     expect(api.status.value?.stale).toBe(4)
@@ -91,8 +93,62 @@ describe('useStaleStatus', () => {
     await vi.advanceTimersByTimeAsync(4000)
     expect(api.status.value?.stale).toBe(0)
     expect(api.progress.value).toBeNull()
+    await vi.advanceTimersByTimeAsync(4000)
+    expect(api.status.value?.exports).toEqual(exported)
     await vi.advanceTimersByTimeAsync(20_000)
-    expect(apiCalls).toHaveLength(7)
+    expect(apiCalls).toHaveLength(6)
+    wrapper.unmount()
+  })
+
+  it('keeps polling until an llms-full export that ends long after the drain is shown', async () => {
+    vi.useFakeTimers()
+    schema.llmsFull = true
+    const before = { indexes: { at: 1, entries: 3, error: null, skipped: false }, llmsFull: { at: 1, entries: 0, error: 'could not read the stored HTML', skipped: false } }
+    const indexesOnly = { ...before, indexes: { at: 2, entries: 3, error: null, skipped: false } }
+    const both = { ...indexesOnly, llmsFull: { at: 3, entries: 3, error: null, skipped: false } }
+    answering(
+      staleStatus({ stale: 2, exports: before }),
+      staleStatus({ exports: before }),
+      ...Array.from({ length: 6 }, () => staleStatus({ exports: indexesOnly })),
+      staleStatus({ exports: both }),
+    )
+    const { wrapper, api } = await mountProbe()
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(api.status.value?.stale).toBe(0)
+    await vi.advanceTimersByTimeAsync(12_000)
+    expect(api.status.value?.exports.llmsFull?.error).toBe('could not read the stored HTML')
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(api.status.value?.exports).toEqual(both)
+    await vi.advanceTimersByTimeAsync(20_000)
+    expect(apiCalls).toHaveLength(9)
+    wrapper.unmount()
+  })
+
+  it('stops polling a minute after the drain when no export follows it', async () => {
+    vi.useFakeTimers()
+    answering(staleStatus({ stale: 1 }), staleStatus())
+    const { wrapper } = await mountProbe()
+    await vi.advanceTimersByTimeAsync(2000)
+    await vi.advanceTimersByTimeAsync(60_000)
+    const calls = apiCalls.length
+    expect(calls).toBeGreaterThan(25)
+    await vi.advanceTimersByTimeAsync(20_000)
+    expect(apiCalls).toHaveLength(calls)
+    wrapper.unmount()
+  })
+
+  it('reads out an export that failed after the backlog, and not one that was written', async () => {
+    vi.useFakeTimers()
+    const written = { indexes: { at: 1, entries: 3, error: null, skipped: false }, llmsFull: null }
+    const failed = { indexes: { at: 5, entries: 0, error: 'EACCES: sitemap.xml', skipped: false }, llmsFull: null }
+    answering(staleStatus({ stale: 1, exports: written }), staleStatus({ exports: written }), staleStatus({ exports: written }), staleStatus({ exports: failed }))
+    const { wrapper, api } = await mountProbe()
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(api.announcement.value).toBe('Every published page shows its current content.')
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(api.announcement.value).toBe('Every published page shows its current content.')
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(api.announcement.value).toMatch(/^llms\.txt: Export failed at .+: EACCES: sitemap\.xml$/)
     wrapper.unmount()
   })
 

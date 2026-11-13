@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { StaleStatus } from '#kestrel-admin/types/api'
 import { de } from '../i18n/de'
 import { en } from '../i18n/en'
-import { exportLines } from './export-messages'
+import { exportAnnouncement, exportLines, exportsRecordedSince } from './export-messages'
 
 function tFor(catalog: Record<string, string>) {
   return (key: string, params: Record<string, unknown> = {}) =>
@@ -75,5 +75,37 @@ describe('exportLines', () => {
       'Am <2> übersprungen: Veröffentlichte Seiten haben noch keine gerenderte Ausgabe, llms-full.txt bleibt unverändert.',
     ])
     expect(exportLines(tFor(de), exports(), format, all)[0]?.text).toBe('Noch kein Export aufgezeichnet.')
+  })
+})
+
+describe('exportAnnouncement', () => {
+  const ok = (at: number) => ({ at, entries: 2, error: null, skipped: false })
+
+  it('reads out an export recorded since the last load that failed or was skipped, in the row\'s words', () => {
+    const next = exports({ indexes: { at: 9, entries: 0, error: 'EACCES: sitemap.xml', skipped: false }, llmsFull: { at: 9, entries: 0, error: null, skipped: true } })
+    expect(exportAnnouncement(tFor(en), exports({ indexes: ok(1), llmsFull: ok(1) }), next, format, all)).toBe(
+      'sitemap.xml + robots.txt + llms.txt: Export failed at <9>: EACCES: sitemap.xml llms-full.txt: Skipped at <9>: published pages have no rendered output yet, so llms-full.txt was left as it is.',
+    )
+  })
+
+  it('stays quiet on the first load, for an outcome it already read out, for a written export and for llms-full.txt while llms.full is off', () => {
+    const failed = exports({ indexes: { at: 9, entries: 0, error: 'EACCES', skipped: false }, llmsFull: { at: 9, entries: 0, error: 'EACCES', skipped: false } })
+    expect(exportAnnouncement(tFor(en), null, failed, format, all)).toBeNull()
+    expect(exportAnnouncement(tFor(en), failed, failed, format, all)).toBeNull()
+    expect(exportAnnouncement(tFor(en), exports(), exports({ indexes: ok(3), llmsFull: ok(3) }), format, all)).toBeNull()
+    expect(exportAnnouncement(tFor(en), exports({ indexes: failed.indexes }), failed, format, noLlmsFull)).toBeNull()
+  })
+})
+
+describe('exportsRecordedSince', () => {
+  const ok = (at: number) => ({ at, entries: 2, error: null, skipped: false })
+
+  it('waits for every export the site writes to record an outcome later than the one it started from', () => {
+    const since = exports({ indexes: ok(1), llmsFull: ok(1) })
+    expect(exportsRecordedSince(since, exports({ indexes: ok(4), llmsFull: ok(1) }), all)).toBe(false)
+    expect(exportsRecordedSince(since, exports({ indexes: ok(4), llmsFull: { at: 8, entries: 0, error: 'EACCES', skipped: false } }), all)).toBe(true)
+    expect(exportsRecordedSince(since, exports({ indexes: ok(4), llmsFull: ok(1) }), noLlmsFull)).toBe(true)
+    expect(exportsRecordedSince(exports(), exports({ indexes: ok(4) }), noLlmsFull)).toBe(true)
+    expect(exportsRecordedSince(exports(), exports(), noLlmsFull)).toBe(false)
   })
 })

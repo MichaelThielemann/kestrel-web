@@ -1,13 +1,12 @@
 <script setup lang="ts">
 import type { StaleStatus } from '#kestrel-admin/types/api'
-import { exportLines, type IndexFiles } from '../utils/export-messages'
+import { exportFormat, exportLines, type IndexFiles } from '../utils/export-messages'
 
 const props = defineProps<{ exports: StaleStatus['exports'], files: IndexFiles }>()
 
 const { t, lang } = useT()
-const dateFmt = computed(() => new Intl.DateTimeFormat(lang.value, { dateStyle: 'medium', timeStyle: 'medium' }))
-const listFmt = computed(() => new Intl.ListFormat(lang.value, { style: 'long', type: 'conjunction' }))
-const lines = computed(() => exportLines(t, props.exports, { time: (ms) => dateFmt.value.format(new Date(ms)), list: (items) => listFmt.value.format(items) }, props.files))
+const format = computed(() => exportFormat(lang.value))
+const lines = computed(() => exportLines(t, props.exports, format.value, props.files))
 </script>
 
 <template>

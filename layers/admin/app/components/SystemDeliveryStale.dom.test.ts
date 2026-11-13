@@ -106,6 +106,23 @@ describe('SystemDeliveryStale', () => {
     wrapper.unmount()
   })
 
+  it('reads out an index export that failed after the re-renders it queued, in the row\'s words', async () => {
+    unregisterAll.push(registerEndpoint('/api/admin/publish-all/pages', { method: 'POST', handler: () => ({ marked: 2 }) }))
+    const at = Date.UTC(2026, 10, 13, 9, 0, 0)
+    const written = { indexes: { at: at - 60_000, entries: 3, error: null, skipped: false }, llmsFull: null }
+    const failed = { indexes: { at, entries: 0, error: 'EACCES: sitemap.xml', skipped: false }, llmsFull: null }
+    schema.llmsFull = false
+    const wrapper = await mountWith(staleStatus({ exports: written }), staleStatus({ stale: 2, exports: written }), staleStatus({ exports: failed }))
+    await vi.waitFor(() => expect(wrapper.text()).toContain(en['delivery.upToDate']))
+
+    await buttonNamed(wrapper, en['delivery.publishAll']).trigger('click')
+    const time = new Intl.DateTimeFormat('en', { dateStyle: 'medium', timeStyle: 'medium' }).format(new Date(at))
+    const row = `sitemap.xml, robots.txt, and llms.txt: ${text('delivery.indexExportFailed', { at: time })} EACCES: sitemap.xml`
+    await vi.waitFor(() => expect(wrapper.get('[role="status"]').text()).toBe(`${en['delivery.upToDate']} ${row}`), { timeout: 5000 })
+    expect(wrapper.get('.delivery-exports__error').text()).toBe('EACCES: sitemap.xml')
+    wrapper.unmount()
+  })
+
   it('marks the running button busy while its request runs', async () => {
     let release: (value: { marked: number }) => void = () => {}
     unregisterAll.push(registerEndpoint('/api/admin/publish-all/pages', { method: 'POST', handler: () => new Promise((resolve) => { release = resolve }) }))

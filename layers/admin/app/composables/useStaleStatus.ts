@@ -1,37 +1,43 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import type { StaleStatus } from '#kestrel-admin/types/api'
 import { staleAnnouncement } from '../utils/stale-messages'
+import { exportAnnouncement, exportFormat, exportsRecordedSince, type IndexFiles } from '../utils/export-messages'
 
 const POLL_MS = 2000
-const EXPORT_TAIL_MS = 3000 + POLL_MS
+const EXPORT_WAIT_MS = 60_000
+
+interface ExportWait { since: StaleStatus['exports'] | null, until: number }
 
 export interface StaleProgress { done: number, total: number, percent: number }
 
 /**
  * The static delivery's re-render backlog (`GET /admin/publish-status/pages`): loaded on mount, then polled every
- * two seconds while pages wait and for five more seconds after the backlog drains or `watch()` is called, so the
- * index and llms-full exports that trail the re-renders by up to three seconds are shown; paused while the document
- * is hidden, with at most one request in flight; a load asked for while one runs follows it. `progress` counts from the largest backlog seen since it last reached zero,
- * or from the number `watch()` was told was just queued. `announcement` changes only when pages start waiting, a
- * re-render fails or the backlog ends, so a polite live region reading it is not repeated on every poll.
+ * two seconds while pages wait, and after the backlog drains or `watch()` is called until every export in `files`
+ * (the index files and, while `llms.full` is on, llms-full.txt) has recorded a newer outcome, for at most a minute;
+ * paused while the document is hidden, with at most one request in flight; a load asked for while one runs follows
+ * it. `progress` counts from the largest backlog seen since it last reached zero, or from the number `watch()` was
+ * told was just queued. `announcement` changes only when pages start waiting, a re-render fails, the backlog ends
+ * or a newly recorded export failed or was skipped, so a polite live region reading it is not repeated on every poll.
  */
 export function useStaleStatus() {
   const api = useAdminApi()
   const capabilities = useCapabilities()
-  const { t } = useT()
+  const { t, lang } = useT()
+  const { schema } = useSchema()
 
   const status = ref<StaleStatus | null>(null)
   const loadError = ref<string | null>(null)
   const announcement = ref('')
   const total = ref(0)
   const available = computed(() => capabilities.has('pagesStaleStatus'))
+  const files = computed<IndexFiles>(() => ({ sitemap: schema.value?.sitemap === true, robots: schema.value?.robots === true, llmsFull: schema.value?.llmsFull === true }))
 
   let timer: ReturnType<typeof setTimeout> | null = null
   let onVisibility: (() => void) | null = null
   let disposed = false
   let inFlight: Promise<void> | null = null
   let again = false
-  let tailUntil = 0
+  let exportWait: ExportWait | null = null
 
   const progress = computed<StaleProgress | null>(() => {
     const stale = status.value?.stale ?? 0
@@ -52,8 +58,11 @@ export function useStaleStatus() {
     try {
       const next = await api<StaleStatus>(capabilities.route('pagesStaleStatus'))
       if (disposed) return
-      announcement.value = staleAnnouncement(t, status.value, next) ?? announcement.value
-      if ((status.value?.stale ?? 0) > 0 && next.stale === 0) tailUntil = Date.now() + EXPORT_TAIL_MS
+      const previous = status.value
+      const said = [staleAnnouncement(t, previous, next), exportAnnouncement(t, previous?.exports ?? null, next.exports, exportFormat(lang.value), files.value)].filter((text) => text !== null)
+      if (said.length > 0) announcement.value = said.join(' ')
+      if (previous !== null && previous.stale > 0 && next.stale === 0) exportWait = { since: previous.exports, until: Date.now() + EXPORT_WAIT_MS }
+      if (exportWait !== null && exportsRecordedSince(exportWait.since, next.exports, files.value)) exportWait = null
       status.value = next
       loadError.value = null
       total.value = next.stale === 0 ? 0 : Math.max(total.value, next.stale)
@@ -64,7 +73,7 @@ export function useStaleStatus() {
 
   function schedule(): void {
     clearTimer()
-    if (disposed || document.hidden || ((status.value?.stale ?? 0) === 0 && Date.now() >= tailUntil)) return
+    if (disposed || document.hidden || ((status.value?.stale ?? 0) === 0 && (exportWait === null || Date.now() >= exportWait.until))) return
     timer = setTimeout(() => { void tick() }, POLL_MS)
   }
 
@@ -92,7 +101,7 @@ export function useStaleStatus() {
 
   async function watch(queued?: number): Promise<void> {
     if (queued !== undefined && queued > 0) total.value = Math.max(total.value, queued)
-    tailUntil = Date.now() + EXPORT_TAIL_MS
+    exportWait = { since: status.value?.exports ?? null, until: Date.now() + EXPORT_WAIT_MS }
     await tick()
   }
 
@@ -112,5 +121,5 @@ export function useStaleStatus() {
     onVisibility = null
   })
 
-  return { status, loadError, announcement, available, progress, watch }
+  return { status, loadError, announcement, available, progress, files, watch }
 }

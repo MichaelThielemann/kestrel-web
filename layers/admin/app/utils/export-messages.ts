@@ -59,3 +59,35 @@ export function exportLines(t: Translate, exports: StaleStatus['exports'], forma
   const llmsFull = line(t, 'llmsFull', 'llms-full.txt', exports.llmsFull, format, (at) => skippedText(t, at, ['llms-full.txt'], format))
   return [indexes, llmsFull]
 }
+
+/** Times with date and seconds, and lists joined by "and", in the admin's language `lang`. */
+export function exportFormat(lang: string): ExportFormat {
+  const time = new Intl.DateTimeFormat(lang, { dateStyle: 'medium', timeStyle: 'medium' })
+  const list = new Intl.ListFormat(lang, { style: 'long', type: 'conjunction' })
+  return { time: (ms) => time.format(new Date(ms)), list: (items) => list.format(items) }
+}
+
+function recordedSince(before: ExportOutcome | null | undefined, outcome: ExportOutcome | null): outcome is ExportOutcome {
+  return outcome !== null && (before == null || outcome.at > before.at)
+}
+
+/**
+ * What a polite live region says when an export the site writes recorded an outcome since `previous` that failed or
+ * was skipped: each such row's name, text and error. `null` on the first load (`previous` null) and when no new
+ * outcome failed or was skipped.
+ */
+export function exportAnnouncement(t: Translate, previous: StaleStatus['exports'] | null, next: StaleStatus['exports'], format: ExportFormat, files: IndexFiles): string | null {
+  if (previous === null) return null
+  const said = exportLines(t, next, format, files)
+    .filter((entry) => {
+      const outcome = next[entry.id]
+      return recordedSince(previous[entry.id], outcome) && (outcome.error !== null || outcome.skipped)
+    })
+    .map((entry) => `${entry.name}: ${entry.text}${entry.error === null ? '' : ` ${entry.error}`}`)
+  return said.length === 0 ? null : said.join(' ')
+}
+
+/** Whether every export the site writes has recorded an outcome later than the one in `since`. */
+export function exportsRecordedSince(since: StaleStatus['exports'] | null, next: StaleStatus['exports'], files: IndexFiles): boolean {
+  return recordedSince(since?.indexes, next.indexes) && (!files.llmsFull || recordedSince(since?.llmsFull, next.llmsFull))
+}
