@@ -8,6 +8,8 @@ import { useVariantWatch } from './useVariantWatch'
 
 export interface UseMediaLibraryUploadsOptions {
   folder: Ref<string>
+  /** Ids of the files the library lists right now. */
+  listedIds: Ref<ReadonlySet<string>>
   view: Ref<'grid' | 'table'>
   fetchLibrary: () => Promise<void>
   t: Translate
@@ -16,7 +18,7 @@ export interface UseMediaLibraryUploadsOptions {
 }
 
 export function useMediaLibraryUploads(options: UseMediaLibraryUploadsOptions) {
-  const { folder, view, fetchLibrary, t, root } = options
+  const { folder, view, listedIds, fetchLibrary, t, root } = options
   const preview = useUploadPreview()
   const variantWatch = useVariantWatch()
   const { message: announcement, announce } = useAnnouncer()
@@ -55,7 +57,7 @@ export function useMediaLibraryUploads(options: UseMediaLibraryUploadsOptions) {
     const target = listed ?? root.value
     target?.focus()
   }
-  const tiles = useUploadTiles({ queue: upload.queue, view, folder, preview, dismiss: upload.dismiss })
+  const tiles = useUploadTiles({ queue: upload.queue, view, folder, listedIds, preview, dismiss: upload.dismiss })
 
   const followUp = computed(() => announcement.value || (variantWatch.hasPending.value ? t('media.upload.processing') : ''))
 
@@ -73,6 +75,7 @@ export function useMediaLibraryUploads(options: UseMediaLibraryUploadsOptions) {
     maxUploadBytes: upload.maxUploadBytes,
     limitError: upload.limitError,
     gridTileUploads: tiles.gridTileUploads,
+    unlistedDone: tiles.unlistedDone,
     onDismissUpload: tiles.onDismissUpload,
     previewFor: preview.previewFor,
     variantResults: variantWatch.results,

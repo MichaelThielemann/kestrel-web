@@ -29,7 +29,7 @@ async function setup(initial: { queue: UploadItem[]; view: 'grid' | 'table'; fol
   let api: ReturnType<typeof useUploadTiles> | undefined
   const Probe = defineComponent({
     setup() {
-      api = useUploadTiles({ queue, view, folder, preview, dismiss })
+      api = useUploadTiles({ queue, view, folder, listedIds: ref<ReadonlySet<string>>(new Set()), preview, dismiss })
       return () => h('div')
     },
   })

@@ -613,6 +613,37 @@ describe('MediaLibrary upload status', () => {
     await vi.waitFor(() => expect(document.activeElement).toBe(wrapper.get('[data-file-id="f1"]').element))
   })
 
+  it('counts the uploaded files in the toolbar before the library refreshes, without counting them twice afterwards', async () => {
+    let listed: unknown[] = []
+    const pdf = (id: string, filename: string) => ({
+      id, filename, folder: '', contentType: 'application/pdf', size: 1, key: id, checksum: null, path: `/media/${id}/${filename}`,
+      status: 'ready', createdAt: 1, updatedAt: 1, provenance: { origin: 'human' }, width: null, height: null,
+      alt: null, title: null, description: null, variants: [], variantCounts: { done: 0, pending: 0, error: 0, failed: 0 },
+    })
+    unregisterAll.push(registerEndpoint('/api/media/folders', { method: 'GET', handler: () => [] }))
+    unregisterAll.push(registerEndpoint('/api/media', { method: 'GET', handler: () => ({ items: listed, total: listed.length }) }))
+    unregisterAll.push(registerEndpoint('/api/limits', { method: 'GET', handler: () => ({ maxUploadBytes: null }) }))
+    uploadControl.reset()
+
+    const wrapper = await mountSuspended(MediaLibrary, { attachTo: document.body })
+    onTestFinished(() => wrapper.unmount())
+    expect(wrapper.get('.media-toolbar__count').text()).toBe('0 files')
+
+    await confirmUpload(wrapper, [new File(['x'], 'one.pdf', { type: 'application/pdf' }), new File(['x'], 'two.pdf', { type: 'application/pdf' })])
+    await vi.waitFor(() => expect(uploadControl.state.signals).toHaveLength(1))
+    uploadControl.state.deliver?.({ id: 'f1', contentType: 'application/pdf' })
+    await vi.waitFor(() => expect(uploadControl.state.signals).toHaveLength(2))
+
+    expect(wrapper.get('.media-toolbar__count').text()).toBe('1 file')
+    expect(wrapper.get('.media-toolbar__count').attributes('aria-live')).toBe('off')
+
+    listed = [pdf('f1', 'one.pdf'), pdf('f2', 'two.pdf')]
+    uploadControl.state.deliver?.({ id: 'f2', contentType: 'application/pdf' })
+    await vi.waitFor(() => expect(wrapper.find('.media-upload-tile').exists()).toBe(false))
+    expect(wrapper.get('.media-toolbar__count').text()).toBe('2 files')
+    expect(wrapper.get('.media-toolbar__count').attributes('aria-live')).toBe('polite')
+  })
+
   it('aborts the running upload when the library unmounts', async () => {
     unregisterAll.push(registerEndpoint('/api/media/folders', { method: 'GET', handler: () => [] }))
     unregisterAll.push(registerEndpoint('/api/media', { method: 'GET', handler: () => ({ items: [], total: 0 }) }))

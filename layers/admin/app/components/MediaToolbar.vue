@@ -14,6 +14,7 @@ const props = defineProps<{
   typeFilter?: MediaTypeFilter
   accept?: 'image' | 'any'
   resultCount?: number
+  quietCount?: boolean
 }>()
 const emit = defineEmits<{
   'update:view': [View]
@@ -78,7 +79,7 @@ const fileInput = ref<{ open: () => void } | null>(null)
 
     <div class="media-toolbar__filter" role="group" :aria-label="t('mediaToolbar.filterAriaLabel')">
       <KestrelUiButtonGroup v-model="typeFilterModel" :options="TYPE_FILTER_OPTIONS" :aria-label="t('mediaToolbar.filterAriaLabel')" />
-      <span v-if="resultLabel" class="media-toolbar__count" aria-live="polite">{{ resultLabel }}</span>
+      <span v-if="resultLabel" class="media-toolbar__count" :aria-live="quietCount ? 'off' : 'polite'">{{ resultLabel }}</span>
     </div>
 
     <div class="media-toolbar__actions">

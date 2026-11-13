@@ -6,12 +6,14 @@ export interface UseUploadTilesOptions {
   queue: Ref<UploadItem[]>
   view: Ref<'grid' | 'table'>
   folder: Ref<string>
+  /** Ids of the files the library lists right now. */
+  listedIds: Ref<ReadonlySet<string>>
   preview: ReturnType<typeof useUploadPreview>
   dismiss: (id: string) => void
 }
 
 export function useUploadTiles(options: UseUploadTilesOptions) {
-  const { queue, view, folder, preview, dismiss } = options
+  const { queue, view, folder, listedIds, preview, dismiss } = options
   const promoted = ref<Set<string>>(new Set())
 
   function markSettled(settledFolder: string) {
@@ -30,6 +32,9 @@ export function useUploadTiles(options: UseUploadTilesOptions) {
     ? queue.value.filter((i) => i.folder === folder.value && (i.status !== 'done' || !promoted.value.has(i.id)))
     : []))
 
+  const unlistedDone = computed(() => queue.value.filter((i) => i.status === 'done' && i.folder === folder.value
+    && !promoted.value.has(i.id) && !(i.result && listedIds.value.has(i.result.id))).length)
+
   const stopReleaseWatch = watch(() => queue.value.map((i) => i.id), (curr, prev) => {
     const currIds = new Set(curr)
     for (const id of prev ?? []) if (!currIds.has(id)) preview.release(id)
@@ -45,5 +50,5 @@ export function useUploadTiles(options: UseUploadTilesOptions) {
     dismiss(id)
   }
 
-  return { gridTileUploads, markSettled, onDismissUpload }
+  return { gridTileUploads, unlistedDone, markSettled, onDismissUpload }
 }

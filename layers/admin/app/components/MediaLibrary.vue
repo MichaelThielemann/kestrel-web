@@ -34,7 +34,8 @@ const opsPort: BusyPort = {
 }
 
 const mediaLibraryRef = ref<HTMLElement | null>(null)
-const mediaUploads = useMediaLibraryUploads({ folder, view, fetchLibrary: lib.fetchLibrary, t, root: mediaLibraryRef })
+const listedIds = computed<ReadonlySet<string>>(() => new Set(files.value.map((f) => f.id)))
+const mediaUploads = useMediaLibraryUploads({ folder, view, listedIds, fetchLibrary: lib.fetchLibrary, t, root: mediaLibraryRef })
 const { gridTileUploads, onDismissUpload: dismissUpload, previewFor, variantResults, stalledIds, limitError, track } = mediaUploads
 
 const pickState = useMediaPick({
@@ -189,7 +190,8 @@ const localizedMenu = computed(() => menuItems.value.map((s) => ({
       :can-create-folder="mediaCaps.canCreateFolder.value"
       :type-filter="lib.typeFilter.value"
       :accept="lib.accept"
-      :result-count="total"
+      :result-count="total + mediaUploads.unlistedDone.value"
+      :quiet-count="mediaUploads.active.value"
       @update:view="lib.setView"
       @update:search="lib.setSearch"
       @update:type-filter="lib.setTypeFilter"
