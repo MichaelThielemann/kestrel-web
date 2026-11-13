@@ -9,6 +9,7 @@ import type { Feature } from "../pipelines/checkPreset";
 import { consumerScripts } from "./consumerRules";
 import { QUEUE_DEFAULT_BACKOFF_SECONDS, QUEUE_DEFAULT_MAX_ATTEMPTS } from "../pipelines/config";
 import { MEDIA_DEPENDENT_EVENTS } from "../pipelines/features/delivery";
+import { mediaTrashEnabled } from "../pipelines/media-trash";
 import { addModuleEntryConfigProperty, hasModuleEntry, setDependenciesRender, setModuleEntryConfigProperties, setPresetModuleConfigOverride } from "./edits";
 import type { PropertyText } from "./edits";
 import { layerProjectData } from "./load";
@@ -240,7 +241,14 @@ function ownTriggers(source: string): Array<{ event: string; pipeline: string | 
   return found;
 }
 
-/** A trigger of the project's own on a media event: a folder deletion, a move into or out of the trash and the events `images-default` raises arrive with `id: null` and every id in `ids`. Information only. */
+const MEDIA_EVENT_SOURCES: Record<string, string> = {
+  "media.deleted": "a folder deletion and every delete for good from the trash (Delete permanently, Empty trash, the nightly purge) arrive with id: null and the affected ids in ids",
+  "media.trashed": "every move into the trash arrives with id: null and the affected ids in ids",
+  "media.restored": "every restore from the trash arrives with id: null and the affected ids in ids",
+  "images.variantsChanged": "images-default raises it with id: null and the affected ids in ids",
+};
+
+/** A trigger of the project's own on a media event: a folder deletion, a delete for good from the trash, a move into or out of the trash and the events `images-default` raises arrive with `id: null` and every id in `ids`. Information only. */
 export const mediaEventIdsRule: SourceRule = {
   id: "runtime/media-event-ids",
   needs: "source",
@@ -258,8 +266,62 @@ export const mediaEventIdsRule: SourceRule = {
             `${rule}:${event}:${pipeline ?? ""}`,
             "info",
             { file, ...(pipeline === undefined ? {} : { pipeline }) },
-            `${pipeline === undefined ? "a pipeline" : `"${pipeline}"`} runs on "${event}", which can arrive with id: null and the affected ids in ids (a folder deletion, a move into or out of the trash, and the events images-default raises itself)`,
+            `${pipeline === undefined ? "a pipeline" : `"${pipeline}"`} runs on "${event}": ${MEDIA_EVENT_SOURCES[event] ?? "it can arrive with id: null and the affected ids in ids"}`,
             "read payload.ids as well as payload.id",
+            { kind: "none" },
+          ),
+        );
+      }
+    }
+    return findings;
+  },
+};
+
+const MEDIA_DELETE_PIPELINES = ["deleteMedia", "deleteMediaFolder"] as const;
+
+/**
+ * With the media trash composed (`presetModuleConfig()` does so unless `media.trashRetentionDays` is `0`), a
+ * delete in the admin runs `trashMedia` or `trashMediaFolder` and raises `media.trashed`; `media.deleted`
+ * follows only when an item is deleted for good from the trash. Notes an override of `deleteMedia` or
+ * `deleteMediaFolder`, which the admin no longer runs, and an own trigger on `media.deleted` without one on
+ * `media.trashed` for the same pipeline. Information only.
+ */
+export const mediaTrashDeletesRule: Rule = {
+  id: "runtime/media-trash-deletes",
+  check(ctx) {
+    const cast = presetOptionsCast(ctx);
+    if (!mediaTrashEnabled(cast?.modules)) return [];
+    const rule = "runtime/media-trash-deletes";
+    const findings: Finding[] = [];
+    for (const pipeline of MEDIA_DELETE_PIPELINES) {
+      if (cast?.overrides?.[pipeline] === undefined) continue;
+      findings.push(
+        finding(
+          rule,
+          `${rule}:${pipeline}`,
+          "info",
+          { pipeline },
+          `override for "${pipeline}" does not run when someone deletes in the admin: with the media trash on, the admin moves items to the trash through trashMedia and trashMediaFolder, and deletes them for good through purgeMedia, emptyMediaTrash and the nightly purgeExpiredMedia`,
+          "move the extra steps into the trash and purge pipelines that need them, or set media.trashRetentionDays: 0 to keep deleting at once",
+          { kind: "none" },
+        ),
+      );
+    }
+    for (const rel of TRIGGER_FILES) {
+      const file = join(ctx.root, rel);
+      const source = ctx.readFile(file);
+      if (source === undefined) continue;
+      const triggers = ownTriggers(source);
+      for (const { event, pipeline } of triggers) {
+        if (event !== "media.deleted" || triggers.some((t) => t.event === "media.trashed" && t.pipeline === pipeline)) continue;
+        findings.push(
+          finding(
+            rule,
+            `${rule}:${pipeline ?? ""}`,
+            "info",
+            { file, ...(pipeline === undefined ? {} : { pipeline }) },
+            `${pipeline === undefined ? "a pipeline" : `"${pipeline}"`} runs on "media.deleted", which with the media trash on fires only when an item is deleted for good: trashRetentionDays after it went to the trash at the earliest, and never while a page still uses it; a delete in the admin raises "media.trashed"`,
+            'add a trigger on "media.trashed" for the same pipeline, and one on "media.restored" if the pipeline must undo its work when an item comes back',
             { kind: "none" },
           ),
         );
@@ -369,4 +431,4 @@ export const serverCacheRule: SourceRule = {
   },
 };
 
-export const dependentsRules: readonly Rule[] = [deliveryDependenciesRule, queueLanesRule, settingsLlmsRule, mediaEventIdsRule, deliveryAsyncRule, serverCacheRule, mediaPathsRule];
+export const dependentsRules: readonly Rule[] = [deliveryDependenciesRule, queueLanesRule, settingsLlmsRule, mediaEventIdsRule, mediaTrashDeletesRule, deliveryAsyncRule, serverCacheRule, mediaPathsRule];

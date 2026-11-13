@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { applyEdits } from "@michaelthielemann/kestrel-upgrade/codemods";
 import type { Finding, LoadedProject, RuleContext, SourceRuleContext } from "@michaelthielemann/kestrel-upgrade/plugin";
-import { deliveryAsyncRule, deliveryDependenciesRule, mediaEventIdsRule, mediaPathsRule, queueLanesRule, serverCacheRule, settingsLlmsRule } from "./dependentsRules";
+import { deliveryAsyncRule, deliveryDependenciesRule, mediaEventIdsRule, mediaPathsRule, mediaTrashDeletesRule, queueLanesRule, serverCacheRule, settingsLlmsRule } from "./dependentsRules";
 import { definePipeline } from "@michaelthielemann/kestrel/definePipeline";
 import type { PipelineEntry } from "@michaelthielemann/kestrel/definePipeline";
 import { checkPreset } from "../pipelines/checkPreset";
@@ -407,6 +407,39 @@ describe("own triggers on media events", () => {
 
   it("says nothing without such a trigger", async () => {
     expect(await mediaEventIdsRule.check(projectWith({ "kestrel.config.ts": 'export default defineConfig({ modules, triggers: preset.triggers, http: null });\n' }))).toEqual([]);
+  });
+});
+
+describe("deletes in the admin once the media trash is on", () => {
+  const MEDIA = "@michaelthielemann/kestrel-media-default";
+  const trashOn = [{ use: MEDIA, config: { trashRetentionDays: 30 } }];
+
+  it("words each media event by what raises it, without claiming the trash for media.deleted", async () => {
+    const source = `export const triggers = [${MEDIA_DEPENDENT_EVENTS.map((event) => `{ event: "${event}", pipeline: "mirror" }`).join(", ")}];\n`;
+    const findings = await mediaEventIdsRule.check(projectWith({ "pipelines/index.ts": source }));
+    const deleted = findings.find((f) => f.message.includes('"media.deleted"'))?.message ?? "";
+    expect(deleted).toContain("delete for good from the trash");
+    expect(deleted).not.toContain("into or out of the trash");
+    expect(findings.find((f) => f.message.includes('"media.restored"'))?.message).toContain("restore");
+  });
+
+  it("notes an own trigger on media.deleted without one on media.trashed, and an override of deleteMedia or deleteMediaFolder", async () => {
+    const source = 'export default defineConfig({ modules, triggers: [...preset.triggers, { event: "media.deleted", pipeline: "purgeCdn" }, { event: "media.deleted", pipeline: "mirror" }, { event: "media.trashed", pipeline: "mirror" }], http: null });\n';
+    const ctx = contextFor({ source, modules: trashOn, features: [], overrides: { deleteMedia: ["authn.requireUser", "media.remove", "cdn.purge"], deleteMediaFolder: ["authn.requireUser", "media.removeFolder"] } });
+    const findings = await mediaTrashDeletesRule.check(ctx);
+    expect(findings.map((f) => [f.where.pipeline, f.severity, f.fix.kind])).toEqual([
+      ["deleteMedia", "info", "none"],
+      ["deleteMediaFolder", "info", "none"],
+      ["purgeCdn", "info", "none"],
+    ]);
+    expect(findings[0]?.message).toContain("trashMedia");
+    expect(findings[2]?.suggestion).toContain('"media.trashed"');
+  });
+
+  it("says nothing with the trash off", async () => {
+    const source = 'export default defineConfig({ modules, triggers: [{ event: "media.deleted", pipeline: "purgeCdn" }], http: null });\n';
+    const ctx = contextFor({ source, modules: [{ use: MEDIA, config: {} }], features: [], overrides: { deleteMedia: ["media.remove"] } });
+    expect(await mediaTrashDeletesRule.check(ctx)).toEqual([]);
   });
 });
 

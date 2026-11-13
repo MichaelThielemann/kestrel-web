@@ -53,7 +53,7 @@ export interface PresetMediaPolicy {
   maxBytes?: number;
   allowedTypes?: string[];
   deniedTypes?: string[];
-  /** Days a deleted media item stays in the trash before the nightly run removes it for good; default 30. `0` turns the trash off: no trash pipelines, and deleting in the admin removes at once. */
+  /** Days a deleted media item stays in the trash before the nightly run removes it for good; default 30. `0` turns the trash off: no trash pipelines are composed, and the admin deletes for good after a confirmation dialog. */
   trashRetentionDays?: number;
 }
 
