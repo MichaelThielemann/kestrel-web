@@ -36,8 +36,8 @@
   and adjusts the crop of each ratio, manual or automatic, with a reset to automatic, a warning when the focus
   does not fit and a note when a crop is smaller than a size kestrel renders, whose variant is then delivered
   smaller. An original browsers cannot display, or a WebP original whose orientation tag browsers ignore, is
-  shown from its largest finished whole-image variant, and a WebP stored on its side is not offered for editing
-  before that variant is finished. Without a `cover` size it edits the focus only and says why.
+  shown from its largest finished whole-image variant and is not offered for editing before that variant is
+  finished. Without a `cover` size it edits the focus only and says why.
   It names how many records use the image, asks before Escape or Cancel drops unsaved changes and saves through
   `PUT /media/:id/framing`.
 - Static delivery keeps `sitemap.xml`, `robots.txt`, `llms.txt` and `llms-full.txt` current. Every pipeline that

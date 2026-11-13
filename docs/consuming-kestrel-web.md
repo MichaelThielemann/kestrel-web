@@ -1603,9 +1603,10 @@ ratio delivers that variant smaller, which the editor points out for every size 
 `GET /admin/images/sizes` when the role may read it, else the sizes the build declares). An original browsers
 cannot display (TIFF) is shown from its largest finished variant that keeps the whole image, an `inside`
 variant with the aspect of the oriented original, and the editor is offered once there is one. A WebP original
-is shown from that variant as well, because browsers ignore its orientation tag while kestrel applies it. Until
-the variant is finished, the editor shows a WebP original whose stored width and height are its oriented ones,
-and is not offered for one stored on its side. Without a `cover` size the editor offers
+is shown from that variant as well and never itself, because browsers ignore its orientation tag while kestrel
+applies it, and a mirrored or upside-down WebP keeps its width and height, so a rectangle set on the original
+would land on the wrong part of the image. The editor is offered for a WebP original only once that variant is
+finished, so a build without an `inside` size offers it for no WebP. Without a `cover` size the editor offers
 the focus alone and says why. Every action works with the pointer, touch or the keyboard, and the focus
 and the crop take numbers too. The editor computes every cut with
 `@michaelthielemann/kestrel-images-default/framing`, the functions the server renders with. A framing

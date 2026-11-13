@@ -114,6 +114,21 @@ describe('MediaViewer crop entry', () => {
     wrapper.unmount()
   })
 
+  it('offers the crop for a WebP whose dimensions survive its orientation only once a whole-image variant is finished', async () => {
+    const flipped = photo({
+      contentType: 'image/webp', filename: 'pier.webp', path: '/media/m1/pier.webp', width: 800, height: 400,
+      variants: [{ size: 'large', width: 800, height: 400, format: 'webp', bytes: 1, state: 'pending', path: '/media/m1/variants/large.webp' }],
+      framing: { focus: null, crops: {}, width: 800, height: 400, ratios: [] },
+    })
+    const wrapper = await mountSuspended(MediaViewer, { props: { open: true, file: flipped, canSave: true, canDelete: false }, attachTo: document.body })
+    expect(cropButton()).toBeUndefined()
+
+    await wrapper.setProps({ file: { ...flipped, variants: [{ size: 'large', width: 800, height: 400, format: 'webp', bytes: 1, state: 'done', path: '/media/m1/variants/large.webp?v=2' }] } })
+    await nextTick()
+    expect(cropButton()).toBeTruthy()
+    wrapper.unmount()
+  })
+
   it('offers no crop without the framing capability', async () => {
     delete schema.capabilities.setMediaFraming
     const wrapper = await mountSuspended(MediaViewer, { props: { open: true, file: photo(), canSave: true, canDelete: false }, attachTo: document.body })

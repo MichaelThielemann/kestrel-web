@@ -31,7 +31,6 @@ describe('cropSource', () => {
 
   it('shows the original when a browser displays its type', () => {
     expect(cropSource(item())).toBe('/media/m1/a.jpg')
-    expect(cropSource(item({ contentType: 'image/webp' }))).toBe('/media/m1/a.jpg')
   })
 
   it('shows the largest finished variant that keeps the whole image when a browser cannot display the original', () => {
@@ -56,10 +55,10 @@ describe('cropSource', () => {
     expect(cropSource(webp)).toBe('/media/m1/variants/large.webp')
   })
 
-  it('falls back to a WebP original that is stored upright until a whole-image variant is finished', () => {
-    const webp = item({ contentType: 'image/webp', path: '/media/m1/a.webp', variants: [variant('avatar', 96), variant('large', 1600, 'pending')], framing: { focus: null, crops: {}, width: 1200, height: 800, ratios } })
-    expect(cropSource(webp)).toBe('/media/m1/a.webp')
-    expect(canFrame(webp)).toBe(true)
+  it('does not show a WebP original whose stored and oriented dimensions are equal, as a mirrored or upside-down one has them', () => {
+    const webp = item({ contentType: 'image/webp', path: '/media/m1/a.webp', width: 800, height: 400, variants: [variant('large', 1600, 'pending', 800)], framing: { focus: null, crops: {}, width: 800, height: 400, ratios: [] } })
+    expect(cropSource(webp)).toBeNull()
+    expect(canFrame(webp)).toBe(false)
   })
 
   it('has nothing to show for a WebP original stored on its side before a whole-image variant is finished', () => {
@@ -73,11 +72,6 @@ describe('cropSource', () => {
     })
     expect(cropSource(webp)).toBeNull()
     expect(canFrame(webp)).toBe(false)
-  })
-
-  it('has nothing to show for a WebP original whose stored dimensions are unknown before a whole-image variant is finished', () => {
-    const webp = item({ contentType: 'image/webp', path: '/media/m1/a.webp', width: null, height: null, framing: { focus: null, crops: {}, width: 1200, height: 800, ratios } })
-    expect(cropSource(webp)).toBeNull()
   })
 
   it('takes a whole-image variant only with the aspect of the oriented original, not a leftover cut of a size no longer declared', () => {
