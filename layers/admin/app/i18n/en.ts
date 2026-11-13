@@ -938,7 +938,8 @@ export const en = {
   'delivery.indexExportWrittenOne': 'Exported at {at}, {n} entry.',
   'delivery.indexExportWritten': 'Exported at {at}, {n} entries.',
   'delivery.indexExportFailed': 'Export failed at {at}:',
-  'delivery.indexExportSkipped': 'Skipped at {at}: published pages have no rendered output yet, so the files were left as they are.',
+  'delivery.indexExportSkipped': 'Skipped at {at}: published pages have no rendered output yet, so sitemap.xml and llms.txt were left as they are; robots.txt was written.',
+  'delivery.llmsFullExportSkipped': 'Skipped at {at}: published pages have no rendered output yet, so llms-full.txt was left as it is.',
   'delivery.indexExportNone': 'No export recorded yet.',
 
   'system.tabs.replication': 'Replication',

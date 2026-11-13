@@ -20,12 +20,17 @@ const NAMES: Record<keyof StaleStatus['exports'], string> = {
   llmsFull: 'delivery.indexExportLlmsFull',
 }
 
+const SKIPPED: Record<keyof StaleStatus['exports'], string> = {
+  indexes: 'delivery.indexExportSkipped',
+  llmsFull: 'delivery.llmsFullExportSkipped',
+}
+
 function line(t: Translate, id: keyof StaleStatus['exports'], outcome: ExportOutcome | null, formatTime: (ms: number) => string): ExportLine {
   const name = t(NAMES[id])
   if (outcome === null) return { id, name, tone: 'none', icon: 'info', text: t('delivery.indexExportNone'), error: null }
   const at = formatTime(outcome.at)
   if (outcome.error !== null) return { id, name, tone: 'failed', icon: 'triangle-alert', text: t('delivery.indexExportFailed', { at }), error: outcome.error }
-  if (outcome.skipped) return { id, name, tone: 'skipped', icon: 'clock', text: t('delivery.indexExportSkipped', { at }), error: null }
+  if (outcome.skipped) return { id, name, tone: 'skipped', icon: 'clock', text: t(SKIPPED[id], { at }), error: null }
   const key = outcome.entries === 1 ? 'delivery.indexExportWrittenOne' : 'delivery.indexExportWritten'
   return { id, name, tone: 'current', icon: 'check', text: t(key, { at, n: outcome.entries }), error: null }
 }

@@ -36,9 +36,10 @@ describe('exportLines', () => {
     expect(line).toMatchObject({ tone: 'failed', icon: 'triangle-alert', text: 'Export failed at <9>:', error: 'blobstore unavailable' })
   })
 
-  it('words a skipped export with its time and why the files were kept', () => {
-    const [line] = exportLines(tFor(en), exports({ indexes: { at: 3, entries: 0, error: null, skipped: true } }), at)
-    expect(line).toMatchObject({ tone: 'skipped', icon: 'clock', text: 'Skipped at <3>: published pages have no rendered output yet, so the files were left as they are.', error: null })
+  it('words a skipped export with its time and which files were kept: robots.txt is written on a skip, llms-full.txt is not', () => {
+    const [indexes, llmsFull] = exportLines(tFor(en), exports({ indexes: { at: 3, entries: 0, error: null, skipped: true }, llmsFull: { at: 4, entries: 0, error: null, skipped: true } }), at)
+    expect(indexes).toMatchObject({ tone: 'skipped', icon: 'clock', text: 'Skipped at <3>: published pages have no rendered output yet, so sitemap.xml and llms.txt were left as they are; robots.txt was written.', error: null })
+    expect(llmsFull).toMatchObject({ tone: 'skipped', icon: 'clock', text: 'Skipped at <4>: published pages have no rendered output yet, so llms-full.txt was left as it is.', error: null })
   })
 
   it('has every sentence in German', () => {
@@ -51,7 +52,11 @@ describe('exportLines', () => {
       ['llms-full.txt', 'Export am <4> fehlgeschlagen:'],
     ])
     expect(exportLines(tFor(de), exports({ indexes: { at: 1, entries: 1, error: null, skipped: false } }), at)[0]?.text).toBe('Exportiert am <1>, 1 Eintrag.')
-    expect(exportLines(tFor(de), exports({ indexes: { at: 1, entries: 0, error: null, skipped: true } }), at)[0]?.text).toBe('Am <1> übersprungen: Veröffentlichte Seiten haben noch keine gerenderte Ausgabe, die Dateien bleiben unverändert.')
+    const skipped = exportLines(tFor(de), exports({ indexes: { at: 1, entries: 0, error: null, skipped: true }, llmsFull: { at: 2, entries: 0, error: null, skipped: true } }), at)
+    expect(skipped.map((line) => line.text)).toEqual([
+      'Am <1> übersprungen: Veröffentlichte Seiten haben noch keine gerenderte Ausgabe, sitemap.xml und llms.txt bleiben unverändert; robots.txt wurde geschrieben.',
+      'Am <2> übersprungen: Veröffentlichte Seiten haben noch keine gerenderte Ausgabe, llms-full.txt bleibt unverändert.',
+    ])
     expect(exportLines(tFor(de), exports(), at)[0]?.text).toBe('Noch kein Export aufgezeichnet.')
   })
 })

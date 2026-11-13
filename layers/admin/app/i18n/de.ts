@@ -940,7 +940,8 @@ export const de: Record<CatalogKey, string> = {
   'delivery.indexExportWrittenOne': 'Exportiert am {at}, {n} Eintrag.',
   'delivery.indexExportWritten': 'Exportiert am {at}, {n} Einträge.',
   'delivery.indexExportFailed': 'Export am {at} fehlgeschlagen:',
-  'delivery.indexExportSkipped': 'Am {at} übersprungen: Veröffentlichte Seiten haben noch keine gerenderte Ausgabe, die Dateien bleiben unverändert.',
+  'delivery.indexExportSkipped': 'Am {at} übersprungen: Veröffentlichte Seiten haben noch keine gerenderte Ausgabe, sitemap.xml und llms.txt bleiben unverändert; robots.txt wurde geschrieben.',
+  'delivery.llmsFullExportSkipped': 'Am {at} übersprungen: Veröffentlichte Seiten haben noch keine gerenderte Ausgabe, llms-full.txt bleibt unverändert.',
   'delivery.indexExportNone': 'Noch kein Export aufgezeichnet.',
 
   'system.tabs.replication': 'Replikation',
