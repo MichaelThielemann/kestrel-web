@@ -1852,7 +1852,9 @@ carries `og:site_name`, the site settings title.
 keeps them out. Without one, `presetModuleConfig()` allows crawlers in a production build and keeps them out
 under `nuxt dev`, and the server warns at start. A production build counts as production whatever `NODE_ENV`
 the started process has: `nuxt build` fixes the value inside the server bundle, so
-`node .output/server/index.mjs` without `NODE_ENV` allows crawlers too. Set `disallow` explicitly on a staging
+`node .output/server/index.mjs` without `NODE_ENV` allows crawlers too. A hand-written `delivery-static` entry
+without `robots.policy` takes its default from the running process's `NODE_ENV` instead and keeps crawlers out
+without it, so give it `robots.policy` or set `NODE_ENV=production`. Set `disallow` explicitly on a staging
 server that runs a production build.
 create-kestrel's `kestrel.config.ts` passes `robots: envRobots()`, which reads `KESTREL_ROBOTS_POLICY`.
 `robots: false` leaves `robots.txt` to you. Crawlers read `robots.txt` only at the root of a host: with a
