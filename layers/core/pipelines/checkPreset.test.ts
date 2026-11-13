@@ -1,6 +1,6 @@
 import { boundaryCast } from "@michaelthielemann/kestrel/cast";
 import { describe, expect, it } from "vitest";
-import { checkPreset, definePreset } from "./index";
+import { checkPreset, definePreset, delaysFor } from "./index";
 import type { PresetOptions } from "./index";
 
 function options(raw: unknown): PresetOptions {
@@ -196,9 +196,18 @@ describe("checkPreset: dependent re-rendering and queue lanes", () => {
     expectParity(options({ modules: modules(features, { render: "events", lanes, delayMs: { refreshIndexes: 60_000, refreshLlms: 3000 } }), features, collections }), "preset/index-export-delays", "refreshIndexes");
     expectParity(options({ modules: modules(features, { render: "events", lanes, delayMs: { refreshIndexes: 1000, refreshLlms: 0 } }), features, collections }), "preset/index-export-delays", "refreshLlms");
     expect(thrownBy(options({ modules: modules(features, { render: "events", lanes, delayMs: { refreshIndexes: 60_000 } }), features, collections }))).toBe(
-      'preset: module "@michaelthielemann/kestrel-events-queue" holds back pipeline "refreshIndexes" for 60000 ms in delayMs, but the preset fixes that delay at 1000 ms – set delayMs to delaysFor(features), or remove it from the override',
+      'preset: module "@michaelthielemann/kestrel-events-queue" holds back pipeline "refreshIndexes" for 60000 ms and leaves out pipeline "refreshLlms" in delayMs, but the preset fixes "refreshIndexes" at 1000 ms and "refreshLlms" at 3000 ms – spread delaysFor(features) into delayMs and add your own pipelines after it: { ...delaysFor(features), myPipeline: 5000 }',
     );
     expect(checkPreset(options({ modules: modules(features, { render: "events", lanes, delayMs: { refreshIndexes: 1000, refreshLlms: 3000 } }), features, collections })).problems).toEqual([]);
+  });
+
+  it("names every index export a delayMs of the site's own pipelines leaves out, and accepts those pipelines next to delaysFor(features)", () => {
+    const features = ["eventsQueue", "delivery"];
+    const lanes = { pages: ["republishOutput", "refreshLlms"], indexes: ["refreshIndexes"] };
+    expect(thrownBy(options({ modules: modules(features, { render: "events", lanes, delayMs: { digest: 60_000 } }), features, collections }))).toBe(
+      'preset: module "@michaelthielemann/kestrel-events-queue" leaves out pipelines "refreshIndexes" and "refreshLlms" in delayMs, but the preset fixes "refreshIndexes" at 1000 ms and "refreshLlms" at 3000 ms – spread delaysFor(features) into delayMs and add your own pipelines after it: { ...delaysFor(features), myPipeline: 5000 }',
+    );
+    expect(checkPreset(options({ modules: modules(features, { render: "events", lanes, delayMs: { ...delaysFor(["eventsQueue", "delivery"]), digest: 60_000 } }), features, collections })).problems).toEqual([]);
   });
 
   it("collects a background delivery-static whose indexesDelayMs differs from the preset's", () => {

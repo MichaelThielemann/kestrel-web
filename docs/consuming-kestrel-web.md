@@ -949,7 +949,9 @@ and backoff, so a failed render is retried on the same schedule it reports), and
 gives the queue `delayMs: delaysFor(features)`, `{ refreshIndexes: 1000, refreshLlms: 3000 }`. Neither
 delay is an option of `presetModuleConfig()`, and `definePreset()` refuses a `delayMs` that leaves out or
 changes the delay of a pipeline it composes, or a background `indexesDelayMs` other than 1000, whether
-`overrides` or a hand-written entry sets it (`preset/index-export-delays`). `definePreset()` refuses `render: "events"`
+`overrides` or a hand-written entry sets it (`preset/index-export-delays`). An override replaces the whole
+`delayMs`, so a site that holds back pipelines of its own spreads the preset's delays into it:
+`delayMs: { ...delaysFor(features), digest: 60000 }`. `definePreset()` refuses `render: "events"`
 without the `eventsQueue` feature and anything else with it.
 
 **`eventsQueue` requirement:** delivery is at-least-once, so your event listeners must be idempotent, and
@@ -2419,7 +2421,8 @@ of these, each named there:
   module, or lanes that already name `refreshIndexes` or an `indexes` lane with other members.
 - A `delayMs` on the events-queue entry that names a pipeline the preset does not compose
   (`preset/delay-pipeline-unknown`), or that leaves out or changes the delay of `refreshIndexes` or
-  `refreshLlms` (`preset/index-export-delays`): set it to `delaysFor(features)`.
+  `refreshLlms` (`preset/index-export-delays`): spread `delaysFor(features)` into it and keep your own
+  pipelines after it, `{ ...delaysFor(features), digest: 60000 }`.
 - `sanitizeSvg` when `features` is built by a function call, and installing packages after the range bumps.
 - The anonymous field grants of a hand-written `authz-roles` entry until you answer `pipelines/field-step`,
   a grant for a resource of your own pipeline, and an override of a public read without its field step.

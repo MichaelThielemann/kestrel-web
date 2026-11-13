@@ -15,9 +15,10 @@
   reads. Without the queue, delivery-static's loop exports the index files one second after the first request
   (`dependencies.indexesDelayMs: 1000`). Neither delay is an option of `presetModuleConfig()`, and the preset
   refuses a `delayMs` or `indexesDelayMs` that holds another value, from `overrides` or a hand-written entry
-  (`preset/index-export-delays`); a hand-written queue entry without `delayMs` gets a warning from
-  `kestrel upgrade check`. The Node
-  server does not serve the four files; behind a proxy to it, serve them from the export's `site/` prefix at the
+  (`preset/index-export-delays`), and names every index export a `delayMs` leaves out; a `delayMs` that also
+  holds back pipelines of the site's own spreads them in: `{ ...delaysFor(features), digest: 60000 }`. A
+  hand-written queue entry without `delayMs` gets a warning from `kestrel upgrade check`. The Node server does
+  not serve the four files; behind a proxy to it, serve them from the export's `site/` prefix at the
   host's root (`docs/deployment.md` §7, "Index files").
 - With `delivery`, `presetModuleConfig()` passes `NUXT_PUBLIC_SITE_URL`, normalised the way
   `@michaelthielemann/kestrel-delivery-static/site-url` does it, to delivery-static as its top-level `siteUrl`;

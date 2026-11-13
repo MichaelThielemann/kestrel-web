@@ -865,16 +865,20 @@ export function buildPreset<C extends Record<string, CollectionModel> = Record<s
 
   const delayMap = configuredDelayMap(options.modules);
   if (configuredModules.has(EVENTS_QUEUE_MODULE) && delayMap !== undefined) {
-    for (const [name, expected] of Object.entries(delaysFor([...enabledFeatures]))) {
-      if (!Object.hasOwn(pipelines, name)) continue;
-      const actual: unknown = Reflect.get(delayMap, name);
-      if (actual === expected) continue;
+    const wrong = Object.entries(delaysFor([...enabledFeatures]))
+      .filter(([name]) => Object.hasOwn(pipelines, name))
+      .map(([name, expected]): { name: string; expected: number; actual: unknown } => ({ name, expected, actual: Reflect.get(delayMap, name) }))
+      .filter((entry) => entry.actual !== entry.expected);
+    const first = wrong[0];
+    if (first !== undefined) {
+      const missing = wrong.filter((entry) => entry.actual === undefined).map((entry) => `"${entry.name}"`);
+      const held = wrong.filter((entry) => entry.actual !== undefined).map((entry) => `holds back pipeline "${entry.name}" for ${String(entry.actual)} ms`);
+      const left = missing.length === 0 ? [] : [`leaves out ${missing.length === 1 ? "pipeline" : "pipelines"} ${missing.join(" and ")}`];
+      const fixed = wrong.map((entry) => `"${entry.name}" at ${String(entry.expected)} ms`).join(" and ");
       sink.report({
         code: "preset/index-export-delays",
-        pipeline: name,
-        message: actual === undefined
-          ? `preset: module "${EVENTS_QUEUE_MODULE}" has a delayMs without pipeline "${name}", but the preset fixes that delay at ${String(expected)} ms – set delayMs to delaysFor(features), or remove it from the override`
-          : `preset: module "${EVENTS_QUEUE_MODULE}" holds back pipeline "${name}" for ${String(actual)} ms in delayMs, but the preset fixes that delay at ${String(expected)} ms – set delayMs to delaysFor(features), or remove it from the override`,
+        pipeline: first.name,
+        message: `preset: module "${EVENTS_QUEUE_MODULE}" ${[...held, ...left].join(" and ")} in delayMs, but the preset fixes ${fixed} – spread delaysFor(features) into delayMs and add your own pipelines after it: { ...delaysFor(features), myPipeline: 5000 }`,
       });
     }
   }
