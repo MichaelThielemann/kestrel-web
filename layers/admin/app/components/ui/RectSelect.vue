@@ -116,6 +116,9 @@ const rectStyle = computed(() => {
       @dblclick="onDoubleClick"
     >
       <img :src="src" :alt="alt" class="ui-rect-select__image" draggable="false">
+      <div v-if="model" class="ui-rect-select__clip" aria-hidden="true">
+        <div class="ui-rect-select__scrim" :class="{ 'ui-rect-select__scrim--point': isPoint }" :style="rectStyle" />
+      </div>
       <div
         v-if="model"
         class="ui-rect-select__rect"
@@ -162,8 +165,8 @@ const rectStyle = computed(() => {
     @include mixins.focus-ring;
     position: relative;
     align-self: center;
-    max-width: 100%;
-    overflow: hidden;
+    max-width: calc(100% - 1.5rem);
+    margin: 0.75rem;
     border-radius: var(--radius-md);
     touch-action: none;
     user-select: none;
@@ -181,24 +184,38 @@ const rectStyle = computed(() => {
 
   &__image {
     display: block;
+    border-radius: var(--radius-md);
     max-width: 100%;
     max-height: var(--ui-rect-select-max-height, 60vh);
     pointer-events: none;
+  }
+
+  &__clip {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    border-radius: var(--radius-md);
+    pointer-events: none;
+  }
+
+  &__scrim {
+    position: absolute;
+    box-shadow: 0 0 0 100vmax var(--color-scrim);
   }
 
   &__rect {
     position: absolute;
     border: 2px solid var(--color-overlay-edge-strong);
     outline: 1px solid var(--color-primary);
-    box-shadow: 0 0 0 100vmax var(--color-scrim);
     cursor: move;
+  }
 
-    &--point {
-      width: 1.5rem;
-      height: 1.5rem;
-      border-radius: var(--radius-full);
-      transform: translate(-50%, -50%);
-    }
+  &__rect--point,
+  &__scrim--point {
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: var(--radius-full);
+    transform: translate(-50%, -50%);
   }
 
   &__handle {

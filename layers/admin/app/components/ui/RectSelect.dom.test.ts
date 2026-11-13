@@ -214,4 +214,17 @@ describe('KestrelUiRectSelect', () => {
     for (const handle of handles) expect(handle.attributes('aria-hidden')).toBe('true')
     wrapper.unmount()
   })
+
+  it('dims the image outside the rectangle in a clipped layer of its own, so handles at the image edge are not cut', async () => {
+    const { wrapper } = await mountSelect({ x: 0, y: 0, w: 0.4, h: 0.4 })
+
+    const scrim = wrapper.get('.ui-rect-select__scrim')
+    expect(scrim.element.closest('.ui-rect-select__clip')).not.toBeNull()
+    expect(scrim.attributes('style')).toContain('left: 0%')
+    expect(scrim.attributes('style')).toContain('width: 40%')
+    const handle = wrapper.get('[data-handle="nw"]').element
+    expect(handle.closest('.ui-rect-select__clip')).toBeNull()
+    expect(handle.closest('.ui-rect-select__surface')).not.toBeNull()
+    wrapper.unmount()
+  })
 })
