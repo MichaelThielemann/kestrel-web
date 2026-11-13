@@ -41,13 +41,20 @@ the export at the root of the host, next to the proxy to the Node server, for ex
 filesystem blobstore, where `<data dir>` is `KESTREL_DATA_DIR` or `data/` under the app root:
 
 ```nginx
-location = /robots.txt { root <data dir>/blobs/site; add_header Cache-Control "no-cache"; }
-location = /sitemap.xml { root <data dir>/blobs/site; add_header Cache-Control "no-cache"; }
-location = /llms.txt { root <data dir>/blobs/site; add_header Cache-Control "no-cache"; }
-location = /llms-full.txt { root <data dir>/blobs/site; add_header Cache-Control "no-cache"; }
+location ~ ^/(robots\.txt|sitemap\.xml|llms\.txt|llms-full\.txt)$ {
+  root <data dir>/blobs/site;
+  charset utf-8;
+  expires -1;
+}
 ```
 
-With an S3 blobstore, proxy each path to its object under `site/` instead. §7 of the deployment guide,
+`charset utf-8` keeps the files readable as UTF-8, and `expires -1` marks them `no-cache` without an
+`add_header`, which would drop the server block's own headers, such as `Strict-Transport-Security`, from
+these responses. nginx answers the four paths itself, so `NUXT_KESTREL_ACCESS_SITE` does not cover them: with
+a site allowlist set, give the location the same addresses as `allow` lines followed by `deny all;`, or serve
+only `robots.txt`. With an S3 blobstore, proxy each path to its object under `site/` instead; those objects
+must allow anonymous reads, or the proxy must sign its requests, since a crawler takes a 403 `robots.txt` as
+allowing everything. Check that `/robots.txt` answers 200. §7 of the deployment guide,
 <https://github.com/MichaelThielemann/kestrel-web/blob/main/docs/deployment.md>, has the details, including a
 site below the host's root.
 

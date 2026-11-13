@@ -217,10 +217,11 @@ server {
 
   client_max_body_size 6m;
 
-  location = /robots.txt { root /srv/mysite/data/blobs/site; add_header Cache-Control "no-cache"; }
-  location = /sitemap.xml { root /srv/mysite/data/blobs/site; add_header Cache-Control "no-cache"; }
-  location = /llms.txt { root /srv/mysite/data/blobs/site; add_header Cache-Control "no-cache"; }
-  location = /llms-full.txt { root /srv/mysite/data/blobs/site; add_header Cache-Control "no-cache"; }
+  location ~ ^/(robots\.txt|sitemap\.xml|llms\.txt|llms-full\.txt)$ {
+    root /srv/mysite/data/blobs/site;
+    charset utf-8;
+    expires -1;
+  }
 
   location / {
     proxy_pass http://127.0.0.1:8080;
@@ -239,15 +240,24 @@ Points that matter:
   the blobstore under `site/` (`<dataDir>/blobs/site/` with the filesystem blobstore of §5), and the Node server
   does not serve them: it answers `/robots.txt`, `/sitemap.xml`, `/llms.txt` and `/llms-full.txt` with 404. A
   crawler takes a missing `robots.txt` as allowing everything, so `KESTREL_ROBOTS_POLICY=disallow` keeps a
-  staging server out of search results only when the host serves the exported file. The four exact-match
-  locations above do that next to the proxy; nginx's user needs read access to that directory. With an S3
-  blobstore, whose bucket grants anonymous reads on `site/*` (§3), proxy each one to its object instead, for
-  example `location = /robots.txt { proxy_pass https://example-bucket.s3.eu-central-1.amazonaws.com/site/robots.txt; }`;
-  on a CDN, route the four paths to the `site/` prefix of the same origin. A file the site does not write
-  (`sitemap.xml` without a site URL, `llms-full.txt` without `llms.full`) answers 404. With a base path in
-  `NUXT_PUBLIC_SITE_URL`, `robots.txt` stays at the host's root and the other three move below the base path
-  (`location = /site/sitemap.xml { alias /srv/mysite/data/blobs/site/sitemap.xml; }`). A static host that
-  serves the whole export (§8 of the consuming guide) serves them already.
+  staging server out of search results only when the host serves the exported file. The regex location above
+  does that next to the proxy; nginx's user needs read access to that directory. `charset utf-8` sends the
+  charset the files are written in (without it nginx sends a bare `text/plain`, and a client that follows the
+  HTTP default reads the UTF-8 titles as Latin-1). `expires -1` sends `Cache-Control: no-cache`; an
+  `add_header` there instead would drop the server's `Strict-Transport-Security` header from these four
+  responses, since nginx inherits `add_header` only into a block that sets none. nginx answers these paths
+  itself, so the server's site allowlist (`NUXT_KESTREL_ACCESS_SITE`) never sees them: with one set, give
+  the location the same addresses as `allow` lines followed by `deny all;`, or serve only `robots.txt`.
+  With an S3 blobstore, proxy each path to its object instead, for example
+  `location = /robots.txt { proxy_pass https://example-bucket.s3.eu-central-1.amazonaws.com/site/robots.txt; }`.
+  The four objects must allow anonymous `s3:GetObject`, as the bucket policy of §3 does, or the proxy must
+  sign its requests: a private bucket answers 403, and a crawler takes a 4xx `robots.txt` as allowing
+  everything. Check that `curl -I https://example.com/robots.txt` answers 200. On a CDN, route the four paths
+  to the `site/` prefix of the same origin. A file the site does not write (`sitemap.xml` without a site URL,
+  `llms-full.txt` without `llms.full`) answers 404. With a base path in `NUXT_PUBLIC_SITE_URL`, `robots.txt`
+  stays at the host's root and the other three move below the base path
+  (`location = /site/sitemap.xml { alias /srv/mysite/data/blobs/site/sitemap.xml; charset utf-8; expires -1; }`).
+  A static host that serves the whole export (§8 of the consuming guide) serves them already.
 
 - **HTTPS only.** The login sets the session in the `__Host-kestrel_token` cookie with `HttpOnly`,
   `Secure`, `SameSite=Strict` and `Path=/`; admin script never reads or writes it, and the `__Host-` prefix
