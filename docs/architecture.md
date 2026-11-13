@@ -2087,9 +2087,11 @@ An exported page is refreshed when content it shows changes. The recording and t
   then marks every output as well.
 - **The admin reads the backlog.** `pagesStaleStatus` feeds `useStaleStatus()` (polled every two seconds
   while pages wait; after Publish all or Retry (`watch()`) until the index export and, with `llms.full`, the
-  llms-full.txt export have recorded a newer outcome, and after a backlog drains outside such a wait until the
-  llms-full.txt export that trails the re-renders has, each for at most a minute (the index export is requested
-  when the change is made, so the polls during the backlog already show it); paused while the document is hidden; a newly recorded export that failed or was skipped
+  llms-full.txt export have recorded a newer outcome, for at most a minute; a drained backlog replaces that wait
+  with one for an outcome newer than the drain-time status: of the llms-full.txt export that trails the
+  re-renders, for at most a minute from the drain, or, without `llms.full`, of the index export a last
+  re-render asks for when it moved a page or started or stopped serving one, for at most the `refreshIndexes`
+  window plus two polls; paused while the document is hidden; a newly recorded export that failed or was skipped
   is read out in the panel's polite live region) for System › Static delivery, which also lists
   the last index export, named by the files the admin schema says are written (`robots` and `sitemap` from
   `robotsOf()` and `sitemapOf()` in `server/utils/admin-schema.ts`), and, while the schema carries

@@ -2,9 +2,11 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import type { StaleStatus } from '#kestrel-admin/types/api'
 import { staleAnnouncement } from '../utils/stale-messages'
 import { exportAnnouncement, exportFormat, exportsRecordedSince, type IndexFiles } from '../utils/export-messages'
+import { INDEX_EXPORT_DELAYS } from '#kestrel-core/pipelines/index-delays'
 
 const POLL_MS = 2000
 const EXPORT_WAIT_MS = 60_000
+const INDEX_TAIL_MS = INDEX_EXPORT_DELAYS.refreshIndexes + 2 * POLL_MS
 
 type ExportId = keyof StaleStatus['exports']
 
@@ -15,9 +17,10 @@ export interface StaleProgress { done: number, total: number, percent: number }
 /**
  * The static delivery's re-render backlog (`GET /admin/publish-status/pages`): loaded on mount, then polled every
  * two seconds while pages wait; after `watch()` until the index export and, while `files.llmsFull` is on, the
- * llms-full.txt export show a newer outcome than the status `watch()` started from, and after a backlog drains
- * outside such a wait until llms-full.txt, which trails the re-renders, shows one; each wait lasts at most a minute;
- * paused while the document is hidden, with at most one request in flight; a load asked for while one runs follows
+ * llms-full.txt export show a newer outcome than the status `watch()` started from, for at most a minute. A drained
+ * backlog replaces that wait: while `files.llmsFull` is on, until llms-full.txt, which trails the re-renders, shows
+ * an outcome newer than the drain, for at most a minute; otherwise until the index export a last re-render may ask
+ * for does, for at most a few seconds. Paused while the document is hidden, with at most one request in flight; a load asked for while one runs follows
  * it. `progress` counts from the largest backlog seen since it last reached zero, or from the number `watch()` was
  * told was just queued. `announcement` changes only when pages start waiting, a re-render fails, the backlog ends
  * or a newly recorded export failed or was skipped, so a polite live region reading it is not repeated on every poll.
@@ -65,7 +68,11 @@ export function useStaleStatus() {
       const said = [staleAnnouncement(t, previous, next), exportAnnouncement(t, previous?.exports ?? null, next.exports, exportFormat(lang.value), files.value)].filter((text) => text !== null)
       if (said.length > 0) announcement.value = said.join(' ')
       if (exportWait !== null && Date.now() >= exportWait.until) exportWait = null
-      if (exportWait === null && files.value.llmsFull && previous !== null && previous.stale > 0 && next.stale === 0) exportWait = { since: previous.exports, ids: ['llmsFull'], until: Date.now() + EXPORT_WAIT_MS }
+      if (previous !== null && previous.stale > 0 && next.stale === 0) {
+        exportWait = files.value.llmsFull
+          ? { since: next.exports, ids: ['llmsFull'], until: Date.now() + EXPORT_WAIT_MS }
+          : { since: next.exports, ids: ['indexes'], until: Date.now() + INDEX_TAIL_MS }
+      }
       if (exportWait !== null && exportsRecordedSince(exportWait.since, next.exports, exportWait.ids)) exportWait = null
       status.value = next
       loadError.value = null

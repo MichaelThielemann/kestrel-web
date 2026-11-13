@@ -75,7 +75,7 @@ describe('useStaleStatus', () => {
     wrapper.unmount()
   })
 
-  it('polls every two seconds while pages wait, tracks the progress and stops at zero when the site writes no llms-full.txt', async () => {
+  it('polls every two seconds while pages wait, tracks the progress and stops a few seconds after zero when no index export follows and the site writes no llms-full.txt', async () => {
     vi.useFakeTimers()
     const exported = { indexes: { at: 7, entries: 4, error: null, skipped: false }, llmsFull: null }
     answering(staleStatus({ stale: 4 }), staleStatus({ stale: 3, exports: exported }), staleStatus({ stale: 1, exports: exported }), staleStatus({ exports: exported }))
@@ -94,7 +94,7 @@ describe('useStaleStatus', () => {
     expect(api.status.value?.stale).toBe(0)
     expect(api.progress.value).toBeNull()
     await vi.advanceTimersByTimeAsync(60_000)
-    expect(apiCalls).toHaveLength(4)
+    expect(apiCalls).toHaveLength(7)
     wrapper.unmount()
   })
 
@@ -188,6 +188,44 @@ describe('useStaleStatus', () => {
     expect(api.status.value?.stale).toBe(0)
     await vi.advanceTimersByTimeAsync(4000)
     expect(api.status.value?.exports).toEqual(exported)
+    wrapper.unmount()
+  })
+
+  it('shows and reads out once a failed llms-full export that ends after the minute watch() waits, when the backlog drained late in it', async () => {
+    vi.useFakeTimers()
+    schema.llmsFull = true
+    const before = { indexes: { at: 1, entries: 3, error: null, skipped: false }, llmsFull: { at: 1, entries: 3, error: null, skipped: false } }
+    const failed = { ...before, llmsFull: { at: 61, entries: 0, error: 'EACCES: llms-full.txt', skipped: false } }
+    answering(staleStatus({ exports: before }), ...Array.from({ length: 29 }, () => staleStatus({ stale: 2, exports: before })), staleStatus({ exports: before }), staleStatus({ exports: before }), staleStatus({ exports: failed }))
+    const { wrapper, api } = await mountProbe()
+    await vi.advanceTimersByTimeAsync(0)
+    await api.watch(2)
+    await vi.advanceTimersByTimeAsync(58_000)
+    expect(api.status.value?.stale).toBe(0)
+    await vi.advanceTimersByTimeAsync(4000)
+    expect(api.status.value?.exports).toEqual(failed)
+    expect(api.announcement.value).toMatch(/^llms-full\.txt: Export failed at .+: EACCES: llms-full\.txt$/)
+    const calls = apiCalls.length
+    await vi.advanceTimersByTimeAsync(60_000)
+    expect(apiCalls).toHaveLength(calls)
+    wrapper.unmount()
+  })
+
+  it('shows and reads out once a failed index export that follows a drain while the site writes no llms-full.txt', async () => {
+    vi.useFakeTimers()
+    const written = { indexes: { at: 1, entries: 3, error: null, skipped: false }, llmsFull: null }
+    const failed = { ...written, indexes: { at: 3, entries: 0, error: 'EACCES: sitemap.xml', skipped: false } }
+    answering(staleStatus({ stale: 2, exports: written }), staleStatus({ exports: written }), staleStatus({ exports: failed }))
+    const { wrapper, api } = await mountProbe()
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(api.status.value?.stale).toBe(0)
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(api.status.value?.exports).toEqual(failed)
+    expect(api.announcement.value).toMatch(/^llms\.txt: Export failed at .+: EACCES: sitemap\.xml$/)
+    const said = api.announcement.value
+    await vi.advanceTimersByTimeAsync(60_000)
+    expect(apiCalls).toHaveLength(3)
+    expect(api.announcement.value).toBe(said)
     wrapper.unmount()
   })
 
