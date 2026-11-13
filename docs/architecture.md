@@ -972,6 +972,8 @@ Kit inventory:
   its tooltip with the full name opens on keyboard focus too. It knows nothing about what it tracks.
 - `Richtext.vue` / `RichtextToolbar.vue` — the TipTap editor and its toolbar.
 - `Select.vue` — native select styled like the other controls.
+- `Slider.vue` — a labelled native range input bound to a number, with `min`, `max`, `step`, an optional
+  `valueText` for `aria-valuetext` and `hideLabel` to keep the label for assistive technology only.
 - `Spinner.vue` — the busy ring `Button.vue` shows while `loading`; it stops rotating under
   `prefers-reduced-motion`.
 - `TabList.vue` — the horizontal tab strip the system and insights screens sit in.
