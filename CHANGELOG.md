@@ -58,6 +58,19 @@
   the pages that show the item. `presetModuleConfig()` takes `media.trashRetentionDays` (default 30; `0`
   composes none of these pipelines). `DELETE /api/media/:id` and `DELETE /api/media/folders/*path` stay final
   deletes.
+- Request log: the API handler and the `/media/…` handler pass the process logger to kestrel, so every
+  request kestrel answers writes one `http` JSON line (`runId`, `requestId`, method, path, pipeline, status,
+  time, client address), and a request refused before its pipeline ran (no route, a body too large or not
+  readable, an unsupported content type) writes one with its `reason`. `docs/deployment.md` §11 describes
+  the line, how to find the one behind an error in the admin, and an nginx `log_format` that records the
+  same request id next to `$upstream_status` and `$request_time`.
+- Admin: every API request and every upload carries a fresh `X-Request-Id`. Error toasts, the save and
+  rename errors and a failed upload's row and tile name the HTTP status and that id as the error id
+  (`… (HTTP 409 · error ID 3f9a2c7b1e04)`); a failed upload offers to copy it, and a toast that names an
+  id stays twelve seconds. A request no server answered, or one answered by a page a proxy wrote in its
+  place, reads "The request did not reach the server or was refused in front of it (HTTP 502 · error ID …)"
+  instead of the proxy's HTML or a bare "Request failed". `ApiError` carries `requestId` and `reached`,
+  and `failureText()` composes such a message.
 - Page builder: a block instance can carry an optional alias, set in its fields panel. The preset derives a
   `blockAliases` field, and its editor-owned grant, automatically for every collection whose editor is
   `"blocks"` and which has a `body` field; a consumer never declares it. The field itself is not localized

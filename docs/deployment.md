@@ -272,8 +272,8 @@ Points that matter:
 - **Body size.** Media uploads go through `POST /api/media` as multipart. The limit is the
   `media.maxBytes` of your module config (default 5 MiB) plus 1 MiB of multipart overhead, and the
   admin reads the effective value from `GET /api/limits` to reject an oversized file in the browser.
-  A proxy limit below that turns into a 413 the admin cannot explain. Keep `client_max_body_size` at
-  or above `maxBytes + 1m`.
+  A proxy limit below that turns into a 413 from the proxy, which the admin can only report as refused
+  in front of the server (§11). Keep `client_max_body_size` at or above `maxBytes + 1m`.
 - **Client address.** The layer takes the socket peer by default, so behind a proxy every request
   looks like it comes from the proxy — which breaks the IP allowlists and the per-IP attempt limit on
   `login` (the `ratelimit` feature, five attempts per address and minute by default, preselected by
@@ -448,3 +448,81 @@ more limitations — §8/§9 of the consuming guide lay out all three with their
 None of this applies to the Node origin: its site pipeline already answers a redirect before a page is
 resolved (§9 of the consuming guide), so a deployment that serves traffic from the Node process directly
 needs no edge handler.
+
+## 11. Reading the logs
+
+The process writes JSON lines to stdout and stderr; under systemd they are in `journalctl -u mysite`, in
+a container in its log driver. Two lines matter when something failed:
+
+- **One `http` line per request kestrel answers**, on `/api/…` and on `/media/…`, refusals included:
+
+  ```json
+  {"time":"2026-11-13T10:42:07.118+01:00","level":"info","message":"http","runId":"5b1e0f3a-6c0d-4e57-9a51-2f8d3c1b7e44","requestId":"3f9a2c7b1e04","method":"POST","path":"/api/media","pipeline":"uploadMedia","status":413,"ms":812.4,"ip":"203.0.113.7","reason":"body exceeds 6291456 bytes","declaredBytes":7340032}
+  ```
+
+  `requestId` is the request's `X-Request-Id`, `runId` its `X-Kestrel-Run-Id`. A request kestrel refused
+  before its pipeline ran (no route, a body too large or not readable, a content type the route does not
+  accept) has a `reason` and starts no run, so it is not counted in Insights; this line is its only record.
+  The full list of reasons is in kestrel's `docs/configuration.md`, "Logging". A line never holds a body, a
+  cookie, the query string or a header value other than the request id.
+- **One `step` line per pipeline step**, with the same `runId`: what the run did and where it failed.
+
+The layer's own routes write no `http` line: `/api/health`, `/api/ready`, `/api/limits`,
+`/api/admin/schema`, and a request the IP allowlist refuses before kestrel sees it.
+
+### Finding the line behind an error in the admin
+
+Every request of the admin carries a fresh `X-Request-Id` of twelve hex digits, and every error it shows
+names the HTTP status and that id, for example `Refused as too large (HTTP 413 · error ID 3f9a2c7b1e04)`.
+A failed upload offers to copy the id. Search the log for it:
+
+```sh
+journalctl -u mysite | grep 3f9a2c7b1e04
+```
+
+- **A line with that `requestId`** means kestrel answered: its `status` and `reason`, and the `step` lines
+  of its `runId`, explain the failure.
+- **No line** means the request never reached kestrel. The admin then says the request did not reach the
+  server or was refused in front of it, with the status the proxy answered (`HTTP 413`, `HTTP 502`,
+  `HTTP 504`) or `no answer` when nothing came back (connection lost, the browser's own timeout). Look the
+  id up in the proxy's access log instead.
+
+### What the proxy should log
+
+Pass the admin's id on, or set one for requests that come without it, and write it to the access log next
+to the upstream status and the time the request took:
+
+```nginx
+map $http_x_request_id $kestrel_request_id {
+  default $http_x_request_id;
+  ""      $request_id;
+}
+
+log_format kestrel '$remote_addr [$time_local] "$request" $status $body_bytes_sent '
+                   'request_id=$kestrel_request_id upstream_status=$upstream_status '
+                   'request_time=$request_time upstream_time=$upstream_response_time';
+
+server {
+  # … as in §7
+  access_log /var/log/nginx/mysite.access.log kestrel;
+  client_max_body_size 6m;
+
+  location / {
+    proxy_pass http://127.0.0.1:8080;
+    proxy_set_header X-Request-Id $kestrel_request_id;
+    # … the other proxy_set_header lines of §7
+  }
+}
+```
+
+Reading a proxy line:
+
+- `upstream_status=-` with `status=413`: the proxy refused the body itself. `client_max_body_size` must
+  be at least the upload limit plus 1 MiB of multipart overhead (`media.maxBytes` + 1 MiB, see §7).
+- `upstream_status=-` with `status=502`: the process was not reachable (stopped, restarting, wrong port).
+- `status=504` and a `request_time` near `proxy_read_timeout`: the proxy gave up waiting; kestrel may
+  still have finished the request and logged it under the same id.
+- An `upstream_status` equal to `status`: kestrel answered, and its `http` line has the details.
+
+kestrel accepts an id of 1 to 200 printable ASCII characters and echoes it in the response; `$request_id`
+(32 hex digits) qualifies. An id outside that format is neither echoed nor logged.
