@@ -369,8 +369,8 @@ rather than booting with something plausible.
 - **`delivery-static.dependencies`** — `{ render: "background", rendererReadsDocument: true }`; with
   `eventsQueue`, `render: "events"` plus the queue's `maxAttempts` and `backoffSeconds` (§4, "`delivery`
   and the pages that show a change").
-- **`events-queue.relayPipelines` and `lanes`** — `relayPipelinesFor(features)` and `lanesFor(features)`
-  (§4).
+- **`events-queue.relayPipelines`, `lanes` and `delayMs`** — `relayPipelinesFor(features)`,
+  `lanesFor(features)` and `delaysFor(features)` (§4).
 - **`validate-jsonschema.schemas`** — `presetSchemas({ features, collections })`, with `watch` on
   outside production.
 - **`authz-roles.anonymousFields`** — which fields of each answer a caller without a session receives,
@@ -994,8 +994,9 @@ preset problem, as a `{ code, pipeline?, message }` entry instead of throwing.
 A hand-written module list that never calls `presetModuleConfig()` keeps the `eventsQueue` module's own
 default, `relayPipelines: "all"` — every subscriber runs inline, bounded by `relayMs`. Call
 `relayPipelinesFor(features)` yourself to get the same selection, or name an explicit list, and set
-`lanes: lanesFor(features)`; without lanes, re-renders and image renders share the main lane and delay
-every other queued job. `overrides`
+`lanes: lanesFor(features)` and `delayMs: delaysFor(features)`; without lanes, re-renders and image renders
+share the main lane and delay every other queued job, and without `delayMs` every save exports the index
+files at once and `kestrel upgrade check` warns (`preset/queue-lanes`). `overrides`
 naming the events-queue module directly replaces whichever of the two produced it; `definePreset()` then
 checks every name in that list against what it actually composed once `exclude` and `overrides` are
 applied, and rejects a name that used to be one of its own pipelines but no longer is. A name it never
@@ -2326,7 +2327,8 @@ What changes:
     the `definePreset()` call whose override the project loads. On the queue, an emit that sits right after
     the write's group (where the inline delivery has it) is moved into the group, so the event commits with
     the write; this is a warning, since the preset accepts either place.
-    `preset/settings-llms` notes an override that emits but still exports `llms.txt` inside the request.
+    `preset/settings-llms` reports, as an error, an override that emits but still runs `delivery.exportLlms`,
+    which stops the boot, and `fix` removes that step, since `settingsDependents` requests the export.
   - `runtime/media-event-ids` notes your own triggers on `media.updated`, `media.deleted`,
     `images.variantsChanged`, `media.trashed` or `media.restored`, each with what raises it: a folder
     deletion and every delete for good from the trash (`media.deleted`), every move into the trash
@@ -2339,9 +2341,9 @@ What changes:
   - `responses/delivery-async` notes code in `app/` or `server/` that reads `_llms` or the old Publish all
     counts; `static/server-cache` notes, with `delivery`, cached handlers, cached functions, `useStorage`
     and cached `/api` route rules, whose answers a page's render does not record as reads.
-  - Switching to the queue through `fix` also sets `lanes` on the new `kestrel-events-queue` entry and
-    the queue's `dependencies` on a `kestrel-delivery-static` entry written in `kestrel.config.ts`, in one
-    edit of its config, so a single run never writes the key twice. It places the emit of an override
+  - Switching to the queue through `fix` also sets `lanes` and `delayMs` on the new `kestrel-events-queue`
+    entry and the queue's `dependencies` on a `kestrel-delivery-static` entry written in `kestrel.config.ts`,
+    in one edit of its config, so a single run never writes the key twice. It places the emit of an override
     inside the write's group, whether `preset/override-emit` adds it in the same run or added it earlier. With `delivery`, it asks whether
     `pageDependents`, `settingsDependents` and `mediaDependents` may run more than once, as for every other
     event pipeline (they may: marking twice renders once).
@@ -2386,7 +2388,11 @@ of these, each named there:
   steps the project loads, and it too leaves them to you when their steps are the same.
 - A `kestrel-delivery-static` entry that is neither written in `kestrel.config.ts` nor built by exactly one
   `presetModuleConfig()` call, or whose `config`, `dependencies` or `overrides` is not an object literal.
-- `kestrel-events-queue` lanes that exist but leave page renders or image variants out.
+- `kestrel-events-queue` lanes that exist but leave page renders or image variants out, and lanes that lack
+  only the `indexes` lane where the tool cannot add it: lanes set through `overrides` on the events-queue
+  module, or lanes that already name `refreshIndexes` or an `indexes` lane with other members.
+- A `delayMs` on the events-queue entry that names a pipeline the preset does not compose
+  (`preset/delay-pipeline-unknown`): set it to `delaysFor(features)`.
 - `sanitizeSvg` when `features` is built by a function call, and installing packages after the range bumps.
 - The anonymous field grants of a hand-written `authz-roles` entry until you answer `pipelines/field-step`,
   a grant for a resource of your own pipeline, and an override of a public read without its field step.
