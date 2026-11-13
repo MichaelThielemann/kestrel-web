@@ -1579,8 +1579,10 @@ link only the original). Reading a media item anonymously is by id only — `GET
 **Focus and crop.** An editor can mark an image's focus and, per ratio of the `cover` sizes, a crop of its
 own; kestrel's images-default renders every `cover` variant from it ("Focus and crop" in its README) and
 `setMediaFraming` (`PUT /api/media/:id/framing`) stores it. `inside` sizes are never re-cut, so register a
-`cover` size (`fit: "cover"` with a `height`) wherever a box has a fixed ratio. A re-cut variant keeps its
-path and gains a `?v=` query once the new render is there, and the pages that show it are published again.
+`cover` size (`fit: "cover"` with a `height`, in `defineBlock({ imageSizes })` or `app/image-sizes.ts` as
+above) wherever a box has a fixed ratio. A re-cut variant keeps its path and its `variants[].path` gets a
+new `?v=` query once the new render is there; the query is opaque, so use the path as the API returns it.
+The pages that show the image are published again.
 `KestrelImage` sets `object-position` from the centre of `focus`, which visitors receive with the variants,
 so an image keeps its focus in view on the original and on an `inside` variant too.
 
@@ -1588,9 +1590,12 @@ The admin's crop editor opens from the media viewer ("Adjust crop") and from the
 chosen in a media field. Its focus tab previews each ratio of the `cover` sizes; its fine-crop tab shows one
 tile per ratio, automatic until a crop is set by hand. Ratios are exact, so `1000x562` and `1600x900` get two
 tiles, although `pickImageSources` lists both in one `srcset`. A crop narrower or lower than a size of its
-ratio delivers that variant smaller, which the editor points out. The editor computes every cut with
+ratio delivers that variant smaller, which the editor points out. Without a `cover` size the editor offers
+the focus alone and says why. Every action works with the pointer, touch or the keyboard, and the focus
+and the crop take numbers too. The editor computes every cut with
 `@michaelthielemann/kestrel-images-default/framing`, the functions the server renders with. A framing
-belongs to the media item, so it applies wherever the image is used.
+belongs to the media item, so it applies wherever the image is used; the editor names how many records
+use it. The media field's crop button is described in [`field-types.md`](field-types.md).
 
 See `docs/architecture.md#image-variants` for the validation rules, the discovery/registration split and
 the `<KestrelImage>` prop and fallback rules in full.

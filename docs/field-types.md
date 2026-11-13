@@ -192,6 +192,22 @@ after the field first rendered:
 A component receives `FieldComponentProps` (`field`, `name`, `locale`, `error?`, `rowErrors?`,
 `disabled?`, `id?`) plus a `v-model`. `name` is the already-resolved label, not the field's key.
 
+### The media field
+
+`media` (from `mediaField`, or a collection's `ref(media)`) stores media ids, one or a list with
+`multiple`. `field/Media.vue` resolves the chosen ids through `listMedia` and shows each as a tile with
+its name, a provenance label unless a human made the file, and a remove button; a button below opens the
+picker over the library. Neither the remove nor the picker button appears on a read-only field. An id
+whose item went to the trash keeps its tile, marked as in the trash, with a hint above the list.
+
+An image tile also carries an "Adjust crop" icon button when the item is an image the server reports
+oriented dimensions for and the role may run `setMediaFraming`. It opens the same crop editor as the
+media viewer (see "Focus and crop" in [`consuming-kestrel-web.md`](consuming-kestrel-web.md)), nested
+over the record editor. The editor saves the focus and the crops on the media item through
+`PUT /api/media/:id/framing`, not in the field, so the record gains no unsaved change, the framing
+applies to every record that uses the image, and the button stays available on a read-only field. The
+picker dialog itself offers no crop button.
+
 ## A colour field, end to end
 
 The declaration above is the whole backend side. The collection field names the type:
