@@ -54,9 +54,12 @@ these responses. nginx answers the four paths itself, so `NUXT_KESTREL_ACCESS_SI
 a site allowlist set, give the location the same addresses as `allow` lines followed by `deny all;`, or serve
 only `robots.txt`. With an S3 blobstore, proxy each path to its object under `site/` instead; those objects
 must allow anonymous reads, or the proxy must sign its requests, since a crawler takes a 403 `robots.txt` as
-allowing everything. Check that `/robots.txt` answers 200. §7 of the deployment guide,
-<https://github.com/MichaelThielemann/kestrel-web/blob/main/docs/deployment.md>, has the details, including a
-site below the host's root.
+allowing everything. Check that `/robots.txt` answers 200. With `robots: false` or `sitemap: false` in
+`kestrel.config.ts`, the file at that path is your own: take `robots\.txt` or `sitemap\.xml` out of the
+location, or nginx answers 404 for it (or keeps serving the one an earlier start exported) instead of passing
+the request on to the Node server, which serves your `public/robots.txt` or `public/sitemap.xml`. §7 of the
+deployment guide, <https://github.com/MichaelThielemann/kestrel-web/blob/main/docs/deployment.md>, has the
+details, including a site below the host's root.
 
 ## Checking the project
 

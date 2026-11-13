@@ -257,6 +257,10 @@ Points that matter:
   `llms-full.txt` without `llms.full`) answers 404. With a base path in `NUXT_PUBLIC_SITE_URL`, `robots.txt`
   stays at the host's root and the other three move below the base path
   (`location = /site/sitemap.xml { alias /srv/mysite/data/blobs/site/sitemap.xml; charset utf-8; expires -1; }`).
+  With `robots: false` or `sitemap: false` in `presetModuleConfig()`, the file at that path is your own, so take
+  `robots\.txt` or `sitemap\.xml` out of the regex location: otherwise nginx answers 404 there, or keeps
+  serving the file an earlier start exported, and the request never reaches the Node server, which serves a
+  `public/robots.txt` or `public/sitemap.xml` of your own.
   A static host that serves the whole export (§8 of the consuming guide) serves them already.
 
 - **HTTPS only.** The login sets the session in the `__Host-kestrel_token` cookie with `HttpOnly`,
