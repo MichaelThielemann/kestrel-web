@@ -1,8 +1,18 @@
 <script setup lang="ts">
+import { onUnmounted } from 'vue'
 
 const toasts = useToast()
 const { t } = useT()
 const { target: portalTarget } = useAdminPortal()
+
+function onFocusOut(id: number, e: FocusEvent) {
+  const toast = e.currentTarget
+  const next = e.relatedTarget
+  if (toast instanceof HTMLElement && next instanceof Node && toast.contains(next)) return
+  toasts.release(id, 'focus')
+}
+
+onUnmounted(() => toasts.clear())
 </script>
 
 <template>
@@ -25,8 +35,13 @@ const { target: portalTarget } = useAdminPortal()
             :key="toast.id"
             class="ui-toast"
             :class="`ui-toast--${toast.type}`"
+            @mouseenter="toasts.hold(toast.id, 'hover')"
+            @mouseleave="toasts.release(toast.id, 'hover')"
+            @focusin="toasts.hold(toast.id, 'focus')"
+            @focusout="onFocusOut(toast.id, $event)"
           >
             <span class="ui-toast__msg">{{ toast.message }}</span>
+            <KestrelUiButton v-if="toast.action" variant="ghost" size="sm" class="ui-toast__action" @click="toasts.runAction(toast.id)">{{ toast.action.label }}</KestrelUiButton>
             <button type="button" class="ui-toast__close" :aria-label="t('toast.dismiss')" @click="toasts.dismiss(toast.id)">
               <KestrelUiIcon name="x" size="0.875rem" />
             </button>
@@ -74,10 +89,19 @@ const { target: portalTarget } = useAdminPortal()
 
   &__msg { flex: 1 1 auto; min-width: 0; }
 
+  &__action {
+    flex-shrink: 0;
+    min-height: 1.5rem;
+  }
+
   &__close {
     @include mixins.focus-ring;
     flex-shrink: 0;
     display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.5rem;
+    min-height: 1.5rem;
     padding: var(--space-1);
     border: 0;
     border-radius: var(--radius-sm);
