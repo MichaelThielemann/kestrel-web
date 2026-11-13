@@ -678,6 +678,12 @@ export const de: Record<CatalogKey, string> = {
   'combobox.toggle_options': 'Optionen ein-/ausblenden',
   'combobox.loading': 'Wird geladen…',
   'combobox.no_results': 'Keine Ergebnisse',
+  'rectSelect.help': 'Über das Bild ziehen zeichnet den Bereich, Ziehen am Bereich verschiebt ihn, Ziehen an seinen Griffen ändert die Größe; ein Doppelklick setzt einen Punkt. Mit der Tastatur: Pfeiltasten verschieben den Bereich, mit Umschalt in größeren Schritten, Alt und Pfeiltasten ändern die Größe, Eingabe legt ihn an und Entfernen löscht ihn.',
+  'rectSelect.fields': 'Position und Größe in Prozent des Bildes',
+  'rectSelect.x': 'Links',
+  'rectSelect.y': 'Oben',
+  'rectSelect.w': 'Breite',
+  'rectSelect.h': 'Höhe',
 
   'datePicker.openCalendar': 'Kalender öffnen',
   'datePicker.previousMonth': 'Vorheriger Monat',

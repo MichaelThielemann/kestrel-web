@@ -970,6 +970,12 @@ Kit inventory:
   row narrower than 28rem puts the status below the title and wraps the title instead of cutting it off;
   in a wider row a title cut off with an ellipsis joins the tab order (measured by `useOverflowing()`), so
   its tooltip with the full name opens on keyboard focus too. It knows nothing about what it tracks.
+- `RectSelect.vue` — a rectangle drawn on an image (`v-model`, normalised to 0..1, `null` for none): drag
+  across the image to draw it, drag its body to move it and one of its eight 24 × 24 px handles to resize it,
+  double-click for a point (`w` and `h` 0). The focused image takes the arrow keys to move it by 1 % (Shift
+  10 %), Alt with the arrow keys to resize it, Enter to create a centred one and Delete to remove it; numeric
+  left, top, width and height fields in percent do the same without dragging. Pointer handling is
+  `usePointerDrag()`, the geometry `utils/rect-select.ts`.
 - `Richtext.vue` / `RichtextToolbar.vue` — the TipTap editor and its toolbar.
 - `Select.vue` — native select styled like the other controls.
 - `Slider.vue` — a labelled native range input bound to a number, with `min`, `max`, `step`, an optional
