@@ -29,6 +29,7 @@ interface ProjectShape {
   features: string[];
   problems?: { code: string; pipeline?: string; message: string }[];
   overrides?: Record<string, unknown>;
+  exclude?: string[];
 }
 
 function contextFor(shape: ProjectShape): RuleContext {
@@ -45,6 +46,7 @@ function contextFor(shape: ProjectShape): RuleContext {
         features: shape.features,
         collections: { pages: { kind: "multi", fields: { slug: {}, title: {}, body: {}, status: {} } } },
         ...(shape.overrides === undefined ? {} : { overrides: shape.overrides }),
+        ...(shape.exclude === undefined ? {} : { exclude: shape.exclude }),
       },
     },
   };
@@ -434,6 +436,25 @@ describe("deletes in the admin once the media trash is on", () => {
     ]);
     expect(findings[0]?.message).toContain("trashMedia");
     expect(findings[2]?.suggestion).toContain('"media.trashed"');
+  });
+
+  it("notes an exclude of deleteMedia or deleteMediaFolder, which leaves the trash and its final deletes open", async () => {
+    const source = "export default defineConfig({ modules, triggers: preset.triggers, http: null });\n";
+    const ctx = contextFor({ source, modules: trashOn, features: [], exclude: ["deleteMedia", "deleteMediaFolder", "updateMedia"] });
+    const findings = await mediaTrashDeletesRule.check(ctx);
+    expect(findings.map((f) => [f.where.pipeline, f.severity, f.fix.kind])).toEqual([
+      ["deleteMedia", "info", "none"],
+      ["deleteMediaFolder", "info", "none"],
+    ]);
+    expect(findings[0]?.message).toContain("purgeMedia");
+    expect(findings[0]?.suggestion).toContain("trashRetentionDays: 0");
+    expect(findings[0]?.suggestion).toContain("trashMedia");
+  });
+
+  it("says nothing about an exclude with the trash off", async () => {
+    const source = "export default defineConfig({ modules, triggers: preset.triggers, http: null });\n";
+    const ctx = contextFor({ source, modules: [{ use: MEDIA, config: {} }], features: [], exclude: ["deleteMedia"] });
+    expect(await mediaTrashDeletesRule.check(ctx)).toEqual([]);
   });
 
   it("says nothing with the trash off", async () => {

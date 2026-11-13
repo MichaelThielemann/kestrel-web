@@ -61,7 +61,7 @@ const describedModel = { ...contentModel, types: describedTypes };
 const customTypes = customFieldTypes(contentTypes, fieldTypes);
 const triggers = fullAccessTriggers();
 
-const schema = buildAdminSchema({
+const sources = {
   model: describedModel,
   collectionsUi,
   features,
@@ -72,7 +72,8 @@ const schema = buildAdminSchema({
   triggers,
   access: {},
   collections: contentTypes,
-});
+};
+const schema = buildAdminSchema(sources);
 
 describe("buildAdminSchema", () => {
   it("matches the frozen playground fixture", () => {
@@ -144,6 +145,14 @@ describe("buildAdminSchema", () => {
 
   it("lists a pipeline outside any collection under its own name", () => {
     expect(schema.capabilities.deleteUser).toEqual({ method: "DELETE", path: "/users/:id" });
+  });
+
+  it("reports the media trash as composed whatever the caller may reach, and not without its trigger", () => {
+    const denied = buildAdminSchema({ ...sources, access: { trashMedia: "denied", trashMediaFolder: "denied" } });
+    expect(denied.mediaTrash).toBe(true);
+    expect(denied.capabilities.trashMedia).toBeUndefined();
+    const off = buildAdminSchema({ ...sources, triggers: triggers.filter((trigger) => trigger.pipeline !== "trashMedia") });
+    expect(off.mediaTrash).toBeUndefined();
   });
 });
 

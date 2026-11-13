@@ -9,6 +9,7 @@ import type { CollectionRouting, CollectionUi, ContentType, CustomFieldTypes } f
 import { serializeCollections } from "../../collections-ui";
 import type { HttpTriggerEntry, PipelineVerdict } from "./admin-capabilities";
 import { buildCapabilities, isPipelineVerdict } from "./admin-capabilities";
+import { MEDIA_TRASH_PIPELINES } from "../../pipelines/media-trash";
 
 export interface DescribedModel {
   locales?: string[];
@@ -62,6 +63,7 @@ export function buildAdminSchema({ model, collectionsUi, features, prefixPrimary
     features: [...features],
     capabilities: capabilities.global,
     ...(maxCascade === undefined ? {} : { maxCascade }),
+    ...(triggers.some((trigger) => trigger.pipeline === MEDIA_TRASH_PIPELINES.trash) ? { mediaTrash: true } : {}),
   };
 }
 

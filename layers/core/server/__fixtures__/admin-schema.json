@@ -1227,5 +1227,6 @@
       "method": "POST",
       "path": "/admin/users/:id/revisions/reassign"
     }
-  }
+  },
+  "mediaTrash": true
 }

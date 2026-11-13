@@ -283,8 +283,9 @@ const MEDIA_DELETE_PIPELINES = ["deleteMedia", "deleteMediaFolder"] as const;
  * With the media trash composed (`presetModuleConfig()` does so unless `media.trashRetentionDays` is `0`), a
  * delete in the admin runs `trashMedia` or `trashMediaFolder` and raises `media.trashed`; `media.deleted`
  * follows only when an item is deleted for good from the trash. Notes an override of `deleteMedia` or
- * `deleteMediaFolder`, which the admin no longer runs, and an own trigger on `media.deleted` without one on
- * `media.trashed` for the same pipeline. Information only.
+ * `deleteMediaFolder`, which a delete in the admin does not run while the trash is on; an exclude of either,
+ * which leaves the trash pipelines and their final deletes in place; and an own trigger on `media.deleted`
+ * without one on `media.trashed` for the same pipeline. Information only.
  */
 export const mediaTrashDeletesRule: Rule = {
   id: "runtime/media-trash-deletes",
@@ -293,6 +294,21 @@ export const mediaTrashDeletesRule: Rule = {
     if (!mediaTrashEnabled(cast?.modules)) return [];
     const rule = "runtime/media-trash-deletes";
     const findings: Finding[] = [];
+    const excluded = new Set<string>(cast?.exclude ?? []);
+    for (const pipeline of MEDIA_DELETE_PIPELINES) {
+      if (!excluded.has(pipeline)) continue;
+      findings.push(
+        finding(
+          rule,
+          `${rule}:${pipeline}`,
+          "info",
+          { pipeline },
+          `"${pipeline}" is excluded, but the media trash is on: anyone who may delete media can still move items to the trash through trashMedia and trashMediaFolder and delete them for good through purgeMedia and emptyMediaTrash, and the nightly purgeExpiredMedia deletes them once their time in the trash runs out`,
+          "exclude trashMedia, trashMediaFolder, purgeMedia, emptyMediaTrash and purgeExpiredMedia as well, or set media.trashRetentionDays: 0 so that no trash pipeline is composed",
+          { kind: "none" },
+        ),
+      );
+    }
     for (const pipeline of MEDIA_DELETE_PIPELINES) {
       if (cast?.overrides?.[pipeline] === undefined) continue;
       findings.push(

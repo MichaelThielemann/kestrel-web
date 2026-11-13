@@ -402,4 +402,6 @@ export interface AdminSchema {
   capabilities: Record<string, Capability>
   /** The most paths (documents × locales) one save may move, `site-default`'s `maxCascade`; absent without routed collections. */
   maxCascade?: number
+  /** The site composes the media trash, whether or not the caller may reach its pipelines; a delete in the admin then moves media to the trash and never deletes for good. */
+  mediaTrash?: boolean
 }
