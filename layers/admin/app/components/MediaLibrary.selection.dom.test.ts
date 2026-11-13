@@ -284,6 +284,19 @@ describe('MediaLibrary selection in the table', () => {
     await key(rows[1]!, { key: ' ' })
     expect(checkbox(wrapper, 'b.jpg').element.checked).toBe(true)
   })
+
+  it('opens the delete dialog for the selection with Delete while focus sits on a row checkbox', async () => {
+    serve({ files: { '': [media('f1', 'a.jpg'), media('f2', 'b.jpg')] } })
+    const wrapper = await mountLibrary()
+    await vi.waitFor(() => expect(wrapper.find('[data-test="row-file-f2"]').exists()).toBe(true))
+
+    const box = checkbox(wrapper, 'b.jpg')
+    box.element.focus()
+    await box.setValue(true)
+    await key(box, { key: 'Delete' })
+
+    await vi.waitFor(() => expect(document.body.querySelector('.ui-dialog__content')?.textContent).toContain('1 file'))
+  })
 })
 
 describe('MediaLibrary keyboard selection', () => {
@@ -373,6 +386,30 @@ describe('MediaLibrary keyboard selection', () => {
     expect(listed).not.toContain('glacier.jpg')
   })
 
+  it('takes the selection keys and the arrows while focus sits on a tile checkbox', async () => {
+    serve({ files: { '': [media('f1', 'a.jpg'), media('f2', 'b.jpg'), media('f3', 'c.jpg')] } })
+    const wrapper = await mountLibrary()
+    await vi.waitFor(() => expect(wrapper.find('[data-test="file-f3"]').exists()).toBe(true))
+
+    const box = checkbox(wrapper, 'a.jpg')
+    box.element.focus()
+    await box.setValue(true)
+    await key(box, { key: 'a', ctrlKey: true })
+    expect(bar(wrapper).get('.ui-bulkbar__count').text()).toBe(text('media.selection.countPlural', { n: 3 }))
+    await key(box, { key: 'Escape' })
+    expect(bar(wrapper).exists()).toBe(false)
+
+    await key(box, { key: 'ArrowRight' })
+    expect(focused()).toBe(wrapper.get('[data-test="file-f2"]').element)
+
+    const second = checkbox(wrapper, 'b.jpg')
+    second.element.focus()
+    await second.setValue(true)
+    await key(second, { key: 'Backspace' })
+    await vi.waitFor(() => expect(document.body.querySelector('.ui-dialog__content')?.textContent).toContain('1 file'))
+    expect(document.body.querySelector('.media-remove__preview')?.textContent).toContain('b.jpg')
+  })
+
   it('ignores the keys while typing in the search field', async () => {
     serve({ files: { '': [media('f1', 'a.jpg')] } })
     const wrapper = await mountLibrary()
@@ -452,6 +489,26 @@ describe('MediaLibrary multi-pick selection', () => {
 
     expect(bar(wrapper).get('.ui-bulkbar__count').text()).toBe(en['media.selection.countHere'])
     expect(wrapper.find('input[type="search"]').exists()).toBe(true)
+    expect(wrapper.get('.media-pick-bar').text()).toContain(text('media.pick.countPlural', { n: 2 }))
+  })
+
+  it('leaves the picks alone when Delete is pressed on a folder, which a multi-pick cannot select', async () => {
+    serve({ folders: ['events'], files: { '': [media('f1', 'dusk.png'), media('f2', 'harbour.png')] } })
+    serveDelete('f1')
+    serveDelete('f2')
+    const wrapper = await mountLibrary({ pick: true, multiple: true })
+    await vi.waitFor(() => expect(wrapper.find('[data-test="folder-events"]').exists()).toBe(true))
+    await wrapper.get('[data-test="file-f1"]').trigger('click')
+    await wrapper.get('[data-test="file-f2"]').trigger('click')
+
+    const folder = wrapper.get('[data-test="folder-events"]')
+    boundaryCast<HTMLElement>(folder.element, 'dom').focus()
+    await key(folder, { key: 'Delete' })
+    await key(folder, { key: 'Backspace' })
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    expect(document.body.querySelector('.ui-dialog__content')).toBeNull()
+    expect(deleted).toEqual([])
     expect(wrapper.get('.media-pick-bar').text()).toContain(text('media.pick.countPlural', { n: 2 }))
   })
 

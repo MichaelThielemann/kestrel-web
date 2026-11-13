@@ -13,5 +13,5 @@ function onChange() {
 </script>
 
 <template>
-  <KestrelUiCheckbox standalone tabindex="-1" :model-value="selected" :disabled="disabled" :aria-label="label" @click="onClick" @update:model-value="onChange" />
+  <KestrelUiCheckbox standalone tabindex="-1" data-item-check :model-value="selected" :disabled="disabled" :aria-label="label" @click="onClick" @update:model-value="onChange" />
 </template>

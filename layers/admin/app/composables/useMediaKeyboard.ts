@@ -56,12 +56,16 @@ export function focusLost(): boolean {
   return active === null || active === document.body || !active.isConnected
 }
 
+const ITEM_CHECK = '[data-item-check]'
+
+const isItemCheck = (target: EventTarget | null): boolean => target instanceof Element && target.matches(ITEM_CHECK)
+
 function isEditable(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false
+  if (!(target instanceof HTMLElement) || isItemCheck(target)) return false
   return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement || target.isContentEditable
 }
 
-/** Keyboard model of the media library: one tab stop (roving tabindex), arrow keys move it (up and down by row), Shift+arrow selects from the anchor to the focus, Space toggles, Ctrl/Cmd+A selects the page, Escape clears the listed selection, Delete and Backspace delete the selection wherever focus is, or the focused item when nothing is selected or in a single pick. The selection bar takes Ctrl/Cmd+A, Escape and Delete/Backspace through `onBarKeydown`. Keys pressed in a form field or outside a tile, row or the bar are left alone. */
+/** Keyboard model of the media library: one tab stop (roving tabindex), arrow keys move it (up and down by row), Shift+arrow selects from the anchor to the focus, Space toggles, Ctrl/Cmd+A selects the page, Escape clears the listed selection, Delete and Backspace delete the selection while focus is on an entry that can be selected, or that entry alone when nothing is selected or in a single pick. An item's selection checkbox (`data-item-check`) acts for its tile or row, except that Space is left to the checkbox itself. The selection bar takes Ctrl/Cmd+A, Escape and Delete/Backspace through `onBarKeydown`. Keys pressed in a form field or outside a tile, row or the bar are left alone. */
 export function useMediaKeyboard(opts: UseMediaKeyboardOptions) {
   const { root, keys, selection } = opts
   const focusKey = ref<string | null>(null)
@@ -77,7 +81,8 @@ export function useMediaKeyboard(opts: UseMediaKeyboardOptions) {
   }
 
   function keyOf(target: EventTarget | null): string | null {
-    const el = target instanceof Element ? target.closest<HTMLElement>('[data-roving-key]') : null
+    if (!(target instanceof Element)) return null
+    const el = target.closest<HTMLElement>('[data-roving-key]') ?? (isItemCheck(target) ? target.closest('li')?.querySelector<HTMLElement>('[data-roving-key]') : null)
     return el && root.value?.contains(el) ? (el.dataset.rovingKey ?? null) : null
   }
 
@@ -113,8 +118,9 @@ export function useMediaKeyboard(opts: UseMediaKeyboardOptions) {
   }
 
   function deleteTargets(item: LibraryItem): OpItem[] {
+    if (!selection.isSelectable(item)) return []
     if (selection.mode !== 'pick-single' && selection.count.value > 0) return selection.selectedTargets()
-    return selection.isSelectable(item) ? effectiveTargets(item, selection.isSelected, selection.selectedItems.value).map(toOpItem) : []
+    return effectiveTargets(item, selection.isSelected, selection.selectedItems.value).map(toOpItem)
   }
 
   function onKeydown(e: KeyboardEvent) {
@@ -127,6 +133,7 @@ export function useMediaKeyboard(opts: UseMediaKeyboardOptions) {
       e.preventDefault()
       move(key, to, e.shiftKey && e.key.startsWith('Arrow'))
     } else if (e.key === ' ' && item) {
+      if (isItemCheck(e.target)) return
       e.preventDefault()
       selection.toggle(item)
     } else if ((e.key === 'Delete' || e.key === 'Backspace') && item && deleteTargets(item).length) {
