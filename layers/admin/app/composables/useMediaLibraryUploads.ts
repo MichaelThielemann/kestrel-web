@@ -5,6 +5,7 @@ import { useMediaUpload, type UploadItem } from './useMediaUpload'
 import { useUploadPreview } from './useUploadPreview'
 import { useUploadTiles } from './useUploadTiles'
 import { useVariantWatch } from './useVariantWatch'
+import { variantAnnouncement, type VariantResult } from '../utils/variant-announcement'
 
 export interface UseMediaLibraryUploadsOptions {
   folder: Ref<string>
@@ -21,13 +22,13 @@ export function useMediaLibraryUploads(options: UseMediaLibraryUploadsOptions) {
   const { folder, view, listedIds, fetchLibrary, t, root } = options
   const preview = useUploadPreview()
   const variantWatch = useVariantWatch()
-  const { message: announcement, announce } = useAnnouncer()
+  const { message: announcement, announce } = useAnnouncer<VariantResult>((results) => variantAnnouncement(results, t))
 
   function onReady(item: UploadItem) {
     if (!item.result?.contentType?.startsWith('image/')) return
     variantWatch.track(item.result.id, {
-      onReady: () => announce(t('media.tile.announceReady', { name: item.filename })),
-      onFailed: () => announce(t('media.tile.announceFailed', { name: item.filename })),
+      onReady: () => announce({ name: item.filename, failed: false }),
+      onFailed: () => announce({ name: item.filename, failed: true }),
     })
   }
 

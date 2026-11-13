@@ -3,11 +3,11 @@ import { describe, expect, it, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
 import { useAnnouncer } from './useAnnouncer'
 
-async function mountProbe() {
-  let api: ReturnType<typeof useAnnouncer> | undefined
+async function mountProbe(format?: (items: string[]) => string) {
+  let api: ReturnType<typeof useAnnouncer<string>> | undefined
   const Probe = defineComponent({
     setup() {
-      api = useAnnouncer()
+      api = useAnnouncer(format)
       return () => h('div')
     },
   })
@@ -28,6 +28,23 @@ describe('useAnnouncer', () => {
 
     await vi.advanceTimersByTimeAsync(500)
     expect(api.message.value).toBe('a.png uploaded. b.png uploaded')
+
+    wrapper.unmount()
+    vi.useRealTimers()
+  })
+
+  it('hands the items of one batch to the formatter, and only the items announced since the last message', async () => {
+    vi.useFakeTimers()
+    const { wrapper, api } = await mountProbe((items) => `ready: ${items.join(', ')}`)
+
+    api.announce('a.png')
+    api.announce('b.png')
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(api.message.value).toBe('ready: a.png, b.png')
+
+    api.announce('c.png')
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(api.message.value).toBe('ready: c.png')
 
     wrapper.unmount()
     vi.useRealTimers()
