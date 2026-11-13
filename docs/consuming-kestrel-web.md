@@ -426,7 +426,7 @@ const modules = [
       anonymousFields: {
         settings: ["id", "title", "titlePosition", "titleSeparator", "description", "navigation", "_locales", "_translations", "_links"],
         pages: ["id", "slug", "title", "body", "seo", "status", "shareImage", "accent", "layout", "_locales", "_translations", "_locale", "_links", "redirect", "_paths"],
-        media: ["id", "path", "filename", "contentType", "size", "width", "height", "alt", "title", "description", "provenance", "variants[].size", "variants[].width", "variants[].height", "variants[].format", "variants[].path"],
+        media: ["id", "path", "filename", "contentType", "size", "width", "height", "alt", "title", "description", "provenance", "focus", "variants[].size", "variants[].width", "variants[].height", "variants[].format", "variants[].path"],
         mediaFile: ["headers.cache-control", "headers.x-content-provenance", "headers.x-kestrel-variant"],
         redirectRules: ["from", "pattern", "target", "status"],
       },
@@ -699,7 +699,7 @@ its files; `x.*` and `*` count as in `authz-roles`) and for the redirect rules, 
 | each content type | `id` and every field of the model (the workflow's status field included), plus `_locales` and `_translations` when the model has locales |
 | `pages`, additionally | `_locale` (with locales), `_links`, and `redirect` with the `redirects` feature |
 | `settings`, additionally | `_links` |
-| `media` | `id`, `path`, `filename`, `contentType`, `size`, `width`, `height`, `alt`, `title`, `description`, `provenance`; with `images` also `variants[].size`, `.width`, `.height`, `.format`, `.path` |
+| `media` | `id`, `path`, `filename`, `contentType`, `size`, `width`, `height`, `alt`, `title`, `description`, `provenance`; with `images` also `focus`, `variants[].size`, `.width`, `.height`, `.format`, `.path` |
 | `mediaFile` | the headers `cache-control` and `x-content-provenance`; with `images` also `x-kestrel-variant` |
 | `redirectRules` | `from`, `pattern`, `target`, `status` (with `redirects`) |
 
