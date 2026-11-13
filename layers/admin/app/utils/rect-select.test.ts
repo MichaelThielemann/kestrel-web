@@ -30,9 +30,11 @@ describe('rect-select geometry', () => {
     close(resizeRect(rect, 'n', 0.5, 0.9), { x: 0.2, y: 0.6, w: 0.4, h: 0.4 })
   })
 
-  it('sets one field and keeps the rectangle within the image', () => {
+  it('sets one field and keeps the rectangle within the image, keeping a typed position and shrinking the size', () => {
     const rect = { x: 0.2, y: 0.2, w: 0.5, h: 0.4 }
-    close(setRectField(rect, 'x', 0.9), { x: 0.5, y: 0.2, w: 0.5, h: 0.4 })
+    close(setRectField(rect, 'x', 0.9), { x: 0.9, y: 0.2, w: 0.1, h: 0.4 })
+    close(setRectField(rect, 'y', 1.5), { x: 0.2, y: 1, w: 0.5, h: 0 })
+    close(setRectField(rect, 'x', -0.2), { x: 0, y: 0.2, w: 0.5, h: 0.4 })
     close(setRectField(rect, 'w', 0.95), { x: 0.2, y: 0.2, w: 0.8, h: 0.4 })
     close(setRectField(rect, 'h', -1), { x: 0.2, y: 0.2, w: 0.5, h: 0 })
   })

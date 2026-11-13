@@ -55,7 +55,9 @@ export function resizeRect(rect: MediaRect, handle: RectHandle, dx: number, dy: 
 export function setRectField(rect: MediaRect, field: RectField, value: number): MediaRect {
   if (field === 'w') return { ...rect, w: Math.min(unit(value), 1 - rect.x) }
   if (field === 'h') return { ...rect, h: Math.min(unit(value), 1 - rect.y) }
-  return clampRect({ ...rect, [field]: value })
+  const position = unit(value)
+  if (field === 'x') return { ...rect, x: position, w: Math.min(unit(rect.w), 1 - position) }
+  return { ...rect, y: position, h: Math.min(unit(rect.h), 1 - position) }
 }
 
 const ARROWS: Record<string, [number, number]> = {

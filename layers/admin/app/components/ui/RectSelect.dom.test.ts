@@ -107,9 +107,22 @@ describe('KestrelUiRectSelect', () => {
     await wrapper.get('input[data-field="w"]').setValue('90')
     expectRect(last(), { x: 0.3, y: 0.2, w: 0.7, h: 0.4 })
     await wrapper.get('input[data-field="y"]').setValue('80')
-    expectRect(last(), { x: 0.3, y: 0.6, w: 0.7, h: 0.4 })
+    expectRect(last(), { x: 0.3, y: 0.8, w: 0.7, h: 0.2 })
     await wrapper.get('input[data-field="h"]').setValue('0')
-    expectRect(last(), { x: 0.3, y: 0.6, w: 0.7, h: 0 })
+    expectRect(last(), { x: 0.3, y: 0.8, w: 0.7, h: 0 })
+    wrapper.unmount()
+  })
+
+  it('keeps the typed position when x, y, width and height are typed digit by digit in field order', async () => {
+    const { wrapper, last } = await mountSelect(null)
+
+    for (const [field, typed] of [['x', '70'], ['y', '60'], ['w', '20'], ['h', '20']] as const) {
+      const input = wrapper.get(`input[data-field="${field}"]`)
+      for (let length = 1; length <= typed.length; length++) await input.setValue(typed.slice(0, length))
+    }
+    expectRect(last(), { x: 0.7, y: 0.6, w: 0.2, h: 0.2 })
+    expect(wrapper.get<HTMLInputElement>('input[data-field="x"]').element.value).toBe('70')
+    expect(wrapper.get<HTMLInputElement>('input[data-field="y"]').element.value).toBe('60')
     wrapper.unmount()
   })
 
