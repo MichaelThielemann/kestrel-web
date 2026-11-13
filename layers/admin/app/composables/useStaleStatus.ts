@@ -23,7 +23,8 @@ export interface StaleProgress { done: number, total: number, percent: number }
  * for does, for at most a few seconds. Paused while the document is hidden, with at most one request in flight; a load asked for while one runs follows
  * it. `progress` counts from the largest backlog seen since it last reached zero, or from the number `watch()` was
  * told was just queued. `announcement` changes only when pages start waiting, a re-render fails, the backlog ends
- * or a newly recorded export failed or was skipped, so a polite live region reading it is not repeated on every poll.
+ * or an export starts to fail or to be skipped, or fails with another error, so a polite live region reading it is not
+ * repeated on every poll.
  */
 export function useStaleStatus() {
   const api = useAdminApi()

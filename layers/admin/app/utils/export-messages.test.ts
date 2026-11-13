@@ -95,6 +95,17 @@ describe('exportAnnouncement', () => {
     expect(exportAnnouncement(tFor(en), exports(), exports({ indexes: ok(3), llmsFull: ok(3) }), format, all)).toBeNull()
     expect(exportAnnouncement(tFor(en), exports({ indexes: failed.indexes }), failed, format, noLlmsFull)).toBeNull()
   })
+
+  it('stays quiet for a newer failure with the same error or a newer skip, and reads out a changed error or a switch between failed and skipped', () => {
+    const failedAt = (at: number, error = 'EACCES: llms-full.txt') => exports({ llmsFull: { at, entries: 0, error, skipped: false } })
+    const skippedAt = (at: number) => exports({ llmsFull: { at, entries: 0, error: null, skipped: true } })
+    expect(exportAnnouncement(tFor(en), failedAt(1), failedAt(2), format, all)).toBeNull()
+    expect(exportAnnouncement(tFor(en), skippedAt(1), skippedAt(2), format, all)).toBeNull()
+    expect(exportAnnouncement(tFor(en), failedAt(1), failedAt(2, 'ENOSPC: llms-full.txt'), format, all)).toBe('llms-full.txt: Export failed at <2>: ENOSPC: llms-full.txt')
+    expect(exportAnnouncement(tFor(en), failedAt(1), skippedAt(2), format, all)).toMatch(/^llms-full\.txt: Skipped at <2>/)
+    expect(exportAnnouncement(tFor(en), skippedAt(1), failedAt(2), format, all)).toBe('llms-full.txt: Export failed at <2>: EACCES: llms-full.txt')
+    expect(exportAnnouncement(tFor(en), exports({ llmsFull: ok(1) }), failedAt(2), format, all)).toBe('llms-full.txt: Export failed at <2>: EACCES: llms-full.txt')
+  })
 })
 
 describe('exportsRecordedSince', () => {

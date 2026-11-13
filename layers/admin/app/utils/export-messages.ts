@@ -71,18 +71,21 @@ function recordedSince(before: ExportOutcome | null | undefined, outcome: Export
   return outcome !== null && (before == null || outcome.at > before.at)
 }
 
+function newlyFailedOrSkipped(before: ExportOutcome | null | undefined, outcome: ExportOutcome | null): boolean {
+  if (!recordedSince(before, outcome) || (outcome.error === null && !outcome.skipped)) return false
+  return before == null || before.error !== outcome.error || before.skipped !== outcome.skipped
+}
+
 /**
  * What a polite live region says when an export the site writes recorded an outcome since `previous` that failed or
- * was skipped: each such row's name, text and error. `null` on the first load (`previous` null) and when no new
- * outcome failed or was skipped.
+ * was skipped where `previous` had not, or failed with another error: each such row's name, text and error. `null`
+ * on the first load (`previous` null), when no new outcome failed or was skipped, and when it repeats the failure or
+ * skip `previous` already showed.
  */
 export function exportAnnouncement(t: Translate, previous: StaleStatus['exports'] | null, next: StaleStatus['exports'], format: ExportFormat, files: IndexFiles): string | null {
   if (previous === null) return null
   const said = exportLines(t, next, format, files)
-    .filter((entry) => {
-      const outcome = next[entry.id]
-      return recordedSince(previous[entry.id], outcome) && (outcome.error !== null || outcome.skipped)
-    })
+    .filter((entry) => newlyFailedOrSkipped(previous[entry.id], next[entry.id]))
     .map((entry) => `${entry.name}: ${entry.text}${entry.error === null ? '' : ` ${entry.error}`}`)
   return said.length === 0 ? null : said.join(' ')
 }

@@ -1,6 +1,6 @@
 import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { computed, defineComponent, h } from 'vue'
+import { computed, defineComponent, h, watch } from 'vue'
 import type { AdminSchema, StaleStatus } from '#kestrel-admin/types/api'
 import { useStaleStatus } from './useStaleStatus'
 
@@ -153,6 +153,24 @@ describe('useStaleStatus', () => {
     await vi.advanceTimersByTimeAsync(60_000)
     expect(apiCalls).toHaveLength(4)
     expect(api.announcement.value).toBe(said)
+    wrapper.unmount()
+  })
+
+  it('reads out an export that keeps failing with the same error once during a backlog, not on every poll that shows a newer failure', async () => {
+    vi.useFakeTimers()
+    schema.llmsFull = true
+    const written = { indexes: { at: 1, entries: 3, error: null, skipped: false }, llmsFull: { at: 1, entries: 3, error: null, skipped: false } }
+    const failedAt = (at: number) => ({ ...written, llmsFull: { at, entries: 0, error: 'EACCES: llms-full.txt', skipped: false } })
+    answering(staleStatus({ stale: 9, exports: written }), staleStatus({ stale: 8, exports: failedAt(3000) }), staleStatus({ stale: 6, exports: failedAt(5000) }), staleStatus({ stale: 4, exports: failedAt(7000) }), staleStatus({ stale: 2, exports: failedAt(9000) }))
+    const { wrapper, api } = await mountProbe()
+    const said: string[] = []
+    const stop = watch(api.announcement, (text) => { if (text.startsWith('llms-full.txt')) said.push(text) })
+    await vi.advanceTimersByTimeAsync(0)
+    await vi.advanceTimersByTimeAsync(8000)
+    expect(api.status.value?.exports.llmsFull?.at).toBe(9000)
+    expect(said).toHaveLength(1)
+    expect(said[0]).toMatch(/^llms-full\.txt: Export failed at .+: EACCES: llms-full\.txt$/)
+    stop()
     wrapper.unmount()
   })
 
