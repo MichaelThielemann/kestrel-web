@@ -79,10 +79,23 @@ describe('MediaViewer crop entry', () => {
     wrapper.unmount()
   })
 
-  it('offers no crop to a role that may not write media', async () => {
+  it('offers no crop to a role that may not write media and still previews only the image', async () => {
     const wrapper = await mountSuspended(MediaViewer, { props: { open: true, file: photo(), canSave: false, canDelete: false }, attachTo: document.body })
 
     expect(cropButton()).toBeUndefined()
+    const preview = document.body.querySelector('.media-viewer__preview')
+    expect(preview?.querySelector('img')).not.toBeNull()
+    expect(preview?.querySelector('.media-viewer__ext')).toBeNull()
+    wrapper.unmount()
+  })
+
+  it('previews a file that is not an image by its extension, with the crop button absent', async () => {
+    const pdf = photo({ contentType: 'application/pdf', filename: 'a.pdf', path: '/media/m1/a.pdf', framing: { focus: null, crops: {}, width: null, height: null, ratios: [] } })
+    const wrapper = await mountSuspended(MediaViewer, { props: { open: true, file: pdf, canSave: true, canDelete: false }, attachTo: document.body })
+
+    const preview = document.body.querySelector('.media-viewer__preview')
+    expect(preview?.querySelector('img')).toBeNull()
+    expect(preview?.querySelector('a.media-viewer__ext')?.textContent).toBe('PDF')
     wrapper.unmount()
   })
 

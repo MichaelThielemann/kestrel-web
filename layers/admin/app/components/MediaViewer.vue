@@ -116,9 +116,9 @@ function save() {
     <div v-if="file" class="media-viewer">
       <div class="media-viewer__preview">
         <img v-if="isImage && mediaUrl" :src="mediaUrl" :alt="file.alt ?? file.filename">
-        <KestrelUiButton v-if="canCrop" size="sm" icon="crop" class="media-viewer__crop" :disabled="busy" data-test="viewer-crop" @click="cropOpen = true">{{ t('mediaCrop.open') }}</KestrelUiButton>
         <a v-else-if="mediaUrl" class="media-viewer__ext" :href="mediaUrl" target="_blank" rel="noopener noreferrer">{{ ext }}</a>
         <span v-else class="media-viewer__ext" aria-hidden="true"><KestrelUiIcon name="file-text" :size="32" /></span>
+        <KestrelUiButton v-if="canCrop" size="sm" icon="crop" class="media-viewer__crop" :disabled="busy" data-test="viewer-crop" @click="cropOpen = true">{{ t('mediaCrop.open') }}</KestrelUiButton>
       </div>
       <aside class="media-viewer__details" tabindex="0" :aria-label="t('mediaViewer.detailsRegionLabel')">
         <dl class="media-viewer__info">
