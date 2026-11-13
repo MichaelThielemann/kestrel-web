@@ -64,11 +64,13 @@ describe("boot", () => {
     beforeAll(() => {
       appRoot = mkdtempSync(join(tmpdir(), "kestrel-web-boot-"));
       process.env.KESTREL_APP_ROOT = appRoot;
+      process.env.NUXT_PUBLIC_SITE_URL = "https://example.org";
       process.env.KESTREL_BLOCK_SCHEMA = fileURLToPath(new URL("../pipelines/__fixtures__/pages.body.json", import.meta.url));
     });
 
     afterAll(() => {
       delete process.env.KESTREL_APP_ROOT;
+      delete process.env.NUXT_PUBLIC_SITE_URL;
       delete process.env.KESTREL_BLOCK_SCHEMA;
       rmSync(appRoot, { recursive: true, force: true });
     });
@@ -155,6 +157,8 @@ describe("boot", () => {
         collectionsUi,
         fieldTypes,
         audit: { retentionDays: 365 },
+        siteUrl: "https://example.org",
+        robots: { policy: "disallow" },
         roles: {
           roles: { admin: ["*"] },
           anonymous: ["media.read"],
@@ -286,6 +290,8 @@ describe("boot", () => {
         features,
         collectionsUi,
         fieldTypes,
+        siteUrl: "https://example.org",
+        robots: { policy: "allow" },
         roles: { roles: { admin: ["*"] }, anonymous: ["media.read"] },
         bootstrap: { username: "admin", passwordHash: "scrypt$522f4ac87bfe4bcd100ba47a7d2aaec2$dbfc3f2d6cc38a76b21973d7c6f6d310a09506581c665f1f6601fd8fb3fa9bc3959689aea3e389f4d53eb8c7e70791ad4065e308763dd44609904134f0f5ee98" },
       });

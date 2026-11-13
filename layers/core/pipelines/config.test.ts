@@ -1,10 +1,12 @@
 import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { effectiveModuleConfig } from "@michaelthielemann/kestrel";
+import { boundaryCast } from "@michaelthielemann/kestrel/cast";
+import { normalizeSiteUrl, pageUrl } from "@michaelthielemann/kestrel-delivery-static/site-url";
 import { presetModuleConfig } from "./config";
 import type { ModuleEntry, PresetModuleConfigOptions } from "./config";
 import eventsQueueModule from "@michaelthielemann/kestrel-events-queue";
-import { lanesFor, presetSchemas } from "./index";
+import { delaysFor, lanesFor, presetSchemas } from "./index";
 import type { Feature } from "./index";
 import type { CollectionModel } from "./collections";
 import { deviceKeys } from "../config";
@@ -139,7 +141,7 @@ describe("presetModuleConfig with the playground inputs", () => {
           prefix: "site/",
           reservedPaths: ["/api", "/admin", "/media"],
           llms: { full: true, headings: { pages: "Pages", blog: "Blog" } },
-          dependencies: { render: "background", rendererReadsDocument: true },
+          dependencies: { render: "background", rendererReadsDocument: true, indexesDelayMs: 1000 },
         }),
       },
       { use: "@michaelthielemann/kestrel-revisions-default", ...preset({ statusField: "status", liveStatuses: ["published"] }) },
@@ -246,7 +248,7 @@ describe("derived delivery types", () => {
       prefix: "site/",
       reservedPaths: ["/api", "/admin", "/media"],
       llms: { full: true, headings: { pages: "Pages", news: "News" } },
-      dependencies: { render: "background", rendererReadsDocument: true },
+      dependencies: { render: "background", rendererReadsDocument: true, indexesDelayMs: 1000 },
     });
   });
 });
@@ -396,12 +398,12 @@ describe("svg sanitize guard", () => {
 describe("events-queue lanes", () => {
   it("puts generateImageVariants in its own lane when eventsQueue and images are both on", () => {
     const modules = presetModuleConfig({ ...playgroundOptions(), features: ["eventsQueue", "images"] });
-    expect(configFor(modules, "events-queue")).toEqual({ relayPipelines: [], lanes: { variants: ["generateImageVariants"] } });
+    expect(configFor(modules, "events-queue")).toEqual({ relayPipelines: [], lanes: { variants: ["generateImageVariants"] }, delayMs: {} });
   });
 
   it("has no lanes without images and delivery", () => {
     const modules = presetModuleConfig({ ...playgroundOptions(), features: ["eventsQueue"] });
-    expect(configFor(modules, "events-queue")).toEqual({ relayPipelines: [], lanes: {} });
+    expect(configFor(modules, "events-queue")).toEqual({ relayPipelines: [], lanes: {}, delayMs: {} });
   });
 
   it("sets the queue's lanes to lanesFor(features) for every feature subset", () => {
@@ -414,9 +416,16 @@ describe("events-queue lanes", () => {
     }
   });
 
-  it("runs page re-renders and the llms.txt export in the pages lane and image variants in the variants lane", () => {
+  it("runs page re-renders and the llms-full.txt export in the pages lane, the index export in the indexes lane and image variants in the variants lane", () => {
     const modules = presetModuleConfig({ ...playgroundOptions(), features: ["eventsQueue", "delivery", "images", "sanitizeSvg", "audit"] });
-    expect(fieldOf(configFor(modules, "events-queue"), "lanes")).toEqual({ pages: ["republishOutput", "refreshLlms"], variants: ["generateImageVariants"] });
+    expect(fieldOf(configFor(modules, "events-queue"), "lanes")).toEqual({ pages: ["republishOutput", "refreshLlms"], indexes: ["refreshIndexes"], variants: ["generateImageVariants"] });
+  });
+
+  it("holds the index exports back by delaysFor(features), which a queue option cannot replace", () => {
+    const features: Feature[] = ["eventsQueue", "delivery", "sanitizeSvg"];
+    const modules = presetModuleConfig({ ...playgroundOptions(), features, eventsQueue: { pollMs: 200 } });
+    expect(fieldOf(configFor(modules, "events-queue"), "delayMs")).toEqual({ refreshIndexes: 1000, refreshLlms: 3000 });
+    expect(fieldOf(configFor(modules, "events-queue"), "delayMs")).toEqual(delaysFor(features));
   });
 });
 
@@ -425,8 +434,8 @@ describe("dependent re-rendering", () => {
     return fieldOf(configFor(modules, "delivery-static"), "dependencies");
   }
 
-  it("renders marked pages in the background and records what the renderer reads without the queue", () => {
-    expect(dependenciesOf(presetModuleConfig(playgroundOptions()))).toEqual({ render: "background", rendererReadsDocument: true });
+  it("renders marked pages in the background, records what the renderer reads and holds the index exports back a second without the queue", () => {
+    expect(dependenciesOf(presetModuleConfig(playgroundOptions()))).toEqual({ render: "background", rendererReadsDocument: true, indexesDelayMs: 1000 });
   });
 
   it("renders marked pages as queue jobs with the queue's own attempts and backoff", () => {
@@ -561,18 +570,18 @@ describe("feature gating: events-queue and migrations", () => {
     expect(names).toContain("@michaelthielemann/kestrel-events-queue");
     expect(names).toContain("@michaelthielemann/kestrel-events-inmemory");
     expect(names).not.toContain("@michaelthielemann/kestrel-events-direct");
-    expect(configFor(presetModuleConfig({ ...playgroundOptions(), features: ["eventsQueue"], eventsQueue: { pollMs: 200, maxAttempts: 3 } }), "events-queue")).toEqual({ pollMs: 200, maxAttempts: 3, relayPipelines: [], lanes: {} });
-    expect(configFor(presetModuleConfig({ ...playgroundOptions(), features: ["eventsQueue"] }), "events-queue")).toEqual({ relayPipelines: [], lanes: {} });
+    expect(configFor(presetModuleConfig({ ...playgroundOptions(), features: ["eventsQueue"], eventsQueue: { pollMs: 200, maxAttempts: 3 } }), "events-queue")).toEqual({ pollMs: 200, maxAttempts: 3, relayPipelines: [], lanes: {}, delayMs: {} });
+    expect(configFor(presetModuleConfig({ ...playgroundOptions(), features: ["eventsQueue"] }), "events-queue")).toEqual({ relayPipelines: [], lanes: {}, delayMs: {} });
   });
 
   it("selects publishPage and unpublishPage for the queue's relay when delivery is enabled", () => {
     const withDelivery = configFor(presetModuleConfig({ ...playgroundOptions(), features: ["eventsQueue", "delivery", "sanitizeSvg"] }), "events-queue");
-    expect(withDelivery).toEqual({ relayPipelines: ["publishPage", "unpublishPage"], lanes: { pages: ["republishOutput", "refreshLlms"] } });
+    expect(withDelivery).toEqual({ relayPipelines: ["publishPage", "unpublishPage"], lanes: { pages: ["republishOutput", "refreshLlms"], indexes: ["refreshIndexes"] }, delayMs: { refreshIndexes: 1000, refreshLlms: 3000 } });
   });
 
   it("selects no relay pipelines for the queue without delivery", () => {
     const withoutDelivery = configFor(presetModuleConfig({ ...playgroundOptions(), features: ["eventsQueue", "images"] }), "events-queue");
-    expect(withoutDelivery).toEqual({ relayPipelines: [], lanes: { variants: ["generateImageVariants"] } });
+    expect(withoutDelivery).toEqual({ relayPipelines: [], lanes: { variants: ["generateImageVariants"] }, delayMs: {} });
   });
 
   it("passes the relay budget through next to the derived relay selection", () => {
@@ -580,7 +589,7 @@ describe("feature gating: events-queue and migrations", () => {
       presetModuleConfig({ ...playgroundOptions(), features: ["eventsQueue", "delivery", "sanitizeSvg"], eventsQueue: { relayMs: 8000 } }),
       "events-queue",
     );
-    expect(withBudget).toEqual({ relayMs: 8000, relayPipelines: ["publishPage", "unpublishPage"], lanes: { pages: ["republishOutput", "refreshLlms"] } });
+    expect(withBudget).toEqual({ relayMs: 8000, relayPipelines: ["publishPage", "unpublishPage"], lanes: { pages: ["republishOutput", "refreshLlms"], indexes: ["refreshIndexes"] }, delayMs: { refreshIndexes: 1000, refreshLlms: 3000 } });
   });
 
   it("appends migrations-default with the migrations the option carries", () => {
@@ -598,17 +607,53 @@ describe("feature gating: events-queue and migrations", () => {
   });
 });
 
-describe("llms", () => {
-  it("takes siteUrl from the option", () => {
-    const modules = presetModuleConfig({ ...playgroundOptions(), llms: { full: false, headings: { pages: "Seiten" }, siteUrl: "https://example.test" } });
+describe("site URL, sitemap, robots and llms", () => {
+  it("takes siteUrl from the option in its normalised form, at the top level of delivery-static's config", () => {
+    const modules = presetModuleConfig({ ...playgroundOptions(), siteUrl: "https://Example.test/de/", llms: { full: false, headings: { pages: "Seiten" } } });
 
     expect(configFor(modules, "delivery-static")).toEqual({
       types: { pages: {}, blog: {} },
       prefix: "site/",
       reservedPaths: ["/api", "/admin", "/media"],
-      llms: { full: false, headings: { pages: "Seiten" }, siteUrl: "https://example.test" },
-      dependencies: { render: "background", rendererReadsDocument: true },
+      siteUrl: "https://example.test/de",
+      llms: { full: false, headings: { pages: "Seiten" } },
+      dependencies: { render: "background", rendererReadsDocument: true, indexesDelayMs: 1000 },
     });
+  });
+
+  it("gives the same URLs as the sitemap's normalisation: the home page ends in a slash, every other page has none", () => {
+    const siteUrl = fieldOf(configFor(presetModuleConfig({ ...playgroundOptions(), siteUrl: "https://example.test:443/de/" }), "delivery-static"), "siteUrl");
+    expect(siteUrl).toBe(normalizeSiteUrl("https://example.test/de"));
+    expect(pageUrl(typeof siteUrl === "string" ? siteUrl : undefined, "/")).toBe("https://example.test/de/");
+    expect(pageUrl(typeof siteUrl === "string" ? siteUrl : undefined, "/about")).toBe("https://example.test/de/about");
+  });
+
+  it("refuses llms.siteUrl, which moved to the top-level siteUrl, and a site URL that is not one", () => {
+    const moved = { ...playgroundOptions(), llms: boundaryCast<PresetModuleConfigOptions["llms"]>({ siteUrl: "https://example.test" }, "json") };
+    expect(() => presetModuleConfig(moved)).toThrow("presetModuleConfig: llms.siteUrl moved to the top-level siteUrl option");
+    expect(() => presetModuleConfig({ ...playgroundOptions(), siteUrl: "example.test" })).toThrow('presetModuleConfig: siteUrl "example.test" is not a site URL');
+  });
+
+  it("warns once at boot when delivery has no site URL, and not with one", async () => {
+    vi.stubEnv("NUXT_PUBLIC_SITE_URL", "");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    vi.resetModules();
+    const fresh = await import("./config");
+    fresh.presetModuleConfig({ ...playgroundOptions(), siteUrl: "https://example.test" });
+    expect(warn.mock.calls.filter(([message]) => String(message).includes("no siteUrl"))).toEqual([]);
+    fresh.presetModuleConfig(playgroundOptions());
+    fresh.presetModuleConfig(playgroundOptions());
+    expect(warn.mock.calls.filter(([message]) => String(message).includes("no siteUrl"))).toEqual([
+      ["presetModuleConfig: no siteUrl is set – no sitemap.xml is written, llms.txt lists paths instead of URLs and pages carry no canonical link; set NUXT_PUBLIC_SITE_URL or pass siteUrl"],
+    ]);
+    warn.mockRestore();
+  });
+
+  it("passes sitemap and robots through to delivery-static", () => {
+    const modules = presetModuleConfig({ ...playgroundOptions(), sitemap: false, robots: { policy: "disallow", extra: ["Disallow: /preview/"] } });
+    expect(fieldOf(configFor(modules, "delivery-static"), "sitemap")).toBe(false);
+    expect(fieldOf(configFor(modules, "delivery-static"), "robots")).toEqual({ policy: "disallow", extra: ["Disallow: /preview/"] });
+    expect(fieldOf(configFor(presetModuleConfig({ ...playgroundOptions(), robots: false }), "delivery-static"), "robots")).toBe(false);
   });
 
   it("falls back to NUXT_PUBLIC_SITE_URL", () => {
@@ -619,8 +664,9 @@ describe("llms", () => {
       types: { pages: {}, blog: {} },
       prefix: "site/",
       reservedPaths: ["/api", "/admin", "/media"],
-      llms: { full: true, headings: { pages: "Pages", blog: "Blog" }, siteUrl: "https://from-env.test" },
-      dependencies: { render: "background", rendererReadsDocument: true },
+      siteUrl: "https://from-env.test",
+      llms: { full: true, headings: { pages: "Pages", blog: "Blog" } },
+      dependencies: { render: "background", rendererReadsDocument: true, indexesDelayMs: 1000 },
     });
   });
 });
@@ -723,7 +769,7 @@ describe("options", () => {
     });
 
     expect(configFor(modules, "delivery-static")).toMatchObject({
-      dependencies: { render: "background", rendererReadsDocument: true },
+      dependencies: { render: "background", rendererReadsDocument: true, indexesDelayMs: 1000 },
       llms: { full: false },
     });
   });

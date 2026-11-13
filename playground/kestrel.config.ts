@@ -25,6 +25,7 @@ const modules = presetModuleConfig({
   prefixPrimary,
   fieldTypes,
   audit: { retentionDays: 365 },
+  robots: { policy: process.env.KESTREL_PLAYGROUND_ROBOTS === "allow" ? "allow" : "disallow" },
   ...(ratelimit === undefined ? {} : { ratelimit }),
   ...(secondFactor ? { mfa: { issuer: "Kestrel playground" } } : {}),
   roles: {

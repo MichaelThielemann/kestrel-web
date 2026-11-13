@@ -1,6 +1,7 @@
 import { resolve } from "node:path";
 import { effectiveModuleConfig } from "@michaelthielemann/kestrel";
 import { mediaTypeAllowed } from "@michaelthielemann/kestrel-contracts/helpers/mediaType";
+import { normalizeSiteUrl } from "@michaelthielemann/kestrel-delivery-static/site-url";
 import { MEDIA_PUBLIC_PATH, MOUNT_PATH, MOUNTS_FIELD, RESERVED_PAGE_SEGMENTS } from "../mount-path";
 import { resolveWorkflow } from "../collections-ui/workflow";
 import type { WorkflowUi } from "../collections-ui/workflow";
@@ -15,7 +16,8 @@ import { anonymousFieldGrants, withConsumerGrants } from "./field-grants";
 import { mountedCollections, parentFieldOf, routedCollections } from "./paths";
 import type { PipelineChanges } from "./field-grants";
 import type { CollectionModel } from "./collections";
-import { lanesFor, presetSchemas, relayPipelinesFor } from "./index";
+import { INDEX_EXPORT_DELAYS } from "./index-delays";
+import { delaysFor, lanesFor, presetSchemas, relayPipelinesFor } from "./index";
 import type { Feature } from "./index";
 
 export interface ModuleEntry {
@@ -84,8 +86,17 @@ export interface PresetRateLimit {
 export interface PresetLlms {
   full?: boolean;
   headings?: Record<string, string>;
-  siteUrl?: string;
 }
+
+/** What delivery-static writes to `robots.txt`; `false` leaves robots.txt to the site. */
+export type PresetRobots =
+  | {
+      /** `"allow"` lets crawlers in, `"disallow"` keeps them out; without it, `allow` when `NODE_ENV` is `production` and `disallow` otherwise. */
+      policy?: "allow" | "disallow";
+      /** Lines appended verbatim after the policy, such as `Disallow: /preview/`. */
+      extra?: string[];
+    }
+  | false;
 
 export interface PresetEventsQueue {
   pollMs?: number;
@@ -141,6 +152,15 @@ export interface PresetModuleConfigOptions {
   media?: PresetMediaPolicy;
   ratelimit?: PresetRateLimit;
   llms?: PresetLlms;
+  /**
+   * The public site's absolute URL, `http` or `https`, with a base path when the site lives below the host's root;
+   * default `NUXT_PUBLIC_SITE_URL`. sitemap.xml, robots.txt's `Sitemap:` line, llms.txt and every page's canonical
+   * link are built from it, so without it no sitemap.xml is written.
+   */
+  siteUrl?: string;
+  /** Whether delivery-static writes sitemap.xml; default `true`. */
+  sitemap?: boolean;
+  robots?: PresetRobots;
   migrations?: PresetMigrations;
   /** The second-factor settings of the `mfa` feature. */
   mfa?: PresetMfa;
@@ -378,7 +398,7 @@ function applyModuleOverrides(modules: ModuleEntry[], overrides: Partial<Record<
 }
 
 function renderDependencies(queued: boolean, queue: PresetEventsQueue | undefined): Record<string, unknown> {
-  if (!queued) return { render: "background", rendererReadsDocument: true };
+  if (!queued) return { render: "background", rendererReadsDocument: true, indexesDelayMs: INDEX_EXPORT_DELAYS.background };
   return {
     render: "events",
     rendererReadsDocument: true,
@@ -387,10 +407,26 @@ function renderDependencies(queued: boolean, queue: PresetEventsQueue | undefine
   };
 }
 
-function siteUrlOf(llms: PresetLlms | undefined): string | undefined {
-  if (llms?.siteUrl !== undefined) return llms.siteUrl;
+let warnedWithoutSiteUrl = false;
+
+function siteUrlOf(options: PresetModuleConfigOptions): string | undefined {
+  if (options.llms !== undefined && "siteUrl" in options.llms) {
+    throw new Error("presetModuleConfig: llms.siteUrl moved to the top-level siteUrl option, which llms.txt, sitemap.xml, robots.txt and the canonical links share");
+  }
   const fromEnv = process.env.NUXT_PUBLIC_SITE_URL;
-  return typeof fromEnv === "string" && fromEnv.length > 0 ? fromEnv : undefined;
+  const value = options.siteUrl ?? (typeof fromEnv === "string" && fromEnv.length > 0 ? fromEnv : undefined);
+  if (value === undefined) return undefined;
+  try {
+    return normalizeSiteUrl(value);
+  } catch (err) {
+    throw new Error(`presetModuleConfig: siteUrl "${value}" is not a site URL – ${err instanceof Error ? err.message : String(err)}`, { cause: err });
+  }
+}
+
+function warnWithoutSiteUrl(): void {
+  if (warnedWithoutSiteUrl) return;
+  warnedWithoutSiteUrl = true;
+  console.warn("presetModuleConfig: no siteUrl is set – no sitemap.xml is written, llms.txt lists paths instead of URLs and pages carry no canonical link; set NUXT_PUBLIC_SITE_URL or pass siteUrl");
 }
 
 export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEntry[] {
@@ -413,7 +449,7 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
   const enabled = new Set<Feature>(features);
   const databaseFile = resolve(dataDir, DATABASE_FILE);
   const session = { ...DEFAULT_SESSION, ...options.session };
-  const siteUrl = siteUrlOf(options.llms);
+  const siteUrl = siteUrlOf(options);
   const publicCopy = enabled.has("delivery") ? { publicCopy: { prefix: SITE_PREFIX } } : {};
   const mediaAllowedTypes = options.media?.allowedTypes ?? DEFAULT_MEDIA_ALLOWED_TYPES;
   const mediaDeniedTypes = options.media?.deniedTypes ?? DEFAULT_MEDIA_DENIED_TYPES;
@@ -470,15 +506,18 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
   }));
 
   if (enabled.has("delivery")) {
+    if (siteUrl === undefined) warnWithoutSiteUrl();
     modules.push({ use: "@michaelthielemann/kestrel-renderer-nuxt", config: {} });
     modules.push(preset("@michaelthielemann/kestrel-delivery-static", {
       types: deliveryTypes(types),
       prefix: SITE_PREFIX,
       reservedPaths: [...RESERVED_PATHS],
+      ...(siteUrl === undefined ? {} : { siteUrl }),
+      ...(options.sitemap === undefined ? {} : { sitemap: options.sitemap }),
+      ...(options.robots === undefined ? {} : { robots: options.robots }),
       llms: {
         full: options.llms?.full ?? true,
         headings: options.llms?.headings ?? llmsHeadings(types, options.collectionsUi),
-        ...(siteUrl === undefined ? {} : { siteUrl }),
       },
       dependencies: renderDependencies(enabled.has("eventsQueue"), options.eventsQueue),
     }));
@@ -508,6 +547,7 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
           ...options.eventsQueue,
           relayPipelines: relayPipelinesFor(features),
           lanes: lanesFor(features),
+          delayMs: delaysFor(features),
         })
       : { use: "@michaelthielemann/kestrel-events-direct", config: {} },
   );
