@@ -100,12 +100,13 @@ describe('exportAnnouncement', () => {
 describe('exportsRecordedSince', () => {
   const ok = (at: number) => ({ at, entries: 2, error: null, skipped: false })
 
-  it('waits for every export the site writes to record an outcome later than the one it started from', () => {
+  it('waits for each named export to record an outcome later than the one it started from', () => {
     const since = exports({ indexes: ok(1), llmsFull: ok(1) })
-    expect(exportsRecordedSince(since, exports({ indexes: ok(4), llmsFull: ok(1) }), all)).toBe(false)
-    expect(exportsRecordedSince(since, exports({ indexes: ok(4), llmsFull: { at: 8, entries: 0, error: 'EACCES', skipped: false } }), all)).toBe(true)
-    expect(exportsRecordedSince(since, exports({ indexes: ok(4), llmsFull: ok(1) }), noLlmsFull)).toBe(true)
-    expect(exportsRecordedSince(exports(), exports({ indexes: ok(4) }), noLlmsFull)).toBe(true)
-    expect(exportsRecordedSince(exports(), exports(), noLlmsFull)).toBe(false)
+    expect(exportsRecordedSince(since, exports({ indexes: ok(4), llmsFull: ok(1) }), ['indexes', 'llmsFull'])).toBe(false)
+    expect(exportsRecordedSince(since, exports({ indexes: ok(4), llmsFull: { at: 8, entries: 0, error: 'EACCES', skipped: false } }), ['indexes', 'llmsFull'])).toBe(true)
+    expect(exportsRecordedSince(since, exports({ indexes: ok(4), llmsFull: ok(1) }), ['indexes'])).toBe(true)
+    expect(exportsRecordedSince(since, exports({ indexes: ok(1), llmsFull: ok(5) }), ['llmsFull'])).toBe(true)
+    expect(exportsRecordedSince(exports(), exports({ indexes: ok(4) }), ['indexes'])).toBe(true)
+    expect(exportsRecordedSince(exports(), exports(), ['indexes'])).toBe(false)
   })
 })

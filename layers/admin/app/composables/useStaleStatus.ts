@@ -6,14 +6,17 @@ import { exportAnnouncement, exportFormat, exportsRecordedSince, type IndexFiles
 const POLL_MS = 2000
 const EXPORT_WAIT_MS = 60_000
 
-interface ExportWait { since: StaleStatus['exports'] | null, until: number }
+type ExportId = keyof StaleStatus['exports']
+
+interface ExportWait { since: StaleStatus['exports'] | null, ids: ExportId[], until: number }
 
 export interface StaleProgress { done: number, total: number, percent: number }
 
 /**
  * The static delivery's re-render backlog (`GET /admin/publish-status/pages`): loaded on mount, then polled every
- * two seconds while pages wait, and after the backlog drains or `watch()` is called until every export in `files`
- * (the index files and, while `llms.full` is on, llms-full.txt) has recorded a newer outcome, for at most a minute;
+ * two seconds while pages wait; after `watch()` until the index export and, while `files.llmsFull` is on, the
+ * llms-full.txt export show a newer outcome than the status `watch()` started from, and after a backlog drains
+ * outside such a wait until llms-full.txt, which trails the re-renders, shows one; each wait lasts at most a minute;
  * paused while the document is hidden, with at most one request in flight; a load asked for while one runs follows
  * it. `progress` counts from the largest backlog seen since it last reached zero, or from the number `watch()` was
  * told was just queued. `announcement` changes only when pages start waiting, a re-render fails, the backlog ends
@@ -61,8 +64,9 @@ export function useStaleStatus() {
       const previous = status.value
       const said = [staleAnnouncement(t, previous, next), exportAnnouncement(t, previous?.exports ?? null, next.exports, exportFormat(lang.value), files.value)].filter((text) => text !== null)
       if (said.length > 0) announcement.value = said.join(' ')
-      if (previous !== null && previous.stale > 0 && next.stale === 0) exportWait = { since: previous.exports, until: Date.now() + EXPORT_WAIT_MS }
-      if (exportWait !== null && exportsRecordedSince(exportWait.since, next.exports, files.value)) exportWait = null
+      if (exportWait !== null && Date.now() >= exportWait.until) exportWait = null
+      if (exportWait === null && files.value.llmsFull && previous !== null && previous.stale > 0 && next.stale === 0) exportWait = { since: previous.exports, ids: ['llmsFull'], until: Date.now() + EXPORT_WAIT_MS }
+      if (exportWait !== null && exportsRecordedSince(exportWait.since, next.exports, exportWait.ids)) exportWait = null
       status.value = next
       loadError.value = null
       total.value = next.stale === 0 ? 0 : Math.max(total.value, next.stale)
@@ -101,7 +105,7 @@ export function useStaleStatus() {
 
   async function watch(queued?: number): Promise<void> {
     if (queued !== undefined && queued > 0) total.value = Math.max(total.value, queued)
-    exportWait = { since: status.value?.exports ?? null, until: Date.now() + EXPORT_WAIT_MS }
+    exportWait = { since: status.value?.exports ?? null, ids: files.value.llmsFull ? ['indexes', 'llmsFull'] : ['indexes'], until: Date.now() + EXPORT_WAIT_MS }
     await tick()
   }
 

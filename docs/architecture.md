@@ -2086,8 +2086,10 @@ An exported page is refreshed when content it shows changes. The recording and t
   (`restoreCheckSteps()`) runs directly before `delivery.checkBuild`, which reads the restore it reports and
   then marks every output as well.
 - **The admin reads the backlog.** `pagesStaleStatus` feeds `useStaleStatus()` (polled every two seconds
-  while pages wait and, after the backlog drains, until each export the site writes has recorded a newer outcome,
-  for at most a minute, paused while the document is hidden; a newly recorded export that failed or was skipped
+  while pages wait; after Publish all or Retry (`watch()`) until the index export and, with `llms.full`, the
+  llms-full.txt export have recorded a newer outcome, and after a backlog drains outside such a wait until the
+  llms-full.txt export that trails the re-renders has, each for at most a minute (the index export is requested
+  when the change is made, so the polls during the backlog already show it); paused while the document is hidden; a newly recorded export that failed or was skipped
   is read out in the panel's polite live region) for System › Static delivery, which also lists
   the last index export, named by the files the admin schema says are written (`robots` and `sitemap` from
   `robotsOf()` and `sitemapOf()` in `server/utils/admin-schema.ts`), and, while the schema carries

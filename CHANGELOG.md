@@ -34,7 +34,8 @@
 - System → Delivery lists the last export of `sitemap.xml`, `robots.txt` and `llms.txt` (naming only the files the
   site writes) and, while delivery-static's `llms.full` is on, the last export of `llms-full.txt`: when, with how
   many entries, or when and with which error it failed, or that it was skipped because published pages had no
-  rendered output yet. After a backlog drains the panel keeps loading until both exports show their new outcome,
+  rendered output yet. After Publish all or Retry the panel keeps loading until both exports show their new
+  outcome, and after any backlog drains until the llms-full.txt export that follows the re-renders is shown, each
   for at most a minute, and reads out an export that failed or was skipped to screen readers.
   `GET /api/admin/schema` carries `llmsFull: true` while `llms.full` is on, `robots: true`
   unless `robots` is `false`, and `sitemap: true` while a sitemap is written (a site URL, `sitemap` not `false`).

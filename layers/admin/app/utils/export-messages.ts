@@ -87,7 +87,7 @@ export function exportAnnouncement(t: Translate, previous: StaleStatus['exports'
   return said.length === 0 ? null : said.join(' ')
 }
 
-/** Whether every export the site writes has recorded an outcome later than the one in `since`. */
-export function exportsRecordedSince(since: StaleStatus['exports'] | null, next: StaleStatus['exports'], files: IndexFiles): boolean {
-  return recordedSince(since?.indexes, next.indexes) && (!files.llmsFull || recordedSince(since?.llmsFull, next.llmsFull))
+/** Whether each export in `ids` has recorded an outcome later than the one in `since`. */
+export function exportsRecordedSince(since: StaleStatus['exports'] | null, next: StaleStatus['exports'], ids: readonly (keyof StaleStatus['exports'])[]): boolean {
+  return ids.every((id) => recordedSince(since?.[id], next[id]))
 }
