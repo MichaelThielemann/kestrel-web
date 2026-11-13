@@ -323,7 +323,7 @@ calls them before it has read a schema at all.
 | `llms` | no | `{ full: true, headings: { pages: "Pages" } }` — `full` also writes `llms-full.txt`, `headings` names each type's section (§8, "Index files"); `llms.siteUrl` is refused, use `siteUrl` |
 | `siteUrl` | no | `NUXT_PUBLIC_SITE_URL` — the public site's absolute `http(s)` URL, with a base path when the site lives below the host's root; normalised (host lower-cased, default port and trailing slashes dropped) and passed to `delivery-static`, which builds `sitemap.xml`, the `Sitemap:` line of `robots.txt` and the llms URLs from it. Without one, `delivery` warns once at boot and no `sitemap.xml` is written |
 | `sitemap` | no | `true` — `false` writes no `sitemap.xml` |
-| `robots` | no | `{}` — `{ policy?: "allow" \| "disallow", extra?: string[] }` for `robots.txt`; without `policy`, `allow` when `NODE_ENV` is `production` and `disallow` otherwise, with a warning at boot. `extra` lines follow the policy verbatim. `false` leaves `robots.txt` to you. `envRobots()` from `#kestrel/config` reads the policy from `KESTREL_ROBOTS_POLICY` |
+| `robots` | no | `{}` — `{ policy?: "allow" \| "disallow", extra?: string[] }` for `robots.txt`; without `policy`, `allow` in a production build and `disallow` under `nuxt dev`, with a warning at boot. `extra` lines follow the policy verbatim. `false` leaves `robots.txt` to you. `envRobots()` from `#kestrel/config` reads the policy from `KESTREL_ROBOTS_POLICY` |
 | `migrations` | with the `migrations` feature | — `{ migrations, mode? }`, the `#kestrel/migrations` list (§10); the feature without it throws |
 | `mfa` | no | `{}` — `{ secretKey?, previousSecretKeys?, issuer?, enforce? }`, used only with the `mfa` feature: `secretKey` seals every second factor's secret (32 bytes as 64 hex digits; default `mfaKey()` from `#kestrel/config`, which reads `KESTREL_MFA_KEY` and requires it in production), `previousSecretKeys` lists keys it replaced, whose factors keep working, `issuer` is the name an authenticator app shows, `enforce` (`"all"` default, `"none"`, `{ permissions }`) who must set a factor up |
 | `session` | no | `{ identifier: "username", minPasswordLength: 12, sessionTtlSeconds: 86400, secureCookie: true }`; the minimum applies when a password is set (bootstrap excluded), so an account whose existing password is shorter still logs in and meets the minimum at its next change |
@@ -1829,8 +1829,11 @@ written, `llms.txt` lists paths instead of URLs and pages carry no canonical lin
 carries `og:site_name`, the site settings title.
 
 **Robots policy.** `robots.policy` decides what `robots.txt` says: `allow` lets crawlers in, `disallow`
-keeps them out. Without one, crawlers are allowed when `NODE_ENV` is `production` and kept out otherwise,
-and the server warns at start; set `disallow` explicitly on a staging server that runs a production build.
+keeps them out. Without one, `presetModuleConfig()` allows crawlers in a production build and keeps them out
+under `nuxt dev`, and the server warns at start. A production build counts as production whatever `NODE_ENV`
+the started process has: `nuxt build` fixes the value inside the server bundle, so
+`node .output/server/index.mjs` without `NODE_ENV` allows crawlers too. Set `disallow` explicitly on a staging
+server that runs a production build.
 create-kestrel's `kestrel.config.ts` passes `robots: envRobots()`, which reads `KESTREL_ROBOTS_POLICY`.
 `robots: false` leaves `robots.txt` to you. Crawlers read `robots.txt` only at the root of a host: with a
 base path in the site URL, serve one at the host's root yourself.
@@ -2318,7 +2321,7 @@ What changes:
 - Static delivery writes `sitemap.xml` and `robots.txt` next to `llms.txt` and `llms-full.txt` and keeps
   all four current (§8, "Index files"). Set `NUXT_PUBLIC_SITE_URL` before the first start, or pages carry no
   canonical link and no sitemap is written, and decide the robots policy: without `robots.policy` a
-  production server allows crawlers, every other one keeps them out, and a `robots.txt` of your own in
+  production build allows crawlers, `nuxt dev` keeps them out, and a `robots.txt` of your own in
   `public/` or at the web server now competes with the exported one (`robots: false` keeps yours). The upgrade
   tool covers the rest:
   - kestrel's `delivery/site-url` moves `llms.siteUrl` of a hand-written `kestrel-delivery-static` entry to
@@ -2331,7 +2334,8 @@ What changes:
     whose event reaches `publishPage`.
   - `preset/queue-lanes` adds the `indexes` lane and the `delayMs` of `delaysFor(features)` to a
     `kestrel-events-queue` entry written in `kestrel.config.ts` (`fix`).
-  - kestrel's `delivery/robots-policy` notes a `kestrel-delivery-static` entry without `robots.policy`.
+  - kestrel's `delivery/robots-policy` notes a hand-written `kestrel-delivery-static` entry without
+    `robots.policy`; `presetModuleConfig()` always passes one.
 
 **What stays manual after `fix --write`.** When the report after `fix --write` still lists an error, it is one
 of these, each named there:

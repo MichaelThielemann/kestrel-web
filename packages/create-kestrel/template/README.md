@@ -29,9 +29,10 @@ With the `delivery` feature, every published page is written as static HTML unde
   Without it no `sitemap.xml` is written, pages carry no canonical link and the server warns at start.
   Changing it re-renders every published page at the next start.
 - `KESTREL_ROBOTS_POLICY` decides what `robots.txt` says: `allow` lets crawlers in, `disallow` keeps them
-  out. Left unset, crawlers are allowed when `NODE_ENV` is `production` and kept out otherwise, and the
-  server warns at start. Set `disallow` on a staging server that runs a production build. A changed policy
-  is written at the next start.
+  out. Left unset, a production build (`pnpm build`, started with `node .output/server/index.mjs`) allows
+  crawlers whatever `NODE_ENV` the process has, `pnpm dev` keeps them out, and the server warns at start.
+  Set `disallow` on a staging server that runs a production build. A changed policy is written at the next
+  start.
 
 Crawlers read `robots.txt` only at the root of a host, so serve it there.
 

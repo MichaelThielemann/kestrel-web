@@ -33,8 +33,8 @@
   `llms-full.txt`: when, with how many entries, or when and with which error it failed, or that it was skipped
   because published pages had no rendered output yet.
 - `envRobots()` in `#kestrel/config` reads `KESTREL_ROBOTS_POLICY` (`allow` or `disallow`) as
-  `presetModuleConfig()`'s `robots` option and refuses any other value; unset, delivery-static's `NODE_ENV`
-  default applies. create-kestrel's `kestrel.config.ts` passes `robots: envRobots()`, its `.env.example` lists
+  `presetModuleConfig()`'s `robots` option and refuses any other value; unset, the production-build default
+  applies. create-kestrel's `kestrel.config.ts` passes `robots: envRobots()`, its `.env.example` lists
   the variable and its README describes `NUXT_PUBLIC_SITE_URL` and `KESTREL_ROBOTS_POLICY`.
 
 - Media library and picker: visible multi-selection. Every grid tile has a checkbox beside it and the table a
@@ -228,9 +228,11 @@
 ### Breaking
 
 - Static delivery writes `robots.txt` (and `sitemap.xml` with a site URL) under its prefix, next to the
-  pages. Without `robots.policy` a production server allows crawlers and every other one keeps them out; a
-  staging server that runs a production build needs `disallow` (`KESTREL_ROBOTS_POLICY=disallow` with
-  `envRobots()`). A `robots.txt` of your own, served from `public/` or by the web server, competes with the
+  pages. Without `robots.policy`, `presetModuleConfig()` passes `allow` in a production build and `disallow`
+  under `nuxt dev`, and warns once. A production build is one whatever `NODE_ENV` the started process has:
+  `nuxt build` fixes it inside the server bundle, so `node .output/server/index.mjs` without it allows
+  crawlers. A staging server that runs a production build needs `disallow` (`KESTREL_ROBOTS_POLICY=disallow`
+  with `envRobots()`). A `robots.txt` of your own, served from `public/` or by the web server, competes with the
   exported one; `robots: false` keeps yours.
 - `presetModuleConfig({ llms: { siteUrl } })` throws: the site URL is the top-level `siteUrl` option (default
   `NUXT_PUBLIC_SITE_URL`). `delivery.exportLlms` is no longer a step and stops the boot as an unknown step;

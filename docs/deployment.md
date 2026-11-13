@@ -41,7 +41,7 @@ Nitro's own variables:
 |---|---|
 | `PORT` / `NITRO_PORT` | listen port (default 3000) |
 | `HOST` / `NITRO_HOST` | listen address (default all interfaces) |
-| `NODE_ENV=production` | set it: it is what turns `#kestrel/config`'s development fallbacks into hard errors (below), and what keeps the JSON-Schema validator off `watch` |
+| `NODE_ENV=production` | `nuxt build` fixes `NODE_ENV` to `production` inside the server bundle, so a built server applies `#kestrel/config`'s production rules (missing secrets are hard errors, below), keeps the JSON-Schema validator off `watch` and allows crawlers in `robots.txt` without a robots policy, whether the variable is set or not. Set it anyway: the packages outside the bundle (`.output/server/node_modules`), Vue among them, read it from the running process and load their development builds without it |
 
 kestrel-web's own, all read while `kestrel.config.ts` loads:
 
@@ -56,7 +56,7 @@ kestrel-web's own, all read while `kestrel.config.ts` loads:
 | `KESTREL_S3_BUCKET`, `KESTREL_S3_ENDPOINT`, `KESTREL_S3_REGION`, `KESTREL_S3_ACCESS_KEY_ID`, `KESTREL_S3_SECRET_ACCESS_KEY` | with `KESTREL_BLOBSTORE=s3` | the S3 blobstore, `forcePathStyle: true`; each missing one throws naming itself |
 | `KESTREL_S3_ALLOW_INSECURE_ENDPOINT` | no | `true` lets `KESTREL_S3_ENDPOINT` be plain `http://` outside loopback (`localhost`, `127.0.0.0/8`, `[::1]`), with a warning at every boot; otherwise such an endpoint stops the boot, since credentials, objects and replica snapshots would cross the network unencrypted |
 | `NUXT_PUBLIC_SITE_URL` | no, but expected with `delivery` | the public site's absolute URL, with a base path when the site lives below the host's root; the editor's preview links, every exported page's `<link rel="canonical">` and `og:url`, `sitemap.xml`, the `Sitemap:` line of `robots.txt` and the URLs in `llms.txt` are built from it. Empty: no canonical link, no `sitemap.xml`, paths in `llms.txt`, and a warning at boot. A change re-renders every page at the next start |
-| `KESTREL_ROBOTS_POLICY` | no | only if your `kestrel.config.ts` passes `robots: envRobots()` (create-kestrel's does): `allow` or `disallow` for `robots.txt`; unset means `allow` under `NODE_ENV=production` and `disallow` otherwise, with a warning at boot. Set `disallow` on a staging server. A change is written at the next start |
+| `KESTREL_ROBOTS_POLICY` | no | only if your `kestrel.config.ts` passes `robots: envRobots()` (create-kestrel's does): `allow` or `disallow` for `robots.txt`; unset means `allow` in a production build, whatever `NODE_ENV` the process has, and `disallow` under `nuxt dev`, with a warning at boot. Set `disallow` on a staging server. A change is written at the next start |
 | `NUXT_KESTREL_ACCESS_ADMIN` / `_SITE` | no | the two IP allowlists (§7 of the consuming guide); empty means open |
 | `NUXT_KESTREL_ACCESS_TRUST_PROXY`, `_PROXY_HOPS`, `_TRUSTED_HEADER` | no | how the client address is taken behind a proxy |
 | `NUXT_KESTREL_ACCESS_TRUSTED_PROXIES` | no | the proxies whose forwarding headers count, addresses or CIDR ranges; empty means loopback |

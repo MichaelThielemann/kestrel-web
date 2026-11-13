@@ -76,8 +76,8 @@ export function deviceKeys(fromMfa?: SigningKeys): SigningKeys {
 
 /**
  * presetModuleConfig's `robots` option from `KESTREL_ROBOTS_POLICY`: `allow` lets crawlers in, `disallow` keeps them
- * out. Unset or empty, the policy is left out, so delivery-static allows crawlers when `NODE_ENV` is `production` and
- * keeps them out otherwise, with a warning at boot. Any other value throws.
+ * out. Unset or empty, the policy is left out, so presetModuleConfig allows crawlers in a production build and keeps
+ * them out under `nuxt dev`, with a warning at boot. Any other value throws.
  */
 export function envRobots(): { policy?: "allow" | "disallow" } {
   const value = envValue("KESTREL_ROBOTS_POLICY");

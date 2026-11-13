@@ -141,6 +141,7 @@ describe("presetModuleConfig with the playground inputs", () => {
           types: { pages: {}, blog: {} },
           prefix: "site/",
           reservedPaths: ["/api", "/admin", "/media"],
+          robots: { policy: "disallow" },
           llms: { full: true, headings: { pages: "Pages", blog: "Blog" } },
           dependencies: { render: "background", rendererReadsDocument: true, indexesDelayMs: 1000 },
         }),
@@ -248,6 +249,7 @@ describe("derived delivery types", () => {
       types: { pages: {}, news: {} },
       prefix: "site/",
       reservedPaths: ["/api", "/admin", "/media"],
+      robots: { policy: "disallow" },
       llms: { full: true, headings: { pages: "Pages", news: "News" } },
       dependencies: { render: "background", rendererReadsDocument: true, indexesDelayMs: 1000 },
     });
@@ -616,6 +618,7 @@ describe("site URL, sitemap, robots and llms", () => {
       types: { pages: {}, blog: {} },
       prefix: "site/",
       reservedPaths: ["/api", "/admin", "/media"],
+      robots: { policy: "disallow" },
       siteUrl: "https://example.test/de",
       llms: { full: false, headings: { pages: "Seiten" } },
       dependencies: { render: "background", rendererReadsDocument: true, indexesDelayMs: 1000 },
@@ -661,6 +664,20 @@ describe("site URL, sitemap, robots and llms", () => {
     warn.mockRestore();
   });
 
+  it("fills in robots.policy the way the bundled server sees NODE_ENV: allow in a production build, disallow otherwise, with one warning", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    vi.resetModules();
+    const fresh = await import("./config");
+    expect(fieldOf(configFor(fresh.presetModuleConfig(playgroundOptions()), "delivery-static"), "robots")).toEqual({ policy: "disallow" });
+    vi.stubEnv("NODE_ENV", "production");
+    const extra = ["Disallow: /preview/"];
+    expect(fieldOf(configFor(fresh.presetModuleConfig({ ...playgroundOptions(), robots: { extra } }), "delivery-static"), "robots")).toEqual({ policy: "allow", extra });
+    expect(warn.mock.calls.filter(([message]) => String(message).includes("robots.policy"))).toEqual([
+      ["presetModuleConfig: robots.policy is not set – robots.txt keeps crawlers out because this is not a production build; set robots.policy, or KESTREL_ROBOTS_POLICY with envRobots()"],
+    ]);
+    warn.mockRestore();
+  });
+
   it("passes sitemap and robots through to delivery-static", () => {
     const modules = presetModuleConfig({ ...playgroundOptions(), sitemap: false, robots: { policy: "disallow", extra: ["Disallow: /preview/"] } });
     expect(fieldOf(configFor(modules, "delivery-static"), "sitemap")).toBe(false);
@@ -676,6 +693,7 @@ describe("site URL, sitemap, robots and llms", () => {
       types: { pages: {}, blog: {} },
       prefix: "site/",
       reservedPaths: ["/api", "/admin", "/media"],
+      robots: { policy: "disallow" },
       siteUrl: "https://from-env.test",
       llms: { full: true, headings: { pages: "Pages", blog: "Blog" } },
       dependencies: { render: "background", rendererReadsDocument: true, indexesDelayMs: 1000 },

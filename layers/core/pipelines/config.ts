@@ -91,7 +91,7 @@ export interface PresetLlms {
 /** What delivery-static writes to `robots.txt`; `false` leaves robots.txt to the site. */
 export type PresetRobots =
   | {
-      /** `"allow"` lets crawlers in, `"disallow"` keeps them out; without it, `allow` when `NODE_ENV` is `production` and `disallow` otherwise. */
+      /** `"allow"` lets crawlers in, `"disallow"` keeps them out; without it, `allow` in a production build (`nuxt build` fixes `NODE_ENV` to `production` inside the server bundle, whatever the running process sets) and `disallow` under `nuxt dev`, with a warning at boot. */
       policy?: "allow" | "disallow";
       /** Lines appended verbatim after the policy, such as `Disallow: /preview/`. */
       extra?: string[];
@@ -423,6 +423,20 @@ function siteUrlOf(options: PresetModuleConfigOptions): string | undefined {
   }
 }
 
+let warnedRobotsDefault = false;
+
+function robotsWithPolicy(robots: PresetRobots | undefined): PresetRobots {
+  if (robots === false || robots?.policy !== undefined) return robots;
+  const policy = process.env.NODE_ENV === "production" ? "allow" : "disallow";
+  if (!warnedRobotsDefault) {
+    warnedRobotsDefault = true;
+    console.warn(policy === "allow"
+      ? "presetModuleConfig: robots.policy is not set – robots.txt allows crawlers because this is a production build; set robots.policy, or KESTREL_ROBOTS_POLICY with envRobots()"
+      : "presetModuleConfig: robots.policy is not set – robots.txt keeps crawlers out because this is not a production build; set robots.policy, or KESTREL_ROBOTS_POLICY with envRobots()");
+  }
+  return { ...robots, policy };
+}
+
 function warnWithoutSiteUrl(): void {
   if (warnedWithoutSiteUrl) return;
   warnedWithoutSiteUrl = true;
@@ -514,7 +528,7 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
       reservedPaths: [...RESERVED_PATHS],
       ...(siteUrl === undefined ? {} : { siteUrl }),
       ...(options.sitemap === undefined ? {} : { sitemap: options.sitemap }),
-      ...(options.robots === undefined ? {} : { robots: options.robots }),
+      robots: robotsWithPolicy(options.robots),
       llms: {
         full: options.llms?.full ?? true,
         headings: options.llms?.headings ?? llmsHeadings(types, options.collectionsUi),
