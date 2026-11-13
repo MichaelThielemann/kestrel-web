@@ -74,6 +74,7 @@ function ariaSort(field: string): 'ascending' | 'descending' | 'none' {
     <template #head>
       <th class="ui-table__col--select" scope="col">
         <KestrelUiCheckbox
+          standalone
           :model-value="allSelected"
           :indeterminate="headerIndeterminate"
           :aria-label="t('list.selectAll')"
@@ -93,6 +94,7 @@ function ariaSort(field: string): 'ascending' | 'descending' | 'none' {
       <tr v-for="row in rows" :key="String(row.id)" :class="{ 'ui-table__row--muted': untranslated(row) }">
         <td class="ui-table__col--select">
           <KestrelUiCheckbox
+            standalone
             :model-value="selected.has(String(row.id))"
             :aria-label="t('list.selectRow', { name: rowLabel(row) })"
             @update:model-value="(v) => emit('toggleRow', String(row.id), v)"
