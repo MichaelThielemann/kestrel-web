@@ -51,4 +51,43 @@ describe('KestrelImage', () => {
     expect(img.attributes('src')).toBe('/media/m1/photo.jpg')
     expect(img.attributes('style')).toBeFalsy()
   })
+
+  it('places a variant on the centre of its focus with object-position', async () => {
+    const media = item({ focus: { x: 0.1, y: 0.5, w: 0.3, h: 0.2 }, variants: [variant()] })
+    const wrapper = await mountSuspended(KestrelImage, { props: { media, size: 'content' } })
+
+    const style = wrapper.get('img').attributes('style') ?? ''
+    expect(style).toContain('object-fit: cover')
+    expect(style).toContain('object-position: 25% 60%')
+  })
+
+  it('places the original, shown while no variant is named, on the centre of its focus as well', async () => {
+    const media = item({ focus: { x: 0.8, y: 0, w: 0, h: 0 }, variants: [] })
+    const wrapper = await mountSuspended(KestrelImage, { props: { media, size: 'content' } })
+
+    const img = wrapper.get('img')
+    expect(img.attributes('src')).toBe('/media/m1/photo.jpg')
+    expect(img.attributes('style')).toBe('object-position: 80% 0%;')
+  })
+
+  it('places a variant whose path still holds the original on the centre of its focus', async () => {
+    const media = item({ focus: { x: 0, y: 0, w: 1, h: 1 }, variants: [variant({ state: 'pending' })] })
+    const wrapper = await mountSuspended(KestrelImage, { props: { media, size: 'content' } })
+
+    expect(wrapper.get('img').attributes('style')).toContain('object-position: 50% 50%')
+  })
+
+  it('rounds the position to hundredths of a percent', async () => {
+    const media = item({ focus: { x: 1 / 3, y: 0.1, w: 0, h: 0.2 }, variants: [variant()] })
+    const wrapper = await mountSuspended(KestrelImage, { props: { media, size: 'content' } })
+
+    expect(wrapper.get('img').attributes('style')).toContain('object-position: 33.33% 20%')
+  })
+
+  it('sets no object-position without a focus', async () => {
+    const media = item({ focus: null, variants: [variant()] })
+    const wrapper = await mountSuspended(KestrelImage, { props: { media, size: 'content' } })
+
+    expect(wrapper.get('img').attributes('style')).not.toContain('object-position')
+  })
 })

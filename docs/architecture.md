@@ -1831,6 +1831,15 @@ present), `only` (restrict the `srcset` candidates to specific size names), `alt
   object-fit: cover` whenever `src` links a variant, so the placeholder (the original, at its own aspect)
   fills the box the eventual crop will have; an item without variants gets neither style, since its `src`
   is the original at its native aspect.
+- **A variant path may end in `?v=<token>`**, which kestrel adds once a later render replaced bytes the
+  path already had (a new crop, a changed size). The query is opaque: `pickImageSources` passes the path
+  through as it is, in `src` and in `srcset`, and the ratio grouping reads only `width`/`height`. A check
+  that compares an exported URL with a file strips the query first.
+- **`object-position` follows the focus.** With a `focus` on the item, `KestrelImage` adds
+  `object-position: <x + w/2> <y + h/2>` (percent of the image, `focusObjectPosition`), on a variant, on
+  the original that stands in for it while it renders, and on the original when no variant is named. A
+  `cover` variant is already cut around the focus by the server; the position keeps the focus in view when
+  the box crops further, or when a site's CSS gives the original `object-fit: cover`.
 - **`alt=""` stays possible**: the prop is `alt?: string | null`, and the template's `altText` is
   `props.alt ?? item.value?.alt ?? ''` — an explicit empty string from the block (a purely decorative
   image) is not coalesced away, only `undefined`/`null` fall through to the media's own alt text and

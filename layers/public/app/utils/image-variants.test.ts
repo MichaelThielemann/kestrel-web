@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { pickImageSources } from './image-variants'
+import { focusObjectPosition, pickImageSources } from './image-variants'
 import type { MediaItem, MediaVariant } from '#kestrel-core/app/types/api'
 
 function variant(over: Partial<MediaVariant>): MediaVariant {
@@ -182,6 +182,37 @@ describe('pickImageSources', () => {
     expect(sources?.variant).toBe(false)
   })
 
+  it('links re-cut variants with their version query verbatim, in src and srcset', () => {
+    const media = item({
+      width: 1200,
+      height: 900,
+      variants: [
+        variant({ size: 'hero', width: 1600, height: 900, path: '/media/m1/variants/hero.webp?v=a7f3c2' }),
+        variant({ size: 'hero-small', width: 800, height: 450, path: '/media/m1/variants/hero-small.webp?v=19bd0e' }),
+      ],
+    })
+    const sources = pickImageSources(media, 'hero')
+    expect(sources?.src).toBe('/media/m1/variants/hero.webp?v=a7f3c2')
+    expect(sources?.srcset).toBe('/media/m1/variants/hero-small.webp?v=19bd0e 800w, /media/m1/variants/hero.webp?v=a7f3c2 1600w')
+  })
+
+  it('groups variants by ratio whether or not their paths carry a version query', () => {
+    const media = item({
+      width: 1200,
+      height: 900,
+      variants: [
+        variant({ size: 'hero', width: 1600, height: 900, path: '/media/m1/variants/hero.webp?v=a7f3c2' }),
+        variant({ size: 'hero-small', width: 800, height: 450, path: '/media/m1/variants/hero-small.webp' }),
+        variant({ size: 'square', width: 600, height: 600, path: '/media/m1/variants/square.webp?v=55e1aa' }),
+        variant({ size: 'content', width: 1200, height: 900, path: '/media/m1/variants/content.webp' }),
+        variant({ size: 'thumb', width: 320, height: 240, path: '/media/m1/variants/thumb.webp?v=0c4d2b' }),
+      ],
+    })
+    expect(pickImageSources(media, 'hero')?.srcset).toBe('/media/m1/variants/hero-small.webp 800w, /media/m1/variants/hero.webp?v=a7f3c2 1600w')
+    expect(pickImageSources(media, 'square')?.srcset).toBe('/media/m1/variants/square.webp?v=55e1aa 600w')
+    expect(pickImageSources(media, 'content')?.srcset).toBe('/media/m1/variants/thumb.webp?v=0c4d2b 320w, /media/m1/variants/content.webp 1200w')
+  })
+
   it('never returns a URL containing "api"', () => {
     const media = item({
       variants: [variant({ size: 'content', width: 1200, height: 900, path: '/media/m1/variants/content.webp' })],
@@ -191,5 +222,17 @@ describe('pickImageSources', () => {
       expect(sources?.src).not.toContain('api')
       expect(sources?.srcset ?? '').not.toContain('api')
     }
+  })
+})
+
+describe('focusObjectPosition', () => {
+  it('answers the centre of the focus rectangle in percent of the image', () => {
+    expect(focusObjectPosition({ x: 0.1, y: 0.5, w: 0.3, h: 0.2 })).toBe('25% 60%')
+    expect(focusObjectPosition({ x: 1, y: 1, w: 0, h: 0 })).toBe('100% 100%')
+  })
+
+  it('answers nothing without a focus', () => {
+    expect(focusObjectPosition(null)).toBeUndefined()
+    expect(focusObjectPosition(undefined)).toBeUndefined()
   })
 })

@@ -1576,6 +1576,14 @@ link only the original). Reading a media item anonymously is by id only — `GET
 `GET /api/media?ids=…` — listing the library or its folders needs a signed-in caller holding
 `media.list` (`media.*` grants it, and `presetModuleConfig()` adds it to every role that grants `media.read`) and answers `401` to a public request, `403` to an account without it.
 
+**Focus and crop.** An editor can mark an image's focus and, per ratio of the `cover` sizes, a crop of its
+own; kestrel's images-default renders every `cover` variant from it ("Focus and crop" in its README) and
+`setMediaFraming` (`PUT /api/media/:id/framing`) stores it. `inside` sizes are never re-cut, so register a
+`cover` size (`fit: "cover"` with a `height`) wherever a box has a fixed ratio. A re-cut variant keeps its
+path and gains a `?v=` query once the new render is there, and the pages that show it are published again.
+`KestrelImage` sets `object-position` from the centre of `focus`, which visitors receive with the variants,
+so an image keeps its focus in view on the original and on an `inside` variant too.
+
 See `docs/architecture.md#image-variants` for the validation rules, the discovery/registration split and
 the `<KestrelImage>` prop and fallback rules in full.
 

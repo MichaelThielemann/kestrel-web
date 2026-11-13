@@ -49,3 +49,13 @@ function restrict(variants: readonly PublicMediaVariant[], referenceRatio: numbe
   for (const v of filtered) if (!byWidth.has(v.width)) byWidth.set(v.width, v)
   return [...byWidth.values()].sort((a, b) => a.width - b.width)
 }
+
+function percent(fraction: number): string {
+  return `${Math.round(fraction * 10000) / 100}%`
+}
+
+/** The CSS `object-position` that keeps an image's focus in view: the centre of the focus rectangle as percentages of the image, `undefined` without a focus. */
+export function focusObjectPosition(focus: PublicMediaItem['focus'] | undefined): string | undefined {
+  if (focus === null || focus === undefined) return undefined
+  return `${percent(focus.x + focus.w / 2)} ${percent(focus.y + focus.h / 2)}`
+}

@@ -14,6 +14,9 @@
   for an answer without one). `MediaItem` gains `focus` and `framing`; `MediaRect`, `MediaFraming` and
   `MediaFramingRatio` are exported from the API types. `kestrel upgrade check` reports a narrowed
   `roles.anonymousFields.media` that keeps the variants but not `focus` (`preset/media-focus-grant`).
+- `KestrelImage` sets `object-position` from the centre of the item's `focus` on a variant, on the original that
+  stands in for it while it renders and on the original itself; `focusObjectPosition()` answers that value.
+  `pickImageSources` passes a variant path with its `?v=` query through unchanged, in `src` and `srcset`.
 - Static delivery keeps `sitemap.xml`, `robots.txt`, `llms.txt` and `llms-full.txt` current. Every pipeline that
   changes what they list asks for an export instead of writing it in the request: `publishPage`,
   `unpublishPage` and the publish pipelines of every mounted collection, `settingsDependents`, `publishAllPages`

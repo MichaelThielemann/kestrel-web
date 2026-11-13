@@ -22,9 +22,12 @@ const { data: fetched } = await useMediaItem(() => (inline.value ? null : id.val
 const item = computed(() => inline.value ?? fetched.value ?? null)
 const sources = computed(() => pickImageSources(item.value, props.size, props.only))
 const altText = computed(() => props.alt ?? item.value?.alt ?? '')
-const boxStyle = computed(() => (sources.value?.variant
-  ? { aspectRatio: `${sources.value.width} / ${sources.value.height}`, objectFit: 'cover' as const }
-  : undefined))
+const boxStyle = computed(() => {
+  const objectPosition = focusObjectPosition(item.value?.focus)
+  const position = objectPosition === undefined ? {} : { objectPosition }
+  if (sources.value?.variant) return { aspectRatio: `${sources.value.width} / ${sources.value.height}`, objectFit: 'cover' as const, ...position }
+  return objectPosition === undefined ? undefined : position
+})
 </script>
 
 <template>
