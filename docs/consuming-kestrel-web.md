@@ -322,7 +322,7 @@ calls them before it has read a schema at all.
 | `ratelimit` | no | `{ login: { limit: 5, windowSeconds: 60 }, loginAccount: { limit: 10, windowSeconds: 300, maxBlockSeconds: 900 }, passwordCheck: { limit: 5, windowSeconds: 300, maxBlockSeconds: 900 }, knownDevice: { limit: 10, windowSeconds: 300, maxBlockSeconds: 900 } }` — `login` counts every attempt per client address (an IPv6 address by its /64); `loginAccount` counts failed sign-ins per account from any address, keyed on the field `session.identifier` names, and a successful sign-in clears it; `knownDevice` counts failed sign-ins of a browser that carries the device cookie of an earlier sign-in to that account, in place of `loginAccount`, so a blocked account stays open to its owner's browsers; `deviceCookies: { secretKey?, previousSecretKeys?, maxAgeSeconds? }` signs those cookies, the keys defaulting to `deviceKeys()` from `#kestrel/config`: `KESTREL_DEVICE_KEY`, else the `mfa` feature's keys, else a random key per process, `maxAgeSeconds` to 30 days; `passwordCheck` counts failed password checks per signed-in user on `changePassword` and `confirmPassword`; a key that keeps exceeding its budget is blocked for twice as long each time, never longer than `maxBlockSeconds` |
 | `llms` | no | `{ full: true, headings: { pages: "Pages" } }` — `full` also writes `llms-full.txt`, `headings` names each type's section (§8, "Index files"); `llms.siteUrl` is refused: the site URL is `NUXT_PUBLIC_SITE_URL` (§8, "Site URL") |
 | `sitemap` | no | `true` — `false` writes no `sitemap.xml` |
-| `robots` | no | `{}` — `{ policy?: "allow" \| "disallow", extra?: string[] }` for `robots.txt`; without `policy`, `allow` in a production build and `disallow` under `nuxt dev`, with a warning at boot. `extra` lines follow the policy verbatim. `false` leaves `robots.txt` to you. `envRobots()` from `#kestrel/config` reads the policy from `KESTREL_ROBOTS_POLICY` |
+| `robots` | no | `{}` — `{ policy?: "allow" \| "disallow", extra?: string[] }` for `robots.txt`; without `policy`, the one `KESTREL_ROBOTS_POLICY` names, otherwise `allow` in a production build and `disallow` under `nuxt dev`, with a warning at boot. `extra` lines follow the policy verbatim. `false` leaves `robots.txt` to you. `envRobots()` from `#kestrel/config` reads the policy from `KESTREL_ROBOTS_POLICY` |
 | `migrations` | with the `migrations` feature | — `{ migrations, mode? }`, the `#kestrel/migrations` list (§10); the feature without it throws |
 | `mfa` | no | `{}` — `{ secretKey?, previousSecretKeys?, issuer?, enforce? }`, used only with the `mfa` feature: `secretKey` seals every second factor's secret (32 bytes as 64 hex digits; default `mfaKey()` from `#kestrel/config`, which reads `KESTREL_MFA_KEY` and requires it in production), `previousSecretKeys` lists keys it replaced, whose factors keep working, `issuer` is the name an authenticator app shows, `enforce` (`"all"` default, `"none"`, `{ permissions }`) who must set a factor up |
 | `session` | no | `{ identifier: "username", minPasswordLength: 12, sessionTtlSeconds: 86400, secureCookie: true }`; the minimum applies when a password is set (bootstrap excluded), so an account whose existing password is shorter still logs in and meets the minimum at its next change |
@@ -1849,17 +1849,18 @@ URL no `sitemap.xml` is written, `llms.txt` lists paths instead of URLs, pages c
 `siteUrl`, holds another URL than the variable, the server warns at start, naming both. Every page also
 carries `og:site_name`, the site settings title. The page sets its canonical link, `og:url` and `og:site_name`
 with `tagPriority: "high"`, so they replace tags of the same key set in `app.vue`, a layout, a block or
-`app.head`; to keep one of yours, give it the critical priority, for example `useHead({ link: [{ rel: "canonical", href, tagPriority: "critical" }] })`.
+`app.head`; to keep one of yours, give it the critical priority, for example
+`useHead({ link: [{ rel: "canonical", href, tagPriority: "critical" }] })`.
 
 **Robots policy.** `robots.policy` decides what `robots.txt` says: `allow` lets crawlers in, `disallow`
-keeps them out. Without one, `presetModuleConfig()` allows crawlers in a production build and keeps them out
-under `nuxt dev`, and the server warns at start. A production build counts as production whatever `NODE_ENV`
-the started process has: `nuxt build` fixes the value inside the server bundle, so
-`node .output/server/index.mjs` without `NODE_ENV` allows crawlers too. A hand-written `delivery-static` entry
+keeps them out. Without one, `presetModuleConfig()` takes the policy from `KESTREL_ROBOTS_POLICY` (`allow` or
+`disallow`; any other value stops the config from loading); with that unset too, it allows crawlers in a
+production build and keeps them out under `nuxt dev`, and the server warns at start. A production build counts
+as production whatever `NODE_ENV` the started process has: `nuxt build` fixes the value inside the server bundle,
+so `node .output/server/index.mjs` without `NODE_ENV` allows crawlers too. A hand-written `delivery-static` entry
 without `robots.policy` takes its default from the running process's `NODE_ENV` instead and keeps crawlers out
 without it, so give it `robots.policy` or set `NODE_ENV=production`. Set `disallow` explicitly on a staging
 server that runs a production build.
-create-kestrel's `kestrel.config.ts` passes `robots: envRobots()`, which reads `KESTREL_ROBOTS_POLICY`.
 `robots: false` leaves `robots.txt` to you, and `sitemap: false` `sitemap.xml`; set them before the first start,
 which overwrites a file of that name under the prefix. `robots: false` leaves a `robots.txt` the export already
 wrote in place: delete `<prefix>robots.txt` by hand. Crawlers read `robots.txt` only at the root of a host: with a
@@ -2347,7 +2348,7 @@ What changes:
 
 - Static delivery writes `sitemap.xml` and `robots.txt` next to `llms.txt` and `llms-full.txt` and keeps
   all four current (§8, "Index files"). Set `NUXT_PUBLIC_SITE_URL` before the first start, or pages carry no
-  canonical link and no sitemap is written, and decide the robots policy: without `robots.policy` a
+  canonical link and no sitemap is written, and decide the robots policy: without `robots.policy` or `KESTREL_ROBOTS_POLICY` a
   production build allows crawlers, `nuxt dev` keeps them out, and a `robots.txt` of your own in
   `public/` or at the web server now competes with the exported one. The first start overwrites a
   `robots.txt` or `sitemap.xml` under the prefix, so set `robots: false` (and `sitemap: false` for a sitemap of

@@ -47,6 +47,7 @@ function moduleNames(modules: readonly ModuleEntry[]): string[] {
 
 beforeEach(() => {
   vi.stubEnv("NUXT_PUBLIC_SITE_URL", undefined);
+  vi.stubEnv("KESTREL_ROBOTS_POLICY", undefined);
 });
 
 afterEach(() => {
@@ -684,8 +685,25 @@ describe("site URL, sitemap, robots and llms", () => {
     const extra = ["Disallow: /preview/"];
     expect(fieldOf(configFor(fresh.presetModuleConfig({ ...playgroundOptions(), robots: { extra } }), "delivery-static"), "robots")).toEqual({ policy: "allow", extra });
     expect(warn.mock.calls.filter(([message]) => String(message).includes("robots.policy"))).toEqual([
-      ["presetModuleConfig: robots.policy is not set – robots.txt keeps crawlers out because this is not a production build; set robots.policy, or KESTREL_ROBOTS_POLICY with envRobots()"],
+      ["presetModuleConfig: robots.policy is not set – robots.txt keeps crawlers out because this is not a production build; set robots.policy or KESTREL_ROBOTS_POLICY"],
     ]);
+    warn.mockRestore();
+  });
+
+  it("takes a missing robots.policy from KESTREL_ROBOTS_POLICY without a warning and refuses another value there", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    vi.resetModules();
+    const fresh = await import("./config");
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("KESTREL_ROBOTS_POLICY", "disallow");
+    expect(fieldOf(configFor(fresh.presetModuleConfig(playgroundOptions()), "delivery-static"), "robots")).toEqual({ policy: "disallow" });
+    const extra = ["Disallow: /preview/"];
+    expect(fieldOf(configFor(fresh.presetModuleConfig({ ...playgroundOptions(), robots: { extra } }), "delivery-static"), "robots")).toEqual({ policy: "disallow", extra });
+    expect(fieldOf(configFor(fresh.presetModuleConfig({ ...playgroundOptions(), robots: { policy: "allow" } }), "delivery-static"), "robots")).toEqual({ policy: "allow" });
+    expect(fieldOf(configFor(fresh.presetModuleConfig({ ...playgroundOptions(), robots: false }), "delivery-static"), "robots")).toBe(false);
+    expect(warn.mock.calls.filter(([message]) => String(message).includes("robots.policy"))).toEqual([]);
+    vi.stubEnv("KESTREL_ROBOTS_POLICY", "Allow");
+    expect(() => fresh.presetModuleConfig(playgroundOptions())).toThrow('kestrel.config: KESTREL_ROBOTS_POLICY must be "allow" or "disallow", not "Allow"');
     warn.mockRestore();
   });
 

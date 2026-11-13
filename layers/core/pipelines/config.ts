@@ -6,7 +6,7 @@ import { MEDIA_PUBLIC_PATH, MOUNT_PATH, MOUNTS_FIELD, RESERVED_PAGE_SEGMENTS } f
 import { resolveWorkflow } from "../collections-ui/workflow";
 import type { WorkflowUi } from "../collections-ui/workflow";
 import { BLOCK_ALIASES_FIELD, BODY_FIELD } from "../collections-ui/serialize";
-import { deviceKeys, mfaKey, type SigningKeys } from "../config";
+import { deviceKeys, envRobots, mfaKey, type SigningKeys } from "../config";
 import { resolveStorageTypes } from "../field-types";
 import type { FieldTypes } from "../field-types";
 import { isGenericCollection } from "./collections";
@@ -423,12 +423,14 @@ let warnedRobotsDefault = false;
 
 function robotsWithPolicy(robots: PresetRobots | undefined): PresetRobots {
   if (robots === false || robots?.policy !== undefined) return robots;
+  const configured = envRobots().policy;
+  if (configured !== undefined) return { ...robots, policy: configured };
   const policy = process.env.NODE_ENV === "production" ? "allow" : "disallow";
   if (!warnedRobotsDefault) {
     warnedRobotsDefault = true;
     console.warn(policy === "allow"
-      ? "presetModuleConfig: robots.policy is not set – robots.txt allows crawlers because this is a production build; set robots.policy, or KESTREL_ROBOTS_POLICY with envRobots()"
-      : "presetModuleConfig: robots.policy is not set – robots.txt keeps crawlers out because this is not a production build; set robots.policy, or KESTREL_ROBOTS_POLICY with envRobots()");
+      ? "presetModuleConfig: robots.policy is not set – robots.txt allows crawlers because this is a production build; set robots.policy or KESTREL_ROBOTS_POLICY"
+      : "presetModuleConfig: robots.policy is not set – robots.txt keeps crawlers out because this is not a production build; set robots.policy or KESTREL_ROBOTS_POLICY");
   }
   return { ...robots, policy };
 }

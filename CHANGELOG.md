@@ -36,10 +36,11 @@
   many entries, or when and with which error it failed, or that it was skipped because published pages had no
   rendered output yet. `GET /api/admin/schema` carries `llmsFull: true` while `llms.full` is on, `robots: true`
   unless `robots` is `false`, and `sitemap: true` while a sitemap is written (a site URL, `sitemap` not `false`).
-- `envRobots()` in `#kestrel/config` reads `KESTREL_ROBOTS_POLICY` (`allow` or `disallow`) as
-  `presetModuleConfig()`'s `robots` option and refuses any other value; unset, the production-build default
-  applies. create-kestrel's `kestrel.config.ts` passes `robots: envRobots()`, its `.env.example` lists
-  the variable and its README describes `NUXT_PUBLIC_SITE_URL` and `KESTREL_ROBOTS_POLICY`.
+- `KESTREL_ROBOTS_POLICY` (`allow` or `disallow`) sets the `robots.txt` policy when `presetModuleConfig()`'s
+  `robots` option has none; any other value stops the config from loading, and unset, the production-build
+  default applies. `envRobots()` in `#kestrel/config` reads the variable as a `robots` option. create-kestrel's
+  `kestrel.config.ts` passes `robots: envRobots()`, its `.env.example` lists the variable and its README
+  describes `NUXT_PUBLIC_SITE_URL` and `KESTREL_ROBOTS_POLICY`.
 
 - Media library and picker: visible multi-selection. Every grid tile has a checkbox beside it and the table a
   checkbox column with a header checkbox for the page; while anything is selected, a selection bar takes the
@@ -232,15 +233,16 @@
 
 ### Breaking
 
-- Static delivery writes `robots.txt` (and `sitemap.xml` with a site URL) under its prefix, next to the
-  pages. Without `robots.policy`, `presetModuleConfig()` passes `allow` in a production build and `disallow`
-  under `nuxt dev`, and warns once. A production build is one whatever `NODE_ENV` the started process has:
-  `nuxt build` fixes it inside the server bundle, so `node .output/server/index.mjs` without it allows
-  crawlers. A staging server that runs a production build needs `disallow` (`KESTREL_ROBOTS_POLICY=disallow`
-  with `envRobots()`). A `robots.txt` of your own, served from `public/` or by the web server, competes with the
-  exported one, and the first start overwrites a `robots.txt` or `sitemap.xml` it finds under the prefix: set
-  `robots: false` (and `sitemap: false` for a sitemap of your own) before that start to keep yours. Once
-  overwritten, `robots: false` leaves the exported `<prefix>robots.txt` in place; delete it by hand.
+- Static delivery writes `robots.txt` (and `sitemap.xml` with a site URL) under its prefix, next to the pages.
+  Without `robots.policy`, `presetModuleConfig()` passes the policy `KESTREL_ROBOTS_POLICY` names, and without
+  that `allow` in a production build and `disallow` under `nuxt dev`, and warns once. A production build is one
+  whatever `NODE_ENV` the started process has: `nuxt build` fixes it inside the server bundle, so
+  `node .output/server/index.mjs` without it allows crawlers. A staging server that runs a production build needs
+  `disallow` (`KESTREL_ROBOTS_POLICY=disallow`). A `robots.txt` of your own, served from `public/` or by the web
+  server, competes with the exported one, and the first start overwrites a `robots.txt` or `sitemap.xml` it finds
+  under the prefix: set `robots: false` (and `sitemap: false` for a sitemap of your own) before that start to
+  keep yours. Once overwritten, `robots: false` leaves the exported `<prefix>robots.txt` in place; delete it by
+  hand.
 - Every site page sets `<link rel="canonical">` and `og:url` (with a site URL) and `og:site_name`, each with
   `tagPriority: "high"`. They replace tags of the same key from `app.vue`, a layout, a block or `app.head`, such
   as a canonical link of your own. To keep yours, give it the critical priority:
