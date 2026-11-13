@@ -69,6 +69,14 @@ test("the crop editor opened from the media viewer saves a focus and a manual cr
   await page.keyboard.press("+");
   await page.keyboard.press("Shift+ArrowLeft");
   await expect(detail.locator('[data-test="crop-state"]')).toHaveText("Manuell");
+  const zoom = detail.getByRole("spinbutton", { name: "Zoom", exact: true });
+  await zoom.focus();
+  await page.keyboard.press("ControlOrMeta+a");
+  await zoom.pressSequentially("200");
+  await expect(zoom).toHaveValue("200");
+  await zoom.press("Tab");
+  await expect(zoom).toHaveValue("200");
+  await expect(detail.getByRole("slider", { name: "Zoom" })).toHaveAttribute("aria-valuetext", "200 %");
   await expect(detail.getByRole("button", { name: "Auf automatisch zurücksetzen" })).toBeEnabled();
   expect(await violations(page)).toEqual([]);
 
