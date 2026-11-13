@@ -15,6 +15,7 @@ import { consumerRules } from "./consumerRules";
 import { DEPENDENTS_PROBLEM_CODES, dependentsRules } from "./dependentsRules";
 import { ratelimitBucketsRule } from "./ratelimitBucketsRule";
 import { deviceKeyRule } from "./deviceKeyRule";
+import { mediaFocusGrantRule } from "./mediaFocusGrantRule";
 import { hostBinaryRule } from "./hostBinaryRule";
 import { droppedEmitRewrite, overrideEmitRule } from "./overrideEmit";
 import { isPathStep, overridePathStepsRule, pageLikeMountRule, parentOfferRule, slugUrlRule } from "./pathRules";
@@ -757,6 +758,7 @@ export const layerRules: readonly Rule[] = [
   schemasCollectionsUiRule,
   publicOverrideFieldStepRule,
   fieldGrantsRule,
+  mediaFocusGrantRule,
   ...dependentsRules,
   ratelimitBucketsRule,
   deviceKeyRule,
