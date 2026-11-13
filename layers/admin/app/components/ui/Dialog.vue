@@ -3,7 +3,11 @@ import { DialogRoot, DialogPortal, DialogOverlay, DialogContent, DialogTitle, Di
 import UiIcon from './Icon.vue'
 
 const props = defineProps<{ open: boolean; title: string; description?: string; size?: 'md' | 'lg' | 'xl' | 'screen'; nested?: boolean }>()
-const emit = defineEmits<{ 'update:open': [boolean] }>()
+const emit = defineEmits<{
+  'update:open': [boolean]
+  'openAutoFocus': [Event]
+  'escapeKeyDown': [KeyboardEvent]
+}>()
 const { t } = useT()
 const { target: portalTarget } = useAdminPortal()
 
@@ -25,6 +29,8 @@ function onKeydown(e: KeyboardEvent) {
         :class="[`ui-dialog__content--${size ?? 'md'}`, { 'ui-dialog__content--nested': nested }]"
         v-bind="description ? {} : { 'aria-describedby': undefined }"
         @keydown="onKeydown"
+        @open-auto-focus="emit('openAutoFocus', $event)"
+        @escape-key-down="emit('escapeKeyDown', $event)"
       >
         <header class="ui-dialog__header">
           <DialogTitle class="ui-dialog__title">{{ title }}</DialogTitle>
