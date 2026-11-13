@@ -7,7 +7,7 @@
 - Images can carry a focus and a manual crop per aspect ratio (kestrel's images-default "Focus and crop"). With
   `images`, the preset composes `setMediaFraming` behind `PUT /media/:id/framing` (`media.write`): it stores the
   framing, renders the `cover` variants whose cut changed within the request and answers the item like
-  `getMedia`, with or without `eventsQueue`. The admin schema lists it as a capability. The preset refuses an
+  `getMedia`, ending with the same `authz.fields:media?shape=item` cut, with or without `eventsQueue`. The admin schema lists it as a capability. The preset refuses an
   override that drops `images.generate` after `images.setFraming`, and one that emits `images.planned` from any
   pipeline but `planImageVariants`.
 - With `images`, the derived anonymous `media` grant carries `focus`, and `toPublicMedia()` keeps it (`null`

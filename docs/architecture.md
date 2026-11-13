@@ -531,6 +531,7 @@ today, so that granting `<name>.read` later needs nothing else:
 | `listPages` | `authz.fields:pages?shape=list` |
 | `getSettings` | `authz.fields:settings?shape=item` |
 | `getMedia` / `listMedia` | `authz.fields:media?shape=item` / `?shape=list` |
+| `setMediaFraming` (signed in, `media.write`; it answers the item like `getMedia`) | `authz.fields:media?shape=item` |
 | `downloadMedia`, `serveMediaFile`, `serveImageVariant` | `authz.fields:mediaFile?shape=file` |
 | `renderRedirects` | `authz.fields:redirectRules?shape=array` |
 | `getRedirects` | `authz.fields:redirects?shape=item` |

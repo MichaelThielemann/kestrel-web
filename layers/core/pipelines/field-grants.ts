@@ -43,12 +43,13 @@ const FIXED_CUTS: Readonly<Record<string, PresetStep>> = {
   downloadMedia: cut("mediaFile", "file"),
   serveMediaFile: cut("mediaFile", "file"),
   serveImageVariant: cut("mediaFile", "file"),
+  setMediaFraming: cut("media", "item"),
 };
 
 /**
  * The `authz.fields` step that ends each read of the preset an anonymous caller can reach, by pipeline name:
  * the page resolution, settings, redirects, the media reads and file routes, and every collection's public
- * list, read and get. The resource of a collection's reads is the collection's name.
+ * list, read and get; the media framing write, which answers the item like `getMedia`, ends with the same cut. The resource of a collection's reads is the collection's name.
  */
 export function fieldCutSteps(collections: Record<string, CollectionModel>): Record<string, PresetStep> {
   const steps: Record<string, PresetStep> = { ...FIXED_CUTS };
@@ -78,7 +79,7 @@ export interface PipelineChanges {
   overrides?: Partial<Record<string, readonly PipelineEntry<string>[]>>;
 }
 
-const FEATURE_READS: Readonly<Record<string, Feature>> = { serveImageVariant: "images", getRedirects: "redirects", renderRedirects: "redirects" };
+const FEATURE_READS: Readonly<Record<string, Feature>> = { serveImageVariant: "images", setMediaFraming: "images", getRedirects: "redirects", renderRedirects: "redirects" };
 
 /**
  * The resources the preset's public reads end with a cut for once `changes` apply: a read that is excluded

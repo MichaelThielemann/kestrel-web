@@ -1192,7 +1192,7 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission media.write → Replace the framing of one media item (params.id): a focus rectangle and manual crops keyed by reduced ratio, normalised to 0..1 on the oriented original; an empty one removes it. Re-plans the item, so each cover size whose crop changes renders again at its path while the old variant keeps being served; raises images.variantsChanged when the focus changes → Generate variants for one media item (id from params.id or payload.id), or for each id in payload.ids (unknown ids are skipped) → Media metadata → Add available, variants[], variantCounts, focus and framing to a media item or list (result.id or result.items); a variant whose path has no object yet is never listed, a hidden item lists no variants and is not available, and framing.ratios has one entry per ratio of the cover sizes */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission media.write → Replace the framing of one media item (params.id): a focus rectangle and manual crops keyed by reduced ratio, normalised to 0..1 on the oriented original; an empty one removes it. Re-plans the item, so each cover size whose crop changes renders again at its path while the old variant keeps being served; raises images.variantsChanged when the focus changes → Generate variants for one media item (id from params.id or payload.id), or for each id in payload.ids (unknown ids are skipped) → Media metadata → Add available, variants[], variantCounts, focus and framing to a media item or list (result.id or result.items); a variant whose path has no object yet is never listed, a hidden item lists no variants and is not available, and framing.ratios has one entry per ratio of the cover sizes → Keep only the media fields the caller may see: anonymousFields.media without an identity or a configured role; otherwise everything when one of its roles has no field grant for media, else the union of its roles' grants and the anonymous one */
         put: operations["setMediaFraming"];
         post?: never;
         delete?: never;
@@ -2294,6 +2294,120 @@ export interface components {
                 type: string;
             };
         };
+        setMediaFraming: {
+            alt: string | null;
+            available: boolean;
+            contentType: string;
+            createdAt: number;
+            description: string | null;
+            filename: string;
+            focus: {
+                h: number;
+                w: number;
+                x: number;
+                y: number;
+            } | null;
+            folder: string;
+            framing: {
+                /** @description manual crops keyed by reduced ratio, e.g. "16:9" */
+                crops: {
+                    [key: string]: {
+                        h: number;
+                        w: number;
+                        x: number;
+                        y: number;
+                    };
+                };
+                focus: {
+                    h: number;
+                    w: number;
+                    x: number;
+                    y: number;
+                } | null;
+                /** @description height of the original after its EXIF orientation */
+                height: number | null;
+                ratios: {
+                    crop: {
+                        height: number;
+                        left: number;
+                        top: number;
+                        width: number;
+                    } | null;
+                    fits: boolean;
+                    key: string;
+                    manual: boolean;
+                    sizes: string[];
+                }[];
+                /** @description width of the original after its EXIF orientation, which the rectangles and pixel crops refer to */
+                width: number | null;
+            };
+            height: number | null;
+            id: string;
+            /** @description the file's one public URL, <publicPath>/<id>/<name>; the name is fixed at upload, so renaming or moving the item never changes it */
+            path: string;
+            /** @description who made the file; anything but human is flagged on download (X-Content-Provenance); an upload without provenance is recorded as unknown */
+            provenance: {
+                at?: number;
+                model?: string;
+                /** @enum {string} */
+                origin: "human" | "ai" | "mixed" | "unknown";
+                tool?: string;
+            };
+            size: number;
+            title: string | null;
+            updatedAt: number;
+            variantCounts: {
+                done: number;
+                error: number;
+                failed: number;
+                pending: number;
+            };
+            variants: {
+                bytes: number;
+                format: string;
+                height: number;
+                path: string;
+                size: string;
+                /** @enum {string} */
+                state: "pending" | "done" | "error" | "failed";
+                width: number;
+            }[];
+            width: number | null;
+        };
+        "setMediaFraming.anonymous": {
+            alt: string | null;
+            contentType: string;
+            description: string | null;
+            filename: string;
+            focus: {
+                h: number;
+                w: number;
+                x: number;
+                y: number;
+            } | null;
+            height: number | null;
+            id: string;
+            /** @description the file's one public URL, <publicPath>/<id>/<name>; the name is fixed at upload, so renaming or moving the item never changes it */
+            path: string;
+            /** @description who made the file; anything but human is flagged on download (X-Content-Provenance); an upload without provenance is recorded as unknown */
+            provenance: {
+                at?: number;
+                model?: string;
+                /** @enum {string} */
+                origin: "human" | "ai" | "mixed" | "unknown";
+                tool?: string;
+            };
+            size: number;
+            title: string | null;
+            variants: {
+                format: string;
+                height: number;
+                path: string;
+                size: string;
+                width: number;
+            }[];
+            width: number | null;
+        };
     };
     responses: never;
     parameters: never;
@@ -2324,6 +2438,8 @@ export type SchemaResolveBlog = components['schemas']['resolveBlog'];
 export type SchemaResolveBlogAnonymous = components['schemas']['resolveBlog.anonymous'];
 export type SchemaResolvePage = components['schemas']['resolvePage'];
 export type SchemaResolvePageAnonymous = components['schemas']['resolvePage.anonymous'];
+export type SchemaSetMediaFraming = components['schemas']['setMediaFraming'];
+export type SchemaSetMediaFramingAnonymous = components['schemas']['setMediaFraming.anonymous'];
 export type $defs = Record<string, never>;
 export interface operations {
     listAllBlog: {
@@ -9443,92 +9559,13 @@ export interface operations {
             };
         };
         responses: {
-            /** @description ok */
+            /** @description ok; x-kestrel-answers names the answer each audience receives */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        alt: string | null;
-                        available: boolean;
-                        contentType: string;
-                        createdAt: number;
-                        description: string | null;
-                        filename: string;
-                        focus: {
-                            h: number;
-                            w: number;
-                            x: number;
-                            y: number;
-                        } | null;
-                        folder: string;
-                        framing: {
-                            /** @description manual crops keyed by reduced ratio, e.g. "16:9" */
-                            crops: {
-                                [key: string]: {
-                                    h: number;
-                                    w: number;
-                                    x: number;
-                                    y: number;
-                                };
-                            };
-                            focus: {
-                                h: number;
-                                w: number;
-                                x: number;
-                                y: number;
-                            } | null;
-                            /** @description height of the original after its EXIF orientation */
-                            height: number | null;
-                            ratios: {
-                                crop: {
-                                    height: number;
-                                    left: number;
-                                    top: number;
-                                    width: number;
-                                } | null;
-                                fits: boolean;
-                                key: string;
-                                manual: boolean;
-                                sizes: string[];
-                            }[];
-                            /** @description width of the original after its EXIF orientation, which the rectangles and pixel crops refer to */
-                            width: number | null;
-                        };
-                        height: number | null;
-                        id: string;
-                        /** @description the file's one public URL, <publicPath>/<id>/<name>; the name is fixed at upload, so renaming or moving the item never changes it */
-                        path: string;
-                        /** @description who made the file; anything but human is flagged on download (X-Content-Provenance); an upload without provenance is recorded as unknown */
-                        provenance: {
-                            at?: number;
-                            model?: string;
-                            /** @enum {string} */
-                            origin: "human" | "ai" | "mixed" | "unknown";
-                            tool?: string;
-                        };
-                        size: number;
-                        title: string | null;
-                        updatedAt: number;
-                        variantCounts: {
-                            done: number;
-                            error: number;
-                            failed: number;
-                            pending: number;
-                        };
-                        variants: {
-                            bytes: number;
-                            format: string;
-                            height: number;
-                            path: string;
-                            size: string;
-                            /** @enum {string} */
-                            state: "pending" | "done" | "error" | "failed";
-                            width: number;
-                        }[];
-                        width: number | null;
-                    };
+                    "application/json": components["schemas"]["setMediaFraming"] | components["schemas"]["setMediaFraming.anonymous"];
                 };
             };
             /** @description unknown locale */
@@ -9549,7 +9586,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description missing permission media.write */
+            /** @description no field grant on media for a caller without an identity or a configured role */
             403: {
                 headers: {
                     [name: string]: unknown;

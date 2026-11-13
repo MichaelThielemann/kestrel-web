@@ -880,7 +880,8 @@ usable file by file without waiting for the renders behind it. Every media modul
 public URL directly: base pipeline `serveMediaFile` (`/media/:id/:name`) alongside `serveImageVariant`.
 `setMediaFraming` (`PUT /media/:id/framing`, `media.write`) stores an image's focus and its manual crops
 (`images.setFraming`), renders the `cover` variants whose cut changed within the request
-(`images.generate`) and answers the item like `getMedia`, with or without `eventsQueue`. It raises no
+(`images.generate`) and answers the item like `getMedia`, cut to the caller's field grant by the same
+`authz.fields:media?shape=item`, with or without `eventsQueue`. It raises no
 `images.planned`, which `planImageVariants` alone emits; an override must keep `images.generate` after
 `images.setFraming`, or the re-cut variants wait for the `resumeImages` cron.
 

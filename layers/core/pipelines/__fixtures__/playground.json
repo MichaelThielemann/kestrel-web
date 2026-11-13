@@ -848,7 +848,8 @@
       "images.setFraming",
       "images.generate",
       "media.get",
-      "images.attach"
+      "images.attach",
+      "authz.fields:media?shape=item"
     ],
     "setPassword": [
       "authn.requireUser",

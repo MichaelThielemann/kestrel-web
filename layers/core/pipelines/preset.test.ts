@@ -118,9 +118,9 @@ describe("definePreset image-variant queue guards", () => {
 describe("definePreset media framing", () => {
   const directModules = [...baseModules, { use: "@michaelthielemann/kestrel-images-default" }];
   const queuedModules = [...withQueueInsteadOfDirect(baseModules, VARIANT_LANES), { use: "@michaelthielemann/kestrel-images-default" }];
-  const framingSteps = ["authn.requireUser", "authz.requireRole", "authz.require:media.write", "images.setFraming", "images.generate", "media.get", "images.attach"];
+  const framingSteps = ["authn.requireUser", "authz.requireRole", "authz.require:media.write", "images.setFraming", "images.generate", "media.get", "images.attach", "authz.fields:media?shape=item"];
 
-  it("stores the framing, renders the re-cut variants in the request and answers the item with its variants, in direct delivery", () => {
+  it("stores the framing, renders the re-cut variants in the request and answers the item with its variants cut like getMedia, in direct delivery", () => {
     const preset = definePreset({ modules: directModules, features: ["images"] });
     expect(preset.pipelines.find((pipeline) => pipeline.name === "setMediaFraming")?.steps).toEqual(framingSteps);
     expect(preset.triggers).toContainEqual({ http: "PUT /media/:id/framing", pipeline: "setMediaFraming" });

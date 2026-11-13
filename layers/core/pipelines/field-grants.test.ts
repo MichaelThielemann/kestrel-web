@@ -53,6 +53,7 @@ const PUBLIC_READS_WITH_IMAGES: Record<string, string> = {
   downloadMedia: "authz.fields:mediaFile?shape=file",
   serveMediaFile: "authz.fields:mediaFile?shape=file",
   serveImageVariant: "authz.fields:mediaFile?shape=file",
+  setMediaFraming: "authz.fields:media?shape=item",
   renderRedirects: "authz.fields:redirectRules?shape=array",
   getRedirects: "authz.fields:redirects?shape=item",
 };
@@ -70,7 +71,7 @@ function cutSteps(preset: ReturnType<typeof definePreset>): Record<string, strin
 }
 
 describe("the preset's field cut on public reads", () => {
-  it("ends exactly the public reads of the playground composition with authz.fields, and nothing else", () => {
+  it("ends exactly the public reads and the media framing write of the playground composition with authz.fields, and nothing else", () => {
     const preset = definePreset({ modules: allModules, features: allFeatures, collections: contentTypes, fieldTypes, exportDir: EXPORT_DIR });
     expect(cutSteps(preset)).toEqual(PUBLIC_READS_WITH_IMAGES);
   });
@@ -96,11 +97,11 @@ describe("the preset's field cut on public reads", () => {
     ]);
   });
 
-  it("leaves serveImageVariant, renderRedirects and getRedirects out without their features", () => {
+  it("leaves serveImageVariant, setMediaFraming, renderRedirects and getRedirects out without their features", () => {
     const modules = allModules.filter((entry) => entry.use !== "@michaelthielemann/kestrel-images-default" && entry.use !== "@michaelthielemann/kestrel-redirects-default");
     const features = allFeatures.filter((feature) => feature !== "images" && feature !== "redirects");
     const preset = definePreset({ modules, features, collections: contentTypes, fieldTypes, exportDir: EXPORT_DIR });
-    const { serveImageVariant: _variant, renderRedirects: _rules, getRedirects: _redirects, ...expected } = PUBLIC_READS_WITH_IMAGES;
+    const { serveImageVariant: _variant, setMediaFraming: _framing, renderRedirects: _rules, getRedirects: _redirects, ...expected } = PUBLIC_READS_WITH_IMAGES;
     expect(cutSteps(preset)).toEqual(expected);
   });
 
