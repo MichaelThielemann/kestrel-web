@@ -4,6 +4,26 @@
 
 ### Added
 
+- Static delivery keeps `sitemap.xml`, `robots.txt`, `llms.txt` and `llms-full.txt` current. Every pipeline that
+  changes what they list asks for an export instead of writing it in the request: `publishPage`,
+  `unpublishPage` and the publish pipelines of every mounted collection, `settingsDependents`, `publishAllPages`
+  and each `publishAll<Name>`, `retryStalePages`, `deliveryBuildCheck` (so every start exports them once) and,
+  with `migrations`, `rebuildPathsAfterMigrations`, which also marks every delivered page for a re-render. With
+  `eventsQueue`, `refreshIndexes` (`delivery.exportIndexes` on `delivery.indexesStale`) runs in a lane of its own,
+  `indexes`, and `refreshLlms` runs `delivery.exportLlmsFull`; the queue holds them back 1000 ms and 3000 ms
+  (`delaysFor(features)`), so one export follows a burst of saves and llms-full.txt trails the re-renders it
+  reads. Without the queue, delivery-static's loop exports the index files one second after the first request
+  (`dependencies.indexesDelayMs: 1000`). Neither delay can be changed through `presetModuleConfig()`.
+- `presetModuleConfig()` takes `siteUrl` (default `NUXT_PUBLIC_SITE_URL`), normalised the way
+  `@michaelthielemann/kestrel-delivery-static/site-url` does it and passed to delivery-static at the top level,
+  plus `sitemap` and `robots` (`{ policy?: "allow" | "disallow", extra?: string[] }` or `false`). With
+  `delivery` and no site URL it warns once.
+- `deliveryBuildCheck` runs the `checkRestored` step of replication-sqlite (or else backup-blobstore) when that
+  module restores persistence-sqlite's database file, directly before `delivery.checkBuild`, so a restored
+  database re-renders every page even with an unchanged build.
+- The server passes `<buildId>|<siteUrl>` to `deliveryBuildCheck`, so a changed site URL re-renders every page
+  and its absolute URLs.
+
 - Media library and picker: visible multi-selection. Every grid tile has a checkbox beside it and the table a
   checkbox column with a header checkbox for the page; while anything is selected, a selection bar takes the
   toolbar's place with the count, "Select all n on this page", "Move to trash" ("Delete" without the trash;
@@ -148,6 +168,15 @@
   `@michaelthielemann/kestrel-mfa-totp` and `uqr` (pinned to 0.1.3).
 
 ### Upgrading
+
+- `llms.siteUrl` of `presetModuleConfig()` moved to the top-level `siteUrl` option; the old key fails with a
+  message naming the new one. A hand-written `kestrel-events-queue` entry needs `indexes: ["refreshIndexes"]` in
+  its `lanes` (the preset refuses it otherwise, `preset/index-exports-lane`) and gets
+  `delayMs: { refreshIndexes: 1000, refreshLlms: 3000 }`; `kestrel upgrade fix --write` adds both
+  (`preset/queue-lanes`). `delayMs` naming a preset pipeline that is not composed is refused
+  (`preset/delay-pipeline-unknown`). `delivery.exportLlms` is not a step any more: an override of `setSettings`
+  that keeps its emit loses it (`preset/settings-llms`), and an override or own pipeline whose event reaches
+  `publishPage` drops it with the inline publish (`preset/override-delivery`, `preset/own-pipeline-delivery`).
 
 - With `presetModuleConfig()` the media trash is on (`media.trashRetentionDays` defaults to 30). A delete in the
   admin then no longer calls `DELETE /api/media/:id` or `DELETE /api/media/folders/*path`: it runs `trashMedia`
