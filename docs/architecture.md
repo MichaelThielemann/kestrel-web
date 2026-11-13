@@ -1849,15 +1849,21 @@ present), `only` (restrict the `srcset` candidates to specific size names), `alt
   would let the browser pick it purely for viewport size or pixel density and render it into a box built
   for a different ratio — a visibly wrong crop, e.g. a content image picking up both `avatar` (96×96,
   square) and `teaser` (480×320, 3:2) in one `srcset`. Consequence for a consumer declaring its own
-  sizes: a `cover` size forms its own `srcset` family and is never mixed with `inside` sizes, even when
-  both are named through `only`.
-- **A `srcset` never mixes cuts.** `KestrelImage` passes the declared sizes (`#kestrel/image-sizes`) to
-  `pickImageSources`. A focus or a manual crop makes a `cover` variant a different picture from the
-  `inside` variants of its ratio, so the ratio alone no longer tells them apart: for a declared `cover` size
-  the candidates are the variants of the declared `cover` sizes with the same exact ratio key (they share
-  one cut), and for any other size the variants of the declared `cover` sizes are left out. On a width tie
-  the named variant stays. A size kestrel renders that no build declares (one set only in images-default's
-  own `sizes` config) is grouped by ratio alone, so declare every `cover` size the site renders.
+  sizes: a `cover` size of another ratio than the original forms its own `srcset` family and is never mixed
+  with `inside` sizes, even when both are named through `only`.
+- **A `srcset` never mixes pictures.** A focus or a manual crop makes a `cover` variant a different picture from
+  the `inside` variants of its ratio, so the ratio alone does not tell them apart. Every variant carries `crop`,
+  the pixel rectangle of the oriented original its bytes show (`null` for the whole image or the centred cut of
+  its ratio), and two variants of one ratio with an equal `crop` show the same picture. The candidates are the
+  variants of the reference ratio whose `crop` equals the named variant's, or `null` when the original is the
+  reference. An uncut `cover` variant of the original's ratio therefore shares the `srcset` of the `inside`
+  widths, and a variant cut by hand or around a focus gets a `srcset` of its own, shared with the `cover` sizes
+  of the same ratio and cut. On a width tie the named variant stays. A variant without a `crop` member is never
+  combined with one that has it. When the variants carry no `crop` (an anonymous grant without
+  `variants[].crop`), `KestrelImage` passes the declared sizes (`#kestrel/image-sizes`) and the candidates of a
+  declared `cover` size are the variants of the declared `cover` sizes with the same exact ratio key, while any
+  other size leaves the declared `cover` sizes out; a size kestrel renders that no build declares is grouped by
+  ratio alone in that case.
 - **`width`/`height` come from the named variant's planned dimensions**, decided from the original at
   plan time and identical to what the eventual render produces — never the original's own dimensions
   while a variant is still pending, so `<img width height>` and the `cover`/`inside` box are correct from
@@ -1867,7 +1873,7 @@ present), `only` (restrict the `srcset` candidates to specific size names), `alt
   is the original at its native aspect.
 - **A variant path may end in `?v=<token>`**, which kestrel adds once a later render replaced bytes the
   path already had (a new crop, a changed size). The query is opaque: `pickImageSources` passes the path
-  through as it is, in `src` and in `srcset`, and the ratio grouping reads only `width`/`height`. A check
+  through as it is, in `src` and in `srcset`, and the grouping reads only `width`, `height` and `crop`. A check
   that compares an exported URL with a file strips the query first.
 - **`object-position` follows the focus.** With a `focus` on the item, `KestrelImage` adds
   `object-position: <x + w/2> <y + h/2>` (percent of the image, `focusObjectPosition`) on the original when no

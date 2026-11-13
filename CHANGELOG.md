@@ -10,17 +10,23 @@
   `getMedia`, ending with the same `authz.fields:media?shape=item` cut, with or without `eventsQueue`. The admin schema lists it as a capability. The preset refuses an
   override that drops `images.generate` after `images.setFraming`, and one that emits `images.planned` from any
   pipeline but `planImageVariants`.
-- With `images`, the derived anonymous `media` grant carries `focus`, and `toPublicMedia()` keeps it (`null`
-  for an answer without one). `MediaItem` gains `focus` and `framing`; `MediaRect`, `MediaFraming` and
-  `MediaFramingRatio` are exported from the API types. `kestrel upgrade check` reports a narrowed
-  `roles.anonymousFields.media` that keeps the variants but not `focus` (`preset/media-focus-grant`).
+- With `images`, the derived anonymous `media` grant carries `focus` and `variants[].crop`, and `toPublicMedia()`
+  keeps both (`focus` is `null` for an answer without one; `crop` is left out of a variant whose answer has
+  none). `MediaItem` gains `focus` and `framing`, and `MediaVariant` gains `crop`, the part of the oriented
+  original its bytes show, or `null` for the whole image or the centred cut of its ratio; in
+  `PublicMediaVariant` it is optional. `MediaRect`, `MediaFraming` and `MediaFramingRatio` are exported from the
+  API types. `kestrel upgrade check` reports a narrowed `roles.anonymousFields.media` that keeps the variants but
+  not `focus` or not `variants[].crop` (`preset/media-focus-grant`).
 - `KestrelImage` sets `object-position` from the centre of the item's `focus` on the original and on a variant
   of every size, so the original that stands in for a variant while it renders keeps the focus in view;
   `focusObjectPosition()` answers that value. `pickImageSources` passes a variant path with its `?v=` query
-  through unchanged, in `src` and `srcset`, and takes the declared sizes as a fourth argument: a declared `cover`
-  size's `srcset` lists only the `cover` variants of its exact ratio key, any other size's `srcset` leaves
-  declared `cover` variants out, and a width tie keeps the named variant (`cut` in its answer says whether `src`
-  links a `cover` variant).
+  through unchanged, in `src` and `srcset`, and builds a `srcset` from the variants of the reference ratio that
+  show the same crop as the named variant (the whole image for the original): a `cover` variant that is not cut
+  by hand or around a focus keeps the `inside` widths of its ratio, and one cut differently gets a `srcset` of
+  its own. It takes the declared sizes as a fourth argument, which it groups by when the variants carry no
+  `crop` (a hand-written anonymous grant without it): a declared `cover` size's `srcset` then lists only the
+  `cover` variants of its exact ratio key and any other size's leaves declared `cover` variants out. A width
+  tie keeps the named variant (`cut` in its answer says whether `src` links a declared `cover` size).
   `KestrelImage` passes `#kestrel/image-sizes`. `KestrelImage` and `pickImageSources` take an item without
   `focus` (`ImageMedia`).
 - Admin kit: `KestrelUiSlider` (a labelled range input), `KestrelUiRectSelect` (draw, move and resize a
@@ -237,13 +243,9 @@
 
 ### Upgrading
 
-- `KestrelImage` with a declared `cover` size no longer adds the `inside` variants of the same ratio to its
-  `srcset`, since a manual crop cuts the `cover` variant differently from them and the page cannot tell. A
-  `cover` size declared at one width therefore gets a `srcset` of that width alone and is scaled up in a wider
-  box or on a high-density screen. Declare a `cover` size per width you want offered, all with the same ratio
-  (`hero-800`, `hero-1600`, `hero-2400` at 16:9); they share one crop and one `srcset`.
-- With `images`, `MediaItem` has the members `focus` and `framing` and `PublicMediaItem` has `focus`, both
-  required: a literal of either type (a test mock, a fixture) needs them to pass `nuxt typecheck`.
+- With `images`, `MediaItem` has the members `focus` and `framing`, each `MediaVariant` has `crop`, and
+  `PublicMediaItem` has `focus`, all required: a literal of these types (a test mock, a fixture) needs them to
+  pass `nuxt typecheck`.
   `KestrelImage`'s `media` prop and `pickImageSources` accept an item without `focus`.
 - `llms.siteUrl` of `presetModuleConfig()` is gone: set `NUXT_PUBLIC_SITE_URL` to its value wherever the server
   runs. The old key fails with a message naming the variable; `kestrel upgrade fix --write` removes it
