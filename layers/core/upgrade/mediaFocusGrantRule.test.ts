@@ -40,11 +40,36 @@ describe("preset/media-focus-grant", () => {
     expect(await mediaFocusGrantRule.check(contextFor({ grants: { media: ["id", "variants"] } }))).toHaveLength(1);
   });
 
-  it("says nothing once the grant names the focus", async () => {
-    expect(await mediaFocusGrantRule.check(contextFor({ grants: { media: ["id", "path", "focus", "variants[].path"] } }))).toEqual([]);
+  it("asks for the focus alone when the grant keeps the whole variants member, which carries the crop", async () => {
+    const [finding] = await mediaFocusGrantRule.check(contextFor({ grants: { media: ["id", "variants"] } }));
+    expect(finding?.suggestion).toBe('add "focus" to roles.anonymousFields.media');
+    expect(finding?.message).not.toContain("variants[].crop");
   });
 
-  it("says nothing for derived grants, which carry the focus with the images feature", async () => {
+  it("warns when a media grant of its own keeps variant fields and the focus but not the crop each variant shows", async () => {
+    const findings = await mediaFocusGrantRule.check(contextFor({ grants: { media: ["id", "path", "focus", "variants[].path", "variants[].width", "variants[].height"] } }));
+    expect(findings).toHaveLength(1);
+    expect(findings[0]).toMatchObject({ rule: "preset/media-focus-grant", severity: "warning", fix: { kind: "manual" }, where: { module: AUTHZ, file: FILE } });
+    expect(findings[0]?.message).toContain("variants[].crop");
+    expect(findings[0]?.message).toContain("srcset");
+    expect(findings[0]?.message).not.toContain("object-position");
+    expect(findings[0]?.suggestion).toBe('add "variants[].crop" to roles.anonymousFields.media');
+  });
+
+  it("names the focus and the crop in one finding when the grant keeps variant fields without either", async () => {
+    const findings = await mediaFocusGrantRule.check(contextFor({ grants: { media: ["id", "variants[].path", "variants[].width"] } }));
+    expect(findings).toHaveLength(1);
+    expect(findings[0]?.message).toContain("object-position");
+    expect(findings[0]?.message).toContain("variants[].crop");
+    expect(findings[0]?.suggestion).toBe('add "focus" and "variants[].crop" to roles.anonymousFields.media');
+  });
+
+  it("says nothing once the grant names the focus and the crop", async () => {
+    expect(await mediaFocusGrantRule.check(contextFor({ grants: { media: ["id", "path", "focus", "variants[].path", "variants[].crop"] } }))).toEqual([]);
+    expect(await mediaFocusGrantRule.check(contextFor({ grants: { media: ["id", "path", "focus", "variants"] } }))).toEqual([]);
+  });
+
+  it("says nothing for derived grants, which carry the focus and the crop with the images feature", async () => {
     expect(await mediaFocusGrantRule.check(contextFor({}))).toEqual([]);
   });
 
