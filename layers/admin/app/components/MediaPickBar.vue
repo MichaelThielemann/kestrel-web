@@ -8,7 +8,7 @@ const { t } = useT()
   <div class="media-pick-bar">
     <KestrelUiAlert v-if="refusal" variant="warning">{{ refusal }}</KestrelUiAlert>
     <div class="media-pick-bar__actions">
-      <span>{{ count }} {{ t('media.selected') }}</span>
+      <span>{{ count === 1 ? t('media.pick.count') : t('media.pick.countPlural', { n: count }) }}</span>
       <KestrelUiButton variant="primary" :disabled="!count || blocked" :loading="confirming" @click="emit('confirm')">{{ t('media.useSelected') }}</KestrelUiButton>
       <KestrelUiButton variant="ghost" @click="emit('cancel')">{{ t('common.cancel') }}</KestrelUiButton>
     </div>
