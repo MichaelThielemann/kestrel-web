@@ -587,16 +587,21 @@
   included, and never for a skipped one.
 - The media library's upload list is replaced. `MediaUploadQueue` is removed; `MediaUploadPanel` and
   `MediaUploadRow` take its place. `MediaToolbar` has no `status` prop, since the panel is the only live
-  region for uploads. `useMediaLibraryUploads()` takes `root`, the library element, instead of `onError`,
-  and returns `followUp`, the image-variant line, in place of `status`. Neither it nor `useUploadTiles()`
-  returns `queueRows`, and `uploadStatusLine` and `UploadStatusInputs` are removed from `useMediaUpload`.
-  An app that overrides one of these components or reads one of these fields moves to the panel.
+  region for uploads, and gains `quietCount`, which turns off the live region of its file count.
+  `useMediaLibraryUploads()` takes `root`, the library element, and `listedIds`, the ids of the listed
+  files, instead of `onError`, and returns `followUp`, the image-variant line, in place of `status`.
+  Neither it nor `useUploadTiles()` returns `queueRows`; `useUploadTiles()` takes `listedIds` too.
+  `uploadStatusLine` and `UploadStatusInputs` are removed from `useMediaUpload`. An app that overrides one
+  of these components or reads one of these fields moves to the panel.
 - The admin translation keys `media.uploading`, `media.uploadUploaded`, `media.uploadFailed`,
-  `media.uploadSkipped`, `media.uploadError`, `media.tile.announceUploaded`, `media.upload.desc` and
-  `upload.tooLarge` are removed, so an override of one of them is reported as an unknown key. The upload
-  dialog's description uses `media.upload.descOne`, `media.upload.descCount`, `media.upload.skippedOne`
-  and `media.upload.skippedCount`. `media.upload.dismiss` reads "Dismiss {name}", since it also dismisses
-  a cancelled or skipped file.
+  `media.uploadSkipped`, `media.uploadError`, `media.tile.announceUploaded`, `media.tile.announceReady`,
+  `media.tile.announceFailed`, `media.upload.desc` and `upload.tooLarge` are removed, so an override of
+  one of them is reported as an unknown key. The upload dialog's description uses `media.upload.descOne`,
+  `media.upload.descCount`, `media.upload.skippedOne` and `media.upload.skippedCount`, and finished image
+  variants are announced with `media.upload.variantsReady` and `media.upload.variantsFailed`.
+  `media.uploadTooLarge` and `media.uploadUnsupported` receive only the file size or the content type as
+  `{detail}`, and `media.upload.dismiss` reads "Dismiss {name}", since it also dismisses a cancelled or
+  skipped file.
 
 ### Added
 
@@ -844,15 +849,18 @@
   good. Every request settles once, as done, failed or cancelled. A request without an answer fails as a
   timeout after two minutes plus the time to send the file at 32 KiB/s. A callback that throws no longer
   ends the run, and files added during a run join it. An expired session stops the run: that file and the
-  ones still waiting show "Session expired — sign in again in another tab, then retry", and the panel
-  links to the sign-in page in a new tab. Until the next upload succeeds, the library neither refreshes
+  ones still waiting say "Session expired", and the panel asks once to sign in again in another tab, with
+  a link that opens the sign-in page there. Until the next upload succeeds, the library neither refreshes
   nor polls image variants, so no request sends the page to the sign-in form and the files stay to be
-  retried. A failure without an error answer from kestrel names its cause (no connection, timeout, server
-  unavailable, refused as too large) together with the HTTP status. A 2xx answer that is not a JSON
-  object, or that arrived through a redirect to another address such as a proxy's sign-in page, fails
-  instead of counting as uploaded. Closing the media picker aborts the running upload and drops the
-  waiting ones. No toast is raised per failed file. After a retry from a grid tile, keyboard focus moves
-  to the uploaded file once the library lists it.
+  retried. A refused file names the reason in the admin's language with only the useful detail, such as
+  "File type not allowed (application/octet-stream)" or "Too large (6.0 MB, limit 5.0 MB)", never the
+  server's module prefix. A failure without an error answer from kestrel names its cause (no connection,
+  timeout, server unavailable, refused as too large) together with the HTTP status. A 2xx answer that is
+  not a JSON object, or that arrived through a redirect to another address such as a proxy's sign-in page,
+  fails instead of counting as uploaded. The toolbar's file count includes the files uploaded since the
+  last refresh. Closing the media picker aborts the running upload and drops the waiting ones. No toast is
+  raised per failed file. After a retry from a grid tile, keyboard focus moves to the uploaded file once
+  the library lists it.
 - The layer's `kestrel` CLI plugin and the model reader behind `kestrel upgrade data` compile TypeScript in
   memory only; they no longer keep a transpile cache under the system temp directory, where another local
   account could have placed files that the next `kestrel check`, `explain`, `manifest`, `openapi` or

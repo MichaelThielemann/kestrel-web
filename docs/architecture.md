@@ -751,11 +751,14 @@ collection, the expected filter and the fix in the message.
   - Layout. The library scrolls as a whole when the listing, kept at least `min(10rem, 25svh)` tall, and
     the panel do not fit, so on a short screen or at a high zoom neither is cut off.
   - Announcements. The panel header is the only live region for uploads. Its summary and the image-variant
-    follow-up ("Generating variants…", "Variants ready: …") are polite. An expired session adds one
-    `role="alert"` line that asks the user to sign in again in another tab and links to the sign-in page
-    with `target="_blank"`; the rows carry no live region. While no panel is shown, `MediaLibrary.vue`
-    renders the follow-up in a `role="status"` line of its own in the panel's place; the two never exist
-    at once.
+    follow-up are polite. The follow-up gathers the variant results of one second into one sentence per
+    outcome ("Variants ready: a.png, b.png, c.png and 2 more", built by `utils/variant-announcement.ts`),
+    so each file is announced once. An expired session puts one `role="alert"` line into the header that
+    asks the user to sign in again in another tab and links to the sign-in page with `target="_blank"`;
+    the rows and tiles only say "Session expired" and carry no live region. The toolbar's file count adds
+    the uploaded files the library does not list yet and turns its own live region off while the run goes
+    on. While no panel is shown, `MediaLibrary.vue` renders the follow-up in a `role="status"` line of its
+    own in the panel's place; the two never exist at once.
   - Expired session. A run stopped by a 401 does not refresh the library, and `useVariantWatch().pause()`
     stops the image-variant polls until the next file is tracked after a successful upload. A 401 on
     either request would make the reauth interceptor leave the page and drop the files that wait to be
@@ -1192,7 +1195,7 @@ listed name is never registered.
 | `data.reload:files` / `data.reload:folders` | `actions/media.ts` | A reload that only fires when its batch actually had items; `deleteItems` runs one for files, one for folders. |
 | `guard.filesDeleted` / `guard.foldersDeleted` | `actions/media.ts` | Fails `deleteItems`'s main sequence when the file batch, respectively the folder batch, reported any failure. |
 | `media.applyTargets` | `actions/media.ts` | Does the one write `renameOrMove` needs: a file rename, a folder rename, or a multi-target move. |
-| `upload.begin` / `upload.request` / `upload.settle` | `actions/media.ts` | Marks the queued item `'uploading'` (`progress` 0) and clears an earlier attempt's message and code; sends the multipart POST through the injected `useUploadTransport` transport with the caller's abort signal and a timeout from `uploadTimeoutMs()`, updating `progress` from its callback and switching to `'processing'` at 100% until the response arrives. A failure sets `'failed'`, the error code and a translated message (`media.upload.sessionExpired` for a 401, the HTTP status appended for an answer that did not come from kestrel); an abort sets `'cancelled'`. Then seeds `ctx.result` with the item. |
+| `upload.begin` / `upload.request` / `upload.settle` | `actions/media.ts` | Marks the queued item `'uploading'` (`progress` 0) and clears an earlier attempt's message and code; sends the multipart POST through the injected `useUploadTransport` transport with the caller's abort signal and a timeout from `uploadTimeoutMs()`, updating `progress` from its callback and switching to `'processing'` at 100% until the response arrives. A failure sets `'failed'`, the error code and a translated message: `media.upload.sessionExpired` for a 401, the refused content type or the file size and limit for a 415 or 413, the kestrel message without its `<module>/<name>:` prefix otherwise, and the HTTP status appended for an answer that did not come from kestrel; an abort sets `'cancelled'`. Then seeds `ctx.result` with the item. |
 | `user.validate` | `actions/system.ts` | Field validation before the request; declared separately, under the same name, in `userCreate` (username + password) and `userUpdate` (username, plus the password only when one was typed). |
 | `user.patch` / `user.active` / `user.password` | `actions/system.ts` | The three halves of `userUpdate`: `PATCH /users/{id}` with only the changed fields, `POST /users/{id}/deactivate` or `/activate`, `PUT /users/{id}/password`. Each is a no-op when its part did not change, and each maps the failure through `utils/user-errors.ts` into the inline error. |
 | `user.delete` | `actions/system.ts` | `DELETE /users/{id}`, with the same error mapping. |
