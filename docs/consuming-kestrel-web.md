@@ -2334,7 +2334,8 @@ What changes:
   - kestrel's `delivery/site-url` moves `llms.siteUrl` of a hand-written `kestrel-delivery-static` entry to
     its top-level `siteUrl`; take that value from `NUXT_PUBLIC_SITE_URL` (§3, "What the builder expands
     to"). `presetModuleConfig({ llms: { siteUrl } })` throws, since the preset takes the site URL only from
-    `NUXT_PUBLIC_SITE_URL`; remove the key and set the variable to its value wherever the server runs.
+    `NUXT_PUBLIC_SITE_URL`. `preset/llms-site-url` finds it even though the project does not load, removes the
+    key (`fix`) and names its value, which belongs in `NUXT_PUBLIC_SITE_URL` wherever the server runs.
   - kestrel's `delivery/export-llms` rewrites a `delivery.exportLlms` step, which no longer exists and
     stops the boot, to `delivery.requestIndexes`. `preset/settings-llms` removes it from a `setSettings`
     override instead when `settingsDependents` already requests the export, and `preset/override-delivery`

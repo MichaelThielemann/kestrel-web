@@ -19,6 +19,7 @@ import { hostBinaryRule } from "./hostBinaryRule";
 import { droppedEmitRewrite, overrideEmitRule } from "./overrideEmit";
 import { isPathStep, overridePathStepsRule, pageLikeMountRule, parentOfferRule, slugUrlRule } from "./pathRules";
 import { siteModelOptionsRule } from "./siteModelRule";
+import { llmsSiteUrlRule } from "./llmsSiteUrlRule";
 import { schemasCollectionsUiRule } from "./schemasCollectionsUiRule";
 import { addModuleEntryConfigProperty, addStringToNamedExportArray, bumpPackageJsonDependency, namedExportArray, removeStepsFromArray, wrapAtomicGroup, wrapRange } from "./edits";
 import type { SourceRange } from "./edits";
@@ -740,6 +741,7 @@ export const layerRules: readonly Rule[] = [
   hostBinaryRule,
   relayScopeRule,
   missingSanitizeSvgRule,
+  llmsSiteUrlRule,
   presetProblemsRule,
   overrideDriftRule,
   overrideDeliveryRule,

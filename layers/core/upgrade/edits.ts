@@ -1,4 +1,4 @@
-import { arrayElements, findCalls, firstArgument, isArrayExpression, isAstNode, objectProperty, parseTs, span, stringValue, walk } from "@michaelthielemann/kestrel-upgrade/codemods";
+import { arrayElements, findCalls, firstArgument, isArrayExpression, isAstNode, objectProperty, objectPropertyNodes, parseTs, propertyKeyName, span, stringValue, walk } from "@michaelthielemann/kestrel-upgrade/codemods";
 import type { AstNode, Edit } from "@michaelthielemann/kestrel-upgrade/codemods";
 
 /**
@@ -322,4 +322,20 @@ export function setPresetModuleConfigOverride(file: string, source: string, use:
   if (entry === undefined) return objectWith(file, source, overrides, [{ key: use, text: moduleText }]);
   if (entry.type !== "ObjectExpression") return undefined;
   return objectWith(file, source, entry, [{ key: propertyKey, text: propertyText }]);
+}
+
+/**
+ * Removes the plain `key: value` property `key` from the object literal `object`, with the comma that separated it
+ * from a neighbour. `undefined` when the object has no such property.
+ */
+export function removeObjectProperty(file: string, object: AstNode, key: string): Edit | undefined {
+  const props = objectPropertyNodes(object);
+  const index = props.findIndex((prop) => propertyKeyName(prop) === key);
+  const prop = props[index];
+  if (prop === undefined) return undefined;
+  const next = props[index + 1];
+  if (next !== undefined) return { file, start: span(prop).start, end: span(next).start, text: "" };
+  const previous = props[index - 1];
+  if (previous !== undefined) return { file, start: span(previous).end, end: span(prop).end, text: "" };
+  return { file, ...span(prop), text: "" };
 }

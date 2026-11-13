@@ -185,7 +185,8 @@
 ### Upgrading
 
 - `llms.siteUrl` of `presetModuleConfig()` is gone: set `NUXT_PUBLIC_SITE_URL` to its value wherever the server
-  runs. The old key fails with a message naming the variable. A hand-written `kestrel-events-queue` entry needs `indexes: ["refreshIndexes"]` in
+  runs. The old key fails with a message naming the variable; `kestrel upgrade fix --write` removes it
+  (`preset/llms-site-url`, which runs while the project does not load yet) and the finding names the value. A hand-written `kestrel-events-queue` entry needs `indexes: ["refreshIndexes"]` in
   its `lanes` (the preset refuses it otherwise, `preset/index-exports-lane`) and gets
   `delayMs: { refreshIndexes: 1000, refreshLlms: 3000 }`; `kestrel upgrade fix --write` adds both
   (`preset/queue-lanes`). `delayMs` naming a preset pipeline that is not composed is refused

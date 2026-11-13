@@ -358,6 +358,38 @@ describe("site-2.0-dependents (a literal delivery-static entry, a 2.x setSetting
     expect(bootCheck.errors).toEqual([]);
   }, 60_000);
 
+  it("llms.siteUrl in presetModuleConfig keeps the project from loading until fix --write --yes removes it; the same run applies the fixes that need the loaded project, and it boots", async () => {
+    const dir = await prepare("site-2.0-dependents");
+    const { writeFileSync } = await import("node:fs");
+    const configFile = join(dir, "kestrel.config.ts");
+    const original = readFileSync(configFile, "utf8");
+    const bootstrap = '  bootstrap: { username: "admin", passwordHash: adminPasswordHash() },\n});';
+    expect(original).toContain(bootstrap);
+    writeFileSync(configFile, original.replace(bootstrap, '  bootstrap: { username: "admin", passwordHash: adminPasswordHash() },\n  llms: { siteUrl: "https://www.example.org" },\n});'));
+
+    const before = await check(dir);
+    expect(before.tiers.load).toBe("not-run");
+    const llmsSiteUrl = before.findings.find((f) => f.rule === "preset/llms-site-url");
+    expect(llmsSiteUrl).toMatchObject({ severity: "error", fix: { kind: "auto" } });
+    expect(llmsSiteUrl?.suggestion).toContain('"https://www.example.org"');
+    expect(llmsSiteUrl?.message).toContain("NUXT_PUBLIC_SITE_URL");
+
+    await fixWriteYes(dir);
+    const config = readFileSync(configFile, "utf8");
+    expect(config).not.toContain("siteUrl");
+    expect(config).not.toContain('"delivery.exportLlms"');
+    expect(config).toContain('{ atomic: ["content.set:settings"] }, "events.emit:settings.updated", "events.relay"');
+    expect(await realPresetError(dir)).toBeUndefined();
+
+    const after = await check(dir);
+    expect(after.tiers.load).toBe("done");
+    expect(after.findings.some((f) => f.rule === "preset/llms-site-url")).toBe(false);
+    const project = await loadProject(dir);
+    const box = sandboxBootInput(project.input, { dir });
+    const bootCheck = await checkBoot(box.input, { setup: box.setup });
+    expect(bootCheck.errors).toEqual([]);
+  }, 120_000);
+
   it("an override of setSettings that keeps its emit and still runs delivery.exportLlms loses that step with fix --write --yes, and the fixed project boots", async () => {
     const dir = await prepare("site-2.0-dependents");
     const { writeFileSync } = await import("node:fs");
