@@ -237,6 +237,11 @@
 
 ### Upgrading
 
+- `KestrelImage` with a declared `cover` size no longer adds the `inside` variants of the same ratio to its
+  `srcset`, since a manual crop cuts the `cover` variant differently from them and the page cannot tell. A
+  `cover` size declared at one width therefore gets a `srcset` of that width alone and is scaled up in a wider
+  box or on a high-density screen. Declare a `cover` size per width you want offered, all with the same ratio
+  (`hero-800`, `hero-1600`, `hero-2400` at 16:9); they share one crop and one `srcset`.
 - With `images`, `MediaItem` has the members `focus` and `framing` and `PublicMediaItem` has `focus`, both
   required: a literal of either type (a test mock, a fixture) needs them to pass `nuxt typecheck`.
   `KestrelImage`'s `media` prop and `pickImageSources` accept an item without `focus`.

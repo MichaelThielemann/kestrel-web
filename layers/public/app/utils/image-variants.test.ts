@@ -240,6 +240,24 @@ describe('pickImageSources', () => {
       expect(sources?.srcset).toBe('/media/m1/variants/hero-small.webp?v=3 800w, /media/m1/variants/hero.webp?v=3 1600w')
     })
 
+    it('gives a cover size declared at one width a srcset of that width alone, without the uncut variants of its ratio', () => {
+      const media = item({
+        width: 6000,
+        height: 4000,
+        variants: [
+          variant({ size: 'thumb', width: 320, height: 213, path: '/media/m1/variants/thumb.webp' }),
+          variant({ size: 'teaser', width: 480, height: 320, path: '/media/m1/variants/teaser.webp' }),
+          variant({ size: 'small', width: 640, height: 427, path: '/media/m1/variants/small.webp' }),
+          variant({ size: 'large', width: 1600, height: 1067, path: '/media/m1/variants/large.webp' }),
+        ],
+      })
+      const teaser: DeclaredImageSize = { name: 'teaser', width: 480, height: 320, fit: 'cover' }
+      expect(pickImageSources(media, 'teaser', undefined, [teaser])?.srcset).toBe('/media/m1/variants/teaser.webp 480w')
+      const ladder = [teaser, { name: 'teaser-2x', width: 960, height: 640, fit: 'cover' as const }]
+      const withLadder = item({ ...media, variants: [...media.variants, variant({ size: 'teaser-2x', width: 960, height: 640, path: '/media/m1/variants/teaser-2x.webp' })] })
+      expect(pickImageSources(withLadder, 'teaser', undefined, ladder)?.srcset).toBe('/media/m1/variants/teaser.webp 480w, /media/m1/variants/teaser-2x.webp 960w')
+    })
+
     it('keeps the named variant on a width tie with another variant of its cut', () => {
       const media = item({
         width: 4000,

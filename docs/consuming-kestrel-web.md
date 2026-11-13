@@ -1590,7 +1590,10 @@ on the original and on every variant, so a box that crops them keeps the focus i
 original that a `cover` variant's path serves until kestrel has cut it. A rendered `cover` variant fills a
 box of its own aspect, where the position changes nothing. `KestrelImage` reads the declared sizes to tell
 them apart and never puts a `cover` variant into the `srcset` of another size, or an `inside` variant into a `cover` size's `srcset`; a `cover` size set only in
-images-default's own `sizes` config is not declared in the build, so declare every `cover` size here.
+images-default's own `sizes` config is not declared in the build, so declare every `cover` size here. A
+`cover` size's `srcset` lists the variants of the `cover` sizes with its ratio key only, so declare one `cover`
+size per width the page should offer (`hero-800`, `hero-1600` and `hero-2400`, all 16:9); a single `cover` size
+is delivered at its own width and scaled up in a wider box or on a high-density screen.
 
 The admin's crop editor opens from the media viewer ("Adjust crop") and from the crop button on an image
 chosen in a media field. Its focus tab previews each ratio of the `cover` sizes; its fine-crop tab shows one
