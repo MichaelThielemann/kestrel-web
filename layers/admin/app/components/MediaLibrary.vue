@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
-import type { ReferenceTo } from '#kestrel-admin/types/api'
-import type { BusyPort, RefreshPort } from '#kestrel-admin/actions/types'
+import { ref, computed, nextTick, onMounted } from 'vue'
+import type { RefreshPort } from '#kestrel-admin/actions/types'
 import { itemKey, type LibraryItem } from '../utils/library'
-import { toOpItem } from '../utils/ops'
 import { isPickGated } from '../utils/media-insert'
 import type { SelectMods } from '../composables/useMediaSelection'
-import { gridColumns } from '../composables/useMediaKeyboard'
+import { focusLost, gridCells, gridColumns } from '../composables/useMediaKeyboard'
+import { onMediaChanged } from '../composables/useMediaChanges'
+import { countMessage } from '../utils/media-removal'
 
 const props = defineProps<{ pick?: boolean; multiple?: boolean; accept?: 'image' | 'any'; initialFolder?: string; initialSelected?: string[] }>()
 const emit = defineEmits<{ confirm: [string[]]; cancel: [] }>()
@@ -20,15 +20,7 @@ const mediaCaps = useMediaCapabilities()
 const trashCount = useMediaTrashCount()
 
 const mediaRefresh: RefreshPort = async () => { await Promise.all([lib.fetchLibrary(), mode === 'library' ? trashCount.refresh() : undefined]) }
-const opsBusy = ref(false)
-const opError = ref<string | null>(null)
-const opConflict = ref<ReferenceTo[] | null>(null)
-const opsPort: BusyPort = {
-  setBusy: (on) => { opsBusy.value = on },
-  busy: () => opsBusy.value,
-  setError: (message) => { opError.value = message },
-  setConflict: (refs) => { opConflict.value = refs },
-}
+const { busy: opsBusy, error: opError, conflict: opConflict, port: opsPort } = useMediaOps()
 
 const mediaLibraryRef = ref<HTMLElement | null>(null)
 const itemsRef = ref<HTMLElement | null>(null)
@@ -44,6 +36,8 @@ const selection = useMediaSelection({
 })
 const canHoldSelection = (item: LibraryItem) => mode === 'library' || item.type === 'file'
 const showBar = computed(() => mode !== 'pick-single' && selection.count.value > 0)
+const selectionLabel = (n: number) => countMessage(t, mode === 'pick-multi' ? 'media.selection.countHere' : 'media.selection.count', n)
+const selectionStatus = useSelectionAnnouncement(() => selection.count.value, selectionLabel, () => t('media.selection.cleared'))
 
 const pickState = useMediaPick({
   pick: props.pick === true, initialSelected: props.initialSelected ?? [],
@@ -55,37 +49,34 @@ function focusLibrary() { void nextTick(() => mediaLibraryRef.value?.focus()) }
 function onDismissUpload(id: string) { dismissUpload(id); focusLibrary() }
 function onCloseUploads() { mediaUploads.clearFinished(); focusLibrary() }
 
-let focusReturnTimer: ReturnType<typeof setTimeout> | null = null
-onUnmounted(() => { if (focusReturnTimer) clearTimeout(focusReturnTimer) })
 const { viewerOpen, viewerFile, viewerBusy, viewerError, openViewer, closeViewer, onSaveViewer } = useMediaViewerState({
   deps, ops: opsPort, refresh: mediaRefresh, opError, saveFailed: () => t('mediaViewer.saveFailed'),
 })
 
 const removal = useMediaBulkActions({
-  deps: () => deps, ops: opsPort, refresh: mediaRefresh, files, folderCounts,
+  deps: () => deps, ops: opsPort, refresh: mediaRefresh, files, folderCounts, inlineUndo: mode !== 'library',
   canDeleteTargets: (targets) => mediaCaps.canDeleteTargets(targets),
   onRemoved: (ids) => pickState.forget(ids),
-  onSettled: () => { returnFocus(() => keyboard.focusActive() || mediaLibraryRef.value?.focus()) },
+  onSettled: () => focusReturn.settle(),
   onDeletedFromViewer: () => {
     closeViewer()
-    returnFocus(() => mediaLibraryRef.value?.focus())
+    focusReturn.toRoot()
   },
 })
 const askRemove = removal.askRemove
-
-function returnFocus(run: () => void) {
-  void nextTick().then(() => {
-    if (focusReturnTimer) clearTimeout(focusReturnTimer)
-    focusReturnTimer = setTimeout(run, 0)
-  })
-}
 
 const rovingKeys = computed(() => [...(parentPath.value != null ? ['up'] : []), ...items.value.map(itemKey)])
 const itemByKey = computed(() => new Map(items.value.map((item) => [itemKey(item), item])))
 const keyboard = useMediaKeyboard({
   root: itemsRef, keys: rovingKeys, selection, itemFor: (key) => itemByKey.value.get(key),
   columns: () => (view.value === 'grid' ? gridColumns(itemsRef.value?.querySelector('.media-grid')) : 1),
+  cells: () => (view.value === 'grid' ? gridCells(itemsRef.value?.querySelector('.media-grid')) : rovingKeys.value),
   onDelete: (targets) => { void askRemove(targets) },
+})
+const focusReturn = useMediaFocusReturn({ root: mediaLibraryRef, keys: rovingKeys, keyboard })
+onMediaChanged(async ({ restored }) => {
+  await mediaRefresh()
+  focusReturn.restored(restored)
 })
 
 function onOpenItem(item: LibraryItem) {
@@ -100,6 +91,10 @@ function onSelect(item: LibraryItem, mods: SelectMods) {
 }
 
 function onBackgroundClick() { if (mode !== 'pick-multi') selection.clear() }
+function onBarClear() {
+  selection.clearListed()
+  void nextTick(() => { if (focusLost()) focusReturn.refocus() })
+}
 
 const intake = useMediaIntake({
   deps, ops: opsPort, refresh: mediaRefresh, folder, error,
@@ -119,53 +114,45 @@ const { renameOpen, renameTarget, renameName, openRename, closeRename, onConfirm
   deps, ops: opsPort, refresh: mediaRefresh, canRename: (item) => mediaCaps.canRenameTarget(item),
 })
 
-const { menuItems, onContextMenu, onSelect: onMenuSelect } = useMediaContextMenu({
-  items: () => items.value,
-  isSelected: selection.isSelected,
-  select: (item) => { if (mode === 'library') selection.select(item) },
-  onDelete: (opItems) => { void askRemove(opItems) },
-  onRename: openRename,
-  trash: () => removal.trashing.value,
-  canRename: (item) => mediaCaps.canRenameTarget(item),
-  canDelete: (targets) => mediaCaps.canDeleteTargets(targets),
+const { contextMenu, onContextMenu, onMenuSelect, tileMenu, onTileMenu } = useMediaLibraryMenus({
+  mode, items: () => items.value, selection, caps: mediaCaps, trash: () => removal.trashing.value,
+  onDelete: (targets) => { void askRemove(targets) }, onRename: openRename,
 })
-const localizedMenu = computed(() => menuItems.value.map((s) => ({
-  label: t(s.labelKey, s.count != null ? { n: s.count } : undefined), value: s.value, ...(s.danger ? { danger: true } : {}),
-})))
-
-const tileMenu = computed(() => (mode === 'pick-single' && mediaCaps.canDeleteFile.value
-  ? [{ label: t(removal.trashing.value ? 'media.menu.trash' : 'media.menu.delete'), value: 'delete', danger: true }]
-  : null))
-function onTileMenu(item: LibraryItem, value: string) { if (value === 'delete') void askRemove([toOpItem(item)]) }
 
 onMounted(() => { if (mode === 'library') void trashCount.refresh() })
 
-defineExpose({ clearSelection: selection.clear })
+const trashEntry = computed(() => `/admin/media?trash=1${folder.value ? `&folder=${encodeURIComponent(folder.value)}` : ''}`)
+
+defineExpose({ clearSelection: selection.clearListed })
 </script>
 
 <template>
   <section ref="mediaLibraryRef" class="media-library" tabindex="-1" @click.self="onBackgroundClick" @dragenter="onDragEnter" @dragover="onDragOver" @dragleave="onDragLeave" @drop="onDrop">
     <KestrelMediaPathBar :folder="folder" :folders="allFolderPaths" @navigate="lib.navigate">
       <template v-if="mode === 'library' && trashCount.count.value !== null" #end>
-        <KestrelUiButton variant="ghost" size="sm" icon="trash" to="/admin/media?trash=1" data-test="media-trash-entry">{{ t('media.trash.entry', { n: trashCount.count.value }) }}</KestrelUiButton>
+        <KestrelUiButton variant="ghost" size="sm" icon="trash" :to="trashEntry" data-test="media-trash-entry">{{ t('media.trash.entry', { n: trashCount.count.value }) }}</KestrelUiButton>
       </template>
     </KestrelMediaPathBar>
-    <KestrelMediaToolbar
-      v-if="mode !== 'library' || !showBar"
-      :view="view" :search="search" :disabled="!!error"
-      :can-upload="mediaCaps.canUpload.value" :can-create-folder="mediaCaps.canCreateFolder.value"
-      :type-filter="lib.typeFilter.value" :accept="lib.accept"
-      :result-count="total + mediaUploads.unlistedDone.value" :quiet-count="mediaUploads.active.value"
-      @update:view="lib.setView" @update:search="lib.setSearch" @update:type-filter="lib.setTypeFilter"
-      @upload="intake.onUpload" @new-folder="newFolderOpen = true"
-    />
-    <KestrelMediaSelectionBar
-      v-if="showBar"
-      :count="selection.count.value" :page-count="selection.selectableCount.value" :all-selected="selection.allSelected.value"
-      :can-delete="mediaCaps.canDeleteTargets(selection.selectedTargets())" :trash="removal.trashing.value" :busy="opsBusy"
-      @select-all="selection.selectAll" @clear="selection.clear" @delete="askRemove(selection.selectedTargets())"
-    />
-    <KestrelUiMenu :items="localizedMenu" @select="onMenuSelect">
+    <div class="media-library__tools" :class="{ 'media-library__tools--stacked': mode === 'library' }">
+      <KestrelMediaToolbar
+        :class="{ 'media-library__covered': mode === 'library' && showBar }"
+        :view="view" :search="search" :disabled="!!error"
+        :can-upload="mediaCaps.canUpload.value" :can-create-folder="mediaCaps.canCreateFolder.value"
+        :type-filter="lib.typeFilter.value" :accept="lib.accept"
+        :result-count="total + mediaUploads.unlistedDone.value" :quiet-count="mediaUploads.active.value"
+        @update:view="lib.setView" @update:search="lib.setSearch" @update:type-filter="lib.setTypeFilter"
+        @upload="intake.onUpload" @new-folder="newFolderOpen = true"
+      />
+      <KestrelMediaSelectionBar
+        v-if="showBar"
+        :label="selectionLabel(selection.count.value)" :page-count="selection.selectableCount.value" :all-selected="selection.allSelected.value"
+        :can-delete="mediaCaps.canDeleteTargets(selection.selectedTargets())" :trash="removal.trashing.value" :busy="opsBusy"
+        @select-all="selection.selectAll" @clear="onBarClear" @delete="askRemove(selection.selectedTargets())" @keydown="keyboard.onBarKeydown"
+      />
+    </div>
+    <KestrelUiLiveStatus :message="selectionStatus" />
+    <KestrelMediaUndoNotice v-if="mode !== 'library'" :notice="removal.undoNotice.value" @dismiss="removal.dismissUndo" />
+    <KestrelUiMenu :items="contextMenu" @select="onMenuSelect">
       <div ref="itemsRef" class="media-library__items" @contextmenu.capture="onContextMenu" @keydown="keyboard.onKeydown" @focusin="keyboard.onFocusin">
         <KestrelUiAlert v-if="error" variant="error">{{ error }}</KestrelUiAlert>
         <p v-else-if="!loading && !items.length && !(view === 'grid' && gridTileUploads.length)" class="media-library__empty">{{ t('media.folderEmpty') }}</p>
@@ -218,21 +205,19 @@ defineExpose({ clearSelection: selection.clear })
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
 }
+.media-library > :not(.media-library__items) { flex: 0 0 auto; }
+.media-library__tools { display: flex; flex-direction: column; gap: var(--space-4); }
+.media-library__tools--stacked {
+  position: relative;
 
-.media-library > :not(.media-library__items) {
-  flex: 0 0 auto;
+  > .media-selection-bar { position: absolute; inset: 0 0 auto; }
 }
-.media-library__items {
-  flex: 1 1 auto;
-  min-height: min(10rem, 25svh);
-  overflow: auto;
-}
-
+.media-library__covered { visibility: hidden; }
+.media-library__items { flex: 1 1 auto; min-height: min(10rem, 25svh); overflow: auto; }
 .media-library__dropzone {
   position: absolute;
   inset: 0;
@@ -245,21 +230,7 @@ defineExpose({ clearSelection: selection.clear })
   border-radius: var(--radius-md);
   pointer-events: none;
 }
-
-.media-library__follow-up {
-  margin: 0;
-  font-size: var(--text-sm);
-  color: var(--color-text-muted);
-}
-
-.media-library__follow-up--empty {
-  margin-block-start: calc(var(--space-4) * -1);
-}
-
-.media-library__empty {
-  color: var(--color-text-muted);
-  font-size: var(--text-base);
-  padding: var(--space-6) 0;
-  text-align: center;
-}
+.media-library__follow-up { margin: 0; font-size: var(--text-sm); color: var(--color-text-muted); }
+.media-library__follow-up--empty { margin-block-start: calc(var(--space-4) * -1); }
+.media-library__empty { color: var(--color-text-muted); font-size: var(--text-base); padding: var(--space-6) 0; text-align: center; }
 </style>

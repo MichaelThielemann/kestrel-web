@@ -20,11 +20,12 @@ export interface SelectMods { toggle: boolean; range: boolean }
 
 const FILE_PREFIX = 'file:'
 
-/** The one selection of the media library, its multi-pick and its context menu. In `library` and `pick-single` mode it is pruned to the listed items after every load; `pick-multi` keeps picks that are not listed and drops them only through `forget`. Actions act on the listed part of it. */
+/** The one selection of the media library, its multi-pick and its context menu. In `library` and `pick-single` mode it is pruned to the listed items after every load; `pick-multi` keeps picks that are not listed and drops them only through `forget` or `clear`. Actions, `clearListed` among them, act on the listed part of it. `extend` selects from the anchor to an item on top of the selection from before the extension began, so moving back shrinks it; any other change ends the extension. */
 export function useMediaSelection(opts: UseMediaSelectionOptions) {
   const { mode, items } = opts
   const selected = ref<ReadonlySet<string>>(new Set(mode === 'pick-multi' ? (opts.initial ?? []).map((id) => `${FILE_PREFIX}${id}`) : []))
   let anchor: string | null = null
+  let extendBase: ReadonlySet<string> | null = null
 
   const isSelected = (item: LibraryItem) => selected.value.has(itemKey(item))
 
@@ -41,7 +42,10 @@ export function useMediaSelection(opts: UseMediaSelectionOptions) {
   const someSelected = computed(() => count.value > 0 && !allSelected.value)
   const selectedFileIds = computed(() => [...selected.value].filter((k) => k.startsWith(FILE_PREFIX)).map((k) => k.slice(FILE_PREFIX.length)))
 
-  function set(keys: Iterable<string>) { selected.value = new Set(keys) }
+  function set(keys: Iterable<string>) {
+    selected.value = new Set(keys)
+    extendBase = null
+  }
 
   function select(item: LibraryItem) {
     if (!isSelectable(item)) return
@@ -68,6 +72,19 @@ export function useMediaSelection(opts: UseMediaSelectionOptions) {
     anchor ??= target
   }
 
+  function extend(from: LibraryItem | undefined, to: LibraryItem) {
+    if (mode === 'pick-single') { select(to); return }
+    if (!isSelectable(to)) return
+    const target = itemKey(to)
+    if (extendBase === null) {
+      extendBase = selected.value
+      anchor = from && isSelectable(from) ? itemKey(from) : target
+    }
+    selected.value = computeRange(selectableItems.value.map(itemKey), anchor ?? target, target, new Set(extendBase))
+  }
+
+  function endExtend() { extendBase = null }
+
   function activate(item: LibraryItem, mods: SelectMods) {
     if (mods.range) range(item)
     else if (mods.toggle || mode === 'pick-multi' || (mode === 'library' && count.value > 0)) toggle(item)
@@ -91,6 +108,13 @@ export function useMediaSelection(opts: UseMediaSelectionOptions) {
     return had
   }
 
+  function clearListed(): boolean {
+    if (mode !== 'pick-multi') return clear()
+    const had = count.value > 0
+    deselectAll()
+    return had
+  }
+
   function forget(fileIds: readonly string[]) {
     const drop = new Set(fileIds.map((id) => `${FILE_PREFIX}${id}`))
     set([...selected.value].filter((k) => !drop.has(k)))
@@ -110,7 +134,7 @@ export function useMediaSelection(opts: UseMediaSelectionOptions) {
 
   return {
     mode, selected, count, selectableCount, selectedItems, selectedFileIds, allSelected, someSelected,
-    isSelected, isSelectable, select, toggle, range, activate, selectAll, deselectAll, clear, forget, selectedTargets,
+    isSelected, isSelectable, select, toggle, range, extend, endExtend, activate, selectAll, deselectAll, clear, clearListed, forget, selectedTargets,
   }
 }
 

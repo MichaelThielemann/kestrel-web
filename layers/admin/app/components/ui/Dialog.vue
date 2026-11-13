@@ -12,6 +12,11 @@ const { t } = useT()
 const { target: portalTarget } = useAdminPortal()
 
 const CLICK_INPUT_TYPES = new Set(['button', 'submit', 'reset', 'checkbox', 'radio', 'file'])
+
+function onInteractOutside(e: CustomEvent<{ originalEvent: Event }>) {
+  const target = e.detail.originalEvent.target
+  if (target instanceof Element && target.closest('.ui-toasts')) e.preventDefault()
+}
 function onKeydown(e: KeyboardEvent) {
   if (e.key !== 'Enter' || e.isComposing) return
   const el = e.target
@@ -31,6 +36,7 @@ function onKeydown(e: KeyboardEvent) {
         @keydown="onKeydown"
         @open-auto-focus="emit('openAutoFocus', $event)"
         @escape-key-down="emit('escapeKeyDown', $event)"
+        @interact-outside="onInteractOutside"
       >
         <header class="ui-dialog__header">
           <DialogTitle class="ui-dialog__title">{{ title }}</DialogTitle>
@@ -123,9 +129,7 @@ function onKeydown(e: KeyboardEvent) {
 .ui-dialog__title {
   flex: 1 1 auto;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
   font-size: var(--text-lg);
   font-weight: var(--weight-bold);
   margin: 0;

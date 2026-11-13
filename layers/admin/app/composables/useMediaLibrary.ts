@@ -103,6 +103,12 @@ export function useMediaLibrary(opts: { urlSync?: boolean; accept?: 'image' | 'a
         },
       })
       if (my !== token) return
+      const last = Math.max(1, Math.ceil(page1.total / perPage.value))
+      if (!page1.items.length && page.value > last) {
+        page.value = last
+        await fetchFiles()
+        return
+      }
       files.value = page1.items
       total.value = page1.total
       checkFolder()
@@ -159,6 +165,7 @@ export function useMediaLibrary(opts: { urlSync?: boolean; accept?: 'image' | 'a
 
   if (urlSync) {
     watch(() => route.query.folder, (q) => {
+      if (route.query.trash !== undefined) return
       const next = typeof q === 'string' ? q : ''
       if (next === folder.value) return
       search.value = ''

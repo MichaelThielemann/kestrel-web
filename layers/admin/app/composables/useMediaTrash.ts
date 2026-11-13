@@ -6,7 +6,8 @@ import { emptyTrash, purgeItems, restoreItems, type BulkReport } from '../action
 import { toastUnexpected } from '../actions/steps/notify'
 import type { ApiClient } from '../actions/types'
 import type { CapabilityResolver } from '../utils/capabilities'
-import { countMessage, removalState, reportProblems, type RemovalDialogState } from '../utils/media-removal'
+import { countMessage, removalState, reportProblems, restoreMessages, type RemovalDialogState } from '../utils/media-removal'
+import { onMediaChanged } from './useMediaChanges'
 
 /** The number of items in the media trash, for the library's entry to it; `null` while unknown or without access. */
 export function useMediaTrashCount() {
@@ -42,8 +43,8 @@ export async function findTrashed(api: ApiClient, capabilities: CapabilityResolv
   return found
 }
 
-/** The media trash view: one page of trashed items, a selection of them, restoring at once and deleting for good after a dialog. */
-export function useMediaTrash() {
+/** The media trash view: one page of trashed items, a selection of them, restoring at once and deleting for good after a dialog. `onSettled` runs once a restore or a final delete is over and its dialog closed, so the view can put focus back. */
+export function useMediaTrash(opts: { onSettled?: () => void } = {}) {
   const api = useAdminApi()
   const capabilities = useCapabilities()
   const deps = useActionDeps()
@@ -63,19 +64,23 @@ export function useMediaTrash() {
   const selection = useListSelection(computed(() => items.value))
   let pending: string[] = []
   let controller: AbortController | null = null
+  let token = 0
 
   const canRestore = computed(() => capabilities.has('restoreMedia'))
   const canPurge = computed(() => capabilities.has('purgeMedia'))
   const canEmpty = computed(() => capabilities.has('emptyMediaTrash'))
-  const nameOf = (id: string) => items.value.find((item) => item.id === id)?.filename ?? id
+  let names = new Map<string, string>()
+  const nameOf = (id: string) => names.get(id) ?? items.value.find((item) => item.id === id)?.filename ?? id
 
   async function load() {
+    const my = ++token
     loading.value = true
     error.value = null
     try {
       const res = await api<MediaTrashPage>(capabilities.route('listMediaTrash'), {
         query: { limit: perPage.value, offset: (page.value - 1) * perPage.value, locale: primary.value },
       })
+      if (my !== token) return
       items.value = res.items
       total.value = res.total
       const listed = new Set(res.items.map((item) => item.id))
@@ -85,9 +90,9 @@ export function useMediaTrash() {
         await load()
       }
     } catch (e) {
-      error.value = apiErrorMessage(e)
+      if (my === token) error.value = apiErrorMessage(e)
     } finally {
-      loading.value = false
+      if (my === token) loading.value = false
     }
   }
 
@@ -97,18 +102,20 @@ export function useMediaTrash() {
   async function restore(ids: string[]) {
     if (!ids.length || busy.value) return
     busy.value = true
-    const r = await runAction(restoreItems, { deps, ids, refresh: load }).finally(() => { busy.value = false })
+    const names = new Map(items.value.map((item) => [item.id, item.filename]))
+    const reported: { report?: BulkReport } = {}
+    const r = await runAction(restoreItems, { deps, ids, refresh: load, report: (report) => { reported.report = report } }).finally(() => { busy.value = false })
     toastUnexpected(deps, r)
-    if (!r.ok || !r.result) return
-    const { done, failed, renamed } = r.result
-    if (done.length) toasts.success(countMessage(t, 'media.trash.restored', done.length))
-    if (failed.length) toasts.error(t('media.trash.restoreFailed', { names: failed.map((f) => nameOf(f.id)).join(', ') }))
-    if (renamed.length) toasts.info(t('media.trash.renamed', { names: renamed.map((rn) => `${rn.from} → ${rn.to}`).join(', ') }))
+    const report = (r.ok ? r.result : undefined) ?? reported.report
+    if (!report) return
+    for (const { type, message } of restoreMessages(t, report, (id) => names.get(id) ?? id)) toasts[type](message)
+    opts.onSettled?.()
   }
 
   function askPurge(ids: string[]) {
     if (!ids.length || !canPurge.value) return
     pending = ids
+    names = new Map(items.value.map((item) => [item.id, item.filename]))
     const entries = ids.map((id) => {
       const item = items.value.find((i) => i.id === id)
       return { id, name: item?.filename ?? id, path: null, contentType: item?.contentType, refs: [] }
@@ -131,13 +138,16 @@ export function useMediaTrash() {
     if (!current || current.finished || busy.value) return
     busy.value = true
     controller = new AbortController()
+    const reported: { report?: BulkReport } = {}
+    const report = (rep: BulkReport) => { reported.report = rep }
     const r = current.mode === 'empty'
-      ? await runAction(emptyTrash, { deps, refresh: load })
-      : await runAction(purgeItems, { deps, ids: pending, refresh: load, signal: controller.signal, onProgress })
+      ? await runAction(emptyTrash, { deps, refresh: load, report })
+      : await runAction(purgeItems, { deps, ids: pending, refresh: load, signal: controller.signal, onProgress, report })
     busy.value = false
     controller = null
     toastUnexpected(deps, r)
-    if (r.ok && r.result) settle(r.result)
+    const outcome = (r.ok ? r.result : undefined) ?? reported.report
+    if (outcome) settle(outcome)
   }
 
   function settle(report: BulkReport) {
@@ -148,14 +158,21 @@ export function useMediaTrash() {
       return
     }
     dialog.value = null
+    opts.onSettled?.()
   }
 
   function cancel() {
-    if (controller) controller.abort()
-    else dialog.value = null
+    if (controller) {
+      controller.abort()
+      return
+    }
+    const settled = dialog.value?.finished === true
+    dialog.value = null
+    if (settled) opts.onSettled?.()
   }
 
   onMounted(load)
+  onMediaChanged(() => load())
 
   return {
     items, total, page, perPage, totalPages, loading, busy, error, dialog, selection,

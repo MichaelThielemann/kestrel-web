@@ -12,6 +12,8 @@ export interface UseMediaKeyboardOptions {
   selection: MediaSelection
   /** The number of tiles per row; 1 for a table. */
   columns: () => number
+  /** Every cell of the grid in display order: a roving key, or `null` for a cell that takes no focus, such as an upload; the keys when left out. */
+  cells?: () => readonly (string | null)[]
   onDelete: (targets: OpItem[]) => void
 }
 
@@ -22,12 +24,44 @@ export function gridColumns(el: Element | null | undefined): number {
   return Math.max(1, tracks.length)
 }
 
+/** The cells of a grid in display order: each child's roving key, or `null` for a child without one. */
+export function gridCells(el: Element | null | undefined): (string | null)[] {
+  return Array.from(el?.children ?? []).map((cell) => cell.querySelector<HTMLElement>('[data-roving-key]')?.dataset.rovingKey ?? null)
+}
+
+/** The key ArrowDown (`step` 1) or ArrowUp (`step` -1) moves to: the tile in the same column of the next row, or the nearest tile of that row when that cell takes no focus; `null` when there is no cell in that column. */
+export function verticalTarget(cells: readonly (string | null)[], from: string, columns: number, step: 1 | -1): string | null {
+  const index = cells.indexOf(from)
+  if (index < 0) return null
+  const cols = Math.max(1, columns)
+  const column = index % cols
+  for (let row = Math.floor(index / cols) + step; row >= 0 && row * cols + column < cells.length; row += step) {
+    let best: string | null = null
+    let distance = Infinity
+    for (let i = row * cols; i < Math.min(cells.length, (row + 1) * cols); i++) {
+      const key = cells[i]
+      if (key == null || Math.abs(i - row * cols - column) >= distance) continue
+      best = key
+      distance = Math.abs(i - row * cols - column)
+    }
+    if (best !== null) return best
+  }
+  return null
+}
+
+/** Whether keyboard focus was lost: it sits on the body or on an element no longer in the document. */
+export function focusLost(): boolean {
+  if (!import.meta.client) return false
+  const active = document.activeElement
+  return active === null || active === document.body || !active.isConnected
+}
+
 function isEditable(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false
   return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement || target.isContentEditable
 }
 
-/** Keyboard model of the media library: one tab stop (roving tabindex), arrow keys move it (up and down by row), Shift+arrow extends the selection, Space toggles, Ctrl/Cmd+A selects the page, Escape clears a selection, Delete and Backspace delete. Keys pressed in a form field or outside a tile or row are left alone. */
+/** Keyboard model of the media library: one tab stop (roving tabindex), arrow keys move it (up and down by row), Shift+arrow selects from the anchor to the focus, Space toggles, Ctrl/Cmd+A selects the page, Escape clears the listed selection, Delete and Backspace delete. The selection bar takes Ctrl/Cmd+A, Escape and Delete/Backspace through `onBarKeydown`. Keys pressed in a form field or outside a tile, row or the bar are left alone. */
 export function useMediaKeyboard(opts: UseMediaKeyboardOptions) {
   const { root, keys, selection } = opts
   const focusKey = ref<string | null>(null)
@@ -47,29 +81,35 @@ export function useMediaKeyboard(opts: UseMediaKeyboardOptions) {
     return el && root.value?.contains(el) ? (el.dataset.rovingKey ?? null) : null
   }
 
-  function move(from: string, to: number, extend: boolean) {
-    const next = keys.value[to]
-    if (next === undefined || next === from) return
-    if (extend) {
-      const start = opts.itemFor(from)
-      const end = opts.itemFor(next)
-      if (start && !selection.isSelected(start) && selection.count.value === 0) selection.toggle(start)
-      if (end) selection.range(end)
-    }
+  function move(from: string, next: string | null | undefined, extend: boolean) {
+    if (next == null || next === from) return
+    const end = opts.itemFor(next)
+    if (extend && end) selection.extend(opts.itemFor(from), end)
+    else if (!extend) selection.endExtend()
     focus(next)
   }
 
-  function targetIndex(e: KeyboardEvent, index: number): number | null {
-    const columns = opts.columns()
+  function targetKey(e: KeyboardEvent, key: string): string | null | undefined {
+    const index = keys.value.indexOf(key)
     switch (e.key) {
-      case 'ArrowRight': return index + 1
-      case 'ArrowLeft': return index - 1
-      case 'ArrowDown': return index + columns
-      case 'ArrowUp': return index - columns
-      case 'Home': return 0
-      case 'End': return keys.value.length - 1
+      case 'ArrowRight': return keys.value[index + 1]
+      case 'ArrowLeft': return keys.value[index - 1]
+      case 'ArrowDown': return verticalTarget(opts.cells?.() ?? keys.value, key, opts.columns(), 1)
+      case 'ArrowUp': return verticalTarget(opts.cells?.() ?? keys.value, key, opts.columns(), -1)
+      case 'Home': return keys.value[0]
+      case 'End': return keys.value.at(-1)
       default: return null
     }
+  }
+
+  function onSelectionKey(e: KeyboardEvent, onBar: boolean): boolean {
+    const mod = e.ctrlKey || e.metaKey
+    if (mod && !e.altKey && e.key.toLowerCase() === 'a') selection.selectAll()
+    else if (e.key === 'Escape' && selection.count.value > 0) selection.clearListed()
+    else if (onBar && !mod && (e.key === 'Delete' || e.key === 'Backspace') && selection.count.value > 0) opts.onDelete(selection.selectedTargets())
+    else return false
+    e.preventDefault()
+    return true
   }
 
   function onKeydown(e: KeyboardEvent) {
@@ -77,26 +117,24 @@ export function useMediaKeyboard(opts: UseMediaKeyboardOptions) {
     const key = keyOf(e.target)
     if (key === null) return
     const item = opts.itemFor(key)
-    const mod = e.ctrlKey || e.metaKey
-    const to = mod || e.altKey ? null : targetIndex(e, keys.value.indexOf(key))
+    const to = e.ctrlKey || e.metaKey || e.altKey ? null : targetKey(e, key)
     if (to !== null) {
       e.preventDefault()
       move(key, to, e.shiftKey && e.key.startsWith('Arrow'))
-      return
-    }
-    if (e.key === ' ' && item) {
+    } else if (e.key === ' ' && item) {
       e.preventDefault()
       selection.toggle(item)
-    } else if (mod && e.key.toLowerCase() === 'a') {
-      e.preventDefault()
-      selection.selectAll()
-    } else if (e.key === 'Escape' && selection.selected.value.size > 0) {
-      e.preventDefault()
-      selection.clear()
     } else if ((e.key === 'Delete' || e.key === 'Backspace') && item && selection.isSelectable(item)) {
       e.preventDefault()
       opts.onDelete(effectiveTargets(item, selection.isSelected, selection.selectedItems.value).map(toOpItem))
+    } else {
+      onSelectionKey(e, false)
     }
+  }
+
+  function onBarKeydown(e: KeyboardEvent) {
+    if (e.isComposing || isEditable(e.target)) return
+    if (onSelectionKey(e, true) && e.key === 'Escape') void nextTick(() => { focusActive() })
   }
 
   function onFocusin(e: FocusEvent) {
@@ -109,10 +147,8 @@ export function useMediaKeyboard(opts: UseMediaKeyboardOptions) {
     if (current === null || next.includes(current)) return
     const replacement = next[Math.min(Math.max(0, prev.indexOf(current)), next.length - 1)] ?? null
     focusKey.value = replacement
-    if (replacement !== null && import.meta.client && (document.activeElement === null || document.activeElement === document.body)) {
-      void nextTick(() => element(replacement)?.focus())
-    }
-  })
+    if (replacement !== null && focusLost()) element(replacement)?.focus()
+  }, { flush: 'post' })
 
   function focusActive(): boolean {
     const key = activeKey.value
@@ -121,5 +157,5 @@ export function useMediaKeyboard(opts: UseMediaKeyboardOptions) {
     return el !== undefined
   }
 
-  return { activeKey, onKeydown, onFocusin, focusActive }
+  return { activeKey, onKeydown, onBarKeydown, onFocusin, focusActive, focus }
 }

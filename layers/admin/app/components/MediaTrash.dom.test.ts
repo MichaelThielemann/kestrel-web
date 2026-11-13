@@ -1,5 +1,5 @@
 import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
-import { readBody } from 'h3'
+import { getQuery, readBody } from 'h3'
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { computed } from 'vue'
 import type { VueWrapper } from '@vue/test-utils'
@@ -151,5 +151,64 @@ describe('MediaTrash', () => {
     expect(button(wrapper, en['media.trash.restore'])).toBeUndefined()
     expect(button(wrapper, en['media.trash.purge'])).toBeUndefined()
     expect(button(wrapper, text('media.trash.restoreItem', { name: 'a.png' }))).toBeUndefined()
+  })
+
+  it('moves focus to the next row after a row is restored, and to the heading once the trash is empty', async () => {
+    const wrapper = await mountTrash()
+    const restoreA = button(wrapper, text('media.trash.restoreItem', { name: 'a.png' }))
+    boundaryCast<HTMLElement>(restoreA?.element, 'dom').focus()
+    await restoreA?.trigger('click')
+
+    await vi.waitFor(() => expect(wrapper.findAll('tbody tr')).toHaveLength(1))
+    await vi.waitFor(() => expect(document.activeElement?.getAttribute('aria-label')).toBe(text('media.selection.selectItem', { name: 'b.png' })))
+
+    const restoreB = button(wrapper, text('media.trash.restoreItem', { name: 'b.png' }))
+    boundaryCast<HTMLElement>(restoreB?.element, 'dom').focus()
+    await restoreB?.trigger('click')
+    await vi.waitFor(() => expect(document.activeElement?.textContent).toBe(en['media.trash.title']))
+  })
+
+  it('announces the selection count in a status region that stays mounted', async () => {
+    const wrapper = await mountTrash()
+    const status = wrapper.get('.ui-live-status')
+
+    await select(wrapper, 'a.png')
+    expect(status.text()).toBe(en['media.selection.count'])
+    await button(wrapper, en['media.selection.clear'])?.trigger('click')
+    expect(wrapper.get('.ui-live-status').element).toBe(status.element)
+    expect(status.text()).toBe(en['media.selection.cleared'])
+  })
+
+  it('shows the page asked for last when an earlier page answers later', async () => {
+    const many = Array.from({ length: 60 }, (_, i) => trashedItem(`t${i}`, `t${i}.png`))
+    let releaseSecond = () => {}
+    const second = new Promise<void>((resolve) => { releaseSecond = resolve })
+    unregisterAll.push(registerEndpoint('/api/media/trash', {
+      method: 'GET',
+      handler: async (event) => {
+        const offset = Number(getQuery(event).offset ?? 0)
+        if (offset === 25) await second
+        return { items: many.slice(offset, offset + 25), total: many.length }
+      },
+    }))
+    const wrapper = await mountSuspended(MediaTrash, { attachTo: document.body })
+    onTestFinished(() => wrapper.unmount())
+    await vi.waitFor(() => expect(wrapper.findAll('tbody tr')).toHaveLength(25))
+
+    await button(wrapper, en['list.next'])?.trigger('click')
+    await button(wrapper, en['list.next'])?.trigger('click')
+    await vi.waitFor(() => expect(wrapper.text()).toContain('t50.png'))
+    releaseSecond()
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    expect(wrapper.text()).toContain('t50.png')
+    expect(wrapper.text()).not.toContain('t25.png')
+  })
+
+  it('leads back to the folder the trash was opened from', async () => {
+    const wrapper = await mountSuspended(MediaTrash, { attachTo: document.body, route: '/?trash=1&folder=events' })
+    onTestFinished(() => wrapper.unmount())
+
+    await vi.waitFor(() => expect(wrapper.get('[data-test="media-trash-back"]').attributes('href')).toBe('/admin/media?folder=events'))
   })
 })

@@ -4,7 +4,7 @@ import { h } from 'vue'
 import BulkBar from './BulkBar.vue'
 
 describe('BulkBar', () => {
-  it('is a labelled toolbar with a polite count, the extra slot before the actions and a clear button last', async () => {
+  it('is a labelled toolbar with its count as plain text, the extra slot before the actions and a clear button last', async () => {
     const wrapper = await mountSuspended(BulkBar, {
       props: { label: '3 selected', clearLabel: 'Clear selection' },
       slots: {
@@ -15,9 +15,8 @@ describe('BulkBar', () => {
 
     const bar = wrapper.get('[role="toolbar"]')
     expect(bar.attributes('aria-label')).toBe('3 selected')
-    const count = bar.get('[role="status"]')
-    expect(count.attributes('aria-live')).toBe('polite')
-    expect(count.text()).toBe('3 selected')
+    expect(bar.find('[role="status"], [aria-live]').exists()).toBe(false)
+    expect(bar.get('.ui-bulkbar__count').text()).toBe('3 selected')
 
     const order = Array.from(bar.element.querySelectorAll('.extra, .action, button')).map((el) => el.className || el.tagName)
     expect(order[0]).toBe('extra')

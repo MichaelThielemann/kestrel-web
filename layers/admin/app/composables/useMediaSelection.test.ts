@@ -55,6 +55,34 @@ describe('media selection in the library', () => {
     expect(selection.selectedTargets()).toEqual([{ type: 'folder', path: 'docs' }, { type: 'file', id: 'a' }, { type: 'file', id: 'b' }])
   })
 
+  it('extends from the anchor to the focus and shrinks again when the focus moves back', () => {
+    const [a, b, c, d] = [file('a'), file('b'), file('c'), file('d')]
+    const { selection } = setup('library', [a, b, c, d])
+
+    selection.toggle(a)
+    selection.extend(a, b)
+    selection.extend(a, c)
+    expect(ids(selection.selectedItems.value)).toEqual(['a', 'b', 'c'])
+
+    selection.extend(c, b)
+    expect(ids(selection.selectedItems.value)).toEqual(['a', 'b'])
+  })
+
+  it('keeps what was selected before an extension started and starts a new one after any other change', () => {
+    const [a, b, c, d] = [file('a'), file('b'), file('c'), file('d')]
+    const { selection } = setup('library', [a, b, c, d])
+
+    selection.toggle(d)
+    selection.extend(a, b)
+    expect(ids(selection.selectedItems.value)).toEqual(['a', 'b', 'd'])
+    selection.extend(b, a)
+    expect(ids(selection.selectedItems.value)).toEqual(['a', 'd'])
+
+    selection.endExtend()
+    selection.extend(c, b)
+    expect(ids(selection.selectedItems.value)).toEqual(['a', 'b', 'c', 'd'])
+  })
+
   it('prunes the selection to the visible items after every load instead of clearing it', () => {
     const [a, b, c] = [file('a'), file('b'), file('c')]
     const { items, selection } = setup('library', [a, b, c])
@@ -148,6 +176,16 @@ describe('media selection while picking several files', () => {
 
     selection.deselectAll()
     expect(selection.selectedFileIds.value).toEqual(['x'])
+  })
+
+  it('clears only the listed picks and keeps the ones in other folders', () => {
+    const [a, b] = [file('a'), file('b')]
+    const { selection } = setup('pick-multi', [a, b], { initial: ['x'] })
+
+    selection.toggle(a)
+    expect(selection.clearListed()).toBe(true)
+    expect(selection.selectedFileIds.value).toEqual(['x'])
+    expect(selection.clearListed()).toBe(false)
   })
 
   it('forgets removed ids, visible or not', () => {

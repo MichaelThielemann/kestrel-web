@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { humanizeSize, itemKey, type LibraryItem } from '../utils/library'
+import { humanizeSize, itemKey, rovingTabindex, type LibraryItem } from '../utils/library'
 import { isDisclosed, provenanceLabelKey, provenanceOrigin } from '../utils/provenance'
 import { isPickGated } from '../utils/media-insert'
 import type { MediaItem } from '#kestrel-admin/types/api'
@@ -28,15 +28,9 @@ const props = defineProps<{
 const emit = defineEmits<{ navigate: [string]; select: [LibraryItem, { toggle: boolean; range: boolean }]; selectAll: [boolean]; open: [LibraryItem]; dragstart: [LibraryItem, DragEvent]; dragend: []; sort: [string]; tileMenu: [LibraryItem, string] }>()
 const ariaSort = (field: string): 'ascending' | 'descending' | 'none' => (props.sort === field ? 'ascending' : props.sort === `-${field}` ? 'descending' : 'none')
 const mods = (e: { ctrlKey: boolean; metaKey: boolean; shiftKey: boolean }) => ({ toggle: e.ctrlKey || e.metaKey, range: e.shiftKey })
-const tabindexFor = (key: string) => (props.rovingKey === undefined ? 0 : key === props.rovingKey ? 0 : -1)
+const tabindexFor = (key: string) => rovingTabindex(key, props.rovingKey)
 const hasCheckbox = (item: LibraryItem) => props.checkboxes === true && (props.isSelectable?.(item) ?? true)
 const name = (item: LibraryItem) => (item.type === 'folder' ? item.folder.name : item.file.filename)
-let checkRange = false
-function onCheckClick(e: MouseEvent) { checkRange = e.shiftKey }
-function onCheck(item: LibraryItem) {
-  emit('select', item, { toggle: !checkRange, range: checkRange })
-  checkRange = false
-}
 
 function onFolder(item: LibraryItem, path: string, e: MouseEvent | KeyboardEvent) {
   if (e.ctrlKey || e.metaKey || e.shiftKey || (props.selecting && e instanceof MouseEvent)) emit('select', item, mods(e))
@@ -62,7 +56,7 @@ const dimensions = (f: MediaItem) => (f.width != null && f.height != null ? `${f
 </script>
 
 <template>
-  <KestrelUiTable class="media-table" role="grid" :aria-multiselectable="checkboxes ? 'true' : 'false'">
+  <KestrelUiTable class="media-table">
     <template #head>
       <th v-if="checkboxes" class="ui-table__col--select" scope="col">
         <KestrelUiCheckbox standalone :model-value="!!allSelected" :indeterminate="!!someSelected" :aria-label="t('media.selection.selectAllPage')"
@@ -87,7 +81,7 @@ const dimensions = (f: MediaItem) => (f.width != null && f.height != null ? `${f
       </tr>
       <tr v-for="item in items" :key="itemKey(item)" class="media-table__row"
         :class="{ 'is-selected': isSelected(item), 'is-drop-target': item.type === 'folder' && item.folder.path === dropTargetPath, 'is-blocked': item.type === 'file' && blockedFile(item) }"
-        :aria-selected="isSelected(item)" :aria-disabled="(item.type === 'file' && blockedFile(item)) || undefined"
+        :aria-disabled="(item.type === 'file' && blockedFile(item)) || undefined"
         :data-roving-key="itemKey(item)" :tabindex="tabindexFor(itemKey(item))"
         :data-drop-folder="item.type === 'folder' ? item.folder.path : undefined"
         :data-file-id="item.type === 'file' ? item.file.id : undefined"
@@ -99,8 +93,8 @@ const dimensions = (f: MediaItem) => (f.width != null && f.height != null ? `${f
         @dragstart="(e) => emit('dragstart', item, e)"
         @dragend="emit('dragend')">
         <td v-if="checkboxes" class="ui-table__col--select" @click.stop @dblclick.stop>
-          <KestrelUiCheckbox v-if="hasCheckbox(item)" standalone tabindex="-1" :model-value="isSelected(item)" :disabled="item.type === 'file' && blockedFile(item)"
-            :aria-label="t('media.selection.selectItem', { name: name(item) })" @click="onCheckClick" @update:model-value="onCheck(item)" />
+          <KestrelMediaItemCheck v-if="hasCheckbox(item)" :selected="isSelected(item)" :disabled="item.type === 'file' && blockedFile(item)"
+            :label="t('media.selection.selectItem', { name: name(item) })" @select="(m) => emit('select', item, m)" />
         </td>
         <template v-if="item.type === 'folder'">
           <td><span aria-hidden="true"><KestrelUiIcon name="folder" :size="15" /></span> {{ item.folder.name }}</td>

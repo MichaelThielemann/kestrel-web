@@ -108,10 +108,8 @@ function onOpenAutoFocus(e: Event) {
   border: 1px solid var(--color-border);
 }
 .media-remove__name {
-  overflow: hidden;
   font-size: var(--text-sm);
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 .media-remove__muted {
   margin: var(--space-2) 0 0;

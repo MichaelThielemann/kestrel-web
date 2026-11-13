@@ -1,11 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
-const props = defineProps<{ count: number; pageCount: number; allSelected: boolean; canDelete: boolean; trash?: boolean; busy?: boolean }>()
+defineProps<{ label: string; pageCount: number; allSelected: boolean; canDelete: boolean; trash?: boolean; busy?: boolean }>()
 const emit = defineEmits<{ selectAll: []; clear: []; delete: [] }>()
 const { t } = useT()
 
-const label = computed(() => (props.count === 1 ? t('media.selection.count') : t('media.selection.countPlural', { n: props.count })))
 const clearShortcut = computed(() => ({ keys: 'Escape', label: t('media.selection.keyEscape') }))
 </script>
 

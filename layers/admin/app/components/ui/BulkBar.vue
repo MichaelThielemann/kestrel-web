@@ -10,7 +10,7 @@ const emit = defineEmits<{ clear: [] }>()
 
 <template>
   <div class="ui-bulkbar" role="toolbar" :aria-label="label" :aria-busy="busy || undefined">
-    <p class="ui-bulkbar__count" role="status" aria-live="polite">{{ label }}</p>
+    <p class="ui-bulkbar__count">{{ label }}</p>
     <slot name="extra" />
     <slot />
     <KestrelUiTooltip v-if="clearShortcut">

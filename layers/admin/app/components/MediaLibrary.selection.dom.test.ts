@@ -134,26 +134,33 @@ describe('MediaLibrary selection in the grid', () => {
     await vi.waitFor(() => expect(wrapper.find('[data-test="file-f3"]').exists()).toBe(true))
     expect(bar(wrapper).exists()).toBe(false)
 
+    const status = wrapper.get('.ui-live-status')
+    expect(status.attributes('role')).toBe('status')
+    expect(status.text()).toBe('')
+
     await checkbox(wrapper, 'a.jpg').setValue(true)
 
-    expect(wrapper.find('.media-toolbar').exists()).toBe(false)
-    expect(wrapper.find('input[type="search"]').exists()).toBe(false)
+    expect(wrapper.get('.media-toolbar').classes()).toContain('media-library__covered')
     expect(bar(wrapper).attributes('aria-label')).toBe(en['media.selection.count'])
-    expect(bar(wrapper).get('[role="status"]').attributes('aria-live')).toBe('polite')
+    expect(wrapper.get('.ui-live-status').element).toBe(status.element)
+    expect(status.text()).toBe(en['media.selection.count'])
     expect(wrapper.find('.media-library__follow-up[role="status"]').exists()).toBe(true)
-    const pathBar = wrapper.find('.media-pathbar').element
-    expect(pathBar.nextElementSibling).toBe(wrapper.get('.media-selection-bar').element)
+    const tools = wrapper.get('.media-library__tools').element
+    expect(wrapper.find('.media-pathbar').element.nextElementSibling).toBe(tools)
+    expect(wrapper.get('.media-selection-bar').element.parentElement).toBe(tools)
+    expect(wrapper.get('.media-toolbar').element.parentElement).toBe(tools)
 
     await wrapper.get('[data-test="file-f2"]').trigger('click')
-    expect(bar(wrapper).get('[role="status"]').text()).toBe(text('media.selection.countPlural', { n: 2 }))
+    expect(bar(wrapper).get('.ui-bulkbar__count').text()).toBe(text('media.selection.countPlural', { n: 2 }))
 
     await barButton(wrapper, text('media.selection.selectAllOnPage', { n: 3 }))?.trigger('click')
-    expect(bar(wrapper).get('[role="status"]').text()).toBe(text('media.selection.countPlural', { n: 3 }))
+    expect(bar(wrapper).get('.ui-bulkbar__count').text()).toBe(text('media.selection.countPlural', { n: 3 }))
     expect(barButton(wrapper, text('media.selection.selectAllOnPage', { n: 3 }))).toBeUndefined()
 
     await barButton(wrapper, en['media.selection.clear'])?.trigger('click')
     expect(bar(wrapper).exists()).toBe(false)
-    expect(wrapper.find('.media-toolbar').exists()).toBe(true)
+    expect(wrapper.get('.media-toolbar').classes()).not.toContain('media-library__covered')
+    expect(status.text()).toBe(en['media.selection.cleared'])
   })
 
   it('toggles a folder on click while anything is selected instead of opening it', async () => {
@@ -165,7 +172,7 @@ describe('MediaLibrary selection in the grid', () => {
     await wrapper.get('[data-test="folder-docs"]').trigger('click')
 
     expect(wrapper.get('[data-test="folder-docs"]').attributes('aria-pressed')).toBe('true')
-    expect(bar(wrapper).get('[role="status"]').text()).toBe(text('media.selection.countPlural', { n: 2 }))
+    expect(bar(wrapper).get('.ui-bulkbar__count').text()).toBe(text('media.selection.countPlural', { n: 2 }))
   })
 
   it('renders no delete action in the bar without the delete capability', async () => {
@@ -208,7 +215,7 @@ describe('MediaLibrary selection in the grid', () => {
 
     await vi.waitFor(() => expect(wrapper.find('[data-test="file-f1"]').exists()).toBe(false))
     expect(wrapper.get('[data-test="file-f2"]').attributes('aria-pressed')).toBe('true')
-    expect(bar(wrapper).get('[role="status"]').text()).toBe(en['media.selection.count'])
+    expect(bar(wrapper).get('.ui-bulkbar__count').text()).toBe(en['media.selection.count'])
   })
 
   it('prunes the selection to the listed items when the folder changes', async () => {
@@ -229,27 +236,29 @@ describe('MediaLibrary selection in the table', () => {
   beforeEach(() => { localStorage.setItem('kestrel-media-view', 'table') })
   afterEach(() => { localStorage.removeItem('kestrel-media-view') })
 
-  it('adds a checkbox column with a header checkbox that is indeterminate for part of the page and marks rows selected on a grid role', async () => {
+  it('adds a checkbox column with a header checkbox that is indeterminate for part of the page, and keeps a plain table whose checkboxes carry the state', async () => {
     serve({ folders: ['docs'], files: { '': [media('f1', 'a.jpg'), media('f2', 'b.jpg')] } })
     const wrapper = await mountLibrary()
     await vi.waitFor(() => expect(wrapper.find('[data-test="row-file-f2"]').exists()).toBe(true))
 
     const table = wrapper.get('table')
-    expect(table.attributes('role')).toBe('grid')
-    expect(table.attributes('aria-multiselectable')).toBe('true')
+    expect(table.attributes('role')).toBeUndefined()
+    expect(table.attributes('aria-multiselectable')).toBeUndefined()
     const header = wrapper.get<HTMLInputElement>(`thead input[aria-label="${en['media.selection.selectAllPage']}"]`)
     expect(header.element.checked).toBe(false)
     expect(header.element.indeterminate).toBe(false)
 
     await checkbox(wrapper, 'a.jpg').setValue(true)
-    expect(wrapper.get('[data-test="row-file-f1"]').attributes('aria-selected')).toBe('true')
-    expect(wrapper.get('[data-test="row-file-f2"]').attributes('aria-selected')).toBe('false')
+    expect(wrapper.get('[data-test="row-file-f1"]').classes()).toContain('is-selected')
+    expect(wrapper.findAll('tr[aria-selected]')).toHaveLength(0)
+    expect(checkbox(wrapper, 'a.jpg').element.checked).toBe(true)
+    expect(checkbox(wrapper, 'b.jpg').element.checked).toBe(false)
     expect(header.element.indeterminate).toBe(true)
 
     await header.setValue(true)
     expect(header.element.checked).toBe(true)
     expect(header.element.indeterminate).toBe(false)
-    expect(wrapper.get('[data-test="row-folder-docs"]').attributes('aria-selected')).toBe('true')
+    expect(checkbox(wrapper, 'docs').element.checked).toBe(true)
 
     await header.setValue(false)
     expect(bar(wrapper).exists()).toBe(false)
@@ -269,7 +278,7 @@ describe('MediaLibrary selection in the table', () => {
     expect(wrapper.findAll('tbody tr').map((r) => r.attributes('tabindex'))).toEqual(['-1', '0'])
 
     await key(rows[1]!, { key: ' ' })
-    expect(rows[1]!.attributes('aria-selected')).toBe('true')
+    expect(checkbox(wrapper, 'b.jpg').element.checked).toBe(true)
   })
 })
 
@@ -316,15 +325,15 @@ describe('MediaLibrary keyboard selection', () => {
     await key(first, { key: ' ' })
     await key(first, { key: 'ArrowRight', shiftKey: true })
     expect(focused()).toBe(wrapper.get('[data-test="file-f2"]').element)
-    expect(bar(wrapper).get('[role="status"]').text()).toBe(text('media.selection.countPlural', { n: 2 }))
+    expect(bar(wrapper).get('.ui-bulkbar__count').text()).toBe(text('media.selection.countPlural', { n: 2 }))
 
     await key(focused()!, { key: 'Escape' })
     expect(bar(wrapper).exists()).toBe(false)
 
     await key(focused()!, { key: 'a', ctrlKey: true })
-    expect(bar(wrapper).get('[role="status"]').text()).toBe(text('media.selection.countPlural', { n: 3 }))
+    expect(bar(wrapper).get('.ui-bulkbar__count').text()).toBe(text('media.selection.countPlural', { n: 3 }))
     await key(focused()!, { key: 'a', metaKey: true })
-    expect(bar(wrapper).get('[role="status"]').text()).toBe(text('media.selection.countPlural', { n: 3 }))
+    expect(bar(wrapper).get('.ui-bulkbar__count').text()).toBe(text('media.selection.countPlural', { n: 3 }))
   })
 
   it('opens the delete dialog for the selection with Delete or Backspace', async () => {
@@ -402,7 +411,7 @@ describe('MediaLibrary multi-pick selection', () => {
     const wrapper = await mountLibrary({ pick: true, multiple: true, initialSelected: ['elsewhere', 'f1'] })
     await vi.waitFor(() => expect(wrapper.find('[data-test="file-f1"]').exists()).toBe(true))
 
-    expect(bar(wrapper).get('[role="status"]').text()).toBe(en['media.selection.count'])
+    expect(bar(wrapper).get('.ui-bulkbar__count').text()).toBe(en['media.selection.countHere'])
     expect(wrapper.find('input[type="search"]').exists()).toBe(true)
     expect(wrapper.get('.media-pick-bar').text()).toContain(text('media.pick.countPlural', { n: 2 }))
   })

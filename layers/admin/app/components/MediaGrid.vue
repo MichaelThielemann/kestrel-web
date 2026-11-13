@@ -1,11 +1,9 @@
 <script setup lang="ts">
-import type { MediaItem } from '#kestrel-admin/types/api'
 import type { UploadItem } from '../composables/useMediaUpload'
 import type { VariantWatchEntry } from '../composables/useVariantWatch'
-import { itemKey, humanizeSize, type LibraryItem } from '../utils/library'
-import { isDisclosed, provenanceLabelKey, provenanceOrigin } from '../utils/provenance'
+import { itemKey, rovingTabindex, type LibraryItem } from '../utils/library'
 import { isPickGated } from '../utils/media-insert'
-import { variantChipState, variantTotal } from '../utils/variant-state'
+import { variantChip } from '../utils/variant-state'
 import type { MenuItem } from '../utils/ops'
 
 const props = defineProps<{
@@ -38,15 +36,10 @@ const emit = defineEmits<{
   tileMenu: [LibraryItem, string]
 }>()
 const { t } = useT()
+const { has: hasFeature } = useFeatures()
 const mods = (e: MouseEvent) => ({ toggle: e.ctrlKey || e.metaKey, range: e.shiftKey })
-const tabindexFor = (key: string) => (props.rovingKey === undefined ? undefined : key === props.rovingKey ? 0 : -1)
+const tabindexFor = (key: string) => rovingTabindex(key, props.rovingKey)
 const hasCheckbox = (item: LibraryItem) => props.checkboxes === true && (props.isSelectable?.(item) ?? true)
-let checkRange = false
-function onCheckClick(e: MouseEvent) { checkRange = e.shiftKey }
-function onCheck(item: LibraryItem) {
-  emit('select', item, { toggle: !checkRange, range: checkRange })
-  checkRange = false
-}
 
 function onFolder(item: LibraryItem, path: string, e: MouseEvent) {
   if (e.ctrlKey || e.metaKey || e.shiftKey || props.selecting) emit('select', item, mods(e))
@@ -66,23 +59,9 @@ function onFileOpen(item: LibraryItem) {
   if (blockedFile(item)) return
   emit('open', item)
 }
-const ext = (filename: string) => (filename.split('.').pop() ?? '').toUpperCase()
-const badge = (f: MediaItem) => t(provenanceLabelKey(provenanceOrigin(f.provenance)))
-
-function fileVariants(file: MediaItem) {
-  return props.variantOverride?.get(file.id)?.variants ?? file.variants ?? []
-}
-function chipFor(file: MediaItem) {
-  const entry = props.variantOverride?.get(file.id)
-  if (!entry) return null
-  if (props.stalledIds?.has(file.id)) return { state: 'pending' as const, stalled: true, done: entry.variantCounts.done, total: variantTotal(entry.variantCounts) }
-  const state = variantChipState(entry.variantCounts, entry.available)
-  return state ? { state, stalled: false, done: entry.variantCounts.done, total: variantTotal(entry.variantCounts) } : null
-}
 function uploadChipFor(upload: UploadItem) {
-  return upload.result ? chipFor(upload.result) : null
+  return upload.result ? variantChip(props.variantOverride?.get(upload.result.id), props.stalledIds?.has(upload.result.id) === true) : null
 }
-const { has: hasFeature } = useFeatures()
 function uploadProcessing(upload: UploadItem): boolean {
   const result = upload.result
   if (upload.status !== 'done' || !result) return false
@@ -94,7 +73,6 @@ function uploadProcessing(upload: UploadItem): boolean {
 <template>
   <ul class="media-grid" :class="{ 'is-selecting': selecting }">
     <li v-if="parentPath != null" class="media-grid__cell">
-
       <KestrelUiButton variant="bare" class="media-grid__tile media-grid__tile--folder" data-test="folder-up"
         data-roving-key="up" :tabindex="tabindexFor('up')"
         :data-drop-folder="parentPath" :class="{ 'is-drop-target': parentPath === dropTargetPath }"
@@ -108,8 +86,7 @@ function uploadProcessing(upload: UploadItem): boolean {
     <template v-for="item in items" :key="itemKey(item)">
       <li v-if="item.type === 'folder'" class="media-grid__cell">
         <span v-if="hasCheckbox(item)" class="media-grid__check">
-          <KestrelUiCheckbox standalone tabindex="-1" :model-value="isSelected(item)" :aria-label="t('media.selection.selectItem', { name: item.folder.name })"
-            @click="onCheckClick" @update:model-value="onCheck(item)" />
+          <KestrelMediaItemCheck :selected="isSelected(item)" :label="t('media.selection.selectItem', { name: item.folder.name })" @select="(m) => emit('select', item, m)" />
         </span>
         <KestrelUiButton variant="bare" class="media-grid__tile media-grid__tile--folder"
           :data-test="`folder-${item.folder.path}`" :aria-pressed="isSelected(item)"
@@ -118,6 +95,7 @@ function uploadProcessing(upload: UploadItem): boolean {
           :class="{ 'is-selected': isSelected(item), 'is-drop-target': item.folder.path === dropTargetPath }"
           draggable="true"
           @click="onFolder(item, item.folder.path, $event)"
+          @keydown.enter.prevent="emit('navigate', item.folder.path)"
           @dragstart="(e: DragEvent) => emit('dragstart', item, e)"
           @dragend="emit('dragend')">
           <span class="media-grid__thumb-wrap">
@@ -144,8 +122,7 @@ function uploadProcessing(upload: UploadItem): boolean {
     <template v-for="item in items" :key="itemKey(item)">
       <li v-if="item.type === 'file'" class="media-grid__cell">
         <span v-if="hasCheckbox(item)" class="media-grid__check">
-          <KestrelUiCheckbox standalone tabindex="-1" :model-value="isSelected(item)" :disabled="blockedFile(item)" :aria-label="t('media.selection.selectItem', { name: item.file.filename })"
-            @click="onCheckClick" @update:model-value="onCheck(item)" />
+          <KestrelMediaItemCheck :selected="isSelected(item)" :disabled="blockedFile(item)" :label="t('media.selection.selectItem', { name: item.file.filename })" @select="(m) => emit('select', item, m)" />
         </span>
         <KestrelUiButton variant="bare" class="media-grid__tile media-grid__tile--file"
           :data-test="`file-${item.file.id}`" :aria-pressed="isSelected(item)"
@@ -159,29 +136,7 @@ function uploadProcessing(upload: UploadItem): boolean {
           @keydown.enter.prevent="onFileOpen(item)"
           @dragstart="(e: DragEvent) => emit('dragstart', item, e)"
           @dragend="emit('dragend')">
-          <span class="media-grid__thumb-wrap">
-            <KestrelMediaThumb
-              v-if="item.file.contentType.startsWith('image/')"
-              :path="item.file.path"
-              class="media-grid__thumb"
-              :content-type="item.file.contentType"
-              :alt="item.file.alt ?? item.file.filename"
-              :variants="fileVariants(item.file)"
-              :pending="chipFor(item.file)?.state === 'pending' && !chipFor(item.file)?.stalled" />
-            <span v-else class="media-grid__badge" aria-hidden="true">{{ ext(item.file.filename) }}</span>
-            <span v-if="isDisclosed(item.file.provenance)" class="media-grid__ai">{{ badge(item.file) }}</span>
-            <span v-if="gatedFile(item)" class="media-grid__processing">{{ t('media.pick.processing') }}</span>
-            <KestrelMediaVariantChip
-              v-else-if="chipFor(item.file)"
-              class="media-grid__variant-chip"
-              :state="chipFor(item.file)!.state"
-              :stalled="chipFor(item.file)!.stalled"
-              :done="chipFor(item.file)!.done"
-              :total="chipFor(item.file)!.total"
-            />
-            <span v-else class="media-grid__meta" aria-hidden="true">{{ humanizeSize(item.file.size) }}</span>
-          </span>
-          <span class="media-grid__name">{{ item.file.filename }}</span>
+          <KestrelMediaGridFile :file="item.file" :fresh="variantOverride?.get(item.file.id)" :stalled="stalledIds?.has(item.file.id)" :gated="gatedFile(item)" />
         </KestrelUiButton>
         <span v-if="tileMenu?.length" class="media-grid__menu">
           <KestrelUiActionMenu :items="tileMenu" :label="t('media.menu.more', { name: item.file.filename })" trigger-class="ui-button--icon ui-button--icon-sm media-grid__menu-trigger"
@@ -195,26 +150,18 @@ function uploadProcessing(upload: UploadItem): boolean {
 <style lang="scss" scoped>
 .media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(8rem, 1fr)); gap: var(--space-3); list-style: none; padding: 0; margin: 0; }
 .media-grid__cell { position: relative; }
-.media-grid__check {
-  position: absolute;
-  top: var(--space-1);
-  left: var(--space-1);
-  z-index: 1;
-  display: inline-flex;
-  border-radius: var(--radius-sm);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-sm);
-}
+.media-grid__check,
 .media-grid__menu {
   position: absolute;
   top: var(--space-1);
   left: var(--space-1);
   z-index: 1;
   display: inline-flex;
-  border-radius: var(--radius-full);
   background: var(--color-surface);
   box-shadow: var(--shadow-sm);
 }
+.media-grid__check { border-radius: var(--radius-sm); }
+.media-grid__menu { border-radius: var(--radius-full); }
 .media-grid__menu :deep(.media-grid__menu-trigger) { min-inline-size: 1.75rem; min-block-size: 1.75rem; }
 .media-grid__tile { display: flex; flex-direction: column; gap: var(--space-2); width: 100%; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-2); cursor: pointer; text-align: left; }
 .media-grid__tile:hover { border-color: var(--color-border-strong); }
@@ -222,67 +169,10 @@ function uploadProcessing(upload: UploadItem): boolean {
 .media-grid__tile.is-selected { border-color: var(--color-primary); box-shadow: inset 0 0 0 1px var(--color-primary); }
 .media-grid__tile.is-drop-target { outline: 2px dashed var(--color-primary); outline-offset: -2px; background: var(--color-surface); }
 .media-grid__tile.is-blocked { cursor: not-allowed; opacity: 0.6; }
-.media-grid__tile:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -2px; }
+.media-grid__tile:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--color-surface), inset 0 0 0 4px var(--color-focus); }
+.media-grid__tile.is-selected:focus-visible { box-shadow: inset 0 0 0 1px var(--color-primary), inset 0 0 0 3px var(--color-surface), inset 0 0 0 5px var(--color-focus); }
 .media-grid__thumb-wrap { position: relative; width: 100%; }
-.media-grid__thumb { aspect-ratio: 1; width: 100%; object-fit: cover; border-radius: var(--radius-sm); background: var(--color-bg); display: block; }
+.media-grid__thumb { aspect-ratio: 1; width: 100%; border-radius: var(--radius-sm); background: var(--color-bg); display: block; }
 .media-grid__thumb--folder { display: grid; place-items: center; color: var(--color-text-subtle); }
-.media-grid__thumb.media-thumb--pending { display: grid; place-items: center; }
-.media-grid__badge { display: grid; place-items: center; aspect-ratio: 1; width: 100%; border-radius: var(--radius-sm); background: var(--color-bg); color: var(--color-text-muted); font-weight: var(--weight-bold); }
-
-.media-grid__ai {
-  position: absolute;
-  top: var(--space-1);
-  right: var(--space-1);
-  max-width: calc(100% - 1.75rem);
-  padding: 0 var(--space-1);
-  text-align: end;
-  border-radius: var(--radius-sm);
-  background: var(--color-scrim);
-  color: var(--color-on-primary);
-  font-size: var(--text-xs);
-  line-height: 1.5;
-  pointer-events: none;
-}
-
-.media-grid__meta {
-  position: absolute;
-  inset-inline: 0;
-  bottom: 0;
-  padding: 2px var(--space-1);
-  font-size: var(--text-xs);
-  line-height: 1.35;
-  text-align: center;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  color: var(--color-on-primary);
-  background: linear-gradient(transparent, var(--color-scrim));
-  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
-  opacity: 0;
-  transition: opacity var(--motion-fast) var(--ease-standard);
-  pointer-events: none;
-}
-.media-grid__tile:hover .media-grid__meta,
-.media-grid__tile:focus-visible .media-grid__meta { opacity: 1; }
-.media-grid__processing {
-  position: absolute;
-  inset-inline: var(--space-1);
-  bottom: var(--space-1);
-  padding: 2px var(--space-1);
-  font-size: var(--text-xs);
-  line-height: 1.35;
-  text-align: center;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  color: var(--color-on-primary);
-  background: var(--color-scrim);
-  border-radius: var(--radius-sm);
-}
-.media-grid__variant-chip {
-  position: absolute;
-  inset-inline: var(--space-1);
-  bottom: var(--space-1);
-}
 .media-grid__name { font-size: var(--text-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 </style>

@@ -122,4 +122,50 @@ describe('MediaPicker', () => {
     await vi.waitFor(() => expect(wrapper.emitted('update:open')).toEqual([[false]]))
     wrapper.unmount()
   })
+
+  it('offers the undo of a move to the trash inside the dialog, where focus and the screen reader reach it, and undoes without closing', async () => {
+    const files: MediaItem[] = ['f1', 'f2'].map((id) => ({
+      id, filename: `${id}.jpg`, folder: '', contentType: 'image/jpeg', size: 1, path: `/media/${id}/${id}.jpg`, available: true,
+      createdAt: 1, updatedAt: 1, provenance: { origin: 'human' }, width: null, height: null, alt: null, title: null,
+      description: null, variants: [], variantCounts: { done: 0, pending: 0, error: 0, failed: 0 },
+    }))
+    const trashed = new Set<string>()
+    const previous = schema.capabilities
+    schema.capabilities = {
+      ...previous,
+      deleteMedia: { method: 'DELETE', path: '/media/:id' },
+      trashMedia: { method: 'POST', path: '/media/trash' },
+      restoreMedia: { method: 'POST', path: '/media/trash/restore' },
+    }
+    unregisterAll.push(() => { schema.capabilities = previous })
+    unregisterAll.push(registerEndpoint('/api/admin/schema', { method: 'GET', handler: () => schema }))
+    await useSchema().load()
+    unregisterAll.push(registerEndpoint('/api/media/folders', { method: 'GET', handler: () => emptyFolders }))
+    unregisterAll.push(registerEndpoint('/api/media', { method: 'GET', handler: () => ({ items: files.filter((f) => !trashed.has(f.id)), total: 2 - trashed.size }) }))
+    unregisterAll.push(registerEndpoint('/api/media/trash', { method: 'POST', handler: () => { trashed.add('f1'); return { ids: ['f1'], skipped: [], unchanged: [], trashVersions: {} } } }))
+    unregisterAll.push(registerEndpoint('/api/media/trash/restore', { method: 'POST', handler: () => { trashed.clear(); return { ids: ['f1'], skipped: [], unchanged: [], renamed: [], trashVersions: {} } } }))
+
+    const wrapper = await mountSuspended(MediaPicker, { props: { open: true, multiple: true }, attachTo: document.body })
+    await vi.waitFor(() => expect(document.body.querySelector('[data-test="file-f1"]')).toBeTruthy())
+    const tile = document.body.querySelector<HTMLButtonElement>('[data-test="file-f1"]')
+    tile?.focus()
+    tile?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Delete', bubbles: true, cancelable: true }))
+    await vi.waitFor(() => expect(document.body.querySelector('[data-test="file-f1"]')).toBeNull())
+
+    const content = document.body.querySelector('.ui-dialog__content')
+    const undo = await vi.waitFor(() => {
+      const button = content?.querySelector<HTMLButtonElement>('[data-test="media-undo"]')
+      if (!button) throw new Error('no undo in the dialog')
+      return button
+    })
+    expect(undo.closest('[aria-hidden="true"]')).toBeNull()
+    expect(useToast().items.some((item) => item.action)).toBe(false)
+    undo.focus()
+    expect(document.activeElement).toBe(undo)
+    undo.click()
+
+    await vi.waitFor(() => expect(document.body.querySelector('[data-test="file-f1"]')).toBeTruthy())
+    expect(wrapper.emitted('update:open')).toBeUndefined()
+    wrapper.unmount()
+  })
 })
