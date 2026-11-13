@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { findCalls, firstArgument, objectProperty, objectPropertyNodes, parseTs, span } from "@michaelthielemann/kestrel-upgrade/codemods";
+import { findCalls, firstArgument, objectProperty, parseTs, span } from "@michaelthielemann/kestrel-upgrade/codemods";
 import type { Finding, SourceRule } from "@michaelthielemann/kestrel-upgrade/plugin";
 import { removeObjectProperty } from "./edits";
 import { autoFinding, docsAnchor } from "./ruleHelpers";
@@ -25,7 +25,7 @@ export const llmsSiteUrlRule: SourceRule = {
       const llms = options === undefined ? undefined : objectProperty(options, "llms");
       const value = llms?.type === "ObjectExpression" ? objectProperty(llms, "siteUrl") : undefined;
       if (options === undefined || llms === undefined || value === undefined) continue;
-      const alone = objectPropertyNodes(llms).length === 1;
+      const alone = Array.isArray(llms.properties) && llms.properties.length === 1;
       const edit = alone ? removeObjectProperty(file, options, "llms") : removeObjectProperty(file, llms, "siteUrl");
       if (edit === undefined) continue;
       const { start, end } = span(value);

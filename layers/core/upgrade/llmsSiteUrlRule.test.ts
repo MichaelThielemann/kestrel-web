@@ -41,6 +41,25 @@ describe("preset/llms-site-url", () => {
     );
   });
 
+  it("keeps a spread that sits between the removed llms option and its neighbour", async () => {
+    expect(await fixed("presetModuleConfig({ dataDir, ...shared, llms: { siteUrl: process.env.SITE } });\n")).toBe(
+      "presetModuleConfig({ dataDir, ...shared });\n",
+    );
+    expect(await fixed("presetModuleConfig({ llms: { siteUrl: process.env.SITE }, ...shared, dataDir });\n")).toBe(
+      "presetModuleConfig({ ...shared, dataDir });\n",
+    );
+  });
+
+  it("keeps the llms option and its spread when siteUrl sits next to a spread inside it", async () => {
+    expect(await fixed("presetModuleConfig({ llms: { siteUrl: 'x', ...baseLlms } });\n")).toBe("presetModuleConfig({ llms: { ...baseLlms } });\n");
+    expect(await fixed("presetModuleConfig({ llms: { siteUrl: 'x', ...baseLlms, full: false } });\n")).toBe(
+      "presetModuleConfig({ llms: { ...baseLlms, full: false } });\n",
+    );
+    expect(await fixed("presetModuleConfig({ llms: { full: false, ...baseLlms, siteUrl: 'x' } });\n")).toBe(
+      "presetModuleConfig({ llms: { full: false, ...baseLlms } });\n",
+    );
+  });
+
   it("stays silent without llms.siteUrl, without a presetModuleConfig call, and without a config file", async () => {
     expect(await llmsSiteUrlRule.check(contextFor("presetModuleConfig({ llms: { full: true } });\n"))).toEqual([]);
     expect(await llmsSiteUrlRule.check(contextFor('const llms = { siteUrl: "https://example.org" };\n'))).toEqual([]);
