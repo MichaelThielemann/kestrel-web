@@ -1,6 +1,6 @@
 import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { computed, defineComponent } from 'vue'
+import { computed, defineComponent, nextTick } from 'vue'
 import type { AdminSchema, MediaItem } from '#kestrel-admin/types/api'
 import type { FieldDef } from '#kestrel-admin/types/kestrel'
 import { en } from '#kestrel-admin/i18n/en'
@@ -221,5 +221,69 @@ describe('field/Media confirm gate', () => {
     await vi.waitFor(() => expect(wrapper.emitted('update:modelValue')).toBeDefined())
 
     expect(wrapper.emitted('update:modelValue')?.[0]).toEqual(['f2'])
+  })
+})
+
+describe('field/Media crop entry', () => {
+  const framed = (over: Partial<MediaItem> = {}) => mediaItem({
+    id: 'f1', filename: 'harbour.jpg', variantCounts: { done: 1, pending: 0, error: 0, failed: 0 },
+    framing: { focus: null, crops: {}, width: 1200, height: 800, ratios: [{ key: '1:1', sizes: ['avatar'], manual: false, fits: true, crop: null }] },
+    ...over,
+  })
+  const cropLabel = en['mediaCrop.openFor'].replace('{name}', 'harbour.jpg')
+  const cropButton = (wrapper: { find: (selector: string) => { exists: () => boolean, trigger: (event: string) => Promise<void> } }) => wrapper.find(`button[aria-label="${cropLabel}"]`)
+
+  afterEach(() => {
+    apiHandler.fn = () => Promise.resolve({ items: [], total: 0 })
+    delete schema.capabilities.setMediaFraming
+    document.body.innerHTML = ''
+  })
+
+  it('opens the crop editor from the chosen image and keeps the answered framing', async () => {
+    schema.capabilities.setMediaFraming = { method: 'PUT', path: '/media/:id/framing' }
+    const saved = framed({ focus: { x: 0.25, y: 0.25, w: 0.5, h: 0.5 } })
+    apiHandler.fn = (route) => {
+      const text = JSON.stringify(route)
+      if (text.includes('/framing')) return Promise.resolve(saved)
+      return Promise.resolve({ items: [framed()], total: 1 })
+    }
+    const wrapper = await mountSuspended(FieldMedia, { props: { field, name: 'hero', locale: 'en', modelValue: 'f1' }, attachTo: document.body })
+    await vi.waitFor(() => expect(cropButton(wrapper).exists()).toBe(true))
+
+    await cropButton(wrapper).trigger('click')
+    await vi.waitFor(() => expect(document.body.querySelector('.media-crop')).not.toBeNull())
+    expect(document.body.querySelector('[role="dialog"]')?.textContent).toContain(en['mediaCrop.title'].replace('{name}', 'harbour.jpg'))
+    document.body.querySelector('.ui-rect-select__surface')?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+    await nextTick()
+    Array.from(document.body.querySelectorAll('[role="dialog"] button')).find((b) => b.textContent?.trim() === en['common.save'])?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+
+    await vi.waitFor(() => expect(document.body.querySelector('.media-crop')).toBeNull())
+    expect(wrapper.emitted('update:modelValue')).toBeUndefined()
+    wrapper.unmount()
+  })
+
+  it('offers no crop for an item in the trash, a file that is not an image, or without the capability', async () => {
+    apiHandler.fn = () => Promise.resolve({ items: [framed()], total: 1 })
+    const refused = await mountSuspended(FieldMedia, { props: { field, name: 'hero', locale: 'en', modelValue: 'f1' } })
+    await vi.waitFor(() => expect(refused.find('.field-media__filename').text()).toBe('harbour.jpg'))
+    expect(cropButton(refused).exists()).toBe(false)
+
+    schema.capabilities.setMediaFraming = { method: 'PUT', path: '/media/:id/framing' }
+    apiHandler.fn = () => Promise.resolve({ items: [framed({ contentType: 'application/pdf', framing: { focus: null, crops: {}, width: null, height: null, ratios: [] } })], total: 1 })
+    const pdf = await mountSuspended(FieldMedia, { props: { field, name: 'hero', locale: 'en', modelValue: 'f1' } })
+    await vi.waitFor(() => expect(pdf.find('.field-media__filename').text()).toBe('harbour.jpg'))
+    expect(cropButton(pdf).exists()).toBe(false)
+
+    schema.capabilities.listMediaTrash = { method: 'GET', path: '/media/trash' }
+    apiHandler.fn = (route) => Promise.resolve(JSON.stringify(route).includes('/media/trash')
+      ? { items: [{ id: 'f1', filename: 'harbour.jpg' }], total: 1 }
+      : { items: [], total: 0 })
+    try {
+      const trashed = await mountSuspended(FieldMedia, { props: { field, name: 'hero', locale: 'en', modelValue: 'f1' } })
+      await vi.waitFor(() => expect(trashed.find('.field-media__trashed').exists()).toBe(true))
+      expect(cropButton(trashed).exists()).toBe(false)
+    } finally {
+      delete schema.capabilities.listMediaTrash
+    }
   })
 })

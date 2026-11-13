@@ -8,6 +8,7 @@ import { isDisclosed, provenanceLabelKey, provenanceOrigin } from '#kestrel-admi
 import { isInsertable } from '#kestrel-admin/utils/media-insert'
 import { onMediaChanged, onMediaRemoved } from '#kestrel-admin/composables/useMediaChanges'
 import { lookUpMedia } from '#kestrel-admin/composables/useMediaPick'
+import { canFrame } from '#kestrel-admin/utils/media-crop'
 
 const props = defineProps<FieldComponentProps>()
 const model = defineModel<string | string[] | null>()
@@ -72,6 +73,17 @@ const trashedHint = computed(() => (resolved.value.some((r) => r.item === null &
 
 const initialFolder = computed(() => (resolved.value.length ? commonFolder(resolved.value.map((r) => r.item?.folder ?? '')) : undefined))
 
+const cropItem = ref<MediaItem | null>(null)
+const cropOpen = ref(false)
+const canCrop = (item: MediaItem | null) => capabilities.has('setMediaFraming') && canFrame(item)
+function openCrop(item: MediaItem) {
+  cropItem.value = item
+  cropOpen.value = true
+}
+function onFramed(item: MediaItem) {
+  if (item.id in meta.value) meta.value[item.id] = item
+}
+
 const nameOf = (id: string, item: MediaItem | null, i: number) => item?.filename ?? trashed.value[id] ?? t('field.media.itemAt', { pos: i + 1 })
 
 async function onConfirm(picked: string[]) {
@@ -112,6 +124,7 @@ async function onConfirm(picked: string[]) {
             <span class="field-media__filename">{{ nameOf(r.id, r.item, i) }}</span>
             <span v-if="isDisclosed(r.item?.provenance)" class="field-media__ai">{{ t(provenanceLabelKey(provenanceOrigin(r.item?.provenance))) }}</span>
             <span v-if="!r.item && trashed[r.id] !== undefined" class="field-media__trashed">{{ t('field.media.trashed') }}</span>
+            <KestrelUiButton v-if="r.item && canCrop(r.item)" variant="icon" class="field-media__crop" :aria-label="t('mediaCrop.openFor', { name: nameOf(r.id, r.item, i) })" @click="r.item && openCrop(r.item)"><KestrelUiIcon name="crop" size="1rem" /></KestrelUiButton>
             <KestrelUiButton v-if="!disabled" variant="icon" class="field-media__remove" :aria-label="t('field.media.remove', { name: nameOf(r.id, r.item, i) })" @click="removeId(r.id)"><KestrelUiIcon name="x" size="1rem" /></KestrelUiButton>
           </li>
         </ul>
@@ -128,6 +141,7 @@ async function onConfirm(picked: string[]) {
           {{ multiple ? t('field.media.add') : (resolved.length ? t('field.media.replace') : t('field.media.select')) }}
         </KestrelUiButton>
       </div>
+      <KestrelMediaCropEditor v-if="cropItem" v-model:open="cropOpen" :item="cropItem" @saved="onFramed" />
       <KestrelMediaPicker v-model:open="pickerOpen" :multiple="multiple" :accept="accept" :initial-folder="initialFolder" :initial-selected="ids" @confirm="onConfirm" />
     </template>
   </KestrelUiField>
@@ -156,6 +170,7 @@ async function onConfirm(picked: string[]) {
   color: var(--color-warning-text);
 }
 
+.field-media__crop,
 .field-media__remove {
   position: absolute;
   top: 4px;
@@ -176,15 +191,25 @@ async function onConfirm(picked: string[]) {
     transform var(--motion-fast) var(--ease-standard),
     box-shadow var(--motion-fast) var(--ease-standard);
 }
+.field-media__crop { top: calc(80px - 1.75rem - 4px); }
+.field-media__crop:hover {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  box-shadow: 0 0 0 1px var(--color-overlay-edge-strong), var(--shadow-md);
+  transform: scale(1.08);
+}
 .field-media__remove:hover {
   background: var(--color-danger-solid);
   color: var(--color-on-danger);
   box-shadow: 0 0 0 1px var(--color-overlay-edge-strong), var(--shadow-md);
   transform: scale(1.08);
 }
+.field-media__crop:focus-visible,
 .field-media__remove:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) {
+  .field-media__crop,
   .field-media__remove { transition: none; }
+  .field-media__crop:hover,
   .field-media__remove:hover { transform: none; }
 }
 
