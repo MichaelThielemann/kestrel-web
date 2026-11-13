@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, useId } from 'vue'
+import { computed, nextTick, reactive, ref, useId } from 'vue'
 import { usePanZoom } from '../../composables/usePanZoom'
 import type { MediaRect } from '../../types/api'
 
@@ -43,15 +43,42 @@ const frameStyle = computed(() => {
 const zoomPercent = computed(() => Math.round(zoom.value * 100))
 const sliderZoom = computed({ get: () => zoom.value, set: (value: number) => zoomTo(value) })
 
-function setNumber(field: 'x' | 'y' | 'zoom', value: number | null | undefined): void {
+type NumberField = 'x' | 'y' | 'zoom'
+const NUMBER_FIELDS: readonly { name: NumberField, step: number }[] = [{ name: 'x', step: 0.1 }, { name: 'y', step: 0.1 }, { name: 'zoom', step: 1 }]
+const typed = reactive(new Map<NumberField, number | null>())
+const shown = (field: NumberField) => (typed.has(field) ? typed.get(field) ?? null : field === 'zoom' ? zoomPercent.value : position.value[field])
+
+function commitNumber(field: NumberField): void {
+  if (!typed.has(field)) return
+  const value = typed.get(field)
+  typed.delete(field)
   if (value === null || value === undefined || !Number.isFinite(value)) return
   if (field === 'zoom') zoomTo(value / 100)
   else setPosition(field, value / 100)
 }
+
+function onNumberKeydown(field: NumberField, event: KeyboardEvent): void {
+  if (event.key === 'Enter' && !event.isComposing) commitNumber(field)
+}
+
+const root = ref<HTMLElement | null>(null)
+
+async function zoomButton(factor: number, event: MouseEvent): Promise<void> {
+  const button = event.currentTarget
+  zoomBy(factor)
+  await nextTick()
+  if (!(button instanceof HTMLButtonElement) || !button.disabled) return
+  const active = document.activeElement
+  if (active !== null && active !== button && active !== document.body) return
+  const target = root.value?.querySelector<HTMLInputElement>('input[type="range"]:not(:disabled)') ?? frame.value
+  target?.focus()
+}
+
+defineExpose({ focus: () => frame.value?.focus() })
 </script>
 
 <template>
-  <div class="ui-crop-frame" :class="{ 'ui-crop-frame--dragging': dragging }" :data-disabled="disabled || undefined">
+  <div ref="root" class="ui-crop-frame" :class="{ 'ui-crop-frame--dragging': dragging }" :data-disabled="disabled || undefined">
     <div
       ref="frame"
       class="ui-crop-frame__frame"
@@ -75,7 +102,7 @@ function setNumber(field: 'x' | 'y' | 'zoom', value: number | null | undefined):
         data-action="zoom-out"
         :aria-label="t('cropFrame.zoomOut')"
         :disabled="disabled || zoom <= 1.0001"
-        @click="zoomBy(1 / ZOOM_STEP)"
+        @click="zoomButton(1 / ZOOM_STEP, $event)"
       />
       <KestrelUiSlider
         v-model="sliderZoom"
@@ -95,24 +122,27 @@ function setNumber(field: 'x' | 'y' | 'zoom', value: number | null | undefined):
         data-action="zoom-in"
         :aria-label="t('cropFrame.zoomIn')"
         :disabled="disabled || zoom >= maxZoom - 0.0001"
-        @click="zoomBy(ZOOM_STEP)"
+        @click="zoomButton(ZOOM_STEP, $event)"
       />
     </div>
     <KestrelUiFieldset :label="t('cropFrame.fields')">
       <div class="ui-crop-frame__grid-fields">
-        <KestrelUiField :label="t('cropFrame.x')">
+        <KestrelUiField v-for="field in NUMBER_FIELDS" :key="field.name" :label="t(`cropFrame.${field.name}`)">
           <template #default="{ id }">
-            <KestrelUiNumberInput :id="id" :model-value="position.x" :min="0" :max="100" :step="0.1" suffix="%" slim :disabled="disabled" data-field="x" @update:model-value="setNumber('x', $event)" />
-          </template>
-        </KestrelUiField>
-        <KestrelUiField :label="t('cropFrame.y')">
-          <template #default="{ id }">
-            <KestrelUiNumberInput :id="id" :model-value="position.y" :min="0" :max="100" :step="0.1" suffix="%" slim :disabled="disabled" data-field="y" @update:model-value="setNumber('y', $event)" />
-          </template>
-        </KestrelUiField>
-        <KestrelUiField :label="t('cropFrame.zoom')">
-          <template #default="{ id }">
-            <KestrelUiNumberInput :id="id" :model-value="zoomPercent" :min="100" :max="Math.floor(maxZoom * 100)" :step="1" suffix="%" slim :disabled="disabled" data-field="zoom" @update:model-value="setNumber('zoom', $event)" />
+            <KestrelUiNumberInput
+              :id="id"
+              :model-value="shown(field.name)"
+              :min="field.name === 'zoom' ? 100 : 0"
+              :max="field.name === 'zoom' ? Math.floor(maxZoom * 100) : 100"
+              :step="field.step"
+              suffix="%"
+              slim
+              :disabled="disabled"
+              :data-field="field.name"
+              @update:model-value="typed.set(field.name, $event ?? null)"
+              @change="commitNumber(field.name)"
+              @keydown="onNumberKeydown(field.name, $event)"
+            />
           </template>
         </KestrelUiField>
       </div>

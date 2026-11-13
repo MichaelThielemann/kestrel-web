@@ -1,4 +1,4 @@
-import { centredCrop, cropForRatio, type PixelCrop } from '@michaelthielemann/kestrel-images-default/framing'
+import { centredCrop, cropForRatio, parseFraming, type PixelCrop } from '@michaelthielemann/kestrel-images-default/framing'
 import { computed, onMounted, onUnmounted, type Ref } from 'vue'
 import type { MediaRect } from '../types/api'
 import { usePointerDrag, type PointerDragPoint } from './usePointerDrag'
@@ -39,23 +39,35 @@ export function usePanZoom(frame: Ref<HTMLElement | null>, opts: PanZoomOptions)
 
   const zoom = computed(() => (centred.value && crop.value ? centred.value.width / crop.value.width : 1))
 
+  function cropAt(cx: number, cy: number, z: number): PixelCrop | null {
+    const base = centred.value
+    if (!base) return null
+    const [w, h, key] = [opts.width(), opts.height(), opts.ratio()]
+    const [cw, ch] = [base.width / z, base.height / z]
+    const candidate = { x: (cx - cw / 2) / w, y: (cy - ch / 2) / h, w: cw / w, h: ch / h }
+    return cropForRatio({ focus: null, crops: { [key]: candidate } }, key, w, h) ?? base
+  }
+
   const maxZoom = computed(() => {
     const base = centred.value
     if (!base) return 1
-    return Math.max(1, Math.min(opts.maxZoom(), Math.min(base.width, base.height) / MIN_CROP_SIDE))
+    const limit = Math.max(1, Math.min(opts.maxZoom(), Math.min(base.width, base.height) / MIN_CROP_SIDE))
+    const closest = cropAt(opts.width() / 2, opts.height() / 2, limit)
+    return closest ? Math.max(1, base.width / closest.width) : 1
   })
 
+  function storable(rect: MediaRect): boolean {
+    return parseFraming({ crops: { [opts.ratio()]: rect } }, { width: opts.width(), height: opts.height() }).ok
+  }
+
   function place(cx: number, cy: number, nextZoom: number): void {
-    const base = centred.value
     const current = crop.value
-    if (!base || !current || opts.disabled()) return
-    const [w, h, key] = [opts.width(), opts.height(), opts.ratio()]
-    const z = Math.min(maxZoom.value, Math.max(1, nextZoom))
-    const [cw, ch] = [base.width / z, base.height / z]
-    const candidate = { x: (cx - cw / 2) / w, y: (cy - ch / 2) / h, w: cw / w, h: ch / h }
-    const next = cropForRatio({ focus: null, crops: { [key]: candidate } }, key, w, h) ?? base
-    if (sameCrop(next, current)) return
-    opts.commit({ x: next.left / w, y: next.top / h, w: next.width / w, h: next.height / h })
+    if (!current || opts.disabled()) return
+    const [w, h] = [opts.width(), opts.height()]
+    const next = cropAt(cx, cy, Math.min(maxZoom.value, Math.max(1, nextZoom)))
+    if (!next || sameCrop(next, current)) return
+    const rect = { x: next.left / w, y: next.top / h, w: next.width / w, h: next.height / h }
+    if (storable(rect)) opts.commit(rect)
   }
 
   function centre(): PointerDragPoint {

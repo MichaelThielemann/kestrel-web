@@ -1,6 +1,6 @@
 import { cropForRatio, type PixelCrop } from '@michaelthielemann/kestrel-images-default/framing'
 import { mountSuspended } from '@nuxt/test-utils/runtime'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 import type { MediaRect } from '../../types/api'
 import CropFrame from './CropFrame.vue'
@@ -8,17 +8,17 @@ import CropFrame from './CropFrame.vue'
 const WIDTH = 1600
 const HEIGHT = 1200
 
-async function mountFrame(initial: MediaRect | null, focus: MediaRect | null = null) {
+async function mountFrame(initial: MediaRect | null, focus: MediaRect | null = null, image: { ratio: string, width: number, height: number } = { ratio: '16:9', width: WIDTH, height: HEIGHT }) {
   const emitted: MediaRect[] = []
   const wrapper = await mountSuspended(CropFrame, {
     attachTo: document.body,
     props: {
       src: '/media/one/original.jpg',
       alt: 'A harbour at dusk',
-      label: 'Crop for 16:9',
-      ratio: '16:9',
-      width: WIDTH,
-      height: HEIGHT,
+      label: `Crop for ${image.ratio}`,
+      ratio: image.ratio,
+      width: image.width,
+      height: image.height,
       focus,
       modelValue: initial,
       'onUpdate:modelValue': (value: MediaRect | null) => {
@@ -160,6 +160,84 @@ describe('KestrelUiCropFrame', () => {
     frame.dispatchEvent(up)
     await nextTick()
     expect(cropOf(emitted.at(-1))).toEqual({ left: 300, top: 420, width: 800, height: 450 })
+    wrapper.unmount()
+  })
+
+  it('applies a typed zoom once it is committed, not digit by digit', async () => {
+    const { wrapper, emitted } = await mountFrame({ x: 0.25, y: 0.3125, w: 0.5, h: 0.375 })
+    const input = wrapper.get<HTMLInputElement>('input[data-field="zoom"]').element
+    input.focus()
+
+    for (const typed of ['', '4', '40', '400']) {
+      input.value = typed
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+      await nextTick()
+      expect(input.value).toBe(typed)
+    }
+    expect(emitted).toEqual([])
+    input.dispatchEvent(new Event('change', { bubbles: true }))
+    await nextTick()
+
+    expect(emitted).toHaveLength(1)
+    expect(cropOf(emitted[0])).toEqual({ left: 600, top: 488, width: 400, height: 225 })
+    expect(input.value).toBe('400')
+    expect(wrapper.get<HTMLInputElement>('input[data-field="x"]').element.value).toBe('37.5')
+    wrapper.unmount()
+  })
+
+  it('applies a typed position on Enter', async () => {
+    const { wrapper, emitted } = await mountFrame({ x: 0.25, y: 0.3125, w: 0.5, h: 0.375 })
+    const input = wrapper.get<HTMLInputElement>('input[data-field="x"]').element
+    input.focus()
+    input.value = '1'
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+    input.value = '10'
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+    await nextTick()
+    expect(emitted).toEqual([])
+
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }))
+    await nextTick()
+    expect(cropOf(emitted.at(-1))).toEqual({ left: 160, top: 375, width: 800, height: 450 })
+    wrapper.unmount()
+  })
+
+  it('stops zooming in at the closest crop it can reach and offers that as the slider and number maximum', async () => {
+    const { wrapper } = await mountFrame(null, null, { ratio: '1:1', width: 1200, height: 700 })
+    const zoomIn = wrapper.get<HTMLButtonElement>('[data-action="zoom-in"]').element
+
+    for (let i = 0; i < 20 && !zoomIn.disabled; i++) {
+      zoomIn.click()
+      await nextTick()
+    }
+    expect(zoomIn.disabled).toBe(true)
+    const slider = wrapper.get<HTMLInputElement>('input[type="range"]').element
+    expect(Number(slider.max)).toBeCloseTo(700 / 88, 6)
+    expect(Number(slider.value)).toBeCloseTo(700 / 88, 6)
+    expect(wrapper.get<HTMLInputElement>('input[data-field="zoom"]').element.max).toBe('795')
+    expect(wrapper.get<HTMLInputElement>('input[data-field="zoom"]').element.value).toBe('795')
+    wrapper.unmount()
+  })
+
+  it('moves keyboard focus to the slider when a zoom button reaches its limit and disables itself', async () => {
+    const { wrapper } = await mountFrame({ x: 0.1, y: 0.1, w: 0.8, h: 0.8 })
+    const zoomOut = wrapper.get<HTMLButtonElement>('[data-action="zoom-out"]').element
+    zoomOut.focus()
+    zoomOut.click()
+    await nextTick()
+
+    expect(zoomOut.disabled).toBe(true)
+    await vi.waitFor(() => expect(document.activeElement).toBe(wrapper.get('input[type="range"]').element))
+    wrapper.unmount()
+  })
+
+  it('keeps the crop automatic when the image is too small for a crop of the exact ratio', async () => {
+    const { wrapper, emitted } = await mountFrame(null, null, { ratio: '16:9', width: 40, height: 40 })
+    const frame = wrapper.get('.ui-crop-frame__frame')
+
+    await frame.trigger('keydown', { key: 'ArrowDown' })
+    await frame.trigger('keydown', { key: 'ArrowUp', shiftKey: true })
+    expect(emitted).toEqual([])
     wrapper.unmount()
   })
 })
