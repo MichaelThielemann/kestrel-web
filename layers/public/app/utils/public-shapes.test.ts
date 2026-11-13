@@ -18,7 +18,7 @@ const stored: MediaItem = {
   title: 'Tree',
   description: 'A tree in a field',
   available: true,
-  variants: [{ size: 'content', width: 640, height: 480, format: 'webp', bytes: 2048, state: 'pending', path: '/media/m1/variants/content.webp' }],
+  variants: [{ size: 'content', width: 640, height: 480, format: 'webp', bytes: 2048, state: 'pending', path: '/media/m1/variants/content.webp', crop: null }],
   variantCounts: { done: 0, pending: 1, error: 0, failed: 0 },
   focus: { x: 0.5, y: 0.1, w: 0.25, h: 0.2 },
   framing: { focus: { x: 0.5, y: 0.1, w: 0.25, h: 0.2 }, crops: {}, width: 1200, height: 900, ratios: [] },
@@ -39,12 +39,21 @@ describe('toPublicMedia', () => {
       description: 'A tree in a field',
       provenance: { origin: 'human' },
       focus: { x: 0.5, y: 0.1, w: 0.25, h: 0.2 },
-      variants: [{ size: 'content', width: 640, height: 480, format: 'webp', path: '/media/m1/variants/content.webp' }],
+      variants: [{ size: 'content', width: 640, height: 480, format: 'webp', path: '/media/m1/variants/content.webp', crop: null }],
     })
   })
 
+  it('keeps the crop a variant shows, and leaves it out when the answer has none', () => {
+    const crop = { left: 120, top: 40, width: 600, height: 600 }
+    const cut: MediaItem = { ...stored, variants: [{ size: 'avatar', width: 96, height: 96, format: 'webp', bytes: 512, state: 'done', path: '/media/m1/variants/avatar.webp?v=2', crop }] }
+    expect(toPublicMedia(cut).variants[0]?.crop).toEqual(crop)
+    const { crop: _crop, ...withoutCrop } = { size: 'avatar', width: 96, height: 96, format: 'webp', path: '/media/m1/variants/avatar.webp', crop }
+    const narrowed = toPublicMedia({ ...stored, variants: [withoutCrop] })
+    expect(narrowed.variants[0]).not.toHaveProperty('crop')
+  })
+
   it('keeps a variant path with its version query as the server answered it', () => {
-    const versioned: MediaItem = { ...stored, variants: [{ size: 'content', width: 640, height: 480, format: 'webp', bytes: 2048, state: 'done', path: '/media/m1/variants/content.webp?v=k3j9' }] }
+    const versioned: MediaItem = { ...stored, variants: [{ size: 'content', width: 640, height: 480, format: 'webp', bytes: 2048, state: 'done', path: '/media/m1/variants/content.webp?v=k3j9', crop: null }] }
     expect(toPublicMedia(versioned).variants[0]?.path).toBe('/media/m1/variants/content.webp?v=k3j9')
   })
 
@@ -76,7 +85,7 @@ const anonymous: AnonymousOf<'getMedia'> = {
   description: 'A tree in a field',
   provenance: { origin: 'human' },
   focus: { x: 0.5, y: 0.1, w: 0.25, h: 0.2 },
-  variants: [{ size: 'content', width: 640, height: 480, format: 'webp', path: '/media/m1/variants/content.webp' }],
+  variants: [{ size: 'content', width: 640, height: 480, format: 'webp', path: '/media/m1/variants/content.webp', crop: null }],
 }
 
 describe('toPublicMedia of what the server answers', () => {
