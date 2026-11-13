@@ -42,15 +42,20 @@ const UNREACHED_MESSAGE = 'Request failed'
 
 function isErrorBodyOfServer(body: unknown): boolean {
   if (typeof body !== 'object' || body === null || Array.isArray(body)) return false
-  const kestrelShape = 'error' in body && typeof body.error === 'string' && 'code' in body && typeof body.code === 'string'
-  const hostShape = 'statusCode' in body && typeof body.statusCode === 'number'
-  return kestrelShape || hostShape
+  const error = 'error' in body ? body.error : undefined
+  const kestrelShape = typeof error === 'string' && 'code' in body && typeof body.code === 'string'
+  if (kestrelShape) return true
+  if (!('statusCode' in body) || typeof body.statusCode !== 'number') return false
+  const bareH3Shape = error === undefined && 'statusMessage' in body && typeof body.statusMessage === 'string'
+  return error === true || bareH3Shape
 }
 
 /**
  * Whether an error answer came from kestrel or the host server rather than from something in front of them: it
  * carries the `x-kestrel-run-id` header, or its body has the shape of a kestrel error (string `error` and `code`)
- * or of a host server error (number `statusCode`).
+ * or of a Nitro or h3 error (number `statusCode` with `error: true`, or with a string `statusMessage` and no `error`).
+ * The JSON errors of gateways, such as `{ statusCode, message }` or `{ statusCode, message, error: 'Bad Gateway' }`,
+ * do not count.
  */
 export function answeredByServer(body: unknown, runId: string | null | undefined): boolean {
   return (runId !== undefined && runId !== null) || isErrorBodyOfServer(body)
@@ -61,6 +66,13 @@ function reachedServer(err: FetchErrorLike, body: object | undefined): boolean {
   return err.response !== undefined && answeredByServer(body, headerOf(err.response, 'x-kestrel-run-id'))
 }
 
+function answerMessage(err: FetchErrorLike, body: Partial<ApiErrorBody> | undefined): string {
+  if (typeof body?.error === 'string') return body.error
+  if (typeof err.data === 'string') return err.data
+  if (body !== undefined || err.response !== undefined) return ''
+  return err.message ?? UNREACHED_MESSAGE
+}
+
 /** The `ApiError` for anything a request threw; `trace` overrides the id and the reach the error itself shows. */
 export function toApiError(e: unknown, trace: ApiErrorTrace = {}): ApiError {
   if (e instanceof ApiError) return e
@@ -68,8 +80,7 @@ export function toApiError(e: unknown, trace: ApiErrorTrace = {}): ApiError {
   const status = err.status ?? err.statusCode ?? 0
   const body = typeof err.data === 'object' && err.data ? err.data : undefined
   const reached = trace.reached ?? reachedServer(err, body)
-  const bodyMessage = typeof body?.error === 'string' ? body.error : undefined
-  const message = reached ? bodyMessage ?? (typeof err.data === 'string' ? err.data : undefined) ?? err.message ?? UNREACHED_MESSAGE : UNREACHED_MESSAGE
+  const message = reached ? answerMessage(err, body) : UNREACHED_MESSAGE
   const code = typeof body?.code === 'string' ? body.code : 'INTERNAL'
   const retryable = typeof body?.retryable === 'boolean' ? body.retryable : false
   const requestId = trace.requestId ?? requestIdOfFetchError(e)

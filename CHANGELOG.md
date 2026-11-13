@@ -76,8 +76,11 @@
   a bare "Request failed"; after a timeout or a 504 it says that the server may still have processed the
   request, and after a 408 that the server or a proxy in front of it stopped waiting for the request body.
   An answer counts as the server's when it carries `X-Kestrel-Run-Id`, or when its body is a kestrel error
-  (string `error` and `code`) or a host server error (number `statusCode`), for uploads as for every other
-  request; any other JSON body counts as written in front of the server. `ApiError` carries `requestId`
+  (string `error` and `code`) or a Nitro or h3 error (number `statusCode` with `error: true`, or with a
+  string `statusMessage` and no `error`), for uploads as for every other request; any other JSON body, such
+  as a gateway's `{ statusCode, message }`, counts as written in front of the server. A host server error
+  carries no message of its own, so the admin shows its translated text with the status and the id instead
+  of the fetch library's `[METHOD] "url": status` line. `ApiError` carries `requestId`
   and `reached`; `failureText()` composes such a message and `apiErrorText(t, e, fallback?)` gives the text
   an inline error display shows.
 - Page builder: a block instance can carry an optional alias, set in its fields panel. The preset derives a

@@ -90,7 +90,7 @@ describe('toApiError on a failed request', () => {
   })
 
   it('counts a JSON answer of the host server as reached', () => {
-    const err = toApiError({ status: 503, data: { statusCode: 503, message: 'booting' }, options: sent('aaaaaaaaaaaa'), response: answer() })
+    const err = toApiError({ status: 503, data: { error: true, statusCode: 503, statusMessage: 'Service Unavailable', message: 'booting' }, options: sent('aaaaaaaaaaaa'), response: answer() })
     expect(err.reached).toBe(true)
   })
 
@@ -98,12 +98,21 @@ describe('toApiError on a failed request', () => {
     const err = toApiError({ status: 413, data: { message: 'Request size limit exceeded' }, options: sent('f0e1d2c3b4a5'), response: answer({ 'content-type': 'application/json' }) })
     expect(err.reached).toBe(false)
     expect(err.message).toBe('Request failed')
+    const gateway = toApiError({ status: 502, data: { statusCode: 502, message: 'upstream unavailable', error: 'Bad Gateway' }, options: sent('f0e1d2c3b4a5'), response: answer({ 'content-type': 'application/json' }) })
+    expect(gateway.reached).toBe(false)
+    expect(gateway.message).toBe('Request failed')
   })
 
-  it('never takes a non-string error field of a host server answer as the message', () => {
+  it('leaves the message of a host server answer empty instead of taking the text the fetch error was built with', () => {
     const err = toApiError({ status: 500, data: { error: true, statusCode: 500, message: 'Server Error' }, message: '[POST] "/api/media": 500 Server Error', options: sent('aaaaaaaaaaaa'), response: answer() })
     expect(err.reached).toBe(true)
-    expect(err.message).toBe('[POST] "/api/media": 500 Server Error')
+    expect(err.message).toBe('')
+    const refused = toApiError({ status: 403, data: { error: true, statusCode: 403, statusMessage: 'Forbidden' }, message: '[PATCH] "/api/pages/p1": 403 ', options: sent('aaaaaaaaaaaa'), response: answer() })
+    expect(refused.message).toBe('')
+  })
+
+  it('keeps the message of an error that no request threw', () => {
+    expect(toApiError(new Error('boom')).message).toBe('boom')
   })
 
   it('takes a trace passed by the caller over what the error carries', () => {
@@ -118,6 +127,16 @@ describe('answeredByServer', () => {
     expect(answeredByServer({ error: 'not found', code: 'NOT_FOUND' }, null)).toBe(true)
     expect(answeredByServer({ error: true, statusCode: 503 }, null)).toBe(true)
     expect(answeredByServer(undefined, 'run-1')).toBe(true)
+  })
+
+  it('counts the error body of a bare h3 server, which carries a status message and no error field, as an answer of the host server', () => {
+    expect(answeredByServer({ statusCode: 403, statusMessage: 'Forbidden', data: {} }, null)).toBe(true)
+  })
+
+  it('counts the JSON errors of common gateways in front of the server as an answer from in front of it', () => {
+    expect(answeredByServer({ statusCode: 429, message: 'Rate limit is exceeded. Try again in 5 seconds.' }, null)).toBe(false)
+    expect(answeredByServer({ statusCode: 502, message: 'upstream unavailable', error: 'Bad Gateway' }, null)).toBe(false)
+    expect(answeredByServer({ error: true, statusCode: '502' }, null)).toBe(false)
   })
 
   it('counts any other JSON object as an answer from in front of the server', () => {
