@@ -464,7 +464,9 @@ a container in its log driver. Two lines matter when something failed:
   before its pipeline ran (no route, a body too large or not readable, a content type the route does not
   accept) has a `reason` and starts no run, so it is not counted in Insights; this line is its only record.
   The full list of reasons is in kestrel's `docs/configuration.md`, "Logging". A line never holds a body, a
-  cookie, the query string or a header value other than the request id.
+  cookie or the query string. The only values taken from request headers are the request id, the declared
+  `Content-Length` (`declaredBytes`, on a 413, a 408 or a closed connection) and the client address `ip`,
+  which may come from `X-Forwarded-For` or the trusted client header.
 - **One `step` line per pipeline step**, with the same `runId`: what the run did and where it failed.
 
 The layer's own routes write no `http` line: `/api/health`, `/api/ready`, `/api/limits`,
@@ -473,8 +475,9 @@ The layer's own routes write no `http` line: `/api/health`, `/api/ready`, `/api/
 ### Finding the line behind an error in the admin
 
 Every request of the admin carries a fresh `X-Request-Id` of twelve hex digits, and every error it shows
-names the HTTP status and that id, for example `Refused as too large (HTTP 413 · error ID 3f9a2c7b1e04)`.
-A failed upload offers to copy the id. Search the log for it:
+names the HTTP status and that id, for example `Export failed (HTTP 500 · error ID 3f9a2c7b1e04)`.
+A failed upload offers to copy the id, and an error toast that names it stays until it is dismissed.
+Search the log for it:
 
 ```sh
 journalctl -u mysite | grep 3f9a2c7b1e04
@@ -482,10 +485,16 @@ journalctl -u mysite | grep 3f9a2c7b1e04
 
 - **A line with that `requestId`** means kestrel answered: its `status` and `reason`, and the `step` lines
   of its `runId`, explain the failure.
-- **No line** means the request never reached kestrel. The admin then says the request did not reach the
-  server or was refused in front of it, with the status the proxy answered (`HTTP 413`, `HTTP 502`,
-  `HTTP 504`) or `no answer` when nothing came back (connection lost, the browser's own timeout). Look the
-  id up in the proxy's access log instead.
+- **No line, and the admin says the request did not reach the server or was refused in front of it**: the
+  answer was not JSON and carried no `X-Kestrel-Run-Id`, so it came from the proxy (`HTTP 413`, `HTTP 502`),
+  or nothing came back at all (`no answer`: connection lost). Look the id up in the proxy's access log.
+- **No line, and the admin says the server may still have processed the request**: the answer did not come in
+  time (`HTTP 504` from the proxy, or the browser's own upload timeout). kestrel may still finish the request
+  and log it under the same id later; search again, then look in the proxy's access log.
+- **No line, and the admin shows the message with the status as usual** (for example `HTTP 403` or
+  `HTTP 503`): the layer refused the request before kestrel saw it. That is the IP allowlist, the boot
+  status while kestrel failed to start, or one of the layer's own routes listed above; none of them writes
+  an `http` line.
 
 ### What the proxy should log
 
@@ -500,7 +509,9 @@ map $http_x_request_id $kestrel_request_id {
 
 log_format kestrel '$remote_addr [$time_local] "$request" $status $body_bytes_sent '
                    'request_id=$kestrel_request_id upstream_status=$upstream_status '
-                   'request_time=$request_time upstream_time=$upstream_response_time';
+                   'upstream_run=$upstream_http_x_kestrel_run_id '
+                   'request_time=$request_time upstream_header_time=$upstream_header_time '
+                   'upstream_time=$upstream_response_time';
 
 server {
   # … as in §7
@@ -515,14 +526,19 @@ server {
 }
 ```
 
-Reading a proxy line:
+`upstream_status` does not tell who wrote the answer: nginx records its own 502 and 504 there too.
+`upstream_run`, the `X-Kestrel-Run-Id` of the answer, does: kestrel sets it on every answer, refusals
+included. Reading a proxy line:
 
+- `upstream_run` holds a run id: kestrel answered, and its `http` line has the details.
 - `upstream_status=-` with `status=413`: the proxy refused the body itself. `client_max_body_size` must
   be at least the upload limit plus 1 MiB of multipart overhead (`media.maxBytes` + 1 MiB, see §7).
-- `upstream_status=-` with `status=502`: the process was not reachable (stopped, restarting, wrong port).
-- `status=504` and a `request_time` near `proxy_read_timeout`: the proxy gave up waiting; kestrel may
-  still have finished the request and logged it under the same id.
-- An `upstream_status` equal to `status`: kestrel answered, and its `http` line has the details.
+- `status=502`, `upstream_status=502`, `upstream_header_time=-` and no `upstream_run`: the process was
+  not reachable (stopped, restarting, wrong port); nothing came back from it.
+- `status=504`, `upstream_status=504` and a `request_time` near `proxy_read_timeout`: the proxy gave up
+  waiting; kestrel may still have finished the request and logged it under the same id.
+- A 4xx or 5xx with an `upstream_header_time` but no `upstream_run`: the host server answered without
+  kestrel, for example the IP allowlist or one of the layer's own routes.
 
 kestrel accepts an id of 1 to 200 printable ASCII characters and echoes it in the response; `$request_id`
 (32 hex digits) qualifies. An id outside that format is neither echoed nor logged.
