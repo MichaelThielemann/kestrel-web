@@ -17,6 +17,8 @@ const progressText = computed(() => (progress.value ? staleProgressText(t, progr
 const lines = computed(() => (status.value ? staleLines(t, status.value) : []))
 
 const { collections } = useCollections()
+const { schema } = useSchema()
+const llmsFull = computed(() => schema.value?.llmsFull === true)
 
 function busyPort(flag: Ref<boolean>): BusyPort {
   return { setBusy: (on) => { flag.value = on }, busy: () => flag.value }
@@ -59,7 +61,7 @@ async function onRetry() {
       <div v-if="canRetry && (status?.failed ?? 0) > 0" class="delivery-stale__actions">
         <KestrelUiButton type="button" size="sm" variant="secondary" icon="rotate-cw" :loading="retrying" @click="onRetry">{{ t('delivery.retryFailed') }}</KestrelUiButton>
       </div>
-      <KestrelSystemDeliveryExports v-if="status" :exports="status.exports" />
+      <KestrelSystemDeliveryExports v-if="status" :exports="status.exports" :llms-full="llmsFull" />
     </template>
   </div>
 </template>

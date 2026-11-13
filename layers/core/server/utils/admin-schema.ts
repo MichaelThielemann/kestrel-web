@@ -31,13 +31,15 @@ export interface AdminSchemaSources {
   collections?: Readonly<Record<string, { kind: string; mount?: boolean }>>;
   /** `site-default`'s `maxCascade`, reported to the admin for the mount picker. */
   maxCascade?: number | undefined;
+  /** Whether delivery-static writes llms-full.txt (`llmsFullOf`), so System → Delivery lists its export. */
+  llmsFull?: boolean;
 }
 
 function toCollectionModel(type: ContentType, mount: boolean): CollectionModel {
   return { kind: type.kind, fields: type.fields, ...(mount ? { mount: true } : {}) };
 }
 
-export function buildAdminSchema({ model, collectionsUi, features, prefixPrimary, locales, defaultLocale, customTypes, triggers, access, collections: declared, maxCascade }: AdminSchemaSources): AdminSchema {
+export function buildAdminSchema({ model, collectionsUi, features, prefixPrimary, locales, defaultLocale, customTypes, triggers, access, collections: declared, maxCascade, llmsFull }: AdminSchemaSources): AdminSchema {
   const verbs: Record<string, Partial<Record<CollectionVerb, string>>> = {};
   const routing: Record<string, CollectionRouting> = {};
   for (const name of Object.keys(model.types)) {
@@ -64,6 +66,7 @@ export function buildAdminSchema({ model, collectionsUi, features, prefixPrimary
     capabilities: capabilities.global,
     ...(maxCascade === undefined ? {} : { maxCascade }),
     ...(triggers.some((trigger) => trigger.pipeline === MEDIA_TRASH_PIPELINES.trash) ? { mediaTrash: true } : {}),
+    ...(llmsFull === true ? { llmsFull: true } : {}),
   };
 }
 
@@ -112,4 +115,13 @@ export function maxCascadeOf(modules: readonly { use: string; config?: unknown }
   const config = entry === undefined ? undefined : effectiveModuleConfig(entry);
   if (!isRecord(config) || !isRecord(config.routes) || Object.keys(config.routes).length === 0) return undefined;
   return typeof config.maxCascade === "number" ? config.maxCascade : DEFAULT_MAX_CASCADE;
+}
+
+const DELIVERY_STATIC_MODULE = "@michaelthielemann/kestrel-delivery-static";
+
+/** Whether `delivery-static` in a module list writes llms-full.txt: its `llms.full`, which is off by default. */
+export function llmsFullOf(modules: readonly { use: string; config?: unknown }[]): boolean {
+  const entry = modules.find((candidate) => candidate.use === DELIVERY_STATIC_MODULE);
+  const config = entry === undefined ? undefined : effectiveModuleConfig(entry);
+  return isRecord(config) && isRecord(config.llms) && config.llms.full === true;
 }

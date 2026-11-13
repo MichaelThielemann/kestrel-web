@@ -2,11 +2,11 @@
 import type { StaleStatus } from '#kestrel-admin/types/api'
 import { exportLines } from '../utils/export-messages'
 
-const props = defineProps<{ exports: StaleStatus['exports'] }>()
+const props = defineProps<{ exports: StaleStatus['exports'], llmsFull: boolean }>()
 
 const { t, lang } = useT()
 const dateFmt = computed(() => new Intl.DateTimeFormat(lang.value, { dateStyle: 'medium', timeStyle: 'medium' }))
-const lines = computed(() => exportLines(t, props.exports, (ms) => dateFmt.value.format(new Date(ms))))
+const lines = computed(() => exportLines(t, props.exports, (ms) => dateFmt.value.format(new Date(ms)), props.llmsFull))
 </script>
 
 <template>

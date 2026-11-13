@@ -404,4 +404,6 @@ export interface AdminSchema {
   maxCascade?: number
   /** The site composes the media trash, whether or not the caller may reach its pipelines; a delete in the admin then moves media to the trash and never deletes for good. */
   mediaTrash?: boolean
+  /** delivery-static writes llms-full.txt (`llms.full`); absent otherwise. */
+  llmsFull?: boolean
 }

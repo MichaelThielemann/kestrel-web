@@ -2086,9 +2086,9 @@ An exported page is refreshed when content it shows changes. The recording and t
   then marks every output as well.
 - **The admin reads the backlog.** `pagesStaleStatus` feeds `useStaleStatus()` (polled every two seconds
   while pages wait, paused while the document is hidden) for System › Static delivery, which also lists
-  the last index export and the last llms-full.txt export from its `exports` (`SystemDeliveryExports.vue`),
-  and
-  `DashDeliveryStaleAlert.vue`; the publish status rows carry `stale`, `staleFailed` and `staleError` for
+  the last index export and, while the admin schema carries `llmsFull: true` (`llmsFullOf()` in
+  `server/utils/admin-schema.ts`, from delivery-static's `llms.full`), the last llms-full.txt export from its
+  `exports` (`SystemDeliveryExports.vue`), and `DashDeliveryStaleAlert.vue`; the publish status rows carry `stale`, `staleFailed` and `staleError` for
   the editor's delivery line. The save and delete messages fold only the `publishPage`/`unpublishPage`
   entries of `_events` (`ownDeliveryStatus()`), since a save now also queues marking work.
 

@@ -18,6 +18,7 @@ const schema: AdminSchema = {
   collections: [],
   features: [],
   capabilities: { ...fullCapabilities },
+  llmsFull: true,
 }
 
 function staleStatus(over: Partial<StaleStatus> = {}): StaleStatus {
@@ -49,6 +50,7 @@ describe('SystemDeliveryStale', () => {
     unregisterAll.splice(0).forEach((unregister) => unregister())
     useSchema().clear()
     schema.capabilities = { ...fullCapabilities }
+    schema.llmsFull = true
     for (const toast of [...useToast().items]) useToast().dismiss(toast.id)
   })
 
@@ -175,6 +177,16 @@ describe('SystemDeliveryStale', () => {
     const wrapper = await mountWith(staleStatus())
     await vi.waitFor(() => expect(wrapper.findAll('.delivery-exports__row')).toHaveLength(2))
     expect(wrapper.findAll('.delivery-exports__text').map((line) => line.text())).toEqual([en['delivery.indexExportNone'], en['delivery.indexExportNone']])
+    wrapper.unmount()
+  })
+
+  it('lists only the index export while llms.full is off, even after a failed llms-full export', async () => {
+    delete schema.llmsFull
+    const at = Date.UTC(2026, 10, 13, 9, 0, 0)
+    const wrapper = await mountWith(staleStatus({ exports: { indexes: { at, entries: 3, error: null, skipped: false }, llmsFull: { at, entries: 0, error: 'blobstore unavailable', skipped: false } } }))
+    await vi.waitFor(() => expect(wrapper.findAll('.delivery-exports__row')).toHaveLength(1))
+    expect(wrapper.get('.delivery-exports__name').text()).toBe(en['delivery.indexExportIndexes'])
+    expect(wrapper.text()).not.toContain('blobstore unavailable')
     wrapper.unmount()
   })
 

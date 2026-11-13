@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import { boundaryCast } from "@michaelthielemann/kestrel/cast";
 import { describe, expect, it } from "vitest";
 import { definePreset } from "#kestrel/pipelines";
-import { buildAdminSchema, maxCascadeOf, schemaFromRun } from "./admin-schema";
+import { buildAdminSchema, llmsFullOf, maxCascadeOf, schemaFromRun } from "./admin-schema";
 import type { HttpTriggerEntry } from "./admin-capabilities";
 import { contentModel, contentTypes, defaultLocale, features, locales, prefixPrimary } from "../../../../playground/shared/model";
 import fieldTypes from "../../../../playground/shared/field-types";
@@ -154,6 +154,11 @@ describe("buildAdminSchema", () => {
     const off = buildAdminSchema({ ...sources, triggers: triggers.filter((trigger) => trigger.pipeline !== "trashMedia") });
     expect(off.mediaTrash).toBeUndefined();
   });
+
+  it("reports llms-full.txt only when delivery-static writes it", () => {
+    expect(buildAdminSchema({ ...sources, llmsFull: true }).llmsFull).toBe(true);
+    expect(buildAdminSchema({ ...sources, llmsFull: false }).llmsFull).toBeUndefined();
+  });
 });
 
 describe("schemaFromRun", () => {
@@ -198,5 +203,16 @@ describe("maxCascadeOf", () => {
     expect(maxCascadeOf(site({ routes: { pages: {} }, maxCascade: 250 }))).toBe(250);
     expect(maxCascadeOf(site({ routes: { pages: {} } }))).toBe(1000);
     expect(maxCascadeOf(site({}))).toBeUndefined();
+  });
+});
+
+describe("llmsFullOf", () => {
+  const delivery = (llms: unknown) => [{ use: "@michaelthielemann/kestrel-delivery-static", defaults: { from: "preset", values: { llms } } }];
+
+  it("answers whether delivery-static's llms.full is on, which it is not by default or without delivery-static", () => {
+    expect(llmsFullOf(delivery({ full: true }))).toBe(true);
+    expect(llmsFullOf(delivery({ full: false }))).toBe(false);
+    expect(llmsFullOf([{ use: "@michaelthielemann/kestrel-delivery-static", config: { types: {} } }])).toBe(false);
+    expect(llmsFullOf([])).toBe(false);
   });
 });

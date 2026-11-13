@@ -35,7 +35,8 @@ function line(t: Translate, id: keyof StaleStatus['exports'], outcome: ExportOut
   return { id, name, tone: 'current', icon: 'check', text: t(key, { at, n: outcome.entries }), error: null }
 }
 
-/** One line for the last export of sitemap.xml, robots.txt and llms.txt and one for llms-full.txt: when, how many entries, or why not. */
-export function exportLines(t: Translate, exports: StaleStatus['exports'], formatTime: (ms: number) => string): ExportLine[] {
-  return [line(t, 'indexes', exports.indexes, formatTime), line(t, 'llmsFull', exports.llmsFull, formatTime)]
+/** One line for the last export of sitemap.xml, robots.txt and llms.txt and, while `llmsFull` says the site writes it, one for llms-full.txt: when, how many entries, or why not. */
+export function exportLines(t: Translate, exports: StaleStatus['exports'], formatTime: (ms: number) => string, llmsFull: boolean): ExportLine[] {
+  const indexes = line(t, 'indexes', exports.indexes, formatTime)
+  return llmsFull ? [indexes, line(t, 'llmsFull', exports.llmsFull, formatTime)] : [indexes]
 }
