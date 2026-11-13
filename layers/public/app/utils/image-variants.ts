@@ -43,10 +43,28 @@ function coverKeys(sizes: readonly DeclaredImageSize[]): Map<string, string> {
   return keys
 }
 
+function sameCrop(a: PublicMediaVariant['crop'], b: PublicMediaVariant['crop']): boolean {
+  if (a === null || a === undefined || b === null || b === undefined) return a === b
+  return a.left === b.left && a.top === b.top && a.width === b.width && a.height === b.height
+}
+
+function sameCutAs(named: PublicMediaVariant | undefined, variants: readonly PublicMediaVariant[], keys: ReadonlyMap<string, string>): (v: PublicMediaVariant) => boolean {
+  const carriesCrop = named ? named.crop !== undefined : variants.some((v) => v.crop !== undefined)
+  if (carriesCrop) {
+    const crop = named ? named.crop : null
+    return (v) => v.crop !== undefined && sameCrop(v.crop, crop)
+  }
+  const key = named ? keys.get(named.size) : undefined
+  return (v) => v.crop === undefined && (key === undefined ? !keys.has(v.size) : keys.get(v.size) === key)
+}
+
 /**
- * The `src`, `srcset` and box of an image for a size name. A `srcset` never mixes cuts: a declared `cover` size
- * lists the variants of the `cover` sizes with its exact ratio key, which share one cut, and any other size lists
- * the variants of its ratio that no declared `cover` size renders. `sizes` are the declared image sizes.
+ * The `src`, `srcset` and box of an image for a size name. A `srcset` never mixes pictures: it lists the variants
+ * with the ratio of the named variant (or of the original) whose `crop` equals the named variant's (`null` for the
+ * original), so variants that show the same part of the image share one `srcset` and a variant cut differently
+ * gets one of its own. When the variants carry no `crop` (an anonymous grant without `variants[].crop`), a declared
+ * `cover` size lists the variants of the `cover` sizes with its exact ratio key, and any other size the variants of
+ * its ratio that no declared `cover` size renders. `sizes` are the declared image sizes.
  */
 export function pickImageSources(
   item: ImageMedia | null,
@@ -68,13 +86,12 @@ export function pickImageSources(
       : null
 
   const keys = coverKeys(sizes)
-  const key = named ? keys.get(named.size) : undefined
-  const sameCut = (v: PublicMediaVariant) => (key === undefined ? !keys.has(v.size) : keys.get(v.size) === key)
+  const sameCut = sameCutAs(named, item.variants, keys)
   const ordered = named ? [named, ...item.variants.filter((v) => v !== named)] : item.variants
   const candidates = referenceRatio === null ? [] : restrict(ordered.filter(sameCut), referenceRatio, only)
   const srcset = candidates.length === 0 ? null : candidates.map((v) => `${v.path} ${v.width}w`).join(', ')
 
-  return { src, srcset, width, height, variant: named !== undefined, cut: key !== undefined }
+  return { src, srcset, width, height, variant: named !== undefined, cut: named !== undefined && keys.has(named.size) }
 }
 
 function restrict(variants: readonly PublicMediaVariant[], referenceRatio: number, only?: readonly string[]): PublicMediaVariant[] {
