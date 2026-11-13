@@ -1751,8 +1751,12 @@ location ^~ /media/ {
         add_header Cache-Control "no-cache" always;
     }
 }
-location / { add_header Cache-Control "no-cache"; try_files $uri $uri/index.html =404; }
+location / { charset utf-8; add_header Cache-Control "no-cache"; try_files $uri $uri/index.html =404; }
 ```
+
+`charset utf-8` sends the charset the export writes in: without it, nginx serves `llms.txt` and
+`llms-full.txt` as a bare `text/plain`, and a client that follows the HTTP default reads their UTF-8 titles as
+Latin-1.
 
 Page HTML revalidates on every request (`no-cache`; the host answers 304 from its ETag), so a republished
 page is seen at once, while `/_nuxt/` is hashed and immutable. Objects written by `delivery-static` carry no
