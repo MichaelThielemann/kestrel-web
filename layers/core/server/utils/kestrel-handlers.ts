@@ -1,4 +1,4 @@
-import type { Kestrel } from "@michaelthielemann/kestrel";
+import type { Kestrel, Logger } from "@michaelthielemann/kestrel";
 import { createKestrelHandler } from "@michaelthielemann/kestrel-h3";
 import { createError, defineEventHandler, type EventHandler } from "h3";
 import { redactingConflictLabels } from "./conflict-labels";
@@ -8,6 +8,8 @@ import { clientIpOptions, type ClientAddressPolicy } from "./ip-allowlist";
 import { createPublicMediaHandler } from "./public-media";
 
 export interface KestrelHandlerWiring {
+  /** Receives one `http` line per request on both handlers, refusals before the pipeline included. */
+  logger: Logger;
   /** The client-address policy, read once the instance has booted. */
   policy: () => ClientAddressPolicy;
   /** Content types the API serves inline rather than as attachments. */
@@ -39,11 +41,12 @@ export function kestrelHandlers(booting: Promise<Kestrel>, wiring: KestrelHandle
     kestrelHandler: booting
       .then((kestrel) => defineEventHandler(redactingConflictLabels(kestrel, createKestrelHandler(kestrel, {
         mountPath: MOUNT_PATH,
+        logger: wiring.logger,
         ...clientIpOptions(wiring.policy()),
         inlineTypes: wiring.inlineTypes(kestrel),
         maxBodyBytes: wiring.maxBodyBytes(kestrel),
       }))))
       .catch(failed),
-    publicMediaHandler: booting.then((kestrel) => createPublicMediaHandler(kestrel, wiring.policy())).catch(failed),
+    publicMediaHandler: booting.then((kestrel) => createPublicMediaHandler(kestrel, wiring.policy(), wiring.logger)).catch(failed),
   };
 }

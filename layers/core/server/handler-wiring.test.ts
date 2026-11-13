@@ -6,7 +6,7 @@ import { join, resolve } from "node:path";
 import { afterAll, afterEach, describe, expect, it } from "vitest";
 import { createApp, defineEventHandler, toNodeListener } from "h3";
 import type { EventHandler } from "h3";
-import { boot, defineConfig, silentLogger } from "@michaelthielemann/kestrel";
+import { boot, defineConfig, silentLogger, type Logger } from "@michaelthielemann/kestrel";
 import { boundaryCast } from "@michaelthielemann/kestrel/cast";
 import { presetModules } from "#kestrel/modules";
 import { definePreset, presetModuleConfig } from "#kestrel/pipelines";
@@ -57,8 +57,9 @@ async function bootMediaKestrel() {
 
 const OPEN_POLICY = { trustProxy: false, proxyHops: 1, trustedHeader: "", trustedProxies: [] };
 
-function wiring(onBootFailure: (err: unknown) => void = () => {}) {
+function wiring(onBootFailure: (err: unknown) => void = () => {}, logger: Logger = silentLogger) {
   return {
+    logger,
     policy: () => OPEN_POLICY,
     inlineTypes: () => [],
     maxBodyBytes: () => undefined,
@@ -105,6 +106,30 @@ describe("the Nitro plugin's handlers (kestrelHandlers)", () => {
       const apiItem = await fetch(`${base}/api/media/${id}`);
       expect(apiItem.status).toBe(200);
       expect(await apiItem.json()).toMatchObject({ id, path });
+    } finally {
+      await kestrel.stop();
+    }
+  }, 15000);
+
+  it("writes one http line per request on the API and the public media handler, carrying the request id and the reason of a refusal", async () => {
+    const kestrel = await bootMediaKestrel();
+    const lines: Record<string, unknown>[] = [];
+    const logger: Logger = { ...silentLogger, info: (message, data) => { if (message === "http" && data) lines.push(data); } };
+    try {
+      const base = await serve(routed(kestrelHandlers(Promise.resolve(kestrel), wiring(() => {}, logger))));
+
+      const listed = await fetch(`${base}/api/media?token=query-secret`, { headers: { "x-request-id": "list-1a2b3c", cookie: "kestrel_session=cookie-secret" } });
+      expect(listed.headers.get("x-request-id")).toBe("list-1a2b3c");
+      const missing = await fetch(`${base}/api/nothing-here`, { headers: { "x-request-id": "miss-4d5e6f" } });
+      expect(missing.status).toBe(404);
+      const file = await fetch(`${base}/media/unknown/a.png`, { headers: { "x-request-id": "file-7a8b9c" } });
+      expect(file.status).toBe(404);
+
+      expect(lines).toHaveLength(3);
+      expect(lines[0]).toMatchObject({ requestId: "list-1a2b3c", method: "GET", path: "/api/media", pipeline: "listMedia", status: 401 });
+      expect(lines[1]).toMatchObject({ requestId: "miss-4d5e6f", method: "GET", path: "/api/nothing-here", status: 404, reason: "no route" });
+      expect(lines[2]).toMatchObject({ requestId: "file-7a8b9c", method: "GET", path: "/media/unknown/a.png", pipeline: "serveMediaFile", status: 404 });
+      expect(JSON.stringify(lines)).not.toMatch(/secret/);
     } finally {
       await kestrel.stop();
     }

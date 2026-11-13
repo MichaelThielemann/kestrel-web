@@ -1,4 +1,4 @@
-import { routePattern, type Kestrel, type Route } from "@michaelthielemann/kestrel";
+import { routePattern, type Kestrel, type Logger, type Route } from "@michaelthielemann/kestrel";
 import { createKestrelHandler } from "@michaelthielemann/kestrel-h3";
 import type { EventHandler } from "h3";
 import { MEDIA_PUBLIC_PATH } from "../../mount-path";
@@ -15,10 +15,10 @@ export function publicMediaRoutes(routes: readonly Route[]): Route[] {
   });
 }
 
-/** The handler behind `/media/**` on the site root: it runs only `publicMediaRoutes`, with no mount prefix, so an API route under `/media` never answers there. */
-export function createPublicMediaHandler(kestrel: Pick<Kestrel, "run" | "triggers">, policy: ClientAddressPolicy): EventHandler {
+/** The handler behind `/media/**` on the site root: it runs only `publicMediaRoutes`, with no mount prefix, so an API route under `/media` never answers there. With `logger`, it writes one `http` line per request. */
+export function createPublicMediaHandler(kestrel: Pick<Kestrel, "run" | "triggers">, policy: ClientAddressPolicy, logger?: Logger): EventHandler {
   return createKestrelHandler(
     { run: kestrel.run.bind(kestrel), triggers: { http: publicMediaRoutes(kestrel.triggers.http), events: [], crons: [] } },
-    { mountPath: "", ...clientIpOptions(policy) },
+    { mountPath: "", ...clientIpOptions(policy), ...(logger === undefined ? {} : { logger }) },
   );
 }

@@ -99,6 +99,7 @@ export default defineNitroPlugin((nitro) => {
   setNuxtRenderer(rendererTarget(nitro, app, buildAssets, import.meta.dev));
 
   const handlers = kestrelHandlers(getKestrel(), {
+    logger: consoleLogger,
     policy: () => accessLists().policy,
     inlineTypes: (kestrel) => inlineTypesFor(kestrel, modules),
     maxBodyBytes: (kestrel) => uploadLimits(kestrel, modules, config.modules).maxBodyBytes,
