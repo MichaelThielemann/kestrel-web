@@ -66,6 +66,17 @@ describe('MediaViewer layout', () => {
     wrapper.unmount()
   })
 
+  it('names the delete action after the trash when the site has one', async () => {
+    const wrapper = await mountSuspended(MediaViewer, { props: { open: true, file, canSave: true, canDelete: true, trash: true }, attachTo: document.body })
+
+    expect(document.body.querySelector('.media-viewer__delete')?.textContent?.trim()).toBe(en['media.menu.trash'])
+    wrapper.unmount()
+
+    const final = await mountSuspended(MediaViewer, { props: { open: true, file, canSave: true, canDelete: true }, attachTo: document.body })
+    expect(document.body.querySelector('.media-viewer__delete')?.textContent?.trim()).toBe(en['common.delete'])
+    final.unmount()
+  })
+
   it('hides delete and save without their capabilities', async () => {
     const wrapper = await mountSuspended(MediaViewer, { props: { open: true, file, canSave: false, canDelete: false }, attachTo: document.body })
 

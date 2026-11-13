@@ -186,7 +186,7 @@ defineExpose({ clearSelection: selection.clearListed })
     <KestrelMediaUploadDialog :open="uploadOpen" :uploads="pendingUploads" :folder="folder" :max-bytes="mediaUploads.maxUploadBytes.value" @confirm="intake.onConfirmUpload" @update:open="intake.onUploadOpen" />
     <KestrelMediaNewFolderDialog v-model:open="newFolderOpen" :busy="opsBusy" :error="opError" @create="intake.onCreateFolder" />
     <KestrelMediaViewer
-      :open="viewerOpen" :file="viewerFile" :can-save="mediaCaps.canRenameFile.value" :can-delete="mediaCaps.canDeleteFile.value" :busy="viewerBusy" :error="viewerError"
+      :open="viewerOpen" :file="viewerFile" :can-save="mediaCaps.canRenameFile.value" :can-delete="mediaCaps.canDeleteFile.value" :trash="removal.trashing.value" :busy="viewerBusy" :error="viewerError"
       @update:open="(v) => { viewerOpen = v }" @save="onSaveViewer" @delete="onViewerDelete"
     />
     <KestrelUiAlert v-if="opError && !removal.open.value && !renameOpen && !viewerOpen && !newFolderOpen" variant="error">{{ opError }}</KestrelUiAlert>

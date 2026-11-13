@@ -5,7 +5,7 @@ import { humanizeSize } from '../utils/library'
 import { PROVENANCE_ORIGINS, provenanceOrigin } from '../utils/provenance'
 import { changedMetaFields, type MediaViewerSave } from '../utils/media-meta'
 
-const props = defineProps<{ open: boolean; file: MediaItem | null; canSave: boolean; canDelete: boolean; busy?: boolean; error?: string | null }>()
+const props = defineProps<{ open: boolean; file: MediaItem | null; canSave: boolean; canDelete: boolean; trash?: boolean; busy?: boolean; error?: string | null }>()
 const emit = defineEmits<{ 'update:open': [boolean]; save: [MediaViewerSave]; delete: [] }>()
 const { t, lang } = useT()
 const { locales, primary } = useContentLocales()
@@ -174,7 +174,7 @@ function save() {
       </aside>
     </div>
     <template v-if="file" #footer>
-      <KestrelUiButton v-if="canDelete" variant="danger" icon="trash" class="media-viewer__delete" :disabled="busy" @click="emit('delete')">{{ t('common.delete') }}</KestrelUiButton>
+      <KestrelUiButton v-if="canDelete" variant="danger" icon="trash" class="media-viewer__delete" :disabled="busy" @click="emit('delete')">{{ trash ? t('media.menu.trash') : t('common.delete') }}</KestrelUiButton>
       <KestrelUiButton :disabled="busy" @click="emit('update:open', false)">{{ t('common.close') }}</KestrelUiButton>
       <KestrelUiButton v-if="canSave" variant="primary" :disabled="busy || !dirty" @click="save">{{ t('common.save') }}</KestrelUiButton>
     </template>
