@@ -59,7 +59,7 @@ export async function referencedIds(api: ApiClient, capabilities: CapabilityReso
   return used
 }
 
-/** The media trash view: one page of trashed items, which of them pages still use, a selection of them, restoring at once and deleting for good after a dialog. Stop is offered only while another request is left to send. A kept item off the page shown is named by a lookup in the trash. `onSettled` runs once a restore or a final delete is over and its dialog closed, so the view can put focus back. */
+/** The media trash view: one page of trashed items, which of them pages still use, a selection of them, restoring at once and deleting for good after a dialog. Stop is offered only while another request is left to send. A kept item off the page shown is named by a lookup in the trash. `onSettled` runs once a restore or a final delete is over and its dialog closed, and after a change made elsewhere reloaded the view, so the view can put focus back. */
 export function useMediaTrash(opts: { onSettled?: () => void } = {}) {
   const api = useAdminApi()
   const capabilities = useCapabilities()
@@ -204,7 +204,10 @@ export function useMediaTrash(opts: { onSettled?: () => void } = {}) {
   }
 
   onMounted(load)
-  onMediaChanged(() => load())
+  onMediaChanged(async () => {
+    await load()
+    opts.onSettled?.()
+  })
 
   return {
     items, total, page, perPage, totalPages, loading, busy, error, dialog, selection, inUse,

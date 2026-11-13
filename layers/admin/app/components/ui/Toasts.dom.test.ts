@@ -1,5 +1,5 @@
 import { mountSuspended } from '@nuxt/test-utils/runtime'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { nextTick } from 'vue'
 import { useToast } from '../../composables/useToast'
 import Toasts from './Toasts.vue'
@@ -44,6 +44,46 @@ describe('Toasts', () => {
 
     expect(run).toHaveBeenCalledTimes(1)
     expect(useToast().items).toEqual([])
+    wrapper.unmount()
+  })
+
+  it('hands focus back to where it came from when its action or its close button dismisses the focused toast', async () => {
+    const wrapper = await mountSuspended(Toasts, { attachTo: document.body })
+    const origin = document.createElement('button')
+    document.body.append(origin)
+    onTestFinished(() => origin.remove())
+
+    for (const control of ['.ui-toast__action', '.ui-toast__close']) {
+      useToast().push('success', 'Moved', { timeout: 8000, action: { label: 'Undo', run: () => {} } })
+      await nextTick()
+      origin.focus()
+      const button = document.body.querySelector<HTMLButtonElement>(control)
+      button?.focus()
+      expect(document.activeElement).toBe(button)
+      button?.click()
+      await nextTick()
+      expect(document.activeElement).toBe(origin)
+    }
+    wrapper.unmount()
+  })
+
+  it('moves focus to the main region when the element it came from is gone', async () => {
+    const wrapper = await mountSuspended(Toasts, { attachTo: document.body })
+    const main = document.createElement('main')
+    main.tabIndex = -1
+    const origin = document.createElement('button')
+    document.body.append(main, origin)
+    onTestFinished(() => main.remove())
+
+    useToast().push('success', 'Moved', { timeout: 8000, action: { label: 'Undo', run: () => { origin.remove() } } })
+    await nextTick()
+    origin.focus()
+    const action = document.body.querySelector<HTMLButtonElement>('.ui-toast__action')
+    action?.focus()
+    action?.click()
+    await nextTick()
+
+    expect(document.activeElement).toBe(main)
     wrapper.unmount()
   })
 

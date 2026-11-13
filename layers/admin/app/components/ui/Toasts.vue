@@ -10,6 +10,24 @@ function spoken(toast: { message: string; action?: { label: string } }): string 
   return t('toast.withAction', { message: toast.message.replace(/[.!?]$/, ''), action: toast.action.label })
 }
 
+let returnTo: HTMLElement | null = null
+
+function onRegionFocusIn(e: FocusEvent) {
+  const region = e.currentTarget
+  const from = e.relatedTarget
+  if (region instanceof HTMLElement && from instanceof HTMLElement && !region.contains(from)) returnTo = from
+}
+
+function leave(e: MouseEvent, dismiss: () => void) {
+  const toast = e.currentTarget instanceof Element ? e.currentTarget.closest('.ui-toast') : null
+  const focused = toast !== null && toast.contains(document.activeElement)
+  dismiss()
+  if (!focused) return
+  const target = returnTo?.isConnected ? returnTo : document.querySelector<HTMLElement>('main[tabindex]')
+  returnTo = null
+  target?.focus()
+}
+
 function onFocusOut(id: number, e: FocusEvent) {
   const toast = e.currentTarget
   const next = e.relatedTarget
@@ -33,7 +51,7 @@ onUnmounted(() => toasts.clear())
           <div v-if="toast.type === 'error'">{{ spoken(toast) }}</div>
         </template>
       </div>
-      <div class="ui-toasts" role="region" :aria-label="t('toast.region')">
+      <div class="ui-toasts" role="region" :aria-label="t('toast.region')" @focusin="onRegionFocusIn">
         <TransitionGroup name="ui-toast">
           <div
             v-for="toast in toasts.items"
@@ -46,8 +64,8 @@ onUnmounted(() => toasts.clear())
             @focusout="onFocusOut(toast.id, $event)"
           >
             <span class="ui-toast__msg">{{ toast.message }}</span>
-            <KestrelUiButton v-if="toast.action" variant="ghost" size="sm" class="ui-toast__action" @click="toasts.runAction(toast.id)">{{ toast.action.label }}</KestrelUiButton>
-            <button type="button" class="ui-toast__close" :aria-label="t('toast.dismiss')" @click="toasts.dismiss(toast.id)">
+            <KestrelUiButton v-if="toast.action" variant="ghost" size="sm" class="ui-toast__action" @click="leave($event, () => toasts.runAction(toast.id))">{{ toast.action.label }}</KestrelUiButton>
+            <button type="button" class="ui-toast__close" :aria-label="t('toast.dismiss')" @click="leave($event, () => toasts.dismiss(toast.id))">
               <KestrelUiIcon name="x" size="0.875rem" />
             </button>
           </div>

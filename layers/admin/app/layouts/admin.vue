@@ -97,7 +97,7 @@ useHead(() => ({
       </div>
     </aside>
 
-    <main class="admin__main" :inert="isPhone && railOpen"><slot /></main>
+    <main class="admin__main" tabindex="-1" :inert="isPhone && railOpen"><slot /></main>
     <KestrelUiToasts />
   </div>
 </template>
@@ -173,6 +173,8 @@ $bp-phone: 640px;
     display: flex;
     flex-direction: column;
     padding: var(--space-2);
+
+    &:focus { outline: none; }
   }
 
   &__main > * {

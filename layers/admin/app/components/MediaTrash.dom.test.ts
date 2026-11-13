@@ -6,6 +6,7 @@ import type { VueWrapper } from '@vue/test-utils'
 import { boundaryCast } from '#kestrel/cast'
 import { en } from '#kestrel-admin/i18n/en'
 import type { AdminSchema, MediaTrashItem } from '#kestrel-admin/types/api'
+import { notifyMediaChanged } from '../composables/useMediaChanges'
 import MediaTrash from './MediaTrash.vue'
 
 const capabilities: AdminSchema['capabilities'] = {
@@ -169,6 +170,18 @@ describe('MediaTrash', () => {
     boundaryCast<HTMLElement>(restoreB?.element, 'dom').focus()
     await restoreB?.trigger('click')
     await vi.waitFor(() => expect(document.activeElement?.textContent).toBe(en['media.trash.title']))
+  })
+
+  it('puts focus back on a row when a change made elsewhere removes the row that held it', async () => {
+    const wrapper = await mountTrash()
+    const boxA = wrapper.findAll<HTMLInputElement>('tbody input[type="checkbox"]').find((b) => b.attributes('aria-label') === text('media.selection.selectItem', { name: 'a.png' }))
+    boundaryCast<HTMLElement>(boxA?.element, 'dom').focus()
+
+    items = items.filter((item) => item.id !== 'f1')
+    await notifyMediaChanged({ restored: ['f1'] })
+
+    await vi.waitFor(() => expect(wrapper.findAll('tbody tr')).toHaveLength(1))
+    await vi.waitFor(() => expect(document.activeElement?.getAttribute('aria-label')).toBe(text('media.selection.selectItem', { name: 'b.png' })))
   })
 
   it('reports nothing for an item already gone when it is deleted for good', async () => {

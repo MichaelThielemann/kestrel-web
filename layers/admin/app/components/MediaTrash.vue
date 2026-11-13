@@ -10,7 +10,14 @@ const root = ref<HTMLElement | null>(null)
 const heading = ref<HTMLElement | null>(null)
 let actedAt = 0
 let focusTimer: ReturnType<typeof setTimeout> | null = null
-const trash = useMediaTrash({ onSettled: () => { void nextTick(() => { focusTimer = setTimeout(returnFocus, 0) }) } })
+const trash = useMediaTrash({
+  onSettled: () => {
+    void nextTick(() => {
+      if (focusTimer) clearTimeout(focusTimer)
+      focusTimer = setTimeout(returnFocus, 0)
+    })
+  },
+})
 const { items, total, page, perPage, totalPages, loading, busy, error, dialog, selection, inUse } = trash
 useMediaViewSwitch(root, () => heading.value)
 
