@@ -43,7 +43,7 @@ test("the media picker reopens in the folder the user last browsed", async ({ pa
   await expect(picker.getByText("kampagnen")).toBeVisible();
 });
 
-test("an uploaded file is picked as a share image and then refuses deletion while referenced", async ({ page, seed, adminApi }) => {
+test("an uploaded file in use goes to the trash only after a warning, stays there when deleted for good, and comes back on restore", async ({ page, seed, adminApi }) => {
   await page.goto("/admin/media");
   const chooser = page.waitForEvent("filechooser");
   await page.getByRole("button", { name: "Hochladen" }).click();
@@ -55,36 +55,48 @@ test("an uploaded file is picked as a share image and then refuses deletion whil
   const body: unknown = await upload.json();
   const id = isRecord(body) && typeof body.id === "string" ? body.id : "";
   expect(id).not.toBe("");
-  await expect(page.getByRole("button", { name: /teaser\.png/ })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole("button", { name: /^teaser\.png/ })).toBeVisible({ timeout: 30_000 });
 
   await page.goto(`/admin/pages/${seed.news}?locale=de`);
   await page.getByRole("button", { name: "Share-Bild" }).click();
   const picker = page.getByRole("dialog", { name: "Datei auswählen" });
-  await picker.getByRole("button", { name: /teaser\.png/ }).click();
+  await picker.getByRole("button", { name: /^teaser\.png/ }).click();
   await picker.getByRole("button", { name: "Auswahl verwenden" }).click();
   await expect(picker).toBeHidden();
   const saved = await save(page);
   expect(saved.request().method()).toBe("PATCH");
   expect((await adminApi.call("GET", `/pages/${seed.news}?locale=de`)).shareImage).toBe(id);
 
-  const refused = await adminApi.raw("DELETE", `/media/${id}`);
-  expect(refused.status).toBe(409);
-  expect(refused.text).toContain(seed.news);
-
   await page.goto("/admin/media");
-  await page.getByRole("button", { name: /teaser\.png/ }).click({ button: "right" });
-  await page.getByRole("menuitem", { name: "Löschen" }).click();
-  const dialog = page.getByRole("dialog", { name: "Löschen" });
-  await expect(dialog.getByText("Referenziert von 1 Dokument(en):")).toBeVisible();
-  await expect(dialog.getByRole("link", { name: "Aktuelles" })).toBeVisible();
-  const attempt = page.waitForResponse((response) => response.request().method() === "DELETE" && new URL(response.url()).pathname === `/api/media/${id}`);
-  await dialog.getByRole("button", { name: "Löschen" }).click();
-  expect((await attempt).status()).toBe(409);
-  await expect(dialog.getByText("Inzwischen referenziert von — nicht gelöscht:")).toBeVisible();
+  await page.getByRole("button", { name: /^teaser\.png/ }).click({ button: "right" });
+  await page.getByRole("menuitem", { name: "In den Papierkorb" }).click();
+  const warning = page.getByRole("dialog", { name: "1 Datei in den Papierkorb verschieben?" });
+  await expect(warning.getByText("Wird noch verwendet:")).toBeVisible();
+  await expect(warning.getByRole("link", { name: "Aktuelles" })).toBeVisible();
+  await expect(warning.getByRole("button", { name: "Abbrechen" })).toBeFocused();
+  const trashed = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname === "/api/media/trash");
+  await warning.getByRole("button", { name: "1 Datei in den Papierkorb" }).click();
+  expect((await trashed).status()).toBe(200);
+  await expect(page.getByRole("button", { name: /^teaser\.png/ })).toBeHidden();
+  expect((await adminApi.raw("GET", `/media/${id}`)).status).toBe(404);
+  expect((await adminApi.raw("DELETE", `/media/${id}`)).status).toBe(409);
+
+  await page.getByRole("link", { name: /^Papierkorb \(\d+\)$/ }).click();
+  await expect(page).toHaveURL(/trash=1/);
+  await page.getByRole("checkbox", { name: "teaser.png auswählen" }).check();
+  await page.getByRole("toolbar").getByRole("button", { name: "Endgültig löschen" }).click();
+  const purge = page.getByRole("dialog", { name: "1 Datei endgültig löschen?" });
+  await purge.getByRole("button", { name: "1 Datei endgültig löschen" }).click();
+  const report = page.getByRole("dialog", { name: "Nicht alles wurde entfernt" });
+  await expect(report.getByText("Wird noch von einer Seite verwendet")).toBeVisible();
+  await report.getByRole("button", { name: "Schließen" }).last().click();
+
+  await page.getByRole("button", { name: "teaser.png wiederherstellen" }).click();
+  await expect(page.getByRole("checkbox", { name: "teaser.png auswählen" })).toBeHidden();
   expect((await adminApi.raw("GET", `/media/${id}`)).status).toBe(200);
 });
 
-test("a file used only by an image block inside a column refuses deletion and the dialog names the page", async ({ page, adminApi }) => {
+test("a file used only by an image block inside a column warns before the trash and the dialog names the page", async ({ page, adminApi }) => {
   const id = idOf(await adminApi.upload("column.png", gradientPng(400, 300, [60, 160, 60], [20, 40, 120])));
   const created = await adminApi.call("POST", "/pages", {
     locale: "de",
@@ -100,11 +112,36 @@ test("a file used only by an image block inside a column refuses deletion and th
   expect(refused.text).toContain(`pages/${pageId}`);
 
   await page.goto("/admin/media");
-  await page.getByRole("button", { name: /column\.png/ }).click({ button: "right" });
-  await page.getByRole("menuitem", { name: "Löschen" }).click();
-  const dialog = page.getByRole("dialog", { name: "Löschen" });
-  await expect(dialog.getByText("Referenziert von 1 Dokument(en):")).toBeVisible();
+  await page.getByRole("button", { name: /^column\.png/ }).click({ button: "right" });
+  await page.getByRole("menuitem", { name: "In den Papierkorb" }).click();
+  const dialog = page.getByRole("dialog", { name: "1 Datei in den Papierkorb verschieben?" });
+  await expect(dialog.getByText("Wird noch verwendet:")).toBeVisible();
   await expect(dialog.getByRole("link", { name: "Spalten mit Bild" })).toBeVisible();
   await dialog.getByRole("button", { name: "Abbrechen" }).click();
   expect((await adminApi.raw("GET", `/media/${id}`)).status).toBe(200);
+});
+
+test("several unused files go to the trash at once without a dialog and come back with undo", async ({ page, adminApi }) => {
+  const first = idOf(await adminApi.upload("erstes.png", gradientPng(120, 80, [20, 20, 200], [200, 200, 20])));
+  const second = idOf(await adminApi.upload("zweites.png", gradientPng(120, 80, [200, 20, 20], [20, 200, 200])));
+
+  await page.goto("/admin/media");
+  await page.getByRole("checkbox", { name: "erstes.png auswählen" }).check();
+  await page.getByRole("checkbox", { name: "zweites.png auswählen" }).check();
+  const bar = page.getByRole("toolbar", { name: "2 Elemente ausgewählt" });
+  await expect(bar).toBeVisible();
+  const trashed = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname === "/api/media/trash");
+  await bar.getByRole("button", { name: "In den Papierkorb" }).click();
+  expect((await trashed).status()).toBe(200);
+  await expect(page.getByRole("dialog")).toBeHidden();
+  await expect(page.getByRole("button", { name: /^erstes\.png/ })).toBeHidden();
+  await expect(page.getByRole("button", { name: /^zweites\.png/ })).toBeHidden();
+
+  const toast = page.getByRole("region", { name: "Benachrichtigungen" }).getByText("2 Elemente in den Papierkorb verschoben");
+  await expect(toast).toBeVisible();
+  await page.getByRole("region", { name: "Benachrichtigungen" }).getByRole("button", { name: "Rückgängig" }).click();
+  await expect(page.getByRole("button", { name: /^erstes\.png/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^zweites\.png/ })).toBeVisible();
+  expect((await adminApi.raw("GET", `/media/${first}`)).status).toBe(200);
+  expect((await adminApi.raw("GET", `/media/${second}`)).status).toBe(200);
 });
