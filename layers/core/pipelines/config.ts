@@ -432,9 +432,12 @@ function warnRobotsEnvIgnored(env: "allow" | "disallow", policy: "allow" | "disa
 
 function robotsWithPolicy(robots: PresetRobots | undefined): PresetRobots {
   const configured = envRobots().policy;
-  if (robots === false || robots?.policy !== undefined) {
-    const policy = robots === false ? false : robots.policy;
-    if (configured !== undefined && policy !== configured) warnRobotsEnvIgnored(configured, policy);
+  if (robots === false) {
+    if (configured !== undefined) warnRobotsEnvIgnored(configured, false);
+    return false;
+  }
+  if (robots?.policy !== undefined) {
+    if (configured !== undefined && robots.policy !== configured) warnRobotsEnvIgnored(configured, robots.policy);
     return robots;
   }
   if (configured !== undefined) return { ...robots, policy: configured };
