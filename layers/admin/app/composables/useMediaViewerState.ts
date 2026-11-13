@@ -14,7 +14,7 @@ export interface UseMediaViewerStateOptions {
   saveFailed: () => string
 }
 
-/** State of the media library's file viewer and its save flow (provenance first, then the localized meta). */
+/** State of the media library's file viewer and its save flow (provenance first, then the localized meta); a framing saved from the viewer replaces the shown item and refreshes the library. */
 export function useMediaViewerState(opts: UseMediaViewerStateOptions) {
   const viewerOpen = ref(false)
   const viewerFile = ref<MediaItem | null>(null)
@@ -54,5 +54,10 @@ export function useMediaViewerState(opts: UseMediaViewerStateOptions) {
     viewerError.value = opts.opError.value ?? opts.saveFailed()
   }
 
-  return { viewerOpen, viewerFile, viewerBusy, viewerError, openViewer, closeViewer, onSaveViewer }
+  async function onFramed(item: MediaItem) {
+    if (viewerFile.value?.id === item.id) viewerFile.value = item
+    await opts.refresh()
+  }
+
+  return { viewerOpen, viewerFile, viewerBusy, viewerError, openViewer, closeViewer, onSaveViewer, onFramed }
 }

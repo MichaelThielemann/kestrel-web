@@ -4,9 +4,10 @@ import type { MediaItem, Provenance, ProvenanceOrigin } from '#kestrel-admin/typ
 import { humanizeSize } from '../utils/library'
 import { PROVENANCE_ORIGINS, provenanceOrigin } from '../utils/provenance'
 import { changedMetaFields, type MediaViewerSave } from '../utils/media-meta'
+import { canFrame } from '../utils/media-crop'
 
 const props = defineProps<{ open: boolean; file: MediaItem | null; canSave: boolean; canDelete: boolean; trash?: boolean; busy?: boolean; error?: string | null }>()
-const emit = defineEmits<{ 'update:open': [boolean]; save: [MediaViewerSave]; delete: [] }>()
+const emit = defineEmits<{ 'update:open': [boolean]; save: [MediaViewerSave]; delete: []; framed: [MediaItem] }>()
 const { t, lang } = useT()
 const { locales, primary } = useContentLocales()
 const api = useAdminApi()
@@ -14,6 +15,9 @@ const capabilities = useCapabilities()
 const mediaUrl = computed(() => props.file?.path ?? null)
 
 const isImage = computed(() => props.file?.contentType.startsWith('image/') ?? false)
+const canCrop = computed(() => props.canSave && capabilities.has('setMediaFraming') && canFrame(props.file))
+const cropOpen = ref(false)
+watch(() => props.open, (o) => { if (!o) cropOpen.value = false })
 const ext = computed(() => (props.file?.filename.split('.').pop() ?? '').toUpperCase())
 const uploaded = computed(() => {
   const c = props.file?.createdAt
@@ -175,9 +179,11 @@ function save() {
     </div>
     <template v-if="file" #footer>
       <KestrelUiButton v-if="canDelete" variant="danger" icon="trash" class="media-viewer__delete" :disabled="busy" @click="emit('delete')">{{ trash ? t('media.menu.trash') : t('common.delete') }}</KestrelUiButton>
+      <KestrelUiButton v-if="canCrop" icon="crop" :disabled="busy" data-test="viewer-crop" @click="cropOpen = true">{{ t('mediaCrop.open') }}</KestrelUiButton>
       <KestrelUiButton :disabled="busy" @click="emit('update:open', false)">{{ t('common.close') }}</KestrelUiButton>
       <KestrelUiButton v-if="canSave" variant="primary" :disabled="busy || !dirty" @click="save">{{ t('common.save') }}</KestrelUiButton>
     </template>
+    <KestrelMediaCropEditor v-if="canCrop" v-model:open="cropOpen" :item="file" @saved="(item) => emit('framed', item)" />
   </KestrelUiDialog>
 </template>
 

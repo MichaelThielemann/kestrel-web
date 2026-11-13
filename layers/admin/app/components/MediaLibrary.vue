@@ -50,7 +50,7 @@ function focusLibrary() { void nextTick(() => mediaLibraryRef.value?.focus()) }
 function onDismissUpload(id: string) { dismissUpload(id); focusLibrary() }
 function onCloseUploads() { mediaUploads.clearFinished(); focusLibrary() }
 
-const { viewerOpen, viewerFile, viewerBusy, viewerError, openViewer, closeViewer, onSaveViewer } = useMediaViewerState({
+const { viewerOpen, viewerFile, viewerBusy, viewerError, openViewer, closeViewer, onSaveViewer, onFramed } = useMediaViewerState({
   deps, ops: opsPort, refresh: mediaRefresh, opError, saveFailed: () => t('mediaViewer.saveFailed'),
 })
 
@@ -187,7 +187,7 @@ defineExpose({ clearSelection: selection.clearListed })
     <KestrelMediaNewFolderDialog v-model:open="newFolderOpen" :busy="opsBusy" :error="opError" @create="intake.onCreateFolder" />
     <KestrelMediaViewer
       :open="viewerOpen" :file="viewerFile" :can-save="mediaCaps.canRenameFile.value" :can-delete="mediaCaps.canDeleteFile.value" :trash="removal.trashing.value" :busy="viewerBusy" :error="viewerError"
-      @update:open="(v) => { viewerOpen = v }" @save="onSaveViewer" @delete="onViewerDelete"
+      @update:open="(v) => { viewerOpen = v }" @save="onSaveViewer" @delete="onViewerDelete" @framed="onFramed"
     />
     <KestrelUiAlert v-if="opError && !removal.open.value && !renameOpen && !viewerOpen && !newFolderOpen" variant="error">{{ opError }}</KestrelUiAlert>
     <KestrelMediaDeleteDialog
