@@ -6,7 +6,7 @@ import { customFieldTypes } from "../../../collections-ui";
 import { getKestrel, getKestrelState } from "../../plugins/kestrel";
 import { accessLists } from "../../plugins/access";
 import { bootFailure } from "../../utils/boot-failure";
-import { llmsFullOf, maxCascadeOf, schemaFromRun } from "../../utils/admin-schema";
+import { llmsFullOf, maxCascadeOf, robotsOf, schemaFromRun, sitemapOf } from "../../utils/admin-schema";
 import config from "~~/kestrel.config";
 
 const PIPELINE = "adminSchemaModel";
@@ -44,6 +44,8 @@ export default defineEventHandler(async (event) => {
     collections: contentTypes,
     maxCascade: maxCascadeOf(config.modules),
     llmsFull: llmsFullOf(config.modules),
+    robots: robotsOf(config.modules),
+    sitemap: sitemapOf(config.modules),
     triggers: kestrel.describe().triggers.http,
   });
 

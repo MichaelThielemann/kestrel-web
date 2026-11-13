@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import { boundaryCast } from "@michaelthielemann/kestrel/cast";
 import { describe, expect, it } from "vitest";
 import { definePreset } from "#kestrel/pipelines";
-import { buildAdminSchema, llmsFullOf, maxCascadeOf, schemaFromRun } from "./admin-schema";
+import { buildAdminSchema, llmsFullOf, maxCascadeOf, robotsOf, schemaFromRun, sitemapOf } from "./admin-schema";
 import type { HttpTriggerEntry } from "./admin-capabilities";
 import { contentModel, contentTypes, defaultLocale, features, locales, prefixPrimary } from "../../../../playground/shared/model";
 import fieldTypes from "../../../../playground/shared/field-types";
@@ -159,6 +159,13 @@ describe("buildAdminSchema", () => {
     expect(buildAdminSchema({ ...sources, llmsFull: true }).llmsFull).toBe(true);
     expect(buildAdminSchema({ ...sources, llmsFull: false }).llmsFull).toBeUndefined();
   });
+
+  it("reports robots.txt and sitemap.xml only when delivery-static writes them", () => {
+    expect(buildAdminSchema({ ...sources, robots: true, sitemap: true })).toMatchObject({ robots: true, sitemap: true });
+    const off = buildAdminSchema({ ...sources, robots: false, sitemap: false });
+    expect(off.robots).toBeUndefined();
+    expect(off.sitemap).toBeUndefined();
+  });
 });
 
 describe("schemaFromRun", () => {
@@ -214,5 +221,24 @@ describe("llmsFullOf", () => {
     expect(llmsFullOf(delivery({ full: false }))).toBe(false);
     expect(llmsFullOf([{ use: "@michaelthielemann/kestrel-delivery-static", config: { types: {} } }])).toBe(false);
     expect(llmsFullOf([])).toBe(false);
+  });
+});
+
+describe("robotsOf and sitemapOf", () => {
+  const delivery = (config: Record<string, unknown>) => [{ use: "@michaelthielemann/kestrel-delivery-static", config: { types: {}, ...config } }];
+
+  it("answer that delivery-static writes robots.txt unless robots is false", () => {
+    expect(robotsOf(delivery({}))).toBe(true);
+    expect(robotsOf(delivery({ robots: { policy: "allow" } }))).toBe(true);
+    expect(robotsOf(delivery({ robots: false }))).toBe(false);
+    expect(robotsOf([])).toBe(false);
+  });
+
+  it("answer that delivery-static writes sitemap.xml only with a site URL and the sitemap left on", () => {
+    expect(sitemapOf(delivery({ siteUrl: "https://example.org" }))).toBe(true);
+    expect(sitemapOf(delivery({ siteUrl: "https://example.org", sitemap: false }))).toBe(false);
+    expect(sitemapOf(delivery({}))).toBe(false);
+    expect(sitemapOf(delivery({ siteUrl: "" }))).toBe(false);
+    expect(sitemapOf([])).toBe(false);
   });
 });

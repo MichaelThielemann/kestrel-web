@@ -33,13 +33,17 @@ export interface AdminSchemaSources {
   maxCascade?: number | undefined;
   /** Whether delivery-static writes llms-full.txt (`llmsFullOf`), so System → Delivery lists its export. */
   llmsFull?: boolean;
+  /** Whether delivery-static writes robots.txt (`robotsOf`), so System → Delivery names it with the index files. */
+  robots?: boolean;
+  /** Whether delivery-static writes sitemap.xml (`sitemapOf`), so System → Delivery names it with the index files. */
+  sitemap?: boolean;
 }
 
 function toCollectionModel(type: ContentType, mount: boolean): CollectionModel {
   return { kind: type.kind, fields: type.fields, ...(mount ? { mount: true } : {}) };
 }
 
-export function buildAdminSchema({ model, collectionsUi, features, prefixPrimary, locales, defaultLocale, customTypes, triggers, access, collections: declared, maxCascade, llmsFull }: AdminSchemaSources): AdminSchema {
+export function buildAdminSchema({ model, collectionsUi, features, prefixPrimary, locales, defaultLocale, customTypes, triggers, access, collections: declared, maxCascade, llmsFull, robots, sitemap }: AdminSchemaSources): AdminSchema {
   const verbs: Record<string, Partial<Record<CollectionVerb, string>>> = {};
   const routing: Record<string, CollectionRouting> = {};
   for (const name of Object.keys(model.types)) {
@@ -67,6 +71,8 @@ export function buildAdminSchema({ model, collectionsUi, features, prefixPrimary
     ...(maxCascade === undefined ? {} : { maxCascade }),
     ...(triggers.some((trigger) => trigger.pipeline === MEDIA_TRASH_PIPELINES.trash) ? { mediaTrash: true } : {}),
     ...(llmsFull === true ? { llmsFull: true } : {}),
+    ...(robots === true ? { robots: true } : {}),
+    ...(sitemap === true ? { sitemap: true } : {}),
   };
 }
 
@@ -119,9 +125,26 @@ export function maxCascadeOf(modules: readonly { use: string; config?: unknown }
 
 const DELIVERY_STATIC_MODULE = "@michaelthielemann/kestrel-delivery-static";
 
-/** Whether `delivery-static` in a module list writes llms-full.txt: its `llms.full`, which is off by default. */
-export function llmsFullOf(modules: readonly { use: string; config?: unknown }[]): boolean {
+function deliveryConfig(modules: readonly { use: string; config?: unknown }[]): Record<string, unknown> | undefined {
   const entry = modules.find((candidate) => candidate.use === DELIVERY_STATIC_MODULE);
   const config = entry === undefined ? undefined : effectiveModuleConfig(entry);
-  return isRecord(config) && isRecord(config.llms) && config.llms.full === true;
+  return isRecord(config) ? config : undefined;
+}
+
+/** Whether `delivery-static` in a module list writes llms-full.txt: its `llms.full`, which is off by default. */
+export function llmsFullOf(modules: readonly { use: string; config?: unknown }[]): boolean {
+  const config = deliveryConfig(modules);
+  return config !== undefined && isRecord(config.llms) && config.llms.full === true;
+}
+
+/** Whether `delivery-static` in a module list writes robots.txt: always, unless its `robots` is `false`. */
+export function robotsOf(modules: readonly { use: string; config?: unknown }[]): boolean {
+  const config = deliveryConfig(modules);
+  return config !== undefined && config.robots !== false;
+}
+
+/** Whether `delivery-static` in a module list writes sitemap.xml: with a `siteUrl`, unless its `sitemap` is `false`. */
+export function sitemapOf(modules: readonly { use: string; config?: unknown }[]): boolean {
+  const config = deliveryConfig(modules);
+  return config !== undefined && config.sitemap !== false && typeof config.siteUrl === "string" && config.siteUrl !== "";
 }

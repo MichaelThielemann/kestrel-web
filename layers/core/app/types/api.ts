@@ -406,4 +406,8 @@ export interface AdminSchema {
   mediaTrash?: boolean
   /** delivery-static writes llms-full.txt (`llms.full`); absent otherwise. */
   llmsFull?: boolean
+  /** delivery-static writes robots.txt (`robots` is not `false`); absent otherwise. */
+  robots?: boolean
+  /** delivery-static writes sitemap.xml (a `siteUrl`, and `sitemap` is not `false`); absent otherwise. */
+  sitemap?: boolean
 }

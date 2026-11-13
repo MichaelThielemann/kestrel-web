@@ -19,6 +19,8 @@ const schema: AdminSchema = {
   features: [],
   capabilities: { ...fullCapabilities },
   llmsFull: true,
+  robots: true,
+  sitemap: true,
 }
 
 function staleStatus(over: Partial<StaleStatus> = {}): StaleStatus {
@@ -51,6 +53,8 @@ describe('SystemDeliveryStale', () => {
     useSchema().clear()
     schema.capabilities = { ...fullCapabilities }
     schema.llmsFull = true
+    schema.robots = true
+    schema.sitemap = true
     for (const toast of [...useToast().items]) useToast().dismiss(toast.id)
   })
 
@@ -150,9 +154,9 @@ describe('SystemDeliveryStale', () => {
     expect(heading.text()).toBe(en['delivery.indexExportsTitle'])
     const rows = wrapper.findAll('.delivery-exports__row')
     expect(rows.map((row) => row.attributes('data-tone'))).toEqual(['current', 'current'])
-    expect(rows[0]?.get('.delivery-exports__name').text()).toBe(en['delivery.indexExportIndexes'])
+    expect(rows[0]?.get('.delivery-exports__name').text()).toBe('sitemap.xml, robots.txt, and llms.txt')
     expect(rows[0]?.get('.delivery-exports__text').text()).toBe(text('delivery.indexExportWritten', { at: time, n: 12 }))
-    expect(rows[1]?.get('.delivery-exports__name').text()).toBe(en['delivery.indexExportLlmsFull'])
+    expect(rows[1]?.get('.delivery-exports__name').text()).toBe('llms-full.txt')
     expect(rows[1]?.get('.delivery-exports__text').text()).toBe(text('delivery.indexExportWrittenOne', { at: time, n: 1 }))
     for (const row of rows) expect(row.find('svg').exists()).toBe(true)
     wrapper.unmount()
@@ -168,7 +172,7 @@ describe('SystemDeliveryStale', () => {
     expect(failed?.get('.delivery-exports__text').text()).toBe(text('delivery.indexExportFailed', { at: time }))
     expect(failed?.get('.delivery-exports__error').text()).toBe('blobstore unavailable')
     expect(skipped?.attributes('data-tone')).toBe('skipped')
-    expect(skipped?.get('.delivery-exports__text').text()).toBe(text('delivery.llmsFullExportSkipped', { at: time }))
+    expect(skipped?.get('.delivery-exports__text').text()).toBe(text('delivery.exportSkippedOne', { at: time, file: 'llms-full.txt' }))
     expect(skipped?.find('.delivery-exports__error').exists()).toBe(false)
     wrapper.unmount()
   })
@@ -185,8 +189,22 @@ describe('SystemDeliveryStale', () => {
     const at = Date.UTC(2026, 10, 13, 9, 0, 0)
     const wrapper = await mountWith(staleStatus({ exports: { indexes: { at, entries: 3, error: null, skipped: false }, llmsFull: { at, entries: 0, error: 'blobstore unavailable', skipped: false } } }))
     await vi.waitFor(() => expect(wrapper.findAll('.delivery-exports__row')).toHaveLength(1))
-    expect(wrapper.get('.delivery-exports__name').text()).toBe(en['delivery.indexExportIndexes'])
+    expect(wrapper.get('.delivery-exports__name').text()).toBe('sitemap.xml, robots.txt, and llms.txt')
     expect(wrapper.text()).not.toContain('blobstore unavailable')
+    wrapper.unmount()
+  })
+
+  it('names only llms.txt and claims no robots.txt for a skipped export while robots and the sitemap are off', async () => {
+    delete schema.robots
+    delete schema.sitemap
+    const at = Date.UTC(2026, 10, 13, 9, 0, 0)
+    const wrapper = await mountWith(staleStatus({ exports: { indexes: { at, entries: 0, error: null, skipped: true }, llmsFull: null } }))
+    await vi.waitFor(() => expect(wrapper.findAll('.delivery-exports__row')).toHaveLength(2))
+    const time = new Intl.DateTimeFormat('en', { dateStyle: 'medium', timeStyle: 'medium' }).format(new Date(at))
+    const [indexes] = wrapper.findAll('.delivery-exports__row')
+    expect(indexes?.get('.delivery-exports__name').text()).toBe('llms.txt')
+    expect(indexes?.get('.delivery-exports__text').text()).toBe(text('delivery.exportSkippedOne', { at: time, file: 'llms.txt' }))
+    expect(wrapper.text()).not.toContain('robots.txt')
     wrapper.unmount()
   })
 

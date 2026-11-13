@@ -31,10 +31,11 @@
   site settings title. `og:image` uses the normalised site URL too.
   `canonicalUrl()` and `absoluteUrl()` live in `layers/core/app/utils/canonical.ts`; the UI layers may import
   that delivery-static subpath, which imports nothing.
-- System → Delivery lists the last export of `sitemap.xml`, `robots.txt` and `llms.txt` and, while delivery-static's
-  `llms.full` is on, the last export of `llms-full.txt`: when, with how many entries, or when and with which
-  error it failed, or that it was skipped because published pages had no rendered output yet.
-  `GET /api/admin/schema` carries `llmsFull: true` while `llms.full` is on.
+- System → Delivery lists the last export of `sitemap.xml`, `robots.txt` and `llms.txt` (naming only the files the
+  site writes) and, while delivery-static's `llms.full` is on, the last export of `llms-full.txt`: when, with how
+  many entries, or when and with which error it failed, or that it was skipped because published pages had no
+  rendered output yet. `GET /api/admin/schema` carries `llmsFull: true` while `llms.full` is on, `robots: true`
+  unless `robots` is `false`, and `sitemap: true` while a sitemap is written (a site URL, `sitemap` not `false`).
 - `envRobots()` in `#kestrel/config` reads `KESTREL_ROBOTS_POLICY` (`allow` or `disallow`) as
   `presetModuleConfig()`'s `robots` option and refuses any other value; unset, the production-build default
   applies. create-kestrel's `kestrel.config.ts` passes `robots: envRobots()`, its `.env.example` lists
