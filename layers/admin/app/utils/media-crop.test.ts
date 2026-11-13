@@ -26,7 +26,7 @@ describe('canFrame', () => {
 })
 
 describe('cropSource', () => {
-  const variant = (size: string, width: number, state: 'done' | 'pending' = 'done', height = Math.round(width * 2 / 3)) => ({ size, width, height, format: 'webp', bytes: 1, state, path: `/media/m1/variants/${size}.webp` })
+  const variant = (size: string, width: number, state: 'done' | 'pending' = 'done', height = Math.round(width * 2 / 3)) => ({ size, width, height, format: 'webp', bytes: 1, state, path: `/media/m1/variants/${size}.webp`, crop: null })
   const ratios = [{ key: '1:1', sizes: ['avatar'], manual: false, fits: true, crop: null }]
 
   it('shows the original when a browser displays its type', () => {

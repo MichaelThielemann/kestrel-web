@@ -4,7 +4,7 @@ import type { MediaVariant } from '#kestrel-admin/types/api'
 import MediaThumb from './MediaThumb.vue'
 
 function variant(over: Partial<MediaVariant> = {}): MediaVariant {
-  return { size: 'thumb', width: 320, height: 240, format: 'webp', bytes: 1000, state: 'done', path: '/media/f1/variants/thumb.webp', ...over }
+  return { size: 'thumb', width: 320, height: 240, format: 'webp', bytes: 1000, state: 'done', path: '/media/f1/variants/thumb.webp', crop: null, ...over }
 }
 
 describe('MediaThumb', () => {

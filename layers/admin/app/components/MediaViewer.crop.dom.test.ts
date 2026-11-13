@@ -102,13 +102,13 @@ describe('MediaViewer crop entry', () => {
   it('offers the crop for a WebP stored on its side only once a whole-image variant is finished', async () => {
     const turned = photo({
       contentType: 'image/webp', filename: 'tower.webp', path: '/media/m1/tower.webp', width: 800, height: 400,
-      variants: [{ size: 'large', width: 400, height: 800, format: 'webp', bytes: 1, state: 'pending', path: '/media/m1/variants/large.webp' }],
+      variants: [{ size: 'large', width: 400, height: 800, format: 'webp', bytes: 1, state: 'pending', path: '/media/m1/variants/large.webp', crop: null }],
       framing: { focus: null, crops: {}, width: 400, height: 800, ratios: [] },
     })
     const wrapper = await mountSuspended(MediaViewer, { props: { open: true, file: turned, canSave: true, canDelete: false }, attachTo: document.body })
     expect(cropButton()).toBeUndefined()
 
-    await wrapper.setProps({ file: { ...turned, variants: [{ size: 'large', width: 400, height: 800, format: 'webp', bytes: 1, state: 'done', path: '/media/m1/variants/large.webp?v=2' }] } })
+    await wrapper.setProps({ file: { ...turned, variants: [{ size: 'large', width: 400, height: 800, format: 'webp', bytes: 1, state: 'done', path: '/media/m1/variants/large.webp?v=2', crop: null }] } })
     await nextTick()
     expect(cropButton()).toBeTruthy()
     wrapper.unmount()
@@ -117,13 +117,13 @@ describe('MediaViewer crop entry', () => {
   it('offers the crop for a WebP whose dimensions survive its orientation only once a whole-image variant is finished', async () => {
     const flipped = photo({
       contentType: 'image/webp', filename: 'pier.webp', path: '/media/m1/pier.webp', width: 800, height: 400,
-      variants: [{ size: 'large', width: 800, height: 400, format: 'webp', bytes: 1, state: 'pending', path: '/media/m1/variants/large.webp' }],
+      variants: [{ size: 'large', width: 800, height: 400, format: 'webp', bytes: 1, state: 'pending', path: '/media/m1/variants/large.webp', crop: null }],
       framing: { focus: null, crops: {}, width: 800, height: 400, ratios: [] },
     })
     const wrapper = await mountSuspended(MediaViewer, { props: { open: true, file: flipped, canSave: true, canDelete: false }, attachTo: document.body })
     expect(cropButton()).toBeUndefined()
 
-    await wrapper.setProps({ file: { ...flipped, variants: [{ size: 'large', width: 800, height: 400, format: 'webp', bytes: 1, state: 'done', path: '/media/m1/variants/large.webp?v=2' }] } })
+    await wrapper.setProps({ file: { ...flipped, variants: [{ size: 'large', width: 800, height: 400, format: 'webp', bytes: 1, state: 'done', path: '/media/m1/variants/large.webp?v=2', crop: null }] } })
     await nextTick()
     expect(cropButton()).toBeTruthy()
     wrapper.unmount()

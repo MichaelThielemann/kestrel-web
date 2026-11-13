@@ -35,7 +35,7 @@ describe('variantTotal', () => {
 
 describe('pickVariantThumb', () => {
   const variant = (over: Partial<MediaVariant>): MediaVariant => ({
-    size: 'thumb', width: 320, height: 240, format: 'webp', bytes: 100, state: 'done', path: '/media/f1/variants/thumb.webp', ...over,
+    size: 'thumb', width: 320, height: 240, format: 'webp', bytes: 100, state: 'done', path: '/media/f1/variants/thumb.webp', crop: null, ...over,
   })
 
   it('picks the smallest done variant at or above 256px', () => {

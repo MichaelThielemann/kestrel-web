@@ -4,7 +4,7 @@ import type { MediaItem, MediaVariant } from '#kestrel-core/app/types/api'
 import KestrelImage from './Image.vue'
 
 function variant(over: Partial<MediaVariant> = {}): MediaVariant {
-  return { size: 'content', width: 640, height: 360, format: 'webp', bytes: 1000, state: 'done', path: '/media/m1/variants/content.webp', ...over }
+  return { size: 'content', width: 640, height: 360, format: 'webp', bytes: 1000, state: 'done', path: '/media/m1/variants/content.webp', crop: null, ...over }
 }
 
 function item(over: Partial<MediaItem> = {}): MediaItem {

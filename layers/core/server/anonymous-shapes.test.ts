@@ -343,4 +343,23 @@ describe("the playground preset: what a caller without a session receives", () =
     expect(reset.status).toBe(200);
     expect(boundaryCast<Json>((await request(base, "GET", `/media/${seeded.mediaId}`)).json, "json").focus).toBeNull();
   });
+
+  it("gives a caller without a session the crop each variant shows, null for the whole image and the cut of a manual crop", async () => {
+    const before = boundaryCast<Json[]>(boundaryCast<Json>((await request(base, "GET", `/media/${seeded.mediaId}`)).json, "json").variants, "json");
+    expect(before.length).toBeGreaterThan(0);
+    for (const variant of before) expect(variant, String(variant.size)).toHaveProperty("crop", null);
+    const registered = await request(base, "PUT", "/admin/images/sizes", { token: seeded.admin, json: { sizes: [{ name: "avatar", width: 96, height: 96, fit: "cover" }] } });
+    expect(registered.status, registered.text.slice(0, 300)).toBe(200);
+    const framed = await request(base, "PUT", `/media/${seeded.mediaId}/framing`, { token: seeded.editor, json: { crops: { "1:1": { x: 0, y: 0, w: 0.5, h: 0.857 } } } });
+    expect(framed.status).toBe(200);
+    let avatar: Json | undefined;
+    for (let attempt = 0; attempt < 60 && !isRecord(avatar?.crop); attempt += 1) {
+      if (attempt > 0) await new Promise((resolve) => setTimeout(resolve, 250));
+      const variants = boundaryCast<Json[]>(boundaryCast<Json>((await request(base, "GET", `/media/${seeded.mediaId}`)).json, "json").variants, "json");
+      avatar = variants.find((variant) => variant.size === "avatar");
+    }
+    expect(avatar?.crop).toEqual({ left: 0, top: 0, width: 600, height: 600 });
+    const reset = await request(base, "PUT", `/media/${seeded.mediaId}/framing`, { token: seeded.editor, json: {} });
+    expect(reset.status).toBe(200);
+  }, 30_000);
 });

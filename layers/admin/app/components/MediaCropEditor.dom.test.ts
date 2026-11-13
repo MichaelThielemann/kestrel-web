@@ -370,8 +370,8 @@ describe('MediaCropEditor', () => {
       contentType: 'image/tiff',
       path: '/media/m1/harbour.tif',
       variants: [
-        { size: 'large', width: 1200, height: 800, format: 'webp', bytes: 1, state: 'done', path: '/media/m1/variants/large.webp?v=2' },
-        { size: 'teaser', width: 480, height: 320, format: 'webp', bytes: 1, state: 'done', path: '/media/m1/variants/teaser.webp' },
+        { size: 'large', width: 1200, height: 800, format: 'webp', bytes: 1, state: 'done', path: '/media/m1/variants/large.webp?v=2', crop: null },
+        { size: 'teaser', width: 480, height: 320, format: 'webp', bytes: 1, state: 'done', path: '/media/m1/variants/teaser.webp', crop: null },
       ],
     }
     const wrapper = await mountEditor(tiff)

@@ -43,6 +43,7 @@ interface ExpectedMediaItem {
   }
   variants: {
     bytes: number
+    crop: { height: number; left: number; top: number; width: number } | null
     format: string
     height: number
     path: string
@@ -171,6 +172,7 @@ describe('the public API types keep exactly their published shape', () => {
     expectTypeOf<AnonymousOf<'getMedia'>>().not.toHaveProperty('folder')
     expectTypeOf<AnonymousOf<'getMedia'>['focus']>().toEqualTypeOf<{ h: number; w: number; x: number; y: number } | null>()
     expectTypeOf<AnonymousOf<'getMedia'>>().not.toHaveProperty('framing')
+    expectTypeOf<AnonymousOf<'getMedia'>['variants'][number]['crop']>().toEqualTypeOf<{ height: number; left: number; top: number; width: number } | null>()
     // @ts-expect-error createPage documents no anonymous answer
     expectTypeOf<AnonymousOf<'createPage'>>().toBeNever()
   })
