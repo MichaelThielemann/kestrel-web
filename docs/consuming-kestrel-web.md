@@ -318,7 +318,7 @@ calls them before it has read a schema at all.
 | `roles` | yes | — `{ roles, anonymous, anonymousFields?, fields? }` for `authz-roles`; the field grants of the resources `anonymous` may read are derived, `anonymousFields` replaces the grant of each resource it names (an empty list removes it), `fields` is passed through (see §4, "What a visitor without a session receives") |
 | `bootstrap` | yes | — `{ username, passwordHash, roles? }`, `roles` defaulting to `["admin"]` |
 | `collectionsUi` | no | — your `shared/collections-ui.ts` map; the `revisions` module's `statusField`/`liveStatuses` are derived from the workflows in it |
-| `media` | no | `{ maxBytes: 5242880, allowedTypes: ["image/*", "application/pdf"], deniedTypes: ["text/html", "application/xhtml+xml"] }` |
+| `media` | no | `{ maxBytes: 5242880, allowedTypes: ["image/*", "application/pdf"], deniedTypes: ["text/html", "application/xhtml+xml"], trashRetentionDays: 30 }` — `trashRetentionDays` is how long a trashed item waits before the nightly `purgeExpiredMedia` deletes it; `0` composes no trash pipelines (§4, "The media trash") |
 | `ratelimit` | no | `{ login: { limit: 5, windowSeconds: 60 }, loginAccount: { limit: 10, windowSeconds: 300, maxBlockSeconds: 900 }, passwordCheck: { limit: 5, windowSeconds: 300, maxBlockSeconds: 900 }, knownDevice: { limit: 10, windowSeconds: 300, maxBlockSeconds: 900 } }` — `login` counts every attempt per client address (an IPv6 address by its /64); `loginAccount` counts failed sign-ins per account from any address, keyed on the field `session.identifier` names, and a successful sign-in clears it; `knownDevice` counts failed sign-ins of a browser that carries the device cookie of an earlier sign-in to that account, in place of `loginAccount`, so a blocked account stays open to its owner's browsers; `deviceCookies: { secretKey?, previousSecretKeys?, maxAgeSeconds? }` signs those cookies, the keys defaulting to `deviceKeys()` from `#kestrel/config`: `KESTREL_DEVICE_KEY`, else the `mfa` feature's keys, else a random key per process, `maxAgeSeconds` to 30 days; `passwordCheck` counts failed password checks per signed-in user on `changePassword` and `confirmPassword`; a key that keeps exceeding its budget is blocked for twice as long each time, never longer than `maxBlockSeconds` |
 | `llms` | no | `{ full: true, headings: { pages: "Pages" } }`; `siteUrl` falls back to `NUXT_PUBLIC_SITE_URL` |
 | `migrations` | with the `migrations` feature | — `{ migrations, mode? }`, the `#kestrel/migrations` list (§10); the feature without it throws |
@@ -413,7 +413,7 @@ const modules = [
   { use: "@michaelthielemann/kestrel-replication-sqlite", config: { file: resolve(dataDir, "kestrel.db") } },
   { use: "@michaelthielemann/kestrel-persistence-sqlite", config: { file: resolve(dataDir, "kestrel.db") } },
   { use: "@michaelthielemann/kestrel-sanitize-svg", config: {} },
-  { use: "@michaelthielemann/kestrel-media-default", config: { prefix: "media/", publicPath: "/media", allowedTypes: ["image/*", "application/pdf"], deniedTypes: ["text/html", "application/xhtml+xml"], maxBytes: 5242880, locales: ["de", "en"], defaultLocale: "de", publicCopy: { prefix: "site/" } } },
+  { use: "@michaelthielemann/kestrel-media-default", config: { prefix: "media/", publicPath: "/media", allowedTypes: ["image/*", "application/pdf"], deniedTypes: ["text/html", "application/xhtml+xml"], maxBytes: 5242880, locales: ["de", "en"], defaultLocale: "de", publicCopy: { prefix: "site/" }, trashRetentionDays: 30 } },
   { use: "@michaelthielemann/kestrel-images-default", config: { publicPath: "/media", publicCopy: { prefix: "site/" } } },
   { use: "@michaelthielemann/kestrel-authn-multi", config: { identifier: "username", minPasswordLength: 12, sessionTtlSeconds: 86400, bootstrap: { username: "admin", passwordHash: adminPasswordHash(), roles: ["admin"] } } },
   {
@@ -821,7 +821,7 @@ or a retry actually runs.
 |---|---|---|
 | `ratelimit` | kestrel-ratelimit-memory | `sweepRateLimits` (cron); `ratelimit.check:login` and `ratelimit.check:loginAccount` at the start of `login` and `ratelimit.rememberDevice:loginAccount` before its `events.emit:auth.loggedIn`, `ratelimit.check:passwordCheck` after `authn.requireUser` in `changePassword` and `confirmPassword` |
 | `sanitizeSvg` | kestrel-sanitize-svg | SVG sanitize step before the upload step in `uploadMedia`; only with this module configured does `layers/core` serve SVG inline (`inlineTypes`), otherwise SVGs are delivered as attachments. Required with `delivery` unless `image/svg+xml` is denied — see the note below the table |
-| `references` | kestrel-references-default | `brokenReferences`, `pageReferrers(Many)`, `mediaReferrers(Many)`, `<name>Referrers(Many)` per generic multi collection, `rebuildReferences`, `scanReferences` (cron); check/index/guard/unindex steps in the create/update/delete pipelines of `pages` and every generic multi collection, `deleteMedia`, `deleteMediaFolder`, a re-index step in each `delete…Translation`, and a re-index step after the write of `setSettings`, `setRedirects` and each generic single |
+| `references` | kestrel-references-default | `brokenReferences`, `pageReferrers(Many)`, `mediaReferrers(Many)`, `<name>Referrers(Many)` per generic multi collection, `rebuildReferences`, `scanReferences` (cron); check/index/guard/unindex steps in the create/update/delete pipelines of `pages` and every generic multi collection, `deleteMedia`, `deleteMediaFolder`, `references.dropReferenced:media` before `media.purge` in the trash's purge pipelines, a re-index step in each `delete…Translation`, and a re-index step after the write of `setSettings`, `setRedirects` and each generic single |
 | `links` | kestrel-links-default | `brokenLinks`, `rebuildLinks`, `checkLinks` (cron); extract/unextract steps in `createPage`, `updatePage`, `deletePage`, and a re-extract step in `deletePageTranslation` when it exists |
 | `delivery` | kestrel-delivery-static + kestrel-renderer-nuxt | `pagePublishStatus`, `publishAllPages`, `pagesStaleStatus`, `retryStalePages`, `resumeStalePages` (cron), `deliveryBuildCheck` (run at start), two event pipelines that publish the saved page: `publishPage` (triggered by `page.created`, `page.updated`, `page.restored`, and `page.translationRemoved` when the model is translatable) and `unpublishPage` (triggered by `page.deleted`), and the dependents pipelines that re-render the pages showing a change: `pageDependents`, one `<name>Dependents` per collection, `settingsDependents`, `mediaDependents`, with `eventsQueue` also `republishOutput` and `refreshLlms` — see the notes below the table |
 | `redirects` | kestrel-redirects-default | `getRedirects`, `setRedirects`, `renderRedirects`; redirect-lookup step in `resolvePage`; export step at the end of `publishAllPages` (only when `delivery` is also on) |
@@ -855,7 +855,9 @@ also keeps the dead-letter list and its retry actions.
 register the sizes declared by blocks and layers); pipeline `registerImageSizes` (`PUT
 /admin/images/sizes`); cron `resumeImages`; route `serveImageVariant` at `/media/:id/variants/:file`,
 served directly on Node next to `/api`; and attach/remove/removeMany/export steps in `getMedia`,
-`listMedia`, `deleteMedia`, `deleteMediaFolder`, `exportMedia`.
+`listMedia`, `deleteMedia`, `deleteMediaFolder`, `exportMedia`; with the media trash, `images.hideMany` in
+`trashMedia` and `trashMediaFolder`, `images.showMany` in `restoreMedia` and `images.removeMany` in its
+three purge pipelines.
 Placing an image's variant paths and rendering them are two separate pipelines: without `eventsQueue`,
 `generateImageVariants` (on `media.uploaded`) does both inline, as before. With `eventsQueue`,
 `planImageVariants` (on `media.uploaded`, the main lane) decides every size's path and writes its
@@ -896,8 +898,8 @@ it like this:
   `<name>Dependents` otherwise), runs on the collection's `created`, `updated`, `deleted`, `restored` and
   `translationRemoved` events; a single collection's on `<name>.updated`. `settingsDependents`
   (`delivery.markDependents:settings`, `delivery.requestLlms`) runs on `settings.updated`, and
-  `mediaDependents` (`delivery.markDependents:media`) on `media.updated`, `media.deleted` and
-  `images.variantsChanged`. A dependents trigger is composed only for an event that a composed pipeline
+  `mediaDependents` (`delivery.markDependents:media`) on `media.updated`, `media.deleted`,
+  `images.variantsChanged`, `media.trashed` and `media.restored`. A dependents trigger is composed only for an event that a composed pipeline
   emits or a configured module raises, after `exclude` and `overrides` are applied: excluding
   `updateMedia` drops the `media.updated` trigger.
 - Marking only records which pages need a render. With `eventsQueue`, every marked page and language becomes
@@ -1112,6 +1114,31 @@ are pinned to the name `pages`. `deletePageTranslation` gets the same delivery/l
 as `updatePage` (re-publish, re-export llms.txt, re-extract links, re-index references), right before
 its `events.emit:page.translationRemoved`. `settings` and `redirects` are excluded from generation
 entirely — their pipelines and routes are hand-written in the preset.
+
+#### The media trash
+
+While `media-default` carries `trashRetentionDays` (what `presetModuleConfig()` writes
+unless `media.trashRetentionDays` is `0`), the preset composes seven more media pipelines next to the final
+`deleteMedia` and `deleteMediaFolder`, which stay unchanged:
+
+| pipeline | trigger | permission | does |
+|---|---|---|---|
+| `trashMedia` | `POST /media/trash` (`{ ids }`, 1 to 200) | `media.delete` | moves the items to the trash, emits `media.trashed` |
+| `trashMediaFolder` | `POST /media/trash/folders/*path` | `media.delete` | moves every item of the folder's subtree to the trash and drops its folders, emits `media.trashed` |
+| `restoreMedia` | `POST /media/trash/restore` (`{ ids }`) | `media.write` | brings the items back to their folders, emits `media.restored`; a name taken meanwhile comes back as `<stem>-<n>.<ext>`, listed in `renamed` |
+| `listMediaTrash` | `GET /media/trash` (`q`, `limit`, `offset`, `locale`) | `media.write` | the trashed items, most recently trashed first, with `trashedAt`, `expiresAt` and `path: null` |
+| `purgeMedia` | `POST /media/trash/purge` (`{ ids }`) | `media.delete` | deletes the given trashed items for good, emits `media.deleted` |
+| `emptyMediaTrash` | `POST /media/trash/empty` | `media.delete` | deletes every trashed item for good, emits `media.deleted` |
+| `purgeExpiredMedia` | cron `0 4 * * *` | — | deletes the items trashed at least `trashRetentionDays` ago, emits `media.deleted` |
+
+A trashed item leaves the library, the picker, the search and the public copy at once, and with `images` its
+variants are no longer served or exported; its URL, folder, texts and variants come back unchanged on a
+restore. Moving a media item in use to the trash is allowed: the pages that show it render without it until
+it is restored. A purge never deletes an item that is still referenced, with `references`: it stays in the
+trash and is named in the answer's `skipped` with `reason: "referenced"`. `trashMedia`, `restoreMedia` and
+`purgeMedia` answer per id (`ids`, `skipped`); with `delivery`, `mediaDependents` re-renders the pages that
+read a trashed or restored item. `schedules: { purgeExpiredMedia }` moves the nightly run; a schedule for it
+while the trash is off throws.
 
 ### Options
 
@@ -2175,9 +2202,10 @@ What changes:
     the write's group (where the inline delivery has it) is moved into the group, so the event commits with
     the write; this is a warning, since the preset accepts either place.
     `preset/settings-llms` notes an override that emits but still exports `llms.txt` inside the request.
-  - `runtime/media-event-ids` notes your own triggers on `media.updated`, `media.deleted` or
-    `images.variantsChanged`: a folder deletion and the events `images-default` raises itself arrive with
-    `id: null` and every affected id in `ids`.
+  - `runtime/media-event-ids` notes your own triggers on `media.updated`, `media.deleted`,
+    `images.variantsChanged`, `media.trashed` or `media.restored`: a folder deletion, a move into or out of
+    the trash and the events `images-default` raises itself arrive with `id: null` and every affected id in
+    `ids`.
   - `responses/delivery-async` notes code in `app/` or `server/` that reads `_llms` or the old Publish all
     counts; `static/server-cache` notes, with `delivery`, cached handlers, cached functions, `useStorage`
     and cached `/api` route rules, whose answers a page's render does not record as reads.

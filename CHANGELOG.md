@@ -4,6 +4,16 @@
 
 ### Added
 
+- Media trash: the preset composes `trashMedia` (`POST /api/media/trash`), `trashMediaFolder`
+  (`POST /api/media/trash/folders/*path`), `restoreMedia` (`POST /api/media/trash/restore`), `listMediaTrash`
+  (`GET /api/media/trash`), `purgeMedia` (`POST /api/media/trash/purge`), `emptyMediaTrash`
+  (`POST /api/media/trash/empty`) and the nightly `purgeExpiredMedia` (cron `0 4 * * *`). Moving to the trash
+  and deleting for good need `media.delete`, listing and restoring need `media.write`. With `images`, a
+  trashed item's variants are hidden until it is restored; with `references`, a purge leaves referenced items
+  in the trash and reports them as skipped; with `delivery`, `media.trashed` and `media.restored` re-render
+  the pages that show the item. `presetModuleConfig()` takes `media.trashRetentionDays` (default 30; `0`
+  composes none of these pipelines). `DELETE /api/media/:id` and `DELETE /api/media/folders/*path` stay final
+  deletes.
 - Page builder: a block instance can carry an optional alias, set in its fields panel. The preset derives a
   `blockAliases` field, and its editor-owned grant, automatically for every collection whose editor is
   `"blocks"` and which has a `body` field; a consumer never declares it. The field itself is not localized
