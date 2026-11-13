@@ -41,7 +41,10 @@ Every layer has one named entry; relative paths never cross a layer.
 or an absolute `~~/layers/...` import that does the same;
 `kestrel/no-admin-from-public-or-core` refuses `#kestrel-admin/*` outside `layers/admin`;
 `kestrel/no-backend-in-ui-layers` refuses `@michaelthielemann/kestrel*`, including as `import type`, in
-`layers/admin`, `layers/public` and `layers/core/app`, except `layers/core/app/types/**`; and
+`layers/admin`, `layers/public` and `layers/core/app`, except `layers/core/app/types/**` and three
+dependency-free subpaths: the renderer's `static-marker`, delivery-static's `site-url` and images-default's
+`framing`, whose crop functions the admin's crop preview runs so that it shows exactly the cut the server
+renders; and
 `kestrel/backend-types-only-in-core-app-types` applies inside that `types/**` directory and allows
 `@michaelthielemann/kestrel*` there only as `import type`, and bans a package's `*/impl` subpath outright,
 type-only import included: those types come from the generated OpenAPI document instead (see "Generated

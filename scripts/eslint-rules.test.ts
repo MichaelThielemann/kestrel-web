@@ -89,6 +89,17 @@ describe("project-specific eslint rules have a violating fixture", { timeout: 20
     expectMessage(impl, "@typescript-eslint/no-restricted-imports", "UI code does not import Kestrel backend packages");
   });
 
+  it("kestrel/no-backend-in-ui-layers: allows images-default's framing subpath in the admin, and only that subpath of images-default", async () => {
+    const framing = await lintVirtual('import { cropForRatio } from "@michaelthielemann/kestrel-images-default/framing";\n', "layers/admin/app/probe.ts");
+    expect(framing.some((m) => m.ruleId === "@typescript-eslint/no-restricted-imports")).toBe(false);
+
+    const root = await lintVirtual('import images from "@michaelthielemann/kestrel-images-default";\n', "layers/admin/app/probe.ts");
+    expectMessage(root, "@typescript-eslint/no-restricted-imports", "UI code does not import Kestrel backend packages");
+
+    const impl = await lintVirtual('import { createImages } from "@michaelthielemann/kestrel-images-default/impl";\n', "layers/admin/app/probe.ts");
+    expectMessage(impl, "@typescript-eslint/no-restricted-imports", "UI code does not import Kestrel backend packages");
+  });
+
   it("kestrel/backend-types-only-in-core-app-types: bans a value import of a Kestrel backend package", async () => {
     const messages = await lintVirtual('import { x } from "@michaelthielemann/kestrel";\n', "layers/core/app/types/probe.ts");
     expectMessage(messages, "@typescript-eslint/no-restricted-imports", "layers/core/app/types may import Kestrel backend packages as types only.");
