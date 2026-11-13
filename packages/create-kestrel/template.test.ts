@@ -241,6 +241,10 @@ describe("projectFiles", () => {
     expect(text(files({ packageManager: "yarn" }), "README.md")).toContain("yarn dev");
     expect(text(files({}), "README.md")).toContain("pnpm install");
   });
+
+  it("names no pnpm command in the README of a project scaffolded with another package manager", () => {
+    for (const packageManager of ["npm", "yarn", "bun"] as const) expect(text(files({ packageManager }), "README.md"), packageManager).not.toContain("pnpm");
+  });
 });
 
 describe("occupants", () => {
