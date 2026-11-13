@@ -15,7 +15,7 @@ const props = defineProps<{
   disabled?: boolean
 }>()
 const selected = defineModel<string>('selected', { required: true })
-const emit = defineEmits<{ crop: [key: string, rect: MediaRect | null] }>()
+const emit = defineEmits<{ crop: [key: string, rect: MediaRect | null], pending: [boolean] }>()
 const { t } = useT()
 
 const tiles = computed(() => props.ratios.map((ratio) => ({
@@ -79,6 +79,7 @@ async function reset(): Promise<void> {
         :height="height"
         :focus="draft.focus"
         :disabled="disabled"
+        @pending="emit('pending', $event)"
       />
     </div>
   </div>

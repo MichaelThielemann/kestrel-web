@@ -188,6 +188,47 @@ describe('MediaCropEditor', () => {
     wrapper.unmount()
   })
 
+  it('keeps Save clickable while a typed crop number waits to be committed by leaving the field', async () => {
+    api.answer = (call) => Promise.resolve(call.method === 'PUT' ? photo() : [])
+    const wrapper = await mountEditor(photo())
+
+    tabs()[1]?.click()
+    await nextTick()
+    const save = button(en['common.save'])
+    expect(save?.hasAttribute('disabled')).toBe(true)
+    const zoom = q<HTMLInputElement>('input[data-field="zoom"]')
+    zoom?.focus()
+    for (const typed of ['2', '20', '200']) {
+      if (zoom) zoom.value = typed
+      zoom?.dispatchEvent(new Event('input', { bubbles: true }))
+      await nextTick()
+    }
+    expect(save?.hasAttribute('disabled')).toBe(false)
+
+    zoom?.dispatchEvent(new Event('change', { bubbles: true }))
+    await nextTick()
+    save?.click()
+    await vi.waitFor(() => expect(api.calls.some((c) => c.method === 'PUT')).toBe(true))
+    expect(api.calls.find((c) => c.method === 'PUT')?.body).toMatchObject({ crops: { '3:2': { w: 0.5 } } })
+    wrapper.unmount()
+  })
+
+  it('disables Save again when a typed crop number is left without a change', async () => {
+    const wrapper = await mountEditor(photo())
+
+    tabs()[1]?.click()
+    await nextTick()
+    const zoom = q<HTMLInputElement>('input[data-field="zoom"]')
+    if (zoom) zoom.value = '10'
+    zoom?.dispatchEvent(new Event('input', { bubbles: true }))
+    await nextTick()
+    expect(button(en['common.save'])?.hasAttribute('disabled')).toBe(false)
+    zoom?.dispatchEvent(new Event('change', { bubbles: true }))
+    await nextTick()
+    expect(button(en['common.save'])?.hasAttribute('disabled')).toBe(true)
+    wrapper.unmount()
+  })
+
   it('warns when the focus does not fit into a ratio', async () => {
     const wrapper = await mountEditor(photo({ focus: { x: 0, y: 0, w: 1, h: 1 } }))
 

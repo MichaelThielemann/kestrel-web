@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, reactive, ref, useId } from 'vue'
+import { computed, nextTick, onBeforeUnmount, reactive, ref, useId, watch } from 'vue'
 import { usePanZoom } from '../../composables/usePanZoom'
 import type { MediaRect } from '../../types/api'
 
@@ -19,6 +19,7 @@ const props = withDefaults(
 )
 
 const model = defineModel<MediaRect | null>({ default: null })
+const emit = defineEmits<{ pending: [boolean] }>()
 const { t } = useT()
 const helpId = `${useId()}-help`
 const frame = ref<HTMLElement | null>(null)
@@ -56,6 +57,11 @@ function commitNumber(field: NumberField): void {
   if (field === 'zoom') zoomTo(value / 100)
   else setPosition(field, value / 100)
 }
+
+watch(() => typed.size > 0, (value) => emit('pending', value))
+onBeforeUnmount(() => {
+  if (typed.size > 0) emit('pending', false)
+})
 
 function onNumberKeydown(field: NumberField, event: KeyboardEvent): void {
   if (event.key === 'Enter' && !event.isComposing) commitNumber(field)

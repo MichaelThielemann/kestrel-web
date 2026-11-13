@@ -15,6 +15,7 @@ const { draft, dirty, busy, error, usage, width, height, ratios, sizes } = edito
 const tab = ref('focus')
 const selected = ref('')
 const status = ref('')
+const pending = ref(false)
 const hasCover = computed(() => ratios.value.length > 0)
 const tabs = computed(() => [{ id: 'focus', label: t('mediaCrop.tab.focus') }, { id: 'crop', label: t('mediaCrop.tab.crop') }])
 const src = computed(() => (props.item ? cropSource(props.item) ?? props.item.path : ''))
@@ -24,6 +25,7 @@ const panelAttrs = (id: string) => (hasCover.value ? { 'role': 'tabpanel', 'id':
 watch(() => props.open, (isOpen) => {
   if (!isOpen) return
   tab.value = 'focus'
+  pending.value = false
   selected.value = ratios.value[0]?.key ?? ''
   status.value = ''
 }, { immediate: true })
@@ -114,6 +116,7 @@ async function onSave(): Promise<void> {
           :disabled="busy"
           @update:selected="onSelect"
           @crop="onCrop"
+          @pending="pending = $event"
         />
       </div>
       <KestrelUiAlert v-if="error" variant="error" class="media-crop__error">{{ error }}</KestrelUiAlert>
@@ -121,7 +124,7 @@ async function onSave(): Promise<void> {
     </div>
     <template #footer>
       <KestrelUiButton variant="ghost" :disabled="busy" @click="onOpenChange(false)">{{ t('common.cancel') }}</KestrelUiButton>
-      <KestrelUiButton ref="saveButton" variant="primary" :loading="busy" :disabled="busy || !dirty" @click="onSave">{{ t('common.save') }}</KestrelUiButton>
+      <KestrelUiButton ref="saveButton" variant="primary" :loading="busy" :disabled="busy || !(dirty || pending)" @click="onSave">{{ t('common.save') }}</KestrelUiButton>
     </template>
   </KestrelUiDialog>
 </template>
