@@ -1,7 +1,7 @@
 import { spawn, spawnSync } from "node:child_process";
 import { closeSync, mkdirSync, openSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { DATA_DIR, PORT, REPO_ROOT, SERVER_LOG, WORK_DIR } from "./support/env.ts";
+import { DATA_DIR, PORT, REPO_ROOT, SERVER_LOG, SITE_URL, WORK_DIR } from "./support/env.ts";
 
 const env: NodeJS.ProcessEnv = { ...process.env, NODE_ENV: "production" };
 delete env.TEST;
@@ -20,7 +20,7 @@ if (process.env.KESTREL_E2E_SKIP_BUILD !== "1") {
 const log = openSync(SERVER_LOG, "w");
 const server = spawn(process.execPath, [join(REPO_ROOT, "playground", ".output", "server", "index.mjs")], {
   stdio: ["ignore", log, log],
-  env: { ...env, PORT: String(PORT), NITRO_PORT: String(PORT), NITRO_HOST: "127.0.0.1", KESTREL_DATA_DIR: DATA_DIR, KESTREL_PLAYGROUND_LOGIN_LIMIT: "100" },
+  env: { ...env, PORT: String(PORT), NITRO_PORT: String(PORT), NITRO_HOST: "127.0.0.1", KESTREL_DATA_DIR: DATA_DIR, KESTREL_PLAYGROUND_LOGIN_LIMIT: "100", NUXT_PUBLIC_SITE_URL: SITE_URL },
 });
 
 closeSync(log);
