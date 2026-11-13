@@ -69,12 +69,12 @@ export function usePanZoom(frame: Ref<HTMLElement | null>, opts: PanZoomOptions)
     return parseFraming({ crops: { [opts.ratio()]: rect } }, { width: opts.width(), height: opts.height() }).ok
   }
 
-  function commitCrop(next: PixelCrop): boolean {
-    const [w, h] = [opts.width(), opts.height()]
+  function commitCrop(next: PixelCrop): PixelCrop | null {
+    const [w, h, key] = [opts.width(), opts.height(), opts.ratio()]
     const rect = { x: next.left / w, y: next.top / h, w: next.width / w, h: next.height / h }
-    if (!storable(rect)) return false
+    if (!storable(rect)) return null
     opts.commit(rect)
-    return true
+    return cropForRatio({ focus: null, crops: { [key]: rect } }, key, w, h) ?? centred.value
   }
 
   function place(cx: number, cy: number, nextZoom: number): void {
@@ -105,7 +105,10 @@ export function usePanZoom(frame: Ref<HTMLElement | null>, opts: PanZoomOptions)
     if (!next || !target) return
     const shown = held?.shown ?? current
     if (sameCrop(target, shown)) view = { ...next, shown }
-    else view = commitCrop(target) ? { ...next, shown: target } : null
+    else {
+      const committed = commitCrop(target)
+      view = committed ? { ...next, shown: committed } : null
+    }
   }
 
   function scaleView(from: View, factor: number, anchor: PointerDragPoint): View {

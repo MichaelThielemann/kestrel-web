@@ -55,10 +55,14 @@ function pointerEvent(type: string, pointerId: number, clientX: number, clientY:
   return event
 }
 
-function squareFrame(wrapper: Awaited<ReturnType<typeof mountFrame>>['wrapper']): Element {
+function sizedFrame(wrapper: Awaited<ReturnType<typeof mountFrame>>['wrapper'], width: number, height: number): Element {
   const frame = wrapper.get('.ui-crop-frame__frame').element
-  frame.getBoundingClientRect = () => ({ left: 0, top: 0, right: 600, bottom: 600, width: 600, height: 600, x: 0, y: 0, toJSON: () => ({}) })
+  frame.getBoundingClientRect = () => ({ left: 0, top: 0, right: width, bottom: height, width, height, x: 0, y: 0, toJSON: () => ({}) })
   return frame
+}
+
+function squareFrame(wrapper: Awaited<ReturnType<typeof mountFrame>>['wrapper']): Element {
+  return sizedFrame(wrapper, 600, 600)
 }
 
 describe('KestrelUiCropFrame', () => {
@@ -324,6 +328,37 @@ describe('KestrelUiCropFrame', () => {
     }
     const crop = squareCropOf(emitted.at(-1))
     expect(Math.abs((crop?.width ?? 0) - 175 / Math.exp(0.1))).toBeLessThanOrEqual(1)
+    wrapper.unmount()
+  })
+
+  it('adds up small wheel steps on a wide tile whose crop does not round back to the same pixels', async () => {
+    const { wrapper, emitted } = await mountFrame(null)
+    const frame = sizedFrame(wrapper, 640, 360)
+
+    for (let i = 0; i < 400; i++) {
+      frame.dispatchEvent(wheel(-0.25, 320, 180))
+      await nextTick()
+    }
+    const crop = cropOf(emitted.at(-1))
+    expect(Math.abs((crop?.width ?? 0) - 1600 / Math.exp(0.2))).toBeLessThanOrEqual(2)
+    wrapper.unmount()
+  })
+
+  it('adds up small wheel steps on a 3:2 tile and keeps the point under the pointer in place', async () => {
+    const image = { ratio: '3:2', width: 1200, height: 700 }
+    const { wrapper, emitted } = await mountFrame(null, null, image)
+    const frame = sizedFrame(wrapper, 600, 400)
+
+    for (let i = 0; i < 400; i++) {
+      frame.dispatchEvent(wheel(-0.25, 150, 100))
+      await nextTick()
+    }
+    const last = emitted.at(-1)
+    const crop = last ? cropForRatio({ focus: null, crops: { '3:2': last } }, '3:2', image.width, image.height) : null
+    const width = 1050 / Math.exp(0.2)
+    expect(Math.abs((crop?.width ?? 0) - width)).toBeLessThanOrEqual(2)
+    expect(Math.abs((crop?.left ?? 0) - (75 + 0.25 * 1050 - 0.25 * width))).toBeLessThanOrEqual(2)
+    expect(Math.abs((crop?.top ?? 0) - (0.25 * 700 - 0.25 * width * (2 / 3)))).toBeLessThanOrEqual(2)
     wrapper.unmount()
   })
 })
