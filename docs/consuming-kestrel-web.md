@@ -1868,7 +1868,8 @@ with `tagPriority: "high"`, so they replace tags of the same key set in `app.vue
 
 **Robots policy.** `robots.policy` decides what `robots.txt` says: `allow` lets crawlers in, `disallow`
 keeps them out. Without one, `presetModuleConfig()` takes the policy from `KESTREL_ROBOTS_POLICY` (`allow` or
-`disallow`; any other value stops the config from loading); with that unset too, it allows crawlers in a
+`disallow`; any other value stops the config from loading, with or without `robots.policy`, and a value that
+`robots.policy` or `robots: false` overrides is ignored with a warning at boot); with that unset too, it allows crawlers in a
 production build and keeps them out under `nuxt dev`, and the server warns at start. A production build counts
 as production whatever `NODE_ENV` the started process has: `nuxt build` fixes the value inside the server bundle,
 so `node .output/server/index.mjs` without `NODE_ENV` allows crawlers too. A hand-written `delivery-static` entry

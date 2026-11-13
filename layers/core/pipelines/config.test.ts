@@ -702,11 +702,34 @@ describe("site URL, sitemap, robots and llms", () => {
     expect(fieldOf(configFor(fresh.presetModuleConfig(playgroundOptions()), "delivery-static"), "robots")).toEqual({ policy: "disallow" });
     const extra = ["Disallow: /preview/"];
     expect(fieldOf(configFor(fresh.presetModuleConfig({ ...playgroundOptions(), robots: { extra } }), "delivery-static"), "robots")).toEqual({ policy: "disallow", extra });
-    expect(fieldOf(configFor(fresh.presetModuleConfig({ ...playgroundOptions(), robots: { policy: "allow" } }), "delivery-static"), "robots")).toEqual({ policy: "allow" });
-    expect(fieldOf(configFor(fresh.presetModuleConfig({ ...playgroundOptions(), robots: false }), "delivery-static"), "robots")).toBe(false);
+    expect(fieldOf(configFor(fresh.presetModuleConfig({ ...playgroundOptions(), robots: { policy: "disallow" } }), "delivery-static"), "robots")).toEqual({ policy: "disallow" });
     expect(warn.mock.calls.filter(([message]) => String(message).includes("robots.policy"))).toEqual([]);
     vi.stubEnv("KESTREL_ROBOTS_POLICY", "Allow");
     expect(() => fresh.presetModuleConfig(playgroundOptions())).toThrow('kestrel.config: KESTREL_ROBOTS_POLICY must be "allow" or "disallow", not "Allow"');
+    warn.mockRestore();
+  });
+
+  it("refuses an invalid KESTREL_ROBOTS_POLICY and warns once that a valid one is ignored when robots.policy differs or robots is false", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    vi.resetModules();
+    const fresh = await import("./config");
+    vi.stubEnv("KESTREL_ROBOTS_POLICY", "Disallow");
+    expect(() => fresh.presetModuleConfig({ ...playgroundOptions(), robots: { policy: "allow" } })).toThrow('kestrel.config: KESTREL_ROBOTS_POLICY must be "allow" or "disallow", not "Disallow"');
+    expect(() => fresh.presetModuleConfig({ ...playgroundOptions(), robots: false })).toThrow('kestrel.config: KESTREL_ROBOTS_POLICY must be "allow" or "disallow", not "Disallow"');
+    vi.stubEnv("KESTREL_ROBOTS_POLICY", "disallow");
+    expect(fieldOf(configFor(fresh.presetModuleConfig({ ...playgroundOptions(), robots: { policy: "allow", extra: ["Disallow: /preview/"] } }), "delivery-static"), "robots")).toEqual({ policy: "allow", extra: ["Disallow: /preview/"] });
+    expect(fieldOf(configFor(fresh.presetModuleConfig({ ...playgroundOptions(), robots: false }), "delivery-static"), "robots")).toBe(false);
+    expect(warn.mock.calls.filter(([message]) => String(message).includes("KESTREL_ROBOTS_POLICY"))).toEqual([
+      ['presetModuleConfig: KESTREL_ROBOTS_POLICY is "disallow" but is ignored, since the robots option of presetModuleConfig() sets robots.policy "allow" – remove robots.policy to let the variable decide, or unset KESTREL_ROBOTS_POLICY'],
+    ]);
+    warn.mockClear();
+    vi.resetModules();
+    const robotsOff = await import("./config");
+    expect(fieldOf(configFor(robotsOff.presetModuleConfig({ ...playgroundOptions(), robots: false }), "delivery-static"), "robots")).toBe(false);
+    expect(fieldOf(configFor(robotsOff.presetModuleConfig({ ...playgroundOptions(), robots: { policy: "disallow" } }), "delivery-static"), "robots")).toEqual({ policy: "disallow" });
+    expect(warn.mock.calls.filter(([message]) => String(message).includes("KESTREL_ROBOTS_POLICY"))).toEqual([
+      ['presetModuleConfig: KESTREL_ROBOTS_POLICY is "disallow" but is ignored, since the robots option of presetModuleConfig() is false and no robots.txt is written – remove robots: false to let the variable decide, or unset KESTREL_ROBOTS_POLICY'],
+    ]);
     warn.mockRestore();
   });
 

@@ -44,8 +44,9 @@
   `GET /api/admin/schema` carries `llmsFull: true` while `llms.full` is on, `robots: true`
   unless `robots` is `false`, and `sitemap: true` while a sitemap is written (a site URL, `sitemap` not `false`).
 - `KESTREL_ROBOTS_POLICY` (`allow` or `disallow`) sets the `robots.txt` policy when `presetModuleConfig()`'s
-  `robots` option has none; any other value stops the config from loading, and unset, the production-build
-  default applies. `envRobots()` in `#kestrel/config` reads the variable as a `robots` option. create-kestrel's
+  `robots` option has none; unset, the production-build default applies. Any other value stops the config from
+  loading, even when `robots.policy` or `robots: false` decides; a valid value they override is ignored with a
+  warning at boot. `envRobots()` in `#kestrel/config` reads the variable as a `robots` option. create-kestrel's
   `kestrel.config.ts` passes `robots: envRobots()`, its `.env.example` lists the variable and its README
   describes `NUXT_PUBLIC_SITE_URL` and `KESTREL_ROBOTS_POLICY`.
 

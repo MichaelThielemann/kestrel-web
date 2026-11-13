@@ -420,10 +420,23 @@ function deliverySiteUrl(): string | undefined {
 }
 
 let warnedRobotsDefault = false;
+let warnedRobotsEnvIgnored = false;
+
+function warnRobotsEnvIgnored(env: "allow" | "disallow", policy: "allow" | "disallow" | false): void {
+  if (warnedRobotsEnvIgnored) return;
+  warnedRobotsEnvIgnored = true;
+  console.warn(policy === false
+    ? `presetModuleConfig: KESTREL_ROBOTS_POLICY is "${env}" but is ignored, since the robots option of presetModuleConfig() is false and no robots.txt is written – remove robots: false to let the variable decide, or unset KESTREL_ROBOTS_POLICY`
+    : `presetModuleConfig: KESTREL_ROBOTS_POLICY is "${env}" but is ignored, since the robots option of presetModuleConfig() sets robots.policy "${policy}" – remove robots.policy to let the variable decide, or unset KESTREL_ROBOTS_POLICY`);
+}
 
 function robotsWithPolicy(robots: PresetRobots | undefined): PresetRobots {
-  if (robots === false || robots?.policy !== undefined) return robots;
   const configured = envRobots().policy;
+  if (robots === false || robots?.policy !== undefined) {
+    const policy = robots === false ? false : robots.policy;
+    if (configured !== undefined && policy !== configured) warnRobotsEnvIgnored(configured, policy);
+    return robots;
+  }
   if (configured !== undefined) return { ...robots, policy: configured };
   const policy = process.env.NODE_ENV === "production" ? "allow" : "disallow";
   if (!warnedRobotsDefault) {
