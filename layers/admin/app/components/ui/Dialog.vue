@@ -119,6 +119,9 @@ function onKeydown(e: KeyboardEvent) {
   max-height: calc(100svh - 6rem);
   overflow: auto;
 }
+.ui-dialog__content--nested.ui-dialog__content--screen {
+  max-height: none;
+}
 .ui-dialog__header {
   display: flex;
   align-items: center;
