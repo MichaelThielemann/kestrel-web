@@ -89,9 +89,19 @@ function fieldValue(field: RectField): number | null {
   return model.value ? percent(model.value[field]) : null
 }
 
+let typedSize: { rect: MediaRect, w: number, h: number } | null = null
+
+function sameRect(a: MediaRect, b: MediaRect): boolean {
+  return a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h
+}
+
 function setField(field: RectField, value: number | null | undefined): void {
   if (value === null || value === undefined || !Number.isFinite(value)) return
-  model.value = setRectField(model.value ?? DEFAULT_RECT, field, value / 100)
+  const current = model.value ?? DEFAULT_RECT
+  const size = typedSize && sameRect(typedSize.rect, current) ? typedSize : current
+  const next = setRectField(current, field, value / 100, size)
+  model.value = next
+  typedSize = field === 'x' || field === 'y' ? { rect: next, w: size.w, h: size.h } : null
 }
 
 const rectStyle = computed(() => {

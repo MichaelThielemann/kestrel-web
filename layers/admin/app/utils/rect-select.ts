@@ -52,12 +52,16 @@ export function resizeRect(rect: MediaRect, handle: RectHandle, dx: number, dy: 
   return fromEdges(left, top, right, bottom)
 }
 
-export function setRectField(rect: MediaRect, field: RectField, value: number): MediaRect {
+/**
+ * The rectangle with one field set to `value` and kept inside the image. A position takes its size along that axis
+ * from `size` (the rectangle's own by default) and shrinks it as far as the image edge requires.
+ */
+export function setRectField(rect: MediaRect, field: RectField, value: number, size: { w: number, h: number } = rect): MediaRect {
   if (field === 'w') return { ...rect, w: Math.min(unit(value), 1 - rect.x) }
   if (field === 'h') return { ...rect, h: Math.min(unit(value), 1 - rect.y) }
   const position = unit(value)
-  if (field === 'x') return { ...rect, x: position, w: Math.min(unit(rect.w), 1 - position) }
-  return { ...rect, y: position, h: Math.min(unit(rect.h), 1 - position) }
+  if (field === 'x') return { ...rect, x: position, w: Math.min(unit(size.w), 1 - position) }
+  return { ...rect, y: position, h: Math.min(unit(size.h), 1 - position) }
 }
 
 const ARROWS: Record<string, [number, number]> = {

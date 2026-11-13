@@ -126,6 +126,41 @@ describe('KestrelUiRectSelect', () => {
     wrapper.unmount()
   })
 
+  it('gives the width back when a digit typed by mistake into x is deleted again', async () => {
+    const { wrapper, last } = await mountSelect(null)
+
+    await wrapper.get('.ui-rect-select__surface').trigger('keydown', { key: 'Enter' })
+    const x = wrapper.get('input[data-field="x"]')
+    await x.setValue('255')
+    expectRect(last(), { x: 1, y: 0.25, w: 0, h: 0.5 })
+    await x.setValue('25')
+    expectRect(last(), { x: 0.25, y: 0.25, w: 0.5, h: 0.5 })
+    wrapper.unmount()
+  })
+
+  it('keeps the size it had when a position is stepped past the edge and back', async () => {
+    const { wrapper, last } = await mountSelect({ x: 0.45, y: 0.45, w: 0.5, h: 0.5 })
+
+    for (const field of ['x', 'y'] as const) {
+      const input = wrapper.get(`input[data-field="${field}"]`)
+      for (let step = 1; step <= 100; step++) await input.setValue(String((450 + step) / 10))
+      for (let step = 99; step >= 0; step--) await input.setValue(String((450 + step) / 10))
+    }
+    expectRect(last(), { x: 0.45, y: 0.45, w: 0.5, h: 0.5 })
+    wrapper.unmount()
+  })
+
+  it('takes the size of a rectangle moved by keyboard after a position was typed', async () => {
+    const { wrapper, last } = await mountSelect({ x: 0.45, y: 0.2, w: 0.5, h: 0.5 })
+
+    await wrapper.get('input[data-field="x"]').setValue('60')
+    expectRect(last(), { x: 0.6, y: 0.2, w: 0.4, h: 0.5 })
+    await wrapper.get('.ui-rect-select__surface').trigger('keydown', { key: 'ArrowLeft', shiftKey: true })
+    await wrapper.get('input[data-field="x"]').setValue('20')
+    expectRect(last(), { x: 0.2, y: 0.2, w: 0.4, h: 0.5 })
+    wrapper.unmount()
+  })
+
   it('starts from the centred rectangle when a number is typed without a selection', async () => {
     const { wrapper, last } = await mountSelect(null)
 
