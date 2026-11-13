@@ -51,7 +51,7 @@ const endAction = computed(() => props.summary.finished
 
 watch(() => props.summary.finished, () => { void nextTick(refocus) })
 
-const sessionMessage = computed(() => props.items.find((item) => item.status === 'failed' && item.code === 'UNAUTHENTICATED')?.message)
+const sessionExpired = computed(() => props.items.some((item) => item.status === 'failed' && item.code === 'UNAUTHENTICATED'))
 </script>
 
 <template>
@@ -71,9 +71,9 @@ const sessionMessage = computed(() => props.items.find((item) => item.status ===
         <KestrelUiButton size="sm" variant="secondary" :aria-label="endAction.label" @click="endAction.run">{{ endAction.text }}</KestrelUiButton>
       </div>
       <KestrelUiProgress class="media-upload-panel__overall" :value="run.overall" :label="t('media.upload.overall')" :value-text="countText" :tone="run.barTone" />
-      <p v-if="sessionMessage" class="media-upload-panel__alert" role="alert">
+      <p v-if="sessionExpired" class="media-upload-panel__alert" role="alert">
         <KestrelUiIcon name="triangle-alert" :size="16" />
-        <span>{{ sessionMessage }} <a href="/admin/login" target="_blank" rel="noopener">{{ t('media.upload.signInNewTab') }}</a></span>
+        <span>{{ t('media.upload.sessionExpiredHelp') }} <a href="/admin/login" target="_blank" rel="noopener">{{ t('media.upload.signInNewTab') }}</a></span>
       </p>
     </header>
     <ul ref="list" class="media-upload-panel__list" tabindex="0" :aria-label="t('media.upload.panelLabel')">
