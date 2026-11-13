@@ -1728,8 +1728,9 @@ of any page referencing it. Rules that follow from that:
 - `app.cdnURL` set → the markup points at the CDN and no `_nuxt/` is written; `renderer-nuxt` config
   `assets: false` skips the sync when you serve `.output/public/_nuxt` yourself.
 - Files from your `public/` directory (favicon, fonts) are not exported — serve `.output/public` next to
-  `site/`, or put such files in the media library. `robots.txt` is written by the export (below); a
-  `robots.txt` of your own needs `robots: false`.
+  `site/`, or put such files in the media library. `robots.txt` and `sitemap.xml` are written by the export
+  (below) and replace a file of that name under the prefix; a `robots.txt` of your own needs `robots: false`,
+  a `sitemap.xml` of your own `sitemap: false`, both set before the first start.
 
 Minimal nginx location for a filesystem blobstore (`root` = `<blobstore root>/site`):
 
@@ -1846,7 +1847,9 @@ not such a URL (no scheme, credentials, a query or a fragment) stops the config 
 URL no `sitemap.xml` is written, `llms.txt` lists paths instead of URLs, pages carry no canonical link or
 `og:url`, and the server warns at start. When a hand-written `delivery-static` entry, or an override of its
 `siteUrl`, holds another URL than the variable, the server warns at start, naming both. Every page also
-carries `og:site_name`, the site settings title.
+carries `og:site_name`, the site settings title. The page's canonical link, `og:url` and `og:site_name` replace
+tags of the same key set in `app.vue`, a layout or `app.head`; to keep one of yours, give it a higher priority,
+for example `useHead({ link: [{ rel: "canonical", href, tagPriority: "high" }] })`.
 
 **Robots policy.** `robots.policy` decides what `robots.txt` says: `allow` lets crawlers in, `disallow`
 keeps them out. Without one, `presetModuleConfig()` allows crawlers in a production build and keeps them out
@@ -1857,7 +1860,9 @@ without `robots.policy` takes its default from the running process's `NODE_ENV` 
 without it, so give it `robots.policy` or set `NODE_ENV=production`. Set `disallow` explicitly on a staging
 server that runs a production build.
 create-kestrel's `kestrel.config.ts` passes `robots: envRobots()`, which reads `KESTREL_ROBOTS_POLICY`.
-`robots: false` leaves `robots.txt` to you. Crawlers read `robots.txt` only at the root of a host: with a
+`robots: false` leaves `robots.txt` to you, and `sitemap: false` `sitemap.xml`; set them before the first start,
+which overwrites a file of that name under the prefix. `robots: false` leaves a `robots.txt` the export already
+wrote in place: delete `<prefix>robots.txt` by hand. Crawlers read `robots.txt` only at the root of a host: with a
 base path in the site URL, serve one at the host's root yourself.
 
 Configure the llms files under `llms`: `full: true` writes `llms-full.txt`, `headings` maps a type to its
@@ -2344,7 +2349,11 @@ What changes:
   all four current (§8, "Index files"). Set `NUXT_PUBLIC_SITE_URL` before the first start, or pages carry no
   canonical link and no sitemap is written, and decide the robots policy: without `robots.policy` a
   production build allows crawlers, `nuxt dev` keeps them out, and a `robots.txt` of your own in
-  `public/` or at the web server now competes with the exported one (`robots: false` keeps yours). Pages you
+  `public/` or at the web server now competes with the exported one. The first start overwrites a
+  `robots.txt` or `sitemap.xml` under the prefix, so set `robots: false` (and `sitemap: false` for a sitemap of
+  your own) before it; afterwards `<prefix>robots.txt` must be deleted by hand. Every site page now sets its
+  canonical link, `og:url` and `og:site_name`, which replace tags of the same key from `app.vue`, a layout or
+  `app.head`; give yours `tagPriority: "high"` to keep it (§8, "Site URL"). Pages you
   placed under `site/` yourself are removed once by the first runs of `resumeStalePages` unless their path is
   in `reservedPaths` (§8, "Leftover page files"); reserve them before the first start. The upgrade tool covers
   the rest:

@@ -25,10 +25,10 @@
 - The server passes `<buildId>|<siteUrl>` to `deliveryBuildCheck`, with the normalised `public.siteUrl` the
   pages are rendered with, so a changed `NUXT_PUBLIC_SITE_URL` re-renders every page and its absolute URLs. It
   warns at start when delivery-static's `siteUrl` (a hand-written entry, or an override) differs from it.
-- Every site page carries `<link rel="canonical">` and `og:url` when a site URL is set, built with
-  `normalizeSiteUrl` and `pageUrl` from `@michaelthielemann/kestrel-delivery-static/site-url` exactly like
-  the sitemap's `<loc>` (the home page ends in `/`, every other page has no trailing slash, a base path is
-  kept), and `og:site_name` from the site settings title. `og:image` uses the normalised site URL too.
+- Every site page's canonical link and `og:url` (see Breaking) are built with `normalizeSiteUrl` and
+  `pageUrl` from `@michaelthielemann/kestrel-delivery-static/site-url` exactly like the sitemap's `<loc>` (the
+  home page ends in `/`, every other page has no trailing slash, a base path is kept); `og:site_name` is the
+  site settings title. `og:image` uses the normalised site URL too.
   `canonicalUrl()` and `absoluteUrl()` live in `layers/core/app/utils/canonical.ts`; the UI layers may import
   that delivery-static subpath, which imports nothing.
 - System → Delivery lists the last export of `sitemap.xml`, `robots.txt` and `llms.txt` and, while delivery-static's
@@ -237,7 +237,12 @@
   `nuxt build` fixes it inside the server bundle, so `node .output/server/index.mjs` without it allows
   crawlers. A staging server that runs a production build needs `disallow` (`KESTREL_ROBOTS_POLICY=disallow`
   with `envRobots()`). A `robots.txt` of your own, served from `public/` or by the web server, competes with the
-  exported one; `robots: false` keeps yours.
+  exported one, and the first start overwrites a `robots.txt` or `sitemap.xml` it finds under the prefix: set
+  `robots: false` (and `sitemap: false` for a sitemap of your own) before that start to keep yours. Once
+  overwritten, `robots: false` leaves the exported `<prefix>robots.txt` in place; delete it by hand.
+- Every site page sets `<link rel="canonical">` and `og:url` (with a site URL) and `og:site_name`. They replace
+  tags of the same key from `app.vue`, a layout or `app.head`, such as a canonical link of your own. To keep
+  yours, give it a higher priority: `useHead({ link: [{ rel: "canonical", href, tagPriority: "high" }] })`.
 - On a database from 2.x, the first runs of `resumeStalePages` (cron `*/5`, once `deliveryBuildCheck` ran)
   remove once every page file (`index.<ext>`) under `site/` at a path no page owns, logging each file: the
   files an older version left behind after a failed render followed by a slug change, but also pages placed
