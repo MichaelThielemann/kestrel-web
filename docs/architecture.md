@@ -1869,15 +1869,14 @@ present), `only` (restrict the `srcset` candidates to specific size names), `alt
   path already had (a new crop, a changed size). The query is opaque: `pickImageSources` passes the path
   through as it is, in `src` and in `srcset`, and the ratio grouping reads only `width`/`height`. A check
   that compares an exported URL with a file strips the query first.
-- **`object-position` follows the focus on the whole image.** With a `focus` on the item, `KestrelImage`
-  adds `object-position: <x + w/2> <y + h/2>` (percent of the image, `focusObjectPosition`) on the original
-  when no variant is named, and on a variant of any size that is not a declared `cover` size (an `inside`
-  variant, and the original that stands in for it while it renders). Those show the whole image, so the
-  focus centre is where the position puts it, and a box that crops them (a site's CSS with
-  `object-fit: cover`) keeps the focus in view. A variant of a declared `cover` size gets no position: the
-  server cut it around the focus or the manual crop, so the focus sits elsewhere in it than on the original,
-  and the default centre suits it better. The original that stands in for a `cover` variant before its first
-  render is centred as well.
+- **`object-position` follows the focus.** With a `focus` on the item, `KestrelImage` adds
+  `object-position: <x + w/2> <y + h/2>` (percent of the image, `focusObjectPosition`) on the original when no
+  variant is named and on a variant of every size. An `inside` variant shows the whole image, so a box that
+  crops it (a site's CSS with `object-fit: cover`) keeps the focus in view. A `cover` variant sits in a box of
+  its own aspect with `object-fit: cover`, so the position changes nothing once it is rendered; until then its
+  path serves the original's bytes, and the position keeps the focus of that stand-in in view. A site whose CSS
+  gives a rendered `cover` variant a box of another ratio sees it shifted towards where the focus lies on the
+  original, not on the cut.
 - **`alt=""` stays possible**: the prop is `alt?: string | null`, and the template's `altText` is
   `props.alt ?? item.value?.alt ?? ''` — an explicit empty string from the block (a purely decorative
   image) is not coalesced away, only `undefined`/`null` fall through to the media's own alt text and

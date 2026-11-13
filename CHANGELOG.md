@@ -15,12 +15,12 @@
   `MediaFramingRatio` are exported from the API types. `kestrel upgrade check` reports a narrowed
   `roles.anonymousFields.media` that keeps the variants but not `focus` (`preset/media-focus-grant`).
 - `KestrelImage` sets `object-position` from the centre of the item's `focus` on the original and on a variant
-  that is not of a declared `cover` size (and the original that stands in for it while it renders);
-  `focusObjectPosition()` answers that value. A `cover` variant, already cut around the focus by kestrel, keeps
-  the default centre. `pickImageSources` passes a variant path with its `?v=` query through unchanged, in `src`
-  and `srcset`, and takes the declared sizes as a fourth argument: a declared `cover` size's `srcset` lists only
-  the `cover` variants of its exact ratio key, any other size's `srcset` leaves declared `cover` variants out,
-  and a width tie keeps the named variant (`cut` in its answer says whether `src` links a `cover` variant).
+  of every size, so the original that stands in for a variant while it renders keeps the focus in view;
+  `focusObjectPosition()` answers that value. `pickImageSources` passes a variant path with its `?v=` query
+  through unchanged, in `src` and `srcset`, and takes the declared sizes as a fourth argument: a declared `cover`
+  size's `srcset` lists only the `cover` variants of its exact ratio key, any other size's `srcset` leaves
+  declared `cover` variants out, and a width tie keeps the named variant (`cut` in its answer says whether `src`
+  links a `cover` variant).
   `KestrelImage` passes `#kestrel/image-sizes`. `KestrelImage` and `pickImageSources` take an item without
   `focus` (`ImageMedia`).
 - Admin kit: `KestrelUiSlider` (a labelled range input), `KestrelUiRectSelect` (draw, move and resize a

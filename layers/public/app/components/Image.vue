@@ -24,7 +24,7 @@ const item = computed(() => inline.value ?? fetched.value ?? null)
 const sources = computed(() => pickImageSources(item.value, props.size, props.only, imageSizes))
 const altText = computed(() => props.alt ?? item.value?.alt ?? '')
 const boxStyle = computed(() => {
-  const objectPosition = sources.value?.cut ? undefined : focusObjectPosition(item.value?.focus)
+  const objectPosition = focusObjectPosition(item.value?.focus)
   const position = objectPosition === undefined ? {} : { objectPosition }
   if (sources.value?.variant) return { aspectRatio: `${sources.value.width} / ${sources.value.height}`, objectFit: 'cover' as const, ...position }
   return objectPosition === undefined ? undefined : position

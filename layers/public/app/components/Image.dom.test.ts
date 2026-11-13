@@ -91,7 +91,7 @@ describe('KestrelImage', () => {
     expect(wrapper.get('img').attributes('style')).not.toContain('object-position')
   })
 
-  it('leaves a variant of a declared cover size at the default position, since the server already cut it around the focus', async () => {
+  it('places a variant of a declared cover size on the focus too, so the original standing in for it before its render keeps the focus in view', async () => {
     const media = item({
       focus: { x: 0.1, y: 0.5, w: 0.3, h: 0.2 },
       variants: [variant({ size: 'teaser', width: 480, height: 320, path: '/media/m1/variants/teaser.webp?v=2' })],
@@ -100,7 +100,8 @@ describe('KestrelImage', () => {
     const style = wrapper.get('img').attributes('style') ?? ''
 
     expect(style).toContain('aspect-ratio: 480 / 320')
-    expect(style).not.toContain('object-position')
+    expect(style).toContain('object-fit: cover')
+    expect(style).toContain('object-position: 25% 60%')
   })
 
   it('takes a media literal without a focus', async () => {

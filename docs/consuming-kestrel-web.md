@@ -1586,10 +1586,10 @@ above) wherever a box has a fixed ratio. A re-cut variant keeps its path and its
 new `?v=` query once the new render is there; the query is opaque, so use the path as the API returns it.
 The pages that show the image are published again.
 `KestrelImage` sets `object-position` from the centre of `focus`, which visitors receive with the variants,
-on the original and on an `inside` variant, so a box that crops them keeps the focus in view. A variant of
-a declared `cover` size keeps the default centre, since kestrel already cut it around the focus or the
-crop. `KestrelImage` reads the declared sizes to tell them apart and never puts a `cover` variant into the
-`srcset` of another size, or an `inside` variant into a `cover` size's `srcset`; a `cover` size set only in
+on the original and on every variant, so a box that crops them keeps the focus in view, and so does the
+original that a `cover` variant's path serves until kestrel has cut it. A rendered `cover` variant fills a
+box of its own aspect, where the position changes nothing. `KestrelImage` reads the declared sizes to tell
+them apart and never puts a `cover` variant into the `srcset` of another size, or an `inside` variant into a `cover` size's `srcset`; a `cover` size set only in
 images-default's own `sizes` config is not declared in the build, so declare every `cover` size here.
 
 The admin's crop editor opens from the media viewer ("Adjust crop") and from the crop button on an image
