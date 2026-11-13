@@ -32,8 +32,48 @@ describe('trashItems', () => {
     expect(progress.mock.calls).toEqual([[1, 3], [2, 3], [3, 3]])
     expect(refresh).toHaveBeenCalledTimes(1)
     expect(result).toEqual({ ok: true, result: {
-      done: [...files.slice(0, 200), 'd1', 'd2'], skipped: [{ id: 'f200', reason: 'not_found' }], failed: [], renamed: [], cancelled: false,
+      done: [...files.slice(0, 200), 'd1', 'd2'], unchanged: [], skipped: [{ id: 'f200', reason: 'not_found' }], failed: [], renamed: [], cancelled: false,
+      unsent: [], folders: [{ path: 'docs', moved: ['d1', 'd2'] }],
     } })
+  })
+
+  it('keeps apart the ids that were in the trash already, also below a trashed folder', async () => {
+    const { deps } = fakeDeps([
+      { ids: ['a', 'x'], skipped: [], unchanged: ['x'] },
+      { path: 'events', ids: ['new1', 'new2', 'old'], unchanged: ['old'] },
+      { path: 'drafts', ids: [], unchanged: [] },
+    ])
+
+    const result = await runAction(trashItems, { deps, fileIds: ['a', 'x'], folderPaths: ['events', 'drafts'], refresh: vi.fn(() => undefined) })
+
+    expect(result.ok && result.result?.unchanged).toEqual(['x', 'old'])
+    expect(result.ok && result.result?.folders).toEqual([{ path: 'events', moved: ['new1', 'new2'] }, { path: 'drafts', moved: [] }])
+  })
+
+  it('names the files and folders it never sent after the signal aborted', async () => {
+    const controller = new AbortController()
+    const files = ids(450)
+    const { deps, calls } = fakeDeps([{ ids: files.slice(0, 200), skipped: [], unchanged: [] }])
+
+    const result = await runAction(trashItems, {
+      deps, fileIds: files, folderPaths: ['docs'], refresh: vi.fn(() => undefined), signal: controller.signal, onProgress: () => controller.abort(),
+    })
+
+    expect(calls).toHaveLength(1)
+    expect(result.ok && result.result?.cancelled).toBe(true)
+    expect(result.ok && result.result?.unsent).toEqual([...files.slice(200), 'docs'])
+  })
+
+  it('hands its report out before the reload, so a failed reload does not lose what the server did', async () => {
+    const { deps } = fakeDeps([{ ids: ['a'], skipped: [], unchanged: [] }])
+    const report = vi.fn()
+
+    const result = await runAction(trashItems, {
+      deps, fileIds: ['a'], folderPaths: [], report, refresh: () => Promise.reject(new Error('reload failed')),
+    })
+
+    expect(result.ok).toBe(false)
+    expect(report).toHaveBeenCalledWith(expect.objectContaining({ done: ['a'] }))
   })
 
   it('reports every id of a failed block and keeps going with the next one', async () => {
@@ -77,7 +117,9 @@ describe('purgeItems', () => {
 
     const result = await runAction(purgeItems, { deps, ids: ['a', 'b'] })
 
-    expect(result.ok && result.result).toEqual({ done: ['a'], skipped: [{ id: 'b', reason: 'referenced' }], failed: [], renamed: [], cancelled: false })
+    expect(result.ok && result.result).toEqual({
+      done: ['a'], unchanged: [], skipped: [{ id: 'b', reason: 'referenced' }], failed: [], renamed: [], cancelled: false, unsent: [], folders: [],
+    })
   })
 })
 

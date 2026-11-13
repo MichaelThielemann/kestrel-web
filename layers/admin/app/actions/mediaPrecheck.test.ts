@@ -27,6 +27,13 @@ describe('previewDeleteItems', () => {
     expect(needsWarning(report)).toBe(false)
   })
 
+  it('still lists the files below a folder when asked to, without references to check', async () => {
+    const { report, calls } = await precheck([{ items: [{ id: 'd1', folder: 'docs' }], total: 1 }], { folderPaths: ['docs'], many: MANY, tracked: false, listFolders: true })
+    expect(calls.map((c) => c.query)).toEqual([{ folder: 'docs', recursive: true, limit: 100, offset: 0 }])
+    expect(report.folderFiles.map((f) => f.id)).toEqual(['d1'])
+    expect(needsWarning(report)).toBe(false)
+  })
+
   it('asks for the referrers of 200 ids per request and keeps them per file', async () => {
     const fileIds = Array.from({ length: 201 }, (_, i) => `f${i}`)
     const { report, calls } = await precheck([{ f3: [hero], f4: [] }, {}], { fileIds, many: MANY })

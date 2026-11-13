@@ -52,6 +52,10 @@ export interface DeleteItemsInput extends WithDeps {
   refresh: RefreshPort
   /** Receives the per-item report once every item was tried, also when some failed. */
   report?: (result: DeleteItemsResult) => void
+  /** Once aborted, the items not yet sent are left alone and both reports say `cancelled`. */
+  signal?: AbortSignal
+  /** Called after every file and folder with the number handled so far and the total of both. */
+  onProgress?: (done: number, total: number) => void
 }
 
 export interface DeleteItemsResult {
@@ -194,6 +198,8 @@ export const deleteItems = defineAction<DeleteItemsInput, DeleteItemsResult>({
       items: (ctx) => ctx.input.files.map((f) => f.id),
       call: (ctx, id) => ({ route: ctx.input.deps.capabilities.route('deleteMedia', { id }) }),
       policy: 'continue',
+      signal: (ctx) => ctx.input.signal,
+      onProgress: (ctx, done) => ctx.input.onProgress?.(done, ctx.input.files.length + ctx.input.folderPaths.length),
       onItemError: (ctx, item) => {
         if (item.code === 'CONFLICT') {
           const refs = referencedBy(item.details, item.message ?? '')
@@ -213,6 +219,8 @@ export const deleteItems = defineAction<DeleteItemsInput, DeleteItemsResult>({
       items: (ctx) => ctx.input.folderPaths,
       call: (ctx, path) => ({ route: ctx.input.deps.capabilities.route('deleteMediaFolder', { path }), query: ctx.input.recursive ? { recursive: true } : undefined }),
       policy: 'continue',
+      signal: (ctx) => ctx.input.signal,
+      onProgress: (ctx, done) => ctx.input.onProgress?.(ctx.input.files.length + done, ctx.input.files.length + ctx.input.folderPaths.length),
       onItemError: (ctx, item) => {
         ctx.input.ops.setError?.(item.message ?? '')
       },
@@ -226,7 +234,7 @@ export const deleteItems = defineAction<DeleteItemsInput, DeleteItemsResult>({
     filesDeletedGuard,
     foldersDeletedGuard,
     toastSuccess<DeleteItemsInput, DeleteItemsResult>((ctx) => {
-      const n = ctx.input.files.length + ctx.input.folderPaths.length
+      const n = (ctx.result?.files.succeeded ?? 0) + (ctx.result?.folders.succeeded ?? 0)
       return n > 0 ? { key: 'media.deleted', params: { n } } : null
     }),
   ],

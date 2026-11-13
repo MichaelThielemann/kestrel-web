@@ -28,6 +28,8 @@ export interface PreviewMediaDeleteInput extends WithDeps {
   one?: Capability
   /** Whether the site tracks references; without them there is nothing to check. */
   tracked: boolean
+  /** List the files below `folderPaths` even when nothing needs checking. */
+  listFolders?: boolean
 }
 
 export interface DeletePrecheck {
@@ -77,10 +79,10 @@ const precheck = defineUiStep<PreviewMediaDeleteInput, DeletePrecheck>('media.pr
   const { deps, tracked } = ctx.input
   const report: DeletePrecheck = { references: new Map(), folderFiles: [], checked: false, forbidden: false, tracked }
   ctx.result = report
-  if (!tracked) return
+  if (!tracked && !ctx.input.listFolders) return
   try {
     for (const path of ctx.input.folderPaths ?? []) report.folderFiles.push(...await filesBelow(deps, path))
-    if (!ctx.input.many && !ctx.input.one) return
+    if (!tracked || (!ctx.input.many && !ctx.input.one)) return
     await lookup(ctx.input, [...new Set([...ctx.input.fileIds, ...report.folderFiles.map((f) => f.id)])], report.references)
     report.checked = true
   } catch (e) {

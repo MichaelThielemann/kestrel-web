@@ -90,6 +90,16 @@ export function folderIsEmpty(path: string, counts: Map<string, number>): boolea
   return true
 }
 
+/** The tabindex of a roving tile or row: 0 for the active one, -1 for the rest, 0 for every one when there is no roving key. */
+export function rovingTabindex(key: string, rovingKey: string | null | undefined): 0 | -1 {
+  return rovingKey === undefined || key === rovingKey ? 0 : -1
+}
+
+/** The folders strictly below `path` whose subtree holds no file. */
+export function emptyFoldersBelow(path: string, counts: Map<string, number>): string[] {
+  return [...counts.keys()].filter((key) => key.startsWith(`${path}/`) && folderIsEmpty(key, counts))
+}
+
 export function childFolders(counts: Map<string, number>, parent: string): LibraryFolder[] {
   const out: LibraryFolder[] = []
   for (const [path, count] of counts) {

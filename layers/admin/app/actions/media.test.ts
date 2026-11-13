@@ -2,7 +2,7 @@ import type { ApiErrorDetails } from '#kestrel-admin/types/api'
 import { describe, expect, it, vi } from 'vitest'
 import { boundaryCast } from '#kestrel/cast'
 import { runAction } from '#kestrel-core/app/utils/actions'
-import { createFolder, deleteItems, renameOrMove, setMediaMeta, setMediaProvenance, upload, uploadTimeoutMs } from './media'
+import { createFolder, deleteItems, renameOrMove, setMediaMeta, setMediaProvenance, upload, uploadTimeoutMs, type DeleteItemsResult } from './media'
 import type { UploadItem } from '../composables/useMediaUpload'
 import { UploadTransportError, type UploadRequestOptions, type UploadTransport } from '../composables/useUploadTransport'
 import type { ApiRoute } from '../utils/capabilities'
@@ -230,6 +230,36 @@ describe('deleteItems', () => {
     ])
     expect(toast.success).toHaveBeenCalledWith('media.deleted:{"n":2}')
     expect(refresh).toHaveBeenCalledTimes(1)
+  })
+
+  it('reports progress over files and folders together and sends nothing more once the signal aborts', async () => {
+    const controller = new AbortController()
+    const { deps, calls, toast } = fakeDeps([null, null, null])
+    const progress: [number, number][] = []
+    const reports: DeleteItemsResult[] = []
+
+    await runAction(deleteItems, {
+      deps, files: [file('f1', 'a.png'), file('f2', 'b.png')], folderPaths: ['docs'], recursive: false, confirmed: true, ops: fakeOps(), refresh: vi.fn(() => undefined),
+      signal: controller.signal, report: (r) => { reports.push(r) },
+      onProgress: (done, total) => { progress.push([done, total]); if (done === 1) controller.abort() },
+    })
+
+    expect(calls).toHaveLength(1)
+    expect(progress).toEqual([[1, 3]])
+    expect(toast.success).toHaveBeenCalledWith('media.deleted:{"n":1}')
+    expect(reports.map((r) => [r.files.cancelled, r.files.succeeded, r.folders.cancelled, r.folders.succeeded])).toEqual([[true, 1, true, 0]])
+  })
+
+  it('counts the folders after the files in its progress', async () => {
+    const { deps } = fakeDeps([null, null])
+    const progress: [number, number][] = []
+
+    await runAction(deleteItems, {
+      deps, files: [file('f1', 'a.png')], folderPaths: ['docs'], recursive: false, confirmed: true, ops: fakeOps(), refresh: vi.fn(() => undefined),
+      onProgress: (done, total) => { progress.push([done, total]) },
+    })
+
+    expect(progress).toEqual([[1, 2], [2, 2]])
   })
 
   it('parses a 409 after a passed precheck and reports the referrers instead of the raw message', async () => {
