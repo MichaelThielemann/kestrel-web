@@ -94,6 +94,26 @@ describe('field/Media load watch', () => {
     expect(wrapper.text()).not.toContain(en['field.media.processing'])
     expect(wrapper.text()).not.toContain(en['field.media.storedProcessing'])
   })
+
+  it('names a stored id that lies in the trash and says so, keeping the id', async () => {
+    schema.capabilities.listMediaTrash = { method: 'GET', path: '/media/trash' }
+    apiHandler.fn = (route) => Promise.resolve(JSON.stringify(route).includes('/media/trash')
+      ? { items: [{ id: 'f1', filename: 'old-hero.jpg' }], total: 1 }
+      : { items: [], total: 0 })
+    try {
+      const wrapper = await mountSuspended(FieldMedia, {
+        props: { field, name: 'hero', locale: 'en', modelValue: 'f1' },
+      })
+      await vi.waitFor(() => expect(wrapper.find('.field-media__trashed').exists()).toBe(true))
+
+      expect(wrapper.find('.field-media__filename').text()).toBe('old-hero.jpg')
+      expect(wrapper.find('.field-media__trashed').text()).toBe(en['field.media.trashed'])
+      expect(wrapper.text()).toContain(en['field.media.trashedHint'])
+      expect(wrapper.emitted('update:modelValue')).toBeUndefined()
+    } finally {
+      delete schema.capabilities.listMediaTrash
+    }
+  })
 })
 
 describe('field/Media picker folder hint', () => {

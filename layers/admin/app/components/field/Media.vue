@@ -29,6 +29,7 @@ const ids = computed<string[]>(() => {
 })
 
 const meta = ref<Record<string, MediaItem | null>>({})
+const trashed = ref<Record<string, string>>({})
 const processingError = ref('')
 
 function removeId(id: string) {
@@ -44,6 +45,8 @@ watch(ids, async (list) => {
   try {
     const page = await api<ListPage<MediaItem>>(capabilities.route('listMedia'), { query: { ids: missing.join(','), locale: props.locale } })
     for (const item of page.items) meta.value[item.id] = item
+    const unresolved = missing.filter((id) => !meta.value[id])
+    for (const [id, filename] of await findTrashed(api, capabilities, unresolved)) trashed.value[id] = filename
   } catch {
     return
   }
@@ -51,10 +54,11 @@ watch(ids, async (list) => {
 
 const resolved = computed(() => ids.value.map((id) => ({ id, item: meta.value[id] ?? null })))
 const storedHint = computed(() => (resolved.value.some((r) => r.item !== null && !isInsertable(r.item)) ? t('field.media.storedProcessing') : ''))
+const trashedHint = computed(() => (resolved.value.some((r) => r.item === null && trashed.value[r.id] !== undefined) ? t('field.media.trashedHint') : ''))
 
 const initialFolder = computed(() => (resolved.value.length ? commonFolder(resolved.value.map((r) => r.item?.folder ?? '')) : undefined))
 
-const nameOf = (id: string, item: MediaItem | null, i: number) => item?.filename ?? t('field.media.itemAt', { pos: i + 1 })
+const nameOf = (id: string, item: MediaItem | null, i: number) => item?.filename ?? trashed.value[id] ?? t('field.media.itemAt', { pos: i + 1 })
 
 async function onConfirm(picked: string[]) {
   processingError.value = ''
@@ -82,11 +86,13 @@ async function onConfirm(picked: string[]) {
       <div class="field-media">
         <KestrelUiAlert v-if="processingError" variant="error">{{ processingError }}</KestrelUiAlert>
         <KestrelUiAlert v-else-if="storedHint" variant="info">{{ storedHint }}</KestrelUiAlert>
+        <KestrelUiAlert v-if="trashedHint" variant="warning">{{ trashedHint }}</KestrelUiAlert>
         <ul v-if="resolved.length" class="field-media__items">
           <li v-for="(r, i) in resolved" :key="r.id" class="field-media__item">
             <KestrelMediaThumb :path="r.item?.path ?? null" class="field-media__thumb" :content-type="r.item?.contentType" :alt="r.item?.alt ?? r.item?.filename ?? ''" />
             <span class="field-media__filename">{{ nameOf(r.id, r.item, i) }}</span>
             <span v-if="isDisclosed(r.item?.provenance)" class="field-media__ai">{{ t(provenanceLabelKey(provenanceOrigin(r.item?.provenance))) }}</span>
+            <span v-if="!r.item && trashed[r.id] !== undefined" class="field-media__trashed">{{ t('field.media.trashed') }}</span>
             <KestrelUiButton v-if="!disabled" variant="icon" class="field-media__remove" :aria-label="t('field.media.remove', { name: nameOf(r.id, r.item, i) })" @click="removeId(r.id)"><KestrelUiIcon name="x" size="1rem" /></KestrelUiButton>
           </li>
         </ul>
@@ -124,6 +130,11 @@ async function onConfirm(picked: string[]) {
   color: var(--color-on-primary);
   font-size: var(--text-xs);
   pointer-events: none;
+}
+
+.field-media__trashed {
+  font-size: var(--text-xs);
+  color: var(--color-warning-text);
 }
 
 .field-media__remove {
