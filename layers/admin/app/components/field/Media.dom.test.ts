@@ -193,6 +193,19 @@ describe('field/Media confirm gate', () => {
     expect(wrapper.emitted('update:modelValue')).toBeUndefined()
   })
 
+  it('refuses a newly picked id the fresh check no longer finds, keeping the previous value', async () => {
+    apiHandler.fn = () => Promise.resolve({ items: [], total: 0 })
+
+    const wrapper = await mountSuspended(FieldMedia, {
+      props: { field, name: 'hero', locale: 'en', modelValue: null },
+      global: { stubs: { KestrelMediaPicker: PickerStub } },
+    })
+    await wrapper.get('[data-test="stub-confirm"]').trigger('click')
+    await vi.waitFor(() => expect(wrapper.text()).toContain(en['field.media.gone']))
+
+    expect(wrapper.emitted('update:modelValue')).toBeUndefined()
+  })
+
   it('accepts a newly picked id the fresh check finds available', async () => {
     apiHandler.fn = (_path: string, options?: unknown) => {
       const ids = queryIds(options)

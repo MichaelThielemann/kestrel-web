@@ -1,9 +1,27 @@
 import { computed, ref, shallowRef, watch, type Ref } from 'vue'
 import type { ListPage, MediaItem } from '#kestrel-admin/types/api'
 import { inBlocks } from '../actions/mediaPrecheck'
+import type { ApiClient } from '../actions/types'
+import type { ApiRoute } from '../utils/capabilities'
 import { isInsertable, isPickGated } from '../utils/media-insert'
 import type { MediaSelection } from './useMediaSelection'
 import type { VariantWatchEntry } from './useVariantWatch'
+
+/** Looks files up in the library by id, in blocks, and asks again for the ids an answer left out until an answer adds none, so a server that answers fewer ids per request than it was sent never makes a file look gone. Answers the files found; an id missing from the answer is not in the library. */
+export async function lookUpMedia(api: ApiClient, route: ApiRoute, ids: readonly string[], locale?: string): Promise<MediaItem[]> {
+  const found: MediaItem[] = []
+  for (const block of inBlocks(ids)) {
+    for (let rest = block; rest.length;) {
+      const page = await api<ListPage<MediaItem>>(route, { query: { ids: rest.join(','), ...(locale ? { locale } : {}) } })
+      const answered = new Set(page.items.map((item) => item.id))
+      const next = rest.filter((id) => !answered.has(id))
+      found.push(...page.items.filter((item) => rest.includes(item.id)))
+      if (next.length === rest.length) break
+      rest = next
+    }
+  }
+  return found
+}
 
 export interface UseMediaPickOptions {
   pick: boolean
@@ -15,10 +33,12 @@ export interface UseMediaPickOptions {
   /** The freshest polled state per id; it wins over the listing. */
   fresh: Ref<ReadonlyMap<string, VariantWatchEntry>>
   track: (id: string) => void
+  /** While it answers true, a removal or another library operation runs and confirming waits for it. */
+  busy?: () => boolean
   onConfirm: (ids: string[]) => void
 }
 
-/** Confirmation for the media library in pick mode: availability gates only the ids this pick adds, never an id the field already holds, and a selected tile can always be deselected. Confirming emits the selection as it stands once every added id, including one picked while a check ran, passed the check; an added id missing from the check's answer leaves the selection and is refused. The check asks in blocks and asks again for the ids an answer left out until an answer adds none, so a server that answers fewer ids per request than it was sent never makes a pick look gone. */
+/** Confirmation for the media library in pick mode: availability gates only the ids this pick adds, never an id the field already holds, and a selected tile can always be deselected. Confirming emits the selection as it stands once every added id, including one picked while a check ran, passed the check; an added id missing from the check's answer leaves the selection and is refused. The check looks the picks up through `lookUpMedia`. Confirming waits while `busy` answers true. */
 export function useMediaPick(options: UseMediaPickOptions) {
   const { pick, files, fresh, track, selection } = options
   const api = useAdminApi()
@@ -62,24 +82,9 @@ export function useMediaPick(options: UseMediaPickOptions) {
     return notices.join(' ')
   })
 
-  async function lookUp(ids: string[]): Promise<MediaItem[]> {
-    const found: MediaItem[] = []
-    for (const block of inBlocks(ids)) {
-      for (let rest = block; rest.length;) {
-        const page = await api<ListPage<MediaItem>>(capabilities.route('listMedia'), { query: { ids: rest.join(','), locale: primary.value } })
-        const answered = new Set(page.items.map((item) => item.id))
-        const next = rest.filter((id) => !answered.has(id))
-        found.push(...page.items.filter((item) => rest.includes(item.id)))
-        if (next.length === rest.length) break
-        rest = next
-      }
-    }
-    return found
-  }
-
   async function recheck(ids: string[]): Promise<boolean> {
     try {
-      const items = await lookUp(ids)
+      const items = await lookUpMedia(api, capabilities.route('listMedia'), ids, primary.value)
       const bad = items.filter((item) => !isInsertable(item))
       refused.value = new Map(bad.map((item) => [item.id, { name: item.filename, seen: fresh.value.get(item.id) }]))
       for (const item of bad) track(item.id)
@@ -101,7 +106,7 @@ export function useMediaPick(options: UseMediaPickOptions) {
     : [])
 
   async function confirm() {
-    if (confirming.value || !selectedFileIds.value.length) return
+    if (confirming.value || !selectedFileIds.value.length || options.busy?.()) return
     refused.value = new Map()
     resetNotice()
     confirming.value = true

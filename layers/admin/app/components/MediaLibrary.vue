@@ -42,7 +42,7 @@ const selectionStatus = useSelectionAnnouncement(() => selection.count.value, se
 
 const pickState = useMediaPick({
   pick: props.pick === true, initialSelected: props.initialSelected ?? [],
-  files, selection, fresh: variantResults, track, onConfirm: (ids) => emit('confirm', ids),
+  files, selection, fresh: variantResults, track, busy: () => opsBusy.value, onConfirm: (ids) => emit('confirm', ids),
 })
 const { selectedFileIds, hasBlockedSelection, confirming, refusal } = pickState
 
@@ -182,7 +182,7 @@ defineExpose({ clearSelection: selection.clearListed })
       @retry="mediaUploads.retry" @retry-failed="mediaUploads.retryFailed" @cancel="mediaUploads.cancel" @close="onCloseUploads"
     />
     <KestrelUiAlert v-if="limitError" variant="error">{{ limitError }}</KestrelUiAlert>
-    <KestrelMediaPickBar v-if="pick" :count="selectedFileIds.length" :blocked="hasBlockedSelection" :confirming="confirming" :refusal="refusal" @confirm="pickState.confirm" @cancel="emit('cancel')" />
+    <KestrelMediaPickBar v-if="pick" :count="selectedFileIds.length" :blocked="hasBlockedSelection" :busy="opsBusy" :confirming="confirming" :refusal="refusal" @confirm="pickState.confirm" @cancel="emit('cancel')" />
     <KestrelMediaUploadDialog :open="uploadOpen" :uploads="pendingUploads" :folder="folder" :max-bytes="mediaUploads.maxUploadBytes.value" @confirm="intake.onConfirmUpload" @update:open="intake.onUploadOpen" />
     <KestrelMediaNewFolderDialog v-model:open="newFolderOpen" :busy="opsBusy" :error="opError" @create="intake.onCreateFolder" />
     <KestrelMediaViewer

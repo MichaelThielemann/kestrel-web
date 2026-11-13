@@ -7,6 +7,7 @@ import { commonFolder } from '#kestrel-admin/utils/library'
 import { isDisclosed, provenanceLabelKey, provenanceOrigin } from '#kestrel-admin/utils/provenance'
 import { isInsertable } from '#kestrel-admin/utils/media-insert'
 import { onMediaChanged, onMediaRemoved } from '#kestrel-admin/composables/useMediaChanges'
+import { lookUpMedia } from '#kestrel-admin/composables/useMediaPick'
 
 const props = defineProps<FieldComponentProps>()
 const model = defineModel<string | string[] | null>()
@@ -77,13 +78,18 @@ async function onConfirm(picked: string[]) {
   processingError.value = ''
   const newIds = picked.filter((id) => !ids.value.includes(id))
   if (newIds.length && capabilities.has('listMedia')) {
+    const found = new Map<string, MediaItem>()
     try {
-      const page = await api<ListPage<MediaItem>>(capabilities.route('listMedia'), { query: { ids: newIds.join(','), locale: props.locale } })
-      for (const item of page.items) meta.value[item.id] = item
+      for (const item of await lookUpMedia(api, capabilities.route('listMedia'), newIds, props.locale)) found.set(item.id, item)
     } catch {
       return
     }
-    if (newIds.some((id) => !isInsertable(meta.value[id] ?? { available: true }))) {
+    for (const [id, item] of found) meta.value[id] = item
+    if (newIds.some((id) => !found.has(id))) {
+      processingError.value = t('field.media.gone')
+      return
+    }
+    if ([...found.values()].some((item) => !isInsertable(item))) {
       processingError.value = t('field.media.processing')
       return
     }

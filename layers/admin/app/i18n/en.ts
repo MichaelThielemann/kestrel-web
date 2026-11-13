@@ -640,6 +640,7 @@ export const en = {
   'field.media.move_earlier': 'Move {name} earlier',
   'field.media.move_later': 'Move {name} later',
   'field.media.moved': 'Moved {name} to position {pos} of {total}',
+  'field.media.gone': 'A chosen file is no longer in the library. Choose again.',
   'field.media.processing': 'This file is still being processed. Choose it again in a moment.',
   'field.media.storedProcessing': 'A file in this field is still being processed. It stays here; until then the page shows its original.',
 

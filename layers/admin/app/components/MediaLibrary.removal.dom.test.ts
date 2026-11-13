@@ -50,6 +50,7 @@ let trashAnswer: (ids: string[]) => Answer = (ids) => ({ ids })
 let restoreAnswer: (ids: string[]) => Answer = (ids) => ({ ids })
 let failFolders = false
 let gate: Promise<void> | null = null
+let trashGate: Promise<void> | null = null
 
 const live = () => files.filter((f) => !trashed.has(f.id) && !deleted.includes(f.id))
 
@@ -84,6 +85,7 @@ function serve() {
     handler: async (event) => {
       const body = boundaryCast<{ ids: string[] }>(await readBody(event), 'json')
       posted.push({ path: '/media/trash', body })
+      if (trashGate) await trashGate
       const answer = trashAnswer(body.ids)
       for (const id of answer.ids) trashed.add(id)
       return { skipped: [], unchanged: [], trashVersions: {}, ...answer }
@@ -133,6 +135,7 @@ beforeEach(async () => {
   folders = []
   failFolders = false
   gate = null
+  trashGate = null
   trashAnswer = (ids) => ({ ids })
   restoreAnswer = (ids) => ({ ids })
   useToast().clear()
@@ -365,6 +368,29 @@ describe('MediaLibrary focus after a removal', () => {
 
     await vi.waitFor(() => expect(wrapper.find('[data-test="file-f1"]').exists()).toBe(true))
     await vi.waitFor(() => expect(document.activeElement).toBe(wrapper.get('[data-test="file-f1"]').element))
+  })
+})
+
+describe('MediaLibrary multi-pick during a removal', () => {
+  const useSelected = (wrapper: VueWrapper) => wrapper.findAll('.media-pick-bar button').find((b) => b.text() === en['media.useSelected'])
+
+  it('keeps "Use selected" disabled while the picks move to the trash, so none of them is confirmed', async () => {
+    files = [media('f1', 'a.jpg'), media('f2', 'b.jpg')]
+    let release = () => {}
+    trashGate = new Promise((resolve) => { release = resolve })
+    const wrapper = await mountLibrary({ pick: true, multiple: true })
+    await vi.waitFor(() => expect(wrapper.find('[data-test="file-f2"]').exists()).toBe(true))
+    await wrapper.get('[data-test="file-f1"]').trigger('click')
+    await wrapper.get('[data-test="file-f2"]').trigger('click')
+
+    await barButton(wrapper, en['media.selection.trash'])?.trigger('click')
+    await vi.waitFor(() => expect(posted.some((p) => p.path === '/media/trash')).toBe(true))
+    expect(useSelected(wrapper)?.attributes('disabled')).toBeDefined()
+    await useSelected(wrapper)?.trigger('click')
+
+    release()
+    await vi.waitFor(() => expect(wrapper.find('[data-test="file-f1"]').exists()).toBe(false))
+    expect(wrapper.emitted('confirm')).toBeUndefined()
   })
 })
 
