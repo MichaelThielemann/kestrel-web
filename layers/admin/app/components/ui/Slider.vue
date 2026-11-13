@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, useId } from 'vue'
+import { computed, useAttrs, useId } from 'vue'
 
 defineOptions({ inheritAttrs: false })
 
@@ -18,6 +18,9 @@ withDefaults(
 
 const model = defineModel<number>({ required: true })
 const id = useId()
+const attrs = useAttrs()
+const rootAttrs = computed(() => ({ class: attrs.class, style: attrs.style }))
+const inputAttrs = computed(() => Object.fromEntries(Object.entries(attrs).filter(([name]) => name !== 'class' && name !== 'style')))
 
 const value = computed<number>({
   get: () => model.value,
@@ -29,7 +32,7 @@ const value = computed<number>({
 </script>
 
 <template>
-  <div class="ui-slider" :data-disabled="disabled || undefined">
+  <div class="ui-slider" v-bind="rootAttrs" :data-disabled="disabled || undefined">
     <label :for="id" class="ui-slider__label" :class="{ 'ui-slider__label--hidden': hideLabel }">{{ label }}</label>
     <input
       :id="id"
@@ -41,7 +44,7 @@ const value = computed<number>({
       :step="step"
       :disabled="disabled"
       :aria-valuetext="valueText"
-      v-bind="$attrs"
+      v-bind="inputAttrs"
     >
   </div>
 </template>

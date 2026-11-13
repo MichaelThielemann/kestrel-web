@@ -29,4 +29,18 @@ describe('KestrelUiSlider', () => {
 
     expect(wrapper.get('label').classes()).toContain('ui-slider__label--hidden')
   })
+
+  it('puts a layout class and style on its wrapper and every other attribute on the input', async () => {
+    const wrapper = await mountSuspended(Slider, {
+      props: { label: 'Zoom', modelValue: 1 },
+      attrs: { class: 'grow', style: 'order: 2', 'data-field': 'zoom' },
+    })
+
+    expect(wrapper.get('.ui-slider').classes()).toContain('grow')
+    expect(wrapper.get('.ui-slider').attributes('style')).toContain('order: 2')
+    const input = wrapper.get('input[type="range"]')
+    expect(input.classes()).not.toContain('grow')
+    expect(input.attributes('style')).toBeUndefined()
+    expect(input.attributes('data-field')).toBe('zoom')
+  })
 })
