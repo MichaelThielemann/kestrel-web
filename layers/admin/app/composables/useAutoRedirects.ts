@@ -1,7 +1,8 @@
 import { ref } from 'vue'
 import type { AutoRedirect } from '#kestrel-admin/types/api'
 import type { ActionDeps } from '../actions/types'
-import { apiErrorMessage } from './useApi'
+import { toastFailure } from '../actions/steps/notify'
+import { apiErrorMessage, toApiError } from './useApi'
 
 /** The automatic redirects `redirects-default` keeps for moved documents, and removing one of them. */
 export function useAutoRedirects(deps: ActionDeps) {
@@ -31,7 +32,8 @@ export function useAutoRedirects(deps: ActionDeps) {
       deps.toast.success(deps.t('redirects.auto.removed', { from }))
       await load()
     } catch (e) {
-      deps.toast.error(apiErrorMessage(e))
+      const err = toApiError(e)
+      toastFailure(deps, err.message, err)
     } finally {
       removing.value = null
     }

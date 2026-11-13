@@ -1,11 +1,10 @@
 import { defineAction, type ActionContext } from '#kestrel-core/app/utils/actions'
 import type { Workflow } from '#kestrel-admin/types/kestrel'
-import { withRunId } from '../composables/useApi'
 import { referencedBy } from '../utils/references'
 import { previewDeleteAction } from './shared'
 import { apiEach } from './steps/api'
 import { dialogConfirm, guardAnySucceeded, guardSelection } from './steps/guard'
-import { opsBusy, opsError, toastSummary, toastSuccess } from './steps/notify'
+import { opsBusy, opsError, toastFailure, toastSummary, toastSuccess } from './steps/notify'
 import { listRefresh } from './steps/route'
 import type { BusyPort, EachReport, RefreshPort, WithDeps } from './types'
 
@@ -50,7 +49,7 @@ export const bulkSetStatus = defineAction<BulkStatusInput, EachReport<unknown>>(
       }),
       policy: 'continue',
       onItemError: (ctx, item) => {
-        if (item.message) ctx.input.deps.toast.error(withRunId(item.message, item.status ?? 0, item.runId))
+        if (item.message) toastFailure(ctx.input.deps, item.message, item)
       },
       onDone: (ctx, report) => {
         ctx.result = report
@@ -86,7 +85,7 @@ export const bulkDelete = defineAction<BulkDeleteInput, EachReport<unknown>>({
             return
           }
         }
-        if (item.message) ctx.input.deps.toast.error(withRunId(item.message, item.status ?? 0, item.runId))
+        if (item.message) toastFailure(ctx.input.deps, item.message, item)
       },
       onDone: (ctx, report) => {
         ctx.result = report

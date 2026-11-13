@@ -3,7 +3,7 @@ import { defineAction, runAction } from '#kestrel-core/app/utils/actions'
 import type { BusyPort, EachReport, WithDeps } from '../types'
 import { fakeDeps as sharedFakeDeps } from '../__fixtures__/fake-deps'
 import { dialogConfirm } from './guard'
-import { opsBusy, opsError, toastError, toastSuccess, toastSummary } from './notify'
+import { FAILURE_TOAST_MS, opsBusy, opsError, toastError, toastFailure, toastSuccess, toastSummary } from './notify'
 
 function fakeDeps(responses: Array<unknown | Error> = []) {
   const { deps, toast, t } = sharedFakeDeps(responses)
@@ -38,25 +38,51 @@ describe('notify steps', () => {
     expect(toast.error).toHaveBeenCalledWith('delivery.failed')
   })
 
-  it('toast.error appends the runId only for server errors', async () => {
-    for (const [status, expected] of [[500, 'boom (run-3)'], [400, 'boom']] as const) {
-      const { deps, toast } = fakeDeps()
-      const action = defineAction<WithDeps>({ name: 'n', steps: [toastError<WithDeps>(() => ({ message: 'boom', status, runId: 'run-3' }))] })
-      await runAction(action, { deps })
-      expect(toast.error).toHaveBeenCalledWith(expected)
-    }
+  it('toast.error names the HTTP status and the error id, and keeps such a toast long enough to copy the id', async () => {
+    const { deps, toast } = fakeDeps()
+    const action = defineAction<WithDeps>({ name: 'n', steps: [toastError<WithDeps>(() => ({ message: 'boom', status: 409, requestId: 'a1b2c3d4e5f6' }))] })
+
+    await runAction(action, { deps })
+
+    expect(toast.error).toHaveBeenCalledWith('error.withReference:{"message":"boom","reference":"HTTP 409 · error.id:{\\"id\\":\\"a1b2c3d4e5f6\\"}"}', FAILURE_TOAST_MS)
+  })
+
+  it('toast.error falls back to the run id when the request id is unknown', async () => {
+    const { deps, toast } = fakeDeps()
+    const action = defineAction<WithDeps>({ name: 'n', steps: [toastError<WithDeps>(() => ({ message: 'boom', status: 500, runId: 'run-3' }))] })
+
+    await runAction(action, { deps })
+
+    expect(toast.error).toHaveBeenCalledWith('error.withReference:{"message":"boom","reference":"HTTP 500 · error.id:{\\"id\\":\\"run-3\\"}"}', FAILURE_TOAST_MS)
+  })
+
+  it('toast.error says that a request without an answer did not reach the server', async () => {
+    const { deps, toast } = fakeDeps()
+    const action = defineAction<WithDeps>({ name: 'n', steps: [toastError<WithDeps>(() => ({ message: 'Request failed', status: 0, requestId: '0a0b0c0d0e0f', reached: false }))] })
+
+    await runAction(action, { deps })
+
+    expect(toast.error).toHaveBeenCalledWith('error.unreached:{"reference":"error.noAnswer · error.id:{\\"id\\":\\"0a0b0c0d0e0f\\"}"}', FAILURE_TOAST_MS)
   })
 
   it('toast.error prefers the retry hint for a retryable failure', async () => {
     const { deps, toast } = fakeDeps()
     const action = defineAction<WithDeps>({
       name: 'n',
-      steps: [toastError<WithDeps>(() => ({ message: 'database is busy', status: 503, runId: 'run-4', retryable: true, details: { retryAfterSeconds: 3 } }))],
+      steps: [toastError<WithDeps>(() => ({ message: 'database is busy', status: 503, requestId: 'b1b2b3b4b5b6', retryable: true, details: { retryAfterSeconds: 3 } }))],
     })
 
     await runAction(action, { deps })
 
-    expect(toast.error).toHaveBeenCalledWith('editor.retryableIn:{"seconds":3} (run-4)')
+    expect(toast.error).toHaveBeenCalledWith('error.withReference:{"message":"editor.retryableIn:{\\"seconds\\":3}","reference":"HTTP 503 · error.id:{\\"id\\":\\"b1b2b3b4b5b6\\"}"}', FAILURE_TOAST_MS)
+  })
+
+  it('toastFailure keeps the default lifetime for a failure without an id', () => {
+    const { deps, toast } = fakeDeps()
+
+    toastFailure(deps, 'boom', {})
+
+    expect(toast.error).toHaveBeenCalledWith('boom')
   })
 
   it('toast.summary only toasts a clean run', async () => {

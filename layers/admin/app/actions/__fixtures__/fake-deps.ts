@@ -30,3 +30,9 @@ export function fakeDeps(responses: Array<unknown | Error> = [], capabilities: C
   const deps: ActionDeps = { api, t, toast, capabilities }
   return { deps, calls, toast, t }
 }
+
+/** The text `failureText` builds under the fake `t` of `fakeDeps` for a failure with this status and error id. */
+export function referencedFailure(message: string, status: number, id?: string): string {
+  const reference = [status > 0 ? `HTTP ${status}` : '', id ? `error.id:${JSON.stringify({ id })}` : ''].filter(Boolean).join(' · ')
+  return `error.withReference:${JSON.stringify({ message, reference })}`
+}

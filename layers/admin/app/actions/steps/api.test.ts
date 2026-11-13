@@ -49,7 +49,7 @@ describe('api.request', () => {
     const result = await runAction(action, { deps })
 
     expect(result.ok).toBe(true)
-    expect(seen).toEqual([{ status: 404, code: 'NOT_FOUND', retryable: false, message: 'gone', runId: undefined, details: undefined }])
+    expect(seen).toEqual([{ status: 404, code: 'NOT_FOUND', retryable: false, message: 'gone', runId: undefined, details: undefined, requestId: undefined, reached: true }])
   })
 
   it('rethrows when no onError is given', async () => {

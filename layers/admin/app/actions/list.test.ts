@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { runAction } from '#kestrel-core/app/utils/actions'
 import type { Workflow } from '#kestrel-admin/types/kestrel'
 import type { ApiErrorDetails } from '#kestrel-admin/types/api'
-import { fakeDeps } from './__fixtures__/fake-deps'
+import { fakeDeps, referencedFailure } from './__fixtures__/fake-deps'
 import { bulkDelete, bulkSetStatus, previewBulkDelete } from './list'
 
 const CODE_OF: Record<number, string> = {
@@ -68,7 +68,7 @@ describe('bulkSetStatus', () => {
 
     expect(result.ok).toBe(true)
     expect(calls).toHaveLength(3)
-    expect(toast.error).toHaveBeenCalledWith('slug must be unique')
+    expect(toast.error).toHaveBeenCalledWith(referencedFailure('slug must be unique', 400))
     expect(toast.success).not.toHaveBeenCalled()
     expect(ops.setError).toHaveBeenCalledWith('slug must be unique')
     expect(refresh).toHaveBeenCalledTimes(1)

@@ -1,6 +1,6 @@
 import type { ApiErrorDetails } from '#kestrel-admin/types/api'
 import type { ActionContext, ActionStep } from '#kestrel-core/app/utils/actions'
-import { retryableMessage, withRunId } from '../../composables/useApi'
+import { failureText, retryableMessage } from '../../composables/useApi'
 import type { BlockErrors } from '../../composables/useEditFormValidation'
 import { blockErrorFromPointer, fieldErrorsFromDetails, fieldFromErrorMessage, hasAdditionalPropertiesProblem, parseBodyErrors, parseRowErrors } from '../../utils/edit-form'
 import { parseSchemaRowErrors } from '../../utils/row-errors'
@@ -131,7 +131,7 @@ export function formMapErrors<I extends WithDeps & { form: EditFormPort }>(): Ac
     const { deps, form } = ctx.input
     const failure = saveOutcome(ctx, 'form.mapErrors').failure
     if (!failure) return
-    const { status, code, retryable, message, runId, details } = failure
+    const { code, retryable, message, details } = failure
 
     if (code === 'VALIDATION' || code === 'DANGLING_REF') {
       if (mapBodyError(deps.t, form, message)) return
@@ -164,11 +164,11 @@ export function formMapErrors<I extends WithDeps & { form: EditFormPort }>(): Ac
     }
 
     if (retryable) {
-      form.setFormError(withRunId(retryableMessage(deps.t, details), status, runId))
+      form.setFormError(failureText(deps.t, retryableMessage(deps.t, details), failure))
       return
     }
 
-    form.setFormError(withRunId(message || deps.t('editor.saveFailed'), status, runId))
+    form.setFormError(failureText(deps.t, message || deps.t('editor.saveFailed'), failure))
   })
 }
 

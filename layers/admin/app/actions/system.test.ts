@@ -27,7 +27,7 @@ import {
 } from './system'
 import type { BusyPort } from './types'
 import { capabilityResolver } from '../utils/capabilities'
-import { fakeDeps as sharedFakeDeps, fullAccessSchema } from './__fixtures__/fake-deps'
+import { fakeDeps as sharedFakeDeps, fullAccessSchema, referencedFailure } from './__fixtures__/fake-deps'
 
 const CODE_OF: Record<number, string> = {
   400: 'VALIDATION', 401: 'UNAUTHENTICATED', 403: 'FORBIDDEN', 404: 'NOT_FOUND', 409: 'CONFLICT',
@@ -120,7 +120,7 @@ describe('publishAll', () => {
     const result = await runAction(publishAll, { deps, ops })
 
     expect(result.ok).toBe(false)
-    expect(toast.error).toHaveBeenCalledWith('boom')
+    expect(toast.error).toHaveBeenCalledWith(referencedFailure('boom', 500))
     expect(busyLog).toEqual([true, false])
   })
 
@@ -131,7 +131,7 @@ describe('publishAll', () => {
     const result = await runAction(publishAll, { deps, ops })
 
     expect(result.ok).toBe(false)
-    expect(toast.error).toHaveBeenCalledWith('delivery.failed')
+    expect(toast.error).toHaveBeenCalledWith(referencedFailure('delivery.failed', 500))
   })
 })
 
@@ -189,7 +189,7 @@ describe('exportMedia', () => {
     const result = await runAction(exportMedia, { deps, ops })
 
     expect(result.ok).toBe(false)
-    expect(toast.error).toHaveBeenCalledWith('boom')
+    expect(toast.error).toHaveBeenCalledWith(referencedFailure('boom', 500))
     expect(busyLog).toEqual([true, false])
   })
 
@@ -200,7 +200,7 @@ describe('exportMedia', () => {
     const result = await runAction(exportMedia, { deps, ops })
 
     expect(result.ok).toBe(false)
-    expect(toast.error).toHaveBeenCalledWith('delivery.exportFailed')
+    expect(toast.error).toHaveBeenCalledWith(referencedFailure('delivery.exportFailed', 500))
   })
 })
 
@@ -241,7 +241,7 @@ describe('replicationSnapshot', () => {
 
     await runAction(replicationSnapshot, { deps, ops, onNotFound, refresh })
 
-    expect(toast.error).toHaveBeenCalledWith('boom')
+    expect(toast.error).toHaveBeenCalledWith(referencedFailure('boom', 500))
     expect(onNotFound).not.toHaveBeenCalled()
     expect(refreshCalls.length).toBe(0)
   })
@@ -289,7 +289,7 @@ describe('replicationRestore', () => {
 
     await runAction(replicationRestore, { deps, point: { generation: 'g1' }, ops, refresh })
 
-    expect(toast.error).toHaveBeenCalledWith('replication.restoreNotFound')
+    expect(toast.error).toHaveBeenCalledWith(referencedFailure('replication.restoreNotFound', 404))
     expect(refreshCalls.length).toBe(0)
   })
 
@@ -300,7 +300,7 @@ describe('replicationRestore', () => {
 
     await runAction(replicationRestore, { deps, point: { generation: 'g1' }, ops, refresh })
 
-    expect(toast.error).toHaveBeenCalledWith('boom')
+    expect(toast.error).toHaveBeenCalledWith(referencedFailure('boom', 500))
   })
 })
 
@@ -322,7 +322,7 @@ describe('migrationsDryRun', () => {
     const result = await runAction(migrationsDryRun, { deps, ops })
 
     expect(result.ok).toBe(false)
-    expect(toast.error).toHaveBeenCalledWith('boom')
+    expect(toast.error).toHaveBeenCalledWith(referencedFailure('boom', 500))
   })
 })
 
@@ -359,7 +359,7 @@ describe('migrationsApply', () => {
 
     await runAction(migrationsApply, { deps, confirmed: true, ops, refresh })
 
-    expect(toast.error).toHaveBeenCalledWith('boom')
+    expect(toast.error).toHaveBeenCalledWith(referencedFailure('boom', 500))
     expect(refreshCalls.length).toBe(0)
   })
 })
@@ -453,7 +453,7 @@ describe('referencesRebuild', () => {
     const result = await runAction(referencesRebuild, { deps, ops, refresh })
 
     expect(result.ok).toBe(false)
-    expect(toast.error).toHaveBeenCalledWith('boom')
+    expect(toast.error).toHaveBeenCalledWith(referencedFailure('boom', 500))
     expect(refreshCalls.length).toBe(0)
     expect(busyLog).toEqual([true, false])
   })
@@ -482,7 +482,7 @@ describe('linksRebuild', () => {
     const result = await runAction(linksRebuild, { deps, ops, refresh })
 
     expect(result.ok).toBe(false)
-    expect(toast.error).toHaveBeenCalledWith('boom')
+    expect(toast.error).toHaveBeenCalledWith(referencedFailure('boom', 500))
     expect(refreshCalls.length).toBe(0)
     expect(busyLog).toEqual([true, false])
   })
@@ -526,7 +526,7 @@ describe('userToggle', () => {
     const result = await runAction(userToggle, { deps, userId: 'u1', active: true, ops, refresh })
 
     expect(result.ok).toBe(false)
-    expect(toast.error).toHaveBeenCalledWith('boom')
+    expect(toast.error).toHaveBeenCalledWith(referencedFailure('boom', 500))
     expect(refreshCalls.length).toBe(0)
     expect(busyLog).toEqual([true, false])
   })
@@ -804,7 +804,7 @@ describe('prune', () => {
 
     expect(result.ok).toBe(false)
     expect(errors).toContain(message)
-    expect(toast.error).toHaveBeenCalledWith(message)
+    expect(toast.error).toHaveBeenCalledWith(referencedFailure(message, 400))
     expect(refreshCalls.length).toBe(0)
     expect(busyLog).toEqual([true, false])
   })
@@ -853,7 +853,7 @@ describe('imagesRetryFailed', () => {
 
     expect(result.ok).toBe(false)
     expect(errors).toContain(message)
-    expect(toast.error).toHaveBeenCalledWith(message)
+    expect(toast.error).toHaveBeenCalledWith(referencedFailure(message, 409))
     expect(refreshCalls.length).toBe(0)
     expect(busyLog).toEqual([true, false])
   })
@@ -882,7 +882,7 @@ describe('mediaReconcile', () => {
 
     expect(result.ok).toBe(false)
     expect(errors).toContain(message)
-    expect(toast.error).toHaveBeenCalledWith(message)
+    expect(toast.error).toHaveBeenCalledWith(referencedFailure(message, 403))
     expect(busyLog).toEqual([true, false])
   })
 })
@@ -992,7 +992,7 @@ describe('imagesRegisterAndSync', () => {
 
     expect(result.ok).toBe(false)
     expect(calls.length).toBe(1)
-    expect(toast.error).toHaveBeenCalledWith('boom')
+    expect(toast.error).toHaveBeenCalledWith(referencedFailure('boom', 500))
     expect(refreshCalls.length).toBe(0)
     expect(busyLog).toEqual([true, false])
   })
@@ -1033,7 +1033,7 @@ describe('eventsRetryAll', () => {
     const result = await runAction(eventsRetryAll, { deps, ops, refresh, count: 2 })
 
     expect(result.ok).toBe(false)
-    expect(toast.error).toHaveBeenCalledWith('boom')
+    expect(toast.error).toHaveBeenCalledWith(referencedFailure('boom', 500))
     expect(refreshCalls.length).toBe(0)
   })
 })
@@ -1060,7 +1060,7 @@ describe('eventsRetryOne', () => {
     const result = await runAction(eventsRetryOne, { deps, ops, refresh, id: 'evt-1' })
 
     expect(result.ok).toBe(false)
-    expect(toast.error).toHaveBeenCalledWith('events.retryNotFound')
+    expect(toast.error).toHaveBeenCalledWith(referencedFailure('events.retryNotFound', 404))
     expect(refreshCalls.length).toBe(0)
   })
 
@@ -1072,7 +1072,7 @@ describe('eventsRetryOne', () => {
     const result = await runAction(eventsRetryOne, { deps, ops, refresh, id: 'evt-1' })
 
     expect(result.ok).toBe(false)
-    expect(toast.error).toHaveBeenCalledWith('boom')
+    expect(toast.error).toHaveBeenCalledWith(referencedFailure('boom', 500))
     expect(refreshCalls.length).toBe(0)
   })
 })

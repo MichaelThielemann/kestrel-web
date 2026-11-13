@@ -2,7 +2,7 @@ import type { Document, EventRelayStatus, ReferenceTo } from '#kestrel-admin/typ
 import type { Capability } from '#kestrel-admin/types/kestrel'
 import type { ActionContext, ActionStep } from '#kestrel-core/app/utils/actions'
 import { routeFrom } from '../../utils/capabilities'
-import { apiErrorCode, apiErrorDetails, apiErrorMessage, apiErrorRetryable, apiErrorRunId, apiErrorStatus, apiErrorStep } from '../../composables/useApi'
+import { apiErrorCode, apiErrorDetails, apiErrorMessage, apiErrorReached, apiErrorRequestId, apiErrorRetryable, apiErrorRunId, apiErrorStatus, apiErrorStep } from '../../composables/useApi'
 import { defineUiStep } from '../define'
 import { saveOutcome } from './form'
 import type { UiStepName } from '../step-names'
@@ -32,6 +32,8 @@ export function apiWrite<I extends WithDeps & { form: EditFormPort }>(): ActionS
         runId: apiErrorRunId(e),
         step: apiErrorStep(e),
         details: apiErrorDetails(e),
+        requestId: apiErrorRequestId(e),
+        reached: apiErrorReached(e),
       }
       out.failed = true
     }
@@ -57,6 +59,8 @@ export function apiRequest<I extends WithDeps, R = unknown, T = unknown>(name: U
         message: apiErrorMessage(e),
         runId: apiErrorRunId(e),
         details: apiErrorDetails(e),
+        requestId: apiErrorRequestId(e),
+        reached: apiErrorReached(e),
       })
     }
   })
@@ -103,6 +107,8 @@ export function apiEach<I extends WithDeps, R = unknown, T = unknown>(name: UiSt
           message: apiErrorMessage(e),
           runId: apiErrorRunId(e),
           details: apiErrorDetails(e),
+          requestId: apiErrorRequestId(e),
+          reached: apiErrorReached(e),
         }
         results.push(item)
         failed++

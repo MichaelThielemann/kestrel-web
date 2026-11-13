@@ -8,7 +8,7 @@ import { deliveryRefresh, deliveryToast, isQueuedDelivery, ownDeliveryStatus, re
 import { formMapErrors, formOutcome, formRebaseline, formReset, formRevealError, formSaving, formSetStatus, formValidate } from './steps/form'
 import { dialogConfirm, guardAnySucceeded, guardBypass, guardStatus, guardTab, guardUnsaved } from './steps/guard'
 import { defineUiStep } from './define'
-import { opsBusy, toastError, toastSuccess } from './steps/notify'
+import { opsBusy, toastError, toastFailure, toastSuccess } from './steps/notify'
 import { routeNavigate } from './steps/route'
 import type { BusyPort, ConfirmPort, EachReport, EditFormPort, NavigatePort, QueryValue, SaveOutcome, Translate, WithDeps } from './types'
 
@@ -161,7 +161,7 @@ export const deleteRecord = defineAction<DeleteRecordInput, DeleteReport>({
       call: (ctx, id) => ({ route: ctx.input.deps.capabilities.verbRoute(ctx.input.collection, 'delete', { id }) }),
       policy: 'continue',
       onItemError: (ctx, item) => {
-        if (item.message) ctx.input.deps.toast.error(item.message)
+        if (item.message) toastFailure(ctx.input.deps, item.message, item)
       },
       onDone: (ctx, report) => {
         ctx.result = report
@@ -185,7 +185,7 @@ export const deleteTranslation = defineAction<DeleteTranslationInput, undefined>
       call: (ctx) => ({ route: ctx.input.deps.capabilities.verbRoute(ctx.input.collection, 'deleteTranslation', { id: ctx.input.id, locale: ctx.input.locale }) }),
       onSuccess: () => {},
       onError: (ctx, err) => {
-        ctx.input.deps.toast.error(err.message)
+        toastFailure(ctx.input.deps, err.message, err)
         ctx.fail(err.message)
       },
     }),
@@ -207,7 +207,7 @@ export const copyTranslation = defineAction<CopyTranslationInput, undefined>({
         for (const [name, value] of Object.entries(values)) ctx.input.form.setField(name, value)
       },
       onError: (ctx, err) => {
-        ctx.input.deps.toast.error(err.message)
+        toastFailure(ctx.input.deps, err.message, err)
         ctx.fail(err.message)
       },
     }),

@@ -7,7 +7,7 @@ import type { SerializedField } from '#kestrel-admin/types/kestrel'
 import { copyTranslation, deleteRecord, deleteTranslation, discardRecord, leaveEditor, previewDeleteRecord, saveRecord, setStatus, switchSystemTab } from './editor'
 import type { ActionDeps, EditFormPort } from './types'
 import type { RowErrorMap } from '../utils/row-errors'
-import { fakeDeps } from './__fixtures__/fake-deps'
+import { fakeDeps, referencedFailure } from './__fixtures__/fake-deps'
 
 type RelayEntry = EventRelayStatus['pipelines'][number]
 
@@ -203,7 +203,7 @@ describe('saveRecord', () => {
     const failure = fakeDeps([apiError(500, '')])
     const failureForm = fakeForm()
     await runAction(saveRecord, { deps: failure.deps, form: failureForm.form })
-    expect(failureForm.state.formError).toBe('editor.saveFailed')
+    expect(failureForm.state.formError).toBe(referencedFailure('editor.saveFailed', 500))
   })
 
   it('passes the response through untouched', async () => {
@@ -472,7 +472,7 @@ describe('deleteRecord', () => {
     const result = await runAction(deleteRecord, input)
 
     expect(result).toEqual({ ok: false, error: 'pages/p1 is referenced by pages/p2 (body)' })
-    expect(toast.error).toHaveBeenCalledWith('pages/p1 is referenced by pages/p2 (body)')
+    expect(toast.error).toHaveBeenCalledWith(referencedFailure('pages/p1 is referenced by pages/p2 (body)', 409))
     expect(ops.setError).toHaveBeenCalledWith('pages/p1 is referenced by pages/p2 (body)')
     expect(navigate).not.toHaveBeenCalled()
   })
@@ -564,7 +564,7 @@ describe('deleteTranslation', () => {
     const result = await runAction(deleteTranslation, input)
 
     expect(result).toEqual({ ok: false, error: 'en is the last translation – remove the document' })
-    expect(toast.error).toHaveBeenCalledWith('en is the last translation – remove the document')
+    expect(toast.error).toHaveBeenCalledWith(referencedFailure('en is the last translation – remove the document', 409))
     expect(navigate).not.toHaveBeenCalled()
   })
 })
@@ -616,7 +616,7 @@ describe('copyTranslation', () => {
     const result = await runAction(copyTranslation, { deps, form, fields, source: 'de', confirmed: true })
 
     expect(result).toEqual({ ok: false, error: 'not found' })
-    expect(toast.error).toHaveBeenCalledWith('not found')
+    expect(toast.error).toHaveBeenCalledWith(referencedFailure('not found', 404))
   })
 })
 

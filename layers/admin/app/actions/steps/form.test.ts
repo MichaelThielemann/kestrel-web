@@ -3,7 +3,7 @@ import { defineAction, runAction, type ActionContext } from '#kestrel-core/app/u
 import { ApiError } from '../../composables/useApi'
 import type { ActionDeps, ApiClient, EditFormPort, SaveFailure, SaveOutcome, WithDeps } from '../types'
 import type { ApiRoute } from '../../utils/capabilities'
-import { fullAccessCapabilities, fullAccessSchema } from '../__fixtures__/fake-deps'
+import { fullAccessCapabilities, fullAccessSchema, referencedFailure } from '../__fixtures__/fake-deps'
 import { capabilityResolver } from '../../utils/capabilities'
 import { apiWrite } from './api'
 import { formMapErrors, formReset } from './form'
@@ -53,7 +53,8 @@ function fakeForm() {
 
 function runMapErrors(failure: SaveFailure | null, capabilities = fullAccessCapabilities) {
   const { form, state } = fakeForm()
-  const deps: ActionDeps = { api: fakeApiClient(), t: vi.fn((key: string) => key), toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() }, capabilities }
+  const t = vi.fn((key: string, params?: Record<string, unknown>) => (params ? `${key}:${JSON.stringify(params)}` : key))
+  const deps: ActionDeps = { api: fakeApiClient(), t, toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() }, capabilities }
   const ctx: ActionContext<Input, SaveOutcome> = {
     input: { deps, form },
     result: { record: null, events: null, failure, failed: failure !== null },
@@ -100,9 +101,14 @@ describe('formMapErrors', () => {
     expect(state.formError).toBe(`editor.unknownFieldSent ${message}`)
   })
 
-  it('appends the runId to server errors', () => {
-    expect(runMapErrors({ status: 500, code: 'INTERNAL', retryable: false, message: 'boom', runId: 'run-1' }).formError).toBe('boom (run-1)')
-    expect(runMapErrors({ status: 500, code: 'INTERNAL', retryable: false, message: '', runId: 'run-1' }).formError).toBe('editor.saveFailed (run-1)')
+  it('names the HTTP status and the error id of a server error', () => {
+    expect(runMapErrors({ status: 500, code: 'INTERNAL', retryable: false, message: 'boom', requestId: 'a1b2c3d4e5f6' }).formError).toBe(referencedFailure('boom', 500, 'a1b2c3d4e5f6'))
+    expect(runMapErrors({ status: 500, code: 'INTERNAL', retryable: false, message: '', runId: 'run-1' }).formError).toBe(referencedFailure('editor.saveFailed', 500, 'run-1'))
+  })
+
+  it('says that a save without an answer did not reach the server', () => {
+    expect(runMapErrors({ status: 502, code: 'INTERNAL', retryable: false, message: 'Request failed', requestId: 'f0e1d2c3b4a5', reached: false }).formError)
+      .toBe(`error.unreached:${JSON.stringify({ reference: `HTTP 502 · error.id:${JSON.stringify({ id: 'f0e1d2c3b4a5' })}` })}`)
   })
 
   it('maps a DANGLING_REF body like a validation error', () => {
@@ -147,7 +153,7 @@ describe('formMapErrors', () => {
       message,
       details: { fields: [{ field: 'slug', message }], conflicts: [{ path: '/team', locale: 'de', type: 'blog', id: 'b1', label: 'Unreleased launch plan', moving: { type: 'pages', id: 'p1' } }] },
     }, withoutBlog)
-    const pathOnly = 'editor.pathTaken'
+    const pathOnly = 'editor.pathTaken:{"path":"/team","locale":"DE"}'
     expect(state.fieldErrors).toEqual({ slug: pathOnly })
     expect(state.formError).toBe(pathOnly)
     expect(JSON.stringify(state)).not.toContain('Unreleased')
@@ -173,8 +179,8 @@ describe('formMapErrors', () => {
   })
 
   it('offers a retry for retryable errors and names the Retry-After seconds when present', () => {
-    expect(runMapErrors({ status: 503, code: 'TRANSIENT', retryable: true, message: 'database is busy', runId: 'run-2' }).formError).toBe('editor.retryable (run-2)')
-    expect(runMapErrors({ status: 429, code: 'RATE_LIMITED', retryable: true, message: 'too many requests', details: { retryAfterSeconds: 12 } }).formError).toBe('editor.retryableIn')
+    expect(runMapErrors({ status: 503, code: 'TRANSIENT', retryable: true, message: 'database is busy', runId: 'run-2' }).formError).toBe(referencedFailure('editor.retryable', 503, 'run-2'))
+    expect(runMapErrors({ status: 429, code: 'RATE_LIMITED', retryable: true, message: 'too many requests', details: { retryAfterSeconds: 12 } }).formError).toBe(referencedFailure('editor.retryableIn:{"seconds":12}', 429))
   })
 
   it('does nothing without a failure', () => {

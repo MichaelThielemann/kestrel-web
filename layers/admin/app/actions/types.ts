@@ -18,7 +18,8 @@ export type Translate = (key: string, params?: Record<string, unknown>) => strin
 
 export interface ToastPort {
   success: (message: string) => unknown
-  error: (message: string) => unknown
+  /** `timeout` in milliseconds overrides how long the toast stays. */
+  error: (message: string, timeout?: number) => unknown
   info: (message: string) => unknown
 }
 
@@ -87,6 +88,10 @@ export interface ApiFailure {
   message: string
   runId?: string
   details?: ApiErrorDetails
+  /** The `x-request-id` the request was sent with. */
+  requestId?: string
+  /** False when the request got no answer from kestrel or the host server. */
+  reached?: boolean
 }
 
 export interface ApiCall {
@@ -105,6 +110,10 @@ export interface EachItemResult<T> {
   message?: string
   runId?: string
   details?: ApiErrorDetails
+  /** The `x-request-id` the request was sent with. */
+  requestId?: string
+  /** False when the request got no answer from kestrel or the host server. */
+  reached?: boolean
 }
 
 export interface EachReport<T> {
@@ -132,6 +141,10 @@ export interface SaveFailure {
   runId?: string
   step?: string
   details?: ApiErrorDetails
+  /** The `x-request-id` the request was sent with. */
+  requestId?: string
+  /** False when the request got no answer from kestrel or the host server. */
+  reached?: boolean
 }
 
 export interface SaveOutcome {

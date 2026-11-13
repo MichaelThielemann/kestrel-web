@@ -1,6 +1,6 @@
 import type { ApiErrorDetails, MediaFolder, MediaFolderRenameResponse, MediaItem, Provenance } from '#kestrel-admin/types/api'
 import { defineAction, type ActionContext, type ActionStep } from '#kestrel-core/app/utils/actions'
-import { ApiError, apiErrorCode, apiErrorDetails, apiErrorMessage, apiErrorRetryable, apiErrorRunId, apiErrorStatus, failureText, retryableMessage, toApiError, withRunId } from '../composables/useApi'
+import { ApiError, apiErrorCode, apiErrorDetails, apiErrorMessage, apiErrorReached, apiErrorRequestId, apiErrorRetryable, apiErrorRunId, apiErrorStatus, failureText, retryableMessage, toApiError } from '../composables/useApi'
 import type { UploadItem } from '../composables/useMediaUpload'
 import { UploadTransportError, type UploadProgress, type UploadTransport } from '../composables/useUploadTransport'
 import { humanizeSize, joinFolder, parentFolder } from '../utils/library'
@@ -41,6 +41,8 @@ export interface RenameOrMoveResult {
   retryable: boolean
   runId?: string
   details?: ApiErrorDetails
+  requestId?: string
+  reached?: boolean
 }
 
 export interface DeleteItemsInput extends WithDeps {
@@ -106,6 +108,7 @@ async function patchFolder(deps: ActionDeps, path: string, to: string): Promise<
       apiErrorRunId(e),
       undefined,
       apiErrorDetails(e),
+      { requestId: apiErrorRequestId(e), reached: apiErrorReached(e) },
     )
   }
 }
@@ -147,7 +150,9 @@ const applyTargets = defineUiStep<RenameOrMoveInput, RenameOrMoveResult>('media.
     result.retryable = apiErrorRetryable(e)
     result.runId = apiErrorRunId(e)
     result.details = apiErrorDetails(e)
-    ops.setError?.(withRunId(result.retryable ? retryableMessage(deps.t, result.details) : message, result.status, result.runId))
+    result.requestId = apiErrorRequestId(e)
+    result.reached = apiErrorReached(e)
+    ops.setError?.(failureText(deps.t, result.retryable ? retryableMessage(deps.t, result.details) : message, toApiError(e)))
     ctx.fail(message)
   }
 })
@@ -163,7 +168,7 @@ export const renameOrMove = defineAction<RenameOrMoveInput, RenameOrMoveResult>(
     opsBusy<RenameOrMoveInput, RenameOrMoveResult>(false),
     toastError<RenameOrMoveInput, RenameOrMoveResult>((ctx) =>
       (ctx.input.notify === 'toast' && ctx.result?.message
-        ? { message: ctx.result.message, status: ctx.result.status, runId: ctx.result.runId, retryable: ctx.result.retryable, details: ctx.result.details }
+        ? { message: ctx.result.message, status: ctx.result.status, runId: ctx.result.runId, requestId: ctx.result.requestId, reached: ctx.result.reached, retryable: ctx.result.retryable, details: ctx.result.details }
         : null)),
   ],
 })

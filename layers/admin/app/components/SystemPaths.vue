@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { PathsRebuildReport } from '#kestrel-admin/types/api'
-import { apiErrorMessage } from '../composables/useApi'
+import { toApiError } from '../composables/useApi'
+import { toastFailure } from '../actions/steps/notify'
 
 interface DocRef { type: string; id: string }
 
@@ -28,7 +29,8 @@ async function rebuild() {
     report.value = await deps.api<PathsRebuildReport>(deps.capabilities.route('rebuildPaths'))
     deps.toast.success(t('paths.rebuilt', { n: report.value.indexed }))
   } catch (e) {
-    deps.toast.error(apiErrorMessage(e))
+    const err = toApiError(e)
+    toastFailure(deps, err.message, err)
   } finally {
     busy.value = false
   }

@@ -1,8 +1,8 @@
 import type { ApiErrorDetails } from '#kestrel-admin/types/api'
 import type { ActionContext, ActionResult, ActionStep } from '#kestrel-core/app/utils/actions'
-import { retryableMessage, withRunId } from '../../composables/useApi'
+import { failureText, retryableMessage, type FailureTrace } from '../../composables/useApi'
 import { defineUiStep } from '../define'
-import type { ActionDeps, BusyPort, EachReport, WithDeps } from '../types'
+import type { ActionDeps, BusyPort, EachReport, ToastPort, Translate, WithDeps } from '../types'
 
 export interface ToastErrorPick {
   key?: string
@@ -10,8 +10,20 @@ export interface ToastErrorPick {
   params?: Record<string, unknown>
   status?: number
   runId?: string
+  requestId?: string
+  reached?: boolean
   retryable?: boolean
   details?: ApiErrorDetails
+}
+
+/** How long an error toast that names an error id stays, long enough to select and copy the id. */
+export const FAILURE_TOAST_MS = 12_000
+
+/** Toasts `message` with the HTTP status and the error id of the failed request, see `failureText`. */
+export function toastFailure(deps: { t: Translate, toast: ToastPort }, message: string, trace: FailureTrace): void {
+  const text = failureText(deps.t, message, trace)
+  if (trace.requestId ?? trace.runId) deps.toast.error(text, FAILURE_TOAST_MS)
+  else deps.toast.error(text)
 }
 
 export function toastSuccess<I extends WithDeps, R = unknown>(pick: (ctx: ActionContext<I, R>) => { key: string, params?: Record<string, unknown> } | null): ActionStep<I, R> {
@@ -27,10 +39,10 @@ export function toastError<I extends WithDeps, R = unknown>(pick: (ctx: ActionCo
   return defineUiStep<I, R>('toast.error', (ctx) => {
     const picked = pick(ctx)
     if (!picked) return
-    const { t, toast } = ctx.input.deps
+    const { t } = ctx.input.deps
     const text = picked.retryable ? retryableMessage(t, picked.details) : picked.message || (picked.key ? t(picked.key, picked.params) : '')
     if (!text) return
-    toast.error(withRunId(text, picked.status ?? 0, picked.runId))
+    toastFailure(ctx.input.deps, text, picked)
   })
 }
 

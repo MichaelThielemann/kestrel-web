@@ -5,9 +5,10 @@ import { runAction } from '#kestrel-core/app/utils/actions'
 import { createFolder, deleteItems, renameOrMove, setMediaMeta, setMediaProvenance, upload, uploadTimeoutMs, type DeleteItemsResult } from './media'
 import type { UploadItem } from '../composables/useMediaUpload'
 import { ApiError } from '../composables/useApi'
+import { FAILURE_TOAST_MS } from './steps/notify'
 import { UploadTransportError, type UploadRequestOptions, type UploadTransport } from '../composables/useUploadTransport'
 import type { ApiRoute } from '../utils/capabilities'
-import { fakeDeps } from './__fixtures__/fake-deps'
+import { fakeDeps, referencedFailure } from './__fixtures__/fake-deps'
 
 const CODE_OF: Record<number, string> = {
   400: 'VALIDATION', 401: 'UNAUTHENTICATED', 403: 'FORBIDDEN', 404: 'NOT_FOUND', 409: 'CONFLICT',
@@ -93,11 +94,11 @@ describe('renameOrMove', () => {
     })
 
     expect(result.ok).toBe(false)
-    expect(ops.setError).toHaveBeenCalledWith('filename taken')
-    expect(toast.error).toHaveBeenCalledWith('filename taken')
+    expect(ops.setError).toHaveBeenCalledWith(referencedFailure('filename taken', 409))
+    expect(toast.error).toHaveBeenCalledWith(referencedFailure('filename taken', 409))
   })
 
-  it('appends the runId to a server error toast', async () => {
+  it('names the run id in a server error toast when the request id is unknown', async () => {
     const { deps, toast } = fakeDeps([Object.assign(new Error('boom'), { status: 500, name: 'ApiError', data: { error: 'boom', runId: 'run-7' } })])
     const ops = fakeOps()
 
@@ -105,8 +106,8 @@ describe('renameOrMove', () => {
       deps, target: { kind: 'file-rename', id: 'f1', filename: 'new.jpg' }, notify: 'toast', ops, refresh: vi.fn(() => undefined),
     })
 
-    expect(toast.error).toHaveBeenCalledWith('boom (run-7)')
-    expect(ops.setError).toHaveBeenCalledWith('boom (run-7)')
+    expect(toast.error).toHaveBeenCalledWith(referencedFailure('boom', 500, 'run-7'), FAILURE_TOAST_MS)
+    expect(ops.setError).toHaveBeenCalledWith(referencedFailure('boom', 500, 'run-7'))
   })
 
   it('renames a folder and maps a 409 through the shared mapper', async () => {
@@ -119,7 +120,7 @@ describe('renameOrMove', () => {
 
     expect(calls).toEqual([{ route: { method: 'PATCH', path: '/media/folders/a/b' }, body: { path: 'a/renamed' }, query: undefined }])
     expect(result.ok).toBe(false)
-    expect(ops.setError).toHaveBeenCalledWith('media.folderConflict')
+    expect(ops.setError).toHaveBeenCalledWith(referencedFailure('media.folderConflict', 409))
   })
 
   it('moves two files with one PATCH each', async () => {
@@ -176,7 +177,7 @@ describe('renameOrMove', () => {
     expect(result.ok).toBe(false)
     expect(calls).toHaveLength(1)
     expect(refresh).not.toHaveBeenCalled()
-    expect(ops.setError).toHaveBeenCalledWith('boom')
+    expect(ops.setError).toHaveBeenCalledWith(referencedFailure('boom', 500))
   })
 
   it('only toasts the failure when notify is toast', async () => {
@@ -190,7 +191,7 @@ describe('renameOrMove', () => {
     await runAction(renameOrMove, {
       deps: toastDeps, target: { kind: 'file-rename', id: 'f1', filename: 'x' }, notify: 'toast', ops: fakeOps(), refresh: vi.fn(() => undefined),
     })
-    expect(toastToast.error).toHaveBeenCalledWith('boom')
+    expect(toastToast.error).toHaveBeenCalledWith(referencedFailure('boom', 500))
   })
 })
 
