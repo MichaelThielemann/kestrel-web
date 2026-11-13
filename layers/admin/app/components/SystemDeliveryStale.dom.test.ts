@@ -139,11 +139,51 @@ describe('SystemDeliveryStale', () => {
     withoutRetry.unmount()
   })
 
+  it('lists the last index export and the last llms-full export with time and entries', async () => {
+    const at = Date.UTC(2026, 10, 13, 8, 30, 0)
+    const wrapper = await mountWith(staleStatus({ exports: { indexes: { at, entries: 12, error: null, skipped: false }, llmsFull: { at, entries: 1, error: null, skipped: false } } }))
+    await vi.waitFor(() => expect(wrapper.findAll('.delivery-exports__row')).toHaveLength(2))
+    const time = new Intl.DateTimeFormat('en', { dateStyle: 'medium', timeStyle: 'medium' }).format(new Date(at))
+    const heading = wrapper.get('.delivery-exports h3')
+    expect(heading.text()).toBe(en['delivery.indexExportsTitle'])
+    const rows = wrapper.findAll('.delivery-exports__row')
+    expect(rows.map((row) => row.attributes('data-tone'))).toEqual(['current', 'current'])
+    expect(rows[0]?.get('.delivery-exports__name').text()).toBe(en['delivery.indexExportIndexes'])
+    expect(rows[0]?.get('.delivery-exports__text').text()).toBe(text('delivery.indexExportWritten', { at: time, n: 12 }))
+    expect(rows[1]?.get('.delivery-exports__name').text()).toBe(en['delivery.indexExportLlmsFull'])
+    expect(rows[1]?.get('.delivery-exports__text').text()).toBe(text('delivery.indexExportWrittenOne', { at: time, n: 1 }))
+    for (const row of rows) expect(row.find('svg').exists()).toBe(true)
+    wrapper.unmount()
+  })
+
+  it('shows a failed export with its error and a skipped one with the reason', async () => {
+    const at = Date.UTC(2026, 10, 13, 9, 0, 0)
+    const wrapper = await mountWith(staleStatus({ exports: { indexes: { at, entries: 0, error: 'blobstore unavailable', skipped: false }, llmsFull: { at, entries: 0, error: null, skipped: true } } }))
+    await vi.waitFor(() => expect(wrapper.findAll('.delivery-exports__row')).toHaveLength(2))
+    const time = new Intl.DateTimeFormat('en', { dateStyle: 'medium', timeStyle: 'medium' }).format(new Date(at))
+    const [failed, skipped] = wrapper.findAll('.delivery-exports__row')
+    expect(failed?.attributes('data-tone')).toBe('failed')
+    expect(failed?.get('.delivery-exports__text').text()).toBe(text('delivery.indexExportFailed', { at: time }))
+    expect(failed?.get('.delivery-exports__error').text()).toBe('blobstore unavailable')
+    expect(skipped?.attributes('data-tone')).toBe('skipped')
+    expect(skipped?.get('.delivery-exports__text').text()).toBe(text('delivery.indexExportSkipped', { at: time }))
+    expect(skipped?.find('.delivery-exports__error').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('says no export was recorded yet before the first one', async () => {
+    const wrapper = await mountWith(staleStatus())
+    await vi.waitFor(() => expect(wrapper.findAll('.delivery-exports__row')).toHaveLength(2))
+    expect(wrapper.findAll('.delivery-exports__text').map((line) => line.text())).toEqual([en['delivery.indexExportNone'], en['delivery.indexExportNone']])
+    wrapper.unmount()
+  })
+
   it('shows only the re-render button when the stale status is not offered', async () => {
     schema.capabilities = { publishAllPages }
     const wrapper = await mountWith(staleStatus())
     expect(wrapper.find('[role="status"]').exists()).toBe(false)
     expect(buttonNamed(wrapper, en['delivery.publishAll']).exists()).toBe(true)
+    expect(wrapper.find('.delivery-exports').exists()).toBe(false)
     wrapper.unmount()
   })
 })

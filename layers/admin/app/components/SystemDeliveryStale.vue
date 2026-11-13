@@ -59,6 +59,7 @@ async function onRetry() {
       <div v-if="canRetry && (status?.failed ?? 0) > 0" class="delivery-stale__actions">
         <KestrelUiButton type="button" size="sm" variant="secondary" icon="rotate-cw" :loading="retrying" @click="onRetry">{{ t('delivery.retryFailed') }}</KestrelUiButton>
       </div>
+      <KestrelSystemDeliveryExports v-if="status" :exports="status.exports" />
     </template>
   </div>
 </template>
