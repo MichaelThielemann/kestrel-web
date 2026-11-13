@@ -68,7 +68,7 @@ watch(() => props.state, (next, prev) => {
           <p v-if="entry.refs.length > REFS" class="media-remove__muted">{{ t('refs.referencedByMore', { n: entry.refs.length - REFS }) }}</p>
         </div>
       </div>
-      <KestrelUiAlert v-if="state.unverified && !state.finished" variant="warning">{{ t('media.remove.unverified') }}</KestrelUiAlert>
+      <KestrelUiAlert v-if="state.unverified && !state.finished" variant="warning">{{ state.checkFailure ?? t('media.remove.unverified') }}</KestrelUiAlert>
       <p v-if="!state.finished" class="media-remove__muted">{{ t(HINT_KEYS[state.mode]) }}</p>
       <label v-if="state.mode === 'delete' && state.nonEmptyFolders && !state.finished" class="media-remove__recursive">
         <KestrelUiCheckbox v-model="recursive" :disabled="busy" />
@@ -78,7 +78,9 @@ watch(() => props.state, (next, prev) => {
         :label="t('media.remove.progress')" :value-text="t('media.remove.progressText', { done: progress.done, total: progress.total })" />
       <div v-if="problems.length" class="media-remove__problems">
         <p class="media-remove__heading">{{ t('media.remove.notRemoved') }}</p>
-        <KestrelUiProgressRow v-for="p in problems" :key="p.id" :title="p.name" :message="p.reason" :tone="p.tone" :status="p.status" />
+        <KestrelUiProgressRow v-for="p in problems" :key="p.id" :title="p.name" :message="p.reason" :tone="p.tone" :status="p.status">
+          <template v-if="p.requestId" #actions><KestrelErrorIdCopy :id="p.requestId" /></template>
+        </KestrelUiProgressRow>
       </div>
       <p v-if="state.cancelled" class="media-remove__muted">{{ t('media.remove.cancelled') }}</p>
       <p v-if="held" class="media-remove__moved">{{ held.message }}</p>

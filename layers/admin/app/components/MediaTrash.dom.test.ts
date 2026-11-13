@@ -1,5 +1,5 @@
 import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
-import { createError, getQuery, readBody } from 'h3'
+import { createError, getQuery, getRequestHeader, readBody } from 'h3'
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { computed } from 'vue'
 import type { VueWrapper } from '@vue/test-utils'
@@ -274,6 +274,82 @@ describe('MediaTrash', () => {
     await vi.waitFor(() => expect(dialog()?.textContent).toContain(en['media.remove.title.partial']))
     const titles = Array.from(dialog()?.querySelectorAll('.media-remove__problems .ui-progress-row__title') ?? []).map((el) => el.textContent?.trim())
     expect(titles).toEqual([en['media.trash.title']])
+  })
+
+  it('names what failed, the HTTP status and the error id when the trash cannot be loaded', async () => {
+    let sent = ''
+    unregisterAll.push(registerEndpoint('/api/media/trash', {
+      method: 'GET',
+      handler: (event) => {
+        sent = getRequestHeader(event, 'x-request-id') ?? ''
+        throw createError({ statusCode: 500, statusMessage: 'down' })
+      },
+    }))
+    const wrapper = await mountSuspended(MediaTrash, { attachTo: document.body })
+    onTestFinished(() => wrapper.unmount())
+
+    await vi.waitFor(() => expect(wrapper.find('.ui-alert').exists()).toBe(true))
+    expect(sent).toMatch(/^[0-9a-f]{12}$/)
+    expect(wrapper.get('.ui-alert').text()).toBe(`${en['media.trash.loadError'].replace(/\.$/, '')} (HTTP 500 · ${text('error.id', { id: sent })})`)
+  })
+
+  it('names what failed in a delete for good with the HTTP status and a copyable error id', async () => {
+    let sent = ''
+    unregisterAll.push(registerEndpoint('/api/media/trash/purge', {
+      method: 'POST',
+      handler: (event) => {
+        sent = getRequestHeader(event, 'x-request-id') ?? ''
+        throw createError({ statusCode: 500, statusMessage: 'down' })
+      },
+    }))
+    const wrapper = await mountTrash()
+    await select(wrapper, 'a.png')
+    await button(wrapper, en['media.trash.purge'])?.trigger('click')
+    dialogButton(text('media.remove.confirm.purge', { what: en['media.remove.files'] }))?.click()
+
+    await vi.waitFor(() => expect(dialog()?.textContent).toContain(en['media.remove.title.partial']))
+    const problems = dialog()?.querySelector('.media-remove__problems')
+    expect(problems?.textContent).toContain('a.png')
+    expect(problems?.textContent).toContain(`${en['media.trash.purgeFailed'].replace(/\.$/, '')} (HTTP 500 · ${text('error.id', { id: sent })})`)
+    expect(problems?.querySelector(`button[aria-label="${text('error.idCopy', { id: sent })}"]`)).not.toBeNull()
+  })
+
+  it('names what failed in an empty with the HTTP status and the error id', async () => {
+    let sent = ''
+    unregisterAll.push(registerEndpoint('/api/media/trash/empty', {
+      method: 'POST',
+      handler: (event) => {
+        sent = getRequestHeader(event, 'x-request-id') ?? ''
+        throw createError({ statusCode: 503, statusMessage: 'unavailable' })
+      },
+    }))
+    const wrapper = await mountTrash()
+    await button(wrapper, en['media.trash.emptyAll'])?.trigger('click')
+    dialogButton(en['media.remove.confirm.empty'])?.click()
+
+    await vi.waitFor(() => expect(dialog()?.textContent).toContain(en['media.remove.title.partial']))
+    expect(dialog()?.querySelector('.media-remove__problems')?.textContent).toContain(`${en['media.trash.emptyFailed'].replace(/\.$/, '')} (HTTP 503 · ${text('error.id', { id: sent })})`)
+  })
+
+  it('names the files, the HTTP status and the error id of a failed restore in a toast that stays', async () => {
+    let sent = ''
+    unregisterAll.push(registerEndpoint('/api/media/trash/restore', {
+      method: 'POST',
+      handler: (event) => {
+        sent = getRequestHeader(event, 'x-request-id') ?? ''
+        throw createError({ statusCode: 500, statusMessage: 'down' })
+      },
+    }))
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    onTestFinished(() => { vi.useRealTimers() })
+    const wrapper = await mountTrash()
+    await select(wrapper, 'a.png')
+    await button(wrapper, en['media.trash.restore'])?.trigger('click')
+
+    const expected = () => `${text('media.trash.restoreFailed', { names: 'a.png' })} (HTTP 500 · ${text('error.id', { id: sent })})`
+    await vi.waitFor(() => expect(useToast().items.map((item) => item.message)).toContain(expected()))
+    vi.advanceTimersByTime(60_000)
+    expect(useToast().items.map((item) => item.message)).toContain(expected())
   })
 
   it('names an item the empty kept by its file name, also when it is not on the page shown', async () => {

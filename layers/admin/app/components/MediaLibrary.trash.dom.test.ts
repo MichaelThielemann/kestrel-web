@@ -1,5 +1,5 @@
 import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
-import { createError, getQuery, readBody } from 'h3'
+import { createError, getQuery, getRequestHeader, readBody } from 'h3'
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { computed, defineComponent, h, nextTick, ref } from 'vue'
 import type { VueWrapper } from '@vue/test-utils'
@@ -80,12 +80,15 @@ function serve(files: MediaItem[], answer: (ids: string[]) => { ids: string[]; s
   }))
 }
 
+const sentIds: Record<string, string> = {}
+
 function failFolderTrash(path: string) {
   folderList = [...folderList, path]
   unregisterAll.push(registerEndpoint(`/api/media/trash/folders/${path}`, {
     method: 'POST',
-    handler: () => {
+    handler: (event) => {
       posted.push({ path: `/media/trash/folders/${path}`, body: null })
+      sentIds[path] = getRequestHeader(event, 'x-request-id') ?? ''
       throw createError({ statusCode: 500, statusMessage: 'disk full' })
     },
   }))
@@ -196,6 +199,50 @@ describe('MediaLibrary with the trash', () => {
     expect(posted).toEqual([])
   })
 
+  it('names the HTTP status and the error id of a reference check that failed before the move', async () => {
+    schema.features = ['references' satisfies Feature]
+    schema.capabilities.mediaReferrersMany = { method: 'GET', path: '/admin/references/to/media' }
+    let sent = ''
+    unregisterAll.push(registerEndpoint('/api/admin/references/to/media', {
+      method: 'GET',
+      handler: (event) => {
+        sent = getRequestHeader(event, 'x-request-id') ?? ''
+        throw createError({ statusCode: 502, statusMessage: 'bad gateway' })
+      },
+    }))
+    serve([media('f1', 'a.jpg')])
+    const wrapper = await mountLibrary()
+    await vi.waitFor(() => expect(wrapper.find('[data-test="file-f1"]').exists()).toBe(true))
+
+    await select(wrapper, 'a.jpg')
+    await barButton(wrapper, en['media.selection.trash'])?.trigger('click')
+
+    await vi.waitFor(() => expect(dialog()?.querySelector('.ui-alert')?.textContent).toContain(`${en['media.remove.unverified'].replace(/\.$/, '')} (HTTP 502 · ${text('error.id', { id: sent })})`))
+    expect(posted).toEqual([])
+  })
+
+  it('names what failed in a final delete without the trash, with the HTTP status and the error id', async () => {
+    schema.mediaTrash = false
+    let sent = ''
+    unregisterAll.push(registerEndpoint('/api/media/f1', {
+      method: 'DELETE',
+      handler: (event) => {
+        sent = getRequestHeader(event, 'x-request-id') ?? ''
+        throw createError({ statusCode: 500, statusMessage: 'down' })
+      },
+    }))
+    serve([media('f1', 'a.jpg')])
+    const wrapper = await mountLibrary()
+    await vi.waitFor(() => expect(wrapper.find('[data-test="file-f1"]').exists()).toBe(true))
+
+    await select(wrapper, 'a.jpg')
+    await barButton(wrapper, en['media.selection.delete'])?.trigger('click')
+    await vi.waitFor(() => expect(dialogButton(text('media.remove.confirm.delete', { what: en['media.remove.files'] }))).toBeDefined())
+    dialogButton(text('media.remove.confirm.delete', { what: en['media.remove.files'] }))?.click()
+
+    await vi.waitFor(() => expect(dialog()?.querySelector('.media-remove__problems')?.textContent).toContain(`${en['media.remove.deleteFailed'].replace(/\.$/, '')} (HTTP 500 · ${text('error.id', { id: sent })})`))
+  })
+
   it('lists an item whose move failed and keeps it selected while the rest leaves', async () => {
     serve([media('f1', 'a.jpg'), media('f2', 'b.jpg')])
     failFolderTrash('drafts')
@@ -209,6 +256,8 @@ describe('MediaLibrary with the trash', () => {
     await vi.waitFor(() => expect(dialog()?.textContent).toContain(en['media.remove.title.partial']))
     expect(dialog()?.textContent).toContain('drafts')
     expect(dialog()?.textContent).toContain(en['media.remove.failed'])
+    expect(sentIds.drafts).toMatch(/^[0-9a-f]{12}$/)
+    expect(dialog()?.querySelector('.media-remove__problems')?.textContent).toContain(`${en['media.trash.trashFailed'].replace(/\.$/, '')} (HTTP 500 · ${text('error.id', { id: sentIds.drafts ?? '' })})`)
     await vi.waitFor(() => expect(wrapper.find('[data-test="file-f1"]').exists()).toBe(false))
     expect(wrapper.get('[data-test="folder-drafts"]').attributes('aria-pressed')).toBe('true')
   })

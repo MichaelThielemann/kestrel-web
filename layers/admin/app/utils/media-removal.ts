@@ -1,6 +1,8 @@
 import type { ReferenceTo } from '#kestrel-admin/types/api'
-import type { BulkReport } from '../actions/mediaTrash'
+import type { BulkFailure, BulkReport } from '../actions/mediaTrash'
+import { FAILURE_TOAST_MS } from '../actions/steps/notify'
 import type { Translate } from '../actions/types'
+import { answeredMessage, failureText } from '../composables/useApi'
 import { emptyFoldersBelow } from './library'
 import type { OpItem } from './ops'
 
@@ -10,8 +12,8 @@ export type RemovalMode = 'delete' | 'trash' | 'purge' | 'empty'
 /** One file the removal dialog lists; `path` is null for an item without a public copy, which shows its type icon. */
 export interface RemovalEntry { id: string; name: string; path: string | null; contentType?: string; refs: ReferenceTo[] }
 
-/** An item that was not removed, with the reason in words; `gone` marks one that no longer existed, which needs no action. */
-export interface RemovalProblem { id: string; name: string; reason: string; gone?: boolean }
+/** An item that was not removed, with the reason in words; `gone` marks one that no longer existed, which needs no action, and `requestId` is the error id of a failed request, offered to copy. */
+export interface RemovalProblem { id: string; name: string; reason: string; gone?: boolean; requestId?: string }
 
 export interface RemovalDialogState {
   mode: RemovalMode
@@ -20,6 +22,8 @@ export interface RemovalDialogState {
   entries: RemovalEntry[]
   /** The site tracks references, but whether these files are in use could not be checked. */
   unverified: boolean
+  /** Why the check failed, with the HTTP status and the error id of its request; null when no request failed. */
+  checkFailure: string | null
   nonEmptyFolders: boolean
   /** Blocks sent so far; shown only when there is more than one. */
   progress: { done: number; total: number } | null
@@ -33,7 +37,7 @@ export interface RemovalDialogState {
 }
 
 export function removalState(mode: RemovalMode, init: Partial<RemovalDialogState> = {}): RemovalDialogState {
-  return { mode, files: 0, folders: 0, entries: [], unverified: false, nonEmptyFolders: false, progress: null, stoppable: false, failures: [], skipped: [], cancelled: false, finished: false, ...init }
+  return { mode, files: 0, folders: 0, entries: [], unverified: false, checkFailure: null, nonEmptyFolders: false, progress: null, stoppable: false, failures: [], skipped: [], cancelled: false, finished: false, ...init }
 }
 
 /** "3 files and 1 folder", "1 file", "2 folders". */
@@ -53,14 +57,23 @@ const REASON_KEYS: Record<string, string> = {
   not_trashed: 'media.trash.reason.notTrashed',
 }
 
-/** The failed and skipped items of a bulk report, named for the dialog. */
-export function reportProblems(t: Translate, report: BulkReport, nameOf: (id: string) => string): Pick<RemovalDialogState, 'failures' | 'skipped' | 'cancelled'> {
+function skippedProblems(t: Translate, report: BulkReport, nameOf: (id: string) => string): RemovalProblem[] {
+  return report.skipped.map((s) => {
+    const key = REASON_KEYS[s.reason]
+    return { id: s.id, name: nameOf(s.id), reason: key ? t(key) : s.reason, ...(s.reason === NOT_FOUND ? { gone: true } : {}) }
+  })
+}
+
+/** The text of a failed bulk request: `lead` and the message of the answer, with the HTTP status and the error id, see `failureText`. */
+export function bulkFailureText(t: Translate, failure: BulkFailure, lead: string): string {
+  return failureText(t, answeredMessage(t, failure, lead), failure)
+}
+
+/** The failed and skipped items of a bulk report, named for the dialog; `leadKey` says what failed for every failed item. */
+export function reportProblems(t: Translate, report: BulkReport, nameOf: (id: string) => string, leadKey: string): Pick<RemovalDialogState, 'failures' | 'skipped' | 'cancelled'> {
   return {
-    failures: report.failed.map((f) => ({ id: f.id, name: nameOf(f.id), reason: f.message })),
-    skipped: report.skipped.map((s) => {
-      const key = REASON_KEYS[s.reason]
-      return { id: s.id, name: nameOf(s.id), reason: key ? t(key) : s.reason, ...(s.reason === NOT_FOUND ? { gone: true } : {}) }
-    }),
+    failures: report.failed.map((f) => ({ id: f.id, name: nameOf(f.id), reason: bulkFailureText(t, f, t(leadKey)), ...(f.requestId ? { requestId: f.requestId } : {}) })),
+    skipped: skippedProblems(t, report, nameOf),
     cancelled: report.cancelled,
   }
 }
@@ -75,16 +88,30 @@ export function hasProblems(problems: Pick<RemovalDialogState, 'failures' | 'ski
   return problems.failures.length > 0 || problems.cancelled || problems.skipped.some((p) => !p.gone)
 }
 
-/** A message about the outcome of a run, with the tone of a toast. */
-export interface RunMessage { type: 'success' | 'info' | 'error'; message: string }
+/** A message about the outcome of a run, with the tone of a toast; `timeout` overrides how long its toast stays. */
+export interface RunMessage { type: 'success' | 'info' | 'error'; message: string; timeout?: number }
 
-/** What a restore did, in words: how many came back, which were skipped and why, which failed and which came back under a new name. Says nothing about success when nothing came back. */
+function restoreFailures(t: Translate, failed: readonly BulkFailure[], nameOf: (id: string) => string): RunMessage[] {
+  const byRequest = new Map<string, BulkFailure[]>()
+  for (const f of failed) {
+    const key = f.requestId ?? f.runId ?? `${f.status} ${f.message}`
+    byRequest.set(key, [...(byRequest.get(key) ?? []), f])
+  }
+  return [...byRequest.values()].flatMap((group) => {
+    const first = group[0]
+    if (!first) return []
+    const message = bulkFailureText(t, first, t('media.trash.restoreFailed', { names: group.map((f) => nameOf(f.id)).join(', ') }))
+    return [{ type: 'error' as const, message, ...(first.requestId ?? first.runId ? { timeout: FAILURE_TOAST_MS } : {}) }]
+  })
+}
+
+/** What a restore did, in words: how many came back, which were skipped and why, which failed with the HTTP status and the error id of their request, and which came back under a new name. Says nothing about success when nothing came back. A failure that names an error id stays until it is dismissed. */
 export function restoreMessages(t: Translate, report: BulkReport, nameOf: (id: string) => string): RunMessage[] {
-  const problems = reportProblems(t, report, nameOf)
+  const skipped = skippedProblems(t, report, nameOf)
   const messages: RunMessage[] = []
   if (report.done.length) messages.push({ type: 'success', message: countMessage(t, 'media.trash.restored', report.done.length) })
-  if (problems.skipped.length) messages.push({ type: 'info', message: t('media.trash.notRestored', { names: problems.skipped.map((p) => `${p.name} (${p.reason})`).join(', ') }) })
-  if (problems.failures.length) messages.push({ type: 'error', message: t('media.trash.restoreFailed', { names: problems.failures.map((p) => p.name).join(', ') }) })
+  if (skipped.length) messages.push({ type: 'info', message: t('media.trash.notRestored', { names: skipped.map((p) => `${p.name} (${p.reason})`).join(', ') }) })
+  messages.push(...restoreFailures(t, report.failed, nameOf))
   if (report.renamed.length) messages.push({ type: 'info', message: t('media.trash.renamed', { names: report.renamed.map((rn) => `${rn.from} → ${rn.to}`).join(', ') }) })
   return messages
 }

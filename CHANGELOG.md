@@ -69,8 +69,9 @@
   request names the HTTP status and that id as the error id (`… (HTTP 409 · error ID 3f9a2c7b1e04)`):
   error toasts, the inline errors of forms and dialogs (save, rename, users, media details, folders,
   versions, maintenance tasks, the sign-in form), the load errors of lists, the media library, the page
-  tree, the dashboard and the System tabs, and a failed upload's row and tile. A failed upload offers to
-  copy the id, and a toast that names an id stays until it is dismissed. A request no server answered, or
+  tree, the dashboard and the System tabs, a failed upload's row and tile, and the media trash: a move to
+  the trash, a restore, a delete for good, an empty, the reference check before a removal and the trash
+  view's load. A failed upload and an item a removal dialog lists as failed offer to copy the id, and a toast that names an id stays until it is dismissed. A request no server answered, or
   one answered by a page a proxy or gateway wrote in its place, keeps what failed and adds "The request did
   not reach the server or was refused in front of it (HTTP 502 · error ID …)" instead of the proxy's page or
   a bare "Request failed"; after a timeout or a 504 it says that the server may still have processed the

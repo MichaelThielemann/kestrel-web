@@ -2,7 +2,7 @@ import type { Capability } from '#kestrel-admin/types/kestrel'
 import { describe, expect, it } from 'vitest'
 import { runAction } from '#kestrel-core/app/utils/actions'
 import { needsWarning, previewDeleteItems, type PreviewMediaDeleteInput } from './mediaPrecheck'
-import { fakeDeps } from './__fixtures__/fake-deps'
+import { fakeDeps, ledFailure, noAnswerFailure, referencedFailure, unansweredFetchError } from './__fixtures__/fake-deps'
 
 const MANY: Capability = { method: 'GET', path: '/admin/references/to/media' }
 const ONE: Capability = { method: 'GET', path: '/admin/references/to/media/:id' }
@@ -63,6 +63,22 @@ describe('previewDeleteItems', () => {
     const { report } = await precheck([apiError(403, 'FORBIDDEN')], { fileIds: ['a'], many: MANY })
     expect(report).toMatchObject({ checked: false, forbidden: true })
     expect(needsWarning(report)).toBe(true)
+  })
+
+  it('says what failed in a lookup that did not finish, with its HTTP status and error id', async () => {
+    const refused = await precheck([Object.assign(apiError(500, 'INTERNAL'), { options: { headers: new Headers({ 'x-request-id': '1a2b3c4d5e6f' }) }, response: { headers: new Headers() } })], { fileIds: ['a'], many: MANY })
+    expect(refused.report.failure).toBe(referencedFailure(ledFailure('media.remove.unverified', 'INTERNAL'), 500, '1a2b3c4d5e6f'))
+
+    const unanswered = await precheck([unansweredFetchError('0a0b0c0d0e0f')], { fileIds: ['a'], many: MANY })
+    expect(unanswered.report.failure).toBe(noAnswerFailure('media.remove.unverified', '0a0b0c0d0e0f'))
+  })
+
+  it('reports no failure when the lookup finished or did not need a request', async () => {
+    const finished = await precheck([{}], { fileIds: ['a'], many: MANY })
+    expect(finished.report.failure).toBeNull()
+
+    const closed = await precheck([], { fileIds: ['a'] })
+    expect(closed.report.failure).toBeNull()
   })
 
   it('counts as unverified when the references are tracked but no route is open to the account', async () => {

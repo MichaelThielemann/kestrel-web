@@ -10,6 +10,7 @@ import { folderIsEmpty } from '../utils/library'
 import { countMessage, goneIds, hasProblems, removalState, reportProblems, trashOutcome, type RemovalDialogState, type RemovalEntry, type RemovalProblem, type TrashOutcome } from '../utils/media-removal'
 import { resolveFileTargets, type OpItem } from '../utils/ops'
 import { referencedBy } from '../utils/references'
+import { answeredMessage, failureText } from './useApi'
 import { notifyMediaRemoved } from './useMediaChanges'
 import { useMediaUndo } from './useMediaUndo'
 
@@ -64,7 +65,7 @@ export function useMediaBulkActions(opts: UseMediaBulkActionsOptions) {
     const tracked = hasFeature('references') || caps?.mediaReferrersMany !== undefined || caps?.mediaReferrers !== undefined
     const r = await runAction(previewDeleteItems, { deps, fileIds: fileIdsOf(targets), folderPaths: folderPathsOf(targets), many: caps?.mediaReferrersMany, one: caps?.mediaReferrers, tracked, listFolders })
     toastUnexpected(deps, r)
-    return r.ok && r.result ? r.result : { references: new Map(), folderFiles: [], checked: false, forbidden: false, tracked }
+    return r.ok && r.result ? r.result : { references: new Map(), folderFiles: [], checked: false, forbidden: false, tracked, failure: null }
   }
 
   function withReferences(report: DeletePrecheck): RemovalEntry[] {
@@ -89,7 +90,7 @@ export function useMediaBulkActions(opts: UseMediaBulkActionsOptions) {
       const report = await precheck(true)
       if (my !== request) return
       entries = withReferences(report)
-      if (state.value?.mode === 'delete') state.value = { ...state.value, entries, unverified: needsWarning(report) && !report.checked }
+      if (state.value?.mode === 'delete') state.value = { ...state.value, entries, unverified: needsWarning(report) && !report.checked, checkFailure: report.failure }
       return
     }
     opts.ops.setBusy(true)
@@ -100,7 +101,7 @@ export function useMediaBulkActions(opts: UseMediaBulkActionsOptions) {
       await moveToTrash()
       return
     }
-    state.value = removalState('trash', { ...counts(), entries, unverified: !report.checked })
+    state.value = removalState('trash', { ...counts(), entries, unverified: !report.checked, checkFailure: report.failure })
   }
 
   function onProgress(done: number, total: number) {
@@ -128,7 +129,7 @@ export function useMediaBulkActions(opts: UseMediaBulkActionsOptions) {
     const report = (r.ok ? r.result : undefined) ?? reported.report
     if (!report) return
     removed([...report.done, ...goneIds(report)])
-    const problems = reportProblems(t, report, nameOf)
+    const problems = reportProblems(t, report, nameOf, 'media.trash.trashFailed')
     const left = hasProblems(problems)
     const outcome = trashOutcome(targets, report, before)
     if (outcome.moved || outcome.emptied) undo.offer(trashMessage(outcome), outcome.undoIds, new Map(entries.map((e) => [e.id, e.name])), { hold: left })
@@ -145,8 +146,8 @@ export function useMediaBulkActions(opts: UseMediaBulkActionsOptions) {
   function deleteProblems(result: DeleteItemsResult): RemovalProblem[] {
     return [...result.files.results, ...result.folders.results].filter((item) => !item.ok).map((item) => {
       const refs = item.code === 'CONFLICT' ? referencedBy(item.details, item.message ?? '') : []
-      const reason = refs.length ? t('media.trash.reason.referenced') : (item.message ?? '')
-      return { id: item.id, name: nameOf(item.id), reason }
+      const reason = refs.length ? t('media.trash.reason.referenced') : answeredMessage(t, item, t('media.remove.deleteFailed'))
+      return { id: item.id, name: nameOf(item.id), reason: failureText(t, reason, item), ...(item.requestId ? { requestId: item.requestId } : {}) }
     })
   }
 

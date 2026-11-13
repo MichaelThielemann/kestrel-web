@@ -30,9 +30,9 @@ export function useMediaUndo(opts: { inline: boolean; onRestored?: (fileIds: rea
       notice.value = { type, message: messages.map((m) => m.message).join(' '), ...(undo ? { undo } : {}) }
       return
     }
-    for (const { type, message } of messages) {
+    for (const { type, message, timeout } of messages) {
       if (undo) toasts.push(type, message, { timeout: UNDO_TIMEOUT_MS, action: { label: t('media.trash.undo'), run: undo } })
-      else toasts[type](message)
+      else toasts[type](message, timeout)
     }
   }
 

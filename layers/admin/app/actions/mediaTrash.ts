@@ -1,5 +1,5 @@
 import { defineAction, type ActionContext, type ActionStep } from '#kestrel-core/app/utils/actions'
-import { apiErrorMessage } from '../composables/useApi'
+import { toApiError, type FailureTrace } from '../composables/useApi'
 import type { ApiRoute } from '../utils/capabilities'
 import { defineUiStep } from './define'
 import { inBlocks } from './mediaPrecheck'
@@ -10,8 +10,16 @@ import type { RefreshPort, WithDeps } from './types'
 /** An id the server left alone, with its reason: `not_found`, `not_trashed`, `referenced`. */
 export interface BulkSkip { id: string; reason: string }
 
-/** An id, or a folder path, whose request failed. */
-export interface BulkFailure { id: string; message: string }
+/** An id, or a folder path, whose request failed: the message of the answer and where the request can be found again, for `failureText`. */
+export interface BulkFailure extends FailureTrace {
+  id: string
+  /** The message of the answer; empty when the answer carried none. */
+  message: string
+  status: number
+  code: string
+  /** False when no answer came from kestrel or the host server. */
+  reached: boolean
+}
 
 export interface BulkRename { id: string; from: string; to: string }
 
@@ -63,6 +71,14 @@ export function emptyBulkReport(): BulkReport {
   return { done: [], unchanged: [], skipped: [], failed: [], renamed: [], cancelled: false, unsent: [], folders: [] }
 }
 
+function failureOf(e: unknown): Omit<BulkFailure, 'id'> {
+  const err = toApiError(e)
+  return {
+    message: err.message, status: err.status, code: err.code, reached: err.reached,
+    ...(err.requestId ? { requestId: err.requestId } : {}), ...(err.runId ? { runId: err.runId } : {}),
+  }
+}
+
 function bulkStep<I extends BulkInput>(name: UiStepName, calls: (ctx: ActionContext<I, BulkReport>) => BulkCall[]): ActionStep<I, BulkReport> {
   return defineUiStep<I, BulkReport>(name, async (ctx) => {
     const { deps, signal, onProgress } = ctx.input
@@ -84,8 +100,8 @@ function bulkStep<I extends BulkInput>(name: UiStepName, calls: (ctx: ActionCont
         report.renamed.push(...(answer.renamed ?? []))
         if (call.folder !== undefined) report.folders.push({ path: call.folder, moved: answer.ids.filter((id) => !unchanged.includes(id)) })
       } catch (e) {
-        const message = apiErrorMessage(e)
-        report.failed.push(...call.ids.map((id) => ({ id, message })))
+        const failure = failureOf(e)
+        report.failed.push(...call.ids.map((id) => ({ id, ...failure })))
       }
       onProgress?.(index + 1, list.length)
     }

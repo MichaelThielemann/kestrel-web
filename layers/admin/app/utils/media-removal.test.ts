@@ -1,8 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { emptyBulkReport, type BulkReport } from '../actions/mediaTrash'
-import { restoreMessages, trashOutcome } from './media-removal'
+import { emptyBulkReport, type BulkFailure, type BulkReport } from '../actions/mediaTrash'
+import { FAILURE_TOAST_MS } from '../actions/steps/notify'
+import { ledFailure, noAnswerFailure, referencedFailure } from '../actions/__fixtures__/fake-deps'
+import { reportProblems, restoreMessages, trashOutcome } from './media-removal'
 
 const report = (init: Partial<BulkReport>): BulkReport => ({ ...emptyBulkReport(), ...init })
+
+const failure = (id: string, message: string, status: number, requestId?: string): BulkFailure => ({
+  id, message, status, code: 'INTERNAL', reached: true, ...(requestId ? { requestId } : {}),
+})
 
 describe('trashOutcome', () => {
   it('undoes only what the run moved, never what was in the trash already', () => {
@@ -38,7 +44,7 @@ describe('trashOutcome', () => {
   it('does not count a failed folder at all', () => {
     const outcome = trashOutcome(
       [{ type: 'folder', path: 'docs' }],
-      report({ failed: [{ id: 'docs', message: 'boom' }] }),
+      report({ failed: [failure('docs', 'boom', 500)] }),
       new Map([['docs', 2]]),
     )
 
@@ -52,11 +58,22 @@ describe('restoreMessages', () => {
   const nameOf = (id: string) => names.get(id) ?? id
 
   it('names skipped and failed items by file name and says nothing about success when nothing came back', () => {
-    const messages = restoreMessages(t, report({ skipped: [{ id: 'a', reason: 'not_found' }], failed: [{ id: 'b', message: 'boom' }] }), nameOf)
+    const messages = restoreMessages(t, report({ skipped: [{ id: 'a', reason: 'not_found' }], failed: [failure('b', 'boom', 500)] }), nameOf)
 
     expect(messages).toEqual([
       { type: 'info', message: 'media.trash.notRestored:{"names":"a.jpg (media.trash.reason.notFound)"}' },
-      { type: 'error', message: 'media.trash.restoreFailed:{"names":"b.jpg"}' },
+      { type: 'error', message: referencedFailure(ledFailure('media.trash.restoreFailed:{"names":"b.jpg"}', 'boom'), 500) },
+    ])
+  })
+
+  it('names the files of each failed request with its HTTP status and error id, and keeps such a message until it is dismissed', () => {
+    const messages = restoreMessages(t, report({
+      failed: [failure('a', 'boom', 500, 'aaaaaaaaaaaa'), failure('b', 'boom', 500, 'aaaaaaaaaaaa'), { ...failure('c', 'Request failed', 0, 'cccccccccccc'), reached: false }],
+    }), nameOf)
+
+    expect(messages).toEqual([
+      { type: 'error', message: referencedFailure(ledFailure('media.trash.restoreFailed:{"names":"a.jpg, b.jpg"}', 'boom'), 500, 'aaaaaaaaaaaa'), timeout: FAILURE_TOAST_MS },
+      { type: 'error', message: noAnswerFailure('media.trash.restoreFailed:{"names":"c.jpg"}', 'cccccccccccc'), timeout: FAILURE_TOAST_MS },
     ])
   })
 
@@ -66,6 +83,19 @@ describe('restoreMessages', () => {
     expect(messages).toEqual([
       { type: 'success', message: 'media.trash.restoredPlural:{"n":2}' },
       { type: 'info', message: 'media.trash.renamed:{"names":"c.jpg → c-2.jpg"}' },
+    ])
+  })
+})
+
+describe('reportProblems', () => {
+  const t = (key: string, params?: Record<string, unknown>) => (params ? `${key}:${JSON.stringify(params)}` : key)
+
+  it('says per item what failed, with the HTTP status and the error id of its request, and keeps the id to copy', () => {
+    const problems = reportProblems(t, report({ failed: [failure('a', 'disk full', 507, 'abcdefabcdef'), failure('docs', '', 500)] }), (id) => (id === 'a' ? 'a.jpg' : id), 'media.trash.trashFailed')
+
+    expect(problems.failures).toEqual([
+      { id: 'a', name: 'a.jpg', reason: referencedFailure(ledFailure('media.trash.trashFailed', 'disk full'), 507, 'abcdefabcdef'), requestId: 'abcdefabcdef' },
+      { id: 'docs', name: 'docs', reason: referencedFailure('media.trash.trashFailed', 500) },
     ])
   })
 })

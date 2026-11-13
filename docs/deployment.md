@@ -475,9 +475,10 @@ The layer's own routes write no `http` line: `/api/health`, `/api/ready`, `/api/
 ### Finding the line behind an error in the admin
 
 Every request of the admin carries a fresh `X-Request-Id` of twelve hex digits, and the message of every
-failed request names the HTTP status and that id, in a toast, an inline error or an upload row alike, for
-example `That username is already taken (HTTP 409 · error ID 3f9a2c7b1e04)`. A failed upload offers to copy
-the id, and an error toast that names it stays until it is dismissed.
+failed request names the HTTP status and that id, in a toast, an inline error, an upload row or a row of the
+media removal dialog alike, for example `That username is already taken (HTTP 409 · error ID 3f9a2c7b1e04)`.
+A failed upload and a failed row of the removal dialog offer to copy the id, and an error toast that names it
+stays until it is dismissed.
 Search the log for it:
 
 ```sh

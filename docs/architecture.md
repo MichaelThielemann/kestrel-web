@@ -873,7 +873,11 @@ collection, the expected filter and the fix in the message.
     more than one request. A check that answers after a newer delete request opened the dialog is dropped.
     "Stop" replaces "Cancel" only while another request is left to send after the one under way; during
     the last or only request, "Cancel" stays disabled. Items the server leaves alone (`skipped`) or whose request failed are
-    listed in the dialog by name and reason, stay in the listing and stay selected; the rest leave. An item
+    listed in the dialog by name and reason, stay in the listing and stay selected; the rest leave. The
+    reason of a failed request says what failed ("Moving to the trash failed", "Deleting failed"), then the
+    server's detail, the HTTP status and the error id (`bulkFailureText()` in `utils/media-removal.ts`), and
+    its row offers to copy the id; a reference check that failed says so in the dialog's warning with its
+    status and id. An item
     the server reports as `not_found` is gone already: it counts as removed, opens no report by itself and,
     when the report opens for another item, is listed without the "Kept" status. When a run ends in a dialog
     that was already open, focus moves to its "Undo", or to "Close" without one, and a status region in the
@@ -890,9 +894,12 @@ collection, the expected filter and the fix in the message.
     `pages/admin/media.vue` then renders `MediaTrash.vue` instead of the library. It lists one page of
     trashed items (`MediaTrashTable.vue`: name, folder, trashed on, when it is deleted for good) with the
     list selection (`useListSelection`) and the kit `BulkBar`: "Restore" runs at once and reports renamed
-    and skipped items in a toast, "Delete permanently" and "Empty trash" go through `MediaDeleteDialog.vue`,
+    and skipped items in a toast, and failed ones by file name with the HTTP status and the error id of
+    their request in an error toast that stays until it is dismissed, "Delete permanently" and "Empty trash" go through `MediaDeleteDialog.vue`,
     which keeps items still in use listed as kept, named by file name also when they are not on the page
-    shown (looked up with `findTrashed()`); a failed "Empty trash" is reported under "Trash". With
+    shown (looked up with `findTrashed()`); a failed "Empty trash" is reported under "Trash". A failed
+    delete for good or empty names what failed, the HTTP status and the error id like the library's
+    dialog, and so does the view when its page of trashed items cannot be loaded. With
     `mediaReferrersMany`, the rows of items that pages still use say "In use – stays" in place of a date,
     since the purge keeps them, and a row past its date says it goes with the next cleanup. A trashed item
     has no public copy, so the dialog shows type icons. Only the answer to the latest page request is shown. After a restore or a delete for good,

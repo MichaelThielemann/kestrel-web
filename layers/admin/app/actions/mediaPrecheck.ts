@@ -1,7 +1,7 @@
 import type { ListPage, MediaItem, ReferenceTo } from '#kestrel-admin/types/api'
 import type { Capability } from '#kestrel-admin/types/kestrel'
 import { defineAction } from '#kestrel-core/app/utils/actions'
-import { apiErrorCode } from '../composables/useApi'
+import { apiErrorText, toApiError } from '../composables/useApi'
 import { routeFrom } from '../utils/capabilities'
 import { defineUiStep } from './define'
 import type { ActionDeps, WithDeps } from './types'
@@ -43,6 +43,8 @@ export interface DeletePrecheck {
   forbidden: boolean
   /** The site tracks references; `false` means nothing needed checking. */
   tracked: boolean
+  /** Why a lookup request failed, with its HTTP status and error id; null when none failed. */
+  failure: string | null
 }
 
 async function filesBelow(deps: ActionDeps, path: string): Promise<MediaItem[]> {
@@ -77,7 +79,7 @@ async function lookup(input: PreviewMediaDeleteInput, ids: readonly string[], re
 
 const precheck = defineUiStep<PreviewMediaDeleteInput, DeletePrecheck>('media.precheck', async (ctx) => {
   const { deps, tracked } = ctx.input
-  const report: DeletePrecheck = { references: new Map(), folderFiles: [], checked: false, forbidden: false, tracked }
+  const report: DeletePrecheck = { references: new Map(), folderFiles: [], checked: false, forbidden: false, tracked, failure: null }
   ctx.result = report
   if (!tracked && !ctx.input.listFolders) return
   try {
@@ -86,7 +88,8 @@ const precheck = defineUiStep<PreviewMediaDeleteInput, DeletePrecheck>('media.pr
     await lookup(ctx.input, [...new Set([...ctx.input.fileIds, ...report.folderFiles.map((f) => f.id)])], report.references)
     report.checked = true
   } catch (e) {
-    report.forbidden = apiErrorCode(e) === 'FORBIDDEN'
+    report.forbidden = toApiError(e).code === 'FORBIDDEN'
+    report.failure = apiErrorText(deps.t, e, deps.t('media.remove.unverified'))
     report.references.clear()
   }
 })

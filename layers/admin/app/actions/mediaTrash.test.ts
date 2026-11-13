@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { runAction } from '#kestrel-core/app/utils/actions'
 import { emptyTrash, purgeItems, restoreItems, trashItems } from './mediaTrash'
-import { fakeDeps } from './__fixtures__/fake-deps'
+import { fakeDeps, unansweredFetchError } from './__fixtures__/fake-deps'
 
 const apiError = (status: number, message: string) => Object.assign(new Error(message), {
   status, name: 'ApiError', data: { error: message, code: status === 404 ? 'NOT_FOUND' : 'INTERNAL', retryable: false },
@@ -82,7 +82,19 @@ describe('trashItems', () => {
     const result = await runAction(trashItems, { deps, fileIds: ['a', 'b'], folderPaths: ['old'], refresh: vi.fn(() => undefined) })
 
     expect(result.ok && result.result?.failed).toEqual([
-      { id: 'a', message: 'boom' }, { id: 'b', message: 'boom' }, { id: 'old', message: 'gone' },
+      { id: 'a', message: 'boom', status: 500, code: 'INTERNAL', reached: true },
+      { id: 'b', message: 'boom', status: 500, code: 'INTERNAL', reached: true },
+      { id: 'old', message: 'gone', status: 404, code: 'NOT_FOUND', reached: true },
+    ])
+  })
+
+  it('keeps the error id of a block that got no answer and marks it as not reaching the server', async () => {
+    const { deps } = fakeDeps([unansweredFetchError('0a0b0c0d0e0f')])
+
+    const result = await runAction(trashItems, { deps, fileIds: ['a'], folderPaths: [], refresh: vi.fn(() => undefined) })
+
+    expect(result.ok && result.result?.failed).toEqual([
+      { id: 'a', message: 'Request failed', status: 0, code: 'INTERNAL', reached: false, requestId: '0a0b0c0d0e0f' },
     ])
   })
 })

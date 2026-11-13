@@ -8,6 +8,7 @@ import { toastUnexpected } from '../actions/steps/notify'
 import type { ApiClient } from '../actions/types'
 import type { CapabilityResolver } from '../utils/capabilities'
 import { countMessage, hasProblems, removalState, reportProblems, restoreMessages, type RemovalDialogState } from '../utils/media-removal'
+import { apiErrorText } from './useApi'
 import { onMediaChanged } from './useMediaChanges'
 
 /** The number of items in the media trash, for the library's entry to it; `null` while unknown or without access. */
@@ -109,7 +110,7 @@ export function useMediaTrash(opts: { onSettled?: () => void } = {}) {
         await load()
       }
     } catch (e) {
-      if (my === token) error.value = apiErrorMessage(e)
+      if (my === token) error.value = apiErrorText(t, e, t('media.trash.loadError'))
     } finally {
       if (my === token) loading.value = false
     }
@@ -127,7 +128,7 @@ export function useMediaTrash(opts: { onSettled?: () => void } = {}) {
     toastUnexpected(deps, r)
     const report = (r.ok ? r.result : undefined) ?? reported.report
     if (!report) return
-    for (const { type, message } of restoreMessages(t, report, (id) => names.get(id) ?? id)) toasts[type](message)
+    for (const { type, message, timeout } of restoreMessages(t, report, (id) => names.get(id) ?? id)) toasts[type](message, timeout)
     opts.onSettled?.()
   }
 
@@ -170,7 +171,7 @@ export function useMediaTrash(opts: { onSettled?: () => void } = {}) {
     const outcome = (r.ok ? r.result : undefined) ?? reported.report
     if (outcome?.skipped.length) await nameKept(outcome)
     busy.value = false
-    if (outcome) settle(outcome)
+    if (outcome) settle(outcome, current.mode)
   }
 
   async function nameKept(report: BulkReport) {
@@ -182,9 +183,9 @@ export function useMediaTrash(opts: { onSettled?: () => void } = {}) {
     }
   }
 
-  function settle(report: BulkReport) {
+  function settle(report: BulkReport, mode: RemovalDialogState['mode']) {
     if (report.done.length) toasts.success(countMessage(t, 'media.trash.purged', report.done.length))
-    const problems = reportProblems(t, report, nameOf)
+    const problems = reportProblems(t, report, nameOf, mode === 'empty' ? 'media.trash.emptyFailed' : 'media.trash.purgeFailed')
     if (hasProblems(problems)) {
       if (dialog.value) dialog.value = { ...dialog.value, ...problems, progress: null, stoppable: false, finished: true }
       return
