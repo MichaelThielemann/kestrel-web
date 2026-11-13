@@ -8,6 +8,7 @@ import { deliveryAsyncRule, deliveryDependenciesRule, mediaEventIdsRule, mediaPa
 import { definePipeline } from "@michaelthielemann/kestrel/definePipeline";
 import type { PipelineEntry } from "@michaelthielemann/kestrel/definePipeline";
 import { checkPreset } from "../pipelines/checkPreset";
+import { MEDIA_DEPENDENT_EVENTS } from "../pipelines/features/delivery";
 import type { PresetEntry } from "../pipelines/compose";
 import type { PresetStep } from "../module-registry";
 import { overrideEmitRule } from "./overrideEmit";
@@ -394,6 +395,14 @@ describe("own triggers on media events", () => {
     ]);
     expect(findings[0]?.message).toContain("id: null");
     expect(findings[1]?.message).toContain('"images.variantsChanged"');
+  });
+
+  it("notes an own trigger on every event that marks the readers of media, the trash moves included", async () => {
+    const source = `export const triggers = [${MEDIA_DEPENDENT_EVENTS.map((event) => `{ event: "${event}", pipeline: "mirror" }`).join(", ")}];\n`;
+    const findings = await mediaEventIdsRule.check(projectWith({ "pipelines/index.ts": source }));
+    expect(findings).toHaveLength(MEDIA_DEPENDENT_EVENTS.length);
+    expect(MEDIA_DEPENDENT_EVENTS).toEqual(expect.arrayContaining(["media.trashed", "media.restored"]));
+    expect(findings.find((f) => f.message.includes('"media.trashed"'))?.message).toContain("trash");
   });
 
   it("says nothing without such a trigger", async () => {

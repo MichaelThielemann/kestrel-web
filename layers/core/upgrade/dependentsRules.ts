@@ -8,6 +8,7 @@ import { lanesFor, relayPipelinesFor } from "../pipelines/checkPreset";
 import type { Feature } from "../pipelines/checkPreset";
 import { consumerScripts } from "./consumerRules";
 import { QUEUE_DEFAULT_BACKOFF_SECONDS, QUEUE_DEFAULT_MAX_ATTEMPTS } from "../pipelines/config";
+import { MEDIA_DEPENDENT_EVENTS } from "../pipelines/features/delivery";
 import { addModuleEntryConfigProperty, hasModuleEntry, setDependenciesRender, setModuleEntryConfigProperties, setPresetModuleConfigOverride } from "./edits";
 import type { PropertyText } from "./edits";
 import { layerProjectData } from "./load";
@@ -226,7 +227,6 @@ export const settingsLlmsRule: Rule = {
   },
 };
 
-const MEDIA_EVENTS = ["media.updated", "media.deleted", "images.variantsChanged"];
 const TRIGGER_FILES = ["kestrel.config.ts", join("pipelines", "index.ts")];
 
 function ownTriggers(source: string): Array<{ event: string; pipeline: string | undefined }> {
@@ -234,13 +234,13 @@ function ownTriggers(source: string): Array<{ event: string; pipeline: string | 
   walk(parseTs(source), (node) => {
     if (node.type !== "ObjectExpression") return;
     const event = stringValue(objectProperty(node, "event"));
-    if (event === undefined || !MEDIA_EVENTS.includes(event)) return;
+    if (event === undefined || !MEDIA_DEPENDENT_EVENTS.includes(event)) return;
     found.push({ event, pipeline: stringValue(objectProperty(node, "pipeline")) });
   });
   return found;
 }
 
-/** A trigger of the project's own on a media event: a folder deletion and the events `images-default` raises arrive with `id: null` and every id in `ids`. Information only. */
+/** A trigger of the project's own on a media event: a folder deletion, a move into or out of the trash and the events `images-default` raises arrive with `id: null` and every id in `ids`. Information only. */
 export const mediaEventIdsRule: SourceRule = {
   id: "runtime/media-event-ids",
   needs: "source",
@@ -258,7 +258,7 @@ export const mediaEventIdsRule: SourceRule = {
             `${rule}:${event}:${pipeline ?? ""}`,
             "info",
             { file, ...(pipeline === undefined ? {} : { pipeline }) },
-            `${pipeline === undefined ? "a pipeline" : `"${pipeline}"`} runs on "${event}", which can arrive with id: null and the affected ids in ids (a folder deletion, and the events images-default raises itself)`,
+            `${pipeline === undefined ? "a pipeline" : `"${pipeline}"`} runs on "${event}", which can arrive with id: null and the affected ids in ids (a folder deletion, a move into or out of the trash, and the events images-default raises itself)`,
             "read payload.ids as well as payload.id",
             { kind: "none" },
           ),

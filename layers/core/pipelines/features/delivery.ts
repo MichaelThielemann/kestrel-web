@@ -19,7 +19,8 @@ export const RESUME_STALE_PIPELINE = "resumeStalePages";
 
 const MULTI_CHANGES = ["created", "updated", "deleted", "restored", "translationRemoved"] as const;
 const SINGLE_CHANGES = ["updated"] as const;
-const MEDIA_CHANGES = ["media.updated", "media.deleted", "images.variantsChanged"] as const;
+/** The events that mark the pages reading a media item for a re-render; a trigger on one that no composed pipeline emits is left out. */
+export const MEDIA_DEPENDENT_EVENTS: readonly string[] = ["media.updated", "media.deleted", "images.variantsChanged", "media.trashed", "media.restored"];
 
 /** The pipeline that marks the pages which read a collection's documents: `pageDependents` for `pages`, `<name>Dependents` for any other collection. */
 export function dependentsPipelineName(collection: string): string {
@@ -45,7 +46,7 @@ function dependents(collections: Record<string, CollectionModel>): { pipelines: 
   pipelines[SETTINGS_DEPENDENTS_PIPELINE] = ["delivery.markDependents:settings", "delivery.requestLlms"];
   triggers.push({ event: "settings.updated", pipeline: SETTINGS_DEPENDENTS_PIPELINE });
   pipelines[MEDIA_DEPENDENTS_PIPELINE] = ["delivery.markDependents:media"];
-  for (const event of MEDIA_CHANGES) triggers.push({ event, pipeline: MEDIA_DEPENDENTS_PIPELINE });
+  for (const event of MEDIA_DEPENDENT_EVENTS) triggers.push({ event, pipeline: MEDIA_DEPENDENTS_PIPELINE });
   return { pipelines, triggers };
 }
 
