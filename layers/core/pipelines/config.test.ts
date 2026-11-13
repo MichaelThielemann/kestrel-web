@@ -10,6 +10,7 @@ import { delaysFor, lanesFor, presetSchemas } from "./index";
 import type { Feature } from "./index";
 import type { CollectionModel } from "./collections";
 import { deviceKeys } from "../config";
+import { canonicalUrl } from "../app/utils/canonical";
 import { resolveStorageTypes } from "../field-types";
 import { contentModel, contentTypes, features } from "../../../playground/shared/model";
 import fieldTypes from "../../../playground/shared/field-types";
@@ -626,6 +627,17 @@ describe("site URL, sitemap, robots and llms", () => {
     expect(siteUrl).toBe(normalizeSiteUrl("https://example.test/de"));
     expect(pageUrl(typeof siteUrl === "string" ? siteUrl : undefined, "/")).toBe("https://example.test/de/");
     expect(pageUrl(typeof siteUrl === "string" ? siteUrl : undefined, "/about")).toBe("https://example.test/de/about");
+  });
+
+  it("gives every page's canonical URL exactly the sitemap <loc> for the same NUXT_PUBLIC_SITE_URL", () => {
+    for (const raw of ["https://example.test", "https://Example.test/", "https://example.test:443/de/", "http://example.test:8080/base//"]) {
+      vi.stubEnv("NUXT_PUBLIC_SITE_URL", raw);
+      const siteUrl = fieldOf(configFor(presetModuleConfig(playgroundOptions()), "delivery-static"), "siteUrl");
+      expect(typeof siteUrl).toBe("string");
+      for (const path of ["/", "/about", "/en/about-us/team"]) {
+        expect(canonicalUrl(raw, path)).toBe(pageUrl(typeof siteUrl === "string" ? siteUrl : undefined, path));
+      }
+    }
   });
 
   it("refuses llms.siteUrl, which moved to the top-level siteUrl, and a site URL that is not one", () => {

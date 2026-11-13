@@ -5,6 +5,7 @@ import { isFallbackDocument, primaryPathOf } from '../utils/untranslated'
 import { resolvePageLayout } from '../utils/page-layout'
 import { isPageResponse, isRedirectResponse, isRouteHint, redirectNavigation } from '../utils/site-redirect'
 import { sitePath } from '../utils/site-path'
+import { absoluteUrl, canonicalUrl } from '#kestrel-core/app/utils/canonical'
 import { toPublicSiteResponse } from '../utils/public-shapes'
 import type { PublicPageDocument, PublicSiteResponse, SiteResponse } from '#kestrel-core/app/types/api'
 import { boundaryCast } from '#kestrel/cast'
@@ -86,20 +87,28 @@ const [{ data: siteSettings }, { data: shareItem }] = await Promise.all([
   useSiteSettings(locale),
   useMediaItem(() => page.value?.shareImage ?? null, locale),
 ])
+const canonical = computed(() => {
+  const own = page.value?._paths?.[locale.value]
+  return canonicalUrl(siteUrl, typeof own === 'string' ? own : sitePath(route.path))
+})
 useHead(() => {
   const seo = page.value?.seo ?? {}
   const title = seo.title || page.value?.title || ''
   const description = metaDescription(seo.description, siteSettings.value?.description)
-  const image = shareItem.value ? `${siteUrl}${shareItem.value.path}` : ''
+  const image = shareItem.value ? absoluteUrl(siteUrl, shareItem.value.path) : ''
+  const siteName = siteSettings.value?.title
   return {
     htmlAttrs: { lang: locale.value },
     titleTemplate: siteTitleTemplate(siteSettings.value?.title, siteSettings.value?.titleSeparator, siteSettings.value?.titlePosition),
     title,
+    link: canonical.value ? [{ rel: 'canonical', href: canonical.value }] : [],
     meta: [
       ...(description ? [{ name: 'description', content: description }, { property: 'og:description', content: description }] : []),
       ...(seo.noindex ? [{ name: 'robots', content: 'noindex, nofollow' }] : []),
       { property: 'og:title', content: title },
       { property: 'og:type', content: 'website' },
+      ...(canonical.value ? [{ property: 'og:url', content: canonical.value }] : []),
+      ...(siteName ? [{ property: 'og:site_name', content: siteName }] : []),
       ...(image ? [{ property: 'og:image', content: image }, { name: 'twitter:card', content: 'summary_large_image' }] : []),
     ],
   }

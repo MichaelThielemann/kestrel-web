@@ -177,7 +177,7 @@ export default withNuxt(
     rules: {
       '@typescript-eslint/no-restricted-imports': [
         'error',
-        { patterns: [{ regex: '^(?!@michaelthielemann/kestrel-renderer-nuxt/static-marker$)@michaelthielemann/kestrel(-[a-z0-9-]+)?(/.*)?$', allowTypeImports: false, message: 'UI code does not import Kestrel backend packages; take types from #kestrel-core/app/types/api.' }] },
+        { patterns: [{ regex: '^(?!@michaelthielemann/kestrel-renderer-nuxt/static-marker$|@michaelthielemann/kestrel-delivery-static/site-url$)@michaelthielemann/kestrel(-[a-z0-9-]+)?(/.*)?$', allowTypeImports: false, message: 'UI code does not import Kestrel backend packages; take types from #kestrel-core/app/types/api.' }] },
       ],
     },
   },

@@ -81,6 +81,14 @@ describe("project-specific eslint rules have a violating fixture", { timeout: 20
     expectMessage(root, "@typescript-eslint/no-restricted-imports", "UI code does not import Kestrel backend packages");
   });
 
+  it("kestrel/no-backend-in-ui-layers: allows delivery-static's site-url subpath, and only that subpath of delivery-static", async () => {
+    const siteUrl = await lintVirtual('import { pageUrl } from "@michaelthielemann/kestrel-delivery-static/site-url";\n', "layers/public/app/probe.ts");
+    expect(siteUrl.some((m) => m.ruleId === "@typescript-eslint/no-restricted-imports")).toBe(false);
+
+    const impl = await lintVirtual('import { createDeliveryStatic } from "@michaelthielemann/kestrel-delivery-static/impl";\n', "layers/public/app/probe.ts");
+    expectMessage(impl, "@typescript-eslint/no-restricted-imports", "UI code does not import Kestrel backend packages");
+  });
+
   it("kestrel/backend-types-only-in-core-app-types: bans a value import of a Kestrel backend package", async () => {
     const messages = await lintVirtual('import { x } from "@michaelthielemann/kestrel";\n', "layers/core/app/types/probe.ts");
     expectMessage(messages, "@typescript-eslint/no-restricted-imports", "layers/core/app/types may import Kestrel backend packages as types only.");
