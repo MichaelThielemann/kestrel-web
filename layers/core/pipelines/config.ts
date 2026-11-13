@@ -91,7 +91,7 @@ export interface PresetLlms {
 /** What delivery-static writes to `robots.txt`; `false` leaves robots.txt to the site. */
 export type PresetRobots =
   | {
-      /** `"allow"` lets crawlers in, `"disallow"` keeps them out; without it, `allow` in a production build (`nuxt build` fixes `NODE_ENV` to `production` inside the server bundle, whatever the running process sets) and `disallow` under `nuxt dev`, with a warning at boot. */
+      /** `"allow"` lets crawlers in, `"disallow"` keeps them out; without it, the policy `KESTREL_ROBOTS_POLICY` names, and with that unset too `allow` in a production build (`nuxt build` fixes `NODE_ENV` to `production` inside the server bundle, whatever the running process sets) and `disallow` under `nuxt dev`, with a warning at boot. */
       policy?: "allow" | "disallow";
       /** Lines appended verbatim after the policy, such as `Disallow: /preview/`. */
       extra?: string[];

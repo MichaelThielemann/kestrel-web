@@ -438,7 +438,7 @@ const modules = [
   { use: "@michaelthielemann/kestrel-links-default", config: { timeoutMs: 10000, concurrency: 4, recheckAfterSeconds: 21600 } },
   { use: "@michaelthielemann/kestrel-validate-jsonschema", config: { schemas: presetSchemas({ features, collections: contentTypes }), watch: process.env.NODE_ENV !== "production" } },
   { use: "@michaelthielemann/kestrel-renderer-nuxt", config: {} },
-  { use: "@michaelthielemann/kestrel-delivery-static", config: { types: { pages: {} }, prefix: "site/", reservedPaths: ["/api", "/admin", "/media"], siteUrl: process.env.NUXT_PUBLIC_SITE_URL || undefined, robots: { policy: process.env.NODE_ENV === "production" ? "allow" : "disallow" }, llms: { full: true, headings: { pages: "Pages" } }, dependencies: { render: "background", rendererReadsDocument: true, indexesDelayMs: 1000 } } },
+  { use: "@michaelthielemann/kestrel-delivery-static", config: { types: { pages: {} }, prefix: "site/", reservedPaths: ["/api", "/admin", "/media"], siteUrl: process.env.NUXT_PUBLIC_SITE_URL || undefined, robots: { policy: envRobots().policy ?? (process.env.NODE_ENV === "production" ? "allow" : "disallow") }, llms: { full: true, headings: { pages: "Pages" } }, dependencies: { render: "background", rendererReadsDocument: true, indexesDelayMs: 1000 } } },
   { use: "@michaelthielemann/kestrel-redirects-default", config: { prefix: "site/" } },
   { use: "@michaelthielemann/kestrel-audit-persistence", config: {} },
   { use: "@michaelthielemann/kestrel-events-inmemory", config: {} },
@@ -450,7 +450,8 @@ const modules = [
 
 Give a hand-written `delivery-static` entry its `siteUrl` from `NUXT_PUBLIC_SITE_URL`, as above: the pages
 build their canonical link, `og:url` and `og:image` from that variable, and the server warns at start when the
-entry's `siteUrl` differs from it (§8, "Site URL").
+entry's `siteUrl` differs from it (§8, "Site URL"). A hand-written entry reads `KESTREL_ROBOTS_POLICY` only
+through `envRobots()` from `#kestrel/config`, as above; without it, the variable has no effect.
 
 ### `#kestrel/config` — the environment plumbing
 
@@ -1859,8 +1860,9 @@ keeps them out. Without one, `presetModuleConfig()` takes the policy from `KESTR
 production build and keeps them out under `nuxt dev`, and the server warns at start. A production build counts
 as production whatever `NODE_ENV` the started process has: `nuxt build` fixes the value inside the server bundle,
 so `node .output/server/index.mjs` without `NODE_ENV` allows crawlers too. A hand-written `delivery-static` entry
-without `robots.policy` takes its default from the running process's `NODE_ENV` instead and keeps crawlers out
-without it, so give it `robots.policy` or set `NODE_ENV=production`. Set `disallow` explicitly on a staging
+reads `KESTREL_ROBOTS_POLICY` only when its `robots.policy` comes from `envRobots()` (§3, "What the builder
+expands to"); without `robots.policy` it takes its default from the running process's `NODE_ENV` instead and
+keeps crawlers out without it, so give it `robots.policy` or set `NODE_ENV=production`. Set `disallow` explicitly on a staging
 server that runs a production build.
 `robots: false` leaves `robots.txt` to you, and `sitemap: false` `sitemap.xml`; set them before the first start,
 which overwrites a file of that name under the prefix. `robots: false` leaves a `robots.txt` the export already
