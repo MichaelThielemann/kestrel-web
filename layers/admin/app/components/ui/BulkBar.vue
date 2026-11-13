@@ -31,7 +31,9 @@ const emit = defineEmits<{ clear: [] }>()
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-surface);
-  flex: 0 0 auto;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
 
   &__count {
     margin: 0;
