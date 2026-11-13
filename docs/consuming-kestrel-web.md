@@ -1599,7 +1599,8 @@ tiles, and `KestrelImage` gives each ratio key a `srcset` of its own. A crop nar
 ratio delivers that variant smaller, which the editor points out for every size kestrel renders (from
 `GET /admin/images/sizes` when the role may read it, else the sizes the build declares). An original browsers
 cannot display (TIFF) is shown from its largest finished variant that keeps the whole image, and the editor
-is offered once there is one. Without a `cover` size the editor offers
+is offered once there is one. A WebP original is shown from that variant as well, because browsers ignore
+its orientation tag while kestrel applies it; until the variant is finished, the editor shows the original. Without a `cover` size the editor offers
 the focus alone and says why. Every action works with the pointer, touch or the keyboard, and the focus
 and the crop take numbers too. The editor computes every cut with
 `@michaelthielemann/kestrel-images-default/framing`, the functions the server renders with. A framing

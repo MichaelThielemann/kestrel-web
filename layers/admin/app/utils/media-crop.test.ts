@@ -44,6 +44,22 @@ describe('cropSource', () => {
     expect(cropSource(tiff)).toBe('/media/m1/variants/large.webp')
   })
 
+  it('shows the largest finished whole-image variant for a WebP original, whose orientation tag browsers ignore', () => {
+    const webp = item({
+      contentType: 'image/webp',
+      path: '/media/m1/a.webp',
+      variants: [variant('small', 640), variant('avatar', 2000), variant('large', 1600)],
+      framing: { focus: null, crops: {}, width: 800, height: 1200, ratios },
+    })
+    expect(cropSource(webp)).toBe('/media/m1/variants/large.webp')
+  })
+
+  it('falls back to a WebP original until a whole-image variant is finished', () => {
+    const webp = item({ contentType: 'image/webp', path: '/media/m1/a.webp', variants: [variant('avatar', 96), variant('large', 1600, 'pending')], framing: { focus: null, crops: {}, width: 1200, height: 800, ratios } })
+    expect(cropSource(webp)).toBe('/media/m1/a.webp')
+    expect(canFrame(webp)).toBe(true)
+  })
+
   it('has nothing to show for such an original before a whole-image variant is finished', () => {
     const tiff = item({ contentType: 'image/tiff', variants: [variant('avatar', 96), variant('large', 1600, 'pending')], framing: { focus: null, crops: {}, width: 1200, height: 800, ratios } })
     expect(cropSource(tiff)).toBeNull()

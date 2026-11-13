@@ -15,18 +15,26 @@ export interface CropSize {
   fit: 'inside' | 'cover'
 }
 
-const BROWSER_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/avif', 'image/apng', 'image/bmp', 'image/svg+xml', 'image/x-icon', 'image/vnd.microsoft.icon'])
+const BROWSER_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/avif', 'image/apng', 'image/bmp', 'image/svg+xml', 'image/x-icon', 'image/vnd.microsoft.icon'])
+const UNORIENTED_IMAGE_TYPES = new Set(['image/webp'])
 
-/**
- * The URL the crop editor shows the whole image from: the original when browsers display its type, else the largest
- * finished variant that is not cut to a ratio (it has the original's oriented aspect, so every rectangle and crop
- * applies to it alike); `null` while there is none.
- */
-export function cropSource(item: MediaItem): string | null {
-  if (BROWSER_IMAGE_TYPES.has(item.contentType)) return item.path
+function wholeVariant(item: MediaItem): string | null {
   const cut = new Set(item.framing.ratios.flatMap((ratio) => ratio.sizes))
   const whole = item.variants.filter((v) => v.state === 'done' && v.width > 0 && v.height > 0 && !cut.has(v.size))
   return whole.reduce<typeof whole[number] | null>((best, v) => (best === null || v.width > best.width ? v : best), null)?.path ?? null
+}
+
+/**
+ * The URL the crop editor shows the whole image from: the original when browsers display its type with its
+ * orientation applied, else the largest finished variant that is not cut to a ratio (it has the original's oriented
+ * aspect, so every rectangle and crop applies to it alike). A WebP original, whose orientation tag browsers ignore,
+ * is shown only until such a variant is finished; any other original has `null` while there is none.
+ */
+export function cropSource(item: MediaItem): string | null {
+  if (BROWSER_IMAGE_TYPES.has(item.contentType)) return item.path
+  const variant = wholeVariant(item)
+  if (variant === null && UNORIENTED_IMAGE_TYPES.has(item.contentType)) return item.path
+  return variant
 }
 
 /** Whether the item is an image whose oriented dimensions the server reported and that the editor can show, so its focus and crops can be edited. */
