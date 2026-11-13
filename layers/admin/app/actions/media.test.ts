@@ -2,7 +2,7 @@ import type { ApiErrorDetails } from '#kestrel-admin/types/api'
 import { describe, expect, it, vi } from 'vitest'
 import { boundaryCast } from '#kestrel/cast'
 import { runAction } from '#kestrel-core/app/utils/actions'
-import { createFolder, deleteItems, renameOrMove, setMediaMeta, setMediaProvenance, upload, uploadTimeoutMs, type DeleteItemsResult } from './media'
+import { createFolder, deleteItems, renameOrMove, setMediaFraming, setMediaMeta, setMediaProvenance, upload, uploadTimeoutMs, type DeleteItemsResult } from './media'
 import type { UploadItem } from '../composables/useMediaUpload'
 import { ApiError } from '../composables/useApi'
 import { FAILURE_TOAST_MS } from './steps/notify'
@@ -797,5 +797,33 @@ describe('setMediaProvenance', () => {
     expect(result.ok).toBe(false)
     expect(ops.setError).toHaveBeenCalledWith(referencedFailure(ledFailure('media.provenanceSaveFailed', 'boom'), 500))
     expect(refresh).not.toHaveBeenCalled()
+  })
+})
+
+describe('setMediaFraming', () => {
+  const framing = { focus: { x: 0.1, y: 0.2, w: 0.3, h: 0.4 }, crops: { '1:1': { x: 0, y: 0, w: 0.5, h: 0.75 } } }
+
+  it('puts focus and crops, answers the item and says so', async () => {
+    const { deps, calls, toast } = fakeDeps([{ id: 'f1' }])
+    const ops = fakeOps()
+
+    const result = await runAction(setMediaFraming, { deps, id: 'f1', framing, ops })
+
+    expect(result).toEqual({ ok: true, result: { id: 'f1' } })
+    expect(calls).toEqual([{ route: { method: 'PUT', path: '/media/f1/framing' }, body: framing, query: undefined }])
+    expect(toast.success).toHaveBeenCalledWith('mediaCrop.saved')
+    expect(ops.setBusy.mock.calls).toEqual([[true], [false]])
+  })
+
+  it('reports the error through the ops port and fails', async () => {
+    const { deps, toast } = fakeDeps([apiError(400, 'crops["1:1"] does not have the ratio 1:1')])
+    const ops = fakeOps()
+
+    const result = await runAction(setMediaFraming, { deps, id: 'f1', framing, ops })
+
+    expect(result.ok).toBe(false)
+    expect(ops.setError).toHaveBeenCalledWith(referencedFailure(ledFailure('mediaCrop.saveFailed', 'crops["1:1"] does not have the ratio 1:1'), 400))
+    expect(toast.success).not.toHaveBeenCalled()
+    expect(ops.setBusy.mock.calls).toEqual([[true], [false]])
   })
 })

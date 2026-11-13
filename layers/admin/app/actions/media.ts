@@ -1,4 +1,4 @@
-import type { ApiErrorDetails, MediaFolder, MediaFolderRenameResponse, MediaItem, Provenance } from '#kestrel-admin/types/api'
+import type { ApiErrorDetails, MediaFolder, MediaFolderRenameResponse, MediaItem, MediaRect, Provenance } from '#kestrel-admin/types/api'
 import { defineAction, type ActionContext, type ActionStep } from '#kestrel-core/app/utils/actions'
 import { answeredMessage, answerTimedOut, type ApiError, apiErrorCode, failureText, retryableMessage, serverDetail, toApiError } from '../composables/useApi'
 import type { UploadItem } from '../composables/useMediaUpload'
@@ -410,4 +410,29 @@ export const setMediaProvenance = defineAction<SetMediaProvenanceInput, MediaIte
     dataReload<SetMediaProvenanceInput, MediaItem>(),
   ],
   always: [opsBusy<SetMediaProvenanceInput, MediaItem>(false)],
+})
+
+export interface SetMediaFramingInput extends WithDeps {
+  id: string
+  framing: { focus: MediaRect | null, crops: Record<string, MediaRect> }
+  ops: BusyPort
+}
+
+/** Replaces an image's focus and manual crops; answers the item with its new framing, whose changed `cover` variants render again. */
+export const setMediaFraming = defineAction<SetMediaFramingInput, MediaItem>({
+  name: 'setMediaFraming',
+  steps: [
+    opsBusy<SetMediaFramingInput, MediaItem>(true),
+    apiRequest<SetMediaFramingInput, MediaItem, MediaItem>('api.request', {
+      call: (ctx) => ({ route: ctx.input.deps.capabilities.route('setMediaFraming', { id: ctx.input.id }), body: { focus: ctx.input.framing.focus, crops: ctx.input.framing.crops } }),
+      onSuccess: (ctx, value) => { ctx.result = value },
+      onError: (ctx, err) => {
+        const { t } = ctx.input.deps
+        ctx.input.ops.setError?.(failureText(t, answeredMessage(t, err, t('mediaCrop.saveFailed')), err))
+        ctx.fail(err.message || 'mediaCrop.saveFailed')
+      },
+    }),
+    toastSuccess<SetMediaFramingInput, MediaItem>(() => ({ key: 'mediaCrop.saved' })),
+  ],
+  always: [opsBusy<SetMediaFramingInput, MediaItem>(false)],
 })
