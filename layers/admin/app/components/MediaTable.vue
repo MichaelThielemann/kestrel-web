@@ -128,7 +128,9 @@ const dimensions = (f: MediaItem) => (f.width != null && f.height != null ? `${f
 <style lang="scss" scoped>
 .media-table__ai { margin-inline-start: var(--space-2); padding: 0 var(--space-1); border-radius: var(--radius-sm); background: var(--color-active); color: var(--color-text-muted); font-size: var(--text-xs); }
 .media-table__row { cursor: pointer; }
-.media-table__row.is-selected { background: var(--color-active); box-shadow: inset 2px 0 0 var(--color-primary); }
+.media-table__row:not(.is-selected):hover > :is(.ui-table__col--select, .ui-table__col--actions) { background: linear-gradient(var(--color-hover), var(--color-hover)), var(--color-bg); }
+.media-table__row.is-selected > td { background: var(--color-active); }
+.media-table__row.is-selected > td:first-child { box-shadow: inset 2px 0 0 var(--color-primary); }
 .media-table__row.is-drop-target { outline: 2px dashed var(--color-primary); outline-offset: -2px; background: var(--color-surface); }
 .media-table__row.is-blocked { cursor: not-allowed; opacity: 0.6; }
 .media-table__row:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -2px; }

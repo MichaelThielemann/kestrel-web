@@ -87,7 +87,9 @@ const origin = (item: MediaTrashItem) => (item.folder ? displayFolderPath(item.f
 .media-trash-table__icon :deep(svg) { width: 1.25rem; height: 1.25rem; }
 .media-trash-table__file { overflow-wrap: anywhere; }
 .media-trash-table__kept { color: var(--color-text-muted); }
-.media-trash-table tbody tr.is-selected { background: var(--color-active); box-shadow: inset 2px 0 0 var(--color-primary); }
+.media-trash-table tbody tr:not(.is-selected):hover > :is(.ui-table__col--select, .ui-table__col--actions) { background: linear-gradient(var(--color-hover), var(--color-hover)), var(--color-bg); }
+.media-trash-table tbody tr.is-selected > td { background: var(--color-active); }
+.media-trash-table tbody tr.is-selected > td:first-child { box-shadow: inset 2px 0 0 var(--color-primary); }
 .media-trash-table tbody tr:hover .media-trash-table__size { color: var(--color-text); }
 .media-trash-table__size {
   display: block;
