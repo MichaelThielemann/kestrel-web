@@ -116,6 +116,7 @@ function save() {
     <div v-if="file" class="media-viewer">
       <div class="media-viewer__preview">
         <img v-if="isImage && mediaUrl" :src="mediaUrl" :alt="file.alt ?? file.filename">
+        <KestrelUiButton v-if="canCrop" size="sm" icon="crop" class="media-viewer__crop" :disabled="busy" data-test="viewer-crop" @click="cropOpen = true">{{ t('mediaCrop.open') }}</KestrelUiButton>
         <a v-else-if="mediaUrl" class="media-viewer__ext" :href="mediaUrl" target="_blank" rel="noopener noreferrer">{{ ext }}</a>
         <span v-else class="media-viewer__ext" aria-hidden="true"><KestrelUiIcon name="file-text" :size="32" /></span>
       </div>
@@ -179,7 +180,6 @@ function save() {
     </div>
     <template v-if="file" #footer>
       <KestrelUiButton v-if="canDelete" variant="danger" icon="trash" class="media-viewer__delete" :disabled="busy" @click="emit('delete')">{{ trash ? t('media.menu.trash') : t('common.delete') }}</KestrelUiButton>
-      <KestrelUiButton v-if="canCrop" icon="crop" :disabled="busy" data-test="viewer-crop" @click="cropOpen = true">{{ t('mediaCrop.open') }}</KestrelUiButton>
       <KestrelUiButton :disabled="busy" @click="emit('update:open', false)">{{ t('common.close') }}</KestrelUiButton>
       <KestrelUiButton v-if="canSave" variant="primary" :disabled="busy || !dirty" @click="save">{{ t('common.save') }}</KestrelUiButton>
     </template>
@@ -211,6 +211,7 @@ function save() {
   }
 }
 .media-viewer__preview {
+  position: relative;
   display: grid;
   place-items: center;
   min-height: 16rem;
@@ -220,6 +221,7 @@ function save() {
   border-radius: var(--radius-md);
 }
 .media-viewer__preview img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.media-viewer__crop { position: absolute; right: var(--space-2); bottom: var(--space-2); }
 .media-viewer__ext { padding: var(--space-7); font-size: var(--text-xl); font-weight: var(--weight-bold); color: var(--color-text-muted); }
 .media-viewer__details {
   display: flex;
