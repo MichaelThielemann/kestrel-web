@@ -805,43 +805,68 @@ collection, the expected filter and the fix in the message.
     part of the selection. A single pick holds one file and shows no checkboxes.
   - Checkboxes. Every grid tile has a checkbox beside its button, never inside it, labelled "Select
     <name>", with a 24 × 24 px target; the table has a checkbox column and a header checkbox that is
-    indeterminate while part of the page is selected. The table is a `role="grid"` with
-    `aria-multiselectable`, its rows carry `aria-selected`. While anything is selected in the library, a
-    click on a tile or row toggles it instead of selecting it alone or opening a folder; Ctrl/Cmd-click
-    toggles and Shift-click selects a range at any time. Upload tiles are never selectable.
+    indeterminate while part of the page is selected. The table stays a native table whose rows take the
+    roving focus; the checkboxes carry the selected state (no `aria-selected` on rows). While anything is
+    selected in the library, a click on a tile or row toggles it instead of selecting it alone or opening a
+    folder; Enter on a folder always opens it. Ctrl/Cmd-click toggles and Shift-click selects a range at any
+    time. Upload tiles are never selectable. `MediaItemCheck.vue` is the checkbox of a tile or row in both
+    views. A focused tile shows a double ring inside its border, so focus stays visible on a selected tile.
   - Bar. `MediaSelectionBar.vue` (on the kit's `BulkBar`) takes the toolbar's place in the library while
     anything is selected: the count, "Select all n on this page", "Move to trash" ("Delete" without the
-    trash) when the role may delete everything selected (not rendered otherwise) and "Clear selection". In a multi-pick it sits below the
-    toolbar, so search and upload stay reachable, and "Use selected" stays in the footer. The upload panel
-    and the follow-up line are not part of the toolbar and stay where they are.
+    trash) when the role may delete everything selected (not rendered otherwise) and "Clear selection". It
+    lies over the hidden toolbar's box, so the listing keeps its place when the first item is selected. In a multi-pick it sits below the toolbar, so
+    search and upload stay reachable, counts the listed picks as "selected here" (the footer counts all
+    picks), and "Clear selection" drops only the listed picks. "Use selected" stays in the footer. The
+    upload panel and the follow-up line are not part of the toolbar and stay where they are. A
+    `LiveStatus` that stays mounted announces the count and "Selection cleared".
   - Keyboard (`useMediaKeyboard()`, one listener on the listing). The tiles or rows are one tab stop
-    (roving `tabindex`); the arrow keys move it, up and down by one grid row, Home and End to the ends.
-    Shift+arrow extends the selection, Space toggles the focused item, Ctrl/Cmd+A selects the page,
-    Escape clears the selection, Delete and Backspace open the delete flow for the selection (or the
-    focused item when it is not selected). Keys typed in a form field or on an upload tile are left alone.
-    In the picker the first Escape clears the selection and the next one closes the dialog
-    (`Dialog.vue`'s `escapeKeyDown`). The shortcuts are shown in the tooltips of the bar's buttons and
-    exposed as `aria-keyshortcuts`.
+    (roving `tabindex`); the arrow keys move it, Home and End to the ends. Up and down go to the tile in the
+    same column of the next row, counting the cells of upload tiles, or to the nearest tile of that row when
+    that cell is an upload. Shift+arrow selects from the anchor to the focus on top of what was selected
+    before, so moving back shrinks it; Space toggles the focused item, Ctrl/Cmd+A selects the page, Escape
+    clears the listed selection, Delete and Backspace open the delete flow for the selection (or the focused
+    item when it is not selected). In the bar, Ctrl/Cmd+A, Escape and Delete/Backspace act on the selection
+    too, and focus goes back to the listing when Escape removes the bar. Keys typed in a form field or on
+    an upload tile are left alone. In the picker the first Escape clears the listed picks and the next one
+    closes the dialog (`Dialog.vue`'s `escapeKeyDown`). The shortcuts are shown in the tooltips of the bar's
+    buttons and exposed as `aria-keyshortcuts`. After a removal, focus goes to the item that took the
+    removed one's place, or to the listing; after an undo, to the first restored item.
   - Removal (`useMediaBulkActions()`, one flow for the bar, the context menu, Delete/Backspace, the
     viewer and the picker). With the `trashMedia` capability, the selection moves to the trash at once
-    through `trashItems` (`actions/mediaTrash.ts`) and a toast says how many items moved; it carries an
-    "Undo" action (`restoreItems` with the same ids) for roles that hold `restoreMedia` and stays 8 seconds,
-    longer while hovered or focused. Before that, `previewDeleteItems` (`actions/mediaPrecheck.ts`) looks up
+    through `trashItems` (`actions/mediaTrash.ts`) and a toast says how many items moved (`trashOutcome()`
+    in `utils/media-removal.ts`: a folder whose request moved nothing is named as an empty folder deleted,
+    as are the empty folders below a trashed one, since a restore recreates only folders that hold
+    files). It carries an "Undo" action for roles that hold `restoreMedia` and stays 8 seconds, longer
+    while hovered or focused (`useMediaUndo()`). The undo restores only the ids the move put in the trash,
+    not those the server reports as `unchanged` because they were there already, and its outcome names
+    each item by file name, skipped ones with the reason. The restore reloads every mounted media view
+    through `notifyMediaChanged()` (`useMediaChanges.ts`), so an undo from a toast that outlived its library
+    also refreshes the trash view. In the picker, whose modal dialog keeps focus and the screen reader
+    inside it, the undo and its outcome show in `MediaUndoNotice.vue` above the listing instead of a toast.
+    Every trash action hands its per-item report to `report` before the reload, so a failed reload still
+    leaves the undo, the forgotten picks and the dialog's report. Before that, `previewDeleteItems` (`actions/mediaPrecheck.ts`) looks up
     the referrers of every file and of every file below a selected folder (`listMedia` with `folder` and
     `recursive`), 200 ids per `mediaReferrersMany` request. `MediaDeleteDialog.vue` opens first only when a
     file is in use, or when the site tracks references and the lookup did not finish (refused, failed or no
     route for the role); it names the pages per file, starts on "Cancel" and shows progress with "Stop" once
     a run takes more than one request. Items the server leaves alone (`skipped`) or whose request failed are
     listed in the dialog by name and reason, stay in the listing and stay selected; the rest leave, and a
-    multi-pick forgets them. Without the trash the same dialog confirms the final delete (`deleteItems`).
+    multi-pick forgets them, the files below a removed folder included. "Stop" aborts the run between two
+    requests, in the trash and in the final delete; the dialog then stays open and says what was not sent,
+    and the toast counts only the items that went. Without the trash the same dialog confirms the final
+    delete (`deleteItems`, with `signal` and `onProgress`).
   - Single pick. Without checkboxes, every file tile and row has a "…" menu (the kit `ActionMenu`) whose
     only entry deletes that file; the context menu stays.
   - Trash. The path bar links to `/admin/media?trash=1` as "Trash (n)" for roles with `listMediaTrash`;
     `pages/admin/media.vue` then renders `MediaTrash.vue` instead of the library. It lists one page of
     trashed items (`MediaTrashTable.vue`: name, folder, trashed on, when it is deleted for good) with the
     list selection (`useListSelection`) and the kit `BulkBar`: "Restore" runs at once and reports renamed
-    items in a toast, "Delete permanently" and "Empty trash" go through `MediaDeleteDialog.vue`, which keeps
-    items still in use listed as kept. A trashed item has no public copy, so the dialog shows type icons.
+    and skipped items in a toast, "Delete permanently" and "Empty trash" go through `MediaDeleteDialog.vue`,
+    which keeps items still in use listed as kept. A trashed item has no public copy, so the dialog shows
+    type icons. Only the answer to the latest page request is shown. After a restore or a delete for good,
+    focus goes to the checkbox of the row that took its place, or to the heading once the page is empty.
+    The entry and the way back carry the library's folder (`?trash=1&folder=…`), and a page emptied by a
+    removal falls back to the last page, in the trash as in the library.
   - Media field. An id the library no longer lists is looked up in the trash (`findTrashed()`, the 1000
     most recently trashed items); a hit shows its name with "In the trash" and a warning that pages show
     nothing in its place until it is restored.
@@ -871,9 +896,11 @@ Kit inventory:
 - `Alert.vue` — inline message box; `role="alert"` for warning/error, `role="status"` otherwise.
 - `Brand.vue` — the decorative product mark.
 - `Button.vue` — every button and button-shaped link (`to` renders a `NuxtLink`).
-- `BulkBar.vue` — the toolbar shown while rows or tiles are selected: the count as a polite status that
-  also names the toolbar, an `extra` slot (e.g. "select all on this page"), the actions in the default slot
-  and a clear button last, with an optional shortcut in its tooltip and `aria-keyshortcuts`.
+- `BulkBar.vue` — the toolbar shown while rows or tiles are selected: the count as text that also names the
+  toolbar, an `extra` slot (e.g. "select all on this page"), the actions in the default slot and a clear
+  button last, with an optional shortcut in its tooltip and `aria-keyshortcuts`. The bar mounts with the
+  selection, so a screen reader would not hear a count inside it; announce the count through a status
+  region that stays mounted (`LiveStatus.vue`, or the list's own).
 - `ButtonGroup.vue` — segmented single- or multi-select toggle group.
 - `Checkbox.vue` / `CheckboxGroup.vue` — native checkbox with indeterminate support; a group bound to `string[]`.
   `standalone` wraps a checkbox that no other label wraps (a table cell, a tile) in a label with a
@@ -882,11 +909,15 @@ Kit inventory:
 - `DatePicker.vue` / `DateRangePicker.vue` / `TimeInput.vue` — ISO date, date-range and time entry.
 - `Dialog.vue` — modal with title, optional description, footer slot and `md|lg|xl|screen` sizes. It
   re-emits `openAutoFocus` (prevent it and focus another element to choose where focus starts) and
-  `escapeKeyDown` (prevent it to keep the dialog open, e.g. while Escape first clears a selection).
+  `escapeKeyDown` (prevent it to keep the dialog open, e.g. while Escape first clears a selection). A long
+  title wraps. A press on a toast does not close it, but a modal dialog keeps focus and the screen reader
+  inside itself, so a toast is out of their reach while it is open: show anything to act on inside the dialog.
 - `EmptyState.vue` — empty-list placeholder with an optional action slot.
 - `Field.vue` / `Fieldset.vue` — label, hint and error wrappers that hand `id` and `aria-*` to the control slot.
 - `FileInput.vue` — hidden file picker; `open()` opens it, `select` emits the chosen `File[]`.
 - `Icon.vue` — sanitized inline SVG icon, `aria-hidden` unless it carries a name.
+- `LiveStatus.vue` — a visually hidden polite status region for `message`; mount it once and keep it
+  mounted, so each change of the text is announced.
 - `Menu.vue` — right-click context menu.
 - `NumberInput.vue` — numeric input with min/max/step and an optional suffix.
 - `Popover.vue` — anchored popover with a trigger slot.

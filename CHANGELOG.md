@@ -7,22 +7,31 @@
 - Media library and picker: visible multi-selection. Every grid tile has a checkbox beside it and the table a
   checkbox column with a header checkbox for the page; while anything is selected, a selection bar takes the
   toolbar's place with the count, "Select all n on this page", "Delete" (only for roles that may delete) and
-  "Clear selection". The listing is one tab stop: arrow keys move through it, Shift+arrow extends the
-  selection, Space toggles, Ctrl/Cmd+A selects the page, Escape clears it (in the picker, a second Escape
-  closes the dialog), Delete and Backspace delete. Search, sorting, paging and refreshes keep the visible
-  part of the selection instead of clearing it.
+  "Clear selection"; the bar lies over the toolbar, so the listing keeps its place. The listing is one tab
+  stop: arrow keys move through it (up and down by the tile on screen, past upload tiles), Shift+arrow
+  selects from the anchor to the focus, Space toggles, Ctrl/Cmd+A selects the page, Escape clears it (in
+  the picker, a second Escape closes the dialog), Delete and Backspace delete; in the bar, Ctrl/Cmd+A,
+  Escape and Delete work too. A status region that stays mounted announces the count and a cleared
+  selection. Search, sorting, paging and refreshes keep the visible part of the selection instead of
+  clearing it; in a multi-pick, clearing drops only the listed picks, and the bar counts them as "selected
+  here". Focus moves to the next item after a removal and to the restored item after an undo.
 - Media trash in the admin: deleting in the media library or the picker moves the items to the trash with an
-  "Undo" toast (8 seconds, held while hovered or focused; only for roles with `media.write`). A dialog comes
+  "Undo" toast (8 seconds, held while hovered or focused; only for roles with `media.write`), which brings
+  back only what the move put in the trash; in the picker the undo shows inside the dialog instead, where
+  focus and screen readers reach it. An empty folder is named as deleted, not as moved. A dialog comes
   first only when a page uses one of the files, a file inside a selected folder included, or when the use
   could not be checked; it names the pages per file. "Trash (n)" beside the folder path opens the trash view
   (`/admin/media?trash=1`): restore, delete permanently and empty, with each item's folder and the date it is
   deleted for good; files still in use are kept and named. Removal runs in requests of at most 200 ids and
-  reports every item that was not removed, which stays selected. A single pick gives each file a "…" menu
-  with its delete entry. A media field names an item that lies in the trash and says so.
-- Admin kit: `KestrelUiBulkBar`, the toolbar the collection list and the media library share for a selection;
-  toasts take an optional action (`push(type, message, { timeout, action: { label, run } })`) and pause while
-  hovered or focused; `KestrelUiDialog` re-emits `openAutoFocus` and `escapeKeyDown`; `KestrelUiCheckbox`
-  takes `standalone` for a 24 × 24 px click target.
+  reports every item that was not removed, which stays selected; "Stop" ends the run after the request under
+  way, in the trash and in the final delete without it. A single pick gives each file a "…" menu with its
+  delete entry. A media field names an item that lies in the trash and says so.
+- Admin kit: `KestrelUiBulkBar`, the toolbar the collection list and the media library share for a selection
+  (its count is plain text; announce it through a status region that stays mounted, such as the new
+  `KestrelUiLiveStatus`); toasts take an optional action (`push(type, message, { timeout, action: { label,
+  run } })`) and pause while hovered or focused; `KestrelUiDialog` re-emits `openAutoFocus` and
+  `escapeKeyDown`, wraps a long title, and stays open when a toast is pressed; `KestrelUiCheckbox` takes
+  `standalone` for a 24 × 24 px click target.
 - Media trash: the preset composes `trashMedia` (`POST /api/media/trash`), `trashMediaFolder`
   (`POST /api/media/trash/folders/*path`), `restoreMedia` (`POST /api/media/trash/restore`), `listMediaTrash`
   (`GET /api/media/trash`), `purgeMedia` (`POST /api/media/trash/purge`), `emptyMediaTrash`
@@ -88,6 +97,15 @@
 
 ### Upgrading
 
+- With `presetModuleConfig()` the media trash is on (`media.trashRetentionDays` defaults to 30). A delete in the
+  admin then no longer calls `DELETE /api/media/:id` or `DELETE /api/media/folders/*path`: it runs `trashMedia`
+  or `trashMediaFolder` and raises `media.trashed`, and `media.deleted` follows only when the item is deleted
+  for good from the trash (Delete permanently, Empty trash, or the nightly `purgeExpiredMedia` at least
+  `trashRetentionDays` later), never while a page still uses it. A trigger of your own on `media.deleted`, for
+  example one that clears a CDN or a mirror, also needs one on `media.trashed` (and on `media.restored` to
+  undo its work); an override of `deleteMedia` or `deleteMediaFolder` does not run for deletes in the admin, so
+  move its steps into the trash and purge pipelines, or set `media.trashRetentionDays: 0`. `kestrel upgrade
+  check` reports both as `runtime/media-trash-deletes`.
 - Known devices need no new setting with the `mfa` feature: the device cookies are signed with a key derived
   from `KESTREL_MFA_KEY` and follow its rotation. Without `mfa`, set `KESTREL_DEVICE_KEY` (64 hex digits,
   `openssl rand -hex 32`) in production; without it the layer signs with a random key per process and warns

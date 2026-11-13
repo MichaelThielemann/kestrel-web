@@ -2104,6 +2104,13 @@ calls it; in Markdown only the fetching form is reported; lockfiles are not read
 
 What changes:
 
+- With `presetModuleConfig()` the media trash is on (`media.trashRetentionDays: 30`, §4, "The media trash"). A
+  delete in the admin runs `trashMedia` or `trashMediaFolder` and raises `media.trashed`; `DELETE
+  /api/media/:id` and `DELETE /api/media/folders/*path` stay final deletes but the admin no longer calls them.
+  `media.deleted` follows only when an item is deleted for good from the trash, at the earliest
+  `trashRetentionDays` later, and never while a page still uses it. A trigger of your own on `media.deleted`
+  needs one on `media.trashed` too, and an override of `deleteMedia` or `deleteMediaFolder` does not run for
+  deletes in the admin; set `media.trashRetentionDays: 0` to keep deleting at once.
 - Media items carry one public URL, `path`, next to `variants[].path`; both now come from the API as
   data. Remove any code that built `/api/media/<id>/file` or a variant URL from an id and read `path`
   from the item instead. `mediaFileUrl` and `mediaVariantUrl` are gone from the admin composables, and
@@ -2212,9 +2219,14 @@ What changes:
     the write; this is a warning, since the preset accepts either place.
     `preset/settings-llms` notes an override that emits but still exports `llms.txt` inside the request.
   - `runtime/media-event-ids` notes your own triggers on `media.updated`, `media.deleted`,
-    `images.variantsChanged`, `media.trashed` or `media.restored`: a folder deletion, a move into or out of
-    the trash and the events `images-default` raises itself arrive with `id: null` and every affected id in
-    `ids`.
+    `images.variantsChanged`, `media.trashed` or `media.restored`, each with what raises it: a folder
+    deletion and every delete for good from the trash (`media.deleted`), every move into the trash
+    (`media.trashed`) or out of it (`media.restored`) and the events `images-default` raises itself arrive
+    with `id: null` and every affected id in `ids`.
+  - `runtime/media-trash-deletes` notes, while the media trash is on, an own trigger on `media.deleted`
+    without one on `media.trashed` for the same pipeline, and an override of `deleteMedia` or
+    `deleteMediaFolder`: a delete in the admin runs the trash pipelines and raises `media.trashed`, and
+    `media.deleted` follows only at the delete for good.
   - `responses/delivery-async` notes code in `app/` or `server/` that reads `_llms` or the old Publish all
     counts; `static/server-cache` notes, with `delivery`, cached handlers, cached functions, `useStorage`
     and cached `/api` route rules, whose answers a page's render does not record as reads.
