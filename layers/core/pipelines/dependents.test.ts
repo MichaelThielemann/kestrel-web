@@ -1,7 +1,7 @@
 import { pipelineSteps } from "@michaelthielemann/kestrel/definePipeline";
 import type { TriggerConfig } from "@michaelthielemann/kestrel/defineConfig";
 import { describe, expect, it } from "vitest";
-import { definePreset, lanesFor } from "./index";
+import { definePreset, delaysFor, lanesFor } from "./index";
 import type { CollectionModel, Feature, Preset, PresetOptions } from "./index";
 
 const DELIVERY_STATIC = "@michaelthielemann/kestrel-delivery-static";
@@ -107,7 +107,7 @@ describe("dependents: marking the pages that read a change", () => {
     expect(stepsOf(preset, "speakersDependents")).toEqual(["delivery.markDependents:speakers"]);
     expect(stepsOf(preset, "venuesDependents")).toEqual(["delivery.markDependents:venues"]);
     expect(stepsOf(preset, "profileDependents")).toEqual(["delivery.markDependents:profile"]);
-    expect(stepsOf(preset, "settingsDependents")).toEqual(["delivery.markDependents:settings", "delivery.requestLlms"]);
+    expect(stepsOf(preset, "settingsDependents")).toEqual(["delivery.markDependents:settings", "delivery.requestIndexes"]);
     expect(stepsOf(preset, "mediaDependents")).toEqual(["delivery.markDependents:media"]);
   });
 
@@ -186,52 +186,75 @@ describe("dependents: marking the pages that read a change", () => {
 });
 
 describe("dependents: rendering the marked pages outside the request", () => {
-  it("publishes and unpublishes a page, then requests an llms.txt export instead of writing it", () => {
+  it("publishes and unpublishes a page, then requests the index exports instead of writing them", () => {
     const preset = compose(["delivery"]);
-    expect(stepsOf(preset, "publishPage")).toEqual(["delivery.publish:pages", "delivery.requestLlms"]);
-    expect(stepsOf(preset, "unpublishPage")).toEqual(["delivery.unpublish:pages", "delivery.requestLlms"]);
+    expect(stepsOf(preset, "publishPage")).toEqual(["delivery.publish:pages", "delivery.requestIndexes"]);
+    expect(stepsOf(preset, "unpublishPage")).toEqual(["delivery.unpublish:pages", "delivery.requestIndexes"]);
   });
 
-  it("renders marked pages and exports llms.txt as queue jobs only with the queue", () => {
+  it("renders marked pages and exports the index files and llms-full.txt as queue jobs only with the queue", () => {
     const queued = compose(["eventsQueue", "delivery"]);
     expect(stepsOf(queued, "republishOutput")).toEqual(["delivery.republishOutput"]);
-    expect(stepsOf(queued, "refreshLlms")).toEqual(["delivery.exportLlms"]);
+    expect(stepsOf(queued, "refreshIndexes")).toEqual(["delivery.exportIndexes"]);
+    expect(stepsOf(queued, "refreshLlms")).toEqual(["delivery.exportLlmsFull"]);
     expect(eventsTriggering(queued, "republishOutput")).toEqual(["delivery.outputStale"]);
+    expect(eventsTriggering(queued, "refreshIndexes")).toEqual(["delivery.indexesStale"]);
     expect(eventsTriggering(queued, "refreshLlms")).toEqual(["delivery.llmsStale"]);
 
     const direct = compose(["delivery"]);
-    expect(names(direct).has("republishOutput")).toBe(false);
-    expect(names(direct).has("refreshLlms")).toBe(false);
+    for (const name of ["republishOutput", "refreshIndexes", "refreshLlms"]) expect(names(direct).has(name), name).toBe(false);
   });
 
-  it("exports llms.txt nowhere but in the pages lane: never in a request, a relayed pipeline or the main lane", () => {
+  it("exports the index files only in the indexes lane and llms-full.txt only in the pages lane: never in a request, a relayed pipeline or the main lane", () => {
     const features: Feature[] = ["eventsQueue", "delivery", "images", "audit", "revisions"];
     const queued = compose(features);
-    const pagesLane = new Set(lanesFor(features).pages);
-    for (const pipeline of queued.pipelines) {
-      if (!pipelineSteps(pipeline.steps).includes("delivery.exportLlms")) continue;
-      expect(pagesLane.has(pipeline.name), pipeline.name).toBe(true);
-    }
+    const lanes = lanesFor(features);
+    const lanesOf = (step: string): string[] => queued.pipelines.filter((pipeline) => pipelineSteps(pipeline.steps).includes(step)).map((pipeline) => pipeline.name);
+    expect(lanesOf("delivery.exportIndexes")).toEqual(lanes.indexes);
+    expect(lanesOf("delivery.exportLlmsFull").every((name) => lanes.pages?.includes(name))).toBe(true);
     const direct = compose(["delivery", "images", "audit", "revisions"]);
-    expect(direct.pipelines.filter((pipeline) => pipelineSteps(pipeline.steps).includes("delivery.exportLlms"))).toEqual([]);
+    expect(direct.pipelines.filter((pipeline) => pipelineSteps(pipeline.steps).some((step) => step.startsWith("delivery.export")))).toEqual([]);
   });
 
-  it("makes Publish all only mark the pages, with and without images", () => {
+  it("makes Publish all only mark the pages and request the index exports, with and without images", () => {
     for (const features of [["delivery"], ["delivery", "images"], ["eventsQueue", "delivery", "images"]] satisfies Feature[][]) {
-      expect(stepsOf(compose(features), "publishAllPages")).toEqual(["authn.requireUser", "authz.requireRole", "authz.require:pages.manage", "delivery.markAll:pages"]);
+      expect(stepsOf(compose(features), "publishAllPages")).toEqual(["authn.requireUser", "authz.requireRole", "authz.require:pages.manage", "delivery.markAll:pages", "delivery.requestIndexes"]);
     }
   });
 
-  it("recovers marks every five minutes, serves the stale status and the retry behind pages.manage, and leaves the build check to the host", () => {
+  it("re-renders every delivered page and requests the index exports after migrations rebuilt the paths", () => {
+    const withMigrations = definePreset({ modules: [...modulesFor(["delivery"]), { use: "@michaelthielemann/kestrel-migrations-default" }], features: ["delivery", "migrations"], collections });
+    expect(stepsOf(withMigrations, "rebuildPathsAfterMigrations")).toEqual(["site.planRebuild", { atomic: ["site.applyRebuild"] }, "site.announcePaths", "delivery.markAll:pages", "delivery.requestIndexes"]);
+    const withoutDelivery = definePreset({ modules: [...modulesFor([]), { use: "@michaelthielemann/kestrel-migrations-default" }], features: ["migrations"], collections });
+    expect(stepsOf(withoutDelivery, "rebuildPathsAfterMigrations")).toEqual(["site.planRebuild", { atomic: ["site.applyRebuild"] }, "site.announcePaths"]);
+  });
+
+  it("recovers marks every five minutes, serves the stale status and the retry behind pages.manage, and leaves the build check, which requests the index exports, to the host", () => {
     const preset = compose(["delivery"]);
     expect(stepsOf(preset, "resumeStalePages")).toEqual(["delivery.resumeStale"]);
     expect(preset.triggers).toContainEqual({ cron: "*/5 * * * *", pipeline: "resumeStalePages" });
     expect(stepsOf(preset, "pagesStaleStatus")).toEqual(["authn.requireUser", "authz.requireRole", "authz.require:pages.manage", "delivery.readStaleStatus"]);
     expect(preset.triggers).toContainEqual({ http: "GET /admin/publish-status/pages", pipeline: "pagesStaleStatus" });
-    expect(stepsOf(preset, "retryStalePages")).toEqual(["authn.requireUser", "authz.requireRole", "authz.require:pages.manage", "delivery.retryStale"]);
+    expect(stepsOf(preset, "retryStalePages")).toEqual(["authn.requireUser", "authz.requireRole", "authz.require:pages.manage", "delivery.retryStale", "delivery.requestIndexes"]);
     expect(preset.triggers).toContainEqual({ http: "POST /admin/publish-stale/pages/retry", pipeline: "retryStalePages" });
-    expect(stepsOf(preset, "deliveryBuildCheck")).toEqual(["delivery.checkBuild"]);
+    expect(stepsOf(preset, "deliveryBuildCheck")).toEqual(["delivery.checkBuild", "delivery.requestIndexes"]);
     expect(preset.triggers.some((trigger) => trigger.pipeline === "deliveryBuildCheck")).toBe(false);
+  });
+
+  it("checks for a database restore directly before the build check, with the module that restores the database file", () => {
+    const database = { use: "@michaelthielemann/kestrel-persistence-sqlite", config: { file: "data/kestrel.db" } };
+    const withModules = (extra: ModuleList): Preset => definePreset({ modules: [...modulesFor(["delivery"]), database, ...extra], features: ["delivery"], collections });
+    expect(stepsOf(withModules([{ use: "@michaelthielemann/kestrel-replication-sqlite", config: { file: "data/kestrel.db" } }]), "deliveryBuildCheck")).toEqual([
+      "replication.checkRestored",
+      "delivery.checkBuild",
+      "delivery.requestIndexes",
+    ]);
+    expect(stepsOf(withModules([{ use: "@michaelthielemann/kestrel-backup-blobstore", config: { file: "./data/kestrel.db" } }]), "deliveryBuildCheck")).toEqual([
+      "backup.checkRestored",
+      "delivery.checkBuild",
+      "delivery.requestIndexes",
+    ]);
+    expect(stepsOf(withModules([{ use: "@michaelthielemann/kestrel-backup-blobstore", config: { file: "data/other.db" } }]), "deliveryBuildCheck")).toEqual(["delivery.checkBuild", "delivery.requestIndexes"]);
   });
 
   it("lets a consumer reschedule the recovery", () => {
@@ -258,11 +281,45 @@ describe("dependents: the render mode matches the event delivery", () => {
 });
 
 describe("dependents: queue lanes", () => {
-  it("derives the pages lane with delivery and the variants lane with images, and nothing else", () => {
+  it("derives the pages and indexes lanes with delivery and the variants lane with images, and nothing else", () => {
     expect(lanesFor(["eventsQueue"])).toEqual({});
-    expect(lanesFor(["eventsQueue", "delivery"])).toEqual({ pages: ["republishOutput", "refreshLlms"] });
+    expect(lanesFor(["eventsQueue", "delivery"])).toEqual({ pages: ["republishOutput", "refreshLlms"], indexes: ["refreshIndexes"] });
     expect(lanesFor(["eventsQueue", "images"])).toEqual({ variants: ["generateImageVariants"] });
-    expect(lanesFor(["eventsQueue", "delivery", "images", "audit"])).toEqual({ pages: ["republishOutput", "refreshLlms"], variants: ["generateImageVariants"] });
+    expect(lanesFor(["eventsQueue", "delivery", "images", "audit"])).toEqual({ pages: ["republishOutput", "refreshLlms"], indexes: ["refreshIndexes"], variants: ["generateImageVariants"] });
+  });
+
+  it("holds the index exports back with the queue and delivery, and nothing else", () => {
+    expect(delaysFor(["eventsQueue", "delivery"])).toEqual({ refreshIndexes: 1000, refreshLlms: 3000 });
+    expect(delaysFor(["delivery"])).toEqual({});
+    expect(delaysFor(["eventsQueue", "images"])).toEqual({});
+  });
+
+  it("names only pipelines the preset composes in delayMs, for every feature subset", () => {
+    const optional: Feature[] = ["delivery", "images", "audit"];
+    for (let mask = 0; mask < 1 << optional.length; mask++) {
+      const features: Feature[] = ["eventsQueue", ...optional.filter((_, index) => (mask & (1 << index)) !== 0)];
+      const composed = names(compose(features));
+      for (const name of Object.keys(delaysFor(features))) expect(composed.has(name), `${name} with ${features.join(", ")}`).toBe(true);
+    }
+  });
+
+  it("rejects a delayMs config that names a delivery pipeline this configuration does not compose", () => {
+    const modules = modulesFor(["eventsQueue"]).map((entry) => (entry.use === EVENTS_QUEUE ? { use: EVENTS_QUEUE, config: { delayMs: { refreshIndexes: 1000 } } } : entry));
+    expect(() => definePreset({ modules, features: ["eventsQueue"], collections })).toThrow(
+      `preset: module "${EVENTS_QUEUE}" holds back pipeline "refreshIndexes" in delayMs, which the preset does not compose – remove it from delayMs too, or keep the pipeline`,
+    );
+    const own = modulesFor(["eventsQueue"]).map((entry) => (entry.use === EVENTS_QUEUE ? { use: EVENTS_QUEUE, config: { delayMs: { myOwnPipeline: 1000 } } } : entry));
+    expect(() => definePreset({ modules: own, features: ["eventsQueue"], collections })).not.toThrow();
+  });
+
+  it("rejects a lanes config that leaves the index export in the main lane or shares its lane", () => {
+    const features: Feature[] = ["eventsQueue", "delivery"];
+    const withLanes = (lanes: Record<string, string[]>): ModuleList =>
+      modulesFor(features).map((entry) => (entry.use === EVENTS_QUEUE ? { use: EVENTS_QUEUE, config: { lanes } } : entry));
+    const message = `preset: module "${EVENTS_QUEUE}" must run "refreshIndexes" in a lane of its own – sitemap.xml, robots.txt and llms.txt must never wait for a re-render backlog or other queued work`;
+    expect(() => definePreset({ modules: withLanes({ pages: ["republishOutput", "refreshLlms"] }), features, collections })).toThrow(message);
+    expect(() => definePreset({ modules: withLanes({ pages: ["republishOutput", "refreshLlms"], indexes: ["refreshIndexes", "purgeEvents"] }), features, collections })).toThrow(message);
+    expect(() => definePreset({ modules: withLanes({ pages: ["republishOutput", "refreshLlms"], indexes: ["refreshIndexes"] }), features, collections })).not.toThrow();
   });
 
   it("names only pipelines the preset composes, for every feature subset", () => {
@@ -305,6 +362,6 @@ describe("dependents: queue lanes", () => {
     const message = `preset: module "${EVENTS_QUEUE}" must run "republishOutput" and "refreshLlms" together in a lane of their own – re-renders must never delay other queued work, and the export must follow them`;
     expect(() => definePreset({ modules: withLanes({ pages: ["republishOutput"] }), features, collections })).toThrow(message);
     expect(() => definePreset({ modules: withLanes({ pages: ["republishOutput"], llms: ["refreshLlms"] }), features, collections })).toThrow(message);
-    expect(() => definePreset({ modules: withLanes({ pages: ["republishOutput", "refreshLlms"] }), features, collections })).not.toThrow();
+    expect(() => definePreset({ modules: withLanes({ pages: ["republishOutput", "refreshLlms"], indexes: ["refreshIndexes"] }), features, collections })).not.toThrow();
   });
 });

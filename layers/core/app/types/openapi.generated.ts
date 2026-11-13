@@ -592,7 +592,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission blog.manage → Mark every blog output for a re-render in the background, including documents that were never delivered (adds `marked` to the result) */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission blog.manage → Mark every blog output for a re-render in the background, including documents that were never delivered (adds `marked` to the result) → Ask for a sitemap.xml, robots.txt and llms.txt export (and an llms-full.txt export with `llms.full`) without running it here */
         post: operations["publishAllBlog"];
         delete?: never;
         options?: never;
@@ -609,7 +609,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission pages.manage → Mark every pages output for a re-render in the background, including documents that were never delivered (adds `marked` to the result) → Write redirects.json to the blobstore: editor rules first, then automatic ones (adds `redirects: { rules, skipped }` to the result) */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission pages.manage → Mark every pages output for a re-render in the background, including documents that were never delivered (adds `marked` to the result) → Ask for a sitemap.xml, robots.txt and llms.txt export (and an llms-full.txt export with `llms.full`) without running it here → Write redirects.json to the blobstore: editor rules first, then automatic ones (adds `redirects: { rules, skipped }` to the result) */
         post: operations["publishAllPages"];
         delete?: never;
         options?: never;
@@ -626,7 +626,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission pages.manage → Reset the attempts of every output whose re-render failed maxAttempts times and start it again (adds `retried` to the result) */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission pages.manage → Reset the attempts of every output whose re-render failed maxAttempts times and start it again (adds `retried` to the result) → Ask for a sitemap.xml, robots.txt and llms.txt export (and an llms-full.txt export with `llms.full`) without running it here */
         post: operations["retryStalePages"];
         delete?: never;
         options?: never;
@@ -658,7 +658,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission pages.manage → How many outputs wait for a re-render, failed it, are rendering or have unknown dependencies, the oldest mark, and the renders this process abandoned at the timeout */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission pages.manage → How many outputs wait for a re-render, failed it, are rendering or have unknown dependencies, the oldest mark, the renders this process abandoned at the timeout, and the last index and llms-full.txt exports */
         get: operations["pagesStaleStatus"];
         put?: never;
         post?: never;
@@ -5764,7 +5764,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description the marks or their jobs could not be written */
+            /** @description with dependencies.render "events": the export request could not be queued */
             503: {
                 headers: {
                     /** @description seconds until the client may retry */
@@ -5837,7 +5837,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description the marks or their jobs could not be written */
+            /** @description with dependencies.render "events": the export request could not be queued */
             503: {
                 headers: {
                     /** @description seconds until the client may retry */
@@ -5906,7 +5906,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description temporarily unavailable; retry after the Retry-After header */
+            /** @description with dependencies.render "events": the export request could not be queued */
             503: {
                 headers: {
                     /** @description seconds until the client may retry */
@@ -6020,6 +6020,20 @@ export interface operations {
                 content: {
                     "application/json": {
                         abandoned: number;
+                        exports: {
+                            indexes: {
+                                at: number;
+                                entries: number;
+                                error: string | null;
+                                skipped: boolean;
+                            } | null;
+                            llmsFull: {
+                                at: number;
+                                entries: number;
+                                error: string | null;
+                                skipped: boolean;
+                            } | null;
+                        };
                         failed: number;
                         oldestStaleAt: number | null;
                         rendering: number;

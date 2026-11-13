@@ -36,6 +36,7 @@ export type {
   PresetMigrations,
   PresetModuleConfigOptions,
   PresetRateLimit,
+  PresetRobots,
   PresetPaths,
   PresetRevisions,
   PresetRoles,
@@ -43,6 +44,7 @@ export type {
 } from "./config";
 export {
   checkPreset,
+  delaysFor,
   featureOrder,
   lanesFor,
   RELAY_CANDIDATE_PIPELINES,

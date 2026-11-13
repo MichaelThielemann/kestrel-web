@@ -256,7 +256,8 @@
       "events.relay"
     ],
     "deliveryBuildCheck": [
-      "delivery.checkBuild"
+      "delivery.checkBuild",
+      "delivery.requestIndexes"
     ],
     "downloadMedia": [
       "authn.identifyUser",
@@ -504,22 +505,24 @@
       "authn.requireUser",
       "authz.requireRole",
       "authz.require:blog.manage",
-      "delivery.markAll:blog"
+      "delivery.markAll:blog",
+      "delivery.requestIndexes"
     ],
     "publishAllPages": [
       "authn.requireUser",
       "authz.requireRole",
       "authz.require:pages.manage",
       "delivery.markAll:pages",
+      "delivery.requestIndexes",
       "redirects.export"
     ],
     "publishBlog": [
       "delivery.publish:blog",
-      "delivery.requestLlms"
+      "delivery.requestIndexes"
     ],
     "publishPage": [
       "delivery.publish:pages",
-      "delivery.requestLlms"
+      "delivery.requestIndexes"
     ],
     "purgeExpiredMedia": [
       "media.selectExpiredTrash",
@@ -765,7 +768,8 @@
       "authn.requireUser",
       "authz.requireRole",
       "authz.require:pages.manage",
-      "delivery.retryStale"
+      "delivery.retryStale",
+      "delivery.requestIndexes"
     ],
     "scanReferences": [
       "references.scan"
@@ -820,7 +824,7 @@
     ],
     "settingsDependents": [
       "delivery.markDependents:settings",
-      "delivery.requestLlms"
+      "delivery.requestIndexes"
     ],
     "setupSecondFactor": [
       "ratelimit.check:login",
@@ -851,11 +855,11 @@
     ],
     "unpublishBlog": [
       "delivery.unpublish:blog",
-      "delivery.requestLlms"
+      "delivery.requestIndexes"
     ],
     "unpublishPage": [
       "delivery.unpublish:pages",
-      "delivery.requestLlms"
+      "delivery.requestIndexes"
     ],
     "updateBlog": [
       "authn.requireUser",

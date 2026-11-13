@@ -21,7 +21,7 @@ const schema: AdminSchema = {
 }
 
 function staleStatus(over: Partial<StaleStatus> = {}): StaleStatus {
-  return { stale: 0, failed: 0, rendering: 0, unknown: 0, oldestStaleAt: null, abandoned: 0, ...over }
+  return { stale: 0, failed: 0, rendering: 0, unknown: 0, oldestStaleAt: null, abandoned: 0, exports: { indexes: null, llmsFull: null }, ...over }
 }
 
 function text(key: keyof typeof en, params: Record<string, string | number> = {}): string {

@@ -105,7 +105,7 @@ export function projectMediaPathProblems(
   return mediaPathProblems({
     media: parsedModuleConfig(modules, configModules, owner("media.upload")),
     images: parsedModuleConfig(modules, configModules, owner("images.attach")),
-    delivery: parsedModuleConfig(modules, configModules, owner("delivery.exportLlms")),
+    delivery: parsedModuleConfig(modules, configModules, owner("delivery.exportIndexes")),
     triggers: manifest.triggers.http,
     pipelines: manifest.pipelines,
   });

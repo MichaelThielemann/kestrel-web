@@ -92,6 +92,17 @@ interface ExpectedStaleStatus {
   unknown: number
   oldestStaleAt: number | null
   abandoned: number
+  exports: {
+    indexes: ExpectedExportOutcome | null
+    llmsFull: ExpectedExportOutcome | null
+  }
+}
+
+interface ExpectedExportOutcome {
+  at: number
+  entries: number
+  error: string | null
+  skipped: boolean
 }
 
 describe('the public API types keep exactly their published shape', () => {
@@ -123,7 +134,7 @@ describe('the public API types keep exactly their published shape', () => {
     expectTypeOf<Pick<RevisionRestoreResponse, 'restore' | '_events'>>().toEqualTypeOf<{ restore?: import('./api').RestoreReport, _events?: EventRelayStatus }>()
   })
 
-  it('StaleStatus, the re-render backlog of the static delivery', () => {
+  it('StaleStatus, the re-render backlog of the static delivery and the outcome of its last index exports', () => {
     expectTypeOf<StaleStatus>().toEqualTypeOf<ExpectedStaleStatus>()
   })
 

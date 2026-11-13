@@ -23,7 +23,8 @@ import ratelimit from "./features/ratelimit";
 import sanitizeSvg from "./features/sanitizeSvg";
 import references from "./features/references";
 import links from "./features/links";
-import delivery, { dependentsPipelineName, dependentsPipelineNames, REFRESH_LLMS_PIPELINE, REPUBLISH_OUTPUT_PIPELINE } from "./features/delivery";
+import delivery, { dependentsPipelineName, dependentsPipelineNames, REFRESH_INDEXES_PIPELINE, REFRESH_LLMS_PIPELINE, REPUBLISH_OUTPUT_PIPELINE } from "./features/delivery";
+import { INDEX_EXPORT_DELAYS } from "./index-delays";
 import redirects from "./features/redirects";
 import images from "./features/images";
 import replication from "./features/replication";
@@ -69,7 +70,7 @@ export const staticPipelineNames = [
   "brokenReferences", "pageReferrers", "pageReferrersMany", "mediaReferrers", "mediaReferrersMany", "rebuildReferences", "scanReferences",
   "brokenLinks", "rebuildLinks", "checkLinks",
   "publishPage", "unpublishPage", "pagePublishStatus", "publishAllPages",
-  "pageDependents", "settingsDependents", "mediaDependents", "republishOutput", "refreshLlms", "resumeStalePages", "deliveryBuildCheck", "retryStalePages", "pagesStaleStatus",
+  "pageDependents", "settingsDependents", "mediaDependents", "republishOutput", "refreshIndexes", "refreshLlms", "resumeStalePages", "deliveryBuildCheck", "retryStalePages", "pagesStaleStatus",
   "getRedirects", "setRedirects", "renderRedirects",
   "serveImageVariant", "registerImageSizes", "registerImageSizesBoot", "listImageSizes", "syncImages", "pruneImages", "retryFailedImages", "imagesStatus", "planImageVariants", "generateImageVariants", "resumeImages",
   "replicate", "replicationStatus", "replicationPoints", "replicationSnapshot", "replicationRestore",
@@ -189,6 +190,7 @@ const EVENTS_QUEUE_MODULE = "@michaelthielemann/kestrel-events-queue";
 const EVENTS_DIRECT_MODULE = "@michaelthielemann/kestrel-events-direct";
 const DELIVERY_STATIC_MODULE = "@michaelthielemann/kestrel-delivery-static";
 const PAGE_RENDER_LANE = "pages";
+const INDEX_EXPORT_LANE = "indexes";
 const IMAGE_VARIANT_LANE = "variants";
 
 const MODULE_EMITS: Readonly<Record<string, readonly string[]>> = {
@@ -210,16 +212,30 @@ export function relayPipelinesFor(features: readonly Feature[]): string[] {
 
 /**
  * The `lanes` that `presetModuleConfig()` gives the queue: with `eventsQueue`, `pages` (`republishOutput`,
- * `refreshLlms`) when `features` includes `delivery`, and `variants` (`generateImageVariants`) when it includes
- * `images`; `{}` otherwise. Every pipeline it leaves out runs in the queue's main lane. `definePreset()` checks the
- * configured lanes against what it composes.
+ * `refreshLlms`) and `indexes` (`refreshIndexes`) when `features` includes `delivery`, and `variants`
+ * (`generateImageVariants`) when it includes `images`; `{}` otherwise. Every pipeline it leaves out runs in the
+ * queue's main lane. `definePreset()` checks the configured lanes against what it composes.
  */
 export function lanesFor(features: readonly Feature[]): Record<string, string[]> {
   if (!features.includes("eventsQueue")) return {};
   const lanes: Record<string, string[]> = {};
-  if (features.includes("delivery")) lanes[PAGE_RENDER_LANE] = [REPUBLISH_OUTPUT_PIPELINE, REFRESH_LLMS_PIPELINE];
+  if (features.includes("delivery")) {
+    lanes[PAGE_RENDER_LANE] = [REPUBLISH_OUTPUT_PIPELINE, REFRESH_LLMS_PIPELINE];
+    lanes[INDEX_EXPORT_LANE] = [REFRESH_INDEXES_PIPELINE];
+  }
   if (features.includes("images")) lanes[IMAGE_VARIANT_LANE] = ["generateImageVariants"];
   return lanes;
+}
+
+/**
+ * The `delayMs` that `presetModuleConfig()` gives the queue: with `eventsQueue` and `delivery`,
+ * `refreshIndexes` 1000 ms and `refreshLlms` 3000 ms, so one export follows a burst of saves and llms-full.txt
+ * trails the re-renders a save marks; `{}` otherwise. `definePreset()` checks the configured names against what
+ * it composes.
+ */
+export function delaysFor(features: readonly Feature[]): Record<string, number> {
+  if (!features.includes("eventsQueue") || !features.includes("delivery")) return {};
+  return { [REFRESH_INDEXES_PIPELINE]: INDEX_EXPORT_DELAYS.refreshIndexes, [REFRESH_LLMS_PIPELINE]: INDEX_EXPORT_DELAYS.refreshLlms };
 }
 
 const CONDITIONAL_CRON_HINTS: Record<string, string> = {
@@ -285,6 +301,12 @@ function configuredLanes(modules: readonly { use: string; config?: unknown }[]):
   const lanes: unknown = Reflect.get(config, "lanes");
   if (typeof lanes !== "object" || lanes === null) return undefined;
   return new Map(Object.entries(lanes).map(([lane, entry]): [string, string[]] => [lane, Array.isArray(entry) ? entry.filter((name): name is string => typeof name === "string") : []]));
+}
+
+function configuredDelays(modules: readonly { use: string; config?: unknown }[]): string[] {
+  const config = effectiveConfigOf(modules, EVENTS_QUEUE_MODULE);
+  const delays: unknown = typeof config === "object" && config !== null ? Reflect.get(config, "delayMs") : undefined;
+  return typeof delays === "object" && delays !== null ? Object.keys(delays) : [];
 }
 
 function configuredLaneMembers(modules: readonly { use: string; config?: unknown }[]): string[] | undefined {
@@ -815,6 +837,28 @@ export function buildPreset<C extends Record<string, CollectionModel> = Record<s
       sink.report({
         code: "preset/page-renders-lane",
         message: `preset: module "${EVENTS_QUEUE_MODULE}" must run "${REPUBLISH_OUTPUT_PIPELINE}" and "${REFRESH_LLMS_PIPELINE}" together in a lane of their own – re-renders must never delay other queued work, and the export must follow them`,
+      });
+    }
+    if (Object.hasOwn(pipelines, REFRESH_INDEXES_PIPELINE)) {
+      const indexLane = laneOf(REFRESH_INDEXES_PIPELINE);
+      const alone = indexLane !== undefined && (lanes.get(indexLane) ?? []).every((name) => name === REFRESH_INDEXES_PIPELINE);
+      if (!alone) {
+        sink.report({
+          code: "preset/index-exports-lane",
+          pipeline: REFRESH_INDEXES_PIPELINE,
+          message: `preset: module "${EVENTS_QUEUE_MODULE}" must run "${REFRESH_INDEXES_PIPELINE}" in a lane of its own – sitemap.xml, robots.txt and llms.txt must never wait for a re-render backlog or other queued work`,
+        });
+      }
+    }
+  }
+
+  if (configuredModules.has(EVENTS_QUEUE_MODULE)) {
+    for (const name of configuredDelays(options.modules)) {
+      if (!composablePipelineNames.has(name) || Object.hasOwn(pipelines, name)) continue;
+      sink.report({
+        code: "preset/delay-pipeline-unknown",
+        pipeline: name,
+        message: `preset: module "${EVENTS_QUEUE_MODULE}" holds back pipeline "${name}" in delayMs, which the preset does not compose – remove it from delayMs too, or keep the pipeline`,
       });
     }
   }

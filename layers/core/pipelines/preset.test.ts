@@ -710,8 +710,8 @@ describe("definePreset step ordering", () => {
     }
     const publishPage = preset.pipelines.find((pipeline) => pipeline.name === "publishPage");
     const unpublishPage = preset.pipelines.find((pipeline) => pipeline.name === "unpublishPage");
-    expect(publishPage && pipelineSteps(publishPage.steps)).toEqual(["delivery.publish:pages", "delivery.requestLlms"]);
-    expect(unpublishPage && pipelineSteps(unpublishPage.steps)).toEqual(["delivery.unpublish:pages", "delivery.requestLlms"]);
+    expect(publishPage && pipelineSteps(publishPage.steps)).toEqual(["delivery.publish:pages", "delivery.requestIndexes"]);
+    expect(unpublishPage && pipelineSteps(unpublishPage.steps)).toEqual(["delivery.unpublish:pages", "delivery.requestIndexes"]);
   });
 
   it("registers the delivery event triggers, gated by translatability for translationRemoved", () => {

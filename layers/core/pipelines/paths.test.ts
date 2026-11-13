@@ -24,7 +24,7 @@ const modules = [
 ];
 
 const direct = [...modules, { use: "@michaelthielemann/kestrel-events-direct" }];
-const queued = [...modules.map((entry) => (entry.use.endsWith("delivery-static") ? { ...entry, config: { dependencies: { render: "events" } } } : entry)), { use: "@michaelthielemann/kestrel-events-queue", config: { lanes: { pages: ["republishOutput", "refreshLlms"] } } }];
+const queued = [...modules.map((entry) => (entry.use.endsWith("delivery-static") ? { ...entry, config: { dependencies: { render: "events" } } } : entry)), { use: "@michaelthielemann/kestrel-events-queue", config: { lanes: { pages: ["republishOutput", "refreshLlms"], indexes: ["refreshIndexes"] } } }];
 const features: Feature[] = ["references", "links", "revisions", "delivery", "redirects", "migrations"];
 
 function stepsOf(preset: { pipelines: { name: string; steps: readonly PipelineEntry[] }[] }, name: string): readonly PipelineEntry[] | undefined {
@@ -129,13 +129,13 @@ describe("path pipelines", () => {
     expect(preset.triggers).toContainEqual({ cron: "* * * * *", pipeline: "resumePaths" });
   });
 
-  it("feeds moved paths to automatic redirects and to re-renders, and rebuilds after migrations", () => {
+  it("feeds moved paths to automatic redirects and to re-renders, and rebuilds and re-renders after migrations", () => {
     const preset = definePreset({ modules: direct, features, collections: { pages } });
     expect(stepsOf(preset, "pathsMovedRedirects")).toEqual(["redirects.recordMoves", "redirects.export"]);
     expect(stepsOf(preset, "pathsMovedDelivery")).toEqual(["delivery.markMoved"]);
     expect(stepsOf(preset, "listAutoRedirects")).toEqual(["authn.requireUser", "authz.requireRole", "authz.require:redirects.read", "redirects.listAuto"]);
     expect(stepsOf(preset, "removeAutoRedirect")).toEqual(["authn.requireUser", "authz.requireRole", "authz.require:redirects.write", "redirects.removeAuto", "redirects.export"]);
-    expect(stepsOf(preset, "rebuildPathsAfterMigrations")).toEqual(["site.planRebuild", { atomic: ["site.applyRebuild"] }, "site.announcePaths"]);
+    expect(stepsOf(preset, "rebuildPathsAfterMigrations")).toEqual(["site.planRebuild", { atomic: ["site.applyRebuild"] }, "site.announcePaths", "delivery.markAll:pages", "delivery.requestIndexes"]);
     expect(preset.triggers).toContainEqual({ event: "site.pathsMoved", pipeline: "pathsMovedRedirects" });
     expect(preset.triggers).toContainEqual({ event: "site.pathsMoved", pipeline: "pathsMovedDelivery" });
     expect(preset.triggers).toContainEqual({ event: "migrations.applied", pipeline: "rebuildPathsAfterMigrations" });
@@ -249,8 +249,8 @@ describe("mounted collections", () => {
   it("gives it a public resolve route, a path preview, delivery and referrers of its own", () => {
     expect(stepsOf(preset, "resolveBlog")).toEqual(["authn.identifyUser", "authz.require:blog.read", "site.resolve:blog?status=published&fallback=true", "site.resolveLinks:blog?status=published&fallback=true", "authz.fields:blog?shape=item"]);
     expect(stepsOf(preset, "previewBlogPath")).toEqual(["authn.requireUser", "authz.requireRole", "authz.require:blog.write", "site.previewPath:blog"]);
-    expect(stepsOf(preset, "publishBlog")).toEqual(["delivery.publish:blog", "delivery.requestLlms"]);
-    expect(stepsOf(preset, "unpublishBlog")).toEqual(["delivery.unpublish:blog", "delivery.requestLlms"]);
+    expect(stepsOf(preset, "publishBlog")).toEqual(["delivery.publish:blog", "delivery.requestIndexes"]);
+    expect(stepsOf(preset, "unpublishBlog")).toEqual(["delivery.unpublish:blog", "delivery.requestIndexes"]);
     expect(stepsOf(preset, "blogPublishStatus")).toEqual(["authn.requireUser", "authz.requireRole", "authz.require:blog.manage", "delivery.readStatus:blog"]);
     expect(stepsOf(preset, "blogReferrers")).toEqual(["authn.requireUser", "authz.requireRole", "authz.require:blog.manage", "references.referrers:blog"]);
     for (const trigger of [
@@ -337,8 +337,8 @@ describe("re-rendering everything", () => {
     const blog: CollectionModel = { kind: "multi", mount: true, fields: { slug: { type: "slug" }, title: {}, status: {} } };
     const withAuthz = direct.map((entry) => (entry.use.endsWith("authz-roles") ? { ...entry, config: { anonymous: ["pages.read", "blog.read"] } } : entry));
     const preset = definePreset({ modules: withAuthz, features, collections: { settings, pages, blog } });
-    expect(stepsOf(preset, "publishAllPages")).toEqual(["authn.requireUser", "authz.requireRole", "authz.require:pages.manage", "delivery.markAll:pages", "redirects.export"]);
-    expect(stepsOf(preset, "publishAllBlog")).toEqual(["authn.requireUser", "authz.requireRole", "authz.require:blog.manage", "delivery.markAll:blog"]);
+    expect(stepsOf(preset, "publishAllPages")).toEqual(["authn.requireUser", "authz.requireRole", "authz.require:pages.manage", "delivery.markAll:pages", "delivery.requestIndexes", "redirects.export"]);
+    expect(stepsOf(preset, "publishAllBlog")).toEqual(["authn.requireUser", "authz.requireRole", "authz.require:blog.manage", "delivery.markAll:blog", "delivery.requestIndexes"]);
     expect(preset.triggers).toContainEqual({ http: "POST /admin/publish-all/blog", pipeline: "publishAllBlog" });
     expect(collectionVerbs("blog", blog).publishAll).toBe("publishAllBlog");
   });

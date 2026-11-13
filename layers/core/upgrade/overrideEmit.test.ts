@@ -38,7 +38,7 @@ const DIRECT: Mode = {
 const QUEUE: Mode = {
   modules: [
     ...BASE_MODULES,
-    { use: "@michaelthielemann/kestrel-events-queue", config: { lanes: { pages: ["republishOutput", "refreshLlms"] } } },
+    { use: "@michaelthielemann/kestrel-events-queue", config: { lanes: { pages: ["republishOutput", "refreshLlms"], indexes: ["refreshIndexes"] } } },
     { use: DELIVERY_STATIC, config: { dependencies: { render: "events" } } },
   ],
   features: ["delivery", "eventsQueue"],

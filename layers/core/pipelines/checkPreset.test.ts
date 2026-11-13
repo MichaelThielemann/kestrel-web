@@ -132,10 +132,11 @@ describe("checkPreset: dependent re-rendering and queue lanes", () => {
     profile: { kind: "single", fields: { bio: {} } },
   };
 
-  function modules(features: readonly string[], { render, lanes }: { render?: string; lanes?: unknown } = {}): { use: string; config?: unknown }[] {
+  function modules(features: readonly string[], { render, lanes, delayMs }: { render?: string; lanes?: unknown; delayMs?: unknown } = {}): { use: string; config?: unknown }[] {
     const queued = features.includes("eventsQueue");
     const list: { use: string; config?: unknown }[] = baseModules.filter((m) => !(queued && m.use === "@michaelthielemann/kestrel-events-direct"));
-    if (queued) list.push(lanes === undefined ? { use: queue } : { use: queue, config: { lanes } });
+    const queueConfig = { ...(lanes === undefined ? {} : { lanes }), ...(delayMs === undefined ? {} : { delayMs }) };
+    if (queued) list.push(Object.keys(queueConfig).length === 0 ? { use: queue } : { use: queue, config: queueConfig });
     if (features.includes("delivery")) {
       list.push({ use: "@michaelthielemann/kestrel-renderer-nuxt" });
       list.push({ use: deliveryStatic, config: render === undefined ? {} : { dependencies: { render } } });
@@ -164,7 +165,7 @@ describe("checkPreset: dependent re-rendering and queue lanes", () => {
 
   it("collects a queue with delivery whose delivery-static renders in the background", () => {
     const features = ["eventsQueue", "delivery"];
-    expectParity(options({ modules: modules(features, { render: "background", lanes: { pages: ["republishOutput", "refreshLlms"] } }), features, collections }), "preset/render-mode-needs-events");
+    expectParity(options({ modules: modules(features, { render: "background", lanes: { pages: ["republishOutput", "refreshLlms"], indexes: ["refreshIndexes"] } }), features, collections }), "preset/render-mode-needs-events");
   });
 
   it("collects render mode \"events\" without the queue", () => {
@@ -175,6 +176,17 @@ describe("checkPreset: dependent re-rendering and queue lanes", () => {
     const features = ["eventsQueue", "delivery"];
     expectParity(options({ modules: modules(features, { render: "events" }), features, collections }), "preset/page-renders-lane");
     expectParity(options({ modules: modules(features, { render: "events", lanes: { pages: ["republishOutput"], llms: ["refreshLlms"] } }), features, collections }), "preset/page-renders-lane");
+  });
+
+  it("collects a queue whose lanes leave the index export in the main lane or share its lane, naming it", () => {
+    const features = ["eventsQueue", "delivery"];
+    expectParity(options({ modules: modules(features, { render: "events", lanes: { pages: ["republishOutput", "refreshLlms"] } }), features, collections }), "preset/index-exports-lane", "refreshIndexes");
+    expectParity(options({ modules: modules(features, { render: "events", lanes: { pages: ["republishOutput", "refreshLlms"], indexes: ["refreshIndexes", "purgeEvents"] } }), features, collections }), "preset/index-exports-lane", "refreshIndexes");
+  });
+
+  it("collects a delayMs entry naming a preset pipeline this configuration does not compose, naming it", () => {
+    const features = ["eventsQueue"];
+    expectParity(options({ modules: modules(features, { delayMs: { refreshLlms: 3000 } }), features, collections }), "preset/delay-pipeline-unknown", "refreshLlms");
   });
 
   it("collects a lane naming a preset pipeline this configuration does not compose, naming it", () => {
@@ -219,6 +231,7 @@ describe("checkPreset: dependent re-rendering and queue lanes", () => {
     }));
     expect(problems.map((p) => p.code).sort()).toEqual([
       "preset/generate-image-variants-lane",
+      "preset/index-exports-lane",
       "preset/override-drops-watched-emit",
       "preset/page-renders-lane",
       "preset/render-mode-needs-events",
