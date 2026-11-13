@@ -99,7 +99,8 @@ describe('UserEditDialog', () => {
 
     submitForm()
 
-    await vi.waitFor(() => expect(document.body.textContent).toContain(en['users.nameTaken']))
+    const taken = en['users.nameTaken'].replace(/\.$/, '')
+    await vi.waitFor(() => expect(document.body.textContent).toMatch(new RegExp(`${taken} \\(HTTP 409 · error ID [0-9a-f]{12}\\)`)))
     expect(passwordCalls).toBe(0)
   })
 

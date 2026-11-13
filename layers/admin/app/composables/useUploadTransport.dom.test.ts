@@ -268,14 +268,25 @@ describe('useUploadTransport', () => {
     }
   })
 
-  it('reports an error answer of the host server as reached, with its status and never its boolean error field', async () => {
+  it('reports an error answer of the host server as reached, with its status and no message of its own', async () => {
     const pending = useUploadTransport()(route, new FormData())
-    current().respond(500, '{"error":true,"statusCode":500,"message":"Server Error"}', 'Server Error')
+    current().respond(503, '{"error":true,"statusCode":503,"message":"Service Unavailable"}')
 
     const error = await rejection(pending)
     expect(error).not.toBeInstanceOf(UploadTransportError)
     expect(error.reached).toBe(true)
-    expect(error.status).toBe(500)
-    expect(error.message).toBe('Server Error')
+    expect(error.status).toBe(503)
+    expect(error.message).toBe('')
+  })
+
+  it('treats a JSON error answer of a gateway in front of the server as an answer from elsewhere', async () => {
+    const pending = useUploadTransport()(route, new FormData())
+    current().respond(413, '{"message":"Request size limit exceeded"}')
+
+    const error = await rejection(pending)
+    expect(error).toBeInstanceOf(UploadTransportError)
+    expect(error.reached).toBe(false)
+    expect(error.code).toBe('PAYLOAD_TOO_LARGE')
+    expect(error.status).toBe(413)
   })
 })

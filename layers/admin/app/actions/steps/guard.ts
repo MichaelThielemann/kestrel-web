@@ -1,6 +1,7 @@
 import type { ActionContext, ActionStep } from '#kestrel-core/app/utils/actions'
 import { defineUiStep } from '../define'
-import type { BusyPort, ConfirmPort, EachReport, EditFormPort, Translate } from '../types'
+import type { BusyPort, ConfirmPort, EachReport, EditFormPort, Translate, WithDeps } from '../types'
+import { lastFailureText } from './notify'
 
 export function guardUnsaved<I extends { t: Translate, confirm: ConfirmPort }, R = unknown>(messageKey = 'editor.discardConfirm'): ActionStep<I, R> {
   return defineUiStep<I, R>('guard.unsaved', (ctx) => {
@@ -40,11 +41,11 @@ export function dialogConfirm<I, R = unknown>(pick: (ctx: ActionContext<I, R>) =
   })
 }
 
-export function guardAnySucceeded<I extends { ops: BusyPort }>(): ActionStep<I, EachReport<unknown>> {
+export function guardAnySucceeded<I extends WithDeps & { ops: BusyPort }>(): ActionStep<I, EachReport<unknown>> {
   return defineUiStep<I, EachReport<unknown>>('guard.anySucceeded', (ctx) => {
     const report = ctx.result
     if (!report || report.succeeded > 0 || !report.lastMessage) return
-    ctx.input.ops.setError?.(report.lastMessage)
+    ctx.input.ops.setError?.(lastFailureText(ctx.input.deps.t, report))
     ctx.fail(report.lastMessage)
   })
 }

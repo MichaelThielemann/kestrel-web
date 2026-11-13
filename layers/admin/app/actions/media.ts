@@ -87,7 +87,7 @@ export const createFolder = defineAction<CreateFolderInput, MediaFolder>({
       onSuccess: (ctx, value) => { ctx.result = value },
       onError: (ctx, err) => {
         const message = mapFolderError(err.code, err.message, ctx.input.deps.t)
-        ctx.input.ops.setError?.(message)
+        ctx.input.ops.setError?.(failureText(ctx.input.deps.t, message, err))
         ctx.fail(message)
       },
     }),
@@ -213,8 +213,10 @@ export const deleteItems = defineAction<DeleteItemsInput, DeleteItemsResult>({
             return
           }
         }
-        const file = ctx.input.files.find((f) => f.id === item.id)
-        ctx.input.ops.setError?.(ctx.input.deps.t('media.deleteBlocked', { name: file?.filename ?? item.id, reason: item.message }))
+        const { t } = ctx.input.deps
+        const name = ctx.input.files.find((f) => f.id === item.id)?.filename ?? item.id
+        const message = item.reached === false ? name : t('media.deleteBlocked', { name, reason: item.message })
+        ctx.input.ops.setError?.(failureText(t, message, item))
       },
       onDone: (ctx, report) => {
         ctx.result = { files: report, folders: EMPTY_EACH_REPORT }
@@ -227,7 +229,7 @@ export const deleteItems = defineAction<DeleteItemsInput, DeleteItemsResult>({
       signal: (ctx) => ctx.input.signal,
       onProgress: (ctx, done) => ctx.input.onProgress?.(ctx.input.files.length + done, ctx.input.files.length + ctx.input.folderPaths.length),
       onItemError: (ctx, item) => {
-        ctx.input.ops.setError?.(item.message ?? '')
+        ctx.input.ops.setError?.(failureText(ctx.input.deps.t, item.message ?? '', item))
       },
       onDone: (ctx, report) => {
         const result = { files: ctx.result?.files ?? EMPTY_EACH_REPORT, folders: report }
@@ -254,7 +256,7 @@ const humanizeByteCounts = (message: string) => message.replace(/(\d+) bytes/g, 
 
 const UPSTREAM_MESSAGE_KEYS: Record<string, string> = {
   PAYLOAD_TOO_LARGE: 'media.upload.rejectedTooLarge',
-  TIMEOUT: 'media.upload.timeout',
+  TIMEOUT: 'media.upload.notReceived',
   UNAVAILABLE: 'media.upload.unavailable',
 }
 
@@ -376,7 +378,7 @@ export const setMediaMeta = defineAction<SetMediaMetaInput, MediaItem>({
       call: (ctx) => ({ route: ctx.input.deps.capabilities.route('updateMedia', { id: ctx.input.id }), body: { locale: ctx.input.locale, ...ctx.input.fields } }),
       onSuccess: (ctx, value) => { ctx.result = value },
       onError: (ctx, err) => {
-        ctx.input.ops.setError?.(err.message)
+        ctx.input.ops.setError?.(failureText(ctx.input.deps.t, err.message, err))
         ctx.fail(err.message)
       },
     }),
@@ -393,7 +395,7 @@ export const setMediaProvenance = defineAction<SetMediaProvenanceInput, MediaIte
       call: (ctx) => ({ route: ctx.input.deps.capabilities.route('updateMedia', { id: ctx.input.id }), body: { provenance: ctx.input.provenance } }),
       onSuccess: (ctx, value) => { ctx.result = value },
       onError: (ctx, err) => {
-        ctx.input.ops.setError?.(err.message)
+        ctx.input.ops.setError?.(failureText(ctx.input.deps.t, err.message, err))
         ctx.fail(err.message)
       },
     }),

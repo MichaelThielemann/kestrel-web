@@ -12,20 +12,20 @@ const canRebuildLinks = computed(() => deps.capabilities.has('rebuildLinks'))
 
 const refs = ref<BrokenReference[]>([])
 const links = ref<BrokenLink[]>([])
-const refsError = ref(false)
-const linksError = ref(false)
+const refsError = ref<string | null>(null)
+const linksError = ref<string | null>(null)
 const refsBusy = ref(false)
 const linksBusy = ref(false)
 
 async function loadRefs() {
-  refsError.value = false
+  refsError.value = null
   try { refs.value = await deps.api<BrokenReference[]>(deps.capabilities.route('brokenReferences')) }
-  catch { refsError.value = true }
+  catch (e) { refsError.value = failureText(t, t('refs.loadError'), toApiError(e)) }
 }
 async function loadLinks() {
-  linksError.value = false
+  linksError.value = null
   try { links.value = (await deps.api<BrokenLink[]>(deps.capabilities.route('brokenLinks'))).filter((l) => l.ok === false) }
-  catch { linksError.value = true }
+  catch (e) { linksError.value = failureText(t, t('references.links.loadError'), toApiError(e)) }
 }
 
 await Promise.all([hasReferences.value ? loadRefs() : null, hasLinks.value ? loadLinks() : null])
@@ -60,7 +60,7 @@ function fromLink(id: string, locale: string | null) {
           <h2 class="refs__section-title">{{ t('refs.title') }}</h2>
           <KestrelUiButton v-if="canRebuildReferences" type="button" size="sm" variant="secondary" :loading="refsBusy" @click="rebuildRefs">{{ t('refs.rebuild') }}</KestrelUiButton>
         </div>
-        <KestrelUiAlert v-if="refsError" variant="error">{{ t('refs.loadError') }}</KestrelUiAlert>
+        <KestrelUiAlert v-if="refsError" variant="error">{{ refsError }}</KestrelUiAlert>
         <KestrelUiEmptyState v-else-if="!refs.length" icon="check" :title="t('refs.empty.title')" :description="t('refs.empty.desc')" />
         <KestrelUiTable v-else :sticky="false">
           <template #head>
@@ -83,7 +83,7 @@ function fromLink(id: string, locale: string | null) {
           <h2 class="refs__section-title">{{ t('references.links.title') }}</h2>
           <KestrelUiButton v-if="canRebuildLinks" type="button" size="sm" variant="secondary" :loading="linksBusy" @click="rebuildLinks">{{ t('refs.rebuild') }}</KestrelUiButton>
         </div>
-        <KestrelUiAlert v-if="linksError" variant="error">{{ t('references.links.loadError') }}</KestrelUiAlert>
+        <KestrelUiAlert v-if="linksError" variant="error">{{ linksError }}</KestrelUiAlert>
         <KestrelUiEmptyState v-else-if="!links.length" icon="check" :title="t('references.links.empty.title')" :description="t('references.links.empty.desc')" />
         <KestrelUiTable v-else :sticky="false">
           <template #head>

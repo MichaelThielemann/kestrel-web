@@ -474,9 +474,10 @@ The layer's own routes write no `http` line: `/api/health`, `/api/ready`, `/api/
 
 ### Finding the line behind an error in the admin
 
-Every request of the admin carries a fresh `X-Request-Id` of twelve hex digits, and every error it shows
-names the HTTP status and that id, for example `Export failed (HTTP 500 · error ID 3f9a2c7b1e04)`.
-A failed upload offers to copy the id, and an error toast that names it stays until it is dismissed.
+Every request of the admin carries a fresh `X-Request-Id` of twelve hex digits, and the message of every
+failed request names the HTTP status and that id, in a toast, an inline error or an upload row alike, for
+example `That username is already taken (HTTP 409 · error ID 3f9a2c7b1e04)`. A failed upload offers to copy
+the id, and an error toast that names it stays until it is dismissed.
 Search the log for it:
 
 ```sh
@@ -486,11 +487,17 @@ journalctl -u mysite | grep 3f9a2c7b1e04
 - **A line with that `requestId`** means kestrel answered: its `status` and `reason`, and the `step` lines
   of its `runId`, explain the failure.
 - **No line, and the admin says the request did not reach the server or was refused in front of it**: the
-  answer was not JSON and carried no `X-Kestrel-Run-Id`, so it came from the proxy (`HTTP 413`, `HTTP 502`),
-  or nothing came back at all (`no answer`: connection lost). Look the id up in the proxy's access log.
+  answer carried no `X-Kestrel-Run-Id` and its body was neither a kestrel error nor an error of the host
+  server, so it came from the proxy or a gateway in front of the app (`HTTP 413`, `HTTP 502`), also one
+  that writes its errors as JSON, or nothing came back at all (`no answer`: connection lost). Look the id up
+  in the proxy's access log.
 - **No line, and the admin says the server may still have processed the request**: the answer did not come in
   time (`HTTP 504` from the proxy, or the browser's own upload timeout). kestrel may still finish the request
   and log it under the same id later; search again, then look in the proxy's access log.
+- **The admin says the server or a proxy in front of it stopped waiting for the request body** (`HTTP 408`):
+  the upload did not arrive in time. When the process's own request timeout ended it, kestrel wrote a line
+  with the reason `body not received: request timeout`. Without a line, the proxy ended it
+  (`client_body_timeout` in nginx); look the id up in its access log.
 - **No line, and the admin shows the message with the status as usual** (for example `HTTP 403` or
   `HTTP 503`): the layer refused the request before kestrel saw it. That is the IP allowlist, the boot
   status while kestrel failed to start, or one of the layer's own routes listed above; none of them writes
@@ -537,6 +544,9 @@ included. Reading a proxy line:
   not reachable (stopped, restarting, wrong port); nothing came back from it.
 - `status=504`, `upstream_status=504` and a `request_time` near `proxy_read_timeout`: the proxy gave up
   waiting; kestrel may still have finished the request and logged it under the same id.
+- `status=408`: the request body did not arrive in time. With `upstream_status=-` the proxy stopped
+  waiting for it; with `upstream_status=408` the process did, and kestrel's `http` line for the id names
+  the reason.
 - A 4xx or 5xx with an `upstream_header_time` but no `upstream_run`: the host server answered without
   kestrel, for example the IP allowlist or one of the layer's own routes.
 

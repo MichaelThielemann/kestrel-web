@@ -28,7 +28,7 @@ import {
 } from './system'
 import type { BusyPort } from './types'
 import { capabilityResolver } from '../utils/capabilities'
-import { fakeDeps as sharedFakeDeps, fullAccessSchema, referencedFailure } from './__fixtures__/fake-deps'
+import { fakeDeps as sharedFakeDeps, fullAccessSchema, noAnswerFailure, referencedFailure, unansweredFetchError } from './__fixtures__/fake-deps'
 
 const CODE_OF: Record<number, string> = {
   400: 'VALIDATION', 401: 'UNAUTHENTICATED', 403: 'FORBIDDEN', 404: 'NOT_FOUND', 409: 'CONFLICT',
@@ -448,10 +448,20 @@ describe('userCreate', () => {
     const result = await runAction(userCreate, { deps, username: 'bob', password: 'long-enough-phrase', passwordConfirm: 'long-enough-phrase', roles: [], ops, refresh })
 
     expect(result.ok).toBe(false)
-    expect(errors).toContain('username taken')
+    expect(errors).toContain(referencedFailure('username taken', 409))
     expect(toast.success).not.toHaveBeenCalled()
     expect(toast.error).not.toHaveBeenCalled()
     expect(refreshCalls.length).toBe(0)
+  })
+
+  it('says that a create without an answer did not reach the server, with its error id', async () => {
+    const { deps } = fakeDeps([unansweredFetchError('0a0b0c0d0e0f')])
+    const { ops, errors } = fakeOps()
+    const { refresh } = fakeRefresh()
+
+    await runAction(userCreate, { deps, username: 'bob', password: 'long-enough-phrase', passwordConfirm: 'long-enough-phrase', roles: [], ops, refresh })
+
+    expect(errors).toContain(noAnswerFailure('', '0a0b0c0d0e0f'))
   })
 })
 
@@ -631,9 +641,19 @@ describe('userUpdate', () => {
 
     expect(result.ok).toBe(false)
     expect(calls.length).toBe(1)
-    expect(errors).toContain('users.nameTaken')
+    expect(errors).toContain(referencedFailure('users.nameTaken', 409))
     expect(refreshCalls.length).toBe(0)
     expect(busyLog).toEqual([true, false])
+  })
+
+  it('says that a change without an answer did not reach the server, with its error id', async () => {
+    const { deps } = fakeDeps([unansweredFetchError('0a0b0c0d0e0f')])
+    const { ops, errors } = fakeOps()
+    const { refresh } = fakeRefresh()
+
+    await runAction(userUpdate, { deps, userId: 'u1', username: 'ada', roles: ['editor'], active: true, password: '', passwordConfirm: '', initial, ops, refresh })
+
+    expect(errors).toContain(noAnswerFailure('', '0a0b0c0d0e0f'))
   })
 
   it('shows the last-administrator message when the role change is refused', async () => {
@@ -647,7 +667,7 @@ describe('userUpdate', () => {
 
     await runAction(userUpdate, { deps, userId: 'u1', username: 'bob', roles: [], active: true, password: '', passwordConfirm: '', initial, ops, refresh })
 
-    expect(errors).toContain('users.lastAdminRoles')
+    expect(errors).toContain(referencedFailure('users.lastAdminRoles', 409))
   })
 })
 
@@ -746,7 +766,7 @@ describe('userDelete', () => {
     const result = await runAction(userDelete, { deps, userId: 'u1', reassignTo: null, confirmed: true, ops, refresh })
 
     expect(result.ok).toBe(false)
-    expect(errors).toContain('users.cannotDeleteSelf')
+    expect(errors).toContain(referencedFailure('users.cannotDeleteSelf', 400))
     expect(refreshCalls.length).toBe(0)
   })
 
@@ -758,7 +778,7 @@ describe('userDelete', () => {
     const result = await runAction(userDelete, { deps, userId: 'u1', reassignTo: 'u2', confirmed: true, ops, refresh })
 
     expect(result.ok).toBe(false)
-    expect(errors).toContain('users.reassignUnusable')
+    expect(errors).toContain(referencedFailure('users.reassignUnusable', 400))
     expect(refreshCalls.length).toBe(0)
   })
 
@@ -770,8 +790,18 @@ describe('userDelete', () => {
     const result = await runAction(userDelete, { deps, userId: 'u1', reassignTo: 'u2', confirmed: true, ops, refresh })
 
     expect(result.ok).toBe(false)
-    expect(errors).toContain('users.reassignUnknown')
+    expect(errors).toContain(referencedFailure('users.reassignUnknown', 404))
     expect(refreshCalls.length).toBe(0)
+  })
+
+  it('says that a delete without an answer did not reach the server, with its error id', async () => {
+    const { deps } = fakeDeps([unansweredFetchError('0a0b0c0d0e0f')])
+    const { ops, errors } = fakeOps()
+    const { refresh } = fakeRefresh()
+
+    await runAction(userDelete, { deps, userId: 'u1', reassignTo: null, confirmed: true, ops, refresh })
+
+    expect(errors).toContain(noAnswerFailure('', '0a0b0c0d0e0f'))
   })
 })
 
@@ -828,10 +858,20 @@ describe('prune', () => {
     const result = await runAction(prune, { deps, sizes: ['thumb'], confirmed: true, ops, refresh })
 
     expect(result.ok).toBe(false)
-    expect(errors).toContain(message)
+    expect(errors).toContain(referencedFailure(message, 400))
     expect(toast.error).toHaveBeenCalledWith(referencedFailure(message, 400))
     expect(refreshCalls.length).toBe(0)
     expect(busyLog).toEqual([true, false])
+  })
+
+  it('names the prune as what failed when the request did not reach the server', async () => {
+    const { deps, toast } = fakeDeps([unansweredFetchError('0a0b0c0d0e0f')])
+    const { ops, errors } = fakeOps()
+
+    await runAction(prune, { deps, sizes: ['thumb'], confirmed: true, ops, refresh: fakeRefresh().refresh })
+
+    expect(errors).toContain(noAnswerFailure('images.pruneFailed', '0a0b0c0d0e0f'))
+    expect(toast.error).toHaveBeenCalledWith(noAnswerFailure('images.pruneFailed', '0a0b0c0d0e0f'), 0)
   })
 })
 
@@ -877,7 +917,7 @@ describe('imagesRetryFailed', () => {
     const result = await runAction(imagesRetryFailed, { deps, variants: 4, confirmed: true, ops, refresh })
 
     expect(result.ok).toBe(false)
-    expect(errors).toContain(message)
+    expect(errors).toContain(referencedFailure(message, 409))
     expect(toast.error).toHaveBeenCalledWith(referencedFailure(message, 409))
     expect(refreshCalls.length).toBe(0)
     expect(busyLog).toEqual([true, false])
@@ -906,7 +946,7 @@ describe('mediaReconcile', () => {
     const result = await runAction(mediaReconcile, { deps, ops })
 
     expect(result.ok).toBe(false)
-    expect(errors).toContain(message)
+    expect(errors).toContain(referencedFailure(message, 403))
     expect(toast.error).toHaveBeenCalledWith(referencedFailure(message, 403))
     expect(busyLog).toEqual([true, false])
   })

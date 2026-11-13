@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { SecondFactorSetup } from '../../composables/useAuth'
+import { signInErrorMessage } from '../../utils/login-errors'
 
 definePageMeta({ layout: 'admin' })
 
@@ -20,13 +21,6 @@ async function finish() {
   await navigateTo(safeRedirect(route.query.redirect) ?? '/admin')
 }
 
-function messageFor(e: unknown, code?: string): string {
-  const reason = apiErrorCode(e)
-  if (reason === 'UNAUTHENTICATED') return code === undefined ? t('login.invalid') : t('secondFactor.invalid')
-  if (reason === 'RATE_LIMITED') return t('login.tooMany')
-  return t('login.error')
-}
-
 async function signIn(code?: string) {
   loading.value = true
   error.value = null
@@ -38,7 +32,7 @@ async function signIn(code?: string) {
     const reason = apiErrorCode(e)
     if (reason === 'SECOND_FACTOR_REQUIRED') stage.value = { kind: 'code' }
     else if (reason === 'SECOND_FACTOR_SETUP_REQUIRED') await beginSetup()
-    else error.value = messageFor(e, code)
+    else error.value = signInErrorMessage(t, e, code)
   } finally {
     loading.value = false
   }
@@ -54,7 +48,7 @@ async function beginSetup(enrollmentCode?: string) {
       if (enrollmentCode !== undefined) error.value = t('secondFactor.enrollmentInvalid')
       stage.value = { kind: 'enrollment' }
     } else {
-      error.value = messageFor(e)
+      error.value = signInErrorMessage(t, e)
       stage.value = { kind: 'credentials' }
     }
   } finally {

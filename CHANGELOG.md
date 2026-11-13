@@ -65,17 +65,21 @@
   the line, how to find the one behind an error in the admin, and an nginx `log_format` that records the
   same request id next to `$upstream_status`, the answer's `X-Kestrel-Run-Id`, `$upstream_header_time` and
   `$request_time`.
-- Admin: every API request and every upload carries a fresh `X-Request-Id`. Error toasts, the save and
-  rename errors and a failed upload's row and tile name the HTTP status and that id as the error id
-  (`… (HTTP 409 · error ID 3f9a2c7b1e04)`); a failed upload offers to copy it, and a toast that names an
-  id stays until it is dismissed. A request no server answered, or one answered by a page a proxy wrote in
-  its place, keeps what failed and adds "The request did not reach the server or was refused in front of
-  it (HTTP 502 · error ID …)" instead of the proxy's HTML or a bare "Request failed"; after a timeout or a
-  504 it says that the server may still have processed the request. Inline load errors (lists, the media
-  library, the page tree, the dashboard, the System tabs) show the same translated note. An answer counts
-  as the server's when its body is a JSON object or it carries `X-Kestrel-Run-Id`, for uploads as for every
-  other request. `ApiError` carries `requestId` and `reached`; `failureText()` composes such a message and
-  `apiErrorText()` gives the text an inline error display shows.
+- Admin: every API request and every upload carries a fresh `X-Request-Id`. The message of every failed
+  request names the HTTP status and that id as the error id (`… (HTTP 409 · error ID 3f9a2c7b1e04)`):
+  error toasts, the inline errors of forms and dialogs (save, rename, users, media details, folders,
+  versions, maintenance tasks, the sign-in form), the load errors of lists, the media library, the page
+  tree, the dashboard and the System tabs, and a failed upload's row and tile. A failed upload offers to
+  copy the id, and a toast that names an id stays until it is dismissed. A request no server answered, or
+  one answered by a page a proxy or gateway wrote in its place, keeps what failed and adds "The request did
+  not reach the server or was refused in front of it (HTTP 502 · error ID …)" instead of the proxy's page or
+  a bare "Request failed"; after a timeout or a 504 it says that the server may still have processed the
+  request, and after a 408 that the server or a proxy in front of it stopped waiting for the request body.
+  An answer counts as the server's when it carries `X-Kestrel-Run-Id`, or when its body is a kestrel error
+  (string `error` and `code`) or a host server error (number `statusCode`), for uploads as for every other
+  request; any other JSON body counts as written in front of the server. `ApiError` carries `requestId`
+  and `reached`; `failureText()` composes such a message and `apiErrorText(t, e, fallback?)` gives the text
+  an inline error display shows.
 - Page builder: a block instance can carry an optional alias, set in its fields panel. The preset derives a
   `blockAliases` field, and its editor-owned grant, automatically for every collection whose editor is
   `"blocks"` and which has a `body` field; a consumer never declares it. The field itself is not localized

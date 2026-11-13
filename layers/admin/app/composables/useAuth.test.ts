@@ -77,9 +77,9 @@ describe('sessionStateFor', () => {
     expect(sessionStateFor(error, echo)).toEqual({ identity: null, checked: true, error: null })
   })
 
-  it('carries a message for a 500', () => {
+  it('carries a message with the HTTP status for a 500', () => {
     const error = Object.assign(new Error('boom'), { status: 500, name: 'ApiError', data: { error: 'boom', code: 'INTERNAL' } })
-    expect(sessionStateFor(error, echo)).toEqual({ identity: null, checked: true, error: 'boom' })
+    expect(sessionStateFor(error, echo)).toEqual({ identity: null, checked: true, error: echo('error.withReference', { message: 'boom', reference: 'HTTP 500' }) })
   })
 
   it('carries a message for a network failure with no status', () => {

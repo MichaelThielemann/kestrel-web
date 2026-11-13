@@ -81,13 +81,13 @@ describe('loadSchemaInto', () => {
     expect(state.value.error).toBeNull()
   })
 
-  it('keeps any other failure visible instead of falling back', async () => {
+  it('keeps any other failure visible, with its HTTP status, instead of falling back', async () => {
     const state = fakeState()
     const { api } = fakeApi(apiError(503, 'database is busy'))
 
     expect(await loadSchemaInto(state, api, scope(), echo)).toBe('failed')
     expect(state.value.schema).toBeNull()
-    expect(state.value.error).toBe('database is busy')
+    expect(state.value.error).toBe(echo('error.withReference', { message: 'database is busy', reference: 'HTTP 503' }))
   })
 
   it('shows the translated note with the status and the error id when the request did not reach the server', async () => {

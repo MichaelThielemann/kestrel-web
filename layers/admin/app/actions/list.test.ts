@@ -70,7 +70,7 @@ describe('bulkSetStatus', () => {
     expect(calls).toHaveLength(3)
     expect(toast.error).toHaveBeenCalledWith(referencedFailure('slug must be unique', 400))
     expect(toast.success).not.toHaveBeenCalled()
-    expect(ops.setError).toHaveBeenCalledWith('slug must be unique')
+    expect(ops.setError).toHaveBeenCalledWith(referencedFailure('slug must be unique', 400))
     expect(refresh).toHaveBeenCalledTimes(1)
   })
 
@@ -83,7 +83,7 @@ describe('bulkSetStatus', () => {
 
     expect(result.ok).toBe(true)
     expect(toast.error).toHaveBeenCalledTimes(3)
-    expect(ops.setError).toHaveBeenCalledWith('third')
+    expect(ops.setError).toHaveBeenCalledWith(referencedFailure('third', 400))
     expect(refresh).toHaveBeenCalledTimes(1)
   })
 
@@ -198,7 +198,7 @@ describe('bulkDelete', () => {
 
     expect(result).toEqual({ ok: false, error: 'pages/x is referenced by pages/y (body)' })
     expect(toast.error).toHaveBeenCalledWith('refs.conflictAfterPrecheck pages/y (body)')
-    expect(ops.setError).toHaveBeenCalledWith('pages/x is referenced by pages/y (body)')
+    expect(ops.setError).toHaveBeenCalledWith(referencedFailure('pages/x is referenced by pages/y (body)', 409))
     expect(toast.success).not.toHaveBeenCalled()
     expect(refresh).not.toHaveBeenCalled()
   })

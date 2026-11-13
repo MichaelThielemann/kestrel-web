@@ -94,6 +94,12 @@ describe('toApiError on a failed request', () => {
     expect(err.reached).toBe(true)
   })
 
+  it('counts a JSON error page of a gateway in front of the server as not reached', () => {
+    const err = toApiError({ status: 413, data: { message: 'Request size limit exceeded' }, options: sent('f0e1d2c3b4a5'), response: answer({ 'content-type': 'application/json' }) })
+    expect(err.reached).toBe(false)
+    expect(err.message).toBe('Request failed')
+  })
+
   it('never takes a non-string error field of a host server answer as the message', () => {
     const err = toApiError({ status: 500, data: { error: true, statusCode: 500, message: 'Server Error' }, message: '[POST] "/api/media": 500 Server Error', options: sent('aaaaaaaaaaaa'), response: answer() })
     expect(err.reached).toBe(true)
@@ -108,9 +114,19 @@ describe('toApiError on a failed request', () => {
 })
 
 describe('answeredByServer', () => {
-  it('counts a JSON object body or a run id header as an answer of kestrel or the host server', () => {
-    expect(answeredByServer({ error: true }, null)).toBe(true)
+  it('counts a kestrel error body, a host server error body or a run id header as an answer of kestrel or the host server', () => {
+    expect(answeredByServer({ error: 'not found', code: 'NOT_FOUND' }, null)).toBe(true)
+    expect(answeredByServer({ error: true, statusCode: 503 }, null)).toBe(true)
     expect(answeredByServer(undefined, 'run-1')).toBe(true)
+  })
+
+  it('counts any other JSON object as an answer from in front of the server', () => {
+    expect(answeredByServer({ message: 'Request size limit exceeded' }, null)).toBe(false)
+    expect(answeredByServer({ error: true }, null)).toBe(false)
+    expect(answeredByServer({ error: 'rate limited' }, null)).toBe(false)
+  })
+
+  it('counts a page or an empty body without the run id header as an answer from in front of the server', () => {
     expect(answeredByServer('<html>502</html>', null)).toBe(false)
     expect(answeredByServer(undefined, undefined)).toBe(false)
     expect(answeredByServer(['a'], null)).toBe(false)
@@ -132,8 +148,11 @@ describe('failureText', () => {
       .toBe(t('error.lateAnswer', { reference: `HTTP 504 · ${id('f0e1d2c3b4a5')}` }))
     expect(failureText(t, '', { status: 0, code: 'TIMEOUT', requestId: '0a0b0c0d0e0f', reached: false }))
       .toBe(t('error.lateAnswer', { reference: id('0a0b0c0d0e0f') }))
-    expect(failureText(t, '', { status: 408, code: 'TIMEOUT', reached: false }))
-      .toBe(t('error.unreached', { reference: 'HTTP 408' }))
+  })
+
+  it('says that the request body did not arrive in time on a 408, without claiming that the server never saw it', () => {
+    expect(failureText(t, '', { status: 408, code: 'TIMEOUT', requestId: 'f0e1d2c3b4a5', reached: false }))
+      .toBe(t('error.notReceived', { reference: `HTTP 408 · ${id('f0e1d2c3b4a5')}` }))
   })
 
   it('drops a trailing period of the message in front of the reference', () => {
@@ -163,8 +182,18 @@ describe('failureText', () => {
 describe('apiErrorText', () => {
   const t = (key: string, params?: Record<string, unknown>) => (params ? `${key}:${JSON.stringify(params)}` : key)
 
-  it('shows the message of an answered request unchanged', () => {
-    expect(apiErrorText(t, { status: 404, data: { error: 'not found' } })).toBe('not found')
+  it('names the HTTP status and the error id after the message of an answered request', () => {
+    const err = new ApiError(500, 'disk full', 'INTERNAL', false, undefined, undefined, undefined, { requestId: 'a1b2c3d4e5f6' })
+    expect(apiErrorText(t, err)).toBe(t('error.withReference', { message: 'disk full', reference: `HTTP 500 · ${t('error.id', { id: 'a1b2c3d4e5f6' })}` }))
+  })
+
+  it('takes the fallback in front of the reference when the answer carries no message', () => {
+    const err = new ApiError(500, '', 'INTERNAL', false, undefined, undefined, undefined, { requestId: 'a1b2c3d4e5f6' })
+    expect(apiErrorText(t, err, 'list.loadError')).toBe(t('error.withReference', { message: 'list.loadError', reference: `HTTP 500 · ${t('error.id', { id: 'a1b2c3d4e5f6' })}` }))
+  })
+
+  it('shows the message of an error that no request threw unchanged', () => {
+    expect(apiErrorText(t, new Error('boom'))).toBe('boom')
   })
 
   it('shows the translated note with the status and the id when the request did not reach the server', () => {

@@ -19,7 +19,7 @@ const loadError = ref<string | null>(null)
 async function load() {
   loadError.value = null
   try { status.value = await deps.api<ImagesStatus>(deps.capabilities.route('imagesStatus')) }
-  catch (e) { loadError.value = apiErrorText(t, e) || t('images.loadError') }
+  catch (e) { loadError.value = apiErrorText(t, e, t('images.loadError')) }
 }
 await load()
 

@@ -1,5 +1,6 @@
 import type { RestoreReport, RevisionDetail, RevisionPage, RevisionRestoreResponse, RevisionSummary } from '#kestrel-admin/types/api'
 import { defineAction } from '#kestrel-core/app/utils/actions'
+import { failureText } from '../composables/useApi'
 import { apiRequest } from './steps/api'
 import { dialogConfirm } from './steps/guard'
 import { opsBusy, toastSuccess } from './steps/notify'
@@ -86,7 +87,7 @@ export const restoreRevision = defineAction<RestoreRevisionInput, RestoreReport 
         const message = err.code === 'CONFLICT'
           ? ctx.input.deps.t('revisions.skippedCannotRestore')
           : [err.message, ...problems].join(' — ')
-        ctx.input.ops.setError?.(message)
+        ctx.input.ops.setError?.(failureText(ctx.input.deps.t, message, err))
         ctx.fail(message)
       },
     }),
@@ -114,7 +115,7 @@ export const labelRevision = defineAction<LabelRevisionInput, RevisionSummary>({
         ctx.result = summary
       },
       onError: (ctx, err) => {
-        ctx.input.ops.setError?.(err.message)
+        ctx.input.ops.setError?.(failureText(ctx.input.deps.t, err.message, err))
         ctx.fail(err.message)
       },
     }),

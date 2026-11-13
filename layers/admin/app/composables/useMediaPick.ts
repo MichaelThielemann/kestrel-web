@@ -6,6 +6,7 @@ import type { ApiRoute } from '../utils/capabilities'
 import { isInsertable, isPickGated } from '../utils/media-insert'
 import type { MediaSelection } from './useMediaSelection'
 import type { VariantWatchEntry } from './useVariantWatch'
+import { failureText, toApiError } from './useApi'
 
 /** Looks files up in the library by id, in blocks, and asks again for the ids an answer left out until an answer adds none, so a server that answers fewer ids per request than it was sent never makes a file look gone. Answers the files found; an id missing from the answer is not in the library. */
 export async function lookUpMedia(api: ApiClient, route: ApiRoute, ids: readonly string[], locale?: string): Promise<MediaItem[]> {
@@ -50,7 +51,7 @@ export function useMediaPick(options: UseMediaPickOptions) {
   const listed = ref<Map<string, MediaItem>>(new Map())
   const confirming = ref(false)
   const refused = shallowRef<ReadonlyMap<string, { name: string; seen: VariantWatchEntry | undefined }>>(new Map())
-  const checkFailed = ref(false)
+  const checkFailed = ref<string | null>(null)
   const missing = ref<string[]>([])
 
   watch(files, (list) => {
@@ -61,7 +62,7 @@ export function useMediaPick(options: UseMediaPickOptions) {
   }, { immediate: true })
 
   function resetNotice() {
-    checkFailed.value = false
+    checkFailed.value = null
     missing.value = []
   }
 
@@ -78,7 +79,7 @@ export function useMediaPick(options: UseMediaPickOptions) {
     const notices: string[] = []
     if (missing.value.length) notices.push(t('media.pick.missing', { names: missing.value.join(', ') }))
     if (stillRefused.value.length) notices.push(t('media.pick.refused', { names: stillRefused.value.map(([, { name }]) => name).join(', ') }))
-    if (checkFailed.value) notices.push(t('media.pick.checkFailed'))
+    if (checkFailed.value) notices.push(checkFailed.value)
     return notices.join(' ')
   })
 
@@ -95,8 +96,8 @@ export function useMediaPick(options: UseMediaPickOptions) {
         selection.forget(gone)
       }
       return bad.length === 0 && gone.length === 0
-    } catch {
-      checkFailed.value = true
+    } catch (e) {
+      checkFailed.value = failureText(t, t('media.pick.checkFailed'), toApiError(e))
       return false
     }
   }

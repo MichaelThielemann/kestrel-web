@@ -40,12 +40,20 @@ interface FetchErrorLike { status?: number; statusCode?: number; data?: Partial<
 
 const UNREACHED_MESSAGE = 'Request failed'
 
+function isErrorBodyOfServer(body: unknown): boolean {
+  if (typeof body !== 'object' || body === null || Array.isArray(body)) return false
+  const kestrelShape = 'error' in body && typeof body.error === 'string' && 'code' in body && typeof body.code === 'string'
+  const hostShape = 'statusCode' in body && typeof body.statusCode === 'number'
+  return kestrelShape || hostShape
+}
+
 /**
- * Whether an error answer came from kestrel or the host server rather than from something in front of them: its
- * body is a JSON object, or it carries the `x-kestrel-run-id` header.
+ * Whether an error answer came from kestrel or the host server rather than from something in front of them: it
+ * carries the `x-kestrel-run-id` header, or its body has the shape of a kestrel error (string `error` and `code`)
+ * or of a host server error (number `statusCode`).
  */
 export function answeredByServer(body: unknown, runId: string | null | undefined): boolean {
-  return (typeof body === 'object' && body !== null && !Array.isArray(body)) || (runId !== undefined && runId !== null)
+  return (runId !== undefined && runId !== null) || isErrorBodyOfServer(body)
 }
 
 function reachedServer(err: FetchErrorLike, body: object | undefined): boolean {
@@ -91,10 +99,15 @@ export interface FailureTrace {
   code?: string
 }
 
-/** Whether the request failed because no answer came in time: a 504, or a browser timeout with status 0. */
+/** Whether the request failed because no answer came in time: a 504, or a browser timeout with status 0. A 408 is not one: there the request body did not arrive in time. */
 export function answerTimedOut(trace: FailureTrace): boolean {
   const status = trace.status ?? 0
   return status === 504 || (status === 0 && trace.code === 'TIMEOUT')
+}
+
+function hintKey(trace: FailureTrace): string {
+  if (answerTimedOut(trace)) return 'error.lateAnswer'
+  return trace.status === 408 ? 'error.notReceived' : 'error.unreached'
 }
 
 function failureReference(t: Translate, trace: FailureTrace): string {
@@ -112,25 +125,27 @@ const withoutFinalPeriod = (message: string): string => message.replace(/\.$/, '
 /**
  * A failure message with the HTTP status and the error id of its request. When no server answered the request,
  * the message is followed by the note that the request did not reach the server or was refused in front of it,
- * or, after a timeout or a 504, that the server may still have processed it.
+ * after a timeout or a 504 that the server may still have processed it, and after a 408 that its body did not
+ * arrive in time.
  */
 export function failureText(t: Translate, message: string, trace: FailureTrace): string {
   const reference = failureReference(t, trace)
   if (trace.reached === false) {
-    const hint = t(answerTimedOut(trace) ? 'error.lateAnswer' : 'error.unreached', { reference })
+    const hint = t(hintKey(trace), { reference })
     const context = message === UNREACHED_MESSAGE ? '' : withoutFinalPeriod(message)
     return context ? t('error.withHint', { message: context, hint }) : hint
   }
-  return reference ? t('error.withReference', { message: withoutFinalPeriod(message), reference }) : message
+  if (!reference) return message
+  return message ? t('error.withReference', { message: withoutFinalPeriod(message), reference }) : reference
 }
 
 /**
- * The text an inline error display shows for anything a request threw: the message of an answer, or the
- * translated note with the HTTP status and the error id when the request did not reach the server.
+ * The text an inline error display shows for anything a request threw: the message of the answer, or `fallback`
+ * when it carries none or no server answered, with the HTTP status and the error id as `failureText` adds them.
  */
-export function apiErrorText(t: Translate, e: unknown): string {
+export function apiErrorText(t: Translate, e: unknown, fallback = ''): string {
   const err = toApiError(e)
-  return err.reached ? err.message : failureText(t, '', err)
+  return failureText(t, err.reached ? err.message || fallback : fallback, err)
 }
 
 /** The message of an answer to show for a failed request, or `fallback` when there is none or no server answered. */

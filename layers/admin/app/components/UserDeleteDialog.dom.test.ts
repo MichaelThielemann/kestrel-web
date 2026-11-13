@@ -115,7 +115,8 @@ describe('UserDeleteDialog', () => {
     await vi.waitFor(() => expect(selects().length).toBe(2))
 
     clickDelete()
-    await vi.waitFor(() => expect(document.body.textContent).toContain(en['users.reassignUnknown']))
+    const unknown = en['users.reassignUnknown'].replace(/\.$/, '')
+    await vi.waitFor(() => expect(document.body.textContent).toMatch(new RegExp(`${unknown} \\(HTTP 404 · error ID [0-9a-f]{12}\\)`)))
   })
 
   it('offers no choice and no request for the signed-in user', async () => {

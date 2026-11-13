@@ -21,8 +21,8 @@ export type UploadTransport = <T>(route: ApiRoute, body: FormData, options?: Upl
 
 /**
  * An upload that failed without an answer from kestrel or the host server: no answer at all (`NETWORK`, `ABORTED`,
- * `TIMEOUT` with status 0), or an answer with neither a JSON object body nor the `x-kestrel-run-id` header, such as
- * a proxy or gateway page. Its code is
+ * `TIMEOUT` with status 0), or an answer that `answeredByServer` does not count as theirs, such as a proxy or
+ * gateway page, also one written as JSON. Its code is
  * `PAYLOAD_TOO_LARGE` (413), `TIMEOUT` (408, 504), `UNAVAILABLE` (502, 503) or `HTTP`; `status` keeps the HTTP status.
  * A 2xx answer whose body is not a JSON object, or that arrived after a redirect away from the requested address
  * (a sign-in or block page), is an `HTTP` failure too. `reached` is false.
@@ -56,9 +56,8 @@ function redirectedAway(xhr: XMLHttpRequest, requested: string): boolean {
 }
 
 function errorAnswer(xhr: XMLHttpRequest, data: unknown, requestId: string): ApiError {
-  const message = xhr.statusText || `HTTP ${xhr.status}`
-  if (answeredByServer(data, xhr.getResponseHeader('x-kestrel-run-id'))) return toApiError({ status: xhr.status, data, message }, { requestId, reached: true })
-  return transportError(xhr.status, message, UPSTREAM_CODES[xhr.status] ?? 'HTTP', requestId)
+  if (answeredByServer(data, xhr.getResponseHeader('x-kestrel-run-id'))) return toApiError({ status: xhr.status, data, message: '' }, { requestId, reached: true })
+  return transportError(xhr.status, xhr.statusText || `HTTP ${xhr.status}`, UPSTREAM_CODES[xhr.status] ?? 'HTTP', requestId)
 }
 
 export function useUploadTransport(): UploadTransport {

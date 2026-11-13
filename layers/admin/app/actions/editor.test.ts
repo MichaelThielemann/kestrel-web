@@ -7,7 +7,7 @@ import type { SerializedField } from '#kestrel-admin/types/kestrel'
 import { copyTranslation, deleteRecord, deleteTranslation, discardRecord, leaveEditor, previewDeleteRecord, saveRecord, setStatus, switchSystemTab } from './editor'
 import type { ActionDeps, EditFormPort } from './types'
 import type { RowErrorMap } from '../utils/row-errors'
-import { fakeDeps, referencedFailure } from './__fixtures__/fake-deps'
+import { fakeDeps, noAnswerFailure, referencedFailure, unansweredFetchError } from './__fixtures__/fake-deps'
 import { ApiError } from '../composables/useApi'
 
 type RelayEntry = EventRelayStatus['pipelines'][number]
@@ -485,8 +485,17 @@ describe('deleteRecord', () => {
 
     expect(result).toEqual({ ok: false, error: 'pages/p1 is referenced by pages/p2 (body)' })
     expect(toast.error).toHaveBeenCalledWith(referencedFailure('pages/p1 is referenced by pages/p2 (body)', 409))
-    expect(ops.setError).toHaveBeenCalledWith('pages/p1 is referenced by pages/p2 (body)')
+    expect(ops.setError).toHaveBeenCalledWith(referencedFailure('pages/p1 is referenced by pages/p2 (body)', 409))
     expect(navigate).not.toHaveBeenCalled()
+  })
+
+  it('says inline that a lone delete without an answer did not reach the server, with its error id', async () => {
+    const { deps } = fakeDeps([unansweredFetchError('0a0b0c0d0e0f')])
+    const { input, ops } = deleteInput(deps, ['p1'])
+
+    await runAction(deleteRecord, input)
+
+    expect(ops.setError).toHaveBeenCalledWith(noAnswerFailure('', '0a0b0c0d0e0f'))
   })
 
   it('continues past a failed id when others succeed', async () => {

@@ -69,8 +69,8 @@ async function loadMeta(locale: string) {
     const item = await api<MediaItem>(capabilities.route('getMedia', { id: f.id }), { query: { locale } })
     loaded.value = { alt: item.alt, title: item.title, description: item.description }
     alt.value = item.alt ?? ''; title.value = item.title ?? ''; description.value = item.description ?? ''
-  } catch {
-    metaError.value = t('media.metaLoadFailed')
+  } catch (e) {
+    metaError.value = failureText(t, t('media.metaLoadFailed'), toApiError(e))
   } finally {
     metaLoading.value = false
   }

@@ -4,7 +4,7 @@ import { referencedBy } from '../utils/references'
 import { previewDeleteAction } from './shared'
 import { apiEach } from './steps/api'
 import { dialogConfirm, guardAnySucceeded, guardSelection } from './steps/guard'
-import { opsBusy, opsError, toastFailure, toastSummary, toastSuccess } from './steps/notify'
+import { lastFailureText, opsBusy, opsError, toastFailure, toastSummary, toastSuccess } from './steps/notify'
 import { listRefresh } from './steps/route'
 import type { BusyPort, EachReport, RefreshPort, WithDeps } from './types'
 
@@ -55,7 +55,7 @@ export const bulkSetStatus = defineAction<BulkStatusInput, EachReport<unknown>>(
         ctx.result = report
       },
     }),
-    opsError<BulkStatusInput, EachReport<unknown>>((ctx) => (ctx.result && ctx.result.failed > 0 ? ctx.result.lastMessage : null)),
+    opsError<BulkStatusInput, EachReport<unknown>>((ctx) => (ctx.result && ctx.result.failed > 0 ? lastFailureText(ctx.input.deps.t, ctx.result) : null)),
     toastSummary<BulkStatusInput, EachReport<unknown>>((ctx) => ({
       report: eachReport(ctx, 'toastSummary'),
       successKey: ctx.input.live ? 'toast.published' : 'toast.unpublished',

@@ -1,6 +1,6 @@
 import type { EventRelayStatus, EventsRetryResult, ImagesJob, ImagesPruneResult, ImagesRetryFailedResult, ImagesStatus, MediaExportReport, MediaReconcileReport, MediaRepairPublicReport, MigrationsApplyResult, MigrationsDryRunResult, PublishAllReport, RebuildReport, ReplicationRestoreResult, ReplicationSnapshotResult, RetryStaleReport, UserDeleteResponse, UserReassignTarget } from '#kestrel-admin/types/api'
 import { defineAction, type ActionContext, type ActionStep } from '#kestrel-core/app/utils/actions'
-import { answeredMessage, apiErrorCode, apiErrorMessage, apiErrorStatus, toApiError } from '../composables/useApi'
+import { answeredMessage, apiErrorCode, apiErrorMessage, apiErrorStatus, failureText, toApiError } from '../composables/useApi'
 import { humanizeSize } from '../utils/library'
 import { staleCountText } from '../utils/stale-messages'
 import { userErrorMessage } from '../utils/user-errors'
@@ -318,7 +318,7 @@ export const userCreate = defineAction<UserCreateInput, undefined>({
         body: { username: ctx.input.username.trim(), password: ctx.input.password, roles: ctx.input.roles },
       }),
       onSuccess: (ctx) => { ctx.input.deps.toast.success(ctx.input.deps.t('users.created')) },
-      onError: (ctx, err) => { ctx.input.ops.setError?.(err.message); ctx.fail(err.message) },
+      onError: (ctx, err) => { ctx.input.ops.setError?.(failureText(ctx.input.deps.t, err.message, err)); ctx.fail(err.message) },
     }),
     dataReload<UserCreateInput, undefined>(),
   ],
@@ -348,7 +348,7 @@ async function callUser<I extends WithDeps & { ops: BusyPort }>(ctx: ActionConte
     await ctx.input.deps.api(call.route, { ...(call.body === undefined ? {} : { body: call.body }) })
   } catch (e) {
     const message = userErrorMessage(ctx.input.deps.t, operation, { status: apiErrorStatus(e), code: apiErrorCode(e), message: apiErrorMessage(e) })
-    ctx.input.ops.setError?.(message)
+    ctx.input.ops.setError?.(failureText(ctx.input.deps.t, message, toApiError(e)))
     ctx.fail(message)
   }
 }
@@ -408,7 +408,7 @@ const userDeleteRequest: ActionStep<UserDeleteInput, UserDeleteOutcome> = define
   } catch (e) {
     const failure = { status: apiErrorStatus(e), code: apiErrorCode(e), message: apiErrorMessage(e) }
     const message = userErrorMessage(deps.t, reassignTo === null ? 'delete' : 'reassign', failure)
-    ops.setError?.(message)
+    ops.setError?.(failureText(deps.t, message, toApiError(e)))
     ctx.fail(message)
   }
 })
@@ -510,8 +510,8 @@ export const prune = defineAction<ImagesPruneInput, ImagesPruneResult>({
         ctx.input.deps.toast.success(ctx.input.deps.t('images.pruneDone'))
       },
       onError: (ctx, err) => {
-        const message = err.message || ctx.input.deps.t('images.pruneFailed')
-        ctx.input.ops.setError?.(message)
+        const message = answeredMessage(err, ctx.input.deps.t('images.pruneFailed'))
+        ctx.input.ops.setError?.(failureText(ctx.input.deps.t, message, err))
         toastFailure(ctx.input.deps, message, err)
         ctx.fail(message)
       },
@@ -533,8 +533,8 @@ export const imagesRetryFailed = defineAction<ImagesRetryFailedInput, ImagesRetr
         ctx.input.deps.toast.success(ctx.input.deps.t('images.retryFailedDone', { variants: value.variants, media: value.media }))
       },
       onError: (ctx, err) => {
-        const message = err.message || ctx.input.deps.t('images.retryFailedError')
-        ctx.input.ops.setError?.(message)
+        const message = answeredMessage(err, ctx.input.deps.t('images.retryFailedError'))
+        ctx.input.ops.setError?.(failureText(ctx.input.deps.t, message, err))
         toastFailure(ctx.input.deps, message, err)
         ctx.fail(message)
       },
@@ -554,8 +554,8 @@ export const mediaReconcile = defineAction<MediaReconcileInput, MediaReconcileRe
         ctx.result = value
       },
       onError: (ctx, err) => {
-        const message = err.message || ctx.input.deps.t('media.reconcile.failed')
-        ctx.input.ops.setError?.(message)
+        const message = answeredMessage(err, ctx.input.deps.t('media.reconcile.failed'))
+        ctx.input.ops.setError?.(failureText(ctx.input.deps.t, message, err))
         toastFailure(ctx.input.deps, message, err)
         ctx.fail(message)
       },
@@ -576,8 +576,8 @@ export const mediaReconcileDelete = defineAction<MediaReconcileDeleteInput, Medi
         ctx.input.deps.toast.success(ctx.input.deps.t('media.reconcile.deleteDone', { count: value.blobsWithoutRow.length }))
       },
       onError: (ctx, err) => {
-        const message = err.message || ctx.input.deps.t('media.reconcile.failed')
-        ctx.input.ops.setError?.(message)
+        const message = answeredMessage(err, ctx.input.deps.t('media.reconcile.failed'))
+        ctx.input.ops.setError?.(failureText(ctx.input.deps.t, message, err))
         toastFailure(ctx.input.deps, message, err)
         ctx.fail(message)
       },

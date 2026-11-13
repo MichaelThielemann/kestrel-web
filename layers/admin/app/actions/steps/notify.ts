@@ -26,6 +26,13 @@ export function toastFailureText(deps: { toast: Pick<ToastPort, 'error'> }, text
   else deps.toast.error(text)
 }
 
+/** The last failure message of `report` with the HTTP status and the error id of its request, see `failureText`; null when it has none. */
+export function lastFailureText(t: Translate, report: EachReport<unknown>): string | null {
+  if (!report.lastMessage) return null
+  const last = [...report.results].reverse().find((item) => !item.ok)
+  return failureText(t, report.lastMessage, last ?? {})
+}
+
 /** Toasts `message` with the HTTP status and the error id of the failed request, see `failureText`. */
 export function toastFailure(deps: { t: Translate, toast: Pick<ToastPort, 'error'> }, message: string, trace: FailureTrace): void {
   toastFailureText(deps, failureText(deps.t, message, trace), trace)

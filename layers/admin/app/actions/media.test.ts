@@ -8,7 +8,7 @@ import { ApiError } from '../composables/useApi'
 import { FAILURE_TOAST_MS } from './steps/notify'
 import { UploadTransportError, type UploadRequestOptions, type UploadTransport } from '../composables/useUploadTransport'
 import type { ApiRoute } from '../utils/capabilities'
-import { fakeDeps, referencedFailure } from './__fixtures__/fake-deps'
+import { fakeDeps, noAnswerFailure, referencedFailure, unansweredFetchError } from './__fixtures__/fake-deps'
 
 const CODE_OF: Record<number, string> = {
   400: 'VALIDATION', 401: 'UNAUTHENTICATED', 403: 'FORBIDDEN', 404: 'NOT_FOUND', 409: 'CONFLICT',
@@ -48,7 +48,7 @@ describe('createFolder', () => {
     const result = await runAction(createFolder, { deps, path: 'a/b', ops, refresh })
 
     expect(result.ok).toBe(false)
-    expect(ops.setError).toHaveBeenCalledWith('media.folderNotFound')
+    expect(ops.setError).toHaveBeenCalledWith(referencedFailure('media.folderNotFound', 404))
     expect(refresh).not.toHaveBeenCalled()
     expect(ops.setBusy.mock.calls).toEqual([[true], [false]])
   })
@@ -59,7 +59,7 @@ describe('createFolder', () => {
 
     await runAction(createFolder, { deps, path: 'a/b', ops, refresh: vi.fn(() => undefined) })
 
-    expect(ops.setError).toHaveBeenCalledWith('media.folderConflict')
+    expect(ops.setError).toHaveBeenCalledWith(referencedFailure('media.folderConflict', 409))
   })
 
   it('passes a 500 message through unmapped', async () => {
@@ -68,7 +68,16 @@ describe('createFolder', () => {
 
     await runAction(createFolder, { deps, path: 'a/b', ops, refresh: vi.fn(() => undefined) })
 
-    expect(ops.setError).toHaveBeenCalledWith('boom')
+    expect(ops.setError).toHaveBeenCalledWith(referencedFailure('boom', 500))
+  })
+
+  it('says that a folder request without an answer did not reach the server, with its error id', async () => {
+    const { deps } = fakeDeps([unansweredFetchError('0a0b0c0d0e0f')])
+    const ops = fakeOps()
+
+    await runAction(createFolder, { deps, path: 'a/b', ops, refresh: vi.fn(() => undefined) })
+
+    expect(ops.setError).toHaveBeenCalledWith(noAnswerFailure('', '0a0b0c0d0e0f'))
   })
 })
 
@@ -322,11 +331,33 @@ describe('deleteItems', () => {
 
     expect(result.ok).toBe(false)
     expect(calls.map((c) => c.route.path)).toEqual(['/media/f1', '/media/f2', '/media/folders/x'])
-    expect(ops.setError).toHaveBeenCalledWith('media.deleteBlocked:{"name":"a.png","reason":"in use"}')
+    expect(ops.setError).toHaveBeenCalledWith(referencedFailure('media.deleteBlocked:{"name":"a.png","reason":"in use"}', 409))
     expect(refresh).toHaveBeenCalledTimes(1)
     expect(toast.success).not.toHaveBeenCalled()
     expect(report).toHaveBeenCalledTimes(1)
     expect(report.mock.calls[0]?.[0]).toMatchObject({ files: { succeeded: 1, failed: 1 }, folders: { succeeded: 1, failed: 0 } })
+  })
+
+  it('names the file whose delete did not reach the server, with its error id', async () => {
+    const { deps } = fakeDeps([unansweredFetchError('0a0b0c0d0e0f')])
+    const ops = fakeOps()
+
+    await runAction(deleteItems, {
+      deps, files: [file('f1', 'a.png')], folderPaths: [], recursive: false, confirmed: true, ops, refresh: vi.fn(() => undefined),
+    })
+
+    expect(ops.setError).toHaveBeenCalledWith(noAnswerFailure('a.png', '0a0b0c0d0e0f'))
+  })
+
+  it('names the HTTP status and the error id of a failed folder delete', async () => {
+    const { deps } = fakeDeps([apiError(500, 'boom')])
+    const ops = fakeOps()
+
+    await runAction(deleteItems, {
+      deps, files: [], folderPaths: ['a'], recursive: false, confirmed: true, ops, refresh: vi.fn(() => undefined),
+    })
+
+    expect(ops.setError).toHaveBeenCalledWith(referencedFailure('boom', 500))
   })
 
   it('deletes folders after files and only sends recursive when asked', async () => {
@@ -577,9 +608,18 @@ describe('upload', () => {
     expect(item.message).toBe(unreached('media.upload.network', 'error.noAnswer'))
   })
 
+  it('says that an upload answered with 408 did not arrive in time, without claiming that the server never saw it', async () => {
+    const { deps } = fakeDeps()
+    const { transport } = fakeTransport([new UploadTransportError(408, '', 'TIMEOUT', false, undefined, undefined, undefined, { requestId: 'f0e1d2c3b4a5' })])
+    const item = uploadItem()
+
+    await runAction(upload, { deps, item, transport })
+
+    expect(item.message).toBe(`media.upload.unreached:${JSON.stringify({ cause: 'media.upload.notReceived', detail: `error.notReceived:${JSON.stringify({ reference: `HTTP 408 · ${idRef('f0e1d2c3b4a5')}` })}` })}`)
+  })
+
   it.each([
     [413, 'PAYLOAD_TOO_LARGE', 'media.upload.rejectedTooLarge'],
-    [408, 'TIMEOUT', 'media.upload.timeout'],
     [502, 'UNAVAILABLE', 'media.upload.unavailable'],
     [500, 'HTTP', 'media.uploadFailedReason'],
   ])('says that a %i answer which did not come from kestrel was refused in front of the server, with its status', async (status, code, key) => {
@@ -720,8 +760,17 @@ describe('setMediaMeta', () => {
     const result = await runAction(setMediaMeta, { deps, id: 'f1', locale: 'en', fields: { alt: 'a photo' }, ops, refresh })
 
     expect(result.ok).toBe(false)
-    expect(ops.setError).toHaveBeenCalledWith('boom')
+    expect(ops.setError).toHaveBeenCalledWith(referencedFailure('boom', 500))
     expect(refresh).not.toHaveBeenCalled()
+  })
+
+  it('says that a save without an answer did not reach the server, with its error id', async () => {
+    const { deps } = fakeDeps([unansweredFetchError('0a0b0c0d0e0f')])
+    const ops = fakeOps()
+
+    await runAction(setMediaMeta, { deps, id: 'f1', locale: 'en', fields: { alt: 'a photo' }, ops, refresh: vi.fn(() => undefined) })
+
+    expect(ops.setError).toHaveBeenCalledWith(noAnswerFailure('', '0a0b0c0d0e0f'))
   })
 })
 
@@ -746,7 +795,7 @@ describe('setMediaProvenance', () => {
     const result = await runAction(setMediaProvenance, { deps, id: 'f1', provenance: { origin: 'ai' }, ops, refresh })
 
     expect(result.ok).toBe(false)
-    expect(ops.setError).toHaveBeenCalledWith('boom')
+    expect(ops.setError).toHaveBeenCalledWith(referencedFailure('boom', 500))
     expect(refresh).not.toHaveBeenCalled()
   })
 })

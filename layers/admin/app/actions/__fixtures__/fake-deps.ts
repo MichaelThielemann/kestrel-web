@@ -36,3 +36,17 @@ export function referencedFailure(message: string, status: number, id?: string):
   const reference = [status > 0 ? `HTTP ${status}` : '', id ? `error.id:${JSON.stringify({ id })}` : ''].filter(Boolean).join(' · ')
   return `error.withReference:${JSON.stringify({ message, reference })}`
 }
+
+/** A `$fetch` error of a request sent with `requestId` that got no answer at all. */
+export function unansweredFetchError(requestId: string): Error {
+  return Object.assign(new Error('[POST] "/admin/api/x": <no response> Failed to fetch'), {
+    name: 'FetchError',
+    options: { headers: new Headers({ 'x-request-id': requestId }) },
+  })
+}
+
+/** The text `failureText` builds under the fake `t` of `fakeDeps` for a request without an answer, after `message` when there is one. */
+export function noAnswerFailure(message: string, id: string): string {
+  const hint = `error.unreached:${JSON.stringify({ reference: `error.noAnswer · error.id:${JSON.stringify({ id })}` })}`
+  return message ? `error.withHint:${JSON.stringify({ message, hint })}` : hint
+}
