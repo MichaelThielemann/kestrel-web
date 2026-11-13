@@ -824,14 +824,20 @@ collection, the expected filter and the fix in the message.
     same column of the next row, counting the cells of upload tiles, or to the nearest tile of that row when
     that cell is an upload. Shift+arrow selects from the anchor to the focus on top of what was selected
     before, so moving back shrinks it; Space toggles the focused item, Ctrl/Cmd+A selects the page, Escape
-    clears the listed selection, Delete and Backspace open the delete flow for the selection wherever focus
-    is, and for the focused item only while nothing is selected (in a single pick, always the focused
-    item). In the bar, Ctrl/Cmd+A, Escape and Delete/Backspace act on the selection
+    clears the listed selection, Delete and Backspace open the delete flow for the selection while focus is
+    on an entry that can be selected, and for the focused item only while nothing is selected (in a single
+    pick, always the focused item); on an entry that cannot be selected, such as a folder or a file still
+    processing in a multi-pick or the ".." tile, they do nothing, like Space. An item's checkbox
+    (`data-item-check`) acts for its tile or row, so the keys work while it holds focus after a click;
+    only Space is left to the checkbox itself. In the bar, Ctrl/Cmd+A, Escape and Delete/Backspace act on the selection
     too, and focus goes back to the listing when Escape removes the bar. Keys typed in a form field or on
     an upload tile are left alone. In the picker the first Escape clears the listed picks and the next one
     closes the dialog (`Dialog.vue`'s `escapeKeyDown`). The shortcuts are shown in the tooltips of the bar's
     buttons and exposed as `aria-keyshortcuts`. After a removal, focus goes to the item that took the
-    removed one's place, or to the listing; after an undo, to the first restored item. In the table, the
+    removed one's place, or to the listing, also when focus fell to an element around the library, such as
+    the picker's dialog; after an undo, to the first restored item: the view that offered the undo moves
+    focus there unless the user is typing in a field, and any other mounted library does so when focus was
+    lost. In the table, the
     keys pressed on a row's "…" button (Space, Enter, the arrows, Home, End) stay with its menu and do not
     reach the row or the listing.
   - View switch (`useMediaViewSwitch()`). When the library unmounts with focus inside it, as when "Trash
@@ -867,7 +873,13 @@ collection, the expected filter and the fix in the message.
     more than one request. A check that answers after a newer delete request opened the dialog is dropped.
     "Stop" replaces "Cancel" only while another request is left to send after the one under way; during
     the last or only request, "Cancel" stays disabled. Items the server leaves alone (`skipped`) or whose request failed are
-    listed in the dialog by name and reason, stay in the listing and stay selected; the rest leave, and a
+    listed in the dialog by name and reason, stay in the listing and stay selected; the rest leave. An item
+    the server reports as `not_found` is gone already: it counts as removed, opens no report by itself and,
+    when the report opens for another item, is listed without the "Kept" status. When a run ends in a dialog
+    that was already open, focus moves to its "Undo", or to "Close" without one, and a status region in the
+    dialog announces the outcome. While a removal runs, "Use selected" in the picker's footer is disabled,
+    and the media field refuses a new pick that its own lookup no longer finds. The viewer's delete button
+    reads "Move to trash" while the trash is on, like the bar and the menu; and a
     multi-pick forgets them, the files below a removed folder included. "Stop" aborts the run between two
     requests, in the trash and in the final delete; the dialog then stays open and says what was not sent,
     and the toast counts only the items that went. Without the trash the same dialog confirms the final
@@ -886,7 +898,8 @@ collection, the expected filter and the fix in the message.
     has no public copy, so the dialog shows type icons. Only the answer to the latest page request is shown. After a restore or a delete for good,
     focus goes to the checkbox of the row that took its place, or to the heading once the page is empty.
     The entry and the way back carry the library's folder (`?trash=1&folder=…`), and a page emptied by a
-    removal falls back to the last page, in the trash as in the library.
+    removal falls back to the last page, in the trash as in the library. A reload after a change made
+    elsewhere, such as an undo from a toast, puts focus back the same way when it was lost.
   - Media field. An id the library no longer lists is looked up in the trash (`findTrashed()`, the 1000
     most recently trashed items); a hit shows its name with "In the trash" and a warning that pages show
     nothing in its place until it is restored.
@@ -953,7 +966,9 @@ Kit inventory:
   `prefers-reduced-motion`.
 - `TabList.vue` — the horizontal tab strip the system and insights screens sit in.
 - `Table.vue` / `TableSort.vue` — the table shell (`head`/`body` slots, sticky header, `plain` for a table
-  inlined in a card: no frame, no header fill, no row hover) and its sortable column header.
+  inlined in a card: no frame, no header fill, no row hover) and its sortable column header. The select and
+  actions cells are sticky and opaque, so a row state such as "selected" is painted on the row's cells, not
+  on the `<tr>`.
 - `Textarea.vue` — multi-line text input.
 - `TextInput.vue` — single-line input with optional leading icon and password reveal.
 - `Toasts.vue` — the toast host with its polite/assertive live regions. `useToast().push(type, message,
@@ -962,7 +977,9 @@ Kit inventory:
   rests on it or focus is inside it, the timer is cleared on dismiss and when the host unmounts, and
   over the limit of four the oldest toast without an action goes first. The live region speaks a toast
   with an action as "<message>. <label> available in the notifications.", so a screen reader learns that
-  the action exists and where it is.
+  the action exists and where it is. When the action or the close button dismisses the toast that holds
+  focus, focus goes back to the element it came from, or to the layout's `<main>` when that element is
+  gone.
 - `Tooltip.vue` — hover and focus tooltip.
 
 Adding a variant: extend the kit component rather than dropping back to a raw element. A button variant is

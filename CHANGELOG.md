@@ -10,19 +10,25 @@
   only for roles that may delete) and "Clear selection"; the bar lies over the toolbar, so the listing keeps its place. The listing is one tab
   stop: arrow keys move through it (up and down by the tile on screen, past upload tiles), Shift+arrow
   selects from the anchor to the focus, Space toggles, Ctrl/Cmd+A selects the page, Escape clears it (in
-  the picker, a second Escape closes the dialog), Delete and Backspace delete the selection wherever focus is
-  (the focused item only while nothing is selected); in the bar, Ctrl/Cmd+A, Escape and Delete work too.
+  the picker, a second Escape closes the dialog), Delete and Backspace delete the selection while focus is on
+  an entry that can be selected or its checkbox (the focused item only while nothing is selected); in the
+  bar, Ctrl/Cmd+A, Escape and Delete work too.
   Switching between the library and the trash view keeps focus: on the trash heading, or on the library on
   the way back. A status region that stays mounted announces the count and a cleared
   selection. Search, sorting, paging and refreshes keep the visible part of the selection instead of
   clearing it; in a multi-pick, clearing drops only the listed picks, and the bar counts them as "selected
-  here". Focus moves to the next item after a removal and to the restored item after an undo.
+  here". Focus moves to the next item after a removal and to the restored item after an undo, also when it
+  had fallen to the picker's dialog or left with a toast. A selected table row shows its tint and edge on
+  every cell, the sticky checkbox cell included.
 - Media trash in the admin: deleting in the media library or the picker moves the items to the trash with an
   "Undo" toast (8 seconds, held while hovered or focused; only for roles with `media.write`), which brings
   back only what the move put in the trash; in the picker the undo shows inside the dialog instead, where
   focus and screen readers reach it, and when a move ends in a dialog that lists items left behind, that
   dialog carries the undo and the toast follows once it closes. The toast's live region says that an undo
-  is available. An empty folder is named as deleted, not as moved. A dialog comes
+  is available. An empty folder is named as deleted, not as moved. An item already gone counts as removed and is
+  never listed as kept. When a run ends in an open dialog, focus moves to its "Undo" or "Close" and the
+  outcome is announced. "Use selected" waits while a removal runs, and the media field refuses a pick that
+  is no longer in the library. The viewer's delete button says "Move to trash" while the trash is on. A dialog comes
   first only when a page uses one of the files, a file inside a selected folder included, or when the use
   could not be checked; it names the pages per file. "Trash (n)" beside the folder path opens the trash view
   (`/admin/media?trash=1`): restore, delete permanently and empty, with each item's folder and the date it is
@@ -38,7 +44,8 @@
 - Admin kit: `KestrelUiBulkBar`, the toolbar the collection list and the media library share for a selection
   (its count is plain text; announce it through a status region that stays mounted, such as the new
   `KestrelUiLiveStatus`); toasts take an optional action (`push(type, message, { timeout, action: { label,
-  run } })`) and pause while hovered or focused; `KestrelUiDialog` re-emits `openAutoFocus` and
+  run } })`), pause while hovered or focused, and hand focus back to where it came from when their action
+  or close button dismisses them; `KestrelUiDialog` re-emits `openAutoFocus` and
   `escapeKeyDown`, wraps a long title, and stays open when a toast is pressed; `KestrelUiCheckbox` takes
   `standalone` for a 24 × 24 px click target.
 - Media trash: the preset composes `trashMedia` (`POST /api/media/trash`), `trashMediaFolder`
