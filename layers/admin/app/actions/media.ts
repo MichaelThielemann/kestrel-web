@@ -269,13 +269,27 @@ function upstreamMessage(t: Translate, e: UploadTransportError): string {
   return e.status > 0 ? t('media.upload.httpStatus', { message, status: e.status }) : message
 }
 
-function uploadMessage(t: Translate, e: unknown): string {
+const MODULE_PREFIX = /^[\w-]+\/[\w-]+:\s*/
+
+function tooLargeMessage(t: Translate, message: string, file: File): string {
+  const limit = /\bfile exceeds (\d+) bytes/.exec(message)?.[1]
+  if (limit) return t('media.upload.tooLargeShort', { size: humanizeSize(file.size), limit: humanizeSize(Number(limit)) })
+  return t('media.uploadTooLarge', { detail: humanizeSize(file.size) })
+}
+
+function unsupportedMessage(t: Translate, message: string, file: File): string {
+  const type = /\btype "([^"]+)"/.exec(message)?.[1] ?? file.type
+  return type ? t('media.uploadUnsupported', { detail: type }) : t('media.upload.unsupported')
+}
+
+function uploadMessage(t: Translate, e: unknown, file: File): string {
   const code = apiErrorCode(e)
   if (code === 'UNAUTHENTICATED') return t('media.upload.sessionExpired')
   if (e instanceof UploadTransportError) return upstreamMessage(t, e)
-  const detail = humanizeByteCounts(apiErrorMessage(e))
-  if (code === 'PAYLOAD_TOO_LARGE') return t('media.uploadTooLarge', { detail })
-  if (code === 'UNSUPPORTED') return t('media.uploadUnsupported', { detail })
+  const message = apiErrorMessage(e)
+  if (code === 'PAYLOAD_TOO_LARGE') return tooLargeMessage(t, message, file)
+  if (code === 'UNSUPPORTED') return unsupportedMessage(t, message, file)
+  const detail = humanizeByteCounts(message.replace(MODULE_PREFIX, ''))
   return detail ? t('media.upload.failedDetail', { detail }) : t('media.uploadFailedReason')
 }
 
@@ -325,7 +339,7 @@ const uploadRequest = defineUiStep<UploadInput, UploadItem>('upload.request', as
       return
     }
     item.status = 'failed'
-    item.message = uploadMessage(deps.t, e)
+    item.message = uploadMessage(deps.t, e, item.file)
   }
 })
 

@@ -607,6 +607,7 @@ export const de: Record<CatalogKey, string> = {
   'media.upload.network': 'Keine Verbindung zum Server',
   'media.upload.timeout': 'Der Server hat zu lange nicht geantwortet',
   'media.upload.unavailable': 'Der Server ist gerade nicht erreichbar',
+  'media.upload.unsupported': 'Dateityp nicht erlaubt',
   'media.upload.rejectedTooLarge': 'Der Server hat die Datei als zu groß abgelehnt',
   'media.upload.httpStatus': '{message} (HTTP {status})',
   'media.upload.failedDetail': 'Upload fehlgeschlagen — {detail}',
@@ -859,8 +860,8 @@ export const de: Record<CatalogKey, string> = {
 
   'media.deleteRecursive': 'Auch den Inhalt löschen',
   'media.folderConflict': 'Ein Ordner mit diesem Namen existiert bereits.',
-  'media.uploadTooLarge': 'Datei ist zu groß — {detail}',
-  'media.uploadUnsupported': 'Dateityp ist nicht erlaubt — {detail}',
+  'media.uploadTooLarge': 'Datei zu groß ({detail})',
+  'media.uploadUnsupported': 'Dateityp nicht erlaubt ({detail})',
 
   'system.tabs.images': 'Bilder',
   'images.title': 'Bildvarianten',

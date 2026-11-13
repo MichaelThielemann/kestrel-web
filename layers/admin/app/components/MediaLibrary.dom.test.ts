@@ -154,8 +154,8 @@ describe('MediaLibrary upload status', () => {
 
     await vi.waitFor(() => expect(wrapper.find('.media-upload-tile__failed').exists()).toBe(true))
     expect(wrapper.get('.media-upload-panel [aria-live="polite"]').text()).toContain('0 of 1 uploaded, 1 failed')
-    expect(wrapper.get('.media-upload-panel').text()).toContain('File type is not allowed')
-    expect(wrapper.get('.media-upload-tile__failed').text()).toContain('File type is not allowed')
+    expect(wrapper.get('.media-upload-panel').text()).toContain('File type not allowed (application/octet-stream)')
+    expect(wrapper.get('.media-upload-tile__failed').text()).toContain('File type not allowed (application/octet-stream)')
 
     const dismissButton = wrapper.get(`[aria-label="${en['media.upload.dismiss'].replace('{name}', 'bad.exe')}"]`)
     await dismissButton.trigger('click')

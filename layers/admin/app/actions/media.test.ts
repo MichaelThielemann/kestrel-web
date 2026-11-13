@@ -501,26 +501,27 @@ describe('upload', () => {
     expect(item.totalKnown).toBe(true)
   })
 
-  it('humanises byte counts in the 413 message', async () => {
+  function sizedItem(size: number, type = '') {
+    const file = new File(['x'], 'a.bin', { type })
+    Object.defineProperty(file, 'size', { value: size })
+    return uploadItem({ file })
+  }
+
+  it.each([
+    ['names the size and the limit when kestrel refuses the file for its size', 413, 'media/default: file exceeds 5242880 bytes', sizedItem(6 * 1024 * 1024), 'media.upload.tooLargeShort:{"size":"6.0 MB","limit":"5.0 MB"}'],
+    ['names only the size when the request body as a whole was refused', 413, 'body exceeds 6291456 bytes', sizedItem(7 * 1024 * 1024), 'media.uploadTooLarge:{"detail":"7.0 MB"}'],
+    ['names only the refused type, without the module or the server sentence', 415, 'media/default: type "application/octet-stream" is not allowed', sizedItem(1), 'media.uploadUnsupported:{"detail":"application/octet-stream"}'],
+    ['falls back to the type the browser reports', 415, 'type not allowed', sizedItem(1, 'image/tiff'), 'media.uploadUnsupported:{"detail":"image/tiff"}'],
+    ['says the type is not allowed when no type is known', 415, 'type not allowed', sizedItem(1), 'media.upload.unsupported'],
+    ['drops the module prefix from any other kestrel message', 500, 'media/default: storage is read-only', sizedItem(1), 'media.upload.failedDetail:{"detail":"storage is read-only"}'],
+  ])('%s', async (_title, status, message, item, expected) => {
     const { deps } = fakeDeps()
-    const { transport } = fakeTransport([apiError(413, 'file exceeds 5242880 bytes')])
-    const item = uploadItem()
+    const { transport } = fakeTransport([apiError(status, message)])
 
     await runAction(upload, { deps, item, transport })
 
     expect(item.status).toBe('failed')
-    expect(item.message).toBe('media.uploadTooLarge:{"detail":"file exceeds 5.0 MB"}')
-  })
-
-  it('gives an unsupported type its own message', async () => {
-    const { deps } = fakeDeps()
-    const { transport } = fakeTransport([apiError(415, 'type image/tiff is not allowed')])
-    const item = uploadItem()
-
-    await runAction(upload, { deps, item, transport })
-
-    expect(item.status).toBe('failed')
-    expect(item.message).toBe('media.uploadUnsupported:{"detail":"type image/tiff is not allowed"}')
+    expect(item.message).toBe(expected)
   })
 
   it('names an expired session on a 401 and records its code', async () => {

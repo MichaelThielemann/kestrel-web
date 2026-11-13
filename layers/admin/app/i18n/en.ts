@@ -605,6 +605,7 @@ export const en = {
   'media.upload.network': 'No connection to the server',
   'media.upload.timeout': 'The server took too long to answer',
   'media.upload.unavailable': 'The server is not available right now',
+  'media.upload.unsupported': 'File type not allowed',
   'media.upload.rejectedTooLarge': 'The server refused the file as too large',
   'media.upload.httpStatus': '{message} (HTTP {status})',
   'media.upload.failedDetail': 'Upload failed — {detail}',
@@ -857,8 +858,8 @@ export const en = {
 
   'media.deleteRecursive': 'Also delete the contents',
   'media.folderConflict': 'A folder with that name already exists.',
-  'media.uploadTooLarge': 'File is too large — {detail}',
-  'media.uploadUnsupported': 'File type is not allowed — {detail}',
+  'media.uploadTooLarge': 'File too large ({detail})',
+  'media.uploadUnsupported': 'File type not allowed ({detail})',
 
   'system.tabs.images': 'Images',
   'images.title': 'Image variants',
