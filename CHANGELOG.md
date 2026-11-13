@@ -241,9 +241,10 @@
   exported one, and the first start overwrites a `robots.txt` or `sitemap.xml` it finds under the prefix: set
   `robots: false` (and `sitemap: false` for a sitemap of your own) before that start to keep yours. Once
   overwritten, `robots: false` leaves the exported `<prefix>robots.txt` in place; delete it by hand.
-- Every site page sets `<link rel="canonical">` and `og:url` (with a site URL) and `og:site_name`. They replace
-  tags of the same key from `app.vue`, a layout or `app.head`, such as a canonical link of your own. To keep
-  yours, give it a higher priority: `useHead({ link: [{ rel: "canonical", href, tagPriority: "high" }] })`.
+- Every site page sets `<link rel="canonical">` and `og:url` (with a site URL) and `og:site_name`, each with
+  `tagPriority: "high"`. They replace tags of the same key from `app.vue`, a layout, a block or `app.head`, such
+  as a canonical link of your own. To keep yours, give it the critical priority:
+  `useHead({ link: [{ rel: "canonical", href, tagPriority: "critical" }] })`.
 - On a database from 2.x, the first runs of `resumeStalePages` (cron `*/5`, once `deliveryBuildCheck` ran)
   remove once every page file (`index.<ext>`) under `site/` at a path no page owns, logging each file: the
   files an older version left behind after a failed render followed by a slug change, but also pages placed

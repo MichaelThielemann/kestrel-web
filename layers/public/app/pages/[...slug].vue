@@ -101,14 +101,14 @@ useHead(() => {
     htmlAttrs: { lang: locale.value },
     titleTemplate: siteTitleTemplate(siteSettings.value?.title, siteSettings.value?.titleSeparator, siteSettings.value?.titlePosition),
     title,
-    link: canonical.value ? [{ rel: 'canonical', href: canonical.value }] : [],
+    link: canonical.value ? [{ rel: 'canonical', href: canonical.value, tagPriority: 'high' }] : [],
     meta: [
       ...(description ? [{ name: 'description', content: description }, { property: 'og:description', content: description }] : []),
       ...(seo.noindex ? [{ name: 'robots', content: 'noindex, nofollow' }] : []),
       { property: 'og:title', content: title },
       { property: 'og:type', content: 'website' },
-      ...(canonical.value ? [{ property: 'og:url', content: canonical.value }] : []),
-      ...(siteName ? [{ property: 'og:site_name', content: siteName }] : []),
+      ...(canonical.value ? [{ property: 'og:url', content: canonical.value, tagPriority: 'high' as const }] : []),
+      ...(siteName ? [{ property: 'og:site_name', content: siteName, tagPriority: 'high' as const }] : []),
       ...(image ? [{ property: 'og:image', content: image }, { name: 'twitter:card', content: 'summary_large_image' }] : []),
     ],
   }

@@ -1847,9 +1847,9 @@ not such a URL (no scheme, credentials, a query or a fragment) stops the config 
 URL no `sitemap.xml` is written, `llms.txt` lists paths instead of URLs, pages carry no canonical link or
 `og:url`, and the server warns at start. When a hand-written `delivery-static` entry, or an override of its
 `siteUrl`, holds another URL than the variable, the server warns at start, naming both. Every page also
-carries `og:site_name`, the site settings title. The page's canonical link, `og:url` and `og:site_name` replace
-tags of the same key set in `app.vue`, a layout or `app.head`; to keep one of yours, give it a higher priority,
-for example `useHead({ link: [{ rel: "canonical", href, tagPriority: "high" }] })`.
+carries `og:site_name`, the site settings title. The page sets its canonical link, `og:url` and `og:site_name`
+with `tagPriority: "high"`, so they replace tags of the same key set in `app.vue`, a layout, a block or
+`app.head`; to keep one of yours, give it the critical priority, for example `useHead({ link: [{ rel: "canonical", href, tagPriority: "critical" }] })`.
 
 **Robots policy.** `robots.policy` decides what `robots.txt` says: `allow` lets crawlers in, `disallow`
 keeps them out. Without one, `presetModuleConfig()` allows crawlers in a production build and keeps them out
@@ -2352,8 +2352,8 @@ What changes:
   `public/` or at the web server now competes with the exported one. The first start overwrites a
   `robots.txt` or `sitemap.xml` under the prefix, so set `robots: false` (and `sitemap: false` for a sitemap of
   your own) before it; afterwards `<prefix>robots.txt` must be deleted by hand. Every site page now sets its
-  canonical link, `og:url` and `og:site_name`, which replace tags of the same key from `app.vue`, a layout or
-  `app.head`; give yours `tagPriority: "high"` to keep it (§8, "Site URL"). Pages you
+  canonical link, `og:url` and `og:site_name`, which replace tags of the same key from `app.vue`, a layout, a
+  block or `app.head`; give yours `tagPriority: "critical"` to keep it (§8, "Site URL"). Pages you
   placed under `site/` yourself are removed once by the first runs of `resumeStalePages` unless their path is
   in `reservedPaths` (§8, "Leftover page files"); reserve them before the first start. The upgrade tool covers
   the rest:
