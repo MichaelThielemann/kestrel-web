@@ -2077,7 +2077,8 @@ An exported page is refreshed when content it shows changes. The recording and t
   `dependencies.indexesDelayMs`. Neither is a `presetModuleConfig()` option, like the lanes.
 - **A deploy re-renders.** The Nitro plugin runs `deliveryBuildCheck` after `start()` with
   `<buildId>|<siteUrl>` as the build key (`server/utils/build-check.ts`: `useRuntimeConfig().app.buildId` and
-  `deliverySiteUrl()`, the site URL delivery-static is configured with), except in dev, before it reports
+  the normalised `public.siteUrl` (`NUXT_PUBLIC_SITE_URL`), the URL the pages build their canonical link from;
+  `siteUrlMismatch` warns when delivery-static's `siteUrl` differs), except in dev, before it reports
   ready. A new build or a changed site URL marks every output, so every page is rendered, and its
   dependencies and absolute URLs recorded, by the deployed code. The pipeline ends in
   `delivery.requestIndexes`, so every start exports the index files once. When replication-sqlite (or else
