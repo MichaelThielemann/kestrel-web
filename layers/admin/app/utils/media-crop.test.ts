@@ -26,7 +26,7 @@ describe('canFrame', () => {
 })
 
 describe('cropSource', () => {
-  const variant = (size: string, width: number, state: 'done' | 'pending' = 'done') => ({ size, width, height: Math.round(width * 2 / 3), format: 'webp', bytes: 1, state, path: `/media/m1/variants/${size}.webp` })
+  const variant = (size: string, width: number, state: 'done' | 'pending' = 'done', height = Math.round(width * 2 / 3)) => ({ size, width, height, format: 'webp', bytes: 1, state, path: `/media/m1/variants/${size}.webp` })
   const ratios = [{ key: '1:1', sizes: ['avatar'], manual: false, fits: true, crop: null }]
 
   it('shows the original when a browser displays its type', () => {
@@ -48,16 +48,60 @@ describe('cropSource', () => {
     const webp = item({
       contentType: 'image/webp',
       path: '/media/m1/a.webp',
-      variants: [variant('small', 640), variant('avatar', 2000), variant('large', 1600)],
+      width: 1200,
+      height: 800,
+      variants: [variant('small', 427, 'done', 640), variant('avatar', 2000, 'done', 2000), variant('large', 1067, 'done', 1600)],
       framing: { focus: null, crops: {}, width: 800, height: 1200, ratios },
     })
     expect(cropSource(webp)).toBe('/media/m1/variants/large.webp')
   })
 
-  it('falls back to a WebP original until a whole-image variant is finished', () => {
+  it('falls back to a WebP original that is stored upright until a whole-image variant is finished', () => {
     const webp = item({ contentType: 'image/webp', path: '/media/m1/a.webp', variants: [variant('avatar', 96), variant('large', 1600, 'pending')], framing: { focus: null, crops: {}, width: 1200, height: 800, ratios } })
     expect(cropSource(webp)).toBe('/media/m1/a.webp')
     expect(canFrame(webp)).toBe(true)
+  })
+
+  it('has nothing to show for a WebP original stored on its side before a whole-image variant is finished', () => {
+    const webp = item({
+      contentType: 'image/webp',
+      path: '/media/m1/a.webp',
+      width: 800,
+      height: 400,
+      variants: [variant('avatar', 96, 'done', 96), variant('large', 800, 'pending', 1600)],
+      framing: { focus: null, crops: {}, width: 400, height: 800, ratios },
+    })
+    expect(cropSource(webp)).toBeNull()
+    expect(canFrame(webp)).toBe(false)
+  })
+
+  it('has nothing to show for a WebP original whose stored dimensions are unknown before a whole-image variant is finished', () => {
+    const webp = item({ contentType: 'image/webp', path: '/media/m1/a.webp', width: null, height: null, framing: { focus: null, crops: {}, width: 1200, height: 800, ratios } })
+    expect(cropSource(webp)).toBeNull()
+  })
+
+  it('takes a whole-image variant only with the aspect of the oriented original, not a leftover cut of a size no longer declared', () => {
+    const heic = item({
+      contentType: 'image/heic',
+      path: '/media/m1/a.heic',
+      width: 4000,
+      height: 3000,
+      variants: [variant('banner', 3000, 'done', 1000), variant('xl', 2400, 'done', 1800), variant('large', 1600, 'done', 1200)],
+      framing: { focus: null, crops: {}, width: 4000, height: 3000, ratios },
+    })
+    expect(cropSource(heic)).toBe('/media/m1/variants/xl.webp')
+  })
+
+  it('has nothing to show when every finished variant is cut to another aspect', () => {
+    const heic = item({
+      contentType: 'image/heic',
+      width: 4000,
+      height: 3000,
+      variants: [variant('banner', 3000, 'done', 1000)],
+      framing: { focus: null, crops: {}, width: 4000, height: 3000, ratios: [] },
+    })
+    expect(cropSource(heic)).toBeNull()
+    expect(canFrame(heic)).toBe(false)
   })
 
   it('has nothing to show for such an original before a whole-image variant is finished', () => {

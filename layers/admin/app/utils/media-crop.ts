@@ -18,22 +18,33 @@ export interface CropSize {
 const BROWSER_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/avif', 'image/apng', 'image/bmp', 'image/svg+xml', 'image/x-icon', 'image/vnd.microsoft.icon'])
 const UNORIENTED_IMAGE_TYPES = new Set(['image/webp'])
 
+const ASPECT_TOLERANCE = 0.01
+
 function wholeVariant(item: MediaItem): string | null {
+  const { width, height } = item.framing
+  if (!width || !height) return null
   const cut = new Set(item.framing.ratios.flatMap((ratio) => ratio.sizes))
-  const whole = item.variants.filter((v) => v.state === 'done' && v.width > 0 && v.height > 0 && !cut.has(v.size))
+  const aspect = width / height
+  const whole = item.variants.filter((v) => v.state === 'done' && v.width > 0 && v.height > 0 && !cut.has(v.size)
+    && Math.abs(v.width / v.height / aspect - 1) <= ASPECT_TOLERANCE)
   return whole.reduce<typeof whole[number] | null>((best, v) => (best === null || v.width > best.width ? v : best), null)?.path ?? null
+}
+
+function storedUpright(item: MediaItem): boolean {
+  return item.width !== null && item.width === item.framing.width && item.height === item.framing.height
 }
 
 /**
  * The URL the crop editor shows the whole image from: the original when browsers display its type with its
- * orientation applied, else the largest finished variant that is not cut to a ratio (it has the original's oriented
- * aspect, so every rectangle and crop applies to it alike). A WebP original, whose orientation tag browsers ignore,
- * is shown only until such a variant is finished; any other original has `null` while there is none.
+ * orientation applied, else the largest finished variant that is not cut to a ratio and has the aspect of the
+ * oriented original, so every rectangle and crop applies to it alike. A WebP original, whose orientation tag
+ * browsers ignore, is shown itself until such a variant is finished only when its stored dimensions are the
+ * oriented ones; any other original has `null` while there is none.
  */
 export function cropSource(item: MediaItem): string | null {
   if (BROWSER_IMAGE_TYPES.has(item.contentType)) return item.path
   const variant = wholeVariant(item)
-  if (variant === null && UNORIENTED_IMAGE_TYPES.has(item.contentType)) return item.path
+  if (variant === null && UNORIENTED_IMAGE_TYPES.has(item.contentType) && storedUpright(item)) return item.path
   return variant
 }
 
