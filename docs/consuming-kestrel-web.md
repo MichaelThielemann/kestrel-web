@@ -320,7 +320,10 @@ calls them before it has read a schema at all.
 | `collectionsUi` | no | — your `shared/collections-ui.ts` map; the `revisions` module's `statusField`/`liveStatuses` are derived from the workflows in it |
 | `media` | no | `{ maxBytes: 5242880, allowedTypes: ["image/*", "application/pdf"], deniedTypes: ["text/html", "application/xhtml+xml"], trashRetentionDays: 30 }` — `trashRetentionDays` is how long a trashed item waits before the nightly `purgeExpiredMedia` deletes it; `0` composes no trash pipelines, so restore or empty the trash before setting it (§4, "The media trash") |
 | `ratelimit` | no | `{ login: { limit: 5, windowSeconds: 60 }, loginAccount: { limit: 10, windowSeconds: 300, maxBlockSeconds: 900 }, passwordCheck: { limit: 5, windowSeconds: 300, maxBlockSeconds: 900 }, knownDevice: { limit: 10, windowSeconds: 300, maxBlockSeconds: 900 } }` — `login` counts every attempt per client address (an IPv6 address by its /64); `loginAccount` counts failed sign-ins per account from any address, keyed on the field `session.identifier` names, and a successful sign-in clears it; `knownDevice` counts failed sign-ins of a browser that carries the device cookie of an earlier sign-in to that account, in place of `loginAccount`, so a blocked account stays open to its owner's browsers; `deviceCookies: { secretKey?, previousSecretKeys?, maxAgeSeconds? }` signs those cookies, the keys defaulting to `deviceKeys()` from `#kestrel/config`: `KESTREL_DEVICE_KEY`, else the `mfa` feature's keys, else a random key per process, `maxAgeSeconds` to 30 days; `passwordCheck` counts failed password checks per signed-in user on `changePassword` and `confirmPassword`; a key that keeps exceeding its budget is blocked for twice as long each time, never longer than `maxBlockSeconds` |
-| `llms` | no | `{ full: true, headings: { pages: "Pages" } }`; `siteUrl` falls back to `NUXT_PUBLIC_SITE_URL` |
+| `llms` | no | `{ full: true, headings: { pages: "Pages" } }` — `full` also writes `llms-full.txt`, `headings` names each type's section (§8, "Index files"); `llms.siteUrl` is refused, use `siteUrl` |
+| `siteUrl` | no | `NUXT_PUBLIC_SITE_URL` — the public site's absolute `http(s)` URL, with a base path when the site lives below the host's root; normalised (host lower-cased, default port and trailing slashes dropped) and passed to `delivery-static`, which builds `sitemap.xml`, the `Sitemap:` line of `robots.txt` and the llms URLs from it. Without one, `delivery` warns once at boot and no `sitemap.xml` is written |
+| `sitemap` | no | `true` — `false` writes no `sitemap.xml` |
+| `robots` | no | `{}` — `{ policy?: "allow" \| "disallow", extra?: string[] }` for `robots.txt`; without `policy`, `allow` when `NODE_ENV` is `production` and `disallow` otherwise, with a warning at boot. `extra` lines follow the policy verbatim. `false` leaves `robots.txt` to you. `envRobots()` from `#kestrel/config` reads the policy from `KESTREL_ROBOTS_POLICY` |
 | `migrations` | with the `migrations` feature | — `{ migrations, mode? }`, the `#kestrel/migrations` list (§10); the feature without it throws |
 | `mfa` | no | `{}` — `{ secretKey?, previousSecretKeys?, issuer?, enforce? }`, used only with the `mfa` feature: `secretKey` seals every second factor's secret (32 bytes as 64 hex digits; default `mfaKey()` from `#kestrel/config`, which reads `KESTREL_MFA_KEY` and requires it in production), `previousSecretKeys` lists keys it replaced, whose factors keep working, `issuer` is the name an authenticator app shows, `enforce` (`"all"` default, `"none"`, `{ permissions }`) who must set a factor up |
 | `session` | no | `{ identifier: "username", minPasswordLength: 12, sessionTtlSeconds: 86400, secureCookie: true }`; the minimum applies when a password is set (bootstrap excluded), so an account whose existing password is shorter still logs in and meets the minimum at its next change |
@@ -436,7 +439,7 @@ const modules = [
   { use: "@michaelthielemann/kestrel-links-default", config: { timeoutMs: 10000, concurrency: 4, recheckAfterSeconds: 21600 } },
   { use: "@michaelthielemann/kestrel-validate-jsonschema", config: { schemas: presetSchemas({ features, collections: contentTypes }), watch: process.env.NODE_ENV !== "production" } },
   { use: "@michaelthielemann/kestrel-renderer-nuxt", config: {} },
-  { use: "@michaelthielemann/kestrel-delivery-static", config: { types: { pages: {} }, prefix: "site/", reservedPaths: ["/api", "/admin", "/media"], llms: { full: true, headings: { pages: "Pages" } }, dependencies: { render: "background", rendererReadsDocument: true } } },
+  { use: "@michaelthielemann/kestrel-delivery-static", config: { types: { pages: {} }, prefix: "site/", reservedPaths: ["/api", "/admin", "/media"], siteUrl: "https://example.org", llms: { full: true, headings: { pages: "Pages" } }, dependencies: { render: "background", rendererReadsDocument: true, indexesDelayMs: 1000 } } },
   { use: "@michaelthielemann/kestrel-redirects-default", config: { prefix: "site/" } },
   { use: "@michaelthielemann/kestrel-audit-persistence", config: {} },
   { use: "@michaelthielemann/kestrel-events-inmemory", config: {} },
@@ -823,7 +826,7 @@ or a retry actually runs.
 | `sanitizeSvg` | kestrel-sanitize-svg | SVG sanitize step before the upload step in `uploadMedia`; only with this module configured does `layers/core` serve SVG inline (`inlineTypes`), otherwise SVGs are delivered as attachments. Required with `delivery` unless `image/svg+xml` is denied — see the note below the table |
 | `references` | kestrel-references-default | `brokenReferences`, `pageReferrers(Many)`, `mediaReferrers(Many)`, `<name>Referrers(Many)` per generic multi collection, `rebuildReferences`, `scanReferences` (cron); check/index/guard/unindex steps in the create/update/delete pipelines of `pages` and every generic multi collection, `deleteMedia`, `deleteMediaFolder`, `references.dropReferenced:media` before `media.purge` in the trash's purge pipelines, a re-index step in each `delete…Translation`, and a re-index step after the write of `setSettings`, `setRedirects` and each generic single |
 | `links` | kestrel-links-default | `brokenLinks`, `rebuildLinks`, `checkLinks` (cron); extract/unextract steps in `createPage`, `updatePage`, `deletePage`, and a re-extract step in `deletePageTranslation` when it exists |
-| `delivery` | kestrel-delivery-static + kestrel-renderer-nuxt | `pagePublishStatus`, `publishAllPages`, `pagesStaleStatus`, `retryStalePages`, `resumeStalePages` (cron), `deliveryBuildCheck` (run at start), two event pipelines that publish the saved page: `publishPage` (triggered by `page.created`, `page.updated`, `page.restored`, and `page.translationRemoved` when the model is translatable) and `unpublishPage` (triggered by `page.deleted`), and the dependents pipelines that re-render the pages showing a change: `pageDependents`, one `<name>Dependents` per collection, `settingsDependents`, `mediaDependents`, with `eventsQueue` also `republishOutput` and `refreshLlms` — see the notes below the table |
+| `delivery` | kestrel-delivery-static + kestrel-renderer-nuxt | `pagePublishStatus`, `publishAllPages`, `pagesStaleStatus`, `retryStalePages`, `resumeStalePages` (cron), `deliveryBuildCheck` (run at start), two event pipelines that publish the saved page: `publishPage` (triggered by `page.created`, `page.updated`, `page.restored`, and `page.translationRemoved` when the model is translatable) and `unpublishPage` (triggered by `page.deleted`), and the dependents pipelines that re-render the pages showing a change: `pageDependents`, one `<name>Dependents` per collection, `settingsDependents`, `mediaDependents`, with `eventsQueue` also `republishOutput`, `refreshIndexes` and `refreshLlms` — see the notes below the table |
 | `redirects` | kestrel-redirects-default | `getRedirects`, `setRedirects`, `renderRedirects`; redirect-lookup step in `resolvePage`; export step at the end of `publishAllPages` (only when `delivery` is also on) |
 | `images` | kestrel-images-default | Routes, an event and a cron job for image variants, plus boot-time size registration — see the list below the table |
 | `replication` | kestrel-replication-sqlite | `replicate` (cron), `replicationStatus`, `replicationPoints`, `replicationSnapshot`, `replicationRestore` |
@@ -897,7 +900,7 @@ it like this:
 - One dependents pipeline per collection, `delivery.markDependents:<name>` (`pageDependents` for `pages`,
   `<name>Dependents` otherwise), runs on the collection's `created`, `updated`, `deleted`, `restored` and
   `translationRemoved` events; a single collection's on `<name>.updated`. `settingsDependents`
-  (`delivery.markDependents:settings`, `delivery.requestLlms`) runs on `settings.updated`, and
+  (`delivery.markDependents:settings`, `delivery.requestIndexes`) runs on `settings.updated`, and
   `mediaDependents` (`delivery.markDependents:media`) on `media.updated`, `media.deleted`,
   `images.variantsChanged`, `media.trashed` and `media.restored`. A dependents trigger is composed only for an event that a composed pipeline
   emits or a configured module raises, after `exclude` and `overrides` are applied: excluding
@@ -906,27 +909,41 @@ it like this:
   one `delivery.outputStale` job, rendered by `republishOutput` in the queue's `pages` lane; at most one
   job per page and language waits at a time. Without it, `delivery-static` renders them in a background
   loop of the process that marked them. Neither runs inside the save request.
-- `publishPage`, `unpublishPage` and `settingsDependents` ask for an `llms.txt` export
-  (`delivery.requestLlms`) instead of writing it. With `eventsQueue`, `refreshLlms` writes it in the
-  `pages` lane after the renders queued before it; without it, the background loop writes it once no
-  render is due. Neither a save response nor the settings response carries `_llms` any more.
+- Every pipeline that changes what the index files list asks for an export with `delivery.requestIndexes`
+  instead of writing them in the request: `publishPage`, `unpublishPage`, the publish and unpublish
+  pipelines of every mounted collection, `settingsDependents`, `publishAllPages` and each
+  `publishAll<Name>`, `retryStalePages`, `deliveryBuildCheck` and, with `migrations`,
+  `rebuildPathsAfterMigrations`. With `eventsQueue`, `refreshIndexes` (`delivery.exportIndexes` on
+  `delivery.indexesStale`) writes `sitemap.xml`, `robots.txt` and `llms.txt` in the `indexes` lane, and
+  `refreshLlms` (`delivery.exportLlmsFull` on `delivery.llmsStale`) writes `llms-full.txt` in the `pages`
+  lane, after the renders queued before it. Without it, delivery-static's background loop writes them.
+  §8, "Index files", has the timings. Neither a save response nor the settings response carries `_llms`.
 - **Publish all** (`publishAllPages`: `authn.requireUser`, `authz.require:pages.manage`,
-  `delivery.markAll:pages`, plus `redirects.export` with `redirects`) marks every page and answers at once
+  `delivery.markAll:pages`, `delivery.requestIndexes`, plus `redirects.export` with `redirects`) marks every page and answers at once
   with `{ marked }`; the pages render in the background. It no longer repairs media copies; that is
   `repairPublicMedia` and the nightly `syncPublicMedia`.
 - `resumeStalePages` (`delivery.resumeStale`, cron `*/5 * * * *`) is a recovery net: it releases claims a
-  stopped process left, removes old unpublish records and starts renders a lost job left marked.
-  `pagesStaleStatus` (`GET /admin/publish-status/pages`) answers `{ stale, failed, rendering, unknown,
-  oldestStaleAt, abandoned }`; `retryStalePages` (`POST /admin/publish-stale/pages/retry`) gives the pages
-  whose re-render failed every attempt new attempts. Both need `pages.manage`.
-- `deliveryBuildCheck` (`delivery.checkBuild`) has no trigger: the layer runs it once after start in a
-  production server, with the running build's id. A new build marks every page, so each deploy re-renders
-  the site in the background with the code that is now running.
+  stopped process left, removes old unpublish records, starts renders a lost job left marked, asks for an
+  index export every run (written only when its content changed) and asks for `llms-full.txt` again while
+  its last export failed. `pagesStaleStatus` (`GET /admin/publish-status/pages`) answers `{ stale, failed,
+  rendering, unknown, oldestStaleAt, abandoned, exports }`, `exports` holding the outcome of the last index
+  export and the last `llms-full.txt` export (`{ at, entries, error, skipped }` or `null`), which System →
+  Delivery shows; `retryStalePages` (`POST /admin/publish-stale/pages/retry`) gives the pages whose
+  re-render failed every attempt new attempts. Both need `pages.manage`.
+- `deliveryBuildCheck` (`delivery.checkBuild`, `delivery.requestIndexes`) has no trigger: the layer runs it
+  once after start in a production server, with the running build's id and the site URL as
+  `<buildId>|<siteUrl>`. A new build or a changed site URL marks every page, so each deploy re-renders the
+  site in the background with the code that is now running, and every start exports the index files once.
+  When `replication` (or else a `backup-blobstore` entry) restores persistence-sqlite's database file, its
+  `checkRestored` step runs directly before `delivery.checkBuild`, so a start on a restored database
+  re-renders every page even with an unchanged build.
 
 `presetModuleConfig()` sets `delivery-static`'s `dependencies` to `{ render: "events",
 rendererReadsDocument: true, maxAttempts, backoffSeconds }` with `eventsQueue` (the queue's own attempts
 and backoff, so a failed render is retried on the same schedule it reports), and to `{ render:
-"background", rendererReadsDocument: true }` without it. `definePreset()` refuses `render: "events"`
+"background", rendererReadsDocument: true, indexesDelayMs: 1000 }` without it. With `eventsQueue` it also
+gives the queue `delayMs: delaysFor(features)`, `{ refreshIndexes: 1000, refreshLlms: 3000 }`. Neither
+delay is an option of `presetModuleConfig()`. `definePreset()` refuses `render: "events"`
 without the `eventsQueue` feature and anything else with it.
 
 **`eventsQueue` requirement:** delivery is at-least-once, so your event listeners must be idempotent, and
@@ -960,12 +977,14 @@ worker: its row is due immediately, and `_events` reports it as `"queued"`, not 
 or unpublish therefore still completes before the write's response, while heavier or slower subscribers
 never share the request's time budget. Page re-renders and image renders run in lanes of their own, set
 on the `eventsQueue` module's `lanes` by the exported `lanesFor(features)`: `republishOutput` and
-`refreshLlms` in `pages` (with `delivery`), `generateImageVariants` in `variants` (with `images`). Each lane
+`refreshLlms` in `pages` and `refreshIndexes` in `indexes` (with `delivery`), `generateImageVariants` in
+`variants` (with `images`). Each lane
 has its own worker loop that runs one job at a time, so a site-wide re-render never delays an upload's
 placeholders, a relayed publish, the login audit or an image render, and the relay never claims a lane row
 regardless of `relayPipelines`. `definePreset()` refuses a lanes config that names a preset pipeline it no
 longer composes, or that does not keep `republishOutput` and `refreshLlms` together in a lane of their own
-(with `delivery`), or `generateImageVariants` in a lane (with `images`); a queue entry without `lanes`
+and `refreshIndexes` alone in another (with `delivery`), or `generateImageVariants` in a lane (with
+`images`), and a `delayMs` that names a preset pipeline it does not compose; a queue entry without `lanes`
 counts as `lanes: {}` and is refused the same way. `checkPreset()` reports each of these, and every other
 preset problem, as a `{ code, pipeline?, message }` entry instead of throwing.
 
@@ -1111,7 +1130,7 @@ translation. `pages` goes through the same generator but is special-cased twice:
 singular names (`readPage`, not `readPages`) and singular event names (`page.created`), and it is the
 only collection that gets `resolvePage` and the `delivery`/`references`/`links` feature patches, which
 are pinned to the name `pages`. `deletePageTranslation` gets the same delivery/links/references patches
-as `updatePage` (re-publish, re-export llms.txt, re-extract links, re-index references), right before
+as `updatePage` (re-publish, request the index files, re-extract links, re-index references), right before
 its `events.emit:page.translationRemoved`. `settings` and `redirects` are excluded from generation
 entirely — their pipelines and routes are hand-written in the preset.
 
@@ -1581,8 +1600,10 @@ build machine is baked in, so the folder can be copied to another machine. Set `
 the directory that holds `data/` on the target (default: the process cwd); `here()` in
 `kestrel.config.ts` and the `data/export` default resolve against it. Production also needs
 `KESTREL_ADMIN_PASSWORD_HASH` and, for an S3 blobstore, the `KESTREL_S3_*` variables (§3) — a missing
-one throws while the config loads, naming it. Set `NUXT_PUBLIC_SITE_URL` to the site's real origin so
-the editor's preview links, canonical URLs and `llms.txt` are absolute. Static delivery (§8) requires
+one throws while the config loads, naming it. Set `NUXT_PUBLIC_SITE_URL` to the site's public URL so
+the editor's preview links, every page's canonical link and `og:url`, `sitemap.xml` and `llms.txt` are
+absolute, and set `KESTREL_ROBOTS_POLICY` (or `robots.policy`) to say what `robots.txt` allows (§8, "Index
+files"). Static delivery (§8) requires
 this production build; it cannot run against `nuxt dev`. The full operator's view — every environment
 variable, what has to survive a redeploy, a systemd unit, a Containerfile, reverse-proxy settings,
 backups and why there is no rolling restart — is [`docs/deployment.md`](deployment.md).
@@ -1703,18 +1724,9 @@ of any page referencing it. Rules that follow from that:
   process.
 - `app.cdnURL` set → the markup points at the CDN and no `_nuxt/` is written; `renderer-nuxt` config
   `assets: false` skips the sync when you serve `.output/public/_nuxt` yourself.
-- Files from your `public/` directory (favicon, fonts, `robots.txt`) are not exported — serve
-  `.output/public` next to `site/`, or put such files in the media library.
-
-**llms.txt / llms-full.txt (GEO).** Every publish, unpublish, re-render and settings save leads to a new
-`<prefix>llms.txt`, written in the background once the pending re-renders are done (see the `delivery`
-notes in §4): an index in the format of
-https://llmstxt.org — H1 = `settings.title`, blockquote = `settings.description` (§3.5), then one section per
-delivered type listing every live page with its `seo.title`/`title`, URL and `seo.description`; pages with
-`seo.noindex` are left out, drafts never appear. Configure it under the delivery-static `llms` key:
-`siteUrl` (absolute origin; without it the file lists paths), `full: true` additionally writes
-`llms-full.txt` with every page's `<main>` content as Markdown, `headings` maps a type to its section
-heading (default: the type name). The editor's "SEO & GEO" section explains the double use to editors.
+- Files from your `public/` directory (favicon, fonts) are not exported — serve `.output/public` next to
+  `site/`, or put such files in the media library. `robots.txt` is written by the export (below); a
+  `robots.txt` of your own needs `robots: false`.
 
 Minimal nginx location for a filesystem blobstore (`root` = `<blobstore root>/site`):
 
@@ -1768,6 +1780,63 @@ explicitly ("The page was deleted, but it is still online.") and points at Syste
 queue, or at System → Delivery without it. **`publishAllPages` does not repair this case**: it re-renders
 every page that still exists and never removes an artefact whose document is already gone, so reach for the
 queue's retry (or, without the queue, re-run the delivery module's own removal) instead of Publish All.
+
+### Index files
+
+Next to the pages, `delivery-static` writes four files under its `prefix`, all from published content only:
+
+| file | holds | written from |
+|---|---|---|
+| `sitemap.xml` | one `<url>` per page and language: `<loc>`, `<lastmod>` from the document's `updatedAt`, and `hreflang` alternates (with `x-default` for the default locale) for a page in several languages | the database |
+| `robots.txt` | `Allow: /` or `Disallow: /` by the robots policy, the `extra` lines, and `Sitemap: <siteUrl>/sitemap.xml` when a sitemap is written | the config |
+| `llms.txt` | the index of https://llmstxt.org: H1 = `settings.title`, blockquote = `settings.description` (§3.5), then one section per delivered type with each page's `seo.title`/`title`, URL and `seo.description` | the database |
+| `llms-full.txt` | with `llms.full`, every page's `<main>` content as Markdown | the rendered HTML |
+
+A page is listed while it serves a file: it has a path and its last render succeeded, or failed and still
+serves the previous output. Drafts and pages whose `seo.noindex` is set are left out. A site with nothing
+to list gets no `sitemap.xml` and a `robots.txt` without the `Sitemap:` line. While published pages have no
+rendered output yet (before the first render, or when every render failed), the lists stay as they are and
+the export is recorded as skipped; `robots.txt` is still written.
+
+**When they are written.** Never inside a save: every change that alters what they list asks for an
+export (§4, the `delivery` notes), and the export runs on its own.
+
+- With `eventsQueue` (create-kestrel's default), `sitemap.xml`, `robots.txt` and `llms.txt` are written about
+  one second after a save: `refreshIndexes` waits 1000 ms after the first request, so a burst of saves
+  gives one export, and runs in the `indexes` lane, so a site-wide re-render never delays it.
+  `llms-full.txt` waits 3000 ms and runs in the `pages` lane after the re-renders queued before it, since
+  it reads their HTML.
+- Without the queue, delivery-static's background loop writes `sitemap.xml`, `robots.txt` and `llms.txt` one
+  second after the first request, before its next batch of renders, and `llms-full.txt` once no render is
+  due. A failed export is retried after a backoff while the renders go on.
+- Every start exports them once (`deliveryBuildCheck`), so a changed robots policy or a changed site URL is
+  written at the next start. A changed site URL also re-renders every page.
+- `resumeStalePages` (every five minutes) asks for an index export each run and writes only what changed,
+  and asks for `llms-full.txt` again while its last export failed. It repairs a file whose export was lost,
+  for example after a deleted page's export failed every attempt.
+
+A failed export never fails a save and never stops a render; the queue retries it, and its outcome (time,
+entries, error, skipped) is shown under System → Delivery.
+
+**Site URL.** `siteUrl` (`NUXT_PUBLIC_SITE_URL`) is the public site's absolute URL, with a base path when the
+site lives below the host's root (`https://example.org/site`). The home page's URL is `siteUrl + "/"`, every
+other page's is `siteUrl` plus its path, without a trailing slash. `sitemap.xml`'s `<loc>`, each page's
+`<link rel="canonical">` and its `og:url` are built the same way, from `normalizeSiteUrl` and `pageUrl` of
+`@michaelthielemann/kestrel-delivery-static/site-url`, so they always match. The page reads the site URL from
+the runtime config `public.siteUrl`, which is `NUXT_PUBLIC_SITE_URL`; when you pass `siteUrl` to
+`presetModuleConfig()` yourself, set that variable to the same value. Without a site URL no `sitemap.xml` is
+written, `llms.txt` lists paths instead of URLs and pages carry no canonical link or `og:url`. Every page also
+carries `og:site_name`, the site settings title.
+
+**Robots policy.** `robots.policy` decides what `robots.txt` says: `allow` lets crawlers in, `disallow`
+keeps them out. Without one, crawlers are allowed when `NODE_ENV` is `production` and kept out otherwise,
+and the server warns at start; set `disallow` explicitly on a staging server that runs a production build.
+create-kestrel's `kestrel.config.ts` passes `robots: envRobots()`, which reads `KESTREL_ROBOTS_POLICY`.
+`robots: false` leaves `robots.txt` to you. Crawlers read `robots.txt` only at the root of a host: with a
+base path in the site URL, serve one at the host's root yourself.
+
+Configure the llms files under `llms`: `full: true` writes `llms-full.txt`, `headings` maps a type to its
+section heading (default: the type name). The editor's "SEO & GEO" section explains the double use to editors.
 
 ### What an exported page requests
 
@@ -2245,6 +2314,24 @@ What changes:
     inside the write's group, whether `preset/override-emit` adds it in the same run or added it earlier. With `delivery`, it asks whether
     `pageDependents`, `settingsDependents` and `mediaDependents` may run more than once, as for every other
     event pipeline (they may: marking twice renders once).
+
+- Static delivery writes `sitemap.xml` and `robots.txt` next to `llms.txt` and `llms-full.txt` and keeps
+  all four current (§8, "Index files"). Set `NUXT_PUBLIC_SITE_URL` before the first start, or pages carry no
+  canonical link and no sitemap is written, and decide the robots policy: without `robots.policy` a
+  production server allows crawlers, every other one keeps them out, and a `robots.txt` of your own in
+  `public/` or at the web server now competes with the exported one (`robots: false` keeps yours). The upgrade
+  tool covers the rest:
+  - kestrel's `delivery/site-url` moves `llms.siteUrl` of a hand-written `kestrel-delivery-static` entry to
+    its top-level `siteUrl`; `presetModuleConfig({ llms: { siteUrl } })` throws, naming the top-level
+    `siteUrl` option, so move that one yourself.
+  - kestrel's `delivery/export-llms` rewrites a `delivery.exportLlms` step, which no longer exists and
+    stops the boot, to `delivery.requestIndexes`. `preset/settings-llms` removes it from a `setSettings`
+    override instead when `settingsDependents` already requests the export, and `preset/override-delivery`
+    and `preset/own-pipeline-delivery` remove it with the inline publish of an override or own pipeline
+    whose event reaches `publishPage`.
+  - `preset/queue-lanes` adds the `indexes` lane and the `delayMs` of `delaysFor(features)` to a
+    `kestrel-events-queue` entry written in `kestrel.config.ts` (`fix`).
+  - kestrel's `delivery/robots-policy` notes a `kestrel-delivery-static` entry without `robots.policy`.
 
 **What stays manual after `fix --write`.** When the report after `fix --write` still lists an error, it is one
 of these, each named there:

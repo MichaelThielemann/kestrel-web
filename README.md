@@ -107,8 +107,9 @@ overrides:
   metadata; both arguments must be self-contained literals plus factory calls (read statically at
   build). `.nuxt/kestrel/pages.body.json` is generated from them — never hand-edit it.
 - Ids are strings; dates are ms since epoch; one locale is edited at a time (`?locale=`).
-- `NUXT_PUBLIC_SITE_URL` (runtime config `public.siteUrl`) is the only place the admin needs the public
-  site's base URL (preview links, SEO fields); it stays empty in dev.
+- `NUXT_PUBLIC_SITE_URL` (runtime config `public.siteUrl`) is the public site's URL: the admin's preview
+  links and SEO fields, every page's canonical link and `og:url`, and with `delivery` the URLs in
+  `sitemap.xml`, `robots.txt` and the llms files; it stays empty in dev.
 - Admin UI is built from `layers/admin/app/components/ui` (see `docs/architecture.md` § UI kit first);
   a missing variant is added to the kit.
 - Every admin style rule is bound to the admin roots `.admin` / `.admin-portal` and carries no

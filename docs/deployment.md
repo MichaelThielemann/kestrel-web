@@ -55,7 +55,8 @@ kestrel-web's own, all read while `kestrel.config.ts` loads:
 | `KESTREL_BLOBSTORE` | in production | `s3` or `filesystem`; `envBlobstore()` throws in production when it is neither |
 | `KESTREL_S3_BUCKET`, `KESTREL_S3_ENDPOINT`, `KESTREL_S3_REGION`, `KESTREL_S3_ACCESS_KEY_ID`, `KESTREL_S3_SECRET_ACCESS_KEY` | with `KESTREL_BLOBSTORE=s3` | the S3 blobstore, `forcePathStyle: true`; each missing one throws naming itself |
 | `KESTREL_S3_ALLOW_INSECURE_ENDPOINT` | no | `true` lets `KESTREL_S3_ENDPOINT` be plain `http://` outside loopback (`localhost`, `127.0.0.0/8`, `[::1]`), with a warning at every boot; otherwise such an endpoint stops the boot, since credentials, objects and replica snapshots would cross the network unencrypted |
-| `NUXT_PUBLIC_SITE_URL` | no | the public origin used for preview links, canonical URLs, `llms.txt`; empty means relative paths |
+| `NUXT_PUBLIC_SITE_URL` | no, but expected with `delivery` | the public site's absolute URL, with a base path when the site lives below the host's root; the editor's preview links, every exported page's `<link rel="canonical">` and `og:url`, `sitemap.xml`, the `Sitemap:` line of `robots.txt` and the URLs in `llms.txt` are built from it. Empty: no canonical link, no `sitemap.xml`, paths in `llms.txt`, and a warning at boot. A change re-renders every page at the next start |
+| `KESTREL_ROBOTS_POLICY` | no | only if your `kestrel.config.ts` passes `robots: envRobots()` (create-kestrel's does): `allow` or `disallow` for `robots.txt`; unset means `allow` under `NODE_ENV=production` and `disallow` otherwise, with a warning at boot. Set `disallow` on a staging server. A change is written at the next start |
 | `NUXT_KESTREL_ACCESS_ADMIN` / `_SITE` | no | the two IP allowlists (§7 of the consuming guide); empty means open |
 | `NUXT_KESTREL_ACCESS_TRUST_PROXY`, `_PROXY_HOPS`, `_TRUSTED_HEADER` | no | how the client address is taken behind a proxy |
 | `NUXT_KESTREL_ACCESS_TRUSTED_PROXIES` | no | the proxies whose forwarding headers count, addresses or CIDR ranges; empty means loopback |
@@ -85,7 +86,8 @@ Three things survive a redeploy, and nothing in `.output` does:
 
 With `KESTREL_BLOBSTORE=s3` the second row moves into the bucket and only the database file stays on
 disk. The `site/` prefix a publish writes (page HTML, `_nuxt/`, exported media, `redirects.json`,
-`llms.txt`) lives in the blobstore either way — see §8 of the consuming guide.
+`sitemap.xml`, `robots.txt`, `llms.txt`, `llms-full.txt`) lives in the blobstore either way — see §8 of the
+consuming guide.
 
 `site/` is the only part of the blobstore that may be public. `media/` holds every original, including
 items never published, `media-variants/` the private variants, and `replica/` (with the `replication`
@@ -412,25 +414,32 @@ block references, a linked page's path, a media item. The renders start at once 
 request:
 
 - **Without `eventsQueue`**, the process that saved the change renders the affected pages in a background
-  loop of its own, one at a time, and writes `llms.txt` once nothing is left to render.
+  loop of its own, one at a time. It writes `sitemap.xml`, `robots.txt` and `llms.txt` one second after a
+  save, before its next batch of renders, and `llms-full.txt` once nothing is left to render.
 - **With `eventsQueue`**, every affected page and language is one queue job in the queue's `pages` lane;
-  `llms.txt` is written by a job in the same lane after the renders queued before it. Image variants render
-  in the `variants` lane and everything else (an upload's placeholders, relayed publishes, the login
-  audit, marking) in the main lane. A lane's loop never runs another lane's jobs, so a site-wide re-render
+  `llms-full.txt` is written by a job in the same lane after the renders queued before it. `sitemap.xml`,
+  `robots.txt` and `llms.txt` are written by a job in the `indexes` lane about one second after a save,
+  also during a site-wide re-render. Image variants render in the `variants` lane and everything else (an
+  upload's placeholders, relayed publishes, the login audit, marking) in the main lane. A lane's loop never runs another lane's jobs, so a site-wide re-render
   does not delay any of them; the lanes share the process's CPU, and each lane runs one job per process at
   a time.
-- **Every deploy re-renders the site.** At start, a production server compares the running build with the
-  one it rendered last and, on a change, marks every page before it reports ready; the pages then render in
+- **Every deploy re-renders the site.** At start, a production server compares the running build and the
+  site URL with the ones it rendered last and, on a change, marks every page before it reports ready (a
+  database restored at start counts as a change too); the pages then render in
   the background as above. A site of 1000 pages at about 0.2 s per page takes three to four minutes, during
   which a visit can show pages of both builds.
 - A render that fails keeps the page's previous output and is retried; after the last attempt it counts as
   failed under System → Delivery, which offers **Retry failed re-renders**. A render that hangs is given up
   after `dependencies.renderTimeoutSeconds` (60 s).
-- `resumeStalePages` runs every five minutes and picks up what a stopped process left marked.
+- `resumeStalePages` runs every five minutes, picks up what a stopped process left marked and exports the
+  index files again where they changed. System → Delivery shows the last index export and the last
+  `llms-full.txt` export, with the error when one failed.
 
 The static host needs no `/api`: an exported page navigates by reading the target page's HTML. Serve page
 HTML with `Cache-Control: no-cache` and `/_nuxt/` as immutable, and answer an unknown path with 404, never
-with another page's HTML (no SPA fallback). §8 of the consuming guide has the nginx block. Forward `/api/`
+with another page's HTML (no SPA fallback). §8 of the consuming guide has the nginx block. Crawlers read
+`robots.txt` only at the root of a host: when the site lives below the host's root (a base path in
+`NUXT_PUBLIC_SITE_URL`), the exported `robots.txt` is not where they look, so serve one at the host's root. Forward `/api/`
 to the origin only for features of your own that need it after load (hybrid); those features then depend
 on the origin again, and the API's access list becomes the public boundary.
 

@@ -252,7 +252,7 @@ not by package name. Three places rely on this:
 - The inline-SVG check (`http.inlineTypes`, `server/utils/inline-types.ts`) looks up the module that
   registers `sanitize.svg`.
 - The media-paths boot check (`assertMediaPaths`, `server/utils/media-paths.ts`) looks up the modules
-  that register `media.upload`, `images.attach` and `delivery.exportLlms`.
+  that register `media.upload`, `images.attach` and `delivery.exportIndexes`.
 
 The owning module name comes from the booted instance's `kestrel.steps.owner(step)` — the real step
 registry, not a pre-boot probe of each module's `steps()` factory — so all three run after
@@ -492,7 +492,7 @@ the relay sits between the group and that trailing step, which is correct becaus
 independent members to the result.
 
 `delivery` (`features/delivery.ts`) contributes `publishPage` (`delivery.publish:pages`,
-`delivery.requestLlms`) and `unpublishPage` (`delivery.unpublish:pages`, `delivery.requestLlms`) as plain
+`delivery.requestIndexes`) and `unpublishPage` (`delivery.unpublish:pages`, `delivery.requestIndexes`) as plain
 event pipelines with no relay of their own — they run as the payload of another pipeline's relay — and
 five event triggers tagged with the `delivery` feature: `page.created`/`page.updated`/`page.restored`/
 `page.translationRemoved` (the last one only when `context.pagesTranslatable`) → `publishPage`,
@@ -1901,7 +1901,8 @@ the bytes in memory and returns them with every render under site-relative keys;
 each key once per process (`<prefix>_nuxt/…`). An empty manifest is a publish
 error, never a page without assets. `.gz`/`.br` siblings (`compressPublicAssets`) and `.map` files are
 not exported. Old hashes are never deleted from the blobstore. Files in the consumer's `public/`
-directory (favicons, fonts, `robots.txt`) are **not** part of `site/`; serve them next to it.
+directory (favicons, fonts) are **not** part of `site/`; serve them next to it. `robots.txt` is written by
+`delivery-static` unless its `robots` option is `false`.
 
 **Publishing needs a production build.** Against `nuxt dev` the markup references Vite source URLs
 (`/_nuxt/@fs/…`, `…?vue&type=style…`) that exist only on that dev server, so `render()` throws
@@ -1919,7 +1920,9 @@ Site URL resolution: the primary locale is never prefixed (`/kontakt`), other lo
 | `<path>/index.html`, the page; `<html>` carries `data-kestrel-delivery="static"` and `data-kestrel-build="<build id>"` | `delivery-static` through `renderer-nuxt` | per page and locale: written on publish, moved on a path change, removed on unpublish; replaced atomically on a filesystem store |
 | `_nuxt/**`, the build assets and the app manifest (`builds/`) | `renderer-nuxt` assets | written once per process, never removed |
 | `media/<id>/<name>`, `media/<id>/variants/<size>.<ext>` | `media-default`, `images-default` (`publicCopy`) | per media item, independent of page publishes; removed with the item |
-| `redirects.json`, `llms.txt`, `llms-full.txt` | `redirects-default`, `delivery-static` | on their own triggers; read by the edge and by crawlers, never by the app |
+| `redirects.json` | `redirects-default` | on its own triggers; read by the edge, never by the app |
+| `sitemap.xml`, `robots.txt`, `llms.txt` | `delivery-static` (`delivery.exportIndexes`), from the database | about a second after every change that alters what they list, and at every start; read by crawlers, never by the app |
+| `llms-full.txt` | `delivery-static` (`delivery.exportLlmsFull`), from the stored HTML | after the re-renders queued before it; read by crawlers, never by the app |
 
 There is no separate data file: the page HTML is both what a visitor loads and what client navigation
 reads. `/api` is not part of the static target. A deployment may forward it to the origin for features
@@ -2059,16 +2062,32 @@ An exported page is refreshed when content it shows changes. The recording and t
   an emitter.
 - **Renders run outside the request.** With `eventsQueue`, `delivery-static` raises `delivery.outputStale`
   per marked page and language (`render: "events"`), `republishOutput` renders it and `refreshLlms` writes
-  `llms.txt` after a coalesced `delivery.llmsStale`; both run in the queue's `pages` lane (`lanesFor`).
+  `llms-full.txt` after a coalesced `delivery.llmsStale`; both run in the queue's `pages` lane (`lanesFor`).
   Without the queue, `render: "background"`: the module's own loop renders in the marking process.
   `definePreset()` refuses a render mode that does not match the event delivery module, and a lanes config
   that leaves the two pipelines out of a lane of their own.
+- **Index exports are requested, never run in the request.** Every pipeline that changes what
+  `sitemap.xml`, `robots.txt` or `llms.txt` list ends in `delivery.requestIndexes` (`REQUEST_INDEXES_STEP`).
+  With the queue that raises `delivery.indexesStale`, and `refreshIndexes` (`delivery.exportIndexes`) runs
+  in a lane of its own, `indexes`, so a re-render backlog never holds the index files back; `checkPreset()`
+  refuses a lanes config that puts anything next to it (`preset/index-exports-lane`). The queue's `delayMs`
+  (`delaysFor(features)`, `INDEX_EXPORT_DELAYS` in `pipelines/index-delays.ts`) holds `refreshIndexes` back
+  1000 ms and `refreshLlms` 3000 ms, so one export follows a burst of saves and llms-full.txt trails the
+  re-renders a save marks in the main lane; without the queue the same constant sets delivery-static's
+  `dependencies.indexesDelayMs`. Neither is a `presetModuleConfig()` option, like the lanes.
 - **A deploy re-renders.** The Nitro plugin runs `deliveryBuildCheck` after `start()` with
-  `useRuntimeConfig().app.buildId` (`server/utils/build-check.ts`), except in dev, before it reports ready. A
-  new build marks every output, so every page is rendered, and its dependencies recorded, by the deployed
-  code.
+  `<buildId>|<siteUrl>` as the build key (`server/utils/build-check.ts`: `useRuntimeConfig().app.buildId` and
+  `deliverySiteUrl()`, the site URL delivery-static is configured with), except in dev, before it reports
+  ready. A new build or a changed site URL marks every output, so every page is rendered, and its
+  dependencies and absolute URLs recorded, by the deployed code. The pipeline ends in
+  `delivery.requestIndexes`, so every start exports the index files once. When replication-sqlite (or else
+  backup-blobstore) is configured on persistence-sqlite's database file, its `checkRestored` step
+  (`restoreCheckSteps()`) runs directly before `delivery.checkBuild`, which reads the restore it reports and
+  then marks every output as well.
 - **The admin reads the backlog.** `pagesStaleStatus` feeds `useStaleStatus()` (polled every two seconds
-  while pages wait, paused while the document is hidden) for System › Static delivery and
+  while pages wait, paused while the document is hidden) for System › Static delivery, which also lists
+  the last index export and the last llms-full.txt export from its `exports` (`SystemDeliveryExports.vue`),
+  and
   `DashDeliveryStaleAlert.vue`; the publish status rows carry `stale`, `staleFailed` and `staleError` for
   the editor's delivery line. The save and delete messages fold only the `publishPage`/`unpublishPage`
   entries of `_events` (`ownDeliveryStatus()`), since a save now also queues marking work.
@@ -2076,10 +2095,15 @@ An exported page is refreshed when content it shows changes. The recording and t
 ## `NUXT_PUBLIC_SITE_URL`
 `layers/admin` reads `runtimeConfig.public.siteUrl` (env `NUXT_PUBLIC_SITE_URL`) for anything that needs
 the public site's absolute base URL — the editor status's "open page" link, shown once a page is live
-(`EditorStatus.vue`, computed in `pages/admin/[collection]/[id].vue`) — and canonical URLs
+(`EditorStatus.vue`, computed in `pages/admin/[collection]/[id].vue`) — and the SERP preview
 (`SeoFields.vue`). Empty by default; set it in a consumer's `.env` once the public site has a real host.
-`presetModuleConfig()` also passes it to `delivery-static`'s `llms.siteUrl` unless the `llms` option
-carries one, so llms.txt lists absolute URLs rather than paths.
+`presetModuleConfig()` takes the same variable as its default `siteUrl`, normalises it with
+`normalizeSiteUrl` from `@michaelthielemann/kestrel-delivery-static/site-url` and passes it to
+`delivery-static`'s top-level `siteUrl`, from which sitemap.xml, robots.txt's `Sitemap:` line and llms.txt
+are built. `[...slug].vue` builds the canonical link and `og:url` with `canonicalUrl()`
+(`layers/core/app/utils/canonical.ts`), which uses the same `normalizeSiteUrl` and `pageUrl`, so a page's
+canonical URL is its sitemap `<loc>`; `config.test.ts` pins that. That subpath imports nothing, which is why
+it is the one delivery-static import the UI layers may make (`kestrel/no-backend-in-ui-layers`).
 
 ## Public site (`layers/public`)
 `app/pages/[...slug].vue` resolves `/api/site<path>` through `useApi()` (in-process `localFetch` during
@@ -2097,7 +2121,9 @@ imported only there, so admin and site styles never mix. Locale comes from the p
 
 #The document title and `<html lang>` are set by the pages themselves (`[...slug].vue`, `_preview/[key].vue`):
 `title` = SEO title or page title, `titleTemplate` appends the site title from `settings.title`. A consumer
-layout does not have to repeat this; it only renders the chrome.
+layout does not have to repeat this; it only renders the chrome. `[...slug].vue` also sets `og:site_name`
+to `settings.title` and, with a site URL, `<link rel="canonical">` and `og:url` to the page's own path in
+its locale (`_paths[locale]`, else the requested site path) under that URL.
 
 `<meta name="description">` and `og:description` follow the same shape: `metaDescription(seo.description,
 siteSettings.description)` (`app/utils/site-settings.ts`) takes the page's SEO description and falls back
