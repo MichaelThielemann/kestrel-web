@@ -1,6 +1,8 @@
+import { readFileSync } from "node:fs";
+import type { Page } from "@playwright/test";
 import { idOf, isRecord } from "../../support/api.ts";
 import { save } from "../../support/editor.ts";
-import { ADMIN_STATE } from "../../support/env.ts";
+import { ADMIN_STATE, SERVER_LOG } from "../../support/env.ts";
 import { expect, test } from "../../support/fixtures.ts";
 import { gradientPng } from "../../support/png.ts";
 
@@ -144,4 +146,50 @@ test("several unused files go to the trash at once without a dialog and come bac
   await expect(page.getByRole("button", { name: /^zweites\.png/ })).toBeVisible();
   expect((await adminApi.raw("GET", `/media/${first}`)).status).toBe(200);
   expect((await adminApi.raw("GET", `/media/${second}`)).status).toBe(200);
+});
+
+function httpLogLine(requestId: string): Record<string, unknown> | undefined {
+  for (const line of readFileSync(SERVER_LOG, "utf8").split("\n")) {
+    if (!line.includes(`"requestId":"${requestId}"`)) continue;
+    const parsed: unknown = JSON.parse(line.slice(line.indexOf("{")));
+    if (isRecord(parsed) && parsed.message === "http") return parsed;
+  }
+  return undefined;
+}
+
+async function startUpload(page: Page, name: string, buffer: Buffer): Promise<void> {
+  await page.goto("/admin/media");
+  const chooser = page.waitForEvent("filechooser");
+  await page.getByRole("button", { name: "Hochladen" }).click();
+  await (await chooser).setFiles({ name, mimeType: "image/png", buffer });
+  await page.getByRole("dialog", { name: "Dateien hochladen" }).getByRole("button", { name: "1 Datei hochladen" }).click();
+}
+
+test("an upload carries a request id that the server echoes and writes into its request log line", async ({ page }) => {
+  const uploaded = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname === "/api/media");
+  await startUpload(page, "logged.png", gradientPng(120, 80, [30, 160, 90], [160, 30, 90]));
+  const response = await uploaded;
+  expect(response.status()).toBeLessThan(300);
+
+  const requestId = (await response.request().allHeaders())["x-request-id"] ?? "";
+  expect(requestId).toMatch(/^[0-9a-f]{12}$/);
+  expect(response.headers()["x-request-id"]).toBe(requestId);
+  await expect.poll(() => httpLogLine(requestId)).toMatchObject({ method: "POST", path: "/api/media", pipeline: "uploadMedia", status: response.status() });
+});
+
+test("an upload a proxy refuses in front of the server names the status and a copyable error id", async ({ page }) => {
+  let requestId = "";
+  await page.route("**/api/media", async (route) => {
+    if (route.request().method() !== "POST") return route.fallback();
+    requestId = (await route.request().allHeaders())["x-request-id"] ?? "";
+    return route.fulfill({ status: 413, contentType: "text/html", body: "<html><body><h1>413 Request Entity Too Large</h1></body></html>" });
+  });
+
+  await startUpload(page, "refused.png", gradientPng(120, 80, [200, 120, 30], [30, 120, 200]));
+
+  await expect.poll(() => requestId).toMatch(/^[0-9a-f]{12}$/);
+  const message = page.getByText(`Als zu groß abgelehnt. Die Anfrage hat den Server nicht erreicht oder wurde vorher abgelehnt (HTTP 413 · Fehler-ID ${requestId})`).first();
+  await expect(message).toBeVisible();
+  await expect(page.getByRole("button", { name: `Fehler-ID ${requestId} kopieren` }).first()).toBeVisible();
+  await expect(page.getByText("Request Entity Too Large")).toHaveCount(0);
 });
