@@ -3,7 +3,8 @@ import { imageSizes } from '#kestrel/image-sizes'
 import type { MediaItem, MediaRect, ReferenceTo } from '#kestrel-admin/types/api'
 import { setMediaFraming } from '#kestrel-admin/actions/media'
 import type { BusyPort } from '#kestrel-admin/actions/types'
-import { coverSizesOf, sameFraming, uniqueReferrers, type CropSize, type FramingDraft } from '../utils/media-crop'
+import { coverSizesOf, rebaseDraft, sameFraming, uniqueReferrers, type CropSize, type FramingDraft } from '../utils/media-crop'
+import { notifyMediaFramed } from './useMediaChanges'
 
 function draftOf(item: MediaItem | null): FramingDraft {
   const framing = item?.framing
@@ -19,9 +20,11 @@ export function useMediaCropEditor(item: Ref<MediaItem | null>, open: Ref<boolea
   const error = ref('')
   const usage = ref<number | null>(null)
 
-  const width = computed(() => item.value?.framing.width ?? 0)
-  const height = computed(() => item.value?.framing.height ?? 0)
-  const ratios = computed(() => item.value?.framing.ratios ?? [])
+  const loaded = ref<MediaItem | null>(null)
+  const current = computed(() => (loaded.value && loaded.value.id === item.value?.id ? loaded.value : item.value))
+  const width = computed(() => current.value?.framing.width ?? 0)
+  const height = computed(() => current.value?.framing.height ?? 0)
+  const ratios = computed(() => current.value?.framing.ratios ?? [])
   const sizes = ref<CropSize[]>(coverSizesOf(imageSizes))
   const dirty = computed(() => !sameFraming(draft.value, stored.value))
 
@@ -46,12 +49,30 @@ export function useMediaCropEditor(item: Ref<MediaItem | null>, open: Ref<boolea
     }
   }
 
+  async function loadCurrent(id: string): Promise<void> {
+    if (!deps.capabilities.has('getMedia')) return
+    try {
+      const fresh = await deps.api<MediaItem>(deps.capabilities.route('getMedia', { id }))
+      if (!open.value || item.value?.id !== id || fresh.id !== id) return
+      const base = draftOf(fresh)
+      draft.value = rebaseDraft(draft.value, stored.value, base)
+      stored.value = base
+      loaded.value = fresh
+    } catch {
+      loaded.value = null
+    }
+  }
+
   const stop = watch([open, () => item.value?.id], ([isOpen]) => {
     if (!isOpen) return
+    loaded.value = null
     stored.value = draftOf(item.value)
     draft.value = draftOf(item.value)
     error.value = ''
-    if (item.value) void loadUsage(item.value.id)
+    if (item.value) {
+      void loadCurrent(item.value.id)
+      void loadUsage(item.value.id)
+    }
     void loadSizes()
   }, { immediate: true })
   onUnmounted(stop)
@@ -79,8 +100,10 @@ export function useMediaCropEditor(item: Ref<MediaItem | null>, open: Ref<boolea
     if (!result.ok || !result.result) return null
     stored.value = draftOf(result.result)
     draft.value = draftOf(result.result)
+    loaded.value = result.result
+    void notifyMediaFramed(result.result)
     return result.result
   }
 
-  return { draft, dirty, busy, error, usage, width, height, ratios, sizes, setFocus, setCrop, save }
+  return { current, draft, dirty, busy, error, usage, width, height, ratios, sizes, setFocus, setCrop, save }
 }

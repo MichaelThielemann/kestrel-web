@@ -10,7 +10,7 @@ const { t } = useT()
 const idPrefix = `media-crop-${useId()}`
 const root = ref<HTMLElement | null>(null)
 const editor = useMediaCropEditor(toRef(props, 'item'), toRef(props, 'open'))
-const { draft, dirty, busy, error, usage, width, height, ratios, sizes } = editor
+const { current, draft, dirty, busy, error, usage, width, height, ratios, sizes } = editor
 
 const tab = ref('focus')
 const selected = ref('')
@@ -18,7 +18,7 @@ const status = ref('')
 const pending = ref(false)
 const hasCover = computed(() => ratios.value.length > 0)
 const tabs = computed(() => [{ id: 'focus', label: t('mediaCrop.tab.focus') }, { id: 'crop', label: t('mediaCrop.tab.crop') }])
-const src = computed(() => (props.item ? cropSource(props.item) ?? props.item.path : ''))
+const src = computed(() => (current.value ? cropSource(current.value) ?? current.value.path : ''))
 const alt = computed(() => props.item?.alt ?? props.item?.filename ?? '')
 const panelAttrs = (id: string) => (hasCover.value ? { 'role': 'tabpanel', 'id': `${idPrefix}-panel-${id}`, 'aria-labelledby': `${idPrefix}-tab-${id}` } : {})
 

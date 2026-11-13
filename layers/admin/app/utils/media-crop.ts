@@ -74,6 +74,15 @@ export function sameFraming(a: FramingDraft, b: FramingDraft): boolean {
   return sameRect(a.focus, b.focus) && keys.every((key) => sameRect(a.crops[key], b.crops[key]))
 }
 
+/** `fresh` with the changes `draft` made to `base` laid over it: the focus and each crop the draft changed, set or removed. */
+export function rebaseDraft(draft: FramingDraft, base: FramingDraft, fresh: FramingDraft): FramingDraft {
+  const focus = sameRect(draft.focus, base.focus) ? fresh.focus : draft.focus
+  const changed = new Set([...Object.keys(draft.crops), ...Object.keys(base.crops)].filter((key) => !sameRect(draft.crops[key], base.crops[key])))
+  const kept = Object.entries(fresh.crops).filter(([key]) => !changed.has(key))
+  const mine = Object.entries(draft.crops).filter(([key]) => changed.has(key))
+  return { focus, crops: Object.fromEntries([...kept, ...mine]) }
+}
+
 /** The number of records that refer to a medium, counting a record once whatever fields refer. */
 export function uniqueReferrers(refs: readonly ReferenceTo[]): number {
   return new Set(refs.map((ref) => `${ref.type}/${ref.id}`)).size

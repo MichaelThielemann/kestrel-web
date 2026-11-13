@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { centredCrop, cropForRatio } from '@michaelthielemann/kestrel-images-default/framing'
 import type { MediaItem } from '../types/api'
-import { canFrame, coverSizesOf, cropSource, displayCrop, previewStyle, sameFraming, smallerSizes, uniqueReferrers } from './media-crop'
+import { canFrame, coverSizesOf, cropSource, displayCrop, previewStyle, rebaseDraft, sameFraming, smallerSizes, uniqueReferrers } from './media-crop'
 
 function item(over: Partial<MediaItem> = {}): MediaItem {
   return {
@@ -110,5 +110,25 @@ describe('uniqueReferrers', () => {
       { type: 'pages', id: 'p1', field: 'body' },
       { type: 'posts', id: 'p1', field: 'cover' },
     ])).toBe(2)
+  })
+})
+
+describe('rebaseDraft', () => {
+  const a = { x: 0.1, y: 0.1, w: 0.2, h: 0.2 }
+  const b = { x: 0.5, y: 0.5, w: 0.3, h: 0.3 }
+  const c = { x: 0, y: 0.2, w: 1, h: 0.5 }
+
+  it('takes the newer stored framing where the draft is unchanged', () => {
+    const base = { focus: null, crops: {} }
+    const fresh = { focus: a, crops: { '1:1': c } }
+    expect(rebaseDraft(base, base, fresh)).toEqual(fresh)
+  })
+
+  it('keeps what the draft changed and takes the rest from the newer stored framing', () => {
+    const base = { focus: null, crops: { '3:2': c } }
+    const draft = { focus: null, crops: { '1:1': b } }
+    const fresh = { focus: a, crops: { '3:2': c, '21:9': c } }
+    expect(rebaseDraft(draft, base, fresh)).toEqual({ focus: a, crops: { '1:1': b, '21:9': c } })
+    expect(rebaseDraft({ focus: b, crops: {} }, { focus: null, crops: {} }, { focus: a, crops: {} })).toEqual({ focus: b, crops: {} })
   })
 })

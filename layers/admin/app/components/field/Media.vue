@@ -6,7 +6,7 @@ import { fieldIs } from '#kestrel-admin/types/kestrel'
 import { commonFolder } from '#kestrel-admin/utils/library'
 import { isDisclosed, provenanceLabelKey, provenanceOrigin } from '#kestrel-admin/utils/provenance'
 import { isInsertable } from '#kestrel-admin/utils/media-insert'
-import { onMediaChanged, onMediaRemoved } from '#kestrel-admin/composables/useMediaChanges'
+import { onMediaChanged, onMediaFramed, onMediaRemoved } from '#kestrel-admin/composables/useMediaChanges'
 import { lookUpMedia } from '#kestrel-admin/composables/useMediaPick'
 import { canFrame } from '#kestrel-admin/utils/media-crop'
 
@@ -83,6 +83,7 @@ function openCrop(item: MediaItem) {
 function onFramed(item: MediaItem) {
   if (item.id in meta.value) meta.value[item.id] = item
 }
+onMediaFramed(onFramed)
 
 const nameOf = (id: string, item: MediaItem | null, i: number) => item?.filename ?? trashed.value[id] ?? t('field.media.itemAt', { pos: i + 1 })
 

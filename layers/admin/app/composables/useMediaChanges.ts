@@ -1,4 +1,5 @@
 import { getCurrentInstance, onUnmounted } from 'vue'
+import type { MediaItem } from '../types/api'
 
 /** A change to the media library made outside the view that shows it, such as an undo run from a toast after its view was left. */
 export interface MediaChange {
@@ -11,6 +12,8 @@ type MediaRemovedListener = (fileIds: readonly string[]) => void | Promise<void>
 
 const listeners = new Set<MediaChangeListener>()
 const removedListeners = new Set<MediaRemovedListener>()
+type MediaFramedListener = (item: MediaItem) => void | Promise<void>
+const framedListeners = new Set<MediaFramedListener>()
 
 function subscribe<L>(set: Set<L>, listener: L): () => void {
   set.add(listener)
@@ -38,4 +41,14 @@ export async function notifyMediaRemoved(fileIds: readonly string[]): Promise<vo
 /** Calls `listener` with the file ids of every removal until the calling component unmounts or the returned stop function runs. */
 export function onMediaRemoved(listener: MediaRemovedListener): () => void {
   return subscribe(removedListeners, listener)
+}
+
+/** Tells every mounted listener that an image's focus or crops were saved, with the item as the server answered it. */
+export async function notifyMediaFramed(item: MediaItem): Promise<void> {
+  await Promise.all([...framedListeners].map(async (listener) => { await listener(item) }))
+}
+
+/** Calls `listener` with every image whose framing was saved, until the calling component unmounts or the returned stop function runs. */
+export function onMediaFramed(listener: MediaFramedListener): () => void {
+  return subscribe(framedListeners, listener)
 }

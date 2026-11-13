@@ -229,6 +229,31 @@ describe('MediaCropEditor', () => {
     wrapper.unmount()
   })
 
+  it('edits the framing stored now, not the one the caller held when it opened the editor', async () => {
+    schema.capabilities.getMedia = { method: 'GET', path: '/media/:id' }
+    const focus = { x: 0.5, y: 0.25, w: 0.25, h: 0.5 }
+    api.answer = (call) => Promise.resolve(call.method === 'PUT' ? photo() : call.path === '/media/m1' ? photo({ focus }) : [])
+    try {
+      const wrapper = await mountEditor(photo())
+
+      await vi.waitFor(() => expect(q<HTMLInputElement>('input[data-field="x"]')?.value).toBe('50'))
+      expect(button(en['common.save'])?.hasAttribute('disabled')).toBe(true)
+      tabs()[1]?.click()
+      await nextTick()
+      q('[data-key="1:1"]')?.click()
+      await nextTick()
+      key(q('.ui-crop-frame__frame'), 'ArrowLeft', { shiftKey: true })
+      await nextTick()
+      button(en['common.save'])?.click()
+
+      await vi.waitFor(() => expect(api.calls.some((c) => c.method === 'PUT')).toBe(true))
+      expect(api.calls.find((c) => c.method === 'PUT')?.body).toMatchObject({ focus })
+      wrapper.unmount()
+    } finally {
+      delete schema.capabilities.getMedia
+    }
+  })
+
   it('warns when the focus does not fit into a ratio', async () => {
     const wrapper = await mountEditor(photo({ focus: { x: 0, y: 0, w: 1, h: 1 } }))
 

@@ -4,7 +4,7 @@ import { computed, defineComponent, nextTick } from 'vue'
 import type { AdminSchema, MediaItem } from '#kestrel-admin/types/api'
 import type { FieldDef } from '#kestrel-admin/types/kestrel'
 import { en } from '#kestrel-admin/i18n/en'
-import { notifyMediaChanged, notifyMediaRemoved } from '../../composables/useMediaChanges'
+import { notifyMediaChanged, notifyMediaFramed, notifyMediaRemoved } from '../../composables/useMediaChanges'
 import FieldMedia from './Media.vue'
 
 const { schema, apiHandler } = vi.hoisted(() => {
@@ -259,6 +259,19 @@ describe('field/Media crop entry', () => {
 
     await vi.waitFor(() => expect(document.body.querySelector('.media-crop')).toBeNull())
     expect(wrapper.emitted('update:modelValue')).toBeUndefined()
+    wrapper.unmount()
+  })
+
+  it('takes a framing saved elsewhere for the same image, so its crop editor starts from it', async () => {
+    schema.capabilities.setMediaFraming = { method: 'PUT', path: '/media/:id/framing' }
+    apiHandler.fn = () => Promise.resolve({ items: [framed()], total: 1 })
+    const wrapper = await mountSuspended(FieldMedia, { props: { field, name: 'hero', locale: 'en', modelValue: 'f1' }, attachTo: document.body })
+    await vi.waitFor(() => expect(cropButton(wrapper).exists()).toBe(true))
+
+    await notifyMediaFramed(framed({ focus: { x: 0.5, y: 0.25, w: 0.25, h: 0.5 }, framing: { ...framed().framing, focus: { x: 0.5, y: 0.25, w: 0.25, h: 0.5 } } }))
+    await notifyMediaFramed(framed({ id: 'other' }))
+    await cropButton(wrapper).trigger('click')
+    await vi.waitFor(() => expect(document.body.querySelector<HTMLInputElement>('input[data-field="x"]')?.value).toBe('50'))
     wrapper.unmount()
   })
 
