@@ -12,7 +12,7 @@ function headMeta(property: string): string | null {
 
 describe('the site page head', () => {
   const unregisterAll: (() => void)[] = []
-  let siteUrl: unknown
+  let siteUrl = ''
 
   beforeEach(() => {
     siteUrl = useRuntimeConfig().public.siteUrl
