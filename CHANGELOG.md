@@ -1037,6 +1037,8 @@
 
 ### Fixed
 
+- Admin layout: the rail brand link and the account menu trigger are named after the text they show, so their
+  accessible name satisfies WCAG 2.5.3 (Label in Name), expanded and collapsed.
 - Media picker: a file deleted while the picker is open no longer reaches the field on "Use selected"; a pick
   that is gone when the selection is checked is named, dropped and not inserted. In a multi-pick the context
   menu acts on the picks instead of a second, hidden selection.

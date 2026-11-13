@@ -30,9 +30,10 @@ defineExpose({ lang, selectLang, signOut, theme, toggleTheme })
 <template>
   <DropdownMenuRoot>
     <DropdownMenuTrigger as-child>
-      <KestrelUiButton variant="bare" class="rail-account__trigger" :aria-label="t('account.label')" :title="t('account.label')">
+      <KestrelUiButton variant="bare" class="rail-account__trigger" :title="t('account.label')">
         <span class="rail-account__avatar" aria-hidden="true">{{ initials }}</span>
         <span class="rail-account__name rail__label">{{ displayName }}</span>
+        <span class="rail-account__sr">{{ t('account.label') }}</span>
         <KestrelUiIcon name="chevron-down" class="rail-account__caret" size="1rem" />
       </KestrelUiButton>
     </DropdownMenuTrigger>
@@ -109,6 +110,7 @@ defineExpose({ lang, selectLang, signOut, theme, toggleTheme })
 </template>
 
 <style lang="scss">
+@use '../assets/scss/mixins';
 
 .rail-account__trigger {
   display: flex;
@@ -159,6 +161,9 @@ defineExpose({ lang, selectLang, signOut, theme, toggleTheme })
   }
 }
 
+.rail-account__sr {
+  @include mixins.sr-only;
+}
 .rail-account__name {
   font-weight: var(--weight-medium);
 }

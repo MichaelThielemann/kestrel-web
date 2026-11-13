@@ -71,3 +71,67 @@ describe('the admin rail System link', () => {
     wrapper.unmount()
   })
 })
+
+function accessibleName(element: Element): string {
+  const label = element.getAttribute('aria-label')
+  if (label) return label
+  const parts: string[] = []
+  const walk = (node: Node): void => {
+    if (node.nodeType === Node.TEXT_NODE) parts.push(node.textContent ?? '')
+    else if (node instanceof Element && node.getAttribute('aria-hidden') !== 'true') node.childNodes.forEach(walk)
+  }
+  element.childNodes.forEach(walk)
+  return parts.join(' ').replace(/\s+/g, ' ').trim()
+}
+
+function visibleText(element: Element): string {
+  const parts: string[] = []
+  const walk = (node: Node): void => {
+    if (node.nodeType === Node.TEXT_NODE) parts.push(node.textContent ?? '')
+    else node.childNodes.forEach(walk)
+  }
+  element.childNodes.forEach(walk)
+  return parts.join(' ').replace(/\s+/g, ' ').trim().toLowerCase()
+}
+
+describe('the admin rail accessible names', () => {
+  const unregisterAll: (() => void)[] = []
+
+  afterEach(() => {
+    unregisterAll.splice(0).forEach((unregister) => unregister())
+  })
+
+  async function mountRail() {
+    unregisterAll.push(registerEndpoint('/api/ready', { method: 'GET', handler: () => ({}) }))
+    return mountSuspended(AdminLayout, { slots: { default: () => 'content' } })
+  }
+
+  it('names the brand link after its visible text', async () => {
+    const wrapper = await mountRail()
+    const brand = wrapper.get('.rail__brand').element
+    expect(accessibleName(brand)).toBe('kestrel')
+    expect(brand.hasAttribute('aria-label')).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('names the account trigger after the user name it shows', async () => {
+    const wrapper = await mountRail()
+    const trigger = wrapper.get('.rail-account__trigger').element
+    expect(trigger.hasAttribute('aria-label')).toBe(false)
+    expect(accessibleName(trigger)).toBe('ada Account')
+    expect(accessibleName(trigger).toLowerCase().startsWith(visibleText(wrapper.get('.rail-account__name').element))).toBe(true)
+    wrapper.unmount()
+  })
+
+  it('keeps the names while the rail is collapsed', async () => {
+    document.cookie = 'kestrel-rail-collapsed=1; path=/'
+    try {
+      const wrapper = await mountRail()
+      expect(accessibleName(wrapper.get('.rail__brand').element)).toBe('kestrel')
+      expect(accessibleName(wrapper.get('.rail-account__trigger').element)).toBe('ada Account')
+      wrapper.unmount()
+    } finally {
+      document.cookie = 'kestrel-rail-collapsed=; path=/; max-age=0'
+    }
+  })
+})

@@ -43,7 +43,7 @@ useHead(() => ({
     <div v-if="isPhone && railOpen" class="admin__scrim" aria-hidden="true" @click="closeRailOverlay" />
     <aside v-if="authenticated" id="admin-rail" class="admin__rail">
       <div class="rail__head">
-        <NuxtLink to="/admin" class="rail__brand" aria-label="Kestrel">
+        <NuxtLink to="/admin" class="rail__brand">
           <KestrelUiBrand />
           <span class="rail__brand-word rail__label">kestrel</span>
         </NuxtLink>
