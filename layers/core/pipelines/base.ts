@@ -5,6 +5,7 @@ import type { PresetEntry } from "./compose";
 import { customFieldChecks } from "./collections";
 import { MOUNTS_FIELD } from "../mount-path";
 import { mountedCollections, mountedPipelines, pageRules, pathPipelines } from "./paths";
+import { mediaTrashPipelines } from "./media-trash";
 import type { CollectionModel } from "./collections";
 
 export interface PresetModuleEntry {
@@ -27,6 +28,8 @@ export interface PresetContext {
   pagesTranslatable?: boolean;
   /** Whether the `eventsQueue` feature is enabled; set once by `definePreset` before the base pipelines are built. */
   eventsQueued?: boolean;
+  /** Whether the media trash pipelines are composed: media-default carries `trashRetentionDays`. Set once by `definePreset` before the base pipelines are built. */
+  mediaTrash?: boolean;
   collections?: Record<string, CollectionModel>;
   collectionsUi?: Record<string, WorkflowUi>;
   customFields?: CustomFieldTypes;
@@ -34,7 +37,7 @@ export interface PresetContext {
 }
 
 export function basePipelines(
-  { exportDir, homeSlug, customFields, eventsQueued, collectionsUi }: PresetContext,
+  { exportDir, homeSlug, customFields, eventsQueued, collectionsUi, mediaTrash }: PresetContext,
   collections: Record<string, CollectionModel>,
 ): Record<string, PresetEntry<PresetStep>[]> {
   const mounts = "pages" in collections && mountedCollections(collections).length > 0;
@@ -113,6 +116,7 @@ export function basePipelines(
     reconcileMediaReport: ["authn.requireUser", "authz.require:media.manage", "media.reconcile"],
     reconcileMediaDelete: ["authn.requireUser", "authz.require:media.manage", "media.reconcileDelete"],
     eventsDeliveryStatus: ["authn.requireUser", "authz.require:system.manage", "events.readDeliveryStatus"],
+    ...(mediaTrash === true ? mediaTrashPipelines() : {}),
   };
 
   if ("pages" in collections) {

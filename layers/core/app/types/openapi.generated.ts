@@ -353,7 +353,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission media.manage → Copy every ready media item to /var/lib/kestrel/export/<folder>/<filename> → Copy every done variant of a ready media item to /var/lib/kestrel/export/<folder>/<filename>.<size>.<ext> */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission media.manage → Copy every ready media item to /var/lib/kestrel/export/<folder>/<filename> → Copy every done variant of a ready, not hidden media item to /var/lib/kestrel/export/<folder>/<filename>.<size>.<ext> */
         post: operations["exportMedia"];
         delete?: never;
         options?: never;
@@ -404,7 +404,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission media.manage → Reconcile the public copies of every ready item's original with the stored items: fail abandoned uploads, finish interrupted deletes, write missing or mismatched copies, and remove copies of failed or deleted items and foreign files (adds _publicMedia: { written, removed, missing } to the result) → Reconcile the public copies of every ready item's variants and retired paths with the stored rows: place missing sizes, write missing or mismatched copies, and remove copies of deleted items and foreign files (adds _publicVariants: { written, removed, planned, missing } to the result) */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission media.manage → Reconcile the public copies of every ready item's original with the stored items: fail abandoned uploads, finish interrupted deletes, write missing or mismatched copies, and remove copies of failed, trashed or deleted items and foreign files, re-reading an item before its copy goes (adds _publicMedia: { written, removed, missing } to the result) → Reconcile the public copies of every ready item's variants and retired paths with the stored rows: place missing sizes, write missing or mismatched copies, and remove copies of deleted or hidden items and foreign files (adds _publicVariants: { written, removed, planned, missing } to the result) */
         post: operations["repairPublicMedia"];
         delete?: never;
         options?: never;
@@ -1120,7 +1120,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Identify the caller if a valid token is present; a state-changing request authenticated by the session cookie must come from the same origin → Requires permission media.read → List media, newest first; anonymous callers may only fetch by ids → Add available, variants[] and variantCounts to a media item or list (result.id or result.items); a variant whose path has no object yet is never listed → Keep only the media fields the caller may see: anonymousFields.media without an identity or a configured role; otherwise everything when one of its roles has no field grant for media, else the union of its roles' grants and the anonymous one */
+        /** Identify the caller if a valid token is present; a state-changing request authenticated by the session cookie must come from the same origin → Requires permission media.read → List media, newest first; anonymous callers may only fetch by ids → Add available, variants[] and variantCounts to a media item or list (result.id or result.items); a variant whose path has no object yet is never listed, and a hidden item lists no variants and is not available → Keep only the media fields the caller may see: anonymousFields.media without an identity or a configured role; otherwise everything when one of its roles has no field grant for media, else the union of its roles' grants and the anonymous one */
         get: operations["listMedia"];
         put?: never;
         /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission media.write → Sanitize uploaded SVG files, also SVG content declared as another image type (scripts, handlers, external references removed) → Upload one or more files (multipart field `file`, repeatable). A single file returns the item; multiple files return per-file results. Idempotent: same folder, same filename and same bytes return the item that is already there, and the step then ends the pipeline itself (200), so no following step – notably events.emit:media.uploaded – runs for an upload that stored nothing → Queue event "media.uploaded" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
@@ -1138,7 +1138,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Identify the caller if a valid token is present; a state-changing request authenticated by the session cookie must come from the same origin → Requires permission media.read → Media metadata → Add available, variants[] and variantCounts to a media item or list (result.id or result.items); a variant whose path has no object yet is never listed → Keep only the media fields the caller may see: anonymousFields.media without an identity or a configured role; otherwise everything when one of its roles has no field grant for media, else the union of its roles' grants and the anonymous one */
+        /** Identify the caller if a valid token is present; a state-changing request authenticated by the session cookie must come from the same origin → Requires permission media.read → Media metadata → Add available, variants[] and variantCounts to a media item or list (result.id or result.items); a variant whose path has no object yet is never listed, and a hidden item lists no variants and is not available → Keep only the media fields the caller may see: anonymousFields.media without an identity or a configured role; otherwise everything when one of its roles has no field grant for media, else the union of its roles' grants and the anonymous one */
         get: operations["getMedia"];
         put?: never;
         post?: never;
@@ -1229,12 +1229,98 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission media.delete → Item ids in a folder, for use with references.guardAll:media before removeFolder → Refuse while any of result.ids of media is referenced → Delete a folder and everything in it (each item as media.remove) → Delete variants for every id in result.ids (from media.listFolderItems or media.removeFolder) → Queue event "media.deleted" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission media.delete → Item ids in a folder, for use with references.guardAll:media before removeFolder → Refuse while any of result.ids of media is referenced → Delete a folder and everything in it (each item as media.remove) → Delete variants for every id in result.ids (from media.listFolderItems, media.removeFolder or media.purge) → Queue event "media.deleted" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
         delete: operations["deleteMediaFolder"];
         options?: never;
         head?: never;
         /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission media.write → Rename or move a folder (metadata only: keys and paths do not change) */
         patch: operations["renameMediaFolder"];
+        trace?: never;
+    };
+    "/media/trash": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission media.write → The trashed items, most recently trashed first, with trashedAt and expiresAt and no public path */
+        get: operations["listMediaTrash"];
+        put?: never;
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission media.delete → Move the items in body.ids to the trash: the library no longer shows them, their names are free and their public copies are removed, while media@1 still reads them as ready until media.purge; per-id answer: result.ids holds every id that is trashed afterwards, an already trashed one also in result.unchanged (its public copy is removed again), an unknown one is skipped → Hide the variants of every id in result.ids (from media.trash or media.trashFolder): their public copies are removed and their paths are neither served, exported nor copied again until images.showMany, while rows and stored variants stay; raises no images.variantsChanged; with result.trashVersions (from the same steps), an id whose variants a later move already showed is left alone → Queue event "media.trashed" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
+        post: operations["trashMedia"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/media/trash/empty": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission media.delete → Select every trashed item into result.ids for media.purge → Keep only the media ids in result.ids that nothing references and add each referenced one to result.skipped as { id, reason: "referenced" }, so a following delete leaves it alone → Delete trashed items for good, each as media.remove: the ids in result.ids when an earlier step selected them (its result.skipped is kept), otherwise body.ids (at most 200); an item whose purge stopped halfway is finished, any other id that is not trashed is skipped → Delete variants for every id in result.ids (from media.listFolderItems, media.removeFolder or media.purge) → Queue event "media.deleted" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
+        post: operations["emptyMediaTrash"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/media/trash/folders/{path}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission media.delete → Move every ready item in a folder's subtree to the trash, delete its failed and abandoned uploads, and drop the folder rows of that subtree; an upload still under way keeps its folder listed; media.restore recreates the folders of the items it restores; result.ids also holds the items of the subtree already in the trash, named in result.unchanged, so a repeated request reaches them again after the folder is gone → Hide the variants of every id in result.ids (from media.trash or media.trashFolder): their public copies are removed and their paths are neither served, exported nor copied again until images.showMany, while rows and stored variants stay; raises no images.variantsChanged; with result.trashVersions (from the same steps), an id whose variants a later move already showed is left alone → Queue event "media.trashed" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
+        post: operations["trashMediaFolder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/media/trash/purge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission media.delete → Select the trashed items among body.ids, and those whose purge stopped halfway, into result.ids for media.purge, reporting the others in result.skipped → Keep only the media ids in result.ids that nothing references and add each referenced one to result.skipped as { id, reason: "referenced" }, so a following delete leaves it alone → Delete trashed items for good, each as media.remove: the ids in result.ids when an earlier step selected them (its result.skipped is kept), otherwise body.ids (at most 200); an item whose purge stopped halfway is finished, any other id that is not trashed is skipped → Delete variants for every id in result.ids (from media.listFolderItems, media.removeFolder or media.purge) → Queue event "media.deleted" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
+        post: operations["purgeMedia"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/media/trash/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission media.write → Bring the trashed items in body.ids back with the same id, key, path, folder and texts; a display name taken meanwhile becomes <stem>-<n>.<ext> (listed in renamed); per-id answer: result.ids holds every id that is ready afterwards, an already ready one also in result.unchanged (its public copy is ensured), an unknown one is skipped → Show the variants of every id in result.ids again (from media.restore) and write their public copies; raises no images.variantsChanged; with result.trashVersions, an id whose variants a later move already hid stays hidden → Queue event "media.restored" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
+        post: operations["restoreMedia"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/pages": {
@@ -9255,7 +9341,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description media item not found, not ready, or the file is neither a current nor a retired size */
+            /** @description media item not found, not ready or hidden, or the file is neither a current nor a retired size */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -9615,6 +9701,602 @@ export interface operations {
                 };
             };
             /** @description temporarily unavailable; retry after the Retry-After header */
+            503: {
+                headers: {
+                    /** @description seconds until the client may retry */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listMediaTrash: {
+        parameters: {
+            query?: {
+                limit?: number;
+                locale?: string;
+                offset?: number;
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description ok */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            alt: string | null;
+                            contentType: string;
+                            createdAt: number;
+                            description: string | null;
+                            /** @description trashedAt plus trashRetentionDays; from then on media.selectExpiredTrash selects the item */
+                            expiresAt: number;
+                            filename: string;
+                            /** @description the folder the item is restored to */
+                            folder: string;
+                            height: number | null;
+                            id: string;
+                            /** @description a trashed item has no public URL until it is restored */
+                            path: null;
+                            /** @description who made the file; anything but human is flagged on download (X-Content-Provenance); an upload without provenance is recorded as unknown */
+                            provenance: {
+                                at?: number;
+                                model?: string;
+                                /** @enum {string} */
+                                origin: "human" | "ai" | "mixed" | "unknown";
+                                tool?: string;
+                            };
+                            size: number;
+                            title: string | null;
+                            trashedAt: number;
+                            updatedAt: number;
+                            width: number | null;
+                        }[];
+                        total: number;
+                    };
+                };
+            };
+            /** @description unknown locale or limit above maxLimit */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description missing permission media.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description temporarily unavailable; retry after the Retry-After header */
+            503: {
+                headers: {
+                    /** @description seconds until the client may retry */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    trashMedia: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    ids: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description ok */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        _events: {
+                            pipelines: {
+                                attempts: number;
+                                dead: boolean;
+                                error: string | null;
+                                event: string;
+                                pipeline: string;
+                                /** @enum {string} */
+                                status: "done" | "error" | "pending" | "queued";
+                            }[];
+                            /** @enum {string} */
+                            status: "done" | "error" | "pending" | "queued";
+                        };
+                        /** @description every id that is in the target state after the step, whether the step moved it or found it there */
+                        ids: string[];
+                        skipped: {
+                            id: string;
+                            /** @description not_found or not_trashed from media-default; an earlier step of a purge may add its own, such as referenced */
+                            reason: string;
+                        }[];
+                        /** @description per id in ids, the item's trash version after the step; it rises by one with every move into or out of the trash, which lets a later step tell which of two overlapping moves came last */
+                        trashVersions: {
+                            [key: string]: number;
+                        };
+                        /** @description the ids in ids that were already in the target state before the step; they are handed on in ids, so a repeated step reaches every later step again */
+                        unchanged: string[];
+                    };
+                };
+            };
+            /** @description no ids or more than 200 */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description missing permission media.delete */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description the event could not be persisted */
+            503: {
+                headers: {
+                    /** @description seconds until the client may retry */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    emptyMediaTrash: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    ids?: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description ok */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        _events: {
+                            pipelines: {
+                                attempts: number;
+                                dead: boolean;
+                                error: string | null;
+                                event: string;
+                                pipeline: string;
+                                /** @enum {string} */
+                                status: "done" | "error" | "pending" | "queued";
+                            }[];
+                            /** @enum {string} */
+                            status: "done" | "error" | "pending" | "queued";
+                        };
+                        /** @description the ids the step acted on or selected */
+                        ids: string[];
+                        skipped: {
+                            id: string;
+                            /** @description not_found or not_trashed from media-default; an earlier step of a purge may add its own, such as referenced */
+                            reason: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description no ids selected and no body.ids, or more than 200 body.ids */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description missing permission media.delete */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description the event could not be persisted */
+            503: {
+                headers: {
+                    /** @description seconds until the client may retry */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    trashMediaFolder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description rest of the path, may contain slashes */
+                path: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description ok */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        _events: {
+                            pipelines: {
+                                attempts: number;
+                                dead: boolean;
+                                error: string | null;
+                                event: string;
+                                pipeline: string;
+                                /** @enum {string} */
+                                status: "done" | "error" | "pending" | "queued";
+                            }[];
+                            /** @enum {string} */
+                            status: "done" | "error" | "pending" | "queued";
+                        };
+                        ids: string[];
+                        path: string;
+                        /** @description per id in ids, the item's trash version after the step; it rises by one with every move into or out of the trash, which lets a later step tell which of two overlapping moves came last */
+                        trashVersions: {
+                            [key: string]: number;
+                        };
+                        unchanged: string[];
+                    };
+                };
+            };
+            /** @description missing or invalid path */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description missing permission media.delete */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description neither a folder nor a trashed item at this path */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description the event could not be persisted */
+            503: {
+                headers: {
+                    /** @description seconds until the client may retry */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    purgeMedia: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    ids: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description ok */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        _events: {
+                            pipelines: {
+                                attempts: number;
+                                dead: boolean;
+                                error: string | null;
+                                event: string;
+                                pipeline: string;
+                                /** @enum {string} */
+                                status: "done" | "error" | "pending" | "queued";
+                            }[];
+                            /** @enum {string} */
+                            status: "done" | "error" | "pending" | "queued";
+                        };
+                        /** @description the ids the step acted on or selected */
+                        ids: string[];
+                        skipped: {
+                            id: string;
+                            /** @description not_found or not_trashed from media-default; an earlier step of a purge may add its own, such as referenced */
+                            reason: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description no ids selected and no body.ids, or more than 200 body.ids */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description missing permission media.delete */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description the event could not be persisted */
+            503: {
+                headers: {
+                    /** @description seconds until the client may retry */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    restoreMedia: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    ids: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description ok */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        _events: {
+                            pipelines: {
+                                attempts: number;
+                                dead: boolean;
+                                error: string | null;
+                                event: string;
+                                pipeline: string;
+                                /** @enum {string} */
+                                status: "done" | "error" | "pending" | "queued";
+                            }[];
+                            /** @enum {string} */
+                            status: "done" | "error" | "pending" | "queued";
+                        };
+                        /** @description every id that is in the target state after the step, whether the step moved it or found it there */
+                        ids: string[];
+                        /** @description restored items whose display name was taken and that came back as <stem>-<n>.<ext>; key and path are unchanged */
+                        renamed: {
+                            from: string;
+                            id: string;
+                            to: string;
+                        }[];
+                        skipped: {
+                            id: string;
+                            /** @description not_found or not_trashed from media-default; an earlier step of a purge may add its own, such as referenced */
+                            reason: string;
+                        }[];
+                        /** @description per id in ids, the item's trash version after the step; it rises by one with every move into or out of the trash, which lets a later step tell which of two overlapping moves came last */
+                        trashVersions: {
+                            [key: string]: number;
+                        };
+                        /** @description the ids in ids that were already in the target state before the step; they are handed on in ids, so a repeated step reaches every later step again */
+                        unchanged: string[];
+                    };
+                };
+            };
+            /** @description no ids or more than 200 */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description missing permission media.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description the event could not be persisted */
             503: {
                 headers: {
                     /** @description seconds until the client may retry */

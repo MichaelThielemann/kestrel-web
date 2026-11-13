@@ -9,6 +9,8 @@ export interface TriggerEntry {
   pages?: true;
   /** The trigger exists only when `pages` has a parent field. */
   parent?: true;
+  /** The trigger exists only when the preset composes the media trash pipelines. */
+  mediaTrash?: true;
 }
 
 export const canonicalTriggers: readonly TriggerEntry[] = [
@@ -55,6 +57,12 @@ export const canonicalTriggers: readonly TriggerEntry[] = [
   { trigger: { http: "POST /media/folders", pipeline: "createMediaFolder" } },
   { trigger: { http: "PATCH /media/folders/*path", pipeline: "renameMediaFolder" } },
   { trigger: { http: "DELETE /media/folders/*path", pipeline: "deleteMediaFolder" } },
+  { trigger: { http: "GET /media/trash", pipeline: "listMediaTrash" }, mediaTrash: true },
+  { trigger: { http: "POST /media/trash", pipeline: "trashMedia" }, mediaTrash: true },
+  { trigger: { http: "POST /media/trash/folders/*path", pipeline: "trashMediaFolder" }, mediaTrash: true },
+  { trigger: { http: "POST /media/trash/restore", pipeline: "restoreMedia" }, mediaTrash: true },
+  { trigger: { http: "POST /media/trash/purge", pipeline: "purgeMedia" }, mediaTrash: true },
+  { trigger: { http: "POST /media/trash/empty", pipeline: "emptyMediaTrash" }, mediaTrash: true },
   { trigger: { http: "GET /media", pipeline: "listMedia" } },
   { trigger: { http: "GET /media/:id", pipeline: "getMedia" } },
   { trigger: { http: "GET /media/:id/file", pipeline: "downloadMedia" } },
@@ -89,6 +97,7 @@ export const canonicalTriggers: readonly TriggerEntry[] = [
   { trigger: { cron: "*/5 * * * *", pipeline: "resumeImages" }, feature: "images" },
   { trigger: { cron: "30 3 * * *", pipeline: "reconcileMedia" } },
   { trigger: { cron: "45 3 * * *", pipeline: "syncPublicMedia" }, feature: "delivery" },
+  { trigger: { cron: "0 4 * * *", pipeline: "purgeExpiredMedia" }, mediaTrash: true },
   { trigger: { cron: "*/5 * * * *", pipeline: "resumeStalePages" }, feature: "delivery" },
   { trigger: { cron: "* * * * *", pipeline: "replicate" }, feature: "replication" },
   { trigger: { cron: "15 4 * * *", pipeline: "purgeEvents" }, feature: "eventsQueue" },

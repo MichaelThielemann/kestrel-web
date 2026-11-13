@@ -264,6 +264,16 @@
       "media.download",
       "authz.fields:mediaFile?shape=file"
     ],
+    "emptyMediaTrash": [
+      "authn.requireUser",
+      "authz.requireRole",
+      "authz.require:media.delete",
+      "media.selectAllTrash",
+      "references.dropReferenced:media",
+      "media.purge",
+      "events.emit:media.deleted",
+      "events.relay"
+    ],
     "eventsDeliveryStatus": [
       "authn.requireUser",
       "authz.requireRole",
@@ -366,6 +376,12 @@
       "authz.requireRole",
       "authz.require:media.list",
       "media.listFolders"
+    ],
+    "listMediaTrash": [
+      "authn.requireUser",
+      "authz.requireRole",
+      "authz.require:media.write",
+      "media.listTrash"
     ],
     "listPages": [
       "authn.identifyUser",
@@ -504,6 +520,23 @@
     "publishPage": [
       "delivery.publish:pages",
       "delivery.requestLlms"
+    ],
+    "purgeExpiredMedia": [
+      "media.selectExpiredTrash",
+      "references.dropReferenced:media",
+      "media.purge",
+      "events.emit:media.deleted",
+      "events.relay"
+    ],
+    "purgeMedia": [
+      "authn.requireUser",
+      "authz.requireRole",
+      "authz.require:media.delete",
+      "media.selectTrash",
+      "references.dropReferenced:media",
+      "media.purge",
+      "events.emit:media.deleted",
+      "events.relay"
     ],
     "readAnyBlog": [
       "authn.requireUser",
@@ -676,6 +709,14 @@
       "events.emit:blog.restored",
       "events.relay"
     ],
+    "restoreMedia": [
+      "authn.requireUser",
+      "authz.requireRole",
+      "authz.require:media.write",
+      "media.restore",
+      "events.emit:media.restored",
+      "events.relay"
+    ],
     "restorePageRevision": [
       "authn.requireUser",
       "authz.requireRole",
@@ -791,6 +832,22 @@
     ],
     "syncPublicMedia": [
       "media.syncPublic"
+    ],
+    "trashMedia": [
+      "authn.requireUser",
+      "authz.requireRole",
+      "authz.require:media.delete",
+      "media.trash",
+      "events.emit:media.trashed",
+      "events.relay"
+    ],
+    "trashMediaFolder": [
+      "authn.requireUser",
+      "authz.requireRole",
+      "authz.require:media.delete",
+      "media.trashFolder",
+      "events.emit:media.trashed",
+      "events.relay"
     ],
     "unpublishBlog": [
       "delivery.unpublish:blog",
@@ -1077,6 +1134,30 @@
       "pipeline": "deleteMediaFolder"
     },
     {
+      "http": "GET /media/trash",
+      "pipeline": "listMediaTrash"
+    },
+    {
+      "http": "POST /media/trash",
+      "pipeline": "trashMedia"
+    },
+    {
+      "http": "POST /media/trash/folders/*path",
+      "pipeline": "trashMediaFolder"
+    },
+    {
+      "http": "POST /media/trash/restore",
+      "pipeline": "restoreMedia"
+    },
+    {
+      "http": "POST /media/trash/purge",
+      "pipeline": "purgeMedia"
+    },
+    {
+      "http": "POST /media/trash/empty",
+      "pipeline": "emptyMediaTrash"
+    },
+    {
       "http": "GET /media",
       "pipeline": "listMedia"
     },
@@ -1155,6 +1236,10 @@
     {
       "cron": "45 3 * * *",
       "pipeline": "syncPublicMedia"
+    },
+    {
+      "cron": "0 4 * * *",
+      "pipeline": "purgeExpiredMedia"
     },
     {
       "cron": "*/5 * * * *",
@@ -1326,6 +1411,14 @@
     },
     {
       "event": "media.deleted",
+      "pipeline": "mediaDependents"
+    },
+    {
+      "event": "media.trashed",
+      "pipeline": "mediaDependents"
+    },
+    {
+      "event": "media.restored",
       "pipeline": "mediaDependents"
     },
     {

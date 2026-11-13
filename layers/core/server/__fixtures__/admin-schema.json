@@ -1103,6 +1103,30 @@
       "method": "DELETE",
       "path": "/media/folders/*path"
     },
+    "listMediaTrash": {
+      "method": "GET",
+      "path": "/media/trash"
+    },
+    "trashMedia": {
+      "method": "POST",
+      "path": "/media/trash"
+    },
+    "trashMediaFolder": {
+      "method": "POST",
+      "path": "/media/trash/folders/*path"
+    },
+    "restoreMedia": {
+      "method": "POST",
+      "path": "/media/trash/restore"
+    },
+    "purgeMedia": {
+      "method": "POST",
+      "path": "/media/trash/purge"
+    },
+    "emptyMediaTrash": {
+      "method": "POST",
+      "path": "/media/trash/empty"
+    },
     "listMedia": {
       "method": "GET",
       "path": "/media"

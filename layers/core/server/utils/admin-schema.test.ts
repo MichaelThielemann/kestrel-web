@@ -21,7 +21,7 @@ const allModules = [
   { use: "@michaelthielemann/kestrel-replication-sqlite" },
   { use: "@michaelthielemann/kestrel-persistence-sqlite" },
   { use: "@michaelthielemann/kestrel-sanitize-svg" },
-  { use: "@michaelthielemann/kestrel-media-default" },
+  { use: "@michaelthielemann/kestrel-media-default", config: { trashRetentionDays: 30 } },
   { use: "@michaelthielemann/kestrel-images-default" },
   { use: "@michaelthielemann/kestrel-authn-multi" },
   { use: "@michaelthielemann/kestrel-authz-roles" },

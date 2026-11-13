@@ -7,6 +7,7 @@ import { ATOMIC_END } from "../compose";
 import type { PresetEntry } from "../compose";
 import { routedPipelineNames } from "../delivery-names";
 import type { FeatureModule } from "../index";
+import { MEDIA_PURGE_PIPELINES } from "../media-trash";
 
 function collectionReferences(collections: Record<string, CollectionModel>): { pipelines: Record<string, PresetEntry<PresetStep>[]>; patches: FeatureModule["patches"][number][]; triggers: TriggerConfig[] } {
   const pipelines: Record<string, PresetEntry<PresetStep>[]> = {};
@@ -67,6 +68,7 @@ export default function references(context: PresetContext): FeatureModule {
       { pipeline: "deletePage", steps: ["references.unindex:pages"], at: "before", anchor: ATOMIC_END },
       { pipeline: "deleteMedia", steps: ["references.guard:media"], at: "before", anchor: "media.remove" },
       { pipeline: "deleteMediaFolder", steps: ["references.guardAll:media"], at: "before", anchor: "media.removeFolder" },
+      ...(context.mediaTrash === true ? MEDIA_PURGE_PIPELINES.map((pipeline): FeatureModule["patches"][number] => ({ pipeline, steps: ["references.dropReferenced:media"], at: "before", anchor: "media.purge" })) : []),
       ...translationPatches,
       ...mounted.patches,
     ],

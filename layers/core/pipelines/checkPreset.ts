@@ -33,6 +33,7 @@ import audit, { AUDIT_MODULE, AUDIT_PRUNE_PIPELINE, AUDIT_RETENTION_KEY } from "
 import eventsQueue from "./features/eventsQueue";
 import revisions, { revisionPipelineNames } from "./features/revisions";
 import mfa from "./features/mfa";
+import { MEDIA_TRASH_MODULE, MEDIA_TRASH_PIPELINES, MEDIA_TRASH_RETENTION_KEY, mediaTrashEnabled } from "./media-trash";
 
 export type { CollectionModel } from "./collections";
 
@@ -62,6 +63,7 @@ export const staticPipelineNames = [
   "deletePage", "uploadMedia", "exportMedia", "listMediaFolders", "createMediaFolder", "renameMediaFolder", "deleteMediaFolder",
   "listMedia", "getMedia", "downloadMedia", "updateMedia", "deleteMedia", "reconcileMedia", "reconcileMediaReport", "reconcileMediaDelete",
   "serveMediaFile", "repairPublicMedia", "syncPublicMedia",
+  "trashMedia", "trashMediaFolder", "restoreMedia", "listMediaTrash", "purgeMedia", "emptyMediaTrash", "purgeExpiredMedia",
   "eventsDeliveryStatus",
   "sweepRateLimits",
   "brokenReferences", "pageReferrers", "pageReferrersMany", "mediaReferrers", "mediaReferrersMany", "rebuildReferences", "scanReferences",
@@ -86,7 +88,7 @@ export type PresetPipelineName<C extends Record<string, CollectionModel> = Recor
   | StaticPipelineName
   | CollectionPipelineName<C>;
 
-export type CronPipelineName = "resumePaths" | "cleanupSessions" | "sweepRateLimits" | "scanReferences" | "checkLinks" | "resumeImages" | "replicate" | "reconcileMedia" | "syncPublicMedia" | "resumeStalePages" | "purgeEvents" | "pruneRevisions" | "pruneAudit";
+export type CronPipelineName = "resumePaths" | "cleanupSessions" | "sweepRateLimits" | "scanReferences" | "checkLinks" | "resumeImages" | "replicate" | "reconcileMedia" | "syncPublicMedia" | "purgeExpiredMedia" | "resumeStalePages" | "purgeEvents" | "pruneRevisions" | "pruneAudit";
 
 export interface PresetOptions<C extends Record<string, CollectionModel> = Record<string, CollectionModel>, S extends string = PresetStep> {
   modules: readonly { use: string; config?: unknown }[];
@@ -222,6 +224,7 @@ export function lanesFor(features: readonly Feature[]): Record<string, string[]>
 
 const CONDITIONAL_CRON_HINTS: Record<string, string> = {
   [AUDIT_PRUNE_PIPELINE]: `module "${AUDIT_MODULE}" has no "${AUDIT_RETENTION_KEY}", so there is nothing to prune – pass audit: { ${AUDIT_RETENTION_KEY} } to presetModuleConfig()`,
+  [MEDIA_TRASH_PIPELINES.purgeExpired]: `module "${MEDIA_TRASH_MODULE}" has no "${MEDIA_TRASH_RETENTION_KEY}", so there is no trash to empty – leave media.${MEDIA_TRASH_RETENTION_KEY} of presetModuleConfig() above 0`,
 };
 
 function effectiveConfigOf(modules: readonly { use: string; config?: unknown }[], use: string): unknown {
@@ -339,7 +342,7 @@ export function reservedCollectionNames(): ReadonlyMap<string, string> {
     if (name === undefined || !COLLECTION_NAME_PATTERN.test(name) || COLLECTIONS_WITH_OWN_PIPELINES.has(name) || reasons.has(name)) return;
     reasons.set(name, reason);
   };
-  const context: PresetContext = { exportDir: "", homeSlug: "home", collections: DEFAULT_COLLECTIONS, customFields: {} };
+  const context: PresetContext = { exportDir: "", homeSlug: "home", collections: DEFAULT_COLLECTIONS, customFields: {}, mediaTrash: true };
   const own: Array<{ pipelines: Record<string, readonly PresetEntry[]>; triggers: readonly TriggerConfig[] }> = [
     { pipelines: basePipelines(context, DEFAULT_COLLECTIONS), triggers: canonicalTriggers.map((entry) => entry.trigger) },
     ...featureOrder.map((feature) => {
@@ -473,6 +476,7 @@ export function buildPreset<C extends Record<string, CollectionModel> = Record<s
   const enabledFeatures = new Set<Feature>(options.features);
   const configuredModules = new Set(options.modules.map((entry) => entry.use));
   context.eventsQueued = enabledFeatures.has("eventsQueue");
+  context.mediaTrash = mediaTrashEnabled(options.modules);
 
   if (!("pages" in collections)) {
     for (const feature of PAGE_REQUIRING_FEATURES) {
@@ -624,6 +628,7 @@ export function buildPreset<C extends Record<string, CollectionModel> = Record<s
     .filter((entry) => entry.feature === undefined || enabledFeatures.has(entry.feature))
     .filter((entry) => entry.pages !== true || "pages" in collections)
     .filter((entry) => entry.parent !== true || (collections.pages !== undefined && parentFieldOf("pages", collections.pages) !== undefined))
+    .filter((entry) => entry.mediaTrash !== true || context.mediaTrash === true)
     .map((entry) => entry.trigger);
   triggers = [...insertCollectionTriggers(triggers, collections, options.collectionsUi), ...featureTriggers];
 

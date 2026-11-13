@@ -18,14 +18,14 @@ const collections = {
 
 type ModuleList = { use: string; config?: unknown }[];
 
-function modulesFor(features: readonly Feature[], render?: "events" | "background"): ModuleList {
+function modulesFor(features: readonly Feature[], render?: "events" | "background", trash = false): ModuleList {
   const queued = features.includes("eventsQueue");
   const modules: ModuleList = [
     { use: "@michaelthielemann/kestrel-authn-multi" },
     { use: "@michaelthielemann/kestrel-authz-roles" },
     { use: "@michaelthielemann/kestrel-content-default" },
     { use: "@michaelthielemann/kestrel-validate-jsonschema", config: { schemas: { "pages.body": "x" } } },
-    { use: "@michaelthielemann/kestrel-media-default" },
+    trash ? { use: "@michaelthielemann/kestrel-media-default", config: { trashRetentionDays: 30 } } : { use: "@michaelthielemann/kestrel-media-default" },
     { use: "@michaelthielemann/kestrel-events-inmemory" },
     queued ? { use: EVENTS_QUEUE, config: { lanes: lanesFor(features) } } : { use: EVENTS_DIRECT },
   ];
@@ -137,6 +137,20 @@ describe("dependents: marking the pages that read a change", () => {
     expect(eventsTriggering(compose(["delivery", "images"]), "mediaDependents")).toEqual(["media.updated", "media.deleted", "images.variantsChanged"]);
     const withoutEdits = compose(["delivery", "images"], { exclude: ["updateMedia"] });
     expect(eventsTriggering(withoutEdits, "mediaDependents")).toEqual(["media.deleted", "images.variantsChanged"]);
+  });
+
+  it("also marks the readers of media moved to or out of the trash, once the trash pipelines emit those events", () => {
+    const withTrash = definePreset({ modules: modulesFor(["delivery", "images"], undefined, true), features: ["delivery", "images"], collections });
+    expect(eventsTriggering(withTrash, "mediaDependents")).toEqual(["media.updated", "media.deleted", "images.variantsChanged", "media.trashed", "media.restored"]);
+    const withoutRestore = definePreset({ modules: modulesFor(["delivery"], undefined, true), features: ["delivery"], collections, exclude: ["restoreMedia"] });
+    expect(eventsTriggering(withoutRestore, "mediaDependents")).toEqual(["media.updated", "media.deleted", "media.trashed"]);
+    expect(eventsTriggering(compose(["delivery", "images"]), "mediaDependents")).not.toContain("media.trashed");
+  });
+
+  it("refuses an override of a trash pipeline that drops its emit", () => {
+    expect(() =>
+      definePreset({ modules: modulesFor(["delivery"], undefined, true), features: ["delivery"], collections, overrides: { trashMedia: ["authn.requireUser", "authz.require:media.delete", "media.trash", "events.relay"] } }),
+    ).toThrow('preset: override for "trashMedia" drops "events.emit:media.trashed"');
   });
 
   it("refuses an override that drops the emit a dependents pipeline listens to, naming the pipeline", () => {

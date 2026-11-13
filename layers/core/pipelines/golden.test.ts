@@ -50,7 +50,7 @@ const allModules = [
   { use: "@michaelthielemann/kestrel-replication-sqlite" },
   { use: "@michaelthielemann/kestrel-persistence-sqlite" },
   { use: "@michaelthielemann/kestrel-sanitize-svg" },
-  { use: "@michaelthielemann/kestrel-media-default" },
+  { use: "@michaelthielemann/kestrel-media-default", config: { trashRetentionDays: 30 } },
   { use: "@michaelthielemann/kestrel-images-default" },
   { use: "@michaelthielemann/kestrel-authn-multi" },
   { use: "@michaelthielemann/kestrel-authz-roles" },
@@ -127,7 +127,7 @@ describe("golden: synthetic collections (news multi, profile system single, noti
 
 describe("canonicalTriggers consistency", () => {
   const collections = { pages: { kind: "multi" as const, fields: { parent: { type: "ref", to: "pages" } } } };
-  const context = { exportDir: EXPORT_DIR, homeSlug: "home", collections };
+  const context = { exportDir: EXPORT_DIR, homeSlug: "home", collections, mediaTrash: true };
   const featureFactories = { ratelimit, sanitizeSvg, references, links, delivery, redirects, images, replication, migrations, audit, insights, eventsQueue, revisions };
   const basePipelineNames = new Set(Object.keys(basePipelines(context, collections)));
   const featurePipelineNames = new Map(
