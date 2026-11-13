@@ -22,8 +22,9 @@ function authzConfig(ctx: RuleContext): Record<string, unknown> | undefined {
 
 /**
  * A media grant in `roles.anonymousFields` that keeps the variants for visitors but not `focus`: the server
- * starts, and `KestrelImage` on a public page crops every image around its centre, whatever focus an editor
- * set. The finding names the field to add; the grant is the project's own, so the rule never edits it.
+ * starts, and `KestrelImage` on a public page sets no `object-position`, so an original or `inside` variant in a
+ * box of another ratio stays centred, whatever focus an editor set; `cover` variants are still cut around the
+ * focus by the server. The finding names the field to add; the grant is the project's own, so the rule never edits it.
  */
 export const mediaFocusGrantRule: Rule = {
   id: RULE,
@@ -40,7 +41,7 @@ export const mediaFocusGrantRule: Rule = {
       severity: "warning",
       tier: "source",
       where: { module: AUTHZ_ROLES_MODULE, file: ctx.project.configFile },
-      message: "roles.anonymousFields.media keeps the image variants for visitors but not focus, so a public KestrelImage sets no object-position and every image stays cut around its centre",
+      message: "roles.anonymousFields.media keeps the image variants for visitors but not focus, so a public KestrelImage sets no object-position: an original or inside variant in a box of another ratio stays centred, while cover variants are still cut around the focus by the server",
       suggestion: 'add "focus" to roles.anonymousFields.media',
       fix: { kind: "manual" },
       docs: docsAnchor("preset-media-focus-grant"),

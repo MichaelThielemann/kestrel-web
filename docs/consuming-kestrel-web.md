@@ -748,8 +748,9 @@ the static export, rendered without a session, keeps the narrowed shape.
 
 With `images`, the derived `media` grant carries `focus` next to the variant fields: `KestrelImage`
 reads it to place the image in its box (§6). A narrowed `media` grant that keeps `variants[]`
-fields but leaves out `focus` starts, and every public image then stays cut around its centre;
-`kestrel upgrade check` reports it as `preset/media-focus-grant`.
+fields but leaves out `focus` starts, and `KestrelImage` then sets no `object-position`: an original or an
+`inside` variant shown in a box of another ratio stays centred. `cover` variants are still cut around the
+focus or the manual crop by kestrel. `kestrel upgrade check` reports it as `preset/media-focus-grant`.
 
 A path is relative to one item of the answer: `title` keeps the member whole, `provenance.origin` keeps
 `provenance` holding only `origin`, `variants[].path` keeps each variant holding only `path`. `fields`
@@ -2372,7 +2373,9 @@ What changes:
     with a random key per process, so set the variable for known devices to survive a restart and to be
     recognised by every instance.
   - `preset/media-focus-grant` reports (`manual`) a `roles.anonymousFields.media` grant that keeps
-    `variants[]` fields for visitors but not `focus`: public images then ignore the focus an editor sets.
+    `variants[]` fields for visitors but not `focus`: `KestrelImage` then sets no `object-position`, so an
+    original or `inside` variant in a box of another ratio stays centred (`cover` variants are still cut
+    around the focus).
   - `preset/queue-lanes` sets `lanes` (and a missing `relayPipelines`) on a `kestrel-events-queue` entry
     written in `kestrel.config.ts` to what `lanesFor(features)` gives (`fix`).
   - `preset/override-emit` forward-ports a 2.x `setSettings` or `set<Name>` override in one edit (`fix`). It

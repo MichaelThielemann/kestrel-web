@@ -28,6 +28,8 @@ describe("preset/media-focus-grant", () => {
     expect(findings).toHaveLength(1);
     expect(findings[0]).toMatchObject({ rule: "preset/media-focus-grant", severity: "warning", fix: { kind: "manual" }, where: { module: AUTHZ, file: FILE } });
     expect(findings[0]?.message).toContain("object-position");
+    expect(findings[0]?.message).toContain("cover variants are still cut around the focus");
+    expect(findings[0]?.message).not.toContain("every image stays cut around its centre");
     expect(findings[0]?.suggestion).toContain('"focus"');
   });
 
