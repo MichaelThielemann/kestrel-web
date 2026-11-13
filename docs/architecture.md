@@ -794,7 +794,34 @@ collection, the expected filter and the fix in the message.
   offers only the whole-document delete, with a note explaining why.
 - `app/actions/` — the declared step sequences behind every user-triggered write, see **UI actions**.
 - `app/composables/useMediaLibrary.ts` — media list and folder tree from `GET /media/folders` (persistent,
-  including empty folders and implied ancestors), plus selection and navigation state.
+  including empty folders and implied ancestors), plus navigation state.
+- Selection in `MediaLibrary.vue`, the same in the media library and in the media picker.
+  - Model. `useMediaSelection()` is the one selection of the listing, the multi-pick and the context menu.
+    In the library it holds files and folders; after every load it keeps only the listed items, so a
+    refresh, a page change or a new folder drops what is no longer shown and keeps the rest. A multi-pick
+    holds files only and keeps picks from other folders, including the ids the field already holds; a
+    deleted pick is dropped, and the confirm check refuses a pick it no longer finds, names it and drops
+    it, so a later confirm sends the rest. Actions (the bar, the context menu, Delete) act on the listed
+    part of the selection. A single pick holds one file and shows no checkboxes.
+  - Checkboxes. Every grid tile has a checkbox beside its button, never inside it, labelled "Select
+    <name>", with a 24 × 24 px target; the table has a checkbox column and a header checkbox that is
+    indeterminate while part of the page is selected. The table is a `role="grid"` with
+    `aria-multiselectable`, its rows carry `aria-selected`. While anything is selected in the library, a
+    click on a tile or row toggles it instead of selecting it alone or opening a folder; Ctrl/Cmd-click
+    toggles and Shift-click selects a range at any time. Upload tiles are never selectable.
+  - Bar. `MediaSelectionBar.vue` (on the kit's `BulkBar`) takes the toolbar's place in the library while
+    anything is selected: the count, "Select all n on this page", "Delete" when the role may delete
+    everything selected (not rendered otherwise) and "Clear selection". In a multi-pick it sits below the
+    toolbar, so search and upload stay reachable, and "Use selected" stays in the footer. The upload panel
+    and the follow-up line are not part of the toolbar and stay where they are.
+  - Keyboard (`useMediaKeyboard()`, one listener on the listing). The tiles or rows are one tab stop
+    (roving `tabindex`); the arrow keys move it, up and down by one grid row, Home and End to the ends.
+    Shift+arrow extends the selection, Space toggles the focused item, Ctrl/Cmd+A selects the page,
+    Escape clears the selection, Delete and Backspace open the delete flow for the selection (or the
+    focused item when it is not selected). Keys typed in a form field or on an upload tile are left alone.
+    In the picker the first Escape clears the selection and the next one closes the dialog
+    (`Dialog.vue`'s `escapeKeyDown`). The shortcuts are shown in the tooltips of the bar's buttons and
+    exposed as `aria-keyshortcuts`.
 - Folder create/rename/move/delete, file rename/move, upload, and per-file meta/provenance edits are
   declared actions in `app/actions/media.ts` (`createFolder`, `renameOrMove`, `deleteItems`, `upload`,
   `setMediaMeta`, `setMediaProvenance`), called directly with `runAction` from `MediaLibrary.vue` and

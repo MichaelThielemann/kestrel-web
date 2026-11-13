@@ -4,6 +4,17 @@
 
 ### Added
 
+- Media library and picker: visible multi-selection. Every grid tile has a checkbox beside it and the table a
+  checkbox column with a header checkbox for the page; while anything is selected, a selection bar takes the
+  toolbar's place with the count, "Select all n on this page", "Delete" (only for roles that may delete) and
+  "Clear selection". The listing is one tab stop: arrow keys move through it, Shift+arrow extends the
+  selection, Space toggles, Ctrl/Cmd+A selects the page, Escape clears it (in the picker, a second Escape
+  closes the dialog), Delete and Backspace delete. Search, sorting, paging and refreshes keep the visible
+  part of the selection instead of clearing it.
+- Admin kit: `KestrelUiBulkBar`, the toolbar the collection list and the media library share for a selection;
+  toasts take an optional action (`push(type, message, { timeout, action: { label, run } })`) and pause while
+  hovered or focused; `KestrelUiDialog` re-emits `openAutoFocus` and `escapeKeyDown`; `KestrelUiCheckbox`
+  takes `standalone` for a 24 × 24 px click target.
 - Media trash: the preset composes `trashMedia` (`POST /api/media/trash`), `trashMediaFolder`
   (`POST /api/media/trash/folders/*path`), `restoreMedia` (`POST /api/media/trash/restore`), `listMediaTrash`
   (`GET /api/media/trash`), `purgeMedia` (`POST /api/media/trash/purge`), `emptyMediaTrash`
@@ -855,6 +866,9 @@
 
 ### Fixed
 
+- Media picker: a file deleted while the picker is open no longer reaches the field on "Use selected"; a pick
+  that is gone when the selection is checked is named, dropped and not inserted. In a multi-pick the context
+  menu acts on the picks instead of a second, hidden selection.
 - Media uploads: a failed file no longer holds up or affects the others, and no file stays waiting for
   good. Every request settles once, as done, failed or cancelled. A request without an answer fails as a
   timeout after two minutes plus the time to send the file at 32 KiB/s. A callback that throws no longer
