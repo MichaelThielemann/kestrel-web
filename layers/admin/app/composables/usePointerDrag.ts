@@ -11,6 +11,8 @@ export interface PointerDragHandlers {
   pinch?: (scale: number, centre: PointerDragPoint) => void
   end?: () => void
   disabled?: () => boolean
+  /** How far, in screen pixels, a single pointer must move from where it went down before `move` runs; 0 by default. */
+  threshold?: number
 }
 
 interface Box {
@@ -27,6 +29,7 @@ export function usePointerDrag(target: Ref<HTMLElement | null>, handlers: Pointe
   let origin: PointerDragPoint = { x: 0, y: 0 }
   let last: PointerDragPoint = { x: 0, y: 0 }
   let spread = 0
+  let moved = false
   let bound: HTMLElement | null = null
 
   function relative(event: PointerEvent): PointerDragPoint {
@@ -51,6 +54,7 @@ export function usePointerDrag(target: Ref<HTMLElement | null>, handlers: Pointe
       handlers.start?.(point, event)
       origin = point
       last = point
+      moved = false
       dragging.value = true
     }
     pointers.set(event.pointerId, relative(event))
@@ -70,6 +74,8 @@ export function usePointerDrag(target: Ref<HTMLElement | null>, handlers: Pointe
       spread = next
       return
     }
+    if (!moved && Math.hypot((point.x - origin.x) * box.width, (point.y - origin.y) * box.height) < (handlers.threshold ?? 0)) return
+    moved = true
     const delta = { x: point.x - last.x, y: point.y - last.y }
     last = point
     handlers.move?.(point, delta, origin)

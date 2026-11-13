@@ -20,6 +20,10 @@ const handles = computed<readonly RectHandle[]>(() => (model.value && !isPoint.v
 
 let mode: { kind: 'draw' } | { kind: 'move' } | { kind: 'resize', handle: RectHandle } = { kind: 'draw' }
 let startRect: MediaRect = DEFAULT_RECT
+let drawnOver: MediaRect | null = null
+let drawn: MediaRect | null = null
+const DRAG_THRESHOLD = 4
+const MIN_DRAWN = 0.01
 
 function isHandle(value: string | undefined): value is RectHandle {
   return RECT_HANDLES.some((handle) => handle === value)
@@ -29,6 +33,8 @@ function onStart(_point: PointerDragPoint, event: PointerEvent): void {
   const target = event.target instanceof Element ? event.target : null
   const handle = target?.closest<HTMLElement>('[data-handle]')?.dataset.handle
   startRect = model.value ?? DEFAULT_RECT
+  drawnOver = model.value
+  drawn = null
   if (model.value && isHandle(handle)) mode = { kind: 'resize', handle }
   else if (model.value && target?.closest('.ui-rect-select__rect')) mode = { kind: 'move' }
   else mode = { kind: 'draw' }
@@ -36,12 +42,19 @@ function onStart(_point: PointerDragPoint, event: PointerEvent): void {
 
 function onMove(point: PointerDragPoint, _delta: PointerDragPoint, origin: PointerDragPoint): void {
   const [dx, dy] = [point.x - origin.x, point.y - origin.y]
-  if (mode.kind === 'draw') model.value = rectFromPoints(origin, point)
+  if (mode.kind === 'draw') model.value = drawn = rectFromPoints(origin, point)
   else if (mode.kind === 'move') model.value = moveRect(startRect, dx, dy)
   else model.value = resizeRect(startRect, mode.handle, dx, dy)
 }
 
-usePointerDrag(surface, { start: onStart, move: onMove, disabled: () => props.disabled })
+function onEnd(): void {
+  if (drawn && (drawn.w < MIN_DRAWN || drawn.h < MIN_DRAWN)) model.value = drawnOver
+  drawn = null
+}
+
+usePointerDrag(surface, { start: onStart, move: onMove, end: onEnd, disabled: () => props.disabled, threshold: DRAG_THRESHOLD })
+
+defineExpose({ focus: () => surface.value?.focus() })
 
 function onDoubleClick(event: MouseEvent): void {
   if (props.disabled || !surface.value) return

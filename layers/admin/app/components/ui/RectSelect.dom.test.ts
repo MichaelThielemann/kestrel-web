@@ -134,6 +134,33 @@ describe('KestrelUiRectSelect', () => {
     wrapper.unmount()
   })
 
+  it('keeps the focus when a click or tap beside it jitters by a pixel', async () => {
+    const { wrapper, emitted } = await mountSelect({ x: 0.25, y: 0.25, w: 0.5, h: 0.5 })
+    const surface = wrapper.get('.ui-rect-select__surface').element
+    fakeBox(surface, 200, 100)
+
+    surface.dispatchEvent(pointer('pointerdown', 10, 8))
+    surface.dispatchEvent(pointer('pointermove', 11, 8))
+    surface.dispatchEvent(pointer('pointermove', 12, 9))
+    surface.dispatchEvent(pointer('pointerup', 12, 9))
+    await nextTick()
+    expect(emitted).toEqual([])
+    wrapper.unmount()
+  })
+
+  it('keeps the previous rectangle when the drawn one stays too small to be meant', async () => {
+    const { wrapper, last } = await mountSelect({ x: 0.25, y: 0.25, w: 0.5, h: 0.5 })
+    const surface = wrapper.get('.ui-rect-select__surface').element
+    fakeBox(surface, 200, 100)
+
+    surface.dispatchEvent(pointer('pointerdown', 10, 8))
+    surface.dispatchEvent(pointer('pointermove', 30, 8.5))
+    surface.dispatchEvent(pointer('pointerup', 30, 8.5))
+    await nextTick()
+    expectRect(last(), { x: 0.25, y: 0.25, w: 0.5, h: 0.5 })
+    wrapper.unmount()
+  })
+
   it('moves the rectangle when it is dragged by its body and resizes it by a handle', async () => {
     const { wrapper, last } = await mountSelect({ x: 0.1, y: 0.1, w: 0.2, h: 0.2 })
     const surface = wrapper.get('.ui-rect-select__surface').element
