@@ -10,6 +10,7 @@ import { resolveStorageTypes } from "../field-types";
 import type { FieldTypes } from "../field-types";
 import { isGenericCollection } from "./collections";
 import { layerBucket } from "./ratelimit-buckets";
+import { MEDIA_TRASH_RETENTION_KEY } from "./media-trash";
 import { anonymousFieldGrants, withConsumerGrants } from "./field-grants";
 import { mountedCollections, parentFieldOf, routedCollections } from "./paths";
 import type { PipelineChanges } from "./field-grants";
@@ -52,6 +53,8 @@ export interface PresetMediaPolicy {
   maxBytes?: number;
   allowedTypes?: string[];
   deniedTypes?: string[];
+  /** Days a deleted media item stays in the trash before the nightly run removes it for good; default 30. `0` turns the trash off: no trash pipelines, and deleting in the admin removes at once. */
+  trashRetentionDays?: number;
 }
 
 export interface PresetMfa {
@@ -172,6 +175,7 @@ const PAGES_COLLECTION = "pages";
 const PRESET_SOURCE = "preset";
 
 const DEFAULT_MEDIA_MAX_BYTES = 5 * 1024 * 1024;
+const DEFAULT_MEDIA_TRASH_RETENTION_DAYS = 30;
 const DEFAULT_MEDIA_ALLOWED_TYPES = ["image/*", "application/pdf"];
 const DEFAULT_MEDIA_DENIED_TYPES = ["text/html", "application/xhtml+xml"];
 const SVG_CONTENT_TYPE = "image/svg+xml";
@@ -191,6 +195,12 @@ export function withMediaListing(roles: Record<string, string[]>): Record<string
 function requireOption<T>(value: T | undefined, name: string): T {
   if (value === undefined) throw new Error(`presetModuleConfig: option "${name}" is required`);
   return value;
+}
+
+function trashRetention(media: PresetMediaPolicy | undefined): Record<string, number> {
+  const days = media?.trashRetentionDays ?? DEFAULT_MEDIA_TRASH_RETENTION_DAYS;
+  if (!Number.isInteger(days) || days < 0) throw new Error("presetModuleConfig: media.trashRetentionDays must be a whole number of days, 0 to turn the trash off");
+  return days === 0 ? {} : { [MEDIA_TRASH_RETENTION_KEY]: days };
 }
 
 function preset(use: string, values: Record<string, unknown>): ModuleEntry {
@@ -423,6 +433,7 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
     ...(model.locales === undefined ? {} : { locales: [...model.locales] }),
     ...(model.defaultLocale === undefined ? {} : { defaultLocale: model.defaultLocale }),
     ...publicCopy,
+    ...trashRetention(options.media),
   }));
 
   if (enabled.has("images")) {

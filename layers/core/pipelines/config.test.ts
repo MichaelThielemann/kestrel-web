@@ -77,6 +77,7 @@ describe("presetModuleConfig with the playground inputs", () => {
           locales: ["de", "en"],
           defaultLocale: "de",
           publicCopy: { prefix: "site/" },
+          trashRetentionDays: 30,
         }),
       },
       { use: "@michaelthielemann/kestrel-images-default", ...preset({ publicPath: "/media", publicCopy: { prefix: "site/" } }) },
@@ -263,6 +264,7 @@ describe("derived media locales", () => {
       locales: ["fr", "it"],
       defaultLocale: "it",
       publicCopy: { prefix: "site/" },
+      trashRetentionDays: 30,
     });
   });
 
@@ -276,6 +278,7 @@ describe("derived media locales", () => {
       deniedTypes: ["text/html", "application/xhtml+xml"],
       maxBytes: 5242880,
       publicCopy: { prefix: "site/" },
+      trashRetentionDays: 30,
     });
   });
 
@@ -622,6 +625,30 @@ describe("llms", () => {
   });
 });
 
+describe("media trash retention", () => {
+  it("keeps trashed media 30 days by default", () => {
+    expect(fieldOf(configFor(presetModuleConfig(playgroundOptions()), "media-default"), "trashRetentionDays")).toBe(30);
+  });
+
+  it("passes another number of days on to media-default", () => {
+    const modules = presetModuleConfig({ ...playgroundOptions(), media: { trashRetentionDays: 7 } });
+    expect(fieldOf(configFor(modules, "media-default"), "trashRetentionDays")).toBe(7);
+  });
+
+  it("leaves the key out at 0, which turns the trash off", () => {
+    const config = configFor(presetModuleConfig({ ...playgroundOptions(), media: { trashRetentionDays: 0 } }), "media-default");
+    expect(typeof config === "object" && config !== null && "trashRetentionDays" in config).toBe(false);
+  });
+
+  it("refuses a negative or fractional number of days", () => {
+    for (const days of [-1, 1.5, Number.NaN]) {
+      expect(() => presetModuleConfig({ ...playgroundOptions(), media: { trashRetentionDays: days } }), String(days)).toThrow(
+        "presetModuleConfig: media.trashRetentionDays must be a whole number of days, 0 to turn the trash off",
+      );
+    }
+  });
+});
+
 describe("options", () => {
   it("overrides the media policy, the login bucket and the session settings", () => {
     const modules = presetModuleConfig({
@@ -641,6 +668,7 @@ describe("options", () => {
       locales: ["de", "en"],
       defaultLocale: "de",
       publicCopy: { prefix: "site/" },
+      trashRetentionDays: 30,
     });
     expect(configFor(modules, "ratelimit-memory")).toEqual({ buckets: { login: { limit: 3, windowSeconds: 120 }, loginAccount: { limit: 10, windowSeconds: 300, maxBlockSeconds: 900, key: "username", field: "email", counts: "failures", knownDevices: { limit: 10, windowSeconds: 300, maxBlockSeconds: 900 } }, passwordCheck: { limit: 5, windowSeconds: 300, maxBlockSeconds: 900, key: "identity", counts: "failures" } }, deviceCookies: { secretKey: deviceKeys().secretKey, secure: false } });
     expect(configFor(modules, "authn-multi")).toEqual({
