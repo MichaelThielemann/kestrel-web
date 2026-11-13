@@ -820,11 +820,18 @@ Kit inventory:
 - `Alert.vue` — inline message box; `role="alert"` for warning/error, `role="status"` otherwise.
 - `Brand.vue` — the decorative product mark.
 - `Button.vue` — every button and button-shaped link (`to` renders a `NuxtLink`).
+- `BulkBar.vue` — the toolbar shown while rows or tiles are selected: the count as a polite status that
+  also names the toolbar, an `extra` slot (e.g. "select all on this page"), the actions in the default slot
+  and a clear button last, with an optional shortcut in its tooltip and `aria-keyshortcuts`.
 - `ButtonGroup.vue` — segmented single- or multi-select toggle group.
 - `Checkbox.vue` / `CheckboxGroup.vue` — native checkbox with indeterminate support; a group bound to `string[]`.
+  `standalone` wraps a checkbox that no other label wraps (a table cell, a tile) in a label with a
+  24 × 24 px click target; the caller's attributes stay on the input either way.
 - `Combobox.vue` — searchable single/multi select with reorderable selection.
 - `DatePicker.vue` / `DateRangePicker.vue` / `TimeInput.vue` — ISO date, date-range and time entry.
-- `Dialog.vue` — modal with title, optional description, footer slot and `md|lg|xl|screen` sizes.
+- `Dialog.vue` — modal with title, optional description, footer slot and `md|lg|xl|screen` sizes. It
+  re-emits `openAutoFocus` (prevent it and focus another element to choose where focus starts) and
+  `escapeKeyDown` (prevent it to keep the dialog open, e.g. while Escape first clears a selection).
 - `EmptyState.vue` — empty-list placeholder with an optional action slot.
 - `Field.vue` / `Fieldset.vue` — label, hint and error wrappers that hand `id` and `aria-*` to the control slot.
 - `FileInput.vue` — hidden file picker; `open()` opens it, `select` emits the chosen `File[]`.
@@ -847,7 +854,11 @@ Kit inventory:
   inlined in a card: no frame, no header fill, no row hover) and its sortable column header.
 - `Textarea.vue` — multi-line text input.
 - `TextInput.vue` — single-line input with optional leading icon and password reveal.
-- `Toasts.vue` — the toast host with its polite/assertive live regions.
+- `Toasts.vue` — the toast host with its polite/assertive live regions. `useToast().push(type, message,
+  { timeout, action: { label, run } })` adds a button that runs the action and dismisses the toast; a
+  bare number as the third argument is still the timeout. A toast's timeout pauses while the pointer
+  rests on it or focus is inside it, the timer is cleared on dismiss and when the host unmounts, and
+  over the limit of four the oldest toast without an action goes first.
 - `Tooltip.vue` — hover and focus tooltip.
 
 Adding a variant: extend the kit component rather than dropping back to a raw element. A button variant is
