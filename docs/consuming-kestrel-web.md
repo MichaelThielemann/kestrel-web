@@ -1821,6 +1821,19 @@ export (§4, the `delivery` notes), and the export runs on its own.
 A failed export never fails a save and never stops a render; the queue retries it, and its outcome (time,
 entries, error, skipped) is shown under System → Delivery.
 
+**Leftover page files.** On a database from an earlier version, `resumeStalePages` removes once the page files
+under `site/` that no page owns: every `index.<ext>` at a path that no published page has, such as the files an
+older version left behind after a failed render followed by a slug change. It starts only after
+`deliveryBuildCheck` ran in the process, while no page waits for a render or renders, and while every published
+page has rendered output; one run records the paths and a run at least `claimTtlSeconds` later removes those
+still unowned, logging each file. A new database never runs it. The root `index.<ext>`, every file that is not
+a page file (media copies, `robots.txt`, `sitemap.xml`, the llms files, `redirects.json`, `_nuxt/`), paths
+under `reservedPaths` and directories that hold a `robots.txt`, `sitemap.xml` or `llms.txt` of their own stay.
+Pages you placed under `site/` yourself, such as an uploaded microsite or an older export, are removed unless
+their path is reserved. The preset reserves `/api`, `/admin` and `/media`, and an override replaces that list
+instead of adding to it, so name all three with your own:
+`overrides: { "@michaelthielemann/kestrel-delivery-static": { reservedPaths: ["/api", "/admin", "/media", "/microsite"] } }`.
+
 **Site URL.** `NUXT_PUBLIC_SITE_URL` is the public site's absolute `http` or `https` URL, with a base path when
 the site lives below the host's root (`https://example.org/site`), and the only place the site URL is set.
 The pages read it as the runtime config `public.siteUrl` for their canonical link, `og:url` and `og:image`;
@@ -2329,8 +2342,10 @@ What changes:
   all four current (§8, "Index files"). Set `NUXT_PUBLIC_SITE_URL` before the first start, or pages carry no
   canonical link and no sitemap is written, and decide the robots policy: without `robots.policy` a
   production build allows crawlers, `nuxt dev` keeps them out, and a `robots.txt` of your own in
-  `public/` or at the web server now competes with the exported one (`robots: false` keeps yours). The upgrade
-  tool covers the rest:
+  `public/` or at the web server now competes with the exported one (`robots: false` keeps yours). Pages you
+  placed under `site/` yourself are removed once by the first runs of `resumeStalePages` unless their path is
+  in `reservedPaths` (§8, "Leftover page files"); reserve them before the first start. The upgrade tool covers
+  the rest:
   - kestrel's `delivery/site-url` moves `llms.siteUrl` of a hand-written `kestrel-delivery-static` entry to
     its top-level `siteUrl`; take that value from `NUXT_PUBLIC_SITE_URL` (§3, "What the builder expands
     to"). `presetModuleConfig({ llms: { siteUrl } })` throws, since the preset takes the site URL only from

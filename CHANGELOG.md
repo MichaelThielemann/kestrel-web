@@ -237,6 +237,13 @@
   crawlers. A staging server that runs a production build needs `disallow` (`KESTREL_ROBOTS_POLICY=disallow`
   with `envRobots()`). A `robots.txt` of your own, served from `public/` or by the web server, competes with the
   exported one; `robots: false` keeps yours.
+- On a database from 2.x, the first runs of `resumeStalePages` (cron `*/5`, once `deliveryBuildCheck` ran)
+  remove once every page file (`index.<ext>`) under `site/` at a path no page owns, logging each file: the
+  files an older version left behind after a failed render followed by a slug change, but also pages placed
+  there by hand, such as an uploaded microsite or an older export. Paths under delivery-static's
+  `reservedPaths` stay; the preset reserves `/api`, `/admin` and `/media`, and an override of `reservedPaths`
+  replaces those three, so list them with your own:
+  `overrides: { "@michaelthielemann/kestrel-delivery-static": { reservedPaths: ["/api", "/admin", "/media", "/microsite"] } }`.
 - `presetModuleConfig({ llms: { siteUrl } })` throws: the site URL comes only from `NUXT_PUBLIC_SITE_URL`.
   With `delivery`, `NUXT_PUBLIC_SITE_URL` must be an absolute `http` or `https` URL without credentials, a
   query or a fragment, or the config does not load (`presetModuleConfig: NUXT_PUBLIC_SITE_URL "…" is not a
