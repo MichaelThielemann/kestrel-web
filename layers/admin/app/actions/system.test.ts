@@ -2,6 +2,7 @@ import type { ApiErrorDetails, AdminSchema } from '#kestrel-admin/types/api'
 import { describe, expect, it, vi } from 'vitest'
 import { runAction } from '#kestrel-core/app/utils/actions'
 import { humanizeSize } from '../utils/library'
+import { ApiError } from '../composables/useApi'
 import {
   eventsRetryAll,
   eventsRetryOne,
@@ -33,6 +34,12 @@ const CODE_OF: Record<number, string> = {
   400: 'VALIDATION', 401: 'UNAUTHENTICATED', 403: 'FORBIDDEN', 404: 'NOT_FOUND', 409: 'CONFLICT',
   413: 'PAYLOAD_TOO_LARGE', 415: 'UNSUPPORTED', 429: 'RATE_LIMITED', 500: 'INTERNAL', 503: 'TRANSIENT',
 }
+
+const unreachedError = (status: number, requestId: string) =>
+  new ApiError(status, 'Request failed', 'INTERNAL', false, undefined, undefined, undefined, { requestId, reached: false })
+
+const unreachedFailure = (message: string, reference: string) =>
+  `error.withHint:${JSON.stringify({ message, hint: `error.unreached:${JSON.stringify({ reference })}` })}`
 
 const apiError = (status: number, message: string, details?: ApiErrorDetails) => Object.assign(new Error(message), {
   status,
@@ -133,6 +140,15 @@ describe('publishAll', () => {
     expect(result.ok).toBe(false)
     expect(toast.error).toHaveBeenCalledWith(referencedFailure('delivery.failed', 500))
   })
+
+  it('names what failed when the request did not reach the server', async () => {
+    const { deps, toast } = fakeDeps([unreachedError(502, 'f0e1d2c3b4a5')])
+    const { ops } = fakeOps()
+
+    await runAction(publishAll, { deps, ops })
+
+    expect(toast.error).toHaveBeenCalledWith(unreachedFailure('delivery.failed', 'HTTP 502 · error.id:{"id":"f0e1d2c3b4a5"}'), 0)
+  })
 })
 
 describe('retryStale', () => {
@@ -201,6 +217,15 @@ describe('exportMedia', () => {
 
     expect(result.ok).toBe(false)
     expect(toast.error).toHaveBeenCalledWith(referencedFailure('delivery.exportFailed', 500))
+  })
+
+  it('names the export as what failed when the request did not reach the server', async () => {
+    const { deps, toast } = fakeDeps([unreachedError(502, 'f0e1d2c3b4a5')])
+    const { ops } = fakeOps()
+
+    await runAction(exportMedia, { deps, ops })
+
+    expect(toast.error).toHaveBeenCalledWith(unreachedFailure('delivery.exportFailed', 'HTTP 502 · error.id:{"id":"f0e1d2c3b4a5"}'), 0)
   })
 })
 

@@ -76,7 +76,7 @@ export function useListRows(opts: ListRowsOptions): {
       await loadFallbackTitles(res.items, locale, offset, mine)
     } catch (e) {
       if (mine !== seq) return
-      error.value = apiErrorMessage(e) || t('list.loadError')
+      error.value = apiErrorText(t, e) || t('list.loadError')
     }
   }
 

@@ -2,7 +2,7 @@ import { boundaryCast } from '#kestrel/cast'
 import type { ApiRoute } from '../utils/capabilities'
 import { apiUrl } from '../utils/capabilities'
 import { newRequestId, REQUEST_ID_HEADER } from '../utils/request-id'
-import { ApiError, toApiError } from './useApi'
+import { answeredByServer, ApiError, toApiError } from './useApi'
 
 export interface UploadProgress { loaded: number; total: number; percent: number }
 
@@ -20,8 +20,9 @@ export interface UploadRequestOptions {
 export type UploadTransport = <T>(route: ApiRoute, body: FormData, options?: UploadRequestOptions) => Promise<T>
 
 /**
- * An upload that failed without an error answer from kestrel: no answer at all (`NETWORK`, `ABORTED`, `TIMEOUT`
- * with status 0), or an answer without kestrel's JSON error body, such as a proxy or gateway page. Its code is
+ * An upload that failed without an answer from kestrel or the host server: no answer at all (`NETWORK`, `ABORTED`,
+ * `TIMEOUT` with status 0), or an answer with neither a JSON object body nor the `x-kestrel-run-id` header, such as
+ * a proxy or gateway page. Its code is
  * `PAYLOAD_TOO_LARGE` (413), `TIMEOUT` (408, 504), `UNAVAILABLE` (502, 503) or `HTTP`; `status` keeps the HTTP status.
  * A 2xx answer whose body is not a JSON object, or that arrived after a redirect away from the requested address
  * (a sign-in or block page), is an `HTTP` failure too. `reached` is false.
@@ -45,11 +46,6 @@ function parseJsonBody(text: string): unknown {
   }
 }
 
-function isKestrelErrorBody(data: unknown): boolean {
-  return typeof data === 'object' && data !== null && 'code' in data && typeof data.code === 'string'
-    && 'error' in data && typeof data.error === 'string'
-}
-
 function isJsonObject(data: unknown): data is object {
   return typeof data === 'object' && data !== null && !Array.isArray(data)
 }
@@ -59,9 +55,10 @@ function redirectedAway(xhr: XMLHttpRequest, requested: string): boolean {
   return new URL(xhr.responseURL).href !== new URL(requested, window.location.href).href
 }
 
-function errorAnswer(status: number, statusText: string, data: unknown, requestId: string): ApiError {
-  if (isKestrelErrorBody(data)) return toApiError({ status, data }, { requestId })
-  return transportError(status, statusText || `HTTP ${status}`, UPSTREAM_CODES[status] ?? 'HTTP', requestId)
+function errorAnswer(xhr: XMLHttpRequest, data: unknown, requestId: string): ApiError {
+  const message = xhr.statusText || `HTTP ${xhr.status}`
+  if (answeredByServer(data, xhr.getResponseHeader('x-kestrel-run-id'))) return toApiError({ status: xhr.status, data, message }, { requestId, reached: true })
+  return transportError(xhr.status, message, UPSTREAM_CODES[xhr.status] ?? 'HTTP', requestId)
 }
 
 export function useUploadTransport(): UploadTransport {
@@ -97,7 +94,7 @@ export function useUploadTransport(): UploadTransport {
         const success = xhr.status >= 200 && xhr.status < 300
         if (success && isJsonObject(data) && !redirectedAway(xhr, url)) resolve(boundaryCast<T>(data, 'json'))
         else if (success) reject(transportError(xhr.status, xhr.statusText || `HTTP ${xhr.status}`, 'HTTP', requestId))
-        else reject(errorAnswer(xhr.status, xhr.statusText, data, requestId))
+        else reject(errorAnswer(xhr, data, requestId))
       })
       xhr.onerror = () => settle(() => reject(transportError(0, 'Network error', 'NETWORK', requestId)))
       xhr.onabort = () => settle(() => reject(transportError(0, 'Upload aborted', 'ABORTED', requestId)))

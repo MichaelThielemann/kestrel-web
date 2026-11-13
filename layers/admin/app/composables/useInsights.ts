@@ -31,10 +31,11 @@ export function useInsights() {
   const api = useAdminApi()
   const capabilities = useCapabilities()
   const state = useState<InsightsState>(INSIGHTS_STATE_KEY, emptyInsightsState)
+  const { t } = useT()
 
   function fail(e: unknown) {
     state.value.availability = availabilityOf(apiErrorStatus(e), apiErrorCode(e))
-    state.value.error = apiErrorMessage(e)
+    state.value.error = apiErrorText(t, e)
   }
 
   async function loadManifest(force = false): Promise<InsightsManifest | null> {
@@ -62,7 +63,7 @@ export function useInsights() {
       if (state.value.availability !== 'ok') {
         fail(e)
       } else {
-        state.value.statsError = apiErrorMessage(e)
+        state.value.statsError = apiErrorText(t, e)
       }
       return null
     }

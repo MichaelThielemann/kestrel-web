@@ -1,7 +1,7 @@
 import { computed, ref } from 'vue'
 import type { PageTreeNode } from '#kestrel-admin/types/api'
 import type { ActionDeps } from '../actions/types'
-import { apiErrorMessage } from './useApi'
+import { apiErrorText } from './useApi'
 
 /** One row of the page tree as it renders: the node, its depth, its place among its siblings and its sorted children's ids. */
 export interface PageTreeRow {
@@ -65,7 +65,7 @@ export function childrenByParent(nodes: readonly PageTreeNode[]): Map<string | n
 }
 
 /** The pages of a collection with a parent field as a tree, and which of its branches stay open while the browser tab lives. */
-export function usePageTree(deps: Pick<ActionDeps, 'api' | 'capabilities'>, collection: string) {
+export function usePageTree(deps: Pick<ActionDeps, 'api' | 'capabilities' | 't'>, collection: string) {
   const nodes = ref<PageTreeNode[]>([])
   const loading = ref(false)
   const error = ref('')
@@ -79,7 +79,7 @@ export function usePageTree(deps: Pick<ActionDeps, 'api' | 'capabilities'>, coll
     try {
       nodes.value = await deps.api<PageTreeNode[]>(deps.capabilities.verbRoute(collection, 'tree'))
     } catch (e) {
-      error.value = apiErrorMessage(e)
+      error.value = apiErrorText(deps.t, e)
     } finally {
       loading.value = false
     }

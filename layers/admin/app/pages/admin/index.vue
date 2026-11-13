@@ -41,7 +41,7 @@ async function loadCounts() {
           c.countError = null
         } catch (e) {
           c.count = null
-          c.countError = apiErrorMessage(e)
+          c.countError = apiErrorText(t, e)
         }
       }),
     capabilities.has('listMedia')
@@ -51,7 +51,7 @@ async function loadCounts() {
             mediaCountError.value = null
           } catch (e) {
             mediaCount.value = null
-            mediaCountError.value = apiErrorMessage(e)
+            mediaCountError.value = apiErrorText(t, e)
           }
         })()
       : Promise.resolve(),
@@ -62,7 +62,7 @@ async function loadCounts() {
             usersCountError.value = null
           } catch (e) {
             usersCount.value = null
-            usersCountError.value = apiErrorMessage(e)
+            usersCountError.value = apiErrorText(t, e)
           }
         })()
       : Promise.resolve(),
@@ -79,7 +79,7 @@ async function loadBroken() {
     brokenError.value = null
   } catch (e) {
     brokenCount.value = 0
-    brokenError.value = apiErrorMessage(e)
+    brokenError.value = apiErrorText(t, e)
   }
 }
 

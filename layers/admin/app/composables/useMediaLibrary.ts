@@ -114,7 +114,7 @@ export function useMediaLibrary(opts: { urlSync?: boolean; accept?: 'image' | 'a
       checkFolder()
     } catch (e) {
       if (my !== token) return
-      error.value = apiErrorMessage(e)
+      error.value = apiErrorText(t, e)
     } finally {
       if (my === token) loading.value = false
     }

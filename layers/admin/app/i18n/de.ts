@@ -85,6 +85,8 @@ export const de: Record<CatalogKey, string> = {
   'error.id': 'Fehler-ID {id}',
   'error.noAnswer': 'keine Antwort',
   'error.unreached': 'Die Anfrage hat den Server nicht erreicht oder wurde vorher abgelehnt ({reference})',
+  'error.lateAnswer': 'Keine Antwort in der vorgesehenen Zeit; der Server hat die Anfrage womöglich trotzdem verarbeitet ({reference})',
+  'error.withHint': '{message}. {hint}',
   'error.idCopy': 'Fehler-ID {id} kopieren',
   'error.idCopied': 'Fehler-ID kopiert',
   'error.idCopyFailed': 'Die Fehler-ID konnte nicht kopiert werden.',
@@ -697,7 +699,7 @@ export const de: Record<CatalogKey, string> = {
   'media.upload.timeout': 'Der Server hat zu lange nicht geantwortet',
   'media.upload.unavailable': 'Der Server ist gerade nicht erreichbar',
   'media.upload.unsupported': 'Dateityp nicht erlaubt',
-  'media.upload.rejectedTooLarge': 'Als zu groß abgelehnt',
+  'media.upload.rejectedTooLarge': 'Datei zu groß für den Proxy',
   'media.upload.unreached': '{cause}. {detail}',
   'media.upload.failedDetail': 'Upload fehlgeschlagen — {detail}',
   'media.upload.cancelled': 'Abgebrochen',
@@ -846,6 +848,7 @@ export const de: Record<CatalogKey, string> = {
 
   'refs.rebuild': 'Neu prüfen',
   'refs.rebuildDone': '{documents} Dokument(e), {entries} Referenz(en) geprüft.',
+  'refs.rebuildFailed': 'Die Referenzen konnten nicht geprüft werden.',
   'refs.colField': 'Feld',
 
   'references.links.title': 'Fehlerhafte Links',
@@ -855,6 +858,7 @@ export const de: Record<CatalogKey, string> = {
   'references.links.colUrl': 'URL',
   'references.links.colStatus': 'Status',
   'references.links.rebuildDone': '{documents} Dokument(e), {entries} Link(s) geprüft.',
+  'references.links.rebuildFailed': 'Die Links konnten nicht geprüft werden.',
 
   'mediaViewer.textsTitle': 'Texte',
   'mediaViewer.titleLabel': 'Titel',

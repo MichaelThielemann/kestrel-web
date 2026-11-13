@@ -25,7 +25,7 @@ async function load() {
       loadError.value = null
     } else {
       notFound.value = false
-      loadError.value = apiErrorMessage(e)
+      loadError.value = apiErrorText(t, e)
     }
   } finally {
     inFlight = false

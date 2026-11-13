@@ -1,5 +1,5 @@
 import { LAYER_ROUTES } from '#kestrel-core/fixed-routes'
-import { apiErrorMessage } from './useApi'
+import { apiErrorText } from './useApi'
 import { useAdminApi } from './useAdminApi'
 
 export interface UploadLimitState {
@@ -19,6 +19,7 @@ export function nextLimitState(previous: UploadLimitState, outcome: LimitFetchOu
 
 export function useUploadLimit() {
   const api = useAdminApi()
+  const { t } = useT()
   const maxUploadBytes = useState<number | null>('kestrel-upload-limit', () => null)
   const fetched = useState<boolean>('kestrel-upload-limit-fetched', () => false)
   const limitError = useState<string | null>('kestrel-upload-limit-error', () => null)
@@ -30,7 +31,7 @@ export function useUploadLimit() {
       const r = await api<{ maxUploadBytes: number | null }>(LAYER_ROUTES.limits)
       outcome = { ok: true, maxUploadBytes: r.maxUploadBytes }
     } catch (e) {
-      outcome = { ok: false, message: apiErrorMessage(e) }
+      outcome = { ok: false, message: apiErrorText(t, e) }
     }
     const next = nextLimitState({ maxUploadBytes: maxUploadBytes.value, fetched: fetched.value, limitError: limitError.value }, outcome)
     maxUploadBytes.value = next.maxUploadBytes

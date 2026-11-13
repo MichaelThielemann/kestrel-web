@@ -32,7 +32,7 @@ async function submit() {
     toast.success(t('account.password.success'))
     open.value = false
   } catch (e) {
-    error.value = apiErrorMessage(e)
+    error.value = apiErrorText(t, e)
   } finally {
     busy.value = false
   }

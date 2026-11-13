@@ -34,7 +34,7 @@ async function load() {
     points.value = p
   } catch (e) {
     if (apiErrorCode(e) === 'NOT_FOUND') notFound.value = true
-    else loadError.value = apiErrorMessage(e)
+    else loadError.value = apiErrorText(t, e)
   }
 }
 await load()

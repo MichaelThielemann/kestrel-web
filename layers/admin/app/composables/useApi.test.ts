@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import * as useApiModule from './useApi'
-import { ApiError, apiErrorCode, apiErrorMessage, apiErrorRetryable, apiErrorRunId, apiErrorStatus, failureText, retryableMessage, toApiError } from './useApi'
+import { answeredByServer, ApiError, apiErrorCode, apiErrorMessage, apiErrorRetryable, apiErrorRunId, apiErrorStatus, apiErrorText, failureText, retryableMessage, toApiError } from './useApi'
 
 describe('useApi.ts exports', () => {
   it('never exports mediaFileUrl, which would build a download URL without the downloadMedia capability', () => {
@@ -94,6 +94,12 @@ describe('toApiError on a failed request', () => {
     expect(err.reached).toBe(true)
   })
 
+  it('never takes a non-string error field of a host server answer as the message', () => {
+    const err = toApiError({ status: 500, data: { error: true, statusCode: 500, message: 'Server Error' }, message: '[POST] "/api/media": 500 Server Error', options: sent('aaaaaaaaaaaa'), response: answer() })
+    expect(err.reached).toBe(true)
+    expect(err.message).toBe('[POST] "/api/media": 500 Server Error')
+  })
+
   it('takes a trace passed by the caller over what the error carries', () => {
     const err = toApiError({ status: 400, data: { error: 'bad', code: 'VALIDATION' } }, { requestId: 'given-id' })
     expect(err.requestId).toBe('given-id')
@@ -101,8 +107,39 @@ describe('toApiError on a failed request', () => {
   })
 })
 
+describe('answeredByServer', () => {
+  it('counts a JSON object body or a run id header as an answer of kestrel or the host server', () => {
+    expect(answeredByServer({ error: true }, null)).toBe(true)
+    expect(answeredByServer(undefined, 'run-1')).toBe(true)
+    expect(answeredByServer('<html>502</html>', null)).toBe(false)
+    expect(answeredByServer(undefined, undefined)).toBe(false)
+    expect(answeredByServer(['a'], null)).toBe(false)
+  })
+})
+
 describe('failureText', () => {
   const t = (key: string, params?: Record<string, unknown>) => (params ? `${key}:${JSON.stringify(params)}` : key)
+
+  const id = (value: string) => t('error.id', { id: value })
+
+  it('keeps what failed in front of the note that the request did not reach the server', () => {
+    expect(failureText(t, 'delivery.failed.', { status: 502, requestId: 'f0e1d2c3b4a5', reached: false }))
+      .toBe(t('error.withHint', { message: 'delivery.failed', hint: t('error.unreached', { reference: `HTTP 502 · ${id('f0e1d2c3b4a5')}` }) }))
+  })
+
+  it('says that the server may still have processed a request whose answer did not come in time', () => {
+    expect(failureText(t, '', { status: 504, requestId: 'f0e1d2c3b4a5', reached: false }))
+      .toBe(t('error.lateAnswer', { reference: `HTTP 504 · ${id('f0e1d2c3b4a5')}` }))
+    expect(failureText(t, '', { status: 0, code: 'TIMEOUT', requestId: '0a0b0c0d0e0f', reached: false }))
+      .toBe(t('error.lateAnswer', { reference: id('0a0b0c0d0e0f') }))
+    expect(failureText(t, '', { status: 408, code: 'TIMEOUT', reached: false }))
+      .toBe(t('error.unreached', { reference: 'HTTP 408' }))
+  })
+
+  it('drops a trailing period of the message in front of the reference', () => {
+    expect(failureText(t, 'Save failed.', { status: 500, requestId: 'a1b2c3d4e5f6' }))
+      .toBe(t('error.withReference', { message: 'Save failed', reference: `HTTP 500 · ${id('a1b2c3d4e5f6')}` }))
+  })
 
   it('appends the HTTP status and the error id to the message of an answered request', () => {
     expect(failureText(t, 'conflict', { status: 409, requestId: 'a1b2c3d4e5f6' }))
@@ -120,5 +157,18 @@ describe('failureText', () => {
     expect(failureText(t, 'boom', { status: 500, runId: 'run-3' })).toBe('error.withReference:{"message":"boom","reference":"HTTP 500 · error.id:{\\"id\\":\\"run-3\\"}"}')
     expect(failureText(t, 'boom', {})).toBe('boom')
     expect(failureText(t, 'boom', { status: 400 })).toBe('error.withReference:{"message":"boom","reference":"HTTP 400"}')
+  })
+})
+
+describe('apiErrorText', () => {
+  const t = (key: string, params?: Record<string, unknown>) => (params ? `${key}:${JSON.stringify(params)}` : key)
+
+  it('shows the message of an answered request unchanged', () => {
+    expect(apiErrorText(t, { status: 404, data: { error: 'not found' } })).toBe('not found')
+  })
+
+  it('shows the translated note with the status and the id when the request did not reach the server', () => {
+    const err = new ApiError(502, 'Request failed', 'INTERNAL', false, undefined, undefined, undefined, { requestId: 'f0e1d2c3b4a5', reached: false })
+    expect(apiErrorText(t, err)).toBe(t('error.unreached', { reference: `HTTP 502 · ${t('error.id', { id: 'f0e1d2c3b4a5' })}` }))
   })
 })

@@ -38,13 +38,14 @@ describe('notify steps', () => {
     expect(toast.error).toHaveBeenCalledWith('delivery.failed')
   })
 
-  it('toast.error names the HTTP status and the error id, and keeps such a toast long enough to copy the id', async () => {
+  it('toast.error names the HTTP status and the error id, and keeps such a toast until it is dismissed', async () => {
     const { deps, toast } = fakeDeps()
     const action = defineAction<WithDeps>({ name: 'n', steps: [toastError<WithDeps>(() => ({ message: 'boom', status: 409, requestId: 'a1b2c3d4e5f6' }))] })
 
     await runAction(action, { deps })
 
-    expect(toast.error).toHaveBeenCalledWith('error.withReference:{"message":"boom","reference":"HTTP 409 · error.id:{\\"id\\":\\"a1b2c3d4e5f6\\"}"}', FAILURE_TOAST_MS)
+    expect(toast.error).toHaveBeenCalledWith('error.withReference:{"message":"boom","reference":"HTTP 409 · error.id:{\\"id\\":\\"a1b2c3d4e5f6\\"}"}', 0)
+    expect(FAILURE_TOAST_MS).toBe(0)
   })
 
   it('toast.error falls back to the run id when the request id is unknown', async () => {

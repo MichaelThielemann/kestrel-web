@@ -8,6 +8,7 @@ import { copyTranslation, deleteRecord, deleteTranslation, discardRecord, leaveE
 import type { ActionDeps, EditFormPort } from './types'
 import type { RowErrorMap } from '../utils/row-errors'
 import { fakeDeps, referencedFailure } from './__fixtures__/fake-deps'
+import { ApiError } from '../composables/useApi'
 
 type RelayEntry = EventRelayStatus['pipelines'][number]
 
@@ -204,6 +205,17 @@ describe('saveRecord', () => {
     const failureForm = fakeForm()
     await runAction(saveRecord, { deps: failure.deps, form: failureForm.form })
     expect(failureForm.state.formError).toBe(referencedFailure('editor.saveFailed', 500))
+  })
+
+  it('toasts the form error of a failed save, with its error id, until it is dismissed', async () => {
+    const refusal = new ApiError(500, '', 'INTERNAL', false, undefined, undefined, undefined, { requestId: 'a1b2c3d4e5f6' })
+    const { deps, toast } = fakeDeps([refusal])
+    const { form, state } = fakeForm()
+
+    await runAction(saveRecord, { deps, form })
+
+    expect(state.formError).toBe(referencedFailure('editor.saveFailed', 500, 'a1b2c3d4e5f6'))
+    expect(toast.error).toHaveBeenCalledWith(state.formError, 0)
   })
 
   it('passes the response through untouched', async () => {

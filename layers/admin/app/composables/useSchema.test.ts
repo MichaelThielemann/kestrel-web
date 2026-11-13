@@ -4,6 +4,7 @@ import { boundaryCast } from '#kestrel/cast'
 import { LAYER_ROUTES } from '#kestrel-core/fixed-routes'
 import type { ApiClient } from '../actions/types'
 import type { ApiRoute } from '../utils/capabilities'
+import { ApiError } from './useApi'
 import { loadSchemaInto, refreshSchemaInto, type SchemaOutcome, type SchemaState } from './useSchema'
 
 const schema: AdminSchema = {
@@ -14,6 +15,8 @@ const schema: AdminSchema = {
 }
 
 const updatedSchema: AdminSchema = { ...schema, features: ['delivery', 'references'] }
+
+const echo = (key: string, params?: Record<string, unknown>) => (params ? `${key}:${JSON.stringify(params)}` : key)
 
 function fakeState(generation = 0): { value: SchemaState } {
   return { value: { schema: null, error: null, generation } }
@@ -40,7 +43,7 @@ describe('loadSchemaInto', () => {
     const state = fakeState()
     const { api } = fakeApi(apiError(403, 'this account has no role'))
 
-    expect(await loadSchemaInto(state, api, scope())).toBe('forbidden')
+    expect(await loadSchemaInto(state, api, scope(), echo)).toBe('forbidden')
     expect(state.value.forbidden).toBe(true)
     expect(state.value.error).toBeNull()
     expect(state.value.schema).toBeNull()
@@ -50,8 +53,8 @@ describe('loadSchemaInto', () => {
     const state = fakeState()
     const { api, routes } = fakeApi(schema)
 
-    expect(await loadSchemaInto(state, api, scope())).toBe('ok')
-    expect(await loadSchemaInto(state, api, scope())).toBe('ok')
+    expect(await loadSchemaInto(state, api, scope(), echo)).toBe('ok')
+    expect(await loadSchemaInto(state, api, scope(), echo)).toBe('ok')
 
     expect(routes).toEqual([LAYER_ROUTES.schema])
     expect(state.value.schema).toEqual(schema)
@@ -62,9 +65,9 @@ describe('loadSchemaInto', () => {
     const state = fakeState()
     const { api, routes } = fakeApi(schema)
 
-    await loadSchemaInto(state, api, scope())
+    await loadSchemaInto(state, api, scope(), echo)
     state.value = { schema: null, error: null, generation: state.value.generation + 1 }
-    await loadSchemaInto(state, api, scope())
+    await loadSchemaInto(state, api, scope(), echo)
 
     expect(routes).toEqual([LAYER_ROUTES.schema, LAYER_ROUTES.schema])
   })
@@ -73,7 +76,7 @@ describe('loadSchemaInto', () => {
     const state = fakeState()
     const { api } = fakeApi(apiError(401, 'unauthenticated'))
 
-    expect(await loadSchemaInto(state, api, scope())).toBe('unauthenticated')
+    expect(await loadSchemaInto(state, api, scope(), echo)).toBe('unauthenticated')
     expect(state.value.schema).toBeNull()
     expect(state.value.error).toBeNull()
   })
@@ -82,9 +85,17 @@ describe('loadSchemaInto', () => {
     const state = fakeState()
     const { api } = fakeApi(apiError(503, 'database is busy'))
 
-    expect(await loadSchemaInto(state, api, scope())).toBe('failed')
+    expect(await loadSchemaInto(state, api, scope(), echo)).toBe('failed')
     expect(state.value.schema).toBeNull()
     expect(state.value.error).toBe('database is busy')
+  })
+
+  it('shows the translated note with the status and the error id when the request did not reach the server', async () => {
+    const state = fakeState()
+    const { api } = fakeApi(new ApiError(502, 'Request failed', 'INTERNAL', false, undefined, undefined, undefined, { requestId: 'f0e1d2c3b4a5', reached: false }))
+
+    expect(await loadSchemaInto(state, api, scope(), echo)).toBe('failed')
+    expect(state.value.error).toBe(echo('error.unreached', { reference: `HTTP 502 · ${echo('error.id', { id: 'f0e1d2c3b4a5' })}` }))
   })
 
   it('retries after a failure, since nothing was cached', async () => {
@@ -92,8 +103,8 @@ describe('loadSchemaInto', () => {
     const failing = fakeApi(apiError(500, 'boom'))
     const succeeding = fakeApi(schema)
 
-    expect(await loadSchemaInto(state, failing.api, scope())).toBe('failed')
-    expect(await loadSchemaInto(state, succeeding.api, scope())).toBe('ok')
+    expect(await loadSchemaInto(state, failing.api, scope(), echo)).toBe('failed')
+    expect(await loadSchemaInto(state, succeeding.api, scope(), echo)).toBe('ok')
 
     expect(succeeding.routes).toEqual([LAYER_ROUTES.schema])
     expect(state.value.error).toBeNull()
@@ -109,8 +120,8 @@ describe('loadSchemaInto', () => {
       return new Promise<AdminSchema>((resolve) => { release = resolve }).then((value) => boundaryCast<T>(value, 'json'))
     }
 
-    const first = loadSchemaInto(state, api, here)
-    const second = loadSchemaInto(state, api, here)
+    const first = loadSchemaInto(state, api, here, echo)
+    const second = loadSchemaInto(state, api, here, echo)
     release(schema)
 
     expect(await first).toBe('ok')
@@ -123,8 +134,8 @@ describe('loadSchemaInto', () => {
     const here = scope()
     const { api, routes } = fakeApi(apiError(500, 'boom'))
 
-    await Promise.all([loadSchemaInto(state, api, here), loadSchemaInto(state, api, here)])
-    await loadSchemaInto(state, api, here)
+    await Promise.all([loadSchemaInto(state, api, here, echo), loadSchemaInto(state, api, here, echo)])
+    await loadSchemaInto(state, api, here, echo)
 
     expect(routes).toEqual([LAYER_ROUTES.schema, LAYER_ROUTES.schema])
   })
@@ -134,7 +145,7 @@ describe('loadSchemaInto', () => {
     state.value = { schema, error: null, generation: 0 }
     const api = vi.fn()
 
-    expect(await loadSchemaInto(state, api, scope())).toBe('ok')
+    expect(await loadSchemaInto(state, api, scope(), echo)).toBe('ok')
     expect(api).not.toHaveBeenCalled()
   })
 
@@ -144,7 +155,7 @@ describe('loadSchemaInto', () => {
     let release: (value: AdminSchema) => void = () => {}
     const api: ApiClient = <T>(): Promise<T> => new Promise<AdminSchema>((resolve) => { release = resolve }).then((value) => boundaryCast<T>(value, 'json'))
 
-    const load = loadSchemaInto(state, api, here)
+    const load = loadSchemaInto(state, api, here, echo)
     state.value = { schema: null, error: null, generation: state.value.generation + 1 }
     release(schema)
     await load

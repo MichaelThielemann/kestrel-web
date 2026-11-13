@@ -13,7 +13,7 @@ try {
   status.value = await api<EventDeliveryStatus>(capabilities.route('eventsDeliveryStatus'))
 } catch (e) {
   if (apiErrorCode(e) === 'NOT_FOUND') notFound.value = true
-  else loadError.value = apiErrorMessage(e)
+  else loadError.value = apiErrorText(t, e)
 }
 </script>
 

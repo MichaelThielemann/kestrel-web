@@ -1,8 +1,8 @@
 import { LAYER_ROUTES } from '#kestrel-core/fixed-routes'
 import type { AdminSchema } from '#kestrel-admin/types/api'
-import type { ApiClient, ApiRequestOptions } from '../actions/types'
+import type { ApiClient, ApiRequestOptions, Translate } from '../actions/types'
 import type { ApiRoute } from '../utils/capabilities'
-import { apiErrorMessage, apiErrorStatus, useApi } from './useApi'
+import { apiErrorStatus, apiErrorText, useApi } from './useApi'
 
 export type SchemaOutcome = 'ok' | 'unauthenticated' | 'forbidden' | 'failed'
 
@@ -17,29 +17,30 @@ export const SCHEMA_STATE_KEY = 'kestrel-schema'
 
 const MIN_REFRESH_INTERVAL_MS = 1000
 
-interface FetchResult { outcome: SchemaOutcome; schema: AdminSchema | null; error: string | null }
+interface FetchResult { outcome: SchemaOutcome; schema: AdminSchema | null; failure?: unknown }
 
 async function fetchSchema(api: ApiClient): Promise<FetchResult> {
   try {
     const schema = await api<AdminSchema>(LAYER_ROUTES.schema)
-    return { outcome: 'ok', schema, error: null }
+    return { outcome: 'ok', schema }
   } catch (e) {
-    if (apiErrorStatus(e) === 401) return { outcome: 'unauthenticated', schema: null, error: null }
-    if (apiErrorStatus(e) === 403) return { outcome: 'forbidden', schema: null, error: null }
-    return { outcome: 'failed', schema: null, error: apiErrorMessage(e) }
+    if (apiErrorStatus(e) === 401) return { outcome: 'unauthenticated', schema: null }
+    if (apiErrorStatus(e) === 403) return { outcome: 'forbidden', schema: null }
+    return { outcome: 'failed', schema: null, failure: e }
   }
 }
 
 const loadInFlight = new WeakMap<object, Promise<SchemaOutcome>>()
 
-export function loadSchemaInto(state: { value: SchemaState }, api: ApiClient, scope: object): Promise<SchemaOutcome> {
+export function loadSchemaInto(state: { value: SchemaState }, api: ApiClient, scope: object, t: Translate): Promise<SchemaOutcome> {
   if (state.value.schema) return Promise.resolve('ok')
   const running = loadInFlight.get(scope)
   if (running) return running
   const generation = state.value.generation
   const load = fetchSchema(api).then((result) => {
     if (state.value.generation !== generation) return 'ok' as const
-    state.value = { schema: result.schema, error: result.error, generation, forbidden: result.outcome === 'forbidden' }
+    const error = result.outcome === 'failed' ? apiErrorText(t, result.failure) : null
+    state.value = { schema: result.schema, error, generation, forbidden: result.outcome === 'forbidden' }
     return result.outcome
   }).finally(() => { loadInFlight.delete(scope) })
   loadInFlight.set(scope, load)
@@ -79,6 +80,7 @@ export function useSchema() {
   const rawApi = useApi()
   const api: ApiClient = <T,>(route: ApiRoute, options?: ApiRequestOptions): Promise<T> => rawApi<T>(route.path, { ...options, method: route.method })
   const scope = useNuxtApp()
+  const { t } = useT()
 
   function clear(): void {
     state.value = { schema: null, error: null, generation: state.value.generation + 1 }
@@ -88,7 +90,7 @@ export function useSchema() {
     schema: computed(() => state.value.schema),
     error: computed(() => state.value.error),
     forbidden: computed(() => state.value.forbidden === true),
-    load: () => loadSchemaInto(state, api, scope),
+    load: () => loadSchemaInto(state, api, scope, t),
     clear,
     refresh: (): Promise<SchemaOutcome> => refreshSchemaInto(state, api, scope),
   }

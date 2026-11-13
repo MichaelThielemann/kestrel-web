@@ -16,14 +16,19 @@ export interface ToastErrorPick {
   details?: ApiErrorDetails
 }
 
-/** How long an error toast that names an error id stays, long enough to select and copy the id. */
-export const FAILURE_TOAST_MS = 12_000
+/** The timeout of an error toast that names an error id: 0, so that it stays until it is dismissed and the id can be copied. */
+export const FAILURE_TOAST_MS = 0
+
+/** Toasts `text`, which already names its request; a toast that shows the error id stays until it is dismissed. */
+export function toastFailureText(deps: { toast: Pick<ToastPort, 'error'> }, text: string, trace: FailureTrace): void {
+  const id = trace.requestId ?? trace.runId
+  if (id && text.includes(id)) deps.toast.error(text, FAILURE_TOAST_MS)
+  else deps.toast.error(text)
+}
 
 /** Toasts `message` with the HTTP status and the error id of the failed request, see `failureText`. */
-export function toastFailure(deps: { t: Translate, toast: ToastPort }, message: string, trace: FailureTrace): void {
-  const text = failureText(deps.t, message, trace)
-  if (trace.requestId ?? trace.runId) deps.toast.error(text, FAILURE_TOAST_MS)
-  else deps.toast.error(text)
+export function toastFailure(deps: { t: Translate, toast: Pick<ToastPort, 'error'> }, message: string, trace: FailureTrace): void {
+  toastFailureText(deps, failureText(deps.t, message, trace), trace)
 }
 
 export function toastSuccess<I extends WithDeps, R = unknown>(pick: (ctx: ActionContext<I, R>) => { key: string, params?: Record<string, unknown> } | null): ActionStep<I, R> {

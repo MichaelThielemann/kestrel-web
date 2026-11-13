@@ -83,6 +83,8 @@ export const en = {
   'error.id': 'error ID {id}',
   'error.noAnswer': 'no answer',
   'error.unreached': 'The request did not reach the server or was refused in front of it ({reference})',
+  'error.lateAnswer': 'No answer in time; the server may still have processed the request ({reference})',
+  'error.withHint': '{message}. {hint}',
   'error.idCopy': 'Copy error ID {id}',
   'error.idCopied': 'Error ID copied',
   'error.idCopyFailed': 'The error ID could not be copied.',
@@ -695,7 +697,7 @@ export const en = {
   'media.upload.timeout': 'The server took too long to answer',
   'media.upload.unavailable': 'The server is not available right now',
   'media.upload.unsupported': 'File type not allowed',
-  'media.upload.rejectedTooLarge': 'Refused as too large',
+  'media.upload.rejectedTooLarge': 'File too large for the proxy',
   'media.upload.unreached': '{cause}. {detail}',
   'media.upload.failedDetail': 'Upload failed — {detail}',
   'media.upload.cancelled': 'Cancelled',
@@ -844,6 +846,7 @@ export const en = {
 
   'refs.rebuild': 'Rebuild',
   'refs.rebuildDone': 'Checked {documents} document(s), {entries} reference(s).',
+  'refs.rebuildFailed': 'The references could not be checked.',
   'refs.colField': 'Field',
 
   'references.links.title': 'Broken links',
@@ -853,6 +856,7 @@ export const en = {
   'references.links.colUrl': 'URL',
   'references.links.colStatus': 'Status',
   'references.links.rebuildDone': 'Checked {documents} document(s), {entries} link(s).',
+  'references.links.rebuildFailed': 'The links could not be checked.',
 
   'mediaViewer.textsTitle': 'Texts',
   'mediaViewer.titleLabel': 'Title',

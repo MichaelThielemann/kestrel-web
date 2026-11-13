@@ -579,7 +579,7 @@ describe('upload', () => {
 
   it.each([
     [413, 'PAYLOAD_TOO_LARGE', 'media.upload.rejectedTooLarge'],
-    [504, 'TIMEOUT', 'media.upload.timeout'],
+    [408, 'TIMEOUT', 'media.upload.timeout'],
     [502, 'UNAVAILABLE', 'media.upload.unavailable'],
     [500, 'HTTP', 'media.uploadFailedReason'],
   ])('says that a %i answer which did not come from kestrel was refused in front of the server, with its status', async (status, code, key) => {
@@ -611,14 +611,18 @@ describe('upload', () => {
     expect(uploadTimeoutMs(20 * 1024 * 1024)).toBe(120_000 + 640_000)
   })
 
-  it('names a timeout without a status when no answer arrived', async () => {
+  it.each([
+    ['the browser gave up waiting', new UploadTransportError(0, 'Upload timed out', 'TIMEOUT', false, undefined, undefined, undefined, { requestId: '0a0b0c0d0e0f' }), idRef('0a0b0c0d0e0f')],
+    ['a proxy gave up waiting', new UploadTransportError(504, 'Gateway Timeout', 'TIMEOUT', false, undefined, undefined, undefined, { requestId: '0a0b0c0d0e0f' }), `HTTP 504 · ${idRef('0a0b0c0d0e0f')}`],
+    ['no id is known', new UploadTransportError(0, 'Upload timed out', 'TIMEOUT'), 'error.noAnswer'],
+  ])('says that the server may still have stored the file when %s', async (_title, error, reference) => {
     const { deps } = fakeDeps()
-    const { transport } = fakeTransport([new UploadTransportError(0, 'Upload timed out', 'TIMEOUT')])
+    const { transport } = fakeTransport([error])
     const item = uploadItem()
 
     await runAction(upload, { deps, item, transport })
 
-    expect(item.message).toBe(unreached('media.upload.timeout', 'error.noAnswer'))
+    expect(item.message).toBe(`error.lateAnswer:${JSON.stringify({ reference })}`)
   })
 
   it('names the HTTP status and the error id of a kestrel refusal and keeps the id on the entry', async () => {

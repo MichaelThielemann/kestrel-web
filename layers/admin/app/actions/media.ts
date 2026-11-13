@@ -1,6 +1,6 @@
 import type { ApiErrorDetails, MediaFolder, MediaFolderRenameResponse, MediaItem, Provenance } from '#kestrel-admin/types/api'
 import { defineAction, type ActionContext, type ActionStep } from '#kestrel-core/app/utils/actions'
-import { ApiError, apiErrorCode, apiErrorDetails, apiErrorMessage, apiErrorReached, apiErrorRequestId, apiErrorRetryable, apiErrorRunId, apiErrorStatus, failureText, retryableMessage, toApiError } from '../composables/useApi'
+import { answerTimedOut, ApiError, apiErrorCode, apiErrorDetails, apiErrorMessage, apiErrorReached, apiErrorRequestId, apiErrorRetryable, apiErrorRunId, apiErrorStatus, failureText, retryableMessage, toApiError } from '../composables/useApi'
 import type { UploadItem } from '../composables/useMediaUpload'
 import { UploadTransportError, type UploadProgress, type UploadTransport } from '../composables/useUploadTransport'
 import { humanizeSize, joinFolder, parentFolder } from '../utils/library'
@@ -259,8 +259,10 @@ const UPSTREAM_MESSAGE_KEYS: Record<string, string> = {
 }
 
 function upstreamMessage(t: Translate, e: UploadTransportError): string {
+  const detail = failureText(t, '', e)
+  if (answerTimedOut(e)) return detail
   const cause = e.code === 'NETWORK' ? t('media.upload.network') : t(UPSTREAM_MESSAGE_KEYS[e.code] ?? 'media.uploadFailedReason')
-  return t('media.upload.unreached', { cause, detail: failureText(t, '', e) })
+  return t('media.upload.unreached', { cause, detail })
 }
 
 const MODULE_PREFIX = /^[\w-]+\/[\w-]+:\s*/

@@ -1,8 +1,9 @@
 import { ADMIN_BOOTSTRAP_ROUTES, ADMIN_OPTIONAL_BOOTSTRAP_ROUTES } from '#kestrel-core/fixed-routes'
 import type { Identity, LoginResponse } from '#kestrel-admin/types/api'
-import type { ApiRequestOptions, Translate } from '../actions/types'
+import type { ApiRequestOptions, ToastPort, Translate } from '../actions/types'
+import { toastFailure } from '../actions/steps/notify'
 import type { ApiRoute } from '../utils/capabilities'
-import { apiErrorMessage, apiErrorStatus, useApi } from './useApi'
+import { apiErrorStatus, apiErrorText, toApiError, useApi } from './useApi'
 import { useCapabilities } from './useCapabilities'
 import { clearInsightsState } from './useInsights'
 
@@ -16,7 +17,7 @@ export interface LogoutDeps {
   call: () => Promise<unknown>
   reset: () => void
   navigate: (to: string) => unknown
-  toast: { error: (message: string) => unknown }
+  toast: Pick<ToastPort, 'error'>
   t: Translate
 }
 
@@ -25,7 +26,7 @@ export async function logoutAndReset(deps: LogoutDeps): Promise<void> {
     await deps.call()
   } catch (e) {
     console.error('logout request failed', e)
-    deps.toast.error(deps.t('toast.logoutFailed'))
+    toastFailure(deps, deps.t('toast.logoutFailed'), toApiError(e))
   }
   deps.reset()
   await deps.navigate('/admin/login')
@@ -38,9 +39,9 @@ export interface SecondFactorSetup {
   uri: string
 }
 
-export function sessionStateFor(error: unknown): AuthState {
+export function sessionStateFor(error: unknown, t: Translate): AuthState {
   if (apiErrorStatus(error) === 401) return { identity: null, checked: true, error: null }
-  return { identity: null, checked: true, error: apiErrorMessage(error) }
+  return { identity: null, checked: true, error: apiErrorText(t, error) }
 }
 
 export function useAuth() {
@@ -59,7 +60,7 @@ export function useAuth() {
       state.value = { identity: me, checked: true, error: null }
       if (previousId !== undefined && previousId !== me.id) { schema.clear(); clearInsightsState() }
     } catch (e) {
-      state.value = sessionStateFor(e)
+      state.value = sessionStateFor(e, t)
     }
     return state.value.identity !== null
   }

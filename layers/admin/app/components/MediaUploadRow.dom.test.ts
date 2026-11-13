@@ -57,7 +57,7 @@ describe('MediaUploadRow', () => {
 
   it('offers to copy the error id of a failed upload', async () => {
     const failed = await mountSuspended(MediaUploadRow, {
-      props: { item: item({ status: 'failed', message: 'Refused as too large (HTTP 413 · error ID a1b2c3d4e5f6)', requestId: 'a1b2c3d4e5f6' }) },
+      props: { item: item({ status: 'failed', message: 'File too large for the proxy. The request did not reach the server or was refused in front of it (HTTP 413 · error ID a1b2c3d4e5f6)', requestId: 'a1b2c3d4e5f6' }) },
     })
     const withoutId = await mountSuspended(MediaUploadRow, { props: { item: item({ status: 'failed', message: 'Too large' }) } })
     const done = await mountSuspended(MediaUploadRow, { props: { item: item({ status: 'done', requestId: 'a1b2c3d4e5f6' }) } })

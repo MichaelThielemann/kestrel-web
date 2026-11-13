@@ -40,13 +40,17 @@ interface FetchErrorLike { status?: number; statusCode?: number; data?: Partial<
 
 const UNREACHED_MESSAGE = 'Request failed'
 
-function answeredByServer(response: unknown, body: object | undefined): boolean {
-  return body !== undefined || headerOf(response, 'x-kestrel-run-id') !== undefined
+/**
+ * Whether an error answer came from kestrel or the host server rather than from something in front of them: its
+ * body is a JSON object, or it carries the `x-kestrel-run-id` header.
+ */
+export function answeredByServer(body: unknown, runId: string | null | undefined): boolean {
+  return (typeof body === 'object' && body !== null && !Array.isArray(body)) || (runId !== undefined && runId !== null)
 }
 
 function reachedServer(err: FetchErrorLike, body: object | undefined): boolean {
   if (err.options === undefined && err.response === undefined) return true
-  return err.response !== undefined && answeredByServer(err.response, body)
+  return err.response !== undefined && answeredByServer(body, headerOf(err.response, 'x-kestrel-run-id'))
 }
 
 /** The `ApiError` for anything a request threw; `trace` overrides the id and the reach the error itself shows. */
@@ -56,7 +60,8 @@ export function toApiError(e: unknown, trace: ApiErrorTrace = {}): ApiError {
   const status = err.status ?? err.statusCode ?? 0
   const body = typeof err.data === 'object' && err.data ? err.data : undefined
   const reached = trace.reached ?? reachedServer(err, body)
-  const message = reached ? body?.error ?? (typeof err.data === 'string' ? err.data : undefined) ?? err.message ?? UNREACHED_MESSAGE : UNREACHED_MESSAGE
+  const bodyMessage = typeof body?.error === 'string' ? body.error : undefined
+  const message = reached ? bodyMessage ?? (typeof err.data === 'string' ? err.data : undefined) ?? err.message ?? UNREACHED_MESSAGE : UNREACHED_MESSAGE
   const code = typeof body?.code === 'string' ? body.code : 'INTERNAL'
   const retryable = typeof body?.retryable === 'boolean' ? body.retryable : false
   const requestId = trace.requestId ?? requestIdOfFetchError(e)
@@ -82,6 +87,14 @@ export interface FailureTrace {
   requestId?: string
   runId?: string
   reached?: boolean
+  /** `TIMEOUT` with status 0 marks a request the browser stopped waiting for. */
+  code?: string
+}
+
+/** Whether the request failed because no answer came in time: a 504, or a browser timeout with status 0. */
+export function answerTimedOut(trace: FailureTrace): boolean {
+  const status = trace.status ?? 0
+  return status === 504 || (status === 0 && trace.code === 'TIMEOUT')
 }
 
 function failureReference(t: Translate, trace: FailureTrace): string {
@@ -89,19 +102,40 @@ function failureReference(t: Translate, trace: FailureTrace): string {
   const id = trace.requestId ?? trace.runId
   const parts: string[] = []
   if (status > 0) parts.push(`HTTP ${status}`)
-  else if (trace.reached === false) parts.push(t('error.noAnswer'))
+  else if (trace.reached === false && !(id && answerTimedOut(trace))) parts.push(t('error.noAnswer'))
   if (id) parts.push(t('error.id', { id }))
   return parts.join(' · ')
 }
 
+const withoutFinalPeriod = (message: string): string => message.replace(/\.$/, '')
+
 /**
  * A failure message with the HTTP status and the error id of its request. When no server answered the request,
- * the message gives way to the note that the request did not reach the server or was refused in front of it.
+ * the message is followed by the note that the request did not reach the server or was refused in front of it,
+ * or, after a timeout or a 504, that the server may still have processed it.
  */
 export function failureText(t: Translate, message: string, trace: FailureTrace): string {
   const reference = failureReference(t, trace)
-  if (trace.reached === false) return t('error.unreached', { reference })
-  return reference ? t('error.withReference', { message, reference }) : message
+  if (trace.reached === false) {
+    const hint = t(answerTimedOut(trace) ? 'error.lateAnswer' : 'error.unreached', { reference })
+    const context = message === UNREACHED_MESSAGE ? '' : withoutFinalPeriod(message)
+    return context ? t('error.withHint', { message: context, hint }) : hint
+  }
+  return reference ? t('error.withReference', { message: withoutFinalPeriod(message), reference }) : message
+}
+
+/**
+ * The text an inline error display shows for anything a request threw: the message of an answer, or the
+ * translated note with the HTTP status and the error id when the request did not reach the server.
+ */
+export function apiErrorText(t: Translate, e: unknown): string {
+  const err = toApiError(e)
+  return err.reached ? err.message : failureText(t, '', err)
+}
+
+/** The message of an answer to show for a failed request, or `fallback` when there is none or no server answered. */
+export function answeredMessage(err: { message?: string, reached?: boolean }, fallback: string): string {
+  return err.reached !== false && err.message ? err.message : fallback
 }
 
 export const retryableMessage = (t: Translate, details?: ApiErrorDetails): string => {

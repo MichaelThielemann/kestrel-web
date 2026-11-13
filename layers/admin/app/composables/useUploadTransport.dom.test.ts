@@ -15,6 +15,7 @@ class FakeXhr {
   timeout = 0
   sent: unknown = null
   headers: Record<string, string> = {}
+  responseHeaders: Record<string, string> = {}
   aborted = 0
   onload: Handler = null
   onerror: Handler = null
@@ -37,6 +38,10 @@ class FakeXhr {
 
   send(body: unknown) {
     this.sent = body
+  }
+
+  getResponseHeader(name: string): string | null {
+    return this.responseHeaders[name.toLowerCase()] ?? null
   }
 
   abort() {
@@ -154,9 +159,9 @@ describe('useUploadTransport', () => {
     expect(error.status).toBe(status)
   })
 
-  it('treats a JSON answer without a kestrel error code as an answer from elsewhere', async () => {
+  it('treats an error answer with a JSON array body and no run id as an answer from elsewhere', async () => {
     const pending = useUploadTransport()(route, new FormData())
-    current().respond(502, '{"message":"bad gateway"}')
+    current().respond(502, '["bad gateway"]')
 
     const error = await rejection(pending)
     expect(error).toBeInstanceOf(UploadTransportError)
@@ -243,6 +248,11 @@ describe('useUploadTransport', () => {
   it('keeps the request id on every rejection and tells a kestrel answer from none', async () => {
     const outcomes: [string, (xhr: FakeXhr) => void, boolean][] = [
       ['kestrel error', (xhr) => xhr.respond(415, '{"error":"no","code":"UNSUPPORTED"}'), true],
+      ['host server error', (xhr) => xhr.respond(500, '{"error":true,"statusCode":500}', 'Server Error'), true],
+      ['kestrel run without a body', (xhr) => {
+        xhr.responseHeaders['x-kestrel-run-id'] = 'run-9'
+        xhr.respond(500, '', 'Server Error')
+      }, true],
       ['proxy page', (xhr) => xhr.respond(413, '<html>413</html>', 'Request Entity Too Large'), false],
       ['network error', (xhr) => xhr.onerror?.(), false],
       ['timeout', (xhr) => xhr.ontimeout?.(), false],
@@ -256,5 +266,16 @@ describe('useUploadTransport', () => {
       expect(error.requestId).toBe(sentId)
       expect(error.reached).toBe(reached)
     }
+  })
+
+  it('reports an error answer of the host server as reached, with its status and never its boolean error field', async () => {
+    const pending = useUploadTransport()(route, new FormData())
+    current().respond(500, '{"error":true,"statusCode":500,"message":"Server Error"}', 'Server Error')
+
+    const error = await rejection(pending)
+    expect(error).not.toBeInstanceOf(UploadTransportError)
+    expect(error.reached).toBe(true)
+    expect(error.status).toBe(500)
+    expect(error.message).toBe('Server Error')
   })
 })

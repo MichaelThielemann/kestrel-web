@@ -8,7 +8,7 @@ import { deliveryRefresh, deliveryToast, isQueuedDelivery, ownDeliveryStatus, re
 import { formMapErrors, formOutcome, formRebaseline, formReset, formRevealError, formSaving, formSetStatus, formValidate } from './steps/form'
 import { dialogConfirm, guardAnySucceeded, guardBypass, guardStatus, guardTab, guardUnsaved } from './steps/guard'
 import { defineUiStep } from './define'
-import { opsBusy, toastError, toastFailure, toastSuccess } from './steps/notify'
+import { opsBusy, toastFailure, toastFailureText, toastSuccess } from './steps/notify'
 import { routeNavigate } from './steps/route'
 import type { BusyPort, ConfirmPort, EachReport, EditFormPort, NavigatePort, QueryValue, SaveOutcome, Translate, WithDeps } from './types'
 
@@ -88,8 +88,11 @@ function saveAlways<I extends SaveInput>(): ActionStep<I, SaveOutcome>[] {
   return [
     formSaving<I, SaveOutcome>(false),
     formRevealError<I>(),
-    toastError<I, SaveOutcome>((ctx) =>
-      ctx.result?.failed ? { message: ctx.input.form.formError(), key: 'editor.saveFailed' } : null),
+    defineUiStep<I, SaveOutcome>('toast.error', (ctx) => {
+      if (!ctx.result?.failed) return
+      const { deps, form } = ctx.input
+      toastFailureText(deps, form.formError() || deps.t('editor.saveFailed'), ctx.result.failure ?? {})
+    }),
   ]
 }
 

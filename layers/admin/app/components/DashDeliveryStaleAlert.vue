@@ -14,7 +14,7 @@ try {
   status.value = await api<StaleStatus>(capabilities.route('pagesStaleStatus'))
 } catch (e) {
   if (apiErrorCode(e) === 'NOT_FOUND') notFound.value = true
-  else loadError.value = apiErrorMessage(e)
+  else loadError.value = apiErrorText(t, e)
 }
 </script>
 

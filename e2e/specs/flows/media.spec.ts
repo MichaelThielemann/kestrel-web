@@ -188,7 +188,7 @@ test("an upload a proxy refuses in front of the server names the status and a co
   await startUpload(page, "refused.png", gradientPng(120, 80, [200, 120, 30], [30, 120, 200]));
 
   await expect.poll(() => requestId).toMatch(/^[0-9a-f]{12}$/);
-  const message = page.getByText(`Als zu groß abgelehnt. Die Anfrage hat den Server nicht erreicht oder wurde vorher abgelehnt (HTTP 413 · Fehler-ID ${requestId})`).first();
+  const message = page.getByText(`Datei zu groß für den Proxy. Die Anfrage hat den Server nicht erreicht oder wurde vorher abgelehnt (HTTP 413 · Fehler-ID ${requestId})`).first();
   await expect(message).toBeVisible();
   await expect(page.getByRole("button", { name: `Fehler-ID ${requestId} kopieren` }).first()).toBeVisible();
   await expect(page.getByText("Request Entity Too Large")).toHaveCount(0);
