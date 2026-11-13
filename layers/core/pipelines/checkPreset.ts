@@ -303,10 +303,20 @@ function configuredLanes(modules: readonly { use: string; config?: unknown }[]):
   return new Map(Object.entries(lanes).map(([lane, entry]): [string, string[]] => [lane, Array.isArray(entry) ? entry.filter((name): name is string => typeof name === "string") : []]));
 }
 
-function configuredDelays(modules: readonly { use: string; config?: unknown }[]): string[] {
+function configuredDelayMap(modules: readonly { use: string; config?: unknown }[]): object | undefined {
   const config = effectiveConfigOf(modules, EVENTS_QUEUE_MODULE);
   const delays: unknown = typeof config === "object" && config !== null ? Reflect.get(config, "delayMs") : undefined;
-  return typeof delays === "object" && delays !== null ? Object.keys(delays) : [];
+  return typeof delays === "object" && delays !== null ? delays : undefined;
+}
+
+function configuredDelays(modules: readonly { use: string; config?: unknown }[]): string[] {
+  return Object.keys(configuredDelayMap(modules) ?? {});
+}
+
+function configuredIndexesDelay(modules: readonly { use: string; config?: unknown }[]): unknown {
+  const config = effectiveConfigOf(modules, DELIVERY_STATIC_MODULE);
+  const dependencies: unknown = typeof config === "object" && config !== null ? Reflect.get(config, "dependencies") : undefined;
+  return typeof dependencies === "object" && dependencies !== null ? Reflect.get(dependencies, "indexesDelayMs") : undefined;
 }
 
 function configuredLaneMembers(modules: readonly { use: string; config?: unknown }[]): string[] | undefined {
@@ -851,6 +861,29 @@ export function buildPreset<C extends Record<string, CollectionModel> = Record<s
         });
       }
     }
+  }
+
+  const delayMap = configuredDelayMap(options.modules);
+  if (configuredModules.has(EVENTS_QUEUE_MODULE) && delayMap !== undefined) {
+    for (const [name, expected] of Object.entries(delaysFor([...enabledFeatures]))) {
+      if (!Object.hasOwn(pipelines, name)) continue;
+      const actual: unknown = Reflect.get(delayMap, name);
+      if (actual === expected) continue;
+      sink.report({
+        code: "preset/index-export-delays",
+        pipeline: name,
+        message: actual === undefined
+          ? `preset: module "${EVENTS_QUEUE_MODULE}" has a delayMs without pipeline "${name}", but the preset fixes that delay at ${String(expected)} ms – set delayMs to delaysFor(features), or remove it from the override`
+          : `preset: module "${EVENTS_QUEUE_MODULE}" holds back pipeline "${name}" for ${String(actual)} ms in delayMs, but the preset fixes that delay at ${String(expected)} ms – set delayMs to delaysFor(features), or remove it from the override`,
+      });
+    }
+  }
+  const indexesDelay = configuredIndexesDelay(options.modules);
+  if (enabledFeatures.has("delivery") && configuredRenderMode(options.modules) === "background" && indexesDelay !== undefined && indexesDelay !== INDEX_EXPORT_DELAYS.background) {
+    sink.report({
+      code: "preset/index-export-delays",
+      message: `preset: module "${DELIVERY_STATIC_MODULE}" holds back the index export for ${String(indexesDelay)} ms in dependencies.indexesDelayMs, but the preset fixes that delay at ${String(INDEX_EXPORT_DELAYS.background)} ms – leave indexesDelayMs out, or set it to ${String(INDEX_EXPORT_DELAYS.background)}`,
+    });
   }
 
   if (configuredModules.has(EVENTS_QUEUE_MODULE)) {

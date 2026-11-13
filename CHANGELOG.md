@@ -13,7 +13,10 @@
   `indexes`, and `refreshLlms` runs `delivery.exportLlmsFull`; the queue holds them back 1000 ms and 3000 ms
   (`delaysFor(features)`), so one export follows a burst of saves and llms-full.txt trails the re-renders it
   reads. Without the queue, delivery-static's loop exports the index files one second after the first request
-  (`dependencies.indexesDelayMs: 1000`). Neither delay can be changed through `presetModuleConfig()`. The Node
+  (`dependencies.indexesDelayMs: 1000`). Neither delay is an option of `presetModuleConfig()`, and the preset
+  refuses a `delayMs` or `indexesDelayMs` that holds another value, from `overrides` or a hand-written entry
+  (`preset/index-export-delays`); a hand-written queue entry without `delayMs` gets a warning from
+  `kestrel upgrade check`. The Node
   server does not serve the four files; behind a proxy to it, serve them from the export's `site/` prefix at the
   host's root (`docs/deployment.md` §7, "Index files").
 - With `delivery`, `presetModuleConfig()` passes `NUXT_PUBLIC_SITE_URL`, normalised the way
@@ -201,7 +204,8 @@
   its `lanes` (the preset refuses it otherwise, `preset/index-exports-lane`) and gets
   `delayMs: { refreshIndexes: 1000, refreshLlms: 3000 }`; `kestrel upgrade fix --write` adds both
   (`preset/queue-lanes`). `delayMs` naming a preset pipeline that is not composed is refused
-  (`preset/delay-pipeline-unknown`). `delivery.exportLlms` is not a step any more: an override of `setSettings`
+  (`preset/delay-pipeline-unknown`), and so is one that holds `refreshIndexes` or `refreshLlms` for another
+  time, or leaves one of them out (`preset/index-export-delays`). `delivery.exportLlms` is not a step any more: an override of `setSettings`
   that keeps its emit loses it (`preset/settings-llms`), and an override or own pipeline whose event reaches
   `publishPage` drops it with the inline publish (`preset/override-delivery`, `preset/own-pipeline-delivery`).
 

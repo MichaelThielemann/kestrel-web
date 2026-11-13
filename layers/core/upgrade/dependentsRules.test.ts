@@ -281,6 +281,14 @@ describe("the lanes of a hand-written queue entry", () => {
     expect(findings[0]).toMatchObject({ severity: "error", message: "retired is not composed", fix: { kind: "manual" } });
   });
 
+  it("leaves a delayMs that changes a delay the preset fixes to the generic preset problem rule, as a manual error", async () => {
+    const config = { lanes: { pages: ["republishOutput", "refreshLlms"], indexes: ["refreshIndexes"] }, delayMs: { refreshIndexes: 60_000, refreshLlms: 3000 } };
+    const ctx = contextFor({ source: "", modules: [{ use: QUEUE, config }], features: ["eventsQueue", "delivery"], problems: [{ code: "preset/index-export-delays", pipeline: "refreshIndexes", message: "refreshIndexes is held back too long" }] });
+    expect(await queueLanesRule.check(ctx)).toEqual([]);
+    const findings = await presetProblemsRule.check(ctx);
+    expect(findings).toMatchObject([{ rule: "preset/index-export-delays", severity: "error", message: "refreshIndexes is held back too long", fix: { kind: "manual" } }]);
+  });
+
   it("stays manual when the lanes exist but leave page renders or variants out, and says nothing when no lane is needed", async () => {
     const source = `const modules = [{ use: "${QUEUE}", config: { lanes: {}, delayMs: { refreshIndexes: 1000, refreshLlms: 3000 } } }];\n`;
     const ctx = contextFor({ source, modules: [{ use: QUEUE, config: { lanes: {}, delayMs: { refreshIndexes: 1000, refreshLlms: 3000 } } }], features: ["eventsQueue", "delivery"], problems: [{ code: "preset/page-renders-lane", message: "renders need their lane" }] });

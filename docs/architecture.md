@@ -2074,7 +2074,9 @@ An exported page is refreshed when content it shows changes. The recording and t
   (`delaysFor(features)`, `INDEX_EXPORT_DELAYS` in `pipelines/index-delays.ts`) holds `refreshIndexes` back
   1000 ms and `refreshLlms` 3000 ms, so one export follows a burst of saves and llms-full.txt trails the
   re-renders a save marks in the main lane; without the queue the same constant sets delivery-static's
-  `dependencies.indexesDelayMs`. Neither is a `presetModuleConfig()` option, like the lanes.
+  `dependencies.indexesDelayMs`. Neither is a `presetModuleConfig()` option, like the lanes, and
+  `checkPreset()` refuses a configured `delayMs` or background `indexesDelayMs` with other values
+  (`preset/index-export-delays`).
 - **A deploy re-renders.** The Nitro plugin runs `deliveryBuildCheck` after `start()` with
   `<buildId>|<siteUrl>` as the build key (`server/utils/build-check.ts`: `useRuntimeConfig().app.buildId` and
   the normalised `public.siteUrl` (`NUXT_PUBLIC_SITE_URL`), the URL the pages build their canonical link from;

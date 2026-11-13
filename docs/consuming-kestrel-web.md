@@ -947,7 +947,9 @@ rendererReadsDocument: true, maxAttempts, backoffSeconds }` with `eventsQueue` (
 and backoff, so a failed render is retried on the same schedule it reports), and to `{ render:
 "background", rendererReadsDocument: true, indexesDelayMs: 1000 }` without it. With `eventsQueue` it also
 gives the queue `delayMs: delaysFor(features)`, `{ refreshIndexes: 1000, refreshLlms: 3000 }`. Neither
-delay is an option of `presetModuleConfig()`. `definePreset()` refuses `render: "events"`
+delay is an option of `presetModuleConfig()`, and `definePreset()` refuses a `delayMs` that leaves out or
+changes the delay of a pipeline it composes, or a background `indexesDelayMs` other than 1000, whether
+`overrides` or a hand-written entry sets it (`preset/index-export-delays`). `definePreset()` refuses `render: "events"`
 without the `eventsQueue` feature and anything else with it.
 
 **`eventsQueue` requirement:** delivery is at-least-once, so your event listeners must be idempotent, and
@@ -2416,7 +2418,8 @@ of these, each named there:
   only the `indexes` lane where the tool cannot add it: lanes set through `overrides` on the events-queue
   module, or lanes that already name `refreshIndexes` or an `indexes` lane with other members.
 - A `delayMs` on the events-queue entry that names a pipeline the preset does not compose
-  (`preset/delay-pipeline-unknown`): set it to `delaysFor(features)`.
+  (`preset/delay-pipeline-unknown`), or that leaves out or changes the delay of `refreshIndexes` or
+  `refreshLlms` (`preset/index-export-delays`): set it to `delaysFor(features)`.
 - `sanitizeSvg` when `features` is built by a function call, and installing packages after the range bumps.
 - The anonymous field grants of a hand-written `authz-roles` entry until you answer `pipelines/field-step`,
   a grant for a resource of your own pipeline, and an override of a public read without its field step.

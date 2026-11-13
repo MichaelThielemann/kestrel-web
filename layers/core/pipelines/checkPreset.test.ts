@@ -189,6 +189,29 @@ describe("checkPreset: dependent re-rendering and queue lanes", () => {
     expectParity(options({ modules: modules(features, { delayMs: { refreshLlms: 3000 } }), features, collections }), "preset/delay-pipeline-unknown", "refreshLlms");
   });
 
+  it("collects a delayMs that leaves out or changes the delay of an index export the preset composes, naming it", () => {
+    const features = ["eventsQueue", "delivery"];
+    const lanes = { pages: ["republishOutput", "refreshLlms"], indexes: ["refreshIndexes"] };
+    expectParity(options({ modules: modules(features, { render: "events", lanes, delayMs: {} }), features, collections }), "preset/index-export-delays", "refreshIndexes");
+    expectParity(options({ modules: modules(features, { render: "events", lanes, delayMs: { refreshIndexes: 60_000, refreshLlms: 3000 } }), features, collections }), "preset/index-export-delays", "refreshIndexes");
+    expectParity(options({ modules: modules(features, { render: "events", lanes, delayMs: { refreshIndexes: 1000, refreshLlms: 0 } }), features, collections }), "preset/index-export-delays", "refreshLlms");
+    expect(thrownBy(options({ modules: modules(features, { render: "events", lanes, delayMs: { refreshIndexes: 60_000 } }), features, collections }))).toBe(
+      'preset: module "@michaelthielemann/kestrel-events-queue" holds back pipeline "refreshIndexes" for 60000 ms in delayMs, but the preset fixes that delay at 1000 ms – set delayMs to delaysFor(features), or remove it from the override',
+    );
+    expect(checkPreset(options({ modules: modules(features, { render: "events", lanes, delayMs: { refreshIndexes: 1000, refreshLlms: 3000 } }), features, collections })).problems).toEqual([]);
+  });
+
+  it("collects a background delivery-static whose indexesDelayMs differs from the preset's", () => {
+    const features = ["delivery"];
+    const list = modules(features).map((entry) => (entry.use === deliveryStatic ? { use: deliveryStatic, config: { dependencies: { render: "background", indexesDelayMs: 0 } } } : entry));
+    expectParity(options({ modules: list, features, collections }), "preset/index-export-delays");
+    expect(thrownBy(options({ modules: list, features, collections }))).toBe(
+      'preset: module "@michaelthielemann/kestrel-delivery-static" holds back the index export for 0 ms in dependencies.indexesDelayMs, but the preset fixes that delay at 1000 ms – leave indexesDelayMs out, or set it to 1000',
+    );
+    const fixed = modules(features).map((entry) => (entry.use === deliveryStatic ? { use: deliveryStatic, config: { dependencies: { render: "background", indexesDelayMs: 1000 } } } : entry));
+    expect(checkPreset(options({ modules: fixed, features, collections })).problems).toEqual([]);
+  });
+
   it("collects a lane naming a preset pipeline this configuration does not compose, naming it", () => {
     const features = ["eventsQueue"];
     expectParity(options({ modules: modules(features, { lanes: { pages: ["republishOutput"] } }), features, collections }), "preset/lane-pipeline-unknown", "republishOutput");
