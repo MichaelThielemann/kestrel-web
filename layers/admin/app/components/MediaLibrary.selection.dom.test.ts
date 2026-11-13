@@ -203,7 +203,7 @@ describe('MediaLibrary selection in the grid', () => {
     boundaryCast<HTMLElement>(first.element, 'dom').focus()
     await key(first, { key: 'Delete' })
     await vi.waitFor(() => expect(document.body.querySelector('.ui-dialog__content')?.textContent).toContain('1 file'))
-    const confirmDelete = Array.from(document.body.querySelectorAll('.ui-dialog__content button')).find((b) => b.textContent?.trim() === en['common.delete'])
+    const confirmDelete = Array.from(document.body.querySelectorAll('.ui-dialog__content button')).find((b) => b.textContent?.trim() === text('media.remove.confirm.delete', { what: '1 file' }))
     confirmDelete?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
 
     await vi.waitFor(() => expect(wrapper.find('[data-test="file-f1"]').exists()).toBe(false))
@@ -368,7 +368,7 @@ describe('MediaLibrary multi-pick selection', () => {
     expect(bar(wrapper).exists()).toBe(true)
     await barButton(wrapper, en['media.selection.delete'])?.trigger('click')
     await vi.waitFor(() => expect(document.body.querySelector('.ui-dialog__content')).toBeTruthy())
-    const confirmDelete = Array.from(document.body.querySelectorAll('.ui-dialog__content button')).find((b) => b.textContent?.trim() === en['common.delete'])
+    const confirmDelete = Array.from(document.body.querySelectorAll('.ui-dialog__content button')).find((b) => b.textContent?.trim() === text('media.remove.confirm.delete', { what: '1 file' }))
     confirmDelete?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
     await vi.waitFor(() => expect(wrapper.find('[data-test="file-f1"]').exists()).toBe(false))
 

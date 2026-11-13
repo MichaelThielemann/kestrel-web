@@ -68,6 +68,10 @@ export function apiEach<I extends WithDeps, R = unknown, T = unknown>(name: UiSt
   policy: 'continue' | 'stop'
   onItemError?: (ctx: ActionContext<I, R>, item: EachItemResult<T>) => void
   onDone: (ctx: ActionContext<I, R>, report: EachReport<T>) => void
+  /** Called after every item with the number handled so far and the total. */
+  onProgress?: (ctx: ActionContext<I, R>, done: number, total: number) => void
+  /** Once aborted, the remaining items are not sent; the report says `cancelled`. */
+  signal?: (ctx: ActionContext<I, R>) => AbortSignal | undefined
 }): ActionStep<I, R> {
   return defineUiStep<I, R>(name, async (ctx) => {
     const results: EachItemResult<T>[] = []
@@ -75,8 +79,15 @@ export function apiEach<I extends WithDeps, R = unknown, T = unknown>(name: UiSt
     let failed = 0
     let lastMessage: string | null = null
     let firstFailure: EachItemResult<T> | null = null
+    let cancelled = false
+    const items = opts.items(ctx)
+    const signal = opts.signal?.(ctx)
 
-    for (const id of opts.items(ctx)) {
+    for (const id of items) {
+      if (signal?.aborted) {
+        cancelled = true
+        break
+      }
       const call = opts.call(ctx, id)
       try {
         const value = await ctx.input.deps.api<T>(call.route, { body: call.body, query: call.query })
@@ -99,10 +110,12 @@ export function apiEach<I extends WithDeps, R = unknown, T = unknown>(name: UiSt
         firstFailure ??= item
         opts.onItemError?.(ctx, item)
         if (opts.policy === 'stop') break
+      } finally {
+        opts.onProgress?.(ctx, results.length, items.length)
       }
     }
 
-    opts.onDone(ctx, { results, succeeded, failed, lastMessage, firstFailure })
+    opts.onDone(ctx, { results, succeeded, failed, lastMessage, firstFailure, ...(cancelled ? { cancelled } : {}) })
   })
 }
 

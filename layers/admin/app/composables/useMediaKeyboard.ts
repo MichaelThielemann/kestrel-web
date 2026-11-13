@@ -114,5 +114,12 @@ export function useMediaKeyboard(opts: UseMediaKeyboardOptions) {
     }
   })
 
-  return { activeKey, onKeydown, onFocusin }
+  function focusActive(): boolean {
+    const key = activeKey.value
+    const el = key === null ? undefined : element(key)
+    el?.focus()
+    return el !== undefined
+  }
+
+  return { activeKey, onKeydown, onFocusin, focusActive }
 }

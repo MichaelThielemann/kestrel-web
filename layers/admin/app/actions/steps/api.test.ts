@@ -129,6 +129,29 @@ describe('api.each', () => {
 
     expect(calls[0]).toMatchObject({ route: { method: 'DELETE', path: '/media/folders/docs' }, query: { recursive: true } })
   })
+
+  it('reports progress after every item and stops sending once the signal aborts', async () => {
+    const { deps, calls } = fakeDeps([null, null, null])
+    const controller = new AbortController()
+    const progress = vi.fn((...[done]: [number, number]) => { if (done === 2) controller.abort() })
+    const action = defineAction<WithDeps, EachReport<unknown>>({
+      name: 'each',
+      steps: [apiEach<WithDeps, EachReport<unknown>>('api.each', {
+        items: () => ['a', 'b', 'c'],
+        call: (_ctx, id) => ({ route: { method: 'DELETE', path: `/media/${id}` } }),
+        policy: 'continue',
+        onProgress: (_ctx, done, total) => progress(done, total),
+        signal: () => controller.signal,
+        onDone: (ctx, report) => { ctx.result = report },
+      })],
+    })
+
+    const result = await runAction(action, { deps })
+
+    expect(calls).toHaveLength(2)
+    expect(progress.mock.calls).toEqual([[1, 3], [2, 3]])
+    expect(result.ok && result.result).toMatchObject({ succeeded: 2, cancelled: true })
+  })
 })
 
 describe('references.precheck', () => {

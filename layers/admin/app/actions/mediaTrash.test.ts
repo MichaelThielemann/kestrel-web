@@ -1,0 +1,92 @@
+import { describe, expect, it, vi } from 'vitest'
+import { runAction } from '#kestrel-core/app/utils/actions'
+import { emptyTrash, purgeItems, restoreItems, trashItems } from './mediaTrash'
+import { fakeDeps } from './__fixtures__/fake-deps'
+
+const apiError = (status: number, message: string) => Object.assign(new Error(message), {
+  status, name: 'ApiError', data: { error: message, code: status === 404 ? 'NOT_FOUND' : 'INTERNAL', retryable: false },
+})
+
+const ids = (n: number, prefix = 'f') => Array.from({ length: n }, (_, i) => `${prefix}${i}`)
+
+describe('trashItems', () => {
+  it('sends the files in blocks of at most 200 ids and each folder once, then reloads once', async () => {
+    const files = ids(201)
+    const { deps, calls } = fakeDeps([
+      { ids: files.slice(0, 200), skipped: [], unchanged: [] },
+      { ids: [], skipped: [{ id: 'f200', reason: 'not_found' }], unchanged: [] },
+      { path: 'docs', ids: ['d1', 'd2'], unchanged: [] },
+    ])
+    const refresh = vi.fn(() => undefined)
+    const progress = vi.fn()
+
+    const result = await runAction(trashItems, { deps, fileIds: files, folderPaths: ['docs'], refresh, onProgress: progress })
+
+    expect(calls.map((c) => c.route)).toEqual([
+      { method: 'POST', path: '/media/trash' },
+      { method: 'POST', path: '/media/trash' },
+      { method: 'POST', path: '/media/trash/folders/docs' },
+    ])
+    expect(calls[0]?.body).toEqual({ ids: files.slice(0, 200) })
+    expect(calls[1]?.body).toEqual({ ids: ['f200'] })
+    expect(progress.mock.calls).toEqual([[1, 3], [2, 3], [3, 3]])
+    expect(refresh).toHaveBeenCalledTimes(1)
+    expect(result).toEqual({ ok: true, result: {
+      done: [...files.slice(0, 200), 'd1', 'd2'], skipped: [{ id: 'f200', reason: 'not_found' }], failed: [], renamed: [], cancelled: false,
+    } })
+  })
+
+  it('reports every id of a failed block and keeps going with the next one', async () => {
+    const { deps } = fakeDeps([apiError(500, 'boom'), apiError(404, 'gone')])
+
+    const result = await runAction(trashItems, { deps, fileIds: ['a', 'b'], folderPaths: ['old'], refresh: vi.fn(() => undefined) })
+
+    expect(result.ok && result.result?.failed).toEqual([
+      { id: 'a', message: 'boom' }, { id: 'b', message: 'boom' }, { id: 'old', message: 'gone' },
+    ])
+  })
+})
+
+describe('restoreItems', () => {
+  it('passes renamed items through', async () => {
+    const { deps, calls } = fakeDeps([{ ids: ['a'], skipped: [], renamed: [{ id: 'a', from: 'x.png', to: 'x-2.png' }], unchanged: [] }])
+
+    const result = await runAction(restoreItems, { deps, ids: ['a'] })
+
+    expect(calls).toEqual([{ route: { method: 'POST', path: '/media/trash/restore' }, body: { ids: ['a'] }, query: undefined }])
+    expect(result.ok && result.result?.renamed).toEqual([{ id: 'a', from: 'x.png', to: 'x-2.png' }])
+  })
+})
+
+describe('purgeItems', () => {
+  it('stops between blocks once the signal aborts and says so', async () => {
+    const controller = new AbortController()
+    const { deps, calls } = fakeDeps([{ ids: ids(200), skipped: [] }])
+
+    const result = await runAction(purgeItems, {
+      deps, ids: ids(250), onProgress: () => controller.abort(), signal: controller.signal,
+    })
+
+    expect(calls).toHaveLength(1)
+    expect(calls[0]?.route).toEqual({ method: 'POST', path: '/media/trash/purge' })
+    expect(result.ok && result.result?.cancelled).toBe(true)
+  })
+
+  it('keeps a referenced item as skipped', async () => {
+    const { deps } = fakeDeps([{ ids: ['a'], skipped: [{ id: 'b', reason: 'referenced' }] }])
+
+    const result = await runAction(purgeItems, { deps, ids: ['a', 'b'] })
+
+    expect(result.ok && result.result).toEqual({ done: ['a'], skipped: [{ id: 'b', reason: 'referenced' }], failed: [], renamed: [], cancelled: false })
+  })
+})
+
+describe('emptyTrash', () => {
+  it('posts once without ids', async () => {
+    const { deps, calls } = fakeDeps([{ ids: ['a'], skipped: [] }])
+
+    await runAction(emptyTrash, { deps })
+
+    expect(calls).toEqual([{ route: { method: 'POST', path: '/media/trash/empty' }, body: {}, query: undefined }])
+  })
+})

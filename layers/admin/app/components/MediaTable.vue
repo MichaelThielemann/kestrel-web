@@ -4,6 +4,7 @@ import { isDisclosed, provenanceLabelKey, provenanceOrigin } from '../utils/prov
 import { isPickGated } from '../utils/media-insert'
 import type { MediaItem } from '#kestrel-admin/types/api'
 import type { VariantWatchEntry } from '../composables/useVariantWatch'
+import type { MenuItem } from '../utils/ops'
 
 const { t, lang } = useT()
 const props = defineProps<{
@@ -22,8 +23,9 @@ const props = defineProps<{
   isSelectable?: (item: LibraryItem) => boolean
   allSelected?: boolean
   someSelected?: boolean
+  tileMenu?: MenuItem[] | null
 }>()
-const emit = defineEmits<{ navigate: [string]; select: [LibraryItem, { toggle: boolean; range: boolean }]; selectAll: [boolean]; open: [LibraryItem]; dragstart: [LibraryItem, DragEvent]; dragend: []; sort: [string] }>()
+const emit = defineEmits<{ navigate: [string]; select: [LibraryItem, { toggle: boolean; range: boolean }]; selectAll: [boolean]; open: [LibraryItem]; dragstart: [LibraryItem, DragEvent]; dragend: []; sort: [string]; tileMenu: [LibraryItem, string] }>()
 const ariaSort = (field: string): 'ascending' | 'descending' | 'none' => (props.sort === field ? 'ascending' : props.sort === `-${field}` ? 'descending' : 'none')
 const mods = (e: { ctrlKey: boolean; metaKey: boolean; shiftKey: boolean }) => ({ toggle: e.ctrlKey || e.metaKey, range: e.shiftKey })
 const tabindexFor = (key: string) => (props.rovingKey === undefined ? 0 : key === props.rovingKey ? 0 : -1)
@@ -71,6 +73,7 @@ const dimensions = (f: MediaItem) => (f.width != null && f.height != null ? `${f
       <th scope="col" :aria-sort="ariaSort('size')"><KestrelUiTableSort field="size" :sort="sort ?? ''" @sort="emit('sort', $event)">{{ t('media.colSize') }}</KestrelUiTableSort></th>
       <th scope="col">{{ t('media.colDimensions') }}</th>
       <th scope="col" :aria-sort="ariaSort('createdAt')"><KestrelUiTableSort field="createdAt" :sort="sort ?? ''" @sort="emit('sort', $event)">{{ t('media.colUploaded') }}</KestrelUiTableSort></th>
+      <th v-if="tileMenu?.length" class="ui-table__col--actions" scope="col"><span class="ui-table__vh">{{ t('a11y.rowActions') }}</span></th>
     </template>
     <template #body>
       <tr v-if="parentPath != null" class="media-table__row media-table__row--up" data-test="row-folder-up"
@@ -80,6 +83,7 @@ const dimensions = (f: MediaItem) => (f.width != null && f.height != null ? `${f
         <td v-if="checkboxes" class="ui-table__col--select"></td>
         <td><span aria-hidden="true"><KestrelUiIcon name="folder" :size="15" /></span> ..</td>
         <td>{{ t('media.typeFolder') }}</td><td>—</td><td>—</td><td>—</td>
+        <td v-if="tileMenu?.length"></td>
       </tr>
       <tr v-for="item in items" :key="itemKey(item)" class="media-table__row"
         :class="{ 'is-selected': isSelected(item), 'is-drop-target': item.type === 'folder' && item.folder.path === dropTargetPath, 'is-blocked': item.type === 'file' && blockedFile(item) }"
@@ -101,6 +105,7 @@ const dimensions = (f: MediaItem) => (f.width != null && f.height != null ? `${f
         <template v-if="item.type === 'folder'">
           <td><span aria-hidden="true"><KestrelUiIcon name="folder" :size="15" /></span> {{ item.folder.name }}</td>
           <td>{{ t('media.typeFolder') }}</td><td>—</td><td>—</td><td>—</td>
+          <td v-if="tileMenu?.length"></td>
         </template>
         <template v-else>
           <td>
@@ -112,6 +117,10 @@ const dimensions = (f: MediaItem) => (f.width != null && f.height != null ? `${f
           <td>{{ humanizeSize(item.file.size) }}</td>
           <td>{{ dimensions(item.file) }}</td>
           <td>{{ uploaded(item.file) }}</td>
+          <td v-if="tileMenu?.length" class="ui-table__col--actions" @click.stop @dblclick.stop>
+            <KestrelUiActionMenu :items="tileMenu" :label="t('media.menu.more', { name: item.file.filename })" trigger-class="ui-button--icon ui-button--icon-sm"
+              :trigger-tabindex="tabindexFor(itemKey(item))" @select="(value: string) => emit('tileMenu', item, value)"><KestrelUiIcon name="more-horizontal" :size="16" /></KestrelUiActionMenu>
+          </td>
         </template>
       </tr>
     </template>

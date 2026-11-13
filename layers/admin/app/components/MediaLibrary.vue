@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, computed, nextTick, onUnmounted } from 'vue'
+import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
 import type { ReferenceTo } from '#kestrel-admin/types/api'
 import type { BusyPort, RefreshPort } from '#kestrel-admin/actions/types'
 import { itemKey, type LibraryItem } from '../utils/library'
+import { toOpItem } from '../utils/ops'
 import { isPickGated } from '../utils/media-insert'
 import type { SelectMods } from '../composables/useMediaSelection'
 import { gridColumns } from '../composables/useMediaKeyboard'
@@ -15,10 +16,10 @@ const { folder, view, search, sort, items, files, parentPath, loading, error, al
 
 const { t } = useT()
 const deps = useActionDeps()
-const { schema } = useSchema()
 const mediaCaps = useMediaCapabilities()
+const trashCount = useMediaTrashCount()
 
-const mediaRefresh: RefreshPort = () => { void lib.fetchLibrary() }
+const mediaRefresh: RefreshPort = async () => { await Promise.all([lib.fetchLibrary(), mode === 'library' ? trashCount.refresh() : undefined]) }
 const opsBusy = ref(false)
 const opError = ref<string | null>(null)
 const opConflict = ref<ReferenceTo[] | null>(null)
@@ -60,25 +61,31 @@ const { viewerOpen, viewerFile, viewerBusy, viewerError, openViewer, closeViewer
   deps, ops: opsPort, refresh: mediaRefresh, opError, saveFailed: () => t('mediaViewer.saveFailed'),
 })
 
-const { deleteOpen, deleteInfo, askDelete, onConfirmDelete, close: closeDelete } = useMediaDelete({
-  deps: () => deps, ops: opsPort, refresh: mediaRefresh, files, folderCounts, schema,
+const removal = useMediaBulkActions({
+  deps: () => deps, ops: opsPort, refresh: mediaRefresh, files, folderCounts,
   canDeleteTargets: (targets) => mediaCaps.canDeleteTargets(targets),
-  onDeleted: (targets) => pickState.forget(targets.flatMap((target) => (target.type === 'file' ? [target.id] : []))),
+  onRemoved: (ids) => pickState.forget(ids),
+  onSettled: () => { returnFocus(() => keyboard.focusActive() || mediaLibraryRef.value?.focus()) },
   onDeletedFromViewer: () => {
     closeViewer()
-    void nextTick().then(() => {
-      if (focusReturnTimer) clearTimeout(focusReturnTimer)
-      focusReturnTimer = setTimeout(() => { mediaLibraryRef.value?.focus() }, 0)
-    })
+    returnFocus(() => mediaLibraryRef.value?.focus())
   },
 })
+const askRemove = removal.askRemove
+
+function returnFocus(run: () => void) {
+  void nextTick().then(() => {
+    if (focusReturnTimer) clearTimeout(focusReturnTimer)
+    focusReturnTimer = setTimeout(run, 0)
+  })
+}
 
 const rovingKeys = computed(() => [...(parentPath.value != null ? ['up'] : []), ...items.value.map(itemKey)])
 const itemByKey = computed(() => new Map(items.value.map((item) => [itemKey(item), item])))
 const keyboard = useMediaKeyboard({
   root: itemsRef, keys: rovingKeys, selection, itemFor: (key) => itemByKey.value.get(key),
   columns: () => (view.value === 'grid' ? gridColumns(itemsRef.value?.querySelector('.media-grid')) : 1),
-  onDelete: (targets) => { void askDelete(targets) },
+  onDelete: (targets) => { void askRemove(targets) },
 })
 
 function onOpenItem(item: LibraryItem) {
@@ -106,7 +113,7 @@ const { dragActive, dropFolder, onDragEnter, onDragOver, onDragLeave, onDrop, on
   canMoveTargets: (targets) => mediaCaps.canMoveTargets(targets), onDrop: (result) => { void intake.onDropResult(result) },
 })
 
-function onViewerDelete() { if (viewerFile.value) void askDelete([{ type: 'file', id: viewerFile.value.id }], 'viewer') }
+function onViewerDelete() { if (viewerFile.value) void askRemove([{ type: 'file', id: viewerFile.value.id }], 'viewer') }
 
 const { renameOpen, renameTarget, renameName, openRename, closeRename, onConfirmRename } = useMediaRename({
   deps, ops: opsPort, refresh: mediaRefresh, canRename: (item) => mediaCaps.canRenameTarget(item),
@@ -116,8 +123,9 @@ const { menuItems, onContextMenu, onSelect: onMenuSelect } = useMediaContextMenu
   items: () => items.value,
   isSelected: selection.isSelected,
   select: (item) => { if (mode === 'library') selection.select(item) },
-  onDelete: (opItems) => { void askDelete(opItems) },
+  onDelete: (opItems) => { void askRemove(opItems) },
   onRename: openRename,
+  trash: () => removal.trashing.value,
   canRename: (item) => mediaCaps.canRenameTarget(item),
   canDelete: (targets) => mediaCaps.canDeleteTargets(targets),
 })
@@ -125,12 +133,23 @@ const localizedMenu = computed(() => menuItems.value.map((s) => ({
   label: t(s.labelKey, s.count != null ? { n: s.count } : undefined), value: s.value, ...(s.danger ? { danger: true } : {}),
 })))
 
+const tileMenu = computed(() => (mode === 'pick-single' && mediaCaps.canDeleteFile.value
+  ? [{ label: t(removal.trashing.value ? 'media.menu.trash' : 'media.menu.delete'), value: 'delete', danger: true }]
+  : null))
+function onTileMenu(item: LibraryItem, value: string) { if (value === 'delete') void askRemove([toOpItem(item)]) }
+
+onMounted(() => { if (mode === 'library') void trashCount.refresh() })
+
 defineExpose({ clearSelection: selection.clear })
 </script>
 
 <template>
   <section ref="mediaLibraryRef" class="media-library" tabindex="-1" @click.self="onBackgroundClick" @dragenter="onDragEnter" @dragover="onDragOver" @dragleave="onDragLeave" @drop="onDrop">
-    <KestrelMediaPathBar :folder="folder" :folders="allFolderPaths" @navigate="lib.navigate" />
+    <KestrelMediaPathBar :folder="folder" :folders="allFolderPaths" @navigate="lib.navigate">
+      <template v-if="mode === 'library' && trashCount.count.value !== null" #end>
+        <KestrelUiButton variant="ghost" size="sm" icon="trash" to="/admin/media?trash=1" data-test="media-trash-entry">{{ t('media.trash.entry', { n: trashCount.count.value }) }}</KestrelUiButton>
+      </template>
+    </KestrelMediaPathBar>
     <KestrelMediaToolbar
       v-if="mode !== 'library' || !showBar"
       :view="view" :search="search" :disabled="!!error"
@@ -143,8 +162,8 @@ defineExpose({ clearSelection: selection.clear })
     <KestrelMediaSelectionBar
       v-if="showBar"
       :count="selection.count.value" :page-count="selection.selectableCount.value" :all-selected="selection.allSelected.value"
-      :can-delete="mediaCaps.canDeleteTargets(selection.selectedTargets())" :busy="opsBusy"
-      @select-all="selection.selectAll" @clear="selection.clear" @delete="askDelete(selection.selectedTargets())"
+      :can-delete="mediaCaps.canDeleteTargets(selection.selectedTargets())" :trash="removal.trashing.value" :busy="opsBusy"
+      @select-all="selection.selectAll" @clear="selection.clear" @delete="askRemove(selection.selectedTargets())"
     />
     <KestrelUiMenu :items="localizedMenu" @select="onMenuSelect">
       <div ref="itemsRef" class="media-library__items" @contextmenu.capture="onContextMenu" @keydown="keyboard.onKeydown" @focusin="keyboard.onFocusin">
@@ -152,12 +171,12 @@ defineExpose({ clearSelection: selection.clear })
         <p v-else-if="!loading && !items.length && !(view === 'grid' && gridTileUploads.length)" class="media-library__empty">{{ t('media.folderEmpty') }}</p>
         <KestrelMediaGrid v-else-if="view === 'grid'" :items="items" :is-selected="selection.isSelected" :drop-target-path="dropFolder" :parent-path="parentPath" :up-label="t('media.parentFolder')" :pick="pick"
           :uploads="gridTileUploads" :upload-preview="previewFor" :can-retry-upload="mediaUploads.canRetry" :variant-override="variantResults" :stalled-ids="stalledIds" :stored-ids="storedIds"
-          :roving-key="keyboard.activeKey.value" :checkboxes="mode !== 'pick-single'" :selecting="mode === 'library' && selection.count.value > 0" :is-selectable="canHoldSelection"
-          @navigate="lib.navigate" @select="onSelect" @open="onOpenItem" @dragstart="onItemDragStart" @dragend="onItemDragEnd" @dismiss-upload="onDismissUpload" @retry-upload="mediaUploads.retry" />
+          :roving-key="keyboard.activeKey.value" :checkboxes="mode !== 'pick-single'" :selecting="mode === 'library' && selection.count.value > 0" :is-selectable="canHoldSelection" :tile-menu="tileMenu"
+          @navigate="lib.navigate" @select="onSelect" @open="onOpenItem" @dragstart="onItemDragStart" @dragend="onItemDragEnd" @dismiss-upload="onDismissUpload" @retry-upload="mediaUploads.retry" @tile-menu="onTileMenu" />
         <KestrelMediaTable v-else :items="items" :is-selected="selection.isSelected" :drop-target-path="dropFolder" :sort="sort" :parent-path="parentPath" :up-label="t('media.parentFolder')" :pick="pick" :variant-override="variantResults" :stored-ids="storedIds"
           :roving-key="keyboard.activeKey.value" :checkboxes="mode !== 'pick-single'" :selecting="mode === 'library' && selection.count.value > 0" :is-selectable="canHoldSelection"
-          :all-selected="selection.allSelected.value" :some-selected="selection.someSelected.value"
-          @navigate="lib.navigate" @select="onSelect" @select-all="(on) => (on ? selection.selectAll() : selection.deselectAll())" @open="onOpenItem" @sort="lib.setSort" @dragstart="onItemDragStart" @dragend="onItemDragEnd" />
+          :all-selected="selection.allSelected.value" :some-selected="selection.someSelected.value" :tile-menu="tileMenu"
+          @tile-menu="onTileMenu" @navigate="lib.navigate" @select="onSelect" @select-all="(on) => (on ? selection.selectAll() : selection.deselectAll())" @open="onOpenItem" @sort="lib.setSort" @dragstart="onItemDragStart" @dragend="onItemDragEnd" />
       </div>
     </KestrelUiMenu>
     <KestrelCollectionListPager v-if="totalPages > 1" :page="page" :total-pages="totalPages" :total="total" :per-page="perPage" @update:page="lib.setPage" @update:per-page="lib.setPerPage" />
@@ -180,10 +199,10 @@ defineExpose({ clearSelection: selection.clear })
       :open="viewerOpen" :file="viewerFile" :can-save="mediaCaps.canRenameFile.value" :can-delete="mediaCaps.canDeleteFile.value" :busy="viewerBusy" :error="viewerError"
       @update:open="(v) => { viewerOpen = v }" @save="onSaveViewer" @delete="onViewerDelete"
     />
-    <KestrelUiAlert v-if="opError && !deleteOpen && !renameOpen && !viewerOpen && !newFolderOpen" variant="error">{{ opError }}</KestrelUiAlert>
+    <KestrelUiAlert v-if="opError && !removal.open.value && !renameOpen && !viewerOpen && !newFolderOpen" variant="error">{{ opError }}</KestrelUiAlert>
     <KestrelMediaDeleteDialog
-      :open="deleteOpen" :summary="deleteInfo" :busy="opsBusy" :error="opError" :conflict="opConflict"
-      @confirm="onConfirmDelete" @update:open="(v) => { if (!v) { closeDelete(); opConflict = null } }"
+      :state="removal.state.value" :busy="opsBusy" :error="opError" :conflict="opConflict"
+      @confirm="removal.confirm" @cancel="() => { removal.cancel(); if (!opsBusy) opConflict = null }"
     />
     <KestrelMediaRenameDialog
       :open="renameOpen" :name="renameName" :kind="renameTarget?.type" :busy="opsBusy" :error="opError"

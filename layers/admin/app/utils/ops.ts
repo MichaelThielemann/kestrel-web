@@ -1,4 +1,4 @@
-import type { MediaItem, ReferenceTo } from '#kestrel-admin/types/api'
+import type { MediaItem } from '#kestrel-admin/types/api'
 import type { LibraryItem } from './library'
 
 export type OpItem = { type: 'file'; id: string } | { type: 'folder'; path: string }
@@ -6,8 +6,6 @@ export type OpItem = { type: 'file'; id: string } | { type: 'folder'; path: stri
 export interface MenuItem { label: string; value: string; danger?: boolean; disabled?: boolean }
 
 export interface MenuItemSpec { labelKey: string; count?: number; value: string; danger?: boolean }
-
-export interface DeleteSummary { files: number; folders: number; totalBytes: number; references: ReferenceTo[]; nonEmptyFolders: string[] }
 
 export function toOpItem(item: LibraryItem): OpItem {
   return item.type === 'folder' ? { type: 'folder', path: item.folder.path } : { type: 'file', id: item.file.id }
@@ -41,24 +39,15 @@ export function effectiveTargets(clicked: LibraryItem, isSelected: (i: LibraryIt
   return isSelected(clicked) ? selected : [clicked]
 }
 
-export function deleteSummary(files: MediaItem[], targets: OpItem[], references: ReferenceTo[], nonEmptyFolders: string[]): DeleteSummary {
-  return {
-    files: files.length,
-    folders: targets.filter((t) => t.type === 'folder').length,
-    totalBytes: files.reduce((sum, f) => sum + (f.size ?? 0), 0),
-    references,
-    nonEmptyFolders,
-  }
-}
-
-export function buildMenuItems(ctx: { targetCount: number; canRename: boolean; canDelete: boolean }): MenuItemSpec[] {
+export function buildMenuItems(ctx: { targetCount: number; canRename: boolean; canDelete: boolean; trash?: boolean }): MenuItemSpec[] {
   if (ctx.targetCount === 0) return []
   const items: MenuItemSpec[] = []
   if (ctx.targetCount === 1 && ctx.canRename) items.push({ labelKey: 'media.menu.rename', value: 'rename' })
   if (ctx.canDelete) {
+    const key = ctx.trash ? 'media.menu.trash' : 'media.menu.delete'
     items.push(ctx.targetCount === 1
-      ? { labelKey: 'media.menu.delete', value: 'delete', danger: true }
-      : { labelKey: 'media.menu.deleteN', count: ctx.targetCount, value: 'delete', danger: true })
+      ? { labelKey: key, value: 'delete', danger: true }
+      : { labelKey: `${key}N`, count: ctx.targetCount, value: 'delete', danger: true })
   }
   return items
 }

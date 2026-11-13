@@ -10,6 +10,8 @@ export function useMediaContextMenu(opts: {
   onRename: (item: LibraryItem) => void
   canRename: (item: LibraryItem) => boolean
   canDelete: (items: LibraryItem[]) => boolean
+  /** Whether delete moves to the trash, which the labels say. */
+  trash?: () => boolean
 }) {
   const targets = ref<LibraryItem[]>([])
 
@@ -17,6 +19,7 @@ export function useMediaContextMenu(opts: {
     targetCount: targets.value.length,
     canRename: targets.value.length === 1 && targets.value[0] !== undefined && opts.canRename(targets.value[0]),
     canDelete: opts.canDelete(targets.value),
+    trash: opts.trash?.() ?? false,
   }))
 
   function onContextMenu(e: MouseEvent) {

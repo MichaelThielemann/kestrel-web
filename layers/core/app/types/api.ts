@@ -169,6 +169,22 @@ export interface MediaFolderRenameResponse { folder: string; moved: number }
 
 export interface MediaFolderDeleteResponse { ok: boolean; removed: number }
 
+/** One page of `GET /media/trash`: trashed items with no public path, newest first. */
+export type MediaTrashPage = ResponseOf<'listMediaTrash', 200>
+
+export type MediaTrashItem = MediaTrashPage['items'][number]
+
+/** The answer of `POST /media/trash`: per id moved, already trashed (`unchanged`) or skipped with a reason. */
+export type MediaTrashResponse = ResponseOf<'trashMedia', 200>
+
+export type MediaTrashFolderResponse = ResponseOf<'trashMediaFolder', 200>
+
+/** The answer of `POST /media/trash/restore`, including the items that came back under a new display name. */
+export type MediaRestoreResponse = ResponseOf<'restoreMedia', 200>
+
+/** The answer of `POST /media/trash/purge` and `POST /media/trash/empty`; a referenced item is skipped with reason `referenced`. */
+export type MediaPurgeResponse = ResponseOf<'purgeMedia', 200>
+
 export interface ReferenceTo { type: string; field: string; id: string }
 
 export interface BrokenReference {

@@ -2,7 +2,7 @@
 import { DropdownMenuRoot, DropdownMenuTrigger, DropdownMenuPortal, DropdownMenuContent, DropdownMenuItem } from 'reka-ui'
 import type { MenuItem } from './Menu.vue'
 
-defineProps<{ items: MenuItem[]; label: string; disabled?: boolean; triggerClass?: string }>()
+defineProps<{ items: MenuItem[]; label: string; disabled?: boolean; triggerClass?: string; triggerTabindex?: number }>()
 const emit = defineEmits<{ select: [string] }>()
 const { target: portalTarget } = useAdminPortal()
 </script>
@@ -10,7 +10,7 @@ const { target: portalTarget } = useAdminPortal()
 <template>
   <DropdownMenuRoot>
     <DropdownMenuTrigger as-child>
-      <button type="button" :class="triggerClass" :disabled="disabled" :aria-label="label">
+      <button type="button" :class="triggerClass" :disabled="disabled" :aria-label="label" :tabindex="triggerTabindex">
         <slot />
       </button>
     </DropdownMenuTrigger>

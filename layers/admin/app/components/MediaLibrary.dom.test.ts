@@ -1165,7 +1165,7 @@ describe('MediaLibrary viewer delete flow', () => {
     await vi.waitFor(() => expect(document.body.querySelector('.ui-dialog__content--nested')).toBeTruthy())
     const confirmDialog = document.body.querySelector('.ui-dialog__content--nested')
     if (!confirmDialog) throw new Error('expected the delete confirmation dialog to render')
-    const confirmButton = Array.from(confirmDialog.querySelectorAll('button')).find((b) => b.textContent?.trim() === en['common.delete'])
+    const confirmButton = Array.from(confirmDialog.querySelectorAll('button')).find((b) => b.textContent?.trim() === en['media.remove.confirm.delete'].replace('{what}', en['media.remove.files']))
     if (!confirmButton) throw new Error('expected the delete confirmation dialog to render a confirm button')
     confirmButton.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
 
@@ -1229,9 +1229,10 @@ describe('MediaLibrary delete warning for a file a content block uses', () => {
     if (!deleteButton) throw new Error('expected the viewer to render a delete button')
     deleteButton.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
 
-    await vi.waitFor(() => expect(document.body.querySelector('.media-delete__refs')).toBeTruthy())
-    const warning = document.body.querySelector('.media-delete__refs')
-    expect(warning?.textContent).toContain(en['refs.referencedBy'].replace('{n}', '1'))
+    await vi.waitFor(() => expect(document.body.querySelector('.media-remove__in-use')).toBeTruthy())
+    const warning = document.body.querySelector('.media-remove__in-use')
+    expect(warning?.textContent).toContain(en['media.remove.inUse'])
+    expect(warning?.textContent).toContain('teaser.png')
     const link = warning?.querySelector('a')
     expect(link?.getAttribute('href')).toBe('/admin/pages/p1')
     expect(link?.textContent?.trim()).toBe('pages/p1')

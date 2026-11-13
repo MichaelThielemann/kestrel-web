@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
-const props = defineProps<{ count: number; pageCount: number; allSelected: boolean; canDelete: boolean; busy?: boolean }>()
+const props = defineProps<{ count: number; pageCount: number; allSelected: boolean; canDelete: boolean; trash?: boolean; busy?: boolean }>()
 const emit = defineEmits<{ selectAll: []; clear: []; delete: [] }>()
 const { t } = useT()
 
@@ -19,7 +19,7 @@ const clearShortcut = computed(() => ({ keys: 'Escape', label: t('media.selectio
         </KestrelUiTooltip>
       </template>
       <KestrelUiTooltip v-if="canDelete">
-        <KestrelUiButton size="sm" variant="danger-ghost" icon="trash" :disabled="busy" aria-keyshortcuts="Delete Backspace" @click="emit('delete')">{{ t('media.selection.delete') }}</KestrelUiButton>
+        <KestrelUiButton size="sm" variant="danger-ghost" icon="trash" :disabled="busy" aria-keyshortcuts="Delete Backspace" @click="emit('delete')">{{ trash ? t('media.selection.trash') : t('media.selection.delete') }}</KestrelUiButton>
         <template #content><kbd class="ui-bulkbar__kbd">{{ t('media.selection.keyDelete') }}</kbd></template>
       </KestrelUiTooltip>
     </KestrelUiBulkBar>

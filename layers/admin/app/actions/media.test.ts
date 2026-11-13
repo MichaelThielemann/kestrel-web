@@ -1,15 +1,12 @@
 import type { ApiErrorDetails } from '#kestrel-admin/types/api'
-import type { Capability } from '#kestrel-admin/types/kestrel'
 import { describe, expect, it, vi } from 'vitest'
 import { boundaryCast } from '#kestrel/cast'
 import { runAction } from '#kestrel-core/app/utils/actions'
-import { createFolder, deleteItems, previewDeleteItems, renameOrMove, setMediaMeta, setMediaProvenance, upload, uploadTimeoutMs } from './media'
+import { createFolder, deleteItems, renameOrMove, setMediaMeta, setMediaProvenance, upload, uploadTimeoutMs } from './media'
 import type { UploadItem } from '../composables/useMediaUpload'
 import { UploadTransportError, type UploadRequestOptions, type UploadTransport } from '../composables/useUploadTransport'
 import type { ApiRoute } from '../utils/capabilities'
 import { fakeDeps } from './__fixtures__/fake-deps'
-
-const MEDIA_REFERRERS: Capability = { method: 'GET', path: '/admin/references/to/media/:id' }
 
 const CODE_OF: Record<number, string> = {
   400: 'VALIDATION', 401: 'UNAUTHENTICATED', 403: 'FORBIDDEN', 404: 'NOT_FOUND', 409: 'CONFLICT',
@@ -265,43 +262,39 @@ describe('deleteItems', () => {
     expect(ops.setConflict).toHaveBeenCalledWith([{ type: 'pages', id: 'p3', field: 'gallery' }])
   })
 
-  it('reloads exactly once per non-empty category, twice when both are non-empty', async () => {
-    const filesOnly = fakeDeps([null])
-    const filesOnlyRefresh = vi.fn(() => undefined)
-    await runAction(deleteItems, {
-      deps: filesOnly.deps, files: [file('f1', 'a.png')], folderPaths: [], recursive: false, confirmed: true, ops: fakeOps(), refresh: filesOnlyRefresh,
-    })
-    expect(filesOnlyRefresh).toHaveBeenCalledTimes(1)
-
-    const foldersOnly = fakeDeps([null])
-    const foldersOnlyRefresh = vi.fn(() => undefined)
-    await runAction(deleteItems, {
-      deps: foldersOnly.deps, files: [], folderPaths: ['a/b'], recursive: false, confirmed: true, ops: fakeOps(), refresh: foldersOnlyRefresh,
-    })
-    expect(foldersOnlyRefresh).toHaveBeenCalledTimes(1)
-
+  it('reloads once after files and folders, and not at all for an empty request', async () => {
     const mixed = fakeDeps([null, null])
     const mixedRefresh = vi.fn(() => undefined)
     await runAction(deleteItems, {
       deps: mixed.deps, files: [file('f1', 'a.png')], folderPaths: ['a/b'], recursive: false, confirmed: true, ops: fakeOps(), refresh: mixedRefresh,
     })
-    expect(mixedRefresh).toHaveBeenCalledTimes(2)
+    expect(mixedRefresh).toHaveBeenCalledTimes(1)
+
+    const none = fakeDeps([])
+    const noneRefresh = vi.fn(() => undefined)
+    await runAction(deleteItems, {
+      deps: none.deps, files: [], folderPaths: [], recursive: false, confirmed: true, ops: fakeOps(), refresh: noneRefresh,
+    })
+    expect(noneRefresh).not.toHaveBeenCalled()
   })
 
-  it('stops the file loop at the first failure but still refreshes', async () => {
-    const { deps, calls, toast } = fakeDeps([apiError(409, 'in use')])
+  it('tries every file and folder after a failure, reports each and reloads once', async () => {
+    const { deps, calls, toast } = fakeDeps([apiError(409, 'in use'), null, null])
     const ops = fakeOps()
     const refresh = vi.fn(() => undefined)
+    const report = vi.fn()
 
     const result = await runAction(deleteItems, {
-      deps, files: [file('f1', 'a.png'), file('f2', 'b.png')], folderPaths: ['x'], recursive: false, confirmed: true, ops, refresh,
+      deps, files: [file('f1', 'a.png'), file('f2', 'b.png')], folderPaths: ['x'], recursive: false, confirmed: true, ops, refresh, report,
     })
 
     expect(result.ok).toBe(false)
-    expect(calls).toEqual([{ route: { method: 'DELETE', path: '/media/f1' }, body: undefined, query: undefined }])
+    expect(calls.map((c) => c.route.path)).toEqual(['/media/f1', '/media/f2', '/media/folders/x'])
     expect(ops.setError).toHaveBeenCalledWith('media.deleteBlocked:{"name":"a.png","reason":"in use"}')
     expect(refresh).toHaveBeenCalledTimes(1)
     expect(toast.success).not.toHaveBeenCalled()
+    expect(report).toHaveBeenCalledTimes(1)
+    expect(report.mock.calls[0]?.[0]).toMatchObject({ files: { succeeded: 1, failed: 1 }, folders: { succeeded: 1, failed: 0 } })
   })
 
   it('deletes folders after files and only sends recursive when asked', async () => {
@@ -316,8 +309,8 @@ describe('deleteItems', () => {
     expect(refresh).toHaveBeenCalledTimes(1)
   })
 
-  it('stops the folder loop at the first failure and does not attempt the rest', async () => {
-    const { deps, calls } = fakeDeps([null, apiError(500, 'boom')])
+  it('tries the remaining folders after a failed one', async () => {
+    const { deps, calls } = fakeDeps([null, apiError(500, 'boom'), null])
     const refresh = vi.fn(() => undefined)
 
     const result = await runAction(deleteItems, {
@@ -325,31 +318,8 @@ describe('deleteItems', () => {
     })
 
     expect(result.ok).toBe(false)
-    expect(calls).toHaveLength(2)
-    expect(refresh).toHaveBeenCalledTimes(1)
-  })
-})
-
-describe('previewDeleteItems', () => {
-  it('skips the lookup when the collection has no referrers route', async () => {
-    const { deps, calls } = fakeDeps([])
-    const result = await runAction(previewDeleteItems, { deps, fileIds: ['f1'], capability: undefined })
-    expect(calls).toEqual([])
-    expect(result).toEqual({ ok: true, result: [] })
-  })
-
-  it('returns nothing and stops on a 403', async () => {
-    const { deps, calls } = fakeDeps([apiError(403, 'forbidden')])
-    const result = await runAction(previewDeleteItems, { deps, fileIds: ['f1', 'f2'], capability: MEDIA_REFERRERS })
-    expect(calls).toHaveLength(1)
-    expect(result).toEqual({ ok: true, result: [] })
-  })
-
-  it('skips a failed file and keeps the references of the others', async () => {
-    const { deps, calls } = fakeDeps([apiError(500, 'boom'), [{ type: 'pages', field: 'body', id: 'p1' }], []])
-    const result = await runAction(previewDeleteItems, { deps, fileIds: ['f1', 'f2', 'f3'], capability: MEDIA_REFERRERS })
     expect(calls).toHaveLength(3)
-    expect(result).toEqual({ ok: true, result: [{ type: 'pages', field: 'body', id: 'p1' }] })
+    expect(refresh).toHaveBeenCalledTimes(1)
   })
 })
 

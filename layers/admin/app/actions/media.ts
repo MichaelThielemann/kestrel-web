@@ -1,5 +1,4 @@
-import type { ApiErrorDetails, MediaFolder, MediaFolderRenameResponse, MediaItem, Provenance, ReferenceTo } from '#kestrel-admin/types/api'
-import type { Capability } from '#kestrel-admin/types/kestrel'
+import type { ApiErrorDetails, MediaFolder, MediaFolderRenameResponse, MediaItem, Provenance } from '#kestrel-admin/types/api'
 import { defineAction, type ActionContext, type ActionStep } from '#kestrel-core/app/utils/actions'
 import { ApiError, apiErrorCode, apiErrorDetails, apiErrorMessage, apiErrorRetryable, apiErrorRunId, apiErrorStatus, retryableMessage, withRunId } from '../composables/useApi'
 import type { UploadItem } from '../composables/useMediaUpload'
@@ -8,7 +7,7 @@ import { humanizeSize, joinFolder, parentFolder } from '../utils/library'
 import type { OpItem } from '../utils/ops'
 import { referencedBy } from '../utils/references'
 import { defineUiStep } from './define'
-import { apiEach, apiRequest, referencesPrecheck } from './steps/api'
+import { apiEach, apiRequest } from './steps/api'
 import { dialogConfirm } from './steps/guard'
 import { opsBusy, toastError, toastSuccess } from './steps/notify'
 import { dataReload } from './steps/route'
@@ -51,16 +50,13 @@ export interface DeleteItemsInput extends WithDeps {
   confirmed: boolean
   ops: BusyPort
   refresh: RefreshPort
+  /** Receives the per-item report once every item was tried, also when some failed. */
+  report?: (result: DeleteItemsResult) => void
 }
 
 export interface DeleteItemsResult {
   files: EachReport<unknown>
   folders: EachReport<unknown>
-}
-
-export interface PreviewMediaDeleteInput extends WithDeps {
-  fileIds: readonly string[]
-  capability: Capability | undefined
 }
 
 export interface UploadInput extends WithDeps {
@@ -176,8 +172,7 @@ function reloadWhen<I extends { refresh: RefreshPort }, R>(name: UiStepName, has
   })
 }
 
-const reloadFilesIfAny = reloadWhen<DeleteItemsInput, DeleteItemsResult>('data.reload:files', (ctx) => ctx.input.files.length > 0)
-const reloadFoldersIfAny = reloadWhen<DeleteItemsInput, DeleteItemsResult>('data.reload:folders', (ctx) => ctx.input.folderPaths.length > 0)
+const reloadIfAny = reloadWhen<DeleteItemsInput, DeleteItemsResult>('data.reload:media', (ctx) => ctx.input.files.length + ctx.input.folderPaths.length > 0)
 
 const filesDeletedGuard = defineUiStep<DeleteItemsInput, DeleteItemsResult>('guard.filesDeleted', (ctx) => {
   const report = ctx.result?.files
@@ -189,6 +184,7 @@ const foldersDeletedGuard = defineUiStep<DeleteItemsInput, DeleteItemsResult>('g
   if (report && report.failed) ctx.fail(report.lastMessage ?? 'guard.foldersDeleted')
 })
 
+/** Deletes files and folders for good, one request each: every item is tried, the library reloads once at the end, and the per-item report goes to `report` before a failure fails the action. */
 export const deleteItems = defineAction<DeleteItemsInput, DeleteItemsResult>({
   name: 'deleteItems',
   steps: [
@@ -197,7 +193,7 @@ export const deleteItems = defineAction<DeleteItemsInput, DeleteItemsResult>({
     apiEach<DeleteItemsInput, DeleteItemsResult, unknown>('media.each:files', {
       items: (ctx) => ctx.input.files.map((f) => f.id),
       call: (ctx, id) => ({ route: ctx.input.deps.capabilities.route('deleteMedia', { id }) }),
-      policy: 'stop',
+      policy: 'continue',
       onItemError: (ctx, item) => {
         if (item.code === 'CONFLICT') {
           const refs = referencedBy(item.details, item.message ?? '')
@@ -213,21 +209,21 @@ export const deleteItems = defineAction<DeleteItemsInput, DeleteItemsResult>({
         ctx.result = { files: report, folders: EMPTY_EACH_REPORT }
       },
     }),
-    reloadFilesIfAny,
-    filesDeletedGuard,
     apiEach<DeleteItemsInput, DeleteItemsResult, unknown>('media.each:folders', {
       items: (ctx) => ctx.input.folderPaths,
       call: (ctx, path) => ({ route: ctx.input.deps.capabilities.route('deleteMediaFolder', { path }), query: ctx.input.recursive ? { recursive: true } : undefined }),
-      policy: 'stop',
+      policy: 'continue',
       onItemError: (ctx, item) => {
         ctx.input.ops.setError?.(item.message ?? '')
       },
       onDone: (ctx, report) => {
-        const files = ctx.result?.files ?? EMPTY_EACH_REPORT
-        ctx.result = { files, folders: report }
+        const result = { files: ctx.result?.files ?? EMPTY_EACH_REPORT, folders: report }
+        ctx.result = result
+        ctx.input.report?.(result)
       },
     }),
-    reloadFoldersIfAny,
+    reloadIfAny,
+    filesDeletedGuard,
     foldersDeletedGuard,
     toastSuccess<DeleteItemsInput, DeleteItemsResult>((ctx) => {
       const n = ctx.input.files.length + ctx.input.folderPaths.length
@@ -235,20 +231,6 @@ export const deleteItems = defineAction<DeleteItemsInput, DeleteItemsResult>({
     }),
   ],
   always: [opsBusy<DeleteItemsInput, DeleteItemsResult>(false)],
-})
-
-export const previewDeleteItems = defineAction<PreviewMediaDeleteInput, ReferenceTo[]>({
-  name: 'previewDeleteItems',
-  steps: [
-    referencesPrecheck<PreviewMediaDeleteInput, ReferenceTo[]>('references.precheck', {
-      capability: (ctx) => ctx.input.capability,
-      ids: (ctx) => ctx.input.fileIds,
-      onError: 'skip',
-      onDone: (ctx, report) => {
-        ctx.result = report.forbidden ? [] : [...report.byId.values()].flat()
-      },
-    }),
-  ],
 })
 
 function provenanceField(p: Provenance | undefined): string {

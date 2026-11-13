@@ -61,6 +61,7 @@ function cancel() { editing.value = false }
         </li>
       </ul>
     </div>
+    <span v-if="$slots.end" class="media-pathbar__end"><slot name="end" /></span>
   </div>
 </template>
 
@@ -76,6 +77,10 @@ function cancel() { editing.value = false }
     align-items: center;
     gap: 0;
     flex-wrap: wrap;
+  }
+
+  &__end {
+    margin-inline-start: auto;
   }
 
   &__seg--root {

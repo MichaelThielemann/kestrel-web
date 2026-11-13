@@ -6,6 +6,7 @@ import { itemKey, humanizeSize, type LibraryItem } from '../utils/library'
 import { isDisclosed, provenanceLabelKey, provenanceOrigin } from '../utils/provenance'
 import { isPickGated } from '../utils/media-insert'
 import { variantChipState, variantTotal } from '../utils/variant-state'
+import type { MenuItem } from '../utils/ops'
 
 const props = defineProps<{
   items: LibraryItem[]
@@ -24,6 +25,7 @@ const props = defineProps<{
   checkboxes?: boolean
   selecting?: boolean
   isSelectable?: (item: LibraryItem) => boolean
+  tileMenu?: MenuItem[] | null
 }>()
 const emit = defineEmits<{
   navigate: [string]
@@ -33,6 +35,7 @@ const emit = defineEmits<{
   dragend: []
   dismissUpload: [string]
   retryUpload: [string]
+  tileMenu: [LibraryItem, string]
 }>()
 const { t } = useT()
 const mods = (e: MouseEvent) => ({ toggle: e.ctrlKey || e.metaKey, range: e.shiftKey })
@@ -180,6 +183,10 @@ function uploadProcessing(upload: UploadItem): boolean {
           </span>
           <span class="media-grid__name">{{ item.file.filename }}</span>
         </KestrelUiButton>
+        <span v-if="tileMenu?.length" class="media-grid__menu">
+          <KestrelUiActionMenu :items="tileMenu" :label="t('media.menu.more', { name: item.file.filename })" trigger-class="ui-button--icon ui-button--icon-sm media-grid__menu-trigger"
+            :trigger-tabindex="tabindexFor(itemKey(item))" @select="(value: string) => emit('tileMenu', item, value)"><KestrelUiIcon name="more-horizontal" :size="16" /></KestrelUiActionMenu>
+        </span>
       </li>
     </template>
   </ul>
@@ -195,6 +202,16 @@ function uploadProcessing(upload: UploadItem): boolean {
   z-index: 1;
   display: inline-flex;
   border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+.media-grid__menu {
+  position: absolute;
+  top: var(--space-1);
+  left: var(--space-1);
+  z-index: 1;
+  display: inline-flex;
+  border-radius: var(--radius-full);
   background: var(--color-surface);
   box-shadow: var(--shadow-sm);
 }

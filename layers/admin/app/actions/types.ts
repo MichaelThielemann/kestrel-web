@@ -113,6 +113,8 @@ export interface EachReport<T> {
   failed: number
   lastMessage: string | null
   firstFailure: EachItemResult<T> | null
+  /** The run stopped early because its signal aborted. */
+  cancelled?: boolean
 }
 
 export interface PrecheckReport {
