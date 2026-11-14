@@ -8,6 +8,7 @@ import { isDisclosed, provenanceLabelKey, provenanceOrigin } from '#kestrel-admi
 import { isInsertable } from '#kestrel-admin/utils/media-insert'
 import { onMediaChanged, onMediaFramed, onMediaRemoved } from '#kestrel-admin/composables/useMediaChanges'
 import { lookUpMedia } from '#kestrel-admin/composables/useMediaPick'
+import { useMediaSettle } from '#kestrel-admin/composables/useMediaSettle'
 import { canFrame } from '#kestrel-admin/utils/media-crop'
 
 const props = defineProps<FieldComponentProps>()
@@ -68,6 +69,18 @@ onMediaRemoved(reresolve)
 onMediaChanged(({ restored }) => reresolve(restored))
 
 const resolved = computed(() => ids.value.map((id) => ({ id, item: meta.value[id] ?? null })))
+
+async function refresh(id: string) {
+  if (!ids.value.includes(id) || !capabilities.has('listMedia')) return
+  try {
+    const page = await api<ListPage<MediaItem>>(capabilities.route('listMedia'), { query: { ids: id, locale: props.locale } })
+    const item = page.items.find((found) => found.id === id)
+    if (item && ids.value.includes(id)) meta.value[id] = item
+  } catch {
+    return
+  }
+}
+useMediaSettle(() => resolved.value.map((r) => r.item), (id) => { void refresh(id) })
 const storedHint = computed(() => (resolved.value.some((r) => r.item !== null && !isInsertable(r.item)) ? t('field.media.storedProcessing') : ''))
 const trashedHint = computed(() => (resolved.value.some((r) => r.item === null && trashed.value[r.id] !== undefined) ? t('field.media.trashedHint') : ''))
 

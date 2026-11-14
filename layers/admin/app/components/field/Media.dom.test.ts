@@ -275,6 +275,27 @@ describe('field/Media crop entry', () => {
     wrapper.unmount()
   })
 
+  it('offers the crop of a held WebP once its whole-image variant has finished rendering', async () => {
+    schema.capabilities.setMediaFraming = { method: 'PUT', path: '/media/:id/framing' }
+    schema.features = ['images']
+    const large = { size: 'large', width: 1200, height: 800, format: 'webp', bytes: 1, path: '/media/f1/variants/large.webp', crop: null }
+    const rendering = framed({ contentType: 'image/webp', path: '/media/f1/harbour.webp', variants: [{ ...large, state: 'pending' }], variantCounts: { done: 0, pending: 1, error: 0, failed: 0 } })
+    const rendered = framed({ ...rendering, variants: [{ ...large, state: 'done' }], variantCounts: { done: 1, pending: 0, error: 0, failed: 0 } })
+    let lookups = 0
+    apiHandler.fn = () => Promise.resolve({ items: [lookups++ === 0 ? rendering : rendered], total: 1 })
+    try {
+      const wrapper = await mountSuspended(FieldMedia, { props: { field, name: 'hero', locale: 'en', modelValue: 'f1' } })
+      await vi.waitFor(() => expect(wrapper.find('.field-media__filename').text()).toBe('harbour.jpg'))
+      expect(cropButton(wrapper).exists()).toBe(false)
+
+      await vi.waitFor(() => expect(cropButton(wrapper).exists()).toBe(true))
+      expect(lookups).toBeGreaterThan(1)
+      wrapper.unmount()
+    } finally {
+      schema.features = []
+    }
+  })
+
   it('offers no crop for an item in the trash, a file that is not an image, or without the capability', async () => {
     apiHandler.fn = () => Promise.resolve({ items: [framed()], total: 1 })
     const refused = await mountSuspended(FieldMedia, { props: { field, name: 'hero', locale: 'en', modelValue: 'f1' } })
