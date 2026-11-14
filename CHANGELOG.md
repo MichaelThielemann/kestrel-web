@@ -1083,10 +1083,9 @@
   ^14.0.2 and `minimatch@10` as ^11.0.1: Nuxt's Nitro server reaches both through `@vercel/nft` and `archiver`,
   and every release of glob 13 and minimatch 10 carries a published advisory. A site on pnpm adds the same
   entries to its own `pnpm-workspace.yaml` for a `pnpm audit` without these findings. A site that lints with
-  `@nuxt/eslint` and whose lockfile pins `eslint-plugin-import-x` below 4.18.1, the first release that loads
+  `@nuxt/eslint` and whose lockfile pins `eslint-plugin-import-x` below 4.18.0, the first release that loads
   against minimatch 11, runs `pnpm update --depth Infinity eslint-plugin-import-x` (with `-r` in a workspace) or
-  resolves its lockfile from scratch: `pnpm install` and `pnpm update eslint-plugin-import-x` keep the pinned
-  release.
+  resolves its lockfile from scratch: `pnpm install` keeps the pinned release.
 - The `pnpm-workspace.yaml` that `create-kestrel` writes ignores one advisory through `auditConfig.ignoreGhsas`:
   GHSA-gcqx-w48m-w2h4 in `deepmerge`, reached only through Nuxt's development toolchain (`nitropack` >
   `@rollup/plugin-node-resolve`) and absent from a production build. Remove the entry once a Nuxt release no
