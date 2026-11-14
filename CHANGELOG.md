@@ -1177,11 +1177,12 @@
   opacity. The new tokens `--color-disabled-bg`, `--color-disabled-text`, `--color-disabled-border` and
   `--color-disabled-icon` (base, light and dark; the label stays at 3:1 or better) make a disabled `ghost`,
   `danger-ghost` or `icon` button clearly weaker than an active one; a disabled `danger-ghost` label takes
-  `--color-disabled-icon`, which is lighter than `--color-danger` in both themes. The unstyled `bare` variant keeps
+  `--color-disabled-icon`, which is lighter (light theme) or darker (dark theme) than `--color-danger` and at least
+  1.4:1 away from it in both themes. The unstyled `bare` variant keeps
   the look of its call site and only gets the `not-allowed` cursor. A disabled button, or a link with `disabled`,
   never shows a hover state and has the `not-allowed` cursor; a raw element with a kit class and the `disabled`
   attribute gets the same look. A disabled link renders without a destination, always carries `aria-disabled="true"`,
-  `tabindex="-1"` and `role="link"`, and neither navigates nor runs any click listener of the caller, including
+  `tabindex="-1"` and `role="link"`, and neither navigates nor runs a `@click` listener of the caller, including
   `@click.once`, `@click.passive` and `@click.capture`. A button that is `loading` is never styled as disabled, even
   with `disabled` set, in every variant; it is dimmed to 60 % opacity with a progress cursor.
 

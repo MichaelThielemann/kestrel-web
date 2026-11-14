@@ -1057,7 +1057,7 @@ well as the button.
 A disabled button of any styled variant, and `icon`, carries `.ui-button--disabled` and takes the
 `--color-disabled-bg`, `--color-disabled-text` and `--color-disabled-border` tokens instead of a flat opacity:
 `primary` and `danger` turn into a flat grey fill, `secondary` into an outline, `ghost` keeps only a weaker label
-colour, `danger-ghost` takes `--color-disabled-icon` (lighter than `--color-danger` in both themes) and `icon` uses
+colour, `danger-ghost` takes `--color-disabled-icon` (lighter in the light theme, darker in the dark theme than `--color-danger`, and at least 1.4:1 away from it in both) and `icon` uses
 `--color-disabled-icon`, which is clearly lighter (light theme) or darker (dark theme) than the active
 `--color-text-muted`. `bare` is unstyled by definition: its call site shows the disabled state itself, and the kit
 only sets the `not-allowed` cursor. The same look applies to a raw element that carries a kit class and the
