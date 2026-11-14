@@ -190,8 +190,9 @@ The proxy's header then decides the client address, so `NUXT_KESTREL_ACCESS_TRUS
 `NUXT_KESTREL_ACCESS_TRUST_PROXY` has to be set, as above. The process does not remove a socket file it leaves
 behind when it is killed or crashes, and a start that finds the file fails with `listen EADDRINUSE`.
 `RuntimeDirectory=` rules that out: systemd removes `/run/mysite` with the socket in it at every stop, the
-restart after a failure included. A socket path outside a runtime directory, or `RuntimeDirectoryPreserve=yes`,
-needs `ExecStartPre=/usr/bin/rm -f <socket>` for the same reason.
+restart after a failure included. A socket path outside a runtime directory, or `RuntimeDirectoryPreserve=`
+set to `restart` or `yes`, needs `ExecStartPre=/usr/bin/rm -f <socket>` for the same reason: only the default
+`no` removes the directory on the restart that follows a crash.
 nginx needs write permission on the socket, or it answers 502 and logs `connect() … failed (13: Permission
 denied)`: put the user nginx runs as into the service's group (`usermod -aG mysite www-data`, then restart
 nginx) and keep `UMask=0007`, which gives the socket mode 0770. The mask applies to every file the process
