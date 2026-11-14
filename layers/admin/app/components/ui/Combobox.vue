@@ -48,18 +48,23 @@ const displayValue = (id: unknown) => (typeof id === 'string' ? labelFor(id) : '
 const currentLabel = computed(() => (!props.multiple && typeof model.value === 'string' ? labelFor(model.value) : null))
 
 const hintId = useId()
+const searching = ref(false)
 const currentHint = computed(() => {
-  if (props.multiple || typeof model.value !== 'string') return undefined
+  if (props.multiple || searching.value || typeof model.value !== 'string') return undefined
   const id = model.value
   return (props.selected.find((s) => s.value === id) ?? props.options.find((o) => o.value === id))?.hint
 })
 const inputDescribedby = computed(() => [props.describedby, currentHint.value ? hintId : undefined].filter(Boolean).join(' ') || undefined)
 
-watch(currentLabel, (lbl) => { if (lbl != null) query.value = lbl })
+watch(currentLabel, (lbl) => {
+  searching.value = false
+  if (lbl != null) query.value = lbl
+})
 
 function onInput(term: string) {
   query.value = term
-  if (term === currentLabel.value) return
+  searching.value = term !== currentLabel.value
+  if (!searching.value) return
   emit('search', term)
 }
 

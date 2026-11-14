@@ -62,6 +62,34 @@ describe('KestrelUiCombobox hints', () => {
     expect(describedby).toEqual(['picker-help', badge.attributes('id')])
   })
 
+  it('hides the hint of the chosen record while another search term is typed', async () => {
+    const wrapper = await mountSuspended(Combobox, {
+      props: { options, selected: [about], modelValue: 'about', describedby: 'picker-help' },
+    })
+    onTestFinished(() => wrapper.unmount())
+
+    await wrapper.get('input').setValue('Imp')
+
+    expect(wrapper.find('.ui-combobox__anchor .ui-badge').exists()).toBe(false)
+    expect(wrapper.get('input').attributes('aria-describedby')).toBe('picker-help')
+
+    await wrapper.get('input').setValue('Über uns')
+
+    expect(wrapper.get('.ui-combobox__anchor .ui-badge').text()).toBe('Entwurf')
+  })
+
+  it('shows the hint again after the chosen record is picked again from the list', async () => {
+    const wrapper = await mountOpen({ selected: [about], modelValue: 'about' })
+
+    await wrapper.get('input').setValue('Imp')
+    expect(wrapper.find('.ui-combobox__anchor .ui-badge').exists()).toBe(false)
+    await wrapper.setProps({ options: [about] })
+    await vi.waitFor(() => expect(items()).toHaveLength(1))
+    items()[0]?.click()
+
+    await vi.waitFor(() => expect(wrapper.get('.ui-combobox__anchor .ui-badge').text()).toBe('Entwurf'))
+  })
+
   it('leaves the input description alone when the chosen record has no hint', async () => {
     const wrapper = await mountSuspended(Combobox, {
       props: { options, selected: [home], modelValue: 'home', describedby: 'picker-help' },
