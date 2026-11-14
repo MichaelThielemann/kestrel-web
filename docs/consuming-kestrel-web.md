@@ -894,6 +894,10 @@ nothing. Turn `sanitizeSvg` on, or add `image/svg+xml` to `media.deniedTypes`. `
 delivery (this process only, since it started). It needs neither module's feature flag, so the dashboard
 link and the System → Events tab work the same whichever module is configured; with `eventsQueue`, Events
 also keeps the dead-letter list and its retry actions.
+With `eventsQueue`, the System link in the admin rail also carries a badge with that count, so a failed background
+job shows without opening System → Events; retrying the events lowers it at once. The badge shows only for
+`scope: "store"`: without `eventsQueue` the count covers this process alone and a retry cannot lower it, so the rail
+stays plain, and an editor without access to the status route never triggers a request.
 
 **`images` details:** routes `listImageSizes`, `syncImages`, `pruneImages`, `retryFailedImages`,
 `imagesStatus`; boot step `registerImageSizesBoot` (no trigger — the Nitro plugin runs it at boot to

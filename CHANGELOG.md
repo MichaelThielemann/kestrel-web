@@ -250,6 +250,11 @@
   Status". `FieldOption` gains the optional `hint`, which `KestrelUiCombobox` renders the same way.
 - `KestrelUiBadge`, a small label for the admin kit with a `muted` variant for a state next to a name and a
   `counter` variant for a number.
+- With `eventsQueue`, the System link in the admin rail shows a counter badge with the number of dead-letter events
+  (`events.readDeliveryStatus`, `scope: "store"`), so a background job that gave up shows without opening System →
+  Events. It refreshes every 30 seconds while the tab is visible and right after a retry in System → Events, and is
+  hidden at 0, without the delivery status capability and for the process-only count of the default inline
+  delivery. The link's accessible name carries the count (`nav.systemDead`); the catalogues gain that key.
 
 ### Changed
 

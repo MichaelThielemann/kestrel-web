@@ -706,6 +706,17 @@ collection, the expected filter and the fix in the message.
   missing status counting as `workflow.draft`. A collection without a workflow
   gets no status light, no publish button and no bulk status actions rather than writing a value its model
   does not know.
+- Rail: `layouts/admin.vue` draws the rail; its System link is `AdminSystemLink.vue`, which shows a `counter`
+  `Badge` with the number of dead-letter events from `useDeadLetterCount()`. The composable reads
+  `GET /admin/events/delivery` (`eventsDeliveryStatus`) and reports `dead` only for `scope: "store"`, the count the
+  persistent queue holds across processes and a retry can lower; with the default inline delivery (`scope:
+  "process"`) the rail shows no badge. It sends no request without the capability, loads on mount, every 30 seconds
+  while the document is visible and once when the tab shows again, keeps the last value when a load fails and
+  raises no toast. The value is shared state, so `SystemEvents.vue` calls the composable without polling
+  (`useDeadLetterCount({ poll: false })`) and refreshes it right after a retry, instead of leaving the badge to
+  the next poll. The badge is hidden from assistive technology; the link's accessible name is "System", then the
+  count in words (`nav.systemDead`), and nothing announces on its own (no live region). With the rail collapsed
+  the badge sits on the corner of the icon.
 - `app/composables/useApi.ts` — the HTTP client for JSON requests; errors become
   `ApiError { status, code, retryable, message, runId, step?, details? }`. `retryable` is `true` for a `503`
   (with a `Retry-After` header) or `429`; the UI offers a retry and names the `Retry-After` seconds when
