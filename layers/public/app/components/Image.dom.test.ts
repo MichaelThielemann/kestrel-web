@@ -1,5 +1,5 @@
 import { mountSuspended } from '@nuxt/test-utils/runtime'
-import { defineComponent, h } from 'vue'
+import { defineComponent, h, renderSlot } from 'vue'
 import { describe, expect, it, vi } from 'vitest'
 import type { MediaItem, MediaVariant } from '#kestrel-core/app/types/api'
 import KestrelImage from './Image.vue'
@@ -270,6 +270,22 @@ describe('KestrelImage', () => {
       const img = wrapper.get('picture > img')
       expect(img.attributes('data-v-wrapper')).toBeDefined()
       expect(img.attributes('data-v-page')).toBeUndefined()
+    })
+
+    it('leaves the slot scope attribute of a scoped slot owner on the picture alone, as the server render does', async () => {
+      const Card = Object.assign(
+        defineComponent({ render() { return h('div', [renderSlot(this.$slots, 'default')]) } }),
+        { __scopeId: 'data-v-card' },
+      )
+      const Page = Object.assign(
+        defineComponent({ render: () => h(Card, null, { default: () => h(KestrelImage, { media: artItem(), size: 'tall', art }) }) }),
+        { __scopeId: 'data-v-page' },
+      )
+      const wrapper = await mountSuspended(Page)
+
+      expect(wrapper.get('picture').attributes('data-v-card-s')).toBeDefined()
+      expect(wrapper.get('picture > img').attributes('data-v-card-s')).toBeUndefined()
+      expect(wrapper.get('picture > img').attributes('data-v-page')).toBeDefined()
     })
 
     it('lets the attributes of the consumer win on the fallback image', async () => {
