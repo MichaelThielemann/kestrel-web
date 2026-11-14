@@ -81,9 +81,10 @@ The failing test's trace, screenshot and page snapshot are in `e2e/test-results/
 
 ## Lockfile
 
-The e2e dev dependencies (`@playwright/test`, `@axe-core/playwright`) are declared in `package.json`
-but not yet in `pnpm-lock.yaml`: the lockfile can only be regenerated once every Kestrel 6 package is on
-npm. Until then `pnpm install --frozen-lockfile` fails in all three CI jobs for that one reason. As
+The committed `pnpm-lock.yaml` does not match the manifests: it lacks the dependency ranges in the
+`package.json` files, the `overrides` in `pnpm-workspace.yaml` and the e2e dev dependencies
+(`@playwright/test`, `playwright-core`, `@axe-core/playwright`), and it can only be regenerated once every
+Kestrel 6 package is on npm. Until then `pnpm install --frozen-lockfile` fails in all three CI jobs. As
 part of the release, after the Kestrel packages are published, resolve the lockfile from scratch with the
 committed `pnpm-workspace.yaml` (no local overrides), audit it and commit the resulting `pnpm-lock.yaml`, as
 step 1 of [RELEASING.md](../RELEASING.md) describes. A `pnpm install` on top of the committed lockfile keeps
