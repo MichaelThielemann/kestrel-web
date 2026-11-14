@@ -129,6 +129,26 @@ describe('MediaViewer crop entry', () => {
     wrapper.unmount()
   })
 
+  it('previews an image cut to the visitor fields and a role field, without framing, and offers no crop', async () => {
+    const { framing: _f, variantCounts: _v, available: _a, createdAt: _c, updatedAt: _u, ...rest } = photo()
+    const kept = { ...rest, variants: [{ size: 'large', width: 1200, height: 800, format: 'webp', path: '/media/m1/variants/large.webp', crop: null }] }
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const warnings = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      // @ts-expect-error a role's media field grant answers the item without the members it cuts
+      const wrapper = await mountSuspended(MediaViewer, { props: { open: true, file: kept, canSave: true, canDelete: false }, attachTo: document.body })
+
+      expect(document.body.querySelector('.media-viewer__preview img')).not.toBeNull()
+      expect(cropButton()).toBeUndefined()
+      expect(errors).not.toHaveBeenCalled()
+      expect(warnings).not.toHaveBeenCalled()
+      wrapper.unmount()
+    } finally {
+      errors.mockRestore()
+      warnings.mockRestore()
+    }
+  })
+
   it('offers no crop without the framing capability', async () => {
     delete schema.capabilities.setMediaFraming
     const wrapper = await mountSuspended(MediaViewer, { props: { open: true, file: photo(), canSave: true, canDelete: false }, attachTo: document.body })

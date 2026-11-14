@@ -46,13 +46,14 @@ export function cropSource(item: MediaItem): string | null {
  * original it displays, so its `naturalWidth`/`naturalHeight` stand in for them.
  */
 export function measuresOriginal(item: MediaItem): boolean {
+  if (!item.framing) return false
   return (item.framing.width === null || item.framing.height === null) && BROWSER_IMAGE_TYPES.has(item.contentType)
     && item.variants.some((v) => v.state === 'done')
 }
 
-/** Whether the item is an image whose oriented dimensions the server reported, or the browser can measure, and that the editor can show, so its focus and crops can be edited. */
+/** Whether the item is an image whose oriented dimensions the server reported, or the browser can measure, and that the editor can show, so its focus and crops can be edited; never for an answer the caller's field grant cut the framing from. */
 export function canFrame(item: MediaItem | null): boolean {
-  if (!item || !item.contentType.startsWith('image/')) return false
+  if (!item || !item.framing || !item.contentType.startsWith('image/')) return false
   if (measuresOriginal(item)) return true
   return item.framing.width !== null && item.framing.height !== null && cropSource(item) !== null
 }

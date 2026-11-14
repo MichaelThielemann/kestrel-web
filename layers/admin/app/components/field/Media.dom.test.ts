@@ -314,6 +314,28 @@ describe('field/Media crop entry', () => {
     }
   })
 
+  it('shows a held image cut to the visitor fields and a role field, without framing, variant counts or variant states, and offers no crop', async () => {
+    schema.capabilities.setMediaFraming = { method: 'PUT', path: '/media/:id/framing' }
+    schema.features = ['images']
+    const { createdAt: _c, updatedAt: _u, available: _a, variantCounts: _v, framing: _f, ...kept } = framed({ width: 1200, height: 800 })
+    const cut = { ...kept, variants: [{ size: 'large', width: 1200, height: 800, format: 'webp', path: '/media/f1/variants/large.webp', crop: null }] }
+    apiHandler.fn = () => Promise.resolve({ items: [cut], total: 1 })
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const warnings = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      const wrapper = await mountSuspended(FieldMedia, { props: { field, name: 'hero', locale: 'en', modelValue: 'f1' } })
+      await vi.waitFor(() => expect(wrapper.find('.field-media__filename').text()).toBe('harbour.jpg'))
+      expect(cropButton(wrapper).exists()).toBe(false)
+      expect(errors).not.toHaveBeenCalled()
+      expect(warnings).not.toHaveBeenCalled()
+      wrapper.unmount()
+    } finally {
+      schema.features = []
+      errors.mockRestore()
+      warnings.mockRestore()
+    }
+  })
+
   it('offers no crop for an item in the trash, a file that is not an image, or without the capability', async () => {
     apiHandler.fn = () => Promise.resolve({ items: [framed()], total: 1 })
     const refused = await mountSuspended(FieldMedia, { props: { field, name: 'hero', locale: 'en', modelValue: 'f1' } })
