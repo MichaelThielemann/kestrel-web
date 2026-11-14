@@ -92,20 +92,20 @@ describe("boot", () => {
         const logger = collectingLogger();
 
         const kestrel = await boot({ config: { ...config, http: null }, modules, pipelines: preset.pipelines, logger });
-        expect(kestrel.pipelines.size).toBe(preset.pipelines.length);
-        expect(logger.entries.filter((entry) => entry.level !== "info")).toEqual([]);
-        expect(kestrel.warnings, `unexpected boot warnings: ${JSON.stringify(kestrel.warnings)}`).toEqual([]);
-
-        const replicationIndex = setupOrder.indexOf("replication/sqlite");
-        const persistenceIndex = setupOrder.indexOf("persistence/sqlite");
-        expect(replicationIndex, `expected replication/sqlite's setup() to have run, order was ${JSON.stringify(setupOrder)}`).toBeGreaterThanOrEqual(0);
-        expect(persistenceIndex, `expected persistence/sqlite's setup() to have run, order was ${JSON.stringify(setupOrder)}`).toBeGreaterThanOrEqual(0);
-        expect(
-          replicationIndex,
-          `replication/sqlite must be set up before persistence/sqlite so a restore runs before the file is opened; order was ${JSON.stringify(setupOrder)}`,
-        ).toBeLessThan(persistenceIndex);
-
         try {
+          expect(kestrel.pipelines.size).toBe(preset.pipelines.length);
+          expect(logger.entries.filter((entry) => entry.level !== "info")).toEqual([]);
+          expect(kestrel.warnings, `unexpected boot warnings: ${JSON.stringify(kestrel.warnings)}`).toEqual([]);
+
+          const replicationIndex = setupOrder.indexOf("replication/sqlite");
+          const persistenceIndex = setupOrder.indexOf("persistence/sqlite");
+          expect(replicationIndex, `expected replication/sqlite's setup() to have run, order was ${JSON.stringify(setupOrder)}`).toBeGreaterThanOrEqual(0);
+          expect(persistenceIndex, `expected persistence/sqlite's setup() to have run, order was ${JSON.stringify(setupOrder)}`).toBeGreaterThanOrEqual(0);
+          expect(
+            replicationIndex,
+            `replication/sqlite must be set up before persistence/sqlite so a restore runs before the file is opened; order was ${JSON.stringify(setupOrder)}`,
+          ).toBeLessThan(persistenceIndex);
+
           await kestrel.start();
 
           const login = await kestrel.run("login", {
@@ -175,13 +175,13 @@ describe("boot", () => {
       const logger = collectingLogger();
 
       const kestrel = await boot({ config: { ...config, http: null }, modules: bootedModules, pipelines: preset.pipelines, logger });
-      expect(config.modules.some((m) => m.use === "@michaelthielemann/kestrel-events-queue")).toBe(true);
-      expect(config.modules.some((m) => m.use === "@michaelthielemann/kestrel-events-inmemory")).toBe(true);
-      expect(config.modules.some((m) => m.use === "@michaelthielemann/kestrel-events-direct")).toBe(false);
-      expect(logger.entries.filter((entry) => entry.level !== "info")).toEqual([]);
-      expect(kestrel.warnings, `unexpected boot warnings: ${JSON.stringify(kestrel.warnings)}`).toEqual([]);
-
       try {
+        expect(config.modules.some((m) => m.use === "@michaelthielemann/kestrel-events-queue")).toBe(true);
+        expect(config.modules.some((m) => m.use === "@michaelthielemann/kestrel-events-inmemory")).toBe(true);
+        expect(config.modules.some((m) => m.use === "@michaelthielemann/kestrel-events-direct")).toBe(false);
+        expect(logger.entries.filter((entry) => entry.level !== "info")).toEqual([]);
+        expect(kestrel.warnings, `unexpected boot warnings: ${JSON.stringify(kestrel.warnings)}`).toEqual([]);
+
         await kestrel.start();
       } finally {
         await kestrel.stop();
@@ -254,10 +254,10 @@ describe("boot", () => {
       const logger = collectingLogger();
 
       const kestrel = await boot({ config: { ...config, http: null }, modules: bootedModules, pipelines: preset.pipelines, logger });
-      expect(logger.entries.filter((entry) => entry.level !== "info")).toEqual([]);
-      expect(kestrel.warnings, `unexpected boot warnings: ${JSON.stringify(kestrel.warnings)}`).toEqual([]);
-
       try {
+        expect(logger.entries.filter((entry) => entry.level !== "info")).toEqual([]);
+        expect(kestrel.warnings, `unexpected boot warnings: ${JSON.stringify(kestrel.warnings)}`).toEqual([]);
+
         await kestrel.start();
       } finally {
         await kestrel.stop();
@@ -308,10 +308,10 @@ describe("boot", () => {
       const logger = collectingLogger();
 
       const kestrel = await boot({ config: { ...config, http: null }, modules: bootedModules, pipelines: preset.pipelines, logger });
-      expect(logger.entries.filter((entry) => entry.level !== "info")).toEqual([]);
-      expect(kestrel.warnings, `unexpected boot warnings: ${JSON.stringify(kestrel.warnings)}`).toEqual([]);
-
       try {
+        expect(logger.entries.filter((entry) => entry.level !== "info")).toEqual([]);
+        expect(kestrel.warnings, `unexpected boot warnings: ${JSON.stringify(kestrel.warnings)}`).toEqual([]);
+
         await kestrel.start();
 
         const login = await kestrel.run("login", { trigger: { kind: "http", name: "POST /login" }, body: { username: "admin", password: "change-me" } });
