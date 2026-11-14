@@ -36,12 +36,26 @@ defineExpose({ focus })
 </script>
 
 <template>
+  <a
+    v-if="to && disabled"
+    ref="el"
+    role="link"
+    tabindex="-1"
+    aria-disabled="true"
+    :class="[classes, 'ui-button--disabled']"
+    @click.prevent
+  >
+    <KestrelUiIcon v-if="icon" :name="icon" class="ui-button__icon" />
+    <template v-if="$slots.default">
+      <span v-if="!unstyled" class="ui-button__label"><slot /></span>
+      <slot v-else />
+    </template>
+  </a>
   <NuxtLink
-    v-if="to"
+    v-else-if="to"
     ref="el"
     :to="to"
-    :class="[classes, { 'ui-button--disabled': disabled }]"
-    :aria-disabled="disabled || undefined"
+    :class="classes"
   >
     <KestrelUiIcon v-if="icon" :name="icon" class="ui-button__icon" />
     <template v-if="$slots.default">
@@ -53,7 +67,7 @@ defineExpose({ focus })
     v-else
     ref="el"
     :type="type"
-    :class="classes"
+    :class="[classes, { 'ui-button--disabled': disabled }]"
     :disabled="disabled || loading"
     :aria-busy="loading || undefined"
   >
@@ -85,11 +99,9 @@ defineExpose({ focus })
     background-color var(--motion-fast) var(--ease-standard),
     border-color var(--motion-fast) var(--ease-standard);
 
-  &:disabled,
-  &--disabled {
+  &[aria-busy='true']:disabled {
     opacity: 0.6;
-    cursor: not-allowed;
-    pointer-events: none;
+    cursor: progress;
   }
 
   &--sm {
@@ -116,7 +128,7 @@ defineExpose({ focus })
     background: var(--color-primary);
     color: var(--color-on-primary);
 
-    &:hover:not(:disabled) {
+    &:hover:not(:disabled, .ui-button--disabled) {
       background: var(--color-primary-hover);
     }
   }
@@ -125,7 +137,7 @@ defineExpose({ focus })
     color: var(--color-text);
     border-color: var(--color-control-border, var(--color-border-strong));
 
-    &:hover:not(:disabled) {
+    &:hover:not(:disabled, .ui-button--disabled) {
       background: var(--color-surface-2);
       border-color: var(--color-border-strong);
     }
@@ -134,7 +146,7 @@ defineExpose({ focus })
     background: transparent;
     color: var(--color-text);
 
-    &:hover:not(:disabled) {
+    &:hover:not(:disabled, .ui-button--disabled) {
       background: var(--color-hover);
     }
   }
@@ -142,7 +154,7 @@ defineExpose({ focus })
     background: var(--color-danger-solid);
     color: var(--color-on-danger);
 
-    &:hover:not(:disabled) {
+    &:hover:not(:disabled, .ui-button--disabled) {
       filter: brightness(0.93);
     }
   }
@@ -150,9 +162,24 @@ defineExpose({ focus })
     background: transparent;
     color: var(--color-danger);
 
-    &:hover:not(:disabled) {
+    &:hover:not(:disabled, .ui-button--disabled) {
       background: var(--color-danger-soft, var(--color-hover));
     }
+  }
+
+  &.ui-button--disabled {
+    background: var(--color-disabled-bg);
+    border-color: transparent;
+    color: var(--color-disabled-text);
+    cursor: not-allowed;
+  }
+  &--secondary.ui-button--disabled {
+    background: transparent;
+    border-color: var(--color-disabled-border);
+  }
+  &--ghost.ui-button--disabled,
+  &--danger-ghost.ui-button--disabled {
+    background: transparent;
   }
 }
 
@@ -183,11 +210,11 @@ defineExpose({ focus })
   min-inline-size: 2.5rem;
   min-block-size: 2.5rem;
 }
-#{$root} :where(.ui-button--icon:hover:not(:disabled)) {
+#{$root} :where(.ui-button--icon:hover:not(:disabled, .ui-button--disabled)) {
   color: var(--color-text);
 }
-#{$root} :where(.ui-button--icon:disabled) {
-  opacity: 0.6;
+#{$root} :where(.ui-button--icon.ui-button--disabled) {
+  color: var(--color-disabled-text);
   cursor: not-allowed;
 }
 
@@ -201,7 +228,7 @@ defineExpose({ focus })
   text-decoration: none;
   cursor: pointer;
 }
-#{$root} :where(.ui-button--bare:disabled) {
+#{$root} :where(.ui-button--bare:disabled, .ui-button--bare.ui-button--disabled) {
   cursor: not-allowed;
 }
 

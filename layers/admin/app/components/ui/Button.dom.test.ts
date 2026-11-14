@@ -68,4 +68,64 @@ describe('KestrelUiButton', () => {
     expect(wrapper.find('.ui-spinner').exists()).toBe(true)
     expect(wrapper.find('svg[data-icon="x"]').exists()).toBe(false)
   })
+
+  describe('disabled state', () => {
+    const variants = ['primary', 'secondary', 'ghost', 'danger', 'danger-ghost', 'icon', 'bare'] as const
+
+    it.each(variants)('marks a disabled %s button with the disabled class', async (variant) => {
+      const wrapper = await mountSuspended(Button, { props: { variant, disabled: true }, slots: { default: () => 'Go' } })
+
+      expect(wrapper.get('button').classes()).toContain('ui-button--disabled')
+      expect(wrapper.get('button').attributes('disabled')).toBeDefined()
+    })
+
+    it.each(variants)('marks a disabled %s link with the disabled class, aria-disabled and tabindex -1', async (variant) => {
+      const wrapper = await mountSuspended(Button, { props: { variant, to: '/admin/media', disabled: true }, slots: { default: () => 'Go' } })
+
+      const link = wrapper.get('a')
+      expect(link.classes()).toContain('ui-button--disabled')
+      expect(link.attributes('aria-disabled')).toBe('true')
+      expect(link.attributes('tabindex')).toBe('-1')
+    })
+
+    function click(el: Element): MouseEvent {
+      const event = new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 })
+      el.dispatchEvent(event)
+      return event
+    }
+
+    it('renders a disabled link without a destination and swallows the click', async () => {
+      const wrapper = await mountSuspended(Button, { props: { to: '/admin/media', disabled: true }, slots: { default: () => 'Go' }, attachTo: document.body })
+      const link = wrapper.get('a')
+
+      expect(link.attributes('href')).toBeUndefined()
+      expect(click(link.element).defaultPrevented).toBe(true)
+    })
+
+    it('keeps the destination of an enabled link', async () => {
+      const wrapper = await mountSuspended(Button, { props: { to: '/admin/media' }, slots: { default: () => 'Go' } })
+
+      expect(wrapper.get('a').attributes('href')).toBe('/admin/media')
+    })
+
+    it('leaves an enabled link focusable and free of the disabled class', async () => {
+      const wrapper = await mountSuspended(Button, { props: { to: '/admin/media' }, slots: { default: () => 'Go' } })
+
+      expect(wrapper.get('a').attributes('tabindex')).toBeUndefined()
+      expect(wrapper.get('a').attributes('aria-disabled')).toBeUndefined()
+      expect(wrapper.get('a').classes()).not.toContain('ui-button--disabled')
+    })
+
+    it('keeps an enabled button free of the disabled class', async () => {
+      const wrapper = await mountSuspended(Button, { props: { variant: 'primary' }, slots: { default: () => 'Go' } })
+
+      expect(wrapper.get('button').classes()).not.toContain('ui-button--disabled')
+    })
+
+    it('does not mark a loading button as disabled-styled', async () => {
+      const wrapper = await mountSuspended(Button, { props: { loading: true }, slots: { default: () => 'Go' } })
+
+      expect(wrapper.get('button').classes()).not.toContain('ui-button--disabled')
+    })
+  })
 })

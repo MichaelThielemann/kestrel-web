@@ -1,7 +1,7 @@
 import { fileURLToPath } from 'node:url'
 import { compile } from 'sass'
 
-export type Role = 'text' | 'ui' | 'decorative'
+export type Role = 'text' | 'ui' | 'inactive-text' | 'decorative'
 
 export interface Pair {
   name: string
@@ -19,9 +19,9 @@ export interface Measurement extends Pair {
   passes: boolean
 }
 
-export const THRESHOLDS: Record<Role, number> = { text: 4.5, ui: 3, decorative: 0 }
+export const THRESHOLDS: Record<Role, number> = { text: 4.5, ui: 3, 'inactive-text': 3, decorative: 0 }
 
-const TOKENS = fileURLToPath(new URL('../layers/admin/app/assets/scss/_tokens.scss', import.meta.url))
+export const TOKENS = fileURLToPath(new URL('../layers/admin/app/assets/scss/_tokens.scss', import.meta.url))
 
 export const PAIRS: Pair[] = [
   { name: 'body text on page', foreground: '--color-text', background: '--color-bg', role: 'text' },
@@ -51,6 +51,10 @@ export const PAIRS: Pair[] = [
   { name: 'chip text on surface', foreground: '--color-text', background: '--color-primary-soft over --color-surface', role: 'text' },
   { name: 'badge text (warning) on surface', foreground: '--color-warning-text', background: '--color-surface', role: 'text' },
   { name: 'overlay button label', foreground: '--color-on-overlay', background: '--color-overlay over --color-bg', role: 'text' },
+  { name: 'disabled button label on its fill', foreground: '--color-disabled-text', background: '--color-disabled-bg', role: 'inactive-text' },
+  { name: 'disabled ghost label on page', foreground: '--color-disabled-text', background: '--color-bg', role: 'inactive-text' },
+  { name: 'disabled ghost label on surface', foreground: '--color-disabled-text', background: '--color-surface', role: 'inactive-text' },
+  { name: 'disabled secondary border on surface', foreground: '--color-disabled-border', background: '--color-surface', role: 'decorative' },
   { name: 'control border on page', foreground: '--color-control-border', background: '--color-bg', role: 'ui' },
   { name: 'control border on surface', foreground: '--color-control-border', background: '--color-surface', role: 'ui' },
   { name: 'strong border on page', foreground: '--color-border-strong', background: '--color-bg', role: 'ui' },
@@ -118,14 +122,18 @@ export function composite(front: Rgba, back: Rgba): Rgba {
   }
 }
 
-export function readThemes(css: string): Record<string, Record<string, string>> {
+export interface ThemeBlocks {
+  base: Record<string, string>
+  light: Record<string, string>
+  dark: Record<string, string>
+}
+
+export function readBlocks(css: string): ThemeBlocks {
   const blocks = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
-  const base: Record<string, string> = {}
-  const light: Record<string, string> = {}
-  const dark: Record<string, string> = {}
+  const out: ThemeBlocks = { base: {}, light: {}, dark: {} }
   for (const block of blocks) {
     const selector = (block[1] ?? '').trim()
-    const target = selector.includes('data-theme=light') ? light : selector.includes('data-theme=dark') ? dark : selector.includes('data-theme]') ? null : base
+    const target = selector.includes('data-theme=light') ? out.light : selector.includes('data-theme=dark') ? out.dark : selector.includes('data-theme]') ? null : out.base
     if (!target) continue
     for (const declaration of (block[2] ?? '').split(';')) {
       const [name, ...rest] = declaration.split(':')
@@ -134,6 +142,11 @@ export function readThemes(css: string): Record<string, Record<string, string>> 
       target[key] = rest.join(':').trim()
     }
   }
+  return out
+}
+
+export function readThemes(css: string): Record<string, Record<string, string>> {
+  const { base, light, dark } = readBlocks(css)
   return { light: { ...base, ...light }, dark: { ...base, ...dark } }
 }
 
