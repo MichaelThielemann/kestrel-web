@@ -577,6 +577,30 @@ describe('KestrelUiCropFrame', () => {
       }
     })
 
+    it('hides the guides of a snapped wheel step as soon as a drag starts, before it moves', async () => {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+      try {
+        const { wrapper } = await mountFrame(OFF_CENTRE)
+        const frame = sizedFrame(wrapper, 320, 180)
+        frame.dispatchEvent(wheel(-1, 160, 90))
+        await nextTick()
+        expect(guideLines(wrapper)).toContainEqual({ axis: 'x', style: 'left: 50%;' })
+
+        frame.dispatchEvent(pointerEvent('pointerdown', 1, 160, 90))
+        await nextTick()
+        expect(guideLines(wrapper)).toEqual([])
+        vi.advanceTimersByTime(700)
+        await nextTick()
+        expect(guideLines(wrapper)).toEqual([])
+
+        frame.dispatchEvent(pointerEvent('pointerup', 1, 160, 90))
+        wrapper.unmount()
+      }
+      finally {
+        vi.useRealTimers()
+      }
+    })
+
     it.each([
       { name: '16:9 on 1600 x 1200', image: { ratio: '16:9', width: 1600, height: 1200 }, frame: [320, 180], move: [0, -30], axis: 'x' },
       { name: '16:9 on 1366 x 768, one pixel narrower after rounding', image: { ratio: '16:9', width: 1366, height: 768 }, frame: [320, 180], move: [0, -30], axis: 'x' },
