@@ -499,6 +499,14 @@ order as `config.modules`.
 Like `pipelines/index.ts` (§4), this resolves once at Nuxt startup — adding or deleting
 `kestrel.modules.ts` while the dev server is running needs a restart.
 
+A module of your own builds its `configSchema` with zod 4: list `zod` `^4.6.6` in your dependencies
+and `import { z } from "zod"`, so the install resolves the one copy the layer's
+`@michaelthielemann/kestrel-renderer-nuxt` and Kestrel use. Kestrel reads the JSON Schema, variables,
+defaults and secrets of a module's config through zod 4's own definitions and refuses to boot when any
+node of a `configSchema` was built with another zod (`invalid-config-schema`, naming the module and the
+path of the node). Kestrel's upgrade guide lists what zod 4 changes in a schema and which of it
+`kestrel upgrade fix` rewrites ([zod 4 schemas](https://github.com/MichaelThielemann/kestrel/blob/main/docs/upgrading.md#zod-4-schemas)).
+
 `presetSchemas()` resolves `settings.navigation`'s schema to `<appRoot>/schemas/settings.navigation.json`
 when that file exists, else the layer's own default (`layers/core/schemas/settings.navigation.json`) —
 override it only if your navigation entries need a shape the default doesn't allow. The default entry
@@ -2323,6 +2331,12 @@ calls it; in Markdown only the fetching form is reported; lockfiles are not read
 
 What changes:
 
+- Module config schemas are zod 4. A module of your own (§3, `kestrel.modules.ts`) needs `zod` `^4.6.6`
+  and keeps booting only when every node of its `configSchema` is built with it; Kestrel's
+  `deps/zod-range`, `zod/record-key`, `zod/object-default` and `zod/describe-order` raise the range and
+  rewrite the zod 3 forms they know, and Kestrel's upgrade guide
+  ([zod 4 schemas](https://github.com/MichaelThielemann/kestrel/blob/main/docs/upgrading.md#zod-4-schemas))
+  lists the rest to check by hand. A project without modules of its own changes nothing.
 - With `presetModuleConfig()` the media trash is on (`media.trashRetentionDays: 30`, §4, "The media trash"). A
   delete in the admin runs `trashMedia` or `trashMediaFolder` and raises `media.trashed`; `DELETE
   /api/media/:id` and `DELETE /api/media/folders/*path` stay final deletes but the admin no longer calls them.
