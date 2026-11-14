@@ -16,8 +16,9 @@
   original its bytes show, or `null` for the whole image or the centred cut of its ratio; in
   `PublicMediaVariant` it is optional. `MediaRect`, `MediaFraming` and `MediaFramingRatio` are exported from the
   API types. `kestrel upgrade check` reports a narrowed `roles.anonymousFields.media` that keeps the variants but
-  not `focus`, or not every variant member `KestrelImage` reads (`size`, `path`, `width`, `height`, `crop`),
-  and names the fields to add (`preset/media-focus-grant`).
+  not `focus`, not the item's `width` and `height`, or not every variant member `KestrelImage` reads (`size`,
+  `path`, `width`, `height`, `crop`), says what each gap does on a public page and names the fields to add
+  (`preset/media-focus-grant`).
 - `KestrelImage` sets `object-position` from the centre of the item's `focus` on the original and on a variant
   of every size, so the original that stands in for a variant while it renders keeps the focus in view;
   `focusObjectPosition()` answers that value. `pickImageSources` passes a variant path with its `?v=` query

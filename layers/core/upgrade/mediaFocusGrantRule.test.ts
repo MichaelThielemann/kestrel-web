@@ -41,33 +41,54 @@ describe("preset/media-focus-grant", () => {
   });
 
   it("asks for the focus alone when the grant keeps the whole variants member, which carries the crop", async () => {
-    const [finding] = await mediaFocusGrantRule.check(contextFor({ grants: { media: ["id", "variants"] } }));
+    const [finding] = await mediaFocusGrantRule.check(contextFor({ grants: { media: ["id", "width", "height", "variants"] } }));
     expect(finding?.suggestion).toBe('add "focus" to roles.anonymousFields.media');
     expect(finding?.message).not.toContain("variants[].crop");
   });
 
   it("warns when a media grant of its own keeps variant fields and the focus but not the crop each variant shows", async () => {
-    const findings = await mediaFocusGrantRule.check(contextFor({ grants: { media: ["id", "path", "focus", "variants[].size", "variants[].path", "variants[].width", "variants[].height"] } }));
+    const findings = await mediaFocusGrantRule.check(contextFor({ grants: { media: ["id", "path", "width", "height", "focus", "variants[].size", "variants[].path", "variants[].width", "variants[].height"] } }));
     expect(findings).toHaveLength(1);
     expect(findings[0]).toMatchObject({ rule: "preset/media-focus-grant", severity: "warning", fix: { kind: "manual" }, where: { module: AUTHZ, file: FILE } });
     expect(findings[0]?.message).toContain("variants[].crop");
-    expect(findings[0]?.message).toContain("srcset");
+    expect(findings[0]?.message).toContain("a declared cover size's srcset lists only the cover variants of its exact ratio key");
+    expect(findings[0]?.message).toContain("any other size's srcset leaves out the declared cover variants of its ratio");
     expect(findings[0]?.message).not.toContain("object-position");
     expect(findings[0]?.suggestion).toBe('add "variants[].crop" to roles.anonymousFields.media');
   });
 
   it("names the focus and the crop in one finding when the grant keeps variant fields without either", async () => {
-    const findings = await mediaFocusGrantRule.check(contextFor({ grants: { media: ["id", "variants[].size", "variants[].path", "variants[].width", "variants[].height"] } }));
+    const findings = await mediaFocusGrantRule.check(contextFor({ grants: { media: ["id", "width", "height", "variants[].size", "variants[].path", "variants[].width", "variants[].height"] } }));
     expect(findings).toHaveLength(1);
     expect(findings[0]?.message).toContain("object-position");
     expect(findings[0]?.message).toContain("variants[].crop");
     expect(findings[0]?.suggestion).toBe('add "focus" and "variants[].crop" to roles.anonymousFields.media');
   });
 
-  it("says nothing once the grant names the focus and every variant member KestrelImage reads", async () => {
+  it("says nothing once the grant names the focus, the item's width and height and every variant member KestrelImage reads", async () => {
     const members = ["variants[].size", "variants[].path", "variants[].width", "variants[].height", "variants[].crop"];
-    expect(await mediaFocusGrantRule.check(contextFor({ grants: { media: ["id", "path", "focus", ...members] } }))).toEqual([]);
-    expect(await mediaFocusGrantRule.check(contextFor({ grants: { media: ["id", "path", "focus", "variants"] } }))).toEqual([]);
+    expect(await mediaFocusGrantRule.check(contextFor({ grants: { media: ["id", "path", "width", "height", "focus", ...members] } }))).toEqual([]);
+    expect(await mediaFocusGrantRule.check(contextFor({ grants: { media: ["id", "path", "width", "height", "focus", "variants"] } }))).toEqual([]);
+  });
+
+  it("asks for the item's width and height when the grant keeps the variants without them, which places a crop on the original", async () => {
+    const [finding] = await mediaFocusGrantRule.check(contextFor({ grants: { media: ["id", "path", "alt", "focus", "variants"] } }));
+    expect(finding?.suggestion).toBe('add "width" and "height" to roles.anonymousFields.media');
+    expect(finding?.message).toContain("cannot place a crop on the original");
+    expect(finding?.message).not.toContain("shows the original");
+  });
+
+  it("says what each missing variant member does: no source without the path, the whole image without the size", async () => {
+    const top = ["id", "path", "width", "height", "focus", "variants[].crop"];
+    const [pathless] = await mediaFocusGrantRule.check(contextFor({ grants: { media: [...top, "variants[].size", "variants[].width", "variants[].height"] } }));
+    expect(pathless?.message).toContain("has no source and the image breaks");
+    expect(pathless?.message).not.toContain("shows the original");
+    const [sizeless] = await mediaFocusGrantRule.check(contextFor({ grants: { media: [...top, "variants[].path", "variants[].width", "variants[].height"] } }));
+    expect(sizeless?.message).toContain("never finds the named size");
+    expect(sizeless?.message).not.toContain("has no source");
+    const [flat] = await mediaFocusGrantRule.check(contextFor({ grants: { media: [...top, "variants[].size", "variants[].path"] } }));
+    expect(flat?.message).toContain("links no variant and shows the original");
+    expect(flat?.message).not.toContain("never finds the named size");
   });
 
   it("names the variant members KestrelImage needs to link a variant, and says the page then shows the original", async () => {
@@ -79,7 +100,7 @@ describe("preset/media-focus-grant", () => {
   });
 
   it("asks for the missing variant members alone when the grant keeps the focus and the crop", async () => {
-    const [finding] = await mediaFocusGrantRule.check(contextFor({ grants: { media: ["id", "path", "focus", "variants[].path", "variants[].crop"] } }));
+    const [finding] = await mediaFocusGrantRule.check(contextFor({ grants: { media: ["id", "path", "width", "height", "focus", "variants[].path", "variants[].crop"] } }));
     expect(finding?.message).not.toContain("object-position");
     expect(finding?.suggestion).toBe('add "variants[].size", "variants[].width" and "variants[].height" to roles.anonymousFields.media');
   });

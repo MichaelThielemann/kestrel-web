@@ -32,8 +32,11 @@ function listed(items: readonly string[], quote: (item: string) => string, conju
 }
 
 const FOCUS_LOSS = "a public KestrelImage sets no object-position: an original or inside variant in a box of another ratio stays centred, while cover variants are still cut around the focus by the server";
-const READ_LOSS = "KestrelImage finds a variant by its size and links it by its path, width and height, so without them a public page shows the original instead of the variants";
-const CROP_LOSS = "KestrelImage cannot tell which variants show the same cut: a declared cover size's srcset then lists only the cover variants of its exact ratio key, without the inside widths of its ratio, and is scaled up on a high-density screen";
+const BOX_LOSS = "without the item's width and height KestrelImage cannot place a crop on the original: a cover variant cut within a pixel of the centre loses the whole-image widths, and an original shown for a size without a listed variant gets no srcset and no box";
+const PATH_LOSS = "without variants[].path a variant KestrelImage links has no source and the image breaks";
+const SIZE_LOSS = "without variants[].size KestrelImage never finds the named size, so instead of a cut variant in a box of its size it shows the whole image from the original and its whole-image widths";
+const DIMENSION_LOSS = "without variants[].width or variants[].height KestrelImage links no variant and shows the original";
+const CROP_LOSS = "without variants[].crop KestrelImage cannot tell which variants show the same cut and groups by the declared cover sizes: a declared cover size's srcset lists only the cover variants of its exact ratio key, without the inside widths of its ratio, and any other size's srcset leaves out the declared cover variants of its ratio, uncut ones included";
 
 function authzConfig(ctx: RuleContext): Record<string, unknown> | undefined {
   const entry = ctx.project.input.config.modules.find((candidate) => candidate.use === AUTHZ_ROLES_MODULE);
@@ -41,10 +44,12 @@ function authzConfig(ctx: RuleContext): Record<string, unknown> | undefined {
 }
 
 /**
- * A media grant in `roles.anonymousFields` that keeps the variants for visitors but not `focus` or not every
- * variant member `KestrelImage` reads (`size`, `path`, `width`, `height`, `crop`): the server starts, but without
- * `focus` `KestrelImage` on a public page sets no `object-position`, without `size`, `path`, `width` or `height`
- * it links no variant and shows the original, and without `crop` `pickImageSources` falls back to grouping a
+ * A media grant in `roles.anonymousFields` that keeps the variants for visitors but not `focus`, not the item's
+ * `width` and `height`, or not every variant member `KestrelImage` reads (`size`, `path`, `width`, `height`,
+ * `crop`). The server starts, but each gap changes a public page: without `focus` no `object-position`; without
+ * the item's `width`/`height` no crop placed on the original; without `variants[].path` a linked variant has no
+ * source; without `variants[].size` the named size is never found and the whole image is shown; without
+ * `variants[].width`/`height` no variant is linked; without `variants[].crop` `pickImageSources` groups a
  * `srcset` by the declared `cover` ratio keys. The finding names the fields to add; the grant is the project's
  * own, so the rule never edits it.
  */
@@ -57,10 +62,19 @@ export const mediaFocusGrantRule: Rule = {
     if (authz === undefined || !anonymousHolds(strings(authz.anonymous), "media.read")) return [];
     const media = strings(recordOf(authz.anonymousFields)?.media);
     if (!media.some(keepsVariants)) return [];
-    const unread = READ_MEMBERS.filter((member) => !keepsMember(media, member)).map((member) => `variants[].${member}`);
-    const missing = [...(media.includes("focus") ? [] : ["focus"]), ...unread, ...(keepsMember(media, "crop") ? [] : ["variants[].crop"])];
+    const box = ["width", "height"].filter((field) => !media.includes(field));
+    const unread = READ_MEMBERS.filter((member) => !keepsMember(media, member));
+    const crop = keepsMember(media, "crop") ? [] : ["variants[].crop"];
+    const missing = [...(media.includes("focus") ? [] : ["focus"]), ...box, ...unread.map((member) => `variants[].${member}`), ...crop];
     if (missing.length === 0) return [];
-    const losses = [...(missing.includes("focus") ? [FOCUS_LOSS] : []), ...(unread.length > 0 ? [READ_LOSS] : missing.includes("variants[].crop") ? [CROP_LOSS] : [])];
+    const losses = [
+      ...(missing.includes("focus") ? [FOCUS_LOSS] : []),
+      ...(box.length > 0 ? [BOX_LOSS] : []),
+      ...(unread.includes("path") ? [PATH_LOSS] : []),
+      ...(unread.includes("size") ? [SIZE_LOSS] : []),
+      ...(unread.includes("width") || unread.includes("height") ? [DIMENSION_LOSS] : []),
+      ...(unread.length === 0 && crop.length > 0 ? [CROP_LOSS] : []),
+    ];
     const finding: Finding = {
       id: RULE,
       rule: RULE,
