@@ -4,18 +4,23 @@ How to cut a release of this repository. `@michaelthielemann/kestrel-web` (the l
 `@michaelthielemann/kestrel-renderer-nuxt` (`packages/renderer-nuxt`) and `create-kestrel`
 (`packages/create-kestrel`) are published together; the playground is private and never published.
 
-1. `pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm build:packages`
-2. `./scripts/smoke-consumer.sh` – packs both packages, installs the tarballs into a throwaway Nuxt app
+1. Resolve the lockfile from scratch with `rm pnpm-lock.yaml && pnpm install`, then run `pnpm audit` and
+   `pnpm audit --prod`. Both report no advisory beyond the ids listed under `auditConfig.ignoreGhsas` in
+   `pnpm-workspace.yaml`. An install on top of the existing lockfile keeps every version it already pins,
+   advisories included, as long as that version still satisfies its range and the overrides. The new lockfile
+   goes into the release commit.
+2. `pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm build:packages`
+3. `./scripts/smoke-consumer.sh` – packs both packages, installs the tarballs into a throwaway Nuxt app
    outside the workspace that extends the layer, builds it, boots it and requests a few pages. This is
    the only check that sees the published shape (`files`, peer dependencies, the layer under `node_modules`).
-3. Bump `version` in `package.json` and `packages/renderer-nuxt/package.json`, turn `CHANGELOG.md`'s
+4. Bump `version` in `package.json` and `packages/renderer-nuxt/package.json`, turn `CHANGELOG.md`'s
    `## Unreleased` heading into the new version, and make sure `docs/` describes the released state —
    the docs carry no history, so anything that changed has to be rewritten there, not appended.
    `packages/create-kestrel` has its own version: bump it whenever the scaffolder or its template
    changed, and run `node scripts/create-kestrel-versions.mjs` so the ranges it writes into a
    scaffolded `package.json` follow the layer version of this release.
-4. Commit, tag `v<version>`, push the commit and the tag.
-5. The `release` workflow runs on the tag in two jobs:
+5. Commit, tag `v<version>`, push the commit and the tag.
+6. The `release` workflow runs on the tag in two jobs:
    - `build` (read-only token, no id token) checks out without keeping the token, installs, verifies
      that the tag matches the root package version and that the scaffolder pins this workspace's
      versions, repeats lint, typecheck, tests, the playground build and `build:packages`, and packs the
