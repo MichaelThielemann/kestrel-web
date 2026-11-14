@@ -1,14 +1,15 @@
+import { readFileSync } from "node:fs";
 import type { Browser, Locator, Page, TestInfo } from "@playwright/test";
 import { centredCrop, type Framing, type PixelCrop, type Rect } from "@michaelthielemann/kestrel-images-default/framing";
 import { idOf, isRecord, until, type Api, type Json } from "../../support/api.ts";
 import { ADMIN_STATE } from "../../support/env.ts";
 import { expect, test } from "../../support/fixtures.ts";
-import { rasterJpeg } from "../../support/jpeg.ts";
 import { numberedGrid, rasterPng } from "../../support/png.ts";
 import { readProbes, shownCrop, showsRaster } from "../../support/pixels.ts";
 
 test.use({ storageState: ADMIN_STATE });
 
+const TURNED_JPEG = readFileSync(new URL("../../fixtures/numbered-grid-turned.jpg", import.meta.url));
 const RASTER = numberedGrid();
 const WIDTH = RASTER.width;
 const HEIGHT = RASTER.height;
@@ -20,7 +21,7 @@ const SCHEMES = ["light", "dark"] as const;
 
 const UPLOADS = [
   { name: "motif-grid.png", slug: "rasterbild-png", bytes: () => rasterPng(RASTER) },
-  { name: "motif-turned.jpg", slug: "rasterbild-jpeg", bytes: () => rasterJpeg(RASTER, 6) },
+  { name: "motif-turned.jpg", slug: "rasterbild-jpeg", bytes: () => TURNED_JPEG },
 ];
 
 interface Variant {
@@ -83,8 +84,8 @@ async function setFocus(editor: Locator, rect: { x: number; y: number; w: number
   }
 }
 
-async function visitPage(browser: Browser, baseURL: string | undefined, slug: string, viewport: { width: number; height: number }, testInfo: TestInfo, expectSource: string, crop: PixelCrop): Promise<void> {
-  const context = await browser.newContext({ baseURL, viewport });
+async function visitPage(browser: Browser, baseURL: string | undefined, slug: string, viewport: { width: number; height: number }, scheme: (typeof SCHEMES)[number], testInfo: TestInfo, expectSource: string, crop: PixelCrop): Promise<void> {
+  const context = await browser.newContext({ baseURL, viewport, colorScheme: scheme });
   const visit = await context.newPage();
   await visit.goto(`/${slug}`);
   const image = visit.locator(".block-hero__image");
@@ -93,7 +94,7 @@ async function visitPage(browser: Browser, baseURL: string | undefined, slug: st
   const { png, width } = await shown(image);
   const read = await readProbes(visit, { png });
   expect(showsRaster(RASTER, crop, read, width), `${slug} at ${viewport.width} px shows the cells of its ${expectSource} cut`).toBe(true);
-  await testInfo.attach(`${slug}-page-${viewport.width}`, { body: await visit.screenshot({ fullPage: true }), contentType: "image/png" });
+  await testInfo.attach(`${slug}-page-${scheme}-${viewport.width}`, { body: await visit.screenshot({ fullPage: true }), contentType: "image/png" });
   await context.close();
 }
 
@@ -183,7 +184,32 @@ for (const upload of UPLOADS) {
     const html = await (await visitor.get(`/${upload.slug}`)).text();
     expect(html).toMatch(/<picture>(?:<!--[^>]*-->)*<source[^>]*media="\(min-width: 48rem\)"[^>]*>(?:<!--[^>]*-->)*<img\b/);
 
-    await visitPage(browser, baseURL, upload.slug, VIEWPORTS[0] ?? { width: 1440, height: 900 }, testInfo, WIDE.size, wideCrop);
-    await visitPage(browser, baseURL, upload.slug, VIEWPORTS[1] ?? { width: 390, height: 844 }, testInfo, TALL.size, tallCrop);
+    for (const scheme of SCHEMES) {
+      await visitPage(browser, baseURL, upload.slug, VIEWPORTS[0] ?? { width: 1440, height: 900 }, scheme, testInfo, WIDE.size, wideCrop);
+      await visitPage(browser, baseURL, upload.slug, VIEWPORTS[1] ?? { width: 390, height: 844 }, scheme, testInfo, TALL.size, tallCrop);
+    }
   });
 }
+
+test("the box of the hero keeps its planned ratio while the variants still serve the original", async ({ browser, baseURL, adminApi }, testInfo) => {
+  const original = rasterPng(RASTER);
+  const id = idOf(await adminApi.upload("motif-pending.png", original));
+  await until("the variants of motif-pending.png", async () => {
+    const { variants } = await variantsOf(adminApi, id);
+    return [WIDE.size, TALL.size].every((size) => variants.some((variant) => variant.size === size && variant.state === "done"));
+  });
+  await adminApi.call("POST", "/pages", { locale: "de", slug: "rasterbild-pending", title: "Rasterbild", status: "published", body: [{ id: "h1", type: "hero", props: { heading: "Rasterbild", image: id } }] });
+
+  for (const [viewport, ratio] of [[VIEWPORTS[0], 16 / 9], [VIEWPORTS[1], 3 / 4]] as const) {
+    const context = await browser.newContext({ baseURL, viewport });
+    await context.route(`**/media/${id}/variants/**`, (route) => route.fulfill({ status: 200, contentType: "image/png", body: original }));
+    const visit = await context.newPage();
+    await visit.goto("/rasterbild-pending");
+    const image = visit.locator(".block-hero__image");
+    await expect.poll(() => image.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth === WIDTH)).toBe(true);
+    const box = await image.boundingBox();
+    expect(box && box.width / box.height, `the hero at ${viewport?.width} px keeps the ratio of its cut`).toBeCloseTo(ratio, 2);
+    await testInfo.attach(`rasterbild-pending-${viewport?.width}`, { body: await visit.screenshot({ fullPage: true }), contentType: "image/png" });
+    await context.close();
+  }
+});
