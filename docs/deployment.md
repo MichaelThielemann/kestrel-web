@@ -472,6 +472,13 @@ server {
 
   location /_nuxt/ {
     expires 1y;
+    try_files $uri @nuxt_build;
+  }
+
+  location @nuxt_build {
+    root /srv/mysite/output/public;
+    expires 1y;
+    try_files $uri =404;
   }
 
   location ^~ /media/ {
@@ -479,6 +486,13 @@ server {
     add_header X-Content-Type-Options nosniff always;
     add_header Content-Security-Policy "default-src 'none'; sandbox" always;
     add_header Cache-Control "public, max-age=31536000, immutable" always;
+
+    location ~ ^/media/[^/]+/variants/ {
+      add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+      add_header X-Content-Type-Options nosniff always;
+      add_header Content-Security-Policy "default-src 'none'; sandbox" always;
+      add_header Cache-Control "no-cache" always;
+    }
   }
 
   location ~ \.(meta\.json|kestrel-tmp)$ { return 404; }
@@ -486,17 +500,35 @@ server {
   location / {
     charset utf-8;
     expires -1;
-    try_files $uri $uri/index.html =404;
+    try_files $uri $uri/index.html @build;
+  }
+
+  location @build {
+    root /srv/mysite/output/public;
+    try_files $uri =404;
   }
 }
 ```
 
-The `/media/` location repeats the lines it needs because an `add_header` there replaces the server's; its
+The `/media/` locations repeat the lines they need because an `add_header` there replaces the server's; the
 two security headers are mandatory while `/media/` shares an origin with `/admin` (§8 of the consuming
-guide). `expires -1` sends `Cache-Control: no-cache`, so a republished page shows at once, and an unknown
-path answers 404, never another page's HTML. The index files of §7 are already under `root`. The site
-allowlist (`NUXT_KESTREL_ACCESS_SITE`) never sees a request nginx answers from a file; restrict the public
-site in nginx if it needs restricting.
+guide). An original never changes its bytes at its URL and is cached for a year. A variant path holds the
+original's bytes until its render replaces them at the same URL, so the nested location makes browsers and
+CDNs revalidate it (`no-cache`); a year of `immutable` there would keep the placeholder. `expires -1` sends
+`Cache-Control: no-cache` for a page, so a republished page shows at once, and an unknown path answers 404,
+never another page's HTML. The index files of §7 are already under `root`. The site allowlist
+(`NUXT_KESTREL_ACCESS_SITE`) never sees a request nginx answers from a file; restrict the public site in
+nginx if it needs restricting.
+
+The export under `root` holds the pages, `/media/` and the index files, and the build's `/_nuxt/` files only
+once a page has been rendered. The admin and the preview are rendered by the process from the build's own
+files, so a fresh install without a published page, the first request after a deploy and an `assets: false`
+setting would leave them without script. The `@nuxt_build` and `@build` locations answer from
+`/srv/mysite/output/public`, the `.output/public` of the unit in §5, whenever the export has no such file;
+that is also where the `public/` files of your project (favicon, fonts) are served from. Check the setup
+with `nginx -t`, then `curl -skI https://example.com/admin/login` and a `/_nuxt/` file the admin page
+names (200), `curl -skI https://example.com/media/<id>/variants/<file>` (`no-cache`) and the original
+(`immutable`).
 
 ### Cache the rendered site
 
