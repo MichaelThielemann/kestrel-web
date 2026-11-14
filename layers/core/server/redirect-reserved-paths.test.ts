@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { ADMIN_PASSWORD, bootPlaygroundPreset, type BootedPreset } from "./__fixtures__/boot-preset";
+import { ADMIN_PASSWORD, bootPlaygroundPreset, type BootedPreset, type BootOptions } from "./__fixtures__/boot-preset";
 
 describe("the redirect editor refuses sources under the paths the server answers itself", () => {
   let appRoot: string;
@@ -23,13 +23,13 @@ describe("the redirect editor refuses sources under the paths the server answers
     rmSync(appRoot, { recursive: true, force: true });
   });
 
-  async function save(from: string) {
-    preset ??= await bootPlaygroundPreset(appRoot);
+  async function save(from: string, options?: BootOptions) {
+    preset ??= await bootPlaygroundPreset(appRoot, undefined, options);
     const headers = await preset.login("admin", ADMIN_PASSWORD);
     return preset.call("setRedirects", "PUT /redirects", { headers, body: { rules: [{ from, to: "/somewhere", status: "301" }] } });
   }
 
-  it.each(["/admin", "/admin/x", "/api", "/api/pages", "/media/a.png", "/_nuxt/entry.js", "/__nuxt/x", "/_ipx/w_100/a.png", "/_preview/key", "/*/login", "/**"])("answers 400 with the row for the source %s", async (from) => {
+  it.each(["/admin", "/admin/x", "/api", "/api/pages", "/media/a.png", "/_nuxt/entry.js", "/__nuxt_island/x", "/__nuxt_error", "/_ipx/w_100/a.png", "/_preview/key", "/*/login", "/**"])("answers 400 with the row for the source %s", async (from) => {
     const run = await save(from);
     expect(run.status).toBe(400);
     expect(run.error).toMatch(/Row 1/);
@@ -37,6 +37,14 @@ describe("the redirect editor refuses sources under the paths the server answers
 
   it("keeps a source that only shares characters with a reserved path", async () => {
     expect((await save("/administration")).status).toBe(200);
+  });
+
+  it("reserves the build assets path the site sets and no longer /_nuxt", async () => {
+    const options = { buildAssetsPath: "/assets" };
+    const refused = await save("/assets/**", options);
+    expect(refused.status).toBe(400);
+    expect(refused.error).toMatch(/Row 1/);
+    expect((await save("/_nuxt/entry.js", options)).status).toBe(200);
   });
 
   it("keeps an ordinary source", async () => {

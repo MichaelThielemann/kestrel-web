@@ -48,6 +48,8 @@ function moduleNames(modules: readonly ModuleEntry[]): string[] {
 beforeEach(() => {
   vi.stubEnv("NUXT_PUBLIC_SITE_URL", undefined);
   vi.stubEnv("KESTREL_ROBOTS_POLICY", undefined);
+  vi.stubEnv("NUXT_APP_BASE_URL", undefined);
+  vi.stubEnv("NUXT_APP_BUILD_ASSETS_DIR", undefined);
 });
 
 afterEach(() => {
@@ -149,7 +151,7 @@ describe("presetModuleConfig with the playground inputs", () => {
         }),
       },
       { use: "@michaelthielemann/kestrel-revisions-default", ...preset({ statusField: "status", liveStatuses: ["published"] }) },
-      { use: "@michaelthielemann/kestrel-redirects-default", ...preset({ prefix: "site/", reservedPaths: ["/api", "/admin", "/media", "/_nuxt", "/__nuxt", "/_ipx", "/_preview"] }) },
+      { use: "@michaelthielemann/kestrel-redirects-default", ...preset({ prefix: "site/", reservedPaths: ["/api", "/admin", "/media", "/_nuxt", "/__nuxt_island", "/__nuxt_error", "/_ipx", "/_preview"] }) },
       { use: "@michaelthielemann/kestrel-audit-persistence", ...preset({}) },
       { use: "@michaelthielemann/kestrel-events-inmemory", config: {} },
       { use: "@michaelthielemann/kestrel-events-direct", config: {} },
@@ -804,6 +806,20 @@ describe("options", () => {
     });
   });
 
+  it("reserves the build assets path of the site for redirects instead of /_nuxt", () => {
+    const own = presetModuleConfig({ ...playgroundOptions(), buildAssetsPath: "/site/assets" });
+    expect(configFor(own, "redirects-default")).toEqual({ prefix: "site/", reservedPaths: ["/api", "/admin", "/media", "/site/assets", "/__nuxt_island", "/__nuxt_error", "/_ipx", "/_preview"] });
+
+    vi.stubEnv("NUXT_APP_BUILD_ASSETS_DIR", "/assets/");
+    const fromEnv = presetModuleConfig(playgroundOptions());
+    expect(configFor(fromEnv, "redirects-default")).toHaveProperty("reservedPaths", ["/api", "/admin", "/media", "/assets", "/__nuxt_island", "/__nuxt_error", "/_ipx", "/_preview"]);
+  });
+
+  it("refuses a build assets path that is not a path", () => {
+    expect(() => presetModuleConfig({ ...playgroundOptions(), buildAssetsPath: "assets" })).toThrow(/buildAssetsPath/);
+    expect(() => presetModuleConfig({ ...playgroundOptions(), buildAssetsPath: "/" })).toThrow(/buildAssetsPath/);
+  });
+
   it("merges overrides onto the derived config of the module they name, consumer keys winning", () => {
     const modules = presetModuleConfig({
       ...playgroundOptions(),
@@ -814,7 +830,7 @@ describe("options", () => {
     });
 
     expect(configFor(modules, "replication-sqlite")).toEqual({ file: DATABASE_FILE, prefix: "database/", restoreOnStart: true, retentionSeconds: 604800 });
-    expect(configFor(modules, "redirects-default")).toEqual({ prefix: "static/", reservedPaths: ["/api", "/admin", "/media", "/_nuxt", "/__nuxt", "/_ipx", "/_preview"] });
+    expect(configFor(modules, "redirects-default")).toEqual({ prefix: "static/", reservedPaths: ["/api", "/admin", "/media", "/_nuxt", "/__nuxt_island", "/__nuxt_error", "/_ipx", "/_preview"] });
     expect(configFor(modules, "persistence-sqlite")).toEqual({ file: DATABASE_FILE });
     expect(moduleNames(modules)).toEqual(moduleNames(presetModuleConfig(playgroundOptions())));
   });

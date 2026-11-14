@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { resolve } from "node:path";
+import { joinBuildAssetsPath } from "../mount-path";
 
 const DEVELOPMENT_ADMIN_PASSWORD_HASH =
   "scrypt$522f4ac87bfe4bcd100ba47a7d2aaec2$dbfc3f2d6cc38a76b21973d7c6f6d310a09506581c665f1f6601fd8fb3fa9bc3959689aea3e389f4d53eb8c7e70791ad4065e308763dd44609904134f0f5ee98";
@@ -95,6 +96,15 @@ export function envStepLog(): "all" | "errors" | "off" {
   if (value === undefined) return "all";
   if (value === "all" || value === "errors" || value === "off") return value;
   throw new Error(`kestrel.config: KESTREL_STEP_LOG must be "all", "errors" or "off", not ${JSON.stringify(value)}`);
+}
+
+/**
+ * presetModuleConfig's `buildAssetsPath` option from `NUXT_APP_BASE_URL` and `NUXT_APP_BUILD_ASSETS_DIR`, the
+ * variables Nuxt reads at runtime for `app.baseURL` and `app.buildAssetsDir`: `/_nuxt` while neither is set. A site
+ * that sets either in `nuxt.config.ts` passes the resulting path to `buildAssetsPath` itself.
+ */
+export function envBuildAssetsPath(): string | undefined {
+  return joinBuildAssetsPath(envValue("NUXT_APP_BASE_URL") ?? "/", envValue("NUXT_APP_BUILD_ASSETS_DIR") ?? "/_nuxt/");
 }
 
 export function envBlobstore(dataDir: string): BlobstoreModuleEntry {

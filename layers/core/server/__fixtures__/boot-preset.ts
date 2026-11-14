@@ -20,6 +20,7 @@ export interface BootOptions {
   features?: readonly Feature[];
   mfa?: { secretKey: string; enforce?: "all" | "none" };
   session?: { identifier?: "username" | "email" };
+  buildAssetsPath?: string;
 }
 
 /** Boots the playground's content model through the preset into `appRoot`, with the given roles. */
@@ -39,6 +40,7 @@ export async function bootPlaygroundPreset(appRoot: string, roles: { roles: Reco
     bootstrap: { username: "admin", passwordHash: ADMIN_PASSWORD_HASH },
     ...(options.mfa === undefined ? {} : { mfa: options.mfa }),
     ...(options.session === undefined ? {} : { session: options.session }),
+    ...(options.buildAssetsPath === undefined ? {} : { buildAssetsPath: options.buildAssetsPath }),
   });
   const preset = definePreset({ modules: moduleConfig, features, collections: contentTypes, collectionsUi, fieldTypes });
   const config = defineConfig({ modules: moduleConfig, triggers: preset.triggers, http: null });

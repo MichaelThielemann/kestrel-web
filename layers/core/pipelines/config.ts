@@ -2,11 +2,11 @@ import { resolve } from "node:path";
 import { effectiveModuleConfig } from "@michaelthielemann/kestrel";
 import { mediaTypeAllowed } from "@michaelthielemann/kestrel-contracts/helpers/mediaType";
 import { normalizeSiteUrl } from "@michaelthielemann/kestrel-delivery-static/site-url";
-import { MEDIA_PUBLIC_PATH, MOUNT_PATH, MOUNTS_FIELD, RESERVED_PAGE_SEGMENTS, SERVED_PATH_PREFIXES } from "../mount-path";
+import { MEDIA_PUBLIC_PATH, MOUNT_PATH, MOUNTS_FIELD, RESERVED_PAGE_SEGMENTS, servedPathPrefixes } from "../mount-path";
 import { resolveWorkflow } from "../collections-ui/workflow";
 import type { WorkflowUi } from "../collections-ui/workflow";
 import { BLOCK_ALIASES_FIELD, BODY_FIELD } from "../collections-ui/serialize";
-import { deviceKeys, envRobots, mfaKey, type SigningKeys } from "../config";
+import { deviceKeys, envBuildAssetsPath, envRobots, mfaKey, type SigningKeys } from "../config";
 import { resolveStorageTypes } from "../field-types";
 import type { FieldTypes } from "../field-types";
 import { isGenericCollection } from "./collections";
@@ -167,6 +167,12 @@ export interface PresetModuleConfigOptions {
   /** Whether the default locale's public paths carry its prefix too, as `shared/model` declares it. Default `false`. */
   prefixPrimary?: boolean;
   paths?: PresetPaths;
+  /**
+   * The URL path the Nuxt build assets are served under, `app.baseURL` joined with `app.buildAssetsDir`
+   * (`/assets` for `buildAssetsDir: "/assets/"`, `/site/assets` with `baseURL: "/site/"`). No redirect source may
+   * lie under it. Default: the path `NUXT_APP_BASE_URL` and `NUXT_APP_BUILD_ASSETS_DIR` name, `/_nuxt` without them.
+   */
+  buildAssetsPath?: string;
   overrides?: Partial<Record<string, Record<string, unknown>>>;
   /**
    * The `exclude` and `overrides` given to `definePreset()`, the same object: a resource whose every preset
@@ -457,6 +463,12 @@ function warnWithoutSiteUrl(): void {
   console.warn("presetModuleConfig: NUXT_PUBLIC_SITE_URL is not set, so the site has no site URL – no sitemap.xml is written, llms.txt lists paths instead of URLs and pages carry no canonical link");
 }
 
+function requireBuildAssetsPath(value: string): string {
+  const path = value.replace(/\/+$/, "");
+  if (!path.startsWith("/") || path === "") throw new Error(`presetModuleConfig: buildAssetsPath must be a URL path below the root, such as "/_nuxt", not ${JSON.stringify(value)}`);
+  return path;
+}
+
 export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEntry[] {
   const dataDir = requireOption(options.dataDir, "dataDir");
   const blobstore = requireOption(options.blobstore, "blobstore");
@@ -474,6 +486,7 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
     }
   }
 
+  const buildAssetsPath = options.buildAssetsPath === undefined ? envBuildAssetsPath() : requireBuildAssetsPath(options.buildAssetsPath);
   const enabled = new Set<Feature>(features);
   const databaseFile = resolve(dataDir, DATABASE_FILE);
   const session = { ...DEFAULT_SESSION, ...options.session };
@@ -564,7 +577,7 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
     }));
   }
 
-  if (enabled.has("redirects")) modules.push(preset("@michaelthielemann/kestrel-redirects-default", { prefix: SITE_PREFIX, reservedPaths: [...SERVED_PATH_PREFIXES] }));
+  if (enabled.has("redirects")) modules.push(preset("@michaelthielemann/kestrel-redirects-default", { prefix: SITE_PREFIX, reservedPaths: servedPathPrefixes(buildAssetsPath) }));
   if (enabled.has("audit")) {
     modules.push(preset("@michaelthielemann/kestrel-audit-persistence", {
       ...(options.audit?.retentionDays === undefined ? {} : { retentionDays: options.audit.retentionDays }),

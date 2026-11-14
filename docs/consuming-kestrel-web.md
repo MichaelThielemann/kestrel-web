@@ -334,6 +334,7 @@ calls them before it has read a schema at all.
 | `homeSlug` | no | `"home"` — the slug `site-default` serves at a locale's root; the same value as `definePreset({ homeSlug })` |
 | `prefixPrimary` | no | `false` — `shared/model`'s `prefixPrimary`, passed to `site-default` and `delivery-static`, so the `_paths` of every answer, internal links, the exported paths and the sitemap match the site's URLs |
 | `paths` | no | `{ maxCascade: 1000 }` — the most paths (documents × locales) one save may move ([`paths.md`](paths.md)) |
+| `buildAssetsPath` | no | `/_nuxt` — the URL path the Nuxt build assets are served under: `app.baseURL` joined with `app.buildAssetsDir` (`/assets` for `buildAssetsDir: "/assets/"`, `/site/assets` with `baseURL: "/site/"`). It is one of the paths redirects may not take (§9). Without the option the path comes from `NUXT_APP_BASE_URL` and `NUXT_APP_BUILD_ASSETS_DIR`, the variables Nuxt reads at runtime; a site that sets `app.baseURL` or `app.buildAssetsDir` in `nuxt.config.ts` passes the path here |
 | `overrides` | no | — per-module escape hatch, keyed by package name; becomes that module's `config`, merged over its derived defaults at boot |
 | `pipelines` | no | `{}` — the `exclude` and `overrides` you give `definePreset()`, the same object (`PresetPipelineChanges`); a resource whose every preset read they exclude or override without its `authz.fields` step gets no derived anonymous field grant (§4) |
 
@@ -359,6 +360,9 @@ rather than booting with something plausible.
   answers 409 like a top-level `ref` field. Internal links in rich text and `link` fields are indexed
   as before. `references.watch` follows `NODE_ENV` like the validator, so a block edit in development
   applies to the next save; the index itself rebuilds at boot whenever targets, fields or schemas change.
+- **`redirects-default.reservedPaths`** — `/api`, `/admin`, `/media`, the build assets path (`buildAssetsPath`),
+  `/__nuxt_island`, `/__nuxt_error`, `/_ipx` and `/_preview`: the paths the server answers itself or Nuxt's
+  tooling reserves, none of which a redirect source may equal, lie below or match through a wildcard (§9).
 - **`delivery.types`** — every routed collection, i.e. `pages` and every mounted collection
   ([`paths.md`](paths.md)), as `{}` so the module's own field defaults apply.
 - **`site-default`** — `routes` for `pages` and every mounted collection, with the workflow's live status as
@@ -441,7 +445,7 @@ const modules = [
   { use: "@michaelthielemann/kestrel-validate-jsonschema", config: { schemas: presetSchemas({ features, collections: contentTypes }), watch: process.env.NODE_ENV !== "production" } },
   { use: "@michaelthielemann/kestrel-renderer-nuxt", config: {} },
   { use: "@michaelthielemann/kestrel-delivery-static", config: { types: { pages: {} }, prefix: "site/", reservedPaths: ["/api", "/admin", "/media"], siteUrl: process.env.NUXT_PUBLIC_SITE_URL || undefined, robots: { policy: envRobots().policy ?? (process.env.NODE_ENV === "production" ? "allow" : "disallow") }, llms: { full: true, headings: { pages: "Pages" } }, dependencies: { render: "background", rendererReadsDocument: true, indexesDelayMs: 1000 } } },
-  { use: "@michaelthielemann/kestrel-redirects-default", config: { prefix: "site/" } },
+  { use: "@michaelthielemann/kestrel-redirects-default", config: { prefix: "site/", reservedPaths: ["/api", "/admin", "/media", "/_nuxt", "/__nuxt_island", "/__nuxt_error", "/_ipx", "/_preview"] } },
   { use: "@michaelthielemann/kestrel-audit-persistence", config: {} },
   { use: "@michaelthielemann/kestrel-events-inmemory", config: {} },
   { use: "@michaelthielemann/kestrel-events-direct", config: {} },
@@ -464,6 +468,7 @@ A second alias, independent of the preset, for what every deployment needs anywa
 | `kestrelDataDir()` | `KESTREL_DATA_DIR`, else `data/` under `KESTREL_APP_ROOT` (the app root in dev, that variable or the process cwd on a production server). |
 | `requiredEnv(name)` | The variable's value, or throws `kestrel.config: <name> must be set in this environment`. |
 | `adminPasswordHash()` | In production `KESTREL_ADMIN_PASSWORD_HASH`, required. Otherwise that variable when set, else the built-in development hash of `change-me`, with one `console.warn`. |
+| `envBuildAssetsPath()` | The URL path of the Nuxt build assets from `NUXT_APP_BASE_URL` and `NUXT_APP_BUILD_ASSETS_DIR`, `/_nuxt` without them; the default of the preset's `buildAssetsPath` option. |
 | `envBlobstore(dataDir)` | Picks the blobstore module from `KESTREL_BLOBSTORE`; see the list below the table for the exact variables each choice reads. |
 
 - `s3` (`KESTREL_BLOBSTORE=s3`) → `blobstore-s3`, reading `KESTREL_S3_BUCKET`, `_ENDPOINT`, `_REGION`,
@@ -870,7 +875,7 @@ or a retry actually runs.
 | `references` | kestrel-references-default | `brokenReferences`, `pageReferrers(Many)`, `mediaReferrers(Many)`, `<name>Referrers(Many)` per generic multi collection, `rebuildReferences`, `scanReferences` (cron); check/index/guard/unindex steps in the create/update/delete pipelines of `pages` and every generic multi collection, `deleteMedia`, `deleteMediaFolder`, `references.dropReferenced:media` before `media.purge` in the trash's purge pipelines, a re-index step in each `delete…Translation`, and a re-index step after the write of `setSettings`, `setRedirects` and each generic single |
 | `links` | kestrel-links-default | `brokenLinks`, `rebuildLinks`, `checkLinks` (cron); extract/unextract steps in `createPage`, `updatePage`, `deletePage`, and a re-extract step in `deletePageTranslation` when it exists |
 | `delivery` | kestrel-delivery-static + kestrel-renderer-nuxt | `pagePublishStatus`, `publishAllPages`, `pagesStaleStatus`, `retryStalePages`, `resumeStalePages` (cron), `deliveryBuildCheck` (run at start), two event pipelines that publish the saved page: `publishPage` (triggered by `page.created`, `page.updated`, `page.restored`, and `page.translationRemoved` when the model is translatable) and `unpublishPage` (triggered by `page.deleted`), and the dependents pipelines that re-render the pages showing a change: `pageDependents`, one `<name>Dependents` per collection, `settingsDependents`, `mediaDependents`, with `eventsQueue` also `republishOutput`, `refreshIndexes` and `refreshLlms` — see the notes below the table |
-| `redirects` | kestrel-redirects-default | `getRedirects`, `setRedirects`, `renderRedirects`; redirect-lookup step in `resolvePage`; export step at the end of `publishAllPages` (only when `delivery` is also on); the editor refuses a source under `/api`, `/admin`, `/media`, `/_nuxt`, `/__nuxt`, `/_ipx` or `/_preview` (the list the preset hands to redirects-default as `reservedPaths`) |
+| `redirects` | kestrel-redirects-default | `getRedirects`, `setRedirects`, `renderRedirects`; redirect-lookup step in `resolvePage`; export step at the end of `publishAllPages` (only when `delivery` is also on); the editor refuses a source under `/api`, `/admin`, `/media`, the build assets path (`/_nuxt` unless the site moves it, see `buildAssetsPath`), `/__nuxt_island`, `/__nuxt_error`, `/_ipx` or `/_preview` (the list the preset hands to redirects-default as `reservedPaths`) |
 | `images` | kestrel-images-default | Routes, an event and a cron job for image variants, plus boot-time size registration — see the list below the table |
 | `replication` | kestrel-replication-sqlite | `replicate` (cron), `replicationStatus`, `replicationPoints`, `replicationSnapshot`, `replicationRestore` |
 | `migrations` | kestrel-migrations-default | `listMigrations`, `applyMigrations` (`GET /admin/migrations`, `POST /admin/migrations/apply`) |
@@ -2277,6 +2282,15 @@ of a page, and `[...slug].vue` turns that into a real 30x via `navigateTo`. See
 This is the Node origin's own resolution and needs nothing further. With static delivery (§8), the same
 rules are also exported as `redirects.json` for a plain static host to apply — see "Redirects at the
 edge" in §8.
+
+**Reserved sources.** An edge handler (§8) answers every request through `redirects.json` before the static host or the
+Node server sees it, so a rule that took over a path the server serves itself would redirect the site's own
+requests. The preset therefore hands redirects-default the list in "What the builder derives" (§3) as
+`reservedPaths`. System → Redirects refuses a `from` that equals one of them, lies below one or can match
+one through a wildcard (`/admin/x`, `/*/login`, `/**`) with the message of its row; `/administration` stays
+allowed. A site that moves the build assets with `app.buildAssetsDir` or `app.baseURL` sets
+`buildAssetsPath` (§3) to the same path, because a path the site serves as `/assets/…` is not protected by
+the default `/_nuxt`. A rule already stored under a reserved path is left out of `redirects.json`.
 
 ## 9.5 Internal links in `settings`
 
