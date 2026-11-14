@@ -334,7 +334,7 @@ calls them before it has read a schema at all.
 | `homeSlug` | no | `"home"` — the slug `site-default` serves at a locale's root; the same value as `definePreset({ homeSlug })` |
 | `prefixPrimary` | no | `false` — `shared/model`'s `prefixPrimary`, passed to `site-default` and `delivery-static`, so the `_paths` of every answer, internal links, the exported paths and the sitemap match the site's URLs |
 | `paths` | no | `{ maxCascade: 1000 }` — the most paths (documents × locales) one save may move ([`paths.md`](paths.md)) |
-| `buildAssetsPath` | no | `/_nuxt` — the URL path the Nuxt build assets are served under: `app.baseURL` joined with `app.buildAssetsDir` (`/assets` for `buildAssetsDir: "/assets/"`, `/site/assets` with `baseURL: "/site/"`). It is one of the paths redirects may not take (§9). Without the option the path comes from `NUXT_APP_BASE_URL` and `NUXT_APP_BUILD_ASSETS_DIR`, the variables Nuxt reads at runtime; a site that sets `app.baseURL` or `app.buildAssetsDir` in `nuxt.config.ts` passes the path here |
+| `buildAssetsPath` | no | `/_nuxt` — the URL path the Nuxt build assets are served under: `app.baseURL` joined with `app.buildAssetsDir` (`/assets` for `buildAssetsDir: "/assets/"`, `/site/assets` with `baseURL: "/site/"`). It is one of the paths redirects may not take (§9). Without the option the path comes from `NUXT_APP_BASE_URL` and `NUXT_APP_BUILD_ASSETS_DIR` as they are set when the server starts. A site that moves the build assets at build time, in `nuxt.config.ts` or through these variables, passes the path here or sets the same variables at start too |
 | `overrides` | no | — per-module escape hatch, keyed by package name; becomes that module's `config`, merged over its derived defaults at boot |
 | `pipelines` | no | `{}` — the `exclude` and `overrides` you give `definePreset()`, the same object (`PresetPipelineChanges`); a resource whose every preset read they exclude or override without its `authz.fields` step gets no derived anonymous field grant (§4) |
 
@@ -468,7 +468,6 @@ A second alias, independent of the preset, for what every deployment needs anywa
 | `kestrelDataDir()` | `KESTREL_DATA_DIR`, else `data/` under `KESTREL_APP_ROOT` (the app root in dev, that variable or the process cwd on a production server). |
 | `requiredEnv(name)` | The variable's value, or throws `kestrel.config: <name> must be set in this environment`. |
 | `adminPasswordHash()` | In production `KESTREL_ADMIN_PASSWORD_HASH`, required. Otherwise that variable when set, else the built-in development hash of `change-me`, with one `console.warn`. |
-| `envBuildAssetsPath()` | The URL path of the Nuxt build assets from `NUXT_APP_BASE_URL` and `NUXT_APP_BUILD_ASSETS_DIR`, `/_nuxt` without them; the default of the preset's `buildAssetsPath` option. |
 | `envBlobstore(dataDir)` | Picks the blobstore module from `KESTREL_BLOBSTORE`; see the list below the table for the exact variables each choice reads. |
 
 - `s3` (`KESTREL_BLOBSTORE=s3`) → `blobstore-s3`, reading `KESTREL_S3_BUCKET`, `_ENDPOINT`, `_REGION`,
@@ -2288,9 +2287,15 @@ Node server sees it, so a rule that took over a path the server serves itself wo
 requests. The preset therefore hands redirects-default the list in "What the builder derives" (§3) as
 `reservedPaths`. System → Redirects refuses a `from` that equals one of them, lies below one or can match
 one through a wildcard (`/admin/x`, `/*/login`, `/**`) with the message of its row; `/administration` stays
-allowed. A site that moves the build assets with `app.buildAssetsDir` or `app.baseURL` sets
-`buildAssetsPath` (§3) to the same path, because a path the site serves as `/assets/…` is not protected by
-the default `/_nuxt`. A rule already stored under a reserved path is left out of `redirects.json`.
+allowed. A site that moves the build assets with `app.buildAssetsDir` or `app.baseURL`, in `nuxt.config.ts` or through
+`NUXT_APP_BUILD_ASSETS_DIR` and `NUXT_APP_BASE_URL` at build time, sets `buildAssetsPath` (§3) to the same path
+or sets the variables at start too, because a path the site serves as `/assets/…` is not protected by the
+default `/_nuxt`.
+
+A rule already stored under a reserved path is neither applied by the Node origin nor exported to
+`redirects.json`; the server logs the row, and `kestrel upgrade data` reports it as
+`data/redirect-reserved-paths`. A wildcard in the first segment (`/*/old-page`) always can match a reserved
+path, so write such a rule once per prefix (`/de/old-page`, `/en/old-page`).
 
 ## 9.5 Internal links in `settings`
 

@@ -2,11 +2,11 @@ import { resolve } from "node:path";
 import { effectiveModuleConfig } from "@michaelthielemann/kestrel";
 import { mediaTypeAllowed } from "@michaelthielemann/kestrel-contracts/helpers/mediaType";
 import { normalizeSiteUrl } from "@michaelthielemann/kestrel-delivery-static/site-url";
-import { MEDIA_PUBLIC_PATH, MOUNT_PATH, MOUNTS_FIELD, RESERVED_PAGE_SEGMENTS, servedPathPrefixes } from "../mount-path";
+import { MEDIA_PUBLIC_PATH, MOUNT_PATH, MOUNTS_FIELD, RESERVED_PAGE_SEGMENTS, envBuildAssetsPath, servedPathPrefixes } from "../mount-path";
 import { resolveWorkflow } from "../collections-ui/workflow";
 import type { WorkflowUi } from "../collections-ui/workflow";
 import { BLOCK_ALIASES_FIELD, BODY_FIELD } from "../collections-ui/serialize";
-import { deviceKeys, envBuildAssetsPath, envRobots, mfaKey, type SigningKeys } from "../config";
+import { deviceKeys, envRobots, mfaKey, type SigningKeys } from "../config";
 import { resolveStorageTypes } from "../field-types";
 import type { FieldTypes } from "../field-types";
 import { isGenericCollection } from "./collections";
@@ -170,7 +170,8 @@ export interface PresetModuleConfigOptions {
   /**
    * The URL path the Nuxt build assets are served under, `app.baseURL` joined with `app.buildAssetsDir`
    * (`/assets` for `buildAssetsDir: "/assets/"`, `/site/assets` with `baseURL: "/site/"`). No redirect source may
-   * lie under it. Default: the path `NUXT_APP_BASE_URL` and `NUXT_APP_BUILD_ASSETS_DIR` name, `/_nuxt` without them.
+   * lie under it. Default: the path `NUXT_APP_BASE_URL` and `NUXT_APP_BUILD_ASSETS_DIR` name when the server starts, `/_nuxt` without
+   * them. A site that moves the build assets at build time sets this option or the same variables at start too.
    */
   buildAssetsPath?: string;
   overrides?: Partial<Record<string, Record<string, unknown>>>;

@@ -11,6 +11,21 @@ export function joinBuildAssetsPath(baseURL: string, buildAssetsDir: string): st
 }
 
 /**
+ * The default of the preset's `buildAssetsPath` option: the path `NUXT_APP_BASE_URL` and `NUXT_APP_BUILD_ASSETS_DIR`
+ * name in the environment the server starts in, `/_nuxt` without them. The server reads them when it starts, so a site
+ * that moves the build assets at build time, in `nuxt.config.ts` or through these variables, sets `buildAssetsPath` or
+ * the same variables at start too.
+ */
+export function envBuildAssetsPath(): string | undefined {
+  return joinBuildAssetsPath(nonEmptyEnv("NUXT_APP_BASE_URL") ?? "/", nonEmptyEnv("NUXT_APP_BUILD_ASSETS_DIR") ?? "/_nuxt/");
+}
+
+function nonEmptyEnv(name: string): string | undefined {
+  const value = process.env[name];
+  return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+/**
  * The path prefixes no redirect source may take: the API, the admin, the public media, the build assets, the
  * routes Nuxt registers for islands and errors, the image and the preview routes.
  */

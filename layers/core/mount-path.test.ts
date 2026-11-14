@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { joinBuildAssetsPath, servedPathPrefixes } from "./mount-path";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { envBuildAssetsPath, joinBuildAssetsPath, servedPathPrefixes } from "./mount-path";
 
 describe("joinBuildAssetsPath", () => {
   it.each([
@@ -43,5 +43,31 @@ describe("servedPathPrefixes", () => {
 
   it("lists a path once", () => {
     expect(servedPathPrefixes("/media")).toEqual(["/api", "/admin", "/media", "/__nuxt_island", "/__nuxt_error", "/_ipx", "/_preview"]);
+  });
+});
+
+describe("envBuildAssetsPath", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("is /_nuxt while neither Nuxt variable is set", () => {
+    vi.stubEnv("NUXT_APP_BASE_URL", undefined);
+    vi.stubEnv("NUXT_APP_BUILD_ASSETS_DIR", undefined);
+    expect(envBuildAssetsPath()).toBe("/_nuxt");
+  });
+
+  it("follows NUXT_APP_BUILD_ASSETS_DIR and NUXT_APP_BASE_URL in the environment it is called in", () => {
+    vi.stubEnv("NUXT_APP_BASE_URL", undefined);
+    vi.stubEnv("NUXT_APP_BUILD_ASSETS_DIR", "/assets/");
+    expect(envBuildAssetsPath()).toBe("/assets");
+    vi.stubEnv("NUXT_APP_BASE_URL", "/site/");
+    expect(envBuildAssetsPath()).toBe("/site/assets");
+  });
+
+  it("ignores empty values", () => {
+    vi.stubEnv("NUXT_APP_BASE_URL", "");
+    vi.stubEnv("NUXT_APP_BUILD_ASSETS_DIR", "");
+    expect(envBuildAssetsPath()).toBe("/_nuxt");
   });
 });

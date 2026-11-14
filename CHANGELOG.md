@@ -960,11 +960,14 @@
 - The preset hands kestrel's redirects-default the paths the server answers itself or Nuxt's tooling reserves as
   `reservedPaths`: `/api`, `/admin`, `/media`, the build assets path, `/__nuxt_island`, `/__nuxt_error`, `/_ipx`
   and `/_preview`. The build assets path is `/_nuxt` unless the site moves it: `presetModuleConfig()` takes it
-  from the new option `buildAssetsPath`, by default from `NUXT_APP_BASE_URL` and `NUXT_APP_BUILD_ASSETS_DIR`
-  (`envBuildAssetsPath()` in `#kestrel/config`); a site that sets `app.baseURL` or `app.buildAssetsDir` in
-  `nuxt.config.ts` passes the joined path, such as `/assets`, as `buildAssetsPath`. System → Redirects refuses a
-  source that equals, lies below or, through a wildcard, can match one of them (`/admin/x`, `/*/login`) with
-  the row's message, and a rule already stored under one is left out of `redirects.json`. `/administration`
+  from the new option `buildAssetsPath`, by default from `NUXT_APP_BASE_URL` and `NUXT_APP_BUILD_ASSETS_DIR` as
+  they are set when the server starts. A site that moves the build assets at build time, in `nuxt.config.ts` or
+  through those variables, sets `buildAssetsPath` to the joined path, such as `/assets`, or sets the same variables
+  at start too. System → Redirects refuses a source that equals, lies below or, through a wildcard, can match one
+  of them (`/admin/x`, `/*/login`) with the row's message. A rule already stored under one is neither applied by
+  the Node origin nor exported to `redirects.json`; the server logs the row, and `kestrel upgrade data` reports it
+  as `data/redirect-reserved-paths`. A wildcard in the first segment (`/*/old-page`) always can match a reserved
+  path: write the rule once per prefix (`/de/old-page`, `/en/old-page`). `/administration`
   stays allowed. `overrides` for redirects-default can replace the list.
 - `POST /admin/users/:id/revisions/reassign` (`retryReassignRevisionAuthor`) and
   `POST /admin/users/:id/audit/anonymize` (`retryAnonymizeAuditUser`) answer 409 while `:id` still names a

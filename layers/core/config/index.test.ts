@@ -1,6 +1,6 @@
 import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { adminPasswordHash, deviceKeys, envBlobstore, envBuildAssetsPath, envRobots, envStepLog, kestrelDataDir, requiredEnv } from "./index";
+import { adminPasswordHash, deviceKeys, envBlobstore, envRobots, envStepLog, kestrelDataDir, requiredEnv } from "./index";
 
 const DEVELOPMENT_ADMIN_PASSWORD_HASH =
   "scrypt$522f4ac87bfe4bcd100ba47a7d2aaec2$dbfc3f2d6cc38a76b21973d7c6f6d310a09506581c665f1f6601fd8fb3fa9bc3959689aea3e389f4d53eb8c7e70791ad4065e308763dd44609904134f0f5ee98";
@@ -19,8 +19,6 @@ const MANAGED = [
   "KESTREL_S3_SECRET_ACCESS_KEY",
   "KESTREL_ROBOTS_POLICY",
   "KESTREL_STEP_LOG",
-  "NUXT_APP_BASE_URL",
-  "NUXT_APP_BUILD_ASSETS_DIR",
 ];
 
 const S3_ENV: [string, string][] = [
@@ -231,24 +229,5 @@ describe("envStepLog", () => {
   it("refuses any other value", () => {
     vi.stubEnv("KESTREL_STEP_LOG", "Errors");
     expect(() => envStepLog()).toThrow('kestrel.config: KESTREL_STEP_LOG must be "all", "errors" or "off", not "Errors"');
-  });
-});
-
-describe("envBuildAssetsPath", () => {
-  it("is /_nuxt while neither Nuxt variable is set", () => {
-    expect(envBuildAssetsPath()).toBe("/_nuxt");
-  });
-
-  it("follows NUXT_APP_BUILD_ASSETS_DIR and NUXT_APP_BASE_URL, the variables Nuxt reads at runtime", () => {
-    vi.stubEnv("NUXT_APP_BUILD_ASSETS_DIR", "/assets/");
-    expect(envBuildAssetsPath()).toBe("/assets");
-    vi.stubEnv("NUXT_APP_BASE_URL", "/site/");
-    expect(envBuildAssetsPath()).toBe("/site/assets");
-  });
-
-  it("ignores empty values", () => {
-    vi.stubEnv("NUXT_APP_BASE_URL", "");
-    vi.stubEnv("NUXT_APP_BUILD_ASSETS_DIR", "");
-    expect(envBuildAssetsPath()).toBe("/_nuxt");
   });
 });
