@@ -2,7 +2,7 @@ import { resolve } from "node:path";
 import { effectiveModuleConfig } from "@michaelthielemann/kestrel";
 import { mediaTypeAllowed } from "@michaelthielemann/kestrel-contracts/helpers/mediaType";
 import { normalizeSiteUrl } from "@michaelthielemann/kestrel-delivery-static/site-url";
-import { MEDIA_PUBLIC_PATH, MOUNT_PATH, MOUNTS_FIELD, RESERVED_PAGE_SEGMENTS } from "../mount-path";
+import { MEDIA_PUBLIC_PATH, MOUNT_PATH, MOUNTS_FIELD, RESERVED_PAGE_SEGMENTS, SERVED_PATH_PREFIXES } from "../mount-path";
 import { resolveWorkflow } from "../collections-ui/workflow";
 import type { WorkflowUi } from "../collections-ui/workflow";
 import { BLOCK_ALIASES_FIELD, BODY_FIELD } from "../collections-ui/serialize";
@@ -564,7 +564,7 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
     }));
   }
 
-  if (enabled.has("redirects")) modules.push(preset("@michaelthielemann/kestrel-redirects-default", { prefix: SITE_PREFIX }));
+  if (enabled.has("redirects")) modules.push(preset("@michaelthielemann/kestrel-redirects-default", { prefix: SITE_PREFIX, reservedPaths: [...SERVED_PATH_PREFIXES] }));
   if (enabled.has("audit")) {
     modules.push(preset("@michaelthielemann/kestrel-audit-persistence", {
       ...(options.audit?.retentionDays === undefined ? {} : { retentionDays: options.audit.retentionDays }),

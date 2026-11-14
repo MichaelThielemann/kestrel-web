@@ -149,7 +149,7 @@ describe("presetModuleConfig with the playground inputs", () => {
         }),
       },
       { use: "@michaelthielemann/kestrel-revisions-default", ...preset({ statusField: "status", liveStatuses: ["published"] }) },
-      { use: "@michaelthielemann/kestrel-redirects-default", ...preset({ prefix: "site/" }) },
+      { use: "@michaelthielemann/kestrel-redirects-default", ...preset({ prefix: "site/", reservedPaths: ["/api", "/admin", "/media", "/_nuxt", "/__nuxt", "/_ipx", "/_preview"] }) },
       { use: "@michaelthielemann/kestrel-audit-persistence", ...preset({}) },
       { use: "@michaelthielemann/kestrel-events-inmemory", config: {} },
       { use: "@michaelthielemann/kestrel-events-direct", config: {} },
@@ -814,7 +814,7 @@ describe("options", () => {
     });
 
     expect(configFor(modules, "replication-sqlite")).toEqual({ file: DATABASE_FILE, prefix: "database/", restoreOnStart: true, retentionSeconds: 604800 });
-    expect(configFor(modules, "redirects-default")).toEqual({ prefix: "static/" });
+    expect(configFor(modules, "redirects-default")).toEqual({ prefix: "static/", reservedPaths: ["/api", "/admin", "/media", "/_nuxt", "/__nuxt", "/_ipx", "/_preview"] });
     expect(configFor(modules, "persistence-sqlite")).toEqual({ file: DATABASE_FILE });
     expect(moduleNames(modules)).toEqual(moduleNames(presetModuleConfig(playgroundOptions())));
   });
