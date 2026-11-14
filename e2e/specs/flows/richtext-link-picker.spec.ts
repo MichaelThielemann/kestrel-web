@@ -16,6 +16,26 @@ test("the internal link picker keeps the chosen record readable next to its stat
   await expect(input).toHaveValue("Unveröffentlichter Entwurf");
   const width = await input.evaluate((element) => element.getBoundingClientRect().width);
   expect(width).toBeGreaterThanOrEqual(56);
+  const anchor = page.locator(".ui-link-internal .ui-combobox__anchor");
+  const fit = await anchor.evaluate((element) => {
+    const box = element.getBoundingClientRect();
+    const toggle = element.querySelector("button:last-of-type")?.getBoundingClientRect();
+    const hint = element.querySelector(".ui-combobox__hint");
+    return {
+      contained: element.scrollWidth <= element.clientWidth,
+      toggleInside: toggle !== undefined && toggle.left >= box.left && toggle.right <= box.right,
+      hintComplete: hint !== null && hint.scrollWidth <= hint.clientWidth,
+    };
+  });
+  expect(fit).toEqual({ contained: true, toggleInside: true, hintComplete: true });
+  const toggleBox = await page.getByRole("button", { name: "Optionen ein-/ausblenden" }).boundingBox();
+  const applyBox = await page.getByRole("button", { name: "Übernehmen" }).boundingBox();
+  expect(toggleBox).not.toBeNull();
+  expect(applyBox).not.toBeNull();
+  if (toggleBox !== null && applyBox !== null) {
+    const separate = toggleBox.x + toggleBox.width <= applyBox.x || applyBox.x + applyBox.width <= toggleBox.x || toggleBox.y + toggleBox.height <= applyBox.y || applyBox.y + applyBox.height <= toggleBox.y;
+    expect(separate).toBe(true);
+  }
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(0);
 });

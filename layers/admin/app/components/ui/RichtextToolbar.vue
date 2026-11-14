@@ -232,13 +232,14 @@ function applyInternalLink() {
   }
   &__link {
     display: flex;
+    flex-wrap: wrap;
     gap: var(--space-2);
     flex-basis: 100%;
     align-items: center;
     min-inline-size: 0;
 
     > .ui-link-internal {
-      flex: 1;
+      flex: 1 1 14rem;
       min-inline-size: 0;
     }
   }
