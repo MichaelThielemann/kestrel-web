@@ -303,11 +303,14 @@
 - zod 4: `@michaelthielemann/kestrel-renderer-nuxt` depends on `zod` ^4.6.6 (was ^3.23.8) and builds its
   `configSchema` with zod 4, as Kestrel 6 requires of every module. A module of your own in
   `kestrel.modules.ts` needs `zod` ^4.6.6 as well, so one copy resolves; a `configSchema` with a node built by
-  another zod fails boot with `invalid-config-schema`. `kestrel upgrade fix --write` raises the range
-  (`deps/zod-range`) and rewrites the zod 3 forms it knows (`zod/record-key`, `zod/object-default`,
-  `zod/describe-order`); Kestrel's CHANGELOG and its upgrade guide ("zod 4 schemas") list the rest.
-  renderer/nuxt's config keeps its JSON Schema, variables and default (`assets: true`); a config it refuses
-  reports zod 4's texts (`Unrecognized key: "extra"`, `Invalid input: expected boolean, received string`).
+  zod 3 or by a zod release older than 4.6.6 fails boot with `invalid-config-schema` and the path of the node.
+  `kestrel upgrade fix --write` raises the range (`deps/zod-range`, in every `package.json` of the project,
+  also where zod serves only app code; a project without modules of its own can keep zod 3 there) and rewrites
+  the zod 3 forms it knows (`zod/record-key`, `zod/object-default`, `zod/describe-order`); Kestrel's CHANGELOG
+  and its upgrade guide ("zod 4 schemas") list the rest. renderer/nuxt needs Kestrel 6: Kestrel 5 boots it but
+  describes its config with an empty JSON Schema and no variables. With Kestrel 6, renderer/nuxt's config keeps
+  its JSON Schema, variables and default (`assets: true`); a config it refuses reports zod 4's texts
+  (`Unrecognized key: "extra"`, `Invalid input: expected boolean, received string`).
 - Static delivery writes `robots.txt` (and `sitemap.xml` with a site URL) under its prefix, next to the pages.
   Without `robots.policy`, `presetModuleConfig()` passes the policy `KESTREL_ROBOTS_POLICY` names, and without
   that `allow` in a production build and `disallow` under `nuxt dev`, and warns once. A production build is one

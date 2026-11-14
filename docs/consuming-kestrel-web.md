@@ -503,8 +503,8 @@ A module of your own builds its `configSchema` with zod 4: list `zod` `^4.6.6` i
 and `import { z } from "zod"`, so the install resolves the one copy the layer's
 `@michaelthielemann/kestrel-renderer-nuxt` and Kestrel use. Kestrel reads the JSON Schema, variables,
 defaults and secrets of a module's config through zod 4's own definitions and refuses to boot when any
-node of a `configSchema` was built with another zod (`invalid-config-schema`, naming the module and the
-path of the node). Kestrel's upgrade guide lists what zod 4 changes in a schema and which of it
+node of a `configSchema` was built with zod 3, with a zod release older than 4.6.6 or with a copy that
+reports no version (`invalid-config-schema`, naming the module and the path of the node). Kestrel's upgrade guide lists what zod 4 changes in a schema and which of it
 `kestrel upgrade fix` rewrites ([zod 4 schemas](https://github.com/MichaelThielemann/kestrel/blob/main/docs/upgrading.md#zod-4-schemas)).
 
 `presetSchemas()` resolves `settings.navigation`'s schema to `<appRoot>/schemas/settings.navigation.json`
@@ -2332,11 +2332,13 @@ calls it; in Markdown only the fetching form is reported; lockfiles are not read
 What changes:
 
 - Module config schemas are zod 4. A module of your own (§3, `kestrel.modules.ts`) needs `zod` `^4.6.6`
-  and keeps booting only when every node of its `configSchema` is built with it; Kestrel's
+  and keeps booting only when every node of its `configSchema` is built with zod 4.6.6 or later; Kestrel's
   `deps/zod-range`, `zod/record-key`, `zod/object-default` and `zod/describe-order` raise the range and
   rewrite the zod 3 forms they know, and Kestrel's upgrade guide
   ([zod 4 schemas](https://github.com/MichaelThielemann/kestrel/blob/main/docs/upgrading.md#zod-4-schemas))
-  lists the rest to check by hand. A project without modules of its own changes nothing.
+  lists the rest to check by hand. `deps/zod-range` reports and raises a `zod` range that admits a release
+  below 4.6.6 in every `package.json` of the project, whatever uses it. A project that keeps zod 3 for its
+  own app code and has no modules of its own can leave that finding unapplied.
 - With `presetModuleConfig()` the media trash is on (`media.trashRetentionDays: 30`, §4, "The media trash"). A
   delete in the admin runs `trashMedia` or `trashMediaFolder` and raises `media.trashed`; `DELETE
   /api/media/:id` and `DELETE /api/media/folders/*path` stay final deletes but the admin no longer calls them.
