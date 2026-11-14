@@ -1157,6 +1157,13 @@
   `pages`, which decides `PublishStatusEntry`) have one source; this drops the script's unused `news`
   scaffold collection and has no effect on any exported type.
 
+- The admin layer sends `X-Frame-Options: SAMEORIGIN`, `Referrer-Policy: same-origin`,
+  `X-Content-Type-Options: nosniff` and a `Permissions-Policy` that turns off camera, microphone, geolocation,
+  payment and USB on every route under `/admin`, as a route rule of `layers/admin/nuxt.config.ts`. The public
+  site and `/api` are unchanged, and no Content Security Policy is set. A page on another origin can no longer
+  embed `/admin` in a frame; the editor's preview frames the public site from the same origin and keeps
+  working.
+
 ### Fixed
 
 - Admin layout: the rail brand link and the account menu trigger are named after the text they show, so their
