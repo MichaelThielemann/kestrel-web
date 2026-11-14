@@ -121,6 +121,7 @@ onUnmounted(stopReveal)
   max-height: calc(var(--ui-crop-frame-max-height) + 12rem);
   margin: 0;
   padding: var(--space-1);
+  scroll-padding: var(--space-1);
   overflow-y: auto;
   overscroll-behavior: contain;
   list-style: none;
