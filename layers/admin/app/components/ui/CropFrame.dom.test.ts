@@ -425,6 +425,16 @@ describe('KestrelUiCropFrame', () => {
       wrapper.unmount()
     })
 
+    it('tells which gestures snap to which guides and that the keyboard, the slider and the number fields stay exact', async () => {
+      const { wrapper } = await mountFrame(null)
+
+      const help = document.getElementById(wrapper.get('.ui-crop-frame__frame').attributes('aria-describedby') ?? '')?.textContent ?? ''
+      expect(help).toContain('Dragging, pinching with two fingers and the wheel snap the middle of the image to the middle of the frame')
+      expect(help).toContain('the centre of the focus to the middle and the thirds of the frame')
+      expect(help).toContain('the keyboard, the slider and the number fields stay exact')
+      wrapper.unmount()
+    })
+
     it('snaps the centre of the focus to a third of the frame', async () => {
       const focus = { x: 0.35, y: 0.45, w: 0.05, h: 0.1 }
       const { wrapper, emitted } = await mountFrame({ x: 0.225, y: 0.3125, w: 0.5, h: 0.375 }, focus)

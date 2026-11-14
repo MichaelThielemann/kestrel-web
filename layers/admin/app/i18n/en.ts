@@ -689,7 +689,7 @@ export const en = {
   'cropFrame.zoom': 'Zoom',
   'cropFrame.zoomIn': 'Zoom in',
   'cropFrame.zoomOut': 'Zoom out',
-  'cropFrame.snapHelp': 'Dragging and zooming snap to the middle and the thirds of the frame; hold Alt to place the image freely.',
+  'cropFrame.snapHelp': 'Dragging, pinching with two fingers and the wheel snap the middle of the image to the middle of the frame and the centre of the focus to the middle and the thirds of the frame; the keyboard, the slider and the number fields stay exact. Hold Alt to place the image freely.',
   'mediaCrop.open': 'Adjust crop',
   'mediaCrop.openFor': 'Adjust crop of {name}',
   'mediaCrop.title': 'Crop: {name}',
