@@ -1054,15 +1054,19 @@ outside `:where(…)`, so a call-site `outline: none` on the modifier class cann
 exposes `focus()` for components that move focus after a list edit; it focuses the `to` branch's link as
 well as the button.
 
-A disabled button of any variant carries `.ui-button--disabled` and takes the `--color-disabled-bg`,
-`--color-disabled-text` and `--color-disabled-border` tokens instead of a flat opacity: `primary` and `danger`
-turn into a flat grey fill, `secondary` into an outline, `ghost` and `danger-ghost` keep only a weaker label
-colour, and `icon` uses `--color-disabled-icon`, which is clearly lighter (light theme) or darker (dark theme)
-than the active `--color-text-muted`. The same look applies to a raw element that carries a kit class and the
+A disabled button of any styled variant, and `icon`, carries `.ui-button--disabled` and takes the
+`--color-disabled-bg`, `--color-disabled-text` and `--color-disabled-border` tokens instead of a flat opacity:
+`primary` and `danger` turn into a flat grey fill, `secondary` into an outline, `ghost` keeps only a weaker label
+colour, `danger-ghost` takes `--color-disabled-icon` (lighter than `--color-danger` in both themes) and `icon` uses
+`--color-disabled-icon`, which is clearly lighter (light theme) or darker (dark theme) than the active
+`--color-text-muted`. `bare` is unstyled by definition: its call site shows the disabled state itself, and the kit
+only sets the `not-allowed` cursor. The same look applies to a raw element that carries a kit class and the
 `disabled` attribute, such as the trigger of `KestrelUiActionMenu`. A disabled button never reacts to hover and
 shows the `not-allowed` cursor. A disabled `to` button renders a plain `<a>` without a destination, with
-`aria-disabled="true"` and `tabindex="-1"`; it swallows the click, so neither navigation nor an `onClick` of the
-caller runs. A `loading` button, disabled or not, keeps its active colours and is reduced to 60 % opacity.
+`aria-disabled="true"`, `tabindex="-1"` and `role="link"` that attributes of the caller cannot override; it swallows
+the click, so neither navigation nor any click listener of the caller (`onClick` and its `.once`, `.passive` and
+`.capture` forms) runs. A `loading` button of any variant, disabled or not, keeps its active colours and is reduced
+to 60 % opacity with a progress cursor.
 
 ### Admin CSS isolation
 The admin styles share a document with the consumer's own global CSS: Nuxt merges every layer's and the
@@ -1200,7 +1204,7 @@ that role:
   the button.
 - Inactive controls (3:1): `--color-disabled-text` on `--color-disabled-bg` (the fill of a disabled
   primary or danger button), on the page and on a surface (disabled ghost and secondary buttons);
-  `--color-disabled-icon` on the page and on a surface (disabled icon buttons).
+  `--color-disabled-icon` on the page and on a surface (disabled icon buttons and danger-ghost labels).
   1.4.3 exempts inactive components; the kit keeps the label readable anyway. `--color-disabled-border`
   outlines a disabled secondary button and is decorative.
 - Decorative: `--color-border` (table rules, card outlines, separators). 1.4.11 does not apply to it;
