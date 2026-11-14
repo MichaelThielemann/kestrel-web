@@ -1182,8 +1182,9 @@
   the look of its call site and only gets the `not-allowed` cursor. A disabled button, or a link with `disabled`,
   never shows a hover state and has the `not-allowed` cursor; a raw element with a kit class and the `disabled`
   attribute gets the same look. A disabled link renders without a destination, always carries `aria-disabled="true"`,
-  `tabindex="-1"` and `role="link"`, and neither navigates nor runs a `@click` listener of the caller, including
-  `@click.once`, `@click.passive` and `@click.capture`. A button that is `loading` is never styled as disabled, even
+  `tabindex="-1"` and `role="link"`, and neither navigates nor runs an `onClick` listener of the caller (`@click` and
+  its `.once`, `.passive` and `.capture` forms; `@click.right` and `@click.middle` compile to `contextmenu` and
+  `mouseup` and still run). A button that is `loading` is never styled as disabled, even
   with `disabled` set, in every variant; it is dimmed to 60 % opacity with a progress cursor.
 
 - The admin layer sends `X-Frame-Options: SAMEORIGIN`, `Referrer-Policy: same-origin`,
