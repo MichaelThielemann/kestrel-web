@@ -68,8 +68,8 @@ const model = defineModel<boolean>({ default: false })
   }
 
   &[aria-checked='true'] &__track {
-    border-color: var(--color-primary-solid);
-    background: var(--color-primary-solid);
+    border-color: var(--color-primary);
+    background: var(--color-primary);
   }
 
   &[aria-checked='true'] &__thumb {
