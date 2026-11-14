@@ -1073,9 +1073,9 @@
 
 ### Changed
 
-- The `nuxt` peer range and the `@nuxt/kit` dependency are ^4.6.3 (were ^4.5.2): Nuxt 4.5.x and 4.6.0 to 4.6.2
-  carry published advisories in `nuxt`, `@nuxt/nitro-server` and `@nuxt/vite-builder`. A site on an older Nuxt 4
-  raises its own `nuxt` to ^4.6.3; `create-kestrel` writes that range into a new project.
+- The `nuxt` peer range and the `@nuxt/kit` dependency are ^4.6.4 (were ^4.5.2): Nuxt 4.5.x and 4.6.0 to 4.6.3
+  carry published advisories in `nuxt`, `@nuxt/nitro-server`, `@nuxt/schema` and `@nuxt/vite-builder`. A site on
+  an older Nuxt 4 raises its own `nuxt` to ^4.6.4; `create-kestrel` writes that range into a new project.
 - Dependency ranges: `dompurify` ^3.4.17 (was ^3.4.14), `sanitize-html` ^2.18.1 (was ^2.17.7) and `devalue`
   ^5.9.3 (was ^5.9.1); each floor is the first release without a published advisory. `sanitize-html` 2.18
   declares `engines.node` >=22.12.0, inside the layer's own >=22.18.0.

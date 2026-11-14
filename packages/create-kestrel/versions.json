@@ -5,7 +5,7 @@
   "insights": "^5.8.0",
   "vueFlow": "^1.48.2",
   "dagre": "^3.1.1",
-  "nuxt": "^4.6.3",
+  "nuxt": "^4.6.4",
   "vue": "^3.5.35",
   "vueRouter": "^5.2.0",
   "typescript": "^5.9.3",
