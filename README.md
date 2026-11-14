@@ -63,11 +63,13 @@ packages (`@michaelthielemann/kestrel*`) are installed from npm.
 | `pnpm lint` | `nuxt prepare playground && eslint .` |
 | `pnpm build:packages` | builds `packages/*` (the renderer's `dist/`) |
 
-To develop against an unpublished backend checkout, point the packages at its sources with a pnpm
-override in `pnpm-workspace.yaml` (do not commit it):
+To develop against an unpublished backend checkout, point the packages at its sources: add these two
+entries to the existing `overrides:` block of `pnpm-workspace.yaml` and do not commit them (a second
+`overrides:` key makes pnpm reject the file):
 
 ```yaml
 overrides:
+  # the committed entries stay as they are
   "@michaelthielemann/kestrel": "link:../kestrel/packages/core"
   "@michaelthielemann/kestrel-contracts": "link:../kestrel/packages/contracts"
 ```
