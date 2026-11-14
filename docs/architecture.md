@@ -985,8 +985,16 @@ Kit inventory:
   arrows), not digit by digit. Zoom stops at the closest whole-pixel crop within the limit where the crop's
   shorter side reaches 64 pixels, or `maxZoom` (8); the slider and the zoom field end there, and a zoom button
   that reaches its end hands keyboard focus to the slider. A crop that would not keep its ratio within the 2 %
-  the server allows (on an image a few dozen pixels high) is not set, so the ratio stays automatic. The
-  pointer and wheel logic is `usePanZoom()` on top of `usePointerDrag()`; `focus()` is exposed.
+  the server allows (on an image a few dozen pixels high) is not set, so the ratio stays automatic. With
+  `snap` (on by default), dragging, pinching and the wheel snap the crop within 8 screen pixels: the middle
+  of the image to the middle of the frame, and the centre of `focus` to the middle and the thirds of the
+  frame, per axis, never past the edge of the image (`utils/crop-snap.ts`). The guide it snapped to is drawn
+  until the gesture ends (after the wheel, 600 ms later) as a 2 px white line with a 1 px edge of
+  `--color-overlay`, which keeps one of the two at 3:1 or more against any image. Alt held during the
+  gesture, the keys, the slider and the number fields place the crop exactly. `CropGuides.vue` draws the
+  thirds and the snapped guides. The pointer and wheel logic is `usePanZoom()` on top of
+  `usePointerDrag()`, whose `move` and `pinch` handlers receive the pointer event last; `focus()` is
+  exposed.
 - `DatePicker.vue` / `DateRangePicker.vue` / `TimeInput.vue` — ISO date, date-range and time entry.
 - `Dialog.vue` — modal with title, optional description, footer slot and `md|lg|xl|screen` sizes. It
   re-emits `openAutoFocus` (prevent it and focus another element to choose where focus starts) and
@@ -1022,6 +1030,8 @@ Kit inventory:
   `valueText` for `aria-valuetext` and `hideLabel` to keep the label for assistive technology only.
 - `Spinner.vue` — the busy ring `Button.vue` shows while `loading`; it stops rotating under
   `prefers-reduced-motion`.
+- `Switch.vue` — an on/off switch bound to a boolean: a `button` with `role="switch"` and `aria-checked`,
+  named by its `label`, with a track that keeps 3:1 against the surface in both states.
 - `TabList.vue` — the horizontal tab strip the system and insights screens sit in.
 - `Table.vue` / `TableSort.vue` — the table shell (`head`/`body` slots, sticky header, `plain` for a table
   inlined in a card: no frame, no header fill, no row hover) and its sortable column header. The select and
@@ -1804,6 +1814,10 @@ sources:
 - Only `name`, `width`, `height`, `fit`, `quality` are allowed keys; a declared `format` is rejected
   with its own message (format is fixed to `webp` and is never declared), any other unknown key is
   rejected naming it.
+- `app/image-sizes.ts` also allows `label`, a non-empty `Localized` (`normalizeLabelledImageSize`). It is
+  split off before the size is normalized, so it never takes part in the collision check below and never
+  reaches a size entry. On a block's size `label` is rejected, naming `app/image-sizes.ts`: the admin
+  names a block's sizes after the block.
 - **Collisions**: sizes are merged across every block and every `app/image-sizes.ts` in
   `nuxt.options._layers` order, keyed by `name`. Two declarations with the same name are fine and
   collapse into one entry *only if they normalize to the exact same spec*; if they differ in any
@@ -1813,12 +1827,16 @@ sources:
 ### Discovery
 The existing block scanner (`layers/core/modules/blocks/scan.ts`, `layers/core/modules/blocks/index.ts`)
 does the discovery: `collectImageSizeFiles` finds every layer's `app/image-sizes.ts`, `collectImageSizes`
-gathers those plus each block's `imageSizes` and calls `mergeImageSizes`. The result is:
+gathers those plus each block's `imageSizes` and calls `mergeImageSizes` (`collectImageSizeCatalog`
+returns the merged sizes together with the labels). The labels are merged by `mergeImageSizeLabels` in the
+same layer order: the first label of a size wins, and a later, different one is a build warning naming both
+files (`useLogger("kestrel-blocks")`, printed once per message). The result is:
 
 - written into the virtual module **`#kestrel/blocks`** as a third export, `imageSizes: ImageSize[]`,
   alongside the existing `blockDefinitions` and `blockComponents` (ambient types in
   `layers/core/types/blocks.d.ts`) — this is what `SystemImages.vue` imports to know the full declared
-  set;
+  set — and the labels as a fourth export, `imageSizeLabels: Record<string, Localized>`, which the crop
+  editor reads;
 - written into the virtual module **`#kestrel/image-sizes`** (`renderImageSizesModule`, ambient types
   in `layers/core/types/image-sizes.d.ts`) as its only export, free of the block SFC imports — this is
   what `server/plugins/kestrel.ts` imports for the boot registration;

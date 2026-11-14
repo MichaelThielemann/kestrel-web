@@ -5,7 +5,7 @@ Two independent things are localized in `/admin`, and they are resolved from dif
 | | what it covers | source |
 |---|---|---|
 | **the admin language** | the UI's own chrome — buttons, tabs, dialogs, error text | `layers/admin/app/i18n/{en,de}.ts` plus your `shared/admin-i18n.ts`, picked by a cookie |
-| **`Localized` labels** | collection, field, enum-choice, block and block-tag labels | your `shared/collections-ui.ts`, `shared/model.ts`, `defineBlock` |
+| **`Localized` labels** | collection, field, enum-choice, block, block-tag and image-size labels | your `shared/collections-ui.ts`, `shared/model.ts`, `defineBlock`, `app/image-sizes.ts` |
 
 The content locales of `shared/model.ts` are a third, unrelated thing: they decide which translations
 of a *document* exist, not what language the UI is in. An editor can edit the German translation of a
@@ -86,8 +86,8 @@ set `<html lang>` and has no RTL support.
 ## `Localized` labels
 
 Everything a consumer names — a collection's `label`, `fieldLabels`, an enum choice's `label`, a
-`fieldLayout` group's `label`/`hint`, `defineBlock({ label })`, a block tag's label — is a
-`Localized`:
+`fieldLayout` group's `label`/`hint`, `defineBlock({ label })`, a block tag's label, the `label` of a size
+in `app/image-sizes.ts` — is a `Localized`:
 
 ```ts
 export type Localized = string | Record<string, string>
@@ -96,8 +96,8 @@ export type Localized = string | Record<string, string>
 `resolveLocalized(value, lang)` (`layers/admin/app/utils/localized.ts`) resolves it against **the admin
 language**, never the content locale: the `lang` key, else `en`, else the first entry, else nothing —
 at which point the caller falls back to the raw name (the collection name, the field name humanized,
-the block type). A plain string is returned as-is and is the right choice for a label that is the same
-in every language (`"Status"`, `"SEO"`).
+the block type, the image size name). A plain string is returned as-is and is the right choice for a
+label that is the same in every language (`"Status"`, `"SEO"`).
 
 So `label: { en: "Page", de: "Seite" }` follows the cookie, and an editor who switches the admin to
 German sees German collection names without anything in the content model changing.

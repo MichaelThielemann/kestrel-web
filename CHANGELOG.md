@@ -4,6 +4,22 @@
 
 ### Added
 
+- `app/image-sizes.ts` takes an optional `label` per size, a `Localized` that says what the size is used for.
+  The labels are a new export of `#kestrel/blocks`, `imageSizeLabels`; `imageSizes`, `#kestrel/image-sizes` and
+  `.nuxt/kestrel/image-sizes.json` keep their entries as they are. When two layers label a size differently the
+  first label is used and the build warns. A `label` on a size in `defineBlock({ imageSizes })` fails the build.
+- Admin: each tile of the crop editor names below its ratio what the sizes of that ratio are used for, the labels
+  of the blocks that declare them and the labels of `app/image-sizes.ts`, else the size names ("3:2 · Hero,
+  Teaser card"); the detail title names them too. The tile column scrolls on its own and keeps the chosen tile in
+  view, and becomes a horizontally scrolling strip below 48rem.
+- Admin: the crop frame snaps while dragging, pinching and zooming with the wheel. Within 8 screen pixels the
+  middle of the image snaps to the middle of the frame, and the centre of the focus to the middle and the thirds
+  of the frame, with the guide highlighted. Alt held during the gesture places the crop freely; the arrow keys,
+  the slider and the number fields stay exact. A "Snap to guides" switch in the head of the crop detail turns it
+  off, remembered per browser.
+- Admin kit: `KestrelUiSwitch` (an on/off switch, `role="switch"`, bound to a boolean) and `KestrelUiCropGuides`;
+  `KestrelUiCropFrame` takes `snap` (default `true`). The `move` and `pinch` handlers of `usePointerDrag()`
+  receive the pointer event as their last argument.
 - Images can carry a focus and a manual crop per aspect ratio (kestrel's images-default "Focus and crop"). With
   `images`, the preset composes `setMediaFraming` behind `PUT /media/:id/framing` (`media.write`): it stores the
   framing, renders the `cover` variants whose cut changed within the request and answers the item like

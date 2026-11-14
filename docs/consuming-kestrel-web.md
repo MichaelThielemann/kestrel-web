@@ -1569,14 +1569,24 @@ them in `app/image-sizes.ts` instead:
 ```ts
 // app/image-sizes.ts
 export default defineImageSizes([
-  { name: "teaser", width: 480, height: 320, fit: "cover" },
+  { name: "teaser", width: 480, height: 320, fit: "cover", label: { en: "Teaser card", de: "Teaser-Karte" } },
   { name: "avatar", width: 96, height: 96, fit: "cover", quality: 90 },
 ])
 ```
 
 Names follow `^[a-z][a-z0-9-]*$`; `fit: "cover"` requires a `height`; `quality` defaults to 82,
 `fit` defaults to `"inside"`. Declaring the same name twice with a different spec, anywhere in the
-app, fails the build. Both sources are scanned the same way `app/blocks/*.vue` is, and generate
+app, fails the build.
+
+The optional `label` (a `Localized`, see [Admin language and labels](admin-i18n.md)) says what a size is
+used for. The admin's crop editor shows it under the ratio of each crop tile, next to the labels of the
+blocks that declare a size of that ratio, so an editor reads "3:2 · Hero, Teaser card" rather than a bare
+ratio. A size without a label that no block declares, including one only kestrel knows, shows its name.
+The label is for `app/image-sizes.ts` only; on a size in `defineBlock({ imageSizes })` it fails the build,
+because the admin names that size after the block. It never reaches the backend: `imageSizes` and
+`.nuxt/kestrel/image-sizes.json` stay as they are, and the labels are a separate export, `imageSizeLabels`,
+of `#kestrel/blocks`. When two layers label the same size differently, the first layer's label is used
+and the build prints a warning naming both files. Both sources are scanned the same way `app/blocks/*.vue` is, and generate
 `.nuxt/kestrel/image-sizes.json` — generated, **never hand-edited**, same rule as
 `.nuxt/kestrel/pages.body.json`.
 
