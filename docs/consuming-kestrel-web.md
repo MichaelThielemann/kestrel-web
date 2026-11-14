@@ -2421,8 +2421,9 @@ What changes:
     recognised by every instance.
   - `preset/media-focus-grant` reports (`manual`) a `roles.anonymousFields.media` grant that keeps
     `variants` for visitors but not `focus`, the item's `width` and `height`, or, as `variants[]` fields, all
-    of `variants[].size`, `.path`, `.width`, `.height` and `.crop`. The finding says what each gap does on a
-    public page (see "What a visitor without a session receives") and names the fields to add.
+    of `variants[].size`, `.path`, `.width`, `.height` and `.crop`. The finding says what the gaps do on a
+    public page (see "What a visitor without a session receives"), the missing `.crop` once every other
+    variant member is granted, and names all the fields to add.
   - `preset/queue-lanes` sets `lanes` (and a missing `relayPipelines`) on a `kestrel-events-queue` entry
     written in `kestrel.config.ts` to what `lanesFor(features)` gives (`fix`).
   - `preset/override-emit` forward-ports a 2.x `setSettings` or `set<Name>` override in one edit (`fix`). It
