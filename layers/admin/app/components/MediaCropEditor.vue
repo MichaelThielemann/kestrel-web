@@ -18,7 +18,8 @@ const status = ref('')
 const pending = ref(false)
 const hasCover = computed(() => ratios.value.length > 0)
 const tabs = computed(() => [{ id: 'focus', label: t('mediaCrop.tab.focus') }, { id: 'crop', label: t('mediaCrop.tab.crop') }])
-const src = computed(() => (current.value ? cropSource(current.value) ?? current.value.path : ''))
+const src = computed(() => (current.value ? cropSource(current.value) : null) ?? (props.item ? cropSource(props.item) : null) ?? '')
+const locked = computed(() => busy.value || src.value === '')
 const alt = computed(() => props.item?.alt ?? props.item?.filename ?? '')
 const panelAttrs = (id: string) => (hasCover.value ? { 'role': 'tabpanel', 'id': `${idPrefix}-panel-${id}`, 'aria-labelledby': `${idPrefix}-tab-${id}` } : {})
 
@@ -102,7 +103,7 @@ async function onSave(): Promise<void> {
         <p v-if="usage !== null" class="media-crop__usage" data-test="crop-usage">{{ t('mediaCrop.usage', { n: usage }) }}</p>
       </div>
       <div v-if="tab === 'focus' || !hasCover" v-bind="panelAttrs('focus')" class="media-crop__panel">
-        <KestrelMediaCropFocus :src="src" :alt="alt" :draft="draft" :ratios="ratios" :width="width" :height="height" :disabled="busy" @focus="editor.setFocus" />
+        <KestrelMediaCropFocus :src="src" :alt="alt" :draft="draft" :ratios="ratios" :width="width" :height="height" :disabled="locked" @focus="editor.setFocus" />
       </div>
       <div v-else v-bind="panelAttrs('crop')" class="media-crop__panel">
         <KestrelMediaCropTiles
@@ -114,7 +115,7 @@ async function onSave(): Promise<void> {
           :sizes="sizes"
           :width="width"
           :height="height"
-          :disabled="busy"
+          :disabled="locked"
           @update:selected="onSelect"
           @crop="onCrop"
           @pending="pending = $event"

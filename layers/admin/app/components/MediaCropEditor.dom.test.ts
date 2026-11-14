@@ -381,6 +381,37 @@ describe('MediaCropEditor', () => {
     wrapper.unmount()
   })
 
+  it('keeps showing the whole-image variant it opened with when the item it loads has that variant rendering again', async () => {
+    schema.capabilities.getMedia = { method: 'GET', path: '/media/:id' }
+    const large = { size: 'large', width: 1200, height: 800, format: 'webp', bytes: 1, state: 'done' as const, path: '/media/m1/variants/large.webp', crop: null }
+    const webp: MediaItem = { ...photo(), contentType: 'image/webp', path: '/media/m1/harbour.webp', variants: [large] }
+    const focus = { x: 0.5, y: 0.25, w: 0.25, h: 0.5 }
+    const rendering: MediaItem = { ...webp, variants: [{ ...large, state: 'pending' }], framing: { ...webp.framing, focus } }
+    api.answer = (call) => Promise.resolve(call.path === '/media/m1' ? rendering : [])
+    try {
+      const wrapper = await mountEditor(webp)
+
+      await vi.waitFor(() => expect(q<HTMLInputElement>('input[data-field="x"]')?.value).toBe('50'))
+      expect(q('.ui-rect-select__image')?.getAttribute('src')).toBe('/media/m1/variants/large.webp')
+      expect(qa('[data-test="crop-preview"] img').map((img) => img.getAttribute('src'))).toEqual(['/media/m1/variants/large.webp', '/media/m1/variants/large.webp'])
+      wrapper.unmount()
+    } finally {
+      delete schema.capabilities.getMedia
+    }
+  })
+
+  it('never shows a WebP original itself and leaves the focus locked while no whole-image variant is finished', async () => {
+    const webp: MediaItem = { ...photo(), contentType: 'image/webp', path: '/media/m1/harbour.webp', variants: [] }
+    const wrapper = await mountEditor(webp)
+
+    expect(qa('img').map((img) => img.getAttribute('src'))).not.toContain('/media/m1/harbour.webp')
+    expect(q('.ui-rect-select__surface')?.getAttribute('aria-disabled')).toBe('true')
+    key(q('.ui-rect-select__surface'), 'Enter')
+    await nextTick()
+    expect(button(en['common.save'])?.hasAttribute('disabled')).toBe(true)
+    wrapper.unmount()
+  })
+
   it('keeps keyboard focus on the focus area when the focus is removed', async () => {
     const wrapper = await mountEditor(photo({ focus: { x: 0.25, y: 0.25, w: 0.5, h: 0.5 } }))
 
