@@ -271,6 +271,13 @@
   Events. It refreshes every 30 seconds while the tab is visible and right after a retry in System → Events, and is
   hidden at 0, without the delivery status capability and for the process-only count of the default inline
   delivery. The link's accessible name carries the count (`nav.systemDead`); the catalogues gain that key.
+- `KestrelImage` takes an optional `art` list of `{ media, size, sizes? }` entries for art direction, such as a
+  landscape cut on wide screens and a portrait cut on narrow ones. It renders a `<picture>` with one `<source media>`
+  per entry, each with the `srcset`, `width` and `height` of its own size, so a `srcset` never mixes aspect ratios;
+  `size` stays the fallback `<img>`. `class` and the other attributes go to the `<img>`. Without a list the component
+  renders a single `<img>` as before. `pickArtSources()` and the `ImageArtEntry` type are exported for components
+  that build their own markup. The docs gain a section on planning image sizes, with the number of variants and the
+  storage they cost.
 
 ### Changed
 

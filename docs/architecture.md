@@ -1895,8 +1895,19 @@ defineBlock({ label: "Image", imageSizes: [{ name: "content", width: 1200 }] })
 Props: `media` (a media id string, or an already-fetched `MediaItem` — the component only fetches
 `GET /api/media/:id` through `useMediaItem` when given a string id and no inline item), `size` (the
 declared size name to prefer), `sizes` (the `<img sizes>` attribute, only rendered when a `srcset` is
-present), `only` (restrict the `srcset` candidates to specific size names), `alt`,
+present), `art` (art direction, below), `only` (restrict the `srcset` candidates to specific size names), `alt`,
 `loading`/`decoding`/`fetchpriority` (defaulting to `lazy`/`async`).
+
+**Art direction.** `art` is a list of `{ media, size, sizes? }` entries. With a non-empty list the component
+renders `<picture>`, one `<source media srcset sizes width height>` per entry in list order, then the `<img>` for
+`size`. `pickArtSources` builds each source by calling `pickImageSources` for the entry's size, so the rules below
+hold per source: a `srcset` is one aspect ratio and one cut, and an entry whose size has no variant offers the
+original as its single candidate (no `sizes`, since there is no width descriptor). All entries read one media item,
+hence one focus and one set of crops. The component sets `inheritAttrs: false` and passes `class`, `style` and the
+other attributes to the `<img>`, which keeps consumer CSS such as `.block-hero__image` applying to the image
+element. With `art` the inline `aspect-ratio` is left out (one value cannot fit two sources) and the box follows
+the `width` and `height` of the source the browser selects; `object-fit` and `object-position` stay. Without a
+list, or with an empty one, the template renders the single `<img>` as before.
 
 `layers/public/app/utils/image-variants.ts` (`pickImageSources`) implements the rules:
 - **`src`/`srcset` come only from the item's `path` and `variants[].path`, never constructed.** Every
