@@ -1061,6 +1061,9 @@
 
 ### Changed
 
+- Dependency ranges: `dompurify` ^3.4.17 (was ^3.4.14), `sanitize-html` ^2.18.1 (was ^2.17.7) and `devalue`
+  ^5.9.3 (was ^5.9.1); each floor is the first release without a published advisory. `sanitize-html` 2.18
+  declares `engines.node` >=22.12.0, inside the layer's own >=22.18.0.
 - Media library and picker: "Delete" moves files and folders to the media trash instead of deleting them, so
   their files keep using storage until the nightly purge, 30 days later by default
   (`media.trashRetentionDays`; `0` keeps the final delete behind a dialog). A page that shows a trashed item
