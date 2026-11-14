@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { collectImageSizeFiles, collectImageSizes, extractBlocks, relativeSource, renderBlockImagesModule, renderBlocksModule, renderImageSizesModule } from "./scan";
+import { collectImageSizeCatalog, collectImageSizeFiles, collectImageSizes, extractBlocks, relativeSource, renderBlockImagesModule, renderBlocksModule, renderImageSizesModule } from "./scan";
 import type { SerializedBlock } from "../../app/types/kestrel";
 import type { ImageSize } from "../../app/utils/define-image-sizes";
 
@@ -51,6 +51,42 @@ describe("collectImageSizes", () => {
     expect(() => collectImageSizes([], [], ["/root-a/app/image-sizes.ts", "/root-b/app/image-sizes.ts"], read)).toThrow(
       /image size "teaser" is declared differently in \/root-a\/app\/image-sizes\.ts and \/root-b\/app\/image-sizes\.ts/,
     );
+  });
+});
+
+describe("collectImageSizeCatalog", () => {
+  const block = (name: string, label: string, imageSizes: SerializedBlock["imageSizes"]): SerializedBlock => ({ name, label, fields: {}, imageSizes });
+  const teaser: ImageSize = { name: "teaser", width: 480, height: 320, fit: "cover", format: "webp", quality: 82 };
+  const SIZE_KEYS = ["name", "width", "height", "fit", "format", "quality"];
+
+  it("keeps the labels of app/image-sizes.ts apart from the sizes, whose entries keep their keys", () => {
+    const read = () => "export default defineImageSizes([{ name: 'teaser', width: 480, height: 320, fit: 'cover', label: { en: 'Teaser card', de: 'Teaser-Karte' } }])";
+    const catalog = collectImageSizeCatalog([], [], ["/root/app/image-sizes.ts"], read);
+    expect(catalog.sizes).toEqual([teaser]);
+    expect(catalog.labels).toEqual({ teaser: { en: "Teaser card", de: "Teaser-Karte" } });
+    expect(catalog.warnings).toEqual([]);
+    for (const size of catalog.sizes) expect(Object.keys(size).every((key) => SIZE_KEYS.includes(key))).toBe(true);
+  });
+
+  it("merges a size two blocks declare into one entry and leaves it on both blocks", () => {
+    const definitions = [block("hero", "Hero", [teaser]), block("teaser", "Teaser", [teaser])];
+    const catalog = collectImageSizeCatalog(["/root/app/blocks/Hero.vue", "/root/app/blocks/Teaser.vue"], definitions, []);
+    expect(catalog.sizes).toEqual([teaser]);
+    const contents = renderBlocksModule(["/root/app/blocks/Hero.vue", "/root/app/blocks/Teaser.vue"], definitions, catalog.sizes, catalog.labels);
+    expect(contents.match(/"name": "teaser",\n\s*"width": 480/g)).toHaveLength(3);
+  });
+
+  it("takes a different label for the same size as no conflict: the first layer's label wins with a warning", () => {
+    const read = (path: string) => `export default defineImageSizes([{ name: 'teaser', width: 480, height: 320, fit: 'cover', label: '${path.includes("root-a") ? "Teaser card" : "Card"}' }])`;
+    const catalog = collectImageSizeCatalog([], [], ["/root-a/app/image-sizes.ts", "/root-b/app/image-sizes.ts"], read);
+    expect(catalog.sizes).toEqual([teaser]);
+    expect(catalog.labels).toEqual({ teaser: "Teaser card" });
+    expect(catalog.warnings).toEqual([expect.stringMatching(/image size "teaser" is labelled differently in \/root-a\/app\/image-sizes\.ts and \/root-b\/app\/image-sizes\.ts/)]);
+  });
+
+  it("has no labels when no file declares one", () => {
+    const definitions = [block("hero", "Hero", [teaser])];
+    expect(collectImageSizeCatalog(["/root/app/blocks/Hero.vue"], definitions, []).labels).toEqual({});
   });
 });
 
@@ -154,6 +190,15 @@ describe("renderBlocksModule", () => {
   it("keeps an absolute image URL on blockDefinitions", () => {
     const contents = renderBlocksModule(["/root/app/blocks/Hero.vue"], [block("hero", { image: "/icons/hero.png" })], []);
     expect(contents).toContain('"image": "/icons/hero.png"');
+  });
+
+  it("exports the labels of the image sizes beside the sizes", () => {
+    const contents = renderBlocksModule([], [], [], { teaser: { en: "Teaser card" } });
+    expect(contents).toContain('export const imageSizeLabels = {\n  "teaser": {\n    "en": "Teaser card"\n  }\n};');
+  });
+
+  it("exports an empty label map when no size is labelled", () => {
+    expect(renderBlocksModule([], [], [])).toContain("export const imageSizeLabels = {};");
   });
 
   it("strips imageFile from blockDefinitions so no filesystem path reaches the client", () => {

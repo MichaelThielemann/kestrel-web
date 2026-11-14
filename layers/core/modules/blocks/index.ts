@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { addTemplate, defineNuxtModule, updateTemplates } from "@nuxt/kit";
+import { addTemplate, defineNuxtModule, updateTemplates, useLogger } from "@nuxt/kit";
 import { boundaryCast } from "@michaelthielemann/kestrel/cast";
 import { blockSchema } from "../../block-schema";
 import { stampBlockFieldTypes } from "../../field-types";
@@ -10,9 +10,9 @@ import { fieldTypesEntry, loadFieldTypes } from "../consumer-entries/field-types
 import { SIBLING_IMAGE_EXTENSIONS } from "./extract-block";
 import { offerableLayouts, renderLayoutRegistry } from "./layouts";
 import { IMAGE_SIZES_FILE, renderImageSizesJson } from "./image-sizes";
-import { BLOCKS_DIR, collectBlockSfcs, collectImageSizeFiles, collectImageSizes, extractBlocks, renderBlockImagesModule, renderBlocksModule, renderImageSizesModule } from "./scan";
+import { BLOCKS_DIR, collectBlockSfcs, collectImageSizeCatalog, collectImageSizeFiles, extractBlocks, renderBlockImagesModule, renderBlocksModule, renderImageSizesModule } from "./scan";
 import type { SerializedBlock } from "../../app/types/kestrel";
-import type { ImageSize } from "../../app/utils/define-image-sizes";
+import type { ImageSizeCatalog } from "./scan";
 
 const BLOCK_WATCH_EXTENSIONS = [".vue", ...SIBLING_IMAGE_EXTENSIONS.map((extension) => `.${extension}`)];
 
@@ -71,23 +71,30 @@ export default defineNuxtModule<ModuleOptions>({
     const imageSizesPath = join(nuxt.options.buildDir, "kestrel", IMAGE_SIZES_SCHEMA_FILE);
     const imagesDir = options.blockImagesDir ? resolve(nuxt.options.rootDir, options.blockImagesDir) : undefined;
 
-    const scan = (): { paths: string[]; definitions: SerializedBlock[]; sizes: ImageSize[] } => {
+    const logger = useLogger("kestrel-blocks");
+    const warned = new Set<string>();
+    const scan = (): { paths: string[]; definitions: SerializedBlock[]; catalog: ImageSizeCatalog } => {
       const paths = collectBlockSfcs(roots);
       const definitions = stampBlockFieldTypes(extractBlocks(paths, undefined, undefined, imagesDir, nuxt.options.rootDir), fieldTypes);
-      const sizes = collectImageSizes(paths, definitions, collectImageSizeFiles(roots));
-      return { paths, definitions, sizes };
+      const catalog = collectImageSizeCatalog(paths, definitions, collectImageSizeFiles(roots));
+      for (const warning of catalog.warnings) {
+        if (warned.has(warning)) continue;
+        warned.add(warning);
+        logger.warn(warning);
+      }
+      return { paths, definitions, catalog };
     };
 
     const generate = (): string => {
-      const { paths, definitions, sizes } = scan();
+      const { paths, definitions, catalog } = scan();
       writeIfChanged(schemaPath, `${JSON.stringify(blockSchema(definitions, fieldTypes), null, 2)}\n`);
-      writeIfChanged(imageSizesPath, renderImageSizesJson(sizes));
-      return renderBlocksModule(paths, definitions, sizes);
+      writeIfChanged(imageSizesPath, renderImageSizesJson(catalog.sizes));
+      return renderBlocksModule(paths, definitions, catalog.sizes, catalog.labels);
     };
 
     const template = addTemplate({ filename: TEMPLATE, write: true, getContents: generate });
 
-    const sizesTemplate = addTemplate({ filename: SIZES_TEMPLATE, write: true, getContents: () => renderImageSizesModule(scan().sizes) });
+    const sizesTemplate = addTemplate({ filename: SIZES_TEMPLATE, write: true, getContents: () => renderImageSizesModule(scan().catalog.sizes) });
     nuxt.options.alias[SIZES_VIRTUAL_ID] = sizesTemplate.dst;
 
     const generateImages = (): string => renderBlockImagesModule(stampBlockFieldTypes(extractBlocks(collectBlockSfcs(roots), undefined, undefined, imagesDir), fieldTypes));

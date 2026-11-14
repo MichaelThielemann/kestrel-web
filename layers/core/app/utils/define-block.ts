@@ -7,7 +7,7 @@ export interface BlockMeta {
   slots?: string[];
   icon?: string;
   image?: string;
-  imageSizes?: ImageSizeDecl[];
+  imageSizes?: Omit<ImageSizeDecl, "label">[];
   tags?: string[];
   fieldLayout?: LayoutNode[];
 }

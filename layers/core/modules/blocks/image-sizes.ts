@@ -1,6 +1,7 @@
 import { parse } from "@babel/parser";
 import { boundaryCast } from "@michaelthielemann/kestrel/cast";
 import { evalObject, unwrap } from "./extract-block";
+import type { Localized } from "../../app/types/kestrel";
 import type { ImageSize } from "../../app/utils/define-image-sizes";
 
 export const IMAGE_SIZES_FILE = "app/image-sizes.ts";
@@ -8,6 +9,24 @@ export const IMAGE_SIZES_FILE = "app/image-sizes.ts";
 export interface SizeSource {
   where: string;
   sizes: ImageSize[];
+}
+
+/** A size declared in `app/image-sizes.ts`, with the label the admin shows for it when one is declared. */
+export interface LabelledImageSize {
+  size: ImageSize;
+  label?: Localized;
+}
+
+/** The labels one file declares, as `[size name, label]` pairs in declaration order. */
+export interface LabelSource {
+  where: string;
+  labels: [string, Localized][];
+}
+
+/** The label of each labelled size, and a message for every size a later file labels differently. */
+export interface MergedImageSizeLabels {
+  labels: Record<string, Localized>;
+  warnings: string[];
 }
 
 interface AstNode {
@@ -38,10 +57,35 @@ function normalizeDimension(value: unknown, where: string, name: string, key: "w
   return value;
 }
 
-export function normalizeImageSize(raw: unknown, where: string): ImageSize {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) fail(where, "image size must be an object literal");
-  const decl = boundaryCast<Record<string, unknown>>(raw, "json");
+function isLocalized(value: unknown): value is Localized {
+  if (typeof value === "string") return value.length > 0;
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const entries = Object.values(value);
+  return entries.length > 0 && entries.every((entry) => typeof entry === "string" && entry.length > 0);
+}
 
+function declaration(raw: unknown, where: string): Record<string, unknown> {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) fail(where, "image size must be an object literal");
+  return boundaryCast<Record<string, unknown>>(raw, "json");
+}
+
+export function normalizeImageSize(raw: unknown, where: string): ImageSize {
+  const decl = declaration(raw, where);
+  if ("label" in decl) {
+    fail(where, `image size "${String(decl.name)}" declares "label" — the admin names a block's sizes after the block; label a size in ${IMAGE_SIZES_FILE}`);
+  }
+  return normalizeDeclaration(decl, where);
+}
+
+export function normalizeLabelledImageSize(raw: unknown, where: string): LabelledImageSize {
+  const { label, ...decl } = declaration(raw, where);
+  const size = normalizeDeclaration(decl, where);
+  if (label === undefined) return { size };
+  if (!isLocalized(label)) fail(where, `image size "${size.name}" label must be a non-empty string or an object of non-empty strings per language`);
+  return { size, label };
+}
+
+function normalizeDeclaration(decl: Record<string, unknown>, where: string): ImageSize {
   for (const key of Object.keys(decl)) {
     if (!ALLOWED_KEYS.has(key)) {
       fail(where, key === "format" ? 'image size declares "format" — format is fixed to webp and must not be declared' : `image size has unknown key "${key}"`);
@@ -79,6 +123,10 @@ function defineImageSizesCall(declaration: unknown): AstNode | undefined {
 }
 
 export function extractImageSizesFile(source: string, fileBase: string): ImageSize[] {
+  return extractImageSizeDeclarations(source, fileBase).map((entry) => entry.size);
+}
+
+export function extractImageSizeDeclarations(source: string, fileBase: string): LabelledImageSize[] {
   let ast: ReturnType<typeof parse>;
   try {
     ast = parse(source, { sourceType: "module", plugins: ["typescript"] });
@@ -103,7 +151,7 @@ export function extractImageSizesFile(source: string, fileBase: string): ImageSi
     );
   }
 
-  return value.map((entry) => normalizeImageSize(entry, fileBase));
+  return value.map((entry) => normalizeLabelledImageSize(entry, fileBase));
 }
 
 function sameSize(a: ImageSize, b: ImageSize): boolean {
@@ -125,6 +173,30 @@ export function mergeImageSizes(sources: readonly SizeSource[]): ImageSize[] {
     }
   }
   return [...byName.values()].map((entry) => entry.size).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function sameLabel(a: Localized, b: Localized): boolean {
+  if (typeof a === "string" || typeof b === "string") return a === b;
+  const keys = Object.keys(a);
+  return keys.length === Object.keys(b).length && keys.every((key) => a[key] === b[key]);
+}
+
+export function mergeImageSizeLabels(sources: readonly LabelSource[]): MergedImageSizeLabels {
+  const byName = new Map<string, { label: Localized; where: string }>();
+  const warnings: string[] = [];
+  for (const source of sources) {
+    for (const [name, label] of source.labels) {
+      const existing = byName.get(name);
+      if (!existing) {
+        byName.set(name, { label, where: source.where });
+        continue;
+      }
+      if (!sameLabel(existing.label, label)) {
+        warnings.push(`image size "${name}" is labelled differently in ${existing.where} and ${source.where}; the admin shows the label from ${existing.where}`);
+      }
+    }
+  }
+  return { labels: Object.fromEntries([...byName].map(([name, entry]) => [name, entry.label])), warnings };
 }
 
 export function renderImageSizesJson(sizes: readonly ImageSize[]): string {
