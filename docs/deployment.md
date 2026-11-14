@@ -526,6 +526,7 @@ and the `server` block of §7 gains one `add_header` line and the cache directiv
     proxy_cache mysite;
     proxy_cache_key $host$uri;
     proxy_cache_valid 200 301 302 10s;
+    proxy_cache_valid 404 10s;
     proxy_cache_bypass $kestrel_skip_cache;
     proxy_no_cache $kestrel_skip_cache;
     proxy_cache_lock on;
@@ -543,7 +544,9 @@ stored. `X-Cache-Status` shows what happened: `curl -skI https://example.com/` t
 What to know before relying on it:
 
 - **A change shows late.** A visitor sees a saved or published change up to `proxy_cache_valid` seconds
-  after it, and 10 s is the value to start from. A signed-in editor bypasses the cache and sees it at once.
+  after it, and 10 s is the value to start from. A page that was unpublished or deleted answers 404 once that
+  time has passed, after at most one more request that still receives the old copy while the cache refreshes.
+  A signed-in editor bypasses the cache and sees it at once.
 - **Only pages that look the same to everyone belong in it.** The pages of this layer do not depend on the
   session: a request with a valid session cookie or bearer token gets byte for byte the HTML an anonymous one
   gets, a draft is a 404 for both, and the layer sets no cookie on a page. The bypass for the session
@@ -551,8 +554,10 @@ What to know before relying on it:
   bypass of its own, or must stay out of the location.
 - **The key ignores the query string**, so `?x=1`, `?x=2` and so on cannot each reach the process and defeat
   the cache. Put `$is_args$args` back after `$uri` if a page of yours renders differently per query.
-- **Only 200, 301 and 302 are stored.** A 404 or a 5xx always reaches the process, so a scan of unknown paths
-  still costs a render each.
+- **Only 200, 301, 302 and 404 are stored.** The 404 line is needed: without it, a page that is no longer
+  published keeps its old copy, because the refresh that `updating` starts never stores the 404 and the copy is
+  served again for as long as visitors keep asking. A 5xx always reaches the process. The key holds the path,
+  so a scan of unknown paths still costs a render each.
 - **A deploy leaves old HTML behind.** Pages cached before a new build point at the previous build's
   `/_nuxt/` files. Empty the cache directory in the deploy step (`find /var/cache/nginx/mysite -type f
   -delete`).
