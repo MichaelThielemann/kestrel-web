@@ -137,6 +137,52 @@ export function pickImageSources(
   return { src, srcset, width, height, variant: named !== undefined, cut: named !== undefined && keys.has(named.size) }
 }
 
+/** One entry of an art direction list: the picture to show while `media` matches, from the variants of the declared size `size`. */
+export interface ImageArtEntry {
+  /** A media query, as in `<source media>`. */
+  media: string
+  /** The name of the declared size this entry shows. */
+  size: string
+  /** The `sizes` attribute of this entry's `<source>`; the component's own `sizes` when left out. */
+  sizes?: string
+}
+
+/** A `<source>` of an art directed image. */
+export interface ArtSource {
+  media: string
+  srcset: string
+  sizes: string | undefined
+  width: number | null
+  height: number | null
+}
+
+/**
+ * The `<source>` elements of an art directed image, one per entry in the order given. Each one takes `src`, `srcset`
+ * and box from `pickImageSources` for its own size, so its `srcset` holds one aspect ratio and one cut. A size without
+ * a variant offers the original as its only candidate. `sizes` is set only where the `srcset` has width descriptors.
+ */
+export function pickArtSources(
+  item: ImageMedia | null,
+  art: readonly ImageArtEntry[],
+  only?: readonly string[],
+  sizes: readonly DeclaredImageSize[] = imageSizes,
+  fallbackSizes?: string,
+): ArtSource[] {
+  const sources: ArtSource[] = []
+  for (const entry of art) {
+    const picked = pickImageSources(item, entry.size, only, sizes)
+    if (picked === null) continue
+    sources.push({
+      media: entry.media,
+      srcset: picked.srcset ?? picked.src,
+      sizes: picked.srcset ? entry.sizes ?? fallbackSizes : undefined,
+      width: picked.width,
+      height: picked.height,
+    })
+  }
+  return sources
+}
+
 function restrict(variants: readonly PublicMediaVariant[], only?: readonly string[]): PublicMediaVariant[] {
   const filtered = variants.filter((v) => v.width > 0 && v.height > 0 && (!only || only.includes(v.size)))
   const byWidth = new Map<number, PublicMediaVariant>()

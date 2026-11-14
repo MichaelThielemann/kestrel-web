@@ -1,11 +1,15 @@
 <script setup lang="ts">
 import { imageSizes } from '#kestrel/image-sizes'
 import type { ImageMedia } from '../utils/public-shapes'
+import type { ImageArtEntry } from '../utils/image-variants'
+
+defineOptions({ inheritAttrs: false })
 
 const props = withDefaults(defineProps<{
   media: string | ImageMedia | null
   size: string
   sizes?: string
+  art?: ImageArtEntry[]
   only?: string[]
   alt?: string | null
   loading?: 'lazy' | 'eager'
@@ -13,6 +17,7 @@ const props = withDefaults(defineProps<{
   fetchpriority?: 'high' | 'low' | 'auto'
 }>(), { loading: 'lazy', decoding: 'async' })
 
+const attrs = useAttrs()
 const locale = useSiteLocale()
 
 const id = computed(() => (typeof props.media === 'string' ? props.media : props.media?.id ?? null))
@@ -22,27 +27,40 @@ const { data: fetched } = await useMediaItem(() => (inline.value ? null : id.val
 
 const item = computed(() => inline.value ?? fetched.value ?? null)
 const sources = computed(() => pickImageSources(item.value, props.size, props.only, imageSizes))
+const artSources = computed(() => (props.art?.length ? pickArtSources(item.value, props.art, props.only, imageSizes, props.sizes) : []))
 const altText = computed(() => props.alt ?? item.value?.alt ?? '')
 const boxStyle = computed(() => {
   const objectPosition = focusObjectPosition(item.value?.focus)
   const position = objectPosition === undefined ? {} : { objectPosition }
+  if (artSources.value.length) return { objectFit: 'cover' as const, ...position }
   if (sources.value?.variant) return { aspectRatio: `${sources.value.width} / ${sources.value.height}`, objectFit: 'cover' as const, ...position }
   return objectPosition === undefined ? undefined : position
 })
+const imgAttrs = computed(() => ({
+  src: sources.value?.src,
+  srcset: sources.value?.srcset ?? undefined,
+  sizes: sources.value?.srcset ? props.sizes : undefined,
+  width: sources.value?.width ?? undefined,
+  height: sources.value?.height ?? undefined,
+  alt: altText.value,
+  loading: props.loading,
+  decoding: props.decoding,
+  fetchpriority: props.fetchpriority,
+}))
 </script>
 
 <template>
-  <img
-    v-if="sources"
-    :src="sources.src"
-    :srcset="sources.srcset ?? undefined"
-    :sizes="sources.srcset ? sizes : undefined"
-    :width="sources.width ?? undefined"
-    :height="sources.height ?? undefined"
-    :style="boxStyle"
-    :alt="altText"
-    :loading="loading"
-    :decoding="decoding"
-    :fetchpriority="fetchpriority"
-  >
+  <picture v-if="sources && artSources.length">
+    <source
+      v-for="source in artSources"
+      :key="source.media"
+      :media="source.media"
+      :srcset="source.srcset"
+      :sizes="source.sizes"
+      :width="source.width ?? undefined"
+      :height="source.height ?? undefined"
+    >
+    <img v-bind="{ ...attrs, ...imgAttrs }" :style="[boxStyle, attrs.style]">
+  </picture>
+  <img v-else-if="sources" v-bind="{ ...attrs, ...imgAttrs }" :style="[boxStyle, attrs.style]">
 </template>
