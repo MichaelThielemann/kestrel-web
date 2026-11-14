@@ -521,6 +521,62 @@ describe('KestrelUiCropFrame', () => {
       wrapper.unmount()
     })
 
+    it('keeps the guides and the held position of a drag that starts while a snapped wheel step still shows its guides', async () => {
+      async function wheelThenDrag(waitForWheelGuides: boolean) {
+        const { wrapper, emitted } = await mountFrame(OFF_CENTRE)
+        const frame = sizedFrame(wrapper, 320, 180)
+        frame.dispatchEvent(wheel(-1, 160, 90))
+        await nextTick()
+        frame.dispatchEvent(pointerEvent('pointerdown', 1, 160, 90))
+        frame.dispatchEvent(pointerEvent('pointermove', 1, 157, 90))
+        await nextTick()
+        if (waitForWheelGuides) vi.advanceTimersByTime(700)
+        await nextTick()
+        const held = guideLines(wrapper)
+        frame.dispatchEvent(pointerEvent('pointermove', 1, 151, 90))
+        await nextTick()
+        const centre = centreX(emitted.at(-1))
+        wrapper.unmount()
+        return { held, centre }
+      }
+
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+      try {
+        const steady = await wheelThenDrag(false)
+        const waited = await wheelThenDrag(true)
+        expect(steady.held).toContainEqual({ axis: 'x', style: 'left: 50%;' })
+        expect(waited.held).toEqual(steady.held)
+        expect(steady.centre).toBeGreaterThan(810)
+        expect(waited.centre).toBe(steady.centre)
+      }
+      finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('keeps the guides of a drag when the wheel turns during it', async () => {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+      try {
+        const { wrapper } = await mountFrame(OFF_CENTRE)
+        const frame = sizedFrame(wrapper, 320, 180)
+        frame.dispatchEvent(pointerEvent('pointerdown', 1, 160, 90))
+        frame.dispatchEvent(pointerEvent('pointermove', 1, 162, 90))
+        frame.dispatchEvent(wheel(-1, 160, 90))
+        await nextTick()
+        vi.advanceTimersByTime(700)
+        await nextTick()
+        expect(guideLines(wrapper)).toContainEqual({ axis: 'x', style: 'left: 50%;' })
+
+        frame.dispatchEvent(pointerEvent('pointerup', 1, 162, 90))
+        await nextTick()
+        expect(guideLines(wrapper)).toEqual([])
+        wrapper.unmount()
+      }
+      finally {
+        vi.useRealTimers()
+      }
+    })
+
     it('snaps while pinching', async () => {
       const { wrapper, emitted } = await mountFrame(OFF_CENTRE)
       const frame = sizedFrame(wrapper, 320, 180)

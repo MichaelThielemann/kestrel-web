@@ -78,6 +78,7 @@ export function usePanZoom(frame: Ref<HTMLElement | null>, opts: PanZoomOptions)
   }
 
   function settle(): void {
+    if (gesture) return
     if (view?.snapped) view = null
     clearGuides()
   }
@@ -216,6 +217,7 @@ export function usePanZoom(frame: Ref<HTMLElement | null>, opts: PanZoomOptions)
 
   const { dragging } = usePointerDrag(frame, {
     start: () => {
+      clearGuides()
       view = null
       gesture = true
     },
