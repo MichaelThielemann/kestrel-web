@@ -64,7 +64,12 @@ pnpm test:e2e:visual --update-snapshots   # after an intended visual change; rev
 ```
 
 The script builds the playground on the host and runs the `visual` project in the container with the
-repository mounted at `/work`, using the host's `node_modules`. The baselines live in
+repository mounted at `/work`, using the host's `node_modules`. The container ships the browsers of
+one Playwright release only, so `@playwright/test` and `playwright-core` (the peer of
+`@axe-core/playwright`) are pinned to the image's exact version; `scripts/playwright-image.test.ts`
+fails when the image, the CI job and the installed packages disagree. Moving to a newer Playwright
+means changing the image tag and digest in `e2e/support/env.ts` and `.github/workflows/ci.yml` together
+with both pins. The baselines live in
 `e2e/specs/__screenshots__/`; a comparison allows at most 50 differing pixels. The preview iframe and
 the host name in the editor's search preview are masked.
 
