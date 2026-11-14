@@ -152,6 +152,7 @@ WorkingDirectory=/srv/mysite
 Environment=NODE_ENV=production
 Environment=PORT=8080
 Environment=HOST=127.0.0.1
+Environment=NUXT_KESTREL_ACCESS_TRUSTED_HEADER=x-real-ip
 Environment=KESTREL_APP_ROOT=/srv/mysite
 Environment=KESTREL_BLOBSTORE=filesystem
 Environment=NUXT_PUBLIC_SITE_URL=https://example.com
@@ -169,6 +170,17 @@ WantedBy=multi-user.target
 `KESTREL_ADMIN_PASSWORD_HASH` and the `KESTREL_S3_*` values go in `EnvironmentFile`, not in the unit.
 `Restart=on-failure` is the right policy: a boot failure exits with code 1 after one JSON line on
 stderr naming the failing module, so the unit retries rather than sitting in a broken state.
+
+`NUXT_KESTREL_ACCESS_TRUSTED_HEADER=x-real-ip` matches the `X-Real-IP $remote_addr` line of the proxy in
+§7. Without it every request reaches the server from the proxy's address, and the IP allowlists, the
+per-address login limit and the client address in every audit entry see the proxy instead of the visitor
+("Client address" in §7).
+
+To reach the process over a Unix socket instead of loopback, set `NITRO_UNIX_SOCKET` in place of `PORT` and
+`HOST` and point `proxy_pass` at the socket ("Unix socket" in §7). There the proxy's header decides the
+client address, so `NUXT_KESTREL_ACCESS_TRUSTED_HEADER` or `NUXT_KESTREL_ACCESS_TRUST_PROXY` has to be set,
+as above. The socket gets its mode from the process's umask (`UMask=` in the unit), and the user nginx runs as
+needs write permission on it; without it nginx answers 502 and logs `connect() … failed (13: Permission denied)`.
 
 ## 6. Container
 
