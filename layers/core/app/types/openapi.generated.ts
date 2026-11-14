@@ -370,7 +370,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission media.manage → Compare the blobs under the media prefix with the media_items rows; with `delete` also removes blobs that no row points at (rows are never deleted) */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission media.manage → Compare the blobs under the media prefix with the media_items rows; with `delete` also removes blobs that no row points at (rows are never deleted, nor the 5.x-layout blobs listed in legacyKeys) */
         post: operations["reconcileMediaReport"];
         delete?: never;
         options?: never;
@@ -438,7 +438,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission migrations.manage → Apply every pending migration; payload.dry === true reports the changes without writing */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission migrations.manage → Apply every pending migration; body.dry === true reports the changes without writing */
         post: operations["applyMigrations"];
         delete?: never;
         options?: never;
@@ -932,7 +932,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission users.manage → Require that the session's password was checked within the last 300 seconds, at login or through authn.confirmPassword; otherwise 403 REAUTH_REQUIRED → Strip the user in `params.id` or the event payload's `id` from every audit entry: their identity id and every param naming them go, the event and its time stay */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission users.manage → Require that the session's password was checked within the last 300 seconds, at login or through authn.confirmPassword; otherwise 403 REAUTH_REQUIRED → Strip the user in `params.id` or the event payload's `id` from every audit entry: their identity id and every param holding it go, the event, its time and the other params stay */
         post: operations["retryAnonymizeAuditUser"];
         delete?: never;
         options?: never;
@@ -964,7 +964,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Identify the caller if a valid token is present; a state-changing request authenticated by the session cookie must come from the same origin → Requires permission blog.read → List blog → Add _paths (locale → path) to the blog result, reachable paths only → Keep only the blog fields the caller may see: anonymousFields.blog without an identity or a configured role; otherwise everything when one of its roles has no field grant for blog, else the union of its roles' grants and the anonymous one */
+        /** Identify the caller if a valid token is present; a state-changing request authenticated by the session cookie must come from the same origin → Requires permission blog.read → List blog → Add _paths (locale → path) to the blog result, reachable paths only → Keep only the blog fields the caller may see: anonymousFields.blog without an identity or a configured role; otherwise everything when one of its roles has no field grant for blog, else the union of its roles' grants and the anonymous one; a caller kept to a grant may sort only by a field it names whole or by id, createdAt and updatedAt */
         get: operations["listBlog"];
         put?: never;
         /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission blog.write → Validate payload field blog.body against its JSON Schema → Sanitize HTML at format:"html" positions of payload field blog.body → Validate payload field blog.body against its JSON Schema → Referenced ids of blog must exist → Create a blog → Record the saved blog document from the result as a revision; its parent is the head, or the revision a restore put on the context → Index the references of a blog document → Index external links of blog → Queue event "blog.created" for the subscribed handler pipelines; the worker delivers it after this run → Recompute the public paths of the saved blog (result.id, else params.id) and of every document whose path depends on it; last step of the write's atomic group → After the write's atomic group: patches the in-memory path table from the committed rows and raises site.pathsMoved; never fails the run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
@@ -1120,7 +1120,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Identify the caller if a valid token is present; a state-changing request authenticated by the session cookie must come from the same origin → Requires permission media.read → List media, newest first; anonymous callers may only fetch by ids → Add available, variants[], variantCounts, focus and framing to a media item or list (result.id or result.items); a variant whose path has no object yet is never listed, a hidden item lists no variants and is not available, and framing.ratios has one entry per ratio of the cover sizes → Keep only the media fields the caller may see: anonymousFields.media without an identity or a configured role; otherwise everything when one of its roles has no field grant for media, else the union of its roles' grants and the anonymous one */
+        /** Identify the caller if a valid token is present; a state-changing request authenticated by the session cookie must come from the same origin → Requires permission media.read → List media, newest first; anonymous callers may only fetch by ids → Add available, variants[], variantCounts, focus and framing to a media item or list (result.id or result.items); a variant whose path has no object yet is never listed, a hidden item lists no variants and is not available, and framing.ratios has one entry per ratio of the cover sizes → Keep only the media fields the caller may see: anonymousFields.media without an identity or a configured role; otherwise everything when one of its roles has no field grant for media, else the union of its roles' grants and the anonymous one; a caller kept to a grant may sort only by a field it names whole or by id, createdAt and updatedAt */
         get: operations["listMedia"];
         put?: never;
         /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission media.write → Sanitize uploaded SVG files, also SVG content declared as another image type (scripts, handlers, external references removed) → Upload one or more files (multipart field `file`, repeatable). A single file returns the item; multiple files return per-file results. Idempotent: same folder, same filename and same bytes return the item that is already there, and the step then ends the pipeline itself (200), so no following step – notably events.emit:media.uploaded – runs for an upload that stored nothing → Queue event "media.uploaded" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
@@ -1347,7 +1347,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Identify the caller if a valid token is present; a state-changing request authenticated by the session cookie must come from the same origin → Requires permission pages.read → List pages → Add _paths (locale → path) to the pages result, reachable paths only → Keep only the pages fields the caller may see: anonymousFields.pages without an identity or a configured role; otherwise everything when one of its roles has no field grant for pages, else the union of its roles' grants and the anonymous one */
+        /** Identify the caller if a valid token is present; a state-changing request authenticated by the session cookie must come from the same origin → Requires permission pages.read → List pages → Add _paths (locale → path) to the pages result, reachable paths only → Keep only the pages fields the caller may see: anonymousFields.pages without an identity or a configured role; otherwise everything when one of its roles has no field grant for pages, else the union of its roles' grants and the anonymous one; a caller kept to a grant may sort only by a field it names whole or by id, createdAt and updatedAt */
         get: operations["listPages"];
         put?: never;
         /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission pages.write → Validate payload field pages.body against its JSON Schema → Sanitize HTML at format:"html" positions of payload field pages.body → Validate payload field pages.body against its JSON Schema → Validate payload field pages.accent against its JSON Schema → Referenced ids of pages must exist → Create a pages → Record the saved pages document from the result as a revision; its parent is the head, or the revision a restore put on the context → Index the references of a pages document → Index external links of pages → Queue event "page.created" for the subscribed handler pipelines; the worker delivers it after this run → Recompute the public paths of the saved pages (result.id, else params.id) and of every document whose path depends on it; last step of the write's atomic group → After the write's atomic group: patches the in-memory path table from the committed rows and raises site.pathsMoved; never fails the run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
@@ -4722,6 +4722,8 @@ export interface operations {
                 content: {
                     "application/json": {
                         blobsWithoutRow: string[];
+                        /** @description blobs in the 5.x key layout that media-default:id-key-layout recorded; never deleted */
+                        legacyKeys: string[];
                         rowsWithoutBlob: string[];
                     };
                 };
@@ -4792,6 +4794,8 @@ export interface operations {
                 content: {
                     "application/json": {
                         blobsWithoutRow: string[];
+                        /** @description blobs in the 5.x key layout that media-default:id-key-layout recorded; never deleted */
+                        legacyKeys: string[];
                         rowsWithoutBlob: string[];
                     };
                 };
@@ -7514,7 +7518,7 @@ export interface operations {
                     };
                 };
             };
-            /** @description no user id */
+            /** @description no user id, or an id that is not a UUID */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -7680,7 +7684,7 @@ export interface operations {
                     "application/json": components["schemas"]["listBlog"] | components["schemas"]["listBlog.anonymous"];
                 };
             };
-            /** @description invalid limit, offset, sort or locale */
+            /** @description a sort by a field the caller's grant does not name whole */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -8839,7 +8843,7 @@ export interface operations {
                     "application/json": components["schemas"]["listMedia"] | components["schemas"]["listMedia.anonymous"];
                 };
             };
-            /** @description invalid folder, unknown locale, invalid type, or limit above maxLimit */
+            /** @description a sort by a field the caller's grant does not name whole */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -10725,7 +10729,7 @@ export interface operations {
                     "application/json": components["schemas"]["listPages"] | components["schemas"]["listPages.anonymous"];
                 };
             };
-            /** @description invalid limit, offset, sort or locale */
+            /** @description a sort by a field the caller's grant does not name whole */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -11417,7 +11421,9 @@ export interface operations {
     };
     setRedirects: {
         parameters: {
-            query?: never;
+            query?: {
+                locale?: "de" | "en";
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -11697,7 +11703,9 @@ export interface operations {
     };
     setSettings: {
         parameters: {
-            query?: never;
+            query?: {
+                locale?: "de" | "en";
+            };
             header?: never;
             path?: never;
             cookie?: never;
