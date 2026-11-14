@@ -34,13 +34,21 @@ describe('disabled button styles', () => {
     expect(rulesFor(button, '.ui-button:is(').join('\n')).toContain(':not([aria-busy=true])')
   })
 
-  it.each(['.ui-button--icon', '.ui-button--bare'])('does not apply the disabled look to a busy %s button and dims it with a progress cursor', (selector) => {
+  it.each(['.ui-button--icon', '.ui-button--bare'])('does not apply the disabled look to a busy %s button', (selector) => {
     const disabledRules = rulesFor(button, `${selector}:is(.ui-button--disabled`)
     expect(disabledRules.length).toBeGreaterThan(0)
     for (const rule of disabledRules) expect(rule).toContain(':not([aria-busy=true])')
-    const busy = rulesFor(button, '[aria-busy=true]:disabled').filter((rule) => rule.includes(selector)).join('\n')
-    expect(busy).toContain('opacity: 0.6')
-    expect(busy).toContain('cursor: progress')
+  })
+
+  it.each(['.ui-button', '.ui-button--icon', '.ui-button--bare'])('dims a busy %s button to 60 % opacity with a progress cursor', (selector) => {
+    const busyRules = rulesFor(button, '[aria-busy=true]:disabled').filter((rule) => rule.startsWith(':is('))
+    expect(busyRules.length).toBeGreaterThan(0)
+    const matching = busyRules.filter((rule) => {
+      const members = /^:is\(([^)]*)\)/.exec(rule)?.[1]?.split(',').map((member) => member.trim()) ?? []
+      return members.includes(selector)
+    })
+    expect(matching.join('\n')).toContain('opacity: 0.6')
+    expect(matching.join('\n')).toContain('cursor: progress')
   })
 
   it('gives a disabled danger-ghost button the dedicated icon colour so it differs from the active danger colour', () => {
