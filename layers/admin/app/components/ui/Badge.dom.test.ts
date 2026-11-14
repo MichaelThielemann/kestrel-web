@@ -8,7 +8,7 @@ describe('KestrelUiBadge', () => {
   it('renders its slot text in a muted badge by default', async () => {
     const wrapper = await mountSuspended(Badge, { slots: { default: 'Draft' } })
 
-    expect(wrapper.element.tagName).toBe('SPAN')
+    expect(wrapper.html()).toMatch(/^<span /)
     expect(wrapper.text()).toBe('Draft')
     expect(wrapper.classes()).toContain('ui-badge')
     expect(wrapper.attributes('data-variant')).toBe('muted')

@@ -6,7 +6,14 @@ import { boundaryCast } from '#kestrel/cast'
 import type { AdminSchema } from '#kestrel-admin/types/api'
 import type { AdminCollection } from '#kestrel-admin/types/kestrel'
 import { useSchema } from './useSchema'
+import type { FieldOption } from '../utils/field-component'
 import { useRecordOptions } from './useRecordOptions'
+
+interface UnwrappedRecordOptions {
+  options: FieldOption[]
+  selected: FieldOption[]
+  onSearch: (term: string) => void
+}
 
 const choices = [
   { value: 'draft', label: { en: 'Draft', de: 'Entwurf' } },
@@ -74,11 +81,11 @@ describe('useRecordOptions status hints', () => {
       },
       render: () => null,
     }))
-    const api = boundaryCast<ReturnType<typeof useRecordOptions>>(host.vm, 'host')
+    const api = boundaryCast<UnwrappedRecordOptions>(host.vm, 'host')
     return { host, api, loc, idList }
   }
 
-  const hints = (options: { value: string; hint?: string }[]) => Object.fromEntries(options.map((o) => [o.value, o.hint]))
+  const hints = (options: FieldOption[]) => Object.fromEntries(options.map((o) => [o.value, o.hint]))
 
   it('marks every status that is not live with its status name', async () => {
     const { host, api } = await setup('pages')
