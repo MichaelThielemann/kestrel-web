@@ -41,9 +41,12 @@ const ext = computed(() => (props.file.filename.split('.').pop() ?? '').toUpperC
   position: absolute;
   inset-block-start: var(--space-1);
   inset-inline-end: var(--space-1);
-  max-inline-size: calc(100% - var(--space-2));
-  overflow: hidden;
-  text-overflow: ellipsis;
+  max-inline-size: calc(100% - 2rem);
+  padding-block: 2px;
+  line-height: 1.2;
+  text-align: end;
+  white-space: normal;
+  overflow-wrap: break-word;
   pointer-events: none;
 }
 .media-grid__meta,
