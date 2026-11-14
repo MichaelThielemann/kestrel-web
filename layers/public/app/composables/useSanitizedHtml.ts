@@ -56,6 +56,10 @@ function purify(html: string): string {
   return container.innerHTML
 }
 
+function trimAttributeValues(attribs: Record<string, string>): Record<string, string> {
+  return Object.fromEntries(Object.entries(attribs).map(([name, value]) => [name, value.trim()]))
+}
+
 export async function sanitizeOnServer(html: string): Promise<string> {
   const { default: sanitizeHtml } = await import('sanitize-html')
   return sanitizeHtml(html, {
@@ -67,7 +71,7 @@ export async function sanitizeOnServer(html: string): Promise<string> {
     allowProtocolRelative: false,
     transformTags: {
       '*': (tagName, attribs) => {
-        const normalized = normalizeHtmlAttributes(tagName, attribs)
+        const normalized = normalizeHtmlAttributes(tagName, trimAttributeValues(attribs))
         const { id, ...rest } = normalized
         return { tagName, attribs: id === undefined || isAllowedContentId(id) ? normalized : rest }
       },

@@ -24,5 +24,9 @@ export const sanitizerCases: SanitizerCase[] = [
   { title: "drops attributes the tag does not carry", input: '<p href="https://example.com" src="x" colspan="2" data-x="1" aria-label="y" style="color:red">x</p>', output: "<p>x</p>" },
   { title: "keeps the attributes a table cell carries", input: '<table><tbody><tr><th scope="col" colspan="2">a</th><td rowspan="2">b</td></tr></tbody></table>', output: '<table><tbody><tr><th scope="col" colspan="2">a</th><td rowspan="2">b</td></tr></tbody></table>' },
   { title: "keeps the broken-link marker on a link", input: '<a href="/x" data-kestrel-broken="true">x</a>', output: '<a href="/x" data-kestrel-broken="true">x</a>' },
+  { title: "trims the spaces around a link target and a class", input: '<a href="https://example.com " class=" c ">x</a>', output: '<a href="https://example.com" class="c">x</a>' },
+  { title: "trims the spaces around an image source", input: `<img src=" ${PIXEL} " alt="dot">`, output: `<img src="${PIXEL}" alt="dot">` },
+  { title: "forces rel on a target with a trailing space", input: '<a href="https://example.com" target="_blank ">x</a>', output: '<a href="https://example.com" target="_blank" rel="noopener noreferrer">x</a>' },
+  { title: "reads a target with a leading space as _self", input: '<a href="https://example.com" target=" _self" rel="opener">x</a>', output: '<a href="https://example.com" target="_self" rel="opener">x</a>' },
   { title: "drops the id of the site's own markup", input: '<div id="teleports" class="c" lang="de">x</div>', output: '<div class="c" lang="de">x</div>' },
 ];

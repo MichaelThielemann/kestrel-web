@@ -1164,8 +1164,10 @@
   and the attribute rules come from `@michaelthielemann/kestrel-contracts/helpers/html-allowlist`, the helper
   the backend's `format: html` sanitizer uses. A link whose `target` is anything but `_self`, in any letter case,
   gets `rel="noopener noreferrer"` and loses `opener`. A `data:` link and a link or image source that starts with
-  two slashes or backslashes are dropped (`data:` stays allowed for `img[src]`). In the browser, `data-*` and
-  `aria-*` attributes and attributes the tag does not carry no longer survive, as they did not on the server.
+  two slashes or backslashes are dropped (`data:` stays allowed for `img[src]`). The server trims the spaces
+  around an attribute value, as the browser does, so both produce the same markup. In the browser, `data-*` and
+  `aria-*` attributes and attributes the tag does not carry no longer survive, as they did not on the server;
+  `data-kestrel-broken` stays on links on both sides.
 - The `nuxt` peer range and the `@nuxt/kit` dependency are ^4.6.4 (were ^4.5.2): Nuxt 4.5.x and 4.6.0 to 4.6.3
   carry published advisories in `nuxt`, `@nuxt/nitro-server`, `@nuxt/schema` and `@nuxt/vite-builder`. A site on
   an older Nuxt 4 raises its own `nuxt` to ^4.6.4; `create-kestrel` writes that range into a new project.
