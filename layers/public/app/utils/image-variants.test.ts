@@ -346,6 +346,84 @@ describe('pickImageSources', () => {
       expect(pickImageSources(cut, 'large', undefined, [teaser])?.srcset).toBe('/media/m1/variants/thumb.webp 320w, /media/m1/variants/small.webp 640w, /media/m1/variants/large.webp 1600w')
     })
 
+    it('counts a cut within a pixel of the centred one as the same picture as the whole image', () => {
+      const teaser: DeclaredImageSize = { name: 'teaser', width: 480, height: 320, fit: 'cover' }
+      const media = item({
+        width: 1920,
+        height: 1281,
+        focus: { x: 0.05, y: 0.1, w: 0.1, h: 0.1 },
+        variants: [
+          variant({ size: 'thumb', width: 320, height: 214, path: '/media/m1/variants/thumb.webp' }),
+          variant({ size: 'teaser', width: 480, height: 320, path: '/media/m1/variants/teaser.webp?v=2', crop: { left: 0, top: 0, width: 1920, height: 1280 } }),
+          variant({ size: 'small', width: 640, height: 427, path: '/media/m1/variants/small.webp' }),
+          variant({ size: 'medium', width: 1024, height: 683, path: '/media/m1/variants/medium.webp' }),
+          variant({ size: 'large', width: 1600, height: 1068, path: '/media/m1/variants/large.webp' }),
+          variant({ size: 'xl', width: 1920, height: 1281, path: '/media/m1/variants/xl.webp' }),
+        ],
+      })
+      expect(pickImageSources(media, 'teaser', undefined, [teaser])?.srcset).toBe(
+        '/media/m1/variants/thumb.webp 320w, /media/m1/variants/teaser.webp?v=2 480w, /media/m1/variants/small.webp 640w, /media/m1/variants/medium.webp 1024w, /media/m1/variants/large.webp 1600w, /media/m1/variants/xl.webp 1920w',
+      )
+      expect(pickImageSources(media, 'large', undefined, [teaser])?.srcset).toContain('/media/m1/variants/teaser.webp?v=2 480w')
+    })
+
+    it('counts a cut within a pixel of the centred one as the same picture on an original stored on its side', () => {
+      const media = item({
+        width: 2812,
+        height: 5000,
+        variants: [
+          variant({ size: 'large', width: 1600, height: 900, path: '/media/m1/variants/large.webp' }),
+          variant({ size: 'hero', width: 1200, height: 675, path: '/media/m1/variants/hero.webp?v=2', crop: { left: 1, top: 0, width: 4999, height: 2812 } }),
+        ],
+      })
+      expect(pickImageSources(media, 'hero', undefined, [{ name: 'hero', width: 1200, height: 675, fit: 'cover' }])?.srcset).toBe(
+        '/media/m1/variants/hero.webp?v=2 1200w, /media/m1/variants/large.webp 1600w',
+      )
+    })
+
+    it('counts cuts of two ratio keys that differ by at most a pixel per edge as the same picture', () => {
+      const media = item({
+        width: 5000,
+        height: 2812,
+        variants: [
+          variant({ size: 'hero', width: 1600, height: 900, path: '/media/m1/variants/hero.webp?v=2', crop: { left: 0, top: 0, width: 4999, height: 2812 } }),
+          variant({ size: 'wide', width: 1000, height: 562, path: '/media/m1/variants/wide.webp?v=2', crop: { left: 0, top: 1, width: 5000, height: 2810 } }),
+        ],
+      })
+      const sizes: DeclaredImageSize[] = [hero, { name: 'wide', width: 1000, height: 562, fit: 'cover' }]
+      expect(pickImageSources(media, 'hero', undefined, sizes)?.srcset).toBe('/media/m1/variants/wide.webp?v=2 1000w, /media/m1/variants/hero.webp?v=2 1600w')
+    })
+
+    it('keeps a cut that leaves more than a pixel of the image out apart from the whole image', () => {
+      const media = item({
+        width: 1920,
+        height: 1281,
+        variants: [
+          variant({ size: 'teaser', width: 480, height: 320, path: '/media/m1/variants/teaser.webp?v=2', crop: { left: 0, top: 0, width: 1918, height: 1279 } }),
+          variant({ size: 'xl', width: 1920, height: 1281, path: '/media/m1/variants/xl.webp' }),
+        ],
+      })
+      expect(pickImageSources(media, 'teaser', undefined, [{ name: 'teaser', width: 480, height: 320, fit: 'cover' }])?.srcset).toBe('/media/m1/variants/teaser.webp?v=2 480w')
+    })
+
+    it('keeps the centred cut of a ratio near the original\'s apart from the whole image once their rounded ratios differ', () => {
+      const band: DeclaredImageSize = { name: 'band', width: 1000, height: 404, fit: 'cover' }
+      const media = item({
+        width: 2000,
+        height: 800,
+        variants: [
+          variant({ size: 'thumb', width: 320, height: 128, path: '/media/m1/variants/thumb.webp' }),
+          variant({ size: 'small', width: 640, height: 256, path: '/media/m1/variants/small.webp' }),
+          variant({ size: 'band', width: 1000, height: 404, path: '/media/m1/variants/band.webp' }),
+          variant({ size: 'large', width: 1600, height: 640, path: '/media/m1/variants/large.webp' }),
+        ],
+      })
+      expect(pickImageSources(media, 'large', undefined, [band])?.srcset).toBe(
+        '/media/m1/variants/thumb.webp 320w, /media/m1/variants/small.webp 640w, /media/m1/variants/large.webp 1600w',
+      )
+      expect(pickImageSources(media, 'band', undefined, [band])?.srcset).toBe('/media/m1/variants/band.webp 1000w')
+    })
+
     it('keeps the named variant on a width tie with another variant of its cut', () => {
       const media = item({
         width: 4000,

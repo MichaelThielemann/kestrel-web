@@ -20,6 +20,7 @@ export interface ImageSources {
 }
 
 const RATIO_TOLERANCE = 0.01
+const EDGE_TOLERANCE = 1
 
 function ratioOf(v: { width: number; height: number }): number {
   return v.width / v.height
@@ -43,28 +44,54 @@ function coverKeys(sizes: readonly DeclaredImageSize[]): Map<string, string> {
   return keys
 }
 
-function sameCrop(a: PublicMediaVariant['crop'], b: PublicMediaVariant['crop']): boolean {
-  if (a === null || a === undefined || b === null || b === undefined) return a === b
-  return a.left === b.left && a.top === b.top && a.width === b.width && a.height === b.height
+type Crop = NonNullable<PublicMediaVariant['crop']>
+type Box = { width: number; height: number }
+
+function overlapsRatio(a: Box, b: Box): boolean {
+  return (a.width - 0.5) / (a.height + 0.5) <= (b.width + 0.5) / (b.height - 0.5)
+    && (b.width - 0.5) / (b.height + 0.5) <= (a.width + 0.5) / (a.height - 0.5)
 }
 
-function sameCutAs(named: PublicMediaVariant | undefined, variants: readonly PublicMediaVariant[], keys: ReadonlyMap<string, string>): (v: PublicMediaVariant) => boolean {
-  const carriesCrop = named ? named.crop !== undefined : variants.some((v) => v.crop !== undefined)
+function nearCrop(a: Crop, b: Crop): boolean {
+  return Math.abs(a.left - b.left) <= EDGE_TOLERANCE && Math.abs(a.top - b.top) <= EDGE_TOLERANCE
+    && Math.abs(a.left + a.width - b.left - b.width) <= EDGE_TOLERANCE && Math.abs(a.top + a.height - b.top - b.height) <= EDGE_TOLERANCE
+}
+
+function nearCentre(crop: Crop, image: Box): boolean {
+  if (crop.left + crop.width > image.width || crop.top + crop.height > image.height) return false
+  if (crop.width < image.width - EDGE_TOLERANCE && crop.height < image.height - EDGE_TOLERANCE) return false
+  return Math.abs(crop.left - (image.width - crop.width) / 2) <= EDGE_TOLERANCE && Math.abs(crop.top - (image.height - crop.height) / 2) <= EDGE_TOLERANCE
+}
+
+function sameCrop(a: Crop | null, b: Crop | null, item: ImageMedia): boolean {
+  if (a !== null && b !== null) return nearCrop(a, b)
+  const cut = a ?? b
+  if (cut === null) return true
+  if (!item.width || !item.height) return false
+  return nearCentre(cut, { width: item.width, height: item.height }) || nearCentre(cut, { width: item.height, height: item.width })
+}
+
+function sameCutAs(item: ImageMedia, named: PublicMediaVariant | undefined, reference: Box | null, keys: ReadonlyMap<string, string>): (v: PublicMediaVariant) => boolean {
+  const carriesCrop = named ? named.crop !== undefined : item.variants.some((v) => v.crop !== undefined)
   if (carriesCrop) {
-    const crop = named ? named.crop : null
-    return (v) => v.crop !== undefined && sameCrop(v.crop, crop)
+    const crop = named?.crop ?? null
+    return (v) => v.crop !== undefined && reference !== null && overlapsRatio(v, reference) && sameCrop(v.crop, crop, item)
   }
   const key = named ? keys.get(named.size) : undefined
-  return (v) => v.crop === undefined && (key === undefined ? !keys.has(v.size) : keys.get(v.size) === key)
+  return (v) => v.crop === undefined && reference !== null && sameRatio(ratioOf(v), ratioOf(reference))
+    && (key === undefined ? !keys.has(v.size) : keys.get(v.size) === key)
 }
 
 /**
  * The `src`, `srcset` and box of an image for a size name. A `srcset` never mixes pictures: it lists the variants
- * with the ratio of the named variant (or of the original) whose `crop` equals the named variant's (`null` for the
- * original), so variants that show the same part of the image share one `srcset` and a variant cut differently
- * gets one of its own. When the variants carry no `crop` (an anonymous grant without `variants[].crop`), a declared
- * `cover` size lists the variants of the `cover` sizes with its exact ratio key, and any other size the variants of
- * its ratio that no declared `cover` size renders. `sizes` are the declared image sizes.
+ * with the aspect ratio of the named variant (or of the original), where two ratios match when the ranges their
+ * whole-pixel dimensions round from overlap, and whose `crop` equals the named variant's (`null` for the original).
+ * Crops count as equal when every edge lies within a pixel of the other's, and a crop within a pixel of the centred
+ * cut on the original counts as `null`, so variants that show the same part of the image share one `srcset` and a
+ * variant cut differently gets one of its own. When the variants carry no `crop` (an anonymous grant without
+ * `variants[].crop`), ratios match within 1 %, a declared `cover` size lists the variants of the `cover` sizes with
+ * its exact ratio key, and any other size the variants of its ratio that no declared `cover` size renders. `sizes`
+ * are the declared image sizes.
  */
 export function pickImageSources(
   item: ImageMedia | null,
@@ -79,23 +106,19 @@ export function pickImageSources(
   const width = named ? named.width : item.width
   const height = named ? named.height : item.height
 
-  const referenceRatio = named
-    ? ratioOf(named)
-    : item.width && item.height
-      ? ratioOf({ width: item.width, height: item.height })
-      : null
+  const reference = named ?? (item.width && item.height ? { width: item.width, height: item.height } : null)
 
   const keys = coverKeys(sizes)
-  const sameCut = sameCutAs(named, item.variants, keys)
+  const sameCut = sameCutAs(item, named, reference, keys)
   const ordered = named ? [named, ...item.variants.filter((v) => v !== named)] : item.variants
-  const candidates = referenceRatio === null ? [] : restrict(ordered.filter(sameCut), referenceRatio, only)
+  const candidates = restrict(ordered.filter(sameCut), only)
   const srcset = candidates.length === 0 ? null : candidates.map((v) => `${v.path} ${v.width}w`).join(', ')
 
   return { src, srcset, width, height, variant: named !== undefined, cut: named !== undefined && keys.has(named.size) }
 }
 
-function restrict(variants: readonly PublicMediaVariant[], referenceRatio: number, only?: readonly string[]): PublicMediaVariant[] {
-  const filtered = variants.filter((v) => v.width > 0 && v.height > 0 && sameRatio(ratioOf(v), referenceRatio) && (!only || only.includes(v.size)))
+function restrict(variants: readonly PublicMediaVariant[], only?: readonly string[]): PublicMediaVariant[] {
+  const filtered = variants.filter((v) => v.width > 0 && v.height > 0 && (!only || only.includes(v.size)))
   const byWidth = new Map<number, PublicMediaVariant>()
   for (const v of filtered) if (!byWidth.has(v.width)) byWidth.set(v.width, v)
   return [...byWidth.values()].sort((a, b) => a.width - b.width)
