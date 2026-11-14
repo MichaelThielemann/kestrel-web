@@ -49,10 +49,11 @@ export function useMediaLibraryUploads(options: UseMediaLibraryUploadsOptions) {
 
   async function refreshLibrary(settledFolder: string) {
     const settled = tiles.doneIn(settledFolder)
-    await fetchLibrary()
+    const refreshed = await fetchLibrary().then(() => true, () => false)
     const focused = focusedTileUpload()
-    tiles.promote(settled)
-    if (!focused || !settled.includes(focused.id)) return
+    const promoted = [...(refreshed ? settled : []), ...tiles.listedIn(settledFolder)]
+    tiles.promote(promoted)
+    if (!focused || !promoted.includes(focused.id)) return
     await nextTick()
     if (document.activeElement && document.activeElement !== document.body) return
     const listed = Array.from(root.value?.querySelectorAll<HTMLElement>('[data-file-id]') ?? []).find((el) => el.dataset.fileId === focused.result?.id)

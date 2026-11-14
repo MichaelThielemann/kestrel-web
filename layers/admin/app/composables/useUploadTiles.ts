@@ -20,6 +20,11 @@ export function useUploadTiles(options: UseUploadTilesOptions) {
     return queue.value.filter((item) => item.status === 'done' && item.folder === settledFolder).map((item) => item.id)
   }
 
+  function listedIn(settledFolder: string): string[] {
+    return queue.value.filter((item) => item.status === 'done' && item.folder === settledFolder
+      && item.result !== undefined && listedIds.value.has(item.result.id)).map((item) => item.id)
+  }
+
   function promote(ids: readonly string[]) {
     for (const id of ids) promoted.value.add(id)
   }
@@ -52,5 +57,5 @@ export function useUploadTiles(options: UseUploadTilesOptions) {
     dismiss(id)
   }
 
-  return { gridTileUploads, unlistedDone, doneIn, promote, onDismissUpload }
+  return { gridTileUploads, unlistedDone, doneIn, listedIn, promote, onDismissUpload }
 }

@@ -93,18 +93,20 @@ type ListingRequest = 'folders' | 'files'
 
 function heldListing(files: () => unknown[]) {
   const holdNext: Record<ListingRequest, boolean> = { folders: false, files: false }
-  const waiting: Record<ListingRequest, (() => void)[]> = { folders: [], files: [] }
+  const waiting: Record<ListingRequest, ((failed: boolean) => void)[]> = { folders: [], files: [] }
   async function reply<T>(request: ListingRequest, answer: T): Promise<T> {
     if (holdNext[request]) {
       holdNext[request] = false
-      await new Promise<void>((resolve) => { waiting[request].push(resolve) })
+      const failed = await new Promise<boolean>((resolve) => { waiting[request].push(resolve) })
+      if (failed) throw new Error('listing unavailable')
     }
     return answer
   }
   return {
     hold: (request: ListingRequest) => { holdNext[request] = true },
     held: (request: ListingRequest) => waiting[request].length,
-    release: (request: ListingRequest) => { waiting[request].shift()?.() },
+    release: (request: ListingRequest) => { waiting[request].shift()?.(false) },
+    fail: (request: ListingRequest) => { waiting[request].shift()?.(true) },
     folders: () => reply('folders', []),
     files: () => {
       const items = files()
@@ -774,6 +776,51 @@ describe('MediaLibrary upload status', () => {
     await vi.waitFor(() => expect(wrapper.find('.media-upload-tile').exists()).toBe(false))
     await vi.waitFor(() => expect(document.activeElement).toBe(wrapper.get('[data-file-id="f1"]').element))
   })
+
+  for (const newer of ['lands', 'fails'] as const) {
+    it(`hides the finished tile and moves focus to the file as soon as an older refresh lists it, while the newer refresh ${newer === 'lands' ? 'is still loading' : 'fails'}`, async () => {
+      let listed: unknown[] = []
+      const listing = heldListing(() => listed)
+      unregisterAll.push(registerEndpoint('/api/media/folders', { method: 'GET', handler: listing.folders }))
+      unregisterAll.push(registerEndpoint('/api/media', { method: 'GET', handler: listing.files }))
+      unregisterAll.push(registerEndpoint('/api/limits', { method: 'GET', handler: () => ({ maxUploadBytes: null }) }))
+      uploadControl.reset()
+
+      const wrapper = await mountSuspended(MediaLibrary, { attachTo: document.body })
+      onTestFinished(() => wrapper.unmount())
+
+      await confirmUpload(wrapper, new File(['x'], 'flaky.pdf', { type: 'application/pdf' }))
+      await vi.waitFor(() => expect(uploadControl.state.signals).toHaveLength(1))
+      listing.hold('folders')
+      uploadControl.state.fail?.(busyFailure())
+      await vi.waitFor(() => expect(listing.held('folders')).toBe(1))
+
+      const retry = '.media-upload-tile [aria-label="Retry flaky.pdf"]'
+      await vi.waitFor(() => expect(wrapper.find(retry).exists()).toBe(true))
+      boundaryCast<HTMLElement>(wrapper.get(retry).element, 'dom').focus()
+      await wrapper.get(retry).trigger('click')
+      await vi.waitFor(() => expect(uploadControl.state.signals).toHaveLength(2))
+      await nextTick()
+      expect(document.activeElement).toBe(wrapper.get('.media-upload-tile').element)
+
+      listed = [listedPdf('f1', 'flaky.pdf')]
+      listing.hold('folders')
+      uploadControl.state.deliver?.({ id: 'f1', contentType: 'application/pdf' })
+      await vi.waitFor(() => expect(listing.held('folders')).toBe(2))
+
+      listing.release('folders')
+      await vi.waitFor(() => expect(wrapper.find('[data-file-id="f1"]').exists()).toBe(true))
+      await vi.waitFor(() => expect(wrapper.find('.media-upload-tile').exists()).toBe(false))
+      await vi.waitFor(() => expect(document.activeElement).toBe(wrapper.get('[data-file-id="f1"]').element))
+
+      if (newer === 'lands') listing.release('folders')
+      else listing.fail('folders')
+      await vi.waitFor(() => expect(listing.held('folders')).toBe(0))
+      await new Promise((resolve) => setTimeout(resolve, 50))
+      expect(wrapper.find('.media-upload-tile').exists()).toBe(false)
+      expect(document.activeElement).toBe(wrapper.get('[data-file-id="f1"]').element)
+    })
+  }
 
   it('counts the uploaded files in the toolbar before the library refreshes, without counting them twice afterwards', async () => {
     let listed: unknown[] = []
