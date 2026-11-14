@@ -292,11 +292,6 @@
   replaced; the hint names `kestrel restore` as the way to restore there. The text is static and the staging
   mechanism is unchanged. New admin messages `replication.restoreHint` and `replication.restoreHintCommand`.
 
-### Changed
-
-- Admin: the origin label of a disclosed media file, in the grid and in the table of the media library, is the
-  `KestrelUiBadge` component. It sits in the corner of the thumbnail or beside the file name and covers no control.
-
 ### Upgrading
 
 - With `images`, `MediaItem` has the members `focus` and `framing`, each `MediaVariant` has `crop`, and
@@ -1214,8 +1209,8 @@
   scaffold collection and has no effect on any exported type.
 - Admin: the origin label ("AI-generated", "Partly AI-generated", "Origin unknown") no longer sits on the tiles
   of the media field, where it covered the remove and crop buttons, nor in the media picker. The media library
-  shows it on the grid thumbnail's top right corner, clear of the checkbox and the menu button, and beside the
-  filename in the table.
+  shows it as a `KestrelUiBadge` on the grid thumbnail's top right corner, clear of the checkbox and the menu
+  button, and beside the filename in the table.
 - Admin kit: `KestrelUiButton` gives every styled variant and `icon` a dedicated disabled state instead of a flat
   opacity. The new tokens `--color-disabled-bg`, `--color-disabled-text`, `--color-disabled-border` and
   `--color-disabled-icon` (base, light and dark; the label stays at 3:1 or better) make a disabled `ghost`,
