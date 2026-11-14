@@ -74,6 +74,20 @@ async function attachMatrix(page: Page, target: Locator, testInfo: TestInfo, nam
   if (original) await page.setViewportSize(original);
 }
 
+async function attachScrolled(page: Page, target: Locator, testInfo: TestInfo, name: string): Promise<void> {
+  const original = page.viewportSize();
+  for (const scheme of SCHEMES) {
+    await page.emulateMedia({ colorScheme: scheme });
+    for (const viewport of VIEWPORTS) {
+      await page.setViewportSize(viewport);
+      await target.evaluate((element) => element.scrollIntoView({ block: "center" }));
+      await testInfo.attach(`${name}-${scheme}-${viewport.width}`, { body: await page.screenshot(), contentType: "image/png" });
+    }
+  }
+  await page.emulateMedia({ colorScheme: "light" });
+  if (original) await page.setViewportSize(original);
+}
+
 async function setFocus(editor: Locator, rect: { x: number; y: number; w: number; h: number }): Promise<void> {
   for (const [label, value] of [["Links", rect.x], ["Oben", rect.y], ["Breite", rect.w], ["Höhe", rect.h]] as const) {
     const input = editor.getByRole("spinbutton", { name: label, exact: true });
@@ -150,6 +164,7 @@ for (const upload of UPLOADS) {
     await expect.poll(() => tile.locator("img").evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
     const tileShot = await shown(tile);
     await attachMatrix(page, editor, testInfo, `${upload.slug}-crop`);
+    await attachScrolled(page, detail.getByRole("spinbutton", { name: "Zoom", exact: true }), testInfo, `${upload.slug}-crop-fields`);
 
     const saved = page.waitForResponse((response) => response.request().method() === "PUT" && new URL(response.url()).pathname === `/api/media/${id}/framing`);
     await editor.getByRole("button", { name: "Speichern" }).click();
@@ -202,8 +217,8 @@ test("the box of the hero keeps its planned ratio while the variants still serve
   });
   await adminApi.call("POST", "/pages", { locale: "de", slug: "rasterbild-pending", title: "Rasterbild", status: "published", body: [{ id: "h1", type: "hero", props: { heading: "Rasterbild", image: id } }] });
 
-  for (const [viewport, ratio] of [[VIEWPORTS[0], 16 / 9], [VIEWPORTS[1], 3 / 4]] as const) {
-    const context = await browser.newContext({ baseURL, viewport });
+  for (const [viewport, ratio] of [[VIEWPORTS[0], 16 / 9], [VIEWPORTS[1], 3 / 4]] as const) for (const scheme of SCHEMES) {
+    const context = await browser.newContext({ baseURL, viewport, colorScheme: scheme });
     await context.route((url) => served.includes(url.pathname), (route) => route.fulfill({ status: 200, contentType: "image/png", body: original }));
     const visit = await context.newPage();
     await visit.goto("/rasterbild-pending");
@@ -213,7 +228,7 @@ test("the box of the hero keeps its planned ratio while the variants still serve
     expect(box && box.width / box.height, `the hero at ${viewport?.width} px keeps the ratio of its cut`).toBeCloseTo(ratio, 2);
     const pictureHeight = await image.evaluate((img: HTMLImageElement) => img.parentElement?.getBoundingClientRect().height ?? 0);
     expect(pictureHeight, `the picture at ${viewport?.width} px is as high as its image`).toBeCloseTo(box?.height ?? 0, 1);
-    await testInfo.attach(`rasterbild-pending-${viewport?.width}`, { body: await visit.screenshot({ fullPage: true }), contentType: "image/png" });
+    await testInfo.attach(`rasterbild-pending-${scheme}-${viewport?.width}`, { body: await visit.screenshot({ fullPage: true }), contentType: "image/png" });
     await context.close();
   }
 });
