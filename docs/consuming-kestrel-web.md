@@ -2293,8 +2293,8 @@ or sets the variables at start too, because a path the site serves as `/assets/â
 default `/_nuxt`.
 
 A rule already stored under a reserved path is neither applied by the Node origin nor exported to
-`redirects.json`; the server logs the row, and `kestrel upgrade data` reports it as
-`data/redirect-reserved-paths`. A wildcard in the first segment (`/*/old-page`) always can match a reserved
+`redirects.json`; the server logs each skipped row. `kestrel upgrade data` does not report these rows in a
+kestrel-web project, so check the rules under System â†’ Redirects against the list before upgrading. A wildcard in the first segment (`/*/old-page`) always can match a reserved
 path, so write such a rule once per prefix (`/de/old-page`, `/en/old-page`).
 
 ## 9.5 Internal links in `settings`

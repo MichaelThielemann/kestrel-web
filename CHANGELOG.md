@@ -965,8 +965,8 @@
   through those variables, sets `buildAssetsPath` to the joined path, such as `/assets`, or sets the same variables
   at start too. System → Redirects refuses a source that equals, lies below or, through a wildcard, can match one
   of them (`/admin/x`, `/*/login`) with the row's message. A rule already stored under one is neither applied by
-  the Node origin nor exported to `redirects.json`; the server logs the row, and `kestrel upgrade data` reports it
-  as `data/redirect-reserved-paths`. A wildcard in the first segment (`/*/old-page`) always can match a reserved
+  the Node origin nor exported to `redirects.json`; the server logs each skipped row. Check the rules under
+  System → Redirects against the list before upgrading. A wildcard in the first segment (`/*/old-page`) always can match a reserved
   path: write the rule once per prefix (`/de/old-page`, `/en/old-page`). `/administration`
   stays allowed. `overrides` for redirects-default can replace the list.
 - `POST /admin/users/:id/revisions/reassign` (`retryReassignRevisionAuthor`) and
