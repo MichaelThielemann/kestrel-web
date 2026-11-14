@@ -176,11 +176,25 @@ stderr naming the failing module, so the unit retries rather than sitting in a b
 per-address login limit and the client address in every audit entry see the proxy instead of the visitor
 ("Client address" in §7).
 
-To reach the process over a Unix socket instead of loopback, set `NITRO_UNIX_SOCKET` in place of `PORT` and
-`HOST` and point `proxy_pass` at the socket ("Unix socket" in §7). There the proxy's header decides the
-client address, so `NUXT_KESTREL_ACCESS_TRUSTED_HEADER` or `NUXT_KESTREL_ACCESS_TRUST_PROXY` has to be set,
-as above. The socket gets its mode from the process's umask (`UMask=` in the unit), and the user nginx runs as
-needs write permission on it; without it nginx answers 502 and logs `connect() … failed (13: Permission denied)`.
+To reach the process over a Unix socket instead of loopback, drop `PORT` and `HOST` from the unit, point every
+`proxy_pass` at `http://unix:/run/mysite/kestrel.sock` ("Unix socket" in §7) and add:
+
+```ini
+Environment=NITRO_UNIX_SOCKET=/run/mysite/kestrel.sock
+RuntimeDirectory=mysite
+RuntimeDirectoryMode=0750
+UMask=0007
+ExecStartPre=/usr/bin/rm -f /run/mysite/kestrel.sock
+```
+
+The proxy's header then decides the client address, so `NUXT_KESTREL_ACCESS_TRUSTED_HEADER` or
+`NUXT_KESTREL_ACCESS_TRUST_PROXY` has to be set, as above. The process does not remove a socket file it leaves
+behind when it is killed or crashes, and the next start fails with `listen EADDRINUSE`; the `rm` line clears it.
+nginx needs write permission on the socket, or it answers 502 and logs `connect() … failed (13: Permission
+denied)`: put the user nginx runs as into the service's group (`usermod -aG mysite www-data`, then restart
+nginx) and keep `UMask=0007`, which gives the socket mode 0770. The mask applies to every file the process
+creates, the blobs and replica segments included, so they are group-writable and closed to everyone else;
+`UMask=0000` would open them to every local user.
 
 ## 6. Container
 
