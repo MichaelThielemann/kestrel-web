@@ -1576,7 +1576,9 @@ export default defineImageSizes([
 
 Names follow `^[a-z][a-z0-9-]*$`; `fit: "cover"` requires a `height`; `quality` defaults to 82,
 `fit` defaults to `"inside"`. Declaring the same name twice with a different spec, anywhere in the
-app, fails the build.
+app, fails the build. Both sources are scanned the same way `app/blocks/*.vue` is, and generate
+`.nuxt/kestrel/image-sizes.json` — generated, **never hand-edited**, same rule as
+`.nuxt/kestrel/pages.body.json`.
 
 The optional `label` (a `Localized`, see [Admin language and labels](admin-i18n.md)) says what a size is
 used for. The admin's crop editor shows it under the ratio of each crop tile, next to the labels of the
@@ -1586,9 +1588,7 @@ The label is for `app/image-sizes.ts` only; on a size in `defineBlock({ imageSiz
 because the admin names that size after the block. It never reaches the backend: `imageSizes` and
 `.nuxt/kestrel/image-sizes.json` stay as they are, and the labels are a separate export, `imageSizeLabels`,
 of `#kestrel/blocks`. When two layers label the same size differently, the first layer's label is used
-and the build prints a warning naming both files. Both sources are scanned the same way `app/blocks/*.vue` is, and generate
-`.nuxt/kestrel/image-sizes.json` — generated, **never hand-edited**, same rule as
-`.nuxt/kestrel/pages.body.json`.
+and the build prints a warning naming both files.
 
 **Wiring the images module** is already done for you: `presetModuleConfig()` (§3) sets `publicPath:
 "/media"` on both `media-default` and `images-default` as soon as the `images` feature is on, and, with
