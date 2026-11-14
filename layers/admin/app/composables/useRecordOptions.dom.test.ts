@@ -56,8 +56,10 @@ const tags: Row[] = [{ id: 'a', title: 'Alpha' }, { id: 'b', title: 'Beta' }]
 
 describe('useRecordOptions status hints', () => {
   const unregister: (() => void)[] = []
+  let enDelay = 0
 
   afterEach(() => {
+    enDelay = 0
     unregister.splice(0).forEach((fn) => fn())
     useSchema().clear()
   })
@@ -66,7 +68,11 @@ describe('useRecordOptions status hints', () => {
     unregister.push(registerEndpoint('/api/admin/schema', { method: 'GET', handler: () => schema }))
     unregister.push(registerEndpoint('/api/admin/pages', {
       method: 'GET',
-      handler: (event) => ({ items: getQuery(event).locale === 'en' ? pagesEn : pagesDe, total: 0 }),
+      handler: async (event) => {
+        const en = getQuery(event).locale === 'en'
+        if (en && enDelay) await new Promise((resolve) => setTimeout(resolve, enDelay))
+        return { items: en ? pagesEn : pagesDe, total: 0 }
+      },
     }))
     unregister.push(registerEndpoint('/api/admin/tags', { method: 'GET', handler: () => ({ items: tags, total: tags.length }) }))
     await useSchema().load()
@@ -116,6 +122,20 @@ describe('useRecordOptions status hints', () => {
     loc.value = 'de'
     await expect.poll(() => api.options.length).toBe(5)
     expect(hints(api.options).home).toBeUndefined()
+    host.unmount()
+  })
+
+  it('ignores a slow response for a content locale that is no longer current', async () => {
+    const { host, api, loc } = await setup('pages')
+    await expect.poll(() => api.options.length).toBe(5)
+    enDelay = 300
+    loc.value = 'en'
+    await new Promise((resolve) => setTimeout(resolve, 10))
+    loc.value = 'de'
+    await expect.poll(() => api.options.length).toBe(5)
+    await new Promise((resolve) => setTimeout(resolve, 600))
+    expect(api.options.length).toBe(5)
+    expect(hints(api.options)).toEqual({ home: undefined, news: undefined, about: 'Draft', imprint: 'Finished', jobs: 'Draft' })
     host.unmount()
   })
 

@@ -44,7 +44,10 @@ export function useRecordOptions(
     return inherited ? `${inherited} (${primaryLocale.value.toUpperCase()})` : doc.id
   }
 
+  let run = 0
+
   async function load(name: string) {
+    const current = ++run
     loading.value = true
     if (!capabilities.hasVerb(name, 'listAll')) {
       loadedDocs.value = []
@@ -57,20 +60,21 @@ export function useRecordOptions(
         list({ locale: locale.value }),
         locale.value === primaryLocale.value ? null : list({ locale: primaryLocale.value }),
       ])
-      if (collection.value !== name) return
+      if (current !== run) return
       const primary = new Map((primaryPage?.items ?? []).map((doc) => [doc.id, rawLabel(doc) ?? '']))
       loadedDocs.value = page.items.map((doc) => ({ value: doc.id, label: labelOf(doc, primary), doc }))
       term.value = ''
     } catch {
-      if (collection.value === name) loadedDocs.value = []
+      if (current === run) loadedDocs.value = []
     } finally {
-      if (collection.value === name) loading.value = false
+      if (current === run) loading.value = false
     }
   }
 
   watch([collection, locale], () => {
     loadedDocs.value = []
     if (collection.value) void load(collection.value)
+    else run++
   }, { immediate: true })
 
   function onSearch(value: string) {
