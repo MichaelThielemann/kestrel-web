@@ -76,10 +76,12 @@ onUnmounted(stopReveal)
     </ul>
     <div v-if="active" class="media-crop-tiles__detail" data-test="crop-detail">
       <div class="media-crop-tiles__head">
-        <h3 class="media-crop-tiles__title">{{ t('mediaCrop.ratioTitle', { key: active.key, sizes: active.uses }) }}</h3>
-        <span class="media-crop-tiles__state" :data-state="active.manual ? 'manual' : 'auto'" data-test="crop-state">{{ stateLabel(active.manual) }}</span>
-        <KestrelUiSwitch v-model="snap" :label="t('mediaCrop.snap')" data-test="crop-snap" />
+        <div class="media-crop-tiles__heading">
+          <h3 class="media-crop-tiles__title">{{ t('mediaCrop.ratioTitle', { key: active.key, sizes: active.uses }) }}</h3>
+          <span class="media-crop-tiles__state" :data-state="active.manual ? 'manual' : 'auto'" data-test="crop-state">{{ stateLabel(active.manual) }}</span>
+        </div>
         <KestrelUiButton variant="ghost" size="sm" icon="rotate-ccw" data-test="crop-reset" :disabled="disabled || !active.manual" @click="reset">{{ t('mediaCrop.reset') }}</KestrelUiButton>
+        <KestrelUiSwitch v-model="snap" :label="t('mediaCrop.snap')" data-test="crop-snap" />
       </div>
       <KestrelUiAlert v-if="!active.fits" variant="warning" data-test="crop-misses">{{ t('mediaCrop.focusMissesDetail') }}</KestrelUiAlert>
       <KestrelUiAlert v-if="smaller.length" variant="info" data-test="crop-smaller">{{ t('mediaCrop.smaller', { sizes: smaller.join(', ') }) }}</KestrelUiAlert>
@@ -161,7 +163,8 @@ onUnmounted(stopReveal)
 .media-crop-tiles__state[data-state='manual'] { color: var(--color-primary-on-fill, var(--color-primary)); font-weight: var(--weight-medium); }
 .media-crop-tiles__warn { position: absolute; top: var(--space-1); right: var(--space-1); display: inline-flex; padding: 2px; border-radius: var(--radius-full); background: var(--color-surface); color: var(--color-warning-text); }
 .media-crop-tiles__sr { @include mixins.sr-only; }
-.media-crop-tiles__detail { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
-.media-crop-tiles__head { display: flex; align-items: center; gap: var(--space-2) var(--space-3); flex-wrap: wrap; }
-.media-crop-tiles__title { margin: 0; margin-inline-end: auto; font-size: var(--text-base); font-weight: var(--weight-medium); overflow-wrap: anywhere; }
+.media-crop-tiles__detail { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; padding: var(--space-1); }
+.media-crop-tiles__head { display: flex; align-items: center; gap: var(--space-2) var(--space-4); flex-wrap: wrap; }
+.media-crop-tiles__heading { display: flex; align-items: baseline; gap: var(--space-1) var(--space-3); flex-wrap: wrap; min-width: 0; margin-inline-end: auto; }
+.media-crop-tiles__title { margin: 0; font-size: var(--text-base); font-weight: var(--weight-medium); overflow-wrap: anywhere; }
 </style>

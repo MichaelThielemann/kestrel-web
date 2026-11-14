@@ -98,6 +98,18 @@ describe('MediaCropTiles', () => {
     wrapper.unmount()
   })
 
+  it('keeps the state of the crop with its title and sets the switch apart behind the reset button', async () => {
+    const wrapper = await mountTiles()
+
+    const heading = wrapper.get('[data-test="crop-detail"] .media-crop-tiles__heading')
+    expect(heading.find('h3').exists()).toBe(true)
+    expect(heading.find('[data-test="crop-state"]').exists()).toBe(true)
+    expect(heading.find('[data-test="crop-snap"]').exists()).toBe(false)
+    const controls = wrapper.findAll('[data-test="crop-detail"] .media-crop-tiles__head > :not(.media-crop-tiles__heading)').map((node) => node.attributes('data-test'))
+    expect(controls).toEqual(['crop-reset', 'crop-snap'])
+    wrapper.unmount()
+  })
+
   it('remembers the switch in the browser across a remount', async () => {
     const first = await mountTiles()
     await snapSwitch(first).trigger('click')
