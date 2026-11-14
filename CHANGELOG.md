@@ -250,7 +250,7 @@
   while the command runs and recommend `KESTREL_ADMIN_PASSWORD` instead.
 - With `--pm pnpm`, `create-kestrel` pins `packageManager` in the new `package.json` to the pnpm release this
   repository runs, and its `pnpm-workspace.yaml` sets `minimumReleaseAge` (three days), `trustPolicy: no-downgrade`
-  and `blockExoticSubdeps: true`. `@michaelthielemann/*` is listed in `minimumReleaseAgeExclude`, so a freshly
+  (not applied to releases older than 90 days, `trustPolicyIgnoreAfter`) and `blockExoticSubdeps: true`. `@michaelthielemann/*` is listed in `minimumReleaseAgeExclude`, so a freshly
   published `kestrel` or `kestrel-web` installs at once. With `npm`, `yarn` or `bun` the project has no
   `packageManager` field.
 

@@ -403,4 +403,11 @@ describe("the README", () => {
     expect(readme).toContain("minimumReleaseAge");
     expect(readme).toContain("packageManager");
   });
+
+  it("names every supply-chain key the template sets, including the trust check's age limit", () => {
+    const section = readme.slice(readme.indexOf("## Supply-chain settings"));
+    for (const key of ["minimumReleaseAge", "minimumReleaseAgeExclude", "trustPolicy", "trustPolicyIgnoreAfter", "blockExoticSubdeps"]) {
+      expect(section, key).toContain(key);
+    }
+  });
 });

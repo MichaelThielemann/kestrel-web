@@ -67,7 +67,8 @@ a file whose name starts with `_` is written with a leading dot (`_gitignore` be
 
 With `--pm pnpm` the generated `pnpm-workspace.yaml` asks pnpm to install only releases that are at least
 three days old (`minimumReleaseAge`), to refuse a package whose publishing trust is weaker than an earlier
-release's (`trustPolicy: no-downgrade`) and to refuse dependencies of dependencies that come from a git
+release's (`trustPolicy: no-downgrade`; releases published more than 90 days ago are not checked,
+`trustPolicyIgnoreAfter`) and to refuse dependencies of dependencies that come from a git
 repository or a tarball URL (`blockExoticSubdeps`). The packages under `@michaelthielemann/` are excluded
 from the age check (`minimumReleaseAgeExclude`), so a freshly published `kestrel-web` or `kestrel` is
 installable at once. `package.json` pins `packageManager` to the pnpm release this repository runs, so
