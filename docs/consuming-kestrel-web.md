@@ -699,12 +699,12 @@ its files; `x.*` and `*` count as in `authz-roles`) and for the redirect rules, 
 | each content type | `id` and every field of the model (the workflow's status field included), plus `_locales` and `_translations` when the model has locales |
 | `pages`, additionally | `_locale` (with locales), `_links`, and `redirect` with the `redirects` feature |
 | `settings`, additionally | `_links` |
-| `media` | `id`, `path`, `filename`, `contentType`, `size`, `width`, `height`, `alt`, `title`, `description`, `provenance`; with `images` also `focus`, `variants[].size`, `.width`, `.height`, `.format`, `.path` |
+| `media` | `id`, `path`, `filename`, `contentType`, `size`, `width`, `height`, `alt`, `title`, `description`, `provenance`; with `images` also `focus`, `variants[].size`, `.width`, `.height`, `.format`, `.path`, `.crop` |
 | `mediaFile` | the headers `cache-control` and `x-content-provenance`; with `images` also `x-kestrel-variant` |
 | `redirectRules` | `from`, `pattern`, `target`, `status` (with `redirects`) |
 
 Everything else is cut for them: a document's `createdAt` and `updatedAt`, a media item's `folder`,
-timestamps, `available` and `variantCounts`, and a variant's `bytes` and `state`.
+timestamps, `available`, `variantCounts` and `framing`, and a variant's `bytes` and `state`.
 
 `presetModuleConfig()` takes the `exclude` and `overrides` you give `definePreset()` as its `pipelines`
 option, and derives no grant for a resource whose every preset read they exclude or override without its
@@ -734,7 +734,7 @@ roles: {
   anonymous: ["pages.read", "settings.read", "media.read"],
   anonymousFields: {
     pages: ["id", "slug", "title", "body", "seo", "status", "shareImage", "_locales", "_translations", "_locale", "_links", "redirect"],
-    media: ["id", "path", "alt", "width", "height", "focus", "variants[].path", "variants[].width", "variants[].height", "variants[].crop"],
+    media: ["id", "path", "alt", "width", "height", "focus", "variants[].size", "variants[].path", "variants[].width", "variants[].height", "variants[].crop"],
   },
   fields: { reviewer: { pages: ["createdAt", "updatedAt"] } },
 },
@@ -748,7 +748,9 @@ the static export, rendered without a session, keeps the narrowed shape.
 
 With `images`, the derived `media` grant carries `focus` and `variants[].crop` next to the variant fields:
 `KestrelImage` reads `focus` to place the image in its box and `crop` to tell which variants show the same
-picture (§6). A narrowed `media` grant that keeps `variants[]` fields but leaves out `focus` starts, and
+picture (§6). It finds a variant by `variants[].size` and builds `src`, `srcset` and the box from its `path`,
+`width` and `height`, so a narrowed grant keeps those four and `crop`; without `size`, `<KestrelImage
+size="teaser">` finds no variant and shows the original. A narrowed `media` grant that keeps `variants[]` fields but leaves out `focus` starts, and
 `KestrelImage` then sets no `object-position`: an original or an `inside` variant shown in a box of another
 ratio stays centred. `cover` variants are still cut around the focus or the manual crop by kestrel. One that
 keeps `variants[]` fields but leaves out `variants[].crop` starts as well, and `KestrelImage` then groups a
@@ -1597,13 +1599,18 @@ box of its own aspect, where the position changes nothing.
 
 A `srcset` lists only variants that show the same picture. Every variant carries `crop`, the part of the
 oriented original its bytes show, or `null` for the whole image or the centred cut of its ratio, and
-`KestrelImage` combines the variants with the ratio of the named one (within 1 %) and an equal `crop`. A
+`KestrelImage` combines the variants with the ratio of the named one and an equal `crop`. Two ratios are equal
+when the ranges their whole-pixel `width` and `height` round from overlap, so 1000×404 is not 2000×800's
+ratio, while 320×213 is 1200×800's. Two crops are equal when each edge lies within a pixel of the other's,
+and a crop within a pixel of the centred cut on the original counts as `null`: a focus that moves the 3:2 cut
+of a 1920×1281 original by one row leaves the `teaser` with the `inside` widths. A
 `cover` size that nobody cut by hand and that has no focus to follow therefore gets the `inside` widths of its
 ratio too: a 480×320 `teaser` on a large 3:2 original is offered at 320, 480, 640, 1024, 1600 and 2400 pixels
 wide, and an `inside` size's `srcset` includes the `teaser`. Once the 3:2 crop is set by hand or the focus moves the cut, the
 `teaser` variants show another picture: they form a `srcset` of their own, and the `inside` sizes lose them.
 `cover` sizes with the same ratio and the same cut share one `srcset`. When the variants carry no `crop` (a
-grant of your own without `variants[].crop`), `KestrelImage` falls back to the declared sizes: a `cover` size's
+grant of your own without `variants[].crop`), `KestrelImage` falls back to the declared sizes and to ratios
+within 1 %: a `cover` size's
 `srcset` lists the variants of the `cover` sizes with its exact ratio key only, and other sizes leave declared
 `cover` variants out, so declare every `cover` size the site renders here, not only in images-default's own
 `sizes` config.
@@ -1618,8 +1625,10 @@ cannot display (TIFF) is shown from its largest finished variant that keeps the 
 variant with the aspect of the oriented original, and the editor is offered once there is one. A WebP original
 is shown from that variant as well and never itself, because browsers ignore its orientation tag while kestrel
 applies it, and a mirrored or upside-down WebP keeps its width and height, so a rectangle set on the original
-would land on the wrong part of the image. The editor is offered for a WebP original only once that variant is
-finished, so a build without an `inside` size offers it for no WebP. Without a `cover` size the editor offers
+would land on the wrong part of the image. A variant whose `crop` is set shows a cut, not the whole image, and
+is passed over. The editor is offered for a WebP original only once that variant is finished, so a build
+without an `inside` size offers it for no WebP. While that variant renders again, the editor keeps showing the
+one it opened with; with no such variant at all, it shows no picture and keeps the focus and the crops locked. Without a `cover` size the editor offers
 the focus alone and says why. Every action works with the pointer, touch or the keyboard, and the focus
 and the crop take numbers too. The editor computes every cut with
 `@michaelthielemann/kestrel-images-default/framing`, the functions the server renders with. A framing

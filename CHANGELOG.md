@@ -23,8 +23,10 @@
   through unchanged, in `src` and `srcset`, and builds a `srcset` from the variants of the reference ratio that
   show the same crop as the named variant (the whole image for the original): a `cover` variant that is not cut
   by hand or around a focus keeps the `inside` widths of its ratio, and one cut differently gets a `srcset` of
-  its own. It takes the declared sizes as a fourth argument, which it groups by when the variants carry no
-  `crop` (a hand-written anonymous grant without it): a declared `cover` size's `srcset` then lists only the
+  its own. Ratios match when their whole-pixel rounding ranges overlap, crops when every edge lies within a
+  pixel, and a crop within a pixel of the centred cut counts as uncut. It takes the declared sizes as a fourth
+  argument, which it groups by when the variants carry no `crop` (a hand-written anonymous grant without it),
+  with ratios within 1 %: a declared `cover` size's `srcset` then lists only the
   `cover` variants of its exact ratio key and any other size's leaves declared `cover` variants out. A width
   tie keeps the named variant (`cut` in its answer says whether `src` links a declared `cover` size).
   `KestrelImage` passes `#kestrel/image-sizes`. `KestrelImage` and `pickImageSources` take an item without
@@ -42,8 +44,9 @@
   and adjusts the crop of each ratio, manual or automatic, with a reset to automatic, a warning when the focus
   does not fit and a note when a crop is smaller than a size kestrel renders, whose variant is then delivered
   smaller. An original browsers cannot display, or a WebP original whose orientation tag browsers ignore, is
-  shown from its largest finished whole-image variant and is not offered for editing before that variant is
-  finished. Without a `cover` size it edits the focus only and says why.
+  shown from its largest finished variant without a `crop` that has the oriented original's aspect, and is not
+  offered for editing before that variant is finished; a media field shows the button once it is. Without a
+  `cover` size it edits the focus only and says why.
   It names how many records use the image, asks before Escape or Cancel drops unsaved changes and saves through
   `PUT /media/:id/framing`.
 - Static delivery keeps `sitemap.xml`, `robots.txt`, `llms.txt` and `llms-full.txt` current. Every pipeline that

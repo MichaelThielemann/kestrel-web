@@ -549,11 +549,11 @@ permission `anonymous` holds (`<type>.read`, `media.read` for `media` and `media
 `_links` and, with `redirects`, `redirect` (the hit `resolvePage` can answer early); on `settings` also
 `_links`; the public media fields (`id`, `path`, `filename`, `contentType`, `size`, `width`, `height`,
 `alt`, `title`, `description`, `provenance`) and, with `images`, `focus`, `variants[].size`, `.width`, `.height`,
-`.format` and `.path`; the file headers `cache-control`, `x-content-provenance` and, with `images`,
+`.format`, `.path` and `.crop`; the file headers `cache-control`, `x-content-provenance` and, with `images`,
 `x-kestrel-variant`; with `redirects`, the redirect rules' `from`, `pattern`, `target` and `status`. It names only
 members a read declares, so every path passes kestrel's check. What it leaves out is cut for anonymous
-callers: a document's `createdAt` and `updatedAt`, a media item's `folder`, timestamps, `available` and
-`variantCounts`, a variant's `bytes` and `state`, any other file header, and — on every collection,
+callers: a document's `createdAt` and `updatedAt`, a media item's `folder`, timestamps, `available`,
+`variantCounts` and `framing`, a variant's `bytes` and `state`, any other file header, and — on every collection,
 unconditionally — a field named `blockAliases` (see "Page builder"). `roles.anonymousFields`
 replaces the grant of a resource it names (an empty list removes it), and `roles.fields` is passed through.
 
@@ -1856,11 +1856,16 @@ present), `only` (restrict the `srcset` candidates to specific size names), `alt
   the pixel rectangle of the oriented original its bytes show (`null` for the whole image or the centred cut of
   its ratio), and two variants of one ratio with an equal `crop` show the same picture. The candidates are the
   variants of the reference ratio whose `crop` equals the named variant's, or `null` when the original is the
-  reference. An uncut `cover` variant of the original's ratio therefore shares the `srcset` of the `inside`
+  reference. Ratios are compared as kestrel defines them: equal when the ranges from `(width - 0.5) /
+  (height + 0.5)` to `(width + 0.5) / (height - 0.5)` overlap, so a near-ratio centred cut (1000×404 of a
+  2000×800 original) stays apart from the whole image. Crops are equal when every edge lies within a pixel of
+  the other's, and a crop within a pixel of the centred cut of its size on the original (in either orientation
+  of the original's stored `width`/`height`) counts as `null`, so a focus that shifts a cut of nearly the
+  original's ratio by one pixel keeps the `inside` widths. An uncut `cover` variant of the original's ratio therefore shares the `srcset` of the `inside`
   widths, and a variant cut by hand or around a focus gets a `srcset` of its own, shared with the `cover` sizes
   of the same ratio and cut. On a width tie the named variant stays. A variant without a `crop` member is never
   combined with one that has it. When the variants carry no `crop` (an anonymous grant without
-  `variants[].crop`), `KestrelImage` passes the declared sizes (`#kestrel/image-sizes`) and the candidates of a
+  `variants[].crop`), ratios match within 1 %, `KestrelImage` passes the declared sizes (`#kestrel/image-sizes`) and the candidates of a
   declared `cover` size are the variants of the declared `cover` sizes with the same exact ratio key, while any
   other size leaves the declared `cover` sizes out; a size kestrel renders that no build declares is grouped by
   ratio alone in that case.
