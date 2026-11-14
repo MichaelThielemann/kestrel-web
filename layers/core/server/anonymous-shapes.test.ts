@@ -318,6 +318,24 @@ describe("the playground preset: what a caller without a session receives", () =
     expect([...answered].sort()).toEqual(anonymousPipelines(config, manifest).map((p) => p.name).sort());
   }, 60_000);
 
+  it("lets a caller without a session sort a public list by the system fields and by granted fields only, and the editor by any field", async () => {
+    for (const [path, pipeline] of [["/pages", "listPages"], ["/blog", "listBlog"]] as const) {
+      const { resource } = cutOf(pipeline);
+      const granted = new Set((config.anonymousFields?.[resource] ?? []).map((field) => field.split(".")[0]));
+      const operation = openapi.paths[path]?.get;
+      const items = boundaryCast<{ properties?: { items?: { items?: { properties?: Json } } } }>(operation === undefined ? undefined : openapi.components.schemas[operation.operationId], "json");
+      const fields = Object.keys(items.properties?.items?.items?.properties ?? {}).filter((field) => !field.startsWith("_"));
+      const hidden = fields.find((field) => !granted.has(field) && !["id", "createdAt", "updatedAt"].includes(field));
+      const visible = fields.find((field) => granted.has(field) && field !== "id");
+      if (hidden === undefined || visible === undefined) throw new Error(`${path}: expected a granted and a withheld field among ${fields.join(", ")}`);
+      for (const sort of ["-createdAt", "updatedAt", "id", visible]) expect((await request(base, "GET", `${path}?sort=${sort}`)).status, `${path}?sort=${sort}`).toBe(200);
+      const refused = await request(base, "GET", `${path}?sort=-${hidden}`);
+      expect(refused.status, `${path}?sort=-${hidden}`).toBe(400);
+      expect(JSON.stringify(refused.json)).not.toContain("SENTINEL");
+      expect((await request(base, "GET", `${path}?sort=-${hidden}`, { token: seeded.editor })).status, `${path}?sort=-${hidden} signed in`).toBe(200);
+    }
+  });
+
   it("keeps the timestamps and the folder from a caller without a session, and gives them to the editor", async () => {
     const anonymousPage = boundaryCast<Json>((await request(base, "GET", "/site/")).json, "json");
     const editorPage = boundaryCast<Json>((await request(base, "GET", "/site/", { token: seeded.editor })).json, "json");
