@@ -84,16 +84,7 @@ useHead(() => ({
           <KestrelUiIcon name="activity" class="rail__icon" size="1.25rem" />
           <span class="rail__label">{{ t('nav.insights') }}</span>
         </NuxtLink>
-        <NuxtLink
-          v-if="hasSystemAccess"
-          to="/admin/system"
-          class="rail__item"
-          :class="{ 'router-link-active': isNavItemActive(route.path, '/admin/system') }"
-          :title="railCollapsed ? t('nav.system') : undefined"
-        >
-          <KestrelUiIcon name="settings" class="rail__icon" size="1.25rem" />
-          <span class="rail__label">{{ t('nav.system') }}</span>
-        </NuxtLink>
+        <KestrelAdminSystemLink v-if="hasSystemAccess" :collapsed="railCollapsed" />
       </div>
     </aside>
 
@@ -143,6 +134,11 @@ $bp-phone: 640px;
     margin: 0;
     justify-content: center;
     gap: 0;
+  }
+  .rail__badge {
+    position: absolute;
+    inset-block-start: var(--space-1);
+    inset-inline-end: var(--space-1);
   }
 }
 

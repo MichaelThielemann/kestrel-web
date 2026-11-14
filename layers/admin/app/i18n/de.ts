@@ -937,6 +937,7 @@ export const de: Record<CatalogKey, string> = {
   'refs.conflictAfterPrecheck': 'Inzwischen referenziert von — nicht gelöscht:',
 
   'nav.system': 'System',
+  'nav.systemDead': '{n} Dead-Letter-Ereignis(se)',
   'system.title': 'System',
   'system.tabsLabel': 'System-Bereiche',
   'system.tabs.users': 'Benutzer',

@@ -1,7 +1,10 @@
-import { computed, reactive } from 'vue'
+import { computed, nextTick, reactive } from 'vue'
+import { flushPromises } from '@vue/test-utils'
+import { clearNuxtState } from '#app'
 import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { AdminSchema } from '#kestrel-admin/types/api'
+import { en } from '../i18n/en'
+import type { AdminSchema, EventDeliveryStatus } from '#kestrel-admin/types/api'
 import AdminLayout from './admin.vue'
 
 beforeEach(() => {
@@ -133,5 +136,89 @@ describe('the admin rail accessible names', () => {
     } finally {
       document.cookie = 'kestrel-rail-collapsed=; path=/; max-age=0'
     }
+  })
+})
+
+describe('the admin rail dead-letter count', () => {
+  const unregisterAll: (() => void)[] = []
+  const initial: EventDeliveryStatus = { dead: 3, scope: 'store', since: null, lastDeadAt: null }
+  const delivery = { calls: 0, status: initial }
+
+  beforeEach(() => {
+    delivery.calls = 0
+    delivery.status = initial
+    schemaState.capabilities = { eventsDeliveryStatus: { method: 'GET', path: '/admin/events/delivery' } }
+    unregisterAll.push(registerEndpoint('/api/ready', { method: 'GET', handler: () => ({}) }))
+    unregisterAll.push(registerEndpoint('/api/admin/events/delivery', { method: 'GET', handler: () => { delivery.calls += 1; return delivery.status } }))
+  })
+
+  afterEach(() => {
+    unregisterAll.splice(0).forEach((unregister) => unregister())
+    schemaState.capabilities = {}
+    clearNuxtState('kestrel-admin-dead-letter-count')
+  })
+
+  async function mountRailWithCount() {
+    const wrapper = await mountSuspended(AdminLayout, { slots: { default: () => 'content' } })
+    await vi.waitFor(() => expect(delivery.calls).toBeGreaterThan(0))
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    await flushPromises()
+    return wrapper
+  }
+
+  it('shows the count as a kit counter badge on the System link', async () => {
+    const wrapper = await mountRailWithCount()
+    const link = wrapper.get('a[href="/admin/system"]')
+    const badge = link.get('.ui-badge')
+    expect(badge.attributes('data-variant')).toBe('counter')
+    expect(badge.text()).toBe('3')
+    wrapper.unmount()
+  })
+
+  it('names the link after its label and the count and announces nothing by itself', async () => {
+    const wrapper = await mountRailWithCount()
+    const link = wrapper.get('a[href="/admin/system"]').element
+    expect(accessibleName(link)).toBe(`System ${en['nav.systemDead'].replace('{n}', '3')}`)
+    expect(link.hasAttribute('aria-label')).toBe(false)
+    expect(link.querySelector('[aria-live], [role="status"], [role="alert"]')).toBeNull()
+    wrapper.unmount()
+  })
+
+  it('keeps the name of the link when the rail is collapsed', async () => {
+    document.cookie = 'kestrel-rail-collapsed=1; path=/'
+    try {
+      const wrapper = await mountRailWithCount()
+      const link = wrapper.get('a[href="/admin/system"]')
+      expect(accessibleName(link.element)).toBe(`System ${en['nav.systemDead'].replace('{n}', '3')}`)
+      expect(link.attributes('title')).toContain('3')
+      wrapper.unmount()
+    } finally {
+      document.cookie = 'kestrel-rail-collapsed=; path=/; max-age=0'
+    }
+  })
+
+  it('shows no badge while nothing is dead', async () => {
+    delivery.status = { dead: 0, scope: 'store', since: null, lastDeadAt: null }
+    const wrapper = await mountRailWithCount()
+    const link = wrapper.get('a[href="/admin/system"]')
+    expect(link.find('.ui-badge').exists()).toBe(false)
+    expect(accessibleName(link.element)).toBe('System')
+    wrapper.unmount()
+  })
+
+  it('shows no badge for a failure count that covers this process only', async () => {
+    delivery.status = { dead: 2, scope: 'process', since: 1, lastDeadAt: 1 }
+    const wrapper = await mountRailWithCount()
+    expect(wrapper.get('a[href="/admin/system"]').find('.ui-badge').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('sends no request and shows no badge without the delivery status capability', async () => {
+    schemaState.capabilities = { listUsers: { method: 'GET', path: '/users' } }
+    const wrapper = await mountSuspended(AdminLayout, { slots: { default: () => 'content' } })
+    await nextTick()
+    expect(delivery.calls).toBe(0)
+    expect(wrapper.get('a[href="/admin/system"]').find('.ui-badge').exists()).toBe(false)
+    wrapper.unmount()
   })
 })

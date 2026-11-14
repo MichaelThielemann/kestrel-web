@@ -935,6 +935,7 @@ export const en = {
   'refs.conflictAfterPrecheck': 'Referenced in the meantime — not deleted:',
 
   'nav.system': 'System',
+  'nav.systemDead': '{n} dead-letter event(s)',
   'system.title': 'System',
   'system.tabsLabel': 'System sections',
   'system.tabs.users': 'Users',
