@@ -216,7 +216,7 @@ function moveChip(from: number, to: number) {
 .ui-combobox {
   &__anchor {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: center;
     gap: 0;
     min-height: var(--control-height);
@@ -229,7 +229,7 @@ function moveChip(from: number, to: number) {
     &:focus-within { outline: 2px solid var(--color-focus); outline-offset: -2px; }
     &[aria-invalid='true'] { border-color: var(--color-danger); }
 
-    &[data-multiple] { gap: var(--space-2); }
+    &[data-multiple] { flex-wrap: wrap; gap: var(--space-2); }
   }
   &__chips {
     display: flex;
@@ -316,7 +316,9 @@ function moveChip(from: number, to: number) {
     color: var(--color-text);
     font-size: var(--text-base);
     padding: 0;
+    text-overflow: ellipsis;
   }
+  &__anchor:not([data-multiple]) &__input { min-width: 0; }
   &__icon {
     @include mixins.control-icon;
     min-block-size: var(--control-icon-size, 1.5rem);

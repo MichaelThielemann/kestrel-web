@@ -235,6 +235,12 @@ function applyInternalLink() {
     gap: var(--space-2);
     flex-basis: 100%;
     align-items: center;
+    min-inline-size: 0;
+
+    > .ui-link-internal {
+      flex: 1;
+      min-inline-size: 0;
+    }
   }
 
   &__group .ui-button.rt-on {
