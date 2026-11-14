@@ -2,6 +2,7 @@ import { ref, computed, watch } from 'vue'
 import type { Ref } from 'vue'
 import type { Document, ListPage } from '#kestrel-admin/types/api'
 import type { FieldOption } from '../utils/field-component'
+import { statusHint } from '../utils/workflow-status'
 
 const LIMIT = 200
 
@@ -15,15 +16,21 @@ export function useRecordOptions(
   const api = useAdminApi()
   const capabilities = useCapabilities()
   const { primary: primaryLocale } = useContentLocales()
-  const loaded = ref<FieldOption[]>([])
+  const { collections } = useCollections()
+  const { lang } = useT()
+  const loadedDocs = ref<{ value: string; label: string; doc: Document }[]>([])
+  const schema = computed(() => collections.value.find((c) => c.name === collection.value))
+  const loaded = computed<FieldOption[]>(() => loadedDocs.value.map(({ value, label, doc }) => {
+    const hint = schema.value ? statusHint(schema.value, doc, lang.value) : undefined
+    return hint === undefined ? { value, label } : { value, label, hint }
+  }))
   const all = computed(() => (exclude === undefined || exclude.value.size === 0 ? loaded.value : loaded.value.filter((o) => !exclude.value.has(o.value))))
-  const options = ref<FieldOption[]>([])
+  const term = ref('')
+  const options = computed(() => (term.value ? all.value.filter((o) => o.label.toLowerCase().includes(term.value)) : all.value))
   const loading = ref(false)
-  const cache = computed(() => new Map(loaded.value.map((o) => [o.value, o.label])))
+  const cache = computed(() => new Map(loaded.value.map((o) => [o.value, o])))
 
-  const selected = computed<FieldOption[]>(() =>
-    ids.value.map((value) => ({ value, label: cache.value.get(value) ?? value })),
-  )
+  const selected = computed<FieldOption[]>(() => ids.value.map((value) => cache.value.get(value) ?? { value, label: value }))
 
   function rawLabel(doc: Document): string | null {
     const raw = doc[labelField?.value ?? 'title']
@@ -40,8 +47,7 @@ export function useRecordOptions(
   async function load(name: string) {
     loading.value = true
     if (!capabilities.hasVerb(name, 'listAll')) {
-      loaded.value = []
-      options.value = []
+      loadedDocs.value = []
       loading.value = false
       return
     }
@@ -53,26 +59,22 @@ export function useRecordOptions(
       ])
       if (collection.value !== name) return
       const primary = new Map((primaryPage?.items ?? []).map((doc) => [doc.id, rawLabel(doc) ?? '']))
-      loaded.value = page.items.map((doc) => ({ value: doc.id, label: labelOf(doc, primary) }))
-      options.value = all.value
+      loadedDocs.value = page.items.map((doc) => ({ value: doc.id, label: labelOf(doc, primary), doc }))
+      term.value = ''
     } catch {
-      if (collection.value === name) { loaded.value = []; options.value = [] }
+      if (collection.value === name) loadedDocs.value = []
     } finally {
       if (collection.value === name) loading.value = false
     }
   }
 
   watch([collection, locale], () => {
-    loaded.value = []
-    options.value = []
+    loadedDocs.value = []
     if (collection.value) void load(collection.value)
   }, { immediate: true })
 
-  if (exclude !== undefined) watch(exclude, () => { options.value = all.value })
-
-  function onSearch(term: string) {
-    const q = term.trim().toLowerCase()
-    options.value = q ? all.value.filter((o) => o.label.toLowerCase().includes(q)) : all.value
+  function onSearch(value: string) {
+    term.value = value.trim().toLowerCase()
   }
 
   return { options, selected, loading, onSearch }
