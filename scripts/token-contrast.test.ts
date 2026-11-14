@@ -1,6 +1,6 @@
 import { compile } from 'sass'
 import { describe, expect, it } from 'vitest'
-import { PAIRS, TOKENS, composite, contrast, measure, readBlocks, readThemes } from './token-contrast'
+import { PAIRS, TOKENS, composite, contrast, measure, readBlocks, readThemes, tokenContrast } from './token-contrast'
 
 describe('token contrast', () => {
   const measurements = measure()
@@ -38,7 +38,7 @@ describe('token contrast', () => {
 
   it('declares the disabled-button tokens in the base, light and dark blocks', () => {
     const blocks = readBlocks(compile(TOKENS).css)
-    for (const name of ['--color-disabled-bg', '--color-disabled-text', '--color-disabled-border']) {
+    for (const name of ['--color-disabled-bg', '--color-disabled-text', '--color-disabled-border', '--color-disabled-icon']) {
       expect(blocks.base[name], `base ${name}`).toBeDefined()
       expect(blocks.light[name], `light ${name}`).toBeDefined()
       expect(blocks.dark[name], `dark ${name}`).toBeDefined()
@@ -46,11 +46,19 @@ describe('token contrast', () => {
   })
 
   it('measures the disabled button label against its fill and the page in both themes', () => {
-    const names = ['disabled button label on its fill', 'disabled ghost label on page', 'disabled ghost label on surface']
+    const names = ['disabled button label on its fill', 'disabled ghost label on page', 'disabled ghost label on surface', 'disabled icon on page', 'disabled icon on surface']
     for (const name of names) {
       const rows = measurements.filter((m) => m.name === name)
       expect(rows.map((m) => m.theme).sort()).toEqual(['dark', 'light'])
       for (const row of rows) expect(row.ratio, `${row.theme} ${name}`).toBeGreaterThanOrEqual(3)
+    }
+  })
+
+  it('keeps a disabled icon visibly weaker than an active one in both themes', () => {
+    const themes = readThemes(compile(TOKENS).css)
+    for (const theme of ['light', 'dark'] as const) {
+      const separation = tokenContrast(themes[theme] ?? {}, '--color-disabled-icon', '--color-text-muted')
+      expect(separation, theme).toBeGreaterThanOrEqual(1.4)
     }
   })
 })

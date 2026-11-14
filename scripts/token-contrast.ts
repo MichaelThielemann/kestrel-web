@@ -55,6 +55,8 @@ export const PAIRS: Pair[] = [
   { name: 'disabled button label on its fill', foreground: '--color-disabled-text', background: '--color-disabled-bg', role: 'inactive-text' },
   { name: 'disabled ghost label on page', foreground: '--color-disabled-text', background: '--color-bg', role: 'inactive-text' },
   { name: 'disabled ghost label on surface', foreground: '--color-disabled-text', background: '--color-surface', role: 'inactive-text' },
+  { name: 'disabled icon on page', foreground: '--color-disabled-icon', background: '--color-bg', role: 'inactive-text' },
+  { name: 'disabled icon on surface', foreground: '--color-disabled-icon', background: '--color-surface', role: 'inactive-text' },
   { name: 'disabled secondary border on surface', foreground: '--color-disabled-border', background: '--color-surface', role: 'decorative' },
   { name: 'control border on page', foreground: '--color-control-border', background: '--color-bg', role: 'ui' },
   { name: 'control border on surface', foreground: '--color-control-border', background: '--color-surface', role: 'ui' },
@@ -174,6 +176,15 @@ function colorOf(tokens: Record<string, string>, expression: string): { value: s
   if (raw === null) return null
   const color = parseColor(raw)
   return color ? { value: raw, color } : null
+}
+
+export function tokenContrast(tokens: Record<string, string>, foreground: string, background: string): number {
+  const front = colorOf(tokens, foreground)
+  const back = colorOf(tokens, background)
+  if (!front || !back) throw new Error(`Cannot resolve ${foreground} or ${background}`)
+  const a = luminance(front.color)
+  const b = luminance(back.color)
+  return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)
 }
 
 export function measure(themes: Record<string, Record<string, string>> = readThemes(compile(TOKENS).css)): Measurement[] {
