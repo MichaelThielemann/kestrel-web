@@ -9,9 +9,10 @@
   `.nuxt/kestrel/image-sizes.json` keep their entries as they are. When two layers label a size differently the
   first label is used and the build warns. A `label` on a size in `defineBlock({ imageSizes })` fails the build.
 - Admin: each tile of the crop editor names below its ratio what the sizes of that ratio are used for, the labels
-  of the blocks that declare them and the labels of `app/image-sizes.ts`, else the size names ("3:2 · Hero,
-  Teaser card"); the detail title names them too. The tile column scrolls on its own and keeps the chosen tile in
-  view, and becomes a horizontally scrolling strip below 48rem.
+  of the blocks that declare them and the labels of `app/image-sizes.ts`, else the size names ("Hero, Teaser
+  card" under "3:2"); the title of the chosen tile names them too ("Ratio 3:2 (Hero, Teaser card)"). The tile
+  column scrolls on its own and keeps the chosen tile in view, and becomes a horizontally scrolling strip below
+  48rem.
 - Admin: the crop frame snaps while dragging, pinching and zooming with the wheel. Within 8 screen pixels the
   middle of the image snaps to the middle of the frame, and the centre of the focus to the middle and the thirds
   of the frame, with the guide highlighted; an axis that leaves the crop at most two pixels of room does not snap. Alt held during the gesture places the crop freely; the arrow keys,
@@ -287,24 +288,6 @@
   an ephemeral disk, such as a container platform, a restore staged from the admin is lost when the instance is
   replaced; the hint names `kestrel restore` as the way to restore there. The text is static and the staging
   mechanism is unchanged. New admin messages `replication.restoreHint` and `replication.restoreHintCommand`.
-
-### Changed
-
-- `create-kestrel` writes `.env` readable and writable by its owner only (mode `0600`), also when `--force`
-  replaces an existing file. The help and the README say that `--admin-password` is visible in the process list
-  while the command runs and recommend `KESTREL_ADMIN_PASSWORD` instead.
-- With `--pm pnpm`, `create-kestrel` pins `packageManager` in the new `package.json` to the pnpm release this
-  repository runs, and its `pnpm-workspace.yaml` sets `minimumReleaseAge` (three days), `trustPolicy: no-downgrade`
-  (not applied to releases older than 90 days, `trustPolicyIgnoreAfter`) and `blockExoticSubdeps: true`. `@michaelthielemann/*` is listed in `minimumReleaseAgeExclude`, so a freshly
-  published `kestrel` or `kestrel-web` installs at once. With `npm`, `yarn` or `bun` the project has no
-  `packageManager` field.
-
-### Fixed
-
-- Admin: System → Replication scrolls when its content does not fit, so the restore point table keeps a minimum
-  height and stays reachable on small screens while the staged-restore and restore-result notices are shown. The
-  generation wraps at narrow widths instead of being cut off, the tab never scrolls sideways, and after a
-  restore the restore result notice takes focus, so it is in view and announced.
 
 ### Upgrading
 
@@ -1225,13 +1208,20 @@
   its `.once`, `.passive` and `.capture` forms; `@click.right` and `@click.middle` compile to `contextmenu` and
   `mouseup` and still run). A button that is `loading` is never styled as disabled, even
   with `disabled` set, in every variant; it is dimmed to 60 % opacity with a progress cursor.
-
 - The admin layer sends `X-Frame-Options: SAMEORIGIN`, `Referrer-Policy: same-origin`,
   `X-Content-Type-Options: nosniff` and a `Permissions-Policy` that turns off camera, microphone, geolocation,
   payment and USB on every route under `/admin`, as a route rule of `layers/admin/nuxt.config.ts`. The public
   site and `/api` are unchanged, and no Content Security Policy is set. A page on another origin can no longer
   embed `/admin` in a frame; the editor's preview frames the public site from the same origin and keeps
   working.
+- `create-kestrel` writes `.env` readable and writable by its owner only (mode `0600`), also when `--force`
+  replaces an existing file. The help and the README say that `--admin-password` is visible in the process list
+  while the command runs and recommend `KESTREL_ADMIN_PASSWORD` instead.
+- With `--pm pnpm`, `create-kestrel` pins `packageManager` in the new `package.json` to the pnpm release this
+  repository runs, and its `pnpm-workspace.yaml` sets `minimumReleaseAge` (three days), `trustPolicy: no-downgrade`
+  (not applied to releases older than 90 days, `trustPolicyIgnoreAfter`) and `blockExoticSubdeps: true`. `@michaelthielemann/*` is listed in `minimumReleaseAgeExclude`, so a freshly
+  published `kestrel` or `kestrel-web` installs at once. With `npm`, `yarn` or `bun` the project has no
+  `packageManager` field.
 
 ### Fixed
 
@@ -1436,6 +1426,10 @@
 - A path preview is redacted by the pipeline the request was routed to rather than by its path, so a
   trailing slash or a percent-encoded character in the path no longer returns the titles of documents the
   caller cannot manage.
+- Admin: System → Replication scrolls when its content does not fit, so the restore point table keeps a minimum
+  height and stays reachable on small screens while the staged-restore and restore-result notices are shown. The
+  generation wraps at narrow widths instead of being cut off, the tab never scrolls sideways, and after a
+  restore the restore result notice takes focus, so it is in view and announced.
 
 ## 2.0.1 – 2026-09-21
 
