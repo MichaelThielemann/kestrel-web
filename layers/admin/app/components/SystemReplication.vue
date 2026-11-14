@@ -139,7 +139,7 @@ function relative(ms: number | null): string { return ms === null ? '—' : huma
         <p>{{ t('replication.restoreHintCommand') }} <code class="replication__command">kestrel restore</code></p>
       </KestrelUiAlert>
 
-      <div v-if="canPoints" class="u-scroll">
+      <div v-if="canPoints" class="u-scroll replication__points">
         <KestrelUiTable>
           <template #head>
             <th>{{ t('replication.colWhen') }}</th>
@@ -198,7 +198,11 @@ function relative(ms: number | null): string { return ms === null ? '—' : huma
   gap: var(--space-4);
   flex: 1 1 auto;
   min-height: 0;
-  overflow: hidden;
+  overflow-y: auto;
+
+  > div.replication__points {
+    min-height: 12rem;
+  }
 
   &__status {
     display: flex;
