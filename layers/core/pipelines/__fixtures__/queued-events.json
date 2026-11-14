@@ -153,8 +153,12 @@
       "authz.requireRole",
       "authz.require:users.manage",
       "authn.requireRecentAuth:300",
-      "authn.deactivateUser",
-      "events.emit:user.deactivated",
+      {
+        "atomic": [
+          "authn.deactivateUser",
+          "events.emit:user.deactivated"
+        ]
+      },
       "events.relay"
     ],
     "deleteBlog": [
@@ -1037,8 +1041,12 @@
       "authz.require:users.manage",
       "authn.requireRecentAuth:300",
       "authz.validateRoles:roles",
-      "authn.updateUser",
-      "events.emit:user.updated",
+      {
+        "atomic": [
+          "authn.updateUser",
+          "events.emit:user.updated"
+        ]
+      },
       "events.relay"
     ],
     "uploadMedia": [

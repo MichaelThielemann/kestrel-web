@@ -269,6 +269,10 @@ describe("groupSignatureOf", () => {
     });
   });
 
+  it.each(["authn.updateUser", "authn.deactivateUser"])("finds %s with no target", (step) => {
+    expect(groupSignatureOf({ atomic: [step] })).toEqual({ step, target: undefined });
+  });
+
   it("returns undefined for a group with neither", () => {
     expect(groupSignatureOf({ atomic: ["references.check:pages"] })).toBeUndefined();
   });

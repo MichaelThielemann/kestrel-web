@@ -252,9 +252,9 @@ export function appendRelay<S extends string>(entries: readonly PresetEntry<S>[]
 }
 
 const CONTENT_WRITE_STEP = /^content\.(?:create|update|remove|removeTranslation|set):([^?]+)/;
-const DELETE_USER_STEP = "authn.deleteUser";
+const LAST_ADMIN_GUARDED_STEPS: ReadonlySet<string> = new Set(["authn.updateUser", "authn.deactivateUser", "authn.deleteUser"]);
 
-/** What the preset's override guard protects in a group: a content write, identified by its collection so a consumer may switch between `create`/`update`/`set`, or `authn.deleteUser`, which has no target. */
+/** What the preset's override guard protects in a group: a content write, identified by its collection so a consumer may switch between `create`/`update`/`set`, or one of the user changes the last-admin guard serialises (`authn.updateUser`, `authn.deactivateUser`, `authn.deleteUser`), which have no target. */
 export interface GroupSignature<S extends string = string> {
   step: S;
   target: string | undefined;
@@ -262,7 +262,8 @@ export interface GroupSignature<S extends string = string> {
 
 /**
  * The step of an atomic group the preset's override guard protects against loss: a `content.*` write
- * (matched by its collection, not its exact operation) or `authn.deleteUser`. Returns undefined for a
+ * (matched by its collection, not its exact operation) or a user change the last-admin guard serialises
+ * (`authn.updateUser`, `authn.deactivateUser`, `authn.deleteUser`). Returns undefined for a
  * group with neither, which the guard leaves unprotected.
  */
 export function groupSignatureOf<S extends string>(group: AtomicGroup<S>): GroupSignature<S> | undefined {
@@ -271,7 +272,7 @@ export function groupSignatureOf<S extends string>(group: AtomicGroup<S>): Group
     const target = CONTENT_WRITE_STEP.exec(contentStep)?.[1];
     return { step: contentStep, target };
   }
-  const deleteStep = group.atomic.find((step): step is S => step === DELETE_USER_STEP);
-  if (deleteStep !== undefined) return { step: deleteStep, target: undefined };
+  const userStep = group.atomic.find((step) => LAST_ADMIN_GUARDED_STEPS.has(step));
+  if (userStep !== undefined) return { step: userStep, target: undefined };
   return undefined;
 }

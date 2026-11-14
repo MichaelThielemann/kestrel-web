@@ -122,6 +122,21 @@ describe("checkPreset parity with definePreset", () => {
     expect(problems.some((p) => p.code === "preset/override-drops-atomic-group" && p.pipeline === "deletePage")).toBe(true);
     expect(preset.pipelines.find((p) => p.name === "deletePage")?.steps).toEqual(["authn.requireUser", "authz.requireRole", "authz.require:pages.manage", "content.remove:pages"]);
   });
+
+  it.each([
+    ["updateUser", ["authn.requireUser", "authz.require:users.manage", "authn.updateUser", "events.emit:user.updated"]],
+    ["deactivateUser", ["authn.requireUser", "authz.require:users.manage", "authn.deactivateUser", "events.emit:user.deactivated"]],
+    ["deleteUser", ["authn.requireUser", "authz.require:users.manage", "authn.deleteUser", "events.emit:user.deleted?with=result"]],
+  ])("reports an override of %s that runs the user change outside an atomic group, without the events queue", (pipeline, steps) => {
+    const { problems } = checkPreset(options({ modules: baseModules, features: [], overrides: { [pipeline]: steps } }));
+    expect(problems.filter((p) => p.code === "preset/override-drops-atomic-group").map((p) => p.pipeline)).toEqual([pipeline]);
+  });
+
+  it("accepts an override of deactivateUser that keeps the user change in an atomic group", () => {
+    const steps = ["authn.requireUser", "authz.require:users.manage", "authn.requireRecentAuth:300", { atomic: ["authn.deactivateUser"] }, "events.emit:user.deactivated", "events.relay"];
+    const { problems } = checkPreset(options({ modules: baseModules, features: [], overrides: { deactivateUser: steps } }));
+    expect(problems.filter((p) => p.code === "preset/override-drops-atomic-group")).toEqual([]);
+  });
 });
 
 describe("checkPreset: dependent re-rendering and queue lanes", () => {

@@ -462,7 +462,17 @@ describe("definePreset option handling", () => {
     expect(preset.pipelines.find((pipeline) => pipeline.name === "deletePage")?.steps).toContainEqual("events.relay");
   });
 
-  it("rejects an override that drops the deleteUser group once eventsQueue gives it one", () => {
+  it("rejects an override that drops the deleteUser group without the events queue", () => {
+    expect(() =>
+      definePreset({
+        modules: baseModules,
+        features: [],
+        overrides: { deleteUser: ["authn.requireUser", "authz.requireRole", "authz.require:users.manage", "authn.deleteUser", "events.emit:user.deleted?with=result"] },
+      }),
+    ).toThrow(/"deleteUser".*"authn\.deleteUser"/s);
+  });
+
+  it("rejects an override that drops the deleteUser group with the events queue", () => {
     const modules = [...withQueueInsteadOfDirect(baseModules), { use: "@michaelthielemann/kestrel-revisions-default" }];
     expect(() =>
       definePreset({

@@ -39,7 +39,7 @@ export interface PresetContext {
 }
 
 export function basePipelines(
-  { exportDir, homeSlug, prefixPrimary, customFields, eventsQueued, collectionsUi, mediaTrash }: PresetContext,
+  { exportDir, homeSlug, prefixPrimary, customFields, collectionsUi, mediaTrash }: PresetContext,
   collections: Record<string, CollectionModel>,
 ): Record<string, PresetEntry<PresetStep>[]> {
   const mounts = "pages" in collections && mountedCollections(collections).length > 0;
@@ -67,14 +67,12 @@ export function basePipelines(
       "authz.require:users.manage",
       REQUIRE_RECENT_AUTH,
       "authz.validateRoles:roles",
-      "authn.updateUser",
+      { atomic: ["authn.updateUser"] },
       "events.emit:user.updated",
     ],
-    deleteUser: eventsQueued
-      ? ["authn.requireUser", "authz.require:users.manage", REQUIRE_RECENT_AUTH, { atomic: ["authn.deleteUser"] }, "events.emit:user.deleted?with=result"]
-      : ["authn.requireUser", "authz.require:users.manage", REQUIRE_RECENT_AUTH, "authn.deleteUser", "events.emit:user.deleted?with=result"],
+    deleteUser: ["authn.requireUser", "authz.require:users.manage", REQUIRE_RECENT_AUTH, { atomic: ["authn.deleteUser"] }, "events.emit:user.deleted?with=result"],
     setPassword: ["authn.requireUser", "authz.require:users.manage", REQUIRE_RECENT_AUTH, "authn.setPassword", "events.emit:user.passwordSet"],
-    deactivateUser: ["authn.requireUser", "authz.require:users.manage", REQUIRE_RECENT_AUTH, "authn.deactivateUser", "events.emit:user.deactivated"],
+    deactivateUser: ["authn.requireUser", "authz.require:users.manage", REQUIRE_RECENT_AUTH, { atomic: ["authn.deactivateUser"] }, "events.emit:user.deactivated"],
     activateUser: ["authn.requireUser", "authz.require:users.manage", REQUIRE_RECENT_AUTH, "authn.activateUser", "events.emit:user.activated"],
     cleanupSessions: ["authn.cleanupSessions"],
     [SETTINGS_PIPELINES.get]: [

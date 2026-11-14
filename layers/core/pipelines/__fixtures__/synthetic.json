@@ -89,7 +89,11 @@
       "authz.requireRole",
       "authz.require:users.manage",
       "authn.requireRecentAuth:300",
-      "authn.deactivateUser",
+      {
+        "atomic": [
+          "authn.deactivateUser"
+        ]
+      },
       "events.emit:user.deactivated",
       "events.relay"
     ],
@@ -167,7 +171,11 @@
       "authz.requireRole",
       "authz.require:users.manage",
       "authn.requireRecentAuth:300",
-      "authn.deleteUser",
+      {
+        "atomic": [
+          "authn.deleteUser"
+        ]
+      },
       "events.emit:user.deleted?with=result",
       "events.relay"
     ],
@@ -504,7 +512,11 @@
       "authz.require:users.manage",
       "authn.requireRecentAuth:300",
       "authz.validateRoles:roles",
-      "authn.updateUser",
+      {
+        "atomic": [
+          "authn.updateUser"
+        ]
+      },
       "events.emit:user.updated",
       "events.relay"
     ],
