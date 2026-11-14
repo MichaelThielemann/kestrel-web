@@ -57,25 +57,40 @@ function nearCrop(a: Crop, b: Crop): boolean {
     && Math.abs(a.left + a.width - b.left - b.width) <= EDGE_TOLERANCE && Math.abs(a.top + a.height - b.top - b.height) <= EDGE_TOLERANCE
 }
 
+function fitsInside(crop: Crop, image: Box): boolean {
+  return crop.left + crop.width <= image.width && crop.top + crop.height <= image.height
+}
+
 function nearCentre(crop: Crop, image: Box): boolean {
-  if (crop.left + crop.width > image.width || crop.top + crop.height > image.height) return false
   if (crop.width < image.width - EDGE_TOLERANCE && crop.height < image.height - EDGE_TOLERANCE) return false
   return Math.abs(crop.left - (image.width - crop.width) / 2) <= EDGE_TOLERANCE && Math.abs(crop.top - (image.height - crop.height) / 2) <= EDGE_TOLERANCE
 }
 
-function sameCrop(a: Crop | null, b: Crop | null, item: ImageMedia): boolean {
+function orientedBoxes(item: ImageMedia, keys: ReadonlyMap<string, string>): Box[] {
+  if (!item.width || !item.height) return []
+  const stored = { width: item.width, height: item.height }
+  if (item.width === item.height) return [stored]
+  const turned = { width: item.height, height: item.width }
+  const whole = item.variants.filter((v) => v.crop === null && v.width > 0 && v.height > 0 && !keys.has(v.size))
+  const upright = whole.some((v) => overlapsRatio(v, stored))
+  const sideways = whole.some((v) => overlapsRatio(v, turned))
+  return upright === sideways ? [stored, turned] : [upright ? stored : turned]
+}
+
+function sameCrop(a: Crop | null, b: Crop | null, boxes: readonly Box[]): boolean {
   if (a !== null && b !== null) return nearCrop(a, b)
   const cut = a ?? b
   if (cut === null) return true
-  if (!item.width || !item.height) return false
-  return nearCentre(cut, { width: item.width, height: item.height }) || nearCentre(cut, { width: item.height, height: item.width })
+  const fitting = boxes.filter((box) => fitsInside(cut, box))
+  return fitting.length > 0 && fitting.every((box) => nearCentre(cut, box))
 }
 
 function sameCutAs(item: ImageMedia, named: PublicMediaVariant | undefined, reference: Box | null, keys: ReadonlyMap<string, string>): (v: PublicMediaVariant) => boolean {
   const carriesCrop = named ? named.crop !== undefined : item.variants.some((v) => v.crop !== undefined)
   if (carriesCrop) {
     const crop = named?.crop ?? null
-    return (v) => v.crop !== undefined && reference !== null && overlapsRatio(v, reference) && sameCrop(v.crop, crop, item)
+    const boxes = orientedBoxes(item, keys)
+    return (v) => v.crop !== undefined && reference !== null && overlapsRatio(v, reference) && sameCrop(v.crop, crop, boxes)
   }
   const key = named ? keys.get(named.size) : undefined
   return (v) => v.crop === undefined && reference !== null && sameRatio(ratioOf(v), ratioOf(reference))
@@ -88,7 +103,9 @@ function sameCutAs(item: ImageMedia, named: PublicMediaVariant | undefined, refe
  * whole-pixel dimensions round from overlap, and whose `crop` equals the named variant's (`null` for the original).
  * Crops count as equal when every edge lies within a pixel of the other's, and a crop within a pixel of the centred
  * cut on the original counts as `null`, so variants that show the same part of the image share one `srcset` and a
- * variant cut differently gets one of its own. When the variants carry no `crop` (an anonymous grant without
+ * variant cut differently gets one of its own. The original's stored `width`/`height` do not tell its orientation, so
+ * the centre is taken on the stored box or the swapped one: on the box the crop alone fits inside, else on the one
+ * whose aspect the uncut variants of sizes not declared `cover` show, and on both when neither tells. When the variants carry no `crop` (an anonymous grant without
  * `variants[].crop`), ratios match within 1 %, a declared `cover` size lists the variants of the `cover` sizes with
  * its exact ratio key, and any other size the variants of its ratio that no declared `cover` size renders. `sizes`
  * are the declared image sizes.

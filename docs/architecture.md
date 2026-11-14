@@ -1859,9 +1859,13 @@ present), `only` (restrict the `srcset` candidates to specific size names), `alt
   reference. Ratios are compared as kestrel defines them: equal when the ranges from `(width - 0.5) /
   (height + 0.5)` to `(width + 0.5) / (height - 0.5)` overlap, so a near-ratio centred cut (1000×404 of a
   2000×800 original) stays apart from the whole image. Crops are equal when every edge lies within a pixel of
-  the other's, and a crop within a pixel of the centred cut of its size on the original (in either orientation
-  of the original's stored `width`/`height`) counts as `null`, so a focus that shifts a cut of nearly the
-  original's ratio by one pixel keeps the `inside` widths. An uncut `cover` variant of the original's ratio therefore shares the `srcset` of the `inside`
+  the other's, and a crop within a pixel of the centred cut of its size on the oriented original counts as
+  `null`, so a focus that shifts a cut of nearly the original's ratio by one pixel keeps the `inside` widths.
+  The public item's `width`/`height` are the stored dimensions, which a photo with an EXIF rotation has
+  swapped, so the oriented box is the stored one or the swapped one: the one the crop alone fits inside,
+  else the one whose aspect the uncut variants of sizes not declared `cover` show. When neither tells, the
+  crop counts as `null` only when it lies within a pixel of the centre of both, so a cut in a corner of
+  either box never joins the uncut variants. An uncut `cover` variant of the original's ratio therefore shares the `srcset` of the `inside`
   widths, and a variant cut by hand or around a focus gets a `srcset` of its own, shared with the `cover` sizes
   of the same ratio and cut. On a width tie the named variant stays. A variant without a `crop` member is never
   combined with one that has it. When the variants carry no `crop` (an anonymous grant without

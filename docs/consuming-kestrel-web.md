@@ -1603,7 +1603,10 @@ oriented original its bytes show, or `null` for the whole image or the centred c
 when the ranges their whole-pixel `width` and `height` round from overlap, so 1000×404 is not 2000×800's
 ratio, while 320×213 is 1200×800's. Two crops are equal when each edge lies within a pixel of the other's,
 and a crop within a pixel of the centred cut on the original counts as `null`: a focus that moves the 3:2 cut
-of a 1920×1281 original by one row leaves the `teaser` with the `inside` widths. A
+of a 1920×1281 original by one row leaves the `teaser` with the `inside` widths. The centre is taken on the
+original as it is displayed; the item's `width` and `height` are as stored, swapped for a photo with an EXIF
+rotation, so `KestrelImage` reads the orientation from the uncut `inside` variants, and a crop it cannot place
+counts as `null` only when it is centred either way. A
 `cover` size that nobody cut by hand and that has no focus to follow therefore gets the `inside` widths of its
 ratio too: a 480×320 `teaser` on a large 3:2 original is offered at 320, 480, 640, 1024, 1600 and 2400 pixels
 wide, and an `inside` size's `srcset` includes the `teaser`. Once the 3:2 crop is set by hand or the focus moves the cut, the

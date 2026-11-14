@@ -381,6 +381,103 @@ describe('pickImageSources', () => {
       )
     })
 
+    it('keeps a 3:2 cut in the bottom-left corner of an upright 4:3 original apart from the centred cut of its ratio', () => {
+      const corner = { left: 0, top: 1000, width: 3000, height: 2000 }
+      const cover = [
+        variant({ size: 'teaser', width: 480, height: 320, path: '/media/m1/variants/teaser.webp?v=2', crop: corner }),
+        variant({ size: 'teaser-2x', width: 960, height: 640, path: '/media/m1/variants/teaser-2x.webp?v=2', crop: { ...corner } }),
+        variant({ size: 'card', width: 1000, height: 667, path: '/media/m1/variants/card.webp' }),
+      ]
+      const sizes: DeclaredImageSize[] = [
+        { name: 'teaser', width: 480, height: 320, fit: 'cover' },
+        { name: 'teaser-2x', width: 960, height: 640, fit: 'cover' },
+        { name: 'card', width: 1000, height: 667, fit: 'cover' },
+      ]
+      const inside = [
+        variant({ size: 'thumb', width: 320, height: 240, path: '/media/m1/variants/thumb.webp' }),
+        variant({ size: 'large', width: 1600, height: 1200, path: '/media/m1/variants/large.webp' }),
+      ]
+      for (const variants of [cover, [...inside, ...cover]]) {
+        const media = item({ width: 4000, height: 3000, variants })
+        expect(pickImageSources(media, 'teaser', undefined, sizes)?.srcset).toBe('/media/m1/variants/teaser.webp?v=2 480w, /media/m1/variants/teaser-2x.webp?v=2 960w')
+        expect(pickImageSources(media, 'card', undefined, sizes)?.srcset).toBe('/media/m1/variants/card.webp 1000w')
+        expect(pickImageSources(media, 'teaser')?.srcset).toBe('/media/m1/variants/teaser.webp?v=2 480w, /media/m1/variants/teaser-2x.webp?v=2 960w')
+      }
+    })
+
+    it('keeps a variant still listing the centred cut apart from one of its ratio already showing a corner cut', () => {
+      const media = item({
+        width: 4000,
+        height: 3000,
+        variants: [
+          variant({ size: 'thumb', width: 320, height: 240, path: '/media/m1/variants/thumb.webp' }),
+          variant({ size: 'teaser', width: 480, height: 320, path: '/media/m1/variants/teaser.webp?v=2', crop: { left: 0, top: 1000, width: 3000, height: 2000 } }),
+          variant({ size: 'teaser-2x', width: 960, height: 640, state: 'pending', path: '/media/m1/variants/teaser-2x.webp' }),
+        ],
+      })
+      const sizes: DeclaredImageSize[] = [{ name: 'teaser', width: 480, height: 320, fit: 'cover' }, { name: 'teaser-2x', width: 960, height: 640, fit: 'cover' }]
+      expect(pickImageSources(media, 'teaser', undefined, sizes)?.srcset).toBe('/media/m1/variants/teaser.webp?v=2 480w')
+      expect(pickImageSources(media, 'teaser-2x', undefined, sizes)?.srcset).toBe('/media/m1/variants/teaser-2x.webp 960w')
+    })
+
+    it('keeps a 2:3 cut at the top-right corner of an upright portrait apart from a variant still listing the centred cut', () => {
+      const media = item({
+        width: 3000,
+        height: 4000,
+        variants: [
+          variant({ size: 'card', width: 400, height: 600, path: '/media/m1/variants/card.webp?v=2', crop: { left: 1000, top: 0, width: 2000, height: 3000 } }),
+          variant({ size: 'card-2x', width: 800, height: 1200, state: 'error', path: '/media/m1/variants/card-2x.webp' }),
+        ],
+      })
+      const sizes: DeclaredImageSize[] = [{ name: 'card', width: 400, height: 600, fit: 'cover' }, { name: 'card-2x', width: 800, height: 1200, fit: 'cover' }]
+      expect(pickImageSources(media, 'card', undefined, sizes)?.srcset).toBe('/media/m1/variants/card.webp?v=2 400w')
+      expect(pickImageSources(media, 'card-2x', undefined, sizes)?.srcset).toBe('/media/m1/variants/card-2x.webp 800w')
+    })
+
+    it('keeps a 16:9 cut at the left edge of a 4:3 original apart from the centred cut of a near-16:9 key', () => {
+      const media = item({
+        width: 4000,
+        height: 3000,
+        variants: [
+          variant({ size: 'hero', width: 1600, height: 900, path: '/media/m1/variants/hero.webp?v=2', crop: { left: 0, top: 1156, width: 3000, height: 1688 } }),
+          variant({ size: 'wide', width: 1000, height: 562, path: '/media/m1/variants/wide.webp' }),
+        ],
+      })
+      const sizes: DeclaredImageSize[] = [hero, { name: 'wide', width: 1000, height: 562, fit: 'cover' }]
+      expect(pickImageSources(media, 'hero', undefined, sizes)?.srcset).toBe('/media/m1/variants/hero.webp?v=2 1600w')
+      expect(pickImageSources(media, 'wide', undefined, sizes)?.srcset).toBe('/media/m1/variants/wide.webp 1000w')
+    })
+
+    it('judges a cut that fits the original either way against the orientation its whole-image variants show', () => {
+      const teaser: DeclaredImageSize = { name: 'teaser', width: 480, height: 320, fit: 'cover' }
+      const card: DeclaredImageSize = { name: 'card', width: 1000, height: 667, fit: 'cover' }
+      const cover = [
+        variant({ size: 'teaser', width: 480, height: 320, path: '/media/m1/variants/teaser.webp?v=2', crop: { left: 0, top: 1001, width: 3000, height: 2000 } }),
+        variant({ size: 'card', width: 1000, height: 667, path: '/media/m1/variants/card.webp' }),
+      ]
+      const sideways = item({
+        width: 4000,
+        height: 3000,
+        variants: [
+          variant({ size: 'thumb', width: 240, height: 320, path: '/media/m1/variants/thumb.webp' }),
+          variant({ size: 'large', width: 1200, height: 1600, path: '/media/m1/variants/large.webp' }),
+          ...cover,
+        ],
+      })
+      expect(pickImageSources(sideways, 'teaser', undefined, [teaser, card])?.srcset).toBe('/media/m1/variants/teaser.webp?v=2 480w, /media/m1/variants/card.webp 1000w')
+      expect(pickImageSources(sideways, 'teaser')?.srcset).toBe('/media/m1/variants/teaser.webp?v=2 480w, /media/m1/variants/card.webp 1000w')
+      const upright = item({
+        width: 4000,
+        height: 3000,
+        variants: [
+          variant({ size: 'thumb', width: 320, height: 240, path: '/media/m1/variants/thumb.webp' }),
+          variant({ size: 'large', width: 1600, height: 1200, path: '/media/m1/variants/large.webp' }),
+          ...cover,
+        ],
+      })
+      expect(pickImageSources(upright, 'teaser', undefined, [teaser, card])?.srcset).toBe('/media/m1/variants/teaser.webp?v=2 480w')
+    })
+
     it('counts cuts of two ratio keys that differ by at most a pixel per edge as the same picture', () => {
       const media = item({
         width: 5000,
