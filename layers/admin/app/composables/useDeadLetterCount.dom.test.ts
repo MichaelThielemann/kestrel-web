@@ -215,4 +215,23 @@ describe('useDeadLetterCount', () => {
     expect(vi.getTimerCount()).toBe(1)
     first.wrapper.unmount()
   })
+
+  it('ignores a slower answer that was requested before a newer one arrived', async () => {
+    const pending: ((status: EventDeliveryStatus) => void)[] = []
+    apiHandler.fn = () => new Promise((resolve) => { pending.push(resolve) })
+    const rail = await mountProbe()
+    await vi.advanceTimersByTimeAsync(0)
+    const page = await mountProbe({ poll: false })
+    const refreshed = page.api.refresh()
+    expect(pending).toHaveLength(2)
+    const [poll, page2] = pending
+    page2?.(delivery({ dead: 0 }))
+    await refreshed
+    expect(page.api.count.value).toBe(0)
+    poll?.(delivery({ dead: 3 }))
+    await vi.advanceTimersByTimeAsync(0)
+    expect(rail.api.count.value).toBe(0)
+    page.wrapper.unmount()
+    rail.wrapper.unmount()
+  })
 })
