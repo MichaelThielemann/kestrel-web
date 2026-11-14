@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import type { SerializedCollection, Localized } from '#kestrel-admin/types/kestrel'
+import type { SerializedCollection } from '#kestrel-admin/types/kestrel'
 import { resolveLocalized } from '#kestrel-admin/utils/localized'
 import { listColumns } from '../utils/list-columns'
-import { boundaryCast } from '#kestrel/cast'
+import { statusChoices as choicesOf } from '../utils/workflow-status'
 
 const props = defineProps<{ schema: SerializedCollection; locale?: string }>()
 
@@ -28,10 +28,7 @@ const viewOptions = computed(() => [
 ])
 const pluralLabel = computed(() => resolveLocalized(props.schema.label?.plural, lang.value) ?? props.schema.name)
 const workflow = computed(() => props.schema.workflow)
-const statusChoices = computed(() => {
-  const field = workflow.value?.field
-  return boundaryCast<{ value: string; label: Localized }[]>((field ? props.schema.fields[field]?.options?.choices : []) ?? [], 'json')
-})
+const statusChoices = computed(() => choicesOf(props.schema))
 
 const { sort, page, perPage, setSort, setPage, clampPage, setPerPage } = useListUrlState(props.schema)
 

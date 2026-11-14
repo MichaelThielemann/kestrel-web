@@ -3,8 +3,9 @@ import { sortDirection } from '../utils/list-query'
 import { cellDisplay, columnLabel, stringOrEmpty } from '../utils/list-cell'
 import { boundaryCast } from '#kestrel/cast'
 import type { ListColumn } from '../utils/list-columns'
-import { resolveLocalized } from '#kestrel-admin/utils/localized'
-import type { Localized, Workflow } from '#kestrel-admin/types/kestrel'
+import { statusLabel as labelOf } from '../utils/workflow-status'
+import type { StatusChoice } from '../utils/workflow-status'
+import type { Workflow } from '#kestrel-admin/types/kestrel'
 
 const props = defineProps<{
   rows: Record<string, unknown>[]
@@ -21,7 +22,7 @@ const props = defineProps<{
   selected: Set<string>
   allSelected: boolean
   headerIndeterminate: boolean
-  statusChoices: { value: string; label: Localized }[]
+  statusChoices: StatusChoice[]
 
   workflow?: Workflow
 }>()
@@ -54,9 +55,7 @@ const fallbackLocale = (row: Record<string, unknown>) =>
   !row.title && props.fallbackTitles?.[String(row.id)] ? props.primaryLocale.toUpperCase() : ''
 
 function statusLabel(value: unknown): string {
-  const v = value ?? props.workflow?.draft ?? ''
-  const choice = props.statusChoices.find((c) => c.value === v)
-  return choice ? (resolveLocalized(choice.label, lang.value) ?? String(v)) : String(v)
+  return labelOf(props.statusChoices, String(value ?? props.workflow?.draft ?? ''), lang.value)
 }
 function cellText(c: ListColumn, row: Record<string, unknown>): string {
   const field = props.workflow?.field
