@@ -19,7 +19,9 @@ defineOptions({ inheritAttrs: false })
 
 const attrs = useAttrs()
 
-const inertLinkAttrs = computed(() => Object.fromEntries(Object.entries(attrs).filter(([name]) => !name.startsWith('onClick'))))
+function inertLinkAttrs(): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(attrs).filter(([name]) => !name.startsWith('onClick')))
+}
 
 const unstyled = computed(() => props.variant === 'icon' || props.variant === 'bare')
 
@@ -45,7 +47,7 @@ defineExpose({ focus })
   <a
     v-if="to && disabled"
     ref="el"
-    v-bind="inertLinkAttrs"
+    v-bind="inertLinkAttrs()"
     role="link"
     tabindex="-1"
     aria-disabled="true"

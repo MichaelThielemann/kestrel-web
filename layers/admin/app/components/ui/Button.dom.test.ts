@@ -1,5 +1,6 @@
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import { describe, expect, it, vi } from 'vitest'
+import { defineComponent, h, nextTick, ref } from 'vue'
 import { boundaryCast } from '#kestrel/cast'
 import Button from './Button.vue'
 
@@ -131,6 +132,21 @@ describe('KestrelUiButton', () => {
       expect(link.attributes('tabindex')).toBe('-1')
       expect(link.attributes('aria-disabled')).toBe('true')
       expect(link.attributes('role')).toBe('link')
+    })
+
+    it('passes attributes the caller adds later to a disabled link that started without any', async () => {
+      const extra = ref<Record<string, string>>({})
+      const Host = defineComponent({
+        setup: () => () => h(Button, { to: '/admin/media', disabled: true, ...extra.value }, () => 'Go'),
+      })
+      const wrapper = await mountSuspended(Host)
+      expect(wrapper.get('a').attributes('title')).toBeUndefined()
+
+      extra.value = { title: 'why', 'data-x': '1' }
+      await nextTick()
+
+      expect(wrapper.get('a').attributes('title')).toBe('why')
+      expect(wrapper.get('a').attributes('data-x')).toBe('1')
     })
 
     it('runs the click handler of the caller on an enabled link and an enabled button', async () => {
