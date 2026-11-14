@@ -35,15 +35,24 @@ export interface BootReportOptions {
 const RULE = "================================================================";
 const INSTANCE_LOCKED = "instance-locked";
 const LOCK_HOLDER = /host "([^"]*)", pid (\d+)/;
+const LOCK_NOT_TAKEN = "could not take the instance lock";
+const LOCK_UNREADABLE = "which is unreadable";
+const STOP_OR_OPT_OUT = "  stop it, or set allowConcurrentProcesses: true to run several processes on one database on purpose";
+
+function lockHintLines(reason: string): string[] {
+  const holder = LOCK_HOLDER.exec(reason);
+  const named = holder === null ? "" : `host "${holder[1] ?? ""}", pid ${holder[2] ?? ""}`;
+  if (reason.includes(LOCK_NOT_TAKEN)) {
+    return [named === "" ? "  another process is taking or holding the lock; retry once it has settled" : `  another process is taking over the lock: ${named}; retry once it has finished`];
+  }
+  if (holder !== null) return [`  another process is running on this database: ${named}`, STOP_OR_OPT_OUT];
+  if (reason.includes(LOCK_UNREADABLE)) return ["  another process holds this database; the lock file names no host or PID", STOP_OR_OPT_OUT];
+  return ["  another process is taking or holding the lock; see the reason above"];
+}
 
 function hintLines(input: BootBannerInput): string[] {
   if (input.code !== INSTANCE_LOCKED) return ["  fix kestrel.config.ts and restart"];
-  const holder = LOCK_HOLDER.exec(input.reason);
-  const running =
-    holder === null
-      ? "  another process holds this database; the lock file names no host or PID"
-      : `  another process is running on this database: host "${holder[1] ?? ""}", pid ${holder[2] ?? ""}`;
-  return [running, "  stop it, or set allowConcurrentProcesses: true to run several processes on one database on purpose"];
+  return lockHintLines(input.reason);
 }
 
 /** The lines of the boot-failure banner; an instance lock held by another process names that process's host and PID. */

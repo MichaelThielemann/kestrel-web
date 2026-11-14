@@ -294,7 +294,9 @@
 - The boot-failure banner of a server that another process already holds the database of names that process:
   for `instance-locked` it prints `another process is running on this database: host "<host>", pid <pid>` and
   how to run several processes on one database on purpose (`allowConcurrentProcesses: true`), instead of the
-  hint to fix `kestrel.config.ts`. A lock the module could not read gets a general hint without host and PID.
+  hint to fix `kestrel.config.ts`. A lock file the module could not read gets a general hint without host and
+  PID. A lock that could not be taken because another process is changing it or holds its takeover marker asks
+  to retry (naming the process when it is known) and offers no opt-out.
   A production server still exits with code 1 after the banner; `nuxt dev` keeps running and answers 503.
   An instance whose lock was taken over by another process reports `degraded` on `/api/ready` and 503 on
   `/api/health`, naming the module.

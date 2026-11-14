@@ -47,6 +47,49 @@ describe("bootBanner", () => {
   });
 });
 
+describe("bootBanner for an instance lock that could not be taken", () => {
+  const LOCK = "/srv/app/data/kestrel.db.instance";
+  const CHURN = `/srv/app/data/kestrel.db: could not take the instance lock ${LOCK} because other processes kept changing it; retry once they have settled`;
+  const UNNAMED = `/srv/app/data/kestrel.db: could not take the instance lock ${LOCK} because a process that did not name itself kept its takeover marker ${LOCK}.guard for more than 6 s; retry once that process has finished`;
+  const NAMED = `/srv/app/data/kestrel.db: could not take the instance lock ${LOCK} because host "web-2", pid 77 kept its takeover marker ${LOCK}.guard for more than 6 s; retry once that process has finished`;
+
+  function banner(reason: string): string {
+    return bootBanner({ module: "persistence/sqlite", reason, code: "instance-locked" }).join("\n");
+  }
+
+  it("asks to retry when other processes kept changing the lock, without a claim about the lock file or an opt-out", () => {
+    const text = banner(CHURN);
+    expect(text).toContain("  another process is taking or holding the lock; retry once it has settled");
+    expect(text).not.toContain("names no host or PID");
+    expect(text).not.toContain("stop it");
+    expect(text).not.toContain("allowConcurrentProcesses");
+    expect(text).not.toContain("fix kestrel.config.ts");
+  });
+
+  it("asks to retry when an unnamed process kept its takeover marker, without a claim about the lock file or an opt-out", () => {
+    const text = banner(UNNAMED);
+    expect(text).toContain("  another process is taking or holding the lock; retry once it has settled");
+    expect(text).not.toContain("names no host or PID");
+    expect(text).not.toContain("stop it");
+    expect(text).not.toContain("allowConcurrentProcesses");
+  });
+
+  it("names the process that kept its takeover marker and asks to retry instead of to stop it", () => {
+    const text = banner(NAMED);
+    expect(text).toContain('  another process is taking over the lock: host "web-2", pid 77; retry once it has finished');
+    expect(text).not.toContain("is running on this database");
+    expect(text).not.toContain("stop it");
+    expect(text).not.toContain("allowConcurrentProcesses");
+  });
+
+  it("says nothing about the lock file for an unrecognised reason and gives no opt-out", () => {
+    const text = banner("something else about the lock");
+    expect(text).toContain("  another process is taking or holding the lock; see the reason above");
+    expect(text).not.toContain("names no host or PID");
+    expect(text).not.toContain("allowConcurrentProcesses");
+  });
+});
+
 describe("reportBootFailure", () => {
   it("logs the banner and exits with 1 in production", () => {
     const { lines, logger } = recordingLogger();

@@ -231,9 +231,15 @@ A failed boot is loud: `server/plugins/kestrel.ts` logs it through the Kestrel `
 `getKestrelState()`, answers every `/api/*` request with 503 instead of 500, and — outside `nuxt dev` —
 exits the process with code 1. The `close` hook skips `stop()` after a failed boot.
 
-In dev, `recordBootFailure` also prints a multi-line banner (`module`, `reason`, the hint to fix
-`kestrel.config.ts` and restart) through the same `consoleLogger`, one line per call, so a broken config
-does not scroll off as a single JSON line among many. `layers/admin`'s `admin` layout — the layout every
+`reportBootFailure` (`server/utils/boot-failure.ts`) prints a multi-line banner in every mode (`module`,
+`reason` and a hint) through the same `consoleLogger`, one line per call, so a broken config does not scroll
+off as a single JSON line among many, and then ends the process with code 1 outside `nuxt dev`. The hint is
+to fix `kestrel.config.ts` and restart. For `instance-locked` it follows the reason instead: a lock held by
+another process names its host and PID and the `allowConcurrentProcesses: true` opt-out, a lock file that
+cannot be read gets a general hint, and a lock that could not be taken because another process is changing it
+or holds its takeover marker asks to retry.
+
+`layers/admin`'s `admin` layout — the layout every
 admin page, including `login.vue`, renders under — calls `GET /api/ready` once on mount
 (`useBootStatus`); when it reports `state: "failed"`, the layout renders a full-page notice (`role="alert"`,
 the boot error, a hint to check the server log) instead of the rail and the page's own content, so a
