@@ -14,7 +14,7 @@
   view, and becomes a horizontally scrolling strip below 48rem.
 - Admin: the crop frame snaps while dragging, pinching and zooming with the wheel. Within 8 screen pixels the
   middle of the image snaps to the middle of the frame, and the centre of the focus to the middle and the thirds
-  of the frame, with the guide highlighted. Alt held during the gesture places the crop freely; the arrow keys,
+  of the frame, with the guide highlighted; an axis the crop fills completely does not snap. Alt held during the gesture places the crop freely; the arrow keys,
   the slider and the number fields stay exact. A "Snap to guides" switch in the head of the crop detail turns it
   off, remembered per browser.
 - Admin kit: `KestrelUiSwitch` (an on/off switch, `role="switch"`, bound to a boolean) and `KestrelUiCropGuides`;

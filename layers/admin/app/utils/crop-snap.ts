@@ -35,6 +35,7 @@ export function snapThreshold(cropWidth: number, frameWidth: number): number {
 }
 
 function snapAxis(centre: number, size: number, span: number, focus: number | null, threshold: number): { centre: number, at: number } | null {
+  if (span >= size - EDGE_TOLERANCE) return null
   const candidates = [{ centre: size / 2, at: 1 / 2 }]
   if (focus !== null) for (const at of SNAP_LINES) candidates.push({ centre: focus + (1 / 2 - at) * span, at })
   let best: { centre: number, at: number } | null = null
@@ -50,7 +51,8 @@ function snapAxis(centre: number, size: number, span: number, focus: number | nu
 /**
  * The crop centre `(cx, cy)` snapped per axis to the nearest guide within the threshold: the middle of the image to
  * the middle of the frame, and the centre of the focus to the middle and the thirds of the frame. A guide the crop
- * could only reach by leaving the image is skipped, so the result stays inside the image wherever the input was.
+ * could only reach by leaving the image is skipped, so the result stays inside the image wherever the input was. An
+ * axis the crop fills completely cannot move and never snaps.
  */
 export function snapCentre(cx: number, cy: number, scene: SnapScene): SnapResult {
   const guides: SnapGuide[] = []

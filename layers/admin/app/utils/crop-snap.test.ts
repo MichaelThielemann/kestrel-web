@@ -72,6 +72,13 @@ describe('snapCentre', () => {
     expect(snapCentre(edge, 900, view)).toEqual({ cx: edge, cy: 900, guides: [] })
   })
 
+  it('draws no guide on an axis the crop fills, where it cannot move', () => {
+    const full = { width: 1600, height: 1200, cropWidth: 1600, cropHeight: 900, focus: { x: 800, y: 500 }, threshold: snapThreshold(1600, 320) }
+
+    expect(snapCentre(800, 597, full)).toEqual({ cx: 800, cy: 600, guides: [{ axis: 'y', at: 0.5 }] })
+    expect(snapCentre(800, 420, full)).toEqual({ cx: 800, cy: 420, guides: [] })
+  })
+
   it('snaps to a guide that puts the crop flush with the edge of the image', () => {
     const view = scene(4, { x: 125 - 250 / 6, y: 750 })
     const edge = view.cropWidth / 2

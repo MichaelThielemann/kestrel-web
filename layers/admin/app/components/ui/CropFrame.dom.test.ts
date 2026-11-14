@@ -577,6 +577,18 @@ describe('KestrelUiCropFrame', () => {
       }
     })
 
+    it('draws no guide on an axis the crop fills, however it is dragged', async () => {
+      const { wrapper } = await mountFrame(null)
+      const frame = sizedFrame(wrapper, 320, 180)
+
+      frame.dispatchEvent(pointerEvent('pointerdown', 1, 160, 90))
+      frame.dispatchEvent(pointerEvent('pointermove', 1, 160, 60))
+      await nextTick()
+      expect(guideLines(wrapper).filter((line) => line.axis === 'x')).toEqual([])
+      frame.dispatchEvent(pointerEvent('pointerup', 1, 160, 60))
+      wrapper.unmount()
+    })
+
     it('snaps while pinching', async () => {
       const { wrapper, emitted } = await mountFrame(OFF_CENTRE)
       const frame = sizedFrame(wrapper, 320, 180)

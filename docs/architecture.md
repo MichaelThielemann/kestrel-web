@@ -988,7 +988,8 @@ Kit inventory:
   the server allows (on an image a few dozen pixels high) is not set, so the ratio stays automatic. With
   `snap` (on by default), dragging, pinching and the wheel snap the crop within 8 screen pixels: the middle
   of the image to the middle of the frame, and the centre of `focus` to the middle and the thirds of the
-  frame, per axis, never past the edge of the image (`utils/crop-snap.ts`). The guide it snapped to is drawn
+  frame, per axis, never past the edge of the image and never on an axis the crop fills completely
+  (`utils/crop-snap.ts`). The guide it snapped to is drawn
   until the gesture ends (after the wheel, 600 ms later) as a 2 px white line with a 1 px edge of
   `--color-overlay`, which keeps one of the two at 3:1 or more against any image. Alt held during the
   gesture, the keys, the slider and the number fields place the crop exactly. `CropGuides.vue` draws the
