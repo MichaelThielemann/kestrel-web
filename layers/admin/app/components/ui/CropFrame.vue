@@ -14,8 +14,9 @@ const props = withDefaults(
     focus?: MediaRect | null
     maxZoom?: number
     disabled?: boolean
+    snap?: boolean
   }>(),
-  { focus: null, maxZoom: 8, disabled: false },
+  { focus: null, maxZoom: 8, disabled: false, snap: true },
 )
 
 const model = defineModel<MediaRect | null>({ default: null })
@@ -24,7 +25,7 @@ const { t } = useT()
 const helpId = `${useId()}-help`
 const frame = ref<HTMLElement | null>(null)
 
-const { zoom, maxZoom, position, imageStyle, dragging, zoomBy, zoomTo, setPosition, onKeydown, ZOOM_STEP } = usePanZoom(frame, {
+const { zoom, maxZoom, position, imageStyle, dragging, guides, zoomBy, zoomTo, setPosition, onKeydown, ZOOM_STEP } = usePanZoom(frame, {
   ratio: () => props.ratio,
   width: () => props.width,
   height: () => props.height,
@@ -33,6 +34,7 @@ const { zoom, maxZoom, position, imageStyle, dragging, zoomBy, zoomTo, setPositi
   commit: (rect) => { model.value = rect },
   maxZoom: () => props.maxZoom,
   disabled: () => props.disabled,
+  snap: () => props.snap,
 })
 
 const frameStyle = computed(() => {
@@ -97,9 +99,9 @@ defineExpose({ focus: () => frame.value?.focus() })
       @keydown="onKeydown"
     >
       <img :src="src" :alt="alt" class="ui-crop-frame__image" :style="imageStyle" draggable="false">
-      <span class="ui-crop-frame__grid" aria-hidden="true" />
+      <KestrelUiCropGuides :snapped="guides" />
     </div>
-    <p :id="helpId" class="ui-crop-frame__help">{{ t('cropFrame.help') }}</p>
+    <p :id="helpId" class="ui-crop-frame__help">{{ snap ? `${t('cropFrame.help')} ${t('cropFrame.snapHelp')}` : t('cropFrame.help') }}</p>
     <div class="ui-crop-frame__zoom">
       <KestrelUiButton
         variant="icon"
@@ -199,15 +201,6 @@ defineExpose({ focus: () => frame.value?.focus() })
     max-width: none;
     height: auto;
     pointer-events: none;
-  }
-
-  &__grid {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background:
-      linear-gradient(to right, transparent calc(100% / 3 - 0.5px), var(--color-overlay-edge) calc(100% / 3 - 0.5px), var(--color-overlay-edge) calc(100% / 3 + 0.5px), transparent calc(100% / 3 + 0.5px), transparent calc(200% / 3 - 0.5px), var(--color-overlay-edge) calc(200% / 3 - 0.5px), var(--color-overlay-edge) calc(200% / 3 + 0.5px), transparent calc(200% / 3 + 0.5px)),
-      linear-gradient(to bottom, transparent calc(100% / 3 - 0.5px), var(--color-overlay-edge) calc(100% / 3 - 0.5px), var(--color-overlay-edge) calc(100% / 3 + 0.5px), transparent calc(100% / 3 + 0.5px), transparent calc(200% / 3 - 0.5px), var(--color-overlay-edge) calc(200% / 3 - 0.5px), var(--color-overlay-edge) calc(200% / 3 + 0.5px), transparent calc(200% / 3 + 0.5px));
   }
 
   &__help {

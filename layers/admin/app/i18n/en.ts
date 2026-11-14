@@ -689,6 +689,7 @@ export const en = {
   'cropFrame.zoom': 'Zoom',
   'cropFrame.zoomIn': 'Zoom in',
   'cropFrame.zoomOut': 'Zoom out',
+  'cropFrame.snapHelp': 'Dragging and zooming snap to the middle and the thirds of the frame; hold Alt to place the image freely.',
   'mediaCrop.open': 'Adjust crop',
   'mediaCrop.openFor': 'Adjust crop of {name}',
   'mediaCrop.title': 'Crop: {name}',

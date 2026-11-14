@@ -1,6 +1,7 @@
 import { centredCrop, cropForRatio, parseFraming, type PixelCrop } from '@michaelthielemann/kestrel-images-default/framing'
-import { computed, onMounted, onUnmounted, type Ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, type Ref } from 'vue'
 import type { MediaRect } from '../types/api'
+import { snapCentre, snapThreshold, type SnapGuide } from '../utils/crop-snap'
 import { usePointerDrag, type PointerDragPoint } from './usePointerDrag'
 
 export interface PanZoomOptions {
@@ -12,12 +13,15 @@ export interface PanZoomOptions {
   commit: (rect: MediaRect) => void
   maxZoom: () => number
   disabled: () => boolean
+  /** Whether dragging, pinching and the wheel snap the crop to the guides of the frame; Alt held during the gesture places it freely. */
+  snap?: () => boolean
 }
 
 const MIN_CROP_SIDE = 64
 const ZOOM_STEP = 1.25
 const WHEEL_SPEED = 0.002
 const LINE_HEIGHT = 16
+const GUIDE_LINGER = 600
 
 function round(value: number): number {
   return Math.round(value * 10000) / 10000
@@ -64,6 +68,18 @@ export function usePanZoom(frame: Ref<HTMLElement | null>, opts: PanZoomOptions)
 
   let view: (View & { shown: PixelCrop }) | null = null
   let gesture = false
+  const guides = ref<SnapGuide[]>([])
+  let guideTimer: ReturnType<typeof setTimeout> | null = null
+
+  function clearGuides(): void {
+    if (guideTimer !== null) clearTimeout(guideTimer)
+    guideTimer = null
+    if (guides.value.length) guides.value = []
+  }
+
+  function snapsFor(event: { altKey: boolean }): boolean {
+    return (opts.snap?.() ?? false) && !event.altKey
+  }
 
   function storable(rect: MediaRect): boolean {
     return parseFraming({ crops: { [opts.ratio()]: rect } }, { width: opts.width(), height: opts.height() }).ok
@@ -81,6 +97,7 @@ export function usePanZoom(frame: Ref<HTMLElement | null>, opts: PanZoomOptions)
     const current = crop.value
     if (!current || opts.disabled()) return
     view = null
+    clearGuides()
     const next = cropAt(cx, cy, Math.min(maxZoom.value, Math.max(1, nextZoom)))
     if (next && !sameCrop(next, current)) commitCrop(next)
   }
@@ -95,14 +112,26 @@ export function usePanZoom(frame: Ref<HTMLElement | null>, opts: PanZoomOptions)
     return { cx, cy, z }
   }
 
-  function moveView(change: (from: View) => View): void {
+  function snapped(next: View, snap: boolean): { cx: number, cy: number, guides: SnapGuide[] } {
+    const base = centred.value
+    const box = frame.value?.getBoundingClientRect()
+    if (!snap || !base || !box) return { cx: next.cx, cy: next.cy, guides: [] }
+    const [cropWidth, cropHeight] = [base.width / next.z, base.height / next.z]
+    const area = opts.focus()
+    const focus = area ? { x: (area.x + area.w / 2) * opts.width(), y: (area.y + area.h / 2) * opts.height() } : null
+    return snapCentre(next.cx, next.cy, { width: opts.width(), height: opts.height(), cropWidth, cropHeight, focus, threshold: snapThreshold(cropWidth, box.width) })
+  }
+
+  function moveView(change: (from: View) => View, snap: boolean): void {
     const current = crop.value
     if (!current || opts.disabled()) return
     const held = view !== null && (gesture || sameCrop(view.shown, current)) ? view : null
     const from = held ?? { cx: current.left + current.width / 2, cy: current.top + current.height / 2, z: zoom.value }
     const next = clampView(change(from))
-    const target = next && cropAt(next.cx, next.cy, next.z)
-    if (!next || !target) return
+    const placed = next && snapped(next, snap)
+    const target = next && placed && cropAt(placed.cx, placed.cy, next.z)
+    if (!next || !placed || !target) return
+    guides.value = placed.guides
     const shown = held?.shown ?? current
     if (sameCrop(target, shown)) view = { ...next, shown }
     else {
@@ -184,14 +213,15 @@ export function usePanZoom(frame: Ref<HTMLElement | null>, opts: PanZoomOptions)
       view = null
       gesture = true
     },
-    move: (_point, delta) => moveView((from) => {
+    move: (_point, delta, _origin, event) => moveView((from) => {
       const base = centred.value
       if (!base) return from
       return { ...from, cx: from.cx - (delta.x * base.width) / from.z, cy: from.cy - (delta.y * base.height) / from.z }
-    }),
-    pinch: (scale, anchor) => moveView((from) => scaleView(from, scale, anchor)),
+    }, snapsFor(event)),
+    pinch: (scale, anchor, event) => moveView((from) => scaleView(from, scale, anchor), snapsFor(event)),
     end: () => {
       gesture = false
+      clearGuides()
     },
     disabled: opts.disabled,
   })
@@ -204,7 +234,9 @@ export function usePanZoom(frame: Ref<HTMLElement | null>, opts: PanZoomOptions)
       ? { x: (event.clientX - box.left) / box.width, y: (event.clientY - box.top) / box.height }
       : undefined
     const delta = event.deltaMode === 1 ? event.deltaY * LINE_HEIGHT : event.deltaY
-    moveView((from) => scaleView(from, Math.exp(-delta * WHEEL_SPEED), anchor ?? { x: 0.5, y: 0.5 }))
+    moveView((from) => scaleView(from, Math.exp(-delta * WHEEL_SPEED), anchor ?? { x: 0.5, y: 0.5 }), snapsFor(event))
+    if (guideTimer !== null) clearTimeout(guideTimer)
+    guideTimer = guides.value.length ? setTimeout(clearGuides, GUIDE_LINGER) : null
   }
 
   let wheelTarget: HTMLElement | null = null
@@ -215,7 +247,8 @@ export function usePanZoom(frame: Ref<HTMLElement | null>, opts: PanZoomOptions)
   onUnmounted(() => {
     wheelTarget?.removeEventListener('wheel', onWheel)
     wheelTarget = null
+    clearGuides()
   })
 
-  return { crop, zoom, maxZoom, position, imageStyle, dragging, zoomBy, zoomTo, setPosition, onKeydown, ZOOM_STEP }
+  return { crop, zoom, maxZoom, position, imageStyle, dragging, guides, zoomBy, zoomTo, setPosition, onKeydown, ZOOM_STEP }
 }

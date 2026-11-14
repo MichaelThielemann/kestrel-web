@@ -691,6 +691,7 @@ export const de: Record<CatalogKey, string> = {
   'cropFrame.zoom': 'Zoom',
   'cropFrame.zoomIn': 'Vergrößern',
   'cropFrame.zoomOut': 'Verkleinern',
+  'cropFrame.snapHelp': 'Beim Ziehen und Zoomen rastet das Bild an der Mitte und den Dritteln des Rahmens ein; mit gedrückter Alt-Taste lässt es sich frei platzieren.',
   'mediaCrop.open': 'Ausschnitt anpassen',
   'mediaCrop.openFor': 'Ausschnitt von {name} anpassen',
   'mediaCrop.title': 'Ausschnitt: {name}',

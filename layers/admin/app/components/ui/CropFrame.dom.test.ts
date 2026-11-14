@@ -8,7 +8,7 @@ import CropFrame from './CropFrame.vue'
 const WIDTH = 1600
 const HEIGHT = 1200
 
-async function mountFrame(initial: MediaRect | null, focus: MediaRect | null = null, image: { ratio: string, width: number, height: number } = { ratio: '16:9', width: WIDTH, height: HEIGHT }) {
+async function mountFrame(initial: MediaRect | null, focus: MediaRect | null = null, image: { ratio: string, width: number, height: number } = { ratio: '16:9', width: WIDTH, height: HEIGHT }, snap?: boolean) {
   const emitted: MediaRect[] = []
   const wrapper = await mountSuspended(CropFrame, {
     attachTo: document.body,
@@ -20,6 +20,7 @@ async function mountFrame(initial: MediaRect | null, focus: MediaRect | null = n
       width: image.width,
       height: image.height,
       focus,
+      ...(snap === undefined ? {} : { snap }),
       modelValue: initial,
       'onUpdate:modelValue': (value: MediaRect | null) => {
         if (value) emitted.push(value)
@@ -49,8 +50,8 @@ function squareRect(left: number, top: number, side: number): MediaRect {
   return { x: left / SMALL.width, y: top / SMALL.height, w: side / SMALL.width, h: side / SMALL.height }
 }
 
-function pointerEvent(type: string, pointerId: number, clientX: number, clientY: number): MouseEvent {
-  const event = new MouseEvent(type, { clientX, clientY, bubbles: true, cancelable: true })
+function pointerEvent(type: string, pointerId: number, clientX: number, clientY: number, altKey = false): MouseEvent {
+  const event = new MouseEvent(type, { clientX, clientY, altKey, bubbles: true, cancelable: true })
   Object.defineProperty(event, 'pointerId', { value: pointerId })
   return event
 }
@@ -360,5 +361,127 @@ describe('KestrelUiCropFrame', () => {
     expect(Math.abs((crop?.left ?? 0) - (75 + 0.25 * 1050 - 0.25 * width))).toBeLessThanOrEqual(2)
     expect(Math.abs((crop?.top ?? 0) - (0.25 * 700 - 0.25 * width * (2 / 3)))).toBeLessThanOrEqual(2)
     wrapper.unmount()
+  })
+
+  describe('snapping to the guides', () => {
+    const OFF_CENTRE = { x: 0.25625, y: 0.3125, w: 0.5, h: 0.375 }
+    const guideLines = (wrapper: Awaited<ReturnType<typeof mountFrame>>['wrapper']) => wrapper.findAll('.ui-crop-guides__line').map((line) => ({ axis: line.attributes('data-axis'), style: line.attributes('style') }))
+
+    async function drag(frame: Element, dx: number, altKey = false): Promise<void> {
+      frame.dispatchEvent(pointerEvent('pointerdown', 1, 160, 90, altKey))
+      frame.dispatchEvent(pointerEvent('pointermove', 1, 160 + dx, 90, altKey))
+      await nextTick()
+    }
+
+    it('snaps the middle of the image to the middle of the frame within 8 screen pixels and highlights the guide while dragging', async () => {
+      const { wrapper, emitted } = await mountFrame(OFF_CENTRE)
+      const frame = sizedFrame(wrapper, 320, 180)
+
+      await drag(frame, 2)
+      expect(cropOf(emitted.at(-1))?.left).toBe(400)
+      expect(guideLines(wrapper)).toContainEqual({ axis: 'x', style: 'left: 50%;' })
+
+      frame.dispatchEvent(pointerEvent('pointerup', 1, 162, 90))
+      await nextTick()
+      expect(guideLines(wrapper)).toEqual([])
+      wrapper.unmount()
+    })
+
+    it('does not snap beyond 8 screen pixels', async () => {
+      const { wrapper, emitted } = await mountFrame(OFF_CENTRE)
+      const frame = sizedFrame(wrapper, 320, 180)
+
+      await drag(frame, -6)
+      expect(cropOf(emitted.at(-1))?.left).toBe(425)
+      expect(guideLines(wrapper).filter((line) => line.axis === 'x')).toEqual([])
+      wrapper.unmount()
+    })
+
+    it('places the crop freely while Alt is held', async () => {
+      const { wrapper, emitted } = await mountFrame(OFF_CENTRE)
+      const frame = sizedFrame(wrapper, 320, 180)
+
+      await drag(frame, 2, true)
+      expect(cropOf(emitted.at(-1))?.left).toBe(405)
+      expect(guideLines(wrapper)).toEqual([])
+      wrapper.unmount()
+    })
+
+    it('places the crop freely when snapping is switched off', async () => {
+      const { wrapper, emitted } = await mountFrame(OFF_CENTRE, null, undefined, false)
+      const frame = sizedFrame(wrapper, 320, 180)
+
+      await drag(frame, 2)
+      expect(cropOf(emitted.at(-1))?.left).toBe(405)
+      expect(guideLines(wrapper)).toEqual([])
+      expect(document.getElementById(wrapper.get('.ui-crop-frame__frame').attributes('aria-describedby') ?? '')?.textContent).not.toContain('Alt')
+      wrapper.unmount()
+    })
+
+    it('tells how to place the crop freely while snapping is on', async () => {
+      const { wrapper } = await mountFrame(null)
+
+      expect(document.getElementById(wrapper.get('.ui-crop-frame__frame').attributes('aria-describedby') ?? '')?.textContent).toContain('Alt')
+      wrapper.unmount()
+    })
+
+    it('snaps the centre of the focus to a third of the frame', async () => {
+      const focus = { x: 0.35, y: 0.45, w: 0.05, h: 0.1 }
+      const { wrapper, emitted } = await mountFrame({ x: 0.225, y: 0.3125, w: 0.5, h: 0.375 }, focus)
+      const frame = sizedFrame(wrapper, 320, 180)
+
+      await drag(frame, 8)
+      expect(cropOf(emitted.at(-1))?.left).toBe(333)
+      expect(guideLines(wrapper)).toContainEqual({ axis: 'x', style: 'left: 33.333%;' })
+      wrapper.unmount()
+    })
+
+    it('snaps while zooming with the wheel, and not with Alt held', async () => {
+      const snapped = await mountFrame(OFF_CENTRE)
+      sizedFrame(snapped.wrapper, 320, 180).dispatchEvent(wheel(-1, 160, 90))
+      await nextTick()
+      const crop = cropOf(snapped.emitted.at(-1))
+      expect(Math.abs((crop?.left ?? 0) + (crop?.width ?? 0) / 2 - 800)).toBeLessThanOrEqual(1)
+      snapped.wrapper.unmount()
+
+      const free = await mountFrame(OFF_CENTRE)
+      const event = new WheelEvent('wheel', { deltaY: -1, clientX: 160, clientY: 90, altKey: true, bubbles: true, cancelable: true })
+      sizedFrame(free.wrapper, 320, 180).dispatchEvent(event)
+      await nextTick()
+      const freeCrop = cropOf(free.emitted.at(-1))
+      expect(Math.abs((freeCrop?.left ?? 0) + (freeCrop?.width ?? 0) / 2 - 810)).toBeLessThanOrEqual(1)
+      free.wrapper.unmount()
+    })
+
+    it('snaps while pinching', async () => {
+      const { wrapper, emitted } = await mountFrame(OFF_CENTRE)
+      const frame = sizedFrame(wrapper, 320, 180)
+
+      frame.dispatchEvent(pointerEvent('pointerdown', 1, 100, 90))
+      frame.dispatchEvent(pointerEvent('pointerdown', 2, 220, 90))
+      frame.dispatchEvent(pointerEvent('pointermove', 2, 222, 90))
+      frame.dispatchEvent(pointerEvent('pointermove', 1, 98, 90))
+      await nextTick()
+      const crop = cropOf(emitted.at(-1))
+      expect(crop?.width).toBeLessThan(800)
+      expect(Math.abs((crop?.left ?? 0) + (crop?.width ?? 0) / 2 - 800)).toBeLessThanOrEqual(1)
+      wrapper.unmount()
+    })
+
+    it('keeps the arrow keys, the slider and the number fields exact', async () => {
+      const { wrapper, emitted } = await mountFrame(OFF_CENTRE)
+      sizedFrame(wrapper, 320, 180)
+
+      await wrapper.get('.ui-crop-frame__frame').trigger('keydown', { key: 'ArrowLeft' })
+      expect(cropOf(emitted.at(-1))?.left).toBe(394)
+      await wrapper.get('input[data-field="x"]').setValue('25.5')
+      expect(cropOf(emitted.at(-1))?.left).toBe(408)
+      await wrapper.get('input[type="range"]').setValue('2.05')
+      const crop = cropOf(emitted.at(-1))
+      expect(crop?.width).toBeLessThan(800)
+      expect(Math.abs((crop?.left ?? 0) + (crop?.width ?? 0) / 2 - 808)).toBeLessThanOrEqual(1)
+      expect(guideLines(wrapper)).toEqual([])
+      wrapper.unmount()
+    })
   })
 })

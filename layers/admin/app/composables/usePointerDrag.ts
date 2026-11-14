@@ -7,8 +7,8 @@ export interface PointerDragPoint {
 
 export interface PointerDragHandlers {
   start?: (point: PointerDragPoint, event: PointerEvent) => void
-  move?: (point: PointerDragPoint, delta: PointerDragPoint, origin: PointerDragPoint) => void
-  pinch?: (scale: number, centre: PointerDragPoint) => void
+  move?: (point: PointerDragPoint, delta: PointerDragPoint, origin: PointerDragPoint, event: PointerEvent) => void
+  pinch?: (scale: number, centre: PointerDragPoint, event: PointerEvent) => void
   end?: () => void
   disabled?: () => boolean
   /** How far, in screen pixels, a single pointer must move from where it went down before `move` runs; 0 by default. */
@@ -70,7 +70,7 @@ export function usePointerDrag(target: Ref<HTMLElement | null>, handlers: Pointe
     const points = pair()
     if (points) {
       const next = distance(points)
-      if (spread > 0 && next > 0) handlers.pinch?.(next / spread, { x: (points[0].x + points[1].x) / 2, y: (points[0].y + points[1].y) / 2 })
+      if (spread > 0 && next > 0) handlers.pinch?.(next / spread, { x: (points[0].x + points[1].x) / 2, y: (points[0].y + points[1].y) / 2 }, event)
       spread = next
       return
     }
@@ -78,7 +78,7 @@ export function usePointerDrag(target: Ref<HTMLElement | null>, handlers: Pointe
     moved = true
     const delta = { x: point.x - last.x, y: point.y - last.y }
     last = point
-    handlers.move?.(point, delta, origin)
+    handlers.move?.(point, delta, origin, event)
   }
 
   function onUp(event: PointerEvent): void {
