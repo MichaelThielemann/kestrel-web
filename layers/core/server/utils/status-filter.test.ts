@@ -66,7 +66,43 @@ describe("statusFilterProblems", () => {
     expect(statusFilterProblems(pages, renamed, shapes(pages))).toEqual([
       { collection: "pages", pipeline: "listPages", expected: "content.list:pages?status=finished", actual: "content.list:pages?status=published" },
       { collection: "pages", pipeline: "readPage", expected: "content.get:pages?status=finished", actual: "content.get:pages?status=published" },
+      { collection: "pages", pipeline: "resolvePage", expected: "site.resolve:pages?home=home&status=finished&fallback=true", actual: "site.resolve:pages?home=home&status=published&fallback=true" },
+      { collection: "pages", pipeline: "resolvePage", expected: "site.resolveLinks:pages?home=home&status=finished&fallback=true", actual: "site.resolveLinks:pages?home=home&status=published&fallback=true" },
     ]);
+  });
+
+  it("passes the resolve pipelines of pages and of a mounted collection that the preset built", () => {
+    const routed: Record<string, CollectionModel> = {
+      settings: { kind: "single", fields: { title: { type: "text" } } },
+      pages: { kind: "multi", fields: { slug: { type: "slug" }, title: { type: "text" }, status: { type: "enum", options: ["draft", "published"] } } },
+      blog: { kind: "multi", mount: true, fields: { slug: { type: "slug" }, title: { type: "text" }, status: { type: "enum", options: ["draft", "published"] } } },
+    };
+    const built = shapes(routed);
+    expect(built.some((pipeline) => pipeline.name === "resolveBlog")).toBe(true);
+    expect(statusFilterProblems(routed, {}, built)).toEqual([]);
+  });
+
+  it("reports a public resolve pipeline that an override left without the workflow filter", () => {
+    const pages: Record<string, CollectionModel> = {
+      pages: { kind: "multi", fields: { slug: { type: "slug" }, title: { type: "text" }, status: { type: "enum", options: ["draft", "published"] } } },
+    };
+    const overridden = shapes(pages).map((pipeline) =>
+      pipeline.name === "resolvePage" ? { name: pipeline.name, steps: ["authn.identifyUser", "authz.require:pages.read", "site.resolve:pages?home=home&fallback=true"] } : pipeline,
+    );
+    expect(statusFilterProblems(pages, {}, overridden)).toEqual([
+      { collection: "pages", pipeline: "resolvePage", expected: "site.resolve:pages?home=home&fallback=true&status=published", actual: "site.resolve:pages?home=home&fallback=true" },
+    ]);
+  });
+
+  it("leaves a resolve behind authn.requireUser unfiltered, as a signed-in preview, but not one behind authn.identifyUser", () => {
+    const pages: Record<string, CollectionModel> = {
+      pages: { kind: "multi", fields: { slug: { type: "slug" }, title: { type: "text" }, status: { type: "enum", options: ["draft", "published"] } } },
+    };
+    const extra: PipelineShape[] = [
+      { name: "previewPageDraft", steps: ["authn.requireUser", "authz.require:pages.write", "site.resolve:pages?home=home"] },
+      { name: "resolvePageAgain", steps: ["authn.identifyUser", "site.resolve:pages?home=home"] },
+    ];
+    expect(statusFilterProblems(pages, {}, [...shapes(pages), ...extra]).map((problem) => problem.pipeline)).toEqual(["resolvePageAgain"]);
   });
 
   it("ignores a pipeline the consumer excluded", () => {

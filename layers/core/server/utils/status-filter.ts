@@ -2,7 +2,7 @@ import { pipelineSteps } from "@michaelthielemann/kestrel/definePipeline";
 import type { PipelineEntry } from "@michaelthielemann/kestrel/definePipeline";
 import { isGenericCollection, publicCollectionSteps } from "../../pipelines/collections";
 import type { CollectionModel } from "../../pipelines/collections";
-import type { WorkflowUi } from "../../collections-ui/workflow";
+import { resolveWorkflow, type WorkflowUi } from "../../collections-ui/workflow";
 import { moduleConfigForStep, type ConfigEntry, type ModuleLike } from "./modules";
 
 export interface PipelineShape {
@@ -31,6 +31,40 @@ export function contentCollections(config: unknown): Record<string, CollectionMo
   return collections;
 }
 
+const RESOLVE_STEPS = new Set(["site.resolve", "site.resolveLinks"]);
+const SIGNED_IN_STEP = "authn.requireUser";
+
+function resolveStepProblems(
+  collections: Record<string, CollectionModel>,
+  collectionsUi: Record<string, WorkflowUi>,
+  pipeline: string,
+  steps: readonly string[],
+): StatusFilterProblem[] {
+  const signedIn = steps.indexOf(SIGNED_IN_STEP);
+  const problems: StatusFilterProblem[] = [];
+  for (const [index, step] of steps.entries()) {
+    if (signedIn !== -1 && index > signedIn) break;
+    const [base = step, query = ""] = step.split("?", 2);
+    const separator = base.indexOf(":");
+    if (separator === -1 || !RESOLVE_STEPS.has(base.slice(0, separator))) continue;
+    const collection = base.slice(separator + 1);
+    const model = collections[collection];
+    if (model === undefined || !isGenericCollection(collection)) continue;
+    const workflow = resolveWorkflow(collection, model, collectionsUi[collection]);
+    if (workflow === undefined) continue;
+    const params = new URLSearchParams(query);
+    if (params.get(workflow.field) === workflow.live) continue;
+    params.set(workflow.field, workflow.live);
+    problems.push({ collection, pipeline, expected: `${base}?${params.toString()}`, actual: step });
+  }
+  return problems;
+}
+
+/**
+ * The public reads that do not filter on the workflow status the collection UI declares: the list and
+ * read pipelines the preset builds for each generic collection, and every `site.resolve` or
+ * `site.resolveLinks` step on such a collection that does not run behind `authn.requireUser`.
+ */
 export function statusFilterProblems(
   collections: Record<string, CollectionModel>,
   collectionsUi: Record<string, WorkflowUi>,
@@ -48,6 +82,7 @@ export function statusFilterProblems(
       problems.push({ collection: name, pipeline: expected.pipeline, expected: expected.step, actual });
     }
   }
+  for (const [pipeline, steps] of byName) problems.push(...resolveStepProblems(collections, collectionsUi, pipeline, steps));
   return problems;
 }
 
