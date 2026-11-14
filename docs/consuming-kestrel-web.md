@@ -20,7 +20,7 @@ Everything else is optional.
 | §7 Run it | first login, where data lives, deploying, IP allowlists, health probes |
 | §8–§10 Optional | static delivery, redirects, content migrations |
 | §11 Upgrading | moving to a newer kestrel-web |
-| [`deployment.md`](deployment.md) | Running the build in production: environment, persistent volumes, systemd and container examples, reverse proxy, backups, restarts, reading the logs |
+| [`deployment.md`](deployment.md) | Running the build in production: environment, persistent volumes, systemd and container examples, reverse proxy, scaling public traffic, backups, restarts, reading the logs |
 | [`field-types.md`](field-types.md) | How a field type reaches the editor and the schema, and how to declare your own in `shared/field-types.ts` |
 | [`admin-i18n.md`](admin-i18n.md) | The admin UI's own language: overriding its strings and adding a language from `shared/admin-i18n.ts`, and how `Localized` labels resolve against it |
 
@@ -1842,6 +1842,9 @@ of any page referencing it. Rules that follow from that:
 Minimal nginx location for a filesystem blobstore (`root` = `<blobstore root>/site`):
 
 ```nginx
+gzip on;
+gzip_vary on;
+gzip_types text/css text/javascript application/javascript image/svg+xml text/plain text/xml application/xml;
 location /_nuxt/ { expires 1y; add_header Cache-Control "public, immutable"; }
 location ~ \.(meta\.json|kestrel-tmp)$ { return 404; }
 location ^~ /media/ {
@@ -1862,6 +1865,11 @@ location / { charset utf-8; add_header Cache-Control "no-cache"; try_files $uri 
 `charset utf-8` sends the charset the export writes in: without it, nginx serves `llms.txt` and
 `llms-full.txt` as a bare `text/plain`, and a client that follows the HTTP default reads their UTF-8 titles as
 Latin-1.
+
+The three `gzip` lines compress page HTML, the build's CSS and JavaScript, SVG files and the index files as
+they are served, about a quarter of their size for a typical page. The export holds no precompressed copies,
+so `gzip_static` has nothing to serve. Leave `application/json` out of `gzip_types` wherever the same host
+also proxies the API. `docs/deployment.md` §7.5 has the whole server block, including the proxied admin.
 
 Page HTML revalidates on every request (`no-cache`; the host answers 304 from its ETag), so a republished
 page is seen at once, while `/_nuxt/` is hashed and immutable. Objects written by `delivery-static` carry no

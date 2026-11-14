@@ -392,10 +392,180 @@ Points that matter:
   `/media/…`: an original is `public, max-age=31536000, immutable` (its bytes never change at that URL);
   a variant path is `no-store` on Node, since a placeholder there is replaced by the render at the same
   URL — see `docs/consuming-kestrel-web.md` §8 for the equivalent static-host headers. Cache `/_nuxt/`
-  (hashed, immutable) and leave the rest to the origin.
+  (hashed, immutable) and leave the rest to the origin, or take the load off it as §7.5 describes.
 
 `/api/health` and `/api/ready` are in the `site` allowlist scope, not the `admin` one, so a
 deployment with a closed `NUXT_KESTREL_ACCESS_ADMIN` still answers its probes.
+
+## 7.5 Scaling public traffic
+
+One Node process runs the public site, the admin and the API on a single JavaScript thread. As an order of
+magnitude it renders about a hundred pages per second and takes about ten saves per second, where a save
+holds the one SQLite connection for its atomic group (§8). Both numbers move with the size of a page, the
+speed of one CPU core and what else the process is doing. Visitors and editors share that thread: a process
+busy with visitors answers every save and every background render more slowly, and beyond a few dozen
+simultaneous connections the slowest answers take seconds. A static file server answers tens of times more
+requests per worker.
+
+More processes are not the way out. A second process on the same `<dataDir>` runs the scheduled work twice
+and writes the same SQLite file (§10), so capacity comes from taking visitors off the process: serve the
+static export, or cache what the process renders.
+
+### Serve the static export
+
+With `delivery` (§8 of the consuming guide) every published page is rendered to the blobstore, and nginx
+answers visitors from those files. The Node process then serves the editors and the API only: `/admin`,
+`/api` and `/_preview`. This is the recommended setup for public traffic, and it keeps the public site up
+while the process restarts (§10).
+
+```nginx
+server {
+  listen 443 ssl;
+  server_name example.com;
+
+  add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+  add_header X-Content-Type-Options nosniff always;
+  add_header Referrer-Policy same-origin always;
+  add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()" always;
+
+  client_max_body_size 6m;
+  root /srv/mysite/data/blobs/site;
+
+  gzip on;
+  gzip_vary on;
+  gzip_types text/css text/javascript application/javascript image/svg+xml text/plain text/xml application/xml;
+
+  location ~ ^/(admin|api|_preview)(/|$) {
+    proxy_pass http://127.0.0.1:8080;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_read_timeout 300s;
+
+    proxy_hide_header X-Content-Type-Options;
+    proxy_hide_header Referrer-Policy;
+    proxy_hide_header Permissions-Policy;
+  }
+
+  location /_nuxt/ {
+    expires 1y;
+  }
+
+  location ^~ /media/ {
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Content-Type-Options nosniff always;
+    add_header Content-Security-Policy "default-src 'none'; sandbox" always;
+    add_header Cache-Control "public, max-age=31536000, immutable" always;
+  }
+
+  location ~ \.(meta\.json|kestrel-tmp)$ { return 404; }
+
+  location / {
+    charset utf-8;
+    expires -1;
+    try_files $uri $uri/index.html =404;
+  }
+}
+```
+
+The `/media/` location repeats the lines it needs because an `add_header` there replaces the server's; its
+two security headers are mandatory while `/media/` shares an origin with `/admin` (§8 of the consuming
+guide). `expires -1` sends `Cache-Control: no-cache`, so a republished page shows at once, and an unknown
+path answers 404, never another page's HTML. The index files of §7 are already under `root`. The site
+allowlist (`NUXT_KESTREL_ACCESS_SITE`) never sees a request nginx answers from a file; restrict the public
+site in nginx if it needs restricting.
+
+### Cache the rendered site
+
+Where an export does not fit, for example because a feature of your own renders pages from live data,
+`proxy_cache` in front of the process serves the same page to every visitor for a few seconds and lets only
+one request per page and interval reach it, whatever the traffic. The pieces go in the `http` context (a
+file in `/etc/nginx/conf.d/` is included there):
+
+```nginx
+proxy_cache_path /var/cache/nginx/mysite levels=1:2 keys_zone=mysite:10m max_size=200m inactive=10m use_temp_path=off;
+
+map $uri $kestrel_origin_path {
+  default 0;
+  ~^/(api|admin|media|_preview)(/|$) 1;
+}
+
+map $http_cookie $kestrel_session_cookie {
+  default 0;
+  ~__Host-kestrel_token= 1;
+}
+
+map "$kestrel_origin_path:$kestrel_session_cookie:$http_authorization" $kestrel_skip_cache {
+  default 1;
+  "0:0:" 0;
+}
+```
+
+and the `server` block of §7 gains one `add_header` line and the cache directives in `location /`:
+
+```nginx
+  add_header X-Cache-Status $upstream_cache_status always;
+
+  location / {
+    proxy_pass http://127.0.0.1:8080;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_read_timeout 300s;
+
+    proxy_hide_header X-Content-Type-Options;
+    proxy_hide_header Referrer-Policy;
+    proxy_hide_header Permissions-Policy;
+
+    gzip on;
+    gzip_vary on;
+    gzip_types text/css text/javascript application/javascript image/svg+xml text/plain text/xml application/xml;
+
+    proxy_cache mysite;
+    proxy_cache_key $host$uri;
+    proxy_cache_valid 200 301 302 10s;
+    proxy_cache_bypass $kestrel_skip_cache;
+    proxy_no_cache $kestrel_skip_cache;
+    proxy_cache_lock on;
+    proxy_cache_use_stale error timeout updating http_502 http_503 http_504;
+    proxy_cache_background_update on;
+  }
+```
+
+A request is cached only when its path is outside `/api`, `/admin`, `/media` and `/_preview`, it carries no
+session cookie and it has no `Authorization` header; every other request goes to the process and is not
+stored. `X-Cache-Status` shows what happened: `curl -skI https://example.com/` twice answers `MISS` and then
+`HIT`, `/api/ready` and `/admin` answer `BYPASS`, and so does a page requested with
+`-H 'Cookie: __Host-kestrel_token=x'`.
+
+What to know before relying on it:
+
+- **A change shows late.** A visitor sees a saved or published change up to `proxy_cache_valid` seconds
+  after it, and 10 s is the value to start from. A signed-in editor bypasses the cache and sees it at once.
+- **Only pages that look the same to everyone belong in it.** The pages of this layer do not depend on the
+  session: a request with a valid session cookie or bearer token gets byte for byte the HTML an anonymous one
+  gets, a draft is a 404 for both, and the layer sets no cookie on a page. The bypass for the session
+  cookie therefore serves freshness, not protection. A page of your own that renders per visitor needs a
+  bypass of its own, or must stay out of the location.
+- **The key ignores the query string**, so `?x=1`, `?x=2` and so on cannot each reach the process and defeat
+  the cache. Put `$is_args$args` back after `$uri` if a page of yours renders differently per query.
+- **Only 200, 301 and 302 are stored.** A 404 or a 5xx always reaches the process, so a scan of unknown paths
+  still costs a render each.
+- **A deploy leaves old HTML behind.** Pages cached before a new build point at the previous build's
+  `/_nuxt/` files. Empty the cache directory in the deploy step (`find /var/cache/nginx/mysite -type f
+  -delete`).
+- **Stale answers during an outage.** `proxy_cache_use_stale` serves the last good copy while the process
+  restarts or is down, so a release no longer shows visitors a 502 for a cached page. It also keeps an
+  unpublished page visible while the process is down, for up to `inactive`. Remove `error timeout http_502
+  http_503 http_504` to see errors instead.
+- **The site allowlist does not apply to a hit**, and neither do the process's per-address limits: nginx
+  answers from its cache without asking.
+- **`/_nuxt/` answers are stored as sent.** They carry `cache-control: public, max-age=31536000, immutable`,
+  which `proxy_cache` follows over `proxy_cache_valid`.
+- **Size.** `keys_zone=mysite:10m` holds about 80,000 keys, one per page and language; `max_size` bounds the
+  files on disk.
 
 ## 8. Health, readiness and restarts
 
@@ -481,7 +651,8 @@ same `<dataDir>`:
   no inline attempt; the worker picks up whatever is left `pending`, either way, from either process;
 - both write the same database file.
 
-So the deployment model is stop, swap, start — a short outage on every release. What removes it is
+So the deployment model is stop, swap, start — a short outage on every release, and a second process is no
+way to get more capacity either (§7.5). What removes the outage is
 static delivery (§8 of the consuming guide): with `delivery`/`renderer-nuxt` on, published pages are
 rendered to the blobstore and a plain static server delivers the public site, which then stays up
 across the admin process's restart. Editing is unavailable while the process is down either way.
@@ -509,8 +680,9 @@ request:
 - **Every deploy re-renders the site.** At start, a production server compares the running build and the
   site URL with the ones it rendered last and, on a change, marks every page before it reports ready (a
   database restored at start counts as a change too); the pages then render in
-  the background as above. A site of 1000 pages at about 0.2 s per page takes three to four minutes, during
-  which a visit can show pages of both builds.
+  the background as above. A page takes roughly 30 to 200 ms, the lower end on a process without visitors
+  and the upper end while it also serves them, so a site of 1000 pages takes from half a minute to a few
+  minutes per language, during which a visit can show pages of both builds.
 - A render that fails keeps the page's previous output and is retried; after the last attempt it counts as
   failed under System → Delivery, which offers **Retry failed re-renders**. A render that hangs is given up
   after `dependencies.renderTimeoutSeconds` (60 s).
