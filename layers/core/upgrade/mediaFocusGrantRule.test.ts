@@ -71,6 +71,22 @@ describe("preset/media-focus-grant", () => {
     expect(await mediaFocusGrantRule.check(contextFor({ grants: { media: ["id", "path", "width", "height", "focus", "variants"] } }))).toEqual([]);
   });
 
+  it("asks for the whole crop when the grant keeps only some of its edges, which leaves every cut variant without a srcset", async () => {
+    const members = ["variants[].size", "variants[].path", "variants[].width", "variants[].height"];
+    const [finding] = await mediaFocusGrantRule.check(contextFor({ grants: { media: ["id", "path", "width", "height", "focus", ...members, "variants[].crop.left"] } }));
+    expect(finding?.suggestion).toBe('add "variants[].crop" to roles.anonymousFields.media');
+    const edges = ["variants[].crop.left", "variants[].crop.top", "variants[].crop.width", "variants[].crop.height"];
+    expect(await mediaFocusGrantRule.check(contextFor({ grants: { media: ["id", "path", "width", "height", "focus", ...members, ...edges] } }))).toEqual([]);
+  });
+
+  it("counts the focus as kept when the grant names all four of its members, and asks for it when one is missing", async () => {
+    const members = ["variants[].size", "variants[].path", "variants[].width", "variants[].height", "variants[].crop"];
+    const focus = ["focus.x", "focus.y", "focus.w", "focus.h"];
+    expect(await mediaFocusGrantRule.check(contextFor({ grants: { media: ["id", "path", "width", "height", ...focus, ...members] } }))).toEqual([]);
+    const [finding] = await mediaFocusGrantRule.check(contextFor({ grants: { media: ["id", "path", "width", "height", "focus.x", "focus.y", "focus.w", ...members] } }));
+    expect(finding?.suggestion).toBe('add "focus" to roles.anonymousFields.media');
+  });
+
   it("asks for the item's width and height when the grant keeps the variants without them, which give the original its box", async () => {
     const [finding] = await mediaFocusGrantRule.check(contextFor({ grants: { media: ["id", "path", "alt", "focus", "variants"] } }));
     expect(finding?.suggestion).toBe('add "width" and "height" to roles.anonymousFields.media');

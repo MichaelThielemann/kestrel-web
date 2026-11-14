@@ -757,8 +757,9 @@ starts without any of them, but the public page changes:
 - without the item's `width` and `height`, an original shown for a size without a listed variant gets no
   `srcset` and no box;
 - without `variants[].crop`, the `srcset` is grouped by the declared `cover` sizes (§6), so a `cover` size
-  loses the `inside` widths of its ratio;
-- without `focus`, there is no `object-position`, so an original or `inside` variant in a box of another
+  loses the `inside` widths of its ratio; a grant of only some of `variants[].crop.left`, `.top`, `.width`
+  and `.height` counts as none;
+- without `focus` (or all of `focus.x`, `.y`, `.w` and `.h`), there is no `object-position`, so an original or `inside` variant in a box of another
   ratio stays centred.
 
 `kestrel upgrade check` reports each gap as `preset/media-focus-grant`, naming the fields to add.

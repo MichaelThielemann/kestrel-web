@@ -26,6 +26,19 @@ function keepsMember(paths: readonly string[], member: string): boolean {
   return paths.some((path) => whole.includes(path) || path.startsWith(`variants[].${member}.`) || path.startsWith(`variants.${member}.`));
 }
 
+const RECT_EDGES = ["left", "top", "width", "height"];
+const FOCUS_MEMBERS = ["x", "y", "w", "h"];
+
+function keepsCrop(paths: readonly string[]): boolean {
+  const bases = ["variants[].crop", "variants.crop"];
+  return paths.some((path) => ["variants", "variants[]", ...bases].includes(path))
+    || bases.some((base) => RECT_EDGES.every((edge) => paths.includes(`${base}.${edge}`)));
+}
+
+function keepsFocus(paths: readonly string[]): boolean {
+  return paths.includes("focus") || FOCUS_MEMBERS.every((member) => paths.includes(`focus.${member}`));
+}
+
 function listed(items: readonly string[], quote: (item: string) => string, conjunction: string): string {
   const quoted = items.map(quote);
   return quoted.length < 2 ? quoted.join("") : `${quoted.slice(0, -1).join(", ")} ${conjunction} ${quoted.at(-1) ?? ""}`;
@@ -46,7 +59,8 @@ function authzConfig(ctx: RuleContext): Record<string, unknown> | undefined {
 /**
  * A media grant in `roles.anonymousFields` that keeps the variants for visitors but not `focus`, not the item's
  * `width` and `height`, or not every variant member `KestrelImage` reads (`size`, `path`, `width`, `height`,
- * `crop`). The server starts, but each gap changes a public page: without `focus` no `object-position`; without
+ * `crop`), where `focus` and `variants[].crop` count only whole or with all four of their members. The server
+ * starts, but each gap changes a public page: without `focus` no `object-position`; without
  * the item's `width`/`height` no box and no `srcset` for the original; without `variants[].path` a linked variant has no
  * source; without `variants[].size` the named size is never found and the whole image is shown; without
  * `variants[].width`/`height` no variant is linked; without `variants[].crop` `pickImageSources` groups a
@@ -64,8 +78,8 @@ export const mediaFocusGrantRule: Rule = {
     if (!media.some(keepsVariants)) return [];
     const box = ["width", "height"].filter((field) => !media.includes(field));
     const unread = READ_MEMBERS.filter((member) => !keepsMember(media, member));
-    const crop = keepsMember(media, "crop") ? [] : ["variants[].crop"];
-    const missing = [...(media.includes("focus") ? [] : ["focus"]), ...box, ...unread.map((member) => `variants[].${member}`), ...crop];
+    const crop = keepsCrop(media) ? [] : ["variants[].crop"];
+    const missing = [...(keepsFocus(media) ? [] : ["focus"]), ...box, ...unread.map((member) => `variants[].${member}`), ...crop];
     if (missing.length === 0) return [];
     const losses = [
       ...(missing.includes("focus") ? [FOCUS_LOSS] : []),
