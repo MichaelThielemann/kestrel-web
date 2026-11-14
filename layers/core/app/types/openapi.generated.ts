@@ -1688,7 +1688,7 @@ export interface components {
             };
             variants: {
                 bytes: number;
-                /** @description the crop of the oriented original that the bytes at path show; null for the whole image or the centred cut of the size's ratio */
+                /** @description the crop of the oriented original that the bytes at path show; null for the whole image or the centred cut of the size's ratio, up to a pixel per edge */
                 crop: {
                     height: number;
                     left: number;
@@ -1731,7 +1731,7 @@ export interface components {
             size: number;
             title: string | null;
             variants: {
-                /** @description the crop of the oriented original that the bytes at path show; null for the whole image or the centred cut of the size's ratio */
+                /** @description the crop of the oriented original that the bytes at path show; null for the whole image or the centred cut of the size's ratio, up to a pixel per edge */
                 crop: {
                     height: number;
                     left: number;
@@ -1943,7 +1943,7 @@ export interface components {
                 };
                 variants: {
                     bytes: number;
-                    /** @description the crop of the oriented original that the bytes at path show; null for the whole image or the centred cut of the size's ratio */
+                    /** @description the crop of the oriented original that the bytes at path show; null for the whole image or the centred cut of the size's ratio, up to a pixel per edge */
                     crop: {
                         height: number;
                         left: number;
@@ -1989,7 +1989,7 @@ export interface components {
                 size: number;
                 title: string | null;
                 variants: {
-                    /** @description the crop of the oriented original that the bytes at path show; null for the whole image or the centred cut of the size's ratio */
+                    /** @description the crop of the oriented original that the bytes at path show; null for the whole image or the centred cut of the size's ratio, up to a pixel per edge */
                     crop: {
                         height: number;
                         left: number;
@@ -2392,7 +2392,7 @@ export interface components {
             };
             variants: {
                 bytes: number;
-                /** @description the crop of the oriented original that the bytes at path show; null for the whole image or the centred cut of the size's ratio */
+                /** @description the crop of the oriented original that the bytes at path show; null for the whole image or the centred cut of the size's ratio, up to a pixel per edge */
                 crop: {
                     height: number;
                     left: number;
@@ -2435,7 +2435,7 @@ export interface components {
             size: number;
             title: string | null;
             variants: {
-                /** @description the crop of the oriented original that the bytes at path show; null for the whole image or the centred cut of the size's ratio */
+                /** @description the crop of the oriented original that the bytes at path show; null for the whole image or the centred cut of the size's ratio, up to a pixel per edge */
                 crop: {
                     height: number;
                     left: number;
