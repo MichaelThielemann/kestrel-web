@@ -86,6 +86,21 @@ describe('cropSource', () => {
     expect(cropSource(heic)).toBe('/media/m1/variants/xl.webp')
   })
 
+  it('passes over a leftover variant of a size no longer declared that a manual crop cut to the original aspect', () => {
+    const cutLeftover = { ...variant('hero-xl', 3200, 'done', 1800), crop: { left: 0, top: 0, width: 3600, height: 2025 } }
+    const webp = item({
+      contentType: 'image/webp',
+      path: '/media/m1/a.webp',
+      width: 4000,
+      height: 2250,
+      variants: [cutLeftover, variant('xl', 2400, 'done', 1350), variant('large', 1600, 'done', 900)],
+      framing: { focus: null, crops: { '16:9': { x: 0, y: 0, w: 0.9, h: 0.9 } }, width: 4000, height: 2250, ratios },
+    })
+    expect(cropSource(webp)).toBe('/media/m1/variants/xl.webp')
+    expect(canFrame(webp)).toBe(true)
+    expect(canFrame(item({ ...webp, variants: [cutLeftover] }))).toBe(false)
+  })
+
   it('has nothing to show when every finished variant is cut to another aspect', () => {
     const heic = item({
       contentType: 'image/heic',

@@ -24,15 +24,15 @@ function wholeVariant(item: MediaItem): string | null {
   if (!width || !height) return null
   const cut = new Set(item.framing.ratios.flatMap((ratio) => ratio.sizes))
   const aspect = width / height
-  const whole = item.variants.filter((v) => v.state === 'done' && v.width > 0 && v.height > 0 && !cut.has(v.size)
+  const whole = item.variants.filter((v) => v.state === 'done' && v.crop === null && v.width > 0 && v.height > 0 && !cut.has(v.size)
     && Math.abs(v.width / v.height / aspect - 1) <= ASPECT_TOLERANCE)
   return whole.reduce<typeof whole[number] | null>((best, v) => (best === null || v.width > best.width ? v : best), null)?.path ?? null
 }
 
 /**
  * The URL the crop editor shows the whole image from: the original when browsers display its type with its
- * orientation applied, else the largest finished variant that is not cut to a ratio and has the aspect of the
- * oriented original, so every rectangle and crop applies to it alike. A WebP original, whose orientation tag
+ * orientation applied, else the largest finished variant that shows the whole image (no `crop`), is not cut to a ratio and has the aspect
+ * of the oriented original, so every rectangle and crop applies to it alike. A WebP original, whose orientation tag
  * browsers ignore, is never shown itself, so it has `null`, like any other original, while there is no such variant.
  */
 export function cropSource(item: MediaItem): string | null {
