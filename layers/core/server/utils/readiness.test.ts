@@ -67,3 +67,39 @@ describe("livenessFromHealth", () => {
     expect(result.error).toContain("the store is unusable after a failed rollback");
   });
 });
+
+describe("health reported by a lost instance lock", () => {
+  const LOST: InstanceHealth = {
+    ok: false,
+    restartRequired: true,
+    modules: [
+      {
+        module: "persistence/sqlite",
+        ok: false,
+        reason: "the instance lock /srv/app/data/kestrel.db.instance is owned by another instance; this process no longer holds the database alone",
+        restartRequired: true,
+      },
+    ],
+  };
+
+  it("answers not ready and names the module and the lock", () => {
+    const result = readinessFromHealth(kestrelWith(LOST));
+    if (result.ready) throw new Error("expected the readiness check to report degraded");
+    expect(result).toMatchObject({ state: "degraded", code: "degraded" });
+    expect(result.error).toContain("persistence/sqlite");
+    expect(result.error).toContain("no longer holds the database alone");
+  });
+
+  it("answers not live, so a supervisor restarts the process", () => {
+    const result = livenessFromHealth(kestrelWith(LOST));
+    if (result.live) throw new Error("expected the liveness check to report a restart");
+    expect(result.error).toContain("persistence/sqlite");
+    expect(result.error).toContain("kestrel.db.instance");
+  });
+
+  it("stays ready while the lock only notes a heartbeat that could not be written", () => {
+    const noted: InstanceHealth = { ok: true, restartRequired: false, modules: [{ module: "persistence/sqlite", ok: true, note: "the heartbeat of /srv/app/data/kestrel.db.instance could not be written: EACCES" }] };
+    expect(readinessFromHealth(kestrelWith(noted))).toEqual({ ready: true });
+    expect(livenessFromHealth(kestrelWith(noted))).toEqual({ live: true });
+  });
+});

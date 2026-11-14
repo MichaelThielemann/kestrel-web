@@ -291,6 +291,13 @@
   an ephemeral disk, such as a container platform, a restore staged from the admin is lost when the instance is
   replaced; the hint names `kestrel restore` as the way to restore there. The text is static and the staging
   mechanism is unchanged. New admin messages `replication.restoreHint` and `replication.restoreHintCommand`.
+- The boot-failure banner of a server that another process already holds the database of names that process:
+  for `instance-locked` it prints `another process is running on this database: host "<host>", pid <pid>` and
+  how to run several processes on one database on purpose (`allowConcurrentProcesses: true`), instead of the
+  hint to fix `kestrel.config.ts`. A lock the module could not read gets a general hint without host and PID.
+  A production server still exits with code 1 after the banner; `nuxt dev` keeps running and answers 503.
+  An instance whose lock was taken over by another process reports `degraded` on `/api/ready` and 503 on
+  `/api/health`, naming the module.
 
 ### Upgrading
 

@@ -1,4 +1,4 @@
-import { consoleLogger, KestrelBootError, type Kestrel } from "@michaelthielemann/kestrel";
+import { consoleLogger, type Kestrel } from "@michaelthielemann/kestrel";
 import { boundaryCast } from "@michaelthielemann/kestrel/cast";
 import { setNuxtRenderer } from "@michaelthielemann/kestrel-renderer-nuxt";
 import buildAssets from "#kestrel/build-assets";
@@ -19,7 +19,7 @@ import { projectStatusFilterFailure } from "../utils/status-filter";
 import { projectLinkCheckFailure } from "../utils/link-checks";
 import { bootWithAdminBootstrapCheck } from "../utils/admin-bootstrap";
 import { withFieldGrantHint } from "../utils/field-grant-hint";
-import type { KestrelState, KestrelStatus } from "../utils/boot-failure";
+import { reportBootFailure, type KestrelState, type KestrelStatus } from "../utils/boot-failure";
 import { rendererTarget } from "../utils/renderer-target";
 import { checkDeliveryBuild, siteUrlMismatch } from "../utils/build-check";
 import { accessLists } from "./access";
@@ -55,21 +55,7 @@ export function getKestrelState(): KestrelStatus {
 
 function recordBootFailure(err: unknown): void {
   state = "failed";
-  bootError = err instanceof Error ? err.message : String(err);
-  const module = err instanceof KestrelBootError ? err.module : "kestrel";
-  const reason = err instanceof KestrelBootError ? err.reason : bootError;
-  consoleLogger.error("kestrel failed to boot", { module, reason });
-  for (const line of [
-    "================================================================",
-    "  KESTREL FAILED TO BOOT",
-    `  module: ${module}`,
-    `  reason: ${reason}`,
-    "  fix kestrel.config.ts and restart",
-    "================================================================",
-  ]) {
-    consoleLogger.error(line);
-  }
-  if (!import.meta.dev) process.exit(1);
+  bootError = reportBootFailure(err, { logger: consoleLogger, dev: import.meta.dev, exit: (code) => process.exit(code) });
 }
 
 export function getKestrel(): Promise<Kestrel> {
