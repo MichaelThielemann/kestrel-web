@@ -60,14 +60,16 @@ kestrel-web's own, all read while `kestrel.config.ts` loads:
 | `NUXT_KESTREL_ACCESS_ADMIN` / `_SITE` | no | the two IP allowlists (§7 of the consuming guide); empty means open |
 | `NUXT_KESTREL_ACCESS_TRUST_PROXY`, `_PROXY_HOPS`, `_TRUSTED_HEADER` | no | how the client address is taken behind a proxy |
 | `NUXT_KESTREL_ACCESS_TRUSTED_PROXIES` | no | the proxies whose forwarding headers count, addresses or CIDR ranges; empty means loopback |
-| `KESTREL_STEP_LOG` | no | which pipeline steps write a `step` log line (§11): `all` (unset or empty means `all`), `errors` for the steps whose outcome is not `ok`, or `off`; any other value stops the config from loading. The `error` lines, the `http` lines, Insights and the audit log are the same in every mode. `errors` or `off` saves one synchronous log write per step under load; keep `all` while debugging |
+| `KESTREL_STEP_LOG` | no | which pipeline steps write a `step` log line (§11): `all` (unset or empty means `all`), `errors` for the steps whose outcome is not `ok`, or `off`; read by `envStepLog()` (from `#kestrel/config`), so it applies only where `kestrel.config.ts` passes `stepLog: envStepLog()` to `defineConfig`, and there any other value stops the config from loading. Without that call every step writes its line. The `error` lines, the `http` lines, Insights and the audit log are the same in every mode. `errors` or `off` saves one synchronous log write per step under load; keep `all` while debugging |
 | `KESTREL_MIGRATIONS` | no | only if your `kestrel.config.ts` wires it to the migrations module's `mode` (`docs/migrations.md`) |
 
 The `KESTREL_*` rows only apply where `kestrel.config.ts` actually calls the `#kestrel/config` helpers.
-`playground/kestrel.config.ts` deliberately does not — it hard-codes a filesystem blobstore and the
-development hash so `nuxt build` and `nuxt preview` need no environment at all. A deployed app is
-expected to use `kestrelDataDir()`, `adminPasswordHash()` and `envBlobstore()` so a missing variable
-fails while the config loads, naming the variable, rather than at the first request.
+`playground/kestrel.config.ts` hard-codes a filesystem blobstore and the development hash so `nuxt build`
+and `nuxt preview` need no environment at all. A deployed app is expected to use `kestrelDataDir()`,
+`adminPasswordHash()` and `envBlobstore()` so a missing variable fails while the config loads, naming the
+variable, rather than at the first request. `envStepLog()` is optional: the generated app's
+`kestrel.config.ts` does not call it, so add `stepLog: envStepLog()` to its `defineConfig` call to switch the
+step log from the environment.
 
 The `NUXT_*` rows are Nuxt runtime config and always apply. They are read at **process start**, not at
 build time — the same `.output` runs with different allowlists or a different site URL.
@@ -140,7 +142,7 @@ $ curl -s localhost:8080/api/limits
 
 The Nitro plugin boots the backend as the process starts — before the first request — creating
 `<dataDir>/kestrel.db` and the bootstrap user. From then on it logs one JSON line per pipeline step to
-stdout, unless `KESTREL_STEP_LOG` narrows that (§2).
+stdout, unless `KESTREL_STEP_LOG` narrows that (§2; it takes effect where the config passes `envStepLog()`).
 
 ## 5. systemd
 
@@ -182,6 +184,37 @@ the lock at once. After a power loss or a restart of the machine it is refused w
 the lock's TTL of 60 seconds, since the old holder's heartbeat has to run out first; with 15 seconds between
 the attempts the unit retries a few times during that wait, does not reach `StartLimitBurst`, and starts as soon
 as the lock is free. A clean stop releases the lock at once.
+
+`Restart=on-failure` reacts only to the process ending. A process that lost its instance lock (§8) keeps
+running, so a second unit polls `/api/health` and restarts the service when it answers 503:
+
+```ini
+# /etc/systemd/system/mysite-health.service
+[Unit]
+Description=Restart mysite when it asks to be replaced
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c 'curl -s -o /dev/null -m 5 -w "%%{http_code}" http://127.0.0.1:8080/api/health | grep -qx 503 && systemctl restart mysite || true'
+```
+
+```ini
+# /etc/systemd/system/mysite-health.timer
+[Unit]
+Description=Poll the health of mysite
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=30s
+
+[Install]
+WantedBy=timers.target
+```
+
+Enable it with `systemctl enable --now mysite-health.timer`. Only an answer of 503 triggers the restart: a
+refused connection, which is what a restart in progress or the wait for the lock looks like, answers `000`, and
+the unit's own `RestartSec` stays in charge there. Over a Unix socket (below) add `--unix-socket` with the
+socket path to the `curl` call.
 
 `NUXT_KESTREL_ACCESS_TRUSTED_HEADER=x-real-ip` matches the `X-Real-IP $remote_addr` line of the proxy in
 §7. Without it every request reaches the server from the proxy's address, and the IP allowlists, the
@@ -660,7 +693,7 @@ What to know before relying on it:
 | `GET /api/health` | liveness: the process can keep serving, or needs to be restarted | `{ ok: true, uptimeSeconds }` | `503 { ok: false, error, uptimeSeconds }` |
 | `GET /api/ready` | readiness: route traffic here, or don't | `{ ready: true, uptimeSeconds }` | `503 { ready: false, state, error? }` |
 
-Point the restart policy at `/api/health` and traffic routing at `/api/ready` — they now answer two
+Point whatever restarts the process at `/api/health` (a liveness probe, or the timer of §5) and traffic routing at `/api/ready` — they now answer two
 different questions and can disagree. A restart policy watching `/api/ready` instead would restart the
 process for a condition a restart cannot fix (a misconfigured collection, a missing permission), and a
 load balancer watching `/api/health` instead would keep sending traffic to an instance that has already
@@ -684,9 +717,13 @@ restartRequired }`; `persistence-sqlite` is the shipped example, reporting the s
   replaced, which is exactly what a restart policy should act on.
 
 The instance lock of `persistence-sqlite` (§10) reports through the same hook: once another process took the lock
-over, or the process failed to renew it for longer than the TTL, the module reports `restartRequired: true`.
-`/api/health` then answers 503 and the restart policy replaces the process, which is the intended outcome, since
-the process no longer holds the database alone.
+over, or the lock file is gone after the process did not renew it for longer than the TTL, the module reports
+`restartRequired: true` and `/api/health` answers 503. A heartbeat that cannot be written (a full disk, a
+read-only mount) appears only as a note in the health output; the answer stays 200. The 503 is a signal for
+whatever polls it: the process itself keeps serving and writing beside the new holder until something replaces
+it. `Restart=on-failure` in the unit of §5 reacts only to the process exiting and does not see the 503, which is
+why that section adds a timer that restarts the unit on it. An orchestrator's liveness probe or a platform
+health check on `/api/health` does the same.
 
 A write that touches an atomic group (creating, updating or deleting a page, deleting a user) holds
 SQLite's single connection for the group's duration; a second such request arriving while it is open
@@ -777,12 +814,18 @@ static delivery (§8 of the consuming guide): with `delivery`/`renderer-nuxt` on
 rendered to the blobstore and a plain static server delivers the public site, which then stays up
 across the admin process's restart. Editing is unavailable while the process is down either way.
 
-With `eventsQueue`, a stop starts no new job: from the first moment of `stop()` the queue's main loop, its lanes
-and the relay claim no further row, so no listener pipeline (a render, an export) starts while the process drains
-its running requests. A job that already runs finishes; every row left pending is delivered after the next start,
-or by another process on the same store. A publish in the last seconds therefore renders after the restart
-rather than delaying the shutdown past the platform's grace period (`shutdownTimeoutMs`, 30 s by default, which
-the unit's `TimeoutStopSec` and the platform's stop timeout should exceed).
+With `eventsQueue`, a stop starts no new job once kestrel's `stop()` begins: from that moment the queue's main
+loop, its lanes and the relay claim no further row. On `SIGTERM` the server first stops accepting connections and
+waits for its open requests, up to `NITRO_SHUTDOWN_TIMEOUT` (30 s by default); only then does the layer call
+`stop()`. A publish that is still running when the signal arrives therefore completes and its listener pipelines
+start as usual, and `stop()` waits for the jobs that run. A job that already runs finishes; every row left
+pending is delivered after the next start, or by another process on the same store.
+
+`stop()` has up to `shutdownTimeoutMs` (30 s by default) for those jobs, and the server cuts the close hook off
+after its own `NITRO_SHUTDOWN_TIMEOUT`, together with kestrel's teardown. A stop can thus take about twice
+`NITRO_SHUTDOWN_TIMEOUT`: the unit's `TimeoutStopSec` (systemd's default of 90 s covers the two default windows)
+and the platform's stop timeout have to exceed that sum, and a `shutdownTimeoutMs` above `NITRO_SHUTDOWN_TIMEOUT`
+only has the effect of the lower of the two.
 
 After a new build, the first start re-renders every page in the background, so the exported pages
 reference the new asset hashes; a page of the old build is loaded as a document instead of by client
@@ -871,7 +914,7 @@ a container in its log driver. Two lines matter when something failed:
   cookie or the query string. The only values taken from request headers are the request id, the declared
   `Content-Length` (`declaredBytes`, on a 413, a 408 or a closed connection) and the client address `ip`,
   which may come from `X-Forwarded-For` or the trusted client header.
-- **One `step` line per pipeline step**, with the same `runId`: what the run did and where it failed.
+- **One `step` line per pipeline step** while `KESTREL_STEP_LOG` (§2) is `all`, with the same `runId`: what the run did and where it failed. With `errors` only the steps whose outcome is not `ok` write one, with `off` none; a step that threw writes its `error` line in every mode.
 
 The layer's own routes write no `http` line: `/api/health`, `/api/ready`, `/api/limits`,
 `/api/admin/schema`, and a request the IP allowlist refuses before kestrel sees it.
@@ -884,10 +927,10 @@ the layer resolves it (§7, "Client address"):
 
 | entry | written when |
 |---|---|
-| `auth.loggedIn`, `auth.loggedOut` | a sign-in succeeded, a session ended |
+| `auth.loggedIn`, `auth.loggedOut` | a sign-in succeeded, a user signed out (a session that expires or is ended by a deactivation or a second-factor reset leaves no `auth.loggedOut`) |
 | `auth.failed` | a sign-in or a password or second-factor check failed, with the attempted username as sent |
-| `access.denied`, `access.rateLimited` | a request was answered 403 or 429, with pipeline, step and code |
-| `user.created`, `user.updated`, `user.deactivated`, `user.activated`, `user.passwordSet`, `user.passwordChanged` | an account changed, with the acting identity and the account it concerns |
+| `access.denied`, `access.rateLimited` | a 403 or 429 kestrel answered, with pipeline, step and code; a request the layer's IP allowlist refused never reaches kestrel and leaves no entry |
+| `user.created`, `user.updated`, `user.deactivated`, `user.activated`, `user.passwordSet`, `user.passwordChanged`, `user.secondFactorReset` (with `mfa`) | an account changed, with the acting identity and the account it concerns |
 
 `access.denied` and `access.rateLimited` are written at most once a minute per address, identity, pipeline and
 step, and the next entry says in `params.suppressed` how many it left out, so a scan does not fill the table.
@@ -913,8 +956,9 @@ Search the log for it:
 journalctl -u mysite | grep 3f9a2c7b1e04
 ```
 
-- **A line with that `requestId`** means kestrel answered: its `status` and `reason`, and the `step` lines
-  of its `runId`, explain the failure.
+- **A line with that `requestId`** means kestrel answered: its `status` and `reason` explain the failure. The
+  `step` lines of its `runId` show what the run did before, while `KESTREL_STEP_LOG` is `all` (with `errors` only
+  the failed step, with `off` none); a step that threw also has its `error` line.
 - **No line, and the admin says the request did not reach the server or was refused in front of it**: the
   answer carried no `X-Kestrel-Run-Id` and its body was neither a kestrel error nor an error of the host
   server, so it came from the proxy or a gateway in front of the app (`HTTP 413`, `HTTP 502`), also one

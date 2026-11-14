@@ -139,7 +139,58 @@ describe("docs/deployment.md", () => {
     expect(section("3. Persistent state")).toContain("kestrel.db.instance");
   });
 
-  it("says that a stopping process starts no new queue job", () => {
-    expect(doc).toMatch(/claim no further row/);
+  it("says that the queue claims no further row once stop begins, after the open requests ended", () => {
+    const text = section("10. Zero downtime, and why there is none");
+    expect(text).toMatch(/claim no further row/);
+    expect(text).not.toMatch(/while the process drains its running requests/);
+    expect(text).toContain("NITRO_SHUTDOWN_TIMEOUT");
+    expect(text).toMatch(/open requests/);
+  });
+
+  it("promises step lines in the log section only for the mode that writes them", () => {
+    const logs = section("11. Reading the logs");
+    expect(logs).not.toMatch(/\*\*One `step` line per pipeline step\*\*, with the same `runId`/);
+    expect(logs).toMatch(/One `step` line per pipeline step[^\n]*KESTREL_STEP_LOG/);
+    expect(logs).not.toMatch(/and the `step` lines\s+of its `runId`, explain the failure/);
+    expect(logs).toMatch(/`error` line/);
+  });
+
+  it("says that KESTREL_STEP_LOG only works where the config passes envStepLog()", () => {
+    const env = section("2. Environment");
+    const row = env.split("\n").find((line) => line.startsWith("| `KESTREL_STEP_LOG`"));
+    expect(row).toContain("stepLog: envStepLog()");
+    expect(row).toContain("#kestrel/config");
+    expect(env).toMatch(/`envStepLog\(\)` is optional[\s\S]*?does not call it/);
+    expect(section("4. A worked run")).toMatch(/KESTREL_STEP_LOG[^\n]*\n?[^\n]*(envStepLog|§2)/);
+  });
+
+  it("does not promise a restart on a lost instance lock from a unit that only reacts to process exit", () => {
+    const text = section("8. Health, readiness and restarts");
+    expect(text).toMatch(/Restart=on-failure[^.]*(only|does not)[^.]*(exit|\/api\/health)/);
+    expect(text).toMatch(/did not renew|was not renewed/);
+    expect(text).not.toMatch(/failed to renew it for longer than the TTL/);
+    const unit = section("5. systemd");
+    expect(unit).toContain("mysite-health.timer");
+    expect(unit).toContain("%{http_code}");
+    expect(unit).toContain("systemctl restart mysite");
+  });
+
+  it("lists only the security entries the audit feature writes, with the cases it does not cover", () => {
+    const text = section("11. Reading the logs");
+    expect(text).toContain("user.secondFactorReset");
+    expect(text).not.toContain("a session ended");
+    expect(text).toMatch(/IP allowlist/);
+    expect(text).toMatch(/a 403 or 429 kestrel answered/);
+  });
+});
+
+describe("docs/consuming-kestrel-web.md", () => {
+  const doc = readFileSync(fileURLToPath(new URL("../../../docs/consuming-kestrel-web.md", import.meta.url)), "utf-8");
+
+  it("restricts the replication-sqlite override of allowConcurrentProcesses to the replication feature", () => {
+    const start = doc.indexOf("**One process per database file.**");
+    expect(start).toBeGreaterThan(-1);
+    const bullet = doc.slice(start, doc.indexOf("Anything the builder doesn't expose", start));
+    expect(bullet).toMatch(/replication-sqlite[^.]*only[^.]*`replication` feature/);
   });
 });

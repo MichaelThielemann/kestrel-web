@@ -402,7 +402,9 @@ rather than booting with something plausible.
   file. To run several processes on one file on purpose, for example with `eventsQueue`, set
   `allowConcurrentProcesses: true` on every one of those entries that names the file:
   `overrides: { "@michaelthielemann/kestrel-persistence-sqlite": { allowConcurrentProcesses: true }, "@michaelthielemann/kestrel-replication-sqlite": { allowConcurrentProcesses: true } }`
-  for the preset's two, and the option in the `config` of your own `backup-blobstore` entry. A mismatch,
+  for the preset's two, and the option in the `config` of your own `backup-blobstore` entry. Name the
+  `replication-sqlite` key only with the `replication` feature, since an override for a module that is not
+  enabled fails the config. A mismatch,
   one entry with the option and another without, fails the boot with `invalid-module-config`. Without the
   option a second process fails with `instance-locked` (`docs/deployment.md` §10).
 
