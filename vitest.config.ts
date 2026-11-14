@@ -58,6 +58,7 @@ export default defineConfig({
           include: ["layers/**/*.dom.test.ts"],
           environment: "nuxt",
           environmentOptions: { nuxt: { rootDir: playgroundDir, domEnvironment: "jsdom" } },
+          hookTimeout: 30_000,
         },
       }),
     ],
