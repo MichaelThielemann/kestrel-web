@@ -577,15 +577,20 @@ describe('KestrelUiCropFrame', () => {
       }
     })
 
-    it('draws no guide on an axis the crop fills, however it is dragged', async () => {
-      const { wrapper } = await mountFrame(null)
-      const frame = sizedFrame(wrapper, 320, 180)
+    it.each([
+      { name: '16:9 on 1600 x 1200', image: { ratio: '16:9', width: 1600, height: 1200 }, frame: [320, 180], move: [0, -30], axis: 'x' },
+      { name: '16:9 on 1366 x 768, one pixel narrower after rounding', image: { ratio: '16:9', width: 1366, height: 768 }, frame: [320, 180], move: [0, -30], axis: 'x' },
+      { name: '4:5 on 1080 x 1351, one pixel lower after rounding', image: { ratio: '4:5', width: 1080, height: 1351 }, frame: [144, 180], move: [-30, 0], axis: 'y' },
+    ])('draws no guide on an axis the crop fills to within a pixel, however it is dragged: $name', async ({ image, frame: [frameWidth, frameHeight], move: [dx, dy], axis }) => {
+      const { wrapper } = await mountFrame(null, null, image)
+      const frame = sizedFrame(wrapper, frameWidth ?? 0, frameHeight ?? 0)
+      const [x, y] = [(frameWidth ?? 0) / 2, (frameHeight ?? 0) / 2]
 
-      frame.dispatchEvent(pointerEvent('pointerdown', 1, 160, 90))
-      frame.dispatchEvent(pointerEvent('pointermove', 1, 160, 60))
+      frame.dispatchEvent(pointerEvent('pointerdown', 1, x, y))
+      frame.dispatchEvent(pointerEvent('pointermove', 1, x + dx, y + dy))
       await nextTick()
-      expect(guideLines(wrapper).filter((line) => line.axis === 'x')).toEqual([])
-      frame.dispatchEvent(pointerEvent('pointerup', 1, 160, 60))
+      expect(guideLines(wrapper).filter((line) => line.axis === axis)).toEqual([])
+      frame.dispatchEvent(pointerEvent('pointerup', 1, x + dx, y + dy))
       wrapper.unmount()
     })
 

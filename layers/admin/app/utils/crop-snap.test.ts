@@ -79,6 +79,21 @@ describe('snapCentre', () => {
     expect(snapCentre(800, 420, full)).toEqual({ cx: 800, cy: 420, guides: [] })
   })
 
+  it.each([
+    { name: '16:9 on 1366 x 768', width: 1366, height: 768, cropWidth: 1365, cropHeight: 768, cx: 683.5, cy: 300, axis: 'x' },
+    { name: '4:5 on 1080 x 1351', width: 1080, height: 1351, cropWidth: 1080, cropHeight: 1350, cx: 400, cy: 675, axis: 'y' },
+  ])('draws no guide on an axis where the rounded crop of $name leaves a single pixel of room', ({ width, height, cropWidth, cropHeight, cx, cy, axis }) => {
+    const rounded = { width, height, cropWidth, cropHeight, focus: null, threshold: snapThreshold(Math.max(cropWidth, cropHeight), 320) }
+
+    expect(snapCentre(cx, cy, rounded).guides.filter((guide) => guide.axis === axis)).toEqual([])
+  })
+
+  it('snaps on an axis that leaves the crop two pixels of room', () => {
+    const roomy = { width: 1367, height: 768, cropWidth: 1365, cropHeight: 768, focus: null, threshold: snapThreshold(1365, 320) }
+
+    expect(snapCentre(683, 384, roomy)).toEqual({ cx: 683.5, cy: 384, guides: [{ axis: 'x', at: 0.5 }] })
+  })
+
   it('snaps to a guide that puts the crop flush with the edge of the image', () => {
     const view = scene(4, { x: 125 - 250 / 6, y: 750 })
     const edge = view.cropWidth / 2
