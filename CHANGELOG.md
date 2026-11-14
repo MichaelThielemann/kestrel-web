@@ -23,9 +23,9 @@
   `focusObjectPosition()` answers that value. `pickImageSources` passes a variant path with its `?v=` query
   through unchanged, in `src` and `srcset`, and builds a `srcset` from the variants with the reference's aspect
   ratio and an equal `crop`, so a `cover` variant whose cut stays centred keeps the `inside` widths of its ratio
-  and one cut differently gets a `srcset` of its own. The original as the reference takes its box from the
-  variant of a declared `inside` size, turned for a photo stored on its side, and leaves the `cover` sizes out
-  without one. It takes the declared sizes as a fourth argument, by default the build's
+  and one cut differently gets a `srcset` of its own. The original as the reference keeps the item's `width`
+  and `height`, turned when its uncut variants show the swapped aspect, and leaves the `cover` sizes out when
+  none tells the orientation. It takes the declared sizes as a fourth argument, by default the build's
   (`#kestrel/image-sizes`), and groups by their `cover` ratio keys when the variants carry no `crop`. A width
   tie keeps the named variant (`cut` in its answer says whether `src` links a declared `cover` size).
   `KestrelImage` and `pickImageSources` take an item without `focus` (`ImageMedia`).

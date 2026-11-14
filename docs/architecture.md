@@ -1858,10 +1858,12 @@ present), `only` (restrict the `srcset` candidates to specific size names), `alt
   aspect ratio, compared as kestrel defines it (the ranges from `(width - 0.5) / (height + 0.5)` to
   `(width + 0.5) / (height - 0.5)` overlap), and an equal `crop`: both `null`, or both set with every edge
   within a pixel. The reference is the named variant. Without one it is the original, with `crop` `null`;
-  its box (and the answered `width`/`height`) is the item's `width`/`height`, turned when the variant of a
-  declared `inside` size shows the swapped aspect, since a photo with an EXIF rotation stores its dimensions
-  swapped. Without such a variant the declared `cover` sizes stay out, because the centred cut of the
-  swapped ratio lists `null` as well. On a width tie the named variant stays. A variant without a `crop`
+  its box (and the answered `width`/`height`) is the item's `width`/`height`, turned when the uncut variants
+  of the declared `inside` sizes show only the swapped aspect, since a photo with an EXIF rotation stores its
+  dimensions swapped. Without such a variant the uncut variants of sizes the build does not declare
+  (images-default's own sizes) decide the same way; a variant whose rounded aspect fits both boxes tells
+  nothing. When neither tells the orientation, the declared `cover` sizes stay out, because the centred cut
+  of the swapped ratio lists `null` as well. On a width tie the named variant stays. A variant without a `crop`
   member never combines with one that has it. When the variants carry no `crop` (an anonymous grant without
   `variants[].crop`), ratios match within 1 % and the declared sizes (`#kestrel/image-sizes`, which
   `pickImageSources` reads when no fourth argument is given) decide: a declared `cover` size lists the

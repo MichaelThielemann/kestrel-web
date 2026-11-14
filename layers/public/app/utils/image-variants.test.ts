@@ -472,35 +472,91 @@ describe('pickImageSources', () => {
       })
     })
 
-    it('gives the original its stored box without a variant of a declared inside size, and leaves the cover sizes out', () => {
+    it('takes the original\'s orientation from the uncut variants of sizes the build does not declare when they agree, with the uncut cover variants of that box', () => {
+      const cover: DeclaredImageSize[] = [{ name: 'teaser', width: 480, height: 320, fit: 'cover' }, { name: 'teaser-2x', width: 960, height: 640, fit: 'cover' }]
+      const teasers = [
+        variant({ size: 'teaser', width: 480, height: 320, path: '/media/m1/variants/teaser.webp' }),
+        variant({ size: 'teaser-2x', width: 960, height: 640, path: '/media/m1/variants/teaser-2x.webp' }),
+      ]
+      const upright = item({
+        width: 6000,
+        height: 4000,
+        variants: [
+          variant({ size: 'thumb', width: 320, height: 213, path: '/media/m1/variants/thumb.webp' }),
+          variant({ size: 'small', width: 640, height: 427, path: '/media/m1/variants/small.webp' }),
+          variant({ size: 'xl', width: 2400, height: 1600, path: '/media/m1/variants/xl.webp' }),
+          ...teasers,
+        ],
+      })
+      expect(pickImageSources(upright, 'full', undefined, cover)).toMatchObject({
+        srcset: '/media/m1/variants/thumb.webp 320w, /media/m1/variants/teaser.webp 480w, /media/m1/variants/small.webp 640w, /media/m1/variants/teaser-2x.webp 960w, /media/m1/variants/xl.webp 2400w',
+        width: 6000,
+        height: 4000,
+      })
+      const sideways = item({
+        width: 6000,
+        height: 4000,
+        variants: [
+          variant({ size: 'thumb', width: 320, height: 480, path: '/media/m1/variants/thumb.webp' }),
+          variant({ size: 'small', width: 640, height: 960, path: '/media/m1/variants/small.webp' }),
+          variant({ size: 'xl', width: 2400, height: 3600, path: '/media/m1/variants/xl.webp' }),
+          ...teasers,
+        ],
+      })
+      expect(pickImageSources(sideways, 'full', undefined, cover)).toMatchObject({
+        src: '/media/m1/photo.jpg',
+        srcset: '/media/m1/variants/thumb.webp 320w, /media/m1/variants/small.webp 640w, /media/m1/variants/xl.webp 2400w',
+        width: 4000,
+        height: 6000,
+      })
+      expect(pickImageSources(sideways, 'teaser', undefined, cover)?.srcset).toBe('/media/m1/variants/teaser.webp 480w, /media/m1/variants/teaser-2x.webp 960w')
+    })
+
+    it('gives the original its stored box and leaves the cover sizes out when no uncut variant tells its orientation', () => {
       const cover: DeclaredImageSize[] = [{ name: 'four', width: 800, height: 600, fit: 'cover' }, { name: 'four-2x', width: 1600, height: 1200, fit: 'cover' }]
       const four = [
         variant({ size: 'four', width: 800, height: 600, path: '/media/m1/variants/four.webp' }),
         variant({ size: 'four-2x', width: 1600, height: 1200, path: '/media/m1/variants/four-2x.webp' }),
       ]
-      const sideways = item({
-        width: 4000,
-        height: 3000,
-        variants: [
-          variant({ size: 'thumb', width: 320, height: 427, path: '/media/m1/variants/thumb.webp' }),
-          variant({ size: 'large', width: 1600, height: 2133, path: '/media/m1/variants/large.webp' }),
-          ...four,
-        ],
-      })
-      expect(pickImageSources(sideways, 'hero', undefined, cover)).toMatchObject({ src: '/media/m1/photo.jpg', srcset: null, width: 4000, height: 3000 })
-      expect(pickImageSources(sideways, 'four', undefined, cover)?.srcset).toBe('/media/m1/variants/four.webp 800w, /media/m1/variants/four-2x.webp 1600w')
-      const upright = item({
+      const covers = item({ width: 4000, height: 3000, variants: four })
+      expect(pickImageSources(covers, 'hero', undefined, cover)).toMatchObject({ src: '/media/m1/photo.jpg', srcset: null, width: 4000, height: 3000 })
+      expect(pickImageSources(covers, 'four', undefined, cover)?.srcset).toBe('/media/m1/variants/four.webp 800w, /media/m1/variants/four-2x.webp 1600w')
+      const disagreeing = item({
         width: 4000,
         height: 3000,
         variants: [
           variant({ size: 'thumb', width: 320, height: 240, path: '/media/m1/variants/thumb.webp' }),
+          variant({ size: 'old', width: 600, height: 800, path: '/media/m1/variants/old.webp' }),
           variant({ size: 'large', width: 2400, height: 1800, path: '/media/m1/variants/large.webp' }),
           ...four,
         ],
       })
-      expect(pickImageSources(upright, 'hero', undefined, cover)?.srcset).toBe('/media/m1/variants/thumb.webp 320w, /media/m1/variants/large.webp 2400w')
-      const failed = item({ ...upright, variants: [variant({ size: 'thumb', width: 0, height: 0, state: 'failed' }), ...four] })
+      expect(pickImageSources(disagreeing, 'hero', undefined, cover)).toMatchObject({
+        srcset: '/media/m1/variants/thumb.webp 320w, /media/m1/variants/large.webp 2400w',
+        width: 4000,
+        height: 3000,
+      })
+      const failed = item({ width: 4000, height: 3000, variants: [variant({ size: 'thumb', width: 0, height: 0, state: 'failed' }), ...four] })
       expect(pickImageSources(failed, 'hero', undefined, [...cover, { name: 'thumb', width: 320, fit: 'inside' }])).toMatchObject({ srcset: null, width: 4000, height: 3000 })
+    })
+
+    it('orients a nearly square original by a declared inside variant large enough to tell the two boxes apart', () => {
+      const sizes: DeclaredImageSize[] = [{ name: 'icon', width: 48, fit: 'inside' }, { name: 'content', width: 1200, fit: 'inside' }]
+      const nearSquare = item({
+        width: 3015,
+        height: 3000,
+        variants: [
+          variant({ size: 'icon', width: 48, height: 48, path: '/media/m1/variants/icon.webp' }),
+          variant({ size: 'small', width: 640, height: 643, path: '/media/m1/variants/small.webp' }),
+          variant({ size: 'content', width: 1200, height: 1206, path: '/media/m1/variants/content.webp' }),
+          variant({ size: 'xl', width: 2400, height: 2412, path: '/media/m1/variants/xl.webp' }),
+        ],
+      })
+      expect(pickImageSources(nearSquare, 'full', undefined, sizes)).toMatchObject({
+        srcset: '/media/m1/variants/icon.webp 48w, /media/m1/variants/small.webp 640w, /media/m1/variants/content.webp 1200w, /media/m1/variants/xl.webp 2400w',
+        width: 3000,
+        height: 3015,
+      })
     })
 
     it('keeps the centred cut of a ratio near the original\'s apart from the whole image once their rounded ratios differ', () => {
