@@ -66,7 +66,7 @@ export function usePanZoom(frame: Ref<HTMLElement | null>, opts: PanZoomOptions)
     return closest ? Math.max(1, base.width / closest.width) : 1
   })
 
-  let view: (View & { shown: PixelCrop }) | null = null
+  let view: (View & { shown: PixelCrop, snapped: boolean }) | null = null
   let gesture = false
   const guides = ref<SnapGuide[]>([])
   let guideTimer: ReturnType<typeof setTimeout> | null = null
@@ -75,6 +75,11 @@ export function usePanZoom(frame: Ref<HTMLElement | null>, opts: PanZoomOptions)
     if (guideTimer !== null) clearTimeout(guideTimer)
     guideTimer = null
     if (guides.value.length) guides.value = []
+  }
+
+  function settle(): void {
+    if (view?.snapped) view = null
+    clearGuides()
   }
 
   function snapsFor(event: { altKey: boolean }): boolean {
@@ -125,7 +130,7 @@ export function usePanZoom(frame: Ref<HTMLElement | null>, opts: PanZoomOptions)
   function moveView(change: (from: View) => View, snap: boolean): void {
     const current = crop.value
     if (!current || opts.disabled()) return
-    const held = view !== null && (gesture || sameCrop(view.shown, current)) ? view : null
+    const held = view !== null && (gesture || (sameCrop(view.shown, current) && (snap || !view.snapped))) ? view : null
     const from = held ?? { cx: current.left + current.width / 2, cy: current.top + current.height / 2, z: zoom.value }
     const next = clampView(change(from))
     const placed = next && snapped(next, snap)
@@ -133,10 +138,11 @@ export function usePanZoom(frame: Ref<HTMLElement | null>, opts: PanZoomOptions)
     if (!next || !placed || !target) return
     guides.value = placed.guides
     const shown = held?.shown ?? current
-    if (sameCrop(target, shown)) view = { ...next, shown }
+    const snappedNow = placed.guides.length > 0
+    if (sameCrop(target, shown)) view = { ...next, shown, snapped: snappedNow }
     else {
       const committed = commitCrop(target)
-      view = committed ? { ...next, shown: committed } : null
+      view = committed ? { ...next, shown: committed, snapped: snappedNow } : null
     }
   }
 
@@ -221,7 +227,7 @@ export function usePanZoom(frame: Ref<HTMLElement | null>, opts: PanZoomOptions)
     pinch: (scale, anchor, event) => moveView((from) => scaleView(from, scale, anchor), snapsFor(event)),
     end: () => {
       gesture = false
-      clearGuides()
+      settle()
     },
     disabled: opts.disabled,
   })
@@ -236,7 +242,7 @@ export function usePanZoom(frame: Ref<HTMLElement | null>, opts: PanZoomOptions)
     const delta = event.deltaMode === 1 ? event.deltaY * LINE_HEIGHT : event.deltaY
     moveView((from) => scaleView(from, Math.exp(-delta * WHEEL_SPEED), anchor ?? { x: 0.5, y: 0.5 }), snapsFor(event))
     if (guideTimer !== null) clearTimeout(guideTimer)
-    guideTimer = guides.value.length ? setTimeout(clearGuides, GUIDE_LINGER) : null
+    guideTimer = guides.value.length ? setTimeout(settle, GUIDE_LINGER) : null
   }
 
   let wheelTarget: HTMLElement | null = null

@@ -453,6 +453,64 @@ describe('KestrelUiCropFrame', () => {
       free.wrapper.unmount()
     })
 
+    function altWheel(deltaY: number): WheelEvent {
+      return new WheelEvent('wheel', { deltaY, clientX: 160, clientY: 90, altKey: true, bubbles: true, cancelable: true })
+    }
+
+    function centreX(rect: MediaRect | undefined): number {
+      const crop = cropOf(rect)
+      return (crop?.left ?? 0) + (crop?.width ?? 0) / 2
+    }
+
+    it('zooms with Alt held around the snapped crop a drag left behind', async () => {
+      const { wrapper, emitted } = await mountFrame(OFF_CENTRE)
+      const frame = sizedFrame(wrapper, 320, 180)
+
+      frame.dispatchEvent(pointerEvent('pointerdown', 1, 160, 90))
+      frame.dispatchEvent(pointerEvent('pointermove', 1, 171, 90))
+      frame.dispatchEvent(pointerEvent('pointerup', 1, 171, 90))
+      await nextTick()
+      expect(cropOf(emitted.at(-1))?.left).toBe(400)
+
+      frame.dispatchEvent(altWheel(-0.5))
+      await nextTick()
+      expect(Math.abs(centreX(emitted.at(-1)) - 800)).toBeLessThanOrEqual(1)
+      frame.dispatchEvent(altWheel(-100))
+      await nextTick()
+      expect(Math.abs(centreX(emitted.at(-1)) - 800)).toBeLessThanOrEqual(1)
+      wrapper.unmount()
+    })
+
+    it('zooms around the snapped crop a drag left behind once snapping is switched off', async () => {
+      const { wrapper, emitted } = await mountFrame(OFF_CENTRE)
+      const frame = sizedFrame(wrapper, 320, 180)
+
+      frame.dispatchEvent(pointerEvent('pointerdown', 1, 160, 90))
+      frame.dispatchEvent(pointerEvent('pointermove', 1, 171, 90))
+      frame.dispatchEvent(pointerEvent('pointerup', 1, 171, 90))
+      await nextTick()
+      await wrapper.setProps({ snap: false })
+
+      frame.dispatchEvent(wheel(-0.5, 160, 90))
+      await nextTick()
+      expect(Math.abs(centreX(emitted.at(-1)) - 800)).toBeLessThanOrEqual(1)
+      wrapper.unmount()
+    })
+
+    it('zooms with Alt held around the crop a snapping wheel step just showed', async () => {
+      const { wrapper, emitted } = await mountFrame(OFF_CENTRE)
+      const frame = sizedFrame(wrapper, 320, 180)
+
+      frame.dispatchEvent(wheel(-1, 160, 90))
+      await nextTick()
+      expect(Math.abs(centreX(emitted.at(-1)) - 800)).toBeLessThanOrEqual(1)
+
+      frame.dispatchEvent(altWheel(-0.5))
+      await nextTick()
+      expect(Math.abs(centreX(emitted.at(-1)) - 800)).toBeLessThanOrEqual(1)
+      wrapper.unmount()
+    })
+
     it('snaps while pinching', async () => {
       const { wrapper, emitted } = await mountFrame(OFF_CENTRE)
       const frame = sizedFrame(wrapper, 320, 180)
