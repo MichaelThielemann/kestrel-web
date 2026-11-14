@@ -230,6 +230,7 @@ describe("the grants presetModuleConfig derives from the same pipeline changes a
     news: { kind: "multi", fields: { title: { type: "text" }, status: { type: "enum", options: ["draft", "published"] } } },
   } satisfies Record<string, CollectionModel>;
   const features: readonly Feature[] = ["redirects", "images"];
+  const PUBLIC_READ_PERMISSIONS = ["settings.read", "redirects.read", "pages.read", "news.read", "media.read"];
 
   function modulesFor(anonymous: string[], pipelines: PresetPipelineChanges<typeof types> = {}, anonymousFields?: Record<string, string[]>): ModuleEntry[] {
     return presetModuleConfig({
@@ -252,28 +253,28 @@ describe("the grants presetModuleConfig derives from the same pipeline changes a
   }
 
   it("grants every resource a preset read still cuts", () => {
-    expect(Object.keys(grantsOf(modulesFor(["*"]))).sort()).toEqual(["media", "mediaFile", "news", "pages", "redirectRules", "redirects", "settings"]);
+    expect(Object.keys(grantsOf(modulesFor(PUBLIC_READ_PERMISSIONS))).sort()).toEqual(["media", "mediaFile", "news", "pages", "redirectRules", "redirects", "settings"]);
   });
 
   it("grants nothing for a collection whose every read is excluded", () => {
-    expect(grantsOf(modulesFor(["*"], { exclude: ["listNews", "readNews"] }))).not.toHaveProperty("news");
+    expect(grantsOf(modulesFor(PUBLIC_READ_PERMISSIONS, { exclude: ["listNews", "readNews"] }))).not.toHaveProperty("news");
   });
 
   it("grants nothing for a collection whose every read is overridden without the cut", () => {
     const pipelines: PresetPipelineChanges<typeof types> = {
       overrides: { listNews: ["authn.requireUser", "authz.require:news.read", "content.list:news"], readNews: ["authn.requireUser", "authz.require:news.read", "content.get:news"] },
     };
-    expect(grantsOf(modulesFor(["*"], pipelines))).not.toHaveProperty("news");
+    expect(grantsOf(modulesFor(PUBLIC_READ_PERMISSIONS, pipelines))).not.toHaveProperty("news");
   });
 
   it("keeps the grant while one read still ends with its cut, overridden or not", () => {
-    expect(grantsOf(modulesFor(["*"], { exclude: ["listNews"] }))).toHaveProperty("news");
+    expect(grantsOf(modulesFor(PUBLIC_READ_PERMISSIONS, { exclude: ["listNews"] }))).toHaveProperty("news");
     const changes: PresetPipelineChanges<typeof types> = { exclude: ["listNews"], overrides: { readNews: ["authn.identifyUser", "authz.require:news.read", "content.get:news", "authz.fields:news?shape=item"] } };
-    expect(grantsOf(modulesFor(["*"], changes))).toHaveProperty("news");
+    expect(grantsOf(modulesFor(PUBLIC_READ_PERMISSIONS, changes))).toHaveProperty("news");
   });
 
   it("grants nothing for redirects without getRedirects, and nothing for media files without a file route", () => {
-    const grants = grantsOf(modulesFor(["*"], { exclude: ["getRedirects", "downloadMedia", "serveMediaFile", "serveImageVariant"] }));
+    const grants = grantsOf(modulesFor(PUBLIC_READ_PERMISSIONS, { exclude: ["getRedirects", "downloadMedia", "serveMediaFile", "serveImageVariant"] }));
     expect(grants).not.toHaveProperty("redirects");
     expect(grants).not.toHaveProperty("mediaFile");
     expect(grants).toHaveProperty("media");
@@ -285,7 +286,7 @@ describe("the grants presetModuleConfig derives from the same pipeline changes a
       blobstore: { use: "@michaelthielemann/kestrel-blobstore-filesystem", config: { root: resolve(DATA_DIR, "blobs") } },
       model: { types },
       features: ["redirects"],
-      roles: { roles: { admin: ["*"] }, anonymous: ["*"] },
+      roles: { roles: { admin: ["*"] }, anonymous: PUBLIC_READ_PERMISSIONS },
       bootstrap: { username: "admin", passwordHash: PASSWORD_HASH },
       pipelines: { exclude: ["downloadMedia", "serveMediaFile"] },
     });
@@ -293,14 +294,14 @@ describe("the grants presetModuleConfig derives from the same pipeline changes a
   });
 
   it("keeps a grant the consumer named in roles.anonymousFields", () => {
-    expect(grantsOf(modulesFor(["*"], { exclude: ["listNews", "readNews"] }, { news: ["id", "title"] }))).toEqual(expect.objectContaining({ news: ["id", "title"] }));
+    expect(grantsOf(modulesFor(PUBLIC_READ_PERMISSIONS, { exclude: ["listNews", "readNews"] }, { news: ["id", "title"] }))).toEqual(expect.objectContaining({ news: ["id", "title"] }));
   });
 
   it("derives the same grants however often it runs, and definePreset leaves them as they are", () => {
     const changes: PresetPipelineChanges<typeof types> = { exclude: ["listNews", "readNews"] };
-    const modules = modulesFor(["*"], changes);
+    const modules = modulesFor(PUBLIC_READ_PERMISSIONS, changes);
     const before = structuredClone(modules);
-    expect(modulesFor(["*"], changes)).toEqual(modules);
+    expect(modulesFor(PUBLIC_READ_PERMISSIONS, changes)).toEqual(modules);
     definePreset({ modules, features, collections: types });
     definePreset({ modules, features, collections: types, ...changes });
     expect(modules).toEqual(before);

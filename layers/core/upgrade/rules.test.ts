@@ -736,7 +736,7 @@ describe("fieldGrantsRule", () => {
   }
 
   it("leaves out a resource no loaded pipeline cuts", async () => {
-    const findings = await fieldGrantsRule.check(grantsContextFor({ roles: { admin: ["*"] }, anonymous: ["*"] }, "^3.0.0"));
+    const findings = await fieldGrantsRule.check(grantsContextFor({ roles: { admin: ["*"] }, anonymous: ["settings.read", "redirects.read", "pages.read", "media.read"] }, "^3.0.0"));
     expect(findings[0]?.suggestion).toContain("settings:");
     expect(findings[0]?.suggestion).not.toContain("redirects:");
     expect(findings[0]?.suggestion).not.toContain("redirectRules:");
