@@ -292,6 +292,11 @@
   replaced; the hint names `kestrel restore` as the way to restore there. The text is static and the staging
   mechanism is unchanged. New admin messages `replication.restoreHint` and `replication.restoreHintCommand`.
 
+### Changed
+
+- Admin: the origin label of a disclosed media file, in the grid and in the table of the media library, is the
+  `KestrelUiBadge` component. It sits in the corner of the thumbnail or beside the file name and covers no control.
+
 ### Upgrading
 
 - With `images`, `MediaItem` has the members `focus` and `framing`, each `MediaVariant` has `crop`, and

@@ -213,6 +213,8 @@ describe('MediaGrid origin label', () => {
     })
 
     expect(wrapper.get('.media-grid__ai').text()).toBe(label)
+    expect(wrapper.get('.media-grid__ai').classes()).toContain('ui-badge')
+    expect(wrapper.get('.media-grid__ai').attributes('data-variant')).toBe('muted')
   })
 
   it('shows no label for a human-made file', async () => {

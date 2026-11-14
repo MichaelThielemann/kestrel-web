@@ -138,6 +138,8 @@ describe('MediaTable origin label', () => {
     })
 
     expect(wrapper.get('.media-table__ai').text()).toBe(label)
+    expect(wrapper.get('.media-table__ai').classes()).toContain('ui-badge')
+    expect(wrapper.get('.media-table__ai').attributes('data-variant')).toBe('muted')
   })
 
   it('shows no label for a human-made file', async () => {

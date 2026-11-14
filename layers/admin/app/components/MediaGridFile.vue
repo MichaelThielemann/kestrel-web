@@ -24,7 +24,7 @@ const ext = computed(() => (props.file.filename.split('.').pop() ?? '').toUpperC
       :variants="fresh?.variants ?? file.variants ?? []"
       :pending="chip?.state === 'pending' && !chip.stalled" />
     <span v-else class="media-grid__badge" aria-hidden="true">{{ ext }}</span>
-    <span v-if="!pick && isDisclosed(file.provenance)" class="media-grid__ai">{{ t(provenanceLabelKey(provenanceOrigin(file.provenance))) }}</span>
+    <KestrelUiBadge v-if="!pick && isDisclosed(file.provenance)" class="media-grid__ai">{{ t(provenanceLabelKey(provenanceOrigin(file.provenance))) }}</KestrelUiBadge>
     <span v-if="gated" class="media-grid__processing">{{ t('media.pick.processing') }}</span>
     <KestrelMediaVariantChip v-else-if="chip" class="media-grid__variant-chip" :state="chip.state" :stalled="chip.stalled" :done="chip.done" :total="chip.total" />
     <span v-else class="media-grid__meta" aria-hidden="true">{{ humanizeSize(file.size) }}</span>
@@ -39,16 +39,11 @@ const ext = computed(() => (props.file.filename.split('.').pop() ?? '').toUpperC
 .media-grid__badge { display: grid; place-items: center; aspect-ratio: 1; width: 100%; border-radius: var(--radius-sm); background: var(--color-bg); color: var(--color-text-muted); font-weight: var(--weight-bold); }
 .media-grid__ai {
   position: absolute;
-  top: var(--space-1);
-  right: var(--space-1);
-  max-width: calc(100% - 1.75rem);
-  padding: 0 var(--space-1);
-  text-align: end;
-  border-radius: var(--radius-sm);
-  background: var(--color-overlay);
-  color: var(--color-on-overlay);
-  font-size: var(--text-xs);
-  line-height: 1.5;
+  inset-block-start: var(--space-1);
+  inset-inline-end: var(--space-1);
+  max-inline-size: calc(100% - var(--space-2));
+  overflow: hidden;
+  text-overflow: ellipsis;
   pointer-events: none;
 }
 .media-grid__meta,
