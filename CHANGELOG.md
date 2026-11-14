@@ -1077,8 +1077,9 @@
   declares `engines.node` >=22.12.0, inside the layer's own >=22.18.0.
 - `create-kestrel` writes `overrides` into a new project's `pnpm-workspace.yaml` that resolve `glob@13` as
   ^14.0.2 and `minimatch@10` as ^11.0.1: Nuxt's Nitro server reaches both through `@vercel/nft` and `archiver`,
-  and every release of glob 13 and minimatch 10 carries a published advisory. A site on pnpm adds the same two
-  entries to its own `pnpm-workspace.yaml` for a `pnpm audit` without these findings.
+  and every release of glob 13 and minimatch 10 carries a published advisory. A third entry resolves
+  `@nuxt/eslint-config>eslint-plugin-import-x` as ^4.18.1, the first release that loads against minimatch 11. A
+  site on pnpm adds the same entries to its own `pnpm-workspace.yaml` for a `pnpm audit` without these findings.
 - Media library and picker: "Delete" moves files and folders to the media trash instead of deleting them, so
   their files keep using storage until the nightly purge, 30 days later by default
   (`media.trashRetentionDays`; `0` keeps the final delete behind a dialog). A page that shows a trashed item
