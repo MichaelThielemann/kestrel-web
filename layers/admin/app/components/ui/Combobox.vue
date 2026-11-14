@@ -352,10 +352,11 @@ function moveChip(from: number, to: number) {
   &__option {
     display: flex;
     flex: 1;
+    flex-wrap: wrap;
     align-items: center;
-    gap: var(--space-2);
+    gap: var(--space-1) var(--space-2);
     min-inline-size: 0;
-    overflow-wrap: anywhere;
+    overflow-wrap: break-word;
   }
   &__hint { margin-inline: var(--space-2) var(--space-1); }
   &__check { color: var(--color-primary-text); }
