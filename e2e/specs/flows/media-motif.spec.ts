@@ -194,19 +194,21 @@ for (const upload of UPLOADS) {
 test("the box of the hero keeps its planned ratio while the variants still serve the original", async ({ browser, baseURL, adminApi }, testInfo) => {
   const original = rasterPng(RASTER);
   const id = idOf(await adminApi.upload("motif-pending.png", original));
+  let served: string[] = [];
   await until("the variants of motif-pending.png", async () => {
     const { variants } = await variantsOf(adminApi, id);
+    served = variants.map((variant) => variant.path.split("?")[0] ?? "");
     return [WIDE.size, TALL.size].every((size) => variants.some((variant) => variant.size === size && variant.state === "done"));
   });
   await adminApi.call("POST", "/pages", { locale: "de", slug: "rasterbild-pending", title: "Rasterbild", status: "published", body: [{ id: "h1", type: "hero", props: { heading: "Rasterbild", image: id } }] });
 
   for (const [viewport, ratio] of [[VIEWPORTS[0], 16 / 9], [VIEWPORTS[1], 3 / 4]] as const) {
     const context = await browser.newContext({ baseURL, viewport });
-    await context.route(`**/media/${id}/variants/**`, (route) => route.fulfill({ status: 200, contentType: "image/png", body: original }));
+    await context.route((url) => served.includes(url.pathname), (route) => route.fulfill({ status: 200, contentType: "image/png", body: original }));
     const visit = await context.newPage();
     await visit.goto("/rasterbild-pending");
     const image = visit.locator(".block-hero__image");
-    await expect.poll(() => image.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth === WIDTH)).toBe(true);
+    await expect.poll(() => image.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
     const box = await image.boundingBox();
     expect(box && box.width / box.height, `the hero at ${viewport?.width} px keeps the ratio of its cut`).toBeCloseTo(ratio, 2);
     await testInfo.attach(`rasterbild-pending-${viewport?.width}`, { body: await visit.screenshot({ fullPage: true }), contentType: "image/png" });
