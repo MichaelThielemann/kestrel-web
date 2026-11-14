@@ -136,7 +136,7 @@ function uploadProcessing(upload: UploadItem): boolean {
           @keydown.enter.prevent="onFileOpen(item)"
           @dragstart="(e: DragEvent) => emit('dragstart', item, e)"
           @dragend="emit('dragend')">
-          <KestrelMediaGridFile :file="item.file" :fresh="variantOverride?.get(item.file.id)" :stalled="stalledIds?.has(item.file.id)" :gated="gatedFile(item)" />
+          <KestrelMediaGridFile :file="item.file" :fresh="variantOverride?.get(item.file.id)" :stalled="stalledIds?.has(item.file.id)" :gated="gatedFile(item)" :pick="pick" />
         </KestrelUiButton>
         <span v-if="tileMenu?.length" class="media-grid__menu">
           <KestrelUiActionMenu :items="tileMenu" :label="t('media.menu.more', { name: item.file.filename })" trigger-class="ui-button--icon ui-button--icon-sm media-grid__menu-trigger"

@@ -4,7 +4,6 @@ import type { ListPage, MediaItem } from '#kestrel-admin/types/api'
 import type { FieldComponentProps } from '../../utils/field-component'
 import { fieldIs } from '#kestrel-admin/types/kestrel'
 import { commonFolder } from '#kestrel-admin/utils/library'
-import { isDisclosed, provenanceLabelKey, provenanceOrigin } from '#kestrel-admin/utils/provenance'
 import { isInsertable } from '#kestrel-admin/utils/media-insert'
 import { onMediaChanged, onMediaFramed, onMediaRemoved } from '#kestrel-admin/composables/useMediaChanges'
 import { lookUpMedia } from '#kestrel-admin/composables/useMediaPick'
@@ -136,7 +135,6 @@ async function onConfirm(picked: string[]) {
           <li v-for="(r, i) in resolved" :key="r.id" class="field-media__item">
             <KestrelMediaThumb :path="r.item?.path ?? null" class="field-media__thumb" :content-type="r.item?.contentType" :alt="r.item?.alt ?? r.item?.filename ?? ''" />
             <span class="field-media__filename">{{ nameOf(r.id, r.item, i) }}</span>
-            <span v-if="isDisclosed(r.item?.provenance)" class="field-media__ai">{{ t(provenanceLabelKey(provenanceOrigin(r.item?.provenance))) }}</span>
             <span v-if="!r.item && trashed[r.id] !== undefined" class="field-media__trashed">{{ t('field.media.trashed') }}</span>
             <KestrelUiButton v-if="r.item && canCrop(r.item)" variant="icon" class="field-media__crop" :aria-label="t('mediaCrop.openFor', { name: nameOf(r.id, r.item, i) })" @click="r.item && openCrop(r.item)"><KestrelUiIcon name="crop" size="1rem" /></KestrelUiButton>
             <KestrelUiButton v-if="!disabled" variant="icon" class="field-media__remove" :aria-label="t('field.media.remove', { name: nameOf(r.id, r.item, i) })" @click="removeId(r.id)"><KestrelUiIcon name="x" size="1rem" /></KestrelUiButton>
@@ -167,18 +165,6 @@ async function onConfirm(picked: string[]) {
 .field-media__item { position: relative; display: flex; flex-direction: column; gap: var(--space-1); width: 80px; }
 .field-media__thumb { width: 80px; height: 80px; object-fit: cover; border-radius: var(--radius-md); background: var(--color-bg); border: 1px solid var(--color-border); }
 .field-media__filename { max-width: 80px; font-size: var(--text-xs); color: var(--color-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.field-media__ai {
-  position: absolute;
-  top: 4px;
-  left: 4px;
-  padding: 0 var(--space-1);
-  border-radius: var(--radius-sm);
-  background: var(--color-scrim);
-  color: var(--color-on-primary);
-  font-size: var(--text-xs);
-  pointer-events: none;
-}
-
 .field-media__trashed {
   font-size: var(--text-xs);
   color: var(--color-warning-text);

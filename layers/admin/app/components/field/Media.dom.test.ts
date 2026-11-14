@@ -364,3 +364,20 @@ describe('field/Media crop entry', () => {
     }
   })
 })
+
+describe('field/Media origin label', () => {
+  afterEach(() => {
+    apiHandler.fn = () => Promise.resolve({ items: [], total: 0 })
+  })
+
+  it.each(['ai', 'mixed', 'unknown'] as const)('keeps the %s origin off the tile so the remove button stays clear', async (origin) => {
+    apiHandler.fn = () => Promise.resolve({ items: [mediaItem({ provenance: { origin } })], total: 1 })
+
+    const wrapper = await mountSuspended(FieldMedia, { props: { field, name: 'hero', locale: 'en', modelValue: 'f1' } })
+    await vi.waitFor(() => expect(wrapper.find('.field-media__filename').exists()).toBe(true))
+
+    expect(wrapper.find('.field-media__ai').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain(en[`media.provenance.${origin}`])
+    expect(wrapper.find('.field-media__remove').exists()).toBe(true)
+  })
+})

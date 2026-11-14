@@ -108,7 +108,7 @@ const dimensions = (f: MediaItem) => (f.width != null && f.height != null ? `${f
         <template v-else>
           <td>
             {{ item.file.filename }}
-            <span v-if="isDisclosed(item.file.provenance)" class="media-table__ai">{{ badge(item.file) }}</span>
+            <span v-if="!pick && isDisclosed(item.file.provenance)" class="media-table__ai">{{ badge(item.file) }}</span>
             <span v-if="gatedFile(item)" class="media-table__processing">{{ t('media.pick.processing') }}</span>
           </td>
           <td>{{ item.file.contentType }}</td>
@@ -126,7 +126,7 @@ const dimensions = (f: MediaItem) => (f.width != null && f.height != null ? `${f
 </template>
 
 <style lang="scss" scoped>
-.media-table__ai { margin-inline-start: var(--space-2); padding: 0 var(--space-1); border-radius: var(--radius-sm); background: var(--color-active); color: var(--color-text-muted); font-size: var(--text-xs); }
+.media-table__ai { margin-inline-start: var(--space-2); padding: 0 var(--space-1); border-radius: var(--radius-sm); background: var(--color-primary-soft); color: var(--color-text); font-size: var(--text-xs); white-space: nowrap; }
 .media-table__row { cursor: pointer; }
 .media-table__row:not(.is-selected):hover > :is(.ui-table__col--select, .ui-table__col--actions) { background: linear-gradient(var(--color-hover), var(--color-hover)), var(--color-bg); }
 .media-table__row.is-selected > td { background: var(--color-active); }

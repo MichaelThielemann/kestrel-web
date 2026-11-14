@@ -199,3 +199,35 @@ describe('MediaGrid upload tile', () => {
     expect(wrapper.get('.media-upload-tile .media-variant-chip').text()).toContain('1/3')
   })
 })
+
+describe('MediaGrid origin label', () => {
+  const originCases = [
+    ['ai', 'AI-generated'],
+    ['mixed', 'Partly AI-generated'],
+    ['unknown', 'Origin unknown'],
+  ] as const
+
+  it.each(originCases)('shows the %s origin on the tile outside pick mode', async (origin, label) => {
+    const wrapper = await mountSuspended(MediaGrid, {
+      props: { items: [libraryItem(file({ provenance: { origin } }))], isSelected: () => false },
+    })
+
+    expect(wrapper.get('.media-grid__ai').text()).toBe(label)
+  })
+
+  it('shows no label for a human-made file', async () => {
+    const wrapper = await mountSuspended(MediaGrid, {
+      props: { items: [libraryItem(file({ provenance: { origin: 'human' } }))], isSelected: () => false },
+    })
+
+    expect(wrapper.find('.media-grid__ai').exists()).toBe(false)
+  })
+
+  it.each(originCases)('shows no %s label in pick mode', async (origin) => {
+    const wrapper = await mountSuspended(MediaGrid, {
+      props: { items: [libraryItem(file({ provenance: { origin } }))], isSelected: () => false, pick: true },
+    })
+
+    expect(wrapper.find('.media-grid__ai').exists()).toBe(false)
+  })
+})

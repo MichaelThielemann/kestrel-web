@@ -124,3 +124,35 @@ describe('MediaTable row actions', () => {
     }
   })
 })
+
+describe('MediaTable origin label', () => {
+  const originCases = [
+    ['ai', 'AI-generated'],
+    ['mixed', 'Partly AI-generated'],
+    ['unknown', 'Origin unknown'],
+  ] as const
+
+  it.each(originCases)('shows the %s origin on the row outside pick mode', async (origin, label) => {
+    const wrapper = await mountSuspended(MediaTable, {
+      props: { items: [libraryItem(file({ provenance: { origin } }))], isSelected: () => false },
+    })
+
+    expect(wrapper.get('.media-table__ai').text()).toBe(label)
+  })
+
+  it('shows no label for a human-made file', async () => {
+    const wrapper = await mountSuspended(MediaTable, {
+      props: { items: [libraryItem(file({ provenance: { origin: 'human' } }))], isSelected: () => false },
+    })
+
+    expect(wrapper.find('.media-table__ai').exists()).toBe(false)
+  })
+
+  it.each(originCases)('shows no %s label in pick mode', async (origin) => {
+    const wrapper = await mountSuspended(MediaTable, {
+      props: { items: [libraryItem(file({ provenance: { origin } }))], isSelected: () => false, pick: true },
+    })
+
+    expect(wrapper.find('.media-table__ai').exists()).toBe(false)
+  })
+})

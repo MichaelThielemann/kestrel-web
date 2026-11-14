@@ -196,7 +196,7 @@ A component receives `FieldComponentProps` (`field`, `name`, `locale`, `error?`,
 
 `media` (from `mediaField`, or a collection's `ref(media)`) stores media ids, one or a list with
 `multiple`. `field/Media.vue` resolves the chosen ids through `listMedia` and shows each as a tile with
-its name, a provenance label unless a human made the file, and a remove button; a button below opens the
+its name and a remove button; a button below opens the
 picker over the library. Neither the remove nor the picker button appears on a read-only field. An id
 whose item went to the trash keeps its tile, marked as in the trash, with a hint above the list.
 

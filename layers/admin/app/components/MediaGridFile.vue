@@ -6,7 +6,7 @@ import { humanizeSize } from '../utils/library'
 import { isDisclosed, provenanceLabelKey, provenanceOrigin } from '../utils/provenance'
 import { variantChip } from '../utils/variant-state'
 
-const props = defineProps<{ file: MediaItem; fresh?: VariantWatchEntry; stalled?: boolean; gated?: boolean }>()
+const props = defineProps<{ file: MediaItem; fresh?: VariantWatchEntry; stalled?: boolean; gated?: boolean; pick?: boolean }>()
 const { t } = useT()
 
 const chip = computed(() => variantChip(props.fresh, props.stalled === true))
@@ -24,7 +24,7 @@ const ext = computed(() => (props.file.filename.split('.').pop() ?? '').toUpperC
       :variants="fresh?.variants ?? file.variants ?? []"
       :pending="chip?.state === 'pending' && !chip.stalled" />
     <span v-else class="media-grid__badge" aria-hidden="true">{{ ext }}</span>
-    <span v-if="isDisclosed(file.provenance)" class="media-grid__ai">{{ t(provenanceLabelKey(provenanceOrigin(file.provenance))) }}</span>
+    <span v-if="!pick && isDisclosed(file.provenance)" class="media-grid__ai">{{ t(provenanceLabelKey(provenanceOrigin(file.provenance))) }}</span>
     <span v-if="gated" class="media-grid__processing">{{ t('media.pick.processing') }}</span>
     <KestrelMediaVariantChip v-else-if="chip" class="media-grid__variant-chip" :state="chip.state" :stalled="chip.stalled" :done="chip.done" :total="chip.total" />
     <span v-else class="media-grid__meta" aria-hidden="true">{{ humanizeSize(file.size) }}</span>
@@ -45,8 +45,8 @@ const ext = computed(() => (props.file.filename.split('.').pop() ?? '').toUpperC
   padding: 0 var(--space-1);
   text-align: end;
   border-radius: var(--radius-sm);
-  background: var(--color-scrim);
-  color: var(--color-on-primary);
+  background: var(--color-overlay);
+  color: var(--color-on-overlay);
   font-size: var(--text-xs);
   line-height: 1.5;
   pointer-events: none;

@@ -173,3 +173,25 @@ describe('MediaPicker', () => {
     wrapper.unmount()
   })
 })
+
+describe('MediaPicker origin label', () => {
+  it('lists an AI-generated file without the origin label', async () => {
+    const file: MediaItem = {
+      id: 'f1', filename: 'a.jpg', folder: '', contentType: 'image/jpeg', size: 1, path: '/media/f1/a.jpg', available: true,
+      createdAt: 1, updatedAt: 1, provenance: { origin: 'ai' }, width: null, height: null, alt: null, title: null,
+      description: null, variants: [], variantCounts: { done: 0, pending: 0, error: 0, failed: 0 }, focus: null, framing: { focus: null, crops: {}, width: null, height: null, ratios: [] },
+    }
+    const unregister = [
+      registerEndpoint('/api/media/folders', { method: 'GET', handler: () => emptyFolders }),
+      registerEndpoint('/api/media', { method: 'GET', handler: () => ({ items: [file], total: 1 }) }),
+    ]
+
+    const wrapper = await mountSuspended(MediaPicker, { props: { open: true }, attachTo: document.body })
+    await vi.waitFor(() => expect(document.body.querySelector('[data-test="file-f1"]')).toBeTruthy())
+
+    expect(document.body.querySelector('.media-grid__ai')).toBeNull()
+    expect(document.body.textContent).not.toContain('AI-generated')
+    wrapper.unmount()
+    unregister.forEach((fn) => fn())
+  })
+})

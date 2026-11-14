@@ -1169,6 +1169,16 @@
   instead of a near-duplicate of it, so the collection names behind the generated types (for example
   `pages`, which decides `PublishStatusEntry`) have one source; this drops the script's unused `news`
   scaffold collection and has no effect on any exported type.
+- Admin: the origin label ("AI-generated", "Partly AI-generated", "Origin unknown") no longer sits on the tiles
+  of the media field, where it covered the remove and crop buttons, nor in the media picker. The media library
+  shows it on the grid thumbnail's top right corner, clear of the checkbox and the menu button, and beside the
+  filename in the table.
+- Admin kit: `KestrelUiButton` gives every variant a dedicated disabled state instead of a flat opacity. The new
+  tokens `--color-disabled-bg`, `--color-disabled-text` and `--color-disabled-border` (base, light and dark; the
+  label stays at 3:1 or better) make a disabled `ghost` or `danger-ghost` button clearly weaker than an active
+  one. A disabled button, or a link with `disabled`, never shows a hover state and has the `not-allowed` cursor.
+  A disabled link renders without a destination, carries `aria-disabled="true"` and `tabindex="-1"`, does not
+  navigate, and every disabled variant gets the `ui-button--disabled` class.
 
 - The admin layer sends `X-Frame-Options: SAMEORIGIN`, `Referrer-Policy: same-origin`,
   `X-Content-Type-Options: nosniff` and a `Permissions-Policy` that turns off camera, microphone, geolocation,

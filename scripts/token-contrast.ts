@@ -49,6 +49,7 @@ export const PAIRS: Pair[] = [
   { name: 'selected tab label', foreground: '--color-primary-on-fill', background: '--color-active', role: 'text' },
   { name: 'chip text on page', foreground: '--color-text', background: '--color-primary-soft over --color-bg', role: 'text' },
   { name: 'chip text on surface', foreground: '--color-text', background: '--color-primary-soft over --color-surface', role: 'text' },
+  { name: 'origin label text on selected row', foreground: '--color-text', background: '--color-primary-soft over --color-active', role: 'text' },
   { name: 'badge text (warning) on surface', foreground: '--color-warning-text', background: '--color-surface', role: 'text' },
   { name: 'overlay button label', foreground: '--color-on-overlay', background: '--color-overlay over --color-bg', role: 'text' },
   { name: 'disabled button label on its fill', foreground: '--color-disabled-text', background: '--color-disabled-bg', role: 'inactive-text' },

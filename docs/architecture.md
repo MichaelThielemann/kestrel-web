@@ -813,6 +813,10 @@ collection, the expected filter and the fix in the message.
 - `app/actions/` — the declared step sequences behind every user-triggered write, see **UI actions**.
 - `app/composables/useMediaLibrary.ts` — media list and folder tree from `GET /media/folders` (persistent,
   including empty folders and implied ancestors), plus navigation state.
+- Origin label. In the library, a file whose provenance is disclosed (anything but human-made) carries a small
+  label: in the top right corner of the grid thumbnail, clear of the checkbox and the menu button at the left,
+  and beside the filename in the table. The picker (`pick`) and the media field's tiles show none, so
+  nothing covers the remove and crop buttons there.
 - Selection in `MediaLibrary.vue`, the same in the media library and in the media picker.
   - Model. `useMediaSelection()` is the one selection of the listing, the multi-pick and the context menu.
     In the library it holds files and folders; after every load it keeps only the listed items, so a
@@ -1050,6 +1054,13 @@ outside `:where(…)`, so a call-site `outline: none` on the modifier class cann
 exposes `focus()` for components that move focus after a list edit; it focuses the `to` branch's link as
 well as the button.
 
+A disabled button of any variant carries `.ui-button--disabled` and takes the `--color-disabled-bg`,
+`--color-disabled-text` and `--color-disabled-border` tokens instead of a flat opacity: `primary` and `danger`
+turn into a flat grey fill, `secondary` into an outline, `ghost`, `danger-ghost` and `icon` keep only a weaker
+label colour. It never reacts to hover and shows the `not-allowed` cursor. A disabled `to` button renders a plain
+`<a>` without a destination, with `aria-disabled="true"` and `tabindex="-1"`, and swallows the click. A `loading`
+button keeps its active colours and stays reduced to 60 % opacity.
+
 ### Admin CSS isolation
 The admin styles share a document with the consumer's own global CSS: Nuxt merges every layer's and the
 app's `css: []` into one stylesheet for all routes, and a consumer's `body { font-family; color }` or
@@ -1230,6 +1241,7 @@ threshold.
 | selected tab label | `--color-primary-on-fill` | `--color-active` | 4.5:1 | #4f46e5 on #f1f1f4 — 5.58:1 | #818cf8 on #232327 — 5.25:1 |
 | chip text on page | `--color-text` | `--color-primary-soft over --color-bg` | 4.5:1 | #18181b on rgba(79, 70, 229, 0.1) over #f5f5fa — 14.10:1 | #fafafa on rgba(99, 102, 241, 0.16) over #09090b — 16.64:1 |
 | chip text on surface | `--color-text` | `--color-primary-soft over --color-surface` | 4.5:1 | #18181b on rgba(79, 70, 229, 0.1) over #ffffff — 15.25:1 | #fafafa on rgba(99, 102, 241, 0.16) over #18181b — 14.36:1 |
+| origin label text on selected row | `--color-text` | `--color-primary-soft over --color-active` | 4.5:1 | #18181b on rgba(79, 70, 229, 0.1) over #f1f1f4 — 13.61:1 | #fafafa on rgba(99, 102, 241, 0.16) over #232327 — 12.65:1 |
 | badge text (warning) on surface | `--color-warning-text` | `--color-surface` | 4.5:1 | #b45309 on #ffffff — 5.02:1 | #fbbf24 on #18181b — 10.61:1 |
 | overlay button label | `--color-on-overlay` | `--color-overlay over --color-bg` | 4.5:1 | #ffffff on rgba(9, 9, 11, 0.72) over #f5f5fa — 8.68:1 | #ffffff on rgba(9, 9, 11, 0.72) over #09090b — 19.90:1 |
 | disabled button label on its fill | `--color-disabled-text` | `--color-disabled-bg` | 3:1 | #6e6e76 on #e4e4e7 — 3.98:1 | #8b8b94 on #27272a — 4.41:1 |
