@@ -53,6 +53,12 @@ function overlapsRatio(a: Box, b: Box): boolean {
     && (b.width - 0.5) / (b.height + 0.5) <= (a.width + 0.5) / (a.height - 0.5)
 }
 
+function listedCrop(v: PublicMediaVariant): Crop | null | undefined {
+  const crop = v.crop
+  if (crop === undefined || crop === null) return crop
+  return [crop.left, crop.top, crop.width, crop.height].every(Number.isFinite) ? crop : undefined
+}
+
 function sameCrop(a: Crop | null, b: Crop | null): boolean {
   if (a === null || b === null) return a === b
   return Math.abs(a.left - b.left) <= EDGE_TOLERANCE && Math.abs(a.top - b.top) <= EDGE_TOLERANCE
@@ -76,11 +82,14 @@ function orientedBox(item: ImageMedia, stored: Box, sizes: readonly DeclaredImag
 function sameCutAs(named: PublicMediaVariant | undefined, reference: Box | null, carriesCrop: boolean, coverOut: boolean, keys: ReadonlyMap<string, string>): (v: PublicMediaVariant) => boolean {
   if (reference === null) return () => false
   if (carriesCrop) {
-    const crop = named?.crop ?? null
-    return (v) => v.crop !== undefined && overlapsRatio(v, reference) && sameCrop(v.crop, crop) && !(coverOut && keys.has(v.size))
+    const crop = named ? listedCrop(named) ?? null : null
+    return (v) => {
+      const listed = listedCrop(v)
+      return listed !== undefined && overlapsRatio(v, reference) && sameCrop(listed, crop) && !(coverOut && keys.has(v.size))
+    }
   }
   const key = named ? keys.get(named.size) : undefined
-  return (v) => v.crop === undefined && sameRatio(ratioOf(v), ratioOf(reference))
+  return (v) => listedCrop(v) === undefined && sameRatio(ratioOf(v), ratioOf(reference))
     && (key === undefined ? !keys.has(v.size) : keys.get(v.size) === key)
 }
 
@@ -90,10 +99,10 @@ function sameCutAs(named: PublicMediaVariant | undefined, reference: Box | null,
  * overlap, and an equal `crop`, both `null` or every edge within a pixel of the other's. Without a variant of that
  * name the original is the reference, with `crop` `null`. Its box (and the answered `width`/`height`) is the stored
  * one, turned when the uncut variants of declared `inside` sizes show only the swapped aspect; when they do not tell
- * the orientation, the variants of declared `cover` sizes stay out. When the variants carry no `crop`, ratios match
- * within 1 %, a declared `cover` size lists the variants of the `cover` sizes with its exact ratio key, and any other
- * size the variants of its ratio that no declared `cover` size renders. `sizes` are the declared image sizes, by
- * default those of the build (`#kestrel/image-sizes`).
+ * the orientation, the variants of declared `cover` sizes stay out. When the variants carry no `crop` (a `crop`
+ * without all four edges counts as none), ratios match within 1 %, a declared `cover` size lists the variants of the
+ * `cover` sizes with its exact ratio key, and any other size the variants of its ratio that no declared `cover` size
+ * renders. `sizes` are the declared image sizes, by default those of the build (`#kestrel/image-sizes`).
  */
 export function pickImageSources(
   item: ImageMedia | null,
@@ -105,7 +114,7 @@ export function pickImageSources(
 
   const keys = coverKeys(sizes)
   const named = item.variants.find((v) => v.size === size && v.width > 0 && v.height > 0)
-  const carriesCrop = named ? named.crop !== undefined : item.variants.some((v) => v.crop !== undefined)
+  const carriesCrop = named ? listedCrop(named) !== undefined : item.variants.some((v) => listedCrop(v) !== undefined)
   const stored = item.width && item.height ? { width: item.width, height: item.height } : null
   const oriented = !named && carriesCrop && stored ? orientedBox(item, stored, sizes) : null
   const reference: Box | null = named ?? oriented ?? stored

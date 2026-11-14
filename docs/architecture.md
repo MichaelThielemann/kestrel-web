@@ -1864,7 +1864,7 @@ present), `only` (restrict the `srcset` candidates to specific size names), `alt
   build does not declare never turn it, because their fit is unknown to the public site. When no declared
   `inside` variant tells the orientation, the declared `cover` sizes stay out, because the centred cut of the
   swapped ratio lists `null` as well. On a width tie the named variant stays. A variant without a `crop`
-  member never combines with one that has it. When the variants carry no `crop` (an anonymous grant without
+  member, or with one that lacks any of its four edges, never combines with one that has it. When the variants carry no `crop` (an anonymous grant without
   `variants[].crop`), ratios match within 1 % and the declared sizes (`#kestrel/image-sizes`, which
   `pickImageSources` reads when no fourth argument is given) decide: a declared `cover` size lists the
   variants of the declared `cover` sizes with its exact ratio key, any other size leaves them out. The cases

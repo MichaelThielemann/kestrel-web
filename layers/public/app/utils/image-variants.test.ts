@@ -319,6 +319,26 @@ describe('pickImageSources', () => {
       )
     })
 
+    it('treats a crop without all four edges, as a grant of only some of its members answers, like a missing crop', () => {
+      const leftOnly = (left: number): Crop => {
+        const crop: Crop = { left, top: 0, width: 0, height: 0 }
+        for (const edge of ['top', 'width', 'height'] as const) Reflect.deleteProperty(crop, edge)
+        return crop
+      }
+      const media = item({
+        width: 6000,
+        height: 4000,
+        variants: [
+          variant({ size: 'thumb', width: 320, height: 213, path: '/media/m1/variants/thumb.webp' }),
+          variant({ size: 'teaser', width: 480, height: 320, path: '/media/m1/variants/teaser.webp?v=2', crop: leftOnly(1500) }),
+          variant({ size: 'teaser-2x', width: 960, height: 640, path: '/media/m1/variants/teaser-2x.webp?v=2', crop: leftOnly(1500) }),
+        ],
+      })
+      const sizes: DeclaredImageSize[] = [{ name: 'teaser', width: 480, height: 320, fit: 'cover' }, { name: 'teaser-2x', width: 960, height: 640, fit: 'cover' }]
+      expect(pickImageSources(media, 'teaser', undefined, sizes)?.srcset).toBe('/media/m1/variants/teaser.webp?v=2 480w, /media/m1/variants/teaser-2x.webp?v=2 960w')
+      expect(pickImageSources(media, 'thumb', undefined, sizes)?.srcset).toBe('/media/m1/variants/thumb.webp 320w')
+    })
+
     it('never puts a variant without a crop into the srcset of one that carries it', () => {
       const { crop: _crop, ...small } = variant({ size: 'small', width: 640, height: 427, path: '/media/m1/variants/small.webp' })
       const media: ImageMedia = {
