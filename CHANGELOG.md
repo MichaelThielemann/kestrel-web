@@ -307,8 +307,9 @@
   `kestrel upgrade fix --write` raises the range (`deps/zod-range`, in every `package.json` of the project,
   also where zod serves only app code; a project without modules of its own can keep zod 3 there) and rewrites
   the zod 3 forms it knows (`zod/record-key`, `zod/object-default`, `zod/describe-order`); Kestrel's CHANGELOG
-  and its upgrade guide ("zod 4 schemas") list the rest. renderer/nuxt needs Kestrel 6: Kestrel 5 boots it but
-  describes its config with an empty JSON Schema and no variables. With Kestrel 6, renderer/nuxt's config keeps
+  and its upgrade guide ("zod 4 schemas") list the rest. renderer/nuxt needs Kestrel 6: it imports
+  `@michaelthielemann/kestrel-contracts/helpers/renderer`, which Kestrel 5's contracts do not ship, and fails to
+  load against Kestrel 5. With Kestrel 6, renderer/nuxt's config keeps
   its JSON Schema, variables and default (`assets: true`); a config it refuses reports zod 4's texts
   (`Unrecognized key: "extra"`, `Invalid input: expected boolean, received string`).
 - Static delivery writes `robots.txt` (and `sitemap.xml` with a site URL) under its prefix, next to the pages.
