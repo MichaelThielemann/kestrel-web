@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, toRef, useId, watch } from 'vue'
+import { computed, nextTick, onUnmounted, ref, toRef, useId, watch } from 'vue'
 import type { MediaItem, MediaRect } from '#kestrel-admin/types/api'
 import { useMediaCropEditor } from '../composables/useMediaCropEditor'
 import { cropSource } from '../utils/media-crop'
@@ -17,6 +17,8 @@ const selected = ref('')
 const status = ref('')
 const pending = ref(false)
 const hasCover = computed(() => ratios.value.length > 0)
+const measured = computed(() => width.value > 0 && height.value > 0)
+const measuringStatus = ref<HTMLElement | null>(null)
 const tabs = computed(() => [{ id: 'focus', label: t('mediaCrop.tab.focus') }, { id: 'crop', label: t('mediaCrop.tab.crop') }])
 const src = computed(() => (current.value ? cropSource(current.value) : null) ?? (props.item ? cropSource(props.item) : null) ?? '')
 const locked = computed(() => busy.value || src.value === '')
@@ -42,13 +44,20 @@ function onCrop(key: string, rect: MediaRect | null): void {
   if (rect === null) status.value = t('mediaCrop.resetDone', { key })
 }
 
+const initialTarget = () => root.value?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]') ?? root.value?.querySelector<HTMLElement>('.ui-rect-select__surface') ?? measuringStatus.value
+
 function onOpenAutoFocus(event: Event): void {
   event.preventDefault()
-  void nextTick(() => {
-    const target = root.value?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]') ?? root.value?.querySelector<HTMLElement>('.ui-rect-select__surface')
-    target?.focus()
-  })
+  void nextTick(() => initialTarget()?.focus())
 }
+
+const stopMeasured = watch(measured, (isMeasured) => {
+  if (!isMeasured || !import.meta.client) return
+  const active = document.activeElement
+  if (active !== measuringStatus.value && active !== null && root.value?.contains(active)) return
+  void nextTick(() => initialTarget()?.focus())
+})
+onUnmounted(stopMeasured)
 
 const saveButton = ref<{ focus: () => void } | null>(null)
 let discardConfirmed = false
@@ -102,7 +111,9 @@ async function onSave(): Promise<void> {
         <KestrelUiTabList v-if="hasCover" v-model="tab" :tabs="tabs" :id-prefix="idPrefix" :label="t('mediaCrop.tabs')" />
         <p v-if="usage !== null" class="media-crop__usage" data-test="crop-usage">{{ t('mediaCrop.usage', { n: usage }) }}</p>
       </div>
-      <p v-if="width === 0 || height === 0" class="media-crop__measuring" role="status">{{ measureFailed ? t('mediaCrop.measureFailed') : t('mediaCrop.measuring') }}</p>
+      <div v-if="!measured" v-bind="panelAttrs(hasCover ? tab : 'focus')" class="media-crop__panel">
+        <p ref="measuringStatus" class="media-crop__measuring" role="status" tabindex="-1">{{ measureFailed ? t('mediaCrop.measureFailed') : t('mediaCrop.measuring') }}</p>
+      </div>
       <div v-else-if="tab === 'focus' || !hasCover" v-bind="panelAttrs('focus')" class="media-crop__panel">
         <KestrelMediaCropFocus :src="src" :alt="alt" :draft="draft" :ratios="ratios" :width="width" :height="height" :disabled="locked" @focus="editor.setFocus" />
       </div>

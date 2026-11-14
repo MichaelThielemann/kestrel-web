@@ -466,6 +466,82 @@ describe('MediaCropEditor', () => {
     vi.unstubAllGlobals()
   })
 
+  it('keeps every tab pointing at a rendered panel while the original is measured and once measuring fails', async () => {
+    const probes: { onerror: (() => void) | null }[] = []
+    vi.stubGlobal('Image', class {
+      onload: (() => void) | null = null
+      onerror: (() => void) | null = null
+      set src(_value: string) { probes.push(this) }
+    })
+    const controlled = () => tabs().filter((tab) => tab.getAttribute('aria-selected') === 'true').map((tab) => document.getElementById(tab.getAttribute('aria-controls') ?? ''))
+    try {
+      const wrapper = await mountEditor(unmeasured())
+
+      expect(document.body.textContent).toContain(en['mediaCrop.measuring'])
+      expect(controlled().map((panel) => panel?.getAttribute('role'))).toEqual(['tabpanel'])
+      expect(controlled()[0]?.textContent).toContain(en['mediaCrop.measuring'])
+      tabs()[1]?.click()
+      await nextTick()
+      expect(controlled()[0]?.getAttribute('aria-labelledby')).toBe(tabs()[1]?.id)
+      expect(controlled()[0]?.textContent).toContain(en['mediaCrop.measuring'])
+
+      await vi.waitFor(() => expect(probes.length).toBeGreaterThan(0))
+      for (const probe of probes) probe.onerror?.()
+      await vi.waitFor(() => expect(document.body.textContent).toContain(en['mediaCrop.measureFailed']))
+      expect(controlled()[0]?.textContent).toContain(en['mediaCrop.measureFailed'])
+      tabs()[0]?.click()
+      await nextTick()
+      expect(controlled().map((panel) => panel?.getAttribute('role'))).toEqual(['tabpanel'])
+      expect(controlled()[0]?.textContent).toContain(en['mediaCrop.measureFailed'])
+      wrapper.unmount()
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('puts keyboard focus into the dialog while an original without cover sizes is measured, and on the focus area once it is', async () => {
+    const probes: { onload: (() => void) | null, onerror: (() => void) | null, naturalWidth: number, naturalHeight: number }[] = []
+    vi.stubGlobal('Image', class {
+      onload: (() => void) | null = null
+      onerror: (() => void) | null = null
+      naturalWidth = 0
+      naturalHeight = 0
+      set src(_value: string) { probes.push(this) }
+    })
+    try {
+      const wrapper = await mountEditor({ ...unmeasured(), framing: { ...unmeasured().framing, ratios: [] } })
+
+      await vi.waitFor(() => expect(document.activeElement?.textContent).toBe(en['mediaCrop.measuring']))
+      expect(q('[role="dialog"]')?.contains(document.activeElement)).toBe(true)
+      await vi.waitFor(() => expect(probes.length).toBeGreaterThan(0))
+      for (const probe of probes) Object.assign(probe, { naturalWidth: 1200, naturalHeight: 800 }).onload?.()
+      await vi.waitFor(() => expect(document.activeElement).toBe(q('.ui-rect-select__surface')))
+      wrapper.unmount()
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('keeps keyboard focus in the dialog when an original without cover sizes cannot be measured', async () => {
+    const probes: { onerror: (() => void) | null }[] = []
+    vi.stubGlobal('Image', class {
+      onload: (() => void) | null = null
+      onerror: (() => void) | null = null
+      set src(_value: string) { probes.push(this) }
+    })
+    try {
+      const wrapper = await mountEditor({ ...unmeasured(), framing: { ...unmeasured().framing, ratios: [] } })
+
+      await vi.waitFor(() => expect(probes.length).toBeGreaterThan(0))
+      for (const probe of probes) probe.onerror?.()
+      await vi.waitFor(() => expect(document.activeElement?.textContent).toBe(en['mediaCrop.measureFailed']))
+      expect(q('[role="dialog"]')?.contains(document.activeElement)).toBe(true)
+      wrapper.unmount()
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
   it('keeps keyboard focus on the focus area when the focus is removed', async () => {
     const wrapper = await mountEditor(photo({ focus: { x: 0.25, y: 0.25, w: 0.5, h: 0.5 } }))
 
