@@ -263,6 +263,11 @@ server {
     gzip on;
     gzip_vary on;
     gzip_types text/css text/javascript application/javascript image/svg+xml text/plain text/xml application/xml;
+
+    location ~ ^/(api|admin|_preview)(/|$) {
+      gzip off;
+      proxy_pass http://127.0.0.1:8080;
+    }
   }
 }
 ```
@@ -279,10 +284,12 @@ Points that matter:
   `/media/` carry their own (§8 of the consuming guide).
   `add_header` in a `location` replaces every `add_header` the `server` block set: a location that sets one
   repeats the lines it still wants, HSTS first.
-- **Compression.** `gzip on` in the location of the public site compresses the HTML, CSS, JavaScript and SVG
-  that the Node process sends as they are (an example page of 23 KB goes out as about 6 KB). `application/json` is not
-  in the list on purpose: the API answers hold tokens and per-user data, and compressing a secret next to
-  text a request can choose is how BREACH reads it. nginx compresses at its default level, per response; a
+- **Compression.** `gzip on` in `location /` compresses the HTML, CSS, JavaScript and SVG that the Node
+  process sends as they are (an example page of 23 KB goes out as about 6 KB). The nested location for
+  `/api`, `/admin` and `/_preview` turns it off again and inherits the rest of the proxy settings, so those
+  answers travel as the process sends them. The API answers hold tokens and per-user data, and compressing a
+  secret next to text a request can choose is how BREACH reads it; `application/json` is not in the list
+  for the same reason. nginx compresses at its default level, per response; a
   static export has no precompressed copies, so `gzip_static` has nothing to serve. The Node process does not
   compress at all: without a proxy or CDN in front, every page travels several times larger.
 
@@ -436,6 +443,7 @@ server {
   gzip_types text/css text/javascript application/javascript image/svg+xml text/plain text/xml application/xml;
 
   location ~ ^/(admin|api|_preview)(/|$) {
+    gzip off;
     proxy_pass http://127.0.0.1:8080;
     proxy_set_header Host $host;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -502,7 +510,7 @@ map "$kestrel_origin_path:$kestrel_session_cookie:$http_authorization" $kestrel_
 }
 ```
 
-and the `server` block of §7 gains one `add_header` line and the cache directives in `location /`:
+and the `server` block of §7 gains one `add_header` line and the cache directives in `location /`, which the nested location inherits:
 
 ```nginx
   add_header X-Cache-Status $upstream_cache_status always;
@@ -532,6 +540,11 @@ and the `server` block of §7 gains one `add_header` line and the cache directiv
     proxy_cache_lock on;
     proxy_cache_use_stale error timeout updating http_502 http_503 http_504;
     proxy_cache_background_update on;
+
+    location ~ ^/(api|admin|_preview)(/|$) {
+      gzip off;
+      proxy_pass http://127.0.0.1:8080;
+    }
   }
 ```
 
