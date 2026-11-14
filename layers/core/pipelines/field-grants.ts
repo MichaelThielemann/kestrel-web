@@ -17,7 +17,7 @@ export type FieldCutShape = "item" | "list" | "array" | "file";
 export type FieldGrants = Record<string, string[]>;
 
 const MEDIA_FIELDS = ["id", "path", "filename", "contentType", "size", "width", "height", "alt", "title", "description", "provenance"];
-const IMAGE_FIELDS = ["focus", "variants[].size", "variants[].width", "variants[].height", "variants[].format", "variants[].path", "variants[].crop"];
+const IMAGE_FIELDS = ["focus", "variants[].size", "variants[].width", "variants[].height", "variants[].format", "variants[].path", "variants[].crop", "framing.width", "framing.height"];
 const FILE_HEADERS = ["headers.cache-control", "headers.x-content-provenance"];
 const VARIANT_HEADER = "headers.x-kestrel-variant";
 const REDIRECT_RULE_FIELDS = ["from", "pattern", "target", "status"];

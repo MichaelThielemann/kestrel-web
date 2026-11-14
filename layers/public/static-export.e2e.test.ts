@@ -21,7 +21,7 @@ const UNPUBLISHED_TRANSLATIONS: Record<string, string> = { "/projekte": "en", "/
 const PAGE_FIELDS = new Set(["id", "_locale", "_locales", "_links", "_paths", "_translations", "slug", "title", "body", "seo", "status", "shareImage", "accent", "layout"]);
 const LOCALE_LINK_FIELDS = ["current", "locale", "path"];
 const SETTINGS_FIELDS = ["description", "navigation", "title", "titlePosition", "titleSeparator"];
-const MEDIA_FIELDS = ["alt", "contentType", "description", "filename", "focus", "height", "id", "path", "provenance", "size", "title", "variants", "width"];
+const MEDIA_FIELDS = ["alt", "contentType", "description", "filename", "focus", "framing", "height", "id", "path", "provenance", "size", "title", "variants", "width"];
 const VARIANT_FIELDS = ["crop", "format", "height", "path", "size", "width"];
 
 type Json = Record<string, unknown>;

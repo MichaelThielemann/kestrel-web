@@ -618,6 +618,60 @@ describe('pickImageSources', () => {
       expect(pickImageSources(media, 'unknown', undefined, sizes)?.srcset).not.toContain('teaser')
     })
 
+    it('takes the original\'s box from the oriented dimensions kestrel reports, with the uncut cover variants of that box and not a cut one', () => {
+      const sizes: DeclaredImageSize[] = [
+        { name: 'teaser', width: 480, height: 320, fit: 'cover' },
+        { name: 'teaser-2x', width: 960, height: 640, fit: 'cover' },
+        { name: 'hero', width: 1600, height: 900, fit: 'cover' },
+        { name: 'card', width: 600, height: 400, fit: 'cover' },
+      ]
+      const framing = (width: number, height: number) => ({ focus: null, crops: {}, width, height, ratios: [] })
+      const covers = [
+        variant({ size: 'teaser', width: 480, height: 320, path: '/media/m1/variants/teaser.webp' }),
+        variant({ size: 'teaser-2x', width: 960, height: 640, path: '/media/m1/variants/teaser-2x.webp' }),
+        variant({ size: 'card', width: 600, height: 400, path: '/media/m1/variants/card.webp?v=1', crop: { left: 600, top: 400, width: 3000, height: 2000 } }),
+      ]
+      const upright = item({ width: 6000, height: 4000, framing: framing(6000, 4000), variants: covers })
+      expect(pickImageSources(upright, 'hero', undefined, sizes)).toMatchObject({
+        src: '/media/m1/photo.jpg',
+        srcset: '/media/m1/variants/teaser.webp 480w, /media/m1/variants/teaser-2x.webp 960w',
+        width: 6000,
+        height: 4000,
+      })
+      const withInside = item({
+        width: 6000,
+        height: 4000,
+        framing: framing(6000, 4000),
+        variants: [
+          variant({ size: 'thumb', width: 320, height: 213, path: '/media/m1/variants/thumb.webp' }),
+          variant({ size: 'small', width: 640, height: 427, path: '/media/m1/variants/small.webp' }),
+          variant({ size: 'xl', width: 2400, height: 1600, path: '/media/m1/variants/xl.webp' }),
+          ...covers,
+        ],
+      })
+      expect(pickImageSources(withInside, 'hero', undefined, sizes)?.srcset).toBe(
+        '/media/m1/variants/thumb.webp 320w, /media/m1/variants/teaser.webp 480w, /media/m1/variants/small.webp 640w, /media/m1/variants/teaser-2x.webp 960w, /media/m1/variants/xl.webp 2400w',
+      )
+      const sideways = item({
+        width: 6000,
+        height: 4000,
+        framing: framing(4000, 6000),
+        variants: [
+          variant({ size: 'thumb', width: 320, height: 480, path: '/media/m1/variants/thumb.webp' }),
+          variant({ size: 'small', width: 640, height: 960, path: '/media/m1/variants/small.webp' }),
+          variant({ size: 'xl', width: 2400, height: 3600, path: '/media/m1/variants/xl.webp' }),
+          ...covers,
+        ],
+      })
+      expect(pickImageSources(sideways, 'hero', undefined, sizes)).toMatchObject({
+        srcset: '/media/m1/variants/thumb.webp 320w, /media/m1/variants/small.webp 640w, /media/m1/variants/xl.webp 2400w',
+        width: 4000,
+        height: 6000,
+      })
+      const unreported = item({ width: 6000, height: 4000, variants: covers })
+      expect(pickImageSources(unreported, 'hero', undefined, sizes)).toMatchObject({ srcset: null, width: 6000, height: 4000 })
+    })
+
     it('marks a source as cut only when it links a variant of a declared cover size', () => {
       const media = item({
         width: 4000,

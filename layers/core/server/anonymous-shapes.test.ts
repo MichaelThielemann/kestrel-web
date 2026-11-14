@@ -331,14 +331,16 @@ describe("the playground preset: what a caller without a session receives", () =
     expect(boundaryCast<Json[]>(anonymousItem.variants, "json").every((variant) => !("state" in variant) && !("bytes" in variant))).toBe(true);
   });
 
-  it("gives a caller without a session the item's focus and keeps the editor's framing from them", async () => {
+  it("gives a caller without a session the item's focus and of the editor's framing only the oriented dimensions", async () => {
     const focus = { x: 0.1, y: 0.2, w: 0.3, h: 0.4 };
     const framed = await request(base, "PUT", `/media/${seeded.mediaId}/framing`, { token: seeded.editor, json: { focus } });
     expect(framed.status).toBe(200);
     expect(boundaryCast<Json>(framed.json, "json").framing).toMatchObject({ focus, crops: {} });
     const anonymousItem = boundaryCast<Json>((await request(base, "GET", `/media/${seeded.mediaId}`)).json, "json");
     expect(anonymousItem.focus).toEqual(focus);
-    expect(anonymousItem).not.toHaveProperty("framing");
+    const dimensions = boundaryCast<Json>(anonymousItem.framing, "json");
+    expect(Object.keys(dimensions).sort()).toEqual(["height", "width"]);
+    expect([typeof dimensions.width, typeof dimensions.height]).toEqual(["number", "number"]);
     const reset = await request(base, "PUT", `/media/${seeded.mediaId}/framing`, { token: seeded.editor, json: {} });
     expect(reset.status).toBe(200);
     expect(boundaryCast<Json>((await request(base, "GET", `/media/${seeded.mediaId}`)).json, "json").focus).toBeNull();

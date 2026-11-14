@@ -7,8 +7,8 @@ type AnonymousMediaVariant = AnonymousMediaItem['variants'][number]
 /** The fields of an image variant a visitor may see; `crop` is missing when a project's own anonymous media grant leaves `variants[].crop` out. */
 export type PublicMediaVariant = Omit<AnonymousMediaVariant, 'crop'> & { crop?: AnonymousMediaVariant['crop'] }
 
-/** The fields of a media item a visitor may see, as the API answers a caller without a session; what the public layer keeps in a page's data. */
-export type PublicMediaItem = Omit<AnonymousMediaItem, 'variants'> & { variants: PublicMediaVariant[] }
+/** The fields of a media item a visitor may see, as the API answers a caller without a session; what the public layer keeps in a page's data. `framing` holds only the original's oriented `width` and `height`, and is missing when a project's own anonymous media grant leaves them out. */
+export type PublicMediaItem = Omit<AnonymousMediaItem, 'variants' | 'framing'> & { variants: PublicMediaVariant[]; framing?: AnonymousMediaItem['framing'] }
 
 /** A media item `KestrelImage` and `pickImageSources` take: the public fields, with the focus optional. */
 export type ImageMedia = Omit<PublicMediaItem, 'focus'> & { focus?: PublicMediaItem['focus'] }
@@ -16,7 +16,7 @@ export type ImageMedia = Omit<PublicMediaItem, 'focus'> & { focus?: PublicMediaI
 /** A media answer for any caller: the anonymous fields, and the focus and variants only when the images feature adds them. */
 export type MediaAnswer = Omit<PublicMediaItem, 'variants' | 'focus'> & { variants?: readonly PublicMediaVariant[]; focus?: PublicMediaItem['focus'] }
 
-/** Reduces a media item to its public fields: no library folder, no timestamps, no variant counts, no variant state, no framing; an item without variants gets an empty list, one without a focus a `null` focus, and a variant keeps its `crop` when the answer carries it. */
+/** Reduces a media item to its public fields: no library folder, no timestamps, no variant counts, no variant state, of the framing only the oriented `width` and `height`; an item without variants gets an empty list, one without a focus a `null` focus, and a variant keeps its `crop` and the item its `framing` when the answer carries them. */
 export function toPublicMedia(item: MediaAnswer): PublicMediaItem {
   return {
     id: item.id,
@@ -31,6 +31,7 @@ export function toPublicMedia(item: MediaAnswer): PublicMediaItem {
     description: item.description,
     provenance: item.provenance,
     focus: item.focus ?? null,
+    ...(item.framing === undefined ? {} : { framing: { width: item.framing.width, height: item.framing.height } }),
     variants: (item.variants ?? []).map((variant) => ({
       size: variant.size,
       width: variant.width,

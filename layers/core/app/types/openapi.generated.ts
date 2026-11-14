@@ -1716,6 +1716,12 @@ export interface components {
                 x: number;
                 y: number;
             } | null;
+            framing: {
+                /** @description height of the original after its EXIF orientation */
+                height: number | null;
+                /** @description width of the original after its EXIF orientation, which the rectangles and pixel crops refer to */
+                width: number | null;
+            };
             height: number | null;
             id: string;
             /** @description the file's one public URL, <publicPath>/<id>/<name>; the name is fixed at upload, so renaming or moving the item never changes it */
@@ -1974,6 +1980,12 @@ export interface components {
                     x: number;
                     y: number;
                 } | null;
+                framing: {
+                    /** @description height of the original after its EXIF orientation */
+                    height: number | null;
+                    /** @description width of the original after its EXIF orientation, which the rectangles and pixel crops refer to */
+                    width: number | null;
+                };
                 height: number | null;
                 id: string;
                 /** @description the file's one public URL, <publicPath>/<id>/<name>; the name is fixed at upload, so renaming or moving the item never changes it */
@@ -2420,6 +2432,12 @@ export interface components {
                 x: number;
                 y: number;
             } | null;
+            framing: {
+                /** @description height of the original after its EXIF orientation */
+                height: number | null;
+                /** @description width of the original after its EXIF orientation, which the rectangles and pixel crops refer to */
+                width: number | null;
+            };
             height: number | null;
             id: string;
             /** @description the file's one public URL, <publicPath>/<id>/<name>; the name is fixed at upload, so renaming or moving the item never changes it */

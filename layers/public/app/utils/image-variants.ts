@@ -72,6 +72,12 @@ function shownBox(variants: readonly PublicMediaVariant[], stored: Box, turned: 
   return upright ? stored : turned
 }
 
+function framedBox(item: ImageMedia): Box | null {
+  const width = item.framing?.width
+  const height = item.framing?.height
+  return width && height ? { width, height } : null
+}
+
 function orientedBox(item: ImageMedia, stored: Box, sizes: readonly DeclaredImageSize[]): Box | null {
   if (stored.width === stored.height) return stored
   const turned = { width: stored.height, height: stored.width }
@@ -97,9 +103,10 @@ function sameCutAs(named: PublicMediaVariant | undefined, reference: Box | null,
  * The `src`, `srcset` and box of an image for a size name. The `srcset` lists the variants that show the same
  * picture as the named variant: the same aspect ratio, where the ranges their whole-pixel dimensions round from
  * overlap, and an equal `crop`, both `null` or every edge within a pixel of the other's. Without a variant of that
- * name the original is the reference, with `crop` `null`. Its box (and the answered `width`/`height`) is the stored
- * one, turned when the uncut variants of declared `inside` sizes show only the swapped aspect; when they do not tell
- * the orientation, the variants of declared `cover` sizes stay out. When the variants carry no `crop` (a `crop`
+ * name the original is the reference, with `crop` `null`. Its box (and the answered `width`/`height`) is
+ * `framing.width`/`height`, the dimensions after its orientation. Without them it is the stored one, turned when the
+ * uncut variants of declared `inside` sizes show only the swapped aspect; when they do not tell the orientation,
+ * the variants of declared `cover` sizes stay out. When the variants carry no `crop` (a `crop`
  * without all four edges counts as none), ratios match within 1 %, a declared `cover` size lists the variants of the
  * `cover` sizes with its exact ratio key, and any other size the variants of its ratio that no declared `cover` size
  * renders. `sizes` are the declared image sizes, by default those of the build (`#kestrel/image-sizes`).
@@ -116,7 +123,7 @@ export function pickImageSources(
   const named = item.variants.find((v) => v.size === size && v.width > 0 && v.height > 0)
   const carriesCrop = named ? listedCrop(named) !== undefined : item.variants.some((v) => listedCrop(v) !== undefined)
   const stored = item.width && item.height ? { width: item.width, height: item.height } : null
-  const oriented = !named && carriesCrop && stored ? orientedBox(item, stored, sizes) : null
+  const oriented = !named && carriesCrop ? framedBox(item) ?? (stored ? orientedBox(item, stored, sizes) : null) : null
   const reference: Box | null = named ?? oriented ?? stored
   const src = named ? named.path : item.path
   const width = reference ? reference.width : item.width

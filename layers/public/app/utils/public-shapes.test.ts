@@ -39,8 +39,16 @@ describe('toPublicMedia', () => {
       description: 'A tree in a field',
       provenance: { origin: 'human' },
       focus: { x: 0.5, y: 0.1, w: 0.25, h: 0.2 },
+      framing: { width: 1200, height: 900 },
       variants: [{ size: 'content', width: 640, height: 480, format: 'webp', path: '/media/m1/variants/content.webp', crop: null }],
     })
+  })
+
+  it('keeps of the framing only the oriented dimensions, and leaves it out when the answer has none', () => {
+    const turned: MediaItem = { ...stored, framing: { ...stored.framing, width: 900, height: 1200 } }
+    expect(toPublicMedia(turned).framing).toEqual({ width: 900, height: 1200 })
+    const { framing: _framing, ...withoutFraming } = stored
+    expect(toPublicMedia(withoutFraming)).not.toHaveProperty('framing')
   })
 
   it('keeps the crop a variant shows, and leaves it out when the answer has none', () => {
@@ -62,9 +70,10 @@ describe('toPublicMedia', () => {
     expect(toPublicMedia(withoutImages).focus).toBeNull()
   })
 
-  it('drops the library folder, the timestamps, the variant counts and every variant\'s state', () => {
+  it('drops the library folder, the timestamps, the variant counts, the editor\'s framing and every variant\'s state', () => {
     const shaped = toPublicMedia(stored)
-    for (const key of ['folder', 'createdAt', 'updatedAt', 'variantCounts', 'available', 'framing']) expect(shaped).not.toHaveProperty(key)
+    for (const key of ['folder', 'createdAt', 'updatedAt', 'variantCounts', 'available']) expect(shaped).not.toHaveProperty(key)
+    for (const key of ['focus', 'crops', 'ratios']) expect(shaped.framing).not.toHaveProperty(key)
     for (const variant of shaped.variants) {
       expect(variant).not.toHaveProperty('state')
       expect(variant).not.toHaveProperty('bytes')
@@ -85,6 +94,7 @@ const anonymous: AnonymousOf<'getMedia'> = {
   description: 'A tree in a field',
   provenance: { origin: 'human' },
   focus: { x: 0.5, y: 0.1, w: 0.25, h: 0.2 },
+  framing: { width: 1200, height: 900 },
   variants: [{ size: 'content', width: 640, height: 480, format: 'webp', path: '/media/m1/variants/content.webp', crop: null }],
 }
 
