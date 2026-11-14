@@ -4,11 +4,14 @@ How to cut a release of this repository. `@michaelthielemann/kestrel-web` (the l
 `@michaelthielemann/kestrel-renderer-nuxt` (`packages/renderer-nuxt`) and `create-kestrel`
 (`packages/create-kestrel`) are published together; the playground is private and never published.
 
-1. Resolve the lockfile from scratch with `rm pnpm-lock.yaml && pnpm install`, then run `pnpm audit` and
-   `pnpm audit --prod`. Both report no advisory beyond the ids listed under `auditConfig.ignoreGhsas` in
-   `pnpm-workspace.yaml`. An install on top of the existing lockfile keeps every version it already pins,
-   advisories included, as long as that version still satisfies its range and the overrides. The new lockfile
-   goes into the release commit.
+1. Resolve the lockfile from scratch with
+   `rm -rf node_modules playground/node_modules packages/*/node_modules pnpm-lock.yaml && pnpm install`, then
+   run `pnpm audit` and `pnpm audit --prod`. Both report no advisory beyond the ids listed under
+   `auditConfig.ignoreGhsas` in `pnpm-workspace.yaml`. An install on top of the existing lockfile keeps every
+   version it already pins, advisories included, as long as that version still satisfies its range and the
+   overrides. An installed `node_modules` does the same without a lockfile: pnpm reads its pins from
+   `node_modules/.pnpm/lock.yaml`, and when nothing else changed it reports `Already up to date` and writes no
+   `pnpm-lock.yaml` at all. The new lockfile goes into the release commit.
 2. `pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm build:packages`
 3. `./scripts/smoke-consumer.sh` – packs both packages, installs the tarballs into a throwaway Nuxt app
    outside the workspace that extends the layer, builds it, boots it and requests a few pages. This is
