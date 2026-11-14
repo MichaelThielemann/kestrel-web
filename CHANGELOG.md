@@ -242,6 +242,14 @@
   setting up the new factor). create-kestrel offers `mfa` (not preselected) and writes a fresh
   `KESTREL_MFA_KEY` to `.env`. The feature needs `ratelimit` (create-kestrel adds it). The layer depends on
   `@michaelthielemann/kestrel-mfa-totp` and `uqr` (pinned to 0.1.3).
+- The record pickers (the internal link picker, including the one in the richtext toolbar, and the relation
+  field) show the status name of a record that is not live, such as "Draft" or "Finished", as a small muted
+  badge behind its label, in the options and next to the chosen record. A record without a status counts as a
+  draft. The name is the status field's own choice label in the admin language; the search still matches the
+  label only, and collections without a workflow show nothing. A screen reader hears the option as "Label,
+  Status". `FieldOption` gains the optional `hint`, which `KestrelUiCombobox` renders the same way.
+- `KestrelUiBadge`, a small label for the admin kit with a `muted` variant for a state next to a name and a
+  `counter` variant for a number.
 
 ### Changed
 

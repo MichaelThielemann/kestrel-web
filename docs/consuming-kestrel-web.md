@@ -629,6 +629,9 @@ field component supports a repeater inside a repeater generically, at any depth,
   and `live`/`draft`/`done` must be among its `options`; the error names collection and field. Declaring a
   workflow without the content types — `defineCollectionsUi(map)` instead of
   `defineCollectionsUi(map, contentTypes)` — throws, because nothing could be checked.
+  The status field's choice labels (in the admin language) are also the status names the admin shows: in the list's
+  status column, and as a muted badge behind every record of the link picker and the relation field that is not
+  live. A record without a status is shown as a draft. A collection without a workflow shows no badge.
 - **Link fields**: a `link` field always renders as one row — the primary control (URL/email/phone input,
   or the internal-record picker) plus a settings icon button at the row end. The button opens a popover
   with the link type switch, the anchor field (internal links only) and the link-text field; it picks up a

@@ -700,7 +700,10 @@ collection, the expected filter and the fix in the message.
   status against `workflow.draft`/`workflow.done`/`workflow.live`, `pages/admin/[collection]/[id].vue`
   writes `workflow.live`/`workflow.draft` from publish/unpublish, `actions/list.ts`'s `bulkSetStatus`
   takes `{ workflow, live }` and writes `{ [workflow.field]: live ? workflow.live : workflow.draft }`, and
-  `CollectionListTable.vue` reads the status cell from `workflow.field`. A collection without a workflow
+  `CollectionListTable.vue` reads the status cell from `workflow.field`. `utils/workflow-status.ts` turns a
+  status value into the choice label of the status field in the admin language (the list column and the
+  picker hints share it), and `useRecordOptions` marks every option whose record is not live with that name, a
+  missing status counting as `workflow.draft`. A collection without a workflow
   gets no status light, no publish button and no bulk status actions rather than writing a value its model
   does not know.
 - `app/composables/useApi.ts` — the HTTP client for JSON requests; errors become
@@ -938,6 +941,9 @@ Kit inventory:
 - `ActionMenu.vue` — dropdown menu behind a caller-styled trigger button; `triggerTabindex` lets a roving
   listing keep the trigger out of the tab order except on the active item.
 - `Alert.vue` — inline message box; `role="alert"` for warning/error, `role="status"` otherwise.
+- `Badge.vue` — a small label that carries its meaning as text. `variant="muted"` (the default) names a state next
+  to a name, `variant="counter"` shows a number; neither announces itself, so a caller that wants a screen reader
+  to hear it ties it to the control with `aria-describedby` or into the accessible name.
 - `Brand.vue` — the decorative product mark.
 - `Button.vue` — every button and button-shaped link (`to` renders a `NuxtLink`).
 - `BulkBar.vue` — the toolbar shown while rows or tiles are selected: the count as text that also names the
@@ -949,7 +955,10 @@ Kit inventory:
 - `Checkbox.vue` / `CheckboxGroup.vue` — native checkbox with indeterminate support; a group bound to `string[]`.
   `standalone` wraps a checkbox that no other label wraps (a table cell, a tile) in a label with a
   24 × 24 px click target; the caller's attributes stay on the input either way.
-- `Combobox.vue` — searchable single/multi select with reorderable selection.
+- `Combobox.vue` — searchable single/multi select with reorderable selection. A `FieldOption` may carry a `hint`:
+  it shows as a `Badge` behind the label in the option list, on the chips of a multiple selection and next to the
+  input of a single choice, where it also describes the input. An option with a hint gets the accessible name
+  "label, hint". The search is the caller's and matches labels only.
 - `CropFrame.vue` — a fixed frame in an aspect ratio (`ratio`, a reduced key such as `"16:9"`) over an image
   that pans and zooms below it, bound to a manual crop (`v-model`, a rectangle normalised to the image as
   displayed, `null` for automatic) on an image of `width` × `height` pixels after EXIF orientation. It shows the
