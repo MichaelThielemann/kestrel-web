@@ -53,7 +53,7 @@ async function snapshotNow() {
 let revealTimer: ReturnType<typeof setTimeout> | undefined
 function revealResult() {
   const el = resultAlert.value?.$el
-  if (el && typeof el.scrollIntoView === 'function') el.scrollIntoView({ block: 'nearest' })
+  if (el instanceof HTMLElement) el.focus()
 }
 onUnmounted(() => { if (revealTimer) clearTimeout(revealTimer) })
 
@@ -94,7 +94,7 @@ function relative(ms: number | null): string { return ms === null ? '—' : huma
     <KestrelUiAlert v-else-if="loadError" variant="error">{{ loadError }}</KestrelUiAlert>
 
     <template v-else-if="status">
-      <KestrelUiAlert v-if="restoreResult" ref="resultAlert" variant="success">
+      <KestrelUiAlert v-if="restoreResult" ref="resultAlert" variant="success" tabindex="-1">
         <template #title>{{ t('replication.restoreDoneTitle') }}</template>
         {{ t('replication.restoreDone', { generation: restoreResult.generation, at: absolute(restoreResult.at), file: restoreResult.file }) }}
       </KestrelUiAlert>

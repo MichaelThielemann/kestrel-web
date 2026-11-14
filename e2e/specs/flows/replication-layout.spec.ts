@@ -39,6 +39,7 @@ for (const viewport of VIEWPORTS) {
     const success = page.locator(".replication .ui-alert--success");
     await expect(success).toBeVisible();
     await expect(success).toBeInViewport({ ratio: 1 });
+    await expect(success).toBeFocused();
 
     const vertical = await section.evaluate((el) => ({ scrollable: getComputedStyle(el).overflowY === "auto" || getComputedStyle(el).overflowY === "scroll", clipped: el.scrollHeight > el.clientHeight }));
     expect(vertical.clipped ? vertical.scrollable : true).toBe(true);

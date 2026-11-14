@@ -1,5 +1,5 @@
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { AdminSchema, ReplicationStatus } from '#kestrel-admin/types/api'
 import { useSchema } from '../composables/useSchema'
 import SystemReplication from './SystemReplication.vue'
@@ -96,6 +96,27 @@ describe('SystemReplication', () => {
     const wrapper = await mountSuspended(SystemReplication)
 
     expect(wrapper.find('.replication__restore-hint').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('moves focus to the staged restore result so keyboard and screen reader users reach it', async () => {
+    unregisterAll.push(registerEndpoint('/api/admin/schema', { method: 'GET', handler: () => schema }))
+    unregisterAll.push(registerEndpoint('/api/admin/replication/status', { method: 'GET', handler: () => status }))
+    unregisterAll.push(registerEndpoint('/api/admin/replication/points', { method: 'GET', handler: () => [] }))
+    unregisterAll.push(registerEndpoint('/api/admin/replication/restore', {
+      method: 'POST',
+      handler: () => ({ generation: 3, at: Date.UTC(2026, 8, 19, 9, 0, 0), file: 'db.snap', restartRequired: true }),
+    }))
+    await useSchema().load()
+
+    const wrapper = await mountSuspended(SystemReplication, { attachTo: document.body })
+    await wrapper.find('#replication-restore-at').setValue('2026-09-19T09:00')
+    await wrapper.find('.replication__restore-time button').trigger('click')
+    await vi.waitFor(() => expect(wrapper.find('.ui-alert--success').exists()).toBe(true))
+
+    const success = wrapper.find('.ui-alert--success')
+    expect(success.attributes('tabindex')).toBe('-1')
+    await vi.waitFor(() => expect(document.activeElement).toBe(success.element))
     wrapper.unmount()
   })
 })
