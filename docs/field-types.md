@@ -207,8 +207,9 @@ media viewer (see "Focus and crop" in [`consuming-kestrel-web.md`](consuming-kes
 over the record editor. The editor saves the focus and the crops on the media item through
 `PUT /api/media/:id/framing`, not in the field, so the record gains no unsaved change, the framing
 applies to every record that uses the image, and the button stays available on a read-only field. The
-picker dialog itself offers no crop button, and neither does a tile whose item comes without `framing`,
-as it does for a role whose `roles.fields` grant for `media` leaves it out. The field reads a chosen item again once all its variants have
+picker dialog itself offers no crop button, and neither does a tile whose item comes without the whole
+`framing` (`focus`, `crops` and `ratios` besides `width` and `height`), as it does for a role whose
+`roles.fields` grant for `media` leaves it out; the media viewer offers no "Adjust crop" for it either. The field reads a chosen item again once all its variants have
 finished rendering, so on a WebP original the button appears after those renders are done.
 
 ## A colour field, end to end
