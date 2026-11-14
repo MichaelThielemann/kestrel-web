@@ -1901,13 +1901,23 @@ present), `art` (art direction, below), `only` (restrict the `srcset` candidates
 **Art direction.** `art` is a list of `{ media, size, sizes? }` entries. With a non-empty list the component
 renders `<picture>`, one `<source media srcset sizes width height>` per entry in list order, then the `<img>` for
 `size`. `pickArtSources` builds each source by calling `pickImageSources` for the entry's size, so the rules below
-hold per source: a `srcset` is one aspect ratio and one cut, and an entry whose size has no variant offers the
-original as its single candidate (no `sizes`, since there is no width descriptor). All entries read one media item,
-hence one focus and one set of crops. The component sets `inheritAttrs: false` and passes `class`, `style` and the
-other attributes to the `<img>`, which keeps consumer CSS such as `.block-hero__image` applying to the image
-element. With `art` the inline `aspect-ratio` is left out (one value cannot fit two sources) and the box follows
-the `width` and `height` of the source the browser selects; `object-fit` and `object-position` stay. Without a
-list, or with an empty one, the template renders the single `<img>` as before.
+hold per source: a `srcset` is one aspect ratio and one cut. An entry whose size has no variant follows the
+reference rule below, the original and the uncut variants of its ratio; only an item without any variant offers
+the original as its single candidate (no `sizes`, since there is no width descriptor). All entries read one media
+item, hence one focus and one set of crops. The component sets `inheritAttrs: false` and merges `class`, `style`
+and the other attributes over its own values on the `<img>`, so a consumer's `width`, `style` or `class` win as
+they do on the plain image. The scope attribute of a scoped parent is set on the `<img>` too, since Vue puts it
+on the root element only and the root is the `<picture>`; `class` and scoped CSS of the consumer keep applying
+to the image element.
+
+With `art` the inline `aspect-ratio` is left out, since one value does not fit two sources, and `width` and
+`height` alone do not hold the box: a loaded image replaces `aspect-ratio: auto w / h` with its natural ratio,
+and a variant that is still pending or failed serves the original's bytes. `artBoxCss` therefore builds a
+stylesheet rule per source, written through `useHead` under a `data-kestrel-art` marker (the `useId` of the
+component, stable across server and client): the fallback's ratio as the base rule and a `@media` rule per entry
+in reverse list order, so the first matching entry wins as in `<picture>`. The selector is wrapped in `:where()`,
+which leaves the specificity at zero for consumer CSS. `object-fit: cover` and `object-position` stay inline.
+Without a list, or with an empty one, the template renders the single `<img>` as before.
 
 `layers/public/app/utils/image-variants.ts` (`pickImageSources`) implements the rules:
 - **`src`/`srcset` come only from the item's `path` and `variants[].path`, never constructed.** Every
