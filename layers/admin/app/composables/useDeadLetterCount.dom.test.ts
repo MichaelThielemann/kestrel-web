@@ -234,4 +234,42 @@ describe('useDeadLetterCount', () => {
     page.wrapper.unmount()
     rail.wrapper.unmount()
   })
+
+  it('applies the answer of an older load when a newer load failed', async () => {
+    const pending: { resolve: (status: EventDeliveryStatus) => void, reject: (error: Error) => void }[] = []
+    let call = 0
+    apiHandler.fn = () => {
+      if (call++ === 0) return Promise.resolve(delivery({ dead: 3 }))
+      return new Promise((resolve, reject) => { pending.push({ resolve, reject }) })
+    }
+    const rail = await mountProbe()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(rail.api.count.value).toBe(3)
+    const page = await mountProbe({ poll: false })
+    const refreshed = page.api.refresh()
+    await vi.advanceTimersByTimeAsync(30_000)
+    expect(pending).toHaveLength(2)
+    const [older, newer] = pending
+    newer?.reject(new Error('boom'))
+    older?.resolve(delivery({ dead: 0 }))
+    await refreshed
+    await vi.advanceTimersByTimeAsync(0)
+    expect(rail.api.count.value).toBe(0)
+    page.wrapper.unmount()
+    rail.wrapper.unmount()
+  })
+
+  it('sends a fresh request for every refresh, even while another load is running', async () => {
+    const pending: ((status: EventDeliveryStatus) => void)[] = []
+    apiHandler.fn = () => new Promise((resolve) => { pending.push(resolve) })
+    const { wrapper, api } = await mountProbe({ poll: false })
+    const first = api.refresh()
+    const second = api.refresh()
+    expect(apiCalls).toHaveLength(2)
+    pending[0]?.(delivery({ dead: 5 }))
+    pending[1]?.(delivery({ dead: 0 }))
+    await Promise.all([first, second])
+    expect(api.count.value).toBe(0)
+    wrapper.unmount()
+  })
 })
