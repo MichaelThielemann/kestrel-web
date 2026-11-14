@@ -9,6 +9,8 @@ const canRetryAll = computed(() => deps.capabilities.has('eventsRetryDead'))
 const canRetryOne = computed(() => deps.capabilities.has('eventsRetryOne'))
 const canDead = computed(() => deps.capabilities.has('eventsDead'))
 
+const { refresh: refreshRailCount } = useDeadLetterCount({ poll: false })
+
 const status = ref<EventsQueueStatus | null>(null)
 const dead = ref<DeadEvent[]>([])
 const notFound = ref(false)
@@ -52,11 +54,15 @@ onUnmounted(() => {
   pollId = null
 })
 
+async function reload() {
+  await Promise.all([load(), refreshRailCount()])
+}
+
 async function retryAll() {
   const r = await runAction(eventsRetryAll, {
     deps,
     ops: { setBusy: (on) => { retryAllBusy.value = on }, busy: () => retryAllBusy.value },
-    refresh: load,
+    refresh: reload,
     count: dead.value.length,
   })
   if (r.ok) confirmRetryAll.value = false
@@ -66,7 +72,7 @@ function retryOne(event: DeadEvent) {
   return runAction(eventsRetryOne, {
     deps,
     ops: { setBusy: (on) => { retryOneBusy.value = on ? event.id : null }, busy: () => retryOneBusy.value === event.id },
-    refresh: load,
+    refresh: reload,
     id: event.id,
   })
 }

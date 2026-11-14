@@ -1,6 +1,10 @@
+import { flushPromises } from '@vue/test-utils'
+import { clearNuxtState } from '#app'
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { en } from '../i18n/en'
 import type { AdminSchema, DeadEvent, EventsQueueStatus } from '#kestrel-admin/types/api'
+import { useDeadLetterCount } from '../composables/useDeadLetterCount'
 import { useSchema } from '../composables/useSchema'
 import SystemEvents from './SystemEvents.vue'
 
@@ -35,6 +39,7 @@ describe('SystemEvents', () => {
   afterEach(() => {
     unregisterAll.splice(0).forEach((unregister) => unregister())
     useSchema().clear()
+    clearNuxtState('kestrel-admin-dead-letter-count')
   })
 
   it('names the pipeline and the run each dead-letter row belongs to', async () => {
@@ -63,6 +68,33 @@ describe('SystemEvents', () => {
     expect(wrapper.find('.ui-alert--error').exists()).toBe(false)
     expect(wrapper.text()).toContain(String(status.pending))
     expect(wrapper.find('.u-scroll').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('lowers the rail count right after retrying every dead event, without waiting for the next poll', async () => {
+    const queue = { dead: 2 }
+    const withDelivery: AdminSchema = { ...schema, capabilities: { ...schema.capabilities, eventsDeliveryStatus: { method: 'GET', path: '/admin/events/delivery' } } }
+    unregisterAll.push(registerEndpoint('/api/admin/schema', { method: 'GET', handler: () => withDelivery }))
+    unregisterAll.push(registerEndpoint('/api/admin/events/status', { method: 'GET', handler: () => ({ ...status, dead: queue.dead }) }))
+    unregisterAll.push(registerEndpoint('/api/admin/events/dead', { method: 'GET', handler: () => ({ items: queue.dead > 0 ? dead : [] }) }))
+    unregisterAll.push(registerEndpoint('/api/admin/events/delivery', { method: 'GET', handler: () => ({ dead: queue.dead, scope: 'store', since: null, lastDeadAt: null }) }))
+    unregisterAll.push(registerEndpoint('/api/admin/events/retry', { method: 'POST', handler: () => { queue.dead = 0; return { retried: 2 } } }))
+    await useSchema().load()
+    const rail = useDeadLetterCount({ poll: false })
+    await rail.refresh()
+    expect(rail.count.value).toBe(2)
+
+    const wrapper = await mountSuspended(SystemEvents, { attachTo: document.body })
+    const retryAll = wrapper.findAll('button').find((button) => button.text() === en['events.retryAll'])
+    await retryAll?.trigger('click')
+    const confirm = await vi.waitFor(() => {
+      const button = [...document.querySelectorAll('.ui-dialog__content button')].find((candidate) => candidate.textContent?.trim() === en['events.retryAll'])
+      if (!(button instanceof HTMLButtonElement)) throw new Error('the confirmation button is not open yet')
+      return button
+    })
+    confirm.click()
+    await vi.waitFor(() => expect(rail.count.value).toBe(0))
+    await flushPromises()
     wrapper.unmount()
   })
 })
