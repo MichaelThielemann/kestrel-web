@@ -16,27 +16,19 @@
   original its bytes show, or `null` for the whole image or the centred cut of its ratio; in
   `PublicMediaVariant` it is optional. `MediaRect`, `MediaFraming` and `MediaFramingRatio` are exported from the
   API types. `kestrel upgrade check` reports a narrowed `roles.anonymousFields.media` that keeps the variants but
-  not `focus`, not the item's `width` and `height`, or not every variant member `KestrelImage` reads (`size`,
-  `path`, `width`, `height`, `crop`), says what each gap does on a public page and names the fields to add
-  (`preset/media-focus-grant`).
+  not `focus`, the item's `width` and `height`, or every variant member `KestrelImage` reads (`size`, `path`,
+  `width`, `height`, `crop`), and names the fields to add (`preset/media-focus-grant`).
 - `KestrelImage` sets `object-position` from the centre of the item's `focus` on the original and on a variant
   of every size, so the original that stands in for a variant while it renders keeps the focus in view;
   `focusObjectPosition()` answers that value. `pickImageSources` passes a variant path with its `?v=` query
-  through unchanged, in `src` and `srcset`, and builds a `srcset` from the variants of the reference ratio that
-  show the same crop as the named variant (the whole image for the original): a `cover` variant that is not cut
-  by hand or around a focus keeps the `inside` widths of its ratio, and one cut differently gets a `srcset` of
-  its own. Ratios match when their whole-pixel rounding ranges overlap, crops when every edge lies within a
-  pixel, and a crop within a pixel of the centred cut of the oriented original counts as uncut. The orientation
-  comes from an uncut variant of a declared `inside` size or a crop that fits only one way; without it a crop
-  counts as uncut only when it is centred either way. The original as the reference takes the oriented box,
-  `width` and `height`, so a photo stored on its side keeps its `inside` widths. It takes the declared sizes as
-  a fourth argument, by default the build's (`#kestrel/image-sizes`), which it groups by when the variants carry
-  no `crop` (a hand-written anonymous grant without it),
-  with ratios within 1 %: a declared `cover` size's `srcset` then lists only the
-  `cover` variants of its exact ratio key and any other size's leaves declared `cover` variants out. A width
+  through unchanged, in `src` and `srcset`, and builds a `srcset` from the variants with the reference's aspect
+  ratio and an equal `crop`, so a `cover` variant whose cut stays centred keeps the `inside` widths of its ratio
+  and one cut differently gets a `srcset` of its own. The original as the reference takes its box from the
+  variant of a declared `inside` size, turned for a photo stored on its side, and leaves the `cover` sizes out
+  without one. It takes the declared sizes as a fourth argument, by default the build's
+  (`#kestrel/image-sizes`), and groups by their `cover` ratio keys when the variants carry no `crop`. A width
   tie keeps the named variant (`cut` in its answer says whether `src` links a declared `cover` size).
-  `KestrelImage` passes `#kestrel/image-sizes`. `KestrelImage` and `pickImageSources` take an item without
-  `focus` (`ImageMedia`).
+  `KestrelImage` and `pickImageSources` take an item without `focus` (`ImageMedia`).
 - Admin kit: `KestrelUiSlider` (a labelled range input), `KestrelUiRectSelect` (draw, move and resize a
   rectangle on an image, or set a point) and `KestrelUiCropFrame` (a frame in an aspect ratio over an image that
   pans and zooms, showing the cut images-default renders). Both work with the pointer, touch and the keyboard

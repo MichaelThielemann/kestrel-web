@@ -746,27 +746,22 @@ visitor get the same page data on the Node site. A narrowed grant cuts only the 
 editor's page data on the Node site then keeps the fields visitors lose. It goes to the editor alone, and
 the static export, rendered without a session, keeps the narrowed shape.
 
-With `images`, the derived `media` grant carries `focus` and `variants[].crop` next to the variant fields:
-`KestrelImage` reads `focus` to place the image in its box and `crop` to tell which variants show the same
-picture (§6). It finds a variant by `variants[].size` and builds `src`, `srcset` and the box from its `path`,
-`width` and `height`, and it places a crop on the original by the item's own `width` and `height`, so a
-narrowed grant keeps those and `crop`. Every gap still starts the server and changes the public page:
+With `images`, the derived `media` grant carries `focus` and `variants[].crop` next to the variant fields. A
+narrowed grant that keeps the variants needs `width`, `height`, `focus` and `variants` whole or
+`variants[].size`, `variants[].path`, `variants[].width`, `variants[].height` and `variants[].crop`. The server
+starts without any of them, but the public page changes:
 
-- without `variants[].path`, `<KestrelImage size="teaser">` links the `teaser` variant without a source, and
-  the image is broken;
-- without `variants[].size`, it never finds the `teaser`: no cut variant and no box of its size, but the whole
-  image from the original and its whole-image widths;
-- without `variants[].width` or `variants[].height`, it links no variant and shows the original;
-- without the item's `width` and `height`, a `cover` variant cut within a pixel of the centre loses the
-  whole-image widths, and an original shown for a size without a listed variant gets no `srcset` and no box;
-- without `variants[].crop`, it groups a `srcset` by the declared `cover` sizes: a `cover` size's `srcset`
-  lists only the `cover` variants of its exact ratio key, without the `inside` widths of its ratio, and any
-  other size's `srcset` leaves out the declared `cover` variants of its ratio, uncut ones included;
-- without `focus`, it sets no `object-position`: an original or an `inside` variant shown in a box of another
-  ratio stays centred. `cover` variants are still cut around the focus or the manual crop by kestrel.
+- without `variants[].path`, a linked variant has no source and the image is broken;
+- without `variants[].size`, the named size is never found and the whole image is shown from the original;
+- without `variants[].width` or `variants[].height`, no variant is linked and the original is shown;
+- without the item's `width` and `height`, an original shown for a size without a listed variant gets no
+  `srcset` and no box;
+- without `variants[].crop`, the `srcset` is grouped by the declared `cover` sizes (§6), so a `cover` size
+  loses the `inside` widths of its ratio;
+- without `focus`, there is no `object-position`, so an original or `inside` variant in a box of another
+  ratio stays centred.
 
-A grant that keeps `variants` whole carries `crop`. `kestrel upgrade check` reports each of these as
-`preset/media-focus-grant`, naming every field the grant lacks.
+`kestrel upgrade check` reports each gap as `preset/media-focus-grant`, naming the fields to add.
 
 A path is relative to one item of the answer: `title` keeps the member whole, `provenance.origin` keeps
 `provenance` holding only `origin`, `variants[].path` keeps each variant holding only `path`. `fields`
@@ -1606,30 +1601,22 @@ on the original and on every variant, so a box that crops them keeps the focus i
 original that a `cover` variant's path serves until kestrel has cut it. A rendered `cover` variant fills a
 box of its own aspect, where the position changes nothing.
 
-A `srcset` lists only variants that show the same picture. Every variant carries `crop`, the part of the
-oriented original its bytes show, or `null` for the whole image or the centred cut of its ratio, and
-`KestrelImage` combines the variants with the ratio of the named one and an equal `crop`. Two ratios are equal
-when the ranges their whole-pixel `width` and `height` round from overlap, so 1000×404 is not 2000×800's
-ratio, while 320×213 is 1200×800's. Two crops are equal when each edge lies within a pixel of the other's,
-and a crop within a pixel of the centred cut on the original counts as `null`: a focus that moves the 3:2 cut
-of a 1920×1281 original by one row leaves the `teaser` with the `inside` widths. The centre is taken on the
-original as it is displayed; the item's `width` and `height` are as stored, swapped for a photo with an EXIF
-rotation. `KestrelImage` knows the orientation from an uncut variant of a size declared `inside` or from a crop
-that fits the image only one way; without either, a crop counts as `null` only when it is centred on both the
-stored and the swapped box. When the original itself is the reference (no variant of the named size is listed),
-its box, `width`, `height` and `srcset` follow the known orientation, else the one the uncut variants of sizes
-not declared `cover` agree on, so a photo stored on its side keeps its `inside` widths. A
-`cover` size that nobody cut by hand and that has no focus to follow therefore gets the `inside` widths of its
-ratio too: a 480×320 `teaser` on a large 3:2 original is offered at 320, 480, 640, 1024, 1600 and 2400 pixels
-wide, and an `inside` size's `srcset` includes the `teaser`. Once the 3:2 crop is set by hand or the focus moves the cut, the
-`teaser` variants show another picture: they form a `srcset` of their own, and the `inside` sizes lose them.
-`cover` sizes with the same ratio and the same cut share one `srcset`. When the variants carry no `crop` (a
-grant of your own without `variants[].crop`), `KestrelImage` falls back to the declared sizes and to ratios
-within 1 %: a `cover` size's
-`srcset` lists the variants of the `cover` sizes with its exact ratio key only, and other sizes leave declared
-`cover` variants out, so declare every `cover` size the site renders here, not only in images-default's own
-`sizes` config. A call to `pickImageSources(item, size, only)` from your own component reads the same declared
-sizes (`#kestrel/image-sizes`) unless you pass them as the fourth argument.
+A `srcset` lists only variants that show the same picture: those with the named variant's aspect ratio and
+an equal `crop`, the part of the oriented original a variant's bytes show (`null` for the whole image or the
+centred cut of its ratio). Two ratios are equal when the ranges their whole-pixel `width` and `height` round
+from overlap, two crops when both are `null` or every edge lies within a pixel. A `cover` size whose cut stays
+centred therefore shares the `inside` widths of its ratio: a 480×320 `teaser` on a large 3:2 original is
+offered at 320, 480, 640, 1024, 1600 and 2400 pixels wide until a manual crop or the focus moves its cut, and
+then its variants form a `srcset` of their own. Without a variant of the named size the original is the
+reference. Its box is the item's `width` and `height`, turned when the variant of a declared `inside` size
+shows the swapped aspect (a photo with an EXIF rotation); without such a variant the `cover` sizes stay out of
+its `srcset`. When kestrel's listing and the bytes at a path can differ is described under "Which variants
+show the same picture" in images-default's README. Without `variants[].crop` (a grant of your own),
+`KestrelImage` groups by the declared sizes instead: a `cover` size's `srcset` lists the `cover` variants of
+its exact ratio key, and other sizes leave declared `cover` variants out, so declare every `cover` size the
+site renders here, not only in images-default's own `sizes` config. A call to
+`pickImageSources(item, size, only)` from your own component reads the same declared sizes
+(`#kestrel/image-sizes`) unless you pass them as the fourth argument.
 
 The admin's crop editor opens from the media viewer ("Adjust crop") and from the crop button on an image
 chosen in a media field. Its focus tab previews each ratio of the `cover` sizes; its fine-crop tab shows one
@@ -2432,17 +2419,9 @@ What changes:
     with a random key per process, so set the variable for known devices to survive a restart and to be
     recognised by every instance.
   - `preset/media-focus-grant` reports (`manual`) a `roles.anonymousFields.media` grant that keeps
-    `variants` (whole or as `variants[]` fields) for visitors but not `focus` or not the item's `width` and
-    `height`, or keeps `variants[]` fields but not all of `variants[].size`, `.path`, `.width`, `.height` and
-    `.crop`, and names the fields to add. Without `focus`, `KestrelImage` sets no `object-position`, so an
-    original or `inside` variant in a box of another ratio stays centred (`cover` variants are still cut
-    around the focus). Without the item's `width` and `height`, a `cover` variant cut within a pixel of the
-    centre loses the whole-image widths. Without `path`, a linked variant has no source and the image breaks;
-    without `size`, the named size is never found and the whole image is shown from the original and its
-    whole-image widths; without `width` or `height`, no variant is linked and the original is shown. With
-    those four but without `crop`, a `cover` size's `srcset` lists only the `cover` variants of its exact
-    ratio key, without the `inside` widths of its ratio, and other sizes leave out the declared `cover`
-    variants of their ratio.
+    `variants` for visitors but not `focus`, the item's `width` and `height`, or, as `variants[]` fields, all
+    of `variants[].size`, `.path`, `.width`, `.height` and `.crop`. The finding says what each gap does on a
+    public page (see "What a visitor without a session receives") and names the fields to add.
   - `preset/queue-lanes` sets `lanes` (and a missing `relayPipelines`) on a `kestrel-events-queue` entry
     written in `kestrel.config.ts` to what `lanesFor(features)` gives (`fix`).
   - `preset/override-emit` forward-ports a 2.x `setSettings` or `set<Name>` override in one edit (`fix`). It
