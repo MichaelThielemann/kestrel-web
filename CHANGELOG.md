@@ -10,22 +10,23 @@
   `getMedia`, ending with the same `authz.fields:media?shape=item` cut, with or without `eventsQueue`. The admin schema lists it as a capability. The preset refuses an
   override that drops `images.generate` after `images.setFraming`, and one that emits `images.planned` from any
   pipeline but `planImageVariants`.
-- With `images`, the derived anonymous `media` grant carries `focus` and `variants[].crop`, and `toPublicMedia()`
-  keeps both (`focus` is `null` for an answer without one; `crop` is left out of a variant whose answer has
-  none). `MediaItem` gains `focus` and `framing`, and `MediaVariant` gains `crop`, the part of the oriented
+- With `images`, the derived anonymous `media` grant carries `focus`, `variants[].crop`, `framing.width` and
+  `framing.height` (the original's dimensions after its orientation), and `toPublicMedia()` keeps them (`focus`
+  is `null` for an answer without one; `crop` and `framing` are left out when the answer has none). `MediaItem` gains `focus` and `framing`, and `MediaVariant` gains `crop`, the part of the oriented
   original its bytes show, or `null` for the whole image or the centred cut of its ratio; in
   `PublicMediaVariant` it is optional. `MediaRect`, `MediaFraming` and `MediaFramingRatio` are exported from the
   API types. `kestrel upgrade check` reports a narrowed `roles.anonymousFields.media` that keeps the variants but
-  not `focus`, the item's `width` and `height`, or every variant member `KestrelImage` reads (`size`, `path`,
-  `width`, `height`, `crop`), and names the fields to add (`preset/media-focus-grant`).
+  not `focus`, the item's `width` and `height`, `framing.width` and `framing.height`, or every variant member
+  `KestrelImage` reads (`size`, `path`, `width`, `height`, `crop`), and names the fields to add (`preset/media-focus-grant`).
 - `KestrelImage` sets `object-position` from the centre of the item's `focus` on the original and on a variant
   of every size, so the original that stands in for a variant while it renders keeps the focus in view;
   `focusObjectPosition()` answers that value. `pickImageSources` passes a variant path with its `?v=` query
   through unchanged, in `src` and `srcset`, and builds a `srcset` from the variants with the reference's aspect
   ratio and an equal `crop`, so a `cover` variant whose cut stays centred keeps the `inside` widths of its ratio
-  and one cut differently gets a `srcset` of its own. The original as the reference keeps the item's `width`
-  and `height`, turned when the uncut variants of the declared `inside` sizes show the swapped aspect, and
-  leaves the declared `cover` sizes out when none tells the orientation. It takes the declared sizes as a fourth argument, by default the build's
+  and one cut differently gets a `srcset` of its own. The original as the reference takes `framing.width` and
+  `framing.height` as its box; without them the item's `width` and `height`, turned when the uncut variants of the
+  declared `inside` sizes show the swapped aspect, and the declared `cover` sizes stay out when none tells the
+  orientation of an original that is not nearly square. It takes the declared sizes as a fourth argument, by default the build's
   (`#kestrel/image-sizes`), and groups by their `cover` ratio keys when the variants carry no `crop`. A width
   tie keeps the named variant (`cut` in its answer says whether `src` links a declared `cover` size).
   `KestrelImage` and `pickImageSources` take an item without `focus` (`ImageMedia`).

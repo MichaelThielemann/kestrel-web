@@ -549,11 +549,11 @@ permission `anonymous` holds (`<type>.read`, `media.read` for `media` and `media
 `_links` and, with `redirects`, `redirect` (the hit `resolvePage` can answer early); on `settings` also
 `_links`; the public media fields (`id`, `path`, `filename`, `contentType`, `size`, `width`, `height`,
 `alt`, `title`, `description`, `provenance`) and, with `images`, `focus`, `variants[].size`, `.width`, `.height`,
-`.format`, `.path` and `.crop`; the file headers `cache-control`, `x-content-provenance` and, with `images`,
+`.format`, `.path` and `.crop`, and `framing.width` and `.height`; the file headers `cache-control`, `x-content-provenance` and, with `images`,
 `x-kestrel-variant`; with `redirects`, the redirect rules' `from`, `pattern`, `target` and `status`. It names only
 members a read declares, so every path passes kestrel's check. What it leaves out is cut for anonymous
 callers: a document's `createdAt` and `updatedAt`, a media item's `folder`, timestamps, `available`,
-`variantCounts` and `framing`, a variant's `bytes` and `state`, any other file header, and — on every collection,
+`variantCounts` and the rest of `framing`, a variant's `bytes` and `state`, any other file header, and — on every collection,
 unconditionally — a field named `blockAliases` (see "Page builder"). `roles.anonymousFields`
 replaces the grant of a resource it names (an empty list removes it), and `roles.fields` is passed through.
 
@@ -1858,12 +1858,14 @@ present), `only` (restrict the `srcset` candidates to specific size names), `alt
   aspect ratio, compared as kestrel defines it (the ranges from `(width - 0.5) / (height + 0.5)` to
   `(width + 0.5) / (height - 0.5)` overlap), and an equal `crop`: both `null`, or both set with every edge
   within a pixel. The reference is the named variant. Without one it is the original, with `crop` `null`;
-  its box (and the answered `width`/`height`) is the item's `width`/`height`, turned when the uncut variants
-  of the declared `inside` sizes show only the swapped aspect, since a photo with an EXIF rotation stores its
-  dimensions swapped; a variant whose rounded aspect fits both boxes tells nothing. Variants of sizes the
-  build does not declare never turn it, because their fit is unknown to the public site. When no declared
-  `inside` variant tells the orientation, the declared `cover` sizes stay out, because the centred cut of the
-  swapped ratio lists `null` as well. On a width tie the named variant stays. A variant without a `crop`
+  its box (and the answered `width`/`height`) is `framing.width`/`height`, the dimensions after its EXIF
+  orientation that every `crop` refers to. Without them it is the item's `width`/`height`, turned when the
+  uncut variants of the declared `inside` sizes show only the swapped aspect, since a photo with an EXIF
+  rotation stores its dimensions swapped; a variant whose rounded aspect fits both boxes tells nothing, and a
+  nearly square original whose two boxes round alike keeps the stored one. Variants of sizes the build does
+  not declare never turn it, because their fit is unknown to the public site. When no declared `inside`
+  variant tells the orientation, the declared `cover` sizes stay out, because the centred cut of the swapped
+  ratio lists `null` as well. On a width tie the named variant stays. A variant without a `crop`
   member, or with one that lacks any of its four edges, never combines with one that has it. When the variants carry no `crop` (an anonymous grant without
   `variants[].crop`), ratios match within 1 % and the declared sizes (`#kestrel/image-sizes`, which
   `pickImageSources` reads when no fourth argument is given) decide: a declared `cover` size lists the

@@ -426,7 +426,7 @@ const modules = [
       anonymousFields: {
         settings: ["id", "title", "titlePosition", "titleSeparator", "description", "navigation", "_locales", "_translations", "_links"],
         pages: ["id", "slug", "title", "body", "seo", "status", "shareImage", "accent", "layout", "_locales", "_translations", "_locale", "_links", "redirect", "_paths"],
-        media: ["id", "path", "filename", "contentType", "size", "width", "height", "alt", "title", "description", "provenance", "focus", "variants[].size", "variants[].width", "variants[].height", "variants[].format", "variants[].path", "variants[].crop"],
+        media: ["id", "path", "filename", "contentType", "size", "width", "height", "alt", "title", "description", "provenance", "focus", "variants[].size", "variants[].width", "variants[].height", "variants[].format", "variants[].path", "variants[].crop", "framing.width", "framing.height"],
         mediaFile: ["headers.cache-control", "headers.x-content-provenance", "headers.x-kestrel-variant"],
         redirectRules: ["from", "pattern", "target", "status"],
       },
@@ -699,12 +699,13 @@ its files; `x.*` and `*` count as in `authz-roles`) and for the redirect rules, 
 | each content type | `id` and every field of the model (the workflow's status field included), plus `_locales` and `_translations` when the model has locales |
 | `pages`, additionally | `_locale` (with locales), `_links`, and `redirect` with the `redirects` feature |
 | `settings`, additionally | `_links` |
-| `media` | `id`, `path`, `filename`, `contentType`, `size`, `width`, `height`, `alt`, `title`, `description`, `provenance`; with `images` also `focus`, `variants[].size`, `.width`, `.height`, `.format`, `.path`, `.crop` |
+| `media` | `id`, `path`, `filename`, `contentType`, `size`, `width`, `height`, `alt`, `title`, `description`, `provenance`; with `images` also `focus`, `variants[].size`, `.width`, `.height`, `.format`, `.path`, `.crop`, and `framing.width`, `.height` |
 | `mediaFile` | the headers `cache-control` and `x-content-provenance`; with `images` also `x-kestrel-variant` |
 | `redirectRules` | `from`, `pattern`, `target`, `status` (with `redirects`) |
 
 Everything else is cut for them: a document's `createdAt` and `updatedAt`, a media item's `folder`,
-timestamps, `available`, `variantCounts` and `framing`, and a variant's `bytes` and `state`.
+timestamps, `available`, `variantCounts` and every member of `framing` but `width` and `height`, and a
+variant's `bytes` and `state`.
 
 `presetModuleConfig()` takes the `exclude` and `overrides` you give `definePreset()` as its `pipelines`
 option, and derives no grant for a resource whose every preset read they exclude or override without its
@@ -734,7 +735,7 @@ roles: {
   anonymous: ["pages.read", "settings.read", "media.read"],
   anonymousFields: {
     pages: ["id", "slug", "title", "body", "seo", "status", "shareImage", "_locales", "_translations", "_locale", "_links", "redirect"],
-    media: ["id", "path", "alt", "width", "height", "focus", "variants[].size", "variants[].path", "variants[].width", "variants[].height", "variants[].crop"],
+    media: ["id", "path", "alt", "width", "height", "focus", "variants[].size", "variants[].path", "variants[].width", "variants[].height", "variants[].crop", "framing.width", "framing.height"],
   },
   fields: { reviewer: { pages: ["createdAt", "updatedAt"] } },
 },
@@ -746,19 +747,25 @@ visitor get the same page data on the Node site. A narrowed grant cuts only the 
 editor's page data on the Node site then keeps the fields visitors lose. It goes to the editor alone, and
 the static export, rendered without a session, keeps the narrowed shape.
 
-With `images`, the derived `media` grant carries `focus` and `variants[].crop` next to the variant fields. A
-narrowed grant that keeps the variants needs `width`, `height`, `focus` and `variants` whole or
-`variants[].size`, `variants[].path`, `variants[].width`, `variants[].height` and `variants[].crop`. The server
-starts without any of them, but the public page changes:
+With `images`, the derived `media` grant carries `focus`, `variants[].crop`, `framing.width` and
+`framing.height` next to the variant fields. A narrowed grant that keeps the variants needs `width`, `height`,
+`focus`, `framing.width`, `framing.height` and `variants` whole or `variants[].size`, `variants[].path`,
+`variants[].width`, `variants[].height` and `variants[].crop`. The server starts without any of them, but the
+public page changes:
 
 - without `variants[].path`, a linked variant has no source and the image is broken;
 - without `variants[].size`, the named size is never found and the whole image is shown from the original;
 - without `variants[].width` or `variants[].height`, no variant is linked and the original is shown;
 - without the item's `width` and `height`, an original shown for a size without a listed variant gets no
   `srcset` and no box;
-- without `variants[].crop`, the `srcset` is grouped by the declared `cover` sizes (§6), so a `cover` size
-  loses the `inside` widths of its ratio; a grant of only some of `variants[].crop.left`, `.top`, `.width`
-  and `.height` counts as none;
+- without `framing.width` and `framing.height`, an original shown for a size without a listed variant takes
+  the item's `width` and `height` as its box, turned only when a declared `inside` variant shows the other
+  orientation, and leaves the declared `cover` variants out of its `srcset` when none does;
+- without `variants[].crop`, the `srcset` is grouped by the declared `cover` sizes (§6): a `cover` size
+  loses the `inside` widths of its ratio, and a cut variant of a `cover` size declared only in
+  images-default's own `sizes` config can enter an `inside` size's `srcset`. With only some of
+  `variants[].crop.left`, `.top`, `.width` and `.height`, uncut variants still group by their crop, and only a
+  variant whose crop is set falls back to that grouping;
 - without `focus` (or all of `focus.x`, `.y`, `.w` and `.h`), there is no `object-position`, so an original or `inside` variant in a box of another
   ratio stays centred.
 
@@ -1609,11 +1616,13 @@ from overlap, two crops when both are `null` or every edge lies within a pixel. 
 centred therefore shares the `inside` widths of its ratio: a 480×320 `teaser` on a large 3:2 original is
 offered at 320, 480, 640, 1024, 1600 and 2400 pixels wide until a manual crop or the focus moves its cut, and
 then its variants form a `srcset` of their own. Without a variant of the named size the original is the
-reference. Its box is the item's `width` and `height`, turned when the uncut variants of the declared `inside`
-sizes show only the swapped aspect (a photo with an EXIF rotation). Without such a variant the declared `cover`
-sizes stay out of its `srcset`, while the variants of sizes the build does not declare stay in: for a photo with
-an EXIF rotation, an undeclared `cover` size of its stored ratio (an orphaned size before `images.prune`, or one
-only in images-default's own `sizes` config) enters that `srcset` with its cut, so declare an `inside` size the
+reference. Its box is `framing.width` and `framing.height`, the original's dimensions after its EXIF
+orientation. Without them (kestrel has not planned the item yet, or a grant leaves them out) it is the item's
+`width` and `height`, turned when the uncut variants of the declared `inside` sizes show only the swapped
+aspect. Without such a variant the declared `cover` sizes stay out of its `srcset` unless the original is
+nearly square, while the variants of sizes the build does not declare stay in: for a photo with an EXIF
+rotation, an undeclared `cover` size of its stored ratio (an orphaned size before `images.prune`, or one only
+in images-default's own `sizes` config) enters that `srcset` with its cut, so declare an `inside` size the
 site renders. When kestrel's listing and the bytes at a path can differ is described under "Which variants
 show the same picture" in images-default's README. Without `variants[].crop` (a grant of your own),
 `KestrelImage` groups by the declared sizes instead: a `cover` size's `srcset` lists the `cover` variants of
@@ -2423,8 +2432,9 @@ What changes:
     with a random key per process, so set the variable for known devices to survive a restart and to be
     recognised by every instance.
   - `preset/media-focus-grant` reports (`manual`) a `roles.anonymousFields.media` grant that keeps
-    `variants` for visitors but not `focus`, the item's `width` and `height`, or, as `variants[]` fields, all
-    of `variants[].size`, `.path`, `.width`, `.height` and `.crop`. The finding says what the gaps do on a
+    `variants` for visitors but not `focus`, the item's `width` and `height`, `framing.width` and
+    `framing.height`, or, as `variants[]` fields, all of `variants[].size`, `.path`, `.width`, `.height` and
+    `.crop`. The finding says what the gaps do on a
     public page (see "What a visitor without a session receives"), the missing `.crop` once every other
     variant member is granted, and names all the fields to add.
   - `preset/queue-lanes` sets `lanes` (and a missing `relayPipelines`) on a `kestrel-events-queue` entry
