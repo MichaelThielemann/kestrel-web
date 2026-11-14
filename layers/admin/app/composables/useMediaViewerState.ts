@@ -1,9 +1,10 @@
 import { ref, type Ref } from 'vue'
-import type { MediaItem } from '#kestrel-admin/types/api'
+import type { ListPage, MediaItem } from '#kestrel-admin/types/api'
 import { setMediaMeta, setMediaProvenance } from '#kestrel-admin/actions/media'
 import type { ActionDeps, BusyPort, RefreshPort } from '#kestrel-admin/actions/types'
 import { toastUnexpected } from '#kestrel-admin/actions/steps/notify'
 import type { MediaViewerSave } from '../utils/media-meta'
+import { useMediaSettle } from './useMediaSettle'
 
 export interface UseMediaViewerStateOptions {
   deps: ActionDeps
@@ -14,12 +15,26 @@ export interface UseMediaViewerStateOptions {
   saveFailed: () => string
 }
 
-/** State of the media library's file viewer and its save flow (provenance first, then the localized meta); a framing saved from the viewer replaces the shown item and refreshes the library. */
+/** State of the media library's file viewer and its save flow (provenance first, then the localized meta); a framing saved from the viewer replaces the shown item and refreshes the library, and an item whose variants are still rendering is read again once they settle. */
 export function useMediaViewerState(opts: UseMediaViewerStateOptions) {
   const viewerOpen = ref(false)
   const viewerFile = ref<MediaItem | null>(null)
   const viewerBusy = ref(false)
   const viewerError = ref('')
+  const { primary } = useContentLocales()
+
+  async function reread(id: string) {
+    const { api, capabilities } = opts.deps
+    if (viewerFile.value?.id !== id || !capabilities.has('listMedia')) return
+    try {
+      const page = await api<ListPage<MediaItem>>(capabilities.route('listMedia'), { query: { ids: id, locale: primary.value } })
+      const item = page.items.find((found) => found.id === id)
+      if (item && viewerFile.value?.id === id) viewerFile.value = item
+    } catch {
+      return
+    }
+  }
+  useMediaSettle(() => [viewerFile.value], (id) => { void reread(id) })
 
   function openViewer(file: MediaItem) {
     viewerFile.value = file

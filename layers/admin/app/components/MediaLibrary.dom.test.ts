@@ -1301,3 +1301,69 @@ describe('MediaLibrary read-only capabilities', () => {
     expect(viewerLabels).not.toContain(en['common.save'])
   })
 })
+
+describe('MediaLibrary viewer on an upload whose variants finish after the listing', () => {
+  const unregisterAll: (() => void)[] = []
+  const capabilities = schema.capabilities
+
+  beforeEach(() => {
+    uploadControl.reset()
+    schema.features = ['images']
+    schema.capabilities = {
+      ...capabilities,
+      updateMedia: { method: 'PATCH', path: '/media/:id' },
+      setMediaFraming: { method: 'PUT', path: '/media/:id/framing' },
+    }
+  })
+
+  afterEach(() => {
+    unregisterAll.splice(0).forEach((unregister) => unregister())
+    schema.features = []
+    schema.capabilities = capabilities
+  })
+
+  function webp(state: 'pending' | 'done'): MediaItem {
+    return {
+      id: 'f1', filename: 'photo.webp', folder: '', contentType: 'image/webp', size: 10, path: '/media/f1/photo.webp', available: true,
+      createdAt: 1, updatedAt: 1, provenance: { origin: 'human' }, width: 1200, height: 800, alt: null, title: null, description: null,
+      variants: [{ size: 'large', width: 1200, height: 800, format: 'webp', bytes: 10, state, path: '/media/f1/variants/large.webp', crop: null }],
+      variantCounts: { done: state === 'done' ? 1 : 0, pending: state === 'pending' ? 1 : 0, error: 0, failed: 0 },
+      focus: null, framing: { focus: null, crops: {}, width: 1200, height: 800, ratios: [] },
+    }
+  }
+
+  it('offers the crop editor for an uploaded WebP once its whole-image variant is done, although the listing still holds it pending', async () => {
+    let uploaded = false
+    let idsCalls = 0
+    unregisterAll.push(registerEndpoint('/api/media/folders', { method: 'GET', handler: () => [] }))
+    unregisterAll.push(registerEndpoint('/api/media', {
+      method: 'GET',
+      handler: (event) => {
+        if (typeof getQuery(event).ids === 'string') {
+          idsCalls++
+          return { items: [webp('done')], total: 1 }
+        }
+        return uploaded ? { items: [webp('pending')], total: 1 } : { items: [], total: 0 }
+      },
+    }))
+    unregisterAll.push(registerEndpoint('/api/limits', { method: 'GET', handler: () => ({ maxUploadBytes: null }) }))
+
+    const wrapper = await mountSuspended(MediaLibrary, { attachTo: document.body })
+    onTestFinished(() => wrapper.unmount())
+
+    await confirmUpload(wrapper, new File(['x'], 'photo.webp', { type: 'image/webp' }))
+    await vi.waitFor(() => expect(uploadControl.state.deliver).not.toBeNull())
+    uploaded = true
+    uploadControl.state.deliver?.({ id: 'f1', contentType: 'image/webp' })
+    await vi.waitFor(() => expect(document.body.textContent).toContain('Variants ready: photo.webp'), { timeout: 8000 })
+    const callsBeforeOpening = idsCalls
+
+    await vi.waitFor(() => expect(wrapper.find('[data-test="file-f1"]').exists()).toBe(true))
+    await wrapper.get('[data-test="file-f1"]').trigger('dblclick')
+    await vi.waitFor(() => expect(document.body.querySelector('.media-viewer')).toBeTruthy())
+
+    const cropButton = () => Array.from(document.body.querySelectorAll('.media-viewer button')).find((b) => b.textContent?.trim() === en['mediaCrop.open'])
+    await vi.waitFor(() => expect(cropButton()).toBeTruthy(), { timeout: 5000 })
+    expect(idsCalls).toBeGreaterThan(callsBeforeOpening)
+  }, 15000)
+})
