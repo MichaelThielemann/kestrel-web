@@ -957,6 +957,17 @@
 - `roles.anonymous` takes read permissions only (`<collection>.read`, `media.read`): kestrel's authz-roles
   refuses `*`, `<collection>.*` and every other permission there when the server starts. Replace a wildcard
   with the reads it stood for.
+- The preset hands kestrel's redirects-default the paths the server answers itself as `reservedPaths`: `/api`,
+  `/admin`, `/media`, `/_nuxt`, `/__nuxt`, `/_ipx` and `/_preview`. System → Redirects refuses a source that
+  equals, lies below or, through a wildcard, can match one of them (`/admin/x`, `/*/login`) with the row's
+  message, and a rule already stored under one is left out of `redirects.json`. `/administration` stays
+  allowed. `overrides` for redirects-default can replace the list.
+- `POST /admin/users/:id/revisions/reassign` (`retryReassignRevisionAuthor`) and
+  `POST /admin/users/:id/audit/anonymize` (`retryAnonymizeAuditUser`) answer 409 while `:id` still names a
+  user, active or not, and 400 when it is not a UUID. Both run `authn.requireAbsentUser` first (the audit route
+  after its check of a recent password), and both raise `user.revisionsReassignRetried` or
+  `user.auditAnonymizeRetried`, which the new pipeline `auditUserRepairs` records with `audit.recordActor`: the
+  audit log shows who ran the repair without naming the deleted user. The responses carry `_events` now.
 
 ### Added
 
@@ -1149,6 +1160,12 @@
 
 ### Changed
 
+- `useSanitizedHtml()` applies one allowlist on the server, during server rendering and in the browser; the lists
+  and the attribute rules come from `@michaelthielemann/kestrel-contracts/helpers/html-allowlist`, the helper
+  the backend's `format: html` sanitizer uses. A link whose `target` is anything but `_self`, in any letter case,
+  gets `rel="noopener noreferrer"` and loses `opener`. A `data:` link and a link or image source that starts with
+  two slashes or backslashes are dropped (`data:` stays allowed for `img[src]`). In the browser, `data-*` and
+  `aria-*` attributes and attributes the tag does not carry no longer survive, as they did not on the server.
 - The `nuxt` peer range and the `@nuxt/kit` dependency are ^4.6.4 (were ^4.5.2): Nuxt 4.5.x and 4.6.0 to 4.6.3
   carry published advisories in `nuxt`, `@nuxt/nitro-server`, `@nuxt/schema` and `@nuxt/vite-builder`. A site on
   an older Nuxt 4 raises its own `nuxt` to ^4.6.4; `create-kestrel` writes that range into a new project.
