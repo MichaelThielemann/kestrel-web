@@ -1,6 +1,6 @@
 import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { adminPasswordHash, deviceKeys, envBlobstore, envRobots, kestrelDataDir, requiredEnv } from "./index";
+import { adminPasswordHash, deviceKeys, envBlobstore, envRobots, envStepLog, kestrelDataDir, requiredEnv } from "./index";
 
 const DEVELOPMENT_ADMIN_PASSWORD_HASH =
   "scrypt$522f4ac87bfe4bcd100ba47a7d2aaec2$dbfc3f2d6cc38a76b21973d7c6f6d310a09506581c665f1f6601fd8fb3fa9bc3959689aea3e389f4d53eb8c7e70791ad4065e308763dd44609904134f0f5ee98";
@@ -18,6 +18,7 @@ const MANAGED = [
   "KESTREL_S3_ACCESS_KEY_ID",
   "KESTREL_S3_SECRET_ACCESS_KEY",
   "KESTREL_ROBOTS_POLICY",
+  "KESTREL_STEP_LOG",
 ];
 
 const S3_ENV: [string, string][] = [
@@ -208,5 +209,25 @@ describe("envRobots", () => {
   it("refuses any other value", () => {
     vi.stubEnv("KESTREL_ROBOTS_POLICY", "Allow");
     expect(() => envRobots()).toThrow('kestrel.config: KESTREL_ROBOTS_POLICY must be "allow" or "disallow", not "Allow"');
+  });
+});
+
+describe("envStepLog", () => {
+  it("returns all when KESTREL_STEP_LOG is unset or empty", () => {
+    expect(envStepLog()).toBe("all");
+    vi.stubEnv("KESTREL_STEP_LOG", "");
+    expect(envStepLog()).toBe("all");
+  });
+
+  it("passes all, errors and off through", () => {
+    for (const value of ["all", "errors", "off"] as const) {
+      vi.stubEnv("KESTREL_STEP_LOG", value);
+      expect(envStepLog()).toBe(value);
+    }
+  });
+
+  it("refuses any other value", () => {
+    vi.stubEnv("KESTREL_STEP_LOG", "Errors");
+    expect(() => envStepLog()).toThrow('kestrel.config: KESTREL_STEP_LOG must be "all", "errors" or "off", not "Errors"');
   });
 });

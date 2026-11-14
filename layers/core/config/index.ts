@@ -86,6 +86,17 @@ export function envRobots(): { policy?: "allow" | "disallow" } {
   throw new Error(`kestrel.config: KESTREL_ROBOTS_POLICY must be "allow" or "disallow", not ${JSON.stringify(value)}`);
 }
 
+/**
+ * defineConfig's `stepLog` option from `KESTREL_STEP_LOG`: `all` writes a log line for every step, `errors` for every
+ * step whose result is not ok, `off` for none. Unset or empty means `all`. Any other value throws.
+ */
+export function envStepLog(): "all" | "errors" | "off" {
+  const value = envValue("KESTREL_STEP_LOG");
+  if (value === undefined) return "all";
+  if (value === "all" || value === "errors" || value === "off") return value;
+  throw new Error(`kestrel.config: KESTREL_STEP_LOG must be "all", "errors" or "off", not ${JSON.stringify(value)}`);
+}
+
 export function envBlobstore(dataDir: string): BlobstoreModuleEntry {
   const choice = envValue("KESTREL_BLOBSTORE");
   if (choice === "s3") {

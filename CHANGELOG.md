@@ -4,6 +4,9 @@
 
 ### Added
 
+- `envStepLog()` in `#kestrel/config` reads `KESTREL_STEP_LOG` (`all`, `errors` or `off`; unset or empty means `all`,
+  any other value throws) for defineConfig's `stepLog` option. `all` writes a log line for every step, `errors` for
+  every step whose result is not ok, `off` for none. The playground passes it as `stepLog: envStepLog()`.
 - `app/image-sizes.ts` takes an optional `label` per size, a `Localized` that says what the size is used for.
   The labels are a new export of `#kestrel/blocks`, `imageSizeLabels`; `imageSizes`, `#kestrel/image-sizes` and
   `.nuxt/kestrel/image-sizes.json` keep their entries as they are. When two layers label a size differently the

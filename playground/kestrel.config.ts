@@ -1,6 +1,6 @@
 import { resolve } from "node:path";
 import { defineConfig } from "@michaelthielemann/kestrel/defineConfig";
-import { kestrelDataDir } from "#kestrel/config";
+import { envStepLog, kestrelDataDir } from "#kestrel/config";
 import { definePreset, presetModuleConfig } from "#kestrel/pipelines";
 import type { PresetPipelineChanges } from "#kestrel/pipelines";
 import { contentModel, contentTypes, features as modelFeatures, homeSlug, prefixPrimary } from "./shared/model";
@@ -42,4 +42,4 @@ const modules = presetModuleConfig({
 
 export const preset = definePreset({ modules, features, collections: contentTypes, collectionsUi, homeSlug, fieldTypes, ...pipelineChanges });
 
-export default defineConfig({ modules, triggers: preset.triggers, http: null });
+export default defineConfig({ modules, stepLog: envStepLog(), triggers: preset.triggers, http: null });
