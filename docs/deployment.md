@@ -184,12 +184,14 @@ Environment=NITRO_UNIX_SOCKET=/run/mysite/kestrel.sock
 RuntimeDirectory=mysite
 RuntimeDirectoryMode=0750
 UMask=0007
-ExecStartPre=/usr/bin/rm -f /run/mysite/kestrel.sock
 ```
 
 The proxy's header then decides the client address, so `NUXT_KESTREL_ACCESS_TRUSTED_HEADER` or
 `NUXT_KESTREL_ACCESS_TRUST_PROXY` has to be set, as above. The process does not remove a socket file it leaves
-behind when it is killed or crashes, and the next start fails with `listen EADDRINUSE`; the `rm` line clears it.
+behind when it is killed or crashes, and a start that finds the file fails with `listen EADDRINUSE`.
+`RuntimeDirectory=` rules that out: systemd removes `/run/mysite` with the socket in it at every stop, the
+restart after a failure included. A socket path outside a runtime directory, or `RuntimeDirectoryPreserve=yes`,
+needs `ExecStartPre=/usr/bin/rm -f <socket>` for the same reason.
 nginx needs write permission on the socket, or it answers 502 and logs `connect() … failed (13: Permission
 denied)`: put the user nginx runs as into the service's group (`usermod -aG mysite www-data`, then restart
 nginx) and keep `UMask=0007`, which gives the socket mode 0770. The mask applies to every file the process
@@ -533,8 +535,9 @@ names (200), `curl -skI https://example.com/media/<id>/variants/<file>` (`no-cac
 ### Cache the rendered site
 
 Where an export does not fit, for example because a feature of your own renders pages from live data,
-`proxy_cache` in front of the process serves the same page to every visitor for a few seconds and lets only
-one request per page and interval reach it, whatever the traffic. The pieces go in the `http` context (a
+`proxy_cache` in front of the process serves the same page to every visitor for a few seconds, so a page
+opened as a document reaches the process about once per interval, whatever the traffic. Following a link
+inside the site is not covered (see below). The pieces go in the `http` context (a
 file in `/etc/nginx/conf.d/` is included there):
 
 ```nginx
@@ -580,12 +583,10 @@ and the `server` block of §7 gains one `add_header` line and the cache directiv
     proxy_cache mysite;
     proxy_cache_key $host$uri;
     proxy_cache_valid 200 301 302 10s;
-    proxy_cache_valid 404 10s;
     proxy_cache_bypass $kestrel_skip_cache;
     proxy_no_cache $kestrel_skip_cache;
     proxy_cache_lock on;
     proxy_cache_use_stale error timeout updating http_502 http_503 http_504;
-    proxy_cache_background_update on;
 
     location ~ ^/(api|admin|_preview)(/|$) {
       gzip off;
@@ -603,9 +604,9 @@ stored. `X-Cache-Status` shows what happened: `curl -skI https://example.com/` t
 What to know before relying on it:
 
 - **A change shows late.** A visitor sees a saved or published change up to `proxy_cache_valid` seconds
-  after it, and 10 s is the value to start from. A page that was unpublished or deleted answers 404 once that
-  time has passed, after at most one more request that still receives the old copy while the cache refreshes.
-  A signed-in editor bypasses the cache and sees it at once.
+  after it, and 10 s is the value to start from. A page that was unpublished or deleted answers 404 to the
+  first request after that time has passed; a request that arrives while that one is still being answered
+  receives the old copy. A signed-in editor bypasses the cache and sees it at once.
 - **Only pages that look the same to everyone belong in it.** The pages of this layer do not depend on the
   session: a request with a valid session cookie or bearer token gets byte for byte the HTML an anonymous one
   gets, a draft is a 404 for both, and the layer sets no cookie on a page. The bypass for the session
@@ -613,10 +614,18 @@ What to know before relying on it:
   bypass of its own, or must stay out of the location.
 - **The key ignores the query string**, so `?x=1`, `?x=2` and so on cannot each reach the process and defeat
   the cache. Put `$is_args$args` back after `$uri` if a page of yours renders differently per query.
-- **Only 200, 301, 302 and 404 are stored.** The 404 line is needed: without it, a page that is no longer
-  published keeps its old copy, because the refresh that `updating` starts never stores the 404 and the copy is
-  served again for as long as visitors keep asking. A 5xx always reaches the process. The key holds the path,
-  so a scan of unknown paths still costs a render each.
+- **Only 200, 301 and 302 are stored.** The process answers a 404 with `Cache-Control: no-cache`, which
+  nginx never stores, and the cache follows that header over `proxy_cache_valid`, so an unknown path, a draft
+  and an unpublished page always reach the process, and so does a 5xx. Do not add
+  `proxy_cache_background_update on`: it answers the expired request with the old copy and refreshes in the
+  background, and because the 404 that the refresh receives is never stored, an unpublished page would keep
+  being served for as long as visitors keep asking. The key holds the path, so a scan of unknown paths still
+  costs a render each.
+- **Following a link inside the site is not cached.** The cache holds pages opened as documents: a first
+  visit, a reload, a crawler. A visitor who clicks on to the next page loads that page's data from
+  `/api/site/…` in the browser, and `/api` stays outside the cache, so every click reaches the process. The
+  cache takes the load of arrivals, not of browsing; the static export above is what takes the browsing off,
+  because its pages read the next page from the exported files.
 - **A deploy leaves old HTML behind.** Pages cached before a new build point at the previous build's
   `/_nuxt/` files. Empty the cache directory in the deploy step (`find /var/cache/nginx/mysite -type f
   -delete`).
