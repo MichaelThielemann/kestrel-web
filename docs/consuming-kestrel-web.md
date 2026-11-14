@@ -397,6 +397,15 @@ rather than booting with something plausible.
   margin follows it; set `acquireTimeoutMs` explicitly there only if you need a different margin, and keep
   it above `busyTimeoutMs`.
 
+- **One process per database file.** `persistence-sqlite`, `replication-sqlite` (with the `replication`
+  feature) and `backup-blobstore` (an entry you add yourself) each keep a second process off the database
+  file. To run several processes on one file on purpose, for example with `eventsQueue`, set
+  `allowConcurrentProcesses: true` on every one of those entries that names the file:
+  `overrides: { "@michaelthielemann/kestrel-persistence-sqlite": { allowConcurrentProcesses: true }, "@michaelthielemann/kestrel-replication-sqlite": { allowConcurrentProcesses: true } }`
+  for the preset's two, and the option in the `config` of your own `backup-blobstore` entry. A mismatch,
+  one entry with the option and another without, fails the boot with `invalid-module-config`. Without the
+  option a second process fails with `instance-locked` (`docs/deployment.md` §10).
+
 Anything the builder doesn't expose goes through `overrides`, keyed by package name. Every module
 `presetModuleConfig()` builds carries what it derived as `defaults`, not `config`; an override
 becomes that module's `config`, replacing the derived value at each top-level key it names — shallow,

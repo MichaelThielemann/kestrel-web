@@ -60,6 +60,7 @@ kestrel-web's own, all read while `kestrel.config.ts` loads:
 | `NUXT_KESTREL_ACCESS_ADMIN` / `_SITE` | no | the two IP allowlists (§7 of the consuming guide); empty means open |
 | `NUXT_KESTREL_ACCESS_TRUST_PROXY`, `_PROXY_HOPS`, `_TRUSTED_HEADER` | no | how the client address is taken behind a proxy |
 | `NUXT_KESTREL_ACCESS_TRUSTED_PROXIES` | no | the proxies whose forwarding headers count, addresses or CIDR ranges; empty means loopback |
+| `KESTREL_STEP_LOG` | no | which pipeline steps write a `step` log line (§11): `all` (unset or empty means `all`), `errors` for the steps whose outcome is not `ok`, or `off`; any other value stops the config from loading. The `error` lines, the `http` lines, Insights and the audit log are the same in every mode. `errors` or `off` saves one synchronous log write per step under load; keep `all` while debugging |
 | `KESTREL_MIGRATIONS` | no | only if your `kestrel.config.ts` wires it to the migrations module's `mode` (`docs/migrations.md`) |
 
 The `KESTREL_*` rows only apply where `kestrel.config.ts` actually calls the `#kestrel/config` helpers.
@@ -108,6 +109,11 @@ The preset refuses to boot when the replica prefix or a `backup-blobstore` key o
 (`site/`, or the `prefix`/`publicCopy.prefix` of `delivery-static`, `redirects-default`, `media-default`
 or `images-default`): `preset: … overlaps the public prefix …`.
 
+Next to the database file the running process keeps its instance lock, the sidecar `<dataDir>/kestrel.db.instance`
+(§10), together with short-lived files whose names start with `kestrel.db.instance`. It is local to the machine
+and is never part of a replica, a snapshot or a backup: leave every `kestrel.db.instance*` file out of copies and
+backup jobs. With the process stopped it may be deleted; the next start creates it again.
+
 `.wal` and `.shm` belong to the database file. A file-level copy of `kestrel.db` alone, taken while
 the process runs, is not a consistent backup.
 
@@ -134,7 +140,7 @@ $ curl -s localhost:8080/api/limits
 
 The Nitro plugin boots the backend as the process starts — before the first request — creating
 `<dataDir>/kestrel.db` and the bootstrap user. From then on it logs one JSON line per pipeline step to
-stdout.
+stdout, unless `KESTREL_STEP_LOG` narrows that (§2).
 
 ## 5. systemd
 
@@ -159,7 +165,7 @@ Environment=NUXT_PUBLIC_SITE_URL=https://example.com
 EnvironmentFile=/etc/mysite/secrets.env
 ExecStart=/usr/bin/node --disable-warning=ExperimentalWarning /srv/mysite/output/server/index.mjs
 Restart=on-failure
-RestartSec=5
+RestartSec=15s
 StateDirectory=mysite
 ReadWritePaths=/srv/mysite/data
 
@@ -170,6 +176,12 @@ WantedBy=multi-user.target
 `KESTREL_ADMIN_PASSWORD_HASH` and the `KESTREL_S3_*` values go in `EnvironmentFile`, not in the unit.
 `Restart=on-failure` is the right policy: a boot failure exits with code 1 after one JSON line on
 stderr naming the failing module, so the unit retries rather than sitting in a broken state.
+
+`RestartSec=15s` is chosen for the instance lock (§10). After a crash on the same machine the next start takes
+the lock at once. After a power loss or a restart of the machine it is refused with `instance-locked` for up to
+the lock's TTL of 60 seconds, since the old holder's heartbeat has to run out first; with 15 seconds between
+the attempts the unit retries a few times during that wait, does not reach `StartLimitBurst`, and starts as soon
+as the lock is free. A clean stop releases the lock at once.
 
 `NUXT_KESTREL_ACCESS_TRUSTED_HEADER=x-real-ip` matches the `X-Real-IP $remote_addr` line of the proxy in
 §7. Without it every request reaches the server from the proxy's address, and the IP allowlists, the
@@ -671,6 +683,11 @@ restartRequired }`; `persistence-sqlite` is the shipped example, reporting the s
   once `health().restartRequired` is true: the process cannot recover on its own and needs to be
   replaced, which is exactly what a restart policy should act on.
 
+The instance lock of `persistence-sqlite` (§10) reports through the same hook: once another process took the lock
+over, or the process failed to renew it for longer than the TTL, the module reports `restartRequired: true`.
+`/api/health` then answers 503 and the restart policy replaces the process, which is the intended outcome, since
+the process no longer holds the database alone.
+
 A write that touches an atomic group (creating, updating or deleting a page, deleting a user) holds
 SQLite's single connection for the group's duration; a second such request arriving while it is open
 waits, up to `persistence-sqlite`'s `acquireTimeoutMs` (left unset by `presetModuleConfig()`, so the
@@ -704,14 +721,43 @@ health condition, and both `/api/health` and `/api/ready` keep answering normall
   offline. Give the bucket or backup target the same access control as the server itself: a private
   bucket, credentials only the server and the operator hold, encryption at rest where the provider
   offers it.
+- **Copying for an offline task.** To run a tool against a copy of the data directory of a stopped process,
+  for example a conversion or a check of a new release against production data, copy `<dataDir>` without the
+  `kestrel.db.instance*` files, or delete them from the copy. A lock file in the copy names a process on
+  another machine and keeps the tool out until its TTL has passed. The copy takes a lock of its own and
+  leaves the original untouched. Stop the production process first, then copy: a file-level copy of a running
+  process is not a consistent backup (above).
 - **Restoring** replaces the database file and the blobstore together. They reference each other:
   media rows point at blobs, and **System → Images**' reconcile reports the rows and blobs that no
   longer match after a partial restore (`blobsWithoutRow` / `rowsWithoutBlob`).
 
 ## 10. Zero downtime, and why there is none
 
-One process owns the SQLite file, and the layer has no leader election. Two processes against the
-same `<dataDir>`:
+One process owns the SQLite file, and the layer has no leader election. `persistence-sqlite`,
+`replication-sqlite` and `backup-blobstore` enforce it: each takes an instance lock on the database file as the
+first thing its setup does, before it opens the file or applies a restore. A second process on the same file
+fails to boot with `instance-locked`, naming the host, PID and start time of the process that holds it, and
+leaves the database, its `-wal` and `-shm` as they were. The lock is the sidecar `kestrel.db.instance` (§3). A
+second `node .output/server/index.mjs` beside the service, an overlapping deploy, a second unit and a
+`nuxt preview` on the same `<dataDir>` are refused this way.
+
+How long a lock keeps the next start out depends on how the process stopped:
+
+- a clean stop releases the lock at once, and the next start takes it without waiting;
+- after a crash or `kill -9` on the same machine, the old process is provably gone and the next start takes the
+  lock at once;
+- after a power loss or a restart of the machine, the old lock belongs to a boot that is over but cannot be
+  proven dead, so the next start is refused until the lock's TTL of 60 seconds has passed since its last
+  heartbeat. A supervisor restarts with a delay for this reason (`RestartSec=15s`, §5). The same holds for a
+  container restarted into a new process namespace on a persistent volume, and for a data directory taken over
+  from another machine.
+
+To run several processes on one file on purpose, set `allowConcurrentProcesses: true` on every module that
+names the file (§3 of the consuming guide). The setting has to match: one module with it and another
+without fails the boot with `invalid-module-config`. The opt-out removes only the refusal. Everything below
+still applies, and the only configuration in which a second process makes sense is the one with `eventsQueue`.
+
+Two processes against the same `<dataDir>`, with the opt-out:
 
 - both run the whole cron set (`replicate` every minute, `checkLinks`, `scanReferences`,
   `reconcileMedia`, `resumeImages`, `pruneRevisions`, `purgeEvents`, `sweepRateLimits`,
@@ -731,9 +777,29 @@ static delivery (§8 of the consuming guide): with `delivery`/`renderer-nuxt` on
 rendered to the blobstore and a plain static server delivers the public site, which then stays up
 across the admin process's restart. Editing is unavailable while the process is down either way.
 
+With `eventsQueue`, a stop starts no new job: from the first moment of `stop()` the queue's main loop, its lanes
+and the relay claim no further row, so no listener pipeline (a render, an export) starts while the process drains
+its running requests. A job that already runs finishes; every row left pending is delivered after the next start,
+or by another process on the same store. A publish in the last seconds therefore renders after the restart
+rather than delaying the shutdown past the platform's grace period (`shutdownTimeoutMs`, 30 s by default, which
+the unit's `TimeoutStopSec` and the platform's stop timeout should exceed).
+
 After a new build, the first start re-renders every page in the background, so the exported pages
 reference the new asset hashes; a page of the old build is loaded as a document instead of by client
 navigation until its turn comes.
+
+### Cloud Foundry
+
+Run exactly one instance (`cf scale <app> -i 1`). The disk of an instance is ephemeral, so with the
+`replication` feature and its `restoreOnStart` (the default) every start rebuilds `kestrel.db` from the replica
+in the blobstore, and a start after a crash begins on a fresh disk with no lock file. The lock never enters the
+replica, so a new container does not inherit the old one's.
+
+For the same reason the lock cannot see a second instance: each container has a disk of its own, and both would
+write into the same replica prefix. A second instance, a deployment strategy that runs the old and the new
+container side by side, and a local start with the production credentials are therefore not caught at boot. Scale
+to one instance, use a push that stops the old container before the new one starts, and keep the production
+credentials off other machines.
 
 ### Re-rendering in the background
 
@@ -809,6 +875,30 @@ a container in its log driver. Two lines matter when something failed:
 
 The layer's own routes write no `http` line: `/api/health`, `/api/ready`, `/api/limits`,
 `/api/admin/schema`, and a request the IP allowlist refuses before kestrel sees it.
+
+### Security events
+
+With the `audit` feature the sign-in and access outcomes a security team asks for are entries of the
+`audit_entries` collection in the database, not lines of the log, and every entry carries the client address as
+the layer resolves it (§7, "Client address"):
+
+| entry | written when |
+|---|---|
+| `auth.loggedIn`, `auth.loggedOut` | a sign-in succeeded, a session ended |
+| `auth.failed` | a sign-in or a password or second-factor check failed, with the attempted username as sent |
+| `access.denied`, `access.rateLimited` | a request was answered 403 or 429, with pipeline, step and code |
+| `user.created`, `user.updated`, `user.deactivated`, `user.activated`, `user.passwordSet`, `user.passwordChanged` | an account changed, with the acting identity and the account it concerns |
+
+`access.denied` and `access.rateLimited` are written at most once a minute per address, identity, pipeline and
+step, and the next entry says in `params.suppressed` how many it left out, so a scan does not fill the table.
+An entry holds ids, never a password, a token or a body. Content changes are not audit entries. The `step` log
+lines (above) are not a security record either: with `KESTREL_STEP_LOG=off` they are gone, and a request refused
+before its pipeline ran leaves only its `http` line.
+
+Keep the entries for as long as your policy asks by setting `audit: { retentionDays }`; without it nothing is
+pruned. The attempted username of a failed sign-in is kept as sent and may name nobody, so deleting a user does
+not remove it; retention does. The database is the only store of these entries: a SIEM that wants them reads the
+database through a replica or backup (§9), which holds the whole table.
 
 ### Finding the line behind an error in the admin
 

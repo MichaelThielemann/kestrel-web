@@ -102,3 +102,44 @@ describe("the features table in docs/consuming-kestrel-web.md", () => {
     expect([...names].sort()).toEqual([...featureOrder].sort());
   });
 });
+
+describe("docs/deployment.md", () => {
+  const doc = readFileSync(fileURLToPath(new URL("../../../docs/deployment.md", import.meta.url)), "utf-8");
+  const section = (heading: string): string => {
+    const start = doc.indexOf(`\n## ${heading}`);
+    expect(start).toBeGreaterThan(-1);
+    const rest = doc.slice(start + 1);
+    const end = rest.slice(3).search(/\n## /);
+    return end === -1 ? rest : rest.slice(0, end + 3);
+  };
+
+  it("restarts the systemd unit after a failure with a delay longer than the instance lock retries need", () => {
+    const unit = section("5. systemd");
+    expect(unit).toContain("Restart=on-failure");
+    expect(unit).toContain("RestartSec=15s");
+    expect(unit).not.toMatch(/^RestartSec=5$/m);
+  });
+
+  it("explains when the instance lock is taken over after each kind of stop", () => {
+    const text = section("10. Zero downtime, and why there is none");
+    expect(text).toContain("instance-locked");
+    expect(text).toContain("allowConcurrentProcesses");
+    expect(text).toMatch(/clean stop[^.]*at once/);
+    expect(text).toMatch(/crash[^.]*same machine[^.]*at once/);
+    expect(text).toMatch(/power loss[^.]*60 seconds/);
+  });
+
+  it("names the step log variable and the three values", () => {
+    const env = section("2. Environment");
+    expect(env).toContain("KESTREL_STEP_LOG");
+    for (const value of ["all", "errors", "off"]) expect(env).toContain(`\`${value}\``);
+  });
+
+  it("keeps the instance lock sidecar out of backups", () => {
+    expect(section("3. Persistent state")).toContain("kestrel.db.instance");
+  });
+
+  it("says that a stopping process starts no new queue job", () => {
+    expect(doc).toMatch(/claim no further row/);
+  });
+});
