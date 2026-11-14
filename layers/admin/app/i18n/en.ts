@@ -702,6 +702,8 @@ export const en = {
   'mediaCrop.noFocus': 'No focus: crops are taken from the centre.',
   'mediaCrop.clearFocus': 'Remove focus',
   'mediaCrop.previews': 'Preview per ratio',
+  'mediaCrop.measuring': 'Loading the image…',
+  'mediaCrop.measureFailed': "The image couldn't be loaded, so its focus and crops can't be edited here.",
   'mediaCrop.noCover': 'No image size of this site crops to a fixed ratio, so there is no crop to fine-tune. The focus still keeps its part of the image in view wherever a page fills a box with it.',
   'mediaCrop.tiles': 'Ratios',
   'mediaCrop.ratioTitle': 'Ratio {key} ({sizes})',

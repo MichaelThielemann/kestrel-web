@@ -201,7 +201,8 @@ picker over the library. Neither the remove nor the picker button appears on a r
 whose item went to the trash keeps its tile, marked as in the trash, with a hint above the list.
 
 An image tile also carries an "Adjust crop" icon button when the item is an image the server reports
-oriented dimensions for, that the editor can show, and the role may run `setMediaFraming`. It opens the same crop editor as the
+oriented dimensions for (or one browsers display, whose dimensions the editor measures), that the editor
+can show, and the role may run `setMediaFraming`. It opens the same crop editor as the
 media viewer (see "Focus and crop" in [`consuming-kestrel-web.md`](consuming-kestrel-web.md)), nested
 over the record editor. The editor saves the focus and the crops on the media item through
 `PUT /api/media/:id/framing`, not in the field, so the record gains no unsaved change, the framing

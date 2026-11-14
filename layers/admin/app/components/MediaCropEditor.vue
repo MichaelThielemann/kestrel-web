@@ -10,7 +10,7 @@ const { t } = useT()
 const idPrefix = `media-crop-${useId()}`
 const root = ref<HTMLElement | null>(null)
 const editor = useMediaCropEditor(toRef(props, 'item'), toRef(props, 'open'))
-const { current, draft, dirty, busy, error, usage, width, height, ratios, sizes } = editor
+const { current, draft, dirty, busy, error, usage, width, height, measureFailed, ratios, sizes } = editor
 
 const tab = ref('focus')
 const selected = ref('')
@@ -102,7 +102,8 @@ async function onSave(): Promise<void> {
         <KestrelUiTabList v-if="hasCover" v-model="tab" :tabs="tabs" :id-prefix="idPrefix" :label="t('mediaCrop.tabs')" />
         <p v-if="usage !== null" class="media-crop__usage" data-test="crop-usage">{{ t('mediaCrop.usage', { n: usage }) }}</p>
       </div>
-      <div v-if="tab === 'focus' || !hasCover" v-bind="panelAttrs('focus')" class="media-crop__panel">
+      <p v-if="width === 0 || height === 0" class="media-crop__measuring" role="status">{{ measureFailed ? t('mediaCrop.measureFailed') : t('mediaCrop.measuring') }}</p>
+      <div v-else-if="tab === 'focus' || !hasCover" v-bind="panelAttrs('focus')" class="media-crop__panel">
         <KestrelMediaCropFocus :src="src" :alt="alt" :draft="draft" :ratios="ratios" :width="width" :height="height" :disabled="locked" @focus="editor.setFocus" />
       </div>
       <div v-else v-bind="panelAttrs('crop')" class="media-crop__panel">
@@ -136,4 +137,5 @@ async function onSave(): Promise<void> {
 .media-crop__bar { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; }
 .media-crop__usage { margin: 0; font-size: var(--text-sm); color: var(--color-text-muted); }
 .media-crop__panel { min-width: 0; }
+.media-crop__measuring { margin: 0; color: var(--color-text-muted); }
 </style>

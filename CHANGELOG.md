@@ -251,6 +251,10 @@
   `PublicMediaItem` has `focus`, all required: a literal of these types (a test mock, a fixture) needs them to
   pass `nuxt typecheck`.
   `KestrelImage`'s `media` prop and `pickImageSources` accept an item without `focus`.
+- An image whose variants were rendered before the upgrade has no oriented dimensions in `framing` until
+  kestrel plans it again (a size of it added, its spec or format changed) or a framing is saved for it. The
+  crop editor measures such an original in the browser when browsers display its type; a WebP, TIFF or HEIC
+  original uploaded earlier gets no "Adjust crop" until then.
 - `llms.siteUrl` of `presetModuleConfig()` is gone: set `NUXT_PUBLIC_SITE_URL` to its value wherever the server
   runs. The old key fails with a message naming the variable; `kestrel upgrade fix --write` removes it
   (`preset/llms-site-url`, which runs while the project does not load yet) and the finding names the value. A hand-written `kestrel-events-queue` entry needs `indexes: ["refreshIndexes"]` in

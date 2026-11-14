@@ -704,6 +704,8 @@ export const de: Record<CatalogKey, string> = {
   'mediaCrop.noFocus': 'Kein Fokus: Zuschnitte kommen aus der Bildmitte.',
   'mediaCrop.clearFocus': 'Fokus entfernen',
   'mediaCrop.previews': 'Vorschau je Seitenverhältnis',
+  'mediaCrop.measuring': 'Bild wird geladen…',
+  'mediaCrop.measureFailed': 'Das Bild konnte nicht geladen werden, daher lassen sich Fokus und Zuschnitt hier nicht bearbeiten.',
   'mediaCrop.noCover': 'Keine Bildgröße dieser Website schneidet auf ein festes Seitenverhältnis zu, daher gibt es keinen Zuschnitt zum Feinjustieren. Der Fokus hält seinen Bildteil trotzdem im Blick, wo eine Seite eine Fläche mit dem Bild füllt.',
   'mediaCrop.tiles': 'Seitenverhältnisse',
   'mediaCrop.ratioTitle': 'Seitenverhältnis {key} ({sizes})',

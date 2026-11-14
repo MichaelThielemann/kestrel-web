@@ -51,6 +51,11 @@ function photo(over: Partial<MediaItem['framing']> = {}): MediaItem {
   }
 }
 
+function unmeasured(): MediaItem {
+  const large = { size: 'large', width: 1200, height: 800, format: 'webp', bytes: 1, state: 'done' as const, path: '/media/m1/variants/large.webp', crop: null }
+  return { ...photo({ width: null, height: null }), variants: [large] }
+}
+
 async function mountEditor(item: MediaItem) {
   const wrapper = await mountSuspended(MediaCropEditor, {
     attachTo: document.body,
@@ -410,6 +415,55 @@ describe('MediaCropEditor', () => {
     await nextTick()
     expect(button(en['common.save'])?.hasAttribute('disabled')).toBe(true)
     wrapper.unmount()
+  })
+
+  it('measures an original whose oriented dimensions the server has not recorded, and stays locked until it knows them', async () => {
+    const probes: { url: string, onload: (() => void) | null, naturalWidth: number, naturalHeight: number }[] = []
+    vi.stubGlobal('Image', class {
+      onload: (() => void) | null = null
+      onerror: (() => void) | null = null
+      naturalWidth = 0
+      naturalHeight = 0
+      url = ''
+      set src(value: string) {
+        this.url = value
+        probes.push(this)
+      }
+    })
+    const saved = photo({ focus: { x: 0.25, y: 0.25, w: 0.5, h: 0.5 }, width: 1200, height: 800 })
+    api.answer = (call) => Promise.resolve(call.method === 'PUT' ? saved : [])
+    const wrapper = await mountEditor(unmeasured())
+
+    expect(q('.ui-rect-select__surface')).toBeNull()
+    expect(document.body.textContent).toContain(en['mediaCrop.measuring'])
+    await vi.waitFor(() => expect(probes.map((probe) => probe.url)).toContain('/media/m1/harbour.jpg'))
+    for (const probe of probes) Object.assign(probe, { naturalWidth: 1200, naturalHeight: 800 }).onload?.()
+    await vi.waitFor(() => expect(q('.ui-rect-select__surface')?.getAttribute('aria-disabled')).not.toBe('true'))
+    expect(qa('.media-crop-preview')).toHaveLength(2)
+
+    key(q('.ui-rect-select__surface'), 'Enter')
+    await nextTick()
+    button(en['common.save'])?.click()
+    await vi.waitFor(() => expect(wrapper.emitted('saved')).toEqual([[saved]]))
+    expect(api.calls.find((c) => c.method === 'PUT')?.body).toEqual({ focus: { x: 0.25, y: 0.25, w: 0.5, h: 0.5 }, crops: {} })
+    wrapper.unmount()
+    vi.unstubAllGlobals()
+  })
+
+  it('says so when the original whose dimensions are not recorded cannot be loaded', async () => {
+    const probes: { onerror: (() => void) | null }[] = []
+    vi.stubGlobal('Image', class {
+      onload: (() => void) | null = null
+      onerror: (() => void) | null = null
+      set src(_value: string) { probes.push(this) }
+    })
+    const wrapper = await mountEditor(unmeasured())
+    await vi.waitFor(() => expect(probes.length).toBeGreaterThan(0))
+    for (const probe of probes) probe.onerror?.()
+    await vi.waitFor(() => expect(document.body.textContent).toContain(en['mediaCrop.measureFailed']))
+    expect(q('.ui-rect-select__surface')).toBeNull()
+    wrapper.unmount()
+    vi.unstubAllGlobals()
   })
 
   it('keeps keyboard focus on the focus area when the focus is removed', async () => {

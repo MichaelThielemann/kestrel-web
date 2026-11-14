@@ -1632,7 +1632,13 @@ applies it, and a mirrored or upside-down WebP keeps its width and height, so a 
 would land on the wrong part of the image. A variant whose `crop` is set shows a cut, not the whole image, and
 is passed over. The editor is offered for a WebP original only once that variant is finished, so a build
 without an `inside` size offers it for no WebP. While that variant renders again, the editor keeps showing the
-one it opened with; with no such variant at all, it shows no picture and keeps the focus and the crops locked. Without a `cover` size the editor offers
+one it opened with; with no such variant at all, it shows no picture and keeps the focus and the crops locked.
+kestrel reports the oriented dimensions of an image (`framing.width`/`height`) once it plans its variants, so an
+image whose variants were rendered before kestrel recorded them reports none until it is planned again (when a
+size of it is added or its spec or format changes) or a framing is saved for it. For such an image of a type
+browsers display, the editor loads the original and takes its displayed dimensions, which carry the
+orientation, and keeps the focus and the crops locked until it has them. A WebP, TIFF or HEIC original of that
+kind gets no editor until kestrel reports its dimensions. Without a `cover` size the editor offers
 the focus alone and says why. Every action works with the pointer, touch or the keyboard, and the focus
 and the crop take numbers too. The editor computes every cut with
 `@michaelthielemann/kestrel-images-default/framing`, the functions the server renders with. A framing

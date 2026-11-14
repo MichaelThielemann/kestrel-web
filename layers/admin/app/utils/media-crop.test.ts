@@ -23,6 +23,14 @@ describe('canFrame', () => {
     expect(canFrame(item({ framing: { focus: null, crops: {}, width: null, height: null, ratios: [] } }))).toBe(false)
     expect(canFrame(null)).toBe(false)
   })
+
+  it('accepts an image browsers display whose variants were rendered before its oriented dimensions were recorded', () => {
+    const unknown = { focus: null, crops: {}, width: null, height: null, ratios: [] }
+    const done = { size: 'large', width: 1200, height: 800, format: 'webp', bytes: 1, state: 'done' as const, path: '/media/m1/variants/large.webp', crop: null }
+    expect(canFrame(item({ framing: unknown, variants: [done] }))).toBe(true)
+    expect(canFrame(item({ framing: unknown, variants: [{ ...done, state: 'failed' }] }))).toBe(false)
+    expect(canFrame(item({ framing: unknown, variants: [done], contentType: 'image/webp', path: '/media/m1/a.webp' }))).toBe(false)
+  })
 })
 
 describe('cropSource', () => {

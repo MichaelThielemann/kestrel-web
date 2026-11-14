@@ -40,9 +40,20 @@ export function cropSource(item: MediaItem): string | null {
   return wholeVariant(item)
 }
 
-/** Whether the item is an image whose oriented dimensions the server reported and that the editor can show, so its focus and crops can be edited. */
+/**
+ * Whether the browser has to measure the original to learn its oriented dimensions: the server reports none for
+ * an image whose variants were rendered before it recorded them, and a browser applies the orientation to an
+ * original it displays, so its `naturalWidth`/`naturalHeight` stand in for them.
+ */
+export function measuresOriginal(item: MediaItem): boolean {
+  return (item.framing.width === null || item.framing.height === null) && BROWSER_IMAGE_TYPES.has(item.contentType)
+    && item.variants.some((v) => v.state === 'done')
+}
+
+/** Whether the item is an image whose oriented dimensions the server reported, or the browser can measure, and that the editor can show, so its focus and crops can be edited. */
 export function canFrame(item: MediaItem | null): boolean {
   if (!item || !item.contentType.startsWith('image/')) return false
+  if (measuresOriginal(item)) return true
   return item.framing.width !== null && item.framing.height !== null && cropSource(item) !== null
 }
 
