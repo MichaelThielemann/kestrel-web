@@ -34,30 +34,47 @@ the save returns.
 | Flag | Meaning |
 | --- | --- |
 | `--name <name>` | package name, default the directory name |
-| `--pm <manager>` | `pnpm`, `npm`, `yarn` or `bun` |
+| `--pm <manager>` | `pnpm`, `npm`, `yarn` or `bun`; only `pnpm` pins `packageManager` and gets the supply-chain settings described below |
 | `--locales <list>` | comma separated; the first entry is the default locale |
 | `--features <list>` | comma separated feature names |
 | `--blobstore <kind>` | `filesystem` or `s3`; `s3` writes env placeholders, never credentials |
 | `--admin-user <name>` | username of the bootstrap admin |
-| `--admin-password <pw>` | or the `KESTREL_ADMIN_PASSWORD` environment variable |
+| `--admin-password <pw>` | or the `KESTREL_ADMIN_PASSWORD` environment variable; see below |
 | `--yes` | take every default and never prompt |
 | `--force` | scaffold into a directory that is not empty |
 
 With `--yes` and no password given, a random one is generated and printed once at the end.
 
+An argument is visible to every user of the machine in the process list while the command runs. Set the
+`KESTREL_ADMIN_PASSWORD` environment variable instead of `--admin-password` on a shared machine or in a CI log.
+
 ## What it writes
 
 `package.json`, `nuxt.config.ts`, `kestrel.config.ts`, `shared/model.ts`,
 `shared/collections-ui.ts`, two example blocks under `app/blocks/`, `tsconfig.json`,
-`pnpm-workspace.yaml` (the `allowBuilds` list Nuxt needs and the `overrides` that resolve Nuxt's
+`pnpm-workspace.yaml` (the `allowBuilds` list Nuxt needs, the supply-chain settings below and the `overrides` that resolve Nuxt's
 `glob` and `minimatch` to releases without known advisories, ignored by the other managers, and an
 `auditConfig` that ignores the single advisory GHSA-gcqx-w48m-w2h4 in `deepmerge`, which only Nuxt's build
 toolchain pulls in; `nuxt` is a dependency, so `pnpm audit --prod` lists it too. The entry stays until it is
 removed; review it no later than 2027-02-13),
-`.gitignore`, `.env`, `.env.example` and a README. The generated project has
+`.gitignore`, `.env`, `.env.example` and a README. `.env` is created readable and writable by its owner only
+(mode `0600`, also when it replaces an existing file; Windows has no such mode). The generated project has
 `@michaelthielemann/kestrel-cli` as a dev dependency and a `check` script, so `pnpm check` runs
 `kestrel check` against it; the project then needs Node 22.18 or newer. The sources live as real files under `template/`;
 a file whose name starts with `_` is written with a leading dot (`_gitignore` becomes `.gitignore`).
+
+## Supply-chain settings
+
+With `--pm pnpm` the generated `pnpm-workspace.yaml` asks pnpm to install only releases that are at least
+three days old (`minimumReleaseAge`), to refuse a package whose publishing trust is weaker than an earlier
+release's (`trustPolicy: no-downgrade`) and to refuse dependencies of dependencies that come from a git
+repository or a tarball URL (`blockExoticSubdeps`). The packages under `@michaelthielemann/` are excluded
+from the age check (`minimumReleaseAgeExclude`), so a freshly published `kestrel-web` or `kestrel` is
+installable at once. `package.json` pins `packageManager` to the pnpm release this repository runs, so
+corepack uses the same one.
+
+With `npm`, `yarn` or `bun` the file is still written, but those managers ignore it and
+`package.json` has no `packageManager` field. Any release-age delay for those managers has to be set in their own configuration.
 
 ## Versions
 

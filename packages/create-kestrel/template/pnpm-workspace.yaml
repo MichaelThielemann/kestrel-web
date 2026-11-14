@@ -1,3 +1,10 @@
+minimumReleaseAge: 4320
+minimumReleaseAgeExclude:
+  - '@michaelthielemann/*'
+trustPolicy: no-downgrade
+trustPolicyIgnoreAfter: 129600
+blockExoticSubdeps: true
+
 allowBuilds:
   esbuild: true
   "@parcel/watcher": true

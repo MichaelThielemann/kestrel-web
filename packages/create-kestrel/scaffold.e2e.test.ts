@@ -1,12 +1,12 @@
 import { spawn, spawnSync } from "node:child_process";
-import { closeSync, mkdtempSync, openSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { closeSync, mkdtempSync, openSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, describe, expect, it } from "vitest";
 
 const ENABLED = process.env.KESTREL_CREATE_E2E === "1";
-const PORT = 3018;
+const PORT = Number(process.env.KESTREL_CREATE_E2E_PORT ?? 3018);
 const BASE_URL = `http://localhost:${PORT}`;
 const PASSWORD = "scaffolded-passphrase";
 const BOOT_TIMEOUT_MS = 300_000;
@@ -70,6 +70,8 @@ describe.skipIf(!ENABLED)("a scaffolded project", () => {
 
     const manifestPath = join(project, "package.json");
     const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+    expect(manifest.packageManager).toMatch(/^pnpm@\d+\.\d+\.\d+/);
+    if (process.platform !== "win32") expect(statSync(join(project, ".env")).mode & 0o777).toBe(0o600);
     manifest.dependencies["@michaelthielemann/kestrel-web"] = `file:${join(workspace, String(tarball))}`;
     writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 

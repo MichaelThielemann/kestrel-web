@@ -18,12 +18,14 @@ const HELP = `create-kestrel ${VERSION}
 
   --name <name>            package name (default: the directory name)
   --pm <manager>           pnpm | npm | yarn | bun (default: the manager that started this)
+                           only pnpm gets the pinned packageManager and the release-age settings
   --locales <list>         comma separated, the first one is the default locale
   --features <list>        comma separated; known: ${ALL_FEATURES.join(", ")}
                            default: ${DEFAULT_FEATURES.join(", ")}
   --blobstore <kind>       filesystem | s3 (s3 writes env placeholders, no credentials)
   --admin-user <name>      username of the bootstrap admin (default: admin)
-  --admin-password <pw>    or the KESTREL_ADMIN_PASSWORD environment variable
+  --admin-password <pw>    visible in the process list while this runs; prefer the
+                           KESTREL_ADMIN_PASSWORD environment variable
   --yes                    take every default and never prompt
   --force                  scaffold into a directory that is not empty
   --help, --version

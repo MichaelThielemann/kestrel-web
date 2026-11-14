@@ -1,4 +1,5 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -62,6 +63,14 @@ describe("versions.json", () => {
   it("pins what this repository itself uses", () => {
     const manifest = JSON.parse(readFileSync(ROOT_MANIFEST, "utf8"));
     expect(serialize(VERSIONS)).toBe(serialize(expectedVersions(manifest)));
+  });
+});
+
+describe("the package manager pin", () => {
+  it("is the exact pnpm release this repository itself runs", () => {
+    const manifest = JSON.parse(readFileSync(ROOT_MANIFEST, "utf8"));
+    expect(VERSIONS.pnpm).toBe(manifest.packageManager);
+    expect(VERSIONS.pnpm).toMatch(/^pnpm@\d+\.\d+\.\d+/);
   });
 });
 
@@ -130,6 +139,28 @@ describe("projectFiles", () => {
     expect(yamlBlock(scaffolded, "overrides")).toEqual(thirdParty);
     expect(yamlBlock(scaffolded, "auditConfig")).toEqual(yamlBlock(root, "auditConfig"));
     expect(yamlBlock(scaffolded, "allowBuilds")).toEqual(yamlBlock(root, "allowBuilds"));
+  });
+
+  it("asks pnpm for a release age, a trust policy and no exotic subdependencies, and keeps the project's own packages out of the age check", () => {
+    const root = readFileSync(ROOT_WORKSPACE, "utf8");
+    const scaffolded = text(files({}), "pnpm-workspace.yaml");
+    for (const key of ["minimumReleaseAge", "trustPolicy", "trustPolicyIgnoreAfter", "blockExoticSubdeps"]) {
+      const pattern = new RegExp(`^${key}: .+$`, "m");
+      expect(scaffolded.match(pattern)?.[0], key).toBeDefined();
+      expect(scaffolded.match(pattern)?.[0], key).toBe(root.match(pattern)?.[0]);
+    }
+    expect(scaffolded).toMatch(/^minimumReleaseAge: [1-9]\d*$/m);
+    expect(scaffolded).toMatch(/^trustPolicy: no-downgrade$/m);
+    expect(scaffolded).toMatch(/^blockExoticSubdeps: true$/m);
+    expect(yamlBlock(scaffolded, "minimumReleaseAgeExclude")).toEqual(["  - '@michaelthielemann/*'"]);
+  });
+
+  it("pins the package manager only for a project scaffolded with pnpm", () => {
+    expect(VERSIONS.pnpm).toBeDefined();
+    expect(JSON.parse(text(files({ packageManager: "pnpm" }), "package.json")).packageManager).toBe(VERSIONS.pnpm);
+    for (const packageManager of ["npm", "yarn", "bun"] as const) {
+      expect(JSON.parse(text(files({ packageManager }), "package.json")), packageManager).not.toHaveProperty("packageManager");
+    }
   });
 
   it("adds the kestrel CLI as a dev dependency with a check script, on the Node version the CLI needs", () => {
@@ -299,11 +330,58 @@ describe("occupants", () => {
     expect(occupants(root).sort()).toEqual([".env", "package.json"]);
   });
 
+  it.skipIf(process.platform === "win32")("writes .env readable by its owner only and leaves the other files at the default mode", () => {
+    const target = join(temporaryDirectory(), "site");
+    writeProject(target, files({}));
+    expect(statSync(join(target, ".env")).mode & 0o777).toBe(0o600);
+    expect(statSync(join(target, ".env.example")).mode & 0o044).not.toBe(0);
+  });
+
+  it.skipIf(process.platform === "win32")("narrows an existing .env that it overwrites to owner-only", () => {
+    const target = join(temporaryDirectory(), "site");
+    mkdirSync(target, { recursive: true });
+    writeFileSync(join(target, ".env"), "OLD=1\n");
+    chmodSync(join(target, ".env"), 0o644);
+    writeProject(target, files({}));
+    expect(statSync(join(target, ".env")).mode & 0o777).toBe(0o600);
+    expect(readFileSync(join(target, ".env"), "utf8")).not.toContain("OLD=1");
+  });
+
   it("sees every file writeProject wrote", () => {
     const root = temporaryDirectory();
     const target = join(root, "site");
     writeProject(target, files({}));
     expect(occupants(target)).toContain("kestrel.config.ts");
     expect(readFileSync(join(target, "shared/model.ts"), "utf8")).toContain("export const features =");
+  });
+});
+
+describe("the command line help", () => {
+  const help = spawnSync(process.execPath, [join(PACKAGE_ROOT, "index.mjs"), "--help"], { encoding: "utf8" }).stdout;
+
+  it("warns that a password argument is visible in the process list and recommends the environment variable", () => {
+    const entry = help.split("\n").findIndex((line) => line.includes("--admin-password"));
+    const section = help.split("\n").slice(entry, entry + 4).join(" ");
+    expect(section).toMatch(/process list/i);
+    expect(section).toContain("KESTREL_ADMIN_PASSWORD");
+  });
+
+  it("says the package manager pin and the supply-chain settings belong to pnpm", () => {
+    expect(help).toMatch(/--pm[^\n]*\n[^\n]*pnpm/);
+  });
+});
+
+describe("the README", () => {
+  const readme = readFileSync(join(PACKAGE_ROOT, "README.md"), "utf8");
+
+  it("recommends the environment variable over the password flag and names the process list", () => {
+    expect(readme).toMatch(/process list/i);
+    expect(readme).toMatch(/KESTREL_ADMIN_PASSWORD.{0,200}instead|instead.{0,200}KESTREL_ADMIN_PASSWORD/is);
+  });
+
+  it("documents the owner-only .env and the pnpm-only settings", () => {
+    expect(readme).toMatch(/\.env[^.]{0,80}(owner|0600)/i);
+    expect(readme).toContain("minimumReleaseAge");
+    expect(readme).toContain("packageManager");
   });
 });

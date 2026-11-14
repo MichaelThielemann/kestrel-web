@@ -7,6 +7,12 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 export const MANIFEST_PATH = join(ROOT, "package.json");
 export const VERSIONS_PATH = join(ROOT, "packages/create-kestrel/versions.json");
 
+function pinnedPnpm(manifest) {
+  const value = manifest.packageManager;
+  if (typeof value !== "string" || !/^pnpm@\d+\.\d+\.\d+/.test(value)) throw new Error("package.json: packageManager must pin a pnpm release");
+  return value;
+}
+
 function required(manifest, section, name) {
   const value = manifest[section]?.[name];
   if (typeof value !== "string") throw new Error(`package.json: ${section}["${name}"] is missing`);
@@ -26,6 +32,7 @@ export function expectedVersions(manifest) {
     vueRouter: required(manifest, "peerDependencies", "vue-router"),
     typescript: required(manifest, "dependencies", "typescript"),
     vueTsc: required(manifest, "devDependencies", "vue-tsc"),
+    pnpm: pinnedPnpm(manifest),
   };
 }
 

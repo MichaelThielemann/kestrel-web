@@ -50,6 +50,7 @@ export function templateValues(answers, versions) {
   return {
     PROJECT_NAME: answers.name,
     PACKAGE_MANAGER: answers.packageManager,
+    PACKAGE_MANAGER_PIN: answers.packageManager === "pnpm" ? versions.pnpm : null,
     INSTALL_COMMAND: INSTALL_COMMANDS[answers.packageManager],
     DEV_COMMAND: `${RUN_PREFIXES[answers.packageManager]} dev`,
     BUILD_COMMAND: `${RUN_PREFIXES[answers.packageManager]} build`,

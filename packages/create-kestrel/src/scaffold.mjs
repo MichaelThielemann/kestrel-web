@@ -1,10 +1,11 @@
 import { randomBytes } from "node:crypto";
-import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { hashPassword } from "./password.mjs";
 import { envFile, renderTemplate, templateValues } from "./render.mjs";
 
 const ENV_FILE = ".env";
+const OWNER_ONLY = 0o600;
 
 export function readVersions(packageRoot) {
   const parsed = JSON.parse(readFileSync(join(packageRoot, "versions.json"), "utf8"));
@@ -53,6 +54,11 @@ export function writeProject(directory, files) {
   for (const [path, content] of files) {
     const full = join(directory, path);
     mkdirSync(dirname(full), { recursive: true });
-    writeFileSync(full, content);
+    if (path === ENV_FILE) {
+      writeFileSync(full, content, { mode: OWNER_ONLY });
+      chmodSync(full, OWNER_ONLY);
+    } else {
+      writeFileSync(full, content);
+    }
   }
 }

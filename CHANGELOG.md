@@ -243,6 +243,17 @@
   `KESTREL_MFA_KEY` to `.env`. The feature needs `ratelimit` (create-kestrel adds it). The layer depends on
   `@michaelthielemann/kestrel-mfa-totp` and `uqr` (pinned to 0.1.3).
 
+### Changed
+
+- `create-kestrel` writes `.env` readable and writable by its owner only (mode `0600`), also when `--force`
+  replaces an existing file. The help and the README say that `--admin-password` is visible in the process list
+  while the command runs and recommend `KESTREL_ADMIN_PASSWORD` instead.
+- With `--pm pnpm`, `create-kestrel` pins `packageManager` in the new `package.json` to the pnpm release this
+  repository runs, and its `pnpm-workspace.yaml` sets `minimumReleaseAge` (three days), `trustPolicy: no-downgrade`
+  and `blockExoticSubdeps: true`. `@michaelthielemann/*` is listed in `minimumReleaseAgeExclude`, so a freshly
+  published `kestrel` or `kestrel-web` installs at once. With `npm`, `yarn` or `bun` the project has no
+  `packageManager` field.
+
 ### Upgrading
 
 - With `images`, `MediaItem` has the members `focus` and `framing`, each `MediaVariant` has `crop`, and

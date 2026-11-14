@@ -1,6 +1,7 @@
 {
   "name": "__PROJECT_NAME__",
   "private": true,
+  "packageManager": "__PACKAGE_MANAGER_PIN__",
   "type": "module",
   "engines": {
     "node": ">=22.18.0"
