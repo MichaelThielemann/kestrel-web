@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, useAttrs } from 'vue'
 import type { IconName } from '../../utils/icons'
 
 const props = withDefaults(
@@ -14,6 +14,12 @@ const props = withDefaults(
   }>(),
   { variant: 'secondary', type: 'button', disabled: false, loading: false },
 )
+
+defineOptions({ inheritAttrs: false })
+
+const attrs = useAttrs()
+
+const inertLinkAttrs = computed(() => Object.fromEntries(Object.entries(attrs).filter(([name]) => !/^onClick(?:Capture)?$/.test(name))))
 
 const unstyled = computed(() => props.variant === 'icon' || props.variant === 'bare')
 
@@ -42,6 +48,7 @@ defineExpose({ focus })
     role="link"
     tabindex="-1"
     aria-disabled="true"
+    v-bind="inertLinkAttrs"
     :class="[classes, 'ui-button--disabled']"
     @click.prevent
   >
@@ -55,6 +62,7 @@ defineExpose({ focus })
     v-else-if="to"
     ref="el"
     :to="to"
+    v-bind="$attrs"
     :class="classes"
   >
     <KestrelUiIcon v-if="icon" :name="icon" class="ui-button__icon" />
@@ -67,7 +75,8 @@ defineExpose({ focus })
     v-else
     ref="el"
     :type="type"
-    :class="[classes, { 'ui-button--disabled': disabled }]"
+    v-bind="$attrs"
+    :class="[classes, { 'ui-button--disabled': disabled && !loading }]"
     :disabled="disabled || loading"
     :aria-busy="loading || undefined"
   >
@@ -83,6 +92,8 @@ defineExpose({ focus })
 <style lang="scss">
 @use '../../assets/scss/mixins';
 @use '../../assets/scss/scope' as *;
+
+$disabled: ':is(.ui-button--disabled, :disabled:not([aria-busy="true"]))';
 
 .ui-button {
   @include mixins.focus-ring;
@@ -167,18 +178,18 @@ defineExpose({ focus })
     }
   }
 
-  &.ui-button--disabled {
+  &#{$disabled} {
     background: var(--color-disabled-bg);
     border-color: transparent;
     color: var(--color-disabled-text);
     cursor: not-allowed;
   }
-  &--secondary.ui-button--disabled {
+  &--secondary#{$disabled} {
     background: transparent;
     border-color: var(--color-disabled-border);
   }
-  &--ghost.ui-button--disabled,
-  &--danger-ghost.ui-button--disabled {
+  &--ghost#{$disabled},
+  &--danger-ghost#{$disabled} {
     background: transparent;
   }
 }
@@ -213,8 +224,8 @@ defineExpose({ focus })
 #{$root} :where(.ui-button--icon:hover:not(:disabled, .ui-button--disabled)) {
   color: var(--color-text);
 }
-#{$root} :where(.ui-button--icon.ui-button--disabled) {
-  color: var(--color-disabled-text);
+#{$root} :where(.ui-button--icon:is(:disabled, .ui-button--disabled)) {
+  color: var(--color-disabled-icon);
   cursor: not-allowed;
 }
 

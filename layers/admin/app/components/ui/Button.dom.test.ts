@@ -1,5 +1,5 @@
 import { mountSuspended } from '@nuxt/test-utils/runtime'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { boundaryCast } from '#kestrel/cast'
 import Button from './Button.vue'
 
@@ -100,6 +100,32 @@ describe('KestrelUiButton', () => {
 
       expect(link.attributes('href')).toBeUndefined()
       expect(click(link.element).defaultPrevented).toBe(true)
+    })
+
+    it('does not run the click handler of the caller on a disabled link', async () => {
+      const onClick = vi.fn()
+      const wrapper = await mountSuspended(Button, { props: { to: '/admin/media', disabled: true }, attrs: { onClick }, slots: { default: () => 'Go' }, attachTo: document.body })
+      const link = wrapper.get('a')
+
+      expect(click(link.element).defaultPrevented).toBe(true)
+      expect(onClick).not.toHaveBeenCalled()
+    })
+
+    it('runs the click handler of the caller on an enabled link and an enabled button', async () => {
+      const onClick = vi.fn()
+      const link = await mountSuspended(Button, { props: { to: '/admin/media' }, attrs: { onClick }, slots: { default: () => 'Go' }, attachTo: document.body })
+      click(link.get('a').element)
+      const button = await mountSuspended(Button, { attrs: { onClick }, slots: { default: () => 'Go' }, attachTo: document.body })
+      click(button.get('button').element)
+
+      expect(onClick).toHaveBeenCalledTimes(2)
+    })
+
+    it('does not mark a loading button that is also disabled as disabled-styled', async () => {
+      const wrapper = await mountSuspended(Button, { props: { loading: true, disabled: true }, slots: { default: () => 'Go' } })
+
+      expect(wrapper.get('button').classes()).not.toContain('ui-button--disabled')
+      expect(wrapper.get('button').attributes('aria-busy')).toBe('true')
     })
 
     it('keeps the destination of an enabled link', async () => {

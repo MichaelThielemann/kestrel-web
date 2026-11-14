@@ -1174,11 +1174,13 @@
   shows it on the grid thumbnail's top right corner, clear of the checkbox and the menu button, and beside the
   filename in the table.
 - Admin kit: `KestrelUiButton` gives every variant a dedicated disabled state instead of a flat opacity. The new
-  tokens `--color-disabled-bg`, `--color-disabled-text` and `--color-disabled-border` (base, light and dark; the
-  label stays at 3:1 or better) make a disabled `ghost` or `danger-ghost` button clearly weaker than an active
-  one. A disabled button, or a link with `disabled`, never shows a hover state and has the `not-allowed` cursor.
-  A disabled link renders without a destination, carries `aria-disabled="true"` and `tabindex="-1"`, does not
-  navigate, and every disabled variant gets the `ui-button--disabled` class.
+  tokens `--color-disabled-bg`, `--color-disabled-text`, `--color-disabled-border` and `--color-disabled-icon`
+  (base, light and dark; the label stays at 3:1 or better) make a disabled `ghost`, `danger-ghost` or `icon`
+  button clearly weaker than an active one. A disabled button, or a link with `disabled`, never shows a hover
+  state and has the `not-allowed` cursor; a raw element with a kit class and the `disabled` attribute gets the
+  same look. A disabled link renders without a destination, carries `aria-disabled="true"` and `tabindex="-1"`,
+  and neither navigates nor runs the `onClick` of the caller. A button that is `loading` is never styled as
+  disabled, even with `disabled` set.
 
 - The admin layer sends `X-Frame-Options: SAMEORIGIN`, `Referrer-Policy: same-origin`,
   `X-Content-Type-Options: nosniff` and a `Permissions-Policy` that turns off camera, microphone, geolocation,

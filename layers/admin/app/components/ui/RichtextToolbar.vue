@@ -247,7 +247,7 @@ function applyInternalLink() {
     }
   }
 
-  &__group .ui-button.rt-on {
+  &__group .ui-button.rt-on:not(.ui-button--disabled) {
     background: var(--color-active, var(--color-surface-2));
     color: var(--color-text);
 

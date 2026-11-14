@@ -1056,10 +1056,13 @@ well as the button.
 
 A disabled button of any variant carries `.ui-button--disabled` and takes the `--color-disabled-bg`,
 `--color-disabled-text` and `--color-disabled-border` tokens instead of a flat opacity: `primary` and `danger`
-turn into a flat grey fill, `secondary` into an outline, `ghost`, `danger-ghost` and `icon` keep only a weaker
-label colour. It never reacts to hover and shows the `not-allowed` cursor. A disabled `to` button renders a plain
-`<a>` without a destination, with `aria-disabled="true"` and `tabindex="-1"`, and swallows the click. A `loading`
-button keeps its active colours and stays reduced to 60 % opacity.
+turn into a flat grey fill, `secondary` into an outline, `ghost` and `danger-ghost` keep only a weaker label
+colour, and `icon` uses `--color-disabled-icon`, which is clearly lighter (light theme) or darker (dark theme)
+than the active `--color-text-muted`. The same look applies to a raw element that carries a kit class and the
+`disabled` attribute, such as the trigger of `KestrelUiActionMenu`. A disabled button never reacts to hover and
+shows the `not-allowed` cursor. A disabled `to` button renders a plain `<a>` without a destination, with
+`aria-disabled="true"` and `tabindex="-1"`; it swallows the click, so neither navigation nor an `onClick` of the
+caller runs. A `loading` button, disabled or not, keeps its active colours and is reduced to 60 % opacity.
 
 ### Admin CSS isolation
 The admin styles share a document with the consumer's own global CSS: Nuxt merges every layer's and the
@@ -1196,7 +1199,8 @@ that role:
   or danger button, where `--color-focus` would sit on its own colour because the ring is drawn inside
   the button.
 - Inactive controls (3:1): `--color-disabled-text` on `--color-disabled-bg` (the fill of a disabled
-  primary or danger button), on the page and on a surface (disabled ghost, secondary and icon buttons).
+  primary or danger button), on the page and on a surface (disabled ghost and secondary buttons);
+  `--color-disabled-icon` on the page and on a surface (disabled icon buttons).
   1.4.3 exempts inactive components; the kit keeps the label readable anyway. `--color-disabled-border`
   outlines a disabled secondary button and is decorative.
 - Decorative: `--color-border` (table rules, card outlines, separators). 1.4.11 does not apply to it;
@@ -1247,6 +1251,8 @@ threshold.
 | disabled button label on its fill | `--color-disabled-text` | `--color-disabled-bg` | 3:1 | #6e6e76 on #e4e4e7 — 3.98:1 | #8b8b94 on #27272a — 4.41:1 |
 | disabled ghost label on page | `--color-disabled-text` | `--color-bg` | 3:1 | #6e6e76 on #f5f5fa — 4.65:1 | #8b8b94 on #09090b — 5.89:1 |
 | disabled ghost label on surface | `--color-disabled-text` | `--color-surface` | 3:1 | #6e6e76 on #ffffff — 5.05:1 | #8b8b94 on #18181b — 5.25:1 |
+| disabled icon on page | `--color-disabled-icon` | `--color-bg` | 3:1 | #8a8a92 on #f5f5fa — 3.15:1 | #71717a on #09090b — 4.12:1 |
+| disabled icon on surface | `--color-disabled-icon` | `--color-surface` | 3:1 | #8a8a92 on #ffffff — 3.43:1 | #71717a on #18181b — 3.67:1 |
 | disabled secondary border on surface | `--color-disabled-border` | `--color-surface` | decorative | #d4d4d8 on #ffffff — 1.48:1 | #3f3f46 on #18181b — 1.70:1 |
 | control border on page | `--color-control-border` | `--color-bg` | 3:1 | #87878f on #f5f5fa — 3.28:1 | #71717a on #09090b — 4.12:1 |
 | control border on surface | `--color-control-border` | `--color-surface` | 3:1 | #87878f on #ffffff — 3.56:1 | #71717a on #18181b — 3.67:1 |
