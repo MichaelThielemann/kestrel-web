@@ -303,8 +303,8 @@
 
 - Admin: System → Replication scrolls when its content does not fit, so the restore point table keeps a minimum
   height and stays reachable on small screens while the staged-restore and restore-result notices are shown. The
-  generation wraps at narrow widths instead of being cut off, the tab never scrolls sideways, and the restore
-  result is scrolled into view after a restore.
+  generation wraps at narrow widths instead of being cut off, the tab never scrolls sideways, and after a
+  restore the restore result notice takes focus, so it is in view and announced.
 
 ### Upgrading
 
