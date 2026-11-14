@@ -1084,7 +1084,9 @@
   and every release of glob 13 and minimatch 10 carries a published advisory. A site on pnpm adds the same
   entries to its own `pnpm-workspace.yaml` for a `pnpm audit` without these findings. A site that lints with
   `@nuxt/eslint` and whose lockfile pins `eslint-plugin-import-x` below 4.18.1, the first release that loads
-  against minimatch 11, re-resolves it.
+  against minimatch 11, runs `pnpm update --depth Infinity eslint-plugin-import-x` (with `-r` in a workspace) or
+  resolves its lockfile from scratch: `pnpm install` and `pnpm update eslint-plugin-import-x` keep the pinned
+  release.
 - Media library and picker: "Delete" moves files and folders to the media trash instead of deleting them, so
   their files keep using storage until the nightly purge, 30 days later by default
   (`media.trashRetentionDays`; `0` keeps the final delete behind a dialog). A page that shows a trashed item
