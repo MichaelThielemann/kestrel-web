@@ -32,7 +32,7 @@ function listed(items: readonly string[], quote: (item: string) => string, conju
 }
 
 const FOCUS_LOSS = "a public KestrelImage sets no object-position: an original or inside variant in a box of another ratio stays centred, while cover variants are still cut around the focus by the server";
-const BOX_LOSS = "without the item's width and height KestrelImage cannot place a crop on the original: a cover variant cut within a pixel of the centre loses the whole-image widths, and an original shown for a size without a listed variant gets no srcset and no box";
+const BOX_LOSS = "without the item's width and height an original shown for a size without a listed variant gets no srcset and no box";
 const PATH_LOSS = "without variants[].path a variant KestrelImage links has no source and the image breaks";
 const SIZE_LOSS = "without variants[].size KestrelImage never finds the named size, so instead of a cut variant in a box of its size it shows the whole image from the original and its whole-image widths";
 const DIMENSION_LOSS = "without variants[].width or variants[].height KestrelImage links no variant and shows the original";
@@ -47,7 +47,7 @@ function authzConfig(ctx: RuleContext): Record<string, unknown> | undefined {
  * A media grant in `roles.anonymousFields` that keeps the variants for visitors but not `focus`, not the item's
  * `width` and `height`, or not every variant member `KestrelImage` reads (`size`, `path`, `width`, `height`,
  * `crop`). The server starts, but each gap changes a public page: without `focus` no `object-position`; without
- * the item's `width`/`height` no crop placed on the original; without `variants[].path` a linked variant has no
+ * the item's `width`/`height` no box and no `srcset` for the original; without `variants[].path` a linked variant has no
  * source; without `variants[].size` the named size is never found and the whole image is shown; without
  * `variants[].width`/`height` no variant is linked; without `variants[].crop` `pickImageSources` groups a
  * `srcset` by the declared `cover` ratio keys. The finding names the fields to add; the grant is the project's

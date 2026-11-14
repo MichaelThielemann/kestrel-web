@@ -71,10 +71,11 @@ describe("preset/media-focus-grant", () => {
     expect(await mediaFocusGrantRule.check(contextFor({ grants: { media: ["id", "path", "width", "height", "focus", "variants"] } }))).toEqual([]);
   });
 
-  it("asks for the item's width and height when the grant keeps the variants without them, which places a crop on the original", async () => {
+  it("asks for the item's width and height when the grant keeps the variants without them, which give the original its box", async () => {
     const [finding] = await mediaFocusGrantRule.check(contextFor({ grants: { media: ["id", "path", "alt", "focus", "variants"] } }));
     expect(finding?.suggestion).toBe('add "width" and "height" to roles.anonymousFields.media');
-    expect(finding?.message).toContain("cannot place a crop on the original");
+    expect(finding?.message).toContain("an original shown for a size without a listed variant gets no srcset and no box");
+    expect(finding?.message).not.toContain("within a pixel");
     expect(finding?.message).not.toContain("shows the original");
   });
 
