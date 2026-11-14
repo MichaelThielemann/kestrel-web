@@ -54,6 +54,7 @@ export function useMediaLibrary(opts: { urlSync?: boolean; accept?: 'image' | 'a
   const loading = ref(false)
   const error = ref<string | null>(null)
   let token = 0
+  let latestFiles: Promise<void> = Promise.resolve()
 
   if (import.meta.client) {
     const v = localStorage.getItem(VIEW_KEY)
@@ -84,8 +85,12 @@ export function useMediaLibrary(opts: { urlSync?: boolean; accept?: 'image' | 'a
     folderList.value = await api<MediaFolder[]>(capabilities.route('listMediaFolders'))
   }
 
-  async function fetchFiles() {
-    const my = ++token
+  function fetchFiles(): Promise<void> {
+    latestFiles = loadFiles(++token)
+    return latestFiles
+  }
+
+  async function loadFiles(my: number): Promise<void> {
     loading.value = true
     error.value = null
     try {
@@ -102,7 +107,7 @@ export function useMediaLibrary(opts: { urlSync?: boolean; accept?: 'image' | 'a
           ...(typeFilter.value === 'all' ? {} : { type: typeFilter.value }),
         },
       })
-      if (my !== token) return
+      if (my !== token) return await latestFiles
       const last = Math.max(1, Math.ceil(page1.total / perPage.value))
       if (!page1.items.length && page.value > last) {
         page.value = last
@@ -113,7 +118,7 @@ export function useMediaLibrary(opts: { urlSync?: boolean; accept?: 'image' | 'a
       total.value = page1.total
       checkFolder()
     } catch (e) {
-      if (my !== token) return
+      if (my !== token) return await latestFiles
       error.value = apiErrorText(t, e, t('media.loadError'))
     } finally {
       if (my === token) loading.value = false

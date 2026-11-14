@@ -72,8 +72,20 @@ describe('useUploadTiles', () => {
     const done = uploadItem({ id: 'u1', status: 'done', result: mediaItem('f1') })
     const { api } = await setup({ queue: [done], view: 'grid', folder: '' })
 
-    api.markSettled('')
+    api.promote(api.doneIn(''))
 
+    expect(api.gridTileUploads.value).toHaveLength(0)
+  })
+
+  it('keeps the tile of an upload that finished after its folder settled until a later settle takes it over', async () => {
+    const { api, queue } = await setup({ queue: [uploadItem({ id: 'u1', status: 'failed', message: 'busy' })], view: 'grid', folder: '' })
+
+    const settled = api.doneIn('')
+    queue.value = [uploadItem({ id: 'u1', status: 'done', result: mediaItem('f1') })]
+    api.promote(settled)
+    expect(api.gridTileUploads.value).toHaveLength(1)
+
+    api.promote(api.doneIn(''))
     expect(api.gridTileUploads.value).toHaveLength(0)
   })
 
@@ -81,7 +93,7 @@ describe('useUploadTiles', () => {
     const done = uploadItem({ id: 'u1', folder: '', status: 'done', result: mediaItem('f1') })
     const { api, folder } = await setup({ queue: [done], view: 'grid', folder: '' })
 
-    api.markSettled('')
+    api.promote(api.doneIn(''))
     expect(api.gridTileUploads.value).toHaveLength(0)
 
     folder.value = 'sub'
@@ -112,7 +124,7 @@ describe('useUploadTiles', () => {
     const item = uploadItem({ id: 'u1', status: 'done', result: mediaItem('f1') })
     const { api, queue, release } = await setup({ queue: [item], view: 'grid', folder: '' })
 
-    api.markSettled('')
+    api.promote(api.doneIn(''))
     await nextTick()
     expect(release).not.toHaveBeenCalled()
 

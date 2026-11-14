@@ -16,10 +16,12 @@ export function useUploadTiles(options: UseUploadTilesOptions) {
   const { queue, view, folder, listedIds, preview, dismiss } = options
   const promoted = ref<Set<string>>(new Set())
 
-  function markSettled(settledFolder: string) {
-    for (const item of queue.value) {
-      if (item.status === 'done' && item.folder === settledFolder) promoted.value.add(item.id)
-    }
+  function doneIn(settledFolder: string): string[] {
+    return queue.value.filter((item) => item.status === 'done' && item.folder === settledFolder).map((item) => item.id)
+  }
+
+  function promote(ids: readonly string[]) {
+    for (const id of ids) promoted.value.add(id)
   }
 
   watchEffect(() => {
@@ -50,5 +52,5 @@ export function useUploadTiles(options: UseUploadTilesOptions) {
     dismiss(id)
   }
 
-  return { gridTileUploads, unlistedDone, markSettled, onDismissUpload }
+  return { gridTileUploads, unlistedDone, doneIn, promote, onDismissUpload }
 }

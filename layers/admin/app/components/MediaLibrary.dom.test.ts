@@ -79,6 +79,40 @@ async function confirmUpload(wrapper: VueWrapper, file: File | File[]) {
   await vi.waitFor(() => expect(document.body.querySelector('.ui-dialog__content')).toBeNull())
 }
 
+function listedPdf(id: string, filename: string) {
+  return {
+    id, filename, folder: '', contentType: 'application/pdf', size: 1, key: id, checksum: null, path: `/media/${id}/${filename}`,
+    status: 'ready', createdAt: 1, updatedAt: 1, provenance: { origin: 'human' }, width: null, height: null,
+    alt: null, title: null, description: null, variants: [], variantCounts: { done: 0, pending: 0, error: 0, failed: 0 },
+  }
+}
+
+const busyFailure = () => Object.assign(new Error('busy'), { status: 503, name: 'ApiError', data: { error: 'busy', code: 'UNAVAILABLE', retryable: true } })
+
+type ListingRequest = 'folders' | 'files'
+
+function heldListing(files: () => unknown[]) {
+  const holdNext: Record<ListingRequest, boolean> = { folders: false, files: false }
+  const waiting: Record<ListingRequest, (() => void)[]> = { folders: [], files: [] }
+  async function reply<T>(request: ListingRequest, answer: T): Promise<T> {
+    if (holdNext[request]) {
+      holdNext[request] = false
+      await new Promise<void>((resolve) => { waiting[request].push(resolve) })
+    }
+    return answer
+  }
+  return {
+    hold: (request: ListingRequest) => { holdNext[request] = true },
+    held: (request: ListingRequest) => waiting[request].length,
+    release: (request: ListingRequest) => { waiting[request].shift()?.() },
+    folders: () => reply('folders', []),
+    files: () => {
+      const items = files()
+      return reply('files', { items, total: items.length })
+    },
+  }
+}
+
 describe('MediaLibrary upload status', () => {
   const unregisterAll: (() => void)[] = []
 
@@ -650,6 +684,93 @@ describe('MediaLibrary upload status', () => {
 
     uploaded = true
     uploadControl.state.deliver?.({ id: 'f1', contentType: 'application/pdf' })
+    await vi.waitFor(() => expect(wrapper.find('.media-upload-tile').exists()).toBe(false))
+    await vi.waitFor(() => expect(document.activeElement).toBe(wrapper.get('[data-file-id="f1"]').element))
+  })
+
+  it('keeps the retried tile and its focus while the listing asked for after the failed attempt lands, then moves focus to the file once a listing holds it', async () => {
+    let listed: unknown[] = []
+    const listing = heldListing(() => listed)
+    unregisterAll.push(registerEndpoint('/api/media/folders', { method: 'GET', handler: listing.folders }))
+    unregisterAll.push(registerEndpoint('/api/media', { method: 'GET', handler: listing.files }))
+    unregisterAll.push(registerEndpoint('/api/limits', { method: 'GET', handler: () => ({ maxUploadBytes: null }) }))
+    uploadControl.reset()
+
+    const wrapper = await mountSuspended(MediaLibrary, { attachTo: document.body })
+    onTestFinished(() => wrapper.unmount())
+
+    await confirmUpload(wrapper, new File(['x'], 'flaky.pdf', { type: 'application/pdf' }))
+    await vi.waitFor(() => expect(uploadControl.state.signals).toHaveLength(1))
+    listed = [listedPdf('f0', 'other.pdf')]
+    listing.hold('files')
+    uploadControl.state.fail?.(busyFailure())
+    await vi.waitFor(() => expect(listing.held('files')).toBe(1))
+
+    const retry = '.media-upload-tile [aria-label="Retry flaky.pdf"]'
+    await vi.waitFor(() => expect(wrapper.find(retry).exists()).toBe(true))
+    boundaryCast<HTMLElement>(wrapper.get(retry).element, 'dom').focus()
+    await wrapper.get(retry).trigger('click')
+    await vi.waitFor(() => expect(uploadControl.state.signals).toHaveLength(2))
+    await nextTick()
+    const tile = wrapper.get('.media-upload-tile').element
+    expect(document.activeElement).toBe(tile)
+
+    listed = [listedPdf('f0', 'other.pdf'), listedPdf('f1', 'flaky.pdf')]
+    listing.hold('folders')
+    uploadControl.state.deliver?.({ id: 'f1', contentType: 'application/pdf' })
+    await vi.waitFor(() => expect(listing.held('folders')).toBe(1))
+
+    listing.release('files')
+    await vi.waitFor(() => expect(wrapper.find('[data-file-id="f0"]').exists()).toBe(true))
+    await nextTick()
+    expect(tile.isConnected).toBe(true)
+    expect(document.activeElement).toBe(tile)
+
+    listing.release('folders')
+    await vi.waitFor(() => expect(wrapper.find('.media-upload-tile').exists()).toBe(false))
+    await vi.waitFor(() => expect(document.activeElement).toBe(wrapper.get('[data-file-id="f1"]').element))
+  })
+
+  it('moves focus from the finished tile to the file only once the newest listing lands, when an older listing request answers after it was asked for', async () => {
+    let listed: unknown[] = []
+    const listing = heldListing(() => listed)
+    unregisterAll.push(registerEndpoint('/api/media/folders', { method: 'GET', handler: listing.folders }))
+    unregisterAll.push(registerEndpoint('/api/media', { method: 'GET', handler: listing.files }))
+    unregisterAll.push(registerEndpoint('/api/limits', { method: 'GET', handler: () => ({ maxUploadBytes: null }) }))
+    uploadControl.reset()
+
+    const wrapper = await mountSuspended(MediaLibrary, { attachTo: document.body })
+    onTestFinished(() => wrapper.unmount())
+
+    await confirmUpload(wrapper, new File(['x'], 'flaky.pdf', { type: 'application/pdf' }))
+    await vi.waitFor(() => expect(uploadControl.state.signals).toHaveLength(1))
+    listing.hold('folders')
+    uploadControl.state.fail?.(busyFailure())
+    await vi.waitFor(() => expect(listing.held('folders')).toBe(1))
+
+    const retry = '.media-upload-tile [aria-label="Retry flaky.pdf"]'
+    await vi.waitFor(() => expect(wrapper.find(retry).exists()).toBe(true))
+    boundaryCast<HTMLElement>(wrapper.get(retry).element, 'dom').focus()
+    await wrapper.get(retry).trigger('click')
+    await vi.waitFor(() => expect(uploadControl.state.signals).toHaveLength(2))
+    await nextTick()
+    const tile = wrapper.get('.media-upload-tile').element
+    expect(document.activeElement).toBe(tile)
+
+    listed = [listedPdf('f1', 'flaky.pdf')]
+    listing.hold('files')
+    uploadControl.state.deliver?.({ id: 'f1', contentType: 'application/pdf' })
+    await vi.waitFor(() => expect(listing.held('files')).toBe(1))
+    listing.hold('files')
+    listing.release('folders')
+    await vi.waitFor(() => expect(listing.held('files')).toBe(2))
+
+    listing.release('files')
+    await new Promise((resolve) => setTimeout(resolve, 100))
+    expect(tile.isConnected).toBe(true)
+    expect(document.activeElement).toBe(tile)
+
+    listing.release('files')
     await vi.waitFor(() => expect(wrapper.find('.media-upload-tile').exists()).toBe(false))
     await vi.waitFor(() => expect(document.activeElement).toBe(wrapper.get('[data-file-id="f1"]').element))
   })
