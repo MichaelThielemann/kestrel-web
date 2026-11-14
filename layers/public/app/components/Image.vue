@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { getCurrentInstance, mergeProps, useId } from 'vue'
 import { imageSizes } from '#kestrel/image-sizes'
 import type { ImageMedia } from '../utils/public-shapes'
 import type { ImageArtEntry } from '../utils/image-variants'
@@ -18,6 +19,8 @@ const props = withDefaults(defineProps<{
 }>(), { loading: 'lazy', decoding: 'async' })
 
 const attrs = useAttrs()
+const artKey = useId()
+const scopeId = getCurrentInstance()?.vnode.scopeId ?? null
 const locale = useSiteLocale()
 
 const id = computed(() => (typeof props.media === 'string' ? props.media : props.media?.id ?? null))
@@ -36,6 +39,9 @@ const boxStyle = computed(() => {
   if (sources.value?.variant) return { aspectRatio: `${sources.value.width} / ${sources.value.height}`, objectFit: 'cover' as const, ...position }
   return objectPosition === undefined ? undefined : position
 })
+const artSelector = `:where(img[data-kestrel-art="${artKey}"])`
+const artCss = computed(() => (artSources.value.length ? artBoxCss(artSelector, sources.value, artSources.value) : ''))
+useHead(() => ({ style: artCss.value ? [{ key: `kestrel-art-${artKey}`, innerHTML: artCss.value }] : [] }))
 const imgAttrs = computed(() => ({
   src: sources.value?.src,
   srcset: sources.value?.srcset ?? undefined,
@@ -47,6 +53,13 @@ const imgAttrs = computed(() => ({
   decoding: props.decoding,
   fetchpriority: props.fetchpriority,
 }))
+
+function imgProps() {
+  const art = artSources.value.length
+    ? { ...(artCss.value ? { 'data-kestrel-art': artKey } : {}), ...(scopeId ? { [scopeId]: '' } : {}) }
+    : {}
+  return mergeProps(imgAttrs.value, { style: boxStyle.value }, art, attrs)
+}
 </script>
 
 <template>
@@ -60,7 +73,7 @@ const imgAttrs = computed(() => ({
       :width="source.width ?? undefined"
       :height="source.height ?? undefined"
     >
-    <img v-bind="{ ...attrs, ...imgAttrs }" :style="[boxStyle, attrs.style]">
+    <img v-bind="imgProps()">
   </picture>
-  <img v-else-if="sources" v-bind="{ ...attrs, ...imgAttrs }" :style="[boxStyle, attrs.style]">
+  <img v-else-if="sources" v-bind="imgProps()">
 </template>

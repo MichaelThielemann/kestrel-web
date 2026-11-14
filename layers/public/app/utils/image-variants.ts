@@ -159,7 +159,9 @@ export interface ArtSource {
 /**
  * The `<source>` elements of an art directed image, one per entry in the order given. Each one takes `src`, `srcset`
  * and box from `pickImageSources` for its own size, so its `srcset` holds one aspect ratio and one cut. A size without
- * a variant offers the original as its only candidate. `sizes` is set only where the `srcset` has width descriptors.
+ * a variant follows the reference rule of `pickImageSources`: the original, and the uncut variants of the item that
+ * show its aspect ratio. Only when the item has no variant at all is the original the single candidate. `sizes` is
+ * set only where the `srcset` has width descriptors.
  */
 export function pickArtSources(
   item: ImageMedia | null,
@@ -181,6 +183,26 @@ export function pickArtSources(
     })
   }
   return sources
+}
+
+/**
+ * The CSS that forces the box of an art directed `<img>` to the aspect ratio of the source the browser selects. A
+ * `width`/`height` attribute only gives `aspect-ratio: auto w / h`, which the natural ratio of the loaded bytes
+ * replaces, and a variant that has not been cut yet serves the original. The rule for `fallback` is the base; each
+ * source adds a `@media` rule, in reverse list order so that the first matching entry wins as it does in `<picture>`.
+ * Sources with an unknown box, or a media query that could close the rule, are left out.
+ */
+export function artBoxCss(selector: string, fallback: { width: number | null; height: number | null } | null, sources: readonly ArtSource[]): string {
+  const rule = (box: { width: number | null; height: number | null }): string | null =>
+    box.width && box.height ? `${selector}{aspect-ratio:${box.width} / ${box.height}}` : null
+  const rules: string[] = []
+  const base = fallback ? rule(fallback) : null
+  if (base) rules.push(base)
+  for (const source of [...sources].reverse()) {
+    const body = rule(source)
+    if (body && !/[{}]|<\/style/i.test(source.media)) rules.push(`@media ${source.media}{${body}}`)
+  }
+  return rules.join('')
 }
 
 function restrict(variants: readonly PublicMediaVariant[], only?: readonly string[]): PublicMediaVariant[] {

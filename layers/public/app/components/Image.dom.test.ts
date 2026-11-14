@@ -1,5 +1,6 @@
 import { mountSuspended } from '@nuxt/test-utils/runtime'
-import { describe, expect, it } from 'vitest'
+import { defineComponent, h } from 'vue'
+import { describe, expect, it, vi } from 'vitest'
 import type { MediaItem, MediaVariant } from '#kestrel-core/app/types/api'
 import KestrelImage from './Image.vue'
 import { pickArtSources } from '../utils/image-variants'
@@ -29,6 +30,12 @@ function item(over: Partial<MediaItem> = {}): MediaItem {
     variantCounts: { done: 0, pending: 0, error: 0, failed: 0 }, focus: null, framing: { focus: null, crops: {}, width: null, height: null, ratios: [] },
     ...over,
   }
+}
+
+function headRules(img: { attributes(name: string): string | undefined }): string {
+  const key = img.attributes('data-kestrel-art')
+  if (!key) return ''
+  return [...document.head.querySelectorAll('style')].map((style) => style.textContent ?? '').filter((css) => css.includes(`"${key}"`)).join('')
 }
 
 describe('KestrelImage', () => {
@@ -113,6 +120,18 @@ describe('KestrelImage', () => {
     expect(wrapper.get('img').attributes('style')).not.toContain('object-position')
   })
 
+  it('lets the attributes of the consumer win over the box of the component', async () => {
+    const media = item({ focus: { x: 0.5, y: 0.5, w: 0, h: 0 }, variants: [variant({ width: 640, height: 360 })] })
+    const wrapper = await mountSuspended(KestrelImage, { props: { media, size: 'content' }, attrs: { style: 'object-fit: contain; object-position: 0px 0px', width: '64', height: '64' } })
+
+    const img = wrapper.get('img')
+    expect(img.attributes('width')).toBe('64')
+    expect(img.attributes('height')).toBe('64')
+    expect(img.attributes('style')).toContain('object-fit: contain')
+    expect(img.attributes('style')).toContain('object-position: 0px 0px')
+    expect(img.attributes('style')).toContain('aspect-ratio: 640 / 360')
+  })
+
   describe('with an art direction list', () => {
     function artItem(): MediaItem {
       return item({
@@ -168,6 +187,66 @@ describe('KestrelImage', () => {
       expect(sources.map((source) => source.attributes('sizes'))).toEqual(['100vw', '50vw'])
     })
 
+    it('sets no inline aspect-ratio on the fallback image, since one value cannot fit two sources', async () => {
+      const wrapper = await mountSuspended(KestrelImage, { props: { media: artItem(), size: 'tall', art } })
+
+      const style = wrapper.get('picture > img').attributes('style') ?? ''
+      expect(style).not.toContain('aspect-ratio')
+      expect(style).toContain('object-fit: cover')
+    })
+
+    it('forces the box of the fallback and of every source with rules in the head', async () => {
+      const list = [{ media: '(min-width: 80rem)', size: 'wide' }, { media: '(min-width: 48rem)', size: 'tall-sm' }]
+      const wrapper = await mountSuspended(KestrelImage, { props: { media: artItem(), size: 'tall', art: list } })
+
+      const img = wrapper.get('picture > img')
+      const selector = `:where(img[data-kestrel-art="${img.attributes('data-kestrel-art')}"])`
+      await vi.waitFor(() => expect(headRules(img)).toBe(
+        `${selector}{aspect-ratio:720 / 960}`
+        + `@media (min-width: 48rem){${selector}{aspect-ratio:360 / 480}}`
+        + `@media (min-width: 80rem){${selector}{aspect-ratio:1152 / 648}}`,
+      ))
+    })
+
+    it('forces the same boxes while the variants are pending and their paths serve the original', async () => {
+      const pending = item({
+        width: 1200,
+        height: 960,
+        variants: [
+          variant({ size: 'wide', width: 1152, height: 648, state: 'pending', path: '/media/m1/variants/wide.webp' }),
+          variant({ size: 'tall', width: 720, height: 960, state: 'pending', path: '/media/m1/variants/tall.webp' }),
+        ],
+      })
+      const wrapper = await mountSuspended(KestrelImage, { props: { media: pending, size: 'tall', art } })
+
+      await vi.waitFor(() => expect(headRules(wrapper.get('picture > img'))).toMatch(/aspect-ratio:720 \/ 960\}@media \(min-width: 48rem\)\{[^{]*\{aspect-ratio:1152 \/ 648\}\}$/))
+    })
+
+    it('renders no rule and no marker for a plain image', async () => {
+      const wrapper = await mountSuspended(KestrelImage, { props: { media: artItem(), size: 'tall' } })
+
+      expect(wrapper.get('img').attributes('data-kestrel-art')).toBeUndefined()
+    })
+
+    it('carries the scope attribute of a scoped parent onto the fallback image', async () => {
+      const Parent = Object.assign(
+        defineComponent({ render: () => h(KestrelImage, { media: artItem(), size: 'tall', art, class: 'hero-image' }) }),
+        { __scopeId: 'data-v-parent' },
+      )
+      const wrapper = await mountSuspended(Parent)
+
+      expect(wrapper.get('picture').attributes('data-v-parent')).toBeDefined()
+      expect(wrapper.get('picture > img').attributes('data-v-parent')).toBeDefined()
+    })
+
+    it('lets the attributes of the consumer win on the fallback image', async () => {
+      const wrapper = await mountSuspended(KestrelImage, { props: { media: artItem(), size: 'tall', art }, attrs: { style: 'object-fit: contain', width: '64' } })
+
+      const img = wrapper.get('picture > img')
+      expect(img.attributes('width')).toBe('64')
+      expect(img.attributes('style')).toContain('object-fit: contain')
+    })
+
     it('keeps the position of the focus on the fallback image', async () => {
       const wrapper = await mountSuspended(KestrelImage, { props: { media: artItem(), size: 'tall', art } })
 
@@ -198,6 +277,27 @@ describe('KestrelImage', () => {
       const source = wrapper.get('picture > source')
       expect(source.attributes('srcset')).toBe('/media/m1/photo.jpg')
       expect(source.attributes('sizes')).toBeUndefined()
+    })
+
+    it('lists the uncut variants of the item for an entry without a variant of its size', async () => {
+      const uncut = item({
+        width: 1200,
+        height: 960,
+        variants: [
+          variant({ size: 'medium', width: 800, height: 640, path: '/media/m1/variants/medium.webp' }),
+          variant({ size: 'large', width: 1200, height: 960, path: '/media/m1/variants/large.webp' }),
+        ],
+      })
+      const wrapper = await mountSuspended(KestrelImage, { props: { media: uncut, size: 'tall', sizes: '100vw', art: [{ media: '(min-width: 48rem)', size: 'hero-wide' }] } })
+
+      expect(wrapper.get('picture > source').attributes('srcset')).toBe('/media/m1/variants/medium.webp 800w, /media/m1/variants/large.webp 1200w')
+    })
+
+    it('sets no sizes on a source whose srcset is a single URL, whatever the component sets', async () => {
+      const bare = item({ variants: [] })
+      const wrapper = await mountSuspended(KestrelImage, { props: { media: bare, size: 'tall', sizes: '100vw', art: [{ media: '(min-width: 48rem)', size: 'wide', sizes: '50vw' }] } })
+
+      expect(wrapper.get('picture > source').attributes('sizes')).toBeUndefined()
     })
 
     it('restricts every source to the sizes named in only', async () => {
