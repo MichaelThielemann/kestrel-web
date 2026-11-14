@@ -1902,21 +1902,23 @@ present), `art` (art direction, below), `only` (restrict the `srcset` candidates
 renders `<picture>`, one `<source media srcset sizes width height>` per entry in list order, then the `<img>` for
 `size`. `pickArtSources` builds each source by calling `pickImageSources` for the entry's size, so the rules below
 hold per source: a `srcset` is one aspect ratio and one cut. An entry whose size has no variant follows the
-reference rule below, the original and the uncut variants of its ratio; only an item without any variant offers
-the original as its single candidate (no `sizes`, since there is no width descriptor). All entries read one media
+reference rule below, the original and the uncut variants of its ratio; when no variant is left (the item has none,
+or `only` leaves none that show the picture of the entry), the `src` of that size is the single candidate, without
+`sizes`, since there is no width descriptor. All entries read one media
 item, hence one focus and one set of crops. The component sets `inheritAttrs: false` and merges `class`, `style`
 and the other attributes over its own values on the `<img>`, so a consumer's `width`, `style` or `class` win as
-they do on the plain image. The scope attribute of a scoped parent is set on the `<img>` too, since Vue puts it
-on the root element only and the root is the `<picture>`; `class` and scoped CSS of the consumer keep applying
-to the image element.
+they do on the plain image. The scope attributes Vue puts on the root element (the `<picture>`) are set on the
+`<img>` too: that of the parent and, as long as each component is the root of its parent, those of the ancestors
+above it, with the slot scope ids; `class` and scoped CSS of the consumer keep applying to the image element.
 
 With `art` the inline `aspect-ratio` is left out, since one value does not fit two sources, and `width` and
 `height` alone do not hold the box: a loaded image replaces `aspect-ratio: auto w / h` with its natural ratio,
 and a variant that is still pending or failed serves the original's bytes. `artBoxCss` therefore builds a
 stylesheet rule per source, written through `useHead` under a `data-kestrel-art` marker (the `useId` of the
 component, stable across server and client): the fallback's ratio as the base rule and a `@media` rule per entry
-in reverse list order, so the first matching entry wins as in `<picture>`. The selector is wrapped in `:where()`,
-which leaves the specificity at zero for consumer CSS. `object-fit: cover` and `object-position` stay inline.
+in reverse list order, so the first matching entry wins as in `<picture>`. The base rule also sets
+`display: block`, so that the inline image leaves no line box (a descender gap) below it inside the `<picture>`.
+The selector is wrapped in `:where()`, which leaves the specificity at zero for consumer CSS. `object-fit: cover` and `object-position` stay inline.
 Without a list, or with an empty one, the template renders the single `<img>` as before.
 
 `layers/public/app/utils/image-variants.ts` (`pickImageSources`) implements the rules:

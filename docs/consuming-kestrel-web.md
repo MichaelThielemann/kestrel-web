@@ -1688,8 +1688,11 @@ crops: the `cover` sizes that the entries name decide the cut, which is why the 
 right for two sources; it adds a stylesheet rule to the page head that gives the image the aspect ratio of the
 source the browser selects, and one for the fallback. The box therefore keeps its planned ratio while a variant
 is still being rendered and its path serves the original, and does not jump when the variant arrives. The rule
-has no specificity, so an `aspect-ratio` in your own CSS wins over it. Your CSS reaches the `<img>`, including
-`<style scoped>` blocks of the component that uses `<KestrelImage>`.
+also sets `display: block`, so the `<picture>` is as high as the image and leaves no gap below it. It has no
+specificity, so an `aspect-ratio` or `display` in your own CSS wins over it. The `<picture>` is the element that
+takes part in the layout of the parent; `grid-column`, `margin` or `flex` on the image's class do not reach it.
+Your CSS reaches the `<img>`, including `<style scoped>` blocks of the component that uses `<KestrelImage>` and
+of the components around it whose root it is.
 
 A `srcset` lists only variants that show the same picture: those with the named variant's aspect ratio and
 an equal `crop`, the part of the oriented original a variant's bytes show (`null` for the whole image or the
