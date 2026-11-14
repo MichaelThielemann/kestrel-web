@@ -121,10 +121,11 @@ describe("projectFiles", () => {
     expect(manifest.name).toBe("my-site");
   });
 
-  it("carries this repository's overrides of third-party packages and its audit exceptions into pnpm-workspace.yaml", () => {
+  it("carries this repository's overrides of third-party packages outside its lint tooling and its audit exceptions into pnpm-workspace.yaml", () => {
     const root = readFileSync(ROOT_WORKSPACE, "utf8");
     const scaffolded = text(files({}), "pnpm-workspace.yaml");
-    const thirdParty = yamlBlock(root, "overrides").filter((line) => !line.trimStart().startsWith("'@michaelthielemann/"));
+    const notScaffolded = ["'@michaelthielemann/", "'@nuxt/eslint-config>"];
+    const thirdParty = yamlBlock(root, "overrides").filter((line) => !notScaffolded.some((prefix) => line.trimStart().startsWith(prefix)));
     expect(thirdParty).not.toEqual([]);
     expect(yamlBlock(scaffolded, "overrides")).toEqual(thirdParty);
     expect(yamlBlock(scaffolded, "auditConfig")).toEqual(yamlBlock(root, "auditConfig"));
