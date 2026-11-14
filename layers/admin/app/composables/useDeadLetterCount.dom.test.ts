@@ -1,4 +1,4 @@
-import { computed, defineComponent, h } from 'vue'
+import { computed, defineComponent, h, reactive } from 'vue'
 import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AdminSchema, EventDeliveryStatus } from '#kestrel-admin/types/api'
@@ -17,8 +17,10 @@ const { schema, apiCalls, apiHandler } = vi.hoisted(() => {
   return { schema, apiCalls, apiHandler }
 })
 
+const liveSchema = reactive(schema)
+
 mockNuxtImport('useSchema', () => () => ({
-  schema: computed(() => schema),
+  schema: computed(() => liveSchema),
   error: computed(() => null),
   load: () => Promise.resolve('ok' as const),
   clear: () => {},
@@ -69,15 +71,17 @@ describe('useDeadLetterCount', () => {
   afterEach(() => {
     apiCalls.splice(0)
     useToast().clear()
-    schema.capabilities = CAPABILITIES
+    liveSchema.capabilities = CAPABILITIES
     setHidden(false)
     vi.useRealTimers()
   })
 
   it('reports zero and nothing to show while no event is dead', async () => {
-    answering(delivery({ dead: 0 }))
+    answering(delivery({ dead: 3 }), delivery({ dead: 0 }))
     const { wrapper, api } = await mountProbe()
     await vi.advanceTimersByTimeAsync(0)
+    expect(api.count.value).toBe(3)
+    await api.refresh()
     expect(api.count.value).toBe(0)
     wrapper.unmount()
   })
@@ -100,7 +104,7 @@ describe('useDeadLetterCount', () => {
   })
 
   it('sends no request without the delivery status capability', async () => {
-    schema.capabilities = {}
+    liveSchema.capabilities = {}
     answering(delivery({ dead: 3 }))
     const { wrapper, api } = await mountProbe()
     await vi.advanceTimersByTimeAsync(120_000)
@@ -108,6 +112,18 @@ describe('useDeadLetterCount', () => {
     expect(api.count.value).toBe(0)
     await api.refresh()
     expect(apiCalls).toEqual([])
+    wrapper.unmount()
+  })
+
+  it('drops a held count to zero when the capability goes away', async () => {
+    answering(delivery({ dead: 3 }))
+    const { wrapper, api } = await mountProbe()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(api.count.value).toBe(3)
+    liveSchema.capabilities = {}
+    await vi.advanceTimersByTimeAsync(30_000)
+    expect(api.count.value).toBe(0)
+    expect(apiCalls).toHaveLength(1)
     wrapper.unmount()
   })
 
@@ -168,6 +184,21 @@ describe('useDeadLetterCount', () => {
     await vi.advanceTimersByTimeAsync(0)
     expect(apiCalls).toHaveLength(1)
     expect(api.count.value).toBe(1)
+  })
+
+  it('schedules no timer when the component unmounts while a load is still running', async () => {
+    let resolveLoad: (status: EventDeliveryStatus) => void = () => {}
+    apiHandler.fn = () => new Promise((resolve) => { resolveLoad = resolve })
+    const { wrapper, api } = await mountProbe()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(apiCalls).toHaveLength(1)
+    wrapper.unmount()
+    resolveLoad(delivery({ dead: 2 }))
+    await vi.advanceTimersByTimeAsync(0)
+    expect(vi.getTimerCount()).toBe(0)
+    await vi.advanceTimersByTimeAsync(120_000)
+    expect(apiCalls).toHaveLength(1)
+    expect(api.count.value).toBe(2)
   })
 
   it('shares one count between every caller and starts no poll for a caller that opts out', async () => {
