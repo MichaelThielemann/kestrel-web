@@ -18,7 +18,7 @@ const SENTINELS = ["SENTINEL-EN-DRAFT", "SENTINEL-DRAFT-PAGE", "sentinel-folder"
 const PUBLISHED_PATHS = ["/", "/en", "/ueber-uns", "/en/about", "/kontakt", "/projekte", "/en/press"];
 const UNPUBLISHED_TRANSLATIONS: Record<string, string> = { "/projekte": "en", "/en/press": "de" };
 
-const PAGE_FIELDS = new Set(["id", "_locale", "_locales", "_links", "_translations", "slug", "title", "body", "seo", "status", "shareImage", "accent", "layout"]);
+const PAGE_FIELDS = new Set(["id", "_locale", "_locales", "_links", "_paths", "_translations", "slug", "title", "body", "seo", "status", "shareImage", "accent", "layout"]);
 const LOCALE_LINK_FIELDS = ["current", "locale", "path"];
 const SETTINGS_FIELDS = ["description", "navigation", "title", "titlePosition", "titleSeparator"];
 const MEDIA_FIELDS = ["alt", "contentType", "description", "filename", "focus", "height", "id", "path", "provenance", "size", "title", "variants", "width"];
@@ -182,8 +182,8 @@ async function seed(base: string, mode: Mode): Promise<Seeded> {
   await translate(press.id, { locale: "en", slug: "press", title: "Press", status: "published", seo: {}, body: [prose("r1", "<p>Press kit</p>")] });
 
   const navigation = [internal("Start", home.id), internal("Über uns", about.id), internal("Kontakt", contact.id), { label: "Fehlt", link: { type: "external", url: "/fehlt" } }];
-  await api.call("PUT", "/settings", { locale: "de", title: "Kestrel Beispiel", navigation });
-  await api.call("PUT", "/settings", { locale: "en", title: "Kestrel Example", navigation: [internal("Home", home.id), internal("About us", about.id), internal("Press", press.id)] });
+  await api.call("PUT", "/settings", { locale: "de", title: "Kestrel Beispiel", mounts: {}, navigation });
+  await api.call("PUT", "/settings", { locale: "en", title: "Kestrel Example", mounts: {}, navigation: [internal("Home", home.id), internal("About us", about.id), internal("Press", press.id)] });
   await api.call("PUT", "/redirects", { rules: [{ from: "/alt", to: "/ueber-uns", status: "301" }] });
 
   await api.call("POST", "/users", { username: "sentinel-user", password: "sentinel-passphrase", roles: ["admin"] });
@@ -397,7 +397,7 @@ describe.skipIf(!ENABLED)("a static export of the playground", () => {
     it("re-renders every published page after a settings change, without any page being saved", async () => {
       if (seeded === null) throw new Error("expected the seed to have run");
       const before = new Map(PUBLISHED_PATHS.map((path) => [path, mtime(page(path))]));
-      await admin().call("PUT", "/settings", { locale: "de", title: "Kestrel Beispiel Zwei", navigation: seeded.navigation });
+      await admin().call("PUT", "/settings", { locale: "de", title: "Kestrel Beispiel Zwei", mounts: {}, navigation: seeded.navigation });
       await until("the settings re-render", () => PUBLISHED_PATHS.every((path) => mtime(page(path)) !== before.get(path)));
       await settled(admin(), mode);
       for (const path of PUBLISHED_PATHS) {
