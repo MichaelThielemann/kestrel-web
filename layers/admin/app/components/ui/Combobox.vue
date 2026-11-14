@@ -71,6 +71,10 @@ function onInput(term: string) {
 function onFocus() {
   if (!query.value.trim()) emit('search', '')
 }
+function focusInput() {
+  const el = input.value?.$el
+  if (el instanceof HTMLElement) el.focus()
+}
 function removeChip(id: string) {
   if (Array.isArray(model.value)) model.value = model.value.filter((v) => v !== id)
 }
@@ -78,6 +82,7 @@ function removeChip(id: string) {
 const { t } = useT()
 
 const chips = ref<HTMLElement | null>(null)
+const input = ref<{ $el?: unknown } | null>(null)
 const liveMessage = ref('')
 
 function announceMove(label: string, to: number) {
@@ -167,6 +172,7 @@ function moveChip(from: number, to: number) {
       </ul>
       <ComboboxInput
         :id="inputId"
+        ref="input"
         class="ui-combobox__input"
         :model-value="query"
         :placeholder="placeholder"
@@ -178,7 +184,7 @@ function moveChip(from: number, to: number) {
         @update:model-value="onInput"
         @focus="onFocus"
       />
-      <UiBadge v-if="currentHint" :id="hintId" class="ui-combobox__hint">{{ currentHint }}</UiBadge>
+      <UiBadge v-if="currentHint" :id="hintId" class="ui-combobox__hint" @click="focusInput">{{ currentHint }}</UiBadge>
       <ComboboxCancel v-if="!multiple" class="ui-combobox__icon" :aria-label="t('combobox.clear')"><UiIcon name="x" :size="14" /></ComboboxCancel>
       <slot name="suffix" />
       <ComboboxTrigger class="ui-combobox__icon" :aria-label="t('combobox.toggle_options')"><UiIcon name="chevron-down" :size="14" /></ComboboxTrigger>
@@ -318,7 +324,7 @@ function moveChip(from: number, to: number) {
     padding: 0;
     text-overflow: ellipsis;
   }
-  &__anchor:not([data-multiple]) &__input { min-width: 0; }
+  &__anchor:not([data-multiple]) &__input { min-inline-size: 4rem; }
   &__icon {
     @include mixins.control-icon;
     min-block-size: var(--control-icon-size, 1.5rem);
@@ -365,7 +371,16 @@ function moveChip(from: number, to: number) {
     min-inline-size: 0;
     overflow-wrap: break-word;
   }
-  &__hint { margin-inline: var(--space-2) var(--space-1); }
+  &__anchor &__hint {
+    display: block;
+    flex-shrink: 1;
+    min-inline-size: 0;
+    margin-inline: var(--space-2) var(--space-1);
+    overflow: hidden;
+    line-height: 1.25rem;
+    text-overflow: ellipsis;
+    cursor: pointer;
+  }
   &__check { color: var(--color-primary-text); }
 }
 </style>

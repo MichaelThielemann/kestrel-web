@@ -62,6 +62,18 @@ describe('KestrelUiCombobox hints', () => {
     expect(describedby).toEqual(['picker-help', badge.attributes('id')])
   })
 
+  it('focuses the input when the hint of the chosen record is clicked', async () => {
+    const wrapper = await mountSuspended(Combobox, {
+      props: { options, selected: [about], modelValue: 'about' },
+      attachTo: document.body,
+    })
+    onTestFinished(() => wrapper.unmount())
+
+    await wrapper.get('.ui-combobox__hint').trigger('click')
+
+    await vi.waitFor(() => expect(document.activeElement).toBe(wrapper.get('input').element))
+  })
+
   it('hides the hint of the chosen record while another search term is typed', async () => {
     const wrapper = await mountSuspended(Combobox, {
       props: { options, selected: [about], modelValue: 'about', describedby: 'picker-help' },
