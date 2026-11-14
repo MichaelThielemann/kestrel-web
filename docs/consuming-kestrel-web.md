@@ -1582,8 +1582,8 @@ app, fails the build. Both sources are scanned the same way `app/blocks/*.vue` i
 
 The optional `label` (a `Localized`, see [Admin language and labels](admin-i18n.md)) says what a size is
 used for. The admin's crop editor shows it under the ratio of each crop tile, next to the labels of the
-blocks that declare a size of that ratio, so an editor reads "3:2 · Hero, Teaser card" rather than a bare
-ratio. A size without a label that no block declares, including one only kestrel knows, shows its name.
+blocks that declare a size of that ratio, so an editor reads "Hero, Teaser card" under "3:2" rather than a bare
+ratio, and the title of the chosen tile reads "Ratio 3:2 (Hero, Teaser card)". A size without a label that no block declares, including one only kestrel knows, shows its name.
 The label is for `app/image-sizes.ts` only; on a size in `defineBlock({ imageSizes })` it fails the build,
 because the admin names that size after the block. It never reaches the backend: `imageSizes` and
 `.nuxt/kestrel/image-sizes.json` stay as they are, and the labels are a separate export, `imageSizeLabels`,
@@ -1683,7 +1683,8 @@ the first one that matches), and the `<img>` of `size` as the fallback. Every so
 and the browser picks a width inside it only. An entry's `sizes` is the `sizes` attribute of its source; without
 one the component's `sizes` applies. All sources come from the same media item, so they share its focus and its
 crops: the `cover` sizes that the entries name decide the cut, which is why the ratios need `cover` sizes (see
-"Focus and crop"). Without `art`, or with an empty list, the component renders the single `<img>` as before.
+"Focus and crop"). Without `art`, or with an empty list, the component renders a single `<img>`, with no
+`<picture>` around it.
 
 `class`, `style` and the other attributes go to the `<img>`, not to the `<picture>`. Give the image
 `height: auto` in your CSS. With `art` the component does not set one inline `aspect-ratio`, which could not be
@@ -1740,7 +1741,10 @@ browsers display, the editor loads the original and takes its displayed dimensio
 orientation, and keeps the focus and the crops locked until it has them. A WebP, TIFF or HEIC original of that
 kind gets no editor until kestrel reports its dimensions. Without a `cover` size the editor offers
 the focus alone and says why. Every action works with the pointer, touch or the keyboard, and the focus
-and the crop take numbers too. The editor computes every cut with
+and the crop take numbers too. While an editor drags, pinches or zooms with the wheel, the frame snaps to the
+middle of the image and puts the focus on the middle or a third of the frame when it comes within 8 screen
+pixels, and shows the guide it snapped to; holding Alt places it freely, and the "Snap to guides" switch turns
+snapping off for that browser. The keys, the slider and the number fields never snap. The editor computes every cut with
 `@michaelthielemann/kestrel-images-default/framing`, the functions the server renders with. A framing
 belongs to the media item, so it applies wherever the image is used; the editor names how many records
 use it. The media field's crop button is described in [`field-types.md`](field-types.md).
