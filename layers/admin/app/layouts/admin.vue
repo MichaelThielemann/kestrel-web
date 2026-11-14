@@ -137,8 +137,9 @@ $bp-phone: 640px;
   }
   .rail__badge {
     position: absolute;
-    inset-block-start: var(--space-1);
-    inset-inline-end: var(--space-1);
+    inset-block-start: calc(var(--space-1) * -1);
+    inset-inline-end: calc(var(--space-1) * -1);
+    box-shadow: 0 0 0 2px var(--color-rail-bg);
   }
 }
 
