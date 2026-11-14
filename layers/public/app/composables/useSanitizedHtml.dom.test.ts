@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { cachedSanitizedHtml, sanitizeInBrowser } from './useSanitizedHtml'
+import { sanitizerCases } from './__fixtures__/sanitizer-cases'
 
 describe('sanitizeInBrowser', () => {
   it('removes script tags and their content', async () => {
@@ -43,6 +44,12 @@ describe('sanitizeInBrowser', () => {
   })
 })
 
+describe('sanitizeInBrowser on the shared case list', () => {
+  it.each(sanitizerCases)('$title', async ({ input, output }) => {
+    expect(await sanitizeInBrowser(input)).toBe(output)
+  })
+})
+
 describe('cachedSanitizedHtml', () => {
   const app = (value: unknown) => ({ isHydrating: true, payload: { data: { k: value } }, static: { data: {} } })
 
@@ -53,6 +60,14 @@ describe('cachedSanitizedHtml', () => {
   it('returns a clean cached value unchanged, so hydration sees the server markup', () => {
     const clean = '<p>Line<br />two &amp; more</p>'
     expect(cachedSanitizedHtml('k', app(clean), { cause: 'initial' })).toBe(clean)
+  })
+
+  it.each(sanitizerCases)('cleans a cached value the way the server does: $title', ({ input, output }) => {
+    expect(cachedSanitizedHtml('k', app(input), { cause: 'initial' })).toBe(output)
+  })
+
+  it.each(sanitizerCases)('returns the server output of the case unchanged: $title', ({ output }) => {
+    expect(cachedSanitizedHtml('k', app(output), { cause: 'initial' })).toBe(output)
   })
 
   it('passes a missing value through', () => {

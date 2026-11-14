@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { sanitizeOnServer } from './useSanitizedHtml'
+import { sanitizerCases } from './__fixtures__/sanitizer-cases'
 
 describe('sanitizeOnServer', () => {
   it('removes script tags and their content', async () => {
@@ -29,6 +30,13 @@ describe('sanitizeOnServer', () => {
 
   it('keeps a letter-led anchor id', async () => {
     expect(await sanitizeOnServer('<h2 id="team-2026">Team</h2>')).toBe('<h2 id="team-2026">Team</h2>')
+  })
+})
+
+describe('sanitizeOnServer on the shared case list', () => {
+  it.each(sanitizerCases)('$title', async ({ input, output }) => {
+    const serverOutput = (await sanitizeOnServer(input)).replace(/ \/>/g, '>')
+    expect(serverOutput).toBe(output)
   })
 })
 

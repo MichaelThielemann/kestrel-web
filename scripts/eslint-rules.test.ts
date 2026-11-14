@@ -89,6 +89,14 @@ describe("project-specific eslint rules have a violating fixture", { timeout: 20
     expectMessage(impl, "@typescript-eslint/no-restricted-imports", "UI code does not import Kestrel backend packages");
   });
 
+  it("kestrel/no-backend-in-ui-layers: allows contracts' html-allowlist subpath, and only that subpath of contracts", async () => {
+    const allowlist = await lintVirtual('import { HTML_ALLOWED_TAGS } from "@michaelthielemann/kestrel-contracts/helpers/html-allowlist";\n', "layers/public/app/probe.ts");
+    expect(allowlist.some((m) => m.ruleId === "@typescript-eslint/no-restricted-imports")).toBe(false);
+
+    const persistence = await lintVirtual('import { PERSISTENCE } from "@michaelthielemann/kestrel-contracts/persistence";\n', "layers/public/app/probe.ts");
+    expectMessage(persistence, "@typescript-eslint/no-restricted-imports", "UI code does not import Kestrel backend packages");
+  });
+
   it("kestrel/no-backend-in-ui-layers: allows images-default's framing subpath in the admin, and only that subpath of images-default", async () => {
     const framing = await lintVirtual('import { cropForRatio } from "@michaelthielemann/kestrel-images-default/framing";\n', "layers/admin/app/probe.ts");
     expect(framing.some((m) => m.ruleId === "@typescript-eslint/no-restricted-imports")).toBe(false);
