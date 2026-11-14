@@ -927,6 +927,19 @@
   `media.uploadTooLarge` and `media.uploadUnsupported` receive only the file size or the content type as
   `{detail}`, and `media.upload.dismiss` reads "Dismiss {name}", since it also dismisses a cancelled or
   skipped file.
+- `updateUser`, `deactivateUser` and `deleteUser` run `authn.updateUser`, `authn.deactivateUser` and
+  `authn.deleteUser` in an atomic group, with and without the `eventsQueue` feature, so two admins who
+  demote, deactivate or delete each other at the same time leave one admin and the other request answers
+  `409 LAST_ADMIN`. An `overrides` entry for one of the three pipelines that runs the step outside a group
+  is refused like a content write that loses its group (`preset/override-drops-atomic-group`); wrap the step
+  in `{ atomic: [...] }`.
+- The boot check of the workflow status filter covers every `site.resolve:<collection>` and
+  `site.resolveLinks:<collection>` step of a collection with a workflow: a step that does not carry
+  `<field>=<live>` fails the boot, unless it runs after `authn.requireUser` as a signed-in preview.
+  kestrel's site-default refuses the same override against the `liveWhen` `presetModuleConfig()` derives.
+- `roles.anonymous` takes read permissions only (`<collection>.read`, `media.read`): kestrel's authz-roles
+  refuses `*`, `<collection>.*` and every other permission there when the server starts. Replace a wildcard
+  with the reads it stood for.
 
 ### Added
 

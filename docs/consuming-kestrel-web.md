@@ -705,7 +705,8 @@ grant of its own.
 
 `presetModuleConfig()` derives `anonymousFields` from your content model and features, for the resources
 whose read permission `roles.anonymous` holds (`<type>.read` for a content type, `media.read` for media and
-its files; `x.*` and `*` count as in `authz-roles`) and for the redirect rules, which no permission gates:
+its files) and for the redirect rules, which no permission gates. `roles.anonymous` takes read permissions
+only: `authz-roles` refuses to start with `*`, `<type>.*` or any permission other than `<type>.read` there.
 
 | Resource | Fields a visitor receives |
 |---|---|
@@ -1267,8 +1268,10 @@ pages that reference them render without them.
   An override of one of those pipelines that no longer wraps its `content.*` write is rejected when the
   preset composes, naming the pipeline — a flat override must not silently lose atomicity. The check is
   by collection, not by exact step: an override that writes with `content.set:pages` instead of
-  `content.create:pages` still counts as keeping the group. The same protection covers `deleteUser`'s
-  `authn.deleteUser` group with the `eventsQueue` feature. If you deliberately want no transaction,
+  `content.create:pages` still counts as keeping the group. The same protection covers the groups of
+  `updateUser`, `deactivateUser` and `deleteUser` around `authn.updateUser`, `authn.deactivateUser` and
+  `authn.deleteUser`, which keep two admins changing each other at the same time from removing the last
+  admin. If you deliberately want no transaction,
   `exclude` the pipeline and define your own. Steps inside a group must declare `atomicSafe` in their
   `describe()`; every shipped step that belongs in one does, a step of your own does not by default.
   `delivery.*` is not a step of a page write pipeline at all any more — it runs in the `publishPage` and

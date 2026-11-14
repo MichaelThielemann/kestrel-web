@@ -466,13 +466,19 @@ With the `eventsQueue` feature, `definePreset` folds each pipeline once, after e
 the emit — and only the emit — moves to the end of that group. Nothing between the group and the emit
 moves with it, `revisions.reportRestore` included; that ordering no longer carries the caveat it once did
 — `delivery.publish` has left the pipeline, and every step that adds to the response now merges via
-`extendsOutput` regardless of order. This is why `deleteUser` gets a group only with the queue enabled:
-the delete itself is already a single step, but the queue's write and the `user.deleted` event row now
-commit or roll back together for the two shipped subscribers (`anonymizeAuditUser`,
-`reassignRevisionAuthor`).
-Every other single-write pipeline (`createUser`, `updateUser`, `setSettings`, `uploadMedia`, …) keeps no
-group in both delivery modes: none of them has a shipped event subscriber whose loss would need
-undoing, and a consumer who adds one overrides that pipeline with its own group.
+`extendsOutput` regardless of order.
+
+`updateUser`, `deactivateUser` and `deleteUser` run their one authn step in a group in both delivery
+modes. authn-multi's last-admin guard reads the other admins before it writes, so two admins who
+demote, deactivate or delete each other at the same time only serialise inside a group: the second
+request then sees the first one's result and answers `409 LAST_ADMIN`. With the queue the fold also
+moves the emit into the group, so the user change and its event row (for `deleteUser` the
+`user.deleted` row the two shipped subscribers `anonymizeAuditUser` and `reassignRevisionAuthor` read)
+commit or roll back together.
+The remaining single-write pipelines (`createUser`, `setPassword`, `activateUser`, `uploadMedia`, …) keep
+no group in both delivery modes: none of them has a guard that reads before it writes or a shipped event
+subscriber whose loss would need undoing, and a consumer who adds one overrides that pipeline with its
+own group.
 
 ### Events and the relay
 
@@ -664,7 +670,11 @@ pure check (`contentCollections`, `statusFilterProblems`, `statusFilterFailure`)
 `~~/shared/collections-ui` — the same inputs the schema route uses — and compares the resulting
 `content.list:<name>`/`content.get:<name>` step of `list<Plural>`/`read<Singular>` against what
 `#kestrel/consumer-pipelines` actually carries. A pipeline that is absent (excluded) or no longer runs
-that step (overridden) is skipped. `server/plugins/kestrel.ts` runs it right after `kestrel.start()` and
+that step (overridden) is skipped. Every `site.resolve:<name>` and `site.resolveLinks:<name>` step of such
+a collection, in any pipeline, must carry `<workflow.field>=<workflow.live>` among its arguments, unless
+it runs after `authn.requireUser` (a signed-in preview). site-default checks the same steps against the
+`liveWhen` that `presetModuleConfig()` derives from the same workflow and refuses to boot first when one
+lacks it. `server/plugins/kestrel.ts` runs the check right after `kestrel.start()` and
 before the state flips to `ready`, so a mismatch fails the boot through `recordBootFailure` with the
 collection, the expected filter and the fix in the message.
 
