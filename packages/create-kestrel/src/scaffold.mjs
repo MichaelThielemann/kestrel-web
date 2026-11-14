@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { chmodSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { hashPassword } from "./password.mjs";
 import { envFile, renderTemplate, templateValues } from "./render.mjs";
@@ -55,8 +55,8 @@ export function writeProject(directory, files) {
     const full = join(directory, path);
     mkdirSync(dirname(full), { recursive: true });
     if (path === ENV_FILE) {
-      writeFileSync(full, content, { mode: OWNER_ONLY });
-      chmodSync(full, OWNER_ONLY);
+      rmSync(full, { force: true });
+      writeFileSync(full, content, { mode: OWNER_ONLY, flag: "wx" });
     } else {
       writeFileSync(full, content);
     }

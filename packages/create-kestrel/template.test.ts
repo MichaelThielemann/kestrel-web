@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, closeSync, mkdirSync, mkdtempSync, openSync, readFileSync, readSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -334,7 +334,9 @@ describe("occupants", () => {
     const target = join(temporaryDirectory(), "site");
     writeProject(target, files({}));
     expect(statSync(join(target, ".env")).mode & 0o777).toBe(0o600);
-    expect(statSync(join(target, ".env.example")).mode & 0o044).not.toBe(0);
+    const reference = join(target, "reference");
+    writeFileSync(reference, "");
+    expect(statSync(join(target, ".env.example")).mode & 0o777).toBe(statSync(reference).mode & 0o777);
   });
 
   it.skipIf(process.platform === "win32")("narrows an existing .env that it overwrites to owner-only", () => {
@@ -345,6 +347,23 @@ describe("occupants", () => {
     writeProject(target, files({}));
     expect(statSync(join(target, ".env")).mode & 0o777).toBe(0o600);
     expect(readFileSync(join(target, ".env"), "utf8")).not.toContain("OLD=1");
+  });
+
+  it.skipIf(process.platform === "win32")("never lets a handle opened on the old .env read the new secrets", () => {
+    const target = join(temporaryDirectory(), "site");
+    mkdirSync(target, { recursive: true });
+    writeFileSync(join(target, ".env"), "OLD=1\n");
+    chmodSync(join(target, ".env"), 0o644);
+    const handle = openSync(join(target, ".env"), "r");
+    try {
+      writeProject(target, files({}));
+      const buffer = Buffer.alloc(4096);
+      const length = readSync(handle, buffer, 0, buffer.length, 0);
+      expect(buffer.subarray(0, length).toString("utf8")).toBe("OLD=1\n");
+    } finally {
+      closeSync(handle);
+    }
+    expect(readFileSync(join(target, ".env"), "utf8")).toContain("KESTREL_DEVICE_KEY=");
   });
 
   it("sees every file writeProject wrote", () => {
