@@ -248,8 +248,9 @@ describe("reassignRevisionAuthor and retryReassignRevisionAuthor verify the targ
       if (persistence === undefined) throw new Error("expected the booted instance to provide persistence@1");
       const entries = await persistence.findMany("audit_entries", { event: "user.revisionsReassignRetried" });
       if (!isOk(entries)) throw new Error("expected the audit query to succeed");
-      const items = boundaryCast<{ identity?: { id?: string }; params?: Record<string, unknown> }[]>(entries.value.items, "host");
+      const items = boundaryCast<{ identityId?: string; params?: Record<string, unknown> }[]>(entries.value.items, "host");
       expect(items).toHaveLength(1);
+      expect(items[0]?.identityId).toBe(adminId);
       expect(JSON.stringify(items[0])).not.toContain(vanishedId);
     } finally {
       await kestrel.stop();
