@@ -79,8 +79,8 @@ function framedBox(item: ImageMedia): Box | null {
 }
 
 function orientedBox(item: ImageMedia, stored: Box, sizes: readonly DeclaredImageSize[]): Box | null {
-  if (stored.width === stored.height) return stored
   const turned = { width: stored.height, height: stored.width }
+  if (overlapsRatio(stored, turned)) return stored
   const inside = new Set(sizes.filter((size) => size.fit === 'inside').map((size) => size.name))
   return shownBox(item.variants.filter((v) => inside.has(v.size) && v.crop === null && v.width > 0 && v.height > 0), stored, turned)
 }
@@ -105,8 +105,8 @@ function sameCutAs(named: PublicMediaVariant | undefined, reference: Box | null,
  * overlap, and an equal `crop`, both `null` or every edge within a pixel of the other's. Without a variant of that
  * name the original is the reference, with `crop` `null`. Its box (and the answered `width`/`height`) is
  * `framing.width`/`height`, the dimensions after its orientation. Without them it is the stored one, turned when the
- * uncut variants of declared `inside` sizes show only the swapped aspect; when they do not tell the orientation,
- * the variants of declared `cover` sizes stay out. When the variants carry no `crop` (a `crop`
+ * uncut variants of declared `inside` sizes show only the swapped aspect; when they do not tell the orientation of an
+ * original that is not nearly square, the variants of declared `cover` sizes stay out. When the variants carry no `crop` (a `crop`
  * without all four edges counts as none), ratios match within 1 %, a declared `cover` size lists the variants of the
  * `cover` sizes with its exact ratio key, and any other size the variants of its ratio that no declared `cover` size
  * renders. `sizes` are the declared image sizes, by default those of the build (`#kestrel/image-sizes`).

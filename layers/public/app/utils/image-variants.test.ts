@@ -672,6 +672,24 @@ describe('pickImageSources', () => {
       expect(pickImageSources(unreported, 'hero', undefined, sizes)).toMatchObject({ srcset: null, width: 6000, height: 4000 })
     })
 
+    it('gives a nearly square original whose two boxes round alike its stored box, with the uncut cover variants of that box', () => {
+      const sizes: DeclaredImageSize[] = [{ name: 'content', width: 1200, fit: 'inside' }, { name: 'square', width: 600, height: 600, fit: 'cover' }]
+      const nearSquare = item({
+        width: 1001,
+        height: 1000,
+        variants: [
+          variant({ size: 'content', width: 1001, height: 1000, path: '/media/m1/variants/content.webp' }),
+          variant({ size: 'square', width: 600, height: 600, path: '/media/m1/variants/square.webp' }),
+          variant({ size: 'thumb', width: 320, height: 320, path: '/media/m1/variants/thumb.webp' }),
+        ],
+      })
+      expect(pickImageSources(nearSquare, 'hero', undefined, sizes)).toMatchObject({
+        srcset: '/media/m1/variants/thumb.webp 320w, /media/m1/variants/square.webp 600w, /media/m1/variants/content.webp 1001w',
+        width: 1001,
+        height: 1000,
+      })
+    })
+
     it('marks a source as cut only when it links a variant of a declared cover size', () => {
       const media = item({
         width: 4000,
