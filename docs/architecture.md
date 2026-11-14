@@ -1495,8 +1495,8 @@ the sequence. `api.request:register` breaks the pattern: it stays silent on both
 and a 409 collision — nothing is written to `ctx.result` and no toast fires either way — and only toasts
 when the request fails for another reason. A 409 collision still surfaces to the user, just not through
 this step: `SystemImages.vue`'s own `conflictingSizes` comparison, computed after the action's
-`data.reload`, is what turns it into an inline alert (see **Registration at boot, variants on a
-button**).
+`data.reload`, is what turns it into an inline alert (see **Registration at boot, variants by
+sync**).
 
 ### Adding an action
 1. Declare the input interface next to the action, extending `WithDeps` when it talks to the backend and
@@ -1848,7 +1848,7 @@ files (`useLogger("kestrel-blocks")`, printed once per message). The result is:
 Both files regenerate on the same `builder:watch` hook that already re-runs block extraction, so
 adding a size to a block or to `app/image-sizes.ts` is picked up on save in dev.
 
-### Registration at boot, variants on a button
+### Registration at boot, variants by sync
 Registration happens twice, on two different paths, for two different reasons.
 
 At boot, `layers/core/server/plugins/kestrel.ts` hands the declared set (`imageSizes` from
@@ -1858,19 +1858,22 @@ instance that skipped this would know its config/default sizes alone and every v
 declared size would 404. The path has no auth step because it is not a route: it runs inside the boot
 sequence, before any request exists, from a module the build generated.
 
-Generating the variants stays an ordinary user action, triggered from **System → Images**:
-`SystemImages.vue`'s "Synchronize" button runs `imagesRegisterAndSync`
-(`layers/admin/app/actions/system.ts`), which sends the full declared set from `#kestrel/blocks`'
-`imageSizes` to `PUT /admin/images/sizes` and then starts a sync job — both over the normal
-authenticated API client, gated by the `images.write` and `images.manage` permissions. Resizing every
-stored image is expensive and destructive enough to want a person behind it.
+Registering a set that differs from the one the instance already holds starts the sync job that renders the
+missing variants, so a deployment that adds or changes a size needs no manual step: the boot registration and the
+registration itself (`images-default`'s `register()`) detect the gap and begin the job in the background. The job
+renders the new or changed size for every existing image and can run for a while on a large library.
 
-Consequence: after a deployment adds or changes a size, that size is declared and registered, but its
-variants do not exist until someone clicks Synchronize. Nothing breaks meanwhile — `KestrelImage`
-falls back to the original file for any size that has no `done` variant yet (see below), and the tab's
-own status view shows the gap: `missingSizes` (declared sizes absent from `GET /admin/images/status`)
-and `conflictingSizes` (a declared size whose spec differs from a `source: "config"` row already on the
-backend) are computed client-side in `SystemImages.vue` and surfaced as inline alerts. Registration only
+The **System → Images** tab stays the manual path: `SystemImages.vue`'s "Synchronize" button runs
+`imagesRegisterAndSync` (`layers/admin/app/actions/system.ts`), which sends the full declared set from
+`#kestrel/blocks`' `imageSizes` to `PUT /admin/images/sizes` and then starts a sync job, both over the normal
+authenticated API client, gated by the `images.write` and `images.manage` permissions. Use it, for instance, after
+a job failed.
+
+Until a size's variants exist nothing breaks: `KestrelImage` falls back to the original file for any size that has
+no `done` variant yet (see below), and the tab's own status view shows the gap: `missingSizes` (declared sizes
+absent from `GET /admin/images/status`) and `conflictingSizes` (a declared size whose spec differs from a
+`source: "config"` row already on the backend) are computed client-side in `SystemImages.vue` and surfaced as
+inline alerts. Registration only
 ever happens through these two paths, the boot-time in-process call and the admin Synchronize button —
 there is no remote-backend registration path, since kestrel-web always boots Kestrel in-process
 (`server/plugins/kestrel.ts`).
@@ -1909,7 +1912,9 @@ item, hence one focus and one set of crops. The component sets `inheritAttrs: fa
 and the other attributes over its own values on the `<img>`, so a consumer's `width`, `style` or `class` win as
 they do on the plain image. The scope attributes Vue puts on the root element (the `<picture>`) are set on the
 `<img>` too: that of the parent and, as long as each component is the root of its parent, those of the ancestors
-above it, with the slot scope ids; `class` and scoped CSS of the consumer keep applying to the image element.
+above it; `class` and scoped CSS of the consumer keep applying to the image element. The slot scope ids of a scoped
+slot owner are not copied, because the server render does not expose them to the component and the two renders must
+agree: a `:slotted()` rule of such an owner reaches the `<picture>` only.
 
 With `art` the inline `aspect-ratio` is left out, since one value does not fit two sources, and `width` and
 `height` alone do not hold the box: a loaded image replaces `aspect-ratio: auto w / h` with its natural ratio,

@@ -1619,8 +1619,10 @@ instance, after a job failed. Images uploaded later get every declared size on u
 not yet rendered.
 
 **Plan the image sizes.** kestrel renders one variant per declared size for every image, and the five default
-sizes (`thumb`, `small`, `medium`, `large`, `xl`) come on top of what the site declares. An image therefore has
-`5 + n` variants for `n` declared sizes, and every upload renders all of them. A new or changed size
+sizes (`thumb`, `small`, `medium`, `large`, `xl`) come on top of what the site declares, unless the `sizes` option
+of `images-default` replaces them, in which case that list takes the place of the five. An image therefore has
+`5 + n` variants for `n` declared sizes (a declared size named like a default one replaces it), and every upload
+renders all of them. A new or changed size
 renders that size for every existing image. A site with 50 formats of 4 widths each declares 200 sizes and
 renders 205 variants per upload.
 
@@ -1692,7 +1694,8 @@ also sets `display: block`, so the `<picture>` is as high as the image and leave
 specificity, so an `aspect-ratio` or `display` in your own CSS wins over it. The `<picture>` is the element that
 takes part in the layout of the parent; `grid-column`, `margin` or `flex` on the image's class do not reach it.
 Your CSS reaches the `<img>`, including `<style scoped>` blocks of the component that uses `<KestrelImage>` and
-of the components around it whose root it is.
+of the components around it whose root it is. A `:slotted()` rule of a scoped component that holds the image in its
+slot reaches the `<picture>` only.
 
 A `srcset` lists only variants that show the same picture: those with the named variant's aspect ratio and
 an equal `crop`, the part of the oriented original a variant's bytes show (`null` for the whole image or the

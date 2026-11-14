@@ -274,11 +274,15 @@
 - `KestrelImage` takes an optional `art` list of `{ media, size, sizes? }` entries for art direction, such as a
   landscape cut on wide screens and a portrait cut on narrow ones. It renders a `<picture>` with one `<source media>`
   per entry, each with the `srcset`, `width` and `height` of its own size, so a `srcset` never mixes aspect ratios;
-  `size` stays the fallback `<img>`. `class` and the other attributes, and the scope attribute of a scoped parent, go
-  to the `<img>`. A rule in the page head holds the box at the aspect ratio of the selected source, so a variant that
-  is still being rendered does not change it. Without a list the component renders a single `<img>` as before. `pickArtSources()` and the `ImageArtEntry` type are exported for components
-  that build their own markup. The docs gain a section on planning image sizes, with the number of variants and the
-  storage they cost.
+  `size` stays the fallback `<img>`. `class` and the other attributes go to the `<img>`, and so do the scope
+  attributes of the parent and of every ancestor whose root the image is, so `<style scoped>` rules of the
+  component that uses it keep applying. A rule in the page head holds the box at the aspect ratio of the selected
+  source, so a variant that is still being rendered does not change it; it also sets `display: block`, so the
+  `<picture>` is as high as the image, and has no specificity, so your own `aspect-ratio` or `display` wins.
+  Without a list the component renders a single `<img>` as before. `pickArtSources()` (returning `ArtSource`
+  entries), `artBoxCss()` and the `ImageArtEntry` type are exported for components that build their own markup.
+  The docs gain a section on planning image sizes, with the number of variants and the storage they cost, and
+  describe that registering a changed set of sizes starts the sync job by itself.
 
 ### Changed
 
