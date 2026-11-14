@@ -219,7 +219,13 @@ WantedBy=timers.target
 Enable it with `systemctl enable --now mysite-health.timer`. Only an answer of 503 triggers the restart: a
 refused connection, which is what a restart in progress or the wait for the lock looks like, answers `000`, and
 the unit's own `RestartSec` stays in charge there. Over a Unix socket (below) add `--unix-socket` with the
-socket path to the `curl` call.
+socket path to the `curl` call and `-H 'X-Real-IP: 127.0.0.1'`, because a socket connection has no peer address.
+
+The probe carries no client header, so the layer judges it by its peer address against the `site` allowlist (§7).
+With `NUXT_KESTREL_ACCESS_SITE` set, `127.0.0.1` has to be in the list: otherwise the call answers 403 and the
+timer never restarts anything. The same holds for every other liveness probe that reaches `/api/health` from the
+machine itself, and the header of the socket call only helps while `NUXT_KESTREL_ACCESS_TRUSTED_HEADER` is
+`x-real-ip`, as in the unit above.
 
 `NUXT_KESTREL_ACCESS_TRUSTED_HEADER=x-real-ip` matches the `X-Real-IP $remote_addr` line of the proxy in
 §7. Without it every request reaches the server from the proxy's address, and the IP allowlists, the
@@ -729,7 +735,9 @@ restartRequired }`; `persistence-sqlite` is the shipped example, reporting the s
 The instance lock of `persistence-sqlite` (§10) reports through the same hook: once another process took the lock
 over, or the lock file is gone after the process did not renew it for longer than the TTL, the module reports
 `restartRequired: true` and `/api/health` answers 503. A heartbeat that cannot be written (a full disk, a
-read-only mount) appears only as a note in the health output; the answer stays 200. The 503 is a signal for
+read-only mount) changes nothing visible: both probes, `/api/health` and `/api/ready`, stay at 200, carry no hint,
+and nothing is logged. Monitor the free space and the write access of the data directory yourself; if the
+heartbeats stay away for longer than the TTL, a second process can take the lock. The 503 is a signal for
 whatever polls it: the process itself keeps serving and writing beside the new holder until something replaces
 it. `Restart=on-failure` in the unit of §5 reacts only to the process exiting and does not see the 503, which is
 why that section adds a timer that restarts the unit on it. An orchestrator's liveness probe or a platform
@@ -947,7 +955,7 @@ the layer resolves it (§7, "Client address"):
 | entry | written when |
 |---|---|
 | `auth.loggedIn`, `auth.loggedOut` | a sign-in succeeded, a user signed out (a session that expires or is ended by a deactivation or a second-factor reset leaves no `auth.loggedOut`) |
-| `auth.failed` | a sign-in or a password or second-factor check failed, with the attempted username as sent |
+| `auth.failed` | a sign-in or a password or second-factor check failed, with the attempted username, cut to 256 characters with control characters replaced by spaces, where the failing step reports one (a sign-in does, a password confirmation does not) |
 | `access.denied`, `access.rateLimited` | a 403 or 429 kestrel answered, with pipeline, step and code; a request the layer's IP allowlist refused never reaches kestrel and leaves no entry |
 | `user.created`, `user.updated`, `user.deactivated`, `user.activated`, `user.passwordSet`, `user.passwordChanged`, `user.secondFactorReset` (with `mfa`) | an account changed, with the acting identity and the account it concerns |
 
@@ -955,14 +963,15 @@ the layer resolves it (§7, "Client address"):
 step, and the next entry says in `params.suppressed` how many it left out, so a scan does not fill the table.
 An entry holds ids, never a password, a token or a body. Content changes are not audit entries. Deleting a user writes
 no entry of its own and removes the user from all their entries: `identityId` becomes null and every param that holds
-their id is dropped, while the event and the time stay. A SIEM that needs the attribution has to collect the entries
+their id is dropped, while the event, the time and the client address `ip` stay. A SIEM that needs the attribution has to collect the entries
 before the deletion. The `step` log
 lines (above) are not a security record either: with `KESTREL_STEP_LOG=off` they are gone, and a request refused
 before its pipeline ran leaves only its `http` line.
 
 Keep the entries for as long as your policy asks by setting `audit: { retentionDays }`; without it nothing is
-pruned. The attempted username of a failed sign-in is kept as sent and may name nobody, so deleting a user does
-not remove it; retention does. The database is the only store of these entries: a SIEM that wants them reads the
+pruned. The attempted username of a failed sign-in may name nobody, so deleting a user does
+not remove it, and neither does it remove the client address of the entries the user caused; only `retentionDays`
+removes the username and the address, once the entries are old enough. The database is the only store of these entries: a SIEM that wants them reads the
 database through a replica or backup (§9), which holds the whole table.
 
 ### Finding the line behind an error in the admin

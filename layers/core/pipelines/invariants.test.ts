@@ -190,6 +190,31 @@ describe("docs/deployment.md", () => {
     expect(text).toMatch(/collect the entries before the deletion/);
   });
 
+  it("says that an unwritable heartbeat leaves no trace in the probe answers or the log", () => {
+    const text = section("8. Health, readiness and restarts").replace(/\s+/g, " ");
+    expect(text).not.toMatch(/appears only as a note in the health output/);
+    expect(text).toMatch(/heartbeat that cannot be written[^.]*(both probes|\/api\/health and \/api\/ready)[^.]*200/);
+    expect(text).toMatch(/carr(y|ies) no hint/);
+    expect(text).toMatch(/nothing is logged/);
+    expect(text).toMatch(/[Mm]onitor[^.]*free space[^.]*write access[^.]*data directory/);
+  });
+
+  it("tells that the health timer needs loopback in the site allowlist and the client header over a socket", () => {
+    const unit = section("5. systemd").replace(/\s+/g, " ");
+    expect(unit).toMatch(/NUXT_KESTREL_ACCESS_SITE[^.]*127\.0\.0\.1[^.]*403[^.]*never restarts/);
+    expect(unit).toMatch(/--unix-socket[^.]*-H 'X-Real-IP: 127\.0\.0\.1'/);
+  });
+
+  it("names the client address and the cleaning of the username among what stays after a user is deleted", () => {
+    const text = section("11. Reading the logs").replace(/\s+/g, " ");
+    expect(text).toMatch(/while the event, the time and the client address `ip` stay/);
+    expect(text).toMatch(/retentionDays[^.]*(removes|prunes)[^.]*address/);
+    expect(text).not.toContain("with the attempted username as sent");
+    expect(text).not.toContain("is kept as sent");
+    expect(text).toMatch(/cut to 256 characters[^.]*control characters[^.]*replaced by spaces/);
+    expect(text).toMatch(/password confirmation does not/);
+  });
+
   it("states the stop windows of the systemd unit and of Cloud Foundry with their units", () => {
     expect(section("5. systemd")).toMatch(/^TimeoutStopSec=90s$/m);
     const text = section("10. Zero downtime, and why there is none");
