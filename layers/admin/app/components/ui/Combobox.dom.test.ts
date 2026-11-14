@@ -3,12 +3,9 @@ import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import type { FieldOption } from '../../utils/field-component'
 import Combobox from './Combobox.vue'
 
-const options: FieldOption[] = [
-  { value: 'home', label: 'Startseite' },
-  { value: 'news', label: 'News' },
-  { value: 'about', label: 'Über uns', hint: 'Entwurf' },
-  { value: 'imprint', label: 'Impressum' },
-]
+const home: FieldOption = { value: 'home', label: 'Startseite' }
+const about: FieldOption = { value: 'about', label: 'Über uns', hint: 'Entwurf' }
+const options: FieldOption[] = [home, { value: 'news', label: 'News' }, about, { value: 'imprint', label: 'Impressum' }]
 
 async function mountOpen(props: Record<string, unknown> = {}) {
   const wrapper = await mountSuspended(Combobox, {
@@ -29,8 +26,8 @@ describe('KestrelUiCombobox hints', () => {
   it('shows the hint as a badge right behind the label of the option', async () => {
     await mountOpen()
 
-    const about = items().find((el) => el.textContent?.includes('Über uns'))
-    const badge = about?.querySelector('.ui-badge')
+    const item = items().find((el) => el.textContent?.includes('Über uns'))
+    const badge = item?.querySelector('.ui-badge')
     expect(badge?.textContent).toBe('Entwurf')
     expect(badge?.getAttribute('data-variant')).toBe('muted')
     expect(badge?.previousElementSibling?.textContent).toBe('Über uns')
@@ -39,23 +36,23 @@ describe('KestrelUiCombobox hints', () => {
   it('shows no badge for an option without a hint', async () => {
     await mountOpen()
 
-    const home = items().find((el) => el.textContent?.includes('Startseite'))
-    expect(home?.querySelector('.ui-badge')).toBeNull()
+    const item = items().find((el) => el.textContent?.includes('Startseite'))
+    expect(item?.querySelector('.ui-badge')).toBeNull()
     expect(document.body.querySelectorAll('[role="option"] .ui-badge')).toHaveLength(1)
   })
 
   it('names the option together with its hint for assistive technology', async () => {
     await mountOpen()
 
-    const about = items().find((el) => el.textContent?.includes('Über uns'))
-    const home = items().find((el) => el.textContent?.includes('Startseite'))
-    expect(about?.getAttribute('aria-label')).toBe('Über uns, Entwurf')
-    expect(home?.getAttribute('aria-label')).toBeNull()
+    const hinted = items().find((el) => el.textContent?.includes('Über uns'))
+    const plain = items().find((el) => el.textContent?.includes('Startseite'))
+    expect(hinted?.getAttribute('aria-label')).toBe('Über uns, Entwurf')
+    expect(plain?.getAttribute('aria-label')).toBeNull()
   })
 
   it('shows the hint of the chosen record next to the input and describes the input with it', async () => {
     const wrapper = await mountSuspended(Combobox, {
-      props: { options, selected: [options[2]], modelValue: 'about', inputId: 'picker', describedby: 'picker-help' },
+      props: { options, selected: [about], modelValue: 'about', inputId: 'picker', describedby: 'picker-help' },
     })
     onTestFinished(() => wrapper.unmount())
 
@@ -67,7 +64,7 @@ describe('KestrelUiCombobox hints', () => {
 
   it('leaves the input description alone when the chosen record has no hint', async () => {
     const wrapper = await mountSuspended(Combobox, {
-      props: { options, selected: [options[0]], modelValue: 'home', describedby: 'picker-help' },
+      props: { options, selected: [home], modelValue: 'home', describedby: 'picker-help' },
     })
     onTestFinished(() => wrapper.unmount())
 
@@ -77,7 +74,7 @@ describe('KestrelUiCombobox hints', () => {
 
   it('shows the hint on the chips of a multiple selection', async () => {
     const wrapper = await mountSuspended(Combobox, {
-      props: { options, selected: [options[0], options[2]], modelValue: ['home', 'about'], multiple: true },
+      props: { options, selected: [home, about], modelValue: ['home', 'about'], multiple: true },
     })
     onTestFinished(() => wrapper.unmount())
 
