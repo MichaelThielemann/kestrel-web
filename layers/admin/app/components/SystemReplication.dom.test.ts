@@ -63,4 +63,39 @@ describe('SystemReplication', () => {
     expect(wrapper.find('.u-scroll').exists()).toBe(false)
     wrapper.unmount()
   })
+
+  it('points to the restore command next to Restore to time', async () => {
+    unregisterAll.push(registerEndpoint('/api/admin/schema', { method: 'GET', handler: () => schema }))
+    unregisterAll.push(registerEndpoint('/api/admin/replication/status', { method: 'GET', handler: () => status }))
+    unregisterAll.push(registerEndpoint('/api/admin/replication/points', { method: 'GET', handler: () => [] }))
+    await useSchema().load()
+
+    const wrapper = await mountSuspended(SystemReplication)
+
+    const hint = wrapper.find('.replication__restore-hint')
+    expect(hint.exists()).toBe(true)
+    expect(hint.find('code').text()).toBe('kestrel restore')
+    expect(hint.text()).toMatch(/ephemeral disk/i)
+    expect(wrapper.find('.replication__bar').element.contains(hint.element)).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('shows no restore hint when the caller cannot restore', async () => {
+    const readOnly: AdminSchema = {
+      ...schema,
+      capabilities: {
+        replicationStatus: { method: 'GET', path: '/admin/replication/status' },
+        replicationPoints: { method: 'GET', path: '/admin/replication/points' },
+      },
+    }
+    unregisterAll.push(registerEndpoint('/api/admin/schema', { method: 'GET', handler: () => readOnly }))
+    unregisterAll.push(registerEndpoint('/api/admin/replication/status', { method: 'GET', handler: () => status }))
+    unregisterAll.push(registerEndpoint('/api/admin/replication/points', { method: 'GET', handler: () => [] }))
+    await useSchema().load()
+
+    const wrapper = await mountSuspended(SystemReplication)
+
+    expect(wrapper.find('.replication__restore-hint').exists()).toBe(false)
+    wrapper.unmount()
+  })
 })

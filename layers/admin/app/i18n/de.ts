@@ -1005,6 +1005,8 @@ export const de: Record<CatalogKey, string> = {
   'replication.snapshotDone': 'Snapshot erstellt ({bytes}).',
   'replication.restoreToTime': 'Zu Zeitpunkt wiederherstellen',
   'replication.restore': 'Wiederherstellen',
+  'replication.restoreHint': 'Auf einem Host mit flüchtiger Platte, etwa einer Container-Plattform, geht ein vorbereiteter Restore verloren, sobald die Instanz ersetzt wird.',
+  'replication.restoreHintCommand': 'Wiederherstellung über die Kommandozeile:',
   'replication.restoreToPoint': 'Zu diesem Punkt wiederherstellen',
   'replication.restoreNotFound': 'Vor diesem Zeitpunkt existiert kein Snapshot.',
   'replication.restoreDoneTitle': 'Restore vorbereitet',

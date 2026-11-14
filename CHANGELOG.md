@@ -283,6 +283,10 @@
   entries), `artBoxCss()` and the `ImageArtEntry` type are exported for components that build their own markup.
   The docs gain a section on planning image sizes, with the number of variants and the storage they cost, and
   describe that registering a changed set of sizes starts the sync job by itself.
+- Admin: System → Replication shows a hint next to "Restore to time" for callers who may restore. On a host with
+  an ephemeral disk, such as a container platform, a restore staged from the admin is lost when the instance is
+  replaced; the hint names `kestrel restore` as the way to restore there. The text is static and the staging
+  mechanism is unchanged. New admin messages `replication.restoreHint` and `replication.restoreHintCommand`.
 
 ### Changed
 

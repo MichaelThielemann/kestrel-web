@@ -134,6 +134,11 @@ function relative(ms: number | null): string { return ms === null ? '—' : huma
         </div>
       </div>
 
+      <KestrelUiAlert v-if="canRestore" class="replication__restore-hint" variant="info">
+        <p>{{ t('replication.restoreHint') }}</p>
+        <p>{{ t('replication.restoreHintCommand') }} <code class="replication__command">kestrel restore</code></p>
+      </KestrelUiAlert>
+
       <div v-if="canPoints" class="u-scroll">
         <KestrelUiTable>
           <template #head>
@@ -246,6 +251,20 @@ function relative(ms: number | null): string { return ms === null ? '—' : huma
       border-color: var(--color-primary);
       color: var(--color-primary-text);
     }
+  }
+
+  &__restore-hint {
+    flex: 0 0 auto;
+    max-width: 60ch;
+
+    p + p {
+      margin-top: var(--space-1);
+    }
+  }
+
+  &__command {
+    font-family: var(--font-mono, monospace);
+    white-space: nowrap;
   }
 
   &__empty {

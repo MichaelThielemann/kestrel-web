@@ -1003,6 +1003,8 @@ export const en = {
   'replication.snapshotDone': 'Snapshot created ({bytes}).',
   'replication.restoreToTime': 'Restore to time',
   'replication.restore': 'Restore',
+  'replication.restoreHint': 'On a host with an ephemeral disk, such as a container platform, a staged restore is lost when the instance is replaced.',
+  'replication.restoreHintCommand': 'Restore from the command line:',
   'replication.restoreToPoint': 'Restore to this point',
   'replication.restoreNotFound': 'No snapshot exists before that point in time.',
   'replication.restoreDoneTitle': 'Restore staged',
