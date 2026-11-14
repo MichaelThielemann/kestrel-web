@@ -124,7 +124,7 @@ describe('labelRevision', () => {
     const result = await runAction(labelRevision, { deps, ...scope, revisionId: 'r1', label: 'Before the relaunch', ops })
 
     expect(result).toEqual({ ok: true, result: { id: 'r1', label: 'Before the relaunch' } })
-    expect(calls[0]).toEqual({ route: { method: 'PATCH', path: '/admin/pages/p%201/revisions/r1' }, body: { label: 'Before the relaunch' }, query: { locale: 'de' } })
+    expect(calls[0]).toEqual({ route: { method: 'PATCH', path: '/admin/pages/p%201/revisions/r1' }, body: { label: 'Before the relaunch' }, query: undefined })
     expect(toast.success).toHaveBeenCalledWith('revisions.labelSaved')
   })
 

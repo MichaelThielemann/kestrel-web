@@ -12,7 +12,7 @@ export interface BootedPreset {
   /** Signs in and answers the bearer headers of the new session. */
   login(username: string, password: string, code?: string): Promise<Record<string, string>>;
   /** Runs the pipeline behind `trigger` ("METHOD /path") with the given input. */
-  call(pipeline: string, trigger: string, input?: { headers?: Record<string, string>; body?: Record<string, unknown>; params?: Record<string, string>; ip?: string }): ReturnType<Kestrel["run"]>;
+  call(pipeline: string, trigger: string, input?: { headers?: Record<string, string>; body?: Record<string, unknown>; query?: Record<string, unknown>; params?: Record<string, string>; ip?: string }): ReturnType<Kestrel["run"]>;
 }
 
 export interface BootOptions {

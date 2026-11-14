@@ -110,7 +110,6 @@ export const labelRevision = defineAction<LabelRevisionInput, RevisionSummary>({
       call: (ctx) => ({
         route: ctx.input.deps.capabilities.verbRoute(ctx.input.collection, 'labelRevision', { id: ctx.input.id, revisionId: ctx.input.revisionId }),
         body: { label: ctx.input.label },
-        query: { locale: ctx.input.locale },
       }),
       onSuccess: (ctx, summary) => {
         ctx.result = summary
