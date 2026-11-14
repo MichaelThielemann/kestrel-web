@@ -96,6 +96,24 @@ describe('field/Media load watch', () => {
     expect(wrapper.text()).not.toContain(en['field.media.storedProcessing'])
   })
 
+  it('shows a held item without the images feature, whose answer has no variant counts, and keeps showing it after a change', async () => {
+    const plain = (filename: string) => Object.fromEntries(Object.entries(mediaItem({ filename, width: 1200, height: 800 })).filter(([key]) => !['variants', 'variantCounts', 'available', 'focus', 'framing'].includes(key)))
+    let filename = 'harbour.jpg'
+    apiHandler.fn = () => Promise.resolve({ items: [plain(filename)], total: 1 })
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      const wrapper = await mountSuspended(FieldMedia, { props: { field, name: 'hero', locale: 'en', modelValue: 'f1' } })
+      await vi.waitFor(() => expect(wrapper.find('.field-media__filename').text()).toBe('harbour.jpg'))
+      filename = 'harbour-dusk.jpg'
+      await notifyMediaChanged({ restored: ['f1'] })
+      await vi.waitFor(() => expect(wrapper.find('.field-media__filename').text()).toBe('harbour-dusk.jpg'))
+      expect(errors).not.toHaveBeenCalled()
+      wrapper.unmount()
+    } finally {
+      errors.mockRestore()
+    }
+  })
+
   it('names a stored id that lies in the trash and says so, keeping the id', async () => {
     schema.capabilities.listMediaTrash = { method: 'GET', path: '/media/trash' }
     apiHandler.fn = (route) => Promise.resolve(JSON.stringify(route).includes('/media/trash')

@@ -1367,3 +1367,31 @@ describe('MediaLibrary viewer on an upload whose variants finish after the listi
     expect(idsCalls).toBeGreaterThan(callsBeforeOpening)
   }, 15000)
 })
+
+describe('MediaLibrary viewer without the images feature', () => {
+  const unregisterAll: (() => void)[] = []
+
+  afterEach(() => {
+    unregisterAll.splice(0).forEach((unregister) => unregister())
+  })
+
+  it('opens a file whose answer has no variant counts', async () => {
+    const plain = {
+      id: 'f1', filename: 'notes.jpg', folder: '', contentType: 'image/jpeg', size: 10, path: '/media/f1/notes.jpg',
+      createdAt: 1, updatedAt: 1, provenance: { origin: 'human' }, width: 1200, height: 800, alt: null, title: null, description: null,
+    }
+    unregisterAll.push(registerEndpoint('/api/media/folders', { method: 'GET', handler: () => [] }))
+    unregisterAll.push(registerEndpoint('/api/media', { method: 'GET', handler: () => ({ items: [plain], total: 1 }) }))
+    unregisterAll.push(registerEndpoint('/api/limits', { method: 'GET', handler: () => ({ maxUploadBytes: null }) }))
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {})
+    onTestFinished(() => errors.mockRestore())
+
+    const wrapper = await mountSuspended(MediaLibrary, { attachTo: document.body })
+    onTestFinished(() => wrapper.unmount())
+    await vi.waitFor(() => expect(wrapper.find('[data-test="file-f1"]').exists()).toBe(true))
+    await wrapper.get('[data-test="file-f1"]').trigger('dblclick')
+
+    await vi.waitFor(() => expect(document.body.querySelector('.media-viewer')?.textContent).toContain('1200 × 800'))
+    expect(errors).not.toHaveBeenCalled()
+  })
+})
