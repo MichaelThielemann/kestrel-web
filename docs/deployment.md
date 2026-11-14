@@ -168,6 +168,7 @@ EnvironmentFile=/etc/mysite/secrets.env
 ExecStart=/usr/bin/node --disable-warning=ExperimentalWarning /srv/mysite/output/server/index.mjs
 Restart=on-failure
 RestartSec=15s
+TimeoutStopSec=90s
 StateDirectory=mysite
 ReadWritePaths=/srv/mysite/data
 
@@ -180,10 +181,14 @@ WantedBy=multi-user.target
 stderr naming the failing module, so the unit retries rather than sitting in a broken state.
 
 `RestartSec=15s` is chosen for the instance lock (§10). After a crash on the same machine the next start takes
-the lock at once. After a power loss or a restart of the machine it is refused with `instance-locked` for up to
+the lock at once. After a power loss, a hard reset or a crash of the machine it is refused with `instance-locked` for up to
 the lock's TTL of 60 seconds, since the old holder's heartbeat has to run out first; with 15 seconds between
 the attempts the unit retries a few times during that wait, does not reach `StartLimitBurst`, and starts as soon
-as the lock is free. A clean stop releases the lock at once.
+as the lock is free. A clean stop releases the lock at once, and so does the orderly reboot of a machine: it stops the
+unit with `SIGTERM`.
+
+`TimeoutStopSec=90s` is set explicitly because the default depends on the distribution (90 s or 45 s), and a stop
+can take about 60 s (§10).
 
 `Restart=on-failure` reacts only to the process ending. A process that lost its instance lock (§8) keeps
 running, so a second unit polls `/api/health` and restarts the service when it answers 503:
@@ -283,6 +288,11 @@ ignored and every request counts as coming from the proxy.
 
 For a health check, use `/api/ready`: it answers 503 while the backend is still booting or its
 database is unreachable, and 200 once it can serve.
+
+Run the container with `--restart unless-stopped` (or `always`), or with a policy whose retries together last longer
+than 60 s. After a kill without a clean exit (`docker kill`, an out-of-memory kill, a power loss) the restart into a
+new process namespace is refused with `instance-locked` until the lock's TTL has passed (§10), and a policy such as
+`--restart on-failure:5` gives up after a few seconds and leaves the container stopped.
 
 ## 7. Reverse proxy
 
@@ -783,11 +793,12 @@ How long a lock keeps the next start out depends on how the process stopped:
 - a clean stop releases the lock at once, and the next start takes it without waiting;
 - after a crash or `kill -9` on the same machine, the old process is provably gone and the next start takes the
   lock at once;
-- after a power loss or a restart of the machine, the old lock belongs to a boot that is over but cannot be
-  proven dead, so the next start is refused until the lock's TTL of 60 seconds has passed since its last
+- after a power loss, a hard reset or a crash of the machine, the old lock belongs to a boot that is over but
+  cannot be proven dead, so the next start is refused until the lock's TTL of 60 seconds has passed since its last
   heartbeat. A supervisor restarts with a delay for this reason (`RestartSec=15s`, §5). The same holds for a
   container restarted into a new process namespace on a persistent volume, and for a data directory taken over
-  from another machine.
+  from another machine. An orderly reboot of the machine stops the unit with `SIGTERM` and releases the lock like
+  any clean stop.
 
 To run several processes on one file on purpose, set `allowConcurrentProcesses: true` on every module that
 names the file (§3 of the consuming guide). The setting has to match: one module with it and another
@@ -816,16 +827,18 @@ across the admin process's restart. Editing is unavailable while the process is 
 
 With `eventsQueue`, a stop starts no new job once kestrel's `stop()` begins: from that moment the queue's main
 loop, its lanes and the relay claim no further row. On `SIGTERM` the server first stops accepting connections and
-waits for its open requests, up to `NITRO_SHUTDOWN_TIMEOUT` (30 s by default); only then does the layer call
+waits for its open requests, up to `NITRO_SHUTDOWN_TIMEOUT` (milliseconds, 30000 by default); only then does the layer call
 `stop()`. A publish that is still running when the signal arrives therefore completes and its listener pipelines
 start as usual, and `stop()` waits for the jobs that run. A job that already runs finishes; every row left
 pending is delivered after the next start, or by another process on the same store.
 
-`stop()` has up to `shutdownTimeoutMs` (30 s by default) for those jobs, and the server cuts the close hook off
-after its own `NITRO_SHUTDOWN_TIMEOUT`, together with kestrel's teardown. A stop can thus take about twice
-`NITRO_SHUTDOWN_TIMEOUT`: the unit's `TimeoutStopSec` (systemd's default of 90 s covers the two default windows)
-and the platform's stop timeout have to exceed that sum, and a `shutdownTimeoutMs` above `NITRO_SHUTDOWN_TIMEOUT`
-only has the effect of the lower of the two.
+`stop()` has up to `shutdownTimeoutMs` (milliseconds, 30000 by default) for those jobs, and the server cuts the close
+hook off after its own `NITRO_SHUTDOWN_TIMEOUT`, together with kestrel's teardown. A stop can thus take about twice
+`NITRO_SHUTDOWN_TIMEOUT`, 60 s with the defaults: the unit's `TimeoutStopSec` and the platform's stop timeout have to
+exceed that sum (systemd's default is 90 s on some distributions and 45 s on others, so the unit of §5 sets it). Keep
+`shutdownTimeoutMs` well below `NITRO_SHUTDOWN_TIMEOUT`: a `shutdownTimeoutMs` above it lets the close hook be cut off
+before the teardown runs. A process that is killed before its teardown loses the replica frames written since the last
+`replication.sync`, which the next start does not get back.
 
 After a new build, the first start re-renders every page in the background, so the exported pages
 reference the new asset hashes; a page of the old build is loaded as a document instead of by client
@@ -843,6 +856,12 @@ write into the same replica prefix. A second instance, a deployment strategy tha
 container side by side, and a local start with the production credentials are therefore not caught at boot. Scale
 to one instance, use a push that stops the old container before the new one starts, and keep the production
 credentials off other machines.
+
+Cloud Foundry sends `SIGKILL` 10 s after `SIGTERM` by default, which is shorter than the 60 s a stop can take (§10
+above). A kill before the teardown loses the replica frames written since the last sync, up to a minute of edits and
+of pending queue rows, and the next start rebuilds `kestrel.db` from the replica without them. Fit the windows into
+the 10 s: set `NITRO_SHUTDOWN_TIMEOUT=4000` in the environment (milliseconds) and `shutdownTimeoutMs: 2000` in
+`kestrel.config.ts`, so that twice the first stays below the platform's stop timeout and the second below the first.
 
 ### Re-rendering in the background
 
@@ -934,7 +953,10 @@ the layer resolves it (§7, "Client address"):
 
 `access.denied` and `access.rateLimited` are written at most once a minute per address, identity, pipeline and
 step, and the next entry says in `params.suppressed` how many it left out, so a scan does not fill the table.
-An entry holds ids, never a password, a token or a body. Content changes are not audit entries. The `step` log
+An entry holds ids, never a password, a token or a body. Content changes are not audit entries. Deleting a user writes
+no entry of its own and removes the user from all their entries: `identityId` becomes null and every param that holds
+their id is dropped, while the event and the time stay. A SIEM that needs the attribution has to collect the entries
+before the deletion. The `step` log
 lines (above) are not a security record either: with `KESTREL_STEP_LOG=off` they are gone, and a request refused
 before its pipeline ran leaves only its `http` line.
 

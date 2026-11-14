@@ -182,6 +182,43 @@ describe("docs/deployment.md", () => {
     expect(text).toMatch(/IP allowlist/);
     expect(text).toMatch(/a 403 or 429 kestrel answered/);
   });
+
+  it("says that deleting a user writes no entry and strips the user from all of their entries", () => {
+    const text = section("11. Reading the logs").replace(/\s+/g, " ");
+    expect(text).toMatch(/[Dd]eleting a user writes no entry of its own/);
+    expect(text).toMatch(/identityId[^.]*every (param|parameter)/);
+    expect(text).toMatch(/collect the entries before the deletion/);
+  });
+
+  it("states the stop windows of the systemd unit and of Cloud Foundry with their units", () => {
+    expect(section("5. systemd")).toMatch(/^TimeoutStopSec=90s$/m);
+    const text = section("10. Zero downtime, and why there is none");
+    expect(text).toMatch(/NITRO_SHUTDOWN_TIMEOUT` \(milliseconds, 30000 by default\)/);
+    expect(text).not.toContain("NITRO_SHUTDOWN_TIMEOUT (30 s by default)");
+    expect(text).not.toContain("systemd's default of 90 s");
+    expect(text).toMatch(/45 s/);
+    const cf = text.slice(text.indexOf("### Cloud Foundry"), text.indexOf("### Re-rendering"));
+    expect(cf).toContain("NITRO_SHUTDOWN_TIMEOUT");
+    expect(cf).toContain("shutdownTimeoutMs");
+    expect(cf).toMatch(/10 s/);
+    expect(cf).toMatch(/NITRO_SHUTDOWN_TIMEOUT=4000/);
+    expect(cf).toMatch(/shutdownTimeoutMs: 2000/);
+    expect(cf).toMatch(/frames written since the last (replication )?sync/);
+  });
+
+  it("restricts the wait for the lock TTL to stops that end without an exit", () => {
+    const wait = [section("5. systemd"), section("10. Zero downtime, and why there is none")].join("\n");
+    expect(wait).not.toMatch(/power loss or a restart of the machine/);
+    expect(wait).toMatch(/power loss, a hard reset or a crash of the machine/);
+    expect(wait).toMatch(/orderly (reboot|restart of the machine)[^.]*releases the lock/);
+  });
+
+  it("asks for a container restart policy that retries for longer than the lock TTL", () => {
+    const text = section("6. Container").replace(/\s+/g, " ");
+    expect(text).toMatch(/--restart unless-stopped/);
+    expect(text).toMatch(/longer than 60 s/);
+    expect(text).toContain("§10");
+  });
 });
 
 describe("docs/consuming-kestrel-web.md", () => {
