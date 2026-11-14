@@ -19,7 +19,7 @@ defineOptions({ inheritAttrs: false })
 
 const attrs = useAttrs()
 
-const inertLinkAttrs = computed(() => Object.fromEntries(Object.entries(attrs).filter(([name]) => !/^onClick(?:Capture)?$/.test(name))))
+const inertLinkAttrs = computed(() => Object.fromEntries(Object.entries(attrs).filter(([name]) => !name.startsWith('onClick'))))
 
 const unstyled = computed(() => props.variant === 'icon' || props.variant === 'bare')
 
@@ -45,10 +45,10 @@ defineExpose({ focus })
   <a
     v-if="to && disabled"
     ref="el"
+    v-bind="inertLinkAttrs"
     role="link"
     tabindex="-1"
     aria-disabled="true"
-    v-bind="inertLinkAttrs"
     :class="[classes, 'ui-button--disabled']"
     @click.prevent
   >
@@ -109,11 +109,6 @@ $disabled: ':is(.ui-button--disabled, :disabled:not([aria-busy="true"]))';
   transition:
     background-color var(--motion-fast) var(--ease-standard),
     border-color var(--motion-fast) var(--ease-standard);
-
-  &[aria-busy='true']:disabled {
-    opacity: 0.6;
-    cursor: progress;
-  }
 
   &--sm {
     padding: var(--space-1) var(--space-2);
@@ -192,6 +187,14 @@ $disabled: ':is(.ui-button--disabled, :disabled:not([aria-busy="true"]))';
   &--danger-ghost#{$disabled} {
     background: transparent;
   }
+  &--danger-ghost#{$disabled} {
+    color: var(--color-disabled-icon);
+  }
+}
+
+:is(.ui-button, .ui-button--icon, .ui-button--bare)[aria-busy='true']:disabled {
+  opacity: 0.6;
+  cursor: progress;
 }
 
 #{$root} :where(.ui-button--icon) {
@@ -224,7 +227,7 @@ $disabled: ':is(.ui-button--disabled, :disabled:not([aria-busy="true"]))';
 #{$root} :where(.ui-button--icon:hover:not(:disabled, .ui-button--disabled)) {
   color: var(--color-text);
 }
-#{$root} :where(.ui-button--icon:is(:disabled, .ui-button--disabled)) {
+#{$root} :where(.ui-button--icon:is(.ui-button--disabled, :disabled:not([aria-busy='true']))) {
   color: var(--color-disabled-icon);
   cursor: not-allowed;
 }
@@ -239,7 +242,7 @@ $disabled: ':is(.ui-button--disabled, :disabled:not([aria-busy="true"]))';
   text-decoration: none;
   cursor: pointer;
 }
-#{$root} :where(.ui-button--bare:disabled, .ui-button--bare.ui-button--disabled) {
+#{$root} :where(.ui-button--bare:is(.ui-button--disabled, :disabled:not([aria-busy='true']))) {
   cursor: not-allowed;
 }
 

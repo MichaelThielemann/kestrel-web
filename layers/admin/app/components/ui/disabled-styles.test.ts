@@ -22,16 +22,30 @@ describe('disabled button styles', () => {
   const button = compiledStyles('./Button.vue')
 
   it('styles a raw element with a kit class and the disabled attribute like a disabled kit button', () => {
-    expect(rulesFor(button, '.ui-button--icon:is(:disabled, .ui-button--disabled)').join('\n')).toContain('cursor: not-allowed')
+    expect(rulesFor(button, '.ui-button--icon:is(.ui-button--disabled').join('\n')).toContain('cursor: not-allowed')
     expect(rulesFor(button, '.ui-button:is(').join('\n')).toContain('color: var(--color-disabled-text)')
   })
 
   it('uses the dedicated icon token so a disabled icon button differs from an active one', () => {
-    expect(rulesFor(button, '.ui-button--icon:is(:disabled, .ui-button--disabled)').join('\n')).toContain('color: var(--color-disabled-icon)')
+    expect(rulesFor(button, '.ui-button--icon:is(.ui-button--disabled').join('\n')).toContain('color: var(--color-disabled-icon)')
   })
 
   it('does not apply the disabled look to a busy button', () => {
     expect(rulesFor(button, '.ui-button:is(').join('\n')).toContain(':not([aria-busy=true])')
+  })
+
+  it.each(['.ui-button--icon', '.ui-button--bare'])('does not apply the disabled look to a busy %s button and dims it with a progress cursor', (selector) => {
+    const disabledRules = rulesFor(button, `${selector}:is(.ui-button--disabled`)
+    expect(disabledRules.length).toBeGreaterThan(0)
+    for (const rule of disabledRules) expect(rule).toContain(':not([aria-busy=true])')
+    const busy = rulesFor(button, '[aria-busy=true]:disabled').filter((rule) => rule.includes(selector)).join('\n')
+    expect(busy).toContain('opacity: 0.6')
+    expect(busy).toContain('cursor: progress')
+  })
+
+  it('gives a disabled danger-ghost button the dedicated icon colour so it differs from the active danger colour', () => {
+    const rule = rulesFor(button, '.ui-button--danger-ghost:is(').join('\n')
+    expect(rule).toContain('color: var(--color-disabled-icon)')
   })
 
   it('keeps the active look of a pressed rich text toolbar button out of the disabled state', () => {

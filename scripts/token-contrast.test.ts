@@ -61,4 +61,12 @@ describe('token contrast', () => {
       expect(separation, theme).toBeGreaterThanOrEqual(1.4)
     }
   })
+
+  it('keeps a disabled danger-ghost label visibly weaker than the active danger text in both themes', () => {
+    const themes = readThemes(compile(TOKENS).css)
+    for (const theme of ['light', 'dark'] as const) {
+      const separation = tokenContrast(themes[theme] ?? {}, '--color-disabled-icon', '--color-danger')
+      expect(separation, theme).toBeGreaterThanOrEqual(1.4)
+    }
+  })
 })

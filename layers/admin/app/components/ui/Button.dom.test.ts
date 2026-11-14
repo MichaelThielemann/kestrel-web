@@ -111,6 +111,28 @@ describe('KestrelUiButton', () => {
       expect(onClick).not.toHaveBeenCalled()
     })
 
+    it.each(['onClickOnce', 'onClickPassive', 'onClickCaptureOnce', 'onClickCapture'])('does not run a %s listener of the caller on a disabled link', async (name) => {
+      const handler = vi.fn()
+      const wrapper = await mountSuspended(Button, { props: { to: '/admin/media', disabled: true }, attrs: { [name]: handler }, slots: { default: () => 'Go' }, attachTo: document.body })
+
+      click(wrapper.get('a').element)
+
+      expect(handler).not.toHaveBeenCalled()
+    })
+
+    it('keeps tabindex -1, aria-disabled and the link role of a disabled link whatever the caller passes', async () => {
+      const wrapper = await mountSuspended(Button, {
+        props: { to: '/admin/media', disabled: true },
+        attrs: { tabindex: 0, 'aria-disabled': undefined, role: 'button' },
+        slots: { default: () => 'Go' },
+      })
+
+      const link = wrapper.get('a')
+      expect(link.attributes('tabindex')).toBe('-1')
+      expect(link.attributes('aria-disabled')).toBe('true')
+      expect(link.attributes('role')).toBe('link')
+    })
+
     it('runs the click handler of the caller on an enabled link and an enabled button', async () => {
       const onClick = vi.fn()
       const link = await mountSuspended(Button, { props: { to: '/admin/media' }, attrs: { onClick }, slots: { default: () => 'Go' }, attachTo: document.body })
