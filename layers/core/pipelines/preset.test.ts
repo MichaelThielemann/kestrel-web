@@ -1153,8 +1153,11 @@ describe("definePreset user deletion", () => {
       "authn.requireUser",
       "authz.requireRole",
       "authz.require:users.manage",
+      "authn.requireAbsentUser",
       "authn.verifyUser:reassignTo",
       "revisions.reassignAuthor",
+      "events.emit:user.revisionsReassignRetried",
+      "events.relay",
     ]);
     expect(preset.triggers).toContainEqual({ event: "user.deleted", pipeline: "reassignRevisionAuthor" });
     expect(preset.triggers).toContainEqual({ http: "POST /admin/users/:id/revisions/reassign", pipeline: "retryReassignRevisionAuthor" });
@@ -1163,9 +1166,20 @@ describe("definePreset user deletion", () => {
   it("wires the audit listener and its retry route behind users.manage", () => {
     const preset = definePreset({ modules: bothModules, features: ["revisions", "audit"] });
     expect(stepsOf(preset, "anonymizeAuditUser")).toEqual(["audit.anonymize"]);
-    expect(stepsOf(preset, "retryAnonymizeAuditUser")).toEqual(["authn.requireUser", "authz.requireRole", "authz.require:users.manage", "authn.requireRecentAuth:300", "audit.anonymize"]);
+    expect(stepsOf(preset, "retryAnonymizeAuditUser")).toEqual(["authn.requireUser", "authz.requireRole", "authz.require:users.manage", "authn.requireRecentAuth:300", "authn.requireAbsentUser", "audit.anonymize", "events.emit:user.auditAnonymizeRetried", "events.relay"]);
     expect(preset.triggers).toContainEqual({ event: "user.deleted", pipeline: "anonymizeAuditUser" });
     expect(preset.triggers).toContainEqual({ http: "POST /admin/users/:id/audit/anonymize", pipeline: "retryAnonymizeAuditUser" });
+  });
+
+  it("records who ran a repair without naming the deleted user, for each repair route that is wired", () => {
+    const both = definePreset({ modules: bothModules, features: ["revisions", "audit"] });
+    expect(stepsOf(both, "auditUserRepairs")).toEqual(["audit.recordActor"]);
+    expect(both.triggers).toContainEqual({ event: "user.revisionsReassignRetried", pipeline: "auditUserRepairs" });
+    expect(both.triggers).toContainEqual({ event: "user.auditAnonymizeRetried", pipeline: "auditUserRepairs" });
+
+    const auditOnly = definePreset({ modules: auditModules, features: ["audit"] });
+    expect(auditOnly.triggers).toContainEqual({ event: "user.auditAnonymizeRetried", pipeline: "auditUserRepairs" });
+    expect(auditOnly.triggers.some((trigger) => "event" in trigger && trigger.event === "user.revisionsReassignRetried")).toBe(false);
   });
 
   it("leaves both listeners out when neither feature is on", () => {

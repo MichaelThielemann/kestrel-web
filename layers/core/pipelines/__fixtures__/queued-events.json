@@ -21,6 +21,9 @@
     "auditAuth": [
       "audit.record"
     ],
+    "auditUserRepairs": [
+      "audit.recordActor"
+    ],
     "auditUsers": [
       "audit.record"
     ],
@@ -847,7 +850,10 @@
       "authz.requireRole",
       "authz.require:users.manage",
       "authn.requireRecentAuth:300",
-      "audit.anonymize"
+      "authn.requireAbsentUser",
+      "audit.anonymize",
+      "events.emit:user.auditAnonymizeRetried",
+      "events.relay"
     ],
     "retryFailedImages": [
       "authn.requireUser",
@@ -859,8 +865,11 @@
       "authn.requireUser",
       "authz.requireRole",
       "authz.require:users.manage",
+      "authn.requireAbsentUser",
       "authn.verifyUser:reassignTo",
-      "revisions.reassignAuthor"
+      "revisions.reassignAuthor",
+      "events.emit:user.revisionsReassignRetried",
+      "events.relay"
     ],
     "retryStalePages": [
       "authn.requireUser",
@@ -1651,6 +1660,14 @@
     {
       "event": "user.deleted",
       "pipeline": "anonymizeAuditUser"
+    },
+    {
+      "event": "user.auditAnonymizeRetried",
+      "pipeline": "auditUserRepairs"
+    },
+    {
+      "event": "user.revisionsReassignRetried",
+      "pipeline": "auditUserRepairs"
     },
     {
       "event": "user.created",

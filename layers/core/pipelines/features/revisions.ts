@@ -7,6 +7,8 @@ import { collectionNames, hasLocalizedField, isGenericCollection, uncapitalize, 
 import type { CollectionModel } from "../collections";
 import type { FeatureModule } from "../index";
 
+export const REVISIONS_MODULE = "@michaelthielemann/kestrel-revisions-default";
+export const REVISIONS_REASSIGN_RETRIED_EVENT = "user.revisionsReassignRetried";
 export const REVISIONS_PRUNE_PIPELINE = "pruneRevisions";
 export const REVISIONS_REASSIGN_PIPELINE = "reassignRevisionAuthor";
 export const REVISIONS_REASSIGN_RETRY_PIPELINE = "retryReassignRevisionAuthor";
@@ -59,8 +61,10 @@ export default function revisions(context: PresetContext): FeatureModule {
     [REVISIONS_REASSIGN_RETRY_PIPELINE]: [
       "authn.requireUser",
       "authz.require:users.manage",
+      "authn.requireAbsentUser",
       "authn.verifyUser:reassignTo",
       "revisions.reassignAuthor",
+      `events.emit:${REVISIONS_REASSIGN_RETRIED_EVENT}`,
     ],
   };
   const patches: FeatureModule["patches"][number][] = [];
@@ -92,7 +96,7 @@ export default function revisions(context: PresetContext): FeatureModule {
   }
 
   return {
-    modules: ["@michaelthielemann/kestrel-revisions-default"],
+    modules: [REVISIONS_MODULE],
     pipelines,
     patches,
     triggers,

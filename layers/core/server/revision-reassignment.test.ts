@@ -56,7 +56,7 @@ describe("reassignRevisionAuthor and retryReassignRevisionAuthor verify the targ
       features,
       collectionsUi,
       fieldTypes,
-      roles: { roles: { admin: ["*"] }, anonymous: ["media.read"] },
+      roles: { roles: { admin: ["*"], editor: ["pages.*"] }, anonymous: ["media.read"] },
       bootstrap: { username: "admin", passwordHash: PASSWORD_HASH },
     });
     const preset = definePreset({ modules: moduleConfig, features, collections: contentTypes, collectionsUi, fieldTypes });
@@ -75,15 +75,30 @@ describe("reassignRevisionAuthor and retryReassignRevisionAuthor verify the targ
     const me = await kestrel.run("me", { trigger: { kind: "http", name: "GET /me" }, headers });
     const adminId = boundaryCast<{ id: string }>(me.result, "host").id;
 
+    const author = await kestrel.run("createUser", {
+      trigger: { kind: "http", name: "POST /users" },
+      headers,
+      body: { username: "author", password: "correct horse battery staple", roles: ["editor"] },
+    });
+    if (author.status !== 200) throw new Error(`expected createUser to succeed, got ${author.status}`);
+    const vanishedId = boundaryCast<UserRecord>(author.result, "host").id;
+    const authorLogin = await kestrel.run("login", { trigger: { kind: "http", name: "POST /login" }, body: { username: "author", password: "correct horse battery staple" } });
+    const authorHeaders = { authorization: `Bearer ${String(boundaryCast<{ token: string }>(authorLogin.result, "host").token)}` };
+
     const create = await kestrel.run("createPage", {
       trigger: { kind: "http", name: "POST /pages" },
-      headers,
+      headers: authorHeaders,
       body: { locale: "de", slug: "reassignment-acceptance", title: "Reassignment acceptance", status: "draft", body: [], accent: "#123456" },
     });
     if (create.status !== 200) throw new Error(`expected createPage to succeed, got ${create.status}`);
     const pageId = boundaryCast<PageRecord>(create.result, "host").id;
 
-    return { kestrel, headers, adminId, pageId };
+    const persistence = kestrel.contracts.find(PERSISTENCE);
+    if (persistence === undefined) throw new Error("expected the booted instance to provide persistence@1");
+    const removed = await persistence.deleteOne("authn_users", vanishedId);
+    if (!isOk(removed)) throw new Error("expected the author's account to be removed");
+
+    return { kestrel, headers, adminId, vanishedId, pageId };
   }
 
   async function authorIdsFor(kestrel: Awaited<ReturnType<typeof bootWithPage>>["kestrel"], documentId: string): Promise<(string | null)[]> {
@@ -96,14 +111,14 @@ describe("reassignRevisionAuthor and retryReassignRevisionAuthor verify the targ
   }
 
   it("retryReassignRevisionAuthor: an unknown target id is rejected and no revision is touched", async () => {
-    const { kestrel, headers, adminId, pageId } = await bootWithPage();
+    const { kestrel, headers, vanishedId, pageId } = await bootWithPage();
     try {
       const before = await authorIdsFor(kestrel, pageId);
 
       const reassign = await kestrel.run("retryReassignRevisionAuthor", {
         trigger: { kind: "http", name: "POST /admin/users/:id/revisions/reassign" },
         headers,
-        params: { id: adminId },
+        params: { id: vanishedId },
         body: { reassignTo: "not-a-real-user-id" },
       });
       expect(reassign.status).toBe(404);
@@ -115,7 +130,7 @@ describe("reassignRevisionAuthor and retryReassignRevisionAuthor verify the targ
   });
 
   it("retryReassignRevisionAuthor: an inactive target is rejected and no revision is touched", async () => {
-    const { kestrel, headers, adminId, pageId } = await bootWithPage();
+    const { kestrel, headers, vanishedId, pageId } = await bootWithPage();
     try {
       const createTarget = await kestrel.run("createUser", {
         trigger: { kind: "http", name: "POST /users" },
@@ -137,7 +152,7 @@ describe("reassignRevisionAuthor and retryReassignRevisionAuthor verify the targ
       const reassign = await kestrel.run("retryReassignRevisionAuthor", {
         trigger: { kind: "http", name: "POST /admin/users/:id/revisions/reassign" },
         headers,
-        params: { id: adminId },
+        params: { id: vanishedId },
         body: { reassignTo: targetId },
       });
       expect(reassign.status).toBe(400);
@@ -149,7 +164,7 @@ describe("reassignRevisionAuthor and retryReassignRevisionAuthor verify the targ
   });
 
   it("retryReassignRevisionAuthor: a valid target is reassigned with its canonical name, ignoring a caller-supplied name", async () => {
-    const { kestrel, headers, adminId, pageId } = await bootWithPage();
+    const { kestrel, headers, vanishedId, pageId } = await bootWithPage();
     try {
       const createTarget = await kestrel.run("createUser", {
         trigger: { kind: "http", name: "POST /users" },
@@ -162,7 +177,7 @@ describe("reassignRevisionAuthor and retryReassignRevisionAuthor verify the targ
       const reassign = await kestrel.run("retryReassignRevisionAuthor", {
         trigger: { kind: "http", name: "POST /admin/users/:id/revisions/reassign" },
         headers,
-        params: { id: adminId },
+        params: { id: vanishedId },
         body: { reassignTo: { id: targetId, name: "not the real name" } },
       });
       expect(reassign.status).toBe(200);
@@ -170,6 +185,72 @@ describe("reassignRevisionAuthor and retryReassignRevisionAuthor verify the targ
       expect(result.to).toEqual({ id: targetId, name: "editor-canonical" });
 
       expect(await authorIdsFor(kestrel, pageId)).toEqual([targetId]);
+    } finally {
+      await kestrel.stop();
+    }
+  });
+
+  it("retryReassignRevisionAuthor: an id that still names a user, active or deactivated, is answered 409 and no revision is touched", async () => {
+    const { kestrel, headers, adminId, pageId } = await bootWithPage();
+    try {
+      const createTarget = await kestrel.run("createUser", {
+        trigger: { kind: "http", name: "POST /users" },
+        headers,
+        body: { username: "editor-former", password: "correct horse battery staple", roles: [] },
+      });
+      const formerId = boundaryCast<UserRecord>(createTarget.result, "host").id;
+      const deactivate = await kestrel.run("deactivateUser", { trigger: { kind: "http", name: "POST /users/:id/deactivate" }, headers, params: { id: formerId } });
+      expect(deactivate.status).toBe(200);
+      const before = await authorIdsFor(kestrel, pageId);
+
+      for (const id of [adminId, formerId]) {
+        const reassign = await kestrel.run("retryReassignRevisionAuthor", {
+          trigger: { kind: "http", name: "POST /admin/users/:id/revisions/reassign" },
+          headers,
+          params: { id },
+          body: { reassignTo: adminId === id ? formerId : adminId },
+        });
+        expect(reassign.status, id).toBe(409);
+      }
+      expect(await authorIdsFor(kestrel, pageId)).toEqual(before);
+    } finally {
+      await kestrel.stop();
+    }
+  });
+
+  it("retryReassignRevisionAuthor: an id that is no user id is answered 400", async () => {
+    const { kestrel, headers, adminId } = await bootWithPage();
+    try {
+      const reassign = await kestrel.run("retryReassignRevisionAuthor", {
+        trigger: { kind: "http", name: "POST /admin/users/:id/revisions/reassign" },
+        headers,
+        params: { id: "admin" },
+        body: { reassignTo: adminId },
+      });
+      expect(reassign.status).toBe(400);
+    } finally {
+      await kestrel.stop();
+    }
+  });
+
+  it("a repair of a vanished user's revisions is recorded in the audit log with the caller and without the user's id", async () => {
+    const { kestrel, headers, adminId, vanishedId } = await bootWithPage();
+    try {
+      const reassign = await kestrel.run("retryReassignRevisionAuthor", {
+        trigger: { kind: "http", name: "POST /admin/users/:id/revisions/reassign" },
+        headers,
+        params: { id: vanishedId },
+        body: { reassignTo: adminId },
+      });
+      expect(reassign.status).toBe(200);
+
+      const persistence = kestrel.contracts.find(PERSISTENCE);
+      if (persistence === undefined) throw new Error("expected the booted instance to provide persistence@1");
+      const entries = await persistence.findMany("audit_entries", { event: "user.revisionsReassignRetried" });
+      if (!isOk(entries)) throw new Error("expected the audit query to succeed");
+      const items = boundaryCast<{ identity?: { id?: string }; params?: Record<string, unknown> }[]>(entries.value.items, "host");
+      expect(items).toHaveLength(1);
+      expect(JSON.stringify(items[0])).not.toContain(vanishedId);
     } finally {
       await kestrel.stop();
     }
