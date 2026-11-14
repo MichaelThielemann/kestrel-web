@@ -248,6 +248,7 @@ describe('MediaLibrary with the trash', () => {
     failFolderTrash('drafts')
     const wrapper = await mountLibrary()
     await vi.waitFor(() => expect(wrapper.find('[data-test="folder-drafts"]').exists()).toBe(true))
+    await vi.waitFor(() => expect(wrapper.find('[data-test="file-f2"]').exists()).toBe(true))
 
     await select(wrapper, 'drafts')
     await select(wrapper, 'a.jpg')
@@ -284,6 +285,7 @@ describe('MediaLibrary with the trash', () => {
     failFolderTrash('drafts')
     const wrapper = await mountLibrary()
     await vi.waitFor(() => expect(wrapper.find('[data-test="folder-drafts"]').exists()).toBe(true))
+    await vi.waitFor(() => expect(wrapper.find('[data-test="file-f2"]').exists()).toBe(true))
 
     await select(wrapper, 'drafts')
     await select(wrapper, 'b.jpg')
@@ -299,6 +301,7 @@ describe('MediaLibrary with the trash', () => {
     failFolderTrash('drafts')
     const wrapper = await mountLibrary()
     await vi.waitFor(() => expect(wrapper.find('[data-test="folder-drafts"]').exists()).toBe(true))
+    await vi.waitFor(() => expect(wrapper.find('[data-test="file-f2"]').exists()).toBe(true))
 
     await select(wrapper, 'drafts')
     await select(wrapper, 'a.jpg')
@@ -320,6 +323,7 @@ describe('MediaLibrary with the trash', () => {
     failFolderTrash('drafts')
     const wrapper = await mountLibrary()
     await vi.waitFor(() => expect(wrapper.find('[data-test="folder-drafts"]').exists()).toBe(true))
+    await vi.waitFor(() => expect(wrapper.find('[data-test="file-f2"]').exists()).toBe(true))
     await select(wrapper, 'drafts')
     await select(wrapper, 'a.jpg')
     await barButton(wrapper, en['media.selection.trash'])?.trigger('click')
@@ -341,6 +345,7 @@ describe('MediaLibrary with the trash', () => {
     failFolderTrash('drafts')
     const wrapper = await mountLibrary()
     await vi.waitFor(() => expect(wrapper.find('[data-test="folder-drafts"]').exists()).toBe(true))
+    await vi.waitFor(() => expect(wrapper.find('[data-test="file-f2"]').exists()).toBe(true))
 
     await select(wrapper, 'drafts')
     await select(wrapper, 'a.jpg')

@@ -498,6 +498,7 @@ describe('MediaLibrary multi-pick selection', () => {
     serveDelete('f2')
     const wrapper = await mountLibrary({ pick: true, multiple: true })
     await vi.waitFor(() => expect(wrapper.find('[data-test="folder-events"]').exists()).toBe(true))
+    await vi.waitFor(() => expect(wrapper.find('[data-test="file-f1"]').exists()).toBe(true))
     await wrapper.get('[data-test="file-f1"]').trigger('click')
     await wrapper.get('[data-test="file-f2"]').trigger('click')
 

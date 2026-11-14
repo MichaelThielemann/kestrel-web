@@ -551,6 +551,7 @@ describe('MediaLibrary selection keys in the bar and the folders', () => {
     folders = ['docs']
     const wrapper = await mountLibrary({ pick: true, multiple: true })
     await vi.waitFor(() => expect(wrapper.find('[data-test="folder-docs"]').exists()).toBe(true))
+    await vi.waitFor(() => expect(wrapper.find('[data-test="file-f1"]').exists()).toBe(true))
     await wrapper.get('[data-test="file-f1"]').trigger('click')
 
     await wrapper.get('[data-test="folder-docs"]').trigger('keydown', { key: 'Enter' })
