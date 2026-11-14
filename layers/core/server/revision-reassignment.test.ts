@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
@@ -198,7 +199,8 @@ describe("reassignRevisionAuthor and retryReassignRevisionAuthor verify the targ
 
       const events = kestrel.contracts.find(EVENTS);
       if (events === undefined) throw new Error("expected the booted instance to provide events@1");
-      await events.emit("user.deleted", { id: "vanished-user", result: { reassignTo: "vanished-user" } });
+      const vanished = randomUUID();
+      await events.emit("user.deleted", { id: vanished, result: { reassignTo: vanished } });
 
       const status = await kestrel.run("eventsDeliveryStatus", { trigger: { kind: "http", name: "GET /admin/events/delivery" }, headers });
       expect(status.status).toBe(200);
