@@ -284,3 +284,37 @@ test("the crop editor shows an upside-down WebP, whose width and height survive 
   expect(light?.right).toBeGreaterThan(200);
   expect(light?.left).toBeLessThan(160);
 });
+
+test("the crop editor stays accessible while it measures an original whose oriented dimensions kestrel has not recorded, and when that fails", async ({ page, adminApi }) => {
+  const { id } = await uploadRendered(adminApi, "framing-measure.png", [160, 40, 90]);
+  await page.route((url) => url.pathname.startsWith("/api/media"), async (route) => {
+    if (route.request().method() !== "GET") return route.fallback();
+    const response = await route.fetch();
+    const body: unknown = await response.json();
+    const unrecorded = (item: unknown) => (isRecord(item) && item.id === id && isRecord(item.framing) ? { ...item, framing: { ...item.framing, width: null, height: null } } : item);
+    const json = isRecord(body) && Array.isArray(body.items) ? { ...body, items: body.items.map(unrecorded) } : unrecorded(body);
+    return route.fulfill({ response, json });
+  });
+  let release: () => void = () => {};
+  const held = new Promise<void>((resolve) => { release = resolve; });
+  await page.route((url) => url.pathname === `/media/${id}/framing-measure.png`, async (route) => {
+    await held;
+    await route.abort();
+  });
+
+  await page.goto("/admin/media");
+  await page.getByRole("button", { name: /^framing-measure\.png/ }).dblclick();
+  await page.getByRole("dialog", { name: "framing-measure.png" }).getByRole("button", { name: "Ausschnitt anpassen" }).click();
+  const editor = page.getByRole("dialog", { name: "Ausschnitt: framing-measure.png" });
+  const panel = editor.getByRole("tabpanel");
+  await expect(panel.getByRole("status")).toHaveText("Bild wird geladen…");
+  await expect(editor.getByRole("tab", { name: "Fokus" })).toBeFocused();
+  expect(await violations(page)).toEqual([]);
+  await editor.getByRole("tab", { name: "Feinschnitt" }).click();
+  await expect(panel.getByRole("status")).toHaveText("Bild wird geladen…");
+  expect(await violations(page)).toEqual([]);
+
+  release();
+  await expect(panel.getByRole("status")).toHaveText(/^Das Bild konnte nicht geladen werden/);
+  expect(await violations(page)).toEqual([]);
+});
