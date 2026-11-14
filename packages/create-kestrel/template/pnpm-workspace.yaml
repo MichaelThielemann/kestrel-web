@@ -4,3 +4,7 @@ allowBuilds:
   unrs-resolver: true
   vue-demi: false
   sharp: true
+
+overrides:
+  'glob@13': ^14.0.2
+  'minimatch@10': ^11.0.1

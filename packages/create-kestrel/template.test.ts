@@ -12,6 +12,7 @@ import { occupants, projectFiles, readVersions, targetName, writeProject } from 
 const PACKAGE_ROOT = fileURLToPath(new URL(".", import.meta.url));
 const TEMPLATE_DIR = fileURLToPath(new URL("./template", import.meta.url));
 const ROOT_MANIFEST = fileURLToPath(new URL("../../package.json", import.meta.url));
+const ROOT_WORKSPACE = fileURLToPath(new URL("../../pnpm-workspace.yaml", import.meta.url));
 const VERSIONS = readVersions(PACKAGE_ROOT);
 
 const BASE = {
@@ -27,6 +28,18 @@ const BASE = {
 
 function files(overrides: Partial<typeof BASE>) {
   return projectFiles({ ...BASE, ...overrides }, VERSIONS, TEMPLATE_DIR);
+}
+
+function yamlBlock(source: string, key: string) {
+  const lines = source.split("\n");
+  const start = lines.indexOf(`${key}:`);
+  if (start === -1) return [];
+  const block: string[] = [];
+  for (const line of lines.slice(start + 1)) {
+    if (!line.startsWith("  ")) break;
+    block.push(line);
+  }
+  return block;
 }
 
 function text(map: Map<string, string>, path: string) {
@@ -106,6 +119,16 @@ describe("projectFiles", () => {
     expect(manifest.dependencies["@michaelthielemann/kestrel-web"]).toBe(VERSIONS.kestrelWeb);
     expect(manifest.dependencies["@michaelthielemann/kestrel"]).toBe(VERSIONS.kestrel);
     expect(manifest.name).toBe("my-site");
+  });
+
+  it("carries this repository's overrides of third-party packages and its audit exceptions into pnpm-workspace.yaml", () => {
+    const root = readFileSync(ROOT_WORKSPACE, "utf8");
+    const scaffolded = text(files({}), "pnpm-workspace.yaml");
+    const thirdParty = yamlBlock(root, "overrides").filter((line) => !line.trimStart().startsWith("'@michaelthielemann/"));
+    expect(thirdParty).not.toEqual([]);
+    expect(yamlBlock(scaffolded, "overrides")).toEqual(thirdParty);
+    expect(yamlBlock(scaffolded, "auditConfig")).toEqual(yamlBlock(root, "auditConfig"));
+    expect(yamlBlock(scaffolded, "allowBuilds")).toEqual(yamlBlock(root, "allowBuilds"));
   });
 
   it("adds the kestrel CLI as a dev dependency with a check script, on the Node version the CLI needs", () => {
