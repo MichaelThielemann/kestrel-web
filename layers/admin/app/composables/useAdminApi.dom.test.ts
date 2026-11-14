@@ -1,6 +1,6 @@
 import { defineComponent, h, watch } from 'vue'
 import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { AdminSchema } from '#kestrel-admin/types/api'
 import { useAdminApi } from './useAdminApi'
 import { ApiError, useApi } from './useApi'
@@ -22,6 +22,15 @@ const schema: AdminSchema = {
   capabilities: {},
 }
 
+const PROBE_PATH = '/admin/api-probe'
+let removeProbeRoute: (() => void) | undefined
+
+beforeAll(() => {
+  removeProbeRoute = useRouter().addRoute({ path: PROBE_PATH, component: defineComponent({ render: () => null }) })
+})
+
+afterAll(() => removeProbeRoute?.())
+
 async function mountProbe() {
   let call: ((route: { method: 'GET'; path: string }) => Promise<unknown>) | undefined
   let plainCall: ((path: string) => Promise<unknown>) | undefined
@@ -34,8 +43,7 @@ async function mountProbe() {
       return () => h('div')
     },
   })
-  const wrapper = await mountSuspended(Probe, { route: { path: '/admin/pages' } })
-  navigateCalls.length = 0
+  const wrapper = await mountSuspended(Probe, { route: PROBE_PATH })
   if (!call || !plainCall) throw new Error('expected the probe to expose call functions')
   return { wrapper, call, plainCall }
 }
