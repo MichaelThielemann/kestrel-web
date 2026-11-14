@@ -259,6 +259,21 @@ describe('useDeadLetterCount', () => {
     rail.wrapper.unmount()
   })
 
+  it('discards an answer still in flight when the capability goes away before a later refresh', async () => {
+    let resolveLoad: (status: EventDeliveryStatus) => void = () => {}
+    apiHandler.fn = () => new Promise((resolve) => { resolveLoad = resolve })
+    const { wrapper, api } = await mountProbe({ poll: false })
+    const running = api.refresh()
+    expect(apiCalls).toHaveLength(1)
+    liveSchema.capabilities = {}
+    await api.refresh()
+    resolveLoad(delivery({ dead: 7 }))
+    await running
+    expect(api.count.value).toBe(0)
+    expect(apiCalls).toHaveLength(1)
+    wrapper.unmount()
+  })
+
   it('sends a fresh request for every refresh, even while another load is running', async () => {
     const pending: ((status: EventDeliveryStatus) => void)[] = []
     apiHandler.fn = () => new Promise((resolve) => { pending.push(resolve) })
