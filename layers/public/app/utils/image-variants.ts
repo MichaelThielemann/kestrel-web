@@ -53,85 +53,42 @@ function overlapsRatio(a: Box, b: Box): boolean {
     && (b.width - 0.5) / (b.height + 0.5) <= (a.width + 0.5) / (a.height - 0.5)
 }
 
-function nearCrop(a: Crop, b: Crop): boolean {
+function sameCrop(a: Crop | null, b: Crop | null): boolean {
+  if (a === null || b === null) return a === b
   return Math.abs(a.left - b.left) <= EDGE_TOLERANCE && Math.abs(a.top - b.top) <= EDGE_TOLERANCE
     && Math.abs(a.left + a.width - b.left - b.width) <= EDGE_TOLERANCE && Math.abs(a.top + a.height - b.top - b.height) <= EDGE_TOLERANCE
 }
 
-function fitsInside(crop: Crop, image: Box): boolean {
-  return crop.left + crop.width <= image.width && crop.top + crop.height <= image.height
-}
-
-function nearCentre(crop: Crop, image: Box): boolean {
-  if (crop.width < image.width - EDGE_TOLERANCE && crop.height < image.height - EDGE_TOLERANCE) return false
-  return Math.abs(crop.left - (image.width - crop.width) / 2) <= EDGE_TOLERANCE && Math.abs(crop.top - (image.height - crop.height) / 2) <= EDGE_TOLERANCE
-}
-
-interface Orientation {
-  boxes: Box[]
-  reference: Box
-}
-
-function oneOf(stored: Box, turned: Box, upright: boolean, sideways: boolean): Box | null {
-  if (upright === sideways) return null
-  return upright ? stored : turned
-}
-
-function orient(item: ImageMedia, sizes: readonly DeclaredImageSize[], keys: ReadonlyMap<string, string>): Orientation | null {
-  if (!item.width || !item.height) return null
-  const stored = { width: item.width, height: item.height }
-  if (item.width === item.height) return { boxes: [stored], reference: stored }
-  const turned = { width: item.height, height: item.width }
+function orientedBox(item: ImageMedia, stored: Box, sizes: readonly DeclaredImageSize[]): Box | null {
   const inside = new Set(sizes.filter((size) => size.fit === 'inside').map((size) => size.name))
-  const whole = item.variants.filter((v) => v.crop === null && v.width > 0 && v.height > 0)
-  const known = whole.filter((v) => inside.has(v.size))
-  const cuts = item.variants.flatMap((v) => (v.crop ? [v.crop] : []))
-  const certain = oneOf(
-    stored,
-    turned,
-    known.some((v) => overlapsRatio(v, stored)) || cuts.some((cut) => fitsInside(cut, stored) && !fitsInside(cut, turned)),
-    known.some((v) => overlapsRatio(v, turned)) || cuts.some((cut) => fitsInside(cut, turned) && !fitsInside(cut, stored)),
-  )
-  if (certain) return { boxes: [certain], reference: certain }
-  const undeclared = whole.filter((v) => !keys.has(v.size))
-  const likely = oneOf(stored, turned, undeclared.some((v) => overlapsRatio(v, stored)), undeclared.some((v) => overlapsRatio(v, turned)))
-  return { boxes: [stored, turned], reference: likely ?? stored }
+  const whole = item.variants.find((v) => inside.has(v.size) && v.crop === null && v.width > 0 && v.height > 0)
+  if (!whole) return null
+  if (overlapsRatio(whole, stored)) return stored
+  const turned = { width: stored.height, height: stored.width }
+  return overlapsRatio(whole, turned) ? turned : null
 }
 
-function sameCrop(a: Crop | null, b: Crop | null, boxes: readonly Box[]): boolean {
-  if (a !== null && b !== null) return nearCrop(a, b)
-  const cut = a ?? b
-  if (cut === null) return true
-  const fitting = boxes.filter((box) => fitsInside(cut, box))
-  return fitting.length > 0 && fitting.every((box) => nearCentre(cut, box))
-}
-
-function sameCutAs(item: ImageMedia, named: PublicMediaVariant | undefined, reference: Box | null, keys: ReadonlyMap<string, string>, boxes: readonly Box[]): (v: PublicMediaVariant) => boolean {
-  const carriesCrop = named ? named.crop !== undefined : item.variants.some((v) => v.crop !== undefined)
+function sameCutAs(named: PublicMediaVariant | undefined, reference: Box | null, carriesCrop: boolean, coverOut: boolean, keys: ReadonlyMap<string, string>): (v: PublicMediaVariant) => boolean {
+  if (reference === null) return () => false
   if (carriesCrop) {
     const crop = named?.crop ?? null
-    return (v) => v.crop !== undefined && reference !== null && overlapsRatio(v, reference) && sameCrop(v.crop, crop, boxes)
+    return (v) => v.crop !== undefined && overlapsRatio(v, reference) && sameCrop(v.crop, crop) && !(coverOut && keys.has(v.size))
   }
   const key = named ? keys.get(named.size) : undefined
-  return (v) => v.crop === undefined && reference !== null && sameRatio(ratioOf(v), ratioOf(reference))
+  return (v) => v.crop === undefined && sameRatio(ratioOf(v), ratioOf(reference))
     && (key === undefined ? !keys.has(v.size) : keys.get(v.size) === key)
 }
 
 /**
- * The `src`, `srcset` and box of an image for a size name. A `srcset` never mixes pictures: it lists the variants
- * with the aspect ratio of the named variant (or of the original), where two ratios match when the ranges their
- * whole-pixel dimensions round from overlap, and whose `crop` equals the named variant's (`null` for the original).
- * Crops count as equal when every edge lies within a pixel of the other's, and a crop within a pixel of the centred
- * cut on the original counts as `null`, so variants that show the same part of the image share one `srcset` and a
- * variant cut differently gets one of its own. The original's stored `width`/`height` do not tell its orientation:
- * it is known from a declared `inside` size's uncut variant or from a crop that fits only one way, and without
- * either a crop counts as `null` only when it is centred on the stored box and on the swapped one alike. For the
- * original as the reference, the box (and the answered `width`/`height`) is the known orientation, else the one the
- * uncut variants of sizes not declared `cover` show when they agree, else the stored one. When the variants carry
- * no `crop` (an anonymous grant without `variants[].crop`), ratios match within 1 %, a declared `cover` size lists
- * the variants of the `cover` sizes with its exact ratio key, and any other size the variants of its ratio that no
- * declared `cover` size renders. `sizes` are the declared image sizes, by default those of the build
- * (`#kestrel/image-sizes`).
+ * The `src`, `srcset` and box of an image for a size name. The `srcset` lists the variants that show the same
+ * picture as the named variant: the same aspect ratio, where the ranges their whole-pixel dimensions round from
+ * overlap, and an equal `crop`, both `null` or every edge within a pixel of the other's. Without a variant of that
+ * name the original is the reference, with `crop` `null`. Its box (and the answered `width`/`height`) is the stored
+ * one, turned when the variant of a declared `inside` size shows the swapped aspect; without such a variant the
+ * variants of declared `cover` sizes stay out. When the variants carry no `crop`, ratios match within 1 %, a
+ * declared `cover` size lists the variants of the `cover` sizes with its exact ratio key, and any other size the
+ * variants of its ratio that no declared `cover` size renders. `sizes` are the declared image sizes, by default those
+ * of the build (`#kestrel/image-sizes`).
  */
 export function pickImageSources(
   item: ImageMedia | null,
@@ -142,14 +99,16 @@ export function pickImageSources(
   if (item === null) return null
 
   const keys = coverKeys(sizes)
-  const orientation = orient(item, sizes, keys)
   const named = item.variants.find((v) => v.size === size && v.width > 0 && v.height > 0)
-  const reference = named ?? orientation?.reference ?? null
+  const carriesCrop = named ? named.crop !== undefined : item.variants.some((v) => v.crop !== undefined)
+  const stored = item.width && item.height ? { width: item.width, height: item.height } : null
+  const oriented = !named && carriesCrop && stored ? orientedBox(item, stored, sizes) : null
+  const reference: Box | null = named ?? oriented ?? stored
   const src = named ? named.path : item.path
   const width = reference ? reference.width : item.width
   const height = reference ? reference.height : item.height
 
-  const sameCut = sameCutAs(item, named, reference, keys, orientation?.boxes ?? [])
+  const sameCut = sameCutAs(named, reference, carriesCrop, !named && !oriented, keys)
   const ordered = named ? [named, ...item.variants.filter((v) => v !== named)] : item.variants
   const candidates = restrict(ordered.filter(sameCut), only)
   const srcset = candidates.length === 0 ? null : candidates.map((v) => `${v.path} ${v.width}w`).join(', ')
