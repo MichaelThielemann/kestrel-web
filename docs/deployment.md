@@ -185,7 +185,7 @@ needs write permission on it; without it nginx answers 502 and logs `connect() �
 ## 6. Container
 
 ```dockerfile
-FROM node:22-alpine AS build
+FROM node:22-alpine@sha256:1314fb30ec37592d5845e5a160d522c0e680972aa534549940b8d73bde88481a AS build
 WORKDIR /app
 RUN corepack enable
 COPY pnpm-lock.yaml package.json ./
@@ -193,14 +193,24 @@ RUN pnpm install --frozen-lockfile
 COPY . .
 RUN pnpm exec nuxt build
 
-FROM node:22-alpine
+FROM node:22-alpine@sha256:1314fb30ec37592d5845e5a160d522c0e680972aa534549940b8d73bde88481a
 WORKDIR /app
 ENV NODE_ENV=production NITRO_HOST=0.0.0.0 PORT=3000 KESTREL_DATA_DIR=/data
 COPY --from=build /app/.output ./.output
+RUN mkdir /data && chown node:node /data
+USER node
 VOLUME /data
 EXPOSE 3000
 CMD ["node", "--disable-warning=ExperimentalWarning", ".output/server/index.mjs"]
 ```
+
+The digest pins the image index, so a build always starts from the same base; the tag in front of it only
+says what the digest is. `docker buildx imagetools inspect node:22-alpine` prints the current one. Move it on a schedule rather than
+by accident: Dependabot's `docker` ecosystem and Renovate both open a pull request for a new digest.
+
+The process runs as `node`, not as root, and can write nothing but `/data`; `.output` stays owned by root.
+The `mkdir` and `chown` come before `VOLUME`, so a new named volume starts out owned by `node`; a directory
+bind-mounted at `/data` must be writable by uid 1000 as well.
 
 `COPY --from=build` keeps the symlinks inside `.output/server/node_modules`, so the copy caveat of §1
 does not apply here. Mount `/data` — without a volume the database is lost with the container.
