@@ -50,7 +50,9 @@ With `--yes` and no password given, a random one is generated and printed once a
 `package.json`, `nuxt.config.ts`, `kestrel.config.ts`, `shared/model.ts`,
 `shared/collections-ui.ts`, two example blocks under `app/blocks/`, `tsconfig.json`,
 `pnpm-workspace.yaml` (the `allowBuilds` list Nuxt needs and the `overrides` that resolve Nuxt's
-`glob` and `minimatch` to releases without known advisories, ignored by the other managers),
+`glob` and `minimatch` to releases without known advisories, ignored by the other managers, and an
+`auditConfig` that ignores the single advisory GHSA-gcqx-w48m-w2h4 in `deepmerge`, a development-only
+dependency of Nuxt, until 2027-02-13),
 `.gitignore`, `.env`, `.env.example` and a README. The generated project has
 `@michaelthielemann/kestrel-cli` as a dev dependency and a `check` script, so `pnpm check` runs
 `kestrel check` against it; the project then needs Node 22.18 or newer. The sources live as real files under `template/`;

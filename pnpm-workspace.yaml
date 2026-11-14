@@ -14,6 +14,10 @@ trustPolicy: no-downgrade
 trustPolicyIgnoreAfter: 129600
 blockExoticSubdeps: true
 
+auditConfig:
+  ignoreGhsas:
+    - GHSA-gcqx-w48m-w2h4
+
 overrides:
   'glob@13': ^14.0.2
   'minimatch@10': ^11.0.1

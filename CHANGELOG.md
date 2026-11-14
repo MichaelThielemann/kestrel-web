@@ -1087,6 +1087,10 @@
   against minimatch 11, runs `pnpm update --depth Infinity eslint-plugin-import-x` (with `-r` in a workspace) or
   resolves its lockfile from scratch: `pnpm install` and `pnpm update eslint-plugin-import-x` keep the pinned
   release.
+- The `pnpm-workspace.yaml` that `create-kestrel` writes ignores one advisory through `auditConfig.ignoreGhsas`:
+  GHSA-gcqx-w48m-w2h4 in `deepmerge`, reached only through Nuxt's development toolchain (`nitropack` >
+  `@rollup/plugin-node-resolve`) and absent from a production build. Remove the entry once a Nuxt release no
+  longer pulls `deepmerge`, and no later than 2027-02-13.
 - Media library and picker: "Delete" moves files and folders to the media trash instead of deleting them, so
   their files keep using storage until the nightly purge, 30 days later by default
   (`media.trashRetentionDays`; `0` keeps the final delete behind a dialog). A page that shows a trashed item
