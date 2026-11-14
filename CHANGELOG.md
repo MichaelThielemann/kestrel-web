@@ -43,8 +43,8 @@
   does not fit and a note when a crop is smaller than a size kestrel renders, whose variant is then delivered
   smaller. An original browsers cannot display, or a WebP original whose orientation tag browsers ignore, is
   shown from its largest finished variant without a `crop` that has the oriented original's aspect, and is not
-  offered for editing before that variant is finished; a media field shows the button once it is. Without a
-  `cover` size it edits the focus only and says why.
+  offered for editing before that variant is finished; the media viewer and a media field show the button once
+  the item's variants have all finished rendering. Without a `cover` size it edits the focus only and says why.
   It names how many records use the image, asks before Escape or Cancel drops unsaved changes and saves through
   `PUT /media/:id/framing`.
 - Static delivery keeps `sitemap.xml`, `robots.txt`, `llms.txt` and `llms-full.txt` current. Every pipeline that
