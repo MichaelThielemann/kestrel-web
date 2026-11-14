@@ -763,16 +763,20 @@ describe('artBoxCss', () => {
   it('sets the ratio of the fallback as the base rule and one media rule per source in reverse order', () => {
     const css = artBoxCss('img.x', { width: 720, height: 960 }, [source('(min-width: 80rem)', 1920, 1080), source('(min-width: 48rem)', 1152, 648)])
 
-    expect(css).toBe('img.x{aspect-ratio:720 / 960}@media (min-width: 48rem){img.x{aspect-ratio:1152 / 648}}@media (min-width: 80rem){img.x{aspect-ratio:1920 / 1080}}')
+    expect(css).toBe('img.x{display:block;aspect-ratio:720 / 960}@media (min-width: 48rem){img.x{aspect-ratio:1152 / 648}}@media (min-width: 80rem){img.x{aspect-ratio:1920 / 1080}}')
   })
 
   it('leaves out a box that is unknown', () => {
-    expect(artBoxCss('img.x', { width: null, height: null }, [source('(min-width: 48rem)', 1152, null)])).toBe('')
+    expect(artBoxCss('img.x', { width: null, height: null }, [source('(min-width: 48rem)', 1152, null)])).toBe('img.x{display:block}')
+  })
+
+  it('makes the image a block so that the picture around it takes no line of its own', () => {
+    expect(artBoxCss('img.x', null, [])).toBe('img.x{display:block}')
   })
 
   it('leaves out a media query that could close the rule', () => {
     const css = artBoxCss('img.x', { width: 4, height: 3 }, [source('(min-width: 1px){}</style><b>', 16, 9)])
 
-    expect(css).toBe('img.x{aspect-ratio:4 / 3}')
+    expect(css).toBe('img.x{display:block;aspect-ratio:4 / 3}')
   })
 })

@@ -160,8 +160,9 @@ export interface ArtSource {
  * The `<source>` elements of an art directed image, one per entry in the order given. Each one takes `src`, `srcset`
  * and box from `pickImageSources` for its own size, so its `srcset` holds one aspect ratio and one cut. A size without
  * a variant follows the reference rule of `pickImageSources`: the original, and the uncut variants of the item that
- * show its aspect ratio. Only when the item has no variant at all is the original the single candidate. `sizes` is
- * set only where the `srcset` has width descriptors.
+ * show its aspect ratio. When no variant is left after that (the item has none, or `only` leaves none that show the
+ * picture of the entry) the `src` of `pickImageSources`, the named variant's path or else the original, is the single
+ * candidate. `sizes` is set only where the `srcset` has width descriptors.
  */
 export function pickArtSources(
   item: ImageMedia | null,
@@ -186,21 +187,21 @@ export function pickArtSources(
 }
 
 /**
- * The CSS that forces the box of an art directed `<img>` to the aspect ratio of the source the browser selects. A
+ * The CSS that forces the box of an art directed `<img>` to the aspect ratio of the source the browser selects. The
+ * base rule also makes the image a block, so that the `<picture>` around it takes no line box of its own. A
  * `width`/`height` attribute only gives `aspect-ratio: auto w / h`, which the natural ratio of the loaded bytes
  * replaces, and a variant that has not been cut yet serves the original. The rule for `fallback` is the base; each
  * source adds a `@media` rule, in reverse list order so that the first matching entry wins as it does in `<picture>`.
  * Sources with an unknown box, or a media query that could close the rule, are left out.
  */
 export function artBoxCss(selector: string, fallback: { width: number | null; height: number | null } | null, sources: readonly ArtSource[]): string {
-  const rule = (box: { width: number | null; height: number | null }): string | null =>
-    box.width && box.height ? `${selector}{aspect-ratio:${box.width} / ${box.height}}` : null
-  const rules: string[] = []
-  const base = fallback ? rule(fallback) : null
-  if (base) rules.push(base)
+  const ratio = (box: { width: number | null; height: number | null }): string | null =>
+    box.width && box.height ? `aspect-ratio:${box.width} / ${box.height}` : null
+  const base = ['display:block', fallback ? ratio(fallback) : null].filter((declaration) => declaration !== null)
+  const rules: string[] = [`${selector}{${base.join(';')}}`]
   for (const source of [...sources].reverse()) {
-    const body = rule(source)
-    if (body && !/[{}]|<\/style/i.test(source.media)) rules.push(`@media ${source.media}{${body}}`)
+    const declaration = ratio(source)
+    if (declaration && !/[{}]|<\/style/i.test(source.media)) rules.push(`@media ${source.media}{${selector}{${declaration}}}`)
   }
   return rules.join('')
 }

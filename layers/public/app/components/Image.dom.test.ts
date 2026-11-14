@@ -202,7 +202,7 @@ describe('KestrelImage', () => {
       const img = wrapper.get('picture > img')
       const selector = `:where(img[data-kestrel-art="${img.attributes('data-kestrel-art')}"])`
       await vi.waitFor(() => expect(headRules(img)).toBe(
-        `${selector}{aspect-ratio:720 / 960}`
+        `${selector}{display:block;aspect-ratio:720 / 960}`
         + `@media (min-width: 48rem){${selector}{aspect-ratio:360 / 480}}`
         + `@media (min-width: 80rem){${selector}{aspect-ratio:1152 / 648}}`,
       ))
@@ -219,7 +219,7 @@ describe('KestrelImage', () => {
       })
       const wrapper = await mountSuspended(KestrelImage, { props: { media: pending, size: 'tall', art } })
 
-      await vi.waitFor(() => expect(headRules(wrapper.get('picture > img'))).toMatch(/aspect-ratio:720 \/ 960\}@media \(min-width: 48rem\)\{[^{]*\{aspect-ratio:1152 \/ 648\}\}$/))
+      await vi.waitFor(() => expect(headRules(wrapper.get('picture > img'))).toMatch(/display:block;aspect-ratio:720 \/ 960\}@media \(min-width: 48rem\)\{[^{]*\{aspect-ratio:1152 \/ 648\}\}$/))
     })
 
     it('renders no rule and no marker for a plain image', async () => {
@@ -237,6 +237,39 @@ describe('KestrelImage', () => {
 
       expect(wrapper.get('picture').attributes('data-v-parent')).toBeDefined()
       expect(wrapper.get('picture > img').attributes('data-v-parent')).toBeDefined()
+    })
+
+    it('carries the scope attributes of every ancestor whose root the image is onto the fallback image', async () => {
+      const Wrapper = Object.assign(
+        defineComponent({ render: () => h(KestrelImage, { media: artItem(), size: 'tall', art }) }),
+        { __scopeId: 'data-v-wrapper' },
+      )
+      const Page = Object.assign(
+        defineComponent({ render: () => h(Wrapper, { class: 'hero-image' }) }),
+        { __scopeId: 'data-v-page' },
+      )
+      const wrapper = await mountSuspended(Page)
+
+      const img = wrapper.get('picture > img')
+      expect(img.attributes('data-v-wrapper')).toBeDefined()
+      expect(img.attributes('data-v-page')).toBeDefined()
+      expect(wrapper.get('picture').attributes('data-v-page')).toBeDefined()
+    })
+
+    it('does not carry the scope attribute of an ancestor whose root the image is not', async () => {
+      const Wrapper = Object.assign(
+        defineComponent({ render: () => h('div', [h(KestrelImage, { media: artItem(), size: 'tall', art })]) }),
+        { __scopeId: 'data-v-wrapper' },
+      )
+      const Page = Object.assign(
+        defineComponent({ render: () => h(Wrapper) }),
+        { __scopeId: 'data-v-page' },
+      )
+      const wrapper = await mountSuspended(Page)
+
+      const img = wrapper.get('picture > img')
+      expect(img.attributes('data-v-wrapper')).toBeDefined()
+      expect(img.attributes('data-v-page')).toBeUndefined()
     })
 
     it('lets the attributes of the consumer win on the fallback image', async () => {
@@ -305,6 +338,12 @@ describe('KestrelImage', () => {
 
       expect(wrapper.get('picture > source').attributes('srcset')).toBe('/media/m1/variants/wide.webp 1152w')
       expect(wrapper.get('picture > img').attributes('srcset')).toBe('/media/m1/variants/tall.webp 720w')
+    })
+
+    it('offers the path of the entry alone, without sizes, when only leaves no variant that shows its picture', () => {
+      const picked = pickArtSources(artItem(), [{ media: '(min-width: 48rem)', size: 'wide' }], ['tall'], sizes, '100vw')
+
+      expect(picked).toEqual([{ media: '(min-width: 48rem)', srcset: '/media/m1/variants/wide.webp', sizes: undefined, width: 1152, height: 648 }])
     })
 
     it('reads the declared sizes of the build to keep the ratios apart', () => {

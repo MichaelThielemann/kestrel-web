@@ -5,8 +5,7 @@ function riffChunk(type: string, data: Buffer): Buffer {
   return Buffer.concat([head, data, data.length % 2 === 1 ? Buffer.alloc(1) : Buffer.alloc(0)]);
 }
 
-/** The TIFF structure of an EXIF block that holds only an orientation tag. */
-export function exifOrientation(orientation: number): Buffer {
+function exifOrientation(orientation: number): Buffer {
   const tiff = Buffer.alloc(26);
   tiff.write("MM", 0, "ascii");
   tiff.writeUInt16BE(0x2a, 2);

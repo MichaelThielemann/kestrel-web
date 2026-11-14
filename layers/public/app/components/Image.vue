@@ -20,7 +20,7 @@ const props = withDefaults(defineProps<{
 
 const attrs = useAttrs()
 const artKey = useId()
-const scopeId = getCurrentInstance()?.vnode.scopeId ?? null
+const scopeAttrs = inheritedScopeAttrs()
 const locale = useSiteLocale()
 
 const id = computed(() => (typeof props.media === 'string' ? props.media : props.media?.id ?? null))
@@ -54,9 +54,27 @@ const imgAttrs = computed(() => ({
   fetchpriority: props.fetchpriority,
 }))
 
+function slotScopeIdsOf(vnode: object): string[] {
+  const ids = 'slotScopeIds' in vnode ? vnode.slotScopeIds : null
+  return Array.isArray(ids) ? ids.filter((id): id is string => typeof id === 'string') : []
+}
+
+function inheritedScopeAttrs(): Record<string, string> {
+  const ids: string[] = []
+  let current = getCurrentInstance()
+  while (current) {
+    const { vnode } = current
+    if (vnode.scopeId) ids.push(vnode.scopeId)
+    ids.push(...slotScopeIdsOf(vnode))
+    const parent = current.parent
+    current = parent && parent.subTree === current.vnode ? parent : null
+  }
+  return Object.fromEntries(ids.map((id) => [id, '']))
+}
+
 function imgProps() {
   const art = artSources.value.length
-    ? { ...(artCss.value ? { 'data-kestrel-art': artKey } : {}), ...(scopeId ? { [scopeId]: '' } : {}) }
+    ? { ...(artCss.value ? { 'data-kestrel-art': artKey } : {}), ...scopeAttrs }
     : {}
   return mergeProps(imgAttrs.value, { style: boxStyle.value }, art, attrs)
 }
