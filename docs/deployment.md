@@ -236,6 +236,9 @@ server {
   server_name example.com;
 
   add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+  add_header X-Content-Type-Options nosniff always;
+  add_header Referrer-Policy same-origin always;
+  add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()" always;
 
   client_max_body_size 6m;
 
@@ -252,11 +255,36 @@ server {
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-Proto $scheme;
     proxy_read_timeout 300s;
+
+    proxy_hide_header X-Content-Type-Options;
+    proxy_hide_header Referrer-Policy;
+    proxy_hide_header Permissions-Policy;
+
+    gzip on;
+    gzip_vary on;
+    gzip_types text/css text/javascript application/javascript image/svg+xml text/plain text/xml application/xml;
   }
 }
 ```
 
 Points that matter:
+
+- **Response headers.** The admin layer sends `X-Frame-Options: SAMEORIGIN`, `Referrer-Policy: same-origin`,
+  `X-Content-Type-Options: nosniff` and a `Permissions-Policy` that turns off camera, microphone, geolocation,
+  payment and USB on every route under `/admin`; the public site is left to you. The three `add_header` lines
+  after HSTS give the whole site the same values, and `proxy_hide_header` keeps the answer from carrying each
+  of them twice on `/admin`. The framing header stays with the layer because only `/admin` must not be
+  embedded: the editor's preview frames the public site from the same origin, and whether other sites may
+  frame your pages is your decision. A Content Security Policy is not part of the example; the files at
+  `/media/` carry their own (§8 of the consuming guide).
+  `add_header` in a `location` replaces every `add_header` the `server` block set: a location that sets one
+  repeats the lines it still wants, HSTS first.
+- **Compression.** `gzip on` in the location of the public site compresses the HTML, CSS, JavaScript and SVG
+  that the Node process sends as they are (an example page of 23 KB goes out as about 6 KB). `application/json` is not
+  in the list on purpose: the API answers hold tokens and per-user data, and compressing a secret next to
+  text a request can choose is how BREACH reads it. nginx compresses at its default level, per response; a
+  static export has no precompressed copies, so `gzip_static` has nothing to serve. The Node process does not
+  compress at all: without a proxy or CDN in front, every page travels several times larger.
 
 - **Index files.** With `delivery`, `robots.txt`, `sitemap.xml`, `llms.txt` and `llms-full.txt` are written to
   the blobstore under `site/` (`<dataDir>/blobs/site/` with the filesystem blobstore of §5), and the Node server
