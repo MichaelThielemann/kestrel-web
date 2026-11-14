@@ -299,6 +299,13 @@
   published `kestrel` or `kestrel-web` installs at once. With `npm`, `yarn` or `bun` the project has no
   `packageManager` field.
 
+### Fixed
+
+- Admin: System → Replication scrolls when its content does not fit, so the restore point table keeps a minimum
+  height and stays reachable on small screens while the staged-restore and restore-result notices are shown. The
+  generation wraps at narrow widths instead of being cut off, the tab never scrolls sideways, and the restore
+  result is scrolled into view after a restore.
+
 ### Upgrading
 
 - With `images`, `MediaItem` has the members `focus` and `framing`, each `MediaVariant` has `crop`, and

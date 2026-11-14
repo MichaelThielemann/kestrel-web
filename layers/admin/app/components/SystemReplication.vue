@@ -21,6 +21,7 @@ const restoreBusy = ref<string | null>(null)
 const restoreResult = ref<ReplicationRestoreResult | null>(null)
 const restoreAt = ref('')
 const confirmPoint = ref<ReplicationPoint | null>(null)
+const resultAlert = ref<{ $el: Element } | null>(null)
 
 async function load() {
   loadError.value = null
@@ -49,6 +50,13 @@ async function snapshotNow() {
   toastUnexpected(deps, result)
 }
 
+let revealTimer: ReturnType<typeof setTimeout> | undefined
+function revealResult() {
+  const el = resultAlert.value?.$el
+  if (el && typeof el.scrollIntoView === 'function') el.scrollIntoView({ block: 'nearest' })
+}
+onUnmounted(() => { if (revealTimer) clearTimeout(revealTimer) })
+
 async function restore(point: RestoreTarget | null, busyKey: string) {
   const r = await runAction(replicationRestore, {
     deps,
@@ -60,6 +68,9 @@ async function restore(point: RestoreTarget | null, busyKey: string) {
   if (r.ok && r.result) {
     restoreResult.value = r.result
     confirmPoint.value = null
+    await nextTick()
+    if (revealTimer) clearTimeout(revealTimer)
+    revealTimer = setTimeout(revealResult, 0)
   }
 }
 
@@ -83,7 +94,7 @@ function relative(ms: number | null): string { return ms === null ? '—' : huma
     <KestrelUiAlert v-else-if="loadError" variant="error">{{ loadError }}</KestrelUiAlert>
 
     <template v-else-if="status">
-      <KestrelUiAlert v-if="restoreResult" variant="success">
+      <KestrelUiAlert v-if="restoreResult" ref="resultAlert" variant="success">
         <template #title>{{ t('replication.restoreDoneTitle') }}</template>
         {{ t('replication.restoreDone', { generation: restoreResult.generation, at: absolute(restoreResult.at), file: restoreResult.file }) }}
       </KestrelUiAlert>
@@ -198,7 +209,7 @@ function relative(ms: number | null): string { return ms === null ? '—' : huma
   gap: var(--space-4);
   flex: 1 1 auto;
   min-height: 0;
-  overflow-y: auto;
+  overflow: hidden auto;
 
   > div.replication__points {
     min-height: 12rem;
@@ -223,6 +234,7 @@ function relative(ms: number | null): string { return ms === null ? '—' : huma
   }
   &__stat-value {
     font-weight: var(--weight-medium);
+    overflow-wrap: anywhere;
   }
 
   &__bar {
