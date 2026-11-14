@@ -1606,8 +1606,11 @@ ratio, while 320×213 is 1200×800's. Two crops are equal when each edge lies wi
 and a crop within a pixel of the centred cut on the original counts as `null`: a focus that moves the 3:2 cut
 of a 1920×1281 original by one row leaves the `teaser` with the `inside` widths. The centre is taken on the
 original as it is displayed; the item's `width` and `height` are as stored, swapped for a photo with an EXIF
-rotation, so `KestrelImage` reads the orientation from the uncut `inside` variants, and a crop it cannot place
-counts as `null` only when it is centred either way. A
+rotation. `KestrelImage` knows the orientation from an uncut variant of a size declared `inside` or from a crop
+that fits the image only one way; without either, a crop counts as `null` only when it is centred on both the
+stored and the swapped box. When the original itself is the reference (no variant of the named size is listed),
+its box, `width`, `height` and `srcset` follow the known orientation, else the one the uncut variants of sizes
+not declared `cover` agree on, so a photo stored on its side keeps its `inside` widths. A
 `cover` size that nobody cut by hand and that has no focus to follow therefore gets the `inside` widths of its
 ratio too: a 480×320 `teaser` on a large 3:2 original is offered at 320, 480, 640, 1024, 1600 and 2400 pixels
 wide, and an `inside` size's `srcset` includes the `teaser`. Once the 3:2 crop is set by hand or the focus moves the cut, the
@@ -1617,7 +1620,8 @@ grant of your own without `variants[].crop`), `KestrelImage` falls back to the d
 within 1 %: a `cover` size's
 `srcset` lists the variants of the `cover` sizes with its exact ratio key only, and other sizes leave declared
 `cover` variants out, so declare every `cover` size the site renders here, not only in images-default's own
-`sizes` config.
+`sizes` config. A call to `pickImageSources(item, size, only)` from your own component reads the same declared
+sizes (`#kestrel/image-sizes`) unless you pass them as the fourth argument.
 
 The admin's crop editor opens from the media viewer ("Adjust crop") and from the crop button on an image
 chosen in a media field. Its focus tab previews each ratio of the `cover` sizes; its fine-crop tab shows one

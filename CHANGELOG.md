@@ -25,8 +25,12 @@
   show the same crop as the named variant (the whole image for the original): a `cover` variant that is not cut
   by hand or around a focus keeps the `inside` widths of its ratio, and one cut differently gets a `srcset` of
   its own. Ratios match when their whole-pixel rounding ranges overlap, crops when every edge lies within a
-  pixel, and a crop within a pixel of the centred cut of the oriented original counts as uncut. It takes the declared sizes as a fourth
-  argument, which it groups by when the variants carry no `crop` (a hand-written anonymous grant without it),
+  pixel, and a crop within a pixel of the centred cut of the oriented original counts as uncut. The orientation
+  comes from an uncut variant of a declared `inside` size or a crop that fits only one way; without it a crop
+  counts as uncut only when it is centred either way. The original as the reference takes the oriented box,
+  `width` and `height`, so a photo stored on its side keeps its `inside` widths. It takes the declared sizes as
+  a fourth argument, by default the build's (`#kestrel/image-sizes`), which it groups by when the variants carry
+  no `crop` (a hand-written anonymous grant without it),
   with ratios within 1 %: a declared `cover` size's `srcset` then lists only the
   `cover` variants of its exact ratio key and any other size's leaves declared `cover` variants out. A width
   tie keeps the named variant (`cut` in its answer says whether `src` links a declared `cover` size).

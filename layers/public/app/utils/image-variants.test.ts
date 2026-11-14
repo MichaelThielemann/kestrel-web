@@ -1,7 +1,10 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { focusObjectPosition, pickImageSources, type DeclaredImageSize } from './image-variants'
 import type { ImageMedia } from './public-shapes'
 import type { MediaItem, MediaVariant } from '#kestrel-core/app/types/api'
+
+const declared = vi.hoisted(() => ({ sizes: [] as { name: string, width: number, height?: number, fit: 'inside' | 'cover' }[] }))
+vi.mock('#kestrel/image-sizes', () => ({ imageSizes: declared.sizes }))
 
 function variant(over: Partial<MediaVariant>): MediaVariant {
   return { size: 'thumb', width: 320, height: 240, format: 'webp', bytes: 1000, state: 'done', path: '/media/m1/variants/thumb.webp', crop: null, ...over }
@@ -448,11 +451,12 @@ describe('pickImageSources', () => {
       expect(pickImageSources(media, 'wide', undefined, sizes)?.srcset).toBe('/media/m1/variants/wide.webp 1000w')
     })
 
-    it('judges a cut that fits the original either way against the orientation its whole-image variants show', () => {
+    it('judges a cut that fits the original either way against the orientation its declared inside variants show, and against both without them', () => {
       const teaser: DeclaredImageSize = { name: 'teaser', width: 480, height: 320, fit: 'cover' }
       const card: DeclaredImageSize = { name: 'card', width: 1000, height: 667, fit: 'cover' }
+      const inside: DeclaredImageSize[] = [{ name: 'thumb', width: 320, fit: 'inside' }, { name: 'large', width: 1600, fit: 'inside' }]
       const cover = [
-        variant({ size: 'teaser', width: 480, height: 320, path: '/media/m1/variants/teaser.webp?v=2', crop: { left: 0, top: 1001, width: 3000, height: 2000 } }),
+        variant({ size: 'teaser', width: 480, height: 320, path: '/media/m1/variants/teaser.webp?v=2', crop: { left: 0, top: 1000, width: 3000, height: 2000 } }),
         variant({ size: 'card', width: 1000, height: 667, path: '/media/m1/variants/card.webp' }),
       ]
       const sideways = item({
@@ -464,8 +468,8 @@ describe('pickImageSources', () => {
           ...cover,
         ],
       })
-      expect(pickImageSources(sideways, 'teaser', undefined, [teaser, card])?.srcset).toBe('/media/m1/variants/teaser.webp?v=2 480w, /media/m1/variants/card.webp 1000w')
-      expect(pickImageSources(sideways, 'teaser')?.srcset).toBe('/media/m1/variants/teaser.webp?v=2 480w, /media/m1/variants/card.webp 1000w')
+      expect(pickImageSources(sideways, 'teaser', undefined, [teaser, card, ...inside])?.srcset).toBe('/media/m1/variants/teaser.webp?v=2 480w, /media/m1/variants/card.webp 1000w')
+      expect(pickImageSources(sideways, 'teaser', undefined, [teaser, card])?.srcset).toBe('/media/m1/variants/teaser.webp?v=2 480w')
       const upright = item({
         width: 4000,
         height: 3000,
@@ -475,7 +479,50 @@ describe('pickImageSources', () => {
           ...cover,
         ],
       })
+      expect(pickImageSources(upright, 'teaser', undefined, [teaser, card, ...inside])?.srcset).toBe('/media/m1/variants/teaser.webp?v=2 480w')
       expect(pickImageSources(upright, 'teaser', undefined, [teaser, card])?.srcset).toBe('/media/m1/variants/teaser.webp?v=2 480w')
+    })
+
+    it('keeps a corner cut apart from a centred one when an undeclared cover size of the swapped aspect is the only uncut variant', () => {
+      const corner = { left: 0, top: 2000, width: 4000, height: 2000 }
+      const media = item({
+        width: 6000,
+        height: 4000,
+        variants: [
+          variant({ size: 'banner', width: 1000, height: 500, path: '/media/m1/variants/banner.webp?v=2', crop: corner }),
+          variant({ size: 'banner-2x', width: 2000, height: 1000, path: '/media/m1/variants/banner-2x.webp?v=2', crop: { ...corner } }),
+          variant({ size: 'banner-alt', width: 1000, height: 501, path: '/media/m1/variants/banner-alt.webp' }),
+          variant({ size: 'tall', width: 400, height: 600, path: '/media/m1/variants/tall.webp' }),
+        ],
+      })
+      const sizes: DeclaredImageSize[] = [
+        { name: 'banner', width: 1000, height: 500, fit: 'cover' },
+        { name: 'banner-2x', width: 2000, height: 1000, fit: 'cover' },
+        { name: 'banner-alt', width: 1000, height: 501, fit: 'cover' },
+      ]
+      expect(pickImageSources(media, 'banner-alt', undefined, sizes)?.srcset).toBe('/media/m1/variants/banner-alt.webp 1000w')
+      expect(pickImageSources(media, 'banner', undefined, sizes)?.srcset).toBe('/media/m1/variants/banner.webp?v=2 1000w, /media/m1/variants/banner-2x.webp?v=2 2000w')
+    })
+
+    it('takes the whole-image widths and the displayed box for the original of a photo stored on its side', () => {
+      const four: DeclaredImageSize[] = [{ name: 'four', width: 800, height: 600, fit: 'cover' }, { name: 'four-2x', width: 1600, height: 1200, fit: 'cover' }]
+      const media = item({
+        width: 4000,
+        height: 3000,
+        variants: [
+          variant({ size: 'thumb', width: 320, height: 427, path: '/media/m1/variants/thumb.webp' }),
+          variant({ size: 'small', width: 640, height: 853, path: '/media/m1/variants/small.webp' }),
+          variant({ size: 'large', width: 1600, height: 2133, path: '/media/m1/variants/large.webp' }),
+          variant({ size: 'four', width: 800, height: 600, path: '/media/m1/variants/four.webp' }),
+          variant({ size: 'four-2x', width: 1600, height: 1200, path: '/media/m1/variants/four-2x.webp' }),
+        ],
+      })
+      const whole = '/media/m1/variants/thumb.webp 320w, /media/m1/variants/small.webp 640w, /media/m1/variants/large.webp 1600w'
+      for (const sizes of [four, [...four, { name: 'thumb', width: 320, fit: 'inside' as const }]]) {
+        const sources = pickImageSources(media, 'hero', undefined, sizes)
+        expect(sources).toMatchObject({ src: '/media/m1/photo.jpg', srcset: whole, width: 3000, height: 4000, variant: false })
+      }
+      expect(pickImageSources(media, 'four', undefined, four)?.srcset).toBe('/media/m1/variants/four.webp 800w, /media/m1/variants/four-2x.webp 1600w')
     })
 
     it('counts cuts of two ratio keys that differ by at most a pixel per edge as the same picture', () => {
@@ -562,6 +609,30 @@ describe('pickImageSources', () => {
       expect(pickImageSources(media, 'large', undefined, [hero])?.cut).toBe(false)
       expect(pickImageSources(media, 'missing', undefined, [hero])?.cut).toBe(false)
       expect(pickImageSources(media, 'hero')?.cut).toBe(false)
+    })
+  })
+
+  describe('without the declared sizes as an argument', () => {
+    afterEach(() => { declared.sizes.splice(0) })
+
+    it('groups by the sizes the build declares, as KestrelImage does, when the variants carry no crop', () => {
+      declared.sizes.push({ name: 'teaser', width: 480, height: 320, fit: 'cover' })
+      const withoutCrop = (over: Partial<MediaVariant>) => {
+        const { crop: _crop, ...rest } = variant(over)
+        return rest
+      }
+      const media: ImageMedia = {
+        ...item({ width: 6000, height: 4000 }),
+        variants: [
+          withoutCrop({ size: 'thumb', width: 320, height: 213, path: '/media/m1/variants/thumb.webp' }),
+          withoutCrop({ size: 'small', width: 640, height: 427, path: '/media/m1/variants/small.webp' }),
+          withoutCrop({ size: 'teaser', width: 480, height: 320, path: '/media/m1/variants/teaser.webp?v=2' }),
+          withoutCrop({ size: 'medium', width: 1024, height: 683, path: '/media/m1/variants/medium.webp' }),
+        ],
+      }
+      expect(pickImageSources(media, 'small')?.srcset).toBe('/media/m1/variants/thumb.webp 320w, /media/m1/variants/small.webp 640w, /media/m1/variants/medium.webp 1024w')
+      expect(pickImageSources(media, 'small', undefined)?.srcset).toBe('/media/m1/variants/thumb.webp 320w, /media/m1/variants/small.webp 640w, /media/m1/variants/medium.webp 1024w')
+      expect(pickImageSources(media, 'teaser')).toMatchObject({ srcset: '/media/m1/variants/teaser.webp?v=2 480w', cut: true })
     })
   })
 
