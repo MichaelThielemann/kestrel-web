@@ -1609,9 +1609,11 @@ centred therefore shares the `inside` widths of its ratio: a 480×320 `teaser` o
 offered at 320, 480, 640, 1024, 1600 and 2400 pixels wide until a manual crop or the focus moves its cut, and
 then its variants form a `srcset` of their own. Without a variant of the named size the original is the
 reference. Its box is the item's `width` and `height`, turned when the uncut variants of the declared `inside`
-sizes show only the swapped aspect (a photo with an EXIF rotation), or, without such a variant, those of sizes
-the build does not declare, such as images-default's own `thumb` to `xl`. When neither tells the orientation,
-the `cover` sizes stay out of its `srcset`. When kestrel's listing and the bytes at a path can differ is described under "Which variants
+sizes show only the swapped aspect (a photo with an EXIF rotation). Without such a variant the declared `cover`
+sizes stay out of its `srcset`, while the variants of sizes the build does not declare stay in: for a photo with
+an EXIF rotation, an undeclared `cover` size of its stored ratio (an orphaned size before `images.prune`, or one
+only in images-default's own `sizes` config) enters that `srcset` with its cut, so declare an `inside` size the
+site renders. When kestrel's listing and the bytes at a path can differ is described under "Which variants
 show the same picture" in images-default's README. Without `variants[].crop` (a grant of your own),
 `KestrelImage` groups by the declared sizes instead: a `cover` size's `srcset` lists the `cover` variants of
 its exact ratio key, and other sizes leave declared `cover` variants out, so declare every `cover` size the

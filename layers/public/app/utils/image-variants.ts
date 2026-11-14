@@ -69,11 +69,8 @@ function shownBox(variants: readonly PublicMediaVariant[], stored: Box, turned: 
 function orientedBox(item: ImageMedia, stored: Box, sizes: readonly DeclaredImageSize[]): Box | null {
   if (stored.width === stored.height) return stored
   const turned = { width: stored.height, height: stored.width }
-  const whole = item.variants.filter((v) => v.crop === null && v.width > 0 && v.height > 0)
   const inside = new Set(sizes.filter((size) => size.fit === 'inside').map((size) => size.name))
-  const declared = new Set(sizes.map((size) => size.name))
-  return shownBox(whole.filter((v) => inside.has(v.size)), stored, turned)
-    ?? shownBox(whole.filter((v) => !declared.has(v.size)), stored, turned)
+  return shownBox(item.variants.filter((v) => inside.has(v.size) && v.crop === null && v.width > 0 && v.height > 0), stored, turned)
 }
 
 function sameCutAs(named: PublicMediaVariant | undefined, reference: Box | null, carriesCrop: boolean, coverOut: boolean, keys: ReadonlyMap<string, string>): (v: PublicMediaVariant) => boolean {
@@ -92,12 +89,11 @@ function sameCutAs(named: PublicMediaVariant | undefined, reference: Box | null,
  * picture as the named variant: the same aspect ratio, where the ranges their whole-pixel dimensions round from
  * overlap, and an equal `crop`, both `null` or every edge within a pixel of the other's. Without a variant of that
  * name the original is the reference, with `crop` `null`. Its box (and the answered `width`/`height`) is the stored
- * one, turned when the uncut variants of declared `inside` sizes, else those of sizes not declared at all, show only
- * the swapped aspect; when neither tells the orientation, the variants of declared `cover` sizes stay out. When the
- * variants carry no `crop`, ratios match within 1 %, a
- * declared `cover` size lists the variants of the `cover` sizes with its exact ratio key, and any other size the
- * variants of its ratio that no declared `cover` size renders. `sizes` are the declared image sizes, by default those
- * of the build (`#kestrel/image-sizes`).
+ * one, turned when the uncut variants of declared `inside` sizes show only the swapped aspect; when they do not tell
+ * the orientation, the variants of declared `cover` sizes stay out. When the variants carry no `crop`, ratios match
+ * within 1 %, a declared `cover` size lists the variants of the `cover` sizes with its exact ratio key, and any other
+ * size the variants of its ratio that no declared `cover` size renders. `sizes` are the declared image sizes, by
+ * default those of the build (`#kestrel/image-sizes`).
  */
 export function pickImageSources(
   item: ImageMedia | null,

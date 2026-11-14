@@ -472,47 +472,37 @@ describe('pickImageSources', () => {
       })
     })
 
-    it('takes the original\'s orientation from the uncut variants of sizes the build does not declare when they agree, with the uncut cover variants of that box', () => {
-      const cover: DeclaredImageSize[] = [{ name: 'teaser', width: 480, height: 320, fit: 'cover' }, { name: 'teaser-2x', width: 960, height: 640, fit: 'cover' }]
-      const teasers = [
-        variant({ size: 'teaser', width: 480, height: 320, path: '/media/m1/variants/teaser.webp' }),
-        variant({ size: 'teaser-2x', width: 960, height: 640, path: '/media/m1/variants/teaser-2x.webp' }),
-      ]
-      const upright = item({
+    it('never turns the original\'s box on uncut variants of sizes the build does not declare, which may be centred cover cuts', () => {
+      const cover: DeclaredImageSize[] = [{ name: 'teaser', width: 480, height: 320, fit: 'cover' }]
+      const landscape = item({
         width: 6000,
         height: 4000,
         variants: [
-          variant({ size: 'thumb', width: 320, height: 213, path: '/media/m1/variants/thumb.webp' }),
-          variant({ size: 'small', width: 640, height: 427, path: '/media/m1/variants/small.webp' }),
-          variant({ size: 'xl', width: 2400, height: 1600, path: '/media/m1/variants/xl.webp' }),
-          ...teasers,
+          variant({ size: 'portrait', width: 600, height: 900, path: '/media/m1/variants/portrait.webp' }),
+          variant({ size: 'portrait-2x', width: 1200, height: 1800, path: '/media/m1/variants/portrait-2x.webp' }),
         ],
       })
-      expect(pickImageSources(upright, 'full', undefined, cover)).toMatchObject({
-        srcset: '/media/m1/variants/thumb.webp 320w, /media/m1/variants/teaser.webp 480w, /media/m1/variants/small.webp 640w, /media/m1/variants/teaser-2x.webp 960w, /media/m1/variants/xl.webp 2400w',
-        width: 6000,
-        height: 4000,
+      expect(pickImageSources(landscape, 'teaser', undefined, cover)).toMatchObject({ src: '/media/m1/photo.jpg', srcset: null, width: 6000, height: 4000 })
+      const portrait = item({
+        width: 4000,
+        height: 6000,
+        variants: [variant({ size: 'card', width: 1200, height: 800, path: '/media/m1/variants/card.webp' })],
       })
+      expect(pickImageSources(portrait, 'content', undefined, [...cover, { name: 'content', width: 1200, fit: 'inside' }])).toMatchObject({ srcset: null, width: 4000, height: 6000 })
       const sideways = item({
         width: 6000,
         height: 4000,
         variants: [
           variant({ size: 'thumb', width: 320, height: 480, path: '/media/m1/variants/thumb.webp' }),
-          variant({ size: 'small', width: 640, height: 960, path: '/media/m1/variants/small.webp' }),
           variant({ size: 'xl', width: 2400, height: 3600, path: '/media/m1/variants/xl.webp' }),
-          ...teasers,
+          variant({ size: 'teaser', width: 480, height: 320, path: '/media/m1/variants/teaser.webp' }),
         ],
       })
-      expect(pickImageSources(sideways, 'full', undefined, cover)).toMatchObject({
-        src: '/media/m1/photo.jpg',
-        srcset: '/media/m1/variants/thumb.webp 320w, /media/m1/variants/small.webp 640w, /media/m1/variants/xl.webp 2400w',
-        width: 4000,
-        height: 6000,
-      })
-      expect(pickImageSources(sideways, 'teaser', undefined, cover)?.srcset).toBe('/media/m1/variants/teaser.webp 480w, /media/m1/variants/teaser-2x.webp 960w')
+      expect(pickImageSources(sideways, 'full', undefined, cover)).toMatchObject({ srcset: null, width: 6000, height: 4000 })
+      expect(pickImageSources(sideways, 'teaser', undefined, cover)?.srcset).toBe('/media/m1/variants/teaser.webp 480w')
     })
 
-    it('gives the original its stored box and leaves the cover sizes out when no uncut variant tells its orientation', () => {
+    it('gives the original its stored box and leaves the cover sizes out when no uncut variant of a declared inside size tells its orientation', () => {
       const cover: DeclaredImageSize[] = [{ name: 'four', width: 800, height: 600, fit: 'cover' }, { name: 'four-2x', width: 1600, height: 1200, fit: 'cover' }]
       const four = [
         variant({ size: 'four', width: 800, height: 600, path: '/media/m1/variants/four.webp' }),
