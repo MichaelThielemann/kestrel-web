@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, ref, watch, nextTick } from 'vue'
+import { computed, ref, watch, nextTick, useId } from 'vue'
+import UiBadge from './Badge.vue'
 import UiIcon from './Icon.vue'
 import {
   ComboboxRoot, ComboboxAnchor, ComboboxInput, ComboboxTrigger, ComboboxCancel,
@@ -45,6 +46,14 @@ function labelFor(id: string): string {
 const displayValue = (id: unknown) => (typeof id === 'string' ? labelFor(id) : '')
 
 const currentLabel = computed(() => (!props.multiple && typeof model.value === 'string' ? labelFor(model.value) : null))
+
+const hintId = useId()
+const currentHint = computed(() => {
+  if (props.multiple || typeof model.value !== 'string') return undefined
+  const id = model.value
+  return (props.selected.find((s) => s.value === id) ?? props.options.find((o) => o.value === id))?.hint
+})
+const inputDescribedby = computed(() => [props.describedby, currentHint.value ? hintId : undefined].filter(Boolean).join(' ') || undefined)
 
 watch(currentLabel, (lbl) => { if (lbl != null) query.value = lbl })
 
@@ -132,6 +141,7 @@ function moveChip(from: number, to: number) {
             @click="moveChip(i, i - 1)"
           ><UiIcon name="chevron-left" :size="14" /></button>
           <span>{{ s.label }}</span>
+          <UiBadge v-if="s.hint">{{ s.hint }}</UiBadge>
           <button
             type="button"
             draggable="false"
@@ -158,11 +168,12 @@ function moveChip(from: number, to: number) {
         :display-value="multiple ? undefined : displayValue"
         :disabled="disabled"
         :aria-invalid="invalid || undefined"
-        :aria-describedby="describedby"
+        :aria-describedby="inputDescribedby"
         :required="required || undefined"
         @update:model-value="onInput"
         @focus="onFocus"
       />
+      <UiBadge v-if="currentHint" :id="hintId" class="ui-combobox__hint">{{ currentHint }}</UiBadge>
       <ComboboxCancel v-if="!multiple" class="ui-combobox__icon" :aria-label="t('combobox.clear')"><UiIcon name="x" :size="14" /></ComboboxCancel>
       <slot name="suffix" />
       <ComboboxTrigger class="ui-combobox__icon" :aria-label="t('combobox.toggle_options')"><UiIcon name="chevron-down" :size="14" /></ComboboxTrigger>
@@ -178,8 +189,12 @@ function moveChip(from: number, to: number) {
             :key="o.value"
             :value="o.value"
             class="ui-combobox__item"
+            :aria-label="o.hint ? `${o.label}, ${o.hint}` : undefined"
           >
-            <span>{{ o.label }}</span>
+            <span class="ui-combobox__option">
+              <span>{{ o.label }}</span>
+              <UiBadge v-if="o.hint">{{ o.hint }}</UiBadge>
+            </span>
             <ComboboxItemIndicator class="ui-combobox__check"><UiIcon name="check" :size="14" /></ComboboxItemIndicator>
           </ComboboxItem>
         </ComboboxViewport>
@@ -334,6 +349,13 @@ function moveChip(from: number, to: number) {
     &[data-highlighted] { background: var(--color-hover); outline: none; }
     &[data-state='checked'] { font-weight: var(--weight-medium); }
   }
+  &__option {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-inline-size: 0;
+  }
+  &__hint { margin-inline: var(--space-2) var(--space-1); }
   &__check { color: var(--color-primary-text); }
 }
 </style>
