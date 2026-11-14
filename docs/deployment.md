@@ -428,9 +428,9 @@ busy with visitors answers every save and every background render more slowly, a
 simultaneous connections the slowest answers take seconds. A static file server answers tens of times more
 requests per worker.
 
-More processes are not the way out. A second process on the same `<dataDir>` runs the scheduled work twice
-and writes the same SQLite file (§10), so capacity comes from taking visitors off the process: serve the
-static export, or cache what the process renders.
+More processes are not the way out. A second process on the same `<dataDir>` is not a supported setup (§10),
+so capacity comes from taking visitors off the process: serve the static export, or cache what the process
+renders.
 
 ### Serve the static export
 
