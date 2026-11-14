@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { centredCrop, cropForRatio } from '@michaelthielemann/kestrel-images-default/framing'
 import type { MediaItem } from '../types/api'
-import { canFrame, coverSizesOf, cropSource, displayCrop, previewStyle, rebaseDraft, sameFraming, smallerSizes, uniqueReferrers } from './media-crop'
+import { canFrame, coverSizesOf, cropSource, displayCrop, measuresOriginal, previewStyle, rebaseDraft, sameFraming, smallerSizes, uniqueReferrers } from './media-crop'
 
 function item(over: Partial<MediaItem> = {}): MediaItem {
   return {
@@ -30,6 +30,21 @@ describe('canFrame', () => {
     expect(canFrame(item({ framing: unknown, variants: [done] }))).toBe(true)
     expect(canFrame(item({ framing: unknown, variants: [{ ...done, state: 'failed' }] }))).toBe(false)
     expect(canFrame(item({ framing: unknown, variants: [done], contentType: 'image/webp', path: '/media/m1/a.webp' }))).toBe(false)
+  })
+
+  it('refuses an answer whose framing a role field grant cut to the visitor dimensions, without throwing', () => {
+    const done = { size: 'large', width: 1200, height: 800, format: 'webp', bytes: 1, state: 'done' as const, path: '/media/m1/variants/large.webp', crop: null }
+    const cut = (framing: { width: number | null, height: number | null }, over: Partial<MediaItem> = {}) => ({ ...item({ variants: [done], ...over }), framing })
+    // @ts-expect-error a role's media field grant answers the framing with the visitor members only
+    expect(canFrame(cut({ width: 1200, height: 800 }))).toBe(false)
+    // @ts-expect-error a role's media field grant answers the framing with the visitor members only
+    expect(canFrame(cut({ width: 1200, height: 800 }, { contentType: 'image/webp', path: '/media/m1/a.webp' }))).toBe(false)
+    // @ts-expect-error a role's media field grant answers the framing with the visitor members only
+    expect(cropSource(cut({ width: 1200, height: 800 }, { contentType: 'image/webp', path: '/media/m1/a.webp' }))).toBeNull()
+    // @ts-expect-error a role's media field grant answers the framing with the visitor members only
+    expect(canFrame(cut({ width: null, height: null }))).toBe(false)
+    // @ts-expect-error a role's media field grant answers the framing with the visitor members only
+    expect(measuresOriginal(cut({ width: null, height: null }))).toBe(false)
   })
 })
 

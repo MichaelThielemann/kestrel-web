@@ -19,7 +19,13 @@ const BROWSER_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/gif', 'im
 
 const ASPECT_TOLERANCE = 0.01
 
+function editableFraming(item: MediaItem): boolean {
+  const framing: Partial<MediaItem['framing']> | undefined = item.framing
+  return framing !== undefined && Array.isArray(framing.ratios) && framing.crops !== undefined && 'focus' in framing
+}
+
 function wholeVariant(item: MediaItem): string | null {
+  if (!editableFraming(item)) return null
   const { width, height } = item.framing
   if (!width || !height) return null
   const cut = new Set(item.framing.ratios.flatMap((ratio) => ratio.sizes))
@@ -46,14 +52,14 @@ export function cropSource(item: MediaItem): string | null {
  * original it displays, so its `naturalWidth`/`naturalHeight` stand in for them.
  */
 export function measuresOriginal(item: MediaItem): boolean {
-  if (!item.framing) return false
+  if (!editableFraming(item)) return false
   return (item.framing.width === null || item.framing.height === null) && BROWSER_IMAGE_TYPES.has(item.contentType)
     && item.variants.some((v) => v.state === 'done')
 }
 
-/** Whether the item is an image whose oriented dimensions the server reported, or the browser can measure, and that the editor can show, so its focus and crops can be edited; never for an answer the caller's field grant cut the framing from. */
+/** Whether the item is an image whose oriented dimensions the server reported, or the browser can measure, and that the editor can show, so its focus and crops can be edited; never for an answer whose framing the caller's field grant cut to fewer members than the editor reads. */
 export function canFrame(item: MediaItem | null): boolean {
-  if (!item || !item.framing || !item.contentType.startsWith('image/')) return false
+  if (!item || !editableFraming(item) || !item.contentType.startsWith('image/')) return false
   if (measuresOriginal(item)) return true
   return item.framing.width !== null && item.framing.height !== null && cropSource(item) !== null
 }

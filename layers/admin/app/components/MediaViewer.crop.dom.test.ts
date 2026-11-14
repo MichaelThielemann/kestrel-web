@@ -129,9 +129,12 @@ describe('MediaViewer crop entry', () => {
     wrapper.unmount()
   })
 
-  it('previews an image cut to the visitor fields and a role field, without framing, and offers no crop', async () => {
-    const { framing: _f, variantCounts: _v, available: _a, createdAt: _c, updatedAt: _u, ...rest } = photo()
-    const kept = { ...rest, variants: [{ size: 'large', width: 1200, height: 800, format: 'webp', path: '/media/m1/variants/large.webp', crop: null }] }
+  it.each([
+    { contentType: 'image/jpeg', filename: 'harbour.jpg' },
+    { contentType: 'image/webp', filename: 'harbour.webp' },
+  ])('previews a $contentType image cut to the visitor fields and a role field, with only the framing dimensions, and offers no crop', async ({ contentType, filename }) => {
+    const { framing: _f, variantCounts: _v, available: _a, createdAt: _c, updatedAt: _u, ...rest } = photo({ contentType, filename, path: `/media/m1/${filename}` })
+    const kept = { ...rest, framing: { width: 1200, height: 800 }, variants: [{ size: 'large', width: 1200, height: 800, format: 'webp', path: '/media/m1/variants/large.webp', crop: null }] }
     const errors = vi.spyOn(console, 'error').mockImplementation(() => {})
     const warnings = vi.spyOn(console, 'warn').mockImplementation(() => {})
     try {

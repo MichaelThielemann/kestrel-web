@@ -314,18 +314,21 @@ describe('field/Media crop entry', () => {
     }
   })
 
-  it('shows a held image cut to the visitor fields and a role field, without framing, variant counts or variant states, and offers no crop', async () => {
+  it.each([
+    { contentType: 'image/jpeg', filename: 'harbour.jpg' },
+    { contentType: 'image/webp', filename: 'harbour.webp' },
+  ])('shows a held $contentType image cut to the visitor fields and a role field, with only the framing dimensions, and offers no crop', async ({ contentType, filename }) => {
     schema.capabilities.setMediaFraming = { method: 'PUT', path: '/media/:id/framing' }
     schema.features = ['images']
-    const { createdAt: _c, updatedAt: _u, available: _a, variantCounts: _v, framing: _f, ...kept } = framed({ width: 1200, height: 800 })
-    const cut = { ...kept, variants: [{ size: 'large', width: 1200, height: 800, format: 'webp', path: '/media/f1/variants/large.webp', crop: null }] }
+    const { createdAt: _c, updatedAt: _u, available: _a, variantCounts: _v, framing: _f, ...kept } = framed({ width: 1200, height: 800, contentType, filename, path: `/media/f1/${filename}` })
+    const cut = { ...kept, framing: { width: 1200, height: 800 }, variants: [{ size: 'large', width: 1200, height: 800, format: 'webp', path: '/media/f1/variants/large.webp', crop: null }] }
     apiHandler.fn = () => Promise.resolve({ items: [cut], total: 1 })
     const errors = vi.spyOn(console, 'error').mockImplementation(() => {})
     const warnings = vi.spyOn(console, 'warn').mockImplementation(() => {})
     try {
       const wrapper = await mountSuspended(FieldMedia, { props: { field, name: 'hero', locale: 'en', modelValue: 'f1' } })
-      await vi.waitFor(() => expect(wrapper.find('.field-media__filename').text()).toBe('harbour.jpg'))
-      expect(cropButton(wrapper).exists()).toBe(false)
+      await vi.waitFor(() => expect(wrapper.find('.field-media__filename').text()).toBe(filename))
+      expect(wrapper.find(`button[aria-label="${en['mediaCrop.openFor'].replace('{name}', filename)}"]`).exists()).toBe(false)
       expect(errors).not.toHaveBeenCalled()
       expect(warnings).not.toHaveBeenCalled()
       wrapper.unmount()
