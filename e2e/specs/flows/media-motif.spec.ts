@@ -211,6 +211,8 @@ test("the box of the hero keeps its planned ratio while the variants still serve
     await expect.poll(() => image.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
     const box = await image.boundingBox();
     expect(box && box.width / box.height, `the hero at ${viewport?.width} px keeps the ratio of its cut`).toBeCloseTo(ratio, 2);
+    const pictureHeight = await image.evaluate((img: HTMLImageElement) => img.parentElement?.getBoundingClientRect().height ?? 0);
+    expect(pictureHeight, `the picture at ${viewport?.width} px is as high as its image`).toBeCloseTo(box?.height ?? 0, 1);
     await testInfo.attach(`rasterbild-pending-${viewport?.width}`, { body: await visit.screenshot({ fullPage: true }), contentType: "image/png" });
     await context.close();
   }
