@@ -10,7 +10,7 @@ const { t } = useT()
 const idPrefix = `media-crop-${useId()}`
 const root = ref<HTMLElement | null>(null)
 const editor = useMediaCropEditor(toRef(props, 'item'), toRef(props, 'open'))
-const { current, draft, dirty, busy, error, usage, width, height, measureFailed, ratios, sizes } = editor
+const { current, draft, dirty, busy, error, usage, width, height, measureFailed, ratios, usages, sizes } = editor
 
 const tab = ref('focus')
 const selected = ref('')
@@ -124,6 +124,7 @@ async function onSave(): Promise<void> {
           :alt="alt"
           :draft="draft"
           :ratios="ratios"
+          :usages="usages"
           :sizes="sizes"
           :width="width"
           :height="height"

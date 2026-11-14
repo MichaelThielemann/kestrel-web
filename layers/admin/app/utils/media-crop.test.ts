@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { centredCrop, cropForRatio } from '@michaelthielemann/kestrel-images-default/framing'
 import type { MediaItem } from '../types/api'
-import { canFrame, coverSizesOf, cropSource, displayCrop, measuresOriginal, previewStyle, rebaseDraft, sameFraming, smallerSizes, uniqueReferrers } from './media-crop'
+import { canFrame, coverSizesOf, cropSource, displayCrop, measuresOriginal, previewStyle, rebaseDraft, sameFraming, sizeUsages, smallerSizes, uniqueReferrers } from './media-crop'
 
 function item(over: Partial<MediaItem> = {}): MediaItem {
   return {
@@ -175,6 +175,38 @@ describe('smallerSizes', () => {
 
   it('names none when the crop covers every size, and ignores unknown sizes', () => {
     expect(smallerSizes({ left: 0, top: 0, width: 1500, height: 1000 }, ['teaser', 'wide', 'gone'], sizes)).toEqual([])
+  })
+})
+
+describe('sizeUsages', () => {
+  const teaser = { name: 'teaser' }
+  const blocks = [
+    { name: 'hero', label: { en: 'Hero', de: 'Bühne' }, imageSizes: [teaser, { name: 'wide' }] },
+    { name: 'gallery', imageSizes: [{ name: 'square' }] },
+    { name: 'card-list', label: 'Card list', imageSizes: [teaser] },
+    { name: 'prose' },
+  ]
+  const labels = { teaser: { en: 'Teaser card', de: 'Teaser-Karte' }, avatar: 'Avatar' }
+
+  it('names every block that declares one of the sizes, then the label of the size, in the admin language', () => {
+    expect(sizeUsages(['teaser'], blocks, labels, 'de')).toEqual(['Bühne', 'Card list', 'Teaser-Karte'])
+    expect(sizeUsages(['teaser'], blocks, labels, 'en')).toEqual(['Hero', 'Card list', 'Teaser card'])
+  })
+
+  it('names each use once across the sizes of a ratio', () => {
+    expect(sizeUsages(['teaser', 'wide'], blocks, labels, 'en')).toEqual(['Hero', 'Card list', 'Teaser card'])
+  })
+
+  it('falls back to the block name for a block without a label', () => {
+    expect(sizeUsages(['square'], blocks, labels, 'en')).toEqual(['gallery'])
+  })
+
+  it('names a labelled size of app/image-sizes.ts by its label alone', () => {
+    expect(sizeUsages(['avatar'], blocks, labels, 'en')).toEqual(['Avatar'])
+  })
+
+  it('names a size no block declares and no label names by its own name', () => {
+    expect(sizeUsages(['thumb', 'avatar'], blocks, labels, 'en')).toEqual(['thumb', 'Avatar'])
   })
 })
 

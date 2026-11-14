@@ -713,6 +713,7 @@ export const de: Record<CatalogKey, string> = {
   'mediaCrop.auto': 'Automatisch',
   'mediaCrop.manual': 'Manuell',
   'mediaCrop.reset': 'Auf automatisch zurücksetzen',
+  'mediaCrop.snap': 'Einrasten',
   'mediaCrop.resetDone': 'Der Zuschnitt für {key} ist wieder automatisch.',
   'mediaCrop.frameLabel': 'Zuschnitt für {key}',
   'mediaCrop.focusMisses': 'Fokus passt nicht',

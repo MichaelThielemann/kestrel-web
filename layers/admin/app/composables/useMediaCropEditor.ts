@@ -1,9 +1,10 @@
 import { computed, onUnmounted, ref, watch, type Ref } from 'vue'
 import { imageSizes } from '#kestrel/image-sizes'
+import { blockDefinitions, imageSizeLabels } from '#kestrel/blocks'
 import type { MediaItem, MediaRect, ReferenceTo } from '#kestrel-admin/types/api'
 import { setMediaFraming } from '#kestrel-admin/actions/media'
 import type { BusyPort } from '#kestrel-admin/actions/types'
-import { coverSizesOf, measuresOriginal, rebaseDraft, sameFraming, uniqueReferrers, type CropSize, type FramingDraft } from '../utils/media-crop'
+import { coverSizesOf, measuresOriginal, rebaseDraft, sameFraming, sizeUsages, uniqueReferrers, type CropSize, type FramingDraft } from '../utils/media-crop'
 import { notifyMediaFramed } from './useMediaChanges'
 
 function draftOf(item: MediaItem | null): FramingDraft {
@@ -11,9 +12,10 @@ function draftOf(item: MediaItem | null): FramingDraft {
   return { focus: framing?.focus ? { ...framing.focus } : null, crops: Object.fromEntries(Object.entries(framing?.crops ?? {}).map(([key, rect]) => [key, { ...rect }])) }
 }
 
-/** State of the crop editor for one image: the draft framing, whether it differs from the stored one, how many records use the image, the oriented dimensions (measured in the browser when the server has none), and the save. */
+/** State of the crop editor for one image: the draft framing, whether it differs from the stored one, how many records use the image, what each ratio's sizes are used for, the oriented dimensions (measured in the browser when the server has none), and the save. */
 export function useMediaCropEditor(item: Ref<MediaItem | null>, open: Ref<boolean>) {
   const deps = useActionDeps()
+  const { lang } = useT()
   const draft = ref<FramingDraft>(draftOf(null))
   const stored = ref<FramingDraft>(draftOf(null))
   const busy = ref(false)
@@ -29,6 +31,7 @@ export function useMediaCropEditor(item: Ref<MediaItem | null>, open: Ref<boolea
   const width = computed(() => current.value?.framing.width ?? measuredFor.value?.width ?? 0)
   const height = computed(() => current.value?.framing.height ?? measuredFor.value?.height ?? 0)
   const ratios = computed(() => current.value?.framing.ratios ?? [])
+  const usages = computed(() => Object.fromEntries(ratios.value.map((ratio) => [ratio.key, sizeUsages(ratio.sizes, blockDefinitions, imageSizeLabels, lang.value)])))
   const sizes = ref<CropSize[]>(coverSizesOf(imageSizes))
   const dirty = computed(() => !sameFraming(draft.value, stored.value))
 
@@ -143,5 +146,5 @@ export function useMediaCropEditor(item: Ref<MediaItem | null>, open: Ref<boolea
     return result.result
   }
 
-  return { current, draft, dirty, busy, error, usage, width, height, measureFailed, ratios, sizes, setFocus, setCrop, save }
+  return { current, draft, dirty, busy, error, usage, width, height, measureFailed, ratios, usages, sizes, setFocus, setCrop, save }
 }

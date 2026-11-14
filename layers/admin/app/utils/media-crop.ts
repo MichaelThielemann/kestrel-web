@@ -1,5 +1,7 @@
 import { centredCrop, cropForRatio, type PixelCrop } from '@michaelthielemann/kestrel-images-default/framing'
 import type { MediaItem, MediaRect, ReferenceTo } from '../types/api'
+import type { Localized } from '../types/kestrel'
+import { resolveLocalized } from './localized'
 
 /** The focus and manual crops an editor works on, the body of `PUT /media/:id/framing`. */
 export interface FramingDraft {
@@ -76,6 +78,28 @@ function percent(value: number): string {
 /** The position of the original, `width` pixels wide after its orientation, inside a tile of the crop's ratio, so the tile shows exactly the crop. */
 export function previewStyle(crop: PixelCrop, width: number): { width: string, left: string, top: string } {
   return { width: percent(width / crop.width), left: percent(-crop.left / crop.width), top: percent(-crop.top / crop.height) }
+}
+
+/** A block as far as the uses of the image sizes go: its name, its label and the sizes it declares. */
+export interface SizeUser {
+  name: string
+  label?: Localized
+  imageSizes?: readonly { name: string }[]
+}
+
+/**
+ * What the sizes are used for, in the admin language: for each size, the label of every block that declares it, then
+ * the label `app/image-sizes.ts` gives it, else, when neither names it, the size's own name. Each use is named once.
+ */
+export function sizeUsages(sizes: readonly string[], blocks: readonly SizeUser[], labels: Readonly<Record<string, Localized>>, lang: string): string[] {
+  const uses = new Set<string>()
+  for (const size of sizes) {
+    const named = blocks.filter((block) => block.imageSizes?.some((declared) => declared.name === size)).map((block) => resolveLocalized(block.label, lang) ?? block.name)
+    const label = resolveLocalized(labels[size], lang)
+    if (label !== undefined) named.push(label)
+    for (const use of named.length ? named : [size]) uses.add(use)
+  }
+  return [...uses]
 }
 
 /** The `cover` sizes among the declared ones. */

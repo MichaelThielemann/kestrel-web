@@ -711,6 +711,7 @@ export const en = {
   'mediaCrop.auto': 'Automatic',
   'mediaCrop.manual': 'Manual',
   'mediaCrop.reset': 'Reset to automatic',
+  'mediaCrop.snap': 'Snap to guides',
   'mediaCrop.resetDone': 'The crop for {key} is automatic again.',
   'mediaCrop.frameLabel': 'Crop for {key}',
   'mediaCrop.focusMisses': 'Focus does not fit',
