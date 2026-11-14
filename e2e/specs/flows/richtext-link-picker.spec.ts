@@ -39,3 +39,27 @@ test("the internal link picker keeps the chosen record readable next to its stat
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(0);
 });
+
+test("the external link popover keeps the apply button beside the URL field on a wide viewport and overflow-free at the narrowest width", async ({ page, seed }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(`/admin/pages/${seed.about}?locale=de`);
+  await page.getByRole("button", { name: "Fließtext" }).click();
+  await page.getByRole("button", { name: "Link", exact: true }).click();
+
+  const field = page.getByRole("textbox", { name: "Link-URL" });
+  const apply = page.getByRole("button", { name: "Übernehmen" });
+  await expect(field).toBeVisible();
+  const fieldBox = await field.boundingBox();
+  const applyBox = await apply.boundingBox();
+  expect(fieldBox).not.toBeNull();
+  expect(applyBox).not.toBeNull();
+  if (fieldBox !== null && applyBox !== null) {
+    expect(applyBox.x).toBeGreaterThanOrEqual(fieldBox.x + fieldBox.width);
+    expect(applyBox.y).toBeLessThan(fieldBox.y + fieldBox.height);
+  }
+
+  await page.setViewportSize({ width: 320, height: 800 });
+  await expect(field).toBeVisible();
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(0);
+});

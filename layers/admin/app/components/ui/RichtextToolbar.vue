@@ -207,7 +207,7 @@ function applyInternalLink() {
       <UiButton type="button" size="sm" variant="primary" @click="applyLink">{{ t('richtext.apply') }}</UiButton>
     </div>
 
-    <div v-if="linkInternalOpen" class="ui-rt-toolbar__link">
+    <div v-if="linkInternalOpen" class="ui-rt-toolbar__link ui-rt-toolbar__link--internal">
       <LinkInternalPicker v-model:collection="pickCollection" v-model:record-id="pickRecordId" :locale="locale ?? 'en'" />
       <UiButton type="button" size="sm" variant="primary" :disabled="pickRecordId == null" @click="applyInternalLink">{{ t('richtext.apply') }}</UiButton>
     </div>
@@ -232,11 +232,14 @@ function applyInternalLink() {
   }
   &__link {
     display: flex;
-    flex-wrap: wrap;
     gap: var(--space-2);
     flex-basis: 100%;
     align-items: center;
     min-inline-size: 0;
+
+    &--internal {
+      flex-wrap: wrap;
+    }
 
     > .ui-link-internal {
       flex: 1 1 14rem;
