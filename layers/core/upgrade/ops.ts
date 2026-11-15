@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { parseTs, stringValue, walk } from "@michaelthielemann/kestrel-upgrade/codemods";
 import type { OpsEnv, OpsFacts, OpsModuleEntry } from "@michaelthielemann/kestrel-upgrade/plugin";
 import { envBlobstore, kestrelDataDir } from "../config";
 import { DEVELOPMENT_ADMIN_PASSWORD_HASH, DEVELOPMENT_MFA_KEY } from "../config/development";
@@ -10,6 +11,8 @@ import { resolvedArrayValues } from "./ruleHelpers";
 
 const LOOPBACK = "127.0.0.1";
 const FEATURE_FILES: readonly string[] = [join("shared", "model.ts"), "kestrel.config.ts"];
+const CONTENT_MIGRATIONS_SWITCH = "KESTREL_MIGRATIONS";
+const STORAGE_MIGRATIONS_SWITCH = "KESTREL_STORAGE_MIGRATIONS";
 const BLOBSTORE_CHOICES: ReadonlySet<string> = new Set(["s3", "filesystem"]);
 
 const SECRET_ENV_NAMES: readonly string[] = ["KESTREL_ADMIN_PASSWORD_HASH", "KESTREL_MFA_KEY", "KESTREL_DEVICE_KEY", "KESTREL_S3_ACCESS_KEY_ID", "KESTREL_S3_SECRET_ACCESS_KEY"];
@@ -34,6 +37,16 @@ function declaredFeatures(root: string): string[] {
   return values;
 }
 
+function configReadsContentSwitch(root: string): boolean {
+  const path = join(root, "kestrel.config.ts");
+  if (!existsSync(path)) return false;
+  let found = false;
+  walk(parseTs(readFileSync(path, "utf8")), (node) => {
+    if ((node.type === "Identifier" && node.name === CONTENT_MIGRATIONS_SWITCH) || stringValue(node) === CONTENT_MIGRATIONS_SWITCH) found = true;
+  });
+  return found;
+}
+
 function blobstoreFromEnv(env: OpsEnv, root: string): OpsModuleEntry | undefined {
   const choice = env.KESTREL_BLOBSTORE;
   if (choice === undefined || !BLOBSTORE_CHOICES.has(choice)) return undefined;
@@ -50,8 +63,10 @@ function blobstoreFromEnv(env: OpsEnv, root: string): OpsModuleEntry | undefined
  * `KESTREL_DATABASE_FILE` and `KESTREL_BLOBS_DIR` add the database copy and blob directory of that start; `llms.txt`,
  * which every render of the export writes, when the `features` that `shared/model.ts` or `kestrel.config.ts`
  * declare include `delivery` as a string the source spells out, and no export check otherwise; the blob store and database file a deployed environment's variables
- * select, read from the given map and resolved against `root`; the variables that hold secrets; and the two
- * migration switches. The answer holds no value of this process's environment.
+ * select, read from the given map and resolved against `root`; the variables that hold secrets; and the migration
+ * switches: `KESTREL_STORAGE_MIGRATIONS` always, `KESTREL_MIGRATIONS` only when `kestrel.config.ts` reads it, since
+ * the preset passes no content migrations mode of its own and the migrations module otherwise applies pending
+ * content migrations at every start. The answer holds no value of this process's environment.
  */
 export function layerOpsFacts(root: string): OpsFacts {
   return {
@@ -61,8 +76,8 @@ export function layerOpsFacts(root: string): OpsFacts {
       HOST: LOOPBACK,
       NITRO_HOST: LOOPBACK,
       KESTREL_BLOBSTORE: "filesystem",
-      KESTREL_STORAGE_MIGRATIONS: "check",
-      KESTREL_MIGRATIONS: "apply",
+      [STORAGE_MIGRATIONS_SWITCH]: "check",
+      [CONTENT_MIGRATIONS_SWITCH]: "apply",
       KESTREL_ROBOTS_POLICY: "disallow",
       KESTREL_ADMIN_PASSWORD_HASH: DEVELOPMENT_ADMIN_PASSWORD_HASH,
       KESTREL_MFA_KEY: DEVELOPMENT_MFA_KEY,
@@ -71,6 +86,6 @@ export function layerOpsFacts(root: string): OpsFacts {
     blobstoreFromEnv: (env) => blobstoreFromEnv(env, root),
     databaseFile: (env) => presetDatabaseFile(dataDir(env, root), env, root),
     secretEnvNames: SECRET_ENV_NAMES,
-    migrationSwitches: { content: "KESTREL_MIGRATIONS", storage: "KESTREL_STORAGE_MIGRATIONS" },
+    migrationSwitches: configReadsContentSwitch(root) ? { content: CONTENT_MIGRATIONS_SWITCH, storage: STORAGE_MIGRATIONS_SWITCH } : { storage: STORAGE_MIGRATIONS_SWITCH },
   };
 }

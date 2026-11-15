@@ -11,8 +11,10 @@
   the second-factor key; `llms.txt` as the file every render of the export writes, for a project whose `features`
   in `shared/model.ts` or `kestrel.config.ts` spell out `delivery`, and no export check for one without; the
   variables whose values are secrets (`KESTREL_ADMIN_PASSWORD_HASH`, `KESTREL_MFA_KEY`, `KESTREL_DEVICE_KEY`, `KESTREL_S3_ACCESS_KEY_ID`,
-  `KESTREL_S3_SECRET_ACCESS_KEY`); and the migration switches `KESTREL_MIGRATIONS` (content) and
-  `KESTREL_STORAGE_MIGRATIONS` (storage). The hook also answers the blob store and the database file a deployed
+  `KESTREL_S3_SECRET_ACCESS_KEY`); and the migration switches `KESTREL_STORAGE_MIGRATIONS` (storage) and, only for
+  a project whose `kestrel.config.ts` reads it, `KESTREL_MIGRATIONS` (content): the preset passes no content
+  migrations mode of its own, so in a project that does not wire the variable, such as one from the starter
+  template, pending content migrations run at every start. The hook also answers the blob store and the database file a deployed
   environment's variables select (`KESTREL_BLOBSTORE`, `KESTREL_S3_*`, `KESTREL_BLOBS_DIR`, `KESTREL_DATABASE_FILE`,
   `KESTREL_DATA_DIR`, `KESTREL_APP_ROOT`), read from the map it is given, never from `process.env`, with relative
   paths resolved against the project root. `kestrel status`, `backup` and `restore` take the storage, prefixes and

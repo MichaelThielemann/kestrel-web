@@ -500,6 +500,11 @@ The export check is `llms.txt` when the `features` array in `shared/model.ts` or
 `delivery` as a string literal, directly or through a spread of another array in the same file; a project
 without delivery renders no export and gets no export check, and neither does one whose features come only from
 an expression the hook cannot read without running it.
+The migration switches are `KESTREL_STORAGE_MIGRATIONS` and, when `kestrel.config.ts` reads it, as the module
+entry in `docs/migrations.md` does, `KESTREL_MIGRATIONS`. The preset passes no content migrations mode of its
+own: in a project that does not wire the variable, such as one from the starter template, the migrations
+module applies pending content migrations at every start whatever `KESTREL_MIGRATIONS` says, and the hook names
+no content switch.
 
 - `s3` (`KESTREL_BLOBSTORE=s3`) → `blobstore-s3`, reading `KESTREL_S3_BUCKET`, `_ENDPOINT`, `_REGION`,
   `_ACCESS_KEY_ID`, `_SECRET_ACCESS_KEY` (each via `requiredEnv`) with `forcePathStyle: true`.

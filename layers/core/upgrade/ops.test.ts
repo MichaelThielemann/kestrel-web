@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -51,11 +51,9 @@ describe("the layer's operations facts", () => {
     expect(JSON.stringify(answered)).toBe(JSON.stringify(facts()));
   });
 
-  it("name the readiness route and both migration switches", () => {
-    expect(facts()).toMatchObject({
-      readyPath: "/api/ready",
-      migrationSwitches: { content: "KESTREL_MIGRATIONS", storage: "KESTREL_STORAGE_MIGRATIONS" },
-    });
+  it("name the readiness route and the storage migrations switch", () => {
+    expect(facts()).toMatchObject({ readyPath: "/api/ready" });
+    expect(facts().migrationSwitches).toEqual({ storage: "KESTREL_STORAGE_MIGRATIONS" });
   });
 
   it("name every variable that holds a secret", () => {
@@ -91,23 +89,64 @@ describe("the layer's operations facts", () => {
   });
 });
 
-describe("the export check", () => {
-  const projects: string[] = [];
+const projects: string[] = [];
 
-  function project(files: Record<string, string>): string {
-    const root = mkdtempSync(join(tmpdir(), "kestrel-ops-project-"));
-    projects.push(root);
-    for (const [file, source] of Object.entries(files)) {
-      mkdirSync(resolve(root, file, ".."), { recursive: true });
-      writeFileSync(join(root, file), source);
-    }
-    return root;
+function project(files: Record<string, string>): string {
+  const root = mkdtempSync(join(tmpdir(), "kestrel-ops-project-"));
+  projects.push(root);
+  for (const [file, source] of Object.entries(files)) {
+    mkdirSync(resolve(root, file, ".."), { recursive: true });
+    writeFileSync(join(root, file), source);
   }
+  return root;
+}
 
-  afterAll(() => {
-    for (const root of projects) rmSync(root, { recursive: true, force: true });
+afterAll(() => {
+  for (const root of projects) rmSync(root, { recursive: true, force: true });
+});
+
+describe("the content migrations switch", () => {
+  const wired = [
+    'import { migrations } from "#kestrel/migrations";',
+    "const modules = [",
+    '  { use: "@michaelthielemann/kestrel-migrations-default", config: { migrations, mode: process.env.KESTREL_MIGRATIONS ?? (process.env.NODE_ENV === "production" ? "check" : "apply") } },',
+    "];",
+    "export default { modules };",
+    "",
+  ].join("\n");
+
+  it("is KESTREL_MIGRATIONS for a project whose kestrel.config.ts passes it to the migrations module", () => {
+    expect(layerOpsFacts(project({ "kestrel.config.ts": wired })).migrationSwitches).toEqual({ content: "KESTREL_MIGRATIONS", storage: "KESTREL_STORAGE_MIGRATIONS" });
   });
 
+  it("is KESTREL_MIGRATIONS when kestrel.config.ts reads it by a computed key", () => {
+    const source = 'const mode = process.env["KESTREL_MIGRATIONS"];\nexport default { mode };\n';
+    expect(layerOpsFacts(project({ "kestrel.config.ts": source })).migrationSwitches).toEqual({ content: "KESTREL_MIGRATIONS", storage: "KESTREL_STORAGE_MIGRATIONS" });
+  });
+
+  it("is none for a project in the starter template's shape, whose migrations module runs pending content migrations at every start", () => {
+    const template = readFileSync(resolve(import.meta.dirname, "../../../packages/create-kestrel/template/kestrel.config.ts"), "utf8");
+    expect(layerOpsFacts(project({ "kestrel.config.ts": template })).migrationSwitches).toEqual({ storage: "KESTREL_STORAGE_MIGRATIONS" });
+
+    vi.stubEnv("KESTREL_MIGRATIONS", "check");
+    vi.stubEnv("NODE_ENV", "production");
+    const modules = presetModuleConfig({ dataDir: "/srv/example-site/data", blobstore: { use: "@michaelthielemann/kestrel-blobstore-filesystem", config: { root: "/srv/example-site/data/blobs" } }, model: contentModel, features: [...features, "migrations"], fieldTypes, roles: { roles: { admin: ["*"] }, anonymous: [] }, bootstrap: { username: "admin", passwordHash: DEVELOPMENT_ADMIN_PASSWORD_HASH }, migrations: { migrations: [] } });
+    const entry = modules.find((candidate) => candidate.use === "@michaelthielemann/kestrel-migrations-default");
+    expect(entry).toBeDefined();
+    expect(JSON.stringify(entry)).not.toContain('"mode"');
+  });
+
+  it("is none for the playground", () => {
+    expect(layerOpsFacts(resolve(import.meta.dirname, "../../../playground")).migrationSwitches).toEqual({ storage: "KESTREL_STORAGE_MIGRATIONS" });
+  });
+
+  it("is none when kestrel.config.ts names the variable only in a comment", () => {
+    const source = "// set KESTREL_MIGRATIONS=check in production\nexport default {};\n";
+    expect(layerOpsFacts(project({ "kestrel.config.ts": source })).migrationSwitches).toEqual({ storage: "KESTREL_STORAGE_MIGRATIONS" });
+  });
+});
+
+describe("the export check", () => {
   it("names llms.txt for a project whose features include delivery", () => {
     const root = project({ "shared/model.ts": 'export const features = ["references", "delivery", "images"] as const;\n' });
     expect(layerOpsFacts(root).exportChecks).toEqual(["llms.txt"]);
