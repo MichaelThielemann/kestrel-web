@@ -74,7 +74,7 @@ test("the first sign-in sets the factor up, and every later one asks for a code"
   await expect(page).not.toHaveURL(/\/admin\/login/);
 });
 
-test("an administrator resets another account's factor, which signs it out and asks it to set one up again", async ({ page, browser }) => {
+test("an administrator resets another account's factor, which signs it out, and replaces a lost enrollment code with a new one", async ({ page, browser }) => {
   const recovery = [...adminRecoveryCodes];
   await fillCredentials(page, ADMIN.username, ADMIN.password);
   await expect(page.getByRole("heading", { level: 1, name: "Code eingeben" })).toBeVisible();
@@ -113,15 +113,29 @@ test("an administrator resets another account's factor, which signs it out and a
     await expect(confirm).toBeHidden();
     await expect(row.getByRole("cell", { name: "Eingerichtet" })).toHaveCount(0);
 
+    await page.getByRole("button", { name: "Aktionen für second-factor-probe" }).click();
+    await expect(page.getByRole("menuitem", { name: "Zweiten Faktor zurücksetzen" })).toHaveCount(0);
+    await page.getByRole("menuitem", { name: "Einrichtungscode ausstellen" }).click();
+    const issue = page.getByRole("dialog", { name: "Einrichtungscode ausstellen" });
+    await issue.getByRole("button", { name: "Einrichtungscode ausstellen" }).click();
+    const issuedCode = (await issue.locator(".user-reset-factor__code").textContent())?.trim() ?? "";
+    expect(issuedCode).toMatch(/^[A-Z2-7]{5}(-[A-Z2-7]{5}){4}$/);
+    expect(issuedCode).not.toBe(enrollmentCode);
+    await issue.getByRole("button", { name: "Fertig" }).click();
+    await expect(issue).toBeHidden();
+
     expect((await probe.request.get("/api/me", { headers: { cookie: `__Host-kestrel_token=${token}` } })).status()).toBe(401);
     await fillCredentials(probe, "second-factor-probe", "second factor probe passphrase");
     await expect(probe.getByRole("heading", { level: 1, name: "Einrichtungscode eingeben" })).toBeVisible();
-    await probe.getByLabel("Einrichtungscode").fill("AAAAA-AAAAA-AAAAA-AAAAA-AAAAA");
-    await probe.getByRole("button", { name: "Weiter" }).click();
-    await expect(probe.getByText("Der Einrichtungscode ist falsch.")).toBeVisible();
     await probe.getByLabel("Einrichtungscode").fill(enrollmentCode);
     await probe.getByRole("button", { name: "Weiter" }).click();
+    await expect(probe.getByText("Der Einrichtungscode ist falsch.")).toBeVisible();
+    await probe.getByLabel("Einrichtungscode").fill(issuedCode);
+    await probe.getByRole("button", { name: "Weiter" }).click();
     await setUp(probe);
+
+    await page.reload();
+    await expect(row.getByRole("cell", { name: "Eingerichtet" })).toBeVisible();
   } finally {
     await other.close();
   }

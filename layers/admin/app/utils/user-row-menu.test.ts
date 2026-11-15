@@ -43,11 +43,20 @@ describe('userRowMenu', () => {
     expect(items).toEqual([])
   })
 
-  it('offers to reset the second factor only of a user who has one, and never on the caller\'s own row', () => {
+  it('offers to reset the second factor of a user who has one, and never on the caller\'s own row', () => {
     const capabilities = resolverWith(['resetSecondFactor'])
     expect(userRowMenu(user, { self: false, capabilities, t, secondFactor: true })).toEqual([{ value: 'resetFactor', label: 'users.resetSecondFactor', disabled: false }])
-    expect(userRowMenu(user, { self: false, capabilities, t, secondFactor: false })).toEqual([])
-    expect(userRowMenu(user, { self: false, capabilities, t })).toEqual([])
     expect(userRowMenu(user, { self: true, capabilities, t, secondFactor: true })[0]?.disabled).toBe(true)
+  })
+
+  it('offers a new enrollment code to a user without a second factor, so a lost or mistyped code can be replaced', () => {
+    const capabilities = resolverWith(['resetSecondFactor'])
+    expect(userRowMenu(user, { self: false, capabilities, t, secondFactor: false })).toEqual([{ value: 'resetFactor', label: 'users.issueEnrollmentCode', disabled: false }])
+    expect(userRowMenu(user, { self: true, capabilities, t, secondFactor: false })[0]?.disabled).toBe(true)
+  })
+
+  it('offers neither without the factor list or without the reset capability', () => {
+    expect(userRowMenu(user, { self: false, capabilities: resolverWith(['resetSecondFactor']), t })).toEqual([])
+    expect(userRowMenu(user, { self: false, capabilities: resolverWith([]), t, secondFactor: false })).toEqual([])
   })
 })

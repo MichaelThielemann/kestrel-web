@@ -73,6 +73,35 @@ describe("the mfa feature asks for a second factor at sign-in", () => {
     expect(await call("setupSecondFactor", "POST /login/second-factor", { ip: nextIp(), body: { username: "bob", password: "correct horse battery", enrollmentCode } })).toMatchObject({ status: 200 });
   }, 60_000);
 
+  it("an administrator issues another enrollment code when the first was lost, and only the newest one sets up the factor", async () => {
+    preset = await bootPlaygroundPreset(appRoot, ROLES, { features: ["mfa"], mfa: { secretKey: KEY } });
+    const { call } = preset;
+    const admin = await enroll(preset, "admin", ADMIN_PASSWORD);
+    const created = await call("createUser", "POST /users", { headers: admin.headers, body: { username: "bob", password: "correct horse battery", roles: ["editor"] } });
+    const bobId = boundaryCast<{ id: string }>(created.result, "host").id;
+    await enroll(preset, "bob", "correct horse battery");
+    const enrolled = async () => boundaryCast<string[]>((await call("secondFactorUsers", "GET /users/second-factor", { headers: admin.headers })).result, "host");
+
+    const first = await call("resetSecondFactor", "DELETE /users/:id/second-factor", { headers: admin.headers, params: { id: bobId } });
+    const lost = boundaryCast<{ enrollmentCode: string }>(first.result, "host").enrollmentCode;
+    expect(await enrolled()).not.toContain(bobId);
+    const again = await call("resetSecondFactor", "DELETE /users/:id/second-factor", { headers: admin.headers, params: { id: bobId } });
+    expect(again.status).toBe(200);
+    const issued = boundaryCast<{ enrollmentCode: string }>(again.result, "host").enrollmentCode;
+    expect(issued).not.toBe(lost);
+
+    expect(await call("login", "POST /login", { ip: nextIp(), body: { username: "bob", password: "correct horse battery" } })).toMatchObject({ status: 401, code: "SECOND_FACTOR_SETUP_REQUIRED" });
+    expect(await call("setupSecondFactor", "POST /login/second-factor", { ip: nextIp(), body: { username: "bob", password: "correct horse battery", enrollmentCode: lost } })).toMatchObject({ status: 403, code: "ENROLLMENT_CODE_REQUIRED" });
+    const started = await call("setupSecondFactor", "POST /login/second-factor", { ip: nextIp(), body: { username: "bob", password: "correct horse battery", enrollmentCode: issued } });
+    expect(started.status).toBe(200);
+    const { secret } = boundaryCast<{ secret: string }>(started.result, "host");
+    const confirmed = await call("login", "POST /login", { ip: nextIp(), body: { username: "bob", password: "correct horse battery", code: codeNow(secret) } });
+    expect(confirmed.status).toBe(200);
+    expect(boundaryCast<{ recoveryCodes: string[] }>(confirmed.result, "host").recoveryCodes).toHaveLength(10);
+    expect(await enrolled()).toContain(bobId);
+    expect(await call("setupSecondFactor", "POST /login/second-factor", { ip: nextIp(), body: { username: "bob", password: "correct horse battery", enrollmentCode: issued } })).toMatchObject({ status: 409 });
+  }, 60_000);
+
   it("lets several accounts behind one address set up their factor and sign in within the same minute", async () => {
     preset = await bootPlaygroundPreset(appRoot, ROLES, { features: ["mfa"], mfa: { secretKey: KEY } });
     const { call } = preset;

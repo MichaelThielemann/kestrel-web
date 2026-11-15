@@ -6,7 +6,7 @@ export interface UserRowMenuItem { label: string; value: string; danger?: boolea
 
 export interface UserRowMenuContext {
   self: boolean
-  /** Whether the user has a second factor; absent when the instance has none to reset. */
+  /** Whether the user has a set-up second factor; absent when the instance has none to reset. Without one the menu offers a new enrollment code instead of a reset. */
   secondFactor?: boolean
   capabilities: CapabilityResolver
   t: Translate
@@ -21,8 +21,8 @@ export function userRowMenu(user: User, ctx: UserRowMenuContext): UserRowMenuIte
   if (ctx.capabilities.has(user.active ? 'deactivateUser' : 'activateUser')) {
     items.push({ value: 'toggle', label: user.active ? ctx.t('users.deactivate') : ctx.t('users.activate'), disabled: user.active && ctx.self })
   }
-  if (ctx.secondFactor === true && ctx.capabilities.has('resetSecondFactor')) {
-    items.push({ value: 'resetFactor', label: ctx.t('users.resetSecondFactor'), disabled: ctx.self })
+  if (ctx.secondFactor !== undefined && ctx.capabilities.has('resetSecondFactor')) {
+    items.push({ value: 'resetFactor', label: ctx.secondFactor ? ctx.t('users.resetSecondFactor') : ctx.t('users.issueEnrollmentCode'), disabled: ctx.self })
   }
   if (ctx.capabilities.has('deleteUser')) {
     items.push({ value: 'delete', label: ctx.t('users.delete'), danger: true, disabled: ctx.self })

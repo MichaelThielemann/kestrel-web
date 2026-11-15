@@ -105,7 +105,12 @@ function formatDate(ms: number) { return dateFmt.format(new Date(ms)) }
       @update:user="editUser = $event"
       @saved="load"
     />
-    <KestrelUserResetFactorDialog :user="resetFactorUser" @update:user="resetFactorUser = $event" @reset="load" />
+    <KestrelUserResetFactorDialog
+      :user="resetFactorUser"
+      :enrolled="resetFactorUser !== null && enrolled?.has(resetFactorUser.id) === true"
+      @update:user="resetFactorUser = $event"
+      @reset="load"
+    />
     <KestrelUserDeleteDialog
       :user="deleteUser"
       :users="users"

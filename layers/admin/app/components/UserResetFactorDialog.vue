@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { User } from '#kestrel-admin/types/api'
 
-const props = defineProps<{ user: User | null }>()
+const props = defineProps<{ user: User | null; enrolled: boolean }>()
 const emit = defineEmits<{ 'update:user': [User | null], reset: [] }>()
 
 const { t } = useT()
@@ -10,6 +10,11 @@ const busy = ref(false)
 const error = ref<string | null>(null)
 const enrollmentCode = ref<string | null>(null)
 const open = computed(() => props.user !== null)
+const resetsFactor = ref(props.enrolled)
+watch(() => props.user, (user) => { if (user !== null) resetsFactor.value = props.enrolled })
+const text = computed(() => resetsFactor.value
+  ? { title: 'users.resetSecondFactorTitle', confirm: 'users.resetSecondFactorConfirm', action: 'users.resetSecondFactor', done: 'users.resetSecondFactorDone', failed: 'users.resetSecondFactorFailed' } as const
+  : { title: 'users.issueEnrollmentCodeTitle', confirm: 'users.issueEnrollmentCodeConfirm', action: 'users.issueEnrollmentCode', done: 'users.issueEnrollmentCodeDone', failed: 'users.issueEnrollmentCodeFailed' } as const)
 
 function close() {
   error.value = null
@@ -24,10 +29,10 @@ async function confirm() {
   try {
     const answer = await deps.api<{ enrollmentCode: string }>(deps.capabilities.route('resetSecondFactor', { id: props.user.id }))
     enrollmentCode.value = answer.enrollmentCode
-    deps.toast.success(t('users.resetSecondFactorDone'))
+    deps.toast.success(t(text.value.done))
     emit('reset')
   } catch (e) {
-    error.value = apiErrorText(t, e, t('users.resetSecondFactorFailed'))
+    error.value = apiErrorText(t, e, t(text.value.failed))
   } finally {
     busy.value = false
   }
@@ -35,10 +40,10 @@ async function confirm() {
 </script>
 
 <template>
-  <KestrelUiDialog :open="open" :title="t('users.resetSecondFactorTitle')" @update:open="(v) => { if (!v) close() }">
+  <KestrelUiDialog :open="open" :title="t(text.title)" @update:open="(v) => { if (!v) close() }">
     <KestrelUiAlert v-if="error" variant="error">{{ error }}</KestrelUiAlert>
     <template v-if="enrollmentCode === null">
-      <p>{{ t('users.resetSecondFactorConfirm', { username: props.user?.username ?? '' }) }}</p>
+      <p>{{ t(text.confirm, { username: props.user?.username ?? '' }) }}</p>
     </template>
     <template v-else>
       <p>{{ t('users.enrollmentCodeHint', { username: props.user?.username ?? '' }) }}</p>
@@ -47,7 +52,7 @@ async function confirm() {
     <template #footer>
       <template v-if="enrollmentCode === null">
         <KestrelUiButton variant="ghost" :disabled="busy" @click="close">{{ t('common.cancel') }}</KestrelUiButton>
-        <KestrelUiButton variant="danger" :loading="busy" @click="confirm">{{ t('users.resetSecondFactor') }}</KestrelUiButton>
+        <KestrelUiButton variant="danger" :loading="busy" @click="confirm">{{ t(text.action) }}</KestrelUiButton>
       </template>
       <KestrelUiButton v-else variant="primary" @click="close">{{ t('users.enrollmentCodeDone') }}</KestrelUiButton>
     </template>

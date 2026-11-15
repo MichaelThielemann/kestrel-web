@@ -416,7 +416,9 @@ Points that matter:
   sign-in. A key that opens no stored factor does not stop sign-ins, but every code for such a factor is
   wrong until an administrator resets it. A user who lost the device signs in with a
   recovery code; an administrator resets the factor under **System → Users** and hands the owner the
-  one-time enrollment code the reset shows, which setting up the new factor requires. Ten wrong codes in a
+  one-time enrollment code the reset shows, which setting up the new factor requires. The code is shown only
+  once; when it is lost or mistyped, **Issue enrollment code** in the same row menu (offered while the account
+  has no factor set up) replaces it, and the earlier code stops working. Ten wrong codes in a
   row lock the factor for 15 minutes, each further lock twice as long. When the only administrator is
   locked out, stop the server and remove that account's row from `mfa_factors` in the SQLite database
   (`DELETE FROM mfa_factors WHERE "userId" = '<id>';`); the account sets up a new factor at its next
