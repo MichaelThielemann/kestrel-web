@@ -1275,8 +1275,9 @@
   field it carries.
 - Deleting a user reports a failed follow-up task (revision reassignment, audit anonymisation) instead
   of a success message. Otherwise the toast names the outcome, the user the writing now belongs to or the
-  anonymised author reference, and adds that the follow-up tasks run in the background while the events
-  queue still holds one (new admin message `users.followUpQueued`).
+  anonymised author reference, and says that follow-up tasks carry it out in the background while the
+  events queue still holds one (new admin messages `users.deletedAnonymizedQueued` and
+  `users.deletedReassignedQueued`).
 - The `eventsQueue` feature now boots with no event trigger in the manifest at all — an idle queue is a
   valid configuration, not an error; `presetModuleConfig()` + `definePreset()` no longer throw for it.
 - `create-kestrel`: new projects enable `eventsQueue` by default, so an upload answers as soon as the

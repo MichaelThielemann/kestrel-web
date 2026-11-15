@@ -752,7 +752,7 @@ describe('userDelete', () => {
     const result = await runAction(userDelete, { deps, userId: 'u1', reassignTo: 'u2', confirmed: true, ops, refresh })
 
     expect(result.ok).toBe(true)
-    expect(toast.success).toHaveBeenCalledWith('users.deletedReassigned:{"username":"berta"}users.followUpQueued')
+    expect(toast.success).toHaveBeenCalledWith('users.deletedReassignedQueued:{"username":"berta"}')
     expect(toast.info).not.toHaveBeenCalled()
   })
 
@@ -765,7 +765,7 @@ describe('userDelete', () => {
     const result = await runAction(userDelete, { deps, userId: 'u1', reassignTo: null, confirmed: true, ops, refresh })
 
     expect(result.ok).toBe(true)
-    expect(toast.success).toHaveBeenCalledWith('users.deletedAnonymized' + 'users.followUpQueued')
+    expect(toast.success).toHaveBeenCalledWith('users.deletedAnonymizedQueued')
   })
 
   it('confirms a user deletion whose follow-up tasks are done', async () => {
