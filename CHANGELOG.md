@@ -8,8 +8,9 @@
   bundle` read from it the readiness route `/api/ready`; the environment of a local start of a copy: on
   `127.0.0.1`, on the filesystem store, with `NODE_ENV=production`, storage migrations checked, content migrations
   applied, `KESTREL_ROBOTS_POLICY=disallow` and the public development stand-ins for the admin password hash and
-  the second-factor key; `llms.txt` as the file every render of the export writes; the variables whose values are
-  secrets (`KESTREL_ADMIN_PASSWORD_HASH`, `KESTREL_MFA_KEY`, `KESTREL_DEVICE_KEY`, `KESTREL_S3_ACCESS_KEY_ID`,
+  the second-factor key; `llms.txt` as the file every render of the export writes, for a project whose `features`
+  in `shared/model.ts` or `kestrel.config.ts` spell out `delivery`, and no export check for one without; the
+  variables whose values are secrets (`KESTREL_ADMIN_PASSWORD_HASH`, `KESTREL_MFA_KEY`, `KESTREL_DEVICE_KEY`, `KESTREL_S3_ACCESS_KEY_ID`,
   `KESTREL_S3_SECRET_ACCESS_KEY`); and the migration switches `KESTREL_MIGRATIONS` (content) and
   `KESTREL_STORAGE_MIGRATIONS` (storage). The hook also answers the blob store and the database file a deployed
   environment's variables select (`KESTREL_BLOBSTORE`, `KESTREL_S3_*`, `KESTREL_BLOBS_DIR`, `KESTREL_DATABASE_FILE`,

@@ -1,5 +1,7 @@
-import { resolve } from "node:path";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { OpsFacts } from "@michaelthielemann/kestrel-upgrade/plugin";
 import { envBlobstore, kestrelDataDir } from "../config";
 import { DEVELOPMENT_ADMIN_PASSWORD_HASH, DEVELOPMENT_MFA_KEY } from "../config/development";
@@ -49,10 +51,9 @@ describe("the layer's operations facts", () => {
     expect(JSON.stringify(answered)).toBe(JSON.stringify(facts()));
   });
 
-  it("name the readiness route, the export file every render writes and both migration switches", () => {
+  it("name the readiness route and both migration switches", () => {
     expect(facts()).toMatchObject({
       readyPath: "/api/ready",
-      exportChecks: ["llms.txt"],
       migrationSwitches: { content: "KESTREL_MIGRATIONS", storage: "KESTREL_STORAGE_MIGRATIONS" },
     });
   });
@@ -87,6 +88,51 @@ describe("the layer's operations facts", () => {
       ["KESTREL_ADMIN_PASSWORD_HASH", DEVELOPMENT_ADMIN_PASSWORD_HASH],
       ["KESTREL_MFA_KEY", DEVELOPMENT_MFA_KEY],
     ]);
+  });
+});
+
+describe("the export check", () => {
+  const projects: string[] = [];
+
+  function project(files: Record<string, string>): string {
+    const root = mkdtempSync(join(tmpdir(), "kestrel-ops-project-"));
+    projects.push(root);
+    for (const [file, source] of Object.entries(files)) {
+      mkdirSync(resolve(root, file, ".."), { recursive: true });
+      writeFileSync(join(root, file), source);
+    }
+    return root;
+  }
+
+  afterAll(() => {
+    for (const root of projects) rmSync(root, { recursive: true, force: true });
+  });
+
+  it("names llms.txt for a project whose features include delivery", () => {
+    const root = project({ "shared/model.ts": 'export const features = ["references", "delivery", "images"] as const;\n' });
+    expect(layerOpsFacts(root).exportChecks).toEqual(["llms.txt"]);
+  });
+
+  it("names llms.txt when kestrel.config.ts adds delivery to the features of the shared model", () => {
+    const root = project({
+      "shared/model.ts": 'export const modelFeatures = ["references"] as const;\n',
+      "kestrel.config.ts": 'import { modelFeatures } from "./shared/model";\nconst features = [...modelFeatures, "delivery"] as const;\nexport default { features };\n',
+    });
+    expect(layerOpsFacts(root).exportChecks).toEqual(["llms.txt"]);
+  });
+
+  it("names llms.txt for the playground", () => {
+    expect(layerOpsFacts(resolve(import.meta.dirname, "../../../playground")).exportChecks).toEqual(["llms.txt"]);
+  });
+
+  it("names no file for a project without delivery, which renders no export", () => {
+    const root = project({ "shared/model.ts": 'export const features = ["references", "ratelimit"] as const;\n', "kestrel.config.ts": 'import { features } from "./shared/model";\nexport default { features };\n' });
+    expect(layerOpsFacts(root)).not.toHaveProperty("exportChecks");
+  });
+
+  it("names no file when no features can be read", () => {
+    expect(layerOpsFacts(project({ "kestrel.config.ts": "export default {};\n" }))).not.toHaveProperty("exportChecks");
+    expect(facts()).not.toHaveProperty("exportChecks");
   });
 });
 

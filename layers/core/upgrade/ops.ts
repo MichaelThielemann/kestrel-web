@@ -1,11 +1,15 @@
-import { resolve } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { join, resolve } from "node:path";
 import type { OpsEnv, OpsFacts, OpsModuleEntry } from "@michaelthielemann/kestrel-upgrade/plugin";
 import { envBlobstore, kestrelDataDir } from "../config";
 import { DEVELOPMENT_ADMIN_PASSWORD_HASH, DEVELOPMENT_MFA_KEY } from "../config/development";
 import { MOUNT_PATH } from "../mount-path";
 import { presetDatabaseFile } from "../pipelines/config";
+import { namedExportArray } from "./edits";
+import { resolvedArrayValues } from "./ruleHelpers";
 
 const LOOPBACK = "127.0.0.1";
+const FEATURE_FILES: readonly string[] = [join("shared", "model.ts"), "kestrel.config.ts"];
 const BLOBSTORE_CHOICES: ReadonlySet<string> = new Set(["s3", "filesystem"]);
 
 const SECRET_ENV_NAMES: readonly string[] = ["KESTREL_ADMIN_PASSWORD_HASH", "KESTREL_MFA_KEY", "KESTREL_DEVICE_KEY", "KESTREL_S3_ACCESS_KEY_ID", "KESTREL_S3_SECRET_ACCESS_KEY"];
@@ -16,6 +20,18 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function dataDir(env: OpsEnv, root: string): string {
   return resolve(root, kestrelDataDir(env, root));
+}
+
+function declaredFeatures(root: string): string[] {
+  const values: string[] = [];
+  for (const file of FEATURE_FILES) {
+    const path = join(root, file);
+    if (!existsSync(path)) continue;
+    const source = readFileSync(path, "utf8");
+    const features = namedExportArray(source, "features");
+    if (features !== undefined) values.push(...resolvedArrayValues(source, features));
+  }
+  return values;
 }
 
 function blobstoreFromEnv(env: OpsEnv, root: string): OpsModuleEntry | undefined {
@@ -32,7 +48,8 @@ function blobstoreFromEnv(env: OpsEnv, root: string): OpsModuleEntry | undefined
  * local start of a copy, on loopback, on the filesystem store, with storage migrations checked, content migrations
  * applied and the public development stand-ins for the admin password hash and the second-factor key, to which
  * `KESTREL_DATABASE_FILE` and `KESTREL_BLOBS_DIR` add the database copy and blob directory of that start; `llms.txt`,
- * which every render of the export writes; the blob store and database file a deployed environment's variables
+ * which every render of the export writes, when the `features` that `shared/model.ts` or `kestrel.config.ts`
+ * declare include `delivery` as a string the source spells out, and no export check otherwise; the blob store and database file a deployed environment's variables
  * select, read from the given map and resolved against `root`; the variables that hold secrets; and the two
  * migration switches. The answer holds no value of this process's environment.
  */
@@ -50,7 +67,7 @@ export function layerOpsFacts(root: string): OpsFacts {
       KESTREL_ADMIN_PASSWORD_HASH: DEVELOPMENT_ADMIN_PASSWORD_HASH,
       KESTREL_MFA_KEY: DEVELOPMENT_MFA_KEY,
     },
-    exportChecks: ["llms.txt"],
+    ...(declaredFeatures(root).includes("delivery") ? { exportChecks: ["llms.txt"] } : {}),
     blobstoreFromEnv: (env) => blobstoreFromEnv(env, root),
     databaseFile: (env) => presetDatabaseFile(dataDir(env, root), env, root),
     secretEnvNames: SECRET_ENV_NAMES,

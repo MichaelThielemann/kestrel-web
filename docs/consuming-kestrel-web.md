@@ -496,6 +496,10 @@ deployed environment's variables it derives that environment's blob store and da
 paths resolved against the project root. `kestrel update prepare` and `bundle` read the hook's readiness
 route, local start environment, export check, secret variable names and migration switches; `kestrel status`,
 `backup` and `restore` take an environment's storage, prefixes and target from `kestrel.environments.json`.
+The export check is `llms.txt` when the `features` array in `shared/model.ts` or `kestrel.config.ts` names
+`delivery` as a string literal, directly or through a spread of another array in the same file; a project
+without delivery renders no export and gets no export check, and neither does one whose features come only from
+an expression the hook cannot read without running it.
 
 - `s3` (`KESTREL_BLOBSTORE=s3`) → `blobstore-s3`, reading `KESTREL_S3_BUCKET`, `_ENDPOINT`, `_REGION`,
   `_ACCESS_KEY_ID`, `_SECRET_ACCESS_KEY` (each via `requiredEnv`) with `forcePathStyle: true`.
