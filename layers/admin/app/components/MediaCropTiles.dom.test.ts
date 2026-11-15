@@ -1,10 +1,26 @@
 import { mountSuspended } from '@nuxt/test-utils/runtime'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 import type { MediaFramingRatio } from '#kestrel-admin/types/api'
 import { en } from '#kestrel-admin/i18n/en'
 import { tileId } from '../utils/media-crop'
 import MediaCropTiles from './MediaCropTiles.vue'
+
+function stubMatchMedia(matches: boolean) {
+  const base: MediaQueryList = {
+    matches,
+    media: '',
+    onchange: null,
+    addListener: () => {},
+    removeListener: () => {},
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    dispatchEvent: () => false,
+  }
+  window.matchMedia = (media: string) => ({ ...base, media })
+}
+
+beforeEach(() => stubMatchMedia(false))
 
 const RATIOS: MediaFramingRatio[] = [
   { key: '3:2', sizes: ['hero-wide', 'teaser'], manual: false, fits: true, crop: null },
@@ -92,5 +108,21 @@ describe('MediaCropTiles', () => {
     expect(tab(wrapper, '1:1').attributes('aria-selected')).toBe('true')
     wrapper.unmount()
     Reflect.deleteProperty(HTMLElement.prototype, 'scrollIntoView')
+  })
+
+  it('lays the tiles out as a horizontal strip on a narrow screen, moved through with the left and right keys', async () => {
+    stubMatchMedia(true)
+    const wrapper = await mountTiles('3:2')
+    await nextTick()
+    const list = wrapper.get('[role="tablist"]')
+
+    expect(list.attributes('aria-orientation')).toBeUndefined()
+    expect(list.attributes('data-orientation')).toBe('horizontal')
+    await tab(wrapper, '3:2').trigger('keydown', { key: 'ArrowDown' })
+    expect(tab(wrapper, '3:2').attributes('aria-selected')).toBe('true')
+    await tab(wrapper, '3:2').trigger('keydown', { key: 'ArrowRight' })
+    await nextTick()
+    expect(tab(wrapper, '1:1').attributes('aria-selected')).toBe('true')
+    wrapper.unmount()
   })
 })

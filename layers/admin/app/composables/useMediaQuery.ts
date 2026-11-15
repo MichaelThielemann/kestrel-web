@@ -7,7 +7,7 @@ export function useMediaQuery(query: string) {
   }
 
   onMounted(() => {
-    if (!import.meta.client || typeof window.matchMedia !== 'function') return
+    if (!import.meta.client) return
     mediaQuery = window.matchMedia(query)
     sync()
     mediaQuery.addEventListener('change', sync)

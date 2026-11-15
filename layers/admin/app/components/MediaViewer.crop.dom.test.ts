@@ -5,6 +5,22 @@ import type { AdminSchema, MediaItem } from '#kestrel-admin/types/api'
 import { en } from '#kestrel-admin/i18n/en'
 import MediaViewer from './MediaViewer.vue'
 
+function stubMatchMedia(matches: boolean) {
+  const base: MediaQueryList = {
+    matches,
+    media: '',
+    onchange: null,
+    addListener: () => {},
+    removeListener: () => {},
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    dispatchEvent: () => false,
+  }
+  window.matchMedia = (media: string) => ({ ...base, media })
+}
+
+beforeEach(() => stubMatchMedia(false))
+
 const { schema, api } = vi.hoisted(() => {
   const schema: AdminSchema = {
     locales: { all: ['en'], primary: 'en', prefixPrimary: false },

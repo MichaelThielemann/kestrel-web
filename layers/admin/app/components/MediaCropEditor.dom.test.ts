@@ -6,6 +6,22 @@ import { en } from '#kestrel-admin/i18n/en'
 import { CROP_HELP_KEY, useCropHelpPreference } from '../composables/useCropHelpPreference'
 import MediaCropEditor from './MediaCropEditor.vue'
 
+function stubMatchMedia(matches: boolean) {
+  const base: MediaQueryList = {
+    matches,
+    media: '',
+    onchange: null,
+    addListener: () => {},
+    removeListener: () => {},
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    dispatchEvent: () => false,
+  }
+  window.matchMedia = (media: string) => ({ ...base, media })
+}
+
+beforeEach(() => stubMatchMedia(false))
+
 interface Call { path: string, method: string, body?: unknown }
 
 const { schema, api } = vi.hoisted(() => {

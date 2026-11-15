@@ -1,5 +1,5 @@
 import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { computed, defineComponent, h, nextTick, provide } from 'vue'
 import type { AdminSchema, MediaItem } from '#kestrel-admin/types/api'
 import type { FieldDef } from '#kestrel-admin/types/kestrel'
@@ -7,6 +7,22 @@ import { en } from '#kestrel-admin/i18n/en'
 import { notifyMediaChanged, notifyMediaFramed, notifyMediaRemoved } from '../../composables/useMediaChanges'
 import { blockImageSizesKey } from '../../utils/media-crop'
 import FieldMedia from './Media.vue'
+
+function stubMatchMedia(matches: boolean) {
+  const base: MediaQueryList = {
+    matches,
+    media: '',
+    onchange: null,
+    addListener: () => {},
+    removeListener: () => {},
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    dispatchEvent: () => false,
+  }
+  window.matchMedia = (media: string) => ({ ...base, media })
+}
+
+beforeEach(() => stubMatchMedia(false))
 
 const { schema, apiHandler } = vi.hoisted(() => {
   const schema: AdminSchema = {
