@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
-import { compile } from 'sass'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+import { compile, compileString } from 'sass'
 import { describe, expect, it } from 'vitest'
 
 const entry = fileURLToPath(new URL('./main.scss', import.meta.url))
@@ -157,5 +157,16 @@ describe('admin stylesheet scope', () => {
       const unbound = selectorsOf(css).filter((selector) => selector.includes(pseudo))
       expect(unscoped(unbound)).toEqual([])
     }
+  })
+
+  it('binds the styles of the crop and tile kit components to the admin root', () => {
+    const offenders: string[] = []
+    for (const name of ['CropFrame.vue', 'CropGuides.vue', 'RectSelect.vue', 'TabList.vue', 'InfoToggle.vue']) {
+      const file = fileURLToPath(new URL(`../../components/ui/${name}`, import.meta.url))
+      const style = /<style lang="scss">([\s\S]*?)<\/style>/.exec(readFileSync(file, 'utf8'))?.[1] ?? ''
+      const compiled = compileString(style, { url: pathToFileURL(file) }).css
+      for (const selector of unscoped(selectorsOf(compiled))) offenders.push(`${name}: ${selector}`)
+    }
+    expect(offenders).toEqual([])
   })
 })

@@ -176,8 +176,9 @@ const rectStyle = computed(() => {
 <style lang="scss">
 @use '../../assets/scss/mixins';
 @use '../../assets/scss/crop-stage';
+@use '../../assets/scss/scope' as *;
 
-.ui-rect-select {
+#{$root} .ui-rect-select {
   @include crop-stage.layout;
 
   &__stage {
@@ -200,9 +201,14 @@ const rectStyle = computed(() => {
     &:focus-visible {
       outline-offset: 2px;
     }
+
+    @media (max-width: crop-stage.$narrow) {
+      width: fit-content;
+      margin-inline: auto;
+    }
   }
 
-  &[data-disabled] &__surface {
+  &[data-disabled] .ui-rect-select__surface {
     cursor: not-allowed;
     opacity: 0.6;
   }
@@ -213,6 +219,10 @@ const rectStyle = computed(() => {
     max-width: calc(100cqw - 1.5rem);
     max-height: calc(100cqh - 1.5rem);
     pointer-events: none;
+
+    @media (max-width: crop-stage.$narrow) {
+      max-height: crop-stage.$narrow-stage-height;
+    }
   }
 
   &__clip {
@@ -278,17 +288,6 @@ const rectStyle = computed(() => {
 
   &__grid {
     @include crop-stage.fields;
-  }
-}
-
-@media (max-width: 48rem) {
-  .ui-rect-select__surface {
-    width: fit-content;
-    margin-inline: auto;
-  }
-
-  .ui-rect-select__image {
-    max-height: 55svh;
   }
 }
 </style>

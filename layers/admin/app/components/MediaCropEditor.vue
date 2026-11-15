@@ -155,6 +155,8 @@ async function onSave(): Promise<void> {
 </template>
 
 <style lang="scss" scoped>
+@use '../assets/scss/crop-stage';
+
 .media-crop {
   display: grid;
   grid-template-columns: minmax(0, 16rem) minmax(0, 1fr);
@@ -185,7 +187,7 @@ async function onSave(): Promise<void> {
   p { margin: 0; }
 }
 
-@media (max-width: 48rem) {
+@media (max-width: crop-stage.$narrow) {
   .media-crop {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: none;

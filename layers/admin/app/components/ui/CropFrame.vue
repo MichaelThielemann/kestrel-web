@@ -194,8 +194,9 @@ defineExpose({ focus: () => frame.value?.focus() })
 <style lang="scss">
 @use '../../assets/scss/mixins';
 @use '../../assets/scss/crop-stage';
+@use '../../assets/scss/scope' as *;
 
-.ui-crop-frame {
+#{$root} .ui-crop-frame {
   @include crop-stage.layout;
 
   &__stage {
@@ -221,13 +222,18 @@ defineExpose({ focus: () => frame.value?.focus() })
     &:focus-visible {
       outline-offset: 2px;
     }
+
+    @media (max-width: crop-stage.$narrow) {
+      width: min(100cqw, calc(#{crop-stage.$narrow-stage-height} * var(--ui-crop-frame-ratio-value)));
+      margin-inline: auto;
+    }
   }
 
-  &--dragging &__frame {
+  &--dragging .ui-crop-frame__frame {
     cursor: grabbing;
   }
 
-  &[data-disabled] &__frame {
+  &[data-disabled] .ui-crop-frame__frame {
     cursor: not-allowed;
     opacity: 0.6;
   }
@@ -276,22 +282,15 @@ defineExpose({ focus: () => frame.value?.focus() })
   &__grid-fields {
     @include crop-stage.fields;
   }
-}
 
-@media (max-width: 48rem) {
-  .ui-crop-frame__frame {
-    width: min(100cqw, calc(55svh * var(--ui-crop-frame-ratio-value)));
-    margin-inline: auto;
-  }
-}
+  @media (prefers-reduced-motion: no-preference) {
+    &:not(.ui-crop-frame--dragging) .ui-crop-frame__image {
+      transition: transform var(--motion-fast) var(--ease-standard), width var(--motion-fast) var(--ease-standard);
+    }
 
-@media (prefers-reduced-motion: no-preference) {
-  .ui-crop-frame:not(.ui-crop-frame--dragging) .ui-crop-frame__image {
-    transition: transform var(--motion-fast) var(--ease-standard), width var(--motion-fast) var(--ease-standard);
-  }
-
-  .ui-crop-frame:not(.ui-crop-frame--dragging) .ui-crop-frame__focus {
-    transition: left var(--motion-fast) var(--ease-standard), top var(--motion-fast) var(--ease-standard), width var(--motion-fast) var(--ease-standard), height var(--motion-fast) var(--ease-standard);
+    &:not(.ui-crop-frame--dragging) .ui-crop-frame__focus {
+      transition: left var(--motion-fast) var(--ease-standard), top var(--motion-fast) var(--ease-standard), width var(--motion-fast) var(--ease-standard), height var(--motion-fast) var(--ease-standard);
+    }
   }
 }
 </style>

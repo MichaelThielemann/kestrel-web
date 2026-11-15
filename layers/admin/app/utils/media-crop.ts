@@ -150,6 +150,9 @@ export function uniqueReferrers(refs: readonly ReferenceTo[]): number {
   return new Set(refs.map((ref) => `${ref.type}/${ref.id}`)).size
 }
 
+/** The media query below which the crop editor stacks its columns; the same width as `$narrow` in `assets/scss/_crop-stage.scss`. */
+export const CROP_NARROW_QUERY = '(max-width: 48rem)'
+
 /** The tile of the crop editor that edits the focus for every ratio; every other tile is named by its ratio key. */
 export const FOCUS_TILE = 'focus'
 

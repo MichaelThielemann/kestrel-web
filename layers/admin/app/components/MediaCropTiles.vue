@@ -3,7 +3,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import type { PixelCrop } from '@michaelthielemann/kestrel-images-default/framing'
 import type { MediaFramingRatio, MediaRect } from '#kestrel-admin/types/api'
 import type { FocusMiss } from '../utils/crop-advice'
-import { FOCUS_TILE, displayCrop, tileId, type FramingDraft } from '../utils/media-crop'
+import { CROP_NARROW_QUERY, FOCUS_TILE, displayCrop, tileId, type FramingDraft } from '../utils/media-crop'
 
 const props = withDefaults(defineProps<{
   idPrefix: string
@@ -17,7 +17,7 @@ const props = withDefaults(defineProps<{
 }>(), { usages: () => ({}), misses: () => ({}) })
 const selected = defineModel<string>('selected', { required: true })
 const { t } = useT()
-const narrow = useMediaQuery('(max-width: 48rem)')
+const narrow = useMediaQuery(CROP_NARROW_QUERY)
 
 interface Tile {
   id: string
@@ -115,6 +115,7 @@ onUnmounted(stopReveal)
 </template>
 
 <style lang="scss" scoped>
+@use '../assets/scss/crop-stage';
 @use '../assets/scss/mixins';
 
 .media-crop-tiles {
@@ -161,7 +162,7 @@ onUnmounted(stopReveal)
 }
 .media-crop-tiles__sr { @include mixins.sr-only; }
 
-@media (max-width: 48rem) {
+@media (max-width: crop-stage.$narrow) {
   .media-crop-tiles {
     padding-bottom: var(--space-3);
     overflow-x: auto;

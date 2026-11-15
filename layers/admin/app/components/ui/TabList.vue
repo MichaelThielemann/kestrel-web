@@ -137,6 +137,8 @@ function onKeydown(event: KeyboardEvent) {
 }
 
 #{$root} .ui-tabs--tiles .ui-tabs__item {
+  @include mixins.focus-ring;
+
   position: relative;
   display: block;
   width: 100%;
@@ -158,7 +160,6 @@ function onKeydown(event: KeyboardEvent) {
   }
 
   &:focus-visible {
-    outline: 2px solid var(--color-focus);
     outline-offset: 2px;
   }
 

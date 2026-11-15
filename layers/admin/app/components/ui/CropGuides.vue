@@ -24,7 +24,9 @@ const percent = (at: number) => `${Math.round(at * 100000) / 1000}%`
 </template>
 
 <style lang="scss">
-.ui-crop-guides {
+@use '../../assets/scss/scope' as *;
+
+#{$root} .ui-crop-guides {
   position: absolute;
   inset: 0;
   pointer-events: none;
@@ -63,22 +65,22 @@ const percent = (at: number) => `${Math.round(at * 100000) / 1000}%`
     white-space: nowrap;
   }
 
-  &__line[data-axis='x'] &__label {
+  &__line[data-axis='x'] .ui-crop-guides__label {
     top: 4px;
     left: 6px;
   }
 
-  &__line[data-axis='x'][data-side='before'] &__label {
+  &__line[data-axis='x'][data-side='before'] .ui-crop-guides__label {
     left: auto;
     right: 6px;
   }
 
-  &__line[data-axis='y'] &__label {
+  &__line[data-axis='y'] .ui-crop-guides__label {
     top: 6px;
     left: 4px;
   }
 
-  &__line[data-axis='y'][data-side='before'] &__label {
+  &__line[data-axis='y'][data-side='before'] .ui-crop-guides__label {
     top: auto;
     bottom: 6px;
   }

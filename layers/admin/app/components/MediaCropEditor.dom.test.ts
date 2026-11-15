@@ -194,7 +194,7 @@ describe('MediaCropEditor', () => {
     await nextTick()
     expect(q('[data-test="crop-state"]')?.textContent).toBe(en['mediaCrop.auto'])
     await vi.waitFor(() => expect(document.activeElement).toBe(q('.ui-crop-frame__frame')))
-    await vi.waitFor(() => expect(q('.ui-live-status')?.textContent).toBe(en['mediaCrop.resetDone'].replace('{key}', '1:1')))
+    await vi.waitFor(() => expect(q('.media-crop > .ui-live-status')?.textContent).toBe(en['mediaCrop.resetDone'].replace('{key}', '1:1')))
     wrapper.unmount()
   })
 
