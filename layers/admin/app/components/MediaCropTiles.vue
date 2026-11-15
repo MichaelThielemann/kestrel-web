@@ -163,6 +163,8 @@ onUnmounted(stopReveal)
 
 @media (max-width: crop-stage.$narrow) {
   .media-crop-tiles {
+    --ui-tabs-tile-width: 10.5rem;
+
     padding-bottom: var(--space-3);
     overflow-x: auto;
     overflow-y: hidden;
