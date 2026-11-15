@@ -683,7 +683,7 @@ export const en = {
   'combobox.loading': 'Loading…',
   'combobox.no_results': 'No results',
   'rectSelect.help': 'Drag across the image to draw the area, drag the area to move it and its handles to resize it; a double-click sets a point. With the keyboard: the arrow keys move the area, with Shift in larger steps, Alt and the arrow keys resize it, Enter creates it and Delete removes it.',
-  'rectSelect.fields': 'Position and size in percent of the image',
+  'rectSelect.fields': 'Area in percent of the image',
   'rectSelect.x': 'Left',
   'rectSelect.y': 'Top',
   'rectSelect.w': 'Width',
