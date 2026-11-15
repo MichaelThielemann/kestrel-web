@@ -1,8 +1,9 @@
 import type { ApiErrorDetails } from '#kestrel-admin/types/api'
 import type { ActionContext, ActionStep } from '#kestrel-core/app/utils/actions'
-import { answeredMessage, failureText, retryableMessage } from '../../composables/useApi'
+import { answeredMessage, failureText, retryableMessage, withDetail } from '../../composables/useApi'
 import type { BlockErrors } from '../../composables/useEditFormValidation'
 import { blockErrorFromPointer, fieldErrorsFromDetails, fieldFromErrorMessage, hasAdditionalPropertiesProblem, parseBodyErrors, parseRowErrors } from '../../utils/edit-form'
+import { redirectRuleError } from '../../utils/redirect-rule-errors'
 import { parseSchemaRowErrors } from '../../utils/row-errors'
 import { defineUiStep } from '../define'
 import type { ActionDeps, EditFormPort, SaveOutcome, Translate, WithDeps } from '../types'
@@ -58,6 +59,21 @@ function mapSchemaRowError(form: EditFormPort, message: string): boolean {
   if (!tree) return false
 
   form.setRowErrors(repeater, tree)
+  return true
+}
+
+function mapRedirectRule(t: Translate, form: EditFormPort, details: ApiErrorDetails | undefined, setFormError: (text: string) => void): boolean {
+  if (form.collection !== 'redirects') return false
+  const rejected = redirectRuleError(t, details)
+  if (!rejected) return false
+
+  const repeater = form.repeaterField()
+  if (rejected.row !== undefined && repeater) {
+    const error = rejected.field ? { fields: { [rejected.field]: rejected.text } } : { message: rejected.text }
+    form.setRowErrors(repeater, { [rejected.row - 1]: error })
+  }
+  const detail = rejected.row === undefined ? rejected.text : t('redirects.rowReason', { row: rejected.row, text: rejected.text })
+  setFormError(withDetail(t, t('editor.saveFailed'), detail))
   return true
 }
 
@@ -136,6 +152,7 @@ export function formMapErrors<I extends WithDeps & { form: EditFormPort }>(): Ac
 
     if (code === 'VALIDATION' || code === 'DANGLING_REF') {
       const shown = answered('editor.saveFailed')
+      if (code === 'VALIDATION' && mapRedirectRule(t, form, details, setFormError)) return
       if (mapBodyError(t, form, message, setFormError)) return
       if (mapRowError(form, message) || mapSchemaRowError(form, message)) {
         setFormError(shown)

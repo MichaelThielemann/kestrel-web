@@ -3,8 +3,10 @@ import { defineAction, runAction, type ActionContext } from '#kestrel-core/app/u
 import { ApiError } from '../../composables/useApi'
 import type { ActionDeps, ApiClient, EditFormPort, SaveFailure, SaveOutcome, WithDeps } from '../types'
 import type { ApiRoute } from '../../utils/capabilities'
+import type { RowErrorMap } from '../../utils/row-errors'
 import { fullAccessCapabilities, fullAccessSchema, ledFailure, referencedFailure } from '../__fixtures__/fake-deps'
 import { capabilityResolver } from '../../utils/capabilities'
+import type { ApiErrorDetails } from '#kestrel-admin/types/api'
 import { apiWrite } from './api'
 import { formMapErrors, formReset } from './form'
 
@@ -17,10 +19,12 @@ function fakeApiClient(): ApiClient {
   return api
 }
 
-function fakeForm() {
-  const state: { formError: string, fieldErrors: Record<string, string> } = { formError: '', fieldErrors: {} }
+interface FakeFormOptions { collection?: string, repeater?: string | null }
+
+function fakeForm(options: FakeFormOptions = {}) {
+  const state: { formError: string, fieldErrors: Record<string, string>, rowErrors: Record<string, RowErrorMap> } = { formError: '', fieldErrors: {}, rowErrors: {} }
   const form: EditFormPort = {
-    collection: 'pages',
+    collection: options.collection ?? 'pages',
     id: 'p1',
     mode: 'multi',
     deliveryEnabled: true,
@@ -33,12 +37,12 @@ function fakeForm() {
     dirtyKeys: () => ['title', 'slug'],
     bodyFor: (keys: string[]) => Object.fromEntries(keys.map((key) => [key, ''])),
     blocks: () => [],
-    repeaterField: () => null,
+    repeaterField: () => options.repeater ?? null,
     formError: () => state.formError,
     setField: () => {},
-    clearErrors: () => { state.formError = ''; state.fieldErrors = {} },
+    clearErrors: () => { state.formError = ''; state.fieldErrors = {}; state.rowErrors = {} },
     setFieldError: (name: string, message: string) => { state.fieldErrors[name] = message },
-    setRowErrors: () => {},
+    setRowErrors: (field: string, errors: RowErrorMap) => { state.rowErrors[field] = errors },
     setBlockErrors: () => {},
     setFormError: (message: string) => { state.formError = message },
     setSaving: () => {},
@@ -51,8 +55,8 @@ function fakeForm() {
   return { form, state }
 }
 
-function runMapErrors(failure: SaveFailure | null, capabilities = fullAccessCapabilities) {
-  const { form, state } = fakeForm()
+function runMapErrors(failure: SaveFailure | null, capabilities = fullAccessCapabilities, options: FakeFormOptions = {}) {
+  const { form, state } = fakeForm(options)
   const t = vi.fn((key: string, params?: Record<string, unknown>) => (params ? `${key}:${JSON.stringify(params)}` : key))
   const deps: ActionDeps = { api: fakeApiClient(), t, toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() }, capabilities }
   const ctx: ActionContext<Input, SaveOutcome> = {
@@ -193,7 +197,62 @@ describe('formMapErrors', () => {
   })
 
   it('does nothing without a failure', () => {
-    expect(runMapErrors(null)).toEqual({ formError: '', fieldErrors: {} })
+    expect(runMapErrors(null)).toEqual({ formError: '', fieldErrors: {}, rowErrors: {} })
+  })
+})
+
+describe('formMapErrors on a rejected redirect rule', () => {
+  const redirects: FakeFormOptions = { collection: 'redirects', repeater: 'rules' }
+  const serverText = 'redirects: Row 2: from can match the reserved path /admin'
+  const rejected = (details: ApiErrorDetails, message = serverText): SaveFailure => ({ status: 400, code: 'VALIDATION', retryable: false, message, requestId: 'a1b2c3d4e5f6', details })
+  const text = 'redirects.reason.from.reservedPath:{"path":"/admin"}'
+
+  it('shows the translated reason at the field of its row and in the banner instead of the server text', () => {
+    const state = runMapErrors(rejected({ row: 2, field: 'from', reason: 'reserved-path', path: '/admin' }), fullAccessCapabilities, redirects)
+    expect(state.rowErrors).toEqual({ rules: { 1: { fields: { from: text } } } })
+    const banner = `redirects.rowReason:${JSON.stringify({ row: 2, text })}`
+    expect(state.formError).toBe(referencedFailure(ledFailure('editor.saveFailed', banner), 400, 'a1b2c3d4e5f6'))
+    expect(state.formError).not.toContain('can match the reserved path')
+    expect(state.fieldErrors).toEqual({})
+  })
+
+  it('shows a rule reason that belongs to no field at the row', () => {
+    const state = runMapErrors(rejected({ row: 3, reason: 'too-many-rules' }, 'redirects: too many rules'), fullAccessCapabilities, redirects)
+    expect(state.rowErrors).toEqual({ rules: { 2: { message: 'redirects.reason.tooManyRules' } } })
+  })
+
+  it('names a rejected list in the banner without a row', () => {
+    const state = runMapErrors(rejected({ reason: 'too-many-rules' }, 'redirects: too many rules'), fullAccessCapabilities, redirects)
+    expect(state.rowErrors).toEqual({})
+    expect(state.formError).toBe(referencedFailure(ledFailure('editor.saveFailed', 'redirects.reason.tooManyRules'), 400, 'a1b2c3d4e5f6'))
+  })
+
+  it('keeps the server text for a reason it does not know', () => {
+    const state = runMapErrors(rejected({ row: 2, field: 'from', reason: 'something-new' }), fullAccessCapabilities, redirects)
+    expect(state.rowErrors).toEqual({ rules: { 1: 'from can match the reserved path /admin' } })
+    expect(state.formError).toBe(referencedFailure(ledFailure('editor.saveFailed', 'Row 2: from can match the reserved path /admin'), 400, 'a1b2c3d4e5f6'))
+  })
+
+  it('keeps the server text for a rule reason that names no field', () => {
+    const state = runMapErrors(rejected({ row: 2, reason: 'blank' }), fullAccessCapabilities, redirects)
+    expect(state.rowErrors).toEqual({ rules: { 1: 'from can match the reserved path /admin' } })
+  })
+
+  it('keeps the server text for an answer without a reason', () => {
+    const state = runMapErrors(rejected({ row: 2 }), fullAccessCapabilities, redirects)
+    expect(state.rowErrors).toEqual({ rules: { 1: 'from can match the reserved path /admin' } })
+    expect(state.formError).toContain('Row 2: from can match the reserved path /admin')
+  })
+
+  it('leaves the rejection of another collection as it is', () => {
+    const state = runMapErrors(rejected({ row: 2, field: 'from', reason: 'reserved-path', path: '/admin' }), fullAccessCapabilities, { collection: 'pages', repeater: 'rules' })
+    expect(state.formError).not.toContain('redirects.reason')
+  })
+
+  it('leaves another error of the collection as it is', () => {
+    const state = runMapErrors({ status: 500, code: 'INTERNAL', retryable: false, message: 'boom', details: { reason: 'blank' } }, fullAccessCapabilities, redirects)
+    expect(state.rowErrors).toEqual({})
+    expect(state.formError).toBe(referencedFailure(ledFailure('editor.saveFailed', 'boom'), 500))
   })
 })
 

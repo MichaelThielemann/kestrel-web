@@ -97,6 +97,6 @@ test("a refused redirect row keeps the redirects tab within a 320 px wide viewpo
   await page.getByRole("textbox", { name: "Nach" }).last().fill("/team");
   const response = await submitSave(page);
   expect(response.status()).toBe(400);
-  await expect(page.locator(".ui-repeater__row-error")).toBeVisible();
+  await expect(page.locator(".ui-repeater__row .ui-field__error")).toBeVisible();
   await expectReflow(page);
 });

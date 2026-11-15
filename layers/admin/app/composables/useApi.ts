@@ -185,6 +185,11 @@ export function serverDetail(message: string): string {
  */
 export function answeredMessage(t: Translate, err: { message?: string, reached?: boolean }, lead: string): string {
   const detail = err.reached === false || !err.message ? '' : serverDetail(err.message)
+  return withDetail(t, lead, detail)
+}
+
+/** `lead` followed by `detail` as given, without `serverDetail`'s prefix removal; `lead` alone without a detail. */
+export function withDetail(t: Translate, lead: string, detail: string): string {
   if (!detail) return lead
   return lead ? t('error.detail', { lead: lead.replace(/[.:]$/, ''), detail }) : detail
 }

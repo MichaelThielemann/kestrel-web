@@ -57,6 +57,21 @@ export function useT() {
   wording that reads in both forms (`'{count} file(s) already exist.'`), so a language that needs a
   real plural rule needs its own key per form and a caller that picks between them.
 
+## Rejected redirect rules
+
+A save that `redirects-default` rejects answers `400` with the English message `redirects: Row N: …` and
+`details { row, field, reason, path? }`. The redirects editor words the rejection from `reason` in the admin
+language: the text stands under the field of the row (`from`, `to` or `status`) and in the save-failed banner
+and its toast as `Row N: …`. A reason that concerns the list as a whole (`not-a-list`, `too-many-rules`)
+appears in the banner only.
+
+Every reason has one key per field under `redirects.reason.` in both catalogs, for instance
+`redirects.reason.from.reservedPath` (`"From" can match the reserved path {path}, which the server answers itself.`);
+`{path}` is the reserved prefix or the target of an automatic redirect that `details.path` names, and the
+`…Any` key is used when the answer names no path. An answer with an unknown reason, with a reason that does not
+belong to its field, or without a reason, as from a kestrel that does not send one yet, shows the server's own
+text as for any other rejection. Other errors of the redirects editor are not affected.
+
 ## Choosing the language
 
 `useAdminLang()` is a cookie, and the cookie wins whenever it is set:

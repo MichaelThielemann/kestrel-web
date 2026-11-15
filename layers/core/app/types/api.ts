@@ -51,7 +51,15 @@ export interface ApiErrorDetails {
   referrers?: ReferenceTo[]
   referenced?: string[]
   retryAfterSeconds?: number
+  /** The rejected rule of a redirects save: the 1-based position in the list, the field, a stable reason and the offending path. */
+  row?: number
+  field?: string
+  reason?: string
+  path?: string
 }
+
+/** What `redirects-default` gives as the reason of a rejected or skipped redirect rule. */
+export type RedirectRuleReason = ResponseOf<'publishAllPages', 200>['redirects']['skippedRules'][number]['reason']
 
 export interface ApiErrorBody { error: string; code: string; retryable: boolean; runId?: string; step?: string; details?: ApiErrorDetails }
 

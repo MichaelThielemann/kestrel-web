@@ -65,6 +65,7 @@ useUnsavedGuard(() => editorRef.value?.dirty ?? false, () => t('editor.discardCo
 
   > .editor {
     min-height: 16rem;
+    flex-shrink: 0;
   }
 
   &__head {
