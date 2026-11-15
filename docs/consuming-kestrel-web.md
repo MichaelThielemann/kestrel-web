@@ -2529,6 +2529,9 @@ overrides:
   them work with the new majors unchanged: `readdir-glob` 4.0.0 differs from 3.0.0 only in its `minimatch`
   range and its Node floor, and a new project builds and exports its site with both overrides in place.
   Without them, `pnpm audit` reports each advisory while the lockfile resolves glob 13 or minimatch 10.
+  The overrides cover the Nitro that `nuxt` ^4.6.4 resolves (`nitropack` 2.13.6, with `archiver` 8). An
+  older `nuxt` keeps `archiver` 7, which pulls in glob 10 and minimatch 9, also affected and not covered,
+  so raise `nuxt` to ^4.6.4 in the same step.
 - The `auditConfig` entry ignores GHSA-gcqx-w48m-w2h4 in `deepmerge`, which only Nuxt's build toolchain
   pulls in (`nitropack` > `@rollup/plugin-node-resolve`) and which a production build does not contain.
   `nuxt` is a dependency, so `pnpm audit --prod` lists it too. Review the entry no later than 2027-02-13,
