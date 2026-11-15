@@ -880,8 +880,8 @@ collection, the expected filter and the fix in the message.
     too, and focus goes back to the listing when Escape removes the bar. Keys typed in a form field or on
     an upload tile are left alone. In the picker the first Escape clears the listed picks and the next one
     closes the dialog (`Dialog.vue`'s `escapeKeyDown`). The shortcuts are shown in the tooltips of the bar's
-    buttons and exposed as `aria-keyshortcuts`. After a removal, focus goes to the item that took the
-    removed one's place, or to the listing, also when focus fell to an element around the library, such as
+    buttons and exposed as `aria-keyshortcuts`. After a removal, focus goes to the first remaining item after the
+    focused one, else to the nearest remaining one before it, or to the listing, also when focus fell to an element around the library, such as
     the picker's dialog; after an undo, to the first restored item: the view that offered the undo moves
     focus there unless the user is typing in a field, and any other mounted library does so when focus was
     lost. In the table, the

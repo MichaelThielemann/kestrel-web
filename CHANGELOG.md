@@ -1334,6 +1334,8 @@
 
 ### Fixed
 
+- Media library: after several selected items are deleted, focus lands on the first remaining item after the
+  focused one; it no longer skips ahead by the number of items removed before it.
 - Admin layout: at 320 CSS px no admin page scrolls sideways or cuts off a control (WCAG 1.4.10 Reflow). The
   main area contains its visually hidden labels; the head of the settings and redirects tabs, the section heads
   of the images tab, the collection list bar and the media toolbar wrap; `KestrelUiButtonGroup` no longer shrinks

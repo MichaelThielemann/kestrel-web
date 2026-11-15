@@ -49,6 +49,17 @@ export function verticalTarget(cells: readonly (string | null)[], from: string, 
   return null
 }
 
+/** The key that takes focus when `current` leaves the list: the first key after it in `prev` that `next` still holds, else the nearest one before it, else the first of `next`; `null` for an empty list. */
+export function focusSuccessor(prev: readonly string[], next: readonly string[], current: string): string | null {
+  const kept = new Set(next)
+  const at = prev.indexOf(current)
+  if (at >= 0) {
+    for (let i = at + 1; i < prev.length; i++) if (kept.has(prev[i]!)) return prev[i]!
+    for (let i = at - 1; i >= 0; i--) if (kept.has(prev[i]!)) return prev[i]!
+  }
+  return next[0] ?? null
+}
+
 /** Whether keyboard focus was lost: it sits on the body or on an element no longer in the document. */
 export function focusLost(): boolean {
   if (!import.meta.client) return false
@@ -157,7 +168,7 @@ export function useMediaKeyboard(opts: UseMediaKeyboardOptions) {
   watch(keys, (next, prev) => {
     const current = focusKey.value
     if (current === null || next.includes(current)) return
-    const replacement = next[Math.min(Math.max(0, prev.indexOf(current)), next.length - 1)] ?? null
+    const replacement = focusSuccessor(prev, next, current)
     focusKey.value = replacement
     if (replacement !== null && focusLost()) element(replacement)?.focus()
   }, { flush: 'post' })
