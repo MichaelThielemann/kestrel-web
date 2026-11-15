@@ -16,7 +16,7 @@ export interface BucketLimits {
 }
 
 const DEFAULT_LIMITS: Readonly<Record<string, BucketLimits>> = {
-  login: { limit: 5, windowSeconds: 60 },
+  login: { limit: 20, windowSeconds: 60 },
   loginAccount: { limit: 10, windowSeconds: 300, maxBlockSeconds: 900 },
   passwordCheck: { limit: 5, windowSeconds: 300, maxBlockSeconds: 900 },
 };

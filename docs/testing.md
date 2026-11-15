@@ -47,9 +47,10 @@ Playwright's own flags pass through: `pnpm test:e2e -g "mounted"`, `pnpm test:e2
 - `e2e/specs/visual/` — the screenshot comparisons, a project of their own that no other project
   depends on.
 
-The login route allows five attempts per minute and client address. A run uses four: the global setup
-signs in the admin and the editor once each, and the sign-in spec submits a wrong and a right password.
-Every other spec reuses the stored sessions; a new spec that needs a session takes one of those, and
+The e2e server raises the login route's limit to 100 requests per minute and client address
+(`KESTREL_PLAYGROUND_LOGIN_LIMIT`; the layer's default is 20). The global setup signs in the admin and the
+editor once each, and the sign-in spec submits a wrong and a right password. Every other spec reuses the
+stored sessions; a new spec that needs a session takes one of those, and
 only a spec about signing in itself uses the form.
 
 ## Screenshots

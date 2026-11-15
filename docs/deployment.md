@@ -449,7 +449,7 @@ Points that matter:
   in front of the server (§11). Keep `client_max_body_size` at or above `maxBytes + 1m`.
 - **Client address.** The layer takes the socket peer by default, so behind a proxy every request
   looks like it comes from the proxy — which breaks the IP allowlists and the per-IP attempt limit on
-  `login` (the `ratelimit` feature, five attempts per address and minute by default, preselected by
+  `login` (the `ratelimit` feature, 20 requests per address and minute by default, preselected by
   `create-kestrel`; without the feature `login` is not limited). Set `NUXT_KESTREL_ACCESS_TRUSTED_HEADER=x-real-ip` with the `X-Real-IP $remote_addr` line
   above (or the header your edge documents, such as `cf-connecting-ip`), or
   `NUXT_KESTREL_ACCESS_TRUST_PROXY=true` and `NUXT_KESTREL_ACCESS_PROXY_HOPS=<n>` (default 1, counted from

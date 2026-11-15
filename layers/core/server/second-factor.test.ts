@@ -31,13 +31,13 @@ describe("the mfa feature asks for a second factor at sign-in", () => {
     rmSync(appRoot, { recursive: true, force: true });
   });
 
-  async function enroll(p: BootedPreset, username: string, password: string): Promise<{ secret: string; headers: Record<string, string>; recoveryCodes: string[] }> {
-    const refused = await p.call("login", "POST /login", { ip: nextIp(), body: { username, password } });
+  async function enroll(p: BootedPreset, username: string, password: string, ip?: string): Promise<{ secret: string; headers: Record<string, string>; recoveryCodes: string[] }> {
+    const refused = await p.call("login", "POST /login", { ip: ip ?? nextIp(), body: { username, password } });
     expect(refused).toMatchObject({ status: 401, code: "SECOND_FACTOR_SETUP_REQUIRED" });
-    const started = await p.call("setupSecondFactor", "POST /login/second-factor", { ip: nextIp(), body: { username, password } });
+    const started = await p.call("setupSecondFactor", "POST /login/second-factor", { ip: ip ?? nextIp(), body: { username, password } });
     expect(started.status).toBe(200);
     const { secret } = boundaryCast<{ secret: string }>(started.result, "host");
-    const confirmed = await p.call("login", "POST /login", { ip: nextIp(), body: { username, password, code: codeNow(secret) } });
+    const confirmed = await p.call("login", "POST /login", { ip: ip ?? nextIp(), body: { username, password, code: codeNow(secret) } });
     expect(confirmed.status).toBe(200);
     const result = boundaryCast<{ token: string; recoveryCodes: string[] }>(confirmed.result, "host");
     return { secret, headers: { authorization: `Bearer ${result.token}` }, recoveryCodes: result.recoveryCodes };
@@ -71,5 +71,22 @@ describe("the mfa feature asks for a second factor at sign-in", () => {
     expect(await call("login", "POST /login", { body: { username: "bob", password: "correct horse battery" } })).toMatchObject({ status: 401, code: "SECOND_FACTOR_SETUP_REQUIRED" });
     expect(await call("setupSecondFactor", "POST /login/second-factor", { ip: nextIp(), body: { username: "bob", password: "correct horse battery" } })).toMatchObject({ status: 403, code: "ENROLLMENT_CODE_REQUIRED" });
     expect(await call("setupSecondFactor", "POST /login/second-factor", { ip: nextIp(), body: { username: "bob", password: "correct horse battery", enrollmentCode } })).toMatchObject({ status: 200 });
+  }, 60_000);
+
+  it("lets several accounts behind one address set up their factor and sign in within the same minute", async () => {
+    preset = await bootPlaygroundPreset(appRoot, ROLES, { features: ["mfa"], mfa: { secretKey: KEY } });
+    const { call } = preset;
+    const admin = await enroll(preset, "admin", ADMIN_PASSWORD);
+    const office = "203.0.113.50";
+    const editors = ["bob", "carol", "dave"];
+    for (const username of editors) {
+      expect((await call("createUser", "POST /users", { headers: admin.headers, body: { username, password: "correct horse battery", roles: ["editor"] } })).status).toBe(200);
+    }
+    const secrets = [];
+    for (const username of editors) secrets.push((await enroll(preset, username, "correct horse battery", office)).secret);
+    for (const [index, username] of editors.entries()) {
+      expect(await call("login", "POST /login", { ip: office, body: { username, password: "correct horse battery" } })).toMatchObject({ status: 401, code: "SECOND_FACTOR_REQUIRED" });
+      expect((await call("login", "POST /login", { ip: office, body: { username, password: "correct horse battery", code: codeNow(secrets[index] ?? "", 1) } })).status).toBe(200);
+    }
   }, 60_000);
 });

@@ -86,7 +86,7 @@ describe("the audit log records sign-in failures, account changes, denials and r
     const editor = await preset.login("editor-two", "correct horse battery");
     expect((await call("listUsers", "GET /users", { headers: editor, ip: "203.0.113.40" })).status).toBe(403);
     let limited = 0;
-    for (let i = 0; i < 10 && limited === 0; i++) {
+    for (let i = 0; i < 25 && limited === 0; i++) {
       const run = await call("login", "POST /login", { body: { username: "nobody", password: "nothing at all" }, ip: "203.0.113.41" });
       if (run.status === 429) limited += 1;
     }

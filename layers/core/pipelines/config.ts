@@ -71,7 +71,7 @@ export interface PresetMfa {
 }
 
 export interface PresetRateLimit {
-  /** Sign-in attempts per client address (an IPv6 address by its /64). */
+  /** Sign-in requests per client address (an IPv6 address by its /64), successful ones and each second-factor step included; default 20 per 60 seconds. */
   login?: { limit: number; windowSeconds: number };
   /** Sign-in attempts per account, from any address; `maxBlockSeconds` bounds the growing block. */
   loginAccount?: { limit: number; windowSeconds: number; maxBlockSeconds?: number };

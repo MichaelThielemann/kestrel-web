@@ -159,7 +159,7 @@ describe("presetModuleConfig with the playground inputs", () => {
       { use: "@michaelthielemann/kestrel-audit-persistence", ...preset({}) },
       { use: "@michaelthielemann/kestrel-events-inmemory", config: {} },
       { use: "@michaelthielemann/kestrel-events-direct", config: {} },
-      { use: "@michaelthielemann/kestrel-ratelimit-memory", ...preset({ buckets: { login: { limit: 5, windowSeconds: 60 }, loginAccount: { limit: 10, windowSeconds: 300, maxBlockSeconds: 900, key: "username", field: "username", counts: "failures", knownDevices: { limit: 10, windowSeconds: 300, maxBlockSeconds: 900 } }, passwordCheck: { limit: 5, windowSeconds: 300, maxBlockSeconds: 900, key: "identity", counts: "failures" } }, deviceCookies: { secretKey: deviceKeys().secretKey, secure: true } }) },
+      { use: "@michaelthielemann/kestrel-ratelimit-memory", ...preset({ buckets: { login: { limit: 20, windowSeconds: 60 }, loginAccount: { limit: 10, windowSeconds: 300, maxBlockSeconds: 900, key: "username", field: "username", counts: "failures", knownDevices: { limit: 10, windowSeconds: 300, maxBlockSeconds: 900 } }, passwordCheck: { limit: 5, windowSeconds: 300, maxBlockSeconds: 900, key: "identity", counts: "failures" } }, deviceCookies: { secretKey: deviceKeys().secretKey, secure: true } }) },
       { use: "@michaelthielemann/kestrel-insights", config: {} },
     ]);
   });
@@ -1031,14 +1031,14 @@ describe("options", () => {
 
   it("falls back to the schema default, not the preset's, when an override sets a key to undefined", () => {
     const withPreset = fieldOf(configFor(presetModuleConfig(playgroundOptions()), "ratelimit-memory"), "buckets");
-    expect(withPreset).toEqual({ login: { limit: 5, windowSeconds: 60 }, loginAccount: { limit: 10, windowSeconds: 300, maxBlockSeconds: 900, key: "username", field: "username", counts: "failures", knownDevices: { limit: 10, windowSeconds: 300, maxBlockSeconds: 900 } }, passwordCheck: { limit: 5, windowSeconds: 300, maxBlockSeconds: 900, key: "identity", counts: "failures" } });
+    expect(withPreset).toEqual({ login: { limit: 20, windowSeconds: 60 }, loginAccount: { limit: 10, windowSeconds: 300, maxBlockSeconds: 900, key: "username", field: "username", counts: "failures", knownDevices: { limit: 10, windowSeconds: 300, maxBlockSeconds: 900 } }, passwordCheck: { limit: 5, windowSeconds: 300, maxBlockSeconds: 900, key: "identity", counts: "failures" } });
 
     const modules = presetModuleConfig({
       ...playgroundOptions(),
       overrides: { "@michaelthielemann/kestrel-ratelimit-memory": { buckets: undefined } },
     });
     const overridden = fieldOf(configFor(modules, "ratelimit-memory"), "buckets");
-    expect(overridden).not.toEqual({ login: { limit: 5, windowSeconds: 60 }, loginAccount: { limit: 10, windowSeconds: 300, maxBlockSeconds: 900, key: "username", field: "username", counts: "failures", knownDevices: { limit: 10, windowSeconds: 300, maxBlockSeconds: 900 } }, passwordCheck: { limit: 5, windowSeconds: 300, maxBlockSeconds: 900, key: "identity", counts: "failures" } });
+    expect(overridden).not.toEqual({ login: { limit: 20, windowSeconds: 60 }, loginAccount: { limit: 10, windowSeconds: 300, maxBlockSeconds: 900, key: "username", field: "username", counts: "failures", knownDevices: { limit: 10, windowSeconds: 300, maxBlockSeconds: 900 } }, passwordCheck: { limit: 5, windowSeconds: 300, maxBlockSeconds: 900, key: "identity", counts: "failures" } });
   });
 
   it("throws naming a module the overrides address that the built list does not contain", () => {

@@ -334,7 +334,7 @@ describe("boot", () => {
       }
     }, 15000);
 
-    it("refuses the sixth failed login from one address within the window with 429", async () => {
+    it("refuses the 21st sign-in request from one address within the window with 429", async () => {
       const { DEFAULT_FEATURES } = await import("../../../packages/create-kestrel/src/features.mjs");
       const { contentModel, contentTypes } = await import("../../../playground/shared/model");
       const { default: collectionsUi } = await import("../../../playground/shared/collections-ui");
@@ -361,12 +361,12 @@ describe("boot", () => {
         try {
           await kestrel.start();
           const statuses: number[] = [];
-          for (let attempt = 0; attempt < 6; attempt++) {
-            const login = await kestrel.run("login", { trigger: { kind: "http", name: "POST /login" }, ip: "192.0.2.10", body: { username: "admin", password: `wrong-password-${attempt}` } });
+          for (let attempt = 0; attempt < 21; attempt++) {
+            const login = await kestrel.run("login", { trigger: { kind: "http", name: "POST /login" }, ip: "192.0.2.10", body: { username: `nobody-${attempt}`, password: `wrong-password-${attempt}` } });
             statuses.push(login.status);
           }
-          expect(statuses.slice(0, 5).every((status) => status !== 429)).toBe(true);
-          expect(statuses[5]).toBe(429);
+          expect(statuses.slice(0, 20).every((status) => status !== 429)).toBe(true);
+          expect(statuses[20]).toBe(429);
         } finally {
           await kestrel.stop();
         }

@@ -34,8 +34,8 @@ describe("sign-ins and password checks are limited per account as well as per ad
   it("counts one IPv6 /64 as one address", async () => {
     preset = await bootPlaygroundPreset(appRoot);
     const statuses: number[] = [];
-    for (let i = 1; i <= 7; i++) statuses.push((await preset.call("login", "POST /login", { body: { username: `nobody-${i}`, password: "nothing" }, ip: `2001:db8:9:9::${i}` })).status);
-    expect(statuses).toEqual([401, 401, 401, 401, 401, 429, 429]);
+    for (let i = 1; i <= 22; i++) statuses.push((await preset.call("login", "POST /login", { body: { username: `nobody-${i}`, password: "nothing" }, ip: `2001:db8:9:9::${i}` })).status);
+    expect(statuses).toEqual([...Array<number>(20).fill(401), 429, 429]);
   }, 60_000);
 
   it("refuses further password changes with a wrong current password after the limit", async () => {

@@ -1240,6 +1240,12 @@
 
 ### Changed
 
+- The `ratelimit` feature's default `login` bucket allows 20 requests per client address and minute instead of
+  five. It counts every request to `POST /api/login` and `POST /api/login/second-factor`, successful ones
+  included, and a sign-in with a second factor takes two of them, setting one up three; several people signing in
+  from one office address no longer lock each other out for the rest of the minute. A `login` bucket set through
+  `presetModuleConfig()`'s `ratelimit` option or written into a `kestrel-ratelimit-memory` entry keeps its own
+  limit.
 - The `create-kestrel` starter labels its pages collection, fields, status choices and the Hero and Prose block
   fields in English and German, so a German admin interface shows German labels.
 - `useSanitizedHtml()` applies one allowlist on the server, during server rendering and in the browser; the lists
