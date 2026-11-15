@@ -4,11 +4,13 @@ import type { IconName } from '#kestrel-admin/utils/icons'
 
 const props = defineProps<{ state: 'pending' | 'failed'; stalled?: boolean; done?: number; total?: number }>()
 const { t } = useT()
+const capabilities = useCapabilities()
 
 const modifier = computed(() => (props.state === 'pending' && props.stalled ? 'stalled' : props.state))
 const icon = computed<IconName>(() => (props.state === 'failed' ? 'triangle-alert' : 'clock'))
+const canRetry = computed(() => capabilities.has('imagesStatus') && capabilities.has('retryFailedImages'))
 const fullText = computed(() => {
-  if (props.state === 'failed') return `${t('media.tile.variantsFailed')}. ${t('media.tile.variantsFailedHint')}`
+  if (props.state === 'failed') return t(canRetry.value ? 'media.tile.variantsFailedRetry' : 'media.tile.variantsFailedAsk')
   if (props.stalled) return t('media.tile.variantsStalled')
   return t('media.tile.variantsPending', { done: props.done ?? 0, total: props.total ?? 0 })
 })
