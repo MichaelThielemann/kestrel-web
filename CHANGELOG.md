@@ -1366,6 +1366,11 @@
   every route it answers `GET` on.
 - Admin page tree: in a language a page has no path in, the row reads "no path" instead of showing the path of
   another language.
+- Users: a save or create that carries a role the backend is not configured with shows "Unknown role: …" with
+  the rejected names (new admin message `users.unknownRoles`) instead of the backend's
+  `authz.validateRoles:roles: unknown role name(s)`. The hint under the roles of the edit dialog
+  (`users.rolesHint`) says that only configured roles are accepted. `ApiErrorDetails` carries the rejected
+  names as `unknown`, and the failure `apiRequest` hands to `onError` carries the failing `step`.
 - System → Replication: "Restore to this point" on a row of the restore points restores the database to that
   row's time. It sends the row's `at` together with its generation; the newest state of the generation is no
   longer what the next start comes up with.

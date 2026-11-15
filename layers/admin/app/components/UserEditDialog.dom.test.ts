@@ -104,6 +104,38 @@ describe('UserEditDialog', () => {
     expect(passwordCalls).toBe(0)
   })
 
+  it('names an unknown role in the localized banner, not the backend step text', async () => {
+    unregisterAll.push(registerEndpoint('/api/users/u1', {
+      method: 'PATCH',
+      handler: (event) => {
+        event.node.res.statusCode = 400
+        return { error: 'authz.validateRoles:roles: unknown role name(s)', code: 'VALIDATION', retryable: false, step: 'authz.validateRoles:roles', details: { unknown: ['typo'] } }
+      },
+    }))
+
+    const wrapper = await mountSuspended(UserEditDialog, { props: { user }, attachTo: document.body })
+    onTestFinished(() => wrapper.unmount())
+
+    await vi.waitFor(() => expect(document.body.querySelector('form')).not.toBeNull())
+    const roleName = [...document.body.querySelectorAll<HTMLInputElement>('input[type="text"]')].at(-1)
+    if (!roleName) throw new Error('expected a role name field')
+    setInputValue(roleName, 'typo')
+    await nextTick()
+    const add = [...document.body.querySelectorAll('button')].find((button) => button.textContent?.trim() === en['users.roleAdd'])
+    if (!(add instanceof HTMLButtonElement)) throw new Error('expected the add role button')
+    add.click()
+    await nextTick()
+    submitForm()
+
+    const banner = await vi.waitFor(() => {
+      const alert = document.body.querySelector('.ui-alert--error')
+      if (!alert) throw new Error('the error banner is not shown yet')
+      return alert
+    })
+    expect(banner.textContent).toContain(en['users.unknownRoles'].replace('{names}', 'typo').replace(/\.$/, ''))
+    expect(banner.textContent).not.toContain('authz.validateRoles')
+  })
+
   it('keeps the active checkbox disabled for the signed-in user and names the reason', async () => {
     const wrapper = await mountSuspended(UserEditDialog, { props: { user, self: true }, attachTo: document.body })
     onTestFinished(() => wrapper.unmount())

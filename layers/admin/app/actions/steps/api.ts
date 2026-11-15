@@ -58,6 +58,7 @@ export function apiRequest<I extends WithDeps, R = unknown, T = unknown>(name: U
         retryable: apiErrorRetryable(e),
         message: apiErrorMessage(e),
         runId: apiErrorRunId(e),
+        step: apiErrorStep(e),
         details: apiErrorDetails(e),
         requestId: apiErrorRequestId(e),
         reached: apiErrorReached(e),

@@ -41,10 +41,10 @@ const unreachedError = (status: number, requestId: string) =>
 const unreachedFailure = (message: string, reference: string) =>
   `error.withHint:${JSON.stringify({ message, hint: `error.unreached:${JSON.stringify({ reference })}` })}`
 
-const apiError = (status: number, message: string, details?: ApiErrorDetails) => Object.assign(new Error(message), {
+const apiError = (status: number, message: string, details?: ApiErrorDetails, step?: string) => Object.assign(new Error(message), {
   status,
   name: 'ApiError',
-  data: { error: message, code: CODE_OF[status] ?? 'INTERNAL', retryable: status === 429 || status === 503, ...(details ? { details } : {}) },
+  data: { error: message, code: CODE_OF[status] ?? 'INTERNAL', retryable: status === 429 || status === 503, ...(details ? { details } : {}), ...(step ? { step } : {}) },
 })
 
 const migrationsAndEventsSchema: AdminSchema = {
@@ -452,6 +452,17 @@ describe('userCreate', () => {
     expect(toast.success).not.toHaveBeenCalled()
     expect(toast.error).not.toHaveBeenCalled()
     expect(refreshCalls.length).toBe(0)
+  })
+
+  it('names an unknown role a create carried instead of the backend step text', async () => {
+    const { deps } = fakeDeps([apiError(400, 'authz.validateRoles:roles: unknown role name(s)', { unknown: ['typo'] }, 'authz.validateRoles:roles')])
+    const { ops, errors } = fakeOps()
+    const { refresh } = fakeRefresh()
+
+    const result = await runAction(userCreate, { deps, username: 'bob', password: 'long-enough-phrase', passwordConfirm: 'long-enough-phrase', roles: ['typo'], ops, refresh })
+
+    expect(result.ok).toBe(false)
+    expect(errors.at(-1)).toBe(referencedFailure('users.unknownRoles:{"names":"typo"}', 400))
   })
 
   it('says that a create without an answer did not reach the server, with its error id', async () => {

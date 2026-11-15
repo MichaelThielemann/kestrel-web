@@ -36,4 +36,9 @@ describe('userErrorMessage', () => {
     expect(userErrorMessage(t, 'reassign', { status: 404, code: 'INTERNAL', message: 'Request failed', reached: false })).toBe('users.deleteFailed')
     expect(userErrorMessage(t, 'update', { status: 404, code: 'INTERNAL', message: 'Request failed', reached: false })).toBe('users.saveFailed')
   })
+
+  it('names the role names the backend does not know instead of its raw validation text', () => {
+    const failure = { status: 400, code: 'VALIDATION', message: 'authz.validateRoles:roles: unknown role name(s)', step: 'authz.validateRoles:roles', details: { unknown: ['typo', 'guest'] } }
+    expect(userErrorMessage(t, 'update', failure)).toBe('users.unknownRoles:{"names":"typo, guest"}')
+  })
 })

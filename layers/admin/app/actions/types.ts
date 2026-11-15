@@ -87,6 +87,8 @@ export interface ApiFailure {
   retryable: boolean
   message: string
   runId?: string
+  /** The pipeline step that failed, as kestrel names it in the answer. */
+  step?: string
   details?: ApiErrorDetails
   /** The `x-request-id` the request was sent with. */
   requestId?: string

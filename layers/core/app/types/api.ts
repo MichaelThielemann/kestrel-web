@@ -51,6 +51,8 @@ export interface ApiErrorDetails {
   referrers?: ReferenceTo[]
   referenced?: string[]
   retryAfterSeconds?: number
+  /** The role names a save carried that are not among the roles the backend is configured with. */
+  unknown?: string[]
   /** The rejected rule of a redirects save: the 1-based position in the list, the field, a stable reason and the offending path. */
   row?: number
   field?: string

@@ -3,7 +3,7 @@ import { defineAction, type ActionContext, type ActionStep } from '#kestrel-core
 import { answeredMessage, apiErrorCode, failureText, toApiError } from '../composables/useApi'
 import { humanizeSize } from '../utils/library'
 import { staleCountText } from '../utils/stale-messages'
-import { userErrorMessage } from '../utils/user-errors'
+import { unknownRolesMessage, userErrorMessage } from '../utils/user-errors'
 import type { UserOperation } from '../utils/user-errors'
 import { defineUiStep } from './define'
 import { apiRequest } from './steps/api'
@@ -321,7 +321,7 @@ export const userCreate = defineAction<UserCreateInput, undefined>({
       onSuccess: (ctx) => { ctx.input.deps.toast.success(ctx.input.deps.t('users.created')) },
       onError: (ctx, err) => {
         const { t } = ctx.input.deps
-        ctx.input.ops.setError?.(failureText(t, answeredMessage(t, err, t('users.createFailed')), err))
+        ctx.input.ops.setError?.(failureText(t, unknownRolesMessage(t, err) ?? answeredMessage(t, err, t('users.createFailed')), err))
         ctx.fail(err.message || 'users.createFailed')
       },
     }),
