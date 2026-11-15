@@ -69,7 +69,7 @@ test("the crop editor opened from the media viewer saves a focus and a manual cr
   const viewer = page.getByRole("dialog", { name: "framing-viewer.png" });
   await viewer.getByRole("button", { name: "Ausschnitt anpassen" }).click();
   const editor = page.getByRole("dialog", { name: "Ausschnitt: framing-viewer.png" });
-  await expect(editor.getByRole("tab", { name: "Fokus" })).toBeFocused();
+  await expect(editor.getByRole("tab", { name: /^Fokus/ })).toBeFocused();
   await expect(editor.getByText("Gilt für alle Verwendungen dieses Bildes (1).")).toBeVisible();
   await expect(editor.getByRole("button", { name: "Speichern" })).toBeDisabled();
 
@@ -77,9 +77,8 @@ test("the crop editor opened from the media viewer saves a focus and a manual cr
   await expect(editor.getByText("Zuschnitte werden um den Fokus zentriert.")).toBeVisible();
   expect(await violations(page)).toEqual([]);
 
-  await editor.getByRole("tab", { name: "Feinschnitt" }).click();
-  await editor.getByRole("button", { name: /^1:1/ }).click();
-  const detail = editor.locator('[data-test="crop-detail"]');
+  await editor.getByRole("tab", { name: /^1:1/ }).click();
+  const detail = editor.locator('[data-test="crop-ratio"]');
   await expect(detail.locator('[data-test="crop-state"]')).toHaveText("Automatisch");
   await detail.getByRole("group", { name: "Zuschnitt für 1:1" }).focus();
   await page.keyboard.press("+");
@@ -166,11 +165,11 @@ test("a zoom typed into an unchanged crop editor is saved by a single click on S
   const viewer = page.getByRole("dialog", { name: "framing-click.png" });
   await viewer.getByRole("button", { name: "Ausschnitt anpassen" }).click();
   const editor = page.getByRole("dialog", { name: "Ausschnitt: framing-click.png" });
-  await editor.getByRole("tab", { name: "Feinschnitt" }).click();
+  await editor.getByRole("tab", { name: /^1:1/ }).click();
   const save = editor.getByRole("button", { name: "Speichern" });
   await expect(save).toBeDisabled();
 
-  const zoom = editor.locator('[data-test="crop-detail"]').getByRole("spinbutton", { name: "Zoom", exact: true });
+  const zoom = editor.locator('[data-test="crop-ratio"]').getByRole("spinbutton", { name: "Zoom", exact: true });
   await zoom.focus();
   await page.keyboard.press("ControlOrMeta+a");
   await zoom.pressSequentially("200");
@@ -308,13 +307,92 @@ test("the crop editor stays accessible while it measures an original whose orien
   const editor = page.getByRole("dialog", { name: "Ausschnitt: framing-measure.png" });
   const panel = editor.getByRole("tabpanel");
   await expect(panel.getByRole("status")).toHaveText("Bild wird geladen…");
-  await expect(editor.getByRole("tab", { name: "Fokus" })).toBeFocused();
+  await expect(editor.getByRole("tab", { name: /^Fokus/ })).toBeFocused();
   expect(await violations(page)).toEqual([]);
-  await editor.getByRole("tab", { name: "Feinschnitt" }).click();
+  await editor.getByRole("tab", { name: /^1:1/ }).click();
   await expect(panel.getByRole("status")).toHaveText("Bild wird geladen…");
   expect(await violations(page)).toEqual([]);
 
   release();
   await expect(panel.getByRole("status")).toHaveText(/^Das Bild konnte nicht geladen werden/);
+  expect(await violations(page)).toEqual([]);
+});
+
+async function box(locator: Locator): Promise<{ x: number; y: number; width: number; height: number }> {
+  const found = await locator.boundingBox();
+  if (!found) throw new Error("the element has no box");
+  return found;
+}
+
+test("the crop editor keeps the image in place when a warning appears", async ({ page, adminApi }) => {
+  await uploadRendered(adminApi, "framing-steady.png", [70, 130, 60]);
+
+  await page.goto("/admin/media");
+  await page.getByRole("button", { name: /^framing-steady\.png/ }).dblclick();
+  await page.getByRole("dialog", { name: "framing-steady.png" }).getByRole("button", { name: "Ausschnitt anpassen" }).click();
+  const editor = page.getByRole("dialog", { name: "Ausschnitt: framing-steady.png" });
+  const surface = editor.getByRole("group", { name: "Fokusbereich des Bildes" });
+  const aside = editor.locator(".ui-rect-select__aside");
+  const body = editor.locator(".ui-dialog__body");
+  const widths = async () => [await aside.evaluate((el) => el.clientWidth), await body.evaluate((el) => el.clientWidth)];
+
+  await setFocus(editor, { x: 40, y: 20, w: 10, h: 20 });
+  const surfaceBefore = await box(surface);
+  const widthsBefore = await widths();
+  await expect(editor.locator('[data-test="crop-advice"]')).toHaveCount(0);
+  await setFocus(editor, { x: 40, y: 0, w: 10, h: 100 });
+  await expect(editor.locator('[data-test="crop-advice"][data-miss="tall"]')).toBeVisible();
+  await expect(editor.getByRole("tab", { name: /^16:9.*Fokus zu hoch$/ })).toBeVisible();
+  expect(await box(surface)).toEqual(surfaceBefore);
+  expect(await widths()).toEqual(widthsBefore);
+
+  await setFocus(editor, { x: 85, y: 40, w: 10, h: 10 });
+  await editor.getByRole("tab", { name: /^16:9/ }).click();
+  const ratio = editor.locator('[data-test="crop-ratio"]');
+  const frame = ratio.getByRole("group", { name: "Zuschnitt für 16:9" });
+  const ratioAside = ratio.locator(".ui-crop-frame__aside");
+  const ratioWidths = async () => [await ratioAside.evaluate((el) => el.clientWidth), await body.evaluate((el) => el.clientWidth)];
+  const frameBefore = await box(frame);
+  const ratioWidthsBefore = await ratioWidths();
+  for (const [label, value] of [["Zoom", "300"], ["Links", "0"]] as const) {
+    const input = ratio.getByRole("spinbutton", { name: label, exact: true });
+    await input.focus();
+    await page.keyboard.press("ControlOrMeta+a");
+    await input.pressSequentially(value);
+    await input.press("Enter");
+  }
+  const advice = ratio.locator('[data-test="crop-advice"][data-miss="covered"]');
+  await expect(advice).toBeVisible();
+  expect(await box(frame)).toEqual(frameBefore);
+  expect(await ratioWidths()).toEqual(ratioWidthsBefore);
+
+  await editor.getByRole("button", { name: "Bedienhilfe" }).click();
+  await expect(editor.getByRole("button", { name: "Bedienhilfe" })).toHaveAttribute("aria-expanded", "true");
+  expect(await violations(page)).toEqual([]);
+
+  await ratio.locator('[data-test="crop-status"]').getByRole("button", { name: "Auf automatisch zurücksetzen" }).click();
+  await expect(ratio.locator('[data-test="crop-state"]')).toHaveText("Automatisch");
+  await expect(advice).toHaveCount(0);
+  expect(await box(frame)).toEqual(frameBefore);
+  expect(await ratioWidths()).toEqual(ratioWidthsBefore);
+});
+
+test("the crop editor opened at a hero image field starts on the first ratio that carries a size of the block", async ({ page, adminApi }) => {
+  const { id } = await uploadRendered(adminApi, "framing-hero.png", [120, 60, 160]);
+  const item = await adminApi.call("GET", `/media/${id}`);
+  const ratios = isRecord(item.framing) && Array.isArray(item.framing.ratios) ? item.framing.ratios.filter(isRecord) : [];
+  const first = ratios.find((ratio) => Array.isArray(ratio.sizes) && ratio.sizes.some((size) => typeof size === "string" && size.startsWith("hero-")));
+  const key = typeof first?.key === "string" ? first.key : "";
+  expect(["16:9", "3:4"]).toContain(key);
+  const pageId = idOf(await adminApi.call("POST", "/pages", { locale: "de", slug: "heldfokus", title: "Heldfokus", status: "draft", body: [{ id: "h1", type: "hero", props: { heading: "Willkommen", image: id } }] }));
+
+  await page.goto(`/admin/pages/${pageId}?locale=de`);
+  await page.getByRole("button", { name: "Hero", exact: true }).click();
+  await page.getByRole("button", { name: "Ausschnitt von framing-hero.png anpassen" }).click();
+  const editor = page.getByRole("dialog", { name: "Ausschnitt: framing-hero.png" });
+  const chosen = editor.getByRole("tab", { name: new RegExp(`^${key} `) });
+  await expect(chosen).toHaveAttribute("aria-selected", "true");
+  await expect(chosen).toBeFocused();
+  await expect(editor.getByRole("tabpanel").getByRole("group", { name: `Zuschnitt für ${key}` })).toBeVisible();
   expect(await violations(page)).toEqual([]);
 });
