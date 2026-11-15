@@ -60,7 +60,12 @@ useUnsavedGuard(() => editorRef.value?.dirty ?? false, () => t('editor.discardCo
   gap: var(--space-2);
   flex: 1 1 auto;
   min-height: 0;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+
+  > .editor {
+    min-height: 16rem;
+  }
 
   &__head {
     flex: 0 0 auto;

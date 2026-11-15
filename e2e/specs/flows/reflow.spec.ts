@@ -93,8 +93,8 @@ test("the list and editor pages fit a 320 px wide viewport without horizontal sc
 test("a refused redirect row keeps the redirects tab within a 320 px wide viewport", async ({ page }) => {
   await page.goto("/admin/system?tab=redirects");
   await page.getByRole("button", { name: "Eintrag hinzufügen" }).click();
-  await page.getByRole("textbox", { name: "Von" }).fill("/admin/x");
-  await page.getByRole("textbox", { name: "Nach" }).fill("/team");
+  await page.getByRole("textbox", { name: "Von" }).last().fill("/admin/x");
+  await page.getByRole("textbox", { name: "Nach" }).last().fill("/team");
   const response = await submitSave(page);
   expect(response.status()).toBe(400);
   await expect(page.locator(".ui-repeater__row-error")).toBeVisible();

@@ -1284,7 +1284,8 @@
 - Admin layout: at 320 CSS px no admin page scrolls sideways or cuts off a control (WCAG 1.4.10 Reflow). The
   main area contains its visually hidden labels; the head of the settings and redirects tabs, the section heads
   of the images tab, the collection list bar and the media toolbar wrap; `KestrelUiButtonGroup` no longer shrinks
-  below its widest option; the facts of the inline events tab wrap their labels.
+  below its widest option; the facts of the inline events tab wrap their labels. On a short viewport the editor
+  of the settings and redirects tabs keeps at least 16rem and the tab scrolls to the automatic redirects below it.
 - Admin layout: the rail brand link and the account menu trigger are named after the text they show, so their
   accessible name satisfies WCAG 2.5.3 (Label in Name), expanded and collapsed.
 - Media picker: a file deleted while the picker is open no longer reaches the field on "Use selected"; a pick
