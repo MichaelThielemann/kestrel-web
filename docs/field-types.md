@@ -204,7 +204,8 @@ An image tile also carries an "Adjust crop" icon button when the item is an imag
 oriented dimensions for (or one browsers display, whose dimensions the editor measures), that the editor
 can show, and the role may run `setMediaFraming`. It opens the same crop editor as the
 media viewer (see "Focus and crop" in [`consuming-kestrel-web.md`](consuming-kestrel-web.md)), nested
-over the record editor. The editor saves the focus and the crops on the media item through
+over the record editor. In a block that declares image sizes, the editor starts on the first ratio that carries
+one of them; elsewhere it starts on the focus. The editor saves the focus and the crops on the media item through
 `PUT /api/media/:id/framing`, not in the field, so the record gains no unsaved change, the framing
 applies to every record that uses the image, and the button stays available on a read-only field. The
 picker dialog itself offers no crop button, and neither does a tile whose item comes without the whole
