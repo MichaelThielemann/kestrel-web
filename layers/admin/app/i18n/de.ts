@@ -788,6 +788,7 @@ export const de: Record<CatalogKey, string> = {
   'media.tile.variantsPending': 'Varianten werden erzeugt ({done}/{total})',
   'media.tile.variantsFailed': 'Einige Varianten konnten nicht erzeugt werden',
   'media.tile.variantsFailedShort': 'Varianten fehlgeschlagen',
+  'media.tile.variantsFailedHint': 'Unter System → Bilder erneut versuchen.',
   'media.tile.variantsStalled': 'Varianten werden noch erzeugt. Später erneut prüfen.',
   'media.tile.variantsStalledShort': 'Varianten verzögert',
   'mediaViewer.originLabel': 'Herkunft',

@@ -786,6 +786,7 @@ export const en = {
   'media.tile.variantsPending': 'Generating variants ({done}/{total})',
   'media.tile.variantsFailed': 'Some variants could not be generated',
   'media.tile.variantsFailedShort': 'Variants failed',
+  'media.tile.variantsFailedHint': 'Retry them under System → Images.',
   'media.tile.variantsStalled': 'Variants are still being generated. Check again later.',
   'media.tile.variantsStalledShort': 'Variants delayed',
   'mediaViewer.originLabel': 'Origin',

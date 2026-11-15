@@ -8,7 +8,7 @@ const { t } = useT()
 const modifier = computed(() => (props.state === 'pending' && props.stalled ? 'stalled' : props.state))
 const icon = computed<IconName>(() => (props.state === 'failed' ? 'triangle-alert' : 'clock'))
 const fullText = computed(() => {
-  if (props.state === 'failed') return t('media.tile.variantsFailed')
+  if (props.state === 'failed') return `${t('media.tile.variantsFailed')}. ${t('media.tile.variantsFailedHint')}`
   if (props.stalled) return t('media.tile.variantsStalled')
   return t('media.tile.variantsPending', { done: props.done ?? 0, total: props.total ?? 0 })
 })
@@ -45,7 +45,8 @@ const shortText = computed(() => {
 }
 
 .media-variant-chip__text {
-  white-space: nowrap;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .media-variant-chip__full {

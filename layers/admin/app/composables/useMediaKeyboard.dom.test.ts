@@ -9,7 +9,7 @@ function host(initial: string[]) {
   const root = ref<HTMLElement | null>(null)
   const Host = defineComponent({
     setup() {
-      const selection = useMediaSelection({ items: ref([]) })
+      const selection = useMediaSelection({ mode: 'library', items: ref([]) })
       const keyboard = useMediaKeyboard({ root, keys, itemFor: () => undefined, selection, columns: () => keys.value.length, onDelete: () => {} })
       return () => h('ul', { ref: root, onFocusin: keyboard.onFocusin }, keys.value.map((key) => h('li', { key }, h('button', { 'data-roving-key': key, id: key }, key))))
     },

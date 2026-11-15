@@ -1334,6 +1334,8 @@
 
 ### Fixed
 
+- Media library: the "Variants failed" chip on a tile wraps instead of being cut off on a narrow tile, and its tooltip
+  and screen-reader text point to System → Images, where the failed variants are retried.
 - Media library: the table and the viewer show the dimensions of an image after its EXIF rotation, matching the
   crop editor, the variants and the site, instead of the stored width and height of the file.
 - Media picker: opened a second time on the same page, it starts in the folder last browsed instead of the top

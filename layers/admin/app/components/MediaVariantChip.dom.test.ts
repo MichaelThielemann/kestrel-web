@@ -15,8 +15,8 @@ describe('MediaVariantChip', () => {
     const wrapper = await mountSuspended(MediaVariantChip, { props: { state: 'failed' } })
 
     expect(wrapper.get('[aria-hidden="true"].media-variant-chip__text').text()).toBe('Variants failed')
-    expect(wrapper.text()).toContain('Some variants could not be generated')
-    expect(wrapper.get('.media-variant-chip').attributes('title')).toBe('Some variants could not be generated')
+    expect(wrapper.text()).toContain('Some variants could not be generated. Retry them under System → Images.')
+    expect(wrapper.get('.media-variant-chip').attributes('title')).toBe('Some variants could not be generated. Retry them under System → Images.')
   })
 
   it('names the subject for a stalled pending state, not a bare "Stalled", and keeps the pending state underneath', async () => {
