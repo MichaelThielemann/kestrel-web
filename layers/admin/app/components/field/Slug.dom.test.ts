@@ -98,6 +98,12 @@ describe('field/Slug full path preview', () => {
     useSchema().clear()
   })
 
+  async function schemaWithLocales(all: string[]) {
+    const schema: AdminSchema = { locales: { all, primary: all[0] ?? 'de', prefixPrimary: false }, collections: [], features: [], capabilities: {} }
+    unregisterAll.push(registerEndpoint('/api/admin/schema', { method: 'GET', handler: () => schema }))
+    await useSchema().load()
+  }
+
   async function schemaWithPages(readable: boolean) {
     const schema: AdminSchema = {
       locales: { all: ['de'], primary: 'de', prefixPrimary: false },
@@ -141,11 +147,44 @@ describe('field/Slug full path preview', () => {
     expect(wrapper.get('input').attributes('aria-describedby')).toContain(notes.attributes('id'))
   })
 
-  it('names why a live page would not be reachable', async () => {
+  it('names in the admin language why a live page would not be reachable', async () => {
+    const reason = 'a page above has no slug in this locale'
     const wrapper = await mountSuspended(FieldSlug, {
-      props: { field, name: 'slug', locale: 'de', modelValue: 'de' },
-      ...previewing({ path: '/de', reachable: false, reason: 'the path starts with a locale code' }, 'the path starts with a locale code'),
+      props: { field, name: 'slug', locale: 'de', modelValue: 'team' },
+      ...previewing({ path: '', reachable: false, reason }, reason),
     })
-    expect(wrapper.get('.field-slug__notes').text()).toBe('Visitors cannot reach this address: the path starts with a locale code')
+    expect(wrapper.get('.field-slug__notes').text()).toBe(en['field.slug.unreachable'].replace('{reason}', en['field.slug.reason.parentWithoutSlug']))
+  })
+
+  it('translates the reason of a path whose first segment is a language code', async () => {
+    await schemaWithLocales(['de', 'en'])
+    const reason = '"en" is a locale code and cannot start a path'
+    const wrapper = await mountSuspended(FieldSlug, {
+      props: { field, name: 'slug', locale: 'de', modelValue: 'en/foo' },
+      ...previewing({ path: '/en/foo', reachable: false, reason }, reason),
+    })
+    expect(wrapper.find('.ui-field__error').exists()).toBe(false)
+    expect(wrapper.get('.field-slug__notes').text()).toBe(en['field.slug.unreachable'].replace('{reason}', en['field.slug.reason.locale'].replace('{slug}', 'en')))
+  })
+
+  it('shows only the field hint for a language-code slug the server also names', async () => {
+    await schemaWithLocales(['de', 'en'])
+    const reason = '"en" is a locale code and cannot start a path'
+    const wrapper = await mountSuspended(FieldSlug, {
+      props: { field, name: 'slug', locale: 'de', modelValue: 'en' },
+      ...previewing({ path: '/en', reachable: false, reason }, reason),
+    })
+    expect(wrapper.get('.ui-field__error').text()).toBe(en['field.slug.locale'].replace('{slug}', 'en'))
+    expect(wrapper.find('.field-slug__notes').exists()).toBe(false)
+  })
+
+  it('shows only the field hint for a reserved slug the server also names', async () => {
+    const reason = 'the path /admin lies under the reserved path /admin'
+    const wrapper = await mountSuspended(FieldSlug, {
+      props: { field, name: 'slug', locale: 'de', modelValue: 'admin' },
+      ...previewing({ path: '/admin', reachable: false, reason }, reason),
+    })
+    expect(wrapper.get('.ui-field__error').text()).toBe(en['field.slug.reserved'].replace('{slug}', 'admin'))
+    expect(wrapper.find('.field-slug__notes').exists()).toBe(false)
   })
 })

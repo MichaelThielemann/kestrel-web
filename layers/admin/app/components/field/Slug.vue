@@ -6,6 +6,7 @@ import { RESERVED_PAGE_SEGMENTS } from '#kestrel-core/mount-path'
 import type { FieldComponentProps } from '../../utils/field-component'
 import { editorFormContextKey } from '../../utils/editor-form-context'
 import { pathPreviewKey } from '../../composables/usePathPreview'
+import { pathReasonText } from '../../utils/path-reasons'
 
 const props = defineProps<FieldComponentProps>()
 const model = defineModel<string | null>()
@@ -65,7 +66,7 @@ const notes = computed(() => {
   const out = current.shadows.map((shadow) => t('field.slug.shadows', { path: shadow.path, label: shadow.label }))
   if (current.exposesParentSlug) out.push(t('field.slug.exposesParent', { label: current.exposesParentSlug.label }))
   const unreachable = paths?.unreachable.value
-  if (unreachable) out.push(t('field.slug.unreachable', { reason: unreachable }))
+  if (unreachable && !displayError.value) out.push(t('field.slug.unreachable', { reason: pathReasonText(t, unreachable) }))
   return out
 })
 

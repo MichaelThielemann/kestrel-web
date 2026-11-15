@@ -147,8 +147,11 @@ and the untranslated-page redirect goes to the default locale's `_paths` entry.
 ## The admin
 
 - The slug field shows the full path the page would get, asked from `POST /api/admin/pages/path-preview`
-  while you type. It names a page that already holds the path and names why a published page would not
-  be reachable.
+  while you type. It names a page that already holds the path. For a page whose status makes it live,
+  it names a problem with the path itself in the admin language: a first segment that is a language
+  code, a path under one the server uses, or a page above it without a slug in that language. The
+  preview reports only these path problems; for a page that is not stored live it answers
+  `reachable: false` with no reason, and the field adds no note.
 - The pages list shows each page's path in the list's locale instead of its slug.
 - System → Paths rebuilds the index from the stored content (`POST /api/admin/paths/rebuild`, permission
   `system.manage`) and reports every path claimed twice or unusable. A page that lost its path in a
