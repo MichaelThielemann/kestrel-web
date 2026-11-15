@@ -1,5 +1,5 @@
 import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
-import { computed } from 'vue'
+import { computed, nextTick } from 'vue'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { AdminSchema, MediaItem } from '#kestrel-admin/types/api'
 import type { UploadItem } from '../composables/useMediaUpload'
@@ -28,6 +28,11 @@ function file(over: Partial<MediaItem> = {}): MediaItem {
     alt: null, title: null, description: null, variants: [], variantCounts: { done: 0, pending: 1, error: 0, failed: 0 }, focus: null, framing: { focus: null, crops: {}, width: null, height: null, ratios: [] },
     ...over,
   }
+}
+
+async function clickCount(el: { element: Element }, detail: number): Promise<void> {
+  el.element.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, detail }))
+  await nextTick()
 }
 
 function libraryItem(f: MediaItem): LibraryItem {
@@ -231,5 +236,33 @@ describe('MediaGrid origin label', () => {
     })
 
     expect(wrapper.find('.media-grid__ai').exists()).toBe(false)
+  })
+})
+
+describe('MediaGrid double click', () => {
+  it('selects on the first click of a double click and ignores the second, so the dblclick opens a selected file', async () => {
+    const wrapper = await mountSuspended(MediaGrid, {
+      props: { items: [libraryItem(file({ available: true }))], isSelected: () => false },
+    })
+    const tile = wrapper.get('[data-test="file-f1"]')
+
+    await clickCount(tile, 1)
+    await clickCount(tile, 2)
+    await tile.trigger('dblclick')
+
+    expect(wrapper.emitted('select')).toHaveLength(1)
+    expect(wrapper.emitted('open')).toHaveLength(1)
+  })
+
+  it('still reports every click while picking', async () => {
+    const wrapper = await mountSuspended(MediaGrid, {
+      props: { items: [libraryItem(file({ available: true }))], isSelected: () => false, pick: true },
+    })
+    const tile = wrapper.get('[data-test="file-f1"]')
+
+    await clickCount(tile, 1)
+    await clickCount(tile, 2)
+
+    expect(wrapper.emitted('select')).toHaveLength(2)
   })
 })

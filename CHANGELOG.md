@@ -1334,6 +1334,9 @@
 
 ### Fixed
 
+- Media library: opening a file with a double click leaves it selected. The second click of the double click no
+  longer toggles the selection off, so the selection bar does not flash and screen readers do not hear "Selection
+  cleared".
 - Crop editor: a number field in which the value already shown is typed again no longer stays on that value while
   the crop moves; leaving a field applies what was typed, and the editor no longer counts an unchanged value as an
   unapplied edit.

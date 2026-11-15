@@ -52,7 +52,7 @@ function blockedFile(item: LibraryItem): boolean {
   return gatedFile(item) && !props.isSelected(item)
 }
 function onFile(item: LibraryItem, e: MouseEvent) {
-  if (blockedFile(item)) return
+  if (blockedFile(item) || (e.detail > 1 && !props.pick)) return
   emit('select', item, mods(e))
 }
 function onFileOpen(item: LibraryItem) {

@@ -101,6 +101,11 @@ function barButton(wrapper: VueWrapper, label: string) {
   return bar(wrapper).findAll('button').find((b) => b.text() === label || b.attributes('aria-label') === label)
 }
 
+async function clickCount(el: { element: Element }, detail: number): Promise<void> {
+  el.element.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, detail }))
+  await nextTick()
+}
+
 function focused(): Element | null {
   return document.activeElement
 }
@@ -197,6 +202,21 @@ describe('MediaLibrary selection in the grid', () => {
     await barButton(wrapper, en['media.selection.delete'])?.trigger('click')
 
     await vi.waitFor(() => expect(document.body.querySelector('.ui-dialog__content')?.textContent).toContain('2 files'))
+  })
+
+  it('keeps a file selected and never announces a cleared selection when it is opened by a double click', async () => {
+    serve({ files: { '': [media('f1', 'a.jpg')] } }, (id) => (id === 'f1' ? media('f1', 'a.jpg') : undefined))
+    const wrapper = await mountLibrary()
+    await vi.waitFor(() => expect(wrapper.find('[data-test="file-f1"]').exists()).toBe(true))
+    const tile = wrapper.get('[data-test="file-f1"]')
+
+    await clickCount(tile, 1)
+    await clickCount(tile, 2)
+    await tile.trigger('dblclick')
+
+    expect(wrapper.get('[data-test="file-f1"]').attributes('aria-pressed')).toBe('true')
+    expect(wrapper.get('.ui-live-status').text()).not.toBe(en['media.selection.cleared'])
+    expect(wrapper.get('.ui-live-status').text()).toBe(en['media.selection.count'])
   })
 
   it('keeps the rest of the selection after a refresh instead of clearing it', async () => {
