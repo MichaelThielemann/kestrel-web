@@ -377,13 +377,9 @@ test("the crop editor keeps the image in place when a warning appears", async ({
   expect(await ratioWidths()).toEqual(ratioWidthsBefore);
 });
 
-test("the crop editor opened at a hero image field starts on the first ratio that carries a size of the block", async ({ page, adminApi }) => {
+test("the crop editor opened at a hero image field starts on the ratio of the first size the block declares", async ({ page, adminApi }) => {
   const { id } = await uploadRendered(adminApi, "framing-hero.png", [120, 60, 160]);
-  const item = await adminApi.call("GET", `/media/${id}`);
-  const ratios = isRecord(item.framing) && Array.isArray(item.framing.ratios) ? item.framing.ratios.filter(isRecord) : [];
-  const first = ratios.find((ratio) => Array.isArray(ratio.sizes) && ratio.sizes.some((size) => typeof size === "string" && size.startsWith("hero-")));
-  const key = typeof first?.key === "string" ? first.key : "";
-  expect(["16:9", "3:4"]).toContain(key);
+  const key = "16:9";
   const pageId = idOf(await adminApi.call("POST", "/pages", { locale: "de", slug: "heldfokus", title: "Heldfokus", status: "draft", body: [{ id: "h1", type: "hero", props: { heading: "Willkommen", image: id } }] }));
 
   await page.goto(`/admin/pages/${pageId}?locale=de`);

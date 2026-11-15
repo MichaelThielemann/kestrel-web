@@ -285,9 +285,16 @@ describe('initialTile', () => {
     { key: '4:5', sizes: ['responsive-mobile'] },
   ]
 
-  it('starts on the first ratio, in the order of the ratios, that carries one of the sizes', () => {
+  it('starts on the ratio of the first size, in the order the block declares them, that has a ratio', () => {
     expect(initialTile(ratios, ['banner'])).toBe('16:7')
-    expect(initialTile(ratios, ['responsive-mobile', 'responsive-tablet'])).toBe('1:1')
+    expect(initialTile(ratios, ['responsive-mobile', 'responsive-tablet'])).toBe('4:5')
+    expect(initialTile(ratios, ['content', 'responsive-tablet', 'banner'])).toBe('1:1')
+  })
+
+  it('opens a block that declares 16:9 before 3:4 on 16:9, whatever the order of the ratios', () => {
+    const hero = [{ key: '3:4', sizes: ['hero-tall'] }, { key: '16:9', sizes: ['hero-wide'] }]
+    expect(initialTile(hero, ['hero-wide', 'hero-tall'])).toBe('16:9')
+    expect(initialTile(hero, ['hero-tall', 'hero-wide'])).toBe('3:4')
   })
 
   it('starts on the focus without sizes or without a ratio that carries one', () => {

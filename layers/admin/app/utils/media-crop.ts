@@ -156,9 +156,13 @@ export const FOCUS_TILE = 'focus'
 /** The names of the image sizes of the block whose fields are edited, so a crop editor opened from one of its media fields starts on their ratio. */
 export const blockImageSizesKey: InjectionKey<ComputedRef<readonly string[]>> = Symbol('kestrel-block-image-sizes')
 
-/** The tile a crop editor opens on: the first ratio, in the order of `ratios`, that carries one of `sizes`, else the focus tile. */
+/** The tile a crop editor opens on: the ratio of the first of `sizes`, in their order, that one of `ratios` carries, else the focus tile. */
 export function initialTile(ratios: readonly { key: string, sizes: readonly string[] }[], sizes: readonly string[]): string {
-  return ratios.find((ratio) => ratio.sizes.some((size) => sizes.includes(size)))?.key ?? FOCUS_TILE
+  for (const size of sizes) {
+    const ratio = ratios.find((candidate) => candidate.sizes.includes(size))
+    if (ratio) return ratio.key
+  }
+  return FOCUS_TILE
 }
 
 /** The id of a tile, safe in an element id: `focus`, or `ratio-16x7` for the ratio `16:7`. */
