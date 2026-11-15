@@ -2504,6 +2504,45 @@ layer has to be upgraded first:
    `kestrel.config.ts` and only tells you to fix the file so it loads.
 5. `nuxt typecheck`, `nuxt build`, boot it once, log in.
 
+#### Entries a new project has in pnpm-workspace.yaml
+
+`kestrel upgrade` edits `package.json` and source files, not `pnpm-workspace.yaml`. A project that
+`create-kestrel` writes for kestrel-web 3.0 has these entries there, and a project created for 2.x does
+not. On pnpm, add them to the project's `pnpm-workspace.yaml`, merging them into an `overrides:` or
+`auditConfig:` key the file already has (pnpm rejects a file that has the same key twice), then run
+`pnpm install`:
+
+```yaml
+auditConfig:
+  ignoreGhsas:
+    - GHSA-gcqx-w48m-w2h4
+
+overrides:
+  'glob@13': ^14.0.2
+  'minimatch@10': ^11.0.1
+```
+
+- Nuxt's Nitro server pulls in `glob` 13 through `@vercel/nft`, and `minimatch` 10 through that `glob` and
+  through `archiver` > `readdir-glob`. Every glob 13 release is affected by GHSA-3g3m-2fjr-6pw4 and every
+  minimatch 10 release by GHSA-g3hv-75wg-m249. The first releases without them are glob 14.0.2 and
+  minimatch 11.0.1, so the two overrides move both packages to the next major. The packages that depend on
+  them work with the new majors unchanged: `readdir-glob` 4.0.0 differs from 3.0.0 only in its `minimatch`
+  range and its Node floor, and a new project builds and exports its site with both overrides in place.
+  Without them, `pnpm audit` reports each advisory while the lockfile resolves glob 13 or minimatch 10.
+- The `auditConfig` entry ignores GHSA-gcqx-w48m-w2h4 in `deepmerge`, which only Nuxt's build toolchain
+  pulls in (`nitropack` > `@rollup/plugin-node-resolve`) and which a production build does not contain.
+  `nuxt` is a dependency, so `pnpm audit --prod` lists it too. Review the entry no later than 2027-02-13,
+  and remove it once a fixed `deepmerge` release resolves or Nuxt no longer pulls `deepmerge` in.
+- A project that lints with `@nuxt/eslint` and whose lockfile pins `eslint-plugin-import-x` below 4.18.0,
+  the first release that loads with minimatch 11, runs `pnpm update --depth Infinity eslint-plugin-import-x`
+  (with `-r` in a workspace) after the install. `pnpm install` keeps the pinned release.
+- Remove the `glob` override once the `@vercel/nft` that Nitro resolves depends on glob 14 (1.11.2 and later
+  do), and the `minimatch` override once `archiver` resolves `readdir-glob` 4.
+
+The other settings in that file (`minimumReleaseAge`, `trustPolicy`, `blockExoticSubdeps`) are described in
+[create-kestrel's README](../packages/create-kestrel/README.md#supply-chain-settings); a project can adopt
+them in the same step.
+
 #### Scripts that call kestrel-web-upgrade
 
 The layer ships no binary. `scripts/host-binary` rewrites `kestrel-web-upgrade <command>` in

@@ -1239,7 +1239,8 @@
   entries to its own `pnpm-workspace.yaml` for a `pnpm audit` without these findings. A site that lints with
   `@nuxt/eslint` and whose lockfile pins `eslint-plugin-import-x` below 4.18.0, the first release that loads
   against minimatch 11, runs `pnpm update --depth Infinity eslint-plugin-import-x` (with `-r` in a workspace) or
-  resolves its lockfile from scratch: `pnpm install` keeps the pinned release.
+  resolves its lockfile from scratch: `pnpm install` keeps the pinned release. `docs/consuming-kestrel-web.md`
+  (§11, "Entries a new project has in pnpm-workspace.yaml") lists the lines an updated project copies.
 - The `pnpm-workspace.yaml` that `create-kestrel` writes ignores one advisory through `auditConfig.ignoreGhsas`:
   GHSA-gcqx-w48m-w2h4 in `deepmerge`, reached only through Nuxt's development toolchain (`nitropack` >
   `@rollup/plugin-node-resolve`) and absent from a production build. `nuxt` is a dependency, so
