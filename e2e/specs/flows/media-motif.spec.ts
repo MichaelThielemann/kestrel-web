@@ -88,6 +88,17 @@ async function attachScrolled(page: Page, target: Locator, testInfo: TestInfo, n
   if (original) await page.setViewportSize(original);
 }
 
+async function enlargeTilePreviews(page: Page): Promise<void> {
+  await page.addStyleTag({
+    content: [
+      ".media-crop { grid-template-columns: minmax(0, 26rem) minmax(0, 1fr) !important; }",
+      ".media-crop-tiles__tile { grid-template-columns: 12rem minmax(0, 1fr) !important; }",
+      ".media-crop-tiles__thumb { width: 12rem !important; height: 9rem !important; }",
+      ".media-crop-tiles__thumb .media-crop-preview { width: min(100%, calc(9rem * var(--media-crop-preview-ratio, 1))) !important; }",
+    ].join("\n"),
+  });
+}
+
 async function setFocus(editor: Locator, rect: { x: number; y: number; w: number; h: number }): Promise<void> {
   for (const [label, value] of [["Links", rect.x], ["Oben", rect.y], ["Breite", rect.w], ["Höhe", rect.h]] as const) {
     const input = editor.getByRole("spinbutton", { name: label, exact: true });
@@ -134,16 +145,17 @@ for (const upload of UPLOADS) {
     await page.getByRole("button", { name: new RegExp(`^${upload.name.replace(".", "\\.")}`) }).dblclick();
     await page.getByRole("dialog", { name: upload.name }).getByRole("button", { name: "Ausschnitt anpassen" }).click();
     const editor = page.getByRole("dialog", { name: `Ausschnitt: ${upload.name}` });
-    await expect(editor.getByRole("tab", { name: "Fokus" })).toBeFocused();
+    await expect(editor.getByRole("tab", { name: /^Fokus/ })).toBeFocused();
 
     await expect.poll(() => editor.locator(".ui-rect-select__image").evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
     const editorImage = await shown(editor.locator(".ui-rect-select__image"));
     expect(showsRaster(RASTER, { left: 0, top: 0, width: WIDTH, height: HEIGHT }, await readProbes(page, { png: editorImage.png }), editorImage.width), "the focus tab shows the whole picture upright").toBe(true);
 
     await setFocus(editor, { x: 60, y: 0, w: 20, h: 20 });
+    await enlargeTilePreviews(page);
     const focused: Framing = { focus: MOTIF_FOCUS, crops: {} };
     for (const { key } of [WIDE, TALL]) {
-      const preview = editor.locator('[data-test="crop-preview"]').filter({ hasText: key }).locator(".media-crop-preview");
+      const preview = editor.locator(`.media-crop-tiles__tile[data-key="${key}"] .media-crop-preview`);
       await expect.poll(() => preview.locator("img").evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
       const { png, width } = await shown(preview);
       const read = await readProbes(page, { png });
@@ -153,9 +165,8 @@ for (const upload of UPLOADS) {
     }
     await attachMatrix(page, editor, testInfo, `${upload.slug}-focus`);
 
-    await editor.getByRole("tab", { name: "Feinschnitt" }).click();
-    await editor.getByRole("button", { name: new RegExp(`^${TALL.key}`) }).click();
-    const detail = editor.locator('[data-test="crop-detail"]');
+    await editor.getByRole("tab", { name: new RegExp(`^${TALL.key}`) }).click();
+    const detail = editor.locator('[data-test="crop-ratio"]');
     await detail.getByRole("group", { name: `Zuschnitt für ${TALL.key}` }).focus();
     await page.keyboard.press("+");
     await page.keyboard.press("Shift+ArrowLeft");
