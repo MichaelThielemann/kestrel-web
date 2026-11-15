@@ -134,9 +134,9 @@ node /srv/mysite/output/server/index.mjs
 
 ```
 $ curl -s localhost:8080/api/health
-{"ok":true,"uptimeSeconds":0}
+{"ok":true,"uptimeSeconds":3}
 $ curl -s localhost:8080/api/ready
-{"ready":true,"uptimeSeconds":0}
+{"ready":true,"uptimeSeconds":3}
 $ curl -s localhost:8080/api/limits
 {"maxUploadBytes":5242880}
 ```
@@ -710,6 +710,8 @@ What to know before relying on it:
 |---|---|---|---|
 | `GET /api/health` | liveness: the process can keep serving, or needs to be restarted | `{ ok: true, uptimeSeconds }` | `503 { ok: false, error, uptimeSeconds }` |
 | `GET /api/ready` | readiness: route traffic here, or don't | `{ ready: true, uptimeSeconds }` | `503 { ready: false, state, error? }` |
+
+`uptimeSeconds` is the same on both: whole seconds since the server process started.
 
 Point whatever restarts the process at `/api/health` (a liveness probe, or the timer of §5) and traffic routing at `/api/ready` — they now answer two
 different questions and can disagree. A restart policy watching `/api/ready` instead would restart the

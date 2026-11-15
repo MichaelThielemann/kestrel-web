@@ -58,3 +58,8 @@ export function livenessFromHealth(kestrel: Pick<Kestrel, "health">): LivenessOk
   const error = failing === undefined ? "instance reports it needs a restart" : `${failing.module}: ${failing.reason}`;
   return { live: false, error };
 }
+
+/** Whole seconds since the server process started, the `uptimeSeconds` both probes report. */
+export function uptimeSeconds(): number {
+  return Math.floor(process.uptime());
+}

@@ -1368,6 +1368,8 @@
   every route it answers `GET` on.
 - Admin page tree: in a language a page has no path in, the row reads "no path" instead of showing the path of
   another language.
+- `/api/health` and `/api/ready` report `uptimeSeconds` as the whole seconds since the server process started,
+  the same value on both, not the time since the first request to each route.
 - Users: a save or create that carries a role the backend is not configured with shows "Unknown role: …" with
   the rejected names (new admin message `users.unknownRoles`) instead of the backend's
   `authz.validateRoles:roles: unknown role name(s)`. The hint under the roles of the edit dialog
