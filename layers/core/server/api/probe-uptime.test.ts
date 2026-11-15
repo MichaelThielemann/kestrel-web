@@ -41,4 +41,15 @@ describe("probe uptime", () => {
     expect(await health({})).toEqual({ ok: true, uptimeSeconds: 42 });
     expect(await ready({})).toEqual({ ready: true, uptimeSeconds: 42 });
   });
+
+  it("answers HEAD on /api/health and /api/ready with the handler of the GET", async () => {
+    vi.spyOn(process, "uptime").mockReturnValue(7);
+    const healthHead = await handlerOf(() => import("./health.head"));
+    const readyHead = await handlerOf(() => import("./ready.head"));
+
+    expect(healthHead).toBe(await handlerOf(() => import("./health.get")));
+    expect(readyHead).toBe(await handlerOf(() => import("./ready.get")));
+    expect(await healthHead({})).toEqual({ ok: true, uptimeSeconds: 7 });
+    expect(await readyHead({})).toEqual({ ready: true, uptimeSeconds: 7 });
+  });
 });

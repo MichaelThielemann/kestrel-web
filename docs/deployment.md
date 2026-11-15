@@ -295,7 +295,8 @@ network's gateway range) in `NUXT_KESTREL_ACCESS_TRUSTED_PROXIES`; until then it
 ignored and every request counts as coming from the proxy.
 
 For a health check, use `/api/ready`: it answers 503 while the backend is still booting or its
-database is unreachable, and 200 once it can serve.
+database is unreachable, and 200 once it can serve. `/api/health` and `/api/ready` answer `HEAD` with
+the status of the `GET` and no body, so a checker that sends `HEAD` sees the same result.
 
 Run the container with `--restart unless-stopped` (or `always`), or with a policy whose retries together last longer
 than 60 s. After a kill without a clean exit (`docker kill`, an out-of-memory kill, a power loss) the restart into a

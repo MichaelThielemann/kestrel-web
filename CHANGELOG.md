@@ -1388,6 +1388,7 @@
   taken path, otherwise "the address is not valid") instead of the server's English text, and no note shows
   while the field already shows its own hint for a reserved or language-code slug. New admin messages
   `field.slug.reason.locale`, `.reserved`, `.parentWithoutSlug`, `.taken` and `.invalid`.
+- `/api/health` and `/api/ready` answer `HEAD` with the status of the `GET` and no body instead of 404.
 - Admin layout: at 320 CSS px no admin page scrolls sideways or cuts off a control (WCAG 1.4.10 Reflow). The
   main area contains its visually hidden labels; the head of the settings and redirects tabs, the section heads
   of the images tab, the collection list bar and the media toolbar wrap; `KestrelUiButtonGroup` no longer shrinks
