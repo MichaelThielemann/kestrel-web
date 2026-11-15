@@ -815,7 +815,7 @@ whole database, password hashes included, and the app's own credentials should b
 [operations guide](https://github.com/MichaelThielemann/kestrel/blob/main/docs/operations.md) and the
 kestrel-ops README document the file, every option and the questions the commands ask.
 
-An update moves an environment to a new release in three places:
+An update moves an environment to a new release in three steps:
 
 1. **On a workstation**, `kestrel update prepare --env prod` checks the environment without changing it, plans
    the update on a copy of the newest replica generation, rehearses the migrations on that copy and writes a
@@ -825,8 +825,8 @@ An update moves an environment to a new release in three places:
    and the platform's command-line client. The deploy stages the release while the app serves, stops the app,
    takes a verified cutover backup, migrates a copy of the database, promotes it, starts the new release and
    verifies it; a hard failure after the stop rolls back on its own. A deploy job has no terminal, so every
-   question needs an answer in `--answers`; the first is `{ "update-stop": "accept" }`. The deploy from a release before 6 also needs `"unsealed-stop": "accept"`, since that release leaves no seal; put it in an answers file of its own and remove the file after that one deploy. `--yes` never answers it. Kestrel's operations guide describes both questions.
-3. **On a workstation**, `kestrel update accept --env prod` closes the run, or `kestrel update rollback
+   question needs an answer in `--answers`; the first is `{ "update-stop": "accept" }`. The deploy from a release before 6 also needs `"unsealed-stop": "accept"`, since that release leaves no seal. Give that one deploy an answers file of its own with both answers, `{ "update-stop": "accept", "unsealed-stop": "accept" }`, and remove it after the deploy: a standing answer would also accept a later stop of a 6.x release that went without its teardown. `--yes` answers `update-stop` but never `unsealed-stop`. Kestrel's operations guide describes both questions.
+3. **On a workstation**, `kestrel update accept --env prod` closes the run, or the next deploy accepts it; `kestrel update rollback
    --env prod` brings back the cutover state instead.
 
 The update is the deployment's stop, swap, start of §10 with a verified backup before it and a check after it,
@@ -844,14 +844,16 @@ answers:
 - `llms.txt` as the export check when the `features` name `delivery`;
 - the ids of the files in `migrations/` (or the directory `kestrel.migrationsDir` names) as the release's content
   migrations when the `features` include `migrations`;
-- the blob store and database file that the variables of an environment select, through the helpers of
-  `#kestrel/config` (consuming guide §3, "`#kestrel/config`");
 - the variables that hold secrets, and the migration switches: `KESTREL_STORAGE_MIGRATIONS` always and
   `KESTREL_MIGRATIONS` only when `kestrel.config.ts` reads it.
 
+The blob store, the prefixes and the target come from `kestrel.environments.json`, not from the hook.
+`node .kestrel-ops/run.mjs deploy` loads no plugin: it uses the facts that `bundle.json` stored when the bundle was written.
+
 Two migration kinds run in an update, each on the copy of the database before it is promoted. The **storage
-migrations** of the release's module packages, such as the media layout that 6.0 changes, run first and are
-switched by `KESTREL_STORAGE_MIGRATIONS`; the local start sets it to `check`, since they have run on the copy by then. The **content migrations** of
+migrations** of the release's module packages, such as the media layout that 6.0 changes, run first, by the update itself
+and whatever `KESTREL_STORAGE_MIGRATIONS` says; the switch only decides what a start does, and the local start sets it to
+`check`, since they have run on the copy by then. The **content migrations** of
 `migrations/` run through a local start of the release on the copy, so the ledger of the promoted database
 already holds them when the production start comes, also where `KESTREL_MIGRATIONS` is `check` in production
 (`docs/migrations.md`).
@@ -998,7 +1000,7 @@ request:
   minutes per language, during which a visit can show pages of both builds.
 - **A save's own page render** is a different path. The preset leaves `publishPage` and `unpublishPage` in the
   relay of the `eventsQueue` module, so the request that saves and publishes a page renders that page before it
-  answers. The preset sets `relayPipelines` and `lanes` of its queue itself, so the lane needs your own `events-queue` entry in `kestrel.config.ts` instead of the queue from `presetModuleConfig()`. A queue whose wiring puts these two pipelines into a lane of their own answers the save before the
+  answers. The preset sets `relayPipelines` and `lanes` of its queue itself, so the lane needs your own `events-queue` entry in `kestrel.config.ts` instead of the queue from `presetModuleConfig()`. That entry takes `lanesFor(features)` and adds the lane of its own, and keeps `delayMs: delaysFor(features)`; dropping either loses the lanes `pages`, `indexes` and `variants` or the delays, and `definePreset()` then refuses the config. `publishPage` and `unpublishPage` must not stay in `relayPipelines`, since a pipeline in a lane cannot also be relayed: leave `relayPipelines` out (the default is `all`) or give a list without these two. A queue whose wiring puts these two pipelines into a lane of their own answers the save before the
   page is rendered, and the response reports the delivery as pending; what that changes and what it leaves
   as it is, such as the CPU time the render still takes and the order of renders, is described in kestrel's
   [pipeline docs](https://github.com/MichaelThielemann/kestrel/blob/main/docs/pipelines.md) under
@@ -1054,7 +1056,7 @@ a container in its log driver. These lines matter when something failed:
 - **A boot failure** writes a JSON line with the message `kestrel failed to boot` and the failing `module` and
   `reason` to stderr, then a banner of its own on stderr, one JSON line per banner line: `KESTREL FAILED TO BOOT`,
   the module, the reason and a hint, between two rows of `=`. This holds in every mode, `nuxt dev` included. Outside
-  `nuxt dev` the process then exits with code 1; under `nuxt dev` it stays up and answers `/api/*` with 503.
+  `nuxt dev` the process then exits with code 1; under `nuxt dev` it stays up, and the routes of kestrel and `/api/ready` answer 503 while `/api/health` stays 200 (§8).
 - **One `step` line per pipeline step** while `KESTREL_STEP_LOG` (§2) is `all`, with the same `runId`: what the run did and where it failed. With `errors` only the steps whose outcome is not `ok` write one, with `off` none; a step that threw writes its `error` line in every mode.
 
 The layer's own routes write no `http` line: `/api/health`, `/api/ready`, `/api/limits`,
