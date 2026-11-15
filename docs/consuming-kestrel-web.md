@@ -2126,10 +2126,10 @@ site URL plus `/`, every other page's is the site URL plus its path, without a t
 `<link rel="canonical">` and `og:url` are built the same way, from `normalizeSiteUrl` and `pageUrl` of
 `@michaelthielemann/kestrel-delivery-static/site-url`, so they always match. With `prefixPrimary = true` in
 `shared/model`, the canonical link, `<loc>`, the exported path and every internal link carry the default locale's
-prefix too (`/de/about`, the home page `/de`), and nothing is exported at `/`: let the host redirect `/` to
-the default locale's home page, and delete a root page `<prefix>index.html` an older version exported, which
-neither the export nor the one-time removal of leftover page files touches and a host that serves an existing
-file before a redirect keeps showing at `/`. An override of a public read (`resolvePage`, `getSettings`,
+prefix too (`/de/about`, the home page `/de`), and nothing is exported at `/`: the first render of each page
+after the switch writes it under the prefix and removes the files at its old path, the root page
+`<prefix>index.html` among them. A static host needs redirects from `/` to the default locale's home page and
+from the old unprefixed paths to the prefixed ones. An override of a public read (`resolvePage`, `getSettings`,
 `resolve<Name>`) needs `&prefixPrimary=true` in its `site.resolveLinks` rules, which `definePreset()` adds only
 to its own steps; without it, internal links keep the unprefixed form. The Node server still answers a
 default-locale path without the prefix, under the prefixed canonical link. With `delivery`, a value that is

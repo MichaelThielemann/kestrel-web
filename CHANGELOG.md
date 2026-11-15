@@ -644,10 +644,10 @@
   prefix (`/de/about`, the home page at `/de`), where its canonical link, `og:url` and `_paths` point, and the
   public reads resolve internal links in that form: `presetModuleConfig()` passes `prefixPrimary` to
   delivery-static, and `definePreset()` adds `prefixPrimary=true` to the `site.resolveLinks` rules when
-  site-default has it. Nothing is exported at `/` any more; redirect `/` to the default locale's home page on a
-  static host, and delete the root page an older version exported there (`site/index.html`): neither the
-  export nor the one-time removal of leftover page files touches it, so a host that serves an existing file
-  before a redirect keeps showing that frozen copy at `/`. An override of a public read (`resolvePage`,
+  site-default has it. Nothing is exported at `/` any more: the first render of each page after the switch
+  writes it under the prefix and removes the files at its old path, the root page `site/index.html` among
+  them. A static host needs redirects from `/` to the default locale's home page and from the old unprefixed
+  paths to the prefixed ones. An override of a public read (`resolvePage`,
   `getSettings`, `resolve<Name>`) keeps the `site.resolveLinks` rules it names: add `&prefixPrimary=true` to
   them, or its pages and navigation keep linking to unprefixed paths, which the export no longer writes. The
   server refuses to boot when a hand-written delivery-static entry's `prefixPrimary` differs from
