@@ -37,11 +37,11 @@ describe('CollectionTree', () => {
     sessionStorage.clear()
   })
 
-  async function mounted() {
+  async function mounted(locale = 'de') {
     unregisterAll.push(registerEndpoint('/api/admin/schema', { method: 'GET', handler: withTree }))
     unregisterAll.push(registerEndpoint('/api/admin/pages/tree', { method: 'GET', handler: () => tree }))
     await useSchema().load()
-    const wrapper = await mountSuspended(CollectionTree, { props: { collection: 'pages', locale: 'de', localeQuery: '', label: 'Seiten', liveLabel: 'Published', busy: false }, attachTo: document.body })
+    const wrapper = await mountSuspended(CollectionTree, { props: { collection: 'pages', locale, localeQuery: '', label: 'Seiten', liveLabel: 'Published', busy: false }, attachTo: document.body })
     await vi.waitFor(() => expect(wrapper.findAll('[aria-level]').length).toBeGreaterThan(0))
     return wrapper
   }
@@ -59,6 +59,18 @@ describe('CollectionTree', () => {
     expect(wrapper.get('table').attributes('role')).toBe('treegrid')
     expect(wrapper.findAll('[aria-level]').map((row) => [row.attributes('aria-posinset'), row.attributes('aria-setsize'), row.attributes('aria-selected')])).toEqual([['1', '2', undefined], ['2', '2', undefined]])
     expect(about.find('.collection-tree__badge').text()).toBe('Published')
+    wrapper.unmount()
+  })
+
+  it('shows "no path" for a page without a path in the list locale instead of another locale\'s path', async () => {
+    const wrapper = await mounted('en')
+    const about = () => wrapper.findAll('[aria-level]').find((row) => row.find('.collection-tree__label').text() === 'Über uns')!
+    await about().trigger('keydown', { key: 'ArrowRight' })
+    const pathOfRow = (label: string) => wrapper.findAll('[aria-level]').find((row) => row.find('.collection-tree__label').text() === label)!.find('.collection-tree__path').text()
+    expect(pathOfRow('Über uns')).toBe('/en/about-us')
+    expect(pathOfRow('Team')).not.toContain('/ueber-uns')
+    expect(pathOfRow('Kontakt')).not.toContain('/kontakt')
+    expect(pathOfRow('Team')).toBe(pathOfRow('Kontakt'))
     wrapper.unmount()
   })
 

@@ -3,7 +3,8 @@ import type { ListColumn } from './list-columns'
 
 const dateTimeFmt = new Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' })
 
-function pathIn(paths: unknown, locale: string | undefined): string {
+/** The path in `locale`, or the only path of a model without locales; empty where the page has none in that locale. */
+export function pathIn(paths: unknown, locale: string | undefined): string {
   if (typeof paths !== 'object' || paths === null) return ''
   const entries = Object.entries(paths)
   const value: unknown = locale !== undefined && Object.hasOwn(paths, locale) ? Reflect.get(paths, locale) : entries.length === 1 ? entries[0]?.[1] : undefined

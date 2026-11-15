@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { usePageTree } from '../composables/usePageTree'
 import type { PageTreeRow } from '../composables/usePageTree'
+import { pathIn } from '../utils/list-cell'
 
 const props = defineProps<{ collection: string; locale: string; localeQuery: string; label: string; liveLabel: string; busy: boolean }>()
 const emit = defineEmits<{ delete: [ids: string[]] }>()
@@ -21,10 +22,7 @@ function setItem(id: string, el: unknown) {
 
 const activeId = computed(() => (focusedId.value !== null && rows.value.some((row) => row.node.id === focusedId.value) ? focusedId.value : rows.value[0]?.node.id ?? null))
 
-function pathOf(row: PageTreeRow): string {
-  const value = row.node.paths[props.locale] ?? Object.values(row.node.paths).find((path) => typeof path === 'string')
-  return typeof value === 'string' ? value : ''
-}
+const pathOf = (row: PageTreeRow): string => pathIn(row.node.paths, props.locale)
 
 function isLive(row: PageTreeRow): boolean {
   return row.node.live[props.locale] === true
