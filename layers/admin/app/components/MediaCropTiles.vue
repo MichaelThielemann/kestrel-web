@@ -120,10 +120,10 @@ onUnmounted(stopReveal)
 .media-crop-tiles {
   min-width: 0;
   min-height: 0;
-  padding: var(--space-3) var(--space-3) var(--space-4);
+  padding: var(--space-2) var(--space-2) var(--space-4);
   overflow-y: auto;
   overscroll-behavior: contain;
-  scroll-padding: var(--space-3);
+  scroll-padding: var(--space-2);
   scrollbar-gutter: stable;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);

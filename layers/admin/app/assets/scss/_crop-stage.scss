@@ -13,6 +13,7 @@ $narrow: 48rem;
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: none;
     height: auto;
+    min-height: auto;
   }
 }
 
@@ -34,6 +35,8 @@ $narrow: 48rem;
 
   @media (max-width: $narrow) {
     container-type: inline-size;
+    display: block;
+    min-height: auto;
   }
 }
 
@@ -48,6 +51,7 @@ $narrow: 48rem;
   background: var(--color-surface);
 
   @media (max-width: $narrow) {
+    min-height: auto;
     overflow: visible;
   }
 }

@@ -157,7 +157,7 @@ async function onSave(): Promise<void> {
 <style lang="scss" scoped>
 .media-crop {
   display: grid;
-  grid-template-columns: minmax(0, 13rem) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 16rem) minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);
   gap: var(--space-2);
   flex: 1 1 auto;
@@ -189,11 +189,12 @@ async function onSave(): Promise<void> {
   .media-crop {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: none;
+    grid-auto-rows: max-content;
     align-content: start;
     overflow-x: hidden;
     overflow-y: auto;
     scrollbar-gutter: stable;
   }
-  .media-crop__panel { grid-template-rows: none; }
+  .media-crop__panel { grid-template-rows: none; min-height: auto; }
 }
 </style>

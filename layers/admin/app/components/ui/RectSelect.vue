@@ -282,6 +282,11 @@ const rectStyle = computed(() => {
 }
 
 @media (max-width: 48rem) {
+  .ui-rect-select__surface {
+    width: fit-content;
+    margin-inline: auto;
+  }
+
   .ui-rect-select__image {
     max-height: 55svh;
   }

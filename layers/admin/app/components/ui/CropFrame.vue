@@ -281,7 +281,8 @@ defineExpose({ focus: () => frame.value?.focus() })
 
 @media (max-width: 48rem) {
   .ui-crop-frame__frame {
-    width: min(100%, calc(55svh * var(--ui-crop-frame-ratio-value)));
+    width: min(100cqw, calc(55svh * var(--ui-crop-frame-ratio-value)));
+    margin-inline: auto;
   }
 }
 
