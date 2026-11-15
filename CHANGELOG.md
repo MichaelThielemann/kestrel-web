@@ -28,8 +28,11 @@
   `deliveryBuildCheck` handles it runs `syncPublicMedia` (`media.syncPublic`, with `images` also
   `images.syncPublic`) before the instance answers ready, so the public copies of the media originals and image
   variants match the restored rows. A later start, which `delivery.checkBuild` tells no new restore, does not run
-  it; a failed check runs it at the next start that handles the restore. A failed sync is logged and does not
-  stop the start; the nightly `syncPublicMedia` repeats it.
+  it. A check that fails before `delivery.checkBuild` stored the restore leaves it to the next start, which
+  handles the same restore again; a check that fails at a later step, such as `delivery.requestIndexes`, runs the
+  sync at once, because the next start no longer reports that restore, and logs `delivery: the index files could
+  not be exported at start`. A failed sync is logged and does not stop the start; the nightly `syncPublicMedia`
+  repeats it.
 - `envStepLog()` in `#kestrel/config` reads `KESTREL_STEP_LOG` (`all`, `errors` or `off`; unset or empty means `all`,
   any other value throws) for defineConfig's `stepLog` option. `all` writes a log line for every step, `errors` for
   every step whose result is not ok, `off` for none. The playground passes it as `stepLog: envStepLog()`.

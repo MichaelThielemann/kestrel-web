@@ -1,10 +1,12 @@
-import { effectiveModuleConfig, type Kestrel } from "@michaelthielemann/kestrel";
+import { effectiveModuleConfig, pipelineSteps, type Kestrel, type PipelineEntry } from "@michaelthielemann/kestrel";
 import { normalizeSiteUrl } from "@michaelthielemann/kestrel-delivery-static/site-url";
 
 const BUILD_CHECK_PIPELINE = "deliveryBuildCheck";
 const SYNC_PUBLIC_MEDIA_PIPELINE = "syncPublicMedia";
+const CHECK_BUILD_STEP = "delivery.checkBuild";
 const DELIVERY_STATIC_MODULE = "@michaelthielemann/kestrel-delivery-static";
 const FAILED = "delivery: the new build could not mark the published pages for a re-render";
+const LATE_FAILED = "delivery: the index files could not be exported at start";
 const SYNC_FAILED = "media: the public copies could not be rebuilt after the database was restored";
 const BOOT_TRIGGER = { kind: "event", name: "boot" } as const;
 
@@ -18,8 +20,8 @@ export interface BuildCheckOptions {
   siteUrl?: string | undefined;
   /** A dev server starts a new build on every start, so it never checks. */
   dev: boolean;
-  /** The composed pipelines; without `deliveryBuildCheck` there is nothing to run, without `syncPublicMedia` no public media copy is rebuilt after a restore. */
-  pipelines: readonly { name: string }[];
+  /** The composed pipelines; without `deliveryBuildCheck` there is nothing to run, without `syncPublicMedia` no public media copy is rebuilt after a restore. The steps of `deliveryBuildCheck` tell a failure before `delivery.checkBuild` stored a restore from one after it. */
+  pipelines: readonly { name: string; steps?: readonly PipelineEntry[] }[];
   logger: { error(message: string, fields?: Record<string, unknown>): void };
 }
 
@@ -52,6 +54,14 @@ function reportsRestore(result: unknown): boolean {
   return typeof result === "object" && result !== null && Reflect.get(result, "restored") === true;
 }
 
+function failedAfterCheck(pipelines: BuildCheckOptions["pipelines"], step: string | undefined): boolean {
+  const entries = pipelines.find((pipeline) => pipeline.name === BUILD_CHECK_PIPELINE)?.steps;
+  if (step === undefined || entries === undefined) return false;
+  const steps: string[] = pipelineSteps(entries);
+  const check = steps.indexOf(CHECK_BUILD_STEP);
+  return check >= 0 && steps.indexOf(step) > check;
+}
+
 async function syncPublicMedia(kestrel: BuildCheckHost, logger: BuildCheckOptions["logger"]): Promise<void> {
   try {
     const run = await kestrel.run(SYNC_PUBLIC_MEDIA_PIPELINE, { trigger: BOOT_TRIGGER });
@@ -68,8 +78,11 @@ async function syncPublicMedia(kestrel: BuildCheckHost, logger: BuildCheckOption
  * its dependencies are recorded by the new code; the index files are exported on every start. When the check
  * handled a database restore it had not handled before (`restored: true`, once per reported restore), the
  * preset's `syncPublicMedia` then rebuilds the public copies of the media originals and image variants before the
- * start completes. A failure of either is logged and never stops the start; a failed check is repeated at the next
- * start. Answers whether the check ran.
+ * start completes. A check that fails before `delivery.checkBuild` stored the build and the restore runs no sync,
+ * and the next start handles the same build and restore again; a check that fails at a later step of
+ * `deliveryBuildCheck`, such as `delivery.requestIndexes`, may have stored a restore the next start no longer
+ * reports, so the sync runs then as well. A failure of either is logged and never stops the start. Answers whether
+ * the check ran.
  */
 export async function checkDeliveryBuild(kestrel: BuildCheckHost, options: BuildCheckOptions): Promise<boolean> {
   if (options.dev || options.build === undefined || options.build === "") return false;
@@ -78,7 +91,8 @@ export async function checkDeliveryBuild(kestrel: BuildCheckHost, options: Build
   try {
     const run = await kestrel.run(BUILD_CHECK_PIPELINE, { trigger: BOOT_TRIGGER, payload: { build: `${options.build}|${normalized(options.siteUrl) ?? ""}` } });
     if (run.status >= 400) {
-      options.logger.error(FAILED, { status: run.status, reason: run.error ?? "" });
+      restored = failedAfterCheck(options.pipelines, run.step);
+      options.logger.error(restored ? LATE_FAILED : FAILED, { status: run.status, reason: run.error ?? "" });
     } else {
       restored = reportsRestore(run.result);
     }

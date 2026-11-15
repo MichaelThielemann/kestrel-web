@@ -102,10 +102,39 @@ describe("checkDeliveryBuild after a reported database restore", () => {
     expect(kestrel.run.mock.calls.map((call: unknown[]) => call[0])).toEqual(["deliveryBuildCheck"]);
   });
 
-  it("runs no sync when the check failed, so the next start handles the same restore again", async () => {
-    const kestrel = { run: vi.fn(() => Promise.resolve({ runId: "run-1", status: 503, error: "the marks could not be written", result: { restored: true } })) };
-    await checkDeliveryBuild(kestrel, { build: "b-2026", dev: false, pipelines: withSync, logger: logger() });
-    expect(kestrel.run).toHaveBeenCalledTimes(1);
+  const stepwise = [{ name: "deliveryBuildCheck", steps: ["replication.checkRestored", "delivery.checkBuild", "delivery.requestIndexes"] }, { name: "syncPublicMedia", steps: ["media.syncPublic"] }];
+
+  function failingAt(step: string): BuildCheckHost & { run: ReturnType<typeof vi.fn> } {
+    return {
+      run: vi.fn((pipeline: string) => Promise.resolve(pipeline === "deliveryBuildCheck" ? { runId: "run-1", status: 503, error: "the step could not finish", step } : { runId: "run-2", status: 200, result: {} })),
+    };
+  }
+
+  it("runs no sync when the check failed before it stored the restore, so the next start handles the same restore again", async () => {
+    for (const step of ["replication.checkRestored", "delivery.checkBuild"]) {
+      const kestrel = failingAt(step);
+      const log = logger();
+      await checkDeliveryBuild(kestrel, { build: "b-2026", dev: false, pipelines: stepwise, logger: log });
+      expect(kestrel.run.mock.calls.map((call: unknown[]) => call[0])).toEqual(["deliveryBuildCheck"]);
+      expect(log.error).toHaveBeenCalledWith("delivery: the new build could not mark the published pages for a re-render", { status: 503, reason: "the step could not finish" });
+    }
+  });
+
+  it("rebuilds the public media copies when the check failed after it stored a possible restore, which the next start no longer reports", async () => {
+    const kestrel = failingAt("delivery.requestIndexes");
+    const log = logger();
+    await checkDeliveryBuild(kestrel, { build: "b-2026", dev: false, pipelines: stepwise, logger: log });
+    expect(kestrel.run.mock.calls.map((call: unknown[]) => call[0])).toEqual(["deliveryBuildCheck", "syncPublicMedia"]);
+    expect(log.error).toHaveBeenCalledWith("delivery: the index files could not be exported at start", { status: 503, reason: "the step could not finish" });
+  });
+
+  it("runs no sync when a failed check names no step or the composed pipelines carry no steps", async () => {
+    const unnamed = { run: vi.fn(() => Promise.resolve({ runId: "run-1", status: 503, error: "the marks could not be written" })) };
+    await checkDeliveryBuild(unnamed, { build: "b-2026", dev: false, pipelines: stepwise, logger: logger() });
+    expect(unnamed.run).toHaveBeenCalledTimes(1);
+    const named = failingAt("delivery.requestIndexes");
+    await checkDeliveryBuild(named, { build: "b-2026", dev: false, pipelines: withSync, logger: logger() });
+    expect(named.run).toHaveBeenCalledTimes(1);
   });
 
   it("runs no sync without the syncPublicMedia pipeline", async () => {
