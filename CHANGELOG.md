@@ -1340,9 +1340,9 @@
   crop editor, the variants and the site, instead of the stored width and height of the file.
 - Media picker: opened a second time on the same page, it starts in the folder last browsed instead of the top
   level, and no longer overwrites the remembered folder with the top level.
-- Media library: opening a file with a double click leaves it selected. The second click of the double click no
-  longer toggles the selection off, so the selection bar does not flash and screen readers do not hear "Selection
-  cleared".
+- Media library: opening a file with a double click leaves its selection as it was, also when the file is already
+  selected alone or inside a multi-selection. The second click of the double click no longer toggles the selection,
+  and a click that deselected the file is undone when the double click opens it.
 - Crop editor: a number field in which the value already shown is typed again no longer stays on that value while
   the crop moves; leaving a field applies what was typed, and the editor no longer counts an unchanged value as an
   unapplied edit.

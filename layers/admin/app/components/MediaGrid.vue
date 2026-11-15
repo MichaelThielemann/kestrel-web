@@ -28,7 +28,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   navigate: [string]
   select: [LibraryItem, { toggle: boolean; range: boolean }]
-  open: [LibraryItem]
+  open: [LibraryItem, pointer?: boolean]
   dragstart: [LibraryItem, DragEvent]
   dragend: []
   dismissUpload: [string]
@@ -55,9 +55,9 @@ function onFile(item: LibraryItem, e: MouseEvent) {
   if (blockedFile(item) || (e.detail > 1 && !props.pick)) return
   emit('select', item, mods(e))
 }
-function onFileOpen(item: LibraryItem) {
+function onFileOpen(item: LibraryItem, pointer = false) {
   if (blockedFile(item)) return
-  emit('open', item)
+  emit('open', item, pointer)
 }
 function uploadChipFor(upload: UploadItem) {
   return upload.result ? variantChip(props.variantOverride?.get(upload.result.id), props.stalledIds?.has(upload.result.id) === true) : null
@@ -132,7 +132,7 @@ function uploadProcessing(upload: UploadItem): boolean {
           :class="{ 'is-selected': isSelected(item), 'is-blocked': blockedFile(item) }"
           draggable="true"
           @click="onFile(item, $event)"
-          @dblclick="onFileOpen(item)"
+          @dblclick="onFileOpen(item, true)"
           @keydown.enter.prevent="onFileOpen(item)"
           @dragstart="(e: DragEvent) => emit('dragstart', item, e)"
           @dragend="emit('dragend')">

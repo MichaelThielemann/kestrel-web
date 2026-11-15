@@ -81,15 +81,22 @@ onMediaChanged(async ({ restored }) => {
   focusReturn.restored(restored)
 })
 
-function onOpenItem(item: LibraryItem) {
+let deselectedByClick: string | null = null
+
+function onOpenItem(item: LibraryItem, pointer = false) {
   if (item.type !== 'file') return
+  const reselect = pointer && deselectedByClick === itemKey(item) && !selection.isSelected(item)
+  deselectedByClick = null
   if (props.pick) { onSelect(item, { toggle: false, range: false }); return }
+  if (reselect) selection.toggle(item)
   openViewer(item.file)
 }
 
 function onSelect(item: LibraryItem, mods: SelectMods) {
   pickState.resetNotice()
+  const wasSelected = selection.isSelected(item)
   selection.activate(item, mods)
+  deselectedByClick = mode === 'library' && wasSelected && !selection.isSelected(item) ? itemKey(item) : null
 }
 
 function onBackgroundClick() { if (mode !== 'pick-multi') selection.clear() }

@@ -26,7 +26,7 @@ const props = defineProps<{
   someSelected?: boolean
   tileMenu?: MenuItem[] | null
 }>()
-const emit = defineEmits<{ navigate: [string]; select: [LibraryItem, { toggle: boolean; range: boolean }]; selectAll: [boolean]; open: [LibraryItem]; dragstart: [LibraryItem, DragEvent]; dragend: []; sort: [string]; tileMenu: [LibraryItem, string] }>()
+const emit = defineEmits<{ navigate: [string]; select: [LibraryItem, { toggle: boolean; range: boolean }]; selectAll: [boolean]; open: [LibraryItem, pointer?: boolean]; dragstart: [LibraryItem, DragEvent]; dragend: []; sort: [string]; tileMenu: [LibraryItem, string] }>()
 const ariaSort = (field: string): 'ascending' | 'descending' | 'none' => (props.sort === field ? 'ascending' : props.sort === `-${field}` ? 'descending' : 'none')
 const mods = (e: { ctrlKey: boolean; metaKey: boolean; shiftKey: boolean }) => ({ toggle: e.ctrlKey || e.metaKey, range: e.shiftKey })
 const tabindexFor = (key: string) => rovingTabindex(key, props.rovingKey)
@@ -51,9 +51,9 @@ function onFile(item: LibraryItem, e: MouseEvent | KeyboardEvent) {
   if (blockedFile(item) || (e.detail > 1 && !props.pick)) return
   emit('select', item, mods(e))
 }
-function onFileOpen(item: LibraryItem) {
+function onFileOpen(item: LibraryItem, pointer = false) {
   if (blockedFile(item)) return
-  emit('open', item)
+  emit('open', item, pointer)
 }
 const uploaded = (f: MediaItem) => new Date(f.createdAt).toLocaleString(lang.value)
 const badge = (f: MediaItem) => t(provenanceLabelKey(provenanceOrigin(f.provenance)))
@@ -92,7 +92,7 @@ const badge = (f: MediaItem) => t(provenanceLabelKey(provenanceOrigin(f.provenan
         :data-test="item.type === 'folder' ? `row-folder-${item.folder.path}` : `row-file-${item.file.id}`"
         draggable="true"
         @click="item.type === 'folder' ? onFolder(item, item.folder.path, $event) : onFile(item, $event)"
-        @dblclick="item.type === 'file' && onFileOpen(item)"
+        @dblclick="item.type === 'file' && onFileOpen(item, true)"
         @keydown.enter.prevent="item.type === 'folder' ? onFolder(item, item.folder.path, $event) : onFileOpen(item)"
         @dragstart="(e) => emit('dragstart', item, e)"
         @dragend="emit('dragend')">

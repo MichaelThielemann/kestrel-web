@@ -219,6 +219,54 @@ describe('MediaLibrary selection in the grid', () => {
     expect(wrapper.get('.ui-live-status').text()).toBe(en['media.selection.count'])
   })
 
+  it('keeps an already selected file selected when it is opened by a double click', async () => {
+    serve({ files: { '': [media('f1', 'a.jpg')] } }, (id) => (id === 'f1' ? media('f1', 'a.jpg') : undefined))
+    const wrapper = await mountLibrary()
+    await vi.waitFor(() => expect(wrapper.find('[data-test="file-f1"]').exists()).toBe(true))
+    const tile = wrapper.get('[data-test="file-f1"]')
+    await checkbox(wrapper, 'a.jpg').setValue(true)
+
+    await clickCount(tile, 1)
+    await clickCount(tile, 2)
+    await tile.trigger('dblclick')
+
+    expect(wrapper.get('[data-test="file-f1"]').attributes('aria-pressed')).toBe('true')
+    expect(wrapper.get('.ui-live-status').text()).toBe(en['media.selection.count'])
+    expect(wrapper.get('.ui-live-status').text()).not.toBe(en['media.selection.cleared'])
+  })
+
+  it('keeps a file inside a multi-selection selected when it is opened by a double click', async () => {
+    serve({ files: { '': [media('f1', 'a.jpg'), media('f2', 'b.jpg'), media('f3', 'c.jpg')] } }, (id) => (id === 'f2' ? media('f2', 'b.jpg') : undefined))
+    const wrapper = await mountLibrary()
+    await vi.waitFor(() => expect(wrapper.find('[data-test="file-f3"]').exists()).toBe(true))
+    await checkbox(wrapper, 'a.jpg').setValue(true)
+    await checkbox(wrapper, 'b.jpg').setValue(true)
+    const tile = wrapper.get('[data-test="file-f2"]')
+
+    await clickCount(tile, 1)
+    await clickCount(tile, 2)
+    await tile.trigger('dblclick')
+
+    expect(wrapper.get('[data-test="file-f2"]').attributes('aria-pressed')).toBe('true')
+    expect(wrapper.get('[data-test="file-f1"]').attributes('aria-pressed')).toBe('true')
+    expect(bar(wrapper).get('.ui-bulkbar__count').text()).toBe(text('media.selection.countPlural', { n: 2 }))
+    expect(wrapper.get('.ui-live-status').text()).not.toBe(en['media.selection.cleared'])
+  })
+
+  it('does not reselect a file that a single click deselected when it is opened with the keyboard later', async () => {
+    serve({ files: { '': [media('f1', 'a.jpg'), media('f2', 'b.jpg')] } }, (id) => (id === 'f1' ? media('f1', 'a.jpg') : undefined))
+    const wrapper = await mountLibrary()
+    await vi.waitFor(() => expect(wrapper.find('[data-test="file-f2"]').exists()).toBe(true))
+    await checkbox(wrapper, 'a.jpg').setValue(true)
+    await checkbox(wrapper, 'b.jpg').setValue(true)
+    const tile = wrapper.get('[data-test="file-f1"]')
+
+    await clickCount(tile, 1)
+    await tile.trigger('keydown', { key: 'Enter' })
+
+    expect(wrapper.get('[data-test="file-f1"]').attributes('aria-pressed')).toBe('false')
+  })
+
   it('keeps the rest of the selection after a refresh instead of clearing it', async () => {
     serve({ files: { '': [media('f1', 'a.jpg'), media('f2', 'b.jpg'), media('f3', 'c.jpg')] } })
     serveDelete('f1')
