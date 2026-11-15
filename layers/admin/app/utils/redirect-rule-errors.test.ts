@@ -98,6 +98,15 @@ describe('redirectRuleError', () => {
     expect(redirectRuleError(tDe, wire({ row: 1, field: 'method', reason: 'blank' }))).toBeNull()
   })
 
+  it('keeps wildcards and placeholders apart in the German texts', () => {
+    const german: Catalog = de
+    expect(german['redirects.reason.from.tooManyWildcards']).toMatch(/Wildcards/)
+    expect(german['redirects.reason.from.tooManyWildcards']).not.toMatch(/Platzhalter/)
+    expect(german['redirects.reason.to.placeholderOutOfRange']).toMatch(/Platzhalter/)
+    expect(german['redirects.reason.to.placeholderOutOfRange']).toMatch(/Wildcard/)
+    expect(german['redirects.reason.to.placeholderOutOfRange']).not.toMatch(/Platzhalter.*Platzhalter/)
+  })
+
   it('covers every reason of the server in both catalogs', () => {
     const keys = Object.keys(en).filter((key) => key.startsWith('redirects.reason.'))
     expect(keys.length).toBeGreaterThanOrEqual(RULES.length + WHOLE.length)
