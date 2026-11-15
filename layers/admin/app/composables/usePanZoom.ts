@@ -240,6 +240,45 @@ export function usePanZoom(frame: Ref<HTMLElement | null>, opts: PanZoomOptions)
     disabled: opts.disabled,
   })
 
+  let gestureScale: number | null = null
+
+  function gestureOf(event: Event): { scale: number, clientX: number, clientY: number, altKey: boolean } | null {
+    if (!('scale' in event) || !('clientX' in event) || !('clientY' in event)) return null
+    const { scale, clientX, clientY } = event
+    if (typeof scale !== 'number' || typeof clientX !== 'number' || typeof clientY !== 'number' || !(scale > 0)) return null
+    return { scale, clientX, clientY, altKey: 'altKey' in event && event.altKey === true }
+  }
+
+  function onGestureStart(event: Event): void {
+    const pinch = gestureOf(event)
+    if (!pinch || opts.disabled() || dragging.value) return
+    event.preventDefault()
+    clearGuides()
+    view = null
+    gesture = true
+    gestureScale = pinch.scale
+  }
+
+  function onGestureChange(event: Event): void {
+    const pinch = gestureOf(event)
+    if (gestureScale === null || !pinch || !frame.value) return
+    event.preventDefault()
+    const factor = pinch.scale / gestureScale
+    gestureScale = pinch.scale
+    const box = frame.value.getBoundingClientRect()
+    const anchor = box.width > 0 && box.height > 0 ? { x: (pinch.clientX - box.left) / box.width, y: (pinch.clientY - box.top) / box.height } : { x: 0.5, y: 0.5 }
+    moveView((from) => scaleView(from, factor, anchor), snapsFor(pinch))
+  }
+
+  function onGestureEnd(event: Event): void {
+    if (gestureScale === null) return
+    event.preventDefault()
+    gestureScale = null
+    gesture = false
+    announceSnap()
+    settle()
+  }
+
   function settleWheel(): void {
     guideTimer = null
     announceSnap()
@@ -249,6 +288,7 @@ export function usePanZoom(frame: Ref<HTMLElement | null>, opts: PanZoomOptions)
   function onWheel(event: WheelEvent): void {
     if (opts.disabled() || !frame.value) return
     event.preventDefault()
+    if (gestureScale !== null && event.ctrlKey) return
     const box = frame.value.getBoundingClientRect()
     const anchor = box.width > 0 && box.height > 0
       ? { x: (event.clientX - box.left) / box.width, y: (event.clientY - box.top) / box.height }
@@ -265,10 +305,17 @@ export function usePanZoom(frame: Ref<HTMLElement | null>, opts: PanZoomOptions)
   onMounted(() => {
     wheelTarget = frame.value
     wheelTarget?.addEventListener('wheel', onWheel, { passive: false })
+    wheelTarget?.addEventListener('gesturestart', onGestureStart, { passive: false })
+    wheelTarget?.addEventListener('gesturechange', onGestureChange, { passive: false })
+    wheelTarget?.addEventListener('gestureend', onGestureEnd, { passive: false })
   })
   onUnmounted(() => {
     wheelTarget?.removeEventListener('wheel', onWheel)
+    wheelTarget?.removeEventListener('gesturestart', onGestureStart)
+    wheelTarget?.removeEventListener('gesturechange', onGestureChange)
+    wheelTarget?.removeEventListener('gestureend', onGestureEnd)
     wheelTarget = null
+    gestureScale = null
     clearGuides()
   })
 

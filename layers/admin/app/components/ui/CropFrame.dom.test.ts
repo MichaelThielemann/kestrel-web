@@ -450,6 +450,49 @@ describe('KestrelUiCropFrame', () => {
     })
   })
 
+  describe('trackpad gestures', () => {
+    function gesture(type: string, scale: number, clientX = 160, clientY = 90): Event {
+      const event = new Event(type, { bubbles: true, cancelable: true })
+      Object.defineProperties(event, { scale: { value: scale }, clientX: { value: clientX }, clientY: { value: clientY }, altKey: { value: false } })
+      return event
+    }
+
+    it('zooms with a pinch that the browser reports as gesture events, around the point under the fingers', async () => {
+      const { wrapper, emitted } = await mountFrame(null)
+      const frame = sizedFrame(wrapper, 320, 180)
+
+      const start = gesture('gesturestart', 1)
+      frame.dispatchEvent(start)
+      frame.dispatchEvent(gesture('gesturechange', 1.5))
+      const change = gesture('gesturechange', 2)
+      frame.dispatchEvent(change)
+      frame.dispatchEvent(gesture('gestureend', 2))
+      await nextTick()
+
+      expect(start.defaultPrevented).toBe(true)
+      expect(change.defaultPrevented).toBe(true)
+      const crop = cropOf(emitted.at(-1))
+      expect(Math.abs((crop?.width ?? 0) - 800)).toBeLessThanOrEqual(2)
+      expect(Math.abs((crop?.left ?? 0) - 400)).toBeLessThanOrEqual(2)
+      wrapper.unmount()
+    })
+
+    it('leaves a pinch to the pointers while fingers are down on the frame', async () => {
+      const { wrapper, emitted } = await mountFrame(null)
+      const frame = sizedFrame(wrapper, 320, 180)
+
+      frame.dispatchEvent(pointerEvent('pointerdown', 1, 150, 90))
+      frame.dispatchEvent(gesture('gesturestart', 1))
+      frame.dispatchEvent(gesture('gesturechange', 2))
+      frame.dispatchEvent(gesture('gestureend', 2))
+      frame.dispatchEvent(pointerEvent('pointerup', 1, 150, 90))
+      await nextTick()
+
+      expect(emitted).toEqual([])
+      wrapper.unmount()
+    })
+  })
+
   describe('focus outline', () => {
     it('outlines the focus over the crop, kept from assistive technology', async () => {
       const { wrapper } = await mountFrame({ x: 0.25, y: 0.3125, w: 0.5, h: 0.375 }, { x: 0.25, y: 0.3125, w: 0.25, h: 0.1875 })
