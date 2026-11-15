@@ -67,10 +67,10 @@ describe("checkDeliveryBuild", () => {
 describe("checkDeliveryBuild after a reported database restore", () => {
   const withSync = [...composed, { name: "syncPublicMedia" }];
 
-  function restoredHost(restored: boolean, syncStatus = 200): BuildCheckHost & { run: ReturnType<typeof vi.fn> } {
+  function restoredHost(restored: boolean, syncStatus = 200, changed = restored): BuildCheckHost & { run: ReturnType<typeof vi.fn> } {
     return {
       run: vi.fn((pipeline: string) =>
-        Promise.resolve(pipeline === "deliveryBuildCheck" ? { runId: "run-1", status: 200, result: { changed: restored, restored, marked: 0 } } : syncStatus < 400 ? { runId: "run-2", status: syncStatus, result: {} } : { runId: "run-2", status: syncStatus, error: "the blob store is unavailable" }),
+        Promise.resolve(pipeline === "deliveryBuildCheck" ? { runId: "run-1", status: 200, result: { changed, restored, marked: changed ? 3 : 0 } } : syncStatus < 400 ? { runId: "run-2", status: syncStatus, result: {} } : { runId: "run-2", status: syncStatus, error: "the blob store is unavailable" }),
       ),
     };
   }
@@ -87,6 +87,18 @@ describe("checkDeliveryBuild after a reported database restore", () => {
   it("leaves the public media copies alone when the check reports no new restore", async () => {
     const kestrel = restoredHost(false);
     await checkDeliveryBuild(kestrel, { build: "b-2026", dev: false, pipelines: withSync, logger: logger() });
+    expect(kestrel.run.mock.calls.map((call: unknown[]) => call[0])).toEqual(["deliveryBuildCheck"]);
+  });
+
+  it("rebuilds the public media copies after a restore of a database that already knew the running build", async () => {
+    const kestrel = restoredHost(true, 200, false);
+    await checkDeliveryBuild(kestrel, { build: "b-2026", dev: false, pipelines: withSync, logger: logger() });
+    expect(kestrel.run.mock.calls.map((call: unknown[]) => call[0])).toEqual(["deliveryBuildCheck", "syncPublicMedia"]);
+  });
+
+  it("leaves the public media copies alone after a new build without a restore", async () => {
+    const kestrel = restoredHost(false, 200, true);
+    await checkDeliveryBuild(kestrel, { build: "b-2027", dev: false, pipelines: withSync, logger: logger() });
     expect(kestrel.run.mock.calls.map((call: unknown[]) => call[0])).toEqual(["deliveryBuildCheck"]);
   });
 

@@ -57,8 +57,21 @@ async function stop(): Promise<void> {
   running = undefined;
 }
 
+function recording(kestrel: Kestrel): { host: { run: Kestrel["run"] }; runs: { pipeline: string; result: unknown }[] } {
+  const runs: { pipeline: string; result: unknown }[] = [];
+  const host = {
+    run: async (pipeline: string, input: Parameters<Kestrel["run"]>[1]) => {
+      const run = await kestrel.run(pipeline, input);
+      runs.push({ pipeline, result: run.result });
+      return run;
+    },
+  };
+  return { host, runs };
+}
+
 async function uploadAndPrepareRestore(): Promise<string> {
   const first = await start();
+  await checkDeliveryBuild(first.kestrel, { build: "build-1", dev: false, pipelines: first.pipelines, logger: silentLogger });
   const login = resultOf(await first.kestrel.run("login", { trigger: { kind: "http", name: "POST /login" }, body: { username: "admin", password: "change-me" } }));
   const headers = { authorization: `Bearer ${String(login.token)}` };
   const uploaded = resultOf(
@@ -79,18 +92,29 @@ async function uploadAndPrepareRestore(): Promise<string> {
 }
 
 describe("the public media copies after a reported database restore", () => {
-  it("are rebuilt at the first start that handles the restore and left alone at the next start", async () => {
+  it("are rebuilt at the first start that handles the restore and left alone at later starts, with the same or a new build", async () => {
     const copy = await uploadAndPrepareRestore();
     const restored = await start();
-    await checkDeliveryBuild(restored.kestrel, { build: "build-1", dev: false, pipelines: restored.pipelines, logger: silentLogger });
+    const first = recording(restored.kestrel);
+    await checkDeliveryBuild(first.host, { build: "build-1", dev: false, pipelines: restored.pipelines, logger: silentLogger });
+    expect(first.runs.map((run) => run.pipeline)).toEqual(["deliveryBuildCheck", "syncPublicMedia"]);
+    expect(first.runs[0]?.result).toMatchObject({ changed: false, restored: true });
     expect(existsSync(copy)).toBe(true);
     await stop();
 
     rmSync(copy);
-    const next = await start();
-    await checkDeliveryBuild(next.kestrel, { build: "build-1", dev: false, pipelines: next.pipelines, logger: silentLogger });
+    const same = await start();
+    await checkDeliveryBuild(same.kestrel, { build: "build-1", dev: false, pipelines: same.pipelines, logger: silentLogger });
     expect(existsSync(copy)).toBe(false);
-  }, 30_000);
+    await stop();
+
+    const rebuilt = await start();
+    const next = recording(rebuilt.kestrel);
+    await checkDeliveryBuild(next.host, { build: "build-2", dev: false, pipelines: rebuilt.pipelines, logger: silentLogger });
+    expect(next.runs.map((run) => run.pipeline)).toEqual(["deliveryBuildCheck"]);
+    expect(next.runs[0]?.result).toMatchObject({ changed: true, restored: false });
+    expect(existsSync(copy)).toBe(false);
+  }, 45_000);
 
   it("stay missing after the restore when no syncPublicMedia pipeline is composed", async () => {
     const copy = await uploadAndPrepareRestore();
