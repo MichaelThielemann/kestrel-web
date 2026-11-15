@@ -609,7 +609,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission pages.manage → Mark every pages output for a re-render in the background, including documents that were never delivered (adds `marked` to the result) → Ask for a sitemap.xml, robots.txt and llms.txt export (and an llms-full.txt export with `llms.full`) without running it here → Write redirects.json to the blobstore: editor rules first, then automatic ones (adds `redirects: { rules, skipped }` to the result) */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission pages.manage → Mark every pages output for a re-render in the background, including documents that were never delivered (adds `marked` to the result) → Ask for a sitemap.xml, robots.txt and llms.txt export (and an llms-full.txt export with `llms.full`) without running it here → Write redirects.json to the blobstore: editor rules first, then automatic ones (adds `redirects: { rules, skipped, skippedRules }` to the result) */
         post: operations["publishAllPages"];
         delete?: never;
         options?: never;
@@ -712,7 +712,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission redirects.write → Turn the automatic redirect at params.path into a removed tombstone; a replay of the move that created it cannot restore it → Write redirects.json to the blobstore: editor rules first, then automatic ones (adds `redirects: { rules, skipped }` to the result) */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission redirects.write → Turn the automatic redirect at params.path into a removed tombstone; a replay of the move that created it cannot restore it → Write redirects.json to the blobstore: editor rules first, then automatic ones (adds `redirects: { rules, skipped, skippedRules }` to the result) */
         delete: operations["removeAutoRedirect"];
         options?: never;
         head?: never;
@@ -1403,7 +1403,7 @@ export interface paths {
         };
         /** Identify the caller if a valid token is present; a state-changing request authenticated by the session cookie must come from the same origin → Requires permission redirects.read → One redirects document → Keep only the redirects fields the caller may see: anonymousFields.redirects without an identity or a configured role; otherwise everything when one of its roles has no field grant for redirects, else the union of its roles' grants and the anonymous one */
         get: operations["getRedirects"];
-        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission redirects.write → Validate payload field redirects.rules against its JSON Schema → Compile the redirect rules of the payload; VALIDATION names the offending row, also for a rule that redirects into an active automatic redirect → Replace the redirects document → Index the references of a redirects document → Write redirects.json to the blobstore: editor rules first, then automatic ones (adds `redirects: { rules, skipped }` to the result) */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission redirects.write → Validate payload field redirects.rules against its JSON Schema → Compile the redirect rules of the payload; VALIDATION names the offending row, also for a rule that redirects into an active automatic redirect → Replace the redirects document → Index the references of a redirects document → Write redirects.json to the blobstore: editor rules first, then automatic ones (adds `redirects: { rules, skipped, skippedRules }` to the result) */
         put: operations["setRedirects"];
         post?: never;
         delete?: never;
@@ -6084,6 +6084,14 @@ export interface operations {
                         redirects: {
                             rules: number;
                             skipped: string[];
+                            skippedRules: {
+                                /** @enum {string} */
+                                field?: "from" | "to" | "status";
+                                path?: string;
+                                /** @enum {string} */
+                                reason: "blank" | "too-long" | "scheme-or-host" | "query-or-fragment" | "control-characters" | "backslash" | "dot-segments" | "adjacent-double-wildcards" | "too-many-wildcards" | "reserved-path" | "protocol-relative" | "unsupported-scheme" | "invalid-url" | "embedded-credentials" | "placeholder-in-host" | "placeholder-out-of-range" | "placeholder-syntax" | "automatic-redirect-loop" | "invalid-status" | "not-a-list" | "too-many-rules";
+                                row: number;
+                            }[];
                         };
                     };
                 };
@@ -6540,6 +6548,14 @@ export interface operations {
                         redirects: {
                             rules: number;
                             skipped: string[];
+                            skippedRules: {
+                                /** @enum {string} */
+                                field?: "from" | "to" | "status";
+                                path?: string;
+                                /** @enum {string} */
+                                reason: "blank" | "too-long" | "scheme-or-host" | "query-or-fragment" | "control-characters" | "backslash" | "dot-segments" | "adjacent-double-wildcards" | "too-many-wildcards" | "reserved-path" | "protocol-relative" | "unsupported-scheme" | "invalid-url" | "embedded-credentials" | "placeholder-in-host" | "placeholder-out-of-range" | "placeholder-syntax" | "automatic-redirect-loop" | "invalid-status" | "not-a-list" | "too-many-rules";
+                                row: number;
+                            }[];
                         };
                     };
                 };
@@ -11500,6 +11516,14 @@ export interface operations {
                         redirects: {
                             rules: number;
                             skipped: string[];
+                            skippedRules: {
+                                /** @enum {string} */
+                                field?: "from" | "to" | "status";
+                                path?: string;
+                                /** @enum {string} */
+                                reason: "blank" | "too-long" | "scheme-or-host" | "query-or-fragment" | "control-characters" | "backslash" | "dot-segments" | "adjacent-double-wildcards" | "too-many-wildcards" | "reserved-path" | "protocol-relative" | "unsupported-scheme" | "invalid-url" | "embedded-credentials" | "placeholder-in-host" | "placeholder-out-of-range" | "placeholder-syntax" | "automatic-redirect-loop" | "invalid-status" | "not-a-list" | "too-many-rules";
+                                row: number;
+                            }[];
                         };
                         rules?: unknown | null;
                         updatedAt: number;
