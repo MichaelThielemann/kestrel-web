@@ -377,11 +377,11 @@
   `mfa.enforce`, `session.minPasswordLength`, `ratelimit.login`, `sitemap`, `homeSlug`, …) and the
   `overrides`, which merge into it. `/admin/insights` shows a preset-derived value as "Default · Preset"
   (blue) instead of "set"; a builder option the consumer gave, a value set directly, or an override of a
-  preset value, still shows "set" (green). Secrets redact the same way in both layers. `overrides` keeps its 2.x replace semantics: a
-  top-level key it names replaces the preset's whole value at that path, including a nested object or
-  record (an override that drops a derived role or lane, say), and setting a key to `undefined` resets
-  it to the module's own schema default instead of the preset's — none of this changes the effective
-  config of an instance with no `overrides`.
+  preset value, still shows "set" (green). Secrets redact the same way in both layers. `overrides` keeps
+  its 2.x replace semantics: a top-level key it names replaces the preset's whole value at that path,
+  including a nested object or record (an override that drops a derived role or lane, say), and setting
+  a key to `undefined` resets it to the module's own schema default instead of the preset's — none of
+  this changes the effective config of an instance with no `overrides`.
 - Automatic redirects and re-renders on every public path change: `site.pathsMoved` feeds
   `pathsMovedRedirects` (feature `redirects`: `redirects.recordMoves`, `redirects.export`) and
   `pathsMovedDelivery` (feature `delivery`: `delivery.markMoved`). New pipelines and routes:

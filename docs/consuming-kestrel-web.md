@@ -418,10 +418,11 @@ Anything the builder doesn't expose goes through `overrides`, keyed by package n
 one of the builder's options (`audit`, `mfa`, `session`, `revisions`, `eventsQueue`, `ratelimit`,
 `media`, `sitemap`, `robots`, `llms`, `prefixPrimary`, `homeSlug`, `paths`, `migrations`) and that the
 module receives as given is its `config` instead. An override is merged into that `config`, replacing
-the derived value or your option's value at each top-level key it names — shallow: a key that names a nested object or a named-key record (a role, a lane, a
-reference target, a bundled schema) replaces the whole derived value at that key rather than merging
-into it, and setting a key to `undefined` clears the preset's value there so the module's own schema
-default applies. `overrides: { "@michaelthielemann/kestrel-replication-sqlite": { prefix: "database/", restoreOnStart: true, retentionSeconds: 604800 } }`
+the derived value or your option's value at each top-level key it names — shallow: a key that names a
+nested object or a named-key record (a role, a lane, a reference target, a bundled schema) replaces the
+whole derived value at that key rather than merging into it, and setting a key to `undefined` clears the
+preset's value there so the module's own schema default applies.
+`overrides: { "@michaelthielemann/kestrel-replication-sqlite": { prefix: "database/", restoreOnStart: true, retentionSeconds: 604800 } }`
 keeps the derived `file` — a key the override doesn't name — and sets the three it does. `/admin/insights`
 shows a path only the derived defaults still carry as "Default · Preset"; one your `config` or an
 override carries is "set", the same as a value you wrote yourself. A key naming a module the built
