@@ -23,6 +23,13 @@ describe('userErrorMessage', () => {
     expect(userErrorMessage(t, 'deactivate', { status: 400, code: 'VALIDATION', message: 'you cannot deactivate yourself' })).toBe('users.cannotDeactivateSelf')
   })
 
+  it('translates the refusal to reset the caller\'s own second factor or issue them an enrollment code', () => {
+    expect(userErrorMessage(t, 'resetFactor', { status: 400, code: 'VALIDATION', message: 'you cannot end your own sessions through a route that acts on another user', step: 'authn.endSessions' })).toBe('users.cannotResetOwnFactor')
+    expect(userErrorMessage(t, 'issueEnrollmentCode', { status: 400, code: 'VALIDATION', message: 'you cannot reset your own second factor', step: 'mfa.reset' })).toBe('users.cannotResetOwnFactor')
+    expect(userErrorMessage(t, 'resetFactor', { status: 500, code: 'INTERNAL', message: '' })).toBe('users.resetSecondFactorFailed')
+    expect(userErrorMessage(t, 'issueEnrollmentCode', { status: 500, code: 'INTERNAL', message: '' })).toBe('users.issueEnrollmentCodeFailed')
+  })
+
   it('names what failed in front of the backend message, without its module prefix, for every other failure', () => {
     expect(userErrorMessage(t, 'update', { status: 400, code: 'VALIDATION', message: 'users: username or roles is required' }))
       .toBe(t('error.detail', { lead: 'users.saveFailed', detail: 'username or roles is required' }))

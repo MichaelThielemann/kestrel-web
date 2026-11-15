@@ -943,6 +943,7 @@ export const de: Record<CatalogKey, string> = {
   'users.notFound': 'Diesen Benutzer gibt es nicht mehr.',
   'users.cannotDeleteSelf': 'Das eigene Konto lässt sich nicht löschen.',
   'users.cannotDeactivateSelf': 'Das eigene Konto lässt sich nicht deaktivieren.',
+  'users.cannotResetOwnFactor': 'Den eigenen zweiten Faktor können Sie nicht zurücksetzen.',
   'users.lastAdminDelete': 'Die letzte aktive Administration lässt sich nicht löschen.',
   'users.lastAdminDeactivate': 'Die letzte aktive Administration lässt sich nicht deaktivieren.',
   'users.lastAdminRoles': 'Die letzte aktive Administration kann die Administrationsrolle nicht abgeben.',

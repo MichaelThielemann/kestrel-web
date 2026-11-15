@@ -2,7 +2,7 @@ import type { ApiErrorDetails } from '#kestrel-admin/types/api'
 import type { Translate } from '../actions/types'
 import { answeredMessage } from '../composables/useApi'
 
-export type UserOperation = 'update' | 'delete' | 'reassign' | 'deactivate' | 'activate' | 'password'
+export type UserOperation = 'update' | 'delete' | 'reassign' | 'deactivate' | 'activate' | 'password' | 'resetFactor' | 'issueEnrollmentCode'
 
 export interface UserErrorShape {
   status: number
@@ -21,11 +21,15 @@ const LEAD_KEY: Record<UserOperation, string> = {
   reassign: 'users.deleteFailed',
   deactivate: 'users.toggleFailed',
   activate: 'users.toggleFailed',
+  resetFactor: 'users.resetSecondFactorFailed',
+  issueEnrollmentCode: 'users.issueEnrollmentCodeFailed',
 }
 
 const SELF_KEY: Partial<Record<UserOperation, string>> = {
   delete: 'users.cannotDeleteSelf',
   deactivate: 'users.cannotDeactivateSelf',
+  resetFactor: 'users.cannotResetOwnFactor',
+  issueEnrollmentCode: 'users.cannotResetOwnFactor',
 }
 
 /** The message for role names the backend rejected as not configured; `undefined` for any other failure. */

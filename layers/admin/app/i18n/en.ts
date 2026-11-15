@@ -941,6 +941,7 @@ export const en = {
   'users.notFound': 'This user no longer exists.',
   'users.cannotDeleteSelf': 'You cannot delete your own account.',
   'users.cannotDeactivateSelf': 'You cannot deactivate your own account.',
+  'users.cannotResetOwnFactor': 'You cannot reset your own second factor.',
   'users.lastAdminDelete': 'The last active administrator cannot be deleted.',
   'users.lastAdminDeactivate': 'The last active administrator cannot be deactivated.',
   'users.lastAdminRoles': 'The last active administrator cannot give up the administrator role.',

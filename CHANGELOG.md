@@ -1371,6 +1371,9 @@
   account is signed out everywhere, as with a reset. New i18n keys: `users.issueEnrollmentCode`,
   `users.issueEnrollmentCodeTitle`, `users.issueEnrollmentCodeConfirm`, `users.issueEnrollmentCodeDone` and
   `users.issueEnrollmentCodeFailed`.
+- System → Users: when kestrel refuses to reset the caller's own second factor or issue them an enrollment code,
+  the dialog says so in the admin language (new i18n key `users.cannotResetOwnFactor`) instead of showing the
+  backend's message.
 - Admin sign-in: the code fields of the second-factor step and of setting up a factor send the code without blanks
   and hyphens, so a time-based code typed the way authenticator apps show it (`123 456`) is read as its six digits
   and not counted as a wrong code.

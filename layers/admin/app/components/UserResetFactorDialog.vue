@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { User } from '#kestrel-admin/types/api'
+import { userErrorMessage } from '../utils/user-errors'
 
 const props = defineProps<{ user: User | null; enrolled: boolean }>()
 const emit = defineEmits<{ 'update:user': [User | null], reset: [] }>()
@@ -13,8 +14,8 @@ const open = computed(() => props.user !== null)
 const resetsFactor = ref(props.enrolled)
 watch(() => props.user, (user) => { if (user !== null) resetsFactor.value = props.enrolled })
 const text = computed(() => resetsFactor.value
-  ? { title: 'users.resetSecondFactorTitle', confirm: 'users.resetSecondFactorConfirm', action: 'users.resetSecondFactor', done: 'users.resetSecondFactorDone', failed: 'users.resetSecondFactorFailed' } as const
-  : { title: 'users.issueEnrollmentCodeTitle', confirm: 'users.issueEnrollmentCodeConfirm', action: 'users.issueEnrollmentCode', done: 'users.issueEnrollmentCodeDone', failed: 'users.issueEnrollmentCodeFailed' } as const)
+  ? { operation: 'resetFactor', title: 'users.resetSecondFactorTitle', confirm: 'users.resetSecondFactorConfirm', action: 'users.resetSecondFactor', done: 'users.resetSecondFactorDone' } as const
+  : { operation: 'issueEnrollmentCode', title: 'users.issueEnrollmentCodeTitle', confirm: 'users.issueEnrollmentCodeConfirm', action: 'users.issueEnrollmentCode', done: 'users.issueEnrollmentCodeDone' } as const)
 
 function close() {
   error.value = null
@@ -32,7 +33,8 @@ async function confirm() {
     deps.toast.success(t(text.value.done))
     emit('reset')
   } catch (e) {
-    error.value = apiErrorText(t, e, t(text.value.failed))
+    const err = toApiError(e)
+    error.value = failureText(t, userErrorMessage(t, text.value.operation, err), err)
   } finally {
     busy.value = false
   }

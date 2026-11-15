@@ -1,4 +1,5 @@
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
+import { setResponseStatus } from 'h3'
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import type { AdminSchema, User } from '#kestrel-admin/types/api'
 import { en } from '#kestrel-admin/i18n/en'
@@ -61,5 +62,24 @@ describe('UserResetFactorDialog', () => {
     button(en['users.issueEnrollmentCode']).click()
     await vi.waitFor(() => expect(document.body.querySelector('.user-reset-factor__code')?.textContent).toBe('AAAAA-BBBBB-CCCCC-DDDDD-EEEEE'))
     expect(wrapper.emitted('reset')).toHaveLength(1)
+  })
+
+  it('names the refusal to reset the caller\'s own factor in the admin language', async () => {
+    unregisterAll.splice(0).forEach((unregister) => unregister())
+    unregisterAll.push(registerEndpoint('/api/admin/schema', { method: 'GET', handler: () => schema }))
+    unregisterAll.push(registerEndpoint('/api/users/u1/second-factor', {
+      method: 'DELETE',
+      handler: (event) => {
+        setResponseStatus(event, 400)
+        return { error: 'you cannot end your own sessions through a route that acts on another user', code: 'VALIDATION', step: 'authn.endSessions' }
+      },
+    }))
+    const wrapper = await mountSuspended(UserResetFactorDialog, { props: { user: bob, enrolled: true }, attachTo: document.body })
+    onTestFinished(() => wrapper.unmount())
+
+    button(en['users.resetSecondFactor']).click()
+    await vi.waitFor(() => expect(document.body.textContent).toContain(en['users.cannotResetOwnFactor'].replace(/\.$/, '')))
+    expect(document.body.textContent).not.toContain('you cannot end your own sessions')
+    expect(wrapper.emitted('reset')).toBeUndefined()
   })
 })
