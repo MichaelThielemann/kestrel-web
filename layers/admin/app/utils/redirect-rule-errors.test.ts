@@ -56,6 +56,14 @@ describe('redirectRuleError', () => {
     expect(redirectRuleError(tEn, wire(details))?.text).toContain('/old-team')
   })
 
+  it('calls a rule that points at an automatically redirected address a chain, not a loop', () => {
+    const details = { row: 1, field: 'to', reason: 'automatic-redirect-loop', path: '/old-team' }
+    expect(redirectRuleError(tDe, wire(details))?.text).toMatch(/Kette/)
+    expect(redirectRuleError(tDe, wire(details))?.text).not.toMatch(/Schleife/)
+    expect(redirectRuleError(tEn, wire(details))?.text).toMatch(/chain/)
+    expect(redirectRuleError(tEn, wire(details))?.text).not.toMatch(/loop/)
+  })
+
   it('words a reason that names a path without one, leaving no placeholder', () => {
     for (const details of [{ row: 1, field: 'from', reason: 'reserved-path' }, { row: 1, field: 'to', reason: 'automatic-redirect-loop' }]) {
       for (const t of [tEn, tDe]) {

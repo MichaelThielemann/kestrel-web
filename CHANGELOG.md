@@ -1350,6 +1350,8 @@
   unapplied edit.
 - Media library: after several selected items are deleted, focus lands on the first remaining item after the
   focused one; it no longer skips ahead by the number of items removed before it.
+- Redirects editor: a rule whose "To" points at an address that is already redirected automatically is described
+  as a chain of two redirects, with the advice to point at the final address, instead of as a loop.
 - Admin slug field: a site whose `homeSlug` is not `"home"` shows its start page with an empty slug and saves an
   empty slug as that `homeSlug`, as it does for `"home"`. `GET /api/admin/schema` returns `homeSlug`.
 - Page slug: a top-level slug that is a language code of the site (`en`, `de`) is flagged under the field while

@@ -28,7 +28,7 @@ const WORDING: Record<RedirectRuleReason, Partial<Record<Slot, Wording>>> = {
   'placeholder-in-host': { to: { key: 'redirects.reason.to.placeholderInHost' } },
   'placeholder-out-of-range': { to: { key: 'redirects.reason.to.placeholderOutOfRange' } },
   'placeholder-syntax': { to: { key: 'redirects.reason.to.placeholderSyntax' } },
-  'automatic-redirect-loop': { to: { key: 'redirects.reason.to.automaticRedirectLoop', withoutPath: 'redirects.reason.to.automaticRedirectLoopAny' } },
+  'automatic-redirect-loop': { to: { key: 'redirects.reason.to.automaticRedirectChain', withoutPath: 'redirects.reason.to.automaticRedirectChainAny' } },
   'invalid-status': { status: { key: 'redirects.reason.status.invalidStatus' } },
   'not-a-list': { list: { key: 'redirects.reason.notAList' } },
   'too-many-rules': { list: { key: 'redirects.reason.tooManyRules' } },
