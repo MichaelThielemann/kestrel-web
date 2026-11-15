@@ -39,7 +39,6 @@ export interface SnapResult {
   guides: SnapGuide[]
 }
 
-
 /** The snap distance in image pixels for a crop `cropWidth` image pixels wide that the frame shows `frameWidth` screen pixels wide; 0 when the frame has no width. */
 export function snapThreshold(cropWidth: number, frameWidth: number): number {
   return frameWidth > 0 && cropWidth > 0 ? (SNAP_DISTANCE * cropWidth) / frameWidth : 0

@@ -49,6 +49,10 @@ function onKeydown(event: KeyboardEvent) {
 }
 </script>
 
+<script lang="ts">
+export type { TabListItem } from '../../utils/tab-list'
+</script>
+
 <template>
   <div
     class="ui-tabs"

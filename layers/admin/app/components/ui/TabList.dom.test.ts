@@ -1,9 +1,9 @@
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import { describe, expect, it } from 'vitest'
 import { h, nextTick } from 'vue'
-import TabList from './TabList.vue'
+import TabList, { type TabListItem } from './TabList.vue'
 
-const TABS = [
+const TABS: TabListItem[] = [
   { id: 'focus', label: 'Focus' },
   { id: 'wide', label: 'Wide' },
   { id: 'square', label: 'Square' },
