@@ -313,7 +313,7 @@ calls them before it has read a schema at all.
 
 | option | required | default |
 |---|---|---|
-| `dataDir` | yes | — the SQLite database lands at `<dataDir>/kestrel.db`, filesystem blobs under `<dataDir>/blobs` |
+| `dataDir` | yes | — the SQLite database lands at `<dataDir>/kestrel.db` unless `KESTREL_DATABASE_FILE` names another file; `envBlobstore()` puts filesystem blobs under `<dataDir>/blobs` unless `KESTREL_BLOBS_DIR` names another directory |
 | `blobstore` | yes | — a `{ use, config }` entry; `envBlobstore()` builds the usual two |
 | `model` | yes | — your `contentModel` (`{ locales?, defaultLocale?, types }`), handed to `content-default` |
 | `features` | yes | — the same list you pass to `definePreset` and `presetSchemas` |
@@ -368,6 +368,11 @@ rather than booting with something plausible.
 - **`site-default`** — `routes` for `pages` and every mounted collection, with the workflow's live status as
   `liveWhen`, `parentField` when pages have a parent field, `mounts` when a collection mounts, and the
   server's reserved paths ([`paths.md`](paths.md)).
+- **`storageMigrations` on both media modules** — `media-default`'s and `images-default`'s — from
+  `KESTREL_STORAGE_MIGRATIONS` through `envStorageMigrations()`: `check` when it is unset or empty, `apply` when
+  it says so. A module entry in `overrides` wins over the variable.
+- **The database file** — `KESTREL_DATABASE_FILE` when it is set, else `kestrel.db` in `dataDir`, for
+  `persistence-sqlite` and `replication-sqlite`.
 - **`publicPath` on both media modules** — `media-default`'s and `images-default`'s — set to `/media`, the
   path the Node server answers media on directly (see "Media URLs"). With the `delivery` feature, both
   modules also get `publicCopy: { prefix: "site/" }`, and `delivery-static` gets `reservedPaths: ["/api",
@@ -432,8 +437,8 @@ const modules = [
   { use: "@michaelthielemann/kestrel-replication-sqlite", config: { file: resolve(dataDir, "kestrel.db") } },
   { use: "@michaelthielemann/kestrel-persistence-sqlite", config: { file: resolve(dataDir, "kestrel.db") } },
   { use: "@michaelthielemann/kestrel-sanitize-svg", config: {} },
-  { use: "@michaelthielemann/kestrel-media-default", config: { prefix: "media/", publicPath: "/media", allowedTypes: ["image/*", "application/pdf"], deniedTypes: ["text/html", "application/xhtml+xml"], maxBytes: 5242880, locales: ["de", "en"], defaultLocale: "de", publicCopy: { prefix: "site/" }, trashRetentionDays: 30 } },
-  { use: "@michaelthielemann/kestrel-images-default", config: { publicPath: "/media", publicCopy: { prefix: "site/" } } },
+  { use: "@michaelthielemann/kestrel-media-default", config: { prefix: "media/", publicPath: "/media", allowedTypes: ["image/*", "application/pdf"], deniedTypes: ["text/html", "application/xhtml+xml"], maxBytes: 5242880, locales: ["de", "en"], defaultLocale: "de", publicCopy: { prefix: "site/" }, storageMigrations: envStorageMigrations(), trashRetentionDays: 30 } },
+  { use: "@michaelthielemann/kestrel-images-default", config: { publicPath: "/media", publicCopy: { prefix: "site/" }, storageMigrations: envStorageMigrations() } },
   { use: "@michaelthielemann/kestrel-authn-multi", config: { identifier: "username", minPasswordLength: 12, sessionTtlSeconds: 86400, bootstrap: { username: "admin", passwordHash: adminPasswordHash(), roles: ["admin"] } } },
   {
     use: "@michaelthielemann/kestrel-authz-roles",
@@ -468,7 +473,10 @@ const modules = [
 Give a hand-written `delivery-static` entry its `siteUrl` from `NUXT_PUBLIC_SITE_URL`, as above: the pages
 build their canonical link, `og:url` and `og:image` from that variable, and the server warns at start when the
 entry's `siteUrl` differs from it (§8, "Site URL"). A hand-written entry reads `KESTREL_ROBOTS_POLICY` only
-through `envRobots()` from `#kestrel/config`, as above; without it, the variable has no effect.
+through `envRobots()` from `#kestrel/config`, as above; without it, the variable has no effect. The same holds
+for `KESTREL_STORAGE_MIGRATIONS`, which hand-written media-default and images-default entries read only through
+`envStorageMigrations()` from `#kestrel/config`, and for `KESTREL_DATABASE_FILE`, which the literal `file`
+above ignores.
 
 ### `#kestrel/config` — the environment plumbing
 
@@ -483,13 +491,27 @@ A second alias, independent of the preset, for what every deployment needs anywa
 | `envStorageMigrations(env?)` | `check` or `apply` from `KESTREL_STORAGE_MIGRATIONS`; unset or empty means `check`, any other value throws. `presetModuleConfig()` passes it to media-default and images-default as `storageMigrations`. |
 
 `env` is a map of variable names to values, `process.env` when it is left out; the helpers read nothing
-else from the environment then. kestrel's operations tooling uses this through the layer's upgrade plugin
-to find a deployed environment's blob store and database file from that environment's variables.
+else from the environment then. The layer's upgrade plugin answers kestrel's `ops` hook through them: from a
+deployed environment's variables it derives that environment's blob store and database file, with relative
+paths resolved against the project root. `kestrel update prepare` and `bundle` read the hook's readiness
+route, local start environment, export check, secret variable names and migration switches; `kestrel status`,
+`backup` and `restore` take an environment's storage, prefixes and target from `kestrel.environments.json`.
 
 - `s3` (`KESTREL_BLOBSTORE=s3`) → `blobstore-s3`, reading `KESTREL_S3_BUCKET`, `_ENDPOINT`, `_REGION`,
   `_ACCESS_KEY_ID`, `_SECRET_ACCESS_KEY` (each via `requiredEnv`) with `forcePathStyle: true`.
-- `filesystem` or unset outside production → `blobstore-filesystem` under `<dataDir>/blobs`.
+- `filesystem` or unset outside production → `blobstore-filesystem` at `KESTREL_BLOBS_DIR` when it is set
+  (resolved against the process cwd), else under `<dataDir>/blobs`.
 - Production with neither set → throws.
+
+`presetModuleConfig()` opens `KESTREL_DATABASE_FILE` (resolved against the process cwd) for persistence-sqlite
+and replication-sqlite when it is set, else `kestrel.db` in `dataDir`. With both variables, a start uses a
+database file and blob directory outside the data directory. `kestrel update` runs pending content migrations
+on a local start of the release on a copy of the database; its `update.localBoot.env` hands that start the copy,
+the blob directory and the port:
+
+```json
+{ "KESTREL_DATABASE_FILE": "{database}", "KESTREL_BLOBS_DIR": "{blobs}", "PORT": "{port}", "NITRO_PORT": "{port}" }
+```
 
 So a missing production hash or a missing S3 variable fails when the config loads, naming the variable,
 instead of at the first request. `playground/kestrel.config.ts` deliberately keeps a literal filesystem
@@ -955,11 +977,11 @@ below), and each entry names the event, the pipeline, its attempts, whether it i
 its error. A delivery failure therefore never fails the write request — the response is still 200, and
 `_events.status` says so. `GET /admin/publish-status/pages/:id` remains the authoritative per-locale
 publish status; the write response's `_events` is about the delivery *run*, not the page's live state.
-With `images`, `delivery` also gains `repairPublicMedia` (`POST /admin/media/repair-public`,
-`media.manage`, exposed in the admin as "Repair public media copies") and the nightly cron
-`syncPublicMedia` (`45 3 * * *`): both reconcile the static export's media copies with the stored items —
-writing what is missing, removing what no longer exists — and are the backstop for §6's media URLs, not
-something a normal deployment needs to run by hand.
+`delivery` also gains `repairPublicMedia` (`POST /admin/media/repair-public`, `media.manage`, exposed in the
+admin as "Repair public media copies") and the nightly cron `syncPublicMedia` (`45 3 * * *`), both
+`media.syncPublic` and, with `images`, `images.syncPublic` as well: both reconcile the static export's media
+copies with the stored items — writing what is missing, removing what no longer exists — and are the backstop
+for §6's media URLs, not something a normal deployment needs to run by hand.
 
 **`delivery` and the pages that show a change:** every published page is rendered again when content it
 shows changes, without the page itself being saved (§8, "Pages that show other content"). The preset wires
@@ -1009,7 +1031,11 @@ it like this:
   site in the background with the code that is now running, and every start exports the index files once.
   When `replication` (or else a `backup-blobstore` entry) restores persistence-sqlite's database file, its
   `checkRestored` step runs directly before `delivery.checkBuild`, so a start on a restored database
-  re-renders every page even with an unchanged build.
+  re-renders every page even with an unchanged build. A start whose check handles a restore it had not handled
+  before then runs `syncPublicMedia` once (`media.syncPublic`, with `images` also `images.syncPublic`) before
+  `/api/ready` answers 200; a later start does not. When the check fails at `delivery.checkBuild` or before it,
+  the next start handles the same restore; when it fails at a later step, such as `delivery.requestIndexes`, the
+  sync runs at once. A failed sync is logged and does not stop the start.
 
 `presetModuleConfig()` sets `delivery-static`'s `dependencies` to `{ render: "events",
 rendererReadsDocument: true, maxAttempts, backoffSeconds }` with `eventsQueue` (the queue's own attempts

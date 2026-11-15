@@ -4,17 +4,19 @@
 
 ### Added
 
-- The upgrade plugin answers kestrel's `ops` hook (plugin API 6), which `kestrel status`, `backup`, `restore` and
-  `update` read: the readiness route `/api/ready`; the blob store and the database file a deployed environment's
-  variables select (`KESTREL_BLOBSTORE`, `KESTREL_S3_*`, `KESTREL_DATA_DIR`, `KESTREL_APP_ROOT`), read from the
-  map the tooling passes, never from its own `process.env`, with relative directories resolved against the
-  project root; the variables whose values are secrets (`KESTREL_ADMIN_PASSWORD_HASH`, `KESTREL_MFA_KEY`,
-  `KESTREL_DEVICE_KEY`, `KESTREL_S3_ACCESS_KEY_ID`, `KESTREL_S3_SECRET_ACCESS_KEY`); the migration switches
-  `KESTREL_MIGRATIONS` (content) and `KESTREL_STORAGE_MIGRATIONS` (storage); `llms.txt` as the file every render
-  of the export writes; and the environment of a local start of a copy: on `127.0.0.1`, on the filesystem store,
-  with `NODE_ENV=production`, storage migrations checked, content migrations applied, `KESTREL_ROBOTS_POLICY=disallow`
-  and the public development stand-ins for the admin password hash and the second-factor key. The `kestrel` field
-  of `package.json` declares `pluginApi: 6`.
+- The upgrade plugin answers kestrel's `ops` hook (plugin API 6). `kestrel update prepare` and `kestrel update
+  bundle` read from it the readiness route `/api/ready`; the environment of a local start of a copy: on
+  `127.0.0.1`, on the filesystem store, with `NODE_ENV=production`, storage migrations checked, content migrations
+  applied, `KESTREL_ROBOTS_POLICY=disallow` and the public development stand-ins for the admin password hash and
+  the second-factor key; `llms.txt` as the file every render of the export writes; the variables whose values are
+  secrets (`KESTREL_ADMIN_PASSWORD_HASH`, `KESTREL_MFA_KEY`, `KESTREL_DEVICE_KEY`, `KESTREL_S3_ACCESS_KEY_ID`,
+  `KESTREL_S3_SECRET_ACCESS_KEY`); and the migration switches `KESTREL_MIGRATIONS` (content) and
+  `KESTREL_STORAGE_MIGRATIONS` (storage). The hook also answers the blob store and the database file a deployed
+  environment's variables select (`KESTREL_BLOBSTORE`, `KESTREL_S3_*`, `KESTREL_BLOBS_DIR`, `KESTREL_DATABASE_FILE`,
+  `KESTREL_DATA_DIR`, `KESTREL_APP_ROOT`), read from the map it is given, never from `process.env`, with relative
+  paths resolved against the project root. `kestrel status`, `backup` and `restore` take the storage, prefixes and
+  target of an environment from `kestrel.environments.json`, not from the hook. The `kestrel` field of
+  `package.json` declares `pluginApi: 6`.
 - `KESTREL_DATABASE_FILE` names the SQLite file `presetModuleConfig()` opens for persistence-sqlite and
   replication-sqlite in place of `kestrel.db` in the data directory, and `KESTREL_BLOBS_DIR` the root of the
   filesystem blob store `envBlobstore()` builds in place of `<dataDir>/blobs`; relative values resolve against the

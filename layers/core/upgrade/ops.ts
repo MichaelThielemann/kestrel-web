@@ -28,13 +28,13 @@ function blobstoreFromEnv(env: OpsEnv, root: string): OpsModuleEntry | undefined
 }
 
 /**
- * The facts kestrel's operations tooling (backup, restore, update) needs about a project built on this layer, for
- * the project at `root`: the readiness route; the environment of a local start of a copy, on loopback, on the
- * filesystem store, with storage migrations checked, content migrations applied and the public development
- * stand-ins for the admin password hash and the second-factor key; `llms.txt`, which every render of the export
- * writes; the blob store and database file a deployed environment's variables select, read from the map the tooling
- * passes and resolved against `root`; the variables that hold secrets; and the two migration switches. The answer
- * holds no value of this process's environment.
+ * The operations facts of the project at `root` built on this layer: the readiness route; the environment of a
+ * local start of a copy, on loopback, on the filesystem store, with storage migrations checked, content migrations
+ * applied and the public development stand-ins for the admin password hash and the second-factor key, to which
+ * `KESTREL_DATABASE_FILE` and `KESTREL_BLOBS_DIR` add the database copy and blob directory of that start; `llms.txt`,
+ * which every render of the export writes; the blob store and database file a deployed environment's variables
+ * select, read from the given map and resolved against `root`; the variables that hold secrets; and the two
+ * migration switches. The answer holds no value of this process's environment.
  */
 export function layerOpsFacts(root: string): OpsFacts {
   return {

@@ -34,9 +34,9 @@ export function layerHostChecks(project: LoadedProject, bootCheck: BootCheck): H
  * kestrel-web itself provides at request time, nothing at boot. `dataModel` and `switchEdits` are hooks
  * the built-in `model/underscore-field` and `offer/event-queue` rules consult directly; this plugin does
  * not replace either rule. `dataFindings` adds the layer's own stored-value checks to `kestrel upgrade data`.
- * `ops` (plugin API 6) answers what `kestrel status`, `backup`, `restore` and `update` need to know about the
- * project: its readiness route, its blob store and database file from a deployed environment's variables, the
- * variables that hold secrets, the migration switches and how a local copy starts.
+ * `ops` (plugin API 6) answers {@link layerOpsFacts}: the readiness route, how a local copy starts, the export check,
+ * the variables that hold secrets and the migration switches, which `kestrel update` reads, and the blob store and
+ * database file a deployed environment's variables select.
  */
 export function createLayerPlugin(): UpgradePlugin {
   return {
