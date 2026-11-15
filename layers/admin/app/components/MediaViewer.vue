@@ -4,7 +4,7 @@ import type { MediaItem, Provenance, ProvenanceOrigin } from '#kestrel-admin/typ
 import { humanizeSize } from '../utils/library'
 import { PROVENANCE_ORIGINS, provenanceOrigin } from '../utils/provenance'
 import { changedMetaFields, type MediaViewerSave } from '../utils/media-meta'
-import { canFrame } from '../utils/media-crop'
+import { canFrame, dimensionsLabel } from '../utils/media-crop'
 
 const props = defineProps<{ open: boolean; file: MediaItem | null; canSave: boolean; canDelete: boolean; trash?: boolean; busy?: boolean; error?: string | null }>()
 const emit = defineEmits<{ 'update:open': [boolean]; save: [MediaViewerSave]; delete: []; framed: [MediaItem] }>()
@@ -23,10 +23,7 @@ const uploaded = computed(() => {
   const c = props.file?.createdAt
   return c ? new Date(c).toLocaleString(lang.value) : '—'
 })
-const dimensions = computed(() => {
-  const f = props.file
-  return f?.width != null && f?.height != null ? `${f.width} × ${f.height}` : '–'
-})
+const dimensions = computed(() => (props.file ? dimensionsLabel(props.file) : '–'))
 
 const localeOptions = computed(() => locales.value.map((loc) => ({ label: loc.toUpperCase(), value: loc })))
 const origin = ref<ProvenanceOrigin>('human')

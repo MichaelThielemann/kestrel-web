@@ -59,6 +59,14 @@ export function measuresOriginal(item: MediaItem): boolean {
     && item.variants.some((v) => v.state === 'done')
 }
 
+/** The dimensions a media list or viewer shows as `width × height`: the oriented ones of the original (`framing`) when recorded, else the stored ones, else a dash. */
+export function dimensionsLabel(item: MediaItem): string {
+  const framing: Partial<MediaItem['framing']> | undefined = item.framing
+  const width = framing?.width ?? item.width
+  const height = framing?.height ?? item.height
+  return width != null && height != null ? `${width} × ${height}` : '–'
+}
+
 /** Whether the item is an image whose oriented dimensions the server reported, or the browser can measure, and that the editor can show, so its focus and crops can be edited; never for an answer whose framing the caller's field grant cut to fewer members than the editor reads. */
 export function canFrame(item: MediaItem | null): boolean {
   if (!item || !editableFraming(item) || !item.contentType.startsWith('image/')) return false

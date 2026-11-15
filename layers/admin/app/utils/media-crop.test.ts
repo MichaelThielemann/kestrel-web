@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
+import { boundaryCast } from '#kestrel/cast'
 import { centredCrop, cropForRatio } from '@michaelthielemann/kestrel-images-default/framing'
 import type { MediaItem } from '../types/api'
-import { canFrame, coverSizesOf, cropSource, displayCrop, measuresOriginal, previewStyle, rebaseDraft, sameFraming, sizeUsages, smallerSizes, uniqueReferrers } from './media-crop'
+import { canFrame, coverSizesOf, dimensionsLabel, cropSource, displayCrop, measuresOriginal, previewStyle, rebaseDraft, sameFraming, sizeUsages, smallerSizes, uniqueReferrers } from './media-crop'
 
 function item(over: Partial<MediaItem> = {}): MediaItem {
   return {
@@ -254,5 +255,24 @@ describe('rebaseDraft', () => {
     const fresh = { focus: a, crops: { '3:2': c, '21:9': c } }
     expect(rebaseDraft(draft, base, fresh)).toEqual({ focus: a, crops: { '1:1': b, '21:9': c } })
     expect(rebaseDraft({ focus: b, crops: {} }, { focus: null, crops: {} }, { focus: a, crops: {} })).toEqual({ focus: b, crops: {} })
+  })
+})
+
+describe('dimensionsLabel', () => {
+  it('names the oriented dimensions of the original, not the stored ones', () => {
+    expect(dimensionsLabel(item({ width: 1200, height: 1600, framing: { focus: null, crops: {}, width: 1600, height: 1200, ratios: [] } }))).toBe('1600 × 1200')
+  })
+
+  it('falls back to the stored dimensions while the oriented ones are not recorded', () => {
+    expect(dimensionsLabel(item({ width: 1200, height: 800, framing: { focus: null, crops: {}, width: null, height: null, ratios: [] } }))).toBe('1200 × 800')
+  })
+
+  it('reads the stored dimensions when a field grant leaves out the framing', () => {
+    const cut = { ...item({ width: 640, height: 480 }), framing: undefined }
+    expect(dimensionsLabel(boundaryCast<MediaItem>(cut, 'json'))).toBe('640 × 480')
+  })
+
+  it('shows a dash for a file without dimensions', () => {
+    expect(dimensionsLabel(item({ width: null, height: null, framing: { focus: null, crops: {}, width: null, height: null, ratios: [] } }))).toBe('–')
   })
 })

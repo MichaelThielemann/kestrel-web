@@ -191,3 +191,13 @@ describe('MediaTable double click', () => {
     expect(wrapper.emitted('select')).toHaveLength(2)
   })
 })
+
+describe('MediaTable dimensions', () => {
+  it('shows the oriented dimensions of a rotated photo', async () => {
+    const rotated = file({ width: 1200, height: 1600, framing: { focus: null, crops: {}, width: 1600, height: 1200, ratios: [] } })
+    const wrapper = await mountSuspended(MediaTable, { props: { items: [libraryItem(rotated)], isSelected: () => false } })
+
+    expect(wrapper.get('[data-test="row-file-f1"]').text()).toContain('1600 × 1200')
+    expect(wrapper.get('[data-test="row-file-f1"]').text()).not.toContain('1200 × 1600')
+  })
+})

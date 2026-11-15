@@ -134,3 +134,17 @@ describe('MediaViewer layout', () => {
     expect(dialogSource).toMatch(/\.ui-dialog__footer[\s\S]{0,80}{\s*flex:\s*0 0 auto/)
   })
 })
+
+describe('MediaViewer dimensions', () => {
+  beforeEach(() => { document.body.innerHTML = '' })
+
+  it('shows the oriented dimensions of a rotated photo', async () => {
+    const rotated: MediaItem = { ...file, filename: 'rotated.jpg', contentType: 'image/jpeg', width: 1200, height: 1600, framing: { focus: null, crops: {}, width: 1600, height: 1200, ratios: [] } }
+    const wrapper = await mountSuspended(MediaViewer, { props: { open: true, file: rotated, canSave: false, canDelete: false }, attachTo: document.body })
+
+    const info = document.body.querySelector('.media-viewer__info')?.textContent ?? ''
+    expect(info).toContain('1600 × 1200')
+    expect(info).not.toContain('1200 × 1600')
+    wrapper.unmount()
+  })
+})

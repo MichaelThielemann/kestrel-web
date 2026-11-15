@@ -2,6 +2,7 @@
 import { humanizeSize, itemKey, rovingTabindex, type LibraryItem } from '../utils/library'
 import { isDisclosed, provenanceLabelKey, provenanceOrigin } from '../utils/provenance'
 import { isPickGated } from '../utils/media-insert'
+import { dimensionsLabel } from '../utils/media-crop'
 import type { MediaItem } from '#kestrel-admin/types/api'
 import type { VariantWatchEntry } from '../composables/useVariantWatch'
 import type { MenuItem } from '../utils/ops'
@@ -56,7 +57,6 @@ function onFileOpen(item: LibraryItem) {
 }
 const uploaded = (f: MediaItem) => new Date(f.createdAt).toLocaleString(lang.value)
 const badge = (f: MediaItem) => t(provenanceLabelKey(provenanceOrigin(f.provenance)))
-const dimensions = (f: MediaItem) => (f.width != null && f.height != null ? `${f.width} × ${f.height}` : '–')
 </script>
 
 <template>
@@ -113,7 +113,7 @@ const dimensions = (f: MediaItem) => (f.width != null && f.height != null ? `${f
           </td>
           <td>{{ item.file.contentType }}</td>
           <td>{{ humanizeSize(item.file.size) }}</td>
-          <td>{{ dimensions(item.file) }}</td>
+          <td>{{ dimensionsLabel(item.file) }}</td>
           <td>{{ uploaded(item.file) }}</td>
           <td v-if="tileMenu?.length" class="ui-table__col--actions" @click.stop @dblclick.stop @keydown="keepMenuKeys">
             <KestrelUiActionMenu :items="tileMenu" :label="t('media.menu.more', { name: item.file.filename })" trigger-class="ui-button--icon ui-button--icon-sm"
