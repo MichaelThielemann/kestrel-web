@@ -74,8 +74,12 @@ async function restore(point: RestoreTarget | null, busyKey: string) {
   }
 }
 
+function pointBusyKey(p: ReplicationPoint): string {
+  return `point:${p.generation}:${p.at}`
+}
+
 function restoreToPoint(p: ReplicationPoint) {
-  return restore({ generation: p.generation }, `gen:${p.generation}`)
+  return restore({ generation: p.generation, at: p.at }, pointBusyKey(p))
 }
 
 function restoreToTime() {
@@ -192,7 +196,7 @@ function relative(ms: number | null): string { return ms === null ? '—' : huma
         <KestrelUiButton variant="ghost" :disabled="restoreBusy !== null" @click="confirmPoint = null">{{ t('common.cancel') }}</KestrelUiButton>
         <KestrelUiButton
           variant="danger"
-          :loading="confirmPoint !== null && restoreBusy === `gen:${confirmPoint.generation}`"
+          :loading="confirmPoint !== null && restoreBusy === pointBusyKey(confirmPoint)"
           @click="confirmPoint && restoreToPoint(confirmPoint)"
         >
           {{ t('replication.restore') }}

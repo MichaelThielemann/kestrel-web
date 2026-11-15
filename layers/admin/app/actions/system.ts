@@ -26,7 +26,8 @@ export interface SnapshotInput extends WithDeps {
   refresh: RefreshPort
 }
 
-export type RestoreTarget = { generation: string } | { at: number }
+/** A restore point: a generation with an optional time inside it (omitted means its newest state), or a time alone. */
+export type RestoreTarget = { generation: string; at?: number } | { at: number }
 
 export interface RestoreInput extends WithDeps {
   point: RestoreTarget | null

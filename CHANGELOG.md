@@ -1364,6 +1364,9 @@
   every route it answers `GET` on.
 - Admin page tree: in a language a page has no path in, the row reads "no path" instead of showing the path of
   another language.
+- System → Replication: "Restore to this point" on a row of the restore points restores the database to that
+  row's time. It sends the row's `at` together with its generation; the newest state of the generation is no
+  longer what the next start comes up with.
 - Admin layout: at 320 CSS px no admin page scrolls sideways or cuts off a control (WCAG 1.4.10 Reflow). The
   main area contains its visually hidden labels; the head of the settings and redirects tabs, the section heads
   of the images tab, the collection list bar and the media toolbar wrap; `KestrelUiButtonGroup` no longer shrinks

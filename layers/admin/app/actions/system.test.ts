@@ -285,14 +285,14 @@ describe('replicationRestore', () => {
     expect(refreshCalls.length).toBe(0)
   })
 
-  it('restores by generation', async () => {
+  it('restores a point by generation and time', async () => {
     const { deps, calls } = fakeDeps([{ generation: 7, at: 1000, file: 'db.snap', restartRequired: true }])
     const { ops } = fakeOps()
     const { refresh } = fakeRefresh()
 
-    await runAction(replicationRestore, { deps, point: { generation: 'g7' }, ops, refresh })
+    await runAction(replicationRestore, { deps, point: { generation: 'g7', at: 1000 }, ops, refresh })
 
-    expect(calls).toEqual([{ route: { method: 'POST', path: '/admin/replication/restore' }, body: { generation: 'g7' }, query: undefined }])
+    expect(calls).toEqual([{ route: { method: 'POST', path: '/admin/replication/restore' }, body: { generation: 'g7', at: 1000 }, query: undefined }])
   })
 
   it('restores by time and carries restartRequired, then reloads', async () => {

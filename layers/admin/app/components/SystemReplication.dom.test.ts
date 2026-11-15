@@ -1,5 +1,8 @@
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
+import { readBody } from 'h3'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { boundaryCast } from '#kestrel/cast'
+import { en } from '#kestrel-admin/i18n/en'
 import type { AdminSchema, ReplicationStatus } from '#kestrel-admin/types/api'
 import { useSchema } from '../composables/useSchema'
 import SystemReplication from './SystemReplication.vue'
@@ -117,6 +120,44 @@ describe('SystemReplication', () => {
     const success = wrapper.find('.ui-alert--success')
     expect(success.attributes('tabindex')).toBe('-1')
     await vi.waitFor(() => expect(document.activeElement).toBe(success.element))
+    wrapper.unmount()
+  })
+
+  it('restores a table row to that row\'s point in time, not to the newest state of its generation', async () => {
+    const snapshotAt = Date.UTC(2026, 8, 19, 8, 0, 0)
+    const walAt = Date.UTC(2026, 8, 19, 8, 30, 0)
+    const bodies: unknown[] = []
+    unregisterAll.push(registerEndpoint('/api/admin/schema', { method: 'GET', handler: () => schema }))
+    unregisterAll.push(registerEndpoint('/api/admin/replication/status', { method: 'GET', handler: () => status }))
+    unregisterAll.push(registerEndpoint('/api/admin/replication/points', {
+      method: 'GET',
+      handler: () => [
+        { kind: 'snapshot', key: 's1', generation: '3', at: snapshotAt },
+        { kind: 'wal', key: 'w1', generation: '3', at: walAt },
+      ],
+    }))
+    unregisterAll.push(registerEndpoint('/api/admin/replication/restore', {
+      method: 'POST',
+      handler: async (event) => {
+        bodies.push(boundaryCast<unknown>(await readBody(event), 'json'))
+        return { generation: '3', at: snapshotAt, file: 'db.snap', restartRequired: true }
+      },
+    }))
+    await useSchema().load()
+
+    const wrapper = await mountSuspended(SystemReplication, { attachTo: document.body })
+    const rowButtons = wrapper.findAll(`button[aria-label="${en['replication.restoreToPoint']}"]`)
+    expect(rowButtons.length).toBe(2)
+    await rowButtons[0]!.trigger('click')
+    const confirm = await vi.waitFor(() => {
+      const button = [...document.querySelectorAll('.ui-dialog__content button')].find((candidate) => candidate.textContent?.trim() === en['replication.restore'])
+      if (!(button instanceof HTMLButtonElement)) throw new Error('the confirmation button is not open yet')
+      return button
+    })
+    confirm.click()
+    await vi.waitFor(() => expect(wrapper.find('.ui-alert--success').exists()).toBe(true))
+
+    expect(bodies).toEqual([{ generation: '3', at: snapshotAt }])
     wrapper.unmount()
   })
 })

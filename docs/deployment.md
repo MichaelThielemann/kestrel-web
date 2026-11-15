@@ -757,7 +757,8 @@ health condition, and both `/api/health` and `/api/ready` keep answering normall
 
 - **Replication.** The `replication` feature adds `@michaelthielemann/kestrel-replication-sqlite`, a
   `replicate` pipeline on a one-minute cron that streams the database into the blobstore, and
-  **System → Replication** with the restore points, a manual snapshot and a restore. Its prefix,
+  **System → Replication** with the restore points, a manual snapshot and a restore, either to the time of a
+  listed point or to a time you enter; the restored database takes effect on the next start. Its prefix,
   `restoreOnStart` and `retentionSeconds` are set through
   `overrides["@michaelthielemann/kestrel-replication-sqlite"]` (§3 of the consuming guide); the prefix
   defaults to `replica/` and must stay outside `site/` (§3). With an S3 blobstore this puts database and
