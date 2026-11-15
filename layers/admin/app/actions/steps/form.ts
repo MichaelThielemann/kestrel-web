@@ -1,4 +1,4 @@
-import type { ApiErrorDetails } from '#kestrel-admin/types/api'
+import type { ApiErrorDetails, ApiPathConflict } from '#kestrel-admin/types/api'
 import type { ActionContext, ActionStep } from '#kestrel-core/app/utils/actions'
 import { answeredMessage, failureText, retryableMessage, withDetail } from '../../composables/useApi'
 import type { BlockErrors } from '../../composables/useEditFormValidation'
@@ -77,18 +77,37 @@ function mapRedirectRule(t: Translate, form: EditFormPort, details: ApiErrorDeta
   return true
 }
 
-function withReadableOccupants(deps: ActionDeps, details: ApiErrorDetails | undefined): ApiErrorDetails | undefined {
-  const conflicts = details?.conflicts ?? []
-  const hidden = conflicts.filter((conflict) => !deps.capabilities.hasVerb(conflict.type, 'readAny'))
-  if (hidden.length === 0 || details === undefined) return details
-  const pathOnly = (message: string): string => {
-    const conflict = hidden.find((entry) => message.startsWith(`${entry.path} (`))
-    return conflict === undefined ? message : deps.t('editor.pathTaken', { path: conflict.path, locale: conflict.locale.toUpperCase() })
+const LOCALE_CODE_PROBLEM = /^"(.+)" is a locale code and cannot start a path$/
+
+interface PathProblems { details: ApiErrorDetails | undefined, text: string }
+
+function pathProblemText(deps: ActionDeps, message: string, conflicts: readonly ApiPathConflict[]): string | undefined {
+  const conflict = conflicts.find((entry) => message.startsWith(`${entry.path} (`))
+  if (conflict !== undefined) {
+    const locale = conflict.locale.toUpperCase()
+    return deps.capabilities.hasVerb(conflict.type, 'readAny')
+      ? deps.t('field.slug.taken', { path: conflict.path, locale, label: conflict.label })
+      : deps.t('editor.pathTaken', { path: conflict.path, locale })
   }
+  const slug = LOCALE_CODE_PROBLEM.exec(message)?.[1]
+  return slug === undefined ? undefined : deps.t('field.slug.locale', { slug })
+}
+
+function localizedPathProblems(deps: ActionDeps, details: ApiErrorDetails | undefined): PathProblems {
+  const conflicts = details?.conflicts ?? []
+  if (details === undefined) return { details, text: '' }
+  let translated = false
+  const fields = (details.fields ?? []).map((field) => {
+    const text = pathProblemText(deps, field.message, conflicts)
+    if (text === undefined) return field
+    translated = true
+    return { ...field, message: text }
+  })
+  if (!translated) return { details, text: '' }
+  const readable = (conflict: ApiPathConflict) => deps.capabilities.hasVerb(conflict.type, 'readAny')
   return {
-    ...details,
-    fields: (details.fields ?? []).map((field) => ({ ...field, message: pathOnly(field.message) })),
-    conflicts: conflicts.map((conflict) => (hidden.includes(conflict) ? { ...conflict, label: '' } : conflict)),
+    details: { ...details, fields, conflicts: conflicts.map((conflict) => (readable(conflict) ? conflict : { ...conflict, label: '' })) },
+    text: [...new Set(fields.map((field) => field.message))].join('; '),
   }
 }
 
@@ -151,14 +170,15 @@ export function formMapErrors<I extends WithDeps & { form: EditFormPort }>(): Ac
     const answered = (leadKey: string) => answeredMessage(t, failure, t(leadKey))
 
     if (code === 'VALIDATION' || code === 'DANGLING_REF') {
-      const shown = answered('editor.saveFailed')
+      const problems = localizedPathProblems(deps, details)
+      const shown = problems.text ? withDetail(t, t('editor.saveFailed'), problems.text) : answered('editor.saveFailed')
       if (code === 'VALIDATION' && mapRedirectRule(t, form, details, setFormError)) return
       if (mapBodyError(t, form, message, setFormError)) return
       if (mapRowError(form, message) || mapSchemaRowError(form, message)) {
         setFormError(shown)
         return
       }
-      if (!mapFieldDetails(form, details)) {
+      if (!mapFieldDetails(form, problems.details)) {
         const key = fieldFromErrorMessage(message, form.fieldKeys())
         if (key) form.setFieldError(key, message)
       }
@@ -167,10 +187,9 @@ export function formMapErrors<I extends WithDeps & { form: EditFormPort }>(): Ac
     }
 
     if (code === 'CONFLICT') {
-      const visible = withReadableOccupants(deps, details)
-      mapFieldDetails(form, visible)
-      const hidden = visible !== details ? [...new Set((visible?.fields ?? []).map((field) => field.message))].join('; ') : ''
-      setFormError(hidden || answered('editor.saveConflict'))
+      const problems = localizedPathProblems(deps, details)
+      mapFieldDetails(form, problems.details)
+      setFormError(problems.text || answered('editor.saveConflict'))
       return
     }
 

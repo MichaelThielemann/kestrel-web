@@ -40,6 +40,44 @@ describe('field/Slug reserved segments', () => {
   })
 })
 
+describe('field/Slug language codes', () => {
+  const unregisterAll: (() => void)[] = []
+  afterEach(() => {
+    unregisterAll.splice(0).forEach((unregister) => unregister())
+    useSchema().clear()
+  })
+
+  async function schemaWithLocales(all: string[]) {
+    const schema: AdminSchema = { locales: { all, primary: all[0] ?? 'de', prefixPrimary: false }, collections: [], features: [], capabilities: {} }
+    unregisterAll.push(registerEndpoint('/api/admin/schema', { method: 'GET', handler: () => schema }))
+    await useSchema().load()
+  }
+
+  it('names a slug that is a content language code while it is typed', async () => {
+    await schemaWithLocales(['de', 'en'])
+    const wrapper = await mountSuspended(FieldSlug, {
+      props: { field, name: 'slug', locale: 'de', modelValue: 'en' },
+    })
+    expect(wrapper.get('.ui-field__error').text()).toBe(en['field.slug.locale'].replace('{slug}', 'en'))
+  })
+
+  it('replaces the server text of a rejected language-code slug', async () => {
+    await schemaWithLocales(['de', 'en'])
+    const wrapper = await mountSuspended(FieldSlug, {
+      props: { field, name: 'slug', locale: 'de', modelValue: 'en', error: '"en" is a locale code and cannot start a path' },
+    })
+    expect(wrapper.get('.ui-field__error').text()).toBe(en['field.slug.locale'].replace('{slug}', 'en'))
+  })
+
+  it('accepts a slug that only starts with a language code', async () => {
+    await schemaWithLocales(['de', 'en'])
+    const wrapper = await mountSuspended(FieldSlug, {
+      props: { field, name: 'slug', locale: 'de', modelValue: 'english-team' },
+    })
+    expect(wrapper.find('.ui-field__error').exists()).toBe(false)
+  })
+})
+
 function previewing(preview: Partial<PathPreview>, unreachable: string | null = null) {
   const full: PathPreview = { path: '', reachable: true, reason: null, conflict: null, shadows: [], exposesParentSlug: null, ...preview }
   return { global: { provide: { [pathPreviewKey]: { preview: ref(full), unreachable: computed(() => unreachable) } } } }

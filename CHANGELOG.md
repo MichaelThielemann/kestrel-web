@@ -1350,6 +1350,9 @@
   unapplied edit.
 - Media library: after several selected items are deleted, focus lands on the first remaining item after the
   focused one; it no longer skips ahead by the number of items removed before it.
+- Page slug: a top-level slug that is a language code of the site (`en`, `de`) is flagged under the field while
+  it is typed, as a reserved segment already is. The refusal of such a slug and the `409` of a path another page
+  holds show in the admin language, in the field and in the form error, instead of the server's English text.
 - Public media: `HEAD` on `/media/<id>/<name>`, on a variant and on `/api/media/<id>/file` answers 200 with the
   `Content-Type`, `Content-Length` and `Cache-Control` of the `GET` instead of 404. The API answers `HEAD` on
   every route it answers `GET` on.

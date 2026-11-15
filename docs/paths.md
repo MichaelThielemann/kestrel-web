@@ -14,11 +14,13 @@ the preset refuses such a model (`preset/routed-slug-unique`), and `site-default
 Without one, `site-default` logs a warning. `kestrel upgrade fix` removes the flag in either case.
 
 A save that would take a path held by another document answers `409 CONFLICT`. The message names the
-path, its locale and the document that holds it; the admin shows it under the field that caused the
-collision. Drafts hold their paths too, so two drafts cannot share one either.
+path, its locale and the document that holds it; the admin shows it in the admin language under the field
+that caused the collision, naming the page when the signed-in user may read it and the path alone otherwise. Drafts hold their paths too, so two drafts cannot share one either.
 
 A path is also rejected when it equals or lies under a path the server uses itself (`/api`, `/admin`,
-`/media`), or when its first segment is a locale code. Both are field errors on the slug.
+`/media`), or when its first segment is a locale code. Both are field errors on the slug; the slug field
+names a top-level slug that is a reserved segment or one of the site's locale codes while it is typed, and
+the admin shows the server's refusal of a locale code in the admin language.
 
 ## Subpages
 

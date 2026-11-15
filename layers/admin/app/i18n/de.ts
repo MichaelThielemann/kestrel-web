@@ -184,6 +184,7 @@ export const de: Record<CatalogKey, string> = {
   'pageSettings.slugHint': 'URL-Pfad, z. B. /about (leer = automatisch aus dem Titel)',
   'field.slug.rootPlaceholder': 'Startseite (/)',
   'field.slug.reserved': '„{slug}“ wird vom System verwendet. Bitte eine andere Adresse wählen.',
+  'field.slug.locale': '„{slug}“ ist ein Sprachkürzel und kann keine Adresse beginnen. Bitte eine andere Adresse wählen.',
   'field.slug.taken': 'Diese Adresse ist vergeben: {path} ({locale}) gehört zu „{label}“.',
   'field.slug.shadows': '{path} zeigt „{label}“ in der Ausweichsprache; sobald diese Seite veröffentlicht ist, ersetzt sie sie dort.',
   'field.slug.exposesParent': 'Diese Adresse zeigt den Slug von „{label}“, das in dieser Sprache nicht veröffentlicht ist.',

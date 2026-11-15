@@ -182,6 +182,7 @@ export const en = {
   'pageSettings.slugHint': 'URL path, e.g. /about (blank = auto-generated from the title)',
   'field.slug.rootPlaceholder': 'Start page (/)',
   'field.slug.reserved': '"{slug}" is used by the system. Choose another address.',
+  'field.slug.locale': '"{slug}" is a language code and cannot start an address. Choose another address.',
   'field.slug.taken': 'This address is taken: {path} ({locale}) belongs to "{label}".',
   'field.slug.shadows': '{path} shows "{label}" in its fallback language; once this page is published it replaces it there.',
   'field.slug.exposesParent': 'This address shows the slug of "{label}", which is not published in this language.',

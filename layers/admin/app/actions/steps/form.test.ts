@@ -141,7 +141,7 @@ describe('formMapErrors', () => {
     expect(runMapErrors({ status: 409, code: 'CONFLICT', retryable: false, message: '' }).formError).toBe(referencedFailure('editor.saveConflict', 409))
   })
 
-  it('maps a taken public path onto the slug field, naming the page that holds it', () => {
+  it('maps a taken public path onto the slug field in the admin language, naming the page that holds it', () => {
     const message = '/ueber-uns (de) is taken by pages "About us"'
     const state = runMapErrors({
       status: 409,
@@ -150,8 +150,25 @@ describe('formMapErrors', () => {
       message,
       details: { fields: [{ field: 'slug', message }], conflicts: [{ path: '/ueber-uns', locale: 'de', type: 'pages', id: 'p2', label: 'About us', moving: { type: 'pages', id: 'p1' } }] },
     })
-    expect(state.fieldErrors).toEqual({ slug: message })
-    expect(state.formError).toBe(referencedFailure(ledFailure('editor.saveConflict', message), 409))
+    const taken = 'field.slug.taken:{"path":"/ueber-uns","locale":"DE","label":"About us"}'
+    expect(state.fieldErrors).toEqual({ slug: taken })
+    expect(state.formError).toBe(referencedFailure(taken, 409))
+    expect(JSON.stringify(state)).not.toContain('is taken by')
+  })
+
+  it('maps a slug that is a language code onto the slug field in the admin language', () => {
+    const message = '"en" is a locale code and cannot start a path'
+    const state = runMapErrors({
+      status: 400,
+      code: 'VALIDATION',
+      retryable: false,
+      message,
+      details: { fields: [{ field: 'slug', message }] },
+    })
+    const text = 'field.slug.locale:{"slug":"en"}'
+    expect(state.fieldErrors).toEqual({ slug: text })
+    expect(state.formError).toBe(referencedFailure(ledFailure('editor.saveFailed', text), 400))
+    expect(JSON.stringify(state)).not.toContain('is a locale code')
   })
 
   it('names a taken path by its path only when the caller cannot read the collection that holds it', () => {
@@ -181,7 +198,7 @@ describe('formMapErrors', () => {
       fail: () => { throw new Error('unexpected fail') },
       done: () => { throw new Error('unexpected done') },
     })
-    expect(state.fieldErrors).toEqual({ parent: message })
+    expect(state.fieldErrors).toEqual({ parent: 'field.slug.taken' })
   })
 
   it('gives 413 and 415 their own messages, with the HTTP status and the error id', () => {
