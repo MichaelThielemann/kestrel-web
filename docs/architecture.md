@@ -2037,7 +2037,8 @@ fill the side column from the slots `aside-start` (above the fields) and `aside-
 fields keep sharing the state of `usePanZoom` with the frame.
 
 The tile the editor opens on comes from `initialTile`: from the media viewer it is the focus; from a media field
-it is the first ratio, in the order of `framing.ratios`, that carries one of the sizes of the field's block.
+it is the ratio of the first size of the field's block, in the order the block declares its `imageSizes`, that
+one of `framing.ratios` carries, so a block that declares a `16:9` size before a `3:4` one opens on `16:9`.
 `BlockFields.vue` provides those size names under `blockImageSizesKey`, `field/Media.vue` passes them to the
 editor as `sizes`, and a field outside a block passes none. A tile whose ratio disappears from a freshly loaded
 item falls back to the focus. The draft covers the focus and every crop, so switching tiles loses nothing,
@@ -2046,12 +2047,24 @@ every preview follows the draft, and Save writes all of it in one `PUT`.
 Why the focus misses a ratio comes from `focusMiss` in `utils/crop-advice.ts`, which uses the server's
 `focusFits` and `centredCrop`: `tall` or `wide` when the focus sticks out of the largest crop of the ratio, and
 `covered` when a manual crop cuts a focus that would fit. `useMediaCropEditor` exposes the result per ratio as
-`misses`; the tiles mark a miss with a warning badge, the focus panel lists the ratios per kind, and the ratio
-panel gives one advice, with the reset button right after it. These lines, the "smaller than" hint, the state and
-a save error live in `MediaCropStatus.vue`, the last element of the side column. It is not a live region,
-because it changes while a gesture runs; a hidden status of its own speaks its lines 700ms after they last
-changed. Only the tile list and the side columns scroll, both with `scrollbar-gutter: stable`, and the stage is a
-size container whose content is sized from the dialog alone, so no warning moves the image.
+`misses`; a tile marks a miss with a warning triangle and its short text ("Focus too tall", "Crop hides the
+focus", "Misses 2 of 7" on the focus tile), the focus panel lists the ratios per kind, and the ratio panel gives
+one advice, with the reset button right after it. These lines, the "smaller than" hint, the state and a save
+error live in `MediaCropStatus.vue`, the last element of the side column. It sticks to the bottom of the column
+while the column scrolls, so the advice and its button stay in view with the help open, and it sets the
+column's `scroll-padding-bottom` to its own height, so a field reached with the keyboard scrolls clear of it.
+It is not a live region, because it changes while a gesture runs; a `KestrelUiLiveStatus` of its own speaks its
+lines 700ms after they last changed and empties three seconds later, so an old advice is not read again. Only
+the tile list and the side columns scroll, both with `scrollbar-gutter: stable`, and the stage is a size
+container whose content is sized from the dialog alone, so no warning moves the image.
+
+Below 48rem (`$narrow` in `assets/scss/_crop-stage.scss`, `CROP_NARROW_QUERY` in `utils/media-crop.ts`) the
+editor scrolls as one column: the tile strip, the stage, whose image is at most 40svh high so the side column
+shows below it, and the side column, where the status block keeps its place after the fields. A tile of the
+strip shows its warning as a label over the bottom of its preview, so a warning never changes the height of the
+strip. The styles of `KestrelUiCropFrame`, `KestrelUiRectSelect`, `KestrelUiCropGuides`, `KestrelUiTabList`
+and `KestrelUiInfoToggle` are bound to the admin root (`$root` from `assets/scss/_scope.scss`), which
+`assets/scss/scope.test.ts` checks.
 
 The help of each panel sits behind the info button of `KestrelUiInfoToggle`, closed by default; the stage keeps
 a short description of its keys for assistive technology through `aria-describedby`. `useCropHelpPreference()`
@@ -2061,11 +2074,15 @@ remembers the help for both panels under `kestrel.mediaCrop.help`, and `useCropS
 for the page's lifetime when storage throws. While a drag, a pinch or the wheel snaps the crop, each lit guide
 carries a label from `snapLabelKey` (`SnapGuide.kind` tells the middle of the image from the centre of the
 focus, and the line tells the centre from a third); `usePanZoom` reports the guides a gesture ended on as
-`settledSnap`, and the frame announces them once. The plain wheel zooms finely, Shift with the wheel in large
-steps (a horizontal delta counts when the vertical one is 0), and Ctrl with the wheel, which is how browsers
-report a trackpad pinch, at the pinch speed. Every cut the editor shows comes from the same `framing` functions
-the server renders with, so a tile, the frame and the rendered `cover` variant of that ratio, which
-`KestrelImage` serves for a size or an art direction entry, show the same part of the image.
+`settledSnap`, and the frame announces them once through `useAnnouncer` and a `KestrelUiLiveStatus`, which
+empties three seconds later. The plain wheel zooms finely, Shift with the wheel in large steps (a horizontal
+delta counts when the vertical one is 0), and Ctrl with the wheel, which is how Chrome and Firefox report a
+trackpad pinch, at the pinch speed. Safari reports a trackpad pinch as `gesturestart`, `gesturechange` and
+`gestureend`; `usePanZoom` zooms by the change of their `scale` around the point under the fingers and ignores
+them while a pointer is down, so a touch pinch, which the pointer events already carry, does not count twice.
+Every cut the editor shows comes from the same `framing` functions the server renders with, so a tile, the frame
+and the rendered `cover` variant of that ratio, which `KestrelImage` serves for a size or an art direction
+entry, show the same part of the image.
 
 ### Media URLs
 Every media file has exactly one public URL, generated by the module that stores it and returned as data
