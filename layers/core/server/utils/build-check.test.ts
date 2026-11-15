@@ -64,6 +64,59 @@ describe("checkDeliveryBuild", () => {
   });
 });
 
+describe("checkDeliveryBuild after a reported database restore", () => {
+  const withSync = [...composed, { name: "syncPublicMedia" }];
+
+  function restoredHost(restored: boolean, syncStatus = 200): BuildCheckHost & { run: ReturnType<typeof vi.fn> } {
+    return {
+      run: vi.fn((pipeline: string) =>
+        Promise.resolve(pipeline === "deliveryBuildCheck" ? { runId: "run-1", status: 200, result: { changed: restored, restored, marked: 0 } } : syncStatus < 400 ? { runId: "run-2", status: syncStatus, result: {} } : { runId: "run-2", status: syncStatus, error: "the blob store is unavailable" }),
+      ),
+    };
+  }
+
+  it("rebuilds the public media copies once, triggered like a boot event, when the check handled a new restore", async () => {
+    const kestrel = restoredHost(true);
+    const log = logger();
+    await checkDeliveryBuild(kestrel, { build: "b-2026", dev: false, pipelines: withSync, logger: log });
+    expect(kestrel.run.mock.calls.map((call: unknown[]) => call[0])).toEqual(["deliveryBuildCheck", "syncPublicMedia"]);
+    expect(kestrel.run).toHaveBeenLastCalledWith("syncPublicMedia", { trigger: { kind: "event", name: "boot" } });
+    expect(log.error).not.toHaveBeenCalled();
+  });
+
+  it("leaves the public media copies alone when the check reports no new restore", async () => {
+    const kestrel = restoredHost(false);
+    await checkDeliveryBuild(kestrel, { build: "b-2026", dev: false, pipelines: withSync, logger: logger() });
+    expect(kestrel.run.mock.calls.map((call: unknown[]) => call[0])).toEqual(["deliveryBuildCheck"]);
+  });
+
+  it("runs no sync when the check failed, so the next start handles the same restore again", async () => {
+    const kestrel = { run: vi.fn(() => Promise.resolve({ runId: "run-1", status: 503, error: "the marks could not be written", result: { restored: true } })) };
+    await checkDeliveryBuild(kestrel, { build: "b-2026", dev: false, pipelines: withSync, logger: logger() });
+    expect(kestrel.run).toHaveBeenCalledTimes(1);
+  });
+
+  it("runs no sync without the syncPublicMedia pipeline", async () => {
+    const kestrel = restoredHost(true);
+    await checkDeliveryBuild(kestrel, { build: "b-2026", dev: false, pipelines: composed, logger: logger() });
+    expect(kestrel.run).toHaveBeenCalledTimes(1);
+  });
+
+  it("logs a failed sync instead of failing the start", async () => {
+    const kestrel = restoredHost(true, 503);
+    const log = logger();
+    expect(await checkDeliveryBuild(kestrel, { build: "b-2026", dev: false, pipelines: withSync, logger: log })).toBe(true);
+    expect(log.error).toHaveBeenCalledWith("media: the public copies could not be rebuilt after the database was restored", { status: 503, reason: "the blob store is unavailable" });
+  });
+
+  it("logs a sync whose run rejects instead of letting the rejection stop the start", async () => {
+    const kestrel = { run: vi.fn((pipeline: string) => (pipeline === "deliveryBuildCheck" ? Promise.resolve({ runId: "run-1", status: 200, result: { restored: true } }) : Promise.reject(new Error("persistence closed")))) };
+    const log = logger();
+    await expect(checkDeliveryBuild(kestrel, { build: "b-2026", dev: false, pipelines: withSync, logger: log })).resolves.toBe(true);
+    expect(log.error).toHaveBeenCalledWith("media: the public copies could not be rebuilt after the database was restored", { reason: "persistence closed" });
+  });
+});
+
 describe("siteUrlMismatch", () => {
   const delivery = (siteUrl?: string) => [{ use: "@michaelthielemann/kestrel-delivery-static", defaults: { from: "preset", values: siteUrl === undefined ? {} : { siteUrl } } }];
 
