@@ -23,6 +23,8 @@ export interface BootBannerInput {
   module: string;
   reason: string;
   code?: string;
+  /** A development server may find the process it replaces still holding the lock during a restart. */
+  dev?: boolean;
 }
 
 export interface BootReportOptions {
@@ -40,23 +42,25 @@ const LOCK_UNREADABLE = "which is unreadable";
 const OTHER_NAMESPACE = "comes from another PID namespace";
 const STOP_OR_OPT_OUT = "  stop it and restart the server, or set allowConcurrentProcesses: true to run several processes on one database on purpose";
 
-function lockHintLines(reason: string): string[] {
+const DEV_OVERLAP = "  a restart of the development server can overlap the process it replaces; if that process has just exited, restart once more";
+
+function lockHintLines(reason: string, dev: boolean): string[] {
   const holder = LOCK_HOLDER.exec(reason);
   const named = holder === null ? "" : `host "${holder[1] ?? ""}", pid ${holder[2] ?? ""}`;
   if (reason.includes(LOCK_NOT_TAKEN)) {
     return [named === "" ? "  another process is taking or holding the lock; retry by restarting the server once it has settled" : `  another process is taking over the lock: ${named}; retry by restarting the server once it has finished`];
   }
   if (holder !== null && reason.includes(OTHER_NAMESPACE)) {
-    return [`  the lock comes from an earlier run in another PID namespace: ${named} there; if no process uses the database any more, delete the lock file named above or restart the server once the takeover time has passed`];
+    return [`  the lock comes from another PID namespace on this host, for example an earlier run of this container: ${named} there; if that process is still running, stop it; if no process uses the database any more, delete the lock file named above or restart the server once the takeover time has passed`];
   }
-  if (holder !== null) return [`  another process is running on this database: ${named}`, STOP_OR_OPT_OUT];
+  if (holder !== null) return [`  another process is running on this database: ${named}`, STOP_OR_OPT_OUT, ...(dev ? [DEV_OVERLAP] : [])];
   if (reason.includes(LOCK_UNREADABLE)) return ["  another process holds this database; the lock file names no host or PID", STOP_OR_OPT_OUT];
   return ["  another process is taking or holding the lock; see the reason above"];
 }
 
 function hintLines(input: BootBannerInput): string[] {
   if (input.code !== INSTANCE_LOCKED) return ["  fix kestrel.config.ts and restart"];
-  return lockHintLines(input.reason);
+  return lockHintLines(input.reason, input.dev === true);
 }
 
 /** The lines of the boot-failure banner; an instance lock held by another process names that process's host and PID. */
@@ -71,7 +75,7 @@ export function reportBootFailure(err: unknown, options: BootReportOptions): str
   const module = boot?.module ?? "kestrel";
   const reason = boot?.reason ?? message;
   options.logger.error("kestrel failed to boot", { module, reason });
-  for (const line of bootBanner({ module, reason, code: boot?.code })) options.logger.error(line);
+  for (const line of bootBanner({ module, reason, code: boot?.code, dev: options.dev })) options.logger.error(line);
   if (!options.dev) options.exit(1);
   return message;
 }

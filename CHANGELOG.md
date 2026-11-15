@@ -296,9 +296,11 @@
   how to run several processes on one database on purpose (`allowConcurrentProcesses: true`), instead of the
   hint to fix `kestrel.config.ts`. A lock file the module could not read gets a general hint without host and
   PID. A lock that could not be taken because another process is changing it or holds its takeover marker asks
-  to retry (naming the process when it is known) and offers no opt-out. A lock left by an earlier run in another
-  PID namespace, such as a container restarted on the same volume, is not reported as a running process: the hint
-  says to delete the lock file or wait for the takeover time. Every lock hint names the restart, because `nuxt dev`
+  to retry (naming the process when it is known) and offers no opt-out. A lock from another PID namespace on the
+  same host, such as one left by a container restarted on the same volume, cannot be checked for a living process:
+  the hint says to stop that process if it still runs, or to delete the lock file or wait for the takeover time if
+  nothing uses the database. In `nuxt dev` the hint also says that a restart can overlap the process it replaces
+  and to restart once more. Every lock hint names the restart, because `nuxt dev`
   keeps the failed boot until it is restarted.
   A production server still exits with code 1 after the banner; `nuxt dev` keeps running and answers 503.
   An instance whose lock was taken over by another process reports `degraded` on `/api/ready` and 503 on

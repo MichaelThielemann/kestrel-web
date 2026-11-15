@@ -39,7 +39,7 @@ describe("bootBanner", () => {
     expect(lines.join("\n")).not.toContain("fix kestrel.config.ts");
   });
 
-  it("tells a lock from another PID namespace to delete the lock file instead of stopping a process", () => {
+  it("tells a lock from another PID namespace to stop the process if it still runs or to delete the lock file if nothing does", () => {
     const reason = LOCKED_REASON.replace(
       "if that process sends no further heartbeat.",
       "if that process sends no further heartbeat. The lock comes from another PID namespace on this host, such as an earlier run of this container; if no process uses the database any more, delete /srv/app/data/kestrel.db.instance to start at once.",
@@ -47,12 +47,20 @@ describe("bootBanner", () => {
     const text = bootBanner({ module: "persistence/sqlite", reason, code: "instance-locked" })
       .filter((line) => !line.startsWith("  reason:"))
       .join("\n");
-    expect(text).toContain('  the lock comes from an earlier run in another PID namespace: host "web-1", pid 4242 there');
-    expect(text).toContain("delete the lock file named above");
-    expect(text).toContain("restart the server");
-    expect(text).not.toContain("is running");
-    expect(text).not.toContain("stop it");
+    expect(text).toContain('  the lock comes from another PID namespace on this host, for example an earlier run of this container: host "web-1", pid 4242 there');
+    expect(text).toContain("if that process is still running, stop it");
+    expect(text).toContain("if no process uses the database any more, delete the lock file named above");
+    expect(text).toContain("restart the server once the takeover time has passed");
+    expect(text).not.toContain("is running on this database");
     expect(text).not.toContain("allowConcurrentProcesses");
+  });
+
+  it("points a development restart that overlaps the old process to restarting once more", () => {
+    const dev = bootBanner({ module: "persistence/sqlite", reason: LOCKED_REASON, code: "instance-locked", dev: true }).join("\n");
+    expect(dev).toContain("a restart of the development server can overlap the process it replaces; if that process has just exited, restart once more");
+    expect(dev).toContain('another process is running on this database: host "web-1", pid 4242');
+    const production = bootBanner({ module: "persistence/sqlite", reason: LOCKED_REASON, code: "instance-locked", dev: false }).join("\n");
+    expect(production).not.toContain("development server");
   });
 
   it("falls back to a general hint when the lock holder could not be read", () => {
@@ -139,5 +147,14 @@ describe("reportBootFailure", () => {
     Object.defineProperty(foreign, Symbol.for("kestrel.bootError"), { value: true });
     reportBootFailure(foreign, { logger, dev: true, exit: () => {} });
     expect(lines).toContain('  another process is running on this database: host "web-1", pid 4242');
+  });
+
+  it("adds the development restart hint only when the server runs in development", () => {
+    const dev = recordingLogger();
+    reportBootFailure(new KestrelBootError("persistence/sqlite", LOCKED_REASON, "instance-locked"), { logger: dev.logger, dev: true, exit: () => {} });
+    expect(dev.lines.join("\n")).toContain("development server");
+    const prod = recordingLogger();
+    reportBootFailure(new KestrelBootError("persistence/sqlite", LOCKED_REASON, "instance-locked"), { logger: prod.logger, dev: false, exit: () => {} });
+    expect(prod.lines.join("\n")).not.toContain("development server");
   });
 });

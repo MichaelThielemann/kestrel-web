@@ -237,7 +237,13 @@ off as a single JSON line among many, and then ends the process with code 1 outs
 to fix `kestrel.config.ts` and restart. For `instance-locked` it follows the reason instead: a lock held by
 another process names its host and PID and the `allowConcurrentProcesses: true` opt-out, a lock file that
 cannot be read gets a general hint, and a lock that could not be taken because another process is changing it
-or holds its takeover marker asks to retry.
+or holds its takeover marker asks to retry. A lock from another PID namespace on the same host (such as a
+container restarted on the same volume) cannot be checked for a living process: its hint names host and PID,
+says to stop that process if it still runs, or to delete the lock file or restart after the takeover time if
+nothing uses the database, and offers no opt-out. Every lock hint names the restart, because `nuxt dev`
+keeps a failed boot until it is restarted. In `nuxt dev` a restart starts the new server before the old one
+has released the lock, so the new server can find the old one as the holder; the hint then adds that a
+restart can overlap the process it replaces and to restart once more if that process has just exited.
 
 `layers/admin`'s `admin` layout — the layout every
 admin page, including `login.vue`, renders under — calls `GET /api/ready` once on mount
