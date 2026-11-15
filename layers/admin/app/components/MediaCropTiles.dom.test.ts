@@ -80,7 +80,7 @@ describe('MediaCropTiles', () => {
     wrapper.unmount()
   })
 
-  it('marks each tile the focus misses and tells the focus tile how many', async () => {
+  it('marks each tile the focus misses in visible words and tells the focus tile how many', async () => {
     const wrapper = await mountTiles('focus', { draft: { focus: { x: 0, y: 0.1, w: 1, h: 0.2 }, crops: {} }, misses: { '3:2': null, '1:1': 'wide', '16:9': 'tall' } })
 
     expect(tab(wrapper, '1:1').get('[data-test="crop-tile-warning"]').text()).toBe(en['mediaCrop.miss.wide'])
@@ -88,6 +88,9 @@ describe('MediaCropTiles', () => {
     expect(tab(wrapper, '3:2').find('[data-test="crop-tile-warning"]').exists()).toBe(false)
     expect(tab(wrapper, 'focus').get('[data-test="crop-tile-warning"]').text()).toBe(en['mediaCrop.missCount'].replace('{n}', '2').replace('{total}', '3'))
     expect(tab(wrapper, 'focus').find('[data-test="crop-preview-focus"]').exists()).toBe(true)
+    expect(tab(wrapper, '16:9').get('[data-test="crop-tile-warning"] .media-crop-tiles__warn-text').text()).toBe(en['mediaCrop.miss.tall'])
+    expect(wrapper.findAll('[data-test="crop-tile-warning"] [class*="__sr"]')).toEqual([])
+    expect(tab(wrapper, '16:9').text().replace(/\s+/g, ' ')).toBe(`16:9 Page banner with a very long name that has to wrap ${en['mediaCrop.auto']} ${en['mediaCrop.miss.tall']}`)
     wrapper.unmount()
   })
 

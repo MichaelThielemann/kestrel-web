@@ -717,7 +717,7 @@ export const en = {
   'mediaCrop.miss.tall': 'Focus too tall',
   'mediaCrop.miss.wide': 'Focus too wide',
   'mediaCrop.miss.covered': 'Crop hides the focus',
-  'mediaCrop.missCount': 'Misses {n} of {total} ratios',
+  'mediaCrop.missCount': 'Misses {n} of {total}',
   'mediaCrop.advice.tall': 'The focus is taller than the largest {key} crop, so part of it is cut off at the top or bottom. Draw the focus flatter, or accept the cut in this ratio.',
   'mediaCrop.advice.wide': 'The focus is wider than the largest {key} crop, so part of it is cut off at the left or right. Draw the focus narrower, or accept the cut in this ratio.',
   'mediaCrop.advice.covered': 'The crop cuts off part of the focus although it would fit. Move the crop, zoom out or reset it to automatic.',

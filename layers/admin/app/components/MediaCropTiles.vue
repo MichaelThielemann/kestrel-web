@@ -106,7 +106,7 @@ onUnmounted(stopReveal)
             <span class="media-crop-tiles__state" :data-state="tab.state">{{ tab.stateLabel }}</span>
           </span>
           <span v-if="tab.warning" class="media-crop-tiles__warn" data-test="crop-tile-warning">
-            {{ ' ' }}<KestrelUiIcon name="triangle-alert" :size="14" /><span class="media-crop-tiles__sr">{{ tab.warning }}</span>
+            {{ ' ' }}<KestrelUiIcon name="triangle-alert" :size="14" class="media-crop-tiles__warn-icon" /><span class="media-crop-tiles__warn-text">{{ tab.warning }}</span>
           </span>
         </span>
       </template>
@@ -116,7 +116,6 @@ onUnmounted(stopReveal)
 
 <style lang="scss" scoped>
 @use '../assets/scss/crop-stage';
-@use '../assets/scss/mixins';
 
 .media-crop-tiles {
   min-width: 0;
@@ -151,16 +150,16 @@ onUnmounted(stopReveal)
 .media-crop-tiles__state[data-state='manual'],
 .media-crop-tiles__state[data-state='set'] { color: var(--color-primary-on-fill, var(--color-primary)); font-weight: var(--weight-medium); }
 .media-crop-tiles__warn {
-  position: absolute;
-  top: var(--space-1);
-  right: var(--space-1);
-  display: inline-flex;
-  padding: 2px;
-  border-radius: var(--radius-full);
-  background: var(--color-surface);
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-1);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
   color: var(--color-warning-text);
+  overflow-wrap: anywhere;
 }
-.media-crop-tiles__sr { @include mixins.sr-only; }
+.media-crop-tiles__warn-icon { flex: 0 0 auto; margin-top: 1px; }
 
 @media (max-width: crop-stage.$narrow) {
   .media-crop-tiles {
@@ -170,6 +169,17 @@ onUnmounted(stopReveal)
   }
   .media-crop-tiles__tile { grid-template-columns: minmax(0, 1fr); }
   .media-crop-tiles__thumb { width: 100%; height: 4rem; }
+  .media-crop-tiles__warn {
+    position: absolute;
+    top: calc(var(--space-2) + 4rem);
+    left: var(--space-2);
+    max-width: calc(100% - 2 * var(--space-2));
+    padding: 1px var(--space-1);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface);
+    box-shadow: 0 0 0 1px var(--color-border);
+    transform: translateY(-100%);
+  }
   .media-crop-tiles__thumb :deep(.media-crop-preview) { width: min(100%, calc(4rem * var(--media-crop-preview-ratio, 1))); }
 }
 </style>

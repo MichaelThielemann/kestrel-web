@@ -719,7 +719,7 @@ export const de: Record<CatalogKey, string> = {
   'mediaCrop.miss.tall': 'Fokus zu hoch',
   'mediaCrop.miss.wide': 'Fokus zu breit',
   'mediaCrop.miss.covered': 'Ausschnitt verdeckt Fokus',
-  'mediaCrop.missCount': 'Passt in {n} von {total} Seitenverhältnissen nicht',
+  'mediaCrop.missCount': 'Passt in {n} von {total} nicht',
   'mediaCrop.advice.tall': 'Der Fokus ist höher als der größte Ausschnitt in {key}, oben oder unten wird ein Teil abgeschnitten. Zieh den Fokus flacher oder nimm den Anschnitt in diesem Seitenverhältnis bewusst hin.',
   'mediaCrop.advice.wide': 'Der Fokus ist breiter als der größte Ausschnitt in {key}, links oder rechts wird ein Teil abgeschnitten. Zieh den Fokus schmaler oder nimm den Anschnitt in diesem Seitenverhältnis bewusst hin.',
   'mediaCrop.advice.covered': 'Der Ausschnitt schneidet einen Teil des Fokus ab, obwohl er hineinpassen würde. Verschieb den Ausschnitt, zoom heraus oder setz ihn auf automatisch zurück.',
