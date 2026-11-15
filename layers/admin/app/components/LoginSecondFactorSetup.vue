@@ -9,7 +9,7 @@ const qr = computed(() => qrPath(props.setup.uri))
 </script>
 
 <template>
-  <form class="login-factor" @submit.prevent="emit('submit', code.trim())">
+  <form class="login-factor" @submit.prevent="emit('submit', compactCode(code))">
     <h1 class="login__title">{{ t('secondFactor.setupTitle') }}</h1>
     <p class="login-factor__hint">{{ t('secondFactor.setupHint') }}</p>
     <svg class="login-factor__qr" :viewBox="`0 0 ${qr.size} ${qr.size}`" role="img" :aria-label="t('secondFactor.qrLabel')" shape-rendering="crispEdges">

@@ -6,7 +6,7 @@ const code = ref('')
 </script>
 
 <template>
-  <form class="login-factor" @submit.prevent="emit('submit', code.trim())">
+  <form class="login-factor" @submit.prevent="emit('submit', compactCode(code))">
     <h1 class="login__title">{{ t('secondFactor.title') }}</h1>
     <p class="login-factor__hint">{{ t('secondFactor.codeHint') }}</p>
     <KestrelUiAlert v-if="props.error" variant="error">{{ props.error }}</KestrelUiAlert>

@@ -1366,6 +1366,9 @@
 
 ### Fixed
 
+- Admin sign-in: the code fields of the second-factor step and of setting up a factor send the code without blanks
+  and hyphens, so a time-based code typed the way authenticator apps show it (`123 456`) is read as its six digits
+  and not counted as a wrong code.
 - Media library: the "Variants failed" chip on a tile wraps instead of being cut off on a narrow tile, and its tooltip
   and screen-reader text point to System → Images, where the failed variants are retried. Users who cannot open that
   tab or retry variants are told that an administrator can retry them. The i18n keys `media.tile.variantsFailed` and
