@@ -1078,7 +1078,7 @@ export const en = {
   'images.failedDesc': 'Variants that gave up after the configured number of attempts. Retrying puts them back in the queue.',
   'images.failedCount': '{variants} failed variant(s), showing the {shown} most recent.',
   'images.retryFailed': 'Retry failed variants',
-  'images.retryFailedConfirm': 'Put {variants} failed variant(s) back to pending and regenerate them?',
+  'images.retryFailedConfirm': 'Regenerate the failed variants ({variants} in total)? A variant whose original cannot be decoded stays failed and is not retried.',
   'images.retryFailedDone': '{variants} variant(s) across {media} media item(s) queued again.',
   'images.retryFailedError': 'Retrying the failed variants did not work.',
   'images.noFailures': 'No failed variant',

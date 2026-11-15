@@ -1080,7 +1080,7 @@ export const de: Record<CatalogKey, string> = {
   'images.failedDesc': 'Varianten, die nach der eingestellten Anzahl Versuche aufgegeben haben. Ein neuer Versuch stellt sie zurück in die Warteschlange.',
   'images.failedCount': '{variants} fehlgeschlagene Variante(n), die {shown} neuesten werden gezeigt.',
   'images.retryFailed': 'Fehlgeschlagene erneut versuchen',
-  'images.retryFailedConfirm': '{variants} fehlgeschlagene Variante(n) zurück auf ausstehend setzen und neu erzeugen?',
+  'images.retryFailedConfirm': 'Fehlgeschlagene Varianten neu erzeugen ({variants} insgesamt)? Eine Variante, deren Original sich nicht dekodieren lässt, bleibt fehlgeschlagen und wird nicht erneut versucht.',
   'images.retryFailedDone': '{variants} Variante(n) aus {media} Medienobjekt(en) erneut eingereiht.',
   'images.retryFailedError': 'Der erneute Versuch für die fehlgeschlagenen Varianten hat nicht geklappt.',
   'images.noFailures': 'Keine fehlgeschlagene Variante',

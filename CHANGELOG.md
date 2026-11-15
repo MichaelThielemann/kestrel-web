@@ -1391,6 +1391,9 @@
 - `/api/health` and `/api/ready` answer `HEAD` with the status of the `GET` and no body instead of 404.
 - Media library: the "Variants failed" chip shows on the tile of a file whose variants failed also after a reload
   or in another session, from the variant counts of its list entry, not only in the session that uploaded it.
+- System → Images: the confirmation of "Retry failed variants" names the failed variants in total and says that
+  a variant whose original cannot be decoded stays failed, instead of promising to put all of them back to
+  pending.
 - Admin layout: at 320 CSS px no admin page scrolls sideways or cuts off a control (WCAG 1.4.10 Reflow). The
   main area contains its visually hidden labels; the head of the settings and redirects tabs, the section heads
   of the images tab, the collection list bar and the media toolbar wrap; `KestrelUiButtonGroup` no longer shrinks
