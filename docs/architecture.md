@@ -178,6 +178,7 @@ assembly (`buildAdminSchema`) answers
 
 ```
 { locales: { all, primary, prefixPrimary },
+  homeSlug,                            // the slug served at a locale's root; the admin shows it as an empty slug field
   collections: AdminCollection[],      // ordered like the model's types, each with its own capabilities
   features: Feature[],
   capabilities: Record<string, { method, path }> }  // every other pipeline the caller can reach and is not denied
@@ -2109,7 +2110,7 @@ each page save — ends in delivery state `error` with that message; the previou
 Run `nuxt build` and `node .output/server/index.mjs` to publish.
 
 Site URL resolution: the primary locale is never prefixed (`/kontakt`), other locales are
-(`/en/kontakt`); the start page is the document with slug `home` (`/` → home).
+(`/en/kontakt`); the start page is the document whose slug is `homeSlug` (default `home`).
 
 ### What the export holds
 

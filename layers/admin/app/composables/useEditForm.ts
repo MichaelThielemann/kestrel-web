@@ -2,7 +2,7 @@ import type { LayoutNode, SerializedField, Workflow } from '#kestrel-admin/types
 import type { Document } from '#kestrel-admin/types/api'
 import { boundaryCast } from '#kestrel/cast'
 import { isFieldVisible, slugify } from '#kestrel-admin/utils/kestrel'
-import { BLOCKS_FIELD, findCollection } from '#kestrel-admin/utils/collections'
+import { BLOCKS_FIELD, findCollection, homeSlugOf } from '#kestrel-admin/utils/collections'
 import { buildBody, derivedSlugFields, pruneBlockProps, valuesEqual, writeKeys } from '../utils/edit-form'
 import { useEditFormHistory } from './useEditFormHistory'
 import { useEditFormDelivery } from './useEditFormDelivery'
@@ -125,7 +125,7 @@ export function useEditForm(opts: UseEditFormOptions) {
 
   function bodyFor(dirty: string[]): Record<string, unknown> {
     const keys = writeKeys(dirty, fields.value, missingTranslation.value)
-    const body = buildBody(keys, values, slugKeys.value, translatable.value, locale.value)
+    const body = buildBody(keys, values, slugKeys.value, translatable.value, locale.value, homeSlugOf(schema.value))
     if (blocksField.value && keys.includes(blocksField.value)) {
       const fieldsByType = Object.fromEntries(useBlocks().blocks.value.map((d) => [d.name, d.fields]))
       body[blocksField.value] = pruneBlockProps(values[blocksField.value], fieldsByType)
@@ -140,6 +140,7 @@ export function useEditForm(opts: UseEditFormOptions) {
 
   const { submit, setStatus, copyTranslation, revealError, registerRevealError } = useEditFormActions({
     deps,
+    homeSlug: () => homeSlugOf(schema.value),
     collection,
     id,
     mode,

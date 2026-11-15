@@ -413,6 +413,8 @@ export interface AdminSchemaLocales { all: string[]; primary: string; prefixPrim
 
 export interface AdminSchema {
   locales: AdminSchemaLocales
+  /** The slug whose page is the site root; the admin shows it as an empty slug field. Absent means `"home"`. */
+  homeSlug?: string
   collections: AdminCollection[]
   features: Feature[]
   /** Pipelines outside any collection verb that the caller can reach and is not denied, by pipeline name; includes the consumer's own pipelines. */

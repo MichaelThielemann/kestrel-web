@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { definePreset } from "#kestrel/pipelines";
 import { buildAdminSchema, llmsFullOf, maxCascadeOf, robotsOf, schemaFromRun, sitemapOf } from "./admin-schema";
 import type { HttpTriggerEntry } from "./admin-capabilities";
-import { contentModel, contentTypes, defaultLocale, features, locales, prefixPrimary } from "../../../../playground/shared/model";
+import { contentModel, contentTypes, defaultLocale, features, homeSlug, locales, prefixPrimary } from "../../../../playground/shared/model";
 import fieldTypes from "../../../../playground/shared/field-types";
 import { customFieldTypes } from "../../collections-ui";
 import type { ContentType } from "../../collections-ui";
@@ -66,6 +66,7 @@ const sources = {
   collectionsUi,
   features,
   prefixPrimary,
+  homeSlug,
   locales,
   defaultLocale,
   customTypes,
@@ -87,6 +88,11 @@ describe("buildAdminSchema", () => {
 
   it("takes locales and the primary locale from the described model", () => {
     expect(schema.locales).toEqual({ all: [...contentModel.locales], primary: contentModel.defaultLocale, prefixPrimary });
+  });
+
+  it("reports the slug the site serves at its root", () => {
+    expect(schema.homeSlug).toBe("home");
+    expect(buildAdminSchema({ ...sources, homeSlug: "start" }).homeSlug).toBe("start");
   });
 
   it("falls back to the consumer locales when the model describes none", () => {

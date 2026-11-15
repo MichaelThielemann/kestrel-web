@@ -22,6 +22,8 @@ export interface AdminSchemaSources {
   collectionsUi: Record<string, CollectionUi>;
   features: readonly Feature[];
   prefixPrimary: boolean;
+  /** The slug `site-default` serves at a locale's root, `homeSlug` of the preset. */
+  homeSlug: string;
   locales: readonly string[];
   defaultLocale: string;
   customTypes?: CustomFieldTypes;
@@ -43,7 +45,7 @@ function toCollectionModel(type: ContentType, mount: boolean): CollectionModel {
   return { kind: type.kind, fields: type.fields, ...(mount ? { mount: true } : {}) };
 }
 
-export function buildAdminSchema({ model, collectionsUi, features, prefixPrimary, locales, defaultLocale, customTypes, triggers, access, collections: declared, maxCascade, llmsFull, robots, sitemap }: AdminSchemaSources): AdminSchema {
+export function buildAdminSchema({ model, collectionsUi, features, prefixPrimary, homeSlug, locales, defaultLocale, customTypes, triggers, access, collections: declared, maxCascade, llmsFull, robots, sitemap }: AdminSchemaSources): AdminSchema {
   const verbs: Record<string, Partial<Record<CollectionVerb, string>>> = {};
   const routing: Record<string, CollectionRouting> = {};
   for (const name of Object.keys(model.types)) {
@@ -66,6 +68,7 @@ export function buildAdminSchema({ model, collectionsUi, features, prefixPrimary
   return {
     locales: { all: [...(model.locales ?? locales)], primary: model.defaultLocale ?? defaultLocale, prefixPrimary },
     collections,
+    homeSlug,
     features: [...features],
     capabilities: capabilities.global,
     ...(maxCascade === undefined ? {} : { maxCascade }),

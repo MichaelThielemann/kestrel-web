@@ -1,7 +1,7 @@
 import type { ComputedRef, Ref } from 'vue'
 import type { AdminSchema, Document } from '#kestrel-admin/types/api'
 import type { LayoutNode, SerializedField, Workflow } from '#kestrel-admin/types/kestrel'
-import { editorOwnedFields, findCollection } from '#kestrel-admin/utils/collections'
+import { editorOwnedFields, findCollection, homeSlugOf } from '#kestrel-admin/utils/collections'
 import { initialValues, mergeInFlightEdits, slugFromWire, snapshotValues, stripLinkResolution } from '../utils/edit-form'
 import type { ActionDeps } from '../actions/types'
 import type { BlockErrors, RowErrors } from './useEditFormValidation'
@@ -65,7 +65,7 @@ export function useEditFormLoad(opts: UseEditFormLoadOptions) {
     }
     if (blocksField.value) next[blocksField.value] ??= []
 
-    for (const k of slugKeys.value) next[k] = slugFromWire(next[k])
+    for (const k of slugKeys.value) next[k] = slugFromWire(next[k], homeSlugOf(schema.value))
 
     const merged = inFlightSnapshot ? mergeInFlightEdits(next, inFlightSnapshot, snapshotValues(values)) : next
     for (const k of Object.keys(merged)) values[k] = merged[k]

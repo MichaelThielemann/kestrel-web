@@ -49,6 +49,15 @@ describe('translationSourceValues', () => {
     expect(translationSourceValues(fields, { slug: 'about-us' })).toEqual({ slug: 'about-us' })
   })
 
+  it('blanks the configured home slug of the source', () => {
+    const fields: Record<string, SerializedField> = {
+      slug: { type: 'slug', required: true, unique: true, localized: true },
+    }
+
+    expect(translationSourceValues(fields, { slug: 'start' }, 'start')).toEqual({ slug: '' })
+    expect(translationSourceValues(fields, { slug: 'home' }, 'start')).toEqual({ slug: 'home' })
+  })
+
   it('keeps block ids as they are', () => {
     const fields: Record<string, SerializedField> = {
       body: { type: 'json', required: false, unique: false, localized: true },

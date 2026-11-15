@@ -184,16 +184,18 @@ export function blockRowErrors(errors: { field?: string; message: string; path?:
   return out
 }
 
-export const HOME_SLUG = 'home'
+export const DEFAULT_HOME_SLUG = 'home'
 
-export function slugFromWire(value: unknown): string {
+/** A saved slug as the form shows it: the site's home slug is the blank field of the start page. */
+export function slugFromWire(value: unknown, homeSlug: string = DEFAULT_HOME_SLUG): string {
   const s = typeof value === 'string' ? value.trim() : ''
-  return s === HOME_SLUG ? '' : s
+  return s === homeSlug ? '' : s
 }
 
-export function slugToWire(value: unknown): string {
+/** A slug field's value as it is saved: a blank field becomes the site's home slug. */
+export function slugToWire(value: unknown, homeSlug: string = DEFAULT_HOME_SLUG): string {
   const s = typeof value === 'string' ? value.trim() : ''
-  return s || HOME_SLUG
+  return s || homeSlug
 }
 
 export function derivedSlugFields(fields: Record<string, SerializedField>): Record<string, string> {
@@ -268,9 +270,10 @@ export function buildBody(
   slugKeys: string[],
   translatable: boolean,
   locale: string,
+  homeSlug: string = DEFAULT_HOME_SLUG,
 ): Record<string, unknown> {
   const body: Record<string, unknown> = translatable ? { locale } : {}
-  for (const k of keys) body[k] = slugKeys.includes(k) ? slugToWire(values[k]) : values[k]
+  for (const k of keys) body[k] = slugKeys.includes(k) ? slugToWire(values[k], homeSlug) : values[k]
   return body
 }
 

@@ -1232,5 +1232,6 @@
       "path": "/admin/users/:id/revisions/reassign"
     }
   },
-  "mediaTrash": true
+  "mediaTrash": true,
+  "homeSlug": "home"
 }

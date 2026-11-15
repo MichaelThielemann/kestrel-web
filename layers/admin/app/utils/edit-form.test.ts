@@ -49,6 +49,17 @@ describe('slugFromWire', () => {
     expect(slugFromWire(undefined)).toBe('')
   })
 
+  it('shows the configured home slug as a blank field and "home" as an ordinary slug then', () => {
+    expect(slugFromWire('start', 'start')).toBe('')
+    expect(slugFromWire('home', 'start')).toBe('home')
+  })
+
+  it('sends a blank field as the configured home slug', () => {
+    expect(slugToWire('', 'start')).toBe('start')
+    expect(slugToWire('about-us', 'start')).toBe('about-us')
+    expect(buildBody(['slug'], { slug: '' }, ['slug'], true, 'en', 'start')).toEqual({ locale: 'en', slug: 'start' })
+  })
+
   it('round-trips a save + reload of a regular slug', () => {
     const wire = slugToWire('about-us')
     expect(slugFromWire(wire)).toBe('about-us')

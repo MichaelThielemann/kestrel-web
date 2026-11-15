@@ -10,6 +10,7 @@ import type { BlockErrors, RowErrors } from './useEditFormValidation'
 
 export interface UseEditFormActionsOptions {
   deps: ActionDeps
+  homeSlug: () => string
   collection: string
   id: string
   mode: Ref<'multi' | 'single'>
@@ -117,7 +118,7 @@ export function useEditFormActions(opts: UseEditFormActionsOptions) {
   }
 
   async function copyTranslation(source: string, confirmed: boolean): Promise<boolean> {
-    const result = await runAction(copyTranslationAction, { deps, form: port(), fields: fields.value, source, confirmed })
+    const result = await runAction(copyTranslationAction, { deps, form: port(), fields: fields.value, homeSlug: opts.homeSlug(), source, confirmed })
     toastUnexpected(deps, result)
     if (result.ok) onTranslationCopied()
     return result.ok

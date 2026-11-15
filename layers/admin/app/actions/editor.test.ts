@@ -602,7 +602,7 @@ describe('copyTranslation', () => {
     const { deps, calls } = fakeDeps([])
     const { form } = fakeForm()
 
-    const result = await runAction(copyTranslation, { deps, form, fields, source: 'de', confirmed: false })
+    const result = await runAction(copyTranslation, { deps, form, fields, homeSlug: 'home', source: 'de', confirmed: false })
 
     expect(result).toEqual({ ok: false, error: 'dialog.confirm' })
     expect(calls).toEqual([])
@@ -612,7 +612,7 @@ describe('copyTranslation', () => {
     const { deps, calls, toast } = fakeDeps([{ title: 'Über uns', slug: 'about-us', status: 'published' }])
     const { form, state } = fakeForm()
 
-    const result = await runAction(copyTranslation, { deps, form, fields, source: 'de', confirmed: true })
+    const result = await runAction(copyTranslation, { deps, form, fields, homeSlug: 'home', source: 'de', confirmed: true })
 
     expect(result.ok).toBe(true)
     expect(calls).toEqual([{ route: { method: 'GET', path: '/admin/pages/p1' }, body: undefined, query: { locale: 'de' } }])
@@ -626,16 +626,28 @@ describe('copyTranslation', () => {
     const { deps } = fakeDeps([{ title: 'Start', slug: 'home', status: 'published' }])
     const { form, state } = fakeForm()
 
-    await runAction(copyTranslation, { deps, form, fields, source: 'de', confirmed: true })
+    await runAction(copyTranslation, { deps, form, fields, homeSlug: 'home', source: 'de', confirmed: true })
 
     expect(state.values.slug).toBe('')
+  })
+
+  it('converts the configured home slug and keeps "home" as an ordinary slug', async () => {
+    const start = fakeDeps([{ title: 'Start', slug: 'start', status: 'published' }])
+    const first = fakeForm()
+    await runAction(copyTranslation, { deps: start.deps, form: first.form, fields, homeSlug: 'start', source: 'de', confirmed: true })
+    expect(first.state.values.slug).toBe('')
+
+    const home = fakeDeps([{ title: 'Heim', slug: 'home', status: 'published' }])
+    const second = fakeForm()
+    await runAction(copyTranslation, { deps: home.deps, form: second.form, fields, homeSlug: 'start', source: 'de', confirmed: true })
+    expect(second.state.values.slug).toBe('home')
   })
 
   it('toasts and fails when the source cannot be loaded', async () => {
     const { deps, toast } = fakeDeps([apiError(404, 'not found')])
     const { form } = fakeForm()
 
-    const result = await runAction(copyTranslation, { deps, form, fields, source: 'de', confirmed: true })
+    const result = await runAction(copyTranslation, { deps, form, fields, homeSlug: 'home', source: 'de', confirmed: true })
 
     expect(result).toEqual({ ok: false, error: 'not found' })
     expect(toast.error).toHaveBeenCalledWith(referencedFailure(ledFailure('localeBar.copyFailed:{"locale":"DE"}', 'not found'), 404))
@@ -645,7 +657,7 @@ describe('copyTranslation', () => {
     const { deps, toast } = fakeDeps([unansweredFetchError('0a0b0c0d0e0f')])
     const { form } = fakeForm()
 
-    await runAction(copyTranslation, { deps, form, fields, source: 'de', confirmed: true })
+    await runAction(copyTranslation, { deps, form, fields, homeSlug: 'home', source: 'de', confirmed: true })
 
     expect(toast.error).toHaveBeenCalledWith(noAnswerFailure('localeBar.copyFailed:{"locale":"DE"}', '0a0b0c0d0e0f'), 0)
   })

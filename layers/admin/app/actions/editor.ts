@@ -56,6 +56,7 @@ export interface DeleteTranslationInput extends WithDeps {
 export interface CopyTranslationInput extends WithDeps {
   form: EditFormPort
   fields: Record<string, SerializedField>
+  homeSlug: string
   source: string
   confirmed: boolean
 }
@@ -208,7 +209,7 @@ export const copyTranslation = defineAction<CopyTranslationInput, undefined>({
     apiRequest<CopyTranslationInput, undefined, Record<string, unknown>>('api.request', {
       call: (ctx) => ({ route: ctx.input.deps.capabilities.verbRoute(ctx.input.form.collection, 'readAny', { id: ctx.input.form.id }), query: { locale: ctx.input.source } }),
       onSuccess: (ctx, doc) => {
-        const values = translationSourceValues(ctx.input.fields, doc)
+        const values = translationSourceValues(ctx.input.fields, doc, ctx.input.homeSlug)
         for (const [name, value] of Object.entries(values)) ctx.input.form.setField(name, value)
       },
       onError: (ctx, err) => {
