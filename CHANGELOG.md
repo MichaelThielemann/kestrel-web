@@ -305,6 +305,192 @@
   A production server still exits with code 1 after the banner; `nuxt dev` keeps running and answers 503.
   An instance whose lock was taken over by another process reports `degraded` on `/api/ready` and 503 on
   `/api/health`, naming the module.
+- Media upload panel. In the media library and in the media picker, uploads show in a panel below the
+  listing. Its header counts the files ("3 of 5 uploaded, 1 failed, 1 skipped"), shows an overall bar and
+  offers "Retry failed uploads". One button reads "Cancel" while files wait or run and "Close" once the
+  run is over. A finished run reads "Done" with a check when every file sent was uploaded, and "Finished"
+  with a failure icon otherwise; the panel never closes by itself. Each file has a row with a preview or
+  type icon, its size and its state: waiting, uploading with a percentage, processing, done, failed with
+  the reason and a retry button, cancelled, or skipped with the reason. A row shows a thin bar only while
+  its file uploads or is processed. The grid tiles of the open folder show the same states. The upload
+  dialog marks a file over the upload limit as skipped, "Too large (size, limit)", before anything is
+  sent, and its description and its button count only the files that will be sent. Adding files to an idle
+  panel drops the finished files of the last run and keeps the failed ones that can still be retried.
+- `useMediaUpload()` gains `retry(id)`, `retryFailed()`, `cancel()`, `canRetry(item)`, `clearFinished()`
+  and a `summary` of counts and bytes, and its `onSettled` receives `{ stopped }`. `cancel()` drops the
+  waiting files and aborts the running request; a file whose body is already sent finishes processing.
+- Admin UI kit: `Progress` takes `size` (`sm`, `md`) and `tone` (`default`, `success`, `danger`). The new
+  `Spinner` is the busy ring that `Button` shows while loading; it stands still under
+  `prefers-reduced-motion`. The new `ProgressRow` is one row of a progress list: a leading slot, a title,
+  meta text, a thin bar, the status as icon and text, a message line and an actions slot. In a narrow row
+  the title wraps; in a wide row a title cut off with an ellipsis takes keyboard focus to show its full
+  text in a tooltip. The icon set gains `circle-check`, `circle-x` and `rotate-ccw`.
+- `presetModuleConfig()` now puts every value it derives into each module entry's `defaults`
+  (`{ from: "preset", values }`) instead of `config`, and only the consumer's own `overrides` into
+  `config`. `/admin/insights` shows a preset-derived value as "Default · Preset" (blue) instead of
+  "set"; a value the consumer sets directly, or an override of a preset value, still shows "set"
+  (green). Secrets redact the same way in both layers. `overrides` keeps its 2.x replace semantics: a
+  top-level key it names replaces the preset's whole value at that path, including a nested object or
+  record (an override that drops a derived role or lane, say), and setting a key to `undefined` resets
+  it to the module's own schema default instead of the preset's — none of this changes the effective
+  config of an instance with no `overrides`.
+- Automatic redirects and re-renders on every public path change: `site.pathsMoved` feeds
+  `pathsMovedRedirects` (feature `redirects`: `redirects.recordMoves`, `redirects.export`) and
+  `pathsMovedDelivery` (feature `delivery`: `delivery.markMoved`). New pipelines and routes:
+  `previewPagePath` (`POST /admin/pages/path-preview`), `rebuildPaths` (`POST /admin/paths/rebuild`,
+  `system.manage`), the `resumePaths` cron (every minute), `listAutoRedirects`
+  (`GET /admin/redirects/auto`), `removeAutoRedirect` (`DELETE /admin/redirects/auto/*path`) and, with the
+  `migrations` feature, `rebuildPathsAfterMigrations` on `migrations.applied`. The collection verb
+  `previewPath` names a routed collection's preview pipeline.
+- Admin: the slug field previews the page's full public path and names a page that already holds it, a
+  path conflict lands on the field that caused it, the pages list shows each page's path, the redirects
+  screen lists the automatic redirects with a remove action, and System → Paths rebuilds the path index
+  and reports its conflicts.
+- The public language switcher links each locale through the page's `_paths`, without a request per
+  locale; the untranslated-page redirect uses the default locale's `_paths` entry.
+- Subpages ([`docs/paths.md`](docs/paths.md#subpages)): a `pages` collection with `parent: { type: "ref",
+  to: "pages" }` routes its pages through `site-default`'s `parentField`, so a page's path starts with its
+  parent's. New pipeline `pageTree` (`GET /admin/pages/tree`, `pages.manage`) and collection verb `tree`;
+  the parent field is never granted to anonymous callers. The playground, the `create-kestrel` template and
+  the preset's default collections give pages a parent field. The admin shows pages as an ARIA tree next to
+  the flat list, and the parent picker leaves out the page and its subpages.
+- Every mounted collection gets its own publish-all, `publishAll<Name>` on `POST /admin/publish-all/<c>`
+  (collection verb `publishAll`). The admin's "Re-render all pages and collections" runs `publishAllPages` and
+  each of them and reports the combined count.
+- Admin: the pages tree is a treegrid with each page's live state, path and the list's edit and delete
+  actions; the mount picker leaves out the home page and names the `maxCascade` limit (reported in the
+  admin schema as `maxCascade`); removing an automatic redirect asks first; a path conflict names the
+  holder's title only to callers who can read its collection. The editor preview renders a mounted
+  collection's document with its own component.
+- `kestrel upgrade`: `model/parent-offer` asks whether pages should get a parent field, and
+  `model/page-like-mount` offers `mount: true` (with the anonymous `<collection>.read`) for a 2.x collection
+  carrying `slug`, `status` and `body`, which is no longer exported otherwise; `preset/site-model-options` passes
+  `homeSlug` and `prefixPrimary` from `shared/model` to `presetModuleConfig()` and `homeSlug` to `definePreset()`.
+- Mounted collections ([`docs/paths.md`](docs/paths.md#mounted-collections)): `mount: true` on a multi
+  collection gives it public paths under the page `settings.mounts` assigns to it, or at the top level. The
+  preset composes `resolve<Name>` (`GET /routes/<c>/*path`), `preview<Name>Path`, per-collection delivery
+  (`publish<Name>`, `unpublish<Name>`, `<name>PublishStatus`), referrers and the reference and link index,
+  adds the reserved `settings.mounts` field with `site.indexMounts` in `setSettings`, and runs
+  `site.route:pages` in `resolvePage`. The admin's settings assign each mounted collection to a page; the
+  public layer follows the route hint and renders the document with the page template or a global
+  component named after the collection. The playground mounts a `blog`.
+- `kestrel upgrade`: `preset/override-path-steps` (fix) and `consumer/slug-url` (info). The path event
+  pipelines count as safe to deliver twice for `offer/event-queue`.
+
+- `docs/deployment.md` and `docs/consuming-kestrel-web.md` §8/§9 document how redirects are served on a
+  static host: the `examples/nginx-njs` edge handler as the default, a generated nginx `map` and HTML
+  stubs as fallbacks without njs, and their tradeoffs.
+- System › Static delivery shows how many pages wait to be re-rendered, how many failed and how many were
+  rendered before changes were tracked, with the progress of "Re-render all pages" and "Retry failed
+  re-renders". The page editor shows when a page waits for or failed its re-render; the dashboard warns about
+  failed re-renders. New pipelines: `pageDependents`, `settingsDependents`, `mediaDependents`, one
+  `<name>Dependents` per collection, `republishOutput` and `refreshLlms` (with `eventsQueue`),
+  `resumeStalePages` (every five minutes, a recovery net), `deliveryBuildCheck` (run at start),
+  `retryStalePages` (`POST /admin/publish-stale/pages/retry`) and `pagesStaleStatus`
+  (`GET /admin/publish-status/pages`).
+- `#kestrel/pipelines` exports `lanesFor(features)`, the queue lanes `presetModuleConfig()` sets.
+- `StaleStatus` and `RetryStaleReport` (`layers/core/app/types/api.ts`); `PublishStatusEntry` carries
+  `stale`, `staleSince`, `staleFailed`, `staleError` and `dependencies`.
+
+- `#kestrel/pipelines` exports `relayPipelinesFor(features)` and `RELAY_CANDIDATE_PIPELINES`, the helper
+  and the candidate list `presetModuleConfig()` uses to derive the `eventsQueue` module's relay selection;
+  call it yourself for a hand-written module list.
+- `EventDeliveryStatus` (`layers/core/app/types/api.ts`), the type of `GET /admin/events/delivery`'s
+  response.
+- `InsightsBootWarning`, and `InsightsManifest.warnings` (see the new base pipeline above).
+- `definePreset()` gains an error for a queue relay selection that names a pipeline from the preset's own
+  vocabulary (a static, feature or generic-collection pipeline name) that this configuration does not
+  currently compose — because its feature is off, its collection is absent, or `exclude`/`overrides`
+  dropped it: `preset: module "@michaelthielemann/kestrel-events-queue" is configured to relay pipeline
+  "<name>", which the preset does not compose – …`. A name outside that vocabulary passes through; the
+  `eventsQueue` module's own boot check still rejects an unknown pipeline once every pipeline is resolved.
+- The media library grid shows a progress tile for a file while it uploads (queued, uploading, and while
+  the response is outstanding), then the file itself with a small chip noting that its image variants are
+  still being generated or that some could not be generated; the chip clears on its own, without a reload,
+  once every variant has finished. Table view shows the same upload states (queued, uploading, processing,
+  failed) in the existing upload row list, without the chip. Grid thumbnails now load the smallest ready
+  image variant instead of always fetching the original. Reads `images.attach`'s `variantCounts` field; the
+  admin never checks which delivery mode generated the variants. New reusable `KestrelUiProgress` component
+  replaces the upload queue's own progress bar.
+- `layers/admin/app/utils/capabilities.ts`: `ApiRoute`, `RouteParams`, `PipelineName`, `fillPath`,
+  `routeFrom`, `apiUrl`, `MissingCapabilityError`, `CapabilityResolver`, `capabilityResolver`.
+- `composables/useCapabilities.ts`, `useAdminApi.ts`, `useActionDeps.ts`, `useMediaCapabilities.ts`.
+- `layers/core/fixed-routes.ts`: `ADMIN_BOOTSTRAP_ROUTES`, `LAYER_ROUTES`.
+- `layers/core/pipelines`: `collectionVerbs`, `MULTI_VERBS`, `SINGLE_VERBS` and the `CollectionVerb`,
+  `MultiVerb`, `SingleVerb` types, re-exported from `#kestrel/pipelines`.
+- `layers/core/app/types/kestrel.ts`: `HttpMethod`, `Capability`, `CollectionCapabilities`,
+  `AdminCollection`.
+- `useAuth().refreshAccess()`: re-checks the session and refetches the schema; called after the
+  signed-in user edits their own roles.
+- The `kestrel/admin-api-routes` ESLint rule (see Breaking above).
+- `isStaticDelivery()` (auto-imported from `layers/core/app/utils/static-delivery.ts`): whether the page in
+  this browser tab was exported for a static host. For event handlers and `onMounted` only; markup must not
+  depend on it.
+- `sitePath()` and `toPublicMedia()`/`PublicMediaItem` (`layers/public/app/utils/`), and the
+  `@michaelthielemann/kestrel-renderer-nuxt/static-marker` subpath with the attribute names
+  (`DELIVERY_ATTRIBUTE`, `STATIC_DELIVERY`, `BUILD_ATTRIBUTE`), which UI code may import.
+- The layer's upgrade rules for `kestrel upgrade` (`@michaelthielemann/kestrel-cli`): `check`, `fix` and
+  `data` list and, where mechanical, fix the layer-specific breaks of the 6.0.0 major (module lists, preset
+  overrides, the underscore-field rename, the event-queue offer) next to kestrel's own rules. See
+  `docs/consuming-kestrel-web.md` §11.
+- `kestrel check`, `kestrel explain <pipeline>` and `kestrel manifest` load a project built on the layer
+  through the layer's own loader: its aliases, `nuxt prepare` in a scratch copy, the bundled schemas. `check`
+  also reports what the layer's server refuses to start with beyond kestrel's own boot checks: a preset
+  composition problem, `site-default` disagreeing with `shared/model`, the admin's login, logout and me
+  routes bound elsewhere, a public read that does not filter on the declared workflow, media routes this
+  server cannot answer, and the fix for a field grant no pipeline cuts. See
+  `docs/consuming-kestrel-web.md` §7.
+- `scripts/host-binary` (`kestrel upgrade`) rewrites `kestrel-web-upgrade` in `package.json` scripts to
+  `kestrel upgrade`, also behind `pnpm`, `pnpm exec`, `yarn`, `cross-env` or `VAR=` prefixes, and drops a
+  runner that could fetch an unrelated registry package of that name (`npx`/`pnpx` and `npm exec`/`npm x`
+  without `--no`, `pnpm dlx`, `yarn dlx`, `bunx`, with any flags; a `-p`/`--package` form is reported
+  without an edit), reporting that as an error; it warns with file and line about the name in
+  Dockerfiles, shell scripts, CI files and the project's other command files, and reports a fetching runner
+  there and in Markdown as an error.
+- A scaffolded project's README names the `kestrel` command through the chosen package manager
+  (`pnpm exec kestrel`, `npm exec --no -- kestrel`, `yarn kestrel`, `bun run kestrel`), never through `npx`.
+- `#kestrel/pipelines` exports `checkPreset(options)`, which composes a preset like `definePreset()` but
+  collects every problem instead of throwing at the first.
+- `kestrel upgrade` also checks the consumer's own `app/` code against the static-export contract
+  (§8): the old, unscoped `"site:settings"` key, a fetch key built from `useId()` or watching `useSiteLocale()`,
+  an `isr`/`cache`/`swr` route rule on a page route, and a read of a media item's private fields
+  (`folder`, `createdAt`, `updatedAt`, `variantCounts`, a variant's `state`); and notes that the first start
+  of the upgraded build re-renders every published page in the background.
+- `kestrel upgrade` carries a project to background re-rendering: it gives `kestrel-delivery-static` the
+  `dependencies` of the event delivery (on a hand-written entry, or through `presetModuleConfig({ overrides
+  })`) and a hand-written `kestrel-events-queue` entry its `lanes`, forward-ports a 2.x `setSettings` or
+  `set<Name>` override with its group, emit and relay, gives a switch to the queue its lanes, queue
+  renders and each forward-ported emit inside the write's group, lists in the docs what stays manual, and notes a `setSettings` override exporting `llms.txt`, own triggers on media events (which can
+  carry `id: null` and `ids`), code reading `_llms` or the old Publish all counts, and server caches near
+  `/api` reads.
+- `GET /admin/events/status`'s response gains `lanes`: per configured named lane, `pending`, `running` and
+  `oldestPendingAt`, alongside the existing per-state totals.
+- `anonymousFieldGrants(model, features, anonymous, changes?)` and `fieldCutSteps(collections)` in
+  `#kestrel/pipelines`: the grants `presetModuleConfig()` derives and the `authz.fields` step that ends each
+  public read. The type `PresetPipelineChanges<C>` holds the `exclude` and `overrides` both preset
+  functions take.
+  `toPublicPage()` and `toPublicSiteResponse()` in the public layer.
+- `kestrel upgrade`:
+  - `pipelines/public-override-field-step` notes an override of a public read without its field step, worded
+    by whether anonymous callers reach it, or with a field step for another resource.
+  - `preset/field-grants` prints the grants `presetModuleConfig()` would derive for a hand-written
+    `authz-roles` entry, or, once, the grants a project's visitors keep. Before boot it reports a derived
+    grant no pipeline cuts and an own public pipeline whose resource no grant names.
+  - Override edits also find overrides in a pipeline changes object a `definePreset()` call spreads.
+  - `site/private-fields` also reports a page's timestamps read off `useSitePage()`, a `site:` data key or a
+    value typed `PageDocument`.
+  - `site/media-url-from-id` reports a hand-built media URL (`` `/api/media/${id}/file` ``, `"/api/media/" +
+    id`), in a script or a `<template>` binding alike: production has no `/api` route, so the file 404s once
+    the page is exported. Read the item's own public `path` instead.
+  - `site/media-paths` runs the publicPath/publicCopy/reservedPaths part of the layer's own boot-time media
+    check against the configured module list, so a config `check` accepted but the real boot refuses (a
+    `publicPath: "/api/media"` suggestion, say) is now caught before it boots.
+  - The plugin now implements `idempotentPipelines`/`mediaWiring`: `offer/event-queue` skips its
+    `idempotent:<pipeline>` question for every event pipeline this preset's own modules already guarantee
+    safe to run twice (the dependents pipelines, `publishPage`/`unpublishPage`, `generateImageVariants`,
+    `republishOutput`, `refreshLlms`, `auditAuth`, `anonymizeAuditUser`), and `modules/delivery-media` gets
+    this layer's exact wiring (`publicPath: "/media"`, `publicCopy: { prefix: "site/" }`,
+    `reservedPaths: ["/api", "/admin", "/media"]`) instead of a generic guess.
 
 ### Upgrading
 
@@ -976,194 +1162,6 @@
   `user.auditAnonymizeRetried`, which the new pipeline `auditUserRepairs` records with `audit.recordActor`: the
   audit log shows who ran the repair without naming the deleted user. The responses carry `_events` now.
 
-### Added
-
-- Media upload panel. In the media library and in the media picker, uploads show in a panel below the
-  listing. Its header counts the files ("3 of 5 uploaded, 1 failed, 1 skipped"), shows an overall bar and
-  offers "Retry failed uploads". One button reads "Cancel" while files wait or run and "Close" once the
-  run is over. A finished run reads "Done" with a check when every file sent was uploaded, and "Finished"
-  with a failure icon otherwise; the panel never closes by itself. Each file has a row with a preview or
-  type icon, its size and its state: waiting, uploading with a percentage, processing, done, failed with
-  the reason and a retry button, cancelled, or skipped with the reason. A row shows a thin bar only while
-  its file uploads or is processed. The grid tiles of the open folder show the same states. The upload
-  dialog marks a file over the upload limit as skipped, "Too large (size, limit)", before anything is
-  sent, and its description and its button count only the files that will be sent. Adding files to an idle
-  panel drops the finished files of the last run and keeps the failed ones that can still be retried.
-- `useMediaUpload()` gains `retry(id)`, `retryFailed()`, `cancel()`, `canRetry(item)`, `clearFinished()`
-  and a `summary` of counts and bytes, and its `onSettled` receives `{ stopped }`. `cancel()` drops the
-  waiting files and aborts the running request; a file whose body is already sent finishes processing.
-- Admin UI kit: `Progress` takes `size` (`sm`, `md`) and `tone` (`default`, `success`, `danger`). The new
-  `Spinner` is the busy ring that `Button` shows while loading; it stands still under
-  `prefers-reduced-motion`. The new `ProgressRow` is one row of a progress list: a leading slot, a title,
-  meta text, a thin bar, the status as icon and text, a message line and an actions slot. In a narrow row
-  the title wraps; in a wide row a title cut off with an ellipsis takes keyboard focus to show its full
-  text in a tooltip. The icon set gains `circle-check`, `circle-x` and `rotate-ccw`.
-- `presetModuleConfig()` now puts every value it derives into each module entry's `defaults`
-  (`{ from: "preset", values }`) instead of `config`, and only the consumer's own `overrides` into
-  `config`. `/admin/insights` shows a preset-derived value as "Default · Preset" (blue) instead of
-  "set"; a value the consumer sets directly, or an override of a preset value, still shows "set"
-  (green). Secrets redact the same way in both layers. `overrides` keeps its 2.x replace semantics: a
-  top-level key it names replaces the preset's whole value at that path, including a nested object or
-  record (an override that drops a derived role or lane, say), and setting a key to `undefined` resets
-  it to the module's own schema default instead of the preset's — none of this changes the effective
-  config of an instance with no `overrides`.
-- Automatic redirects and re-renders on every public path change: `site.pathsMoved` feeds
-  `pathsMovedRedirects` (feature `redirects`: `redirects.recordMoves`, `redirects.export`) and
-  `pathsMovedDelivery` (feature `delivery`: `delivery.markMoved`). New pipelines and routes:
-  `previewPagePath` (`POST /admin/pages/path-preview`), `rebuildPaths` (`POST /admin/paths/rebuild`,
-  `system.manage`), the `resumePaths` cron (every minute), `listAutoRedirects`
-  (`GET /admin/redirects/auto`), `removeAutoRedirect` (`DELETE /admin/redirects/auto/*path`) and, with the
-  `migrations` feature, `rebuildPathsAfterMigrations` on `migrations.applied`. The collection verb
-  `previewPath` names a routed collection's preview pipeline.
-- Admin: the slug field previews the page's full public path and names a page that already holds it, a
-  path conflict lands on the field that caused it, the pages list shows each page's path, the redirects
-  screen lists the automatic redirects with a remove action, and System → Paths rebuilds the path index
-  and reports its conflicts.
-- The public language switcher links each locale through the page's `_paths`, without a request per
-  locale; the untranslated-page redirect uses the default locale's `_paths` entry.
-- Subpages ([`docs/paths.md`](docs/paths.md#subpages)): a `pages` collection with `parent: { type: "ref",
-  to: "pages" }` routes its pages through `site-default`'s `parentField`, so a page's path starts with its
-  parent's. New pipeline `pageTree` (`GET /admin/pages/tree`, `pages.manage`) and collection verb `tree`;
-  the parent field is never granted to anonymous callers. The playground, the `create-kestrel` template and
-  the preset's default collections give pages a parent field. The admin shows pages as an ARIA tree next to
-  the flat list, and the parent picker leaves out the page and its subpages.
-- Every mounted collection gets its own publish-all, `publishAll<Name>` on `POST /admin/publish-all/<c>`
-  (collection verb `publishAll`). The admin's "Re-render all pages and collections" runs `publishAllPages` and
-  each of them and reports the combined count.
-- Admin: the pages tree is a treegrid with each page's live state, path and the list's edit and delete
-  actions; the mount picker leaves out the home page and names the `maxCascade` limit (reported in the
-  admin schema as `maxCascade`); removing an automatic redirect asks first; a path conflict names the
-  holder's title only to callers who can read its collection. The editor preview renders a mounted
-  collection's document with its own component.
-- `kestrel upgrade`: `model/parent-offer` asks whether pages should get a parent field, and
-  `model/page-like-mount` offers `mount: true` (with the anonymous `<collection>.read`) for a 2.x collection
-  carrying `slug`, `status` and `body`, which is no longer exported otherwise; `preset/site-model-options` passes
-  `homeSlug` and `prefixPrimary` from `shared/model` to `presetModuleConfig()` and `homeSlug` to `definePreset()`.
-- Mounted collections ([`docs/paths.md`](docs/paths.md#mounted-collections)): `mount: true` on a multi
-  collection gives it public paths under the page `settings.mounts` assigns to it, or at the top level. The
-  preset composes `resolve<Name>` (`GET /routes/<c>/*path`), `preview<Name>Path`, per-collection delivery
-  (`publish<Name>`, `unpublish<Name>`, `<name>PublishStatus`), referrers and the reference and link index,
-  adds the reserved `settings.mounts` field with `site.indexMounts` in `setSettings`, and runs
-  `site.route:pages` in `resolvePage`. The admin's settings assign each mounted collection to a page; the
-  public layer follows the route hint and renders the document with the page template or a global
-  component named after the collection. The playground mounts a `blog`.
-- `kestrel upgrade`: `preset/override-path-steps` (fix) and `consumer/slug-url` (info). The path event
-  pipelines count as safe to deliver twice for `offer/event-queue`.
-
-- `docs/deployment.md` and `docs/consuming-kestrel-web.md` §8/§9 document how redirects are served on a
-  static host: the `examples/nginx-njs` edge handler as the default, a generated nginx `map` and HTML
-  stubs as fallbacks without njs, and their tradeoffs.
-- System › Static delivery shows how many pages wait to be re-rendered, how many failed and how many were
-  rendered before changes were tracked, with the progress of "Re-render all pages" and "Retry failed
-  re-renders". The page editor shows when a page waits for or failed its re-render; the dashboard warns about
-  failed re-renders. New pipelines: `pageDependents`, `settingsDependents`, `mediaDependents`, one
-  `<name>Dependents` per collection, `republishOutput` and `refreshLlms` (with `eventsQueue`),
-  `resumeStalePages` (every five minutes, a recovery net), `deliveryBuildCheck` (run at start),
-  `retryStalePages` (`POST /admin/publish-stale/pages/retry`) and `pagesStaleStatus`
-  (`GET /admin/publish-status/pages`).
-- `#kestrel/pipelines` exports `lanesFor(features)`, the queue lanes `presetModuleConfig()` sets.
-- `StaleStatus` and `RetryStaleReport` (`layers/core/app/types/api.ts`); `PublishStatusEntry` carries
-  `stale`, `staleSince`, `staleFailed`, `staleError` and `dependencies`.
-
-- `#kestrel/pipelines` exports `relayPipelinesFor(features)` and `RELAY_CANDIDATE_PIPELINES`, the helper
-  and the candidate list `presetModuleConfig()` uses to derive the `eventsQueue` module's relay selection;
-  call it yourself for a hand-written module list.
-- `EventDeliveryStatus` (`layers/core/app/types/api.ts`), the type of `GET /admin/events/delivery`'s
-  response.
-- `InsightsBootWarning`, and `InsightsManifest.warnings` (see the new base pipeline above).
-- `definePreset()` gains an error for a queue relay selection that names a pipeline from the preset's own
-  vocabulary (a static, feature or generic-collection pipeline name) that this configuration does not
-  currently compose — because its feature is off, its collection is absent, or `exclude`/`overrides`
-  dropped it: `preset: module "@michaelthielemann/kestrel-events-queue" is configured to relay pipeline
-  "<name>", which the preset does not compose – …`. A name outside that vocabulary passes through; the
-  `eventsQueue` module's own boot check still rejects an unknown pipeline once every pipeline is resolved.
-- The media library grid shows a progress tile for a file while it uploads (queued, uploading, and while
-  the response is outstanding), then the file itself with a small chip noting that its image variants are
-  still being generated or that some could not be generated; the chip clears on its own, without a reload,
-  once every variant has finished. Table view shows the same upload states (queued, uploading, processing,
-  failed) in the existing upload row list, without the chip. Grid thumbnails now load the smallest ready
-  image variant instead of always fetching the original. Reads `images.attach`'s `variantCounts` field; the
-  admin never checks which delivery mode generated the variants. New reusable `KestrelUiProgress` component
-  replaces the upload queue's own progress bar.
-- `layers/admin/app/utils/capabilities.ts`: `ApiRoute`, `RouteParams`, `PipelineName`, `fillPath`,
-  `routeFrom`, `apiUrl`, `MissingCapabilityError`, `CapabilityResolver`, `capabilityResolver`.
-- `composables/useCapabilities.ts`, `useAdminApi.ts`, `useActionDeps.ts`, `useMediaCapabilities.ts`.
-- `layers/core/fixed-routes.ts`: `ADMIN_BOOTSTRAP_ROUTES`, `LAYER_ROUTES`.
-- `layers/core/pipelines`: `collectionVerbs`, `MULTI_VERBS`, `SINGLE_VERBS` and the `CollectionVerb`,
-  `MultiVerb`, `SingleVerb` types, re-exported from `#kestrel/pipelines`.
-- `layers/core/app/types/kestrel.ts`: `HttpMethod`, `Capability`, `CollectionCapabilities`,
-  `AdminCollection`.
-- `useAuth().refreshAccess()`: re-checks the session and refetches the schema; called after the
-  signed-in user edits their own roles.
-- The `kestrel/admin-api-routes` ESLint rule (see Breaking above).
-- `isStaticDelivery()` (auto-imported from `layers/core/app/utils/static-delivery.ts`): whether the page in
-  this browser tab was exported for a static host. For event handlers and `onMounted` only; markup must not
-  depend on it.
-- `sitePath()` and `toPublicMedia()`/`PublicMediaItem` (`layers/public/app/utils/`), and the
-  `@michaelthielemann/kestrel-renderer-nuxt/static-marker` subpath with the attribute names
-  (`DELIVERY_ATTRIBUTE`, `STATIC_DELIVERY`, `BUILD_ATTRIBUTE`), which UI code may import.
-- The layer's upgrade rules for `kestrel upgrade` (`@michaelthielemann/kestrel-cli`): `check`, `fix` and
-  `data` list and, where mechanical, fix the layer-specific breaks of the 6.0.0 major (module lists, preset
-  overrides, the underscore-field rename, the event-queue offer) next to kestrel's own rules. See
-  `docs/consuming-kestrel-web.md` §11.
-- `kestrel check`, `kestrel explain <pipeline>` and `kestrel manifest` load a project built on the layer
-  through the layer's own loader: its aliases, `nuxt prepare` in a scratch copy, the bundled schemas. `check`
-  also reports what the layer's server refuses to start with beyond kestrel's own boot checks: a preset
-  composition problem, `site-default` disagreeing with `shared/model`, the admin's login, logout and me
-  routes bound elsewhere, a public read that does not filter on the declared workflow, media routes this
-  server cannot answer, and the fix for a field grant no pipeline cuts. See
-  `docs/consuming-kestrel-web.md` §7.
-- `scripts/host-binary` (`kestrel upgrade`) rewrites `kestrel-web-upgrade` in `package.json` scripts to
-  `kestrel upgrade`, also behind `pnpm`, `pnpm exec`, `yarn`, `cross-env` or `VAR=` prefixes, and drops a
-  runner that could fetch an unrelated registry package of that name (`npx`/`pnpx` and `npm exec`/`npm x`
-  without `--no`, `pnpm dlx`, `yarn dlx`, `bunx`, with any flags; a `-p`/`--package` form is reported
-  without an edit), reporting that as an error; it warns with file and line about the name in
-  Dockerfiles, shell scripts, CI files and the project's other command files, and reports a fetching runner
-  there and in Markdown as an error.
-- A scaffolded project's README names the `kestrel` command through the chosen package manager
-  (`pnpm exec kestrel`, `npm exec --no -- kestrel`, `yarn kestrel`, `bun run kestrel`), never through `npx`.
-- `#kestrel/pipelines` exports `checkPreset(options)`, which composes a preset like `definePreset()` but
-  collects every problem instead of throwing at the first.
-- `kestrel upgrade` also checks the consumer's own `app/` code against the static-export contract
-  (§8): the old, unscoped `"site:settings"` key, a fetch key built from `useId()` or watching `useSiteLocale()`,
-  an `isr`/`cache`/`swr` route rule on a page route, and a read of a media item's private fields
-  (`folder`, `createdAt`, `updatedAt`, `variantCounts`, a variant's `state`); and notes that the first start
-  of the upgraded build re-renders every published page in the background.
-- `kestrel upgrade` carries a project to background re-rendering: it gives `kestrel-delivery-static` the
-  `dependencies` of the event delivery (on a hand-written entry, or through `presetModuleConfig({ overrides
-  })`) and a hand-written `kestrel-events-queue` entry its `lanes`, forward-ports a 2.x `setSettings` or
-  `set<Name>` override with its group, emit and relay, gives a switch to the queue its lanes, queue
-  renders and each forward-ported emit inside the write's group, lists in the docs what stays manual, and notes a `setSettings` override exporting `llms.txt`, own triggers on media events (which can
-  carry `id: null` and `ids`), code reading `_llms` or the old Publish all counts, and server caches near
-  `/api` reads.
-- `GET /admin/events/status`'s response gains `lanes`: per configured named lane, `pending`, `running` and
-  `oldestPendingAt`, alongside the existing per-state totals.
-- `anonymousFieldGrants(model, features, anonymous, changes?)` and `fieldCutSteps(collections)` in
-  `#kestrel/pipelines`: the grants `presetModuleConfig()` derives and the `authz.fields` step that ends each
-  public read. The type `PresetPipelineChanges<C>` holds the `exclude` and `overrides` both preset
-  functions take.
-  `toPublicPage()` and `toPublicSiteResponse()` in the public layer.
-- `kestrel upgrade`:
-  - `pipelines/public-override-field-step` notes an override of a public read without its field step, worded
-    by whether anonymous callers reach it, or with a field step for another resource.
-  - `preset/field-grants` prints the grants `presetModuleConfig()` would derive for a hand-written
-    `authz-roles` entry, or, once, the grants a project's visitors keep. Before boot it reports a derived
-    grant no pipeline cuts and an own public pipeline whose resource no grant names.
-  - Override edits also find overrides in a pipeline changes object a `definePreset()` call spreads.
-  - `site/private-fields` also reports a page's timestamps read off `useSitePage()`, a `site:` data key or a
-    value typed `PageDocument`.
-  - `site/media-url-from-id` reports a hand-built media URL (`` `/api/media/${id}/file` ``, `"/api/media/" +
-    id`), in a script or a `<template>` binding alike: production has no `/api` route, so the file 404s once
-    the page is exported. Read the item's own public `path` instead.
-  - `site/media-paths` runs the publicPath/publicCopy/reservedPaths part of the layer's own boot-time media
-    check against the configured module list, so a config `check` accepted but the real boot refuses (a
-    `publicPath: "/api/media"` suggestion, say) is now caught before it boots.
-  - The plugin now implements `idempotentPipelines`/`mediaWiring`: `offer/event-queue` skips its
-    `idempotent:<pipeline>` question for every event pipeline this preset's own modules already guarantee
-    safe to run twice (the dependents pipelines, `publishPage`/`unpublishPage`, `generateImageVariants`,
-    `republishOutput`, `refreshLlms`, `auditAuth`, `anonymizeAuditUser`), and `modules/delivery-media` gets
-    this layer's exact wiring (`publicPath: "/media"`, `publicCopy: { prefix: "site/" }`,
-    `reservedPaths: ["/api", "/admin", "/media"]`) instead of a generic guess.
 
 ### Changed
 
