@@ -16,7 +16,7 @@ useUnsavedGuard(() => editorRef.value?.dirty ?? false, () => t('editor.discardCo
 </script>
 
 <template>
-  <section class="singleton">
+  <section class="singleton" :class="{ 'singleton--stacked': collection === 'redirects' }">
     <div class="singleton__head">
       <h1 class="singleton__title">{{ title }}</h1>
       <div class="singleton__actions">
@@ -65,6 +65,8 @@ useUnsavedGuard(() => editorRef.value?.dirty ?? false, () => t('editor.discardCo
 
   > .editor {
     min-height: 16rem;
+  }
+  &--stacked > .editor {
     flex-shrink: 0;
   }
 
