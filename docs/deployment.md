@@ -958,6 +958,7 @@ the layer resolves it (§7, "Client address"):
 | `auth.failed` | a sign-in or a password or second-factor check failed, with the attempted username, cut to 256 characters with control characters replaced by spaces, where the failing step reports one (a sign-in does, a password confirmation does not) |
 | `access.denied`, `access.rateLimited` | a 403 or 429 kestrel answered, with pipeline, step and code; a request the layer's IP allowlist refused never reaches kestrel and leaves no entry |
 | `user.created`, `user.updated`, `user.deactivated`, `user.activated`, `user.passwordSet`, `user.passwordChanged`, `user.secondFactorReset` (with `mfa`) | an account changed, with the acting identity and the account it concerns |
+| `user.auditAnonymizeRetried`, `user.revisionsReassignRetried` (with `revisions`) | a caller with `users.manage` re-ran the audit anonymisation or the revision author reassignment of a deleted user (§4 of the consuming guide), with the acting identity but neither the deleted user's id nor any other param |
 
 `access.denied` and `access.rateLimited` are written at most once a minute per address, identity, pipeline and
 step, and the next entry says in `params.suppressed` how many it left out, so a scan does not fill the table.
