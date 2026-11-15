@@ -482,7 +482,11 @@ describe('KestrelUiCropFrame', () => {
       await nextTick()
     }
 
-    const labels = (wrapper: Awaited<ReturnType<typeof mountFrame>>['wrapper']) => Object.fromEntries(wrapper.findAll('.ui-crop-guides__line').map((line) => [line.attributes('data-axis'), line.find('.ui-crop-guides__label').text()]))
+    function labels(wrapper: Awaited<ReturnType<typeof mountFrame>>['wrapper']): Record<string, string> {
+      const out: Record<string, string> = {}
+      for (const line of wrapper.findAll('.ui-crop-guides__line')) out[line.attributes('data-axis') ?? ''] = line.get('.ui-crop-guides__label').text()
+      return out
+    }
     const announced = (wrapper: Awaited<ReturnType<typeof mountFrame>>['wrapper']) => wrapper.get('.ui-crop-frame__snapped').text().replaceAll('\u200B', '')
 
     it('labels the guide it snapped to: image centre, focus centre, focus on a third', async () => {

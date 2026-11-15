@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 import type { MediaFramingRatio } from '#kestrel-admin/types/api'
 import { en } from '#kestrel-admin/i18n/en'
-import { CROP_SNAP_KEY } from '../composables/useCropSnapPreference'
+import { tileId } from '../utils/media-crop'
 import MediaCropTiles from './MediaCropTiles.vue'
 
 const RATIOS: MediaFramingRatio[] = [
@@ -12,59 +12,66 @@ const RATIOS: MediaFramingRatio[] = [
   { key: '16:9', sizes: ['banner'], manual: false, fits: true, crop: null },
 ]
 
-async function mountTiles(selected = '3:2') {
+async function mountTiles(selected = '3:2', over: Record<string, unknown> = {}) {
   const wrapper = await mountSuspended(MediaCropTiles, {
     attachTo: document.body,
     props: {
+      'idPrefix': 'crop',
       'src': '/media/one/original.jpg',
-      'alt': 'A harbour at dusk',
       'draft': { focus: null, crops: {} },
       'ratios': RATIOS,
       'usages': { '3:2': ['Hero', 'Teaser-Karte'], '16:9': ['Page banner with a very long name that has to wrap'] },
-      'sizes': [],
       'width': 1200,
       'height': 800,
       'selected': selected,
       'onUpdate:selected': (key: string) => wrapper.setProps({ selected: key }),
+      ...over,
     },
   })
   return wrapper
 }
 
-const snapSwitch = (wrapper: Awaited<ReturnType<typeof mountTiles>>) => wrapper.get('[data-test="crop-snap"]')
+const tab = (wrapper: Awaited<ReturnType<typeof mountTiles>>, key: string) => wrapper.get(`#crop-tab-${tileId(key)}`)
 
 describe('MediaCropTiles', () => {
-  afterEach(() => {
-    vi.restoreAllMocks()
-    try {
-      localStorage.removeItem(CROP_SNAP_KEY)
-    } catch {
-      return
-    }
-  })
+  afterEach(() => { vi.restoreAllMocks() })
 
-  it('names under each ratio what its sizes are used for', async () => {
+  it('labels the focus tile and every ratio tile with the uses of its sizes', async () => {
     const wrapper = await mountTiles()
 
-    const tile = wrapper.get('[data-key="3:2"]')
-    expect(tile.get('.media-crop-tiles__key').text()).toBe('3:2')
-    expect(tile.get('[data-test="crop-uses"]').text()).toBe('Hero, Teaser-Karte')
-    expect(wrapper.get('.media-crop-tiles__title').text()).toBe('Ratio 3:2 (Hero, Teaser-Karte)')
+    const tabs = wrapper.findAll('[role="tab"]')
+    expect(tabs.map((t) => t.attributes('id'))).toEqual(['crop-tab-focus', 'crop-tab-ratio-3x2', 'crop-tab-ratio-1x1', 'crop-tab-ratio-16x9'])
+    expect(tabs[0]?.text().replace(/\s+/g, ' ')).toBe(`${en['mediaCrop.focusTile']} ${en['mediaCrop.focusScope']} ${en['mediaCrop.focusShort.none']}`)
+    expect(tab(wrapper, '3:2').get('.media-crop-tiles__key').text()).toBe('3:2')
+    expect(tab(wrapper, '3:2').get('[data-test="crop-uses"]').text()).toBe('Hero, Teaser-Karte')
+    expect(tab(wrapper, '3:2').text().replace(/\s+/g, ' ')).toBe(`3:2 Hero, Teaser-Karte ${en['mediaCrop.auto']}`)
+    expect(wrapper.get('[role="tablist"]').attributes('aria-orientation')).toBe('vertical')
+    expect(wrapper.findAll('.media-crop-preview').every((preview) => preview.attributes('aria-hidden') === 'true')).toBe(true)
     wrapper.unmount()
   })
 
   it('falls back to the size names for a ratio without known uses', async () => {
     const wrapper = await mountTiles('1:1')
 
-    expect(wrapper.get('[data-key="1:1"] [data-test="crop-uses"]').text()).toBe('thumb')
-    expect(wrapper.get('.media-crop-tiles__title').text()).toBe('Ratio 1:1 (thumb)')
+    expect(tab(wrapper, '1:1').get('[data-test="crop-uses"]').text()).toBe('thumb')
     wrapper.unmount()
   })
 
   it('shows a long use in full', async () => {
     const wrapper = await mountTiles()
 
-    expect(wrapper.get('[data-key="16:9"] [data-test="crop-uses"]').text()).toBe('Page banner with a very long name that has to wrap')
+    expect(tab(wrapper, '16:9').get('[data-test="crop-uses"]').text()).toBe('Page banner with a very long name that has to wrap')
+    wrapper.unmount()
+  })
+
+  it('marks each tile the focus misses and tells the focus tile how many', async () => {
+    const wrapper = await mountTiles('focus', { draft: { focus: { x: 0, y: 0.1, w: 1, h: 0.2 }, crops: {} }, misses: { '3:2': null, '1:1': 'wide', '16:9': 'tall' } })
+
+    expect(tab(wrapper, '1:1').get('[data-test="crop-tile-warning"]').text()).toBe(en['mediaCrop.miss.wide'])
+    expect(tab(wrapper, '16:9').get('[data-test="crop-tile-warning"]').text()).toBe(en['mediaCrop.miss.tall'])
+    expect(tab(wrapper, '3:2').find('[data-test="crop-tile-warning"]').exists()).toBe(false)
+    expect(tab(wrapper, 'focus').get('[data-test="crop-tile-warning"]').text()).toBe(en['mediaCrop.missCount'].replace('{n}', '2').replace('{total}', '3'))
+    expect(tab(wrapper, 'focus').find('[data-test="crop-preview-focus"]').exists()).toBe(true)
     wrapper.unmount()
   })
 
@@ -73,84 +80,17 @@ describe('MediaCropTiles', () => {
     Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
       configurable: true,
       value(this: HTMLElement) {
-        scrolled.push(this.dataset.key ?? '')
+        scrolled.push(this.id)
       },
     })
     const wrapper = await mountTiles('16:9')
-    expect(scrolled).toEqual(['16:9'])
+    expect(scrolled).toEqual(['crop-tab-ratio-16x9'])
 
-    await wrapper.get('[data-key="1:1"]').trigger('click')
+    await tab(wrapper, '1:1').trigger('click')
     await nextTick()
-    expect(scrolled).toEqual(['16:9', '1:1'])
-    expect(wrapper.get('[data-key="1:1"]').attributes('aria-pressed')).toBe('true')
+    expect(scrolled).toEqual(['crop-tab-ratio-16x9', 'crop-tab-ratio-1x1'])
+    expect(tab(wrapper, '1:1').attributes('aria-selected')).toBe('true')
     wrapper.unmount()
     Reflect.deleteProperty(HTMLElement.prototype, 'scrollIntoView')
-  })
-
-  it('offers snapping as a switch in the head of the crop, on by default', async () => {
-    const wrapper = await mountTiles()
-
-    const toggle = snapSwitch(wrapper)
-    expect(toggle.attributes('role')).toBe('switch')
-    expect(toggle.attributes('aria-checked')).toBe('true')
-    expect(toggle.text()).toBe(en['mediaCrop.snap'])
-    expect(wrapper.get('[data-test="crop-detail"] .media-crop-tiles__head').find('[data-test="crop-snap"]').exists()).toBe(true)
-    wrapper.unmount()
-  })
-
-  it('keeps the state of the crop with its title and sets the switch apart behind the reset button', async () => {
-    const wrapper = await mountTiles()
-
-    const heading = wrapper.get('[data-test="crop-detail"] .media-crop-tiles__heading')
-    expect(heading.find('h3').exists()).toBe(true)
-    expect(heading.find('[data-test="crop-state"]').exists()).toBe(true)
-    expect(heading.find('[data-test="crop-snap"]').exists()).toBe(false)
-    const controls = wrapper.findAll('[data-test="crop-detail"] .media-crop-tiles__head > :not(.media-crop-tiles__heading)').map((node) => node.attributes('data-test'))
-    expect(controls).toEqual(['crop-reset', 'crop-snap'])
-    wrapper.unmount()
-  })
-
-  it('remembers the switch in the browser across a remount', async () => {
-    const first = await mountTiles()
-    await snapSwitch(first).trigger('click')
-    expect(snapSwitch(first).attributes('aria-checked')).toBe('false')
-    expect(localStorage.getItem(CROP_SNAP_KEY)).toBe('off')
-    first.unmount()
-
-    const second = await mountTiles()
-    expect(snapSwitch(second).attributes('aria-checked')).toBe('false')
-    await snapSwitch(second).trigger('click')
-    expect(localStorage.getItem(CROP_SNAP_KEY)).toBe('on')
-    second.unmount()
-  })
-
-  it('keeps the switch across a remount when the browser refuses storage', async () => {
-    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
-      throw new DOMException('denied', 'SecurityError')
-    })
-    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
-      throw new DOMException('denied', 'SecurityError')
-    })
-    const first = await mountTiles()
-    await snapSwitch(first).trigger('click')
-    first.unmount()
-
-    const second = await mountTiles()
-    expect(snapSwitch(second).attributes('aria-checked')).toBe('false')
-    await snapSwitch(second).trigger('click')
-    expect(snapSwitch(second).attributes('aria-checked')).toBe('true')
-    second.unmount()
-  })
-
-  it('hands the switch to the crop frame', async () => {
-    const wrapper = await mountTiles()
-    const help = () => wrapper.get('.ui-crop-frame__help').text()
-
-    expect(snapSwitch(wrapper).attributes('aria-checked')).toBe('true')
-    expect(help()).toContain('Alt')
-    await snapSwitch(wrapper).trigger('click')
-    expect(help()).not.toContain('Alt')
-    await snapSwitch(wrapper).trigger('click')
-    wrapper.unmount()
   })
 })

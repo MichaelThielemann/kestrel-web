@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { computed, nextTick } from 'vue'
 import type { AdminSchema, MediaItem } from '#kestrel-admin/types/api'
 import { en } from '#kestrel-admin/i18n/en'
+import { CROP_HELP_KEY, useCropHelpPreference } from '../composables/useCropHelpPreference'
 import MediaCropEditor from './MediaCropEditor.vue'
 
 interface Call { path: string, method: string, body?: unknown }
@@ -56,10 +57,10 @@ function unmeasured(): MediaItem {
   return { ...photo({ width: null, height: null }), variants: [large] }
 }
 
-async function mountEditor(item: MediaItem) {
+async function mountEditor(item: MediaItem, sizes?: readonly string[]) {
   const wrapper = await mountSuspended(MediaCropEditor, {
     attachTo: document.body,
-    props: { open: true, item, 'onUpdate:open': (open: boolean) => { void wrapper.setProps({ open }) } },
+    props: { open: true, item, ...(sizes ? { sizes } : {}), 'onUpdate:open': (open: boolean) => { void wrapper.setProps({ open }) } },
   })
   await nextTick()
   return wrapper
@@ -70,6 +71,10 @@ const qa = (selector: string) => Array.from(document.body.querySelectorAll<HTMLE
 const tabs = () => qa('[role="tab"]')
 const key = (el: Element | null, name: string, init: KeyboardEventInit = {}) => el?.dispatchEvent(new KeyboardEvent('keydown', { key: name, bubbles: true, cancelable: true, ...init }))
 const button = (label: string) => qa('button').find((b) => b.textContent?.trim() === label)
+const tile = (key: string) => tabs().find((tab) => tab.querySelector(`[data-key="${key}"]`) !== null)
+const tilePreviews = () => qa('[role="tab"] .media-crop-preview')
+const helpButton = () => q<HTMLButtonElement>('.ui-info-toggle__button')
+const description = () => document.getElementById(q('[role="dialog"]')?.getAttribute('aria-describedby') ?? '')?.textContent
 
 describe('MediaCropEditor', () => {
   beforeEach(() => {
@@ -77,24 +82,29 @@ describe('MediaCropEditor', () => {
     api.calls = []
     api.answer = () => Promise.resolve([])
   })
-  afterEach(() => { vi.restoreAllMocks() })
+  afterEach(() => {
+    vi.restoreAllMocks()
+    useCropHelpPreference().value = false
+    localStorage.removeItem(CROP_HELP_KEY)
+  })
 
-  it('opens with a focus tab and a fine crop tab, focusing the selected tab', async () => {
+  it('opens with the focus tile chosen and one tile per ratio, focusing the chosen tile', async () => {
     const wrapper = await mountEditor(photo())
 
     expect(q('[role="dialog"]')?.textContent).toContain('harbour.jpg')
-    expect(tabs().map((t) => t.textContent?.trim())).toEqual([en['mediaCrop.tab.focus'], en['mediaCrop.tab.crop']])
+    expect(tabs().map((t) => t.querySelector('.media-crop-tiles__key')?.textContent)).toEqual([en['mediaCrop.focusTile'], '3:2', '1:1'])
+    expect(tabs()[0]?.getAttribute('aria-selected')).toBe('true')
+    expect(q('[role="tablist"]')?.getAttribute('aria-orientation')).toBe('vertical')
     await vi.waitFor(() => expect(document.activeElement).toBe(tabs()[0]))
     expect(q('[role="tabpanel"]')?.getAttribute('aria-labelledby')).toBe(tabs()[0]?.id)
+    expect(q('[role="tabpanel"] .ui-rect-select__surface')).not.toBeNull()
     wrapper.unmount()
   })
 
   it('shows a live preview per cover ratio that follows the focus', async () => {
     const wrapper = await mountEditor(photo())
 
-    const previews = qa('[data-test="crop-preview"]')
-    expect(previews.map((p) => p.querySelector('.media-crop-focus__key')?.textContent)).toEqual(['3:2', '1:1'])
-    const square = () => previews[1]?.querySelector('img')?.getAttribute('style') ?? ''
+    const square = () => tile('1:1')?.querySelector('.media-crop-preview img')?.getAttribute('style') ?? ''
     expect(square()).toContain('left: -25%')
 
     key(q('.ui-rect-select__surface'), 'Enter')
@@ -171,7 +181,7 @@ describe('MediaCropEditor', () => {
     await nextTick()
     expect(q('[data-test="crop-state"]')?.textContent).toBe(en['mediaCrop.auto'])
     await vi.waitFor(() => expect(document.activeElement).toBe(q('.ui-crop-frame__frame')))
-    await vi.waitFor(() => expect(q('[role="status"]')?.textContent).toBe(en['mediaCrop.resetDone'].replace('{key}', '1:1')))
+    await vi.waitFor(() => expect(q('.ui-live-status')?.textContent).toBe(en['mediaCrop.resetDone'].replace('{key}', '1:1')))
     wrapper.unmount()
   })
 
@@ -259,16 +269,16 @@ describe('MediaCropEditor', () => {
     }
   })
 
-  it('warns when the focus does not fit into a ratio', async () => {
+  it('marks the tiles the focus misses and advises in the status block of the side column', async () => {
     const wrapper = await mountEditor(photo({ focus: { x: 0, y: 0, w: 1, h: 1 } }))
 
-    expect(qa('[data-test="crop-preview"]')[1]?.textContent).toContain(en['mediaCrop.focusMisses'])
-    expect(qa('[data-test="crop-preview"]')[0]?.textContent).not.toContain(en['mediaCrop.focusMisses'])
-    tabs()[1]?.click()
+    expect(tile('1:1')?.querySelector('[data-test="crop-tile-warning"]')?.textContent?.trim()).toBe(en['mediaCrop.miss.wide'])
+    expect(tile('3:2')?.querySelector('[data-test="crop-tile-warning"]')).toBeNull()
+    expect(q('[data-test="crop-advice"]')?.textContent?.trim()).toBe(en['mediaCrop.missIn.wide'].replace('{keys}', '1:1'))
+    tile('1:1')?.click()
     await nextTick()
-    q('[data-key="1:1"]')?.click()
-    await nextTick()
-    expect(q('[data-test="crop-misses"]')?.textContent).toContain(en['mediaCrop.focusMissesDetail'])
+    expect(q('[data-test="crop-advice"]')?.getAttribute('data-miss')).toBe('wide')
+    expect(q('[data-test="crop-advice"]')?.textContent?.trim()).toBe(en['mediaCrop.advice.wide'].replace('{key}', '1:1'))
     wrapper.unmount()
   })
 
@@ -279,7 +289,7 @@ describe('MediaCropEditor', () => {
     await nextTick()
     q('[data-key="3:2"]')?.click()
     await nextTick()
-    expect(q('[data-test="crop-smaller"]')?.textContent).toBe(en['mediaCrop.smaller'].replace('{sizes}', 'teaser'))
+    expect(q('[data-test="crop-smaller"]')?.textContent?.trim()).toBe(en['mediaCrop.smallerManual'].replace('{sizes}', 'teaser'))
     q('[data-key="1:1"]')?.click()
     await nextTick()
     expect(q('[data-test="crop-smaller"]')).toBeNull()
@@ -292,8 +302,16 @@ describe('MediaCropEditor', () => {
       : photo())
     const wrapper = await mountEditor(photo())
 
-    await vi.waitFor(() => expect(q('[data-test="crop-usage"]')?.textContent).toBe(en['mediaCrop.usage'].replace('{n}', '2')))
+    await vi.waitFor(() => expect(description()).toBe(en['mediaCrop.usage'].replace('{n}', '2')))
     expect(api.calls[0]).toEqual({ path: '/admin/references/to/media/m1', method: 'GET', body: undefined })
+    wrapper.unmount()
+  })
+
+  it('says that the crop applies to every use of the image while it counts them', async () => {
+    api.answer = (call) => (call.method === 'GET' ? new Promise(() => {}) : Promise.resolve(photo()))
+    const wrapper = await mountEditor(photo())
+
+    expect(description()).toBe(en['mediaCrop.usageUnknown'])
     wrapper.unmount()
   })
 
@@ -362,7 +380,7 @@ describe('MediaCropEditor', () => {
     button(en['common.save'])?.blur()
     fail(Object.assign(new Error('focus.x must be a number from 0 to 1'), { status: 400, name: 'ApiError', data: { error: 'focus.x must be a number from 0 to 1', code: 'VALIDATION' } }))
 
-    await vi.waitFor(() => expect(q('.media-crop__error')?.textContent).toContain('focus.x must be a number from 0 to 1'))
+    await vi.waitFor(() => expect(q('[data-test="crop-status"] [data-test="crop-error"]')?.textContent).toContain('focus.x must be a number from 0 to 1'))
     expect(wrapper.emitted('saved')).toBeUndefined()
     await vi.waitFor(() => expect(document.activeElement).toBe(button(en['common.save'])))
     expect(q('[role="dialog"]')).not.toBeNull()
@@ -382,7 +400,7 @@ describe('MediaCropEditor', () => {
     const wrapper = await mountEditor(tiff)
 
     expect(q('.ui-rect-select__image')?.getAttribute('src')).toBe('/media/m1/variants/large.webp?v=2')
-    expect(qa('[data-test="crop-preview"] img').map((img) => img.getAttribute('src'))).toEqual(['/media/m1/variants/large.webp?v=2', '/media/m1/variants/large.webp?v=2'])
+    expect(qa('[role="tab"] .media-crop-preview img').map((img) => img.getAttribute('src'))).toEqual(Array(3).fill('/media/m1/variants/large.webp?v=2'))
     wrapper.unmount()
   })
 
@@ -398,7 +416,7 @@ describe('MediaCropEditor', () => {
 
       await vi.waitFor(() => expect(q<HTMLInputElement>('input[data-field="x"]')?.value).toBe('50'))
       expect(q('.ui-rect-select__image')?.getAttribute('src')).toBe('/media/m1/variants/large.webp')
-      expect(qa('[data-test="crop-preview"] img').map((img) => img.getAttribute('src'))).toEqual(['/media/m1/variants/large.webp', '/media/m1/variants/large.webp'])
+      expect(qa('[role="tab"] .media-crop-preview img').map((img) => img.getAttribute('src'))).toEqual(Array(3).fill('/media/m1/variants/large.webp'))
       wrapper.unmount()
     } finally {
       delete schema.capabilities.getMedia
@@ -439,7 +457,7 @@ describe('MediaCropEditor', () => {
     await vi.waitFor(() => expect(probes.map((probe) => probe.url)).toContain('/media/m1/harbour.jpg'))
     for (const probe of probes) Object.assign(probe, { naturalWidth: 1200, naturalHeight: 800 }).onload?.()
     await vi.waitFor(() => expect(q('.ui-rect-select__surface')?.getAttribute('aria-disabled')).not.toBe('true'))
-    expect(qa('.media-crop-preview')).toHaveLength(2)
+    expect(tilePreviews()).toHaveLength(3)
 
     key(q('.ui-rect-select__surface'), 'Enter')
     await nextTick()
@@ -567,10 +585,116 @@ describe('MediaCropEditor', () => {
 
       tabs()[1]?.click()
       await nextTick()
-      await vi.waitFor(() => expect(q('[data-test="crop-smaller"]')?.textContent).toBe(en['mediaCrop.smaller'].replace('{sizes}', 'banner')))
+      await vi.waitFor(() => expect(q('[data-test="crop-smaller"]')?.textContent?.trim()).toBe(en['mediaCrop.smallerManual'].replace('{sizes}', 'banner')))
       wrapper.unmount()
     } finally {
       delete schema.capabilities.listImageSizes
     }
+  })
+
+  describe('help', () => {
+    it('keeps the help collapsed behind an info button that names what it controls', async () => {
+      const wrapper = await mountEditor(photo())
+
+      expect(helpButton()?.getAttribute('aria-label')).toBe(en['rectSelect.helpToggle'])
+      expect(helpButton()?.getAttribute('aria-expanded')).toBe('false')
+      const panel = document.getElementById(helpButton()?.getAttribute('aria-controls') ?? '')
+      expect(panel?.hidden).toBe(true)
+      expect(panel?.textContent).toContain(en['mediaCrop.focusIntro'])
+      expect(panel?.textContent).toContain(en['rectSelect.help'])
+      wrapper.unmount()
+    })
+
+    it('opens the help and remembers it across a remount and across the modes', async () => {
+      const first = await mountEditor(photo())
+      helpButton()?.click()
+      await nextTick()
+      expect(helpButton()?.getAttribute('aria-expanded')).toBe('true')
+      expect(localStorage.getItem(CROP_HELP_KEY)).toBe('on')
+      tile('1:1')?.click()
+      await nextTick()
+      expect(helpButton()?.getAttribute('aria-label')).toBe(en['cropFrame.helpToggle'])
+      expect(helpButton()?.getAttribute('aria-expanded')).toBe('true')
+      first.unmount()
+
+      const second = await mountEditor(photo())
+      expect(helpButton()?.getAttribute('aria-expanded')).toBe('true')
+      expect(document.getElementById(helpButton()?.getAttribute('aria-controls') ?? '')?.hidden).toBe(false)
+      second.unmount()
+    })
+
+    it('keeps the help open across a remount when the browser refuses storage', async () => {
+      vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+        throw new DOMException('denied', 'SecurityError')
+      })
+      const first = await mountEditor(photo())
+      helpButton()?.click()
+      await nextTick()
+      first.unmount()
+
+      const second = await mountEditor(photo())
+      expect(helpButton()?.getAttribute('aria-expanded')).toBe('true')
+      second.unmount()
+    })
+
+    it('describes the keys of the canvas to assistive technology while the help is closed', async () => {
+      const wrapper = await mountEditor(photo())
+
+      const keys = () => document.getElementById(q('.ui-rect-select__surface')?.getAttribute('aria-describedby') ?? '')?.textContent
+      expect(keys()).toBe(en['rectSelect.keys'])
+      tile('1:1')?.click()
+      await nextTick()
+      expect(document.getElementById(q('.ui-crop-frame__frame')?.getAttribute('aria-describedby') ?? '')?.textContent).toBe(en['cropFrame.keys'])
+      wrapper.unmount()
+    })
+  })
+
+  describe('keyboard', () => {
+    const focusables = () => qa('[role="dialog"] button, [role="dialog"] input, [role="dialog"] [tabindex]')
+      .filter((el) => el.getAttribute('tabindex') !== '-1' && !el.hasAttribute('disabled') && el.closest('[hidden]') === null)
+
+    function describeFocusable(el: HTMLElement): string {
+      if (el.getAttribute('role') === 'tab') return 'tile'
+      if (el.classList.contains('ui-rect-select__surface') || el.classList.contains('ui-crop-frame__frame')) return 'stage'
+      if (el.classList.contains('ui-info-toggle__button')) return 'info'
+      if (el.dataset.field) return `field:${el.dataset.field}`
+      if (el instanceof HTMLInputElement && el.type === 'range') return 'slider'
+      return el.dataset.test ?? el.dataset.action ?? el.textContent?.trim() ?? el.tagName
+    }
+
+    it('walks from the tiles to the canvas to the side column in document order', async () => {
+      const wrapper = await mountEditor(photo({ focus: { x: 0.25, y: 0.25, w: 0.5, h: 0.5 } }))
+
+      expect(focusables().map(describeFocusable)).toEqual([
+        'dialog-close', 'tile', 'stage', 'info', 'field:x', 'field:y', 'field:w', 'field:h', 'crop-clear-focus', en['common.cancel'],
+      ])
+      tile('1:1')?.click()
+      await nextTick()
+      key(q('.ui-crop-frame__frame'), 'ArrowLeft', { shiftKey: true })
+      await nextTick()
+      expect(focusables().map(describeFocusable)).toEqual([
+        'dialog-close', 'tile', 'stage', 'info', 'slider', 'zoom-in', 'field:x', 'field:y', 'field:zoom', 'crop-snap', 'crop-reset', en['common.cancel'], en['common.save'],
+      ])
+      wrapper.unmount()
+    })
+
+    it('selects a tile with the arrow keys and shows its mode', async () => {
+      const wrapper = await mountEditor(photo())
+      await vi.waitFor(() => expect(document.activeElement).toBe(tabs()[0]))
+
+      key(document.activeElement, 'ArrowDown')
+      await nextTick()
+      await nextTick()
+      expect(document.activeElement).toBe(tile('3:2'))
+      expect(tile('3:2')?.getAttribute('aria-selected')).toBe('true')
+      expect(q('[role="tabpanel"]')?.getAttribute('aria-labelledby')).toBe(tile('3:2')?.id)
+      expect(q('[role="tabpanel"] [data-test="crop-ratio"]')).not.toBeNull()
+      expect(q('.ui-rect-select__surface')).toBeNull()
+      key(document.activeElement, 'Home')
+      await nextTick()
+      await nextTick()
+      expect(q('[role="tabpanel"] .ui-rect-select__surface')).not.toBeNull()
+      wrapper.unmount()
+    })
   })
 })

@@ -34,3 +34,11 @@ export function missesByKind(misses: Readonly<Record<string, FocusMiss | null>>)
   for (const [key, miss] of Object.entries(misses)) if (miss) groups[miss].push(key)
   return groups
 }
+
+/** A line of the status block of the crop editor: a warning or a hint, with the attributes that mark it for tests and styles. */
+export interface StatusLine {
+  id: string
+  text: string
+  tone: 'warning' | 'info'
+  attrs?: Record<string, string>
+}

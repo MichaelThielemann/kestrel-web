@@ -2,42 +2,44 @@
 import { computed, nextTick, onUnmounted, ref, toRef, useId, watch } from 'vue'
 import type { MediaItem, MediaRect } from '#kestrel-admin/types/api'
 import { useMediaCropEditor } from '../composables/useMediaCropEditor'
-import { cropSource } from '../utils/media-crop'
+import { FOCUS_TILE, cropSource, initialTile, tileId } from '../utils/media-crop'
 
-const props = defineProps<{ open: boolean, item: MediaItem | null }>()
+const props = withDefaults(defineProps<{ open: boolean, item: MediaItem | null, sizes?: readonly string[] }>(), { sizes: () => [] })
 const emit = defineEmits<{ 'update:open': [boolean], saved: [MediaItem] }>()
 const { t } = useT()
 const idPrefix = `media-crop-${useId()}`
 const root = ref<HTMLElement | null>(null)
 const editor = useMediaCropEditor(toRef(props, 'item'), toRef(props, 'open'))
-const { current, draft, dirty, busy, error, usage, width, height, measureFailed, ratios, usages, sizes } = editor
+const { current, draft, dirty, busy, error, usage, width, height, measureFailed, ratios, usages, sizes: cropSizes, misses } = editor
 
-const tab = ref('focus')
-const selected = ref('')
+const selected = ref(FOCUS_TILE)
 const status = ref('')
 const pending = ref(false)
 const hasCover = computed(() => ratios.value.length > 0)
 const measured = computed(() => width.value > 0 && height.value > 0)
 const measuringStatus = ref<HTMLElement | null>(null)
-const tabs = computed(() => [{ id: 'focus', label: t('mediaCrop.tab.focus') }, { id: 'crop', label: t('mediaCrop.tab.crop') }])
+const ratio = computed(() => ratios.value.find((candidate) => candidate.key === selected.value) ?? null)
 const src = computed(() => (current.value ? cropSource(current.value) : null) ?? (props.item ? cropSource(props.item) : null) ?? '')
 const locked = computed(() => busy.value || src.value === '')
 const alt = computed(() => props.item?.alt ?? props.item?.filename ?? '')
-const panelAttrs = (id: string) => (hasCover.value ? { 'role': 'tabpanel', 'id': `${idPrefix}-panel-${id}`, 'aria-labelledby': `${idPrefix}-tab-${id}` } : {})
+const description = computed(() => (usage.value === null ? t('mediaCrop.usageUnknown') : t('mediaCrop.usage', { n: usage.value })))
+const panelAttrs = computed(() => {
+  if (!hasCover.value) return {}
+  const id = tileId(ratio.value ? selected.value : FOCUS_TILE)
+  return { 'role': 'tabpanel', 'id': `${idPrefix}-panel-${id}`, 'aria-labelledby': `${idPrefix}-tab-${id}` }
+})
 
 watch(() => props.open, (isOpen) => {
   if (!isOpen) return
-  tab.value = 'focus'
   pending.value = false
-  selected.value = ratios.value[0]?.key ?? ''
+  selected.value = initialTile(ratios.value, props.sizes)
   status.value = ''
 }, { immediate: true })
 
-function onSelect(key: string): void {
-  selected.value = key
-  const manual = Object.hasOwn(draft.value.crops, key)
-  status.value = t('mediaCrop.selected', { key, state: manual ? t('mediaCrop.manual') : t('mediaCrop.auto') })
-}
+const stopRatios = watch(ratios, (list) => {
+  if (selected.value !== FOCUS_TILE && !list.some((candidate) => candidate.key === selected.value)) selected.value = FOCUS_TILE
+})
+onUnmounted(stopRatios)
 
 function onCrop(key: string, rect: MediaRect | null): void {
   editor.setCrop(key, rect)
@@ -102,39 +104,47 @@ async function onSave(): Promise<void> {
     nested
     size="screen"
     :title="t('mediaCrop.title', { name: item?.filename ?? '' })"
+    :description="description"
     @update:open="onOpenChange"
     @open-auto-focus="onOpenAutoFocus"
     @escape-key-down="onEscape"
   >
-    <div v-if="item" ref="root" class="media-crop">
-      <div class="media-crop__bar">
-        <KestrelUiTabList v-if="hasCover" v-model="tab" :tabs="tabs" :id-prefix="idPrefix" :label="t('mediaCrop.tabs')" />
-        <p v-if="usage !== null" class="media-crop__usage" data-test="crop-usage">{{ t('mediaCrop.usage', { n: usage }) }}</p>
-      </div>
-      <div v-if="!measured" v-bind="panelAttrs(hasCover ? tab : 'focus')" class="media-crop__panel">
-        <p ref="measuringStatus" class="media-crop__measuring" role="status" tabindex="-1">{{ measureFailed ? t('mediaCrop.measureFailed') : t('mediaCrop.measuring') }}</p>
-      </div>
-      <div v-else-if="tab === 'focus' || !hasCover" v-bind="panelAttrs('focus')" class="media-crop__panel">
-        <KestrelMediaCropFocus :src="src" :alt="alt" :draft="draft" :ratios="ratios" :width="width" :height="height" :disabled="locked" @focus="editor.setFocus" />
-      </div>
-      <div v-else v-bind="panelAttrs('crop')" class="media-crop__panel">
-        <KestrelMediaCropTiles
-          :selected="selected"
+    <div v-if="item" ref="root" class="media-crop" :class="{ 'media-crop--single': !hasCover }">
+      <KestrelMediaCropTiles
+        v-if="hasCover"
+        v-model:selected="selected"
+        :id-prefix="idPrefix"
+        :src="src"
+        :draft="draft"
+        :ratios="ratios"
+        :usages="usages"
+        :misses="misses"
+        :width="width"
+        :height="height"
+      />
+      <div v-bind="panelAttrs" class="media-crop__panel">
+        <div v-if="!measured" class="media-crop__measuring">
+          <p ref="measuringStatus" role="status" tabindex="-1">{{ measureFailed ? t('mediaCrop.measureFailed') : t('mediaCrop.measuring') }}</p>
+        </div>
+        <KestrelMediaCropRatio
+          v-else-if="ratio"
+          :key="ratio.key"
           :src="src"
           :alt="alt"
           :draft="draft"
-          :ratios="ratios"
-          :usages="usages"
-          :sizes="sizes"
+          :ratio="ratio"
+          :uses="usages[ratio.key]"
+          :sizes="cropSizes"
+          :miss="misses[ratio.key] ?? null"
           :width="width"
           :height="height"
+          :error="error"
           :disabled="locked"
-          @update:selected="onSelect"
           @crop="onCrop"
           @pending="pending = $event"
         />
+        <KestrelMediaCropFocus v-else :src="src" :alt="alt" :draft="draft" :misses="misses" :cover="hasCover" :error="error" :disabled="locked" @focus="editor.setFocus" />
       </div>
-      <KestrelUiAlert v-if="error" variant="error" class="media-crop__error">{{ error }}</KestrelUiAlert>
       <KestrelUiLiveStatus :message="status" />
     </div>
     <template #footer>
@@ -145,9 +155,45 @@ async function onSave(): Promise<void> {
 </template>
 
 <style lang="scss" scoped>
-.media-crop { display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; }
-.media-crop__bar { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; }
-.media-crop__usage { margin: 0; font-size: var(--text-sm); color: var(--color-text-muted); }
-.media-crop__panel { min-width: 0; }
-.media-crop__measuring { margin: 0; color: var(--color-text-muted); }
+.media-crop {
+  display: grid;
+  grid-template-columns: minmax(0, 13rem) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  gap: var(--space-2);
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+.media-crop--single { grid-template-columns: minmax(0, 1fr); }
+.media-crop__panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+}
+.media-crop__measuring {
+  display: grid;
+  place-items: center;
+  min-height: 12rem;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg);
+  color: var(--color-text-muted);
+
+  p { margin: 0; }
+}
+
+@media (max-width: 48rem) {
+  .media-crop {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+    align-content: start;
+    overflow-x: hidden;
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+  }
+  .media-crop__panel { grid-template-rows: none; }
+}
 </style>
