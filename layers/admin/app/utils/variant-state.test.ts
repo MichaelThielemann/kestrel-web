@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { MediaVariant, MediaVariantCounts } from '#kestrel-admin/types/api'
-import { pickVariantThumb, variantChipState, variantTotal } from './variant-state'
+import { pickVariantThumb, storedVariantChip, variantChipState, variantTotal } from './variant-state'
 
 const counts = (over: Partial<MediaVariantCounts> = {}): MediaVariantCounts => ({ done: 0, pending: 0, error: 0, failed: 0, ...over })
 
@@ -55,5 +55,19 @@ describe('pickVariantThumb', () => {
 
   it('returns null for an empty list', () => {
     expect(pickVariantThumb([])).toBeNull()
+  })
+})
+
+describe('storedVariantChip', () => {
+  it('is the failed chip when the stored counts have a failed size and nothing pending', () => {
+    expect(storedVariantChip({ variantCounts: counts({ done: 1, failed: 1, error: 1 }) })).toEqual({ state: 'failed', stalled: false, done: 1, total: 3 })
+  })
+
+  it('is null while a size is still pending, since nothing polls the stored counts', () => {
+    expect(storedVariantChip({ variantCounts: counts({ pending: 1, error: 1 }) })).toBeNull()
+  })
+
+  it('is null without stored counts', () => {
+    expect(storedVariantChip({})).toBeNull()
   })
 })

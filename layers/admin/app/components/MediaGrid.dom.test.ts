@@ -48,6 +48,22 @@ describe('MediaGrid variant chip', () => {
     expect(wrapper.find('.media-variant-chip').exists()).toBe(false)
   })
 
+  it('shows the failed chip for a file outside this session whose own variantCounts has failed sizes and nothing pending', async () => {
+    const wrapper = await mountSuspended(MediaGrid, {
+      props: { items: [libraryItem(file({ variantCounts: { done: 2, pending: 0, error: 3, failed: 0 } }))], isSelected: () => false },
+    })
+
+    expect(wrapper.get('.media-variant-chip').classes()).toContain('media-variant-chip--failed')
+  })
+
+  it('shows no chip for a file outside this session whose own variantCounts has a failed and a pending size', async () => {
+    const wrapper = await mountSuspended(MediaGrid, {
+      props: { items: [libraryItem(file({ variantCounts: { done: 0, pending: 1, error: 0, failed: 1 } }))], isSelected: () => false },
+    })
+
+    expect(wrapper.find('.media-variant-chip').exists()).toBe(false)
+  })
+
   it('shows the pending chip for a file tracked in variantOverride', async () => {
     const override = new Map<string, VariantWatchEntry>([
       ['f1', { variants: [], variantCounts: { done: 1, pending: 2, error: 0, failed: 0 } }],

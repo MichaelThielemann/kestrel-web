@@ -4,12 +4,12 @@ import type { MediaItem } from '#kestrel-admin/types/api'
 import type { VariantWatchEntry } from '../composables/useVariantWatch'
 import { humanizeSize } from '../utils/library'
 import { isDisclosed, provenanceLabelKey, provenanceOrigin } from '../utils/provenance'
-import { variantChip } from '../utils/variant-state'
+import { storedVariantChip, variantChip } from '../utils/variant-state'
 
 const props = defineProps<{ file: MediaItem; fresh?: VariantWatchEntry; stalled?: boolean; gated?: boolean; pick?: boolean }>()
 const { t } = useT()
 
-const chip = computed(() => variantChip(props.fresh, props.stalled === true))
+const chip = computed(() => (props.fresh || props.stalled ? variantChip(props.fresh, props.stalled === true) : storedVariantChip(props.file)))
 const ext = computed(() => (props.file.filename.split('.').pop() ?? '').toUpperCase())
 </script>
 

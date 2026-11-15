@@ -24,6 +24,13 @@ export function variantChip(entry: { variantCounts: MediaVariantCounts; availabl
   return state ? { state, stalled: false, ...counts } : null
 }
 
+/** The chip a tile shows from the counts its list entry carries when nothing polls its variants: failed sizes with none pending, else `null`. */
+export function storedVariantChip(file: { variantCounts?: MediaVariantCounts }) {
+  const counts = file.variantCounts
+  if (!counts || variantChipState(counts) !== 'failed') return null
+  return { state: 'failed' as const, stalled: false, done: counts.done, total: variantTotal(counts) }
+}
+
 export function pickVariantThumb(variants: readonly MediaVariant[]): MediaVariant | null {
   let best: MediaVariant | null = null
   for (const variant of variants) {
