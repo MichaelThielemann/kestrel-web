@@ -1094,6 +1094,7 @@ the layer resolves it (§7, "Client address"):
 |---|---|
 | `auth.loggedIn`, `auth.loggedOut` | a sign-in succeeded, a user signed out (a session that expires or is ended by a deactivation or a second-factor reset leaves no `auth.loggedOut`) |
 | `auth.failed` | a sign-in or a password or second-factor check failed, with the attempted username, cut to 256 characters with control characters replaced by spaces, where the failing step reports one (a sign-in does, a password confirmation does not) |
+| `auth.secondFactorRequested` (with `mfa`) | a sign-in with the right password stopped to ask for the second-factor code, for setting one up or for an enrollment code the request did not carry, with the attempted username as for `auth.failed`; a sign-in with a second factor leaves this entry and no `auth.failed` |
 | `access.denied`, `access.rateLimited` | a 403 or 429 kestrel answered, with pipeline, step and code; a request the layer's IP allowlist refused never reaches kestrel and leaves no entry |
 | `user.created`, `user.updated`, `user.deactivated`, `user.activated`, `user.passwordSet`, `user.passwordChanged`, `user.secondFactorReset` (with `mfa`) | an account changed, with the acting identity and the account it concerns |
 | `user.auditAnonymizeRetried`, `user.revisionsReassignRetried` (with `revisions`) | a caller with `users.manage` re-ran the audit anonymisation or the revision author reassignment of a deleted user (§4 of the consuming guide), with the acting identity but neither the deleted user's id nor any other param |
@@ -1108,9 +1109,10 @@ lines (above) are not a security record either: with `KESTREL_STEP_LOG=off` they
 before its pipeline ran leaves only its `http` line.
 
 Keep the entries for as long as your policy asks by setting `audit: { retentionDays }`; without it nothing is
-pruned. The attempted username of a failed sign-in may name nobody, so deleting a user does
-not remove it, and neither does it remove the client address of the entries the user caused; only `retentionDays`
-removes the username and the address, once the entries are old enough. The database is the only store of these entries: a SIEM that wants them reads the
+pruned. Deleting a user also drops the attempted username of the `auth.failed` and `auth.secondFactorRequested`
+entries that hold that user's login name exactly. Another spelling, a name the user had before a rename and a name
+of nobody stay, as does the client address of the entries the user caused; only `retentionDays` removes such a
+username and the address, once the entries are old enough. The database is the only store of these entries: a SIEM that wants them reads the
 database through a replica or backup (§9), which holds the whole table.
 
 ### Finding the line behind an error in the admin
