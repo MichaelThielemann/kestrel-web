@@ -61,8 +61,8 @@ kestrel-web's own, all read while `kestrel.config.ts` loads:
 | `NUXT_KESTREL_ACCESS_TRUST_PROXY`, `_PROXY_HOPS`, `_TRUSTED_HEADER` | no | how the client address is taken behind a proxy |
 | `NUXT_KESTREL_ACCESS_TRUSTED_PROXIES` | no | the proxies whose forwarding headers count, addresses or CIDR ranges; empty means loopback |
 | `KESTREL_STEP_LOG` | no | which pipeline steps write a `step` log line (§11): `all` (unset or empty means `all`), `errors` for the steps whose outcome is not `ok`, or `off`; read by `envStepLog()` (from `#kestrel/config`), so it applies only where `kestrel.config.ts` passes `stepLog: envStepLog()` to `defineConfig`, and there any other value stops the config from loading. Without that call every step writes its line. The `error` lines, the `http` lines, Insights and the audit log are the same in every mode. `errors` or `off` saves one synchronous log write per step under load; keep `all` while debugging |
-| `KESTREL_STORAGE_MIGRATIONS` | no | `check` or `apply` for the `storageMigrations` of `media-default` and `images-default`, read by `envStorageMigrations()`. Unset or empty means `check`: a start on data in an older storage shape refuses to boot and names the migration, and any other value stops the config from loading. `apply` runs only the migrations that write no blobs, which for both modules is none, so the conversion of stored media runs through `kestrel update` or `kestrel upgrade migrate` and not at start. It is independent of `KESTREL_MIGRATIONS` (`docs/migrations.md`) |
-| `KESTREL_MIGRATIONS` | no | the switch for content migrations, only if your `kestrel.config.ts` wires it to the migrations module's `mode` (`docs/migrations.md`). The preset passes no mode of its own, so a project that does not read the variable, such as one from the starter template, applies pending content migrations at every start, and `kestrel update` reports no content switch for it |
+| `KESTREL_STORAGE_MIGRATIONS` | no | `check` or `apply` for the `storageMigrations` of `media-default` and `images-default`, read by `envStorageMigrations()`. Unset or empty means `check`: a start on data in an older storage shape refuses to boot and names the migration, and any other value stops the config from loading. `apply` runs at start only the migrations that write no blobs: `images-default:variant-slots`, once the migration of `media-default` is done. `media-default:id-key-layout` writes blobs and never runs at start, only through `kestrel update` or `kestrel upgrade migrate`. It is independent of `KESTREL_MIGRATIONS` (`docs/migrations.md`) |
+| `KESTREL_MIGRATIONS` | no | the switch for content migrations, only if your `kestrel.config.ts` wires it to the migrations module's `mode` (`docs/migrations.md`). The preset passes no mode of its own, so a project that neither reads the variable nor sets `migrations.mode`, such as one from the starter template, applies pending content migrations at every start (the module's default `apply`), and `kestrel update` reports no content switch for it |
 
 The `KESTREL_*` rows only apply where `kestrel.config.ts` actually calls the `#kestrel/config` helpers.
 `playground/kestrel.config.ts` hard-codes a filesystem blobstore and the development hash so `nuxt build`
@@ -811,7 +811,7 @@ kestrel restore --backup <id> --env prod
 The file holds no secret values, only where they come from. Its `backups.prefix` is the backup location; it
 must lie outside every prefix the app writes and outside anything served publicly, because a backup holds the
 whole database, password hashes included, and the app's own credentials should be denied deletes there.
-`kestrel status` reports whether they are. Kestrel's
+`kestrel status` reports whether they are when the environment names the app's credentials (`app.credentials`). Kestrel's
 [operations guide](https://github.com/MichaelThielemann/kestrel/blob/main/docs/operations.md) and the
 kestrel-ops README document the file, every option and the questions the commands ask.
 
@@ -825,7 +825,7 @@ An update moves an environment to a new release in three places:
    and the platform's command-line client. The deploy stages the release while the app serves, stops the app,
    takes a verified cutover backup, migrates a copy of the database, promotes it, starts the new release and
    verifies it; a hard failure after the stop rolls back on its own. A deploy job has no terminal, so every
-   question needs an answer in `--answers`; the first is `{ "update-stop": "accept" }`.
+   question needs an answer in `--answers`; the first is `{ "update-stop": "accept" }`. The deploy from a release before 6 also needs `"unsealed-stop": "accept"`, since that release leaves no seal; put it in an answers file of its own and remove the file after that one deploy. `--yes` never answers it. Kestrel's operations guide describes both questions.
 3. **On a workstation**, `kestrel update accept --env prod` closes the run, or `kestrel update rollback
    --env prod` brings back the cutover state instead.
 
@@ -966,7 +966,7 @@ credentials off other machines.
 Point the platform's health check at `/api/health`, which restarts an instance that must be replaced and stays
 `200` while it boots or is merely degraded (§8). Keep the backup location of `kestrel.environments.json` in a
 bucket or under a prefix that the app's own credentials cannot delete from, so that a compromised or faulty app
-cannot reach its backups.
+cannot delete or overwrite its backups.
 
 Cloud Foundry sends `SIGKILL` 10 s after `SIGTERM` by default, which is shorter than the 60 s a stop can take (§10
 above). A kill before the teardown loses the replica frames written since the last sync, up to a minute of edits and
@@ -998,7 +998,7 @@ request:
   minutes per language, during which a visit can show pages of both builds.
 - **A save's own page render** is a different path. The preset leaves `publishPage` and `unpublishPage` in the
   relay of the `eventsQueue` module, so the request that saves and publishes a page renders that page before it
-  answers. A queue whose wiring puts these two pipelines into a lane of their own answers the save before the
+  answers. The preset sets `relayPipelines` and `lanes` of its queue itself, so the lane needs your own `events-queue` entry in `kestrel.config.ts` instead of the queue from `presetModuleConfig()`. A queue whose wiring puts these two pipelines into a lane of their own answers the save before the
   page is rendered, and the response reports the delivery as pending; what that changes and what it leaves
   as it is, such as the CPU time the render still takes and the order of renders, is described in kestrel's
   [pipeline docs](https://github.com/MichaelThielemann/kestrel/blob/main/docs/pipelines.md) under
