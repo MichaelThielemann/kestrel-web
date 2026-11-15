@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { ref, watch } from 'vue'
 
 const props = defineProps<{ open: boolean; multiple?: boolean; accept?: 'image' | 'any'; initialFolder?: string; initialSelected?: string[] }>()
 const emit = defineEmits<{ confirm: [string[]]; 'update:open': [boolean] }>()
 const { t } = useT()
 
-const effectiveInitialFolder = computed(() => props.initialFolder ?? getLastMediaFolder())
+const startFolder = ref('')
+watch(() => props.open, (open) => {
+  if (open) startFolder.value = props.initialFolder ?? getLastMediaFolder()
+}, { immediate: true })
 const library = ref<{ clearSelection: () => boolean } | null>(null)
 
 function onEscape(e: KeyboardEvent) {
@@ -20,7 +23,7 @@ function onEscape(e: KeyboardEvent) {
       pick
       :multiple="multiple"
       :accept="accept ?? 'any'"
-      :initial-folder="effectiveInitialFolder"
+      :initial-folder="startFolder"
       :initial-selected="initialSelected"
       @confirm="(ids) => { emit('confirm', ids); emit('update:open', false) }"
       @cancel="emit('update:open', false)"

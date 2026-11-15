@@ -1334,6 +1334,8 @@
 
 ### Fixed
 
+- Media picker: opened a second time on the same page, it starts in the folder last browsed instead of the top
+  level, and no longer overwrites the remembered folder with the top level.
 - Media library: opening a file with a double click leaves it selected. The second click of the double click no
   longer toggles the selection off, so the selection bar does not flash and screen readers do not hear "Selection
   cleared".

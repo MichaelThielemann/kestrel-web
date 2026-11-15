@@ -81,6 +81,33 @@ describe('MediaPicker', () => {
     wrapper.unmount()
   })
 
+  it('reopens in the folder last browsed and keeps it remembered', async () => {
+    const folders: MediaFolder[] = [{ folder: 'test', count: 0 }]
+    unregisterAll.push(registerEndpoint('/api/media/folders', { method: 'GET', handler: () => folders }))
+    const requested: string[] = []
+    unregisterAll.push(registerEndpoint('/api/media', {
+      method: 'GET',
+      handler: (event) => { requested.push(String(getQuery(event).folder ?? '')); return emptyFiles },
+    }))
+
+    const wrapper = await mountSuspended(MediaPicker, { props: { open: true }, attachTo: document.body })
+    await vi.waitFor(() => expect(document.body.querySelector('[data-test="folder-test"]')).toBeTruthy())
+    document.body.querySelector<HTMLButtonElement>('[data-test="folder-test"]')?.click()
+    await vi.waitFor(() => expect(requested.at(-1)).toBe('test'))
+    expect(localStorage.getItem(LAST_FOLDER_KEY)).toBe('test')
+
+    await wrapper.setProps({ open: false })
+    await vi.waitFor(() => expect(document.body.querySelector('.ui-dialog__content')).toBeNull())
+    requested.length = 0
+    await wrapper.setProps({ open: true })
+
+    await vi.waitFor(() => expect(requested.length).toBeGreaterThan(0))
+    expect(requested.every((folder) => folder === 'test')).toBe(true)
+    expect(localStorage.getItem(LAST_FOLDER_KEY)).toBe('test')
+
+    wrapper.unmount()
+  })
+
   it('prefers an explicit initialFolder over the remembered folder', async () => {
     localStorage.setItem(LAST_FOLDER_KEY, 'brand-assets')
     const folders: MediaFolder[] = [{ folder: 'brand-assets', count: 0 }, { folder: 'products', count: 0 }]
