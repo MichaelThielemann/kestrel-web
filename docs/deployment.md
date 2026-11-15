@@ -974,6 +974,22 @@ Point the platform's health check at `/api/health`, which restarts an instance t
 bucket or under a prefix that the app's own credentials cannot delete from, so that a compromised or faulty app
 cannot delete or overwrite its backups.
 
+Every request reaches the app through the platform's router, so until the client address is configured the
+server sees the router's address on every request: the IP allowlists judge that address, and all users share one
+`login` budget of 20 requests a minute (§7, "Client address"). The router adds the address it received the request
+from to `X-Forwarded-For`. Set three variables:
+
+- `NUXT_KESTREL_ACCESS_TRUST_PROXY=true`, so the address is taken from `X-Forwarded-For`.
+- `NUXT_KESTREL_ACCESS_PROXY_HOPS`, the number of proxies that add an entry to that header: `1` when the
+  browsers connect to the router directly, one more for each load balancer in front of it that adds one.
+- `NUXT_KESTREL_ACCESS_TRUSTED_PROXIES`, the addresses or CIDR range the router connects to the app from. Your
+  platform operator knows them; until they are listed, the server ignores the header and logs
+  `forwarding header from <peer> ignored` once per peer and hour, naming the address it sees.
+
+Then sign in once and find the `http` line of that request (§11) in `cf logs <app> --recent`. Its `ip` must be
+the public address of your own connection. The router's address, a load balancer's or a private one means
+`_PROXY_HOPS` or `_TRUSTED_PROXIES` does not match the platform.
+
 Cloud Foundry sends `SIGKILL` 10 s after `SIGTERM` by default, which is shorter than the 60 s a stop can take (§10
 above). A kill before the teardown loses the replica frames written since the last sync, up to a minute of edits and
 of pending queue rows, and the next start rebuilds `kestrel.db` from the replica without them. Fit the windows into
