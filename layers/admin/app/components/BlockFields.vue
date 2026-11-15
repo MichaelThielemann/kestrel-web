@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, provide } from 'vue'
 import type { SerializedBlock } from '#kestrel-admin/types/kestrel'
 import type { BlockRow } from '../utils/block-tree'
 import { resolveLocalized } from '#kestrel-admin/utils/localized'
 import { blockRowErrors } from '../utils/edit-form'
+import { blockImageSizesKey } from '../utils/media-crop'
 
 const props = defineProps<{
   block: BlockRow
@@ -31,6 +32,7 @@ const blockAlerts = computed(() =>
 const fieldRowErrors = computed(() => blockRowErrors(props.errors ?? []))
 
 const blockLayout = computed(() => props.def?.fieldLayout)
+provide(blockImageSizesKey, computed(() => props.def?.imageSizes?.map((size) => size.name) ?? []))
 </script>
 
 <template>

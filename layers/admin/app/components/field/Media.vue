@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, inject, watch } from 'vue'
 import type { ListPage, MediaItem } from '#kestrel-admin/types/api'
 import type { FieldComponentProps } from '../../utils/field-component'
 import { fieldIs } from '#kestrel-admin/types/kestrel'
@@ -8,7 +8,7 @@ import { isInsertable } from '#kestrel-admin/utils/media-insert'
 import { onMediaChanged, onMediaFramed, onMediaRemoved } from '#kestrel-admin/composables/useMediaChanges'
 import { lookUpMedia } from '#kestrel-admin/composables/useMediaPick'
 import { useMediaSettle } from '#kestrel-admin/composables/useMediaSettle'
-import { canFrame } from '#kestrel-admin/utils/media-crop'
+import { blockImageSizesKey, canFrame } from '#kestrel-admin/utils/media-crop'
 
 const props = defineProps<FieldComponentProps>()
 const model = defineModel<string | string[] | null>()
@@ -24,6 +24,8 @@ const required = computed(() => !!props.field.required)
 const multiple = computed(() => !!options.value?.multiple)
 const accept = computed(() => options.value?.accept ?? 'any')
 const pickerOpen = ref(false)
+const blockSizes = inject(blockImageSizesKey, null)
+const openingSizes = computed(() => blockSizes?.value ?? [])
 
 const ids = computed<string[]>(() => {
   const v = model.value
@@ -153,7 +155,7 @@ async function onConfirm(picked: string[]) {
           {{ multiple ? t('field.media.add') : (resolved.length ? t('field.media.replace') : t('field.media.select')) }}
         </KestrelUiButton>
       </div>
-      <KestrelMediaCropEditor v-if="cropItem" v-model:open="cropOpen" :item="cropItem" @saved="onFramed" />
+      <KestrelMediaCropEditor v-if="cropItem" v-model:open="cropOpen" :item="cropItem" :sizes="openingSizes" @saved="onFramed" />
       <KestrelMediaPicker v-model:open="pickerOpen" :multiple="multiple" :accept="accept" :initial-folder="initialFolder" :initial-selected="ids" @confirm="onConfirm" />
     </template>
   </KestrelUiField>

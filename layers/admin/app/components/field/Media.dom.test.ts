@@ -1,10 +1,11 @@
 import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { computed, defineComponent, nextTick } from 'vue'
+import { computed, defineComponent, h, nextTick, provide } from 'vue'
 import type { AdminSchema, MediaItem } from '#kestrel-admin/types/api'
 import type { FieldDef } from '#kestrel-admin/types/kestrel'
 import { en } from '#kestrel-admin/i18n/en'
 import { notifyMediaChanged, notifyMediaFramed, notifyMediaRemoved } from '../../composables/useMediaChanges'
+import { blockImageSizesKey } from '../../utils/media-crop'
 import FieldMedia from './Media.vue'
 
 const { schema, apiHandler } = vi.hoisted(() => {
@@ -278,6 +279,30 @@ describe('field/Media crop entry', () => {
     await vi.waitFor(() => expect(document.body.querySelector('.media-crop')).toBeNull())
     expect(wrapper.emitted('update:modelValue')).toBeUndefined()
     wrapper.unmount()
+  })
+
+  it('opens the crop editor on the ratio of the sizes of the block the field belongs to', async () => {
+    schema.capabilities.setMediaFraming = { method: 'PUT', path: '/media/:id/framing' }
+    apiHandler.fn = () => Promise.resolve({ items: [framed()], total: 1 })
+    const selectedTile = () => document.body.querySelector('[role="tab"][aria-selected="true"] .media-crop-tiles__key')?.textContent
+    const InBlock = defineComponent({
+      setup() {
+        provide(blockImageSizesKey, computed(() => ['avatar']))
+        return () => h(FieldMedia, { field, name: 'hero', locale: 'en', modelValue: 'f1' })
+      },
+    })
+    const inBlock = await mountSuspended(InBlock, { attachTo: document.body })
+    await vi.waitFor(() => expect(cropButton(inBlock).exists()).toBe(true))
+    await cropButton(inBlock).trigger('click')
+    await vi.waitFor(() => expect(selectedTile()).toBe('1:1'))
+    inBlock.unmount()
+    document.body.innerHTML = ''
+
+    const alone = await mountSuspended(FieldMedia, { props: { field, name: 'hero', locale: 'en', modelValue: 'f1' }, attachTo: document.body })
+    await vi.waitFor(() => expect(cropButton(alone).exists()).toBe(true))
+    await cropButton(alone).trigger('click')
+    await vi.waitFor(() => expect(selectedTile()).toBe(en['mediaCrop.focusTile']))
+    alone.unmount()
   })
 
   it('takes a framing saved elsewhere for the same image, so its crop editor starts from it', async () => {

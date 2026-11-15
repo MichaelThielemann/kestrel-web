@@ -117,6 +117,19 @@ describe('MediaCropEditor', () => {
     wrapper.unmount()
   })
 
+  it('starts on the ratio of the opening block\'s sizes and falls back to the focus', async () => {
+    const selected = () => q('[role="tab"][aria-selected="true"]')
+    const block = await mountEditor(photo(), ['hero', 'avatar'])
+    expect(selected()?.querySelector('[data-key]')?.getAttribute('data-key')).toBe('1:1')
+    await vi.waitFor(() => expect(document.activeElement).toBe(selected()))
+    expect(q('[role="tabpanel"] [data-test="crop-ratio"]')).not.toBeNull()
+    block.unmount()
+
+    const none = await mountEditor(photo(), ['hero'])
+    expect(selected()?.querySelector('[data-key]')?.getAttribute('data-key')).toBe('focus')
+    none.unmount()
+  })
+
   it('offers only the focus with an explanation when no size crops to a ratio', async () => {
     const wrapper = await mountEditor(photo({ ratios: [] }))
 
