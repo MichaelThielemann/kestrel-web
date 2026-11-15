@@ -428,11 +428,9 @@ const userDeleteToast: ActionStep<UserDeleteInput, UserDeleteOutcome> = defineUi
     toast.error(t('users.deletedFollowUpFailed', { pipelines }) + t('users.followUpSeeEvents', { tab: t('system.tabs.events') }))
     return
   }
-  if (events?.status === 'pending') {
-    toast.info(t('users.deletedFollowUpPending'))
-    return
-  }
-  toast.success(target === null ? t('users.deletedAnonymized') : t('users.deletedReassigned', { username: target.name }))
+  const outcome = target === null ? t('users.deletedAnonymized') : t('users.deletedReassigned', { username: target.name })
+  const running = events?.pipelines.some((p) => p.status === 'queued' || p.status === 'pending') ?? false
+  toast.success(running ? outcome + t('users.followUpQueued') : outcome)
 })
 
 export const userDelete = defineAction<UserDeleteInput, UserDeleteOutcome>({

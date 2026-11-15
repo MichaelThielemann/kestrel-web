@@ -885,7 +885,7 @@ export const en = {
   'users.deletedAnonymized': 'User deleted, the author reference is anonymised',
   'users.deletedReassigned': 'User deleted, the author reference now points to {username}',
   'users.deletedFollowUpFailed': 'User deleted, but a follow-up task failed: {pipelines}.',
-  'users.deletedFollowUpPending': 'User deleted; follow-up tasks are still running.',
+  'users.followUpQueued': '. The follow-up tasks run in the background.',
   'users.followUpSeeEvents': ' Details under System → {tab}.',
   'users.deleteConfirm': 'Delete {username} for good, together with their sessions? This cannot be undone.',
   'users.deleteKeepsContent': 'Pages, media and the version history stay. Only the name on them changes.',

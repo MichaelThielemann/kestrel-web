@@ -887,7 +887,7 @@ export const de: Record<CatalogKey, string> = {
   'users.deletedAnonymized': 'Benutzer gelöscht, der Autorenbezug ist anonymisiert',
   'users.deletedReassigned': 'Benutzer gelöscht, das Geschriebene gehört jetzt {username}',
   'users.deletedFollowUpFailed': 'Benutzer gelöscht, aber eine Folgeaufgabe ist fehlgeschlagen: {pipelines}.',
-  'users.deletedFollowUpPending': 'Benutzer gelöscht; Folgeaufgaben laufen noch.',
+  'users.followUpQueued': '. Die Folgeaufgaben laufen im Hintergrund.',
   'users.followUpSeeEvents': ' Details unter System → {tab}.',
   'users.deleteConfirm': '{username} endgültig samt Sitzungen löschen? Das lässt sich nicht rückgängig machen.',
   'users.deleteKeepsContent': 'Seiten, Medien und die Versionsgeschichte bleiben erhalten. Nur der Name daran ändert sich.',

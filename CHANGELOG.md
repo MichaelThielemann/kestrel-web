@@ -1272,7 +1272,9 @@
 - The insights page lists the boot warnings of the instance above its tabs, each with every context
   field it carries.
 - Deleting a user reports a failed follow-up task (revision reassignment, audit anonymisation) instead
-  of a success message, and a still-running one as pending.
+  of a success message. Otherwise the toast names the outcome, the user the writing now belongs to or the
+  anonymised author reference, and adds that the follow-up tasks run in the background while the events
+  queue still holds one (new admin message `users.followUpQueued`).
 - The `eventsQueue` feature now boots with no event trigger in the manifest at all — an idle queue is a
   valid configuration, not an error; `presetModuleConfig()` + `definePreset()` no longer throw for it.
 - `create-kestrel`: new projects enable `eventsQueue` by default, so an upload answers as soon as the

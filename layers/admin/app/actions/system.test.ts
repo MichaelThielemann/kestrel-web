@@ -731,7 +731,21 @@ describe('userDelete', () => {
     expect(toast.success).not.toHaveBeenCalled()
   })
 
-  it('reports follow-up tasks still running after deleting a user', async () => {
+  it('names the reassignment target and notes the follow-up tasks the events queue still runs', async () => {
+    const queued = (pipeline: string) => ({ event: 'user.deleted', pipeline, status: 'queued', attempts: 0, dead: false, error: null })
+    const events = { status: 'pending', pipelines: [queued('anonymizeAuditUser'), queued('reassignRevisionAuthor'), queued('forgetSecondFactor')] }
+    const { deps, toast } = fakeDeps([{ ok: true, reassignTo: { id: 'u2', name: 'berta' }, _events: events }])
+    const { ops } = fakeOps()
+    const { refresh } = fakeRefresh()
+
+    const result = await runAction(userDelete, { deps, userId: 'u1', reassignTo: 'u2', confirmed: true, ops, refresh })
+
+    expect(result.ok).toBe(true)
+    expect(toast.success).toHaveBeenCalledWith('users.deletedReassigned:{"username":"berta"}users.followUpQueued')
+    expect(toast.info).not.toHaveBeenCalled()
+  })
+
+  it('names the anonymised outcome while a follow-up task is still pending', async () => {
     const events = { status: 'pending', pipelines: [{ event: 'user.deleted', pipeline: 'reassignRevisionAuthor', status: 'pending', attempts: 0, dead: false, error: null }] }
     const { deps, toast } = fakeDeps([{ ok: true, reassignTo: null, _events: events }])
     const { ops } = fakeOps()
@@ -740,8 +754,7 @@ describe('userDelete', () => {
     const result = await runAction(userDelete, { deps, userId: 'u1', reassignTo: null, confirmed: true, ops, refresh })
 
     expect(result.ok).toBe(true)
-    expect(toast.info).toHaveBeenCalledWith('users.deletedFollowUpPending')
-    expect(toast.success).not.toHaveBeenCalled()
+    expect(toast.success).toHaveBeenCalledWith('users.deletedAnonymized' + 'users.followUpQueued')
   })
 
   it('confirms a user deletion whose follow-up tasks are done', async () => {
