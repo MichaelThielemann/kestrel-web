@@ -908,7 +908,7 @@ export const en = {
   'users.roleAdd': 'Add role',
   'users.roleName': 'Role name',
   'users.rolesHint': 'Only roles configured in the backend are accepted; saving rejects any other name.',
-  'users.unknownRoles': 'Unknown role: {names}. Only configured roles are allowed.',
+  'users.unknownRoles': 'Unknown role(s): {names}. Only configured roles are allowed.',
   'users.nameTaken': 'That username is already taken.',
   'users.notFound': 'This user no longer exists.',
   'users.cannotDeleteSelf': 'You cannot delete your own account.',

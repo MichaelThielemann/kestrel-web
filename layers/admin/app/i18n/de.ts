@@ -910,7 +910,7 @@ export const de: Record<CatalogKey, string> = {
   'users.roleAdd': 'Rolle hinzufügen',
   'users.roleName': 'Rollenname',
   'users.rolesHint': 'Nur im Backend konfigurierte Rollen werden angenommen; Speichern lehnt jeden anderen Namen ab.',
-  'users.unknownRoles': 'Unbekannte Rolle: {names}. Nur konfigurierte Rollen sind erlaubt.',
+  'users.unknownRoles': 'Unbekannte Rolle(n): {names}. Nur konfigurierte Rollen sind erlaubt.',
   'users.nameTaken': 'Dieser Benutzername ist bereits vergeben.',
   'users.notFound': 'Diesen Benutzer gibt es nicht mehr.',
   'users.cannotDeleteSelf': 'Das eigene Konto lässt sich nicht löschen.',

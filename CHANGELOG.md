@@ -1375,7 +1375,7 @@
   of leaving the free height as a gap above them.
 - `/api/health` and `/api/ready` report `uptimeSeconds` as the whole seconds since the server process started,
   the same value on both, not the time since the first request to each route.
-- Users: a save or create that carries a role the backend is not configured with shows "Unknown role: …" with
+- Users: a save or create that carries a role the backend is not configured with shows "Unknown role(s): …" with
   the rejected names (new admin message `users.unknownRoles`) instead of the backend's
   `authz.validateRoles:roles: unknown role name(s)`. The hint under the roles of the edit dialog
   (`users.rolesHint`) says that only configured roles are accepted. `ApiErrorDetails` carries the rejected
