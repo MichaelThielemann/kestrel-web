@@ -21,6 +21,7 @@ const MANAGED = [
   "KESTREL_STEP_LOG",
   "KESTREL_STORAGE_MIGRATIONS",
   "KESTREL_MIGRATIONS",
+  "KESTREL_BLOBS_DIR",
 ];
 
 const S3_ENV: [string, string][] = [
@@ -193,6 +194,14 @@ describe("envBlobstore", () => {
       use: "@michaelthielemann/kestrel-blobstore-filesystem",
       config: { root: resolve("/srv/app/data", "blobs") },
     });
+  });
+
+  it("roots the filesystem module at KESTREL_BLOBS_DIR when it is set", () => {
+    vi.stubEnv("KESTREL_BLOBSTORE", "filesystem");
+    vi.stubEnv("KESTREL_BLOBS_DIR", "/srv/work/local-blobs");
+    expect(envBlobstore("/srv/app/data")).toEqual({ use: "@michaelthielemann/kestrel-blobstore-filesystem", config: { root: "/srv/work/local-blobs" } });
+    expect(envBlobstore("/srv/app/data", { KESTREL_BLOBSTORE: "filesystem", KESTREL_BLOBS_DIR: "store" }).config).toEqual({ root: resolve("store") });
+    expect(envBlobstore("/srv/app/data", { KESTREL_BLOBSTORE: "filesystem", KESTREL_BLOBS_DIR: "" }).config).toEqual({ root: resolve("/srv/app/data", "blobs") });
   });
 
   it("throws in production without a choice", () => {

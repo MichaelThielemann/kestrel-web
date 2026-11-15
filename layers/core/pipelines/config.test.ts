@@ -52,6 +52,7 @@ beforeEach(() => {
   vi.stubEnv("NUXT_APP_BUILD_ASSETS_DIR", undefined);
   vi.stubEnv("KESTREL_STORAGE_MIGRATIONS", undefined);
   vi.stubEnv("KESTREL_MIGRATIONS", undefined);
+  vi.stubEnv("KESTREL_DATABASE_FILE", undefined);
 });
 
 afterEach(() => {
@@ -354,6 +355,22 @@ describe("storage migrations switch", () => {
     const modules = presetModuleConfig({ ...playgroundOptions(), overrides: { "@michaelthielemann/kestrel-images-default": { storageMigrations: "check" } } });
     expect(fieldOf(configFor(modules, "images-default"), "storageMigrations")).toBe("check");
     expect(fieldOf(configFor(modules, "media-default"), "storageMigrations")).toBe("apply");
+  });
+});
+
+describe("database file", () => {
+  it("opens KESTREL_DATABASE_FILE instead of kestrel.db in the data directory when it is set, for persistence and replication", () => {
+    vi.stubEnv("KESTREL_DATABASE_FILE", "/srv/work/migrated.db");
+    const modules = presetModuleConfig({ ...playgroundOptions(), features: [...features, "replication"] });
+    expect(fieldOf(configFor(modules, "persistence-sqlite"), "file")).toBe("/srv/work/migrated.db");
+    expect(fieldOf(configFor(modules, "replication-sqlite"), "file")).toBe("/srv/work/migrated.db");
+  });
+
+  it("resolves a relative KESTREL_DATABASE_FILE against the process cwd and ignores an empty one", () => {
+    vi.stubEnv("KESTREL_DATABASE_FILE", "state/site.db");
+    expect(fieldOf(configFor(presetModuleConfig(playgroundOptions()), "persistence-sqlite"), "file")).toBe(resolve("state/site.db"));
+    vi.stubEnv("KESTREL_DATABASE_FILE", "");
+    expect(fieldOf(configFor(presetModuleConfig(playgroundOptions()), "persistence-sqlite"), "file")).toBe(DATABASE_FILE);
   });
 });
 

@@ -15,6 +15,12 @@
   with `NODE_ENV=production`, storage migrations checked, content migrations applied, `KESTREL_ROBOTS_POLICY=disallow`
   and the public development stand-ins for the admin password hash and the second-factor key. The `kestrel` field
   of `package.json` declares `pluginApi: 6`.
+- `KESTREL_DATABASE_FILE` names the SQLite file `presetModuleConfig()` opens for persistence-sqlite and
+  replication-sqlite in place of `kestrel.db` in the data directory, and `KESTREL_BLOBS_DIR` the root of the
+  filesystem blob store `envBlobstore()` builds in place of `<dataDir>/blobs`; relative values resolve against the
+  process cwd, empty ones are ignored. A local start of a copy that runs content migrations for `kestrel update`
+  opens the database copy and blob directory the tooling prepares through
+  `update.localBoot.env`: `{ "KESTREL_DATABASE_FILE": "{database}", "KESTREL_BLOBS_DIR": "{blobs}", "PORT": "{port}", "NITRO_PORT": "{port}" }`.
 - `KESTREL_STORAGE_MIGRATIONS` sets `storageMigrations` of media-default and images-default in
   `presetModuleConfig()`: `check` (unset or empty, in production and outside it) refuses to start on media or
   image data in an older storage shape and names the migration, `apply` runs the migrations that write no blobs

@@ -1,9 +1,9 @@
-import { join, resolve } from "node:path";
+import { resolve } from "node:path";
 import type { OpsEnv, OpsFacts, OpsModuleEntry } from "@michaelthielemann/kestrel-upgrade/plugin";
 import { envBlobstore, kestrelDataDir } from "../config";
 import { DEVELOPMENT_ADMIN_PASSWORD_HASH, DEVELOPMENT_MFA_KEY } from "../config/development";
 import { MOUNT_PATH } from "../mount-path";
-import { PRESET_DATABASE_FILE } from "../pipelines/config";
+import { presetDatabaseFile } from "../pipelines/config";
 
 const LOOPBACK = "127.0.0.1";
 const BLOBSTORE_CHOICES: ReadonlySet<string> = new Set(["s3", "filesystem"]);
@@ -21,7 +21,8 @@ function dataDir(env: OpsEnv, root: string): string {
 function blobstoreFromEnv(env: OpsEnv, root: string): OpsModuleEntry | undefined {
   const choice = env.KESTREL_BLOBSTORE;
   if (choice === undefined || !BLOBSTORE_CHOICES.has(choice)) return undefined;
-  const entry = envBlobstore(dataDir(env, root), env);
+  const blobsDir = env.KESTREL_BLOBS_DIR;
+  const entry = envBlobstore(dataDir(env, root), blobsDir === undefined || blobsDir === "" ? env : { ...env, KESTREL_BLOBS_DIR: resolve(root, blobsDir) });
   if (!isRecord(entry.config)) throw new Error(`kestrel.config: the blob store entry for KESTREL_BLOBSTORE=${choice} has no config object`);
   return { use: entry.use, config: entry.config };
 }
@@ -51,7 +52,7 @@ export function layerOpsFacts(root: string): OpsFacts {
     },
     exportChecks: ["llms.txt"],
     blobstoreFromEnv: (env) => blobstoreFromEnv(env, root),
-    databaseFile: (env) => join(dataDir(env, root), PRESET_DATABASE_FILE),
+    databaseFile: (env) => presetDatabaseFile(dataDir(env, root), env, root),
     secretEnvNames: SECRET_ENV_NAMES,
     migrationSwitches: { content: "KESTREL_MIGRATIONS", storage: "KESTREL_STORAGE_MIGRATIONS" },
   };

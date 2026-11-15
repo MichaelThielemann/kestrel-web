@@ -6,7 +6,7 @@ import { MEDIA_PUBLIC_PATH, MOUNT_PATH, MOUNTS_FIELD, RESERVED_PAGE_SEGMENTS, en
 import { resolveWorkflow } from "../collections-ui/workflow";
 import type { WorkflowUi } from "../collections-ui/workflow";
 import { BLOCK_ALIASES_FIELD, BODY_FIELD } from "../collections-ui/serialize";
-import { deviceKeys, envRobots, envStorageMigrations, mfaKey, type SigningKeys } from "../config";
+import { deviceKeys, envRobots, envStorageMigrations, mfaKey, type EnvMap, type SigningKeys } from "../config";
 import { resolveStorageTypes } from "../field-types";
 import type { FieldTypes } from "../field-types";
 import { isGenericCollection } from "./collections";
@@ -188,6 +188,12 @@ const MEDIA_PREFIX = "media/";
 const SITE_PREFIX = "site/";
 /** The name of the SQLite database file `presetModuleConfig()` opens in its `dataDir`. */
 export const PRESET_DATABASE_FILE = "kestrel.db";
+
+/** The SQLite database file `presetModuleConfig()` opens: `KESTREL_DATABASE_FILE` in `env` resolved against `base` when it is set, else {@link PRESET_DATABASE_FILE} in `dataDir`. */
+export function presetDatabaseFile(dataDir: string, env: EnvMap = process.env, base: string = process.cwd()): string {
+  const file = env.KESTREL_DATABASE_FILE;
+  return file === undefined || file === "" ? resolve(dataDir, PRESET_DATABASE_FILE) : resolve(base, file);
+}
 /** The `maxAttempts` of `kestrel-events-queue` when its config names none; delivery-static retries a failed re-render as often. */
 export const QUEUE_DEFAULT_MAX_ATTEMPTS = 5;
 /** The `backoffSeconds` of `kestrel-events-queue` when its config names none; delivery-static waits as long between re-render attempts. */
@@ -490,7 +496,7 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
 
   const buildAssetsPath = options.buildAssetsPath === undefined ? envBuildAssetsPath() : requireBuildAssetsPath(options.buildAssetsPath);
   const enabled = new Set<Feature>(features);
-  const databaseFile = resolve(dataDir, PRESET_DATABASE_FILE);
+  const databaseFile = presetDatabaseFile(dataDir);
   const session = { ...DEFAULT_SESSION, ...options.session };
   assertNoLlmsSiteUrl(options.llms);
   const publicCopy = enabled.has("delivery") ? { publicCopy: { prefix: SITE_PREFIX } } : {};

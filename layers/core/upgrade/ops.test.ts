@@ -1,7 +1,11 @@
 import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { OpsFacts } from "@michaelthielemann/kestrel-upgrade/plugin";
+import { envBlobstore, kestrelDataDir } from "../config";
 import { DEVELOPMENT_ADMIN_PASSWORD_HASH, DEVELOPMENT_MFA_KEY } from "../config/development";
+import { presetModuleConfig } from "../pipelines/config";
+import { contentModel, features } from "../../../playground/shared/model";
+import fieldTypes from "../../../playground/shared/field-types";
 import { layerOpsFacts } from "./ops";
 import { createLayerPlugin } from "./plugin";
 
@@ -106,6 +110,11 @@ describe("the blob store a deployed environment selects", () => {
     expect(facts().blobstoreFromEnv?.({ KESTREL_BLOBSTORE: "filesystem", KESTREL_DATA_DIR: "state" })).toEqual({ use: "@michaelthielemann/kestrel-blobstore-filesystem", config: { root: resolve(ROOT, "state", "blobs") } });
   });
 
+  it("is the filesystem store at KESTREL_BLOBS_DIR when the map names one, resolved against the project root", () => {
+    expect(facts().blobstoreFromEnv?.({ KESTREL_BLOBSTORE: "filesystem", KESTREL_BLOBS_DIR: "/work/blobs" })).toEqual({ use: "@michaelthielemann/kestrel-blobstore-filesystem", config: { root: "/work/blobs" } });
+    expect(facts().blobstoreFromEnv?.({ KESTREL_BLOBSTORE: "filesystem", KESTREL_BLOBS_DIR: "store" })).toEqual({ use: "@michaelthielemann/kestrel-blobstore-filesystem", config: { root: resolve(ROOT, "store") } });
+  });
+
   it("is none when the map selects no store, in production as elsewhere", () => {
     expect(facts().blobstoreFromEnv?.({})).toBeUndefined();
     expect(facts().blobstoreFromEnv?.({ NODE_ENV: "production", KESTREL_BLOBSTORE: "" })).toBeUndefined();
@@ -124,5 +133,41 @@ describe("the database file of a deployed environment", () => {
     expect(facts().databaseFile?.({ KESTREL_DATA_DIR: "/var/lib/site" })).toBe("/var/lib/site/kestrel.db");
     expect(facts().databaseFile?.({ KESTREL_APP_ROOT: "/home/app" })).toBe("/home/app/data/kestrel.db");
     expect(facts().databaseFile?.({ KESTREL_DATA_DIR: "state" })).toBe(resolve(ROOT, "state", "kestrel.db"));
+  });
+
+  it("is KESTREL_DATABASE_FILE when the map names one, resolved against the project root", () => {
+    expect(facts().databaseFile?.({ KESTREL_DATA_DIR: "/var/lib/site", KESTREL_DATABASE_FILE: "/work/site.db" })).toBe("/work/site.db");
+    expect(facts().databaseFile?.({ KESTREL_DATABASE_FILE: "state/site.db" })).toBe(resolve(ROOT, "state", "site.db"));
+  });
+});
+
+describe("a local start of a copy", () => {
+  const places: Record<string, string> = { database: "/work/run/migrated.db", blobs: "/work/run/local-blobs", port: "4123", build: "local-build" };
+  const localBoot = { KESTREL_DATABASE_FILE: "{database}", KESTREL_BLOBS_DIR: "{blobs}", PORT: "{port}", NITRO_PORT: "{port}" };
+
+  function bootEnv(): Record<string, string> {
+    const env: Record<string, string> = { ...facts().localBootEnv };
+    for (const [name, value] of Object.entries(localBoot)) env[name] = value.replace(/\{(database|blobs|port|build)\}/g, (_, place: string) => places[place] ?? "");
+    return env;
+  }
+
+  it("names the database copy and the blob directory the tooling hands it through KESTREL_DATABASE_FILE and KESTREL_BLOBS_DIR", () => {
+    const env = bootEnv();
+    expect(facts().databaseFile?.(env)).toBe("/work/run/migrated.db");
+    expect(facts().blobstoreFromEnv?.(env)).toEqual({ use: "@michaelthielemann/kestrel-blobstore-filesystem", config: { root: "/work/run/local-blobs" } });
+  });
+
+  it("opens that database copy and blob directory in the preset of the started release", () => {
+    vi.unstubAllEnvs();
+    for (const [name, value] of Object.entries(bootEnv())) vi.stubEnv(name, value);
+    const dataDir = kestrelDataDir();
+    const modules = presetModuleConfig({ dataDir, blobstore: envBlobstore(dataDir), model: contentModel, features, fieldTypes, roles: { roles: { admin: ["*"] }, anonymous: [] }, bootstrap: { username: "admin", passwordHash: DEVELOPMENT_ADMIN_PASSWORD_HASH } });
+    const fileOf = (use: string): unknown => {
+      const entry = modules.find((candidate) => candidate.use === use);
+      const values = entry?.config ?? entry?.defaults?.values;
+      return typeof values === "object" && values !== null ? Reflect.get(values, use.endsWith("filesystem") ? "root" : "file") : undefined;
+    };
+    expect(fileOf("@michaelthielemann/kestrel-persistence-sqlite")).toBe("/work/run/migrated.db");
+    expect(fileOf("@michaelthielemann/kestrel-blobstore-filesystem")).toBe("/work/run/local-blobs");
   });
 });

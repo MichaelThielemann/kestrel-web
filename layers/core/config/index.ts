@@ -115,7 +115,8 @@ export function envStorageMigrations(env: EnvMap = process.env): "check" | "appl
 /**
  * The blob store entry `KESTREL_BLOBSTORE` in `env` (`process.env` by default) selects: `s3` builds blobstore-s3 from
  * the `KESTREL_S3_*` variables, each required; `filesystem`, or no choice outside production, builds
- * blobstore-filesystem under `<dataDir>/blobs`. Throws in production without a choice.
+ * blobstore-filesystem at `KESTREL_BLOBS_DIR` (resolved against the process cwd) or else under `<dataDir>/blobs`.
+ * Throws in production without a choice.
  */
 export function envBlobstore(dataDir: string, env: EnvMap = process.env): BlobstoreModuleEntry {
   const choice = envValue("KESTREL_BLOBSTORE", env);
@@ -136,5 +137,6 @@ export function envBlobstore(dataDir: string, env: EnvMap = process.env): Blobst
   if (choice !== "filesystem" && isProduction(env)) {
     throw new Error('kestrel.config: KESTREL_BLOBSTORE must be "s3" or "filesystem" in production');
   }
-  return { use: "@michaelthielemann/kestrel-blobstore-filesystem", config: { root: resolve(dataDir, "blobs") } };
+  const root = envValue("KESTREL_BLOBS_DIR", env);
+  return { use: "@michaelthielemann/kestrel-blobstore-filesystem", config: { root: root === undefined ? resolve(dataDir, "blobs") : resolve(root) } };
 }
