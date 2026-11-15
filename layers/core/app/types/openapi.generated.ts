@@ -97,7 +97,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission blog.write → The public path a blog would get for payload { id?, locale?, slug, parent? }, whether it would be reachable and why not; writes nothing */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission blog.write → The public path a blog would get for payload { id?, locale?, slug, parent? }, whether it is reachable and what keeps the path from being served; writes nothing */
         post: operations["previewBlogPath"];
         delete?: never;
         options?: never;
@@ -541,7 +541,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission pages.write → The public path a pages would get for payload { id?, locale?, slug, parent? }, whether it would be reachable and why not; writes nothing */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission pages.write → The public path a pages would get for payload { id?, locale?, slug, parent? }, whether it is reachable and what keeps the path from being served; writes nothing */
         post: operations["previewPagePath"];
         delete?: never;
         options?: never;
@@ -8493,7 +8493,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description the account needs the enrollment code a reset issued (`ENROLLMENT_CODE_REQUIRED`) */
+            /** @description the account needs the enrollment code a reset issued (`ENROLLMENT_CODE_REQUIRED`, `details.enrollmentCodeGiven` false when the body carried none) */
             403: {
                 headers: {
                     [name: string]: unknown;
