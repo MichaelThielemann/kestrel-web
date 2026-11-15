@@ -10,8 +10,9 @@ import {
 const props = withDefaults(defineProps<{ src: string, alt: string, label: string, disabled?: boolean }>(), { disabled: false })
 
 const model = defineModel<MediaRect | null>({ default: null })
+const help = defineModel<boolean>('help', { default: false })
 const { t } = useT()
-const helpId = `${useId()}-help`
+const keysId = `${useId()}-keys`
 const surface = ref<HTMLElement | null>(null)
 
 const FIELDS: RectField[] = ['x', 'y', 'w', 'h']
@@ -114,68 +115,82 @@ const rectStyle = computed(() => {
 
 <template>
   <div class="ui-rect-select" :data-disabled="disabled || undefined">
-    <div
-      ref="surface"
-      class="ui-rect-select__surface"
-      role="group"
-      tabindex="0"
-      :aria-label="label"
-      :aria-describedby="helpId"
-      :aria-disabled="disabled || undefined"
-      @keydown="onKeydown"
-      @dblclick="onDoubleClick"
-    >
-      <img :src="src" :alt="alt" class="ui-rect-select__image" draggable="false">
-      <div v-if="model" class="ui-rect-select__clip" aria-hidden="true">
-        <div class="ui-rect-select__scrim" :class="{ 'ui-rect-select__scrim--point': isPoint }" :style="rectStyle" />
-      </div>
+    <div class="ui-rect-select__stage">
       <div
-        v-if="model"
-        class="ui-rect-select__rect"
-        :class="{ 'ui-rect-select__rect--point': isPoint }"
-        :style="rectStyle"
+        ref="surface"
+        class="ui-rect-select__surface"
+        role="group"
+        tabindex="0"
+        :aria-label="label"
+        :aria-describedby="keysId"
+        :aria-disabled="disabled || undefined"
+        @keydown="onKeydown"
+        @dblclick="onDoubleClick"
       >
-        <span v-for="handle in handles" :key="handle" class="ui-rect-select__handle" :class="`ui-rect-select__handle--${handle}`" :data-handle="handle" aria-hidden="true" />
+        <img :src="src" :alt="alt" class="ui-rect-select__image" draggable="false">
+        <div v-if="model" class="ui-rect-select__clip" aria-hidden="true">
+          <div class="ui-rect-select__scrim" :class="{ 'ui-rect-select__scrim--point': isPoint }" :style="rectStyle" />
+        </div>
+        <div
+          v-if="model"
+          class="ui-rect-select__rect"
+          :class="{ 'ui-rect-select__rect--point': isPoint }"
+          :style="rectStyle"
+        >
+          <span v-for="handle in handles" :key="handle" class="ui-rect-select__handle" :class="`ui-rect-select__handle--${handle}`" :data-handle="handle" aria-hidden="true" />
+        </div>
       </div>
+      <span :id="keysId" class="ui-rect-select__sr">{{ t('rectSelect.keys') }}</span>
     </div>
-    <p :id="helpId" class="ui-rect-select__help">{{ t('rectSelect.help') }}</p>
-    <KestrelUiFieldset :label="t('rectSelect.fields')" class="ui-rect-select__fields">
-      <div class="ui-rect-select__grid">
-        <KestrelUiField v-for="field in FIELDS" :key="field" :label="t(`rectSelect.${field}`)">
-          <template #default="{ id }">
-            <KestrelUiNumberInput
-              :id="id"
-              :model-value="fieldValue(field)"
-              :min="0"
-              :max="100"
-              :step="0.1"
-              suffix="%"
-              slim
-              :disabled="disabled"
-              :data-field="field"
-              @update:model-value="setField(field, $event)"
-            />
-          </template>
-        </KestrelUiField>
-      </div>
-    </KestrelUiFieldset>
+    <div class="ui-rect-select__aside">
+      <KestrelUiInfoToggle v-model:open="help" :label="t('rectSelect.helpToggle')">
+        <template #head><slot name="aside-start" /></template>
+        <slot name="help-intro" />
+        <p class="ui-rect-select__help">{{ t('rectSelect.help') }}</p>
+      </KestrelUiInfoToggle>
+      <KestrelUiFieldset :label="t('rectSelect.fields')" class="ui-rect-select__fields">
+        <div class="ui-rect-select__grid">
+          <KestrelUiField v-for="field in FIELDS" :key="field" :label="t(`rectSelect.${field}`)">
+            <template #default="{ id }">
+              <KestrelUiNumberInput
+                :id="id"
+                :model-value="fieldValue(field)"
+                :min="0"
+                :max="100"
+                :step="0.1"
+                suffix="%"
+                slim
+                :disabled="disabled"
+                :data-field="field"
+                @update:model-value="setField(field, $event)"
+              />
+            </template>
+          </KestrelUiField>
+        </div>
+      </KestrelUiFieldset>
+      <slot name="aside-end" />
+    </div>
   </div>
 </template>
 
 <style lang="scss">
 @use '../../assets/scss/mixins';
+@use '../../assets/scss/crop-stage';
 
 .ui-rect-select {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  min-width: 0;
+  @include crop-stage.layout;
+
+  &__stage {
+    @include crop-stage.stage;
+  }
+
+  &__aside {
+    @include crop-stage.aside;
+  }
 
   &__surface {
     @include mixins.focus-ring;
     position: relative;
-    align-self: center;
-    max-width: calc(100% - 1.5rem);
     margin: 0.75rem;
     border-radius: var(--radius-md);
     touch-action: none;
@@ -195,8 +210,8 @@ const rectStyle = computed(() => {
   &__image {
     display: block;
     border-radius: var(--radius-md);
-    max-width: 100%;
-    max-height: var(--ui-rect-select-max-height, 60vh);
+    max-width: calc(100cqw - 1.5rem);
+    max-height: calc(100cqh - 1.5rem);
     pointer-events: none;
   }
 
@@ -253,15 +268,22 @@ const rectStyle = computed(() => {
     &--w { left: 0; top: 50%; cursor: ew-resize; }
   }
 
+  &__sr {
+    @include mixins.sr-only;
+  }
+
   &__help {
-    font-size: var(--text-sm);
-    color: var(--color-text-muted);
+    margin: 0;
   }
 
   &__grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr));
-    gap: var(--space-2);
+    @include crop-stage.fields;
+  }
+}
+
+@media (max-width: 48rem) {
+  .ui-rect-select__image {
+    max-height: 55svh;
   }
 }
 </style>

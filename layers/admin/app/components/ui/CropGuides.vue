@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import type { SnapGuide } from '../../utils/crop-snap'
+import { snapLabelKey, type SnapGuide } from '../../utils/crop-snap'
 
 withDefaults(defineProps<{ snapped?: readonly SnapGuide[] }>(), { snapped: () => [] })
+const { t } = useT()
 
 const percent = (at: number) => `${Math.round(at * 100000) / 1000}%`
 </script>
@@ -10,11 +11,15 @@ const percent = (at: number) => `${Math.round(at * 100000) / 1000}%`
   <span class="ui-crop-guides" aria-hidden="true">
     <span
       v-for="guide in snapped"
-      :key="`${guide.axis}-${guide.at}`"
+      :key="`${guide.axis}-${guide.at}-${guide.kind}`"
       class="ui-crop-guides__line"
       :data-axis="guide.axis"
+      :data-kind="guide.kind"
+      :data-side="guide.at > 0.5 ? 'before' : 'after'"
       :style="guide.axis === 'x' ? { left: percent(guide.at) } : { top: percent(guide.at) }"
-    />
+    >
+      <span class="ui-crop-guides__label">{{ t(snapLabelKey(guide)) }}</span>
+    </span>
   </span>
 </template>
 
@@ -45,6 +50,37 @@ const percent = (at: number) => `${Math.round(at * 100000) / 1000}%`
       height: 2px;
       transform: translateY(-50%);
     }
+  }
+
+  &__label {
+    position: absolute;
+    padding: 1px var(--space-1);
+    border-radius: var(--radius-sm);
+    background: var(--color-overlay);
+    color: var(--color-on-overlay);
+    font-size: var(--text-xs);
+    line-height: 1.3;
+    white-space: nowrap;
+  }
+
+  &__line[data-axis='x'] &__label {
+    top: 4px;
+    left: 6px;
+  }
+
+  &__line[data-axis='x'][data-side='before'] &__label {
+    left: auto;
+    right: 6px;
+  }
+
+  &__line[data-axis='y'] &__label {
+    top: 6px;
+    left: 4px;
+  }
+
+  &__line[data-axis='y'][data-side='before'] &__label {
+    top: auto;
+    bottom: 6px;
   }
 }
 </style>

@@ -2,6 +2,7 @@ import { cropForRatio, type PixelCrop } from '@michaelthielemann/kestrel-images-
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import { describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
+import { en } from '../../i18n/en'
 import type { MediaRect } from '../../types/api'
 import CropFrame from './CropFrame.vue'
 
@@ -38,9 +39,13 @@ function cropOf(rect: MediaRect | undefined): PixelCrop | null {
   return cropForRatio({ focus: null, crops: { '16:9': rect } }, '16:9', WIDTH, HEIGHT) ?? { left: 0, top: 150, width: 1600, height: 900 }
 }
 
-function wheel(deltaY: number, clientX: number, clientY: number): WheelEvent {
-  return new WheelEvent('wheel', { deltaY, clientX, clientY, bubbles: true, cancelable: true })
+function wheel(deltaY: number, clientX: number, clientY: number, init: WheelEventInit = {}): WheelEvent {
+  return new WheelEvent('wheel', { deltaY, clientX, clientY, bubbles: true, cancelable: true, ...init })
 }
+
+const PINCH = { ctrlKey: true }
+
+const helpPanel = (wrapper: Awaited<ReturnType<typeof mountFrame>>['wrapper']) => wrapper.get('.ui-info-toggle__panel')
 
 const SMALL = { ratio: '1:1', width: 1200, height: 700 }
 
@@ -76,8 +81,10 @@ describe('KestrelUiCropFrame', () => {
     expect(frame.attributes('tabindex')).toBe('0')
     expect(frame.attributes('aria-label')).toBe('Crop for 16:9')
     expect(frame.attributes('style')).toContain('--ui-crop-frame-ratio: 16 / 9')
-    const help = document.getElementById(frame.attributes('aria-describedby') ?? '')
-    expect(help?.textContent).toContain('Shift')
+    const keys = document.getElementById(frame.attributes('aria-describedby') ?? '')
+    expect(keys?.textContent).toBe(en['cropFrame.keys'])
+    expect(helpPanel(wrapper).attributes('hidden')).toBeDefined()
+    expect(helpPanel(wrapper).text()).toContain(en['cropFrame.help'])
     wrapper.unmount()
   })
 
@@ -366,7 +373,7 @@ describe('KestrelUiCropFrame', () => {
     const frame = squareFrame(wrapper)
 
     for (let i = 0; i < 50; i++) {
-      frame.dispatchEvent(wheel(-1, 300, 300))
+      frame.dispatchEvent(wheel(-1, 300, 300, PINCH))
       await nextTick()
     }
     const crop = squareCropOf(emitted.at(-1))
@@ -379,7 +386,7 @@ describe('KestrelUiCropFrame', () => {
     const frame = sizedFrame(wrapper, 640, 360)
 
     for (let i = 0; i < 400; i++) {
-      frame.dispatchEvent(wheel(-0.25, 320, 180))
+      frame.dispatchEvent(wheel(-0.25, 320, 180, PINCH))
       await nextTick()
     }
     const crop = cropOf(emitted.at(-1))
@@ -393,7 +400,7 @@ describe('KestrelUiCropFrame', () => {
     const frame = sizedFrame(wrapper, 600, 400)
 
     for (let i = 0; i < 400; i++) {
-      frame.dispatchEvent(wheel(-0.25, 150, 100))
+      frame.dispatchEvent(wheel(-0.25, 150, 100, PINCH))
       await nextTick()
     }
     const last = emitted.at(-1)
@@ -405,6 +412,66 @@ describe('KestrelUiCropFrame', () => {
     wrapper.unmount()
   })
 
+  describe('wheel speeds', () => {
+    async function wheelOnce(init: WheelEventInit & { deltaY?: number }) {
+      const { wrapper, emitted } = await mountFrame(null)
+      const frame = sizedFrame(wrapper, 320, 180)
+      frame.dispatchEvent(wheel(init.deltaY ?? 0, 160, 90, init))
+      await nextTick()
+      const width = cropOf(emitted.at(-1))?.width ?? 0
+      wrapper.unmount()
+      return width
+    }
+
+    it('zooms finely with the plain wheel', async () => {
+      expect(Math.abs((await wheelOnce({ deltaY: -100 })) - 1600 / Math.exp(0.08))).toBeLessThanOrEqual(2)
+    })
+
+    it('zooms in large steps with Shift, also from a horizontal delta', async () => {
+      const coarse = 1600 / Math.exp(0.22)
+      expect(Math.abs((await wheelOnce({ deltaY: -100, shiftKey: true })) - coarse)).toBeLessThanOrEqual(2)
+      expect(Math.abs((await wheelOnce({ deltaY: 0, deltaX: -100, shiftKey: true })) - coarse)).toBeLessThanOrEqual(2)
+    })
+
+    it('keeps the pinch speed of a wheel with Ctrl', async () => {
+      expect(Math.abs((await wheelOnce({ deltaY: -100, ctrlKey: true })) - 1600 / Math.exp(0.2))).toBeLessThanOrEqual(2)
+    })
+
+    it('adds up small steps of the fine wheel instead of dropping them', async () => {
+      const { wrapper, emitted } = await mountFrame(squareRect(500, 262, 175), null, SMALL)
+      const frame = squareFrame(wrapper)
+
+      for (let i = 0; i < 100; i++) {
+        frame.dispatchEvent(wheel(-1, 300, 300))
+        await nextTick()
+      }
+      expect(Math.abs((squareCropOf(emitted.at(-1))?.width ?? 0) - 175 / Math.exp(0.08))).toBeLessThanOrEqual(1)
+      wrapper.unmount()
+    })
+  })
+
+  describe('focus outline', () => {
+    it('outlines the focus over the crop, kept from assistive technology', async () => {
+      const { wrapper } = await mountFrame({ x: 0.25, y: 0.3125, w: 0.5, h: 0.375 }, { x: 0.25, y: 0.3125, w: 0.25, h: 0.1875 })
+
+      const outline = wrapper.get('.ui-crop-frame__focus')
+      expect(outline.attributes('aria-hidden')).toBe('true')
+      const style = outline.attributes('style') ?? ''
+      for (const part of ['left: 0%', 'top: 0%', 'width: 50%', 'height: 50%']) expect(style).toContain(part)
+      wrapper.unmount()
+    })
+
+    it('draws a point focus as a ring and nothing without a focus', async () => {
+      const point = await mountFrame({ x: 0.25, y: 0.3125, w: 0.5, h: 0.375 }, { x: 0.5, y: 0.5, w: 0, h: 0 })
+      expect(point.wrapper.get('.ui-crop-frame__focus').classes()).toContain('ui-crop-frame__focus--point')
+      point.wrapper.unmount()
+
+      const none = await mountFrame(null)
+      expect(none.wrapper.find('.ui-crop-frame__focus').exists()).toBe(false)
+      none.wrapper.unmount()
+    })
+  })
+
   describe('snapping to the guides', () => {
     const OFF_CENTRE = { x: 0.25625, y: 0.3125, w: 0.5, h: 0.375 }
     const guideLines = (wrapper: Awaited<ReturnType<typeof mountFrame>>['wrapper']) => wrapper.findAll('.ui-crop-guides__line').map((line) => ({ axis: line.attributes('data-axis'), style: line.attributes('style') }))
@@ -414,6 +481,66 @@ describe('KestrelUiCropFrame', () => {
       frame.dispatchEvent(pointerEvent('pointermove', 1, 160 + dx, 90, altKey))
       await nextTick()
     }
+
+    const labels = (wrapper: Awaited<ReturnType<typeof mountFrame>>['wrapper']) => Object.fromEntries(wrapper.findAll('.ui-crop-guides__line').map((line) => [line.attributes('data-axis'), line.find('.ui-crop-guides__label').text()]))
+    const announced = (wrapper: Awaited<ReturnType<typeof mountFrame>>['wrapper']) => wrapper.get('.ui-crop-frame__snapped').text().replaceAll('\u200B', '')
+
+    it('labels the guide it snapped to: image centre, focus centre, focus on a third', async () => {
+      const image = await mountFrame(OFF_CENTRE)
+      await drag(sizedFrame(image.wrapper, 320, 180), 2)
+      expect(labels(image.wrapper).x).toBe(en['cropFrame.snap.image'])
+      image.wrapper.unmount()
+
+      const centre = await mountFrame({ x: 0.08125, y: 0.3125, w: 0.5, h: 0.375 }, { x: 0.3, y: 0.45, w: 0.05, h: 0.1 })
+      await drag(sizedFrame(centre.wrapper, 320, 180), 2)
+      expect(cropOf(centre.emitted.at(-1))?.left).toBe(120)
+      expect(labels(centre.wrapper)).toEqual({ x: en['cropFrame.snap.focus'], y: en['cropFrame.snap.image'] })
+      centre.wrapper.unmount()
+
+      const third = await mountFrame({ x: 0.225, y: 0.3125, w: 0.5, h: 0.375 }, { x: 0.35, y: 0.45, w: 0.05, h: 0.1 })
+      await drag(sizedFrame(third.wrapper, 320, 180), 8)
+      expect(labels(third.wrapper).x).toBe(en['cropFrame.snap.focusThird'])
+      third.wrapper.unmount()
+    })
+
+    it('shows no label without snapping', async () => {
+      const alt = await mountFrame(OFF_CENTRE)
+      await drag(sizedFrame(alt.wrapper, 320, 180), 2, true)
+      expect(alt.wrapper.findAll('.ui-crop-guides__label')).toEqual([])
+      alt.wrapper.unmount()
+
+      const off = await mountFrame(OFF_CENTRE, null, undefined, false)
+      await drag(sizedFrame(off.wrapper, 320, 180), 2)
+      expect(off.wrapper.findAll('.ui-crop-guides__label')).toEqual([])
+      off.wrapper.unmount()
+
+      const keys = await mountFrame({ x: 0.25625, y: 0.3125, w: 0.5, h: 0.375 })
+      sizedFrame(keys.wrapper, 320, 180)
+      await keys.wrapper.get('.ui-crop-frame__frame').trigger('keydown', { key: 'ArrowLeft' })
+      expect(keys.wrapper.findAll('.ui-crop-guides__label')).toEqual([])
+      expect(announced(keys.wrapper)).toBe('')
+      keys.wrapper.unmount()
+    })
+
+    it('announces the snapped guide once when the drag ends', async () => {
+      const { wrapper } = await mountFrame(OFF_CENTRE)
+      const frame = sizedFrame(wrapper, 320, 180)
+
+      expect(wrapper.get('.ui-crop-frame__snapped').attributes('aria-live')).toBe('polite')
+      await drag(frame, 2)
+      frame.dispatchEvent(pointerEvent('pointermove', 1, 163, 90))
+      await nextTick()
+      expect(announced(wrapper)).toBe('')
+      frame.dispatchEvent(pointerEvent('pointerup', 1, 163, 90))
+      await nextTick()
+      expect(announced(wrapper)).toBe(en['cropFrame.snapped'].replace('{guides}', en['cropFrame.snap.image']))
+
+      await drag(frame, 30)
+      frame.dispatchEvent(pointerEvent('pointerup', 1, 190, 90))
+      await nextTick()
+      expect(announced(wrapper)).toBe(en['cropFrame.snapped'].replace('{guides}', en['cropFrame.snap.image']))
+      wrapper.unmount()
+    })
 
     it('snaps the middle of the image to the middle of the frame within 8 screen pixels and highlights the guide while dragging', async () => {
       const { wrapper, emitted } = await mountFrame(OFF_CENTRE)
@@ -456,21 +583,21 @@ describe('KestrelUiCropFrame', () => {
       await drag(frame, 2)
       expect(cropOf(emitted.at(-1))?.left).toBe(405)
       expect(guideLines(wrapper)).toEqual([])
-      expect(document.getElementById(wrapper.get('.ui-crop-frame__frame').attributes('aria-describedby') ?? '')?.textContent).not.toContain('Alt')
+      expect(helpPanel(wrapper).text()).not.toContain('Alt')
       wrapper.unmount()
     })
 
     it('tells how to place the crop freely while snapping is on', async () => {
       const { wrapper } = await mountFrame(null)
 
-      expect(document.getElementById(wrapper.get('.ui-crop-frame__frame').attributes('aria-describedby') ?? '')?.textContent).toContain('Alt')
+      expect(helpPanel(wrapper).text()).toContain('Alt')
       wrapper.unmount()
     })
 
     it('tells which gestures snap to which guides and that the keyboard, the slider and the number fields stay exact', async () => {
       const { wrapper } = await mountFrame(null)
 
-      const help = document.getElementById(wrapper.get('.ui-crop-frame__frame').attributes('aria-describedby') ?? '')?.textContent ?? ''
+      const help = helpPanel(wrapper).text()
       expect(help).toContain('Dragging, pinching with two fingers and the wheel snap the middle of the image to the middle of the frame')
       expect(help).toContain('the centre of the focus to the middle and the thirds of the frame')
       expect(help).toContain('the keyboard, the slider and the number fields stay exact')
@@ -490,14 +617,14 @@ describe('KestrelUiCropFrame', () => {
 
     it('snaps while zooming with the wheel, and not with Alt held', async () => {
       const snapped = await mountFrame(OFF_CENTRE)
-      sizedFrame(snapped.wrapper, 320, 180).dispatchEvent(wheel(-1, 160, 90))
+      sizedFrame(snapped.wrapper, 320, 180).dispatchEvent(wheel(-1, 160, 90, PINCH))
       await nextTick()
       const crop = cropOf(snapped.emitted.at(-1))
       expect(Math.abs((crop?.left ?? 0) + (crop?.width ?? 0) / 2 - 800)).toBeLessThanOrEqual(1)
       snapped.wrapper.unmount()
 
       const free = await mountFrame(OFF_CENTRE)
-      const event = new WheelEvent('wheel', { deltaY: -1, clientX: 160, clientY: 90, altKey: true, bubbles: true, cancelable: true })
+      const event = wheel(-1, 160, 90, { ...PINCH, altKey: true })
       sizedFrame(free.wrapper, 320, 180).dispatchEvent(event)
       await nextTick()
       const freeCrop = cropOf(free.emitted.at(-1))
@@ -506,7 +633,7 @@ describe('KestrelUiCropFrame', () => {
     })
 
     function altWheel(deltaY: number): WheelEvent {
-      return new WheelEvent('wheel', { deltaY, clientX: 160, clientY: 90, altKey: true, bubbles: true, cancelable: true })
+      return wheel(deltaY, 160, 90, { ...PINCH, altKey: true })
     }
 
     function centreX(rect: MediaRect | undefined): number {
@@ -543,7 +670,7 @@ describe('KestrelUiCropFrame', () => {
       await nextTick()
       await wrapper.setProps({ snap: false })
 
-      frame.dispatchEvent(wheel(-0.5, 160, 90))
+      frame.dispatchEvent(wheel(-0.5, 160, 90, PINCH))
       await nextTick()
       expect(Math.abs(centreX(emitted.at(-1)) - 800)).toBeLessThanOrEqual(1)
       wrapper.unmount()
@@ -553,7 +680,7 @@ describe('KestrelUiCropFrame', () => {
       const { wrapper, emitted } = await mountFrame(OFF_CENTRE)
       const frame = sizedFrame(wrapper, 320, 180)
 
-      frame.dispatchEvent(wheel(-1, 160, 90))
+      frame.dispatchEvent(wheel(-1, 160, 90, PINCH))
       await nextTick()
       expect(Math.abs(centreX(emitted.at(-1)) - 800)).toBeLessThanOrEqual(1)
 
@@ -567,7 +694,7 @@ describe('KestrelUiCropFrame', () => {
       async function wheelThenDrag(waitForWheelGuides: boolean) {
         const { wrapper, emitted } = await mountFrame(OFF_CENTRE)
         const frame = sizedFrame(wrapper, 320, 180)
-        frame.dispatchEvent(wheel(-1, 160, 90))
+        frame.dispatchEvent(wheel(-1, 160, 90, PINCH))
         await nextTick()
         frame.dispatchEvent(pointerEvent('pointerdown', 1, 160, 90))
         frame.dispatchEvent(pointerEvent('pointermove', 1, 157, 90))
@@ -603,7 +730,7 @@ describe('KestrelUiCropFrame', () => {
         const frame = sizedFrame(wrapper, 320, 180)
         frame.dispatchEvent(pointerEvent('pointerdown', 1, 160, 90))
         frame.dispatchEvent(pointerEvent('pointermove', 1, 162, 90))
-        frame.dispatchEvent(wheel(-1, 160, 90))
+        frame.dispatchEvent(wheel(-1, 160, 90, PINCH))
         await nextTick()
         vi.advanceTimersByTime(700)
         await nextTick()
@@ -624,7 +751,7 @@ describe('KestrelUiCropFrame', () => {
       try {
         const { wrapper } = await mountFrame(OFF_CENTRE)
         const frame = sizedFrame(wrapper, 320, 180)
-        frame.dispatchEvent(wheel(-1, 160, 90))
+        frame.dispatchEvent(wheel(-1, 160, 90, PINCH))
         await nextTick()
         expect(guideLines(wrapper)).toContainEqual({ axis: 'x', style: 'left: 50%;' })
 

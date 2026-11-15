@@ -1,0 +1,63 @@
+$narrow: 48rem;
+
+@mixin layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 19rem);
+  grid-template-rows: minmax(0, 1fr);
+  gap: var(--space-2);
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+
+  @media (max-width: $narrow) {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+    height: auto;
+  }
+}
+
+@mixin pane {
+  min-width: 0;
+  min-height: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+@mixin stage {
+  @include pane;
+  position: relative;
+  container-type: size;
+  display: grid;
+  place-items: center;
+  background: var(--color-bg);
+
+  @media (max-width: $narrow) {
+    container-type: inline-size;
+  }
+}
+
+@mixin aside {
+  @include pane;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  background: var(--color-surface);
+
+  @media (max-width: $narrow) {
+    overflow: visible;
+  }
+}
+
+@mixin fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2);
+
+  @media (max-width: $narrow) {
+    grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr));
+  }
+}

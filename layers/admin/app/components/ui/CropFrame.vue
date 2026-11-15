@@ -2,6 +2,8 @@
 import { computed, nextTick, onBeforeUnmount, reactive, ref, useId, watch } from 'vue'
 import { usePanZoom } from '../../composables/usePanZoom'
 import type { MediaRect } from '../../types/api'
+import { focusBox } from '../../utils/crop-overlay'
+import { snapLabelKey } from '../../utils/crop-snap'
 
 const props = withDefaults(
   defineProps<{
@@ -20,12 +22,13 @@ const props = withDefaults(
 )
 
 const model = defineModel<MediaRect | null>({ default: null })
+const help = defineModel<boolean>('help', { default: false })
 const emit = defineEmits<{ pending: [boolean] }>()
 const { t } = useT()
-const helpId = `${useId()}-help`
+const keysId = `${useId()}-keys`
 const frame = ref<HTMLElement | null>(null)
 
-const { zoom, maxZoom, position, imageStyle, dragging, guides, zoomBy, zoomTo, setPosition, onKeydown, ZOOM_STEP } = usePanZoom(frame, {
+const { crop, zoom, maxZoom, position, imageStyle, dragging, guides, settledSnap, zoomBy, zoomTo, setPosition, onKeydown, ZOOM_STEP } = usePanZoom(frame, {
   ratio: () => props.ratio,
   width: () => props.width,
   height: () => props.height,
@@ -42,6 +45,23 @@ const frameStyle = computed(() => {
   const value = w && h ? w / h : 1
   return { '--ui-crop-frame-ratio': `${w ?? 1} / ${h ?? 1}`, '--ui-crop-frame-ratio-value': String(value) }
 })
+
+const outline = computed(() => (props.focus && crop.value ? focusBox(props.focus, crop.value, props.width, props.height) : null))
+const outlineStyle = computed(() => {
+  const box = outline.value
+  if (!box) return undefined
+  const place = { left: `${box.left}%`, top: `${box.top}%` }
+  return box.point ? place : { ...place, width: `${box.width}%`, height: `${box.height}%` }
+})
+
+const snapMessage = ref('')
+const stopSnapMessage = watch(settledSnap, (snapped) => {
+  const names = [...new Set(snapped.map((guide) => t(snapLabelKey(guide))))]
+  if (!names.length) return
+  const message = t('cropFrame.snapped', { guides: names.join(', ') })
+  snapMessage.value = message === snapMessage.value ? `${message}\u200B` : message
+})
+onBeforeUnmount(stopSnapMessage)
 
 const zoomPercent = computed(() => Math.round(zoom.value * 100))
 const sliderZoom = computed({ get: () => zoom.value, set: (value: number) => zoomTo(value) })
@@ -88,92 +108,109 @@ defineExpose({ focus: () => frame.value?.focus() })
 
 <template>
   <div ref="root" class="ui-crop-frame" :class="{ 'ui-crop-frame--dragging': dragging }" :data-disabled="disabled || undefined">
-    <div
-      ref="frame"
-      class="ui-crop-frame__frame"
-      :style="frameStyle"
-      role="group"
-      tabindex="0"
-      :aria-label="label"
-      :aria-describedby="helpId"
-      :aria-disabled="disabled || undefined"
-      @keydown="onKeydown"
-    >
-      <img :src="src" :alt="alt" class="ui-crop-frame__image" :style="imageStyle" draggable="false">
-      <KestrelUiCropGuides :snapped="guides" />
-    </div>
-    <p :id="helpId" class="ui-crop-frame__help">{{ snap ? `${t('cropFrame.help')} ${t('cropFrame.snapHelp')}` : t('cropFrame.help') }}</p>
-    <div class="ui-crop-frame__zoom">
-      <KestrelUiButton
-        variant="icon"
-        size="sm"
-        icon="minus"
-        data-action="zoom-out"
-        :aria-label="t('cropFrame.zoomOut')"
-        :disabled="disabled || zoom <= 1.0001"
-        @click="zoomButton(1 / ZOOM_STEP, $event)"
-      />
-      <KestrelUiSlider
-        v-model="sliderZoom"
-        class="ui-crop-frame__slider"
-        :label="t('cropFrame.zoom')"
-        hide-label
-        :min="1"
-        :max="maxZoom"
-        :step="0.01"
-        :value-text="`${zoomPercent} %`"
-        :disabled="disabled || maxZoom <= 1"
-      />
-      <KestrelUiButton
-        variant="icon"
-        size="sm"
-        icon="plus"
-        data-action="zoom-in"
-        :aria-label="t('cropFrame.zoomIn')"
-        :disabled="disabled || zoom >= maxZoom - 0.0001"
-        @click="zoomButton(ZOOM_STEP, $event)"
-      />
-    </div>
-    <KestrelUiFieldset :label="t('cropFrame.fields')">
-      <div class="ui-crop-frame__grid-fields">
-        <KestrelUiField v-for="field in NUMBER_FIELDS" :key="field.name" :label="t(`cropFrame.${field.name}`)">
-          <template #default="{ id }">
-            <KestrelUiNumberInput
-              :id="id"
-              :model-value="shown(field.name)"
-              :min="field.name === 'zoom' ? 100 : 0"
-              :max="field.name === 'zoom' ? Math.floor(maxZoom * 100) : 100"
-              :step="field.step"
-              suffix="%"
-              slim
-              :disabled="disabled"
-              :data-field="field.name"
-              @update:model-value="typed.set(field.name, $event ?? null)"
-              @change="commitNumber(field.name)"
-              @blur="commitNumber(field.name)"
-              @keydown="onNumberKeydown(field.name, $event)"
-            />
-          </template>
-        </KestrelUiField>
+    <div class="ui-crop-frame__stage">
+      <div
+        ref="frame"
+        class="ui-crop-frame__frame"
+        :style="frameStyle"
+        role="group"
+        tabindex="0"
+        :aria-label="label"
+        :aria-describedby="keysId"
+        :aria-disabled="disabled || undefined"
+        @keydown="onKeydown"
+      >
+        <img :src="src" :alt="alt" class="ui-crop-frame__image" :style="imageStyle" draggable="false">
+        <span v-if="outline" class="ui-crop-frame__focus" :class="{ 'ui-crop-frame__focus--point': outline.point }" :style="outlineStyle" aria-hidden="true" />
+        <KestrelUiCropGuides :snapped="guides" />
       </div>
-    </KestrelUiFieldset>
+      <span :id="keysId" class="ui-crop-frame__sr">{{ t('cropFrame.keys') }}</span>
+      <span class="ui-crop-frame__sr ui-crop-frame__snapped" aria-live="polite">{{ snapMessage }}</span>
+    </div>
+    <div class="ui-crop-frame__aside">
+      <KestrelUiInfoToggle v-model:open="help" :label="t('cropFrame.helpToggle')">
+        <template #head><slot name="aside-start" /></template>
+        <slot name="help-intro" />
+        <p class="ui-crop-frame__help">{{ snap ? `${t('cropFrame.help')} ${t('cropFrame.snapHelp')}` : t('cropFrame.help') }}</p>
+      </KestrelUiInfoToggle>
+      <div class="ui-crop-frame__zoom">
+        <KestrelUiButton
+          variant="icon"
+          size="sm"
+          icon="minus"
+          data-action="zoom-out"
+          :aria-label="t('cropFrame.zoomOut')"
+          :disabled="disabled || zoom <= 1.0001"
+          @click="zoomButton(1 / ZOOM_STEP, $event)"
+        />
+        <KestrelUiSlider
+          v-model="sliderZoom"
+          class="ui-crop-frame__slider"
+          :label="t('cropFrame.zoom')"
+          hide-label
+          :min="1"
+          :max="maxZoom"
+          :step="0.01"
+          :value-text="`${zoomPercent} %`"
+          :disabled="disabled || maxZoom <= 1"
+        />
+        <KestrelUiButton
+          variant="icon"
+          size="sm"
+          icon="plus"
+          data-action="zoom-in"
+          :aria-label="t('cropFrame.zoomIn')"
+          :disabled="disabled || zoom >= maxZoom - 0.0001"
+          @click="zoomButton(ZOOM_STEP, $event)"
+        />
+      </div>
+      <KestrelUiFieldset :label="t('cropFrame.fields')">
+        <div class="ui-crop-frame__grid-fields">
+          <KestrelUiField v-for="field in NUMBER_FIELDS" :key="field.name" :label="t(`cropFrame.${field.name}`)">
+            <template #default="{ id }">
+              <KestrelUiNumberInput
+                :id="id"
+                :model-value="shown(field.name)"
+                :min="field.name === 'zoom' ? 100 : 0"
+                :max="field.name === 'zoom' ? Math.floor(maxZoom * 100) : 100"
+                :step="field.step"
+                suffix="%"
+                slim
+                :disabled="disabled"
+                :data-field="field.name"
+                @update:model-value="typed.set(field.name, $event ?? null)"
+                @change="commitNumber(field.name)"
+                @blur="commitNumber(field.name)"
+                @keydown="onNumberKeydown(field.name, $event)"
+              />
+            </template>
+          </KestrelUiField>
+        </div>
+      </KestrelUiFieldset>
+      <slot name="aside-end" />
+    </div>
   </div>
 </template>
 
 <style lang="scss">
 @use '../../assets/scss/mixins';
+@use '../../assets/scss/crop-stage';
 
 .ui-crop-frame {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  min-width: 0;
+  @include crop-stage.layout;
+
+  &__stage {
+    @include crop-stage.stage;
+  }
+
+  &__aside {
+    @include crop-stage.aside;
+  }
 
   &__frame {
     @include mixins.focus-ring;
     position: relative;
-    align-self: center;
-    width: min(100%, calc(var(--ui-crop-frame-max-height, 60vh) * var(--ui-crop-frame-ratio-value)));
+    width: min(100cqw, calc(100cqh * var(--ui-crop-frame-ratio-value)));
     aspect-ratio: var(--ui-crop-frame-ratio);
     overflow: hidden;
     border-radius: var(--radius-md);
@@ -205,9 +242,26 @@ defineExpose({ focus: () => frame.value?.focus() })
     pointer-events: none;
   }
 
+  &__focus {
+    position: absolute;
+    border: 2px dashed var(--color-primary);
+    box-shadow: 0 0 0 1px var(--color-overlay-edge-strong), inset 0 0 0 1px var(--color-overlay-edge-strong);
+    pointer-events: none;
+  }
+
+  &__focus--point {
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: var(--radius-full);
+    transform: translate(-50%, -50%);
+  }
+
+  &__sr {
+    @include mixins.sr-only;
+  }
+
   &__help {
-    font-size: var(--text-sm);
-    color: var(--color-text-muted);
+    margin: 0;
   }
 
   &__zoom {
@@ -221,15 +275,23 @@ defineExpose({ focus: () => frame.value?.focus() })
   }
 
   &__grid-fields {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr));
-    gap: var(--space-2);
+    @include crop-stage.fields;
+  }
+}
+
+@media (max-width: 48rem) {
+  .ui-crop-frame__frame {
+    width: min(100%, calc(55svh * var(--ui-crop-frame-ratio-value)));
   }
 }
 
 @media (prefers-reduced-motion: no-preference) {
   .ui-crop-frame:not(.ui-crop-frame--dragging) .ui-crop-frame__image {
     transition: transform var(--motion-fast) var(--ease-standard), width var(--motion-fast) var(--ease-standard);
+  }
+
+  .ui-crop-frame:not(.ui-crop-frame--dragging) .ui-crop-frame__focus {
+    transition: left var(--motion-fast) var(--ease-standard), top var(--motion-fast) var(--ease-standard), width var(--motion-fast) var(--ease-standard), height var(--motion-fast) var(--ease-standard);
   }
 }
 </style>

@@ -1,6 +1,7 @@
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import { describe, expect, it } from 'vitest'
 import { nextTick } from 'vue'
+import { en } from '../../i18n/en'
 import type { MediaRect } from '../../types/api'
 import RectSelect from './RectSelect.vue'
 
@@ -44,8 +45,12 @@ describe('KestrelUiRectSelect', () => {
     const surface = wrapper.get('.ui-rect-select__surface')
     expect(surface.attributes('tabindex')).toBe('0')
     expect(surface.attributes('aria-label')).toBe('Focus area')
-    const help = document.getElementById(surface.attributes('aria-describedby') ?? '')
-    expect(help?.textContent).toContain('Shift')
+    const keys = document.getElementById(surface.attributes('aria-describedby') ?? '')
+    expect(keys?.textContent).toBe(en['rectSelect.keys'])
+    const panel = wrapper.get('.ui-info-toggle__panel')
+    expect(panel.attributes('hidden')).toBeDefined()
+    expect(panel.text()).toContain(en['rectSelect.help'])
+    expect(wrapper.get('.ui-rect-select__aside button[aria-expanded]').attributes('aria-label')).toBe(en['rectSelect.helpToggle'])
     expect(wrapper.find('.ui-rect-select__rect').exists()).toBe(false)
     wrapper.unmount()
   })
