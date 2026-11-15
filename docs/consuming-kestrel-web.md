@@ -2128,7 +2128,8 @@ site URL plus `/`, every other page's is the site URL plus its path, without a t
 `shared/model`, the canonical link, `<loc>`, the exported path and every internal link carry the default locale's
 prefix too (`/de/about`, the home page `/de`), and nothing is exported at `/`: the first render of each page
 after the switch writes it under the prefix and removes the files at its old path, the root page
-`<prefix>index.html` among them. A static host needs redirects from `/` to the default locale's home page and
+`<prefix>index.html` among them (the first start after the deploy re-renders every page in the background; until
+that run has finished, old and new files exist side by side). A static host needs redirects from `/` to the default locale's home page and
 from the old unprefixed paths to the prefixed ones. An override of a public read (`resolvePage`, `getSettings`,
 `resolve<Name>`) needs `&prefixPrimary=true` in its `site.resolveLinks` rules, which `definePreset()` adds only
 to its own steps; without it, internal links keep the unprefixed form. The Node server still answers a
@@ -2639,8 +2640,9 @@ What changes:
   boot when `site-default`, or `delivery-static` on `prefixPrimary`, disagrees with them. `preset/site-model-options` passes both (and `homeSlug` to
   `definePreset()`); it is an error when `shared/model` sets `prefixPrimary = true` or another home slug.
   With `prefixPrimary = true`, add `&prefixPrimary=true` to the `site.resolveLinks` rules of an override of
-  `resolvePage`, `getSettings` or `resolve<Name>` by hand (`preset/override-drift` notes the difference only),
-  and delete the root page `site/index.html` an older version exported (§8, "Site URL").
+  `resolvePage`, `getSettings` or `resolve<Name>` by hand (`preset/override-drift` notes the difference only).
+  The first render of each page then removes its old unprefixed files, the root page among them, so a static
+  host needs redirects from `/` and from the old paths (§8, "Site URL").
 - `fix --write` repeats its checks until nothing more changes, so a 2.x override gets its atomic group and
   its path steps in one run. After a dependency change it asks for `pnpm install`; run `fix --write` once more
   afterwards, since a question such as `model/parent-offer` appears only once the project loads.
