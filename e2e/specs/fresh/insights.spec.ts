@@ -8,7 +8,7 @@ const hashDigest = bootstrapHash.split("$").at(-1) ?? "";
 
 test.use({ storageState: ADMIN_STATE });
 
-test("insights shows no secret in the page or in any answer, and marks preset values as preset defaults", async ({ page }) => {
+test("insights shows no secret in the page or in any answer, marks preset values as preset defaults and builder options as set", async ({ page }) => {
   expect(hashDigest.length).toBeGreaterThan(32);
   const bodies: Promise<string>[] = [];
   page.on("response", (response) => {
@@ -20,7 +20,8 @@ test("insights shows no secret in the page or in any answer, and marks preset va
   await expect(row).toBeVisible();
   await expect.soft(row.getByRole("cell", { name: "geschwärzt" })).toHaveCount(2);
   await expect.soft(row.getByRole("cell", { name: "Standard · Preset" })).toBeVisible();
-  await expect.soft(page.getByRole("row", { name: /^retentionDays integer optional 365 365 Standard · Preset$/ })).toBeVisible();
+  await expect.soft(page.getByRole("row", { name: /^sessionTtlSeconds integer optional 86400 86400 Standard · Preset$/ })).toBeVisible();
+  await expect.soft(page.getByRole("row", { name: /^retentionDays integer optional 365 — gesetzt$/ })).toBeVisible();
 
   expect.soft(await page.content()).not.toContain(hashDigest);
 
