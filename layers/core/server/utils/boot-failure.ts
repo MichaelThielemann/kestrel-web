@@ -37,13 +37,17 @@ const INSTANCE_LOCKED = "instance-locked";
 const LOCK_HOLDER = /host "([^"]*)", pid (\d+)/;
 const LOCK_NOT_TAKEN = "could not take the instance lock";
 const LOCK_UNREADABLE = "which is unreadable";
-const STOP_OR_OPT_OUT = "  stop it, or set allowConcurrentProcesses: true to run several processes on one database on purpose";
+const OTHER_NAMESPACE = "comes from another PID namespace";
+const STOP_OR_OPT_OUT = "  stop it and restart the server, or set allowConcurrentProcesses: true to run several processes on one database on purpose";
 
 function lockHintLines(reason: string): string[] {
   const holder = LOCK_HOLDER.exec(reason);
   const named = holder === null ? "" : `host "${holder[1] ?? ""}", pid ${holder[2] ?? ""}`;
   if (reason.includes(LOCK_NOT_TAKEN)) {
-    return [named === "" ? "  another process is taking or holding the lock; retry once it has settled" : `  another process is taking over the lock: ${named}; retry once it has finished`];
+    return [named === "" ? "  another process is taking or holding the lock; retry by restarting the server once it has settled" : `  another process is taking over the lock: ${named}; retry by restarting the server once it has finished`];
+  }
+  if (holder !== null && reason.includes(OTHER_NAMESPACE)) {
+    return [`  the lock comes from an earlier run in another PID namespace: ${named} there; if no process uses the database any more, delete the lock file named above or restart the server once the takeover time has passed`];
   }
   if (holder !== null) return [`  another process is running on this database: ${named}`, STOP_OR_OPT_OUT];
   if (reason.includes(LOCK_UNREADABLE)) return ["  another process holds this database; the lock file names no host or PID", STOP_OR_OPT_OUT];

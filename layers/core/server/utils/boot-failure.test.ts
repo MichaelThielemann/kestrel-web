@@ -35,14 +35,31 @@ describe("bootBanner", () => {
   it("names the running process with host and PID for an instance lock held by another process", () => {
     const lines = bootBanner({ module: "persistence/sqlite", reason: LOCKED_REASON, code: "instance-locked" });
     expect(lines).toContain('  another process is running on this database: host "web-1", pid 4242');
-    expect(lines).toContain("  stop it, or set allowConcurrentProcesses: true to run several processes on one database on purpose");
+    expect(lines).toContain("  stop it and restart the server, or set allowConcurrentProcesses: true to run several processes on one database on purpose");
     expect(lines.join("\n")).not.toContain("fix kestrel.config.ts");
+  });
+
+  it("tells a lock from another PID namespace to delete the lock file instead of stopping a process", () => {
+    const reason = LOCKED_REASON.replace(
+      "if that process sends no further heartbeat.",
+      "if that process sends no further heartbeat. The lock comes from another PID namespace on this host, such as an earlier run of this container; if no process uses the database any more, delete /srv/app/data/kestrel.db.instance to start at once.",
+    );
+    const text = bootBanner({ module: "persistence/sqlite", reason, code: "instance-locked" })
+      .filter((line) => !line.startsWith("  reason:"))
+      .join("\n");
+    expect(text).toContain('  the lock comes from an earlier run in another PID namespace: host "web-1", pid 4242 there');
+    expect(text).toContain("delete the lock file named above");
+    expect(text).toContain("restart the server");
+    expect(text).not.toContain("is running");
+    expect(text).not.toContain("stop it");
+    expect(text).not.toContain("allowConcurrentProcesses");
   });
 
   it("falls back to a general hint when the lock holder could not be read", () => {
     const reason = "/srv/app/data/kestrel.db is locked by /srv/app/data/kestrel.db.instance, which is unreadable and was written within the last 60 s; it is taken over once it is older.";
     const lines = bootBanner({ module: "persistence/sqlite", reason, code: "instance-locked" });
     expect(lines).toContain("  another process holds this database; the lock file names no host or PID");
+    expect(lines.join("\n")).toContain("stop it and restart the server");
     expect(lines.join("\n")).not.toContain("pid");
   });
 });
@@ -59,7 +76,7 @@ describe("bootBanner for an instance lock that could not be taken", () => {
 
   it("asks to retry when other processes kept changing the lock, without a claim about the lock file or an opt-out", () => {
     const text = banner(CHURN);
-    expect(text).toContain("  another process is taking or holding the lock; retry once it has settled");
+    expect(text).toContain("  another process is taking or holding the lock; retry by restarting the server once it has settled");
     expect(text).not.toContain("names no host or PID");
     expect(text).not.toContain("stop it");
     expect(text).not.toContain("allowConcurrentProcesses");
@@ -68,7 +85,7 @@ describe("bootBanner for an instance lock that could not be taken", () => {
 
   it("asks to retry when an unnamed process kept its takeover marker, without a claim about the lock file or an opt-out", () => {
     const text = banner(UNNAMED);
-    expect(text).toContain("  another process is taking or holding the lock; retry once it has settled");
+    expect(text).toContain("  another process is taking or holding the lock; retry by restarting the server once it has settled");
     expect(text).not.toContain("names no host or PID");
     expect(text).not.toContain("stop it");
     expect(text).not.toContain("allowConcurrentProcesses");
@@ -76,7 +93,7 @@ describe("bootBanner for an instance lock that could not be taken", () => {
 
   it("names the process that kept its takeover marker and asks to retry instead of to stop it", () => {
     const text = banner(NAMED);
-    expect(text).toContain('  another process is taking over the lock: host "web-2", pid 77; retry once it has finished');
+    expect(text).toContain('  another process is taking over the lock: host "web-2", pid 77; retry by restarting the server once it has finished');
     expect(text).not.toContain("is running on this database");
     expect(text).not.toContain("stop it");
     expect(text).not.toContain("allowConcurrentProcesses");
