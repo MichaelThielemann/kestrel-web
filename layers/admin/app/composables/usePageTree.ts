@@ -52,20 +52,20 @@ export function descendantsOf(nodes: readonly PageTreeNode[], id: string): Set<s
   return out
 }
 
-/** Siblings sorted by label; a node whose parent is unknown counts as a root. */
-export function childrenByParent(nodes: readonly PageTreeNode[]): Map<string | null, PageTreeNode[]> {
+/** Siblings sorted by `label` (the node's own by default); a node whose parent is unknown counts as a root. */
+export function childrenByParent(nodes: readonly PageTreeNode[], label: (node: PageTreeNode) => string = (node) => node.label): Map<string | null, PageTreeNode[]> {
   const known = new Set(nodes.map((node) => node.id))
   const out = new Map<string | null, PageTreeNode[]>()
   for (const node of nodes) {
     const parent = node.parent !== null && known.has(node.parent) ? node.parent : null
     out.set(parent, [...(out.get(parent) ?? []), node])
   }
-  for (const list of out.values()) list.sort((a, b) => a.label.localeCompare(b.label) || a.id.localeCompare(b.id))
+  for (const list of out.values()) list.sort((a, b) => label(a).localeCompare(label(b)) || a.id.localeCompare(b.id))
   return out
 }
 
-/** The pages of a collection with a parent field as a tree, and which of its branches stay open while the browser tab lives. */
-export function usePageTree(deps: Pick<ActionDeps, 'api' | 'capabilities' | 't'>, collection: string) {
+/** The pages of a collection with a parent field as a tree, siblings sorted by `label`, and which of its branches stay open while the browser tab lives. */
+export function usePageTree(deps: Pick<ActionDeps, 'api' | 'capabilities' | 't'>, collection: string, label?: (node: PageTreeNode) => string) {
   const nodes = ref<PageTreeNode[]>([])
   const loading = ref(false)
   const error = ref('')
@@ -85,7 +85,7 @@ export function usePageTree(deps: Pick<ActionDeps, 'api' | 'capabilities' | 't'>
     }
   }
 
-  const children = computed(() => childrenByParent(nodes.value))
+  const children = computed(() => childrenByParent(nodes.value, label))
 
   const rows = computed<PageTreeRow[]>(() => {
     const out: PageTreeRow[] = []

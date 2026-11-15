@@ -1,5 +1,7 @@
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
+import { getQuery } from 'h3'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { en } from '#kestrel-admin/i18n/en'
 import type { AdminSchema, PageTreeNode } from '#kestrel-admin/types/api'
 import { useSchema } from '../composables/useSchema'
 import CollectionTree from './CollectionTree.vue'
@@ -25,6 +27,14 @@ function withTree(): AdminSchema {
       blocks: { enabled: false }, editor: 'fields', nav: true, placement: 'rail', fields: {},
       capabilities: { tree: { method: 'GET', path: '/admin/pages/tree' }, readAny: { method: 'GET', path: '/admin/pages/:id' }, delete: { method: 'DELETE', path: '/pages/:id' } },
     }],
+  }
+}
+
+function withListAll(): AdminSchema {
+  const base = withTree()
+  return {
+    ...base,
+    collections: base.collections.map((collection) => ({ ...collection, capabilities: { ...collection.capabilities, listAll: { method: 'GET', path: '/admin/pages' } } })),
   }
 }
 
@@ -71,6 +81,47 @@ describe('CollectionTree', () => {
     expect(pathOfRow('Team')).not.toContain('/ueber-uns')
     expect(pathOfRow('Kontakt')).not.toContain('/kontakt')
     expect(pathOfRow('Team')).toBe(pathOfRow('Kontakt'))
+    wrapper.unmount()
+  })
+
+  it('shows the titles of the list locale and marks a page shown with the primary locale\'s title', async () => {
+    const titles: Record<string, Record<string, string | null>> = { en: { about: 'About us', team: null, contact: null } }
+    const queried: unknown[] = []
+    unregisterAll.push(registerEndpoint('/api/admin/schema', { method: 'GET', handler: withListAll }))
+    unregisterAll.push(registerEndpoint('/api/admin/pages/tree', { method: 'GET', handler: () => tree }))
+    unregisterAll.push(registerEndpoint('/api/admin/pages', {
+      method: 'GET',
+      handler: (event) => {
+        const query = getQuery(event)
+        queried.push(query.locale)
+        const byId = titles[String(query.locale)] ?? {}
+        return { items: Object.entries(byId).map(([id, title]) => ({ id, title })), total: Object.keys(byId).length }
+      },
+    }))
+    await useSchema().load()
+    const wrapper = await mountSuspended(CollectionTree, { props: { collection: 'pages', locale: 'en', localeQuery: '', label: 'Pages', liveLabel: 'Published', busy: false }, attachTo: document.body })
+
+    await vi.waitFor(() => expect(labels(wrapper)).toEqual(['About us', 'Kontakt']))
+    const rows = wrapper.findAll('[aria-level]')
+    expect(rows[0]!.find('.collection-tree__fallback').exists()).toBe(false)
+    const fallback = rows[1]!.get('.collection-tree__fallback')
+    expect(fallback.text()).toBe('DE')
+    expect(fallback.attributes('title')).toBe(en['list.missingTranslation'])
+    expect(queried).toEqual(['en'])
+    wrapper.unmount()
+  })
+
+  it('asks for no titles in the primary locale', async () => {
+    let asked = 0
+    unregisterAll.push(registerEndpoint('/api/admin/schema', { method: 'GET', handler: withListAll }))
+    unregisterAll.push(registerEndpoint('/api/admin/pages/tree', { method: 'GET', handler: () => tree }))
+    unregisterAll.push(registerEndpoint('/api/admin/pages', { method: 'GET', handler: () => { asked++; return { items: [], total: 0 } } }))
+    await useSchema().load()
+    const wrapper = await mountSuspended(CollectionTree, { props: { collection: 'pages', locale: 'de', localeQuery: '', label: 'Seiten', liveLabel: 'Published', busy: false }, attachTo: document.body })
+
+    await vi.waitFor(() => expect(labels(wrapper)).toEqual(['Kontakt', 'Über uns']))
+    expect(wrapper.find('.collection-tree__fallback').exists()).toBe(false)
+    expect(asked).toBe(0)
     wrapper.unmount()
   })
 

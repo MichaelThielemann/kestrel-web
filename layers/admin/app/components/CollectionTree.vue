@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { usePageTree } from '../composables/usePageTree'
 import type { PageTreeRow } from '../composables/usePageTree'
+import { usePageTreeTitles } from '../composables/usePageTreeTitles'
+import type { PageTreeNode } from '#kestrel-admin/types/api'
 import { pathIn } from '../utils/list-cell'
 
 const props = defineProps<{ collection: string; locale: string; localeQuery: string; label: string; liveLabel: string; busy: boolean }>()
@@ -8,7 +10,10 @@ const emit = defineEmits<{ delete: [ids: string[]] }>()
 
 const { t } = useT()
 const deps = useActionDeps()
-const { rows, loading, error, expanded, load, setExpanded, parentOf } = usePageTree(deps, props.collection)
+const { primary } = useContentLocales()
+const { titles, loaded: titlesLoaded, load: loadTitles } = usePageTreeTitles(deps, props.collection, () => props.locale, () => primary.value)
+const nodeLabel = (node: PageTreeNode) => titles.value[node.id] || node.label || node.id
+const { rows, loading, error, expanded, load, setExpanded, parentOf } = usePageTree(deps, props.collection, nodeLabel)
 const canEdit = computed(() => deps.capabilities.hasVerb(props.collection, 'readAny'))
 const canDelete = computed(() => deps.capabilities.hasVerb(props.collection, 'delete'))
 
@@ -33,7 +38,8 @@ function isOpen(row: PageTreeRow): boolean {
 }
 
 const editTo = (row: PageTreeRow) => `/admin/${props.collection}/${row.node.id}${props.localeQuery}`
-const labelOf = (row: PageTreeRow) => row.node.label || row.node.id
+const labelOf = (row: PageTreeRow) => nodeLabel(row.node)
+const fallbackOf = (row: PageTreeRow) => (titlesLoaded.value && !titles.value[row.node.id] ? primary.value.toUpperCase() : '')
 
 async function focusRow(id: string | null | undefined) {
   if (id === null || id === undefined) return
@@ -71,7 +77,7 @@ function onKeydown(event: KeyboardEvent, row: PageTreeRow, index: number) {
 
 onMounted(() => { void load() })
 onUnmounted(() => { items.clear() })
-defineExpose({ load })
+defineExpose({ load: () => Promise.all([load(), loadTitles()]).then(() => undefined) })
 </script>
 
 <template>
@@ -106,6 +112,7 @@ defineExpose({ load })
             </span>
             <NuxtLink v-if="canEdit" class="collection-tree__label" :to="editTo(row)" tabindex="-1">{{ labelOf(row) }}</NuxtLink>
             <span v-else class="collection-tree__label">{{ labelOf(row) }}</span>
+            <span v-if="fallbackOf(row)" class="collection-tree__fallback" :title="t('list.missingTranslation')">{{ fallbackOf(row) }}</span>
             <span class="collection-tree__sub">
               {{ pathOf(row) || t('tree.noPath') }}
               <span class="collection-tree__badge" :class="{ 'collection-tree__badge--live': isLive(row) }">{{ isLive(row) ? liveLabel : t('tree.notLive') }}</span>
@@ -168,6 +175,16 @@ defineExpose({ load })
     &:hover {
       text-decoration: underline;
     }
+  }
+  &__fallback {
+    display: inline-block;
+    margin-inline-start: var(--space-2);
+    padding: 0 var(--space-1);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    color: var(--color-text-muted);
+    font-size: var(--text-xs, 0.75rem);
+    letter-spacing: 0.03em;
   }
   &__path {
     width: 100%;

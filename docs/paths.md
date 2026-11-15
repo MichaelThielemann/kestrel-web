@@ -62,7 +62,9 @@ their locale (`data/translation-slug`).
 - A parent that is the page itself or one of its subpages, a chain deeper than 16 levels, and the home page
   as a parent are field errors on `parent`. A page with subpages cannot be deleted until they move.
 - The admin's pages list opens as a tree (`GET /api/admin/pages/tree`, permission `pages.manage`), and the
-  parent picker offers neither the page itself nor its subpages.
+  parent picker offers neither the page itself nor its subpages. In a locale other than the primary one the
+  tree shows each page's title in that locale, read from the pages list; a page without one shows its
+  primary locale's title marked with that locale's code, as the list view does.
 
 `kestrel upgrade fix` offers to add the parent field (`model/parent-offer`, default no).
 

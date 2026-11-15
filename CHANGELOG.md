@@ -1394,6 +1394,9 @@
 - System → Images: the confirmation of "Retry failed variants" names the failed variants in total and says that
   a variant whose original cannot be decoded stays failed, instead of promising to put all of them back to
   pending.
+- Admin page tree: in a language other than the primary one, each row shows the page's title in that language,
+  sorted by it; a page without a title there shows the primary language's title marked with its code, as in the
+  list view, instead of every row showing the primary language's title.
 - Admin layout: at 320 CSS px no admin page scrolls sideways or cuts off a control (WCAG 1.4.10 Reflow). The
   main area contains its visually hidden labels; the head of the settings and redirects tabs, the section heads
   of the images tab, the collection list bar and the media toolbar wrap; `KestrelUiButtonGroup` no longer shrinks
