@@ -20,7 +20,6 @@ const status: ImagesStatus = {
   job: null,
   failed: { variants: 28, recent: [{ mediaId: 'med-1', size: 'thumb', attempts: 3, error: 'cannot decode', updatedAt: Date.UTC(2026, 8, 19, 10, 0, 0) }] },
   orphaned: { sizes: [], variants: 0 },
-  registrySeen: true,
 }
 
 describe('SystemImages retry of failed variants', () => {
