@@ -146,6 +146,11 @@ function segmentsOf(steps: InsightsPipelineStep[]) {
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
+
+    > .insights-badge {
+      align-self: flex-start;
+      margin-inline-start: 0;
+    }
   }
 
   &__title {

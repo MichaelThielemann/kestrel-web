@@ -1368,6 +1368,8 @@
   every route it answers `GET` on.
 - Admin page tree: in a language a page has no path in, the row reads "no path" instead of showing the path of
   another language.
+- Insights module page: the "event hook" and "atomic scope" badges are as wide as their text instead of
+  spanning the whole header.
 - System → Images: on a tall window the sections below the image sizes follow the table directly instead
   of leaving the free height as a gap above them.
 - `/api/health` and `/api/ready` report `uptimeSeconds` as the whole seconds since the server process started,
