@@ -545,8 +545,6 @@
 
 ### Upgrading
 
-- The layer's `kestrel` field declares `pluginApi: 6`: a `kestrel-cli` whose plugin API is older refuses the
-  plugin and names the version it needs. Update `@michaelthielemann/kestrel-cli` together with the layer.
 - With `images`, `MediaItem` has the members `focus` and `framing`, each `MediaVariant` has `crop`, and
   `PublicMediaItem` has `focus`, all required: a literal of these types (a test mock, a fixture) needs them to
   pass `nuxt typecheck`.
