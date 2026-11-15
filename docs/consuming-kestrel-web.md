@@ -1936,9 +1936,10 @@ traffic routing (`readinessProbe`, load-balancer health check) at `/api/ready` â
 answering 200 while merely `degraded`, so that a failure a restart cannot fix does not turn into a restart
 loop; it only turns 503 once a module's `health()` reports `restartRequired`.
 
-A boot failure is logged as one JSON line on stderr (`"kestrel failed to boot"` with the failing module
-and the reason) and, outside `nuxt dev`, ends the process with exit code 1; in `nuxt dev` the server
-stays up and `/api/*` answers 503 so you can fix the config and let HMR restart it.
+A boot failure is logged on stderr as a JSON line (`"kestrel failed to boot"` with the failing module
+and the reason), followed in every mode by a multi-line banner with a hint (`docs/architecture.md`), and,
+outside `nuxt dev`, ends the process with exit code 1. In `nuxt dev` the server stays up and `/api/*` answers
+503; fix the config and restart `nuxt dev`, because a failed boot is kept until the process is restarted.
 
 ### Checking a project without starting it
 

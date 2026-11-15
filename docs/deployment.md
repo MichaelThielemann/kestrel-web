@@ -61,7 +61,8 @@ kestrel-web's own, all read while `kestrel.config.ts` loads:
 | `NUXT_KESTREL_ACCESS_TRUST_PROXY`, `_PROXY_HOPS`, `_TRUSTED_HEADER` | no | how the client address is taken behind a proxy |
 | `NUXT_KESTREL_ACCESS_TRUSTED_PROXIES` | no | the proxies whose forwarding headers count, addresses or CIDR ranges; empty means loopback |
 | `KESTREL_STEP_LOG` | no | which pipeline steps write a `step` log line (§11): `all` (unset or empty means `all`), `errors` for the steps whose outcome is not `ok`, or `off`; read by `envStepLog()` (from `#kestrel/config`), so it applies only where `kestrel.config.ts` passes `stepLog: envStepLog()` to `defineConfig`, and there any other value stops the config from loading. Without that call every step writes its line. The `error` lines, the `http` lines, Insights and the audit log are the same in every mode. `errors` or `off` saves one synchronous log write per step under load; keep `all` while debugging |
-| `KESTREL_MIGRATIONS` | no | only if your `kestrel.config.ts` wires it to the migrations module's `mode` (`docs/migrations.md`) |
+| `KESTREL_STORAGE_MIGRATIONS` | no | `check` or `apply` for the `storageMigrations` of `media-default` and `images-default`, read by `envStorageMigrations()`. Unset or empty means `check`: a start on data in an older storage shape refuses to boot and names the migration, and any other value stops the config from loading. `apply` runs only the migrations that write no blobs, which for both modules is none, so the conversion of stored media runs through `kestrel update` or `kestrel upgrade migrate` and not at start. It is independent of `KESTREL_MIGRATIONS` (`docs/migrations.md`) |
+| `KESTREL_MIGRATIONS` | no | the switch for content migrations, only if your `kestrel.config.ts` wires it to the migrations module's `mode` (`docs/migrations.md`). The preset passes no mode of its own, so a project that does not read the variable, such as one from the starter template, applies pending content migrations at every start, and `kestrel update` reports no content switch for it |
 
 The `KESTREL_*` rows only apply where `kestrel.config.ts` actually calls the `#kestrel/config` helpers.
 `playground/kestrel.config.ts` hard-codes a filesystem blobstore and the development hash so `nuxt build`
@@ -177,8 +178,9 @@ WantedBy=multi-user.target
 ```
 
 `KESTREL_ADMIN_PASSWORD_HASH` and the `KESTREL_S3_*` values go in `EnvironmentFile`, not in the unit.
-`Restart=on-failure` is the right policy: a boot failure exits with code 1 after one JSON line on
-stderr naming the failing module, so the unit retries rather than sitting in a broken state.
+`Restart=on-failure` is the right policy: a boot failure exits with code 1 after a JSON line on stderr naming
+the failing module and the reason, followed by a multi-line banner with a hint (§11), so the unit retries
+rather than sitting in a broken state.
 
 `RestartSec=15s` is chosen for the instance lock (§10). After a crash on the same machine the next start takes
 the lock at once. After a power loss, a hard reset or a crash of the machine it is refused with `instance-locked` for up to
@@ -768,8 +770,10 @@ health condition, and both `/api/health` and `/api/ready` keep answering normall
   database.
 - **File-level.** Back up `<dataDir>` as a whole, with the process stopped, or through a tool that
   understands SQLite WAL. `kestrel.db` on its own, copied from a running server, is not restorable.
-- **Blobs.** Filesystem blobs are an ordinary directory; S3 blobs are covered by bucket versioning or
-  replication.
+- **Blobs.** Filesystem blobs are an ordinary directory. With S3 blobs and the `replication` feature,
+  `kestrel backup` (below) takes the originals together with the database; bucket versioning or replication of
+  the bucket is an addition, not a replacement, since it knows nothing about which database state a blob
+  belongs to.
 - **What a copy contains.** A replica, a snapshot or a file-level backup holds the whole database:
   content, drafts, the audit log and every user's scrypt password hash. Sessions are stored only as a
   digest of their token, so a copy does not sign anyone in, but the password hashes can be attacked
@@ -782,9 +786,103 @@ health condition, and both `/api/health` and `/api/ready` keep answering normall
   another machine and keeps the tool out until its TTL has passed. The copy takes a lock of its own and
   leaves the original untouched. Stop the production process first, then copy: a file-level copy of a running
   process is not a consistent backup (above).
+- **`kestrel backup` and `kestrel restore`.** For an app that keeps its database in a `replication-sqlite`
+  replica and its media in an S3-compatible bucket, with exactly one instance, `@michaelthielemann/kestrel-ops`
+  writes verified backups of the database, every original the media rows reference and the public output into
+  a backup location, and restores them (below).
 - **Restoring** replaces the database file and the blobstore together. They reference each other:
   media rows point at blobs, and **System → Images**' reconcile reports the rows and blobs that no
   longer match after a partial restore (`blobsWithoutRow` / `rowsWithoutBlob`).
+
+### Backups, restore and updates with `kestrel`
+
+`@michaelthielemann/kestrel-cli`'s `kestrel` command works on the deployed environments that
+`kestrel.environments.json` in the project root describes, through `@michaelthielemann/kestrel-ops` and, for
+an app on a platform, a target package such as `@michaelthielemann/kestrel-target-cloudfoundry`:
+
+```bash
+pnpm add -D @michaelthielemann/kestrel-ops @michaelthielemann/kestrel-target-cloudfoundry
+kestrel status --env prod
+kestrel backup create --env prod
+kestrel backup list --env prod
+kestrel restore --backup <id> --env prod
+```
+
+The file holds no secret values, only where they come from. Its `backups.prefix` is the backup location; it
+must lie outside every prefix the app writes and outside anything served publicly, because a backup holds the
+whole database, password hashes included, and the app's own credentials should be denied deletes there.
+`kestrel status` reports whether they are. Kestrel's
+[operations guide](https://github.com/MichaelThielemann/kestrel/blob/main/docs/operations.md) and the
+kestrel-ops README document the file, every option and the questions the commands ask.
+
+An update moves an environment to a new release in three places:
+
+1. **On a workstation**, `kestrel update prepare --env prod` checks the environment without changing it, plans
+   the update on a copy of the newest replica generation, rehearses the migrations on that copy and writes a
+   receipt into the backup location.
+2. **In the deploy job**, `kestrel update bundle` in the build stage writes `.kestrel-ops/`, and the deploy
+   stage runs `node .kestrel-ops/run.mjs deploy --env prod --answers deploy-answers.json` with nothing but Node
+   and the platform's command-line client. The deploy stages the release while the app serves, stops the app,
+   takes a verified cutover backup, migrates a copy of the database, promotes it, starts the new release and
+   verifies it; a hard failure after the stop rolls back on its own. A deploy job has no terminal, so every
+   question needs an answer in `--answers`; the first is `{ "update-stop": "accept" }`.
+3. **On a workstation**, `kestrel update accept --env prod` closes the run, or `kestrel update rollback
+   --env prod` brings back the cutover state instead.
+
+The update is the deployment's stop, swap, start of §10 with a verified backup before it and a check after it,
+so the app is down between its stop and its first ready answer.
+
+`kestrel update bundle`, `prepare`, `deploy`, `verify` and `resume` ask this layer's upgrade plugin for the
+facts of the project through kestrel's `ops` hook; the other `update` commands load no plugin. The hook
+answers:
+
+- the readiness route, `/api/ready`;
+- the environment of a local start of the release, with `NODE_ENV=production`, loopback as host, the
+  filesystem blob store, `KESTREL_STORAGE_MIGRATIONS=check`, `KESTREL_MIGRATIONS=apply`, `KESTREL_ROBOTS_POLICY=disallow`
+  and public development stand-ins for `KESTREL_ADMIN_PASSWORD_HASH` and `KESTREL_MFA_KEY`, so the start needs
+  none of the deployment's secrets;
+- `llms.txt` as the export check when the `features` name `delivery`;
+- the ids of the files in `migrations/` (or the directory `kestrel.migrationsDir` names) as the release's content
+  migrations when the `features` include `migrations`;
+- the blob store and database file that the variables of an environment select, through the helpers of
+  `#kestrel/config` (consuming guide §3, "`#kestrel/config`");
+- the variables that hold secrets, and the migration switches: `KESTREL_STORAGE_MIGRATIONS` always and
+  `KESTREL_MIGRATIONS` only when `kestrel.config.ts` reads it.
+
+Two migration kinds run in an update, each on the copy of the database before it is promoted. The **storage
+migrations** of the release's module packages, such as the media layout that 6.0 changes, run first and are
+switched by `KESTREL_STORAGE_MIGRATIONS`; the local start sets it to `check`, since they have run on the copy by then. The **content migrations** of
+`migrations/` run through a local start of the release on the copy, so the ledger of the promoted database
+already holds them when the production start comes, also where `KESTREL_MIGRATIONS` is `check` in production
+(`docs/migrations.md`).
+
+A release with pending content migrations needs the `update.localBoot` block of the environment, which starts
+the `.output` server the way the build wrote it:
+
+```json
+"update": {
+  "release": { "dir": ".output" },
+  "localBoot": {
+    "command": ["node", "server/index.mjs"],
+    "dir": ".",
+    "env": {
+      "KESTREL_DATABASE_FILE": "{database}",
+      "KESTREL_BLOBS_DIR": "{blobs}",
+      "PORT": "{port}",
+      "NITRO_PORT": "{port}",
+      "NUXT_APP_BUILD_ID": "{build}"
+    },
+    "readyPath": "/api/ready"
+  }
+}
+```
+
+`{database}` is the copy, `{blobs}` an empty local directory that stands in for the blob store, `{port}` a free
+port on 127.0.0.1 and `{build}` a build identity of the local start's own. `NUXT_APP_BUILD_ID` replaces the
+build id the server compares at start-up. Without it the local start stores the release's own build id, and the
+production start of the same release with the same site URL sees no new build and renders no page again, so the
+public export keeps what the pages showed before the content migrations. The start gets no variable beyond the
+hook's `localBootEnv` and these.
 
 ## 10. Zero downtime, and why there is none
 
@@ -865,6 +963,11 @@ container side by side, and a local start with the production credentials are th
 to one instance, use a push that stops the old container before the new one starts, and keep the production
 credentials off other machines.
 
+Point the platform's health check at `/api/health`, which restarts an instance that must be replaced and stays
+`200` while it boots or is merely degraded (§8). Keep the backup location of `kestrel.environments.json` in a
+bucket or under a prefix that the app's own credentials cannot delete from, so that a compromised or faulty app
+cannot reach its backups.
+
 Cloud Foundry sends `SIGKILL` 10 s after `SIGTERM` by default, which is shorter than the 60 s a stop can take (§10
 above). A kill before the teardown loses the replica frames written since the last sync, up to a minute of edits and
 of pending queue rows, and the next start rebuilds `kestrel.db` from the replica without them. Fit the windows into
@@ -893,6 +996,13 @@ request:
   the background as above. A page takes roughly 30 to 200 ms, the lower end on a process without visitors
   and the upper end while it also serves them, so a site of 1000 pages takes from half a minute to a few
   minutes per language, during which a visit can show pages of both builds.
+- **A save's own page render** is a different path. The preset leaves `publishPage` and `unpublishPage` in the
+  relay of the `eventsQueue` module, so the request that saves and publishes a page renders that page before it
+  answers. A queue whose wiring puts these two pipelines into a lane of their own answers the save before the
+  page is rendered, and the response reports the delivery as pending; what that changes and what it leaves
+  as it is, such as the CPU time the render still takes and the order of renders, is described in kestrel's
+  [pipeline docs](https://github.com/MichaelThielemann/kestrel/blob/main/docs/pipelines.md) under
+  `events.relay`. Without `eventsQueue`, `events-direct` always delivers inline.
 - A render that fails keeps the page's previous output and is retried; after the last attempt it counts as
   failed under System → Delivery, which offers **Retry failed re-renders**. A render that hangs is given up
   after `dependencies.renderTimeoutSeconds` (60 s).
@@ -926,7 +1036,7 @@ needs no edge handler.
 ## 11. Reading the logs
 
 The process writes JSON lines to stdout and stderr; under systemd they are in `journalctl -u mysite`, in
-a container in its log driver. Two lines matter when something failed:
+a container in its log driver. These lines matter when something failed:
 
 - **One `http` line per request kestrel answers**, on `/api/…` and on `/media/…`, refusals included:
 
@@ -941,6 +1051,10 @@ a container in its log driver. Two lines matter when something failed:
   cookie or the query string. The only values taken from request headers are the request id, the declared
   `Content-Length` (`declaredBytes`, on a 413, a 408 or a closed connection) and the client address `ip`,
   which may come from `X-Forwarded-For` or the trusted client header.
+- **A boot failure** writes a JSON line with the message `kestrel failed to boot` and the failing `module` and
+  `reason` to stderr, then a banner of its own on stderr, one JSON line per banner line: `KESTREL FAILED TO BOOT`,
+  the module, the reason and a hint, between two rows of `=`. This holds in every mode, `nuxt dev` included. Outside
+  `nuxt dev` the process then exits with code 1; under `nuxt dev` it stays up and answers `/api/*` with 503.
 - **One `step` line per pipeline step** while `KESTREL_STEP_LOG` (§2) is `all`, with the same `runId`: what the run did and where it failed. With `errors` only the steps whose outcome is not `ok` write one, with `off` none; a step that threw writes its `error` line in every mode.
 
 The layer's own routes write no `http` line: `/api/health`, `/api/ready`, `/api/limits`,
