@@ -15,8 +15,8 @@ function envValue(name: string, env: EnvMap = process.env): string | undefined {
   return typeof value === "string" && value.length > 0 ? value : undefined;
 }
 
-function isProduction(env: EnvMap = process.env): boolean {
-  return env.NODE_ENV === "production";
+function isProduction(env?: EnvMap): boolean {
+  return env === undefined ? process.env.NODE_ENV === "production" : env.NODE_ENV === "production";
 }
 
 /** The data directory: `KESTREL_DATA_DIR` verbatim, else `data/` under `KESTREL_APP_ROOT`, else `data/` under `base`; read from `env`, `process.env` by default. */
@@ -116,9 +116,10 @@ export function envStorageMigrations(env: EnvMap = process.env): "check" | "appl
  * The blob store entry `KESTREL_BLOBSTORE` in `env` (`process.env` by default) selects: `s3` builds blobstore-s3 from
  * the `KESTREL_S3_*` variables, each required; `filesystem`, or no choice outside production, builds
  * blobstore-filesystem at `KESTREL_BLOBS_DIR` (resolved against the process cwd) or else under `<dataDir>/blobs`.
- * Throws in production without a choice.
+ * Throws in production without a choice. Production is `NODE_ENV` of a given `env`; without one it is the mode of
+ * the build, so a built server is in production whatever `NODE_ENV` its process has.
  */
-export function envBlobstore(dataDir: string, env: EnvMap = process.env): BlobstoreModuleEntry {
+export function envBlobstore(dataDir: string, env?: EnvMap): BlobstoreModuleEntry {
   const choice = envValue("KESTREL_BLOBSTORE", env);
   if (choice === "s3") {
     return {

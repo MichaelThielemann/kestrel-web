@@ -501,7 +501,9 @@ route, local start environment, export check, secret variable names and migratio
   `_ACCESS_KEY_ID`, `_SECRET_ACCESS_KEY` (each via `requiredEnv`) with `forcePathStyle: true`.
 - `filesystem` or unset outside production → `blobstore-filesystem` at `KESTREL_BLOBS_DIR` when it is set
   (resolved against the process cwd), else under `<dataDir>/blobs`.
-- Production with neither set → throws.
+- Production with neither set → throws. With an `env` map, production means its `NODE_ENV` is `production`;
+  without one it is the mode of the build, so a built server applies the rule whatever `NODE_ENV` its process
+  has, like `adminPasswordHash()` and `mfaKey()`.
 
 `presetModuleConfig()` opens `KESTREL_DATABASE_FILE` (resolved against the process cwd) for persistence-sqlite
 and replication-sqlite when it is set, else `kestrel.db` in `dataDir`. With both variables, a start uses a
