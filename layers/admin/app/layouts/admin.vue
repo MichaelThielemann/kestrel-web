@@ -163,6 +163,7 @@ $bp-phone: 640px;
   }
 
   &__main {
+    position: relative;
     flex: 1 1 auto;
     min-width: 0;
     height: 100svh;

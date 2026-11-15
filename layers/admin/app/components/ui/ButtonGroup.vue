@@ -58,6 +58,7 @@ function onUpdate(v: unknown) {
   border-radius: var(--radius-md);
   overflow: hidden;
   width: fit-content;
+  min-width: min-content;
   max-width: 100%;
   background: var(--color-control-border, var(--color-border));
 

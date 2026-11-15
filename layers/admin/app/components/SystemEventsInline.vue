@@ -91,7 +91,7 @@ function relative(ms: number | null): string { return ms === null ? '—' : huma
 
   &__facts {
     display: grid;
-    grid-template-columns: max-content 1fr;
+    grid-template-columns: fit-content(60%) minmax(0, 1fr);
     gap: var(--space-1) var(--space-3);
     margin: 0;
 

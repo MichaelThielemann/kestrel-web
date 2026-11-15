@@ -327,6 +327,7 @@ function relative(ms: number | null): string { return ms === null ? '—' : huma
   }
   &__section-head {
     display: flex;
+    flex-wrap: wrap;
     align-items: flex-start;
     justify-content: space-between;
     gap: var(--space-3);
@@ -341,8 +342,8 @@ function relative(ms: number | null): string { return ms === null ? '—' : huma
   }
   &__actions {
     display: flex;
+    flex-wrap: wrap;
     gap: var(--space-2);
-    flex: 0 0 auto;
   }
   &__orphan-hint {
     color: var(--color-text-muted);

@@ -65,9 +65,10 @@ useUnsavedGuard(() => editorRef.value?.dirty ?? false, () => t('editor.discardCo
   &__head {
     flex: 0 0 auto;
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
-    gap: var(--space-4);
+    gap: var(--space-2) var(--space-4);
   }
   &__title {
     font-size: var(--text-xl);
@@ -76,6 +77,7 @@ useUnsavedGuard(() => editorRef.value?.dirty ?? false, () => t('editor.discardCo
   }
   &__actions {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: var(--space-2);
   }

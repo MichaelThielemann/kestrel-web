@@ -124,6 +124,7 @@ const fileInput = ref<{ open: () => void } | null>(null)
 
   &__actions {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: var(--space-2);
   }
