@@ -6,6 +6,7 @@ import { envBlobstore, kestrelDataDir } from "../config";
 import { DEVELOPMENT_ADMIN_PASSWORD_HASH, DEVELOPMENT_MFA_KEY } from "../config/development";
 import { MOUNT_PATH } from "../mount-path";
 import { presetDatabaseFile } from "../pipelines/config";
+import { contentMigrationIds } from "./contentMigrations";
 import { namedExportArray } from "./edits";
 import { resolvedArrayValues } from "./ruleHelpers";
 
@@ -62,13 +63,16 @@ function blobstoreFromEnv(env: OpsEnv, root: string): OpsModuleEntry | undefined
  * applied and the public development stand-ins for the admin password hash and the second-factor key, to which
  * `KESTREL_DATABASE_FILE` and `KESTREL_BLOBS_DIR` add the database copy and blob directory of that start; `llms.txt`,
  * which every render of the export writes, when the `features` that `shared/model.ts` or `kestrel.config.ts`
- * declare include `delivery` as a string the source spells out, and no export check otherwise; the blob store and database file a deployed environment's variables
+ * declare include `delivery` as a string the source spells out, and no export check otherwise; the ids of the content
+ * migration files, when those `features` include `migrations`; the blob store and database file a deployed environment's variables
  * select, read from the given map and resolved against `root`; the variables that hold secrets; and the migration
  * switches: `KESTREL_STORAGE_MIGRATIONS` always, `KESTREL_MIGRATIONS` only when `kestrel.config.ts` reads it, since
  * the preset passes no content migrations mode of its own and the migrations module otherwise applies pending
  * content migrations at every start. The answer holds no value of this process's environment.
  */
 export function layerOpsFacts(root: string): OpsFacts {
+  const features = declaredFeatures(root);
+  const contentMigrations = features.includes("migrations") ? contentMigrationIds(root) : [];
   return {
     readyPath: `${MOUNT_PATH}/ready`,
     localBootEnv: {
@@ -82,7 +86,8 @@ export function layerOpsFacts(root: string): OpsFacts {
       KESTREL_ADMIN_PASSWORD_HASH: DEVELOPMENT_ADMIN_PASSWORD_HASH,
       KESTREL_MFA_KEY: DEVELOPMENT_MFA_KEY,
     },
-    ...(declaredFeatures(root).includes("delivery") ? { exportChecks: ["llms.txt"] } : {}),
+    ...(features.includes("delivery") ? { exportChecks: ["llms.txt"] } : {}),
+    ...(contentMigrations.length > 0 ? { contentMigrations } : {}),
     blobstoreFromEnv: (env) => blobstoreFromEnv(env, root),
     databaseFile: (env) => presetDatabaseFile(dataDir(env, root), env, root),
     secretEnvNames: SECRET_ENV_NAMES,

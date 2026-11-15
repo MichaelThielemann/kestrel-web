@@ -175,6 +175,64 @@ describe("the export check", () => {
   });
 });
 
+describe("the content migrations of the release", () => {
+  const migration = (id: string): string => `import { defineMigration } from "@michaelthielemann/kestrel-migrations-default/helpers";\n\nexport default defineMigration({ id: ${JSON.stringify(id)}, collection: "pages", up: () => null });\n`;
+  const features = 'export const features = ["references", "migrations"] as const;\n';
+
+  it("are the ids of the migration files, in file name order, for a project whose features include migrations", () => {
+    const root = project({
+      "shared/model.ts": features,
+      "migrations/2026-09-03-rename-apartments.ts": migration("2026-09-03-rename-apartments"),
+      "migrations/2026-09-02-apartment-images.ts": migration("2026-09-02-apartment-images"),
+    });
+    expect(layerOpsFacts(root).contentMigrations).toEqual(["2026-09-02-apartment-images", "2026-09-03-rename-apartments"]);
+  });
+
+  it("take the id from a default export that is a plain object", () => {
+    const root = project({ "shared/model.ts": features, "migrations/one.ts": 'export default { id: "one", collection: "pages", up: () => null };\n' });
+    expect(layerOpsFacts(root).contentMigrations).toEqual(["one"]);
+  });
+
+  it("skip declaration files and tests", () => {
+    const root = project({
+      "shared/model.ts": features,
+      "migrations/one.ts": migration("one"),
+      "migrations/one.test.ts": migration("one-test"),
+      "migrations/helpers.d.ts": "export {};\n",
+    });
+    expect(layerOpsFacts(root).contentMigrations).toEqual(["one"]);
+  });
+
+  it("come from the directory that kestrel.migrationsDir in nuxt.config.ts names", () => {
+    const root = project({
+      "shared/model.ts": features,
+      "nuxt.config.ts": 'export default defineNuxtConfig({ kestrel: { migrationsDir: "app/migrations" } });\n',
+      "app/migrations/moved.ts": migration("moved"),
+      "migrations/ignored.ts": migration("ignored"),
+    });
+    expect(layerOpsFacts(root).contentMigrations).toEqual(["moved"]);
+  });
+
+  it("are not named for a project whose features do not include migrations", () => {
+    const root = project({ "shared/model.ts": 'export const features = ["references"] as const;\n', "migrations/one.ts": migration("one") });
+    expect(layerOpsFacts(root)).not.toHaveProperty("contentMigrations");
+  });
+
+  it("are not named when the migrations directory is missing or empty", () => {
+    expect(layerOpsFacts(project({ "shared/model.ts": features }))).not.toHaveProperty("contentMigrations");
+    expect(layerOpsFacts(project({ "shared/model.ts": features, "migrations/one.test.ts": migration("one") }))).not.toHaveProperty("contentMigrations");
+  });
+
+  it("are not named for the playground", () => {
+    expect(layerOpsFacts(resolve(import.meta.dirname, "../../../playground"))).not.toHaveProperty("contentMigrations");
+  });
+
+  it("are refused, naming the file, when a migration's id is no string literal", () => {
+    const root = project({ "shared/model.ts": features, "migrations/computed.ts": 'const id = "computed";\nexport default { id, collection: "pages", up: () => null };\n' });
+    expect(() => layerOpsFacts(root)).toThrow("migrations/computed.ts: the id of the migration must be a string literal");
+  });
+});
+
 describe("the blob store a deployed environment selects", () => {
   it("is built from the given map, not from process.env", () => {
     expect(facts().blobstoreFromEnv?.(S3_ENV)).toEqual({
@@ -226,14 +284,34 @@ describe("the database file of a deployed environment", () => {
   });
 });
 
-function documentedLocalBoot(): Record<string, string> {
+interface DocumentedUpdate {
+  release: { dir: string };
+  localBoot: { command: string[]; dir: string; env: Record<string, string>; readyPath: string };
+}
+
+function documentedUpdate(): DocumentedUpdate {
   const doc = readFileSync(resolve(import.meta.dirname, "../../../docs/consuming-kestrel-web.md"), "utf8");
-  const from = doc.indexOf("its `update.localBoot.env` hands that start");
+  const from = doc.indexOf("through `update.localBoot.env`");
   const block = /```json\n(.*?)\n```/s.exec(doc.slice(from));
-  if (from < 0 || block?.[1] === undefined) throw new Error("docs/consuming-kestrel-web.md has no update.localBoot.env example");
+  if (from < 0 || block?.[1] === undefined) throw new Error("docs/consuming-kestrel-web.md has no update block example");
   const parsed: unknown = JSON.parse(block[1]);
-  if (typeof parsed !== "object" || parsed === null) throw new Error("the update.localBoot.env example is no object");
-  return Object.fromEntries(Object.entries(parsed).map(([name, value]) => [name, String(value)]));
+  if (!isUpdateBlock(parsed)) throw new Error("the update block example has no release.dir and localBoot with command, dir, env and readyPath");
+  return parsed;
+}
+
+function isUpdateBlock(value: unknown): value is DocumentedUpdate {
+  if (typeof value !== "object" || value === null) return false;
+  const release: unknown = Reflect.get(value, "release");
+  const boot: unknown = Reflect.get(value, "localBoot");
+  if (typeof release !== "object" || release === null || typeof Reflect.get(release, "dir") !== "string") return false;
+  if (typeof boot !== "object" || boot === null) return false;
+  const env: unknown = Reflect.get(boot, "env");
+  const command: unknown = Reflect.get(boot, "command");
+  return typeof env === "object" && env !== null && Object.values(env).every((entry) => typeof entry === "string") && Array.isArray(command) && typeof Reflect.get(boot, "dir") === "string" && typeof Reflect.get(boot, "readyPath") === "string";
+}
+
+function documentedLocalBoot(): Record<string, string> {
+  return documentedUpdate().localBoot.env;
 }
 
 describe("a local start of a copy", () => {
@@ -250,6 +328,12 @@ describe("a local start of a copy", () => {
     const env = bootEnv();
     expect(facts().databaseFile?.(env)).toBe("/work/run/migrated.db");
     expect(facts().blobstoreFromEnv?.(env)).toEqual({ use: "@michaelthielemann/kestrel-blobstore-filesystem", config: { root: "/work/run/local-blobs" } });
+  });
+
+  it("is answered on the readiness route the hook names, from the output directory the build writes", () => {
+    expect(documentedUpdate().localBoot.readyPath).toBe(facts().readyPath);
+    expect(documentedUpdate().release.dir).toBe(".output");
+    expect(documentedUpdate().localBoot.command).toEqual(["node", "server/index.mjs"]);
   });
 
   it("runs under a build id of its own, which NUXT_APP_BUILD_ID hands the started release", () => {

@@ -18,8 +18,11 @@
   environment's variables select (`KESTREL_BLOBSTORE`, `KESTREL_S3_*`, `KESTREL_BLOBS_DIR`, `KESTREL_DATABASE_FILE`,
   `KESTREL_DATA_DIR`, `KESTREL_APP_ROOT`), read from the map it is given, never from `process.env`, with relative
   paths resolved against the project root. `kestrel status`, `backup` and `restore` take the storage, prefixes and
-  target of an environment from `kestrel.environments.json`, not from the hook. The `kestrel` field of
-  `package.json` declares `pluginApi: 6`.
+  target of an environment from `kestrel.environments.json`, not from the hook. For a project whose `features`
+  include `migrations`, the hook lists the ids of the migration files (`migrations/*.ts`, or the directory
+  `kestrel.migrationsDir` of `nuxt.config.ts` names) as the release's content migrations, which an update plans
+  and rehearses on a copy of the database; a migration whose `id` is not a string literal in its default export
+  is refused with the file's name. The `kestrel` field of `package.json` declares `pluginApi: 6`.
 - `KESTREL_DATABASE_FILE` names the SQLite file `presetModuleConfig()` opens for persistence-sqlite and
   replication-sqlite in place of `kestrel.db` in the data directory, and `KESTREL_BLOBS_DIR` the root of the
   filesystem blob store `envBlobstore()` builds in place of `<dataDir>/blobs`; relative values resolve against the

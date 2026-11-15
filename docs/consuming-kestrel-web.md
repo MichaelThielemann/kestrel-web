@@ -500,6 +500,10 @@ The export check is `llms.txt` when the `features` array in `shared/model.ts` or
 `delivery` as a string literal, directly or through a spread of another array in the same file; a project
 without delivery renders no export and gets no export check, and neither does one whose features come only from
 an expression the hook cannot read without running it.
+The release's content migrations are the ids of the migration files, `migrations/*.ts` or the directory
+`kestrel.migrationsDir` of `nuxt.config.ts` names, when the `features` include `migrations`; `kestrel update`
+plans and rehearses those the database's ledger does not hold. A migration file whose default export has no
+`id` written as a string literal makes the hook fail with the file's name.
 The migration switches are `KESTREL_STORAGE_MIGRATIONS` and, when `kestrel.config.ts` reads it, as the module
 entry in `docs/migrations.md` does, `KESTREL_MIGRATIONS`. The preset passes no content migrations mode of its
 own: in a project that does not wire the variable, such as one from the starter template, the migrations
@@ -517,11 +521,21 @@ no content switch.
 `presetModuleConfig()` opens `KESTREL_DATABASE_FILE` (resolved against the process cwd) for persistence-sqlite
 and replication-sqlite when it is set, else `kestrel.db` in `dataDir`. With both variables, a start uses a
 database file and blob directory outside the data directory. `kestrel update` runs pending content migrations
-on a local start of the release on a copy of the database; its `update.localBoot.env` hands that start the copy,
-the blob directory, the port and a build id of its own:
+on a local start of the release on a copy of the database. With the server `nuxt build` writes to `.output`, the
+`update` block of an environment in `kestrel.environments.json` starts it with the node server, answers the
+readiness route the hook names and hands that start the copy, the blob directory, the port and a build id of its
+own through `update.localBoot.env`. The start gets no variable beyond the hook's `localBootEnv` and these:
 
 ```json
-{ "KESTREL_DATABASE_FILE": "{database}", "KESTREL_BLOBS_DIR": "{blobs}", "PORT": "{port}", "NITRO_PORT": "{port}", "NUXT_APP_BUILD_ID": "{build}" }
+{
+  "release": { "dir": ".output" },
+  "localBoot": {
+    "command": ["node", "server/index.mjs"],
+    "dir": ".",
+    "env": { "KESTREL_DATABASE_FILE": "{database}", "KESTREL_BLOBS_DIR": "{blobs}", "PORT": "{port}", "NITRO_PORT": "{port}", "NUXT_APP_BUILD_ID": "{build}" },
+    "readyPath": "/api/ready"
+  }
+}
 ```
 
 `NUXT_APP_BUILD_ID` replaces the build id the server compares at start-up. Without it the local start stores
