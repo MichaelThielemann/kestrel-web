@@ -6,7 +6,7 @@ import { MEDIA_PUBLIC_PATH, MOUNT_PATH, MOUNTS_FIELD, RESERVED_PAGE_SEGMENTS, en
 import { resolveWorkflow } from "../collections-ui/workflow";
 import type { WorkflowUi } from "../collections-ui/workflow";
 import { BLOCK_ALIASES_FIELD, BODY_FIELD } from "../collections-ui/serialize";
-import { deviceKeys, envRobots, mfaKey, type SigningKeys } from "../config";
+import { deviceKeys, envRobots, envStorageMigrations, mfaKey, type SigningKeys } from "../config";
 import { resolveStorageTypes } from "../field-types";
 import type { FieldTypes } from "../field-types";
 import { isGenericCollection } from "./collections";
@@ -186,7 +186,8 @@ type ReferenceTarget = { content: string } | { media: true };
 
 const MEDIA_PREFIX = "media/";
 const SITE_PREFIX = "site/";
-const DATABASE_FILE = "kestrel.db";
+/** The name of the SQLite database file `presetModuleConfig()` opens in its `dataDir`. */
+export const PRESET_DATABASE_FILE = "kestrel.db";
 /** The `maxAttempts` of `kestrel-events-queue` when its config names none; delivery-static retries a failed re-render as often. */
 export const QUEUE_DEFAULT_MAX_ATTEMPTS = 5;
 /** The `backoffSeconds` of `kestrel-events-queue` when its config names none; delivery-static waits as long between re-render attempts. */
@@ -489,12 +490,13 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
 
   const buildAssetsPath = options.buildAssetsPath === undefined ? envBuildAssetsPath() : requireBuildAssetsPath(options.buildAssetsPath);
   const enabled = new Set<Feature>(features);
-  const databaseFile = resolve(dataDir, DATABASE_FILE);
+  const databaseFile = resolve(dataDir, PRESET_DATABASE_FILE);
   const session = { ...DEFAULT_SESSION, ...options.session };
   assertNoLlmsSiteUrl(options.llms);
   const publicCopy = enabled.has("delivery") ? { publicCopy: { prefix: SITE_PREFIX } } : {};
   const mediaAllowedTypes = options.media?.allowedTypes ?? DEFAULT_MEDIA_ALLOWED_TYPES;
   const mediaDeniedTypes = options.media?.deniedTypes ?? DEFAULT_MEDIA_DENIED_TYPES;
+  const storageMigrations = envStorageMigrations();
 
   const modules: ModuleEntry[] = [{ use: blobstore.use, config: blobstore.config }];
 
@@ -511,11 +513,12 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
     ...(model.locales === undefined ? {} : { locales: [...model.locales] }),
     ...(model.defaultLocale === undefined ? {} : { defaultLocale: model.defaultLocale }),
     ...publicCopy,
+    storageMigrations,
     ...trashRetention(options.media),
   }));
 
   if (enabled.has("images")) {
-    modules.push(preset("@michaelthielemann/kestrel-images-default", { publicPath: MEDIA_PUBLIC_PATH, ...publicCopy }));
+    modules.push(preset("@michaelthielemann/kestrel-images-default", { publicPath: MEDIA_PUBLIC_PATH, ...publicCopy, storageMigrations }));
   }
 
   modules.push(preset("@michaelthielemann/kestrel-authn-multi", {

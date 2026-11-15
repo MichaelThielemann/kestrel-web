@@ -1,6 +1,6 @@
 import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { adminPasswordHash, deviceKeys, envBlobstore, envRobots, envStepLog, kestrelDataDir, requiredEnv } from "./index";
+import { adminPasswordHash, deviceKeys, envBlobstore, envRobots, envStepLog, envStorageMigrations, kestrelDataDir, requiredEnv } from "./index";
 
 const DEVELOPMENT_ADMIN_PASSWORD_HASH =
   "scrypt$522f4ac87bfe4bcd100ba47a7d2aaec2$dbfc3f2d6cc38a76b21973d7c6f6d310a09506581c665f1f6601fd8fb3fa9bc3959689aea3e389f4d53eb8c7e70791ad4065e308763dd44609904134f0f5ee98";
@@ -19,6 +19,8 @@ const MANAGED = [
   "KESTREL_S3_SECRET_ACCESS_KEY",
   "KESTREL_ROBOTS_POLICY",
   "KESTREL_STEP_LOG",
+  "KESTREL_STORAGE_MIGRATIONS",
+  "KESTREL_MIGRATIONS",
 ];
 
 const S3_ENV: [string, string][] = [
@@ -55,6 +57,14 @@ describe("kestrelDataDir", () => {
 
   it("falls back to data/ under the process cwd without either variable", () => {
     expect(kestrelDataDir()).toBe(resolve(process.cwd(), "data"));
+  });
+
+  it("reads a given environment map instead of process.env, and resolves against a given directory", () => {
+    vi.stubEnv("KESTREL_DATA_DIR", "/from/process");
+    expect(kestrelDataDir({ KESTREL_DATA_DIR: "/from/map" })).toBe("/from/map");
+    expect(kestrelDataDir({ KESTREL_APP_ROOT: "/srv/other" })).toBe(resolve("/srv/other", "data"));
+    expect(kestrelDataDir({}, "/srv/project")).toBe(resolve("/srv/project", "data"));
+    expect(kestrelDataDir({ KESTREL_APP_ROOT: "app" }, "/srv/project")).toBe(resolve("/srv/project", "app", "data"));
   });
 });
 
@@ -190,6 +200,42 @@ describe("envBlobstore", () => {
 
     expect(() => envBlobstore("/srv/app/data")).toThrow('kestrel.config: KESTREL_BLOBSTORE must be "s3" or "filesystem" in production');
   });
+
+  it("builds the s3 module from a given environment map without reading process.env", () => {
+    vi.stubEnv("KESTREL_BLOBSTORE", "filesystem");
+    vi.stubEnv("KESTREL_S3_BUCKET", "from-process");
+    const env = { NODE_ENV: "production", KESTREL_BLOBSTORE: "s3", ...Object.fromEntries(S3_ENV), KESTREL_S3_ALLOW_INSECURE_ENDPOINT: "true" };
+
+    expect(envBlobstore("/srv/app/data", env)).toEqual({
+      use: "@michaelthielemann/kestrel-blobstore-s3",
+      config: {
+        bucket: "assets",
+        endpoint: "https://s3.example.test",
+        region: "eu-central-1",
+        accessKeyId: "key-id",
+        secretAccessKey: "secret",
+        forcePathStyle: true,
+        allowInsecureEndpoint: true,
+      },
+    });
+  });
+
+  it("applies the production rule and the required variables of a given environment map", () => {
+    vi.stubEnv("KESTREL_BLOBSTORE", "s3");
+    stubS3Env();
+
+    expect(() => envBlobstore("/srv/app/data", { NODE_ENV: "production" })).toThrow('kestrel.config: KESTREL_BLOBSTORE must be "s3" or "filesystem" in production');
+    expect(() => envBlobstore("/srv/app/data", { KESTREL_BLOBSTORE: "s3" })).toThrow("kestrel.config: KESTREL_S3_BUCKET must be set in this environment");
+    expect(envBlobstore("/srv/app/data", {})).toEqual({ use: "@michaelthielemann/kestrel-blobstore-filesystem", config: { root: resolve("/srv/app/data", "blobs") } });
+  });
+});
+
+describe("requiredEnv with an environment map", () => {
+  it("reads the map, not process.env", () => {
+    vi.stubEnv("KESTREL_S3_BUCKET", "from-process");
+    expect(requiredEnv("KESTREL_S3_BUCKET", { KESTREL_S3_BUCKET: "from-map" })).toBe("from-map");
+    expect(() => requiredEnv("KESTREL_S3_BUCKET", {})).toThrow("kestrel.config: KESTREL_S3_BUCKET must be set in this environment");
+  });
 });
 
 describe("envRobots", () => {
@@ -229,5 +275,41 @@ describe("envStepLog", () => {
   it("refuses any other value", () => {
     vi.stubEnv("KESTREL_STEP_LOG", "Errors");
     expect(() => envStepLog()).toThrow('kestrel.config: KESTREL_STEP_LOG must be "all", "errors" or "off", not "Errors"');
+  });
+});
+
+describe("envStorageMigrations", () => {
+  it("returns check when KESTREL_STORAGE_MIGRATIONS is unset or empty, in production and outside it", () => {
+    expect(envStorageMigrations()).toBe("check");
+    vi.stubEnv("NODE_ENV", "production");
+    expect(envStorageMigrations()).toBe("check");
+    vi.stubEnv("KESTREL_STORAGE_MIGRATIONS", "");
+    expect(envStorageMigrations()).toBe("check");
+  });
+
+  it("passes check and apply through", () => {
+    for (const value of ["check", "apply"] as const) {
+      vi.stubEnv("KESTREL_STORAGE_MIGRATIONS", value);
+      expect(envStorageMigrations()).toBe(value);
+    }
+  });
+
+  it("ignores KESTREL_MIGRATIONS, which switches the content migrations", () => {
+    vi.stubEnv("KESTREL_MIGRATIONS", "apply");
+    expect(envStorageMigrations()).toBe("check");
+    vi.stubEnv("KESTREL_STORAGE_MIGRATIONS", "apply");
+    vi.stubEnv("KESTREL_MIGRATIONS", "check");
+    expect(envStorageMigrations()).toBe("apply");
+  });
+
+  it("reads a given environment map instead of process.env", () => {
+    vi.stubEnv("KESTREL_STORAGE_MIGRATIONS", "apply");
+    expect(envStorageMigrations({})).toBe("check");
+    expect(envStorageMigrations({ KESTREL_STORAGE_MIGRATIONS: "apply" })).toBe("apply");
+  });
+
+  it("refuses any other value", () => {
+    vi.stubEnv("KESTREL_STORAGE_MIGRATIONS", "Apply");
+    expect(() => envStorageMigrations()).toThrow('kestrel.config: KESTREL_STORAGE_MIGRATIONS must be "check" or "apply", not "Apply"');
   });
 });

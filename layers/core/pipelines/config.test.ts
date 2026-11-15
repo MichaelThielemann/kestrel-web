@@ -50,6 +50,8 @@ beforeEach(() => {
   vi.stubEnv("KESTREL_ROBOTS_POLICY", undefined);
   vi.stubEnv("NUXT_APP_BASE_URL", undefined);
   vi.stubEnv("NUXT_APP_BUILD_ASSETS_DIR", undefined);
+  vi.stubEnv("KESTREL_STORAGE_MIGRATIONS", undefined);
+  vi.stubEnv("KESTREL_MIGRATIONS", undefined);
 });
 
 afterEach(() => {
@@ -83,10 +85,11 @@ describe("presetModuleConfig with the playground inputs", () => {
           locales: ["de", "en"],
           defaultLocale: "de",
           publicCopy: { prefix: "site/" },
+          storageMigrations: "check",
           trashRetentionDays: 30,
         }),
       },
-      { use: "@michaelthielemann/kestrel-images-default", ...preset({ publicPath: "/media", publicCopy: { prefix: "site/" } }) },
+      { use: "@michaelthielemann/kestrel-images-default", ...preset({ publicPath: "/media", publicCopy: { prefix: "site/" }, storageMigrations: "check" }) },
       {
         use: "@michaelthielemann/kestrel-authn-multi",
         ...preset({
@@ -274,6 +277,7 @@ describe("derived media locales", () => {
       locales: ["fr", "it"],
       defaultLocale: "it",
       publicCopy: { prefix: "site/" },
+      storageMigrations: "check",
       trashRetentionDays: 30,
     });
   });
@@ -288,6 +292,7 @@ describe("derived media locales", () => {
       deniedTypes: ["text/html", "application/xhtml+xml"],
       maxBytes: 5242880,
       publicCopy: { prefix: "site/" },
+      storageMigrations: "check",
       trashRetentionDays: 30,
     });
   });
@@ -306,13 +311,49 @@ describe("public media copies", () => {
   it("omits publicCopy from media-default and images-default without the delivery feature", () => {
     const modules = presetModuleConfig({ ...playgroundOptions(), features: ["images"] });
     expect(configFor(modules, "media-default")).not.toHaveProperty("publicCopy");
-    expect(configFor(modules, "images-default")).toEqual({ publicPath: "/media" });
+    expect(configFor(modules, "images-default")).toEqual({ publicPath: "/media", storageMigrations: "check" });
   });
 
   it("sets publicCopy on media-default alone when images is not enabled", () => {
     const modules = presetModuleConfig({ ...playgroundOptions(), features: ["delivery", "sanitizeSvg"] });
     expect(configFor(modules, "media-default")).toMatchObject({ publicCopy: { prefix: "site/" } });
     expect(configFor(modules, "images-default")).toBeUndefined();
+  });
+});
+
+describe("storage migrations switch", () => {
+  it("sets storageMigrations check on media-default and images-default when KESTREL_STORAGE_MIGRATIONS is unset, also in production", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const modules = presetModuleConfig(playgroundOptions());
+    expect(fieldOf(configFor(modules, "media-default"), "storageMigrations")).toBe("check");
+    expect(fieldOf(configFor(modules, "images-default"), "storageMigrations")).toBe("check");
+  });
+
+  it("takes apply from KESTREL_STORAGE_MIGRATIONS for both modules", () => {
+    vi.stubEnv("KESTREL_STORAGE_MIGRATIONS", "apply");
+    const modules = presetModuleConfig(playgroundOptions());
+    expect(fieldOf(configFor(modules, "media-default"), "storageMigrations")).toBe("apply");
+    expect(fieldOf(configFor(modules, "images-default"), "storageMigrations")).toBe("apply");
+  });
+
+  it("is not switched by KESTREL_MIGRATIONS, which belongs to the content migrations", () => {
+    vi.stubEnv("KESTREL_MIGRATIONS", "apply");
+    const modules = presetModuleConfig({ ...playgroundOptions(), features: [...features, "migrations"], migrations: { migrations: [], mode: "apply" } });
+    expect(fieldOf(configFor(modules, "media-default"), "storageMigrations")).toBe("check");
+    expect(fieldOf(configFor(modules, "images-default"), "storageMigrations")).toBe("check");
+    expect(fieldOf(configFor(modules, "migrations-default"), "mode")).toBe("apply");
+  });
+
+  it("refuses another value of KESTREL_STORAGE_MIGRATIONS while the config loads", () => {
+    vi.stubEnv("KESTREL_STORAGE_MIGRATIONS", "yes");
+    expect(() => presetModuleConfig(playgroundOptions())).toThrow('kestrel.config: KESTREL_STORAGE_MIGRATIONS must be "check" or "apply", not "yes"');
+  });
+
+  it("lets an override of the module win over the variable", () => {
+    vi.stubEnv("KESTREL_STORAGE_MIGRATIONS", "apply");
+    const modules = presetModuleConfig({ ...playgroundOptions(), overrides: { "@michaelthielemann/kestrel-images-default": { storageMigrations: "check" } } });
+    expect(fieldOf(configFor(modules, "images-default"), "storageMigrations")).toBe("check");
+    expect(fieldOf(configFor(modules, "media-default"), "storageMigrations")).toBe("apply");
   });
 });
 
@@ -794,6 +835,7 @@ describe("options", () => {
       locales: ["de", "en"],
       defaultLocale: "de",
       publicCopy: { prefix: "site/" },
+      storageMigrations: "check",
       trashRetentionDays: 30,
     });
     expect(configFor(modules, "ratelimit-memory")).toEqual({ buckets: { login: { limit: 3, windowSeconds: 120 }, loginAccount: { limit: 10, windowSeconds: 300, maxBlockSeconds: 900, key: "username", field: "email", counts: "failures", knownDevices: { limit: 10, windowSeconds: 300, maxBlockSeconds: 900 } }, passwordCheck: { limit: 5, windowSeconds: 300, maxBlockSeconds: 900, key: "identity", counts: "failures" } }, deviceCookies: { secretKey: deviceKeys().secretKey, secure: false } });
