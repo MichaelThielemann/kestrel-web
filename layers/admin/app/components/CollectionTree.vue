@@ -184,7 +184,6 @@ defineExpose({ load: () => Promise.all([load(), loadTitles()]).then(() => undefi
     border-radius: var(--radius-sm);
     color: var(--color-text-muted);
     font-size: var(--text-xs, 0.75rem);
-    letter-spacing: 0.03em;
   }
   &__path {
     width: 100%;
