@@ -5,7 +5,7 @@ import { redactingConflictLabels } from "./conflict-labels";
 import { MOUNT_PATH } from "../../mount-path";
 import { bootFailure, type KestrelStatus } from "./boot-failure";
 import { clientIpOptions, type ClientAddressPolicy } from "./ip-allowlist";
-import { createPublicMediaHandler } from "./public-media";
+import { createPublicMediaHandler, withHeadRoutes } from "./public-media";
 
 export interface KestrelHandlerWiring {
   /** Receives one `http` line per request on both handlers, refusals before the pipeline included. */
@@ -39,7 +39,7 @@ export function kestrelHandlers(booting: Promise<Kestrel>, wiring: KestrelHandle
   };
   return {
     kestrelHandler: booting
-      .then((kestrel) => defineEventHandler(redactingConflictLabels(kestrel, createKestrelHandler(kestrel, {
+      .then((kestrel) => defineEventHandler(redactingConflictLabels(kestrel, createKestrelHandler({ run: kestrel.run.bind(kestrel), triggers: { ...kestrel.triggers, http: withHeadRoutes(kestrel.triggers.http) } }, {
         mountPath: MOUNT_PATH,
         logger: wiring.logger,
         ...clientIpOptions(wiring.policy()),

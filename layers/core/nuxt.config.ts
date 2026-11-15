@@ -9,6 +9,7 @@ const EARLY_ALIASES = kestrelAliases(process.cwd(), resolve(process.cwd(), ".nux
 export default defineNuxtConfig({
   serverHandlers: [
     { route: `${MEDIA_PUBLIC_PATH}/**`, method: "get", handler: fileURLToPath(new URL("./server/handlers/public-media.ts", import.meta.url)) },
+    { route: `${MEDIA_PUBLIC_PATH}/**`, method: "head", handler: fileURLToPath(new URL("./server/handlers/public-media.ts", import.meta.url)) },
   ],
   modules: [
     fileURLToPath(new URL("./modules/blocks/index.ts", import.meta.url)),

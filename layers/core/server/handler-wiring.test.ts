@@ -111,6 +111,43 @@ describe("the Nitro plugin's handlers (kestrelHandlers)", () => {
     }
   }, 15000);
 
+  it("answers HEAD on the public file and on the API download with the headers of the GET and no body, and 404s an unknown file", async () => {
+    const kestrel = await bootMediaKestrel();
+    try {
+      const login = await kestrel.run("login", { trigger: { kind: "http", name: "POST /login" }, body: { username: "admin", password: "change-me" } });
+      if (login.result === undefined || typeof login.result !== "object" || !("token" in login.result)) throw new Error("expected a login token");
+      const authorization = `Bearer ${String(login.result.token)}`;
+      const upload = await kestrel.run("uploadMedia", {
+        trigger: { kind: "http", name: "POST /media" },
+        headers: { authorization },
+        files: [{ field: "file", filename: "a.png", contentType: "image/png", data: new Uint8Array([1, 2, 3, 4]) }],
+      });
+      if (upload.result === undefined || typeof upload.result !== "object" || !("path" in upload.result) || !("id" in upload.result)) {
+        throw new Error("expected the upload to produce an id and a path");
+      }
+      const path = String(upload.result.path);
+      const id = String(upload.result.id);
+      const base = await serve(routed(kestrelHandlers(Promise.resolve(kestrel), wiring())));
+
+      for (const [url, headers] of [[`${base}${path}`, {}], [`${base}/api/media/${id}/file`, { authorization }]] as const) {
+        const get = await fetch(url, { headers });
+        expect(get.status).toBe(200);
+        await get.arrayBuffer();
+        const head = await fetch(url, { method: "HEAD", headers });
+        expect(head.status).toBe(200);
+        expect(await head.text()).toBe("");
+        for (const name of ["content-type", "content-length", "cache-control"]) expect(head.headers.get(name)).toBe(get.headers.get(name));
+        expect(head.headers.get("content-length")).toBe("4");
+      }
+
+      expect((await fetch(`${base}/media/unknown/a.png`, { method: "HEAD" })).status).toBe(404);
+      expect((await fetch(`${base}/media/${id}`, { method: "HEAD" })).status).toBe(404);
+      expect((await fetch(`${base}/api/nothing-here`, { method: "HEAD" })).status).toBe(404);
+    } finally {
+      await kestrel.stop();
+    }
+  }, 15000);
+
   it("writes one http line per request on the API and the public media handler, carrying the request id and the reason of a refusal", async () => {
     const kestrel = await bootMediaKestrel();
     const lines: Record<string, unknown>[] = [];

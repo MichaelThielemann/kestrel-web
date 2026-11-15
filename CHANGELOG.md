@@ -1350,6 +1350,9 @@
   unapplied edit.
 - Media library: after several selected items are deleted, focus lands on the first remaining item after the
   focused one; it no longer skips ahead by the number of items removed before it.
+- Public media: `HEAD` on `/media/<id>/<name>`, on a variant and on `/api/media/<id>/file` answers 200 with the
+  `Content-Type`, `Content-Length` and `Cache-Control` of the `GET` instead of 404. The API answers `HEAD` on
+  every route it answers `GET` on.
 - Admin page tree: in a language a page has no path in, the row reads "no path" instead of showing the path of
   another language.
 - Admin layout: at 320 CSS px no admin page scrolls sideways or cuts off a control (WCAG 1.4.10 Reflow). The

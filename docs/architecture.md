@@ -323,7 +323,8 @@ forwarding header was ignored because the peer is not a trusted proxy is logged 
 `forwardingWarner`, once per peer and hour. The address is the core's: the socket peer, and only when that peer is in
 `trustedProxies` (default loopback; a Unix socket counts as loopback) the trusted header or the
 `X-Forwarded-For` entry `proxyHops` from the right. The same resolver feeds `ctx.ip` through the API and
-`/media/**` handlers. Only Nitro's in-process `localFetch` (SSR, publishing, static delivery) passes
+`/media/**` handlers. Both answer `HEAD` on every route they answer `GET` on, through the same pipeline and with the
+headers of the `GET`, so `curl -I` on a media file or on `/api/media/<id>/file` reports what a download would. Only Nitro's in-process `localFetch` (SSR, publishing, static delivery) passes
 unchecked, recognized by its mock socket; the `nuxt dev` server does not enforce the lists. IPv4-mapped IPv6
 addresses are checked as IPv4. Nitro serves the hashed `/_nuxt/*` build assets before server middleware runs, so those stay
 reachable even with a closed `site` list — they carry no content.
