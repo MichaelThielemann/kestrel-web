@@ -1,4 +1,5 @@
 import { centredCrop, cropForRatio, type PixelCrop } from '@michaelthielemann/kestrel-images-default/framing'
+import type { ComputedRef, InjectionKey } from 'vue'
 import type { MediaItem, MediaRect, ReferenceTo } from '../types/api'
 import type { Localized } from '../types/kestrel'
 import { resolveLocalized } from './localized'
@@ -147,4 +148,20 @@ export function rebaseDraft(draft: FramingDraft, base: FramingDraft, fresh: Fram
 /** The number of records that refer to a medium, counting a record once whatever fields refer. */
 export function uniqueReferrers(refs: readonly ReferenceTo[]): number {
   return new Set(refs.map((ref) => `${ref.type}/${ref.id}`)).size
+}
+
+/** The tile of the crop editor that edits the focus for every ratio; every other tile is named by its ratio key. */
+export const FOCUS_TILE = 'focus'
+
+/** The names of the image sizes of the block whose fields are edited, so a crop editor opened from one of its media fields starts on their ratio. */
+export const blockImageSizesKey: InjectionKey<ComputedRef<readonly string[]>> = Symbol('kestrel-block-image-sizes')
+
+/** The tile a crop editor opens on: the first ratio, in the order of `ratios`, that carries one of `sizes`, else the focus tile. */
+export function initialTile(ratios: readonly { key: string, sizes: readonly string[] }[], sizes: readonly string[]): string {
+  return ratios.find((ratio) => ratio.sizes.some((size) => sizes.includes(size)))?.key ?? FOCUS_TILE
+}
+
+/** The id of a tile, safe in an element id: `focus`, or `ratio-16x7` for the ratio `16:7`. */
+export function tileId(tile: string): string {
+  return tile === FOCUS_TILE ? FOCUS_TILE : `ratio-${tile.replace(':', 'x')}`
 }

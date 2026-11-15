@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { boundaryCast } from '#kestrel/cast'
 import { centredCrop, cropForRatio } from '@michaelthielemann/kestrel-images-default/framing'
 import type { MediaItem } from '../types/api'
-import { canFrame, coverSizesOf, dimensionsLabel, cropSource, displayCrop, measuresOriginal, previewStyle, rebaseDraft, sameFraming, sizeUsages, smallerSizes, uniqueReferrers } from './media-crop'
+import { FOCUS_TILE, canFrame, coverSizesOf, dimensionsLabel, cropSource, displayCrop, initialTile, measuresOriginal, previewStyle, rebaseDraft, sameFraming, sizeUsages, smallerSizes, tileId, uniqueReferrers } from './media-crop'
 
 function item(over: Partial<MediaItem> = {}): MediaItem {
   return {
@@ -274,5 +274,32 @@ describe('dimensionsLabel', () => {
 
   it('shows a dash for a file without dimensions', () => {
     expect(dimensionsLabel(item({ width: null, height: null, framing: { focus: null, crops: {}, width: null, height: null, ratios: [] } }))).toBe('–')
+  })
+})
+
+describe('initialTile', () => {
+  const ratios = [
+    { key: '16:7', sizes: ['banner'] },
+    { key: '3:2', sizes: ['picture-wide'] },
+    { key: '1:1', sizes: ['picture-square', 'responsive-tablet'] },
+    { key: '4:5', sizes: ['responsive-mobile'] },
+  ]
+
+  it('starts on the first ratio, in the order of the ratios, that carries one of the sizes', () => {
+    expect(initialTile(ratios, ['banner'])).toBe('16:7')
+    expect(initialTile(ratios, ['responsive-mobile', 'responsive-tablet'])).toBe('1:1')
+  })
+
+  it('starts on the focus without sizes or without a ratio that carries one', () => {
+    expect(initialTile(ratios, [])).toBe(FOCUS_TILE)
+    expect(initialTile(ratios, ['content'])).toBe(FOCUS_TILE)
+    expect(initialTile([], ['banner'])).toBe(FOCUS_TILE)
+  })
+})
+
+describe('tileId', () => {
+  it('gives the focus tile and each ratio tile an id that is safe in an element id', () => {
+    expect(tileId(FOCUS_TILE)).toBe('focus')
+    expect(tileId('16:7')).toBe('ratio-16x7')
   })
 })

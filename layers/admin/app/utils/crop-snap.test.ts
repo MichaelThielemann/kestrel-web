@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { SNAP_DISTANCE, snapCentre, snapThreshold, type SnapScene } from './crop-snap'
+import { SNAP_DISTANCE, snapCentre, snapLabelKey, snapThreshold, type SnapScene } from './crop-snap'
 
 const FRAME = 500
 
@@ -29,13 +29,13 @@ describe('snapCentre', () => {
     const near = imagePixels(zoom, 7.5)
     const far = imagePixels(zoom, 8.5)
 
-    expect(snapCentre(1000 + near, 750 - near, scene(zoom))).toEqual({ cx: 1000, cy: 750, guides: [{ axis: 'x', at: 0.5 }, { axis: 'y', at: 0.5 }] })
+    expect(snapCentre(1000 + near, 750 - near, scene(zoom))).toEqual({ cx: 1000, cy: 750, guides: [{ axis: 'x', at: 0.5, kind: 'image' }, { axis: 'y', at: 0.5, kind: 'image' }] })
     expect(snapCentre(1000 + far, 750 - far, scene(zoom))).toEqual({ cx: 1000 + far, cy: 750 - far, guides: [] })
   })
 
   it('snaps the middle of the image to the middle of the frame on each axis on its own', () => {
-    expect(snapCentre(1005, 600, scene(1))).toEqual({ cx: 1000, cy: 600, guides: [{ axis: 'x', at: 0.5 }] })
-    expect(snapCentre(700, 744, scene(1))).toEqual({ cx: 700, cy: 750, guides: [{ axis: 'y', at: 0.5 }] })
+    expect(snapCentre(1005, 600, scene(1))).toEqual({ cx: 1000, cy: 600, guides: [{ axis: 'x', at: 0.5, kind: 'image' }] })
+    expect(snapCentre(700, 744, scene(1))).toEqual({ cx: 700, cy: 750, guides: [{ axis: 'y', at: 0.5, kind: 'image' }] })
   })
 
   it.each([1 / 3, 1 / 2, 2 / 3])('snaps the centre of the focus to the frame line at %d', (line) => {
@@ -48,7 +48,7 @@ describe('snapCentre', () => {
 
     expect(snapped.cx).toBeCloseTo(cx, 9)
     expect(snapped.cy).toBeCloseTo(cy, 9)
-    expect(snapped.guides).toEqual([{ axis: 'x', at: line }, { axis: 'y', at: line }])
+    expect(snapped.guides).toEqual([{ axis: 'x', at: line, kind: 'focus' }, { axis: 'y', at: line, kind: 'focus' }])
   })
 
   it('takes the nearest guide when two are within reach', () => {
@@ -56,8 +56,8 @@ describe('snapCentre', () => {
     const view = scene(2, focus)
     const thirdLeft = focus.x + (0.5 - 1 / 3) * view.cropWidth
 
-    expect(snapCentre(1000, 300, view).guides).toEqual([{ axis: 'x', at: 0.5 }])
-    expect(snapCentre(thirdLeft - 1, 300, view)).toMatchObject({ cx: thirdLeft, guides: [{ axis: 'x', at: 1 / 3 }] })
+    expect(snapCentre(1000, 300, view).guides).toEqual([{ axis: 'x', at: 0.5, kind: 'image' }])
+    expect(snapCentre(thirdLeft - 1, 300, view)).toMatchObject({ cx: thirdLeft, guides: [{ axis: 'x', at: 1 / 3, kind: 'focus' }] })
   })
 
   it('leaves a position outside every threshold where it is', () => {
@@ -75,7 +75,7 @@ describe('snapCentre', () => {
   it('draws no guide on an axis the crop fills, where it cannot move', () => {
     const full = { width: 1600, height: 1200, cropWidth: 1600, cropHeight: 900, focus: { x: 800, y: 500 }, threshold: snapThreshold(1600, 320) }
 
-    expect(snapCentre(800, 597, full)).toEqual({ cx: 800, cy: 600, guides: [{ axis: 'y', at: 0.5 }] })
+    expect(snapCentre(800, 597, full)).toEqual({ cx: 800, cy: 600, guides: [{ axis: 'y', at: 0.5, kind: 'image' }] })
     expect(snapCentre(800, 420, full)).toEqual({ cx: 800, cy: 420, guides: [] })
   })
 
@@ -93,7 +93,7 @@ describe('snapCentre', () => {
   it('snaps on an axis that leaves the crop three pixels of room', () => {
     const roomy = { width: 1368, height: 768, cropWidth: 1365, cropHeight: 768, focus: null, threshold: snapThreshold(1365, 320) }
 
-    expect(snapCentre(683, 384, roomy)).toEqual({ cx: 684, cy: 384, guides: [{ axis: 'x', at: 0.5 }] })
+    expect(snapCentre(683, 384, roomy)).toEqual({ cx: 684, cy: 384, guides: [{ axis: 'x', at: 0.5, kind: 'image' }] })
   })
 
   it('snaps to a guide that puts the crop flush with the edge of the image', () => {
@@ -103,6 +103,23 @@ describe('snapCentre', () => {
     const snapped = snapCentre(edge + 1, 900, view)
 
     expect(snapped.cx).toBeCloseTo(edge, 9)
-    expect(snapped.guides).toEqual([{ axis: 'x', at: 1 / 3 }])
+    expect(snapped.guides).toEqual([{ axis: 'x', at: 1 / 3, kind: 'focus' }])
+  })
+})
+
+describe('snapLabelKey', () => {
+  it('names the middle of the image, the centre of the focus and the focus on a third', () => {
+    expect(snapLabelKey({ axis: 'x', at: 0.5, kind: 'image' })).toBe('cropFrame.snap.image')
+    expect(snapLabelKey({ axis: 'y', at: 0.5, kind: 'focus' })).toBe('cropFrame.snap.focus')
+    expect(snapLabelKey({ axis: 'x', at: 1 / 3, kind: 'focus' })).toBe('cropFrame.snap.focusThird')
+    expect(snapLabelKey({ axis: 'y', at: 2 / 3, kind: 'focus' })).toBe('cropFrame.snap.focusThird')
+  })
+
+  it('names the middle of the image when the centre of the focus lies on it as well', () => {
+    const view = { width: 2000, height: 1500, cropWidth: 1000, cropHeight: 750, focus: { x: 1000, y: 750 }, threshold: 16 }
+    const { guides } = snapCentre(1004, 746, view)
+
+    expect(guides).toEqual([{ axis: 'x', at: 0.5, kind: 'image' }, { axis: 'y', at: 0.5, kind: 'image' }])
+    expect(guides.map(snapLabelKey)).toEqual(['cropFrame.snap.image', 'cropFrame.snap.image'])
   })
 })
