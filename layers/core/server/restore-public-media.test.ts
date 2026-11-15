@@ -126,3 +126,23 @@ describe("the public media copies after a reported database restore", () => {
     expect(existsSync(copy)).toBe(false);
   }, 30_000);
 });
+
+describe("the build check of a production start after a local start of the same release", () => {
+  async function changedAt(build: string): Promise<unknown> {
+    const started = await start();
+    const { host, runs } = recording(started.kestrel);
+    await checkDeliveryBuild(host, { build, siteUrl: "https://www.example.org", dev: false, pipelines: started.pipelines, logger: silentLogger });
+    await stop();
+    return Reflect.get(resultOf({ status: 200, result: runs[0]?.result }), "changed");
+  }
+
+  it("sees no new build when the local start ran under the release's own build id", async () => {
+    expect(await changedAt("release-1")).toBe(true);
+    expect(await changedAt("release-1")).toBe(false);
+  }, 30_000);
+
+  it("sees a new build when the local start ran under a build id of its own", async () => {
+    expect(await changedAt("local-1")).toBe(true);
+    expect(await changedAt("release-1")).toBe(true);
+  }, 30_000);
+});

@@ -25,7 +25,9 @@
   filesystem blob store `envBlobstore()` builds in place of `<dataDir>/blobs`; relative values resolve against the
   process cwd, empty ones are ignored. A local start of a copy that runs content migrations for `kestrel update`
   opens the database copy and blob directory the tooling prepares through
-  `update.localBoot.env`: `{ "KESTREL_DATABASE_FILE": "{database}", "KESTREL_BLOBS_DIR": "{blobs}", "PORT": "{port}", "NITRO_PORT": "{port}" }`.
+  `update.localBoot.env`: `{ "KESTREL_DATABASE_FILE": "{database}", "KESTREL_BLOBS_DIR": "{blobs}", "PORT": "{port}", "NITRO_PORT": "{port}", "NUXT_APP_BUILD_ID": "{build}" }`.
+  `NUXT_APP_BUILD_ID` gives that start a build id of its own, so the production start of the release sees a new
+  build and renders every page again from the migrated content.
 - `KESTREL_STORAGE_MIGRATIONS` sets `storageMigrations` of media-default and images-default in
   `presetModuleConfig()`: `check` (unset or empty, in production and outside it) refuses to start on media or
   image data in an older storage shape and names the migration, `apply` runs the migrations that write no blobs

@@ -518,11 +518,16 @@ no content switch.
 and replication-sqlite when it is set, else `kestrel.db` in `dataDir`. With both variables, a start uses a
 database file and blob directory outside the data directory. `kestrel update` runs pending content migrations
 on a local start of the release on a copy of the database; its `update.localBoot.env` hands that start the copy,
-the blob directory and the port:
+the blob directory, the port and a build id of its own:
 
 ```json
-{ "KESTREL_DATABASE_FILE": "{database}", "KESTREL_BLOBS_DIR": "{blobs}", "PORT": "{port}", "NITRO_PORT": "{port}" }
+{ "KESTREL_DATABASE_FILE": "{database}", "KESTREL_BLOBS_DIR": "{blobs}", "PORT": "{port}", "NITRO_PORT": "{port}", "NUXT_APP_BUILD_ID": "{build}" }
 ```
+
+`NUXT_APP_BUILD_ID` replaces the build id the server compares at start-up. Without it the local start stores
+the release's own build id, and the production start of the same release with the same site URL sees no new
+build and renders no page again, so the public export keeps what the pages showed before the content
+migrations.
 
 So a missing production hash or a missing S3 variable fails when the config loads, naming the variable,
 instead of at the first request. `playground/kestrel.config.ts` deliberately keeps a literal filesystem

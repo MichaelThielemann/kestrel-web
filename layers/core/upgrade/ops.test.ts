@@ -226,9 +226,19 @@ describe("the database file of a deployed environment", () => {
   });
 });
 
+function documentedLocalBoot(): Record<string, string> {
+  const doc = readFileSync(resolve(import.meta.dirname, "../../../docs/consuming-kestrel-web.md"), "utf8");
+  const from = doc.indexOf("its `update.localBoot.env` hands that start");
+  const block = /```json\n(.*?)\n```/s.exec(doc.slice(from));
+  if (from < 0 || block?.[1] === undefined) throw new Error("docs/consuming-kestrel-web.md has no update.localBoot.env example");
+  const parsed: unknown = JSON.parse(block[1]);
+  if (typeof parsed !== "object" || parsed === null) throw new Error("the update.localBoot.env example is no object");
+  return Object.fromEntries(Object.entries(parsed).map(([name, value]) => [name, String(value)]));
+}
+
 describe("a local start of a copy", () => {
   const places: Record<string, string> = { database: "/work/run/migrated.db", blobs: "/work/run/local-blobs", port: "4123", build: "local-build" };
-  const localBoot = { KESTREL_DATABASE_FILE: "{database}", KESTREL_BLOBS_DIR: "{blobs}", PORT: "{port}", NITRO_PORT: "{port}" };
+  const localBoot = documentedLocalBoot();
 
   function bootEnv(): Record<string, string> {
     const env: Record<string, string> = { ...facts().localBootEnv };
@@ -240,6 +250,15 @@ describe("a local start of a copy", () => {
     const env = bootEnv();
     expect(facts().databaseFile?.(env)).toBe("/work/run/migrated.db");
     expect(facts().blobstoreFromEnv?.(env)).toEqual({ use: "@michaelthielemann/kestrel-blobstore-filesystem", config: { root: "/work/run/local-blobs" } });
+  });
+
+  it("runs under a build id of its own, which NUXT_APP_BUILD_ID hands the started release", () => {
+    expect(bootEnv().NUXT_APP_BUILD_ID).toBe("local-build");
+  });
+
+  it("is configured in the changelog as in the consuming guide", () => {
+    const changelog = readFileSync(resolve(import.meta.dirname, "../../../CHANGELOG.md"), "utf8").replace(/\s+/g, " ");
+    expect(changelog).toContain(`\`update.localBoot.env\`: \`${JSON.stringify(localBoot).replace(/":"/g, '": "').replace(/","/g, '", "').replace(/^\{/, "{ ").replace(/\}$/, " }")}\``);
   });
 
   it("opens that database copy and blob directory in the preset of the started release", () => {
