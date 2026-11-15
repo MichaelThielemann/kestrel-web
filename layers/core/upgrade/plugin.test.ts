@@ -32,8 +32,9 @@ describe("the layer's upgrade plugin", () => {
     }
   });
 
-  it("declares plugin API 5, the first that runs its dataFindings hook", () => {
+  it("declares plugin API 6, the first that calls its ops hook", () => {
     expect(createLayerPlugin().dataFindings).toBeTypeOf("function");
-    expect(PLUGIN_API).toBe(5);
+    expect(createLayerPlugin().ops).toBeTypeOf("function");
+    expect(PLUGIN_API).toBe(6);
   });
 });

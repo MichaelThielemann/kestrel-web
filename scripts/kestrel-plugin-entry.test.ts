@@ -51,6 +51,16 @@ describe("the kestrel plugin entry", () => {
     expect(loaded.map((host) => host.kind)).toEqual(["kestrel-web"]);
   });
 
+  it("declares the plugin API of the installed kestrel CLI, which loads the plugin with its ops hook", async () => {
+    expect(PLUGIN_API_VERSION).toBe(6);
+    const scan = scanHosts(consumerProject(), { cliVersion: CORE_VERSION });
+    expect(scan.loadable.map((host) => host.pluginApi)).toEqual([PLUGIN_API_VERSION]);
+    const { loaded } = await loadHostPlugins(scan.loadable, { pluginApiVersion: PLUGIN_API_VERSION, cliVersion: CORE_VERSION });
+    const facts = await loaded[0]?.plugin.ops?.("/srv/example-site");
+    expect(facts?.readyPath).toBe("/api/ready");
+    expect(facts?.databaseFile?.({ KESTREL_DATA_DIR: "/var/lib/site" })).toBe("/var/lib/site/kestrel.db");
+  });
+
   it("is reported outdated to a kestrel CLI of another major", () => {
     const [major] = CORE_VERSION.split(".");
     const scan = scanHosts(consumerProject(), { cliVersion: `${Number(major) + 1}.0.0` });

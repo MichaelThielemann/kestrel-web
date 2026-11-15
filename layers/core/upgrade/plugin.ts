@@ -5,6 +5,7 @@ import { linkDataFindings } from "./linkData";
 import { detectLayerProject, layerProjectData, loadDataModel, loadLayerProject, loadSharedContentModel, prepareLayerProject } from "./load";
 import { layerLocateModelFields, layerLocateSteps } from "./locators";
 import { layerMediaWiring } from "./mediaWiring";
+import { layerOpsFacts } from "./ops";
 import { layerRules } from "./rules";
 import { layerIdempotentPipelines, layerSwitchEdits } from "./switchEdits";
 
@@ -33,6 +34,9 @@ export function layerHostChecks(project: LoadedProject, bootCheck: BootCheck): H
  * kestrel-web itself provides at request time, nothing at boot. `dataModel` and `switchEdits` are hooks
  * the built-in `model/underscore-field` and `offer/event-queue` rules consult directly; this plugin does
  * not replace either rule. `dataFindings` adds the layer's own stored-value checks to `kestrel upgrade data`.
+ * `ops` (plugin API 6) answers what `kestrel status`, `backup`, `restore` and `update` need to know about the
+ * project: its readiness route, its blob store and database file from a deployed environment's variables, the
+ * variables that hold secrets, the migration switches and how a local copy starts.
  */
 export function createLayerPlugin(): UpgradePlugin {
   return {
@@ -52,5 +56,6 @@ export function createLayerPlugin(): UpgradePlugin {
     idempotentPipelines: layerIdempotentPipelines,
     mediaWiring: layerMediaWiring,
     hostChecks: layerHostChecks,
+    ops: layerOpsFacts,
   };
 }
