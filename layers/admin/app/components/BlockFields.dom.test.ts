@@ -1,7 +1,9 @@
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import { describe, expect, it } from 'vitest'
+import { defineComponent, h, inject } from 'vue'
 import type { SerializedBlock } from '#kestrel-admin/types/kestrel'
 import type { BlockRow } from '../utils/block-tree'
+import { blockImageSizesKey } from '../utils/media-crop'
 import BlockFields from './BlockFields.vue'
 
 const block: BlockRow = { id: 'b1', type: 'hero', props: {} }
@@ -38,5 +40,28 @@ describe('BlockFields', () => {
     const rows = wrapper.findAll('.ui-field-row')
     expect(rows).toHaveLength(3)
     rows.forEach((row) => expect(row.findAll('.ui-field-cell')).toHaveLength(1))
+  })
+
+  it('hands its fields the names of the block\'s image sizes in the order the block declares them', async () => {
+    const SizesProbe = defineComponent({
+      setup() {
+        const sizes = inject(blockImageSizesKey, null)
+        return () => h('p', { 'data-test': 'block-sizes' }, sizes ? sizes.value.join(',') : 'none')
+      },
+    })
+    const def: SerializedBlock = {
+      name: 'hero',
+      label: 'Hero',
+      fields,
+      imageSizes: [
+        { name: 'hero-wide', width: 1152, height: 648, fit: 'cover' },
+        { name: 'hero-tall', width: 720, height: 960, fit: 'cover' },
+      ],
+    }
+    const wrapper = await mountSuspended(BlockFields, { props: { block, def, locale: 'en' }, global: { stubs: { KestrelFieldLayout: SizesProbe } } })
+
+    expect(wrapper.get('[data-test="block-sizes"]').text()).toBe('hero-wide,hero-tall')
+    await wrapper.setProps({ def: { name: 'hero', label: 'Hero', fields } })
+    expect(wrapper.get('[data-test="block-sizes"]').text()).toBe('')
   })
 })
