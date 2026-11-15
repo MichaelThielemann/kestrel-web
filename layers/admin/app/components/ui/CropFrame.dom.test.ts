@@ -10,6 +10,7 @@ const HEIGHT = 1200
 
 async function mountFrame(initial: MediaRect | null, focus: MediaRect | null = null, image: { ratio: string, width: number, height: number } = { ratio: '16:9', width: WIDTH, height: HEIGHT }, snap?: boolean) {
   const emitted: MediaRect[] = []
+  const pending: boolean[] = []
   const wrapper = await mountSuspended(CropFrame, {
     attachTo: document.body,
     props: {
@@ -22,13 +23,14 @@ async function mountFrame(initial: MediaRect | null, focus: MediaRect | null = n
       focus,
       ...(snap === undefined ? {} : { snap }),
       modelValue: initial,
+      onPending: (value: boolean) => { pending.push(value) },
       'onUpdate:modelValue': (value: MediaRect | null) => {
         if (value) emitted.push(value)
         void wrapper.setProps({ modelValue: value })
       },
     },
   })
-  return { wrapper, emitted }
+  return { wrapper, emitted, pending }
 }
 
 function cropOf(rect: MediaRect | undefined): PixelCrop | null {
@@ -209,6 +211,46 @@ describe('KestrelUiCropFrame', () => {
     expect(cropOf(emitted[0])).toEqual({ left: 600, top: 488, width: 400, height: 225 })
     expect(input.value).toBe('400')
     expect(wrapper.get<HTMLInputElement>('input[data-field="x"]').element.value).toBe('37.5')
+    wrapper.unmount()
+  })
+
+  it('follows the crop again after the shown value is typed and the field is left without a change event', async () => {
+    const { wrapper, emitted, pending } = await mountFrame({ x: 0.25, y: 0.3125, w: 0.5, h: 0.375 })
+    const input = wrapper.get<HTMLInputElement>('input[data-field="x"]').element
+    input.focus()
+    for (const typed of ['2', '25']) {
+      input.value = typed
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+    }
+    await nextTick()
+    expect(pending.at(-1)).toBe(true)
+
+    input.dispatchEvent(new FocusEvent('blur'))
+    await nextTick()
+    expect(pending.at(-1)).toBe(false)
+    expect(emitted).toEqual([])
+
+    await wrapper.get('.ui-crop-frame__frame').trigger('keydown', { key: 'ArrowRight' })
+    expect(cropOf(emitted.at(-1))).toEqual({ left: 416, top: 375, width: 800, height: 450 })
+    expect(input.value).toBe('26')
+    wrapper.unmount()
+  })
+
+  it('applies a typed position when the field is left', async () => {
+    const { wrapper, emitted, pending } = await mountFrame({ x: 0.25, y: 0.3125, w: 0.5, h: 0.375 })
+    const input = wrapper.get<HTMLInputElement>('input[data-field="x"]').element
+    input.focus()
+    for (const typed of ['1', '10']) {
+      input.value = typed
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+    }
+    await nextTick()
+    expect(emitted).toEqual([])
+
+    input.dispatchEvent(new FocusEvent('blur'))
+    await nextTick()
+    expect(cropOf(emitted.at(-1))).toEqual({ left: 160, top: 375, width: 800, height: 450 })
+    expect(pending.at(-1)).toBe(false)
     wrapper.unmount()
   })
 

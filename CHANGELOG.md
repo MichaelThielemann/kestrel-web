@@ -1334,6 +1334,9 @@
 
 ### Fixed
 
+- Crop editor: a number field in which the value already shown is typed again no longer stays on that value while
+  the crop moves; leaving a field applies what was typed, and the editor no longer counts an unchanged value as an
+  unapplied edit.
 - Media library: after several selected items are deleted, focus lands on the first remaining item after the
   focused one; it no longer skips ahead by the number of items removed before it.
 - Admin layout: at 320 CSS px no admin page scrolls sideways or cuts off a control (WCAG 1.4.10 Reflow). The

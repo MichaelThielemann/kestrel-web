@@ -49,13 +49,14 @@ const sliderZoom = computed({ get: () => zoom.value, set: (value: number) => zoo
 type NumberField = 'x' | 'y' | 'zoom'
 const NUMBER_FIELDS: readonly { name: NumberField, step: number }[] = [{ name: 'x', step: 0.1 }, { name: 'y', step: 0.1 }, { name: 'zoom', step: 1 }]
 const typed = reactive(new Map<NumberField, number | null>())
-const shown = (field: NumberField) => (typed.has(field) ? typed.get(field) ?? null : field === 'zoom' ? zoomPercent.value : position.value[field])
+const live = (field: NumberField) => (field === 'zoom' ? zoomPercent.value : position.value[field])
+const shown = (field: NumberField) => (typed.has(field) ? typed.get(field) ?? null : live(field))
 
 function commitNumber(field: NumberField): void {
   if (!typed.has(field)) return
   const value = typed.get(field)
   typed.delete(field)
-  if (value === null || value === undefined || !Number.isFinite(value)) return
+  if (value === null || value === undefined || !Number.isFinite(value) || value === live(field)) return
   if (field === 'zoom') zoomTo(value / 100)
   else setPosition(field, value / 100)
 }
@@ -149,6 +150,7 @@ defineExpose({ focus: () => frame.value?.focus() })
               :data-field="field.name"
               @update:model-value="typed.set(field.name, $event ?? null)"
               @change="commitNumber(field.name)"
+              @blur="commitNumber(field.name)"
               @keydown="onNumberKeydown(field.name, $event)"
             />
           </template>
