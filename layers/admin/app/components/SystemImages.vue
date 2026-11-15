@@ -366,7 +366,7 @@ function relative(ms: number | null): string { return ms === null ? '—' : huma
   }
 
   &__scroll {
-    flex: 1 1 auto;
+    flex: 0 1 auto;
     min-height: 0;
     overflow: auto;
   }

@@ -1368,6 +1368,8 @@
   every route it answers `GET` on.
 - Admin page tree: in a language a page has no path in, the row reads "no path" instead of showing the path of
   another language.
+- System → Images: on a tall window the sections below the image sizes follow the table directly instead
+  of leaving the free height as a gap above them.
 - `/api/health` and `/api/ready` report `uptimeSeconds` as the whole seconds since the server process started,
   the same value on both, not the time since the first request to each route.
 - Users: a save or create that carries a role the backend is not configured with shows "Unknown role: …" with
