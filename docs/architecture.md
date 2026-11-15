@@ -2022,18 +2022,50 @@ Without a list, or with an empty one, the template renders the single `<img>` th
   then to `''`.
 
 ### Crop editor
-The crop editor (`MediaCropEditor.vue` on `useMediaCropEditor()`) shows one tile per entry of the item's
-`framing.ratios`, the ratios kestrel derives from its `cover` sizes, each with the names of its sizes. Each
-tile names what its sizes are used for (`sizeUsages` in `utils/media-crop.ts`): per size, the labels of the blocks
-in `blockDefinitions` that declare it and its `imageSizeLabels` entry, resolved in the admin language; a size
-with neither shows its name, and a name appears once per tile. `MediaCropTiles.vue` shows that list under the
-ratio and in the title of the chosen tile, keeps the chosen tile in view in a list that scrolls on its own, and
-lays the tiles out as a horizontal strip below 48rem. The "Snap to guides" switch in the head of the chosen tile
-binds `snap` of `KestrelUiCropFrame` to `useCropSnapPreference()`: on by default, one value for every editor of
-the page, remembered in `localStorage` under `kestrel.mediaCrop.snap` and kept in memory for the page's lifetime
-when storage throws. Every cut the editor shows comes from the same `framing` functions the server renders with,
-so a tile, the frame and the rendered `cover` variant of that ratio, which `KestrelImage` serves for a size or an
-art direction entry, show the same part of the image.
+The crop editor (`MediaCropEditor.vue` on `useMediaCropEditor()`) is one view of three columns: a tile list, the
+stage of the chosen tile, and a side column with its fields. The tile list (`MediaCropTiles.vue`) is a
+`KestrelUiTabList` with `variant="tiles"`, vertical from 48rem up and a horizontal strip below. Its first tile is
+the focus for every ratio, followed by one tile per entry of the item's `framing.ratios`, the ratios kestrel
+derives from its `cover` sizes. Each ratio tile names what its sizes are used for (`sizeUsages` in
+`utils/media-crop.ts`): per size, the labels of the blocks in `blockDefinitions` that declare it and its
+`imageSizeLabels` entry, resolved in the admin language; a size with neither shows its name, and a name appears
+once per tile. A tile's accessible name is its text, so it reads "16:7 Banner Manual Focus too tall"; its preview is
+hidden from assistive technology. The chosen tile picks the panel: `MediaCropFocus.vue` with `KestrelUiRectSelect`
+draws the focus on the whole image, `MediaCropRatio.vue` with `KestrelUiCropFrame` moves and zooms the crop of a
+ratio with the focus drawn as an outline over it. Both kit components draw their own stage and side column and
+fill the side column from the slots `aside-start` (above the fields) and `aside-end` (below them), so the
+fields keep sharing the state of `usePanZoom` with the frame.
+
+The tile the editor opens on comes from `initialTile`: from the media viewer it is the focus; from a media field
+it is the first ratio, in the order of `framing.ratios`, that carries one of the sizes of the field's block.
+`BlockFields.vue` provides those size names under `blockImageSizesKey`, `field/Media.vue` passes them to the
+editor as `sizes`, and a field outside a block passes none. A tile whose ratio disappears from a freshly loaded
+item falls back to the focus. The draft covers the focus and every crop, so switching tiles loses nothing,
+every preview follows the draft, and Save writes all of it in one `PUT`.
+
+Why the focus misses a ratio comes from `focusMiss` in `utils/crop-advice.ts`, which uses the server's
+`focusFits` and `centredCrop`: `tall` or `wide` when the focus sticks out of the largest crop of the ratio, and
+`covered` when a manual crop cuts a focus that would fit. `useMediaCropEditor` exposes the result per ratio as
+`misses`; the tiles mark a miss with a warning badge, the focus panel lists the ratios per kind, and the ratio
+panel gives one advice, with the reset button right after it. These lines, the "smaller than" hint, the state and
+a save error live in `MediaCropStatus.vue`, the last element of the side column. It is not a live region,
+because it changes while a gesture runs; a hidden status of its own speaks its lines 700ms after they last
+changed. Only the tile list and the side columns scroll, both with `scrollbar-gutter: stable`, and the stage is a
+size container whose content is sized from the dialog alone, so no warning moves the image.
+
+The help of each panel sits behind the info button of `KestrelUiInfoToggle`, closed by default; the stage keeps
+a short description of its keys for assistive technology through `aria-describedby`. `useCropHelpPreference()`
+remembers the help for both panels under `kestrel.mediaCrop.help`, and `useCropSnapPreference()` remembers the
+"Snap to guides" switch of the ratio panel under `kestrel.mediaCrop.snap`, on by default. Both build on
+`useStoredToggle`: one value per key for every editor of the page, stored as `on` or `off`, and kept in memory
+for the page's lifetime when storage throws. While a drag, a pinch or the wheel snaps the crop, each lit guide
+carries a label from `snapLabelKey` (`SnapGuide.kind` tells the middle of the image from the centre of the
+focus, and the line tells the centre from a third); `usePanZoom` reports the guides a gesture ended on as
+`settledSnap`, and the frame announces them once. The plain wheel zooms finely, Shift with the wheel in large
+steps (a horizontal delta counts when the vertical one is 0), and Ctrl with the wheel, which is how browsers
+report a trackpad pinch, at the pinch speed. Every cut the editor shows comes from the same `framing` functions
+the server renders with, so a tile, the frame and the rendered `cover` variant of that ratio, which
+`KestrelImage` serves for a size or an art direction entry, show the same part of the image.
 
 ### Media URLs
 Every media file has exactly one public URL, generated by the module that stores it and returned as data

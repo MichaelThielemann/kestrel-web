@@ -59,16 +59,17 @@
   first label is used and the build warns. A `label` on a size in `defineBlock({ imageSizes })` fails the build.
 - Admin: each tile of the crop editor names below its ratio what the sizes of that ratio are used for, the labels
   of the blocks that declare them and the labels of `app/image-sizes.ts`, else the size names ("Hero, Teaser
-  card" under "3:2"); the title of the chosen tile names them too ("Ratio 3:2 (Hero, Teaser card)"). The tile
-  column scrolls on its own and keeps the chosen tile in view, and becomes a horizontally scrolling strip below
-  48rem.
+  card" under "3:2"); the side column of the chosen ratio repeats them in full under "Ratio 3:2". The focus tile
+  heads the list as "Focus, All ratios". The tiles are a vertical tab list that scrolls on its own and keeps the
+  chosen tile in view, and a horizontally scrolling strip below 48rem.
 - Admin: the crop frame snaps while dragging, pinching and zooming with the wheel. Within 8 screen pixels the
   middle of the image snaps to the middle of the frame, and the centre of the focus to the middle and the thirds
-  of the frame, with the guide highlighted; an axis that leaves the crop at most two pixels of room does not snap. Alt held during the gesture places the crop freely; the arrow keys,
-  the slider and the number fields stay exact. A "Snap to guides" switch in the head of the crop detail turns it
-  off, remembered per browser.
-- Admin kit: `KestrelUiSwitch` (an on/off switch, `role="switch"`, bound to a boolean) and `KestrelUiCropGuides`;
-  `KestrelUiCropFrame` takes `snap` (default `true`). The `move` and `pinch` handlers of `usePointerDrag()`
+  of the frame, with the guide highlighted and labelled with what snapped (image centre, focus centre, focus on a
+  third); an axis that leaves the crop at most two pixels of room does not snap. A gesture that ends snapped is
+  announced once, politely. Alt held during the gesture places the crop freely; the arrow keys, the slider and the
+  number fields stay exact. A "Snap to guides" switch in the side column turns it off, remembered per browser.
+- Admin kit: `KestrelUiSwitch` (an on/off switch, `role="switch"`, bound to a boolean) and `KestrelUiCropGuides`,
+  which labels each lit guide; `KestrelUiCropFrame` takes `snap` (default `true`). The `move` and `pinch` handlers of `usePointerDrag()`
   receive the pointer event as their last argument.
 - Images can carry a focus and a manual crop per aspect ratio (kestrel's images-default "Focus and crop"). With
   `images`, the preset composes `setMediaFraming` behind `PUT /media/:id/framing` (`media.write`): it stores the
@@ -100,20 +101,30 @@
   rectangle on an image, or set a point) and `KestrelUiCropFrame` (a frame in an aspect ratio over an image that
   pans and zooms, showing the cut images-default renders). Both work with the pointer, touch and the keyboard
   alone and take their values as numbers too; `KestrelUiCropFrame` applies a typed number on Enter or when the
-  field is left. `usePointerDrag()` takes a `threshold` in pixels. The admin may import
+  field is left. Both draw a stage and a side column with their fields, take the slots `aside-start`,
+  `aside-end` and `help-intro` and `v-model:help`, keep their help behind an info button and describe their keys to
+  assistive technology. `KestrelUiCropFrame` outlines the focus over the crop; its wheel zooms finely, with Shift
+  in large steps, and with Ctrl (a trackpad pinch) at the pinch speed. `KestrelUiTabList` takes `orientation`
+  (`vertical` moves with the up and down keys too), `variant: 'tiles'` and a `tab` slot; `KestrelUiInfoToggle`
+  is a new info button that shows and hides a help panel. `usePointerDrag()` takes a `threshold` in pixels. The admin may import
   `@michaelthielemann/kestrel-images-default/framing`; `kestrel/no-backend-in-ui-layers` keeps refusing the
   package's other entry points.
 - Admin: a crop editor for images. The media viewer offers "Adjust crop" for an image to a role that may write
   media and run `setMediaFraming`, and a media field offers it as an icon button on each chosen image that is in
-  the library, not in the trash. The editor marks the focus with a live preview per ratio of the `cover` sizes,
-  and adjusts the crop of each ratio, manual or automatic, with a reset to automatic, a warning when the focus
-  does not fit and a note when a crop is smaller than a size kestrel renders, whose variant is then delivered
-  smaller. An original browsers cannot display, or a WebP original whose orientation tag browsers ignore, is
+  the library, not in the trash. The editor is one view: a focus tile and one tile per ratio of the `cover`
+  sizes on the left, the image in the middle, and the fields of the chosen tile in a column on the right. The
+  focus tile marks the focus on the whole image while every tile previews its crop live; a ratio tile adjusts the
+  crop of that ratio, manual or automatic, with the focus outlined over it. When the focus does not fit a ratio,
+  the tile shows a warning and the side column says why and what to do (draw the focus flatter or narrower, or
+  move, zoom out or reset a manual crop that hides it, with the reset right after the advice); a crop smaller
+  than a size kestrel renders, whose variant is then delivered smaller, is pointed out too. Warnings never move
+  the image. The help sits behind an info button and stays open or closed per browser. A media field in a block
+  opens the editor on the first ratio of the block's image sizes. An original browsers cannot display, or a WebP original whose orientation tag browsers ignore, is
   shown from its largest finished variant without a `crop` that has the oriented original's aspect, and is not
   offered for editing before that variant is finished; the media viewer and a media field show the button once
   the item's variants have all finished rendering. Without a `cover` size it edits the focus only and says why.
-  It names how many records use the image, asks before Escape or Cancel drops unsaved changes and saves through
-  `PUT /media/:id/framing`.
+  Its description names how many records use the image; it asks before Escape or Cancel drops unsaved changes
+  and saves the focus and every crop in one `PUT /media/:id/framing`.
 - Static delivery keeps `sitemap.xml`, `robots.txt`, `llms.txt` and `llms-full.txt` current. Every pipeline that
   changes what they list asks for an export instead of writing it in the request: `publishPage`,
   `unpublishPage` and the publish pipelines of every mounted collection, `settingsDependents`, `publishAllPages`

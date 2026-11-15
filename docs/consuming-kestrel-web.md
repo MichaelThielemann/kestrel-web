@@ -1666,7 +1666,7 @@ app, fails the build. Both sources are scanned the same way `app/blocks/*.vue` i
 The optional `label` (a `Localized`, see [Admin language and labels](admin-i18n.md)) says what a size is
 used for. The admin's crop editor shows it under the ratio of each crop tile, next to the labels of the
 blocks that declare a size of that ratio, so an editor reads "Hero, Teaser card" under "3:2" rather than a bare
-ratio, and the title of the chosen tile reads "Ratio 3:2 (Hero, Teaser card)". A size without a label that no block declares, including one only kestrel knows, shows its name.
+ratio, and the side column of the chosen tile repeats it in full under "Ratio 3:2". A size without a label that no block declares, including one only kestrel knows, shows its name.
 The label is for `app/image-sizes.ts` only; on a size in `defineBlock({ imageSizes })` it fails the build,
 because the admin names that size after the block. It never reaches the backend: `imageSizes` and
 `.nuxt/kestrel/image-sizes.json` stay as they are, and the labels are a separate export, `imageSizeLabels`,
@@ -1804,8 +1804,12 @@ site renders here, not only in images-default's own `sizes` config. A call to
 (`#kestrel/image-sizes`) unless you pass them as the fourth argument.
 
 The admin's crop editor opens from the media viewer ("Adjust crop") and from the crop button on an image
-chosen in a media field. Its focus tab previews each ratio of the `cover` sizes; its fine-crop tab shows one
-tile per ratio, automatic until a crop is set by hand. Ratios are exact, so `1000x562` and `1600x900` get two
+chosen in a media field. It shows a focus tile and one tile per ratio of the `cover` sizes, each crop automatic
+until it is set by hand; the chosen tile decides whether the stage draws the focus or moves the crop of that
+ratio, with the fields in a column beside it. Opened from a media field in a block, it starts on the first ratio
+that carries one of the block's image sizes. When the focus does not fit a ratio, the editor says why and what
+to do: draw the focus flatter or narrower, or move, zoom out or reset a manual crop that hides it. Its help sits
+behind an info button and stays open or closed per browser. Ratios are exact, so `1000x562` and `1600x900` get two
 tiles, and `KestrelImage` puts their variants into one `srcset` only while both show the same crop. A crop narrower or lower than a size of its
 ratio delivers that variant smaller, which the editor points out for every size kestrel renders (from
 `GET /admin/images/sizes` when the role may read it, else the sizes the build declares). An original browsers
@@ -1826,8 +1830,9 @@ kind gets no editor until kestrel reports its dimensions. Without a `cover` size
 the focus alone and says why. Every action works with the pointer, touch or the keyboard, and the focus
 and the crop take numbers too. While an editor drags, pinches or zooms with the wheel, the frame snaps to the
 middle of the image and puts the focus on the middle or a third of the frame when it comes within 8 screen
-pixels, and shows the guide it snapped to; holding Alt places it freely, and the "Snap to guides" switch turns
-snapping off for that browser. The keys, the slider and the number fields never snap. The editor computes every cut with
+pixels, and shows the guide it snapped to with a label (image centre, focus centre, focus on a third); holding
+Alt places it freely, and the "Snap to guides" switch turns snapping off for that browser. The wheel zooms
+finely, with Shift in large steps. The keys, the slider and the number fields never snap. The editor computes every cut with
 `@michaelthielemann/kestrel-images-default/framing`, the functions the server renders with. A framing
 belongs to the media item, so it applies wherever the image is used; the editor names how many records
 use it. The media field's crop button is described in [`field-types.md`](field-types.md).
