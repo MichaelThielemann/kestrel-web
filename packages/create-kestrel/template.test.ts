@@ -110,6 +110,22 @@ describe("projectFiles", () => {
     ]);
   });
 
+  it("labels the starter collection and blocks in English and German", () => {
+    const map = files({});
+    const ui = text(map, "shared/collections-ui.ts");
+    for (const label of ["Page", "Pages", "New page", "Title", "Parent page", "Slug", "Status", "Share image", "Content", "SEO", "Draft", "Finished", "Published"]) {
+      expect(ui).toMatch(new RegExp(`en: "${label}", de: "[^"]+"`));
+    }
+    expect(ui).toContain('de: "Übergeordnete Seite"');
+    for (const [path, labels] of [
+      ["app/blocks/Hero.vue", ["Heading", "Subheading", "Call to action"]],
+      ["app/blocks/Prose.vue", ["Text"]],
+    ] as const) {
+      const block = text(map, path);
+      for (const label of labels) expect(block).toMatch(new RegExp(`label: \\{ en: '${label}', de: '[^']+' \\}`));
+    }
+  });
+
   it("leaves no placeholder behind in any combination", () => {
     for (const overrides of [
       {},

@@ -1,8 +1,8 @@
 <script setup lang="ts">
 const props = defineProps({
-  heading: textField({ required: true, label: 'Heading' }),
-  subheading: textField({ multiline: true, label: 'Subheading' }),
-  cta: linkField({ label: 'Call to action' }),
+  heading: textField({ required: true, label: { en: 'Heading', de: 'Überschrift' } }),
+  subheading: textField({ multiline: true, label: { en: 'Subheading', de: 'Unterzeile' } }),
+  cta: linkField({ label: { en: 'Call to action', de: 'Call to Action' } }),
 })
 defineBlock({ label: 'Hero', slots: ['default'], icon: 'image' })
 

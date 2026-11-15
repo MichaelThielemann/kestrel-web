@@ -1,6 +1,6 @@
 <script setup lang="ts">
 const props = defineProps({
-  body: richtextField({ required: true, label: 'Text' }),
+  body: richtextField({ required: true, label: { en: 'Text', de: 'Text' } }),
 })
 defineBlock({ label: 'Prose', icon: 'file-text' })
 

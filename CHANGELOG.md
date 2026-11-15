@@ -1219,6 +1219,8 @@
 
 ### Changed
 
+- The `create-kestrel` starter labels its pages collection, fields, status choices and the Hero and Prose block
+  fields in English and German, so a German admin interface shows German labels.
 - `useSanitizedHtml()` applies one allowlist on the server, during server rendering and in the browser; the lists
   and the attribute rules come from `@michaelthielemann/kestrel-contracts/helpers/html-allowlist`, the helper
   the backend's `format: html` sanitizer uses. A link whose `target` is anything but `_self`, in any letter case,

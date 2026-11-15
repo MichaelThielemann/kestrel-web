@@ -4,7 +4,7 @@ import { contentTypes, features } from "./model";
 export default defineCollectionsUi({
   ...presetCollectionsUi({ features, collections: contentTypes }),
   pages: {
-    label: { singular: "Page", plural: "Pages", new: "New page" },
+    label: { singular: { en: "Page", de: "Seite" }, plural: { en: "Pages", de: "Seiten" }, new: { en: "New page", de: "Neue Seite" } },
     icon: "file-text",
     editor: "blocks",
     fieldLayout: [
@@ -14,13 +14,13 @@ export default defineCollectionsUi({
     ],
     seoFields: ["shareImage"],
     fieldLabels: {
-      title: "Title",
-      parent: "Parent page",
-      slug: "Slug",
-      status: "Status",
-      shareImage: "Share image",
-      body: "Content",
-      seo: "SEO",
+      title: { en: "Title", de: "Titel" },
+      parent: { en: "Parent page", de: "Übergeordnete Seite" },
+      slug: { en: "Slug", de: "Slug" },
+      status: { en: "Status", de: "Status" },
+      shareImage: { en: "Share image", de: "Share-Bild" },
+      body: { en: "Content", de: "Inhalt" },
+      seo: { en: "SEO", de: "SEO" },
     },
     editorOwned: ["body", "seo"],
     fieldOverrides: {
@@ -28,9 +28,9 @@ export default defineCollectionsUi({
       status: {
         options: {
           choices: [
-            { value: "draft", label: "Draft" },
-            { value: "finished", label: "Finished" },
-            { value: "published", label: "Published" },
+            { value: "draft", label: { en: "Draft", de: "Entwurf" } },
+            { value: "finished", label: { en: "Finished", de: "Fertig" } },
+            { value: "published", label: { en: "Published", de: "Veröffentlicht" } },
           ],
           display: "select",
         },
