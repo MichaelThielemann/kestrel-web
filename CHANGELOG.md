@@ -4,6 +4,32 @@
 
 ### Added
 
+- The upgrade plugin answers kestrel's `ops` hook (plugin API 6), which `kestrel status`, `backup`, `restore` and
+  `update` read: the readiness route `/api/ready`; the blob store and the database file a deployed environment's
+  variables select (`KESTREL_BLOBSTORE`, `KESTREL_S3_*`, `KESTREL_DATA_DIR`, `KESTREL_APP_ROOT`), read from the
+  map the tooling passes, never from its own `process.env`, with relative directories resolved against the
+  project root; the variables whose values are secrets (`KESTREL_ADMIN_PASSWORD_HASH`, `KESTREL_MFA_KEY`,
+  `KESTREL_DEVICE_KEY`, `KESTREL_S3_ACCESS_KEY_ID`, `KESTREL_S3_SECRET_ACCESS_KEY`); the migration switches
+  `KESTREL_MIGRATIONS` (content) and `KESTREL_STORAGE_MIGRATIONS` (storage); `llms.txt` as the file every render
+  of the export writes; and the environment of a local start of a copy: on `127.0.0.1`, on the filesystem store,
+  with `NODE_ENV=production`, storage migrations checked, content migrations applied, `KESTREL_ROBOTS_POLICY=disallow`
+  and the public development stand-ins for the admin password hash and the second-factor key. The `kestrel` field
+  of `package.json` declares `pluginApi: 6`.
+- `KESTREL_STORAGE_MIGRATIONS` sets `storageMigrations` of media-default and images-default in
+  `presetModuleConfig()`: `check` (unset or empty, in production and outside it) refuses to start on media or
+  image data in an older storage shape and names the migration, `apply` runs the migrations that write no blobs
+  at start-up. Any other value stops the config from loading. `KESTREL_MIGRATIONS` does not change it. A module
+  entry in `overrides` wins over the variable. `envStorageMigrations()` in `#kestrel/config` reads it.
+- `#kestrel/config`: `envBlobstore(dataDir, env)`, `requiredEnv(name, env)`, `kestrelDataDir(env, base)` and
+  `envStorageMigrations(env)` read a given environment map instead of `process.env` (the default), and
+  `kestrelDataDir` resolves `KESTREL_APP_ROOT` and its fallback against `base` (default the process cwd). The
+  map's type is exported as `EnvMap`.
+- After a database restore that replication-sqlite or backup-blobstore reports, the first start whose
+  `deliveryBuildCheck` handles it runs `syncPublicMedia` (`media.syncPublic`, with `images` also
+  `images.syncPublic`) before the instance answers ready, so the public copies of the media originals and image
+  variants match the restored rows. A later start, which `delivery.checkBuild` tells no new restore, does not run
+  it; a failed check runs it at the next start that handles the restore. A failed sync is logged and does not
+  stop the start; the nightly `syncPublicMedia` repeats it.
 - `envStepLog()` in `#kestrel/config` reads `KESTREL_STEP_LOG` (`all`, `errors` or `off`; unset or empty means `all`,
   any other value throws) for defineConfig's `stepLog` option. `all` writes a log line for every step, `errors` for
   every step whose result is not ok, `off` for none. The playground passes it as `stepLog: envStepLog()`.
@@ -502,6 +528,8 @@
 
 ### Upgrading
 
+- The layer's `kestrel` field declares `pluginApi: 6`: a `kestrel-cli` whose plugin API is older refuses the
+  plugin and names the version it needs. Update `@michaelthielemann/kestrel-cli` together with the layer.
 - With `images`, `MediaItem` has the members `focus` and `framing`, each `MediaVariant` has `crop`, and
   `PublicMediaItem` has `focus`, all required: a literal of these types (a test mock, a fixture) needs them to
   pass `nuxt typecheck`.

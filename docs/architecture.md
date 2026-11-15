@@ -361,7 +361,9 @@ check — nothing can drift. `authz-roles` gets `roles` and `anonymous` as given
 derived from the model and the features (see **Public reads and field grants**).
 
 `layers/core/config/` (`#kestrel/config`) is the environment half, deliberately free of preset types:
-`kestrelDataDir()`, `requiredEnv(name)`, `adminPasswordHash()` and `envBlobstore(dataDir)`. Production
+`kestrelDataDir()`, `requiredEnv(name)`, `adminPasswordHash()`, `envBlobstore(dataDir)` and
+`envStorageMigrations()`; all but `adminPasswordHash()` also take an environment map in place of `process.env`,
+which the upgrade plugin's `ops` hook passes for a deployed environment. Production
 without `KESTREL_ADMIN_PASSWORD_HASH`, or an S3 blobstore without its variables, throws while the config
 loads, naming the variable. `playground/kestrel.config.ts` uses `kestrelDataDir()` with a literal
 filesystem blobstore and the development hash, so building and previewing the playground needs no
@@ -2282,7 +2284,9 @@ An exported page is refreshed when content it shows changes. The recording and t
   `delivery.requestIndexes`, so every start exports the index files once. When replication-sqlite (or else
   backup-blobstore) is configured on persistence-sqlite's database file, its `checkRestored` step
   (`restoreCheckSteps()`) runs directly before `delivery.checkBuild`, which reads the restore it reports and
-  then marks every output as well.
+  then marks every output as well. A check that answers `restored: true`, once per reported restore, is
+  followed by `syncPublicMedia` before the start reports ready, so the public media copies match the restored
+  rows; a later start leaves them alone.
 - **The admin reads the backlog.** `pagesStaleStatus` feeds `useStaleStatus()` (polled every two seconds
   while pages wait; after Publish all or Retry (`watch()`) until the index export and, with `llms.full`, the
   llms-full.txt export have recorded a newer outcome, for at most a minute; a drained backlog replaces that wait

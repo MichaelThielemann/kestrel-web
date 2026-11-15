@@ -476,10 +476,15 @@ A second alias, independent of the preset, for what every deployment needs anywa
 
 | helper | what it returns |
 |---|---|
-| `kestrelDataDir()` | `KESTREL_DATA_DIR`, else `data/` under `KESTREL_APP_ROOT` (the app root in dev, that variable or the process cwd on a production server). |
-| `requiredEnv(name)` | The variable's value, or throws `kestrel.config: <name> must be set in this environment`. |
+| `kestrelDataDir(env?, base?)` | `KESTREL_DATA_DIR`, else `data/` under `KESTREL_APP_ROOT` (the app root in dev, that variable or the process cwd on a production server); `KESTREL_APP_ROOT` and the fallback resolve against `base`, the process cwd by default. |
+| `requiredEnv(name, env?)` | The variable's value, or throws `kestrel.config: <name> must be set in this environment`. |
 | `adminPasswordHash()` | In production `KESTREL_ADMIN_PASSWORD_HASH`, required. Otherwise that variable when set, else the built-in development hash of `change-me`, with one `console.warn`. |
-| `envBlobstore(dataDir)` | Picks the blobstore module from `KESTREL_BLOBSTORE`; see the list below the table for the exact variables each choice reads. |
+| `envBlobstore(dataDir, env?)` | Picks the blobstore module from `KESTREL_BLOBSTORE`; see the list below the table for the exact variables each choice reads. |
+| `envStorageMigrations(env?)` | `check` or `apply` from `KESTREL_STORAGE_MIGRATIONS`; unset or empty means `check`, any other value throws. `presetModuleConfig()` passes it to media-default and images-default as `storageMigrations`. |
+
+`env` is a map of variable names to values, `process.env` when it is left out; the helpers read nothing
+else from the environment then. kestrel's operations tooling uses this through the layer's upgrade plugin
+to find a deployed environment's blob store and database file from that environment's variables.
 
 - `s3` (`KESTREL_BLOBSTORE=s3`) → `blobstore-s3`, reading `KESTREL_S3_BUCKET`, `_ENDPOINT`, `_REGION`,
   `_ACCESS_KEY_ID`, `_SECRET_ACCESS_KEY` (each via `requiredEnv`) with `forcePathStyle: true`.
