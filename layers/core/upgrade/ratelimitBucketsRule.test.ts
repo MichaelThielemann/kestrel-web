@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { applyEdits } from "@michaelthielemann/kestrel-upgrade/codemods";
 import type { LoadedProject, RuleContext } from "@michaelthielemann/kestrel-upgrade/plugin";
 import { definePipeline } from "@michaelthielemann/kestrel/definePipeline";
+import { presetModuleConfig } from "../pipelines/config";
 import { layerBootInput } from "../server/utils/boot-input";
 import { ratelimitBucketsRule } from "./ratelimitBucketsRule";
 
@@ -20,6 +21,12 @@ const SOURCE = [
   "];",
   "",
 ].join("\n");
+
+const PRESET_SOURCE = 'const modules = presetModuleConfig({ dataDir, blobstore, model, features: ["ratelimit"], ratelimit });\n';
+
+function presetModules(ratelimit: Parameters<typeof presetModuleConfig>[0]["ratelimit"]): { use: string; config?: unknown }[] {
+  return presetModuleConfig({ dataDir: "/srv/data", blobstore: { use: "@michaelthielemann/kestrel-blobstore-filesystem", config: { root: "/srv/data/blobs" } }, model: { types: {} }, features: ["ratelimit"], roles: { roles: { admin: ["*"] }, anonymous: [] }, bootstrap: { username: "admin", passwordHash: "scrypt$00$00" }, ratelimit });
+}
 
 function contextFor(modules: { use: string; config?: unknown }[], source = SOURCE): RuleContext {
   const input = layerBootInput({ config: { modules, triggers: [], http: null }, modules: [], pipelines, bundledSchemas: { mode: "none", schemas: {} } });
@@ -42,5 +49,15 @@ describe("preset/ratelimit-buckets", () => {
     const all = { login: { limit: 5, windowSeconds: 60 }, loginAccount: { limit: 3, windowSeconds: 60 }, passwordCheck: { limit: 3, windowSeconds: 60 } };
     expect(await ratelimitBucketsRule.check(contextFor([{ use: RATELIMIT, config: { buckets: all } }]))).toEqual([]);
     expect(await ratelimitBucketsRule.check(contextFor([{ use: RATELIMIT }]))).toEqual([]);
+  });
+
+  it("finds nothing for a preset-built entry that carries the consumer's login bucket", async () => {
+    const modules = presetModules({ login: { limit: 9, windowSeconds: 30 } });
+    expect(await ratelimitBucketsRule.check(contextFor(modules, PRESET_SOURCE))).toEqual([]);
+  });
+
+  it("finds nothing for a preset-built entry that carries the consumer's known-device budget", async () => {
+    const modules = presetModules({ knownDevice: { limit: 4, windowSeconds: 120 } });
+    expect(await ratelimitBucketsRule.check(contextFor(modules, PRESET_SOURCE))).toEqual([]);
   });
 });
