@@ -2286,9 +2286,11 @@ An exported page is refreshed when content it shows changes. The recording and t
   (`restoreCheckSteps()`) runs directly before `delivery.checkBuild`, which reads the restore it reports and
   then marks every output as well. A check that answers `restored: true`, once per reported restore, is
   followed by `syncPublicMedia` before the start reports ready, so the public media copies match the restored
-  rows; a later start leaves them alone. A check that fails at a step after `delivery.checkBuild` (the run's
-  `step` lies behind it in `deliveryBuildCheck`) may already have stored the restore, so the sync runs then as
-  well; a failure at `delivery.checkBuild` or before it leaves the restore to the next start.
+  rows; a later start whose check succeeds leaves them alone. A check that fails at a step after
+  `delivery.checkBuild` (the run's `step` lies behind it in `deliveryBuildCheck`) may already have stored a
+  restore and answers no result that tells, so the sync runs then whether a restore was reported or not, at
+  every start that fails this way; a failure at `delivery.checkBuild` or before it leaves the restore to the next
+  start.
 - **The admin reads the backlog.** `pagesStaleStatus` feeds `useStaleStatus()` (polled every two seconds
   while pages wait; after Publish all or Retry (`watch()`) until the index export and, with `llms.full`, the
   llms-full.txt export have recorded a newer outcome, for at most a minute; a drained backlog replaces that wait

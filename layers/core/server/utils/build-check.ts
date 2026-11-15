@@ -81,8 +81,9 @@ async function syncPublicMedia(kestrel: BuildCheckHost, logger: BuildCheckOption
  * start completes. A check that fails before `delivery.checkBuild` stored the build and the restore runs no sync,
  * and the next start handles the same build and restore again; a check that fails at a later step of
  * `deliveryBuildCheck`, such as `delivery.requestIndexes`, may have stored a restore the next start no longer
- * reports, so the sync runs then as well. A failure of either is logged and never stops the start. Answers whether
- * the check ran.
+ * reports and answers no result that tells, so the sync runs then whether a restore was reported or not, at every
+ * start whose check fails that way. A failure of either is logged and never stops the start. Answers whether the
+ * check ran.
  */
 export async function checkDeliveryBuild(kestrel: BuildCheckHost, options: BuildCheckOptions): Promise<boolean> {
   if (options.dev || options.build === undefined || options.build === "") return false;

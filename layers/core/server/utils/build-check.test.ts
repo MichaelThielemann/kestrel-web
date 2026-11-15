@@ -128,6 +128,12 @@ describe("checkDeliveryBuild after a reported database restore", () => {
     expect(log.error).toHaveBeenCalledWith("delivery: the index files could not be exported at start", { status: 503, reason: "the step could not finish" });
   });
 
+  it("rebuilds the public media copies at every start whose check fails after delivery.checkBuild, whether or not a restore was reported", async () => {
+    const kestrel = failingAt("delivery.requestIndexes");
+    for (let start = 0; start < 3; start++) await checkDeliveryBuild(kestrel, { build: "b-2026", dev: false, pipelines: stepwise, logger: logger() });
+    expect(kestrel.run.mock.calls.map((call: unknown[]) => call[0])).toEqual(["deliveryBuildCheck", "syncPublicMedia", "deliveryBuildCheck", "syncPublicMedia", "deliveryBuildCheck", "syncPublicMedia"]);
+  });
+
   it("runs no sync when a failed check names no step or the composed pipelines carry no steps", async () => {
     const unnamed = { run: vi.fn(() => Promise.resolve({ runId: "run-1", status: 503, error: "the marks could not be written" })) };
     await checkDeliveryBuild(unnamed, { build: "b-2026", dev: false, pipelines: stepwise, logger: logger() });

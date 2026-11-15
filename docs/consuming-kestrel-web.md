@@ -1039,9 +1039,10 @@ it like this:
   `checkRestored` step runs directly before `delivery.checkBuild`, so a start on a restored database
   re-renders every page even with an unchanged build. A start whose check handles a restore it had not handled
   before then runs `syncPublicMedia` once (`media.syncPublic`, with `images` also `images.syncPublic`) before
-  `/api/ready` answers 200; a later start does not. When the check fails at `delivery.checkBuild` or before it,
-  the next start handles the same restore; when it fails at a later step, such as `delivery.requestIndexes`, the
-  sync runs at once. A failed sync is logged and does not stop the start.
+  `/api/ready` answers 200; a later start whose check succeeds does not. When the check fails at
+  `delivery.checkBuild` or before it, the next start handles the same restore. When it fails at a later step,
+  such as `delivery.requestIndexes`, the sync runs at once, whether a restore was reported or not, so it runs
+  again at every start whose check fails that way. A failed sync is logged and does not stop the start.
 
 `presetModuleConfig()` sets `delivery-static`'s `dependencies` to `{ render: "events",
 rendererReadsDocument: true, maxAttempts, backoffSeconds }` with `eventsQueue` (the queue's own attempts
