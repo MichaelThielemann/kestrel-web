@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, reactive, ref, useId, watch } from 'vue'
+import { useAnnouncer } from '../../composables/useAnnouncer'
 import { usePanZoom } from '../../composables/usePanZoom'
 import type { MediaRect } from '../../types/api'
 import { focusBox } from '../../utils/crop-overlay'
@@ -54,12 +55,10 @@ const outlineStyle = computed(() => {
   return box.point ? place : { ...place, width: `${box.width}%`, height: `${box.height}%` }
 })
 
-const snapMessage = ref('')
+const { message: snapMessage, announce } = useAnnouncer((messages: string[]) => messages.at(-1) ?? '')
 const stopSnapMessage = watch(settledSnap, (snapped) => {
   const names = [...new Set(snapped.map((guide) => t(snapLabelKey(guide))))]
-  if (!names.length) return
-  const message = t('cropFrame.snapped', { guides: names.join(', ') })
-  snapMessage.value = message === snapMessage.value ? `${message}\u200B` : message
+  if (names.length) announce(t('cropFrame.snapped', { guides: names.join(', ') }))
 })
 onBeforeUnmount(stopSnapMessage)
 
@@ -125,7 +124,7 @@ defineExpose({ focus: () => frame.value?.focus() })
         <KestrelUiCropGuides :snapped="guides" />
       </div>
       <span :id="keysId" class="ui-crop-frame__sr">{{ t('cropFrame.keys') }}</span>
-      <span class="ui-crop-frame__sr ui-crop-frame__snapped" aria-live="polite">{{ snapMessage }}</span>
+      <KestrelUiLiveStatus class="ui-crop-frame__snapped" :message="snapMessage" />
     </div>
     <div class="ui-crop-frame__aside">
       <KestrelUiInfoToggle v-model:open="help" :label="t('cropFrame.helpToggle')">

@@ -526,24 +526,41 @@ describe('KestrelUiCropFrame', () => {
       keys.wrapper.unmount()
     })
 
-    it('announces the snapped guide once when the drag ends', async () => {
-      const { wrapper } = await mountFrame(OFF_CENTRE)
-      const frame = sizedFrame(wrapper, 320, 180)
+    it('announces the snapped guide once when the drag ends and clears it afterwards', async () => {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+      try {
+        const { wrapper } = await mountFrame(OFF_CENTRE)
+        const frame = sizedFrame(wrapper, 320, 180)
+        const live = () => wrapper.get('.ui-crop-frame__snapped')
+        const message = en['cropFrame.snapped'].replace('{guides}', en['cropFrame.snap.image'])
 
-      expect(wrapper.get('.ui-crop-frame__snapped').attributes('aria-live')).toBe('polite')
-      await drag(frame, 2)
-      frame.dispatchEvent(pointerEvent('pointermove', 1, 163, 90))
-      await nextTick()
-      expect(announced(wrapper)).toBe('')
-      frame.dispatchEvent(pointerEvent('pointerup', 1, 163, 90))
-      await nextTick()
-      expect(announced(wrapper)).toBe(en['cropFrame.snapped'].replace('{guides}', en['cropFrame.snap.image']))
+        expect(live().attributes('role')).toBe('status')
+        expect(live().classes()).toContain('ui-live-status')
+        await drag(frame, 2)
+        frame.dispatchEvent(pointerEvent('pointermove', 1, 163, 90))
+        await nextTick()
+        vi.advanceTimersByTime(2000)
+        await nextTick()
+        expect(announced(wrapper)).toBe('')
+        frame.dispatchEvent(pointerEvent('pointerup', 1, 163, 90))
+        await nextTick()
+        vi.advanceTimersByTime(1000)
+        await nextTick()
+        expect(announced(wrapper)).toBe(message)
+        vi.advanceTimersByTime(3000)
+        await nextTick()
+        expect(announced(wrapper)).toBe('')
 
-      await drag(frame, 30)
-      frame.dispatchEvent(pointerEvent('pointerup', 1, 190, 90))
-      await nextTick()
-      expect(announced(wrapper)).toBe(en['cropFrame.snapped'].replace('{guides}', en['cropFrame.snap.image']))
-      wrapper.unmount()
+        await drag(frame, 30)
+        frame.dispatchEvent(pointerEvent('pointerup', 1, 190, 90))
+        await nextTick()
+        vi.advanceTimersByTime(1000)
+        await nextTick()
+        expect(announced(wrapper)).toBe(message)
+        wrapper.unmount()
+      } finally {
+        vi.useRealTimers()
+      }
     })
 
     it('snaps the middle of the image to the middle of the frame within 8 screen pixels and highlights the guide while dragging', async () => {

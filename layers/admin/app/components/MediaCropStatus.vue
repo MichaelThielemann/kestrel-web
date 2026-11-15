@@ -5,6 +5,7 @@ import type { StatusLine } from '../utils/crop-advice'
 const props = withDefaults(defineProps<{ lines?: readonly StatusLine[], error?: string }>(), { lines: () => [], error: '' })
 
 const ANNOUNCE_DELAY = 700
+const CLEAR_DELAY = 3000
 const spoken = ref('')
 const advice = computed(() => props.lines.map((line) => line.text).join(' '))
 let timer: ReturnType<typeof setTimeout> | null = null
@@ -14,12 +15,20 @@ function clearTimer(): void {
   timer = null
 }
 
-const stopAdvice = watch(advice, (text) => {
+function later(delay: number, run: () => void): void {
   clearTimer()
   timer = setTimeout(() => {
     timer = null
+    run()
+  }, delay)
+}
+
+const stopAdvice = watch(advice, (text) => {
+  spoken.value = ''
+  later(ANNOUNCE_DELAY, () => {
     spoken.value = text
-  }, ANNOUNCE_DELAY)
+    if (text) later(CLEAR_DELAY, () => { spoken.value = '' })
+  })
 })
 onUnmounted(() => {
   stopAdvice()
@@ -37,13 +46,11 @@ onUnmounted(() => {
       <KestrelUiIcon :name="line.tone === 'warning' ? 'triangle-alert' : 'info'" :size="16" class="media-crop-status__icon" />{{ line.text }}
     </p>
     <div v-if="$slots.action" class="media-crop-status__action"><slot name="action" /></div>
-    <span class="media-crop-status__sr" role="status">{{ spoken }}</span>
+    <KestrelUiLiveStatus :message="spoken" />
   </div>
 </template>
 
 <style lang="scss" scoped>
-@use '../assets/scss/mixins';
-
 .media-crop-status {
   position: relative;
   display: flex;
@@ -67,5 +74,4 @@ onUnmounted(() => {
   &[data-tone='info'] .media-crop-status__icon { color: var(--color-text-muted); }
 }
 .media-crop-status__icon { flex: 0 0 auto; margin-top: 2px; }
-.media-crop-status__sr { @include mixins.sr-only; }
 </style>

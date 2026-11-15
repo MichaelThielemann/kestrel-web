@@ -168,7 +168,7 @@ describe('MediaCropRatio', () => {
     automatic.wrapper.unmount()
   })
 
-  it('announces a changed advice once editing pauses', async () => {
+  it('announces a changed advice once editing pauses and then clears it', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
     try {
       const { wrapper } = await mountRatio({ miss: 'tall' })
@@ -184,6 +184,11 @@ describe('MediaCropRatio', () => {
       vi.advanceTimersByTime(400)
       await nextTick()
       expect(spoken()).toBe(en['mediaCrop.advice.covered'])
+      expect(wrapper.findAll('[data-test="crop-status"] [role="status"]')).toHaveLength(1)
+      expect(wrapper.get('[data-test="crop-status"] [role="status"]').classes()).toContain('ui-live-status')
+      vi.advanceTimersByTime(3000)
+      await nextTick()
+      expect(spoken()).toBe('')
       wrapper.unmount()
     } finally {
       vi.useRealTimers()
