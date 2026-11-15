@@ -46,7 +46,10 @@ renders the same table component (`InsightsConfigVariables.vue`), Value column i
 A module entry can carry its config as `{ config?, defaults?: { from, values } }` instead of a
 single `config` object: `presetModuleConfig()` (`layers/core/pipelines/config.ts`) builds every
 module's config this way, putting everything it derives into `defaults.values` under
-`from: "preset"` and leaving `config` to the consumer's own values and `overrides`. A variable whose
+`from: "preset"` and leaving `config` to the consumer's own values and `overrides`. A value passed to
+one of the builder's options and handed to the module as given, such as `audit.retentionDays`,
+`mfa.enforce`, `session.minPasswordLength` or `ratelimit.login`, is the consumer's own and lands in
+`config`; a value the builder fills in because the option is absent stays in `defaults`. A variable whose
 path only `defaults.values` carries answers `status: "default"` with `source` set to that name; the
 Status column then reads "Default · Preset" instead of a bare "Default", in the same blue as any
 other default. A path `config` carries — the consumer's own, or an override of a preset value — is

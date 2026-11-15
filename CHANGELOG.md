@@ -372,10 +372,12 @@
   the title wraps; in a wide row a title cut off with an ellipsis takes keyboard focus to show its full
   text in a tooltip. The icon set gains `circle-check`, `circle-x` and `rotate-ccw`.
 - `presetModuleConfig()` now puts every value it derives into each module entry's `defaults`
-  (`{ from: "preset", values }`) instead of `config`, and only the consumer's own `overrides` into
-  `config`. `/admin/insights` shows a preset-derived value as "Default · Preset" (blue) instead of
-  "set"; a value the consumer sets directly, or an override of a preset value, still shows "set"
-  (green). Secrets redact the same way in both layers. `overrides` keeps its 2.x replace semantics: a
+  (`{ from: "preset", values }`) instead of `config`, and only the consumer's own values into `config`:
+  a value passed to one of the builder's options as the module takes it (`audit.retentionDays`,
+  `mfa.enforce`, `session.minPasswordLength`, `ratelimit.login`, `sitemap`, `homeSlug`, …) and the
+  `overrides`, which merge into it. `/admin/insights` shows a preset-derived value as "Default · Preset"
+  (blue) instead of "set"; a builder option the consumer gave, a value set directly, or an override of a
+  preset value, still shows "set" (green). Secrets redact the same way in both layers. `overrides` keeps its 2.x replace semantics: a
   top-level key it names replaces the preset's whole value at that path, including a nested object or
   record (an override that drops a derived role or lane, say), and setting a key to `undefined` resets
   it to the module's own schema default instead of the preset's — none of this changes the effective

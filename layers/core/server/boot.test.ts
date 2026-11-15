@@ -853,5 +853,36 @@ describe("boot", () => {
         await kestrel.stop();
       }
     }, 15000);
+
+    it("reports a value the consumer passed to a builder option as set", async () => {
+      const types = {
+        settings: { kind: "single", fields: { title: { type: "text" } } },
+        pages: { kind: "multi", fields: { slug: { type: "slug" }, title: { type: "text" }, status: { type: "enum", options: ["draft", "published"] } } },
+      } as const;
+      const features = asFeatures(["audit"]);
+      const modules = presetModuleConfig({
+        dataDir: appRoot,
+        blobstore: { use: "@michaelthielemann/kestrel-blobstore-filesystem", config: { root: resolve(appRoot, "blobs-builder-option") } },
+        model: { types },
+        features,
+        roles: { roles: { admin: ["*"] }, anonymous: ["pages.read", "settings.read"] },
+        bootstrap: { username: "admin", passwordHash: "scrypt$522f4ac87bfe4bcd100ba47a7d2aaec2$dbfc3f2d6cc38a76b21973d7c6f6d310a09506581c665f1f6601fd8fb3fa9bc3959689aea3e389f4d53eb8c7e70791ad4065e308763dd44609904134f0f5ee98" },
+        audit: { retentionDays: 90 },
+        session: { minPasswordLength: 16 },
+      });
+      const preset = definePreset({ modules, features, collections: types });
+      const config = defineConfig({ modules, triggers: preset.triggers, http: null });
+      const kestrel = await boot({ config, modules: presetModules(config.modules), pipelines: preset.pipelines, logger: collectingLogger() });
+      try {
+        const manifest = kestrel.describe();
+        const variable = (use: string, path: string) => manifest.modules.find((m) => m.use === use)?.config.variables.find((v) => v.path === path);
+        expect(variable("@michaelthielemann/kestrel-audit-persistence", "retentionDays")).toMatchObject({ status: "set", value: 90 });
+        expect(variable("@michaelthielemann/kestrel-audit-persistence", "retentionDays")?.source).toBeUndefined();
+        expect(variable("@michaelthielemann/kestrel-authn-multi", "minPasswordLength")).toMatchObject({ status: "set", value: 16 });
+        expect(variable("@michaelthielemann/kestrel-authn-multi", "sessionTtlSeconds")).toMatchObject({ status: "default", source: "preset" });
+      } finally {
+        await kestrel.stop();
+      }
+    }, 15000);
   });
 });

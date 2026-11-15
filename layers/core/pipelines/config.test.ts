@@ -188,6 +188,88 @@ describe("presetModuleConfig attributes its own values to the preset, never to r
   });
 });
 
+describe("presetModuleConfig keeps the values a consumer passes to its options as that module's own config", () => {
+  function entryOf(modules: readonly ModuleEntry[], use: string): ModuleEntry | undefined {
+    return modules.find((entry) => entry.use === `@michaelthielemann/kestrel-${use}`);
+  }
+
+  it("puts audit retentionDays into config and leaves it out of the preset's defaults", () => {
+    const modules = presetModuleConfig({ ...playgroundOptions(), features: ["audit"], audit: { retentionDays: 90 } });
+    const audit = entryOf(modules, "audit-persistence");
+
+    expect(audit?.config).toEqual({ retentionDays: 90 });
+    expect(audit?.defaults?.values).not.toHaveProperty("retentionDays");
+  });
+
+  it("puts the second factor's enforce, issuer and keys into config when the options give them", () => {
+    const modules = presetModuleConfig({
+      ...playgroundOptions(),
+      features: [...features, "mfa"],
+      mfa: { enforce: "none", issuer: "Example Site", secretKey: "cd".repeat(32) },
+    });
+    const mfa = entryOf(modules, "mfa-totp");
+
+    expect(mfa?.config).toEqual({ enforce: "none", issuer: "Example Site", secretKey: "cd".repeat(32) });
+    expect(mfa?.defaults?.values).toEqual({});
+  });
+
+  it("splits a nested option into config and leaves the derived siblings in defaults", () => {
+    const modules = presetModuleConfig({
+      ...playgroundOptions(),
+      ratelimit: { login: { limit: 9, windowSeconds: 30 }, deviceCookies: { maxAgeSeconds: 3600 } },
+      session: { minPasswordLength: 16 },
+      homeSlug: "start",
+      llms: { full: false },
+      sitemap: false,
+    });
+
+    const ratelimit = entryOf(modules, "ratelimit-memory");
+    expect(ratelimit?.config).toEqual({ buckets: { login: { limit: 9, windowSeconds: 30 } }, deviceCookies: { maxAgeSeconds: 3600 } });
+    expect(fieldOf(fieldOf(ratelimit?.defaults?.values, "buckets"), "login")).toBeUndefined();
+    expect(fieldOf(fieldOf(ratelimit?.defaults?.values, "deviceCookies"), "secretKey")).toBe(deviceKeys().secretKey);
+    expect(entryOf(modules, "authn-multi")?.config).toEqual({ minPasswordLength: 16 });
+    expect(entryOf(modules, "site-default")?.config).toEqual({ routes: { pages: { home: "start" } } });
+    expect(entryOf(modules, "delivery-static")?.config).toEqual({ sitemap: false, llms: { full: false } });
+  });
+
+  it("keeps the effective config of every module the same as one layer of values", () => {
+    const options: PresetModuleConfigOptions = {
+      ...playgroundOptions(),
+      features: [...features, "audit", "mfa", "eventsQueue"],
+      audit: { retentionDays: 90 },
+      mfa: { enforce: "none", secretKey: "cd".repeat(32) },
+      revisions: { keep: 7 },
+      eventsQueue: { pollMs: 250 },
+      media: { maxBytes: 1024 },
+      ratelimit: { loginAccount: { limit: 3, windowSeconds: 60 }, knownDevice: { limit: 4, windowSeconds: 60 } },
+      robots: { policy: "allow" },
+    };
+    const modules = presetModuleConfig(options);
+
+    expect(configFor(modules, "audit-persistence")).toEqual({ retentionDays: 90 });
+    expect(configFor(modules, "revisions-default")).toMatchObject({ keep: 7, statusField: "status" });
+    expect(configFor(modules, "events-queue")).toMatchObject({ pollMs: 250 });
+    expect(entryOf(modules, "events-queue")?.config).toEqual({ pollMs: 250 });
+    expect(configFor(modules, "media-default")).toMatchObject({ maxBytes: 1024, prefix: "media/" });
+    expect(fieldOf(fieldOf(configFor(modules, "ratelimit-memory"), "buckets"), "loginAccount")).toEqual({
+      limit: 3, windowSeconds: 60, key: "username", field: "username", counts: "failures", knownDevices: { limit: 4, windowSeconds: 60 },
+    });
+    expect(fieldOf(configFor(modules, "delivery-static"), "robots")).toEqual({ policy: "allow" });
+    expect(fieldOf(entryOf(modules, "delivery-static")?.config, "robots")).toEqual({ policy: "allow" });
+  });
+
+  it("merges an override with the consumer's own values of the same module", () => {
+    const modules = presetModuleConfig({
+      ...playgroundOptions(),
+      features: ["audit"],
+      audit: { retentionDays: 90 },
+      overrides: { "@michaelthielemann/kestrel-audit-persistence": { securityEvents: false } },
+    });
+
+    expect(entryOf(modules, "audit-persistence")?.config).toEqual({ retentionDays: 90, securityEvents: false });
+  });
+});
+
 describe("derived references targets", () => {
   it("maps pages to its content type, a media ref to the media@1 files and a ref to another collection to that content type", () => {
     const types: Record<string, CollectionModel> = {

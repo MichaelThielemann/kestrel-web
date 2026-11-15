@@ -231,8 +231,31 @@ function trashRetention(media: PresetMediaPolicy | undefined): Record<string, nu
   return days === 0 ? {} : { [MEDIA_TRASH_RETENTION_KEY]: days };
 }
 
-function preset(use: string, values: Record<string, unknown>): ModuleEntry {
-  return { use, defaults: { from: PRESET_SOURCE, values } };
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function splitOwn(values: Record<string, unknown>, own: Record<string, unknown>): { derived: Record<string, unknown>; own: Record<string, unknown> } {
+  const derived: Record<string, unknown> = {};
+  const mine: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(values)) {
+    const mark = own[key];
+    if (mark === undefined) {
+      derived[key] = value;
+    } else if (isPlainRecord(mark) && isPlainRecord(value)) {
+      const inner = splitOwn(value, mark);
+      if (Object.keys(inner.own).length === 0 || Object.keys(inner.derived).length > 0) derived[key] = inner.derived;
+      if (Object.keys(inner.own).length > 0) mine[key] = inner.own;
+    } else {
+      mine[key] = value;
+    }
+  }
+  return { derived, own: mine };
+}
+
+function preset(use: string, values: Record<string, unknown>, own: Record<string, unknown> = {}): ModuleEntry {
+  const layers = splitOwn(values, own);
+  return { use, defaults: { from: PRESET_SOURCE, values: layers.derived }, ...(Object.keys(layers.own).length === 0 ? {} : { config: layers.own }) };
 }
 
 function typePatterns(value: unknown): string[] | undefined {
@@ -399,7 +422,7 @@ function applyModuleOverrides(modules: ModuleEntry[], overrides: Partial<Record<
     if (override === undefined) return entry;
     if (entry.defaults !== undefined) {
       const values = withoutKeys(entry.defaults.values, Object.keys(override));
-      return { use: entry.use, defaults: { from: entry.defaults.from, values }, config: override };
+      return { use: entry.use, defaults: { from: entry.defaults.from, values }, config: mergedConfig(entry.config, override) };
     }
     return { use: entry.use, config: mergedConfig(entry.config, override) };
   });
@@ -521,7 +544,7 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
     ...publicCopy,
     storageMigrations,
     ...trashRetention(options.media),
-  }));
+  }, { ...options.media }));
 
   if (enabled.has("images")) {
     modules.push(preset("@michaelthielemann/kestrel-images-default", { publicPath: MEDIA_PUBLIC_PATH, ...publicCopy, storageMigrations }));
@@ -533,7 +556,7 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
     sessionTtlSeconds: session.sessionTtlSeconds,
     secureCookie: session.secureCookie,
     bootstrap: { username: bootstrap.username, passwordHash: bootstrap.passwordHash, roles: bootstrap.roles ?? ["admin"] },
-  }));
+  }, { ...options.session }));
   modules.push(preset("@michaelthielemann/kestrel-authz-roles", {
     roles: withMediaListing(roles.roles),
     anonymous: roles.anonymous,
@@ -545,7 +568,11 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
     ...(model.defaultLocale === undefined ? {} : { defaultLocale: model.defaultLocale }),
     types: contentTypesOf(types),
   }));
-  modules.push(preset("@michaelthielemann/kestrel-site-default", siteConfig(types, options)));
+  modules.push(preset("@michaelthielemann/kestrel-site-default", siteConfig(types, options), {
+    prefixPrimary: options.prefixPrimary,
+    maxCascade: options.paths?.maxCascade,
+    routes: { [PAGES_COLLECTION]: { home: options.homeSlug } },
+  }));
 
   const schemas = presetSchemas({ features, collections: declaredTypes, fieldTypes, ...(options.collectionsUi === undefined ? {} : { collectionsUi: options.collectionsUi }) });
   if (enabled.has("references")) modules.push(preset("@michaelthielemann/kestrel-references-default", referencesConfig(types, schemas)));
@@ -573,7 +600,7 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
         headings: options.llms?.headings ?? llmsHeadings(types, options.collectionsUi),
       },
       dependencies: renderDependencies(enabled.has("eventsQueue"), options.eventsQueue),
-    }));
+    }, { prefixPrimary: options.prefixPrimary, sitemap: options.sitemap, robots: options.robots, llms: options.llms }));
   }
 
   if (enabled.has("revisions")) {
@@ -584,14 +611,14 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
       ...(options.revisions?.pruneOnWrite === undefined ? {} : { pruneOnWrite: options.revisions.pruneOnWrite }),
       ...(options.revisions?.maxLimit === undefined ? {} : { maxLimit: options.revisions.maxLimit }),
       ...(live === undefined ? {} : live),
-    }));
+    }, { ...options.revisions }));
   }
 
   if (enabled.has("redirects")) modules.push(preset("@michaelthielemann/kestrel-redirects-default", { prefix: SITE_PREFIX, reservedPaths: servedPathPrefixes(buildAssetsPath) }));
   if (enabled.has("audit")) {
     modules.push(preset("@michaelthielemann/kestrel-audit-persistence", {
       ...(options.audit?.retentionDays === undefined ? {} : { retentionDays: options.audit.retentionDays }),
-    }));
+    }, { ...options.audit }));
   }
   modules.push({ use: "@michaelthielemann/kestrel-events-inmemory", config: {} });
   modules.push(
@@ -601,7 +628,7 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
           relayPipelines: relayPipelinesFor(features),
           lanes: lanesFor(features),
           delayMs: delaysFor(features),
-        })
+        }, { ...options.eventsQueue })
       : { use: "@michaelthielemann/kestrel-events-direct", config: {} },
   );
   const mfaOptions = options.mfa ?? {};
@@ -622,6 +649,13 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
         ...(options.ratelimit?.deviceCookies?.maxAgeSeconds === undefined ? {} : { maxAgeSeconds: options.ratelimit.deviceCookies.maxAgeSeconds }),
         secure: session.secureCookie,
       },
+    }, {
+      buckets: {
+        login: options.ratelimit?.login,
+        loginAccount: { ...options.ratelimit?.loginAccount, knownDevices: options.ratelimit?.knownDevice },
+        passwordCheck: options.ratelimit?.passwordCheck,
+      },
+      deviceCookies: options.ratelimit?.deviceCookies,
     }));
   }
   if (mfaKeys !== undefined) {
@@ -630,7 +664,7 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
       ...mfaKeys,
       ...(mfa.issuer === undefined ? {} : { issuer: mfa.issuer }),
       ...(mfa.enforce === undefined ? {} : { enforce: mfa.enforce }),
-    }));
+    }, { ...mfa }));
   }
   if (enabled.has("insights")) modules.push({ use: "@michaelthielemann/kestrel-insights", config: {} });
   if (enabled.has("migrations")) {
@@ -638,7 +672,7 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
     modules.push(preset("@michaelthielemann/kestrel-migrations-default", {
       migrations: [...migrations.migrations],
       ...(migrations.mode === undefined ? {} : { mode: migrations.mode }),
-    }));
+    }, { ...migrations }));
   }
 
   const merged = applyModuleOverrides(modules, options.overrides);

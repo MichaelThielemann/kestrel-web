@@ -414,9 +414,11 @@ rather than booting with something plausible.
   option a second process fails with `instance-locked` (`docs/deployment.md` §10).
 
 Anything the builder doesn't expose goes through `overrides`, keyed by package name. Every module
-`presetModuleConfig()` builds carries what it derived as `defaults`, not `config`; an override
-becomes that module's `config`, replacing the derived value at each top-level key it names — shallow,
-the same as before: a key that names a nested object or a named-key record (a role, a lane, a
+`presetModuleConfig()` builds carries what it derived as `defaults`, not `config`; a value you pass to
+one of the builder's options (`audit`, `mfa`, `session`, `revisions`, `eventsQueue`, `ratelimit`,
+`media`, `sitemap`, `robots`, `llms`, `prefixPrimary`, `homeSlug`, `paths`, `migrations`) and that the
+module receives as given is its `config` instead. An override is merged into that `config`, replacing
+the derived value or your option's value at each top-level key it names — shallow: a key that names a nested object or a named-key record (a role, a lane, a
 reference target, a bundled schema) replaces the whole derived value at that key rather than merging
 into it, and setting a key to `undefined` clears the preset's value there so the module's own schema
 default applies. `overrides: { "@michaelthielemann/kestrel-replication-sqlite": { prefix: "database/", restoreOnStart: true, retentionSeconds: 604800 } }`
