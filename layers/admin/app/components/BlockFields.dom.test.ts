@@ -54,8 +54,8 @@ describe('BlockFields', () => {
       label: 'Hero',
       fields,
       imageSizes: [
-        { name: 'hero-wide', width: 1152, height: 648, fit: 'cover' },
-        { name: 'hero-tall', width: 720, height: 960, fit: 'cover' },
+        { name: 'hero-wide', width: 1152, height: 648, fit: 'cover', format: 'webp', quality: 82 },
+        { name: 'hero-tall', width: 720, height: 960, fit: 'cover', format: 'webp', quality: 82 },
       ],
     }
     const wrapper = await mountSuspended(BlockFields, { props: { block, def, locale: 'en' }, global: { stubs: { KestrelFieldLayout: SizesProbe } } })
