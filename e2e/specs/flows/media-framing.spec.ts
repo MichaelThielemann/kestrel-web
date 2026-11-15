@@ -343,6 +343,7 @@ test("the crop editor keeps the image in place when a warning appears", async ({
   await setFocus(editor, { x: 40, y: 0, w: 10, h: 100 });
   await expect(editor.locator('[data-test="crop-advice"][data-miss="tall"]')).toBeVisible();
   await expect(editor.getByRole("tab", { name: /^16:9.*Fokus zu hoch$/ })).toBeVisible();
+  expect((await box(editor.getByRole("tab", { name: /^16:9/ }).locator('[data-test="crop-tile-warning"]'))).width).toBeGreaterThan(48);
   expect(await box(surface)).toEqual(surfaceBefore);
   expect(await widths()).toEqual(widthsBefore);
 
@@ -376,6 +377,49 @@ test("the crop editor keeps the image in place when a warning appears", async ({
   expect(await box(frame)).toEqual(frameBefore);
   expect(await ratioWidths()).toEqual(ratioWidthsBefore);
 });
+
+async function expectWithin(inner: Locator, outer: Locator): Promise<void> {
+  const [a, b] = [await box(inner), await box(outer)];
+  expect(a.y).toBeGreaterThanOrEqual(b.y - 0.5);
+  expect(a.y + a.height).toBeLessThanOrEqual(b.y + b.height + 0.5);
+}
+
+for (const viewport of [{ width: 1440, height: 900 }, { width: 1280, height: 800 }]) {
+  test(`the crop editor keeps the advice and its reset in view while the help is open at ${viewport.width}x${viewport.height}`, async ({ page, adminApi }) => {
+    await page.setViewportSize(viewport);
+    const name = `framing-help-${viewport.width}.png`;
+    await uploadRendered(adminApi, name, [90, 110, 150]);
+
+    await page.goto("/admin/media");
+    await page.getByRole("button", { name: new RegExp(`^${name.replace(".", "\\.")}`) }).dblclick();
+    await page.getByRole("dialog", { name }).getByRole("button", { name: "Ausschnitt anpassen" }).click();
+    const editor = page.getByRole("dialog", { name: `Ausschnitt: ${name}` });
+    await setFocus(editor, { x: 40, y: 0, w: 10, h: 100 });
+    await editor.getByRole("button", { name: "Bedienhilfe" }).click();
+    await expect(editor.getByRole("button", { name: "Bedienhilfe" })).toHaveAttribute("aria-expanded", "true");
+    const focusStatus = editor.locator('.ui-rect-select__aside [data-test="crop-status"]');
+    await expect(focusStatus.locator('[data-test="crop-advice"]').first()).toBeVisible();
+    await expectWithin(focusStatus, editor.locator(".ui-rect-select__aside"));
+    await expectWithin(focusStatus.getByRole("button", { name: "Fokus entfernen" }), editor.locator(".ui-rect-select__aside"));
+
+    await setFocus(editor, { x: 85, y: 40, w: 10, h: 10 });
+    await editor.getByRole("tab", { name: /^16:9/ }).click();
+    const ratio = editor.locator('[data-test="crop-ratio"]');
+    await expect(editor.getByRole("button", { name: "Bedienhilfe" })).toHaveAttribute("aria-expanded", "true");
+    for (const [label, value] of [["Zoom", "300"], ["Links", "0"]] as const) {
+      const input = ratio.getByRole("spinbutton", { name: label, exact: true });
+      await input.focus();
+      await page.keyboard.press("ControlOrMeta+a");
+      await input.pressSequentially(value);
+      await input.press("Enter");
+    }
+    const status = ratio.locator('[data-test="crop-status"]');
+    await expect(status.locator('[data-test="crop-advice"][data-miss="covered"]')).toBeVisible();
+    await expectWithin(status, ratio.locator(".ui-crop-frame__aside"));
+    await expectWithin(status.getByRole("button", { name: "Auf automatisch zurücksetzen" }), ratio.locator(".ui-crop-frame__aside"));
+    expect(await violations(page)).toEqual([]);
+  });
+}
 
 test("the crop editor opened at a hero image field starts on the ratio of the first size the block declares", async ({ page, adminApi }) => {
   const { id } = await uploadRendered(adminApi, "framing-hero.png", [120, 60, 160]);

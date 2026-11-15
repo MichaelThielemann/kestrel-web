@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import type { StatusLine } from '../utils/crop-advice'
 
 const props = withDefaults(defineProps<{ lines?: readonly StatusLine[], error?: string }>(), { lines: () => [], error: '' })
@@ -30,14 +30,27 @@ const stopAdvice = watch(advice, (text) => {
     if (text) later(CLEAR_DELAY, () => { spoken.value = '' })
   })
 })
+const root = ref<HTMLElement | null>(null)
+let observer: ResizeObserver | null = null
+
+onMounted(() => {
+  const status = root.value
+  const column = status?.parentElement
+  if (!status || !column || typeof ResizeObserver === 'undefined') return
+  observer = new ResizeObserver(() => column.style.setProperty('scroll-padding-bottom', `${status.offsetHeight}px`))
+  observer.observe(status)
+})
+
 onUnmounted(() => {
   stopAdvice()
   clearTimer()
+  observer?.disconnect()
+  observer = null
 })
 </script>
 
 <template>
-  <div class="media-crop-status" data-test="crop-status">
+  <div ref="root" class="media-crop-status" data-test="crop-status">
     <p v-if="error" class="media-crop-status__line" data-tone="error" data-test="crop-error">
       <KestrelUiIcon name="triangle-alert" :size="16" class="media-crop-status__icon" />{{ error }}
     </p>
@@ -51,16 +64,27 @@ onUnmounted(() => {
 </template>
 
 <style lang="scss" scoped>
+@use '../assets/scss/crop-stage';
+
 .media-crop-status {
-  position: relative;
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: var(--space-2);
   min-height: 5.5rem;
-  padding-top: var(--space-3);
+  margin-bottom: calc(-1 * var(--space-3));
+  padding-block: var(--space-3);
   border-top: 1px solid var(--color-border);
+  background: var(--color-surface);
   font-size: var(--text-sm);
+
+  @media (max-width: crop-stage.$narrow) {
+    position: static;
+  }
 }
 .media-crop-status__line {
   display: flex;

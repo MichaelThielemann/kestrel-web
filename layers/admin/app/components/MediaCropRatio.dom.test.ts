@@ -168,6 +168,34 @@ describe('MediaCropRatio', () => {
     automatic.wrapper.unmount()
   })
 
+  it('keeps a field the keyboard reaches clear of the status block at the end of the side column', async () => {
+    const observed: { callback: ResizeObserverCallback, observer: ResizeObserver, targets: Element[], disconnected: boolean }[] = []
+    vi.stubGlobal('ResizeObserver', class implements ResizeObserver {
+      entry: { callback: ResizeObserverCallback, observer: ResizeObserver, targets: Element[], disconnected: boolean }
+      constructor(callback: ResizeObserverCallback) {
+        this.entry = { callback, observer: this, targets: [], disconnected: false }
+        observed.push(this.entry)
+      }
+      observe(target: Element) { this.entry.targets.push(target) }
+      unobserve() {}
+      disconnect() { this.entry.disconnected = true }
+    })
+    vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.classList.contains('media-crop-status') ? 132 : 0
+    })
+    const { wrapper } = await mountRatio({ miss: 'covered' })
+    const status = wrapper.get('[data-test="crop-status"]').element
+    const watcher = observed.find((entry) => entry.targets.includes(status))
+
+    expect(aside(wrapper).element.lastElementChild).toBe(status)
+    if (watcher) watcher.callback([], watcher.observer)
+    const column = aside(wrapper).element
+    expect(column instanceof HTMLElement ? column.style.scrollPaddingBottom : '').toBe('132px')
+    wrapper.unmount()
+    expect(watcher?.disconnected).toBe(true)
+    vi.unstubAllGlobals()
+  })
+
   it('announces a changed advice once editing pauses and then clears it', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
     try {
