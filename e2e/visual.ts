@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
-import { PORT, REPO_ROOT, VISUAL_IMAGE } from "./support/env.ts";
+import { PORT, PUBLIC_DIR, REPO_ROOT, VISUAL_IMAGE } from "./support/env.ts";
 
-const build = spawnSync("pnpm", ["build"], { cwd: REPO_ROOT, stdio: ["ignore", "ignore", "inherit"], env: { ...process.env, NODE_ENV: "production" } });
+const build = spawnSync("pnpm", ["build"], { cwd: REPO_ROOT, stdio: ["ignore", "ignore", "inherit"], env: { ...process.env, NODE_ENV: "production", KESTREL_E2E_PUBLIC_DIR: PUBLIC_DIR } });
 if (build.status !== 0) {
   console.error(`the playground build failed with status ${String(build.status)}`);
   process.exit(1);

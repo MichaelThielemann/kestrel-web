@@ -10,6 +10,8 @@ export const BASE_URL = `http://127.0.0.1:${PORT}`;
 export const SITE_URL = "https://www.example.test";
 export const WORK_DIR = process.env.KESTREL_E2E_WORK_DIR ?? join(tmpdir(), `kestrel-e2e-${PORT}`);
 export const SERVER_LOG = join(REPO_ROOT, "e2e", "server.log");
+/** The public directory the playground is built with for the e2e runs: a `robots.txt` of the site's own, which the server answers in place of the exported one. */
+export const PUBLIC_DIR = join(REPO_ROOT, "e2e", "fixtures", "public");
 export const DATA_DIR = join(WORK_DIR, "data");
 export const SITE_DIR = join(DATA_DIR, "blobs", "site");
 export const SEED_FILE = join(WORK_DIR, "seed.json");

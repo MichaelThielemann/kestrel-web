@@ -1,7 +1,7 @@
 import { spawn, spawnSync } from "node:child_process";
 import { closeSync, mkdirSync, openSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { DATA_DIR, PORT, REPO_ROOT, SERVER_LOG, SITE_URL, WORK_DIR } from "./support/env.ts";
+import { DATA_DIR, PORT, PUBLIC_DIR, REPO_ROOT, SERVER_LOG, SITE_URL, WORK_DIR } from "./support/env.ts";
 
 const env: NodeJS.ProcessEnv = { ...process.env, NODE_ENV: "production" };
 delete env.TEST;
@@ -10,7 +10,7 @@ rmSync(WORK_DIR, { recursive: true, force: true });
 mkdirSync(DATA_DIR, { recursive: true });
 
 if (process.env.KESTREL_E2E_SKIP_BUILD !== "1") {
-  const build = spawnSync("pnpm", ["build"], { cwd: REPO_ROOT, stdio: ["ignore", "ignore", "inherit"], env });
+  const build = spawnSync("pnpm", ["build"], { cwd: REPO_ROOT, stdio: ["ignore", "ignore", "inherit"], env: { ...env, KESTREL_E2E_PUBLIC_DIR: PUBLIC_DIR } });
   if (build.status !== 0) {
     console.error(`the playground build failed with status ${String(build.status)}`);
     process.exit(1);
