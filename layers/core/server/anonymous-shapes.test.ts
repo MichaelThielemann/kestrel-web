@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -213,6 +213,10 @@ function requestsFor(s: Seeded): Record<string, string[]> {
     "GET /media/:id/file": [`/media/${s.mediaId}/file`],
     "GET /media/:id/variants/:file": s.variantFiles.map((file) => `/media/${s.mediaId}/variants/${file}`),
     "GET /media/:id/:name": [`/media/${s.mediaId}/${s.mediaName}`],
+    "GET /sitemap.xml": ["/sitemap.xml"],
+    "GET /robots.txt": ["/robots.txt"],
+    "GET /llms.txt": ["/llms.txt"],
+    "GET /llms-full.txt": ["/llms-full.txt"],
   };
 }
 
@@ -245,6 +249,9 @@ describe("the playground preset: what a caller without a session receives", () =
     config = { ...authz, roleClaim: "roles" };
     openapi = boundaryCast<OpenApi>(generateOpenApi(kestrel, { title: "t", version: "1" }), "json");
     seeded = await seed(base);
+    const exported = join(appRoot, "data", "blobs", "site");
+    mkdirSync(exported, { recursive: true });
+    for (const name of ["sitemap.xml", "robots.txt", "llms.txt", "llms-full.txt"]) writeFileSync(join(exported, name), `${name}\n`);
   }, 60_000);
 
   afterAll(async () => {
@@ -264,7 +271,10 @@ describe("the playground preset: what a caller without a session receives", () =
 
   it("reaches exactly the preset's public reads without a session", () => {
     expect(anonymousPipelines(config, manifest).map((p) => p.name).sort()).toEqual(
-      ["downloadMedia", "getMedia", "getSettings", "listBlog", "listMedia", "listPages", "readBlog", "readPage", "renderRedirects", "resolveBlog", "resolvePage", "serveImageVariant", "serveMediaFile"],
+      [
+        "downloadMedia", "getMedia", "getSettings", "listBlog", "listMedia", "listPages", "readBlog", "readPage", "renderRedirects", "resolveBlog", "resolvePage",
+        "serveImageVariant", "serveLlmsFullTxt", "serveLlmsTxt", "serveMediaFile", "serveRobotsTxt", "serveSitemapXml",
+      ],
     );
   });
 

@@ -797,11 +797,27 @@
       "authz.require:users.manage",
       "mfa.listEnrolled"
     ],
+    "serveLlmsFullTxt": [
+      "delivery.readIndexFile:llms-full.txt",
+      "authz.fields:indexFile?shape=file"
+    ],
+    "serveLlmsTxt": [
+      "delivery.readIndexFile:llms.txt",
+      "authz.fields:indexFile?shape=file"
+    ],
     "serveMediaFile": [
       "authn.identifyUser",
       "authz.require:media.read",
       "media.serve",
       "authz.fields:mediaFile?shape=file"
+    ],
+    "serveRobotsTxt": [
+      "delivery.readIndexFile:robots.txt",
+      "authz.fields:indexFile?shape=file"
+    ],
+    "serveSitemapXml": [
+      "delivery.readIndexFile:sitemap.xml",
+      "authz.fields:indexFile?shape=file"
     ],
     "setPassword": [
       "authn.requireUser",
@@ -1445,6 +1461,22 @@
     {
       "event": "media.restored",
       "pipeline": "mediaDependents"
+    },
+    {
+      "http": "GET /sitemap.xml",
+      "pipeline": "serveSitemapXml"
+    },
+    {
+      "http": "GET /robots.txt",
+      "pipeline": "serveRobotsTxt"
+    },
+    {
+      "http": "GET /llms.txt",
+      "pipeline": "serveLlmsTxt"
+    },
+    {
+      "http": "GET /llms-full.txt",
+      "pipeline": "serveLlmsFullTxt"
     },
     {
       "http": "GET /admin/redirects/auto",

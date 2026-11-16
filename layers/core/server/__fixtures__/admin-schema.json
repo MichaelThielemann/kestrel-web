@@ -1215,6 +1215,22 @@
       "method": "GET",
       "path": "/routes/blog/*path"
     },
+    "serveSitemapXml": {
+      "method": "GET",
+      "path": "/sitemap.xml"
+    },
+    "serveRobotsTxt": {
+      "method": "GET",
+      "path": "/robots.txt"
+    },
+    "serveLlmsTxt": {
+      "method": "GET",
+      "path": "/llms.txt"
+    },
+    "serveLlmsFullTxt": {
+      "method": "GET",
+      "path": "/llms-full.txt"
+    },
     "listAutoRedirects": {
       "method": "GET",
       "path": "/admin/redirects/auto"

@@ -1011,6 +1011,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/llms-full.txt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Answer llms-full.txt as the last export stored it under the prefix, with the content type the export writes it with, its sha256 as ETag and `cache-control: no-cache`; no permission check (the file is public) and it never starts an export → Keep only the indexFile fields the caller may see: anonymousFields.indexFile without an identity or a configured role; otherwise everything when one of its roles has no field grant for indexFile, else the union of its roles' grants and the anonymous one */
+        get: operations["serveLlmsFullTxt"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/llms.txt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Answer llms.txt as the last export stored it under the prefix, with the content type the export writes it with, its sha256 as ETag and `cache-control: no-cache`; no permission check (the file is public) and it never starts an export → Keep only the indexFile fields the caller may see: anonymousFields.indexFile without an identity or a configured role; otherwise everything when one of its roles has no field grant for indexFile, else the union of its roles' grants and the anonymous one */
+        get: operations["serveLlmsTxt"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/login": {
         parameters: {
             query?: never;
@@ -1429,6 +1463,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/robots.txt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Answer robots.txt as the last export stored it under the prefix, with the content type the export writes it with, its sha256 as ETag and `cache-control: no-cache`; no permission check (the file is public) and it never starts an export → Keep only the indexFile fields the caller may see: anonymousFields.indexFile without an identity or a configured role; otherwise everything when one of its roles has no field grant for indexFile, else the union of its roles' grants and the anonymous one */
+        get: operations["serveRobotsTxt"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/routes/blog/{path}": {
         parameters: {
             query?: never;
@@ -1473,6 +1524,23 @@ export interface paths {
         };
         /** Identify the caller if a valid token is present; a state-changing request authenticated by the session cookie must come from the same origin → Requires permission pages.read → End the pipeline with { redirect: { to, status } } on an editor rule or an automatic redirect (a moved document's old path); pass through otherwise → End the run with { route: { type } } when params.path is reachable and belongs to a routed collection other than pages; pass through otherwise → Resolve a site path to a pages document (default locale unprefixed) → Replace internal kestrel:<type>:<id> references in the pages document with public paths (_links map added) → Keep only the pages fields the caller may see: anonymousFields.pages without an identity or a configured role; otherwise everything when one of its roles has no field grant for pages, else the union of its roles' grants and the anonymous one */
         get: operations["resolvePage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/sitemap.xml": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Answer sitemap.xml as the last export stored it under the prefix, with the content type the export writes it with, its sha256 as ETag and `cache-control: no-cache`; no permission check (the file is public) and it never starts an export → Keep only the indexFile fields the caller may see: anonymousFields.indexFile without an identity or a configured role; otherwise everything when one of its roles has no field grant for indexFile, else the union of its roles' grants and the anonymous one */
+        get: operations["serveSitemapXml"];
         put?: never;
         post?: never;
         delete?: never;
@@ -8345,6 +8413,122 @@ export interface operations {
             };
         };
     };
+    serveLlmsFullTxt: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description the file */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": string;
+                };
+            };
+            /** @description no field grant on indexFile for a caller without an identity or a configured role */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description no llms-full.txt has been exported */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description the blob store could not be read */
+            503: {
+                headers: {
+                    /** @description seconds until the client may retry */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    serveLlmsTxt: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description the file */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": string;
+                };
+            };
+            /** @description no field grant on indexFile for a caller without an identity or a configured role */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description no llms.txt has been exported */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description the blob store could not be read */
+            503: {
+                headers: {
+                    /** @description seconds until the client may retry */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     login: {
         parameters: {
             query?: never;
@@ -11628,6 +11812,64 @@ export interface operations {
             };
         };
     };
+    serveRobotsTxt: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description the file */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": string;
+                };
+            };
+            /** @description no field grant on indexFile for a caller without an identity or a configured role */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description no robots.txt has been exported */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description the blob store could not be read */
+            503: {
+                headers: {
+                    /** @description seconds until the client may retry */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     resolveBlog: {
         parameters: {
             query?: {
@@ -11951,6 +12193,64 @@ export interface operations {
                 };
             };
             /** @description temporarily unavailable; retry after the Retry-After header */
+            503: {
+                headers: {
+                    /** @description seconds until the client may retry */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    serveSitemapXml: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description the file */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": string;
+                };
+            };
+            /** @description no field grant on indexFile for a caller without an identity or a configured role */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description no sitemap.xml has been exported */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description the blob store could not be read */
             503: {
                 headers: {
                     /** @description seconds until the client may retry */

@@ -5,7 +5,7 @@ import { BLOCK_ALIASES_FIELD } from "../collections-ui/serialize";
 import { isRoutedCollection } from "./capabilities";
 import { collectionPipelines, isGenericCollection } from "./collections";
 import { mountedCollections, parentFieldOf } from "./paths";
-import { routedPipelineNames } from "./delivery-names";
+import { INDEX_FILE_PIPELINES, routedPipelineNames } from "./delivery-names";
 import type { CollectionModel } from "./collections";
 import type { PresetEntry } from "./compose";
 import type { Feature } from "./checkPreset";
@@ -21,6 +21,8 @@ const IMAGE_FIELDS = ["focus", "variants[].size", "variants[].width", "variants[
 const FILE_HEADERS = ["headers.cache-control", "headers.x-content-provenance"];
 const VARIANT_HEADER = "headers.x-kestrel-variant";
 const REDIRECT_RULE_FIELDS = ["from", "pattern", "target", "status"];
+const INDEX_FILE_RESOURCE = "indexFile";
+const INDEX_FILE_HEADERS = ["headers.cache-control", "headers.etag"];
 const LOCALE_MEMBERS = ["_locales", "_translations"];
 const MEDIA_READ = "media.read";
 const FIELD_STEP = "authz.fields:";
@@ -44,11 +46,12 @@ const FIXED_CUTS: Readonly<Record<string, PresetStep>> = {
   serveMediaFile: cut("mediaFile", "file"),
   serveImageVariant: cut("mediaFile", "file"),
   setMediaFraming: cut("media", "item"),
+  ...Object.fromEntries(Object.values(INDEX_FILE_PIPELINES).map((pipeline) => [pipeline, cut(INDEX_FILE_RESOURCE, "file")])),
 };
 
 /**
  * The `authz.fields` step that ends each read of the preset an anonymous caller can reach, by pipeline name:
- * the page resolution, settings, redirects, the media reads and file routes, and every collection's public
+ * the page resolution, settings, redirects, the media reads and file routes, the index files, and every collection's public
  * list, read and get; the media framing write, which answers the item like `getMedia`, ends with the same cut. The resource of a collection's reads is the collection's name.
  */
 export function fieldCutSteps(collections: Record<string, CollectionModel>): Record<string, PresetStep> {
@@ -79,7 +82,13 @@ export interface PipelineChanges {
   overrides?: Partial<Record<string, readonly PipelineEntry<string>[]>>;
 }
 
-const FEATURE_READS: Readonly<Record<string, Feature>> = { serveImageVariant: "images", setMediaFraming: "images", getRedirects: "redirects", renderRedirects: "redirects" };
+const FEATURE_READS: Readonly<Record<string, Feature>> = {
+  serveImageVariant: "images",
+  setMediaFraming: "images",
+  getRedirects: "redirects",
+  renderRedirects: "redirects",
+  ...Object.fromEntries(Object.values(INDEX_FILE_PIPELINES).map((pipeline): [string, Feature] => [pipeline, "delivery"])),
+};
 
 /**
  * The resources the preset's public reads end with a cut for once `changes` apply: a read that is excluded
@@ -107,13 +116,13 @@ export interface FieldGrantModel {
 /**
  * The fields anonymous callers keep of each resource the preset's public reads cut, for the resources whose
  * read permission `anonymous` holds (`<type>.read` for a content type, `media.read` for media and its files;
- * the redirect rules, which no permission gates, under `redirects`) and that a read still cuts once `changes`
+ * the redirect rules under `redirects` and the index files under `delivery`, which no permission gates) and that a read still cuts once `changes`
  * (the `exclude` and `overrides` given to `definePreset()`) apply: every model field of a content type with
  * its `id`, the locale members when the model has locales, the resolved links and the redirect hit on pages,
  * the public paths (`_paths`) on a routed collection, never the parent field of pages, never a `blockAliases`
  * field (the page builder's editor-only block aliases, on any collection that declares one);
  * the resolved links on settings; the public media fields, with the focus and the variant fields under `images`; the file
- * headers; the redirect rules' fields. Only members a read declares are named, so every path passes
+ * headers; the redirect rules' fields; the index files' `etag` and `cache-control` headers. Only members a read declares are named, so every path passes
  * `authz-roles`' boot check.
  */
 export function anonymousFieldGrants(model: FieldGrantModel, features: readonly Feature[], anonymous: readonly string[], changes: PipelineChanges = {}): FieldGrants {
@@ -138,6 +147,7 @@ export function anonymousFieldGrants(model: FieldGrantModel, features: readonly 
   if (holds(anonymous, MEDIA_READ) && cut.has("media")) grants.media = [...MEDIA_FIELDS, ...(images ? IMAGE_FIELDS : [])];
   if (holds(anonymous, MEDIA_READ) && cut.has("mediaFile")) grants.mediaFile = [...FILE_HEADERS, ...(images ? [VARIANT_HEADER] : [])];
   if (cut.has("redirectRules")) grants.redirectRules = [...REDIRECT_RULE_FIELDS];
+  if (cut.has(INDEX_FILE_RESOURCE)) grants[INDEX_FILE_RESOURCE] = [...INDEX_FILE_HEADERS];
   return grants;
 }
 

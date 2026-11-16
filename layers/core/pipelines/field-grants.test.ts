@@ -56,6 +56,10 @@ const PUBLIC_READS_WITH_IMAGES: Record<string, string> = {
   setMediaFraming: "authz.fields:media?shape=item",
   renderRedirects: "authz.fields:redirectRules?shape=array",
   getRedirects: "authz.fields:redirects?shape=item",
+  serveSitemapXml: "authz.fields:indexFile?shape=file",
+  serveRobotsTxt: "authz.fields:indexFile?shape=file",
+  serveLlmsTxt: "authz.fields:indexFile?shape=file",
+  serveLlmsFullTxt: "authz.fields:indexFile?shape=file",
 };
 
 function cutSteps(preset: ReturnType<typeof definePreset>): Record<string, string> {
@@ -153,14 +157,21 @@ function authzConfig(options: { model?: PresetContentModel; features: readonly F
 }
 
 describe("the anonymous field grants presetModuleConfig derives", () => {
-  it("grants the playground's anonymously readable model fields, the public media fields, the file headers and the redirect rules", () => {
+  it("grants the playground's anonymously readable model fields, the public media fields, the file headers, the redirect rules and the index file headers", () => {
     expect(authzConfig({ features: ["delivery", "sanitizeSvg", "images", "redirects"] }).anonymousFields).toEqual({
       settings: ["id", "title", "titlePosition", "titleSeparator", "description", "navigation", "_locales", "_translations", "_links"],
       pages: ["id", "slug", "title", "body", "seo", "status", "shareImage", "accent", "layout", "_locales", "_translations", "_locale", "_links", "redirect", "_paths", "route.type"],
       media: [...MEDIA_FIELDS, ...IMAGE_FIELDS],
       mediaFile: ["headers.cache-control", "headers.x-content-provenance", "headers.x-kestrel-variant"],
       redirectRules: ["from", "pattern", "target", "status"],
+      indexFile: ["headers.cache-control", "headers.etag"],
     });
+  });
+
+  it("grants the index file headers with the delivery feature whatever anonymous callers may read, and nothing for them without it", () => {
+    expect(anonymousFieldGrants(contentModel, ["delivery"], []).indexFile).toEqual(["headers.cache-control", "headers.etag"]);
+    expect(anonymousFieldGrants(contentModel, [], ["*"])).not.toHaveProperty("indexFile");
+    expect(anonymousFieldGrants(contentModel, ["delivery"], [], { exclude: ["serveSitemapXml", "serveRobotsTxt", "serveLlmsTxt", "serveLlmsFullTxt"] })).not.toHaveProperty("indexFile");
   });
 
   it("drops the variant fields and the variant header without images, and every redirect grant without redirects", () => {

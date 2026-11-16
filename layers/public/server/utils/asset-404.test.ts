@@ -3,8 +3,15 @@ import { isMissingAsset } from "./asset-404";
 
 describe("isMissingAsset", () => {
   it("404s a path that looks like a static file with no route behind it", () => {
-    expect(isMissingAsset("/robots.txt")).toBe(true);
+    expect(isMissingAsset("/favicon.png")).toBe(true);
     expect(isMissingAsset("/does-not-exist.css")).toBe(true);
+  });
+
+  it("passes through the exported index files at the site root only", () => {
+    for (const path of ["/sitemap.xml", "/robots.txt", "/llms.txt", "/llms-full.txt"]) expect(isMissingAsset(path), path).toBe(false);
+    expect(isMissingAsset("/de/robots.txt")).toBe(true);
+    expect(isMissingAsset("/Sitemap.xml")).toBe(true);
+    expect(isMissingAsset("/llms.md")).toBe(true);
   });
 
   it("passes through /api, /media, /_nuxt, /__nuxt and /_ipx", () => {

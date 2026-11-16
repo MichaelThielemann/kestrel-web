@@ -112,6 +112,7 @@ describe("presetModuleConfig with the playground inputs", () => {
             media: ["id", "path", "filename", "contentType", "size", "width", "height", "alt", "title", "description", "provenance", "focus", "variants[].size", "variants[].width", "variants[].height", "variants[].format", "variants[].path", "variants[].crop", "framing.width", "framing.height"],
             mediaFile: ["headers.cache-control", "headers.x-content-provenance", "headers.x-kestrel-variant"],
             redirectRules: ["from", "pattern", "target", "status"],
+            indexFile: ["headers.cache-control", "headers.etag"],
           },
         }),
       },

@@ -172,7 +172,7 @@ describe("the Nitro plugin's handlers (kestrelHandlers)", () => {
     }
   }, 15000);
 
-  it("answers 503 with the boot status on both handlers once boot has failed, and reports the error", async () => {
+  it("answers 503 with the boot status on every handler once boot has failed, and reports the error", async () => {
     const failures: unknown[] = [];
     const boom = new Error("boom");
     const base = await serve(routed(kestrelHandlers(Promise.reject(boom), wiring((err) => failures.push(err)))));
@@ -182,6 +182,6 @@ describe("the Nitro plugin's handlers (kestrelHandlers)", () => {
     const api = await fetch(`${base}/api/media`);
     expect(api.status).toBe(503);
     expect(await api.json()).toMatchObject({ data: { state: "failed", error: "kestrel-media-default: boom" } });
-    expect(failures).toEqual([boom, boom]);
+    expect(failures).toEqual([boom, boom, boom]);
   });
 });

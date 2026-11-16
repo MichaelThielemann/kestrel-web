@@ -44,3 +44,25 @@ export function routedPipelineNames(collection: string): RoutedPipelineNames {
 export function isOwnDeliveryPipeline(pipeline: string): boolean {
   return /^(?:un)?publish[A-Z]/.test(pipeline) && !pipeline.startsWith("publishAll");
 }
+
+/**
+ * The pipelines that answer the index files delivery-static exports, by file name. Each runs
+ * `delivery.readIndexFile:<file>` and is routed at `GET /<file>`, which the site root answers too.
+ */
+export const INDEX_FILE_PIPELINES = {
+  "sitemap.xml": "serveSitemapXml",
+  "robots.txt": "serveRobotsTxt",
+  "llms.txt": "serveLlmsTxt",
+  "llms-full.txt": "serveLlmsFullTxt",
+} as const;
+
+/** A file name `INDEX_FILE_PIPELINES` answers. */
+export type IndexFileName = keyof typeof INDEX_FILE_PIPELINES;
+
+/** The file names `INDEX_FILE_PIPELINES` answers, in its order. */
+export const INDEX_FILE_NAMES: readonly IndexFileName[] = ["sitemap.xml", "robots.txt", "llms.txt", "llms-full.txt"];
+
+/** The site-root route of an index file, such as `GET /sitemap.xml`. */
+export function indexFileRoute(file: IndexFileName): string {
+  return `GET /${file}`;
+}

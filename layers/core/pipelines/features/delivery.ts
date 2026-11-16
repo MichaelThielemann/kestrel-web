@@ -6,11 +6,11 @@ import type { PresetContext, PresetModuleEntry } from "../base";
 import { collectionNames, hasLocalizedField, isGenericCollection, uncapitalize, DEFAULT_COLLECTIONS } from "../collections";
 import type { CollectionModel } from "../collections";
 import type { PresetEntry } from "../compose";
-import { PAGE_DELIVERY_PIPELINES, routedPipelineNames } from "../delivery-names";
+import { INDEX_FILE_NAMES, INDEX_FILE_PIPELINES, indexFileRoute, PAGE_DELIVERY_PIPELINES, routedPipelineNames } from "../delivery-names";
 import type { FeatureModule } from "../index";
 import { mountedCollections, PATH_PIPELINES, PATHS_MOVED_EVENT } from "../paths";
 
-export { PAGE_DELIVERY_PIPELINES } from "../delivery-names";
+export { INDEX_FILE_PIPELINES, PAGE_DELIVERY_PIPELINES } from "../delivery-names";
 
 export const SETTINGS_DEPENDENTS_PIPELINE = "settingsDependents";
 export const MEDIA_DEPENDENTS_PIPELINE = "mediaDependents";
@@ -101,6 +101,17 @@ function mountedDelivery(collections: Record<string, CollectionModel>): { pipeli
   return { pipelines, triggers };
 }
 
+function indexFiles(): { pipelines: Record<string, PresetEntry<PresetStep>[]>; triggers: TriggerConfig[] } {
+  const pipelines: Record<string, PresetEntry<PresetStep>[]> = {};
+  const triggers: TriggerConfig[] = [];
+  for (const file of INDEX_FILE_NAMES) {
+    const pipeline = INDEX_FILE_PIPELINES[file];
+    pipelines[pipeline] = [`delivery.readIndexFile:${file}`];
+    triggers.push({ http: indexFileRoute(file), pipeline });
+  }
+  return { pipelines, triggers };
+}
+
 export default function delivery(context: PresetContext): FeatureModule {
   const triggers: TriggerConfig[] = [
     { event: "page.created", pipeline: PAGE_DELIVERY_PIPELINES.publish },
@@ -114,7 +125,8 @@ export default function delivery(context: PresetContext): FeatureModule {
   }
   const marking = dependents(context.collections ?? DEFAULT_COLLECTIONS);
   const mounted = mountedDelivery(context.collections ?? DEFAULT_COLLECTIONS);
-  triggers.push(...mounted.triggers, ...marking.triggers);
+  const served = indexFiles();
+  triggers.push(...mounted.triggers, ...marking.triggers, ...served.triggers);
   const pipelines: FeatureModule["pipelines"] = {
     [PAGE_DELIVERY_PIPELINES.publish]: ["delivery.publish:pages", REQUEST_INDEXES_STEP],
     [PAGE_DELIVERY_PIPELINES.unpublish]: ["delivery.unpublish:pages", REQUEST_INDEXES_STEP],
@@ -129,6 +141,7 @@ export default function delivery(context: PresetContext): FeatureModule {
     [PATH_PIPELINES.movedDelivery]: ["delivery.markMoved"],
     ...mounted.pipelines,
     ...marking.pipelines,
+    ...served.pipelines,
   };
   if (context.eventsQueued) {
     pipelines[REPUBLISH_OUTPUT_PIPELINE] = ["delivery.republishOutput"];

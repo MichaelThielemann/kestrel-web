@@ -2,6 +2,7 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { boundaryCast } from "@michaelthielemann/kestrel/cast";
 import { MEDIA_PUBLIC_PATH } from "./mount-path";
+import { INDEX_FILE_NAMES } from "./pipelines/delivery-names";
 import { kestrelAliases } from "./upgrade/aliases";
 
 const EARLY_ALIASES = kestrelAliases(process.cwd(), resolve(process.cwd(), ".nuxt"));
@@ -10,6 +11,7 @@ export default defineNuxtConfig({
   serverHandlers: [
     { route: `${MEDIA_PUBLIC_PATH}/**`, method: "get", handler: fileURLToPath(new URL("./server/handlers/public-media.ts", import.meta.url)) },
     { route: `${MEDIA_PUBLIC_PATH}/**`, method: "head", handler: fileURLToPath(new URL("./server/handlers/public-media.ts", import.meta.url)) },
+    ...INDEX_FILE_NAMES.flatMap((file) => (["get", "head"] as const).map((method) => ({ route: `/${file}`, method, handler: fileURLToPath(new URL("./server/handlers/index-files.ts", import.meta.url)) }))),
   ],
   modules: [
     fileURLToPath(new URL("./modules/blocks/index.ts", import.meta.url)),

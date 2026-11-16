@@ -5,10 +5,11 @@ import { redactingConflictLabels } from "./conflict-labels";
 import { MOUNT_PATH } from "../../mount-path";
 import { bootFailure, type KestrelStatus } from "./boot-failure";
 import { clientIpOptions, type ClientAddressPolicy } from "./ip-allowlist";
+import { createIndexFileHandler } from "./index-files";
 import { createPublicMediaHandler, withHeadRoutes } from "./public-media";
 
 export interface KestrelHandlerWiring {
-  /** Receives one `http` line per request on both handlers, refusals before the pipeline included. */
+  /** Receives one `http` line per request on every handler, refusals before the pipeline included. */
   logger: Logger;
   /** The client-address policy, read once the instance has booted. */
   policy: () => ClientAddressPolicy;
@@ -27,9 +28,11 @@ export interface KestrelHandlers {
   kestrelHandler: Promise<EventHandler>;
   /** Answers `/media/**` on the site root with the public file and variant routes only. */
   publicMediaHandler: Promise<EventHandler>;
+  /** Answers `/sitemap.xml`, `/robots.txt`, `/llms.txt` and `/llms-full.txt` on the site root from the last export. */
+  indexFileHandler: Promise<EventHandler>;
 }
 
-/** Both HTTP handlers of the Nitro plugin, built from the booting instance; when boot fails, each answers 503 with the boot status. */
+/** The HTTP handlers of the Nitro plugin, built from the booting instance; when boot fails, each answers 503 with the boot status. */
 export function kestrelHandlers(booting: Promise<Kestrel>, wiring: KestrelHandlerWiring): KestrelHandlers {
   const failed = (err: unknown): EventHandler => {
     wiring.onBootFailure(err);
@@ -48,5 +51,6 @@ export function kestrelHandlers(booting: Promise<Kestrel>, wiring: KestrelHandle
       }))))
       .catch(failed),
     publicMediaHandler: booting.then((kestrel) => createPublicMediaHandler(kestrel, wiring.policy(), wiring.logger)).catch(failed),
+    indexFileHandler: booting.then((kestrel) => createIndexFileHandler(kestrel, wiring.policy(), wiring.logger)).catch(failed),
   };
 }
