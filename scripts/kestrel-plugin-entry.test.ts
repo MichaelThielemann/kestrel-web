@@ -70,7 +70,7 @@ describe("the kestrel plugin entry", () => {
 
   it("is packed, and no bin is", async () => {
     const { stdout } = await execFileAsync("npm", ["pack", "--dry-run", "--json", "--ignore-scripts"], { cwd: ROOT, maxBuffer: 64 * 1024 * 1024 });
-    const packed: unknown = JSON.parse(stdout);
+    const packed: unknown = JSON.parse(stdout.slice(stdout.search(/^[[{]/m)));
     const entry: unknown = Array.isArray(packed) ? packed[0] : typeof packed === "object" && packed !== null ? Object.values(packed)[0] : undefined;
     const files: unknown[] = typeof entry === "object" && entry !== null && "files" in entry && Array.isArray(entry.files) ? entry.files : [];
     const paths = files.map((file) => (typeof file === "object" && file !== null && "path" in file ? String(file.path) : ""));
