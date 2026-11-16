@@ -38,6 +38,7 @@ function next() {
 .list {
   &__pager {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: var(--space-3);
   }
@@ -48,6 +49,7 @@ function next() {
 
   &__perpage {
     display: inline-flex;
+    flex: none;
     align-items: center;
     gap: var(--space-2);
     margin-inline-start: auto;
