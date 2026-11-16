@@ -450,7 +450,7 @@ const modules = [
       anonymous: ["pages.read", "settings.read", "media.read"],
       anonymousFields: {
         settings: ["id", "title", "titlePosition", "titleSeparator", "description", "navigation", "_locales", "_translations", "_links"],
-        pages: ["id", "slug", "title", "body", "seo", "status", "shareImage", "accent", "layout", "_locales", "_translations", "_locale", "_links", "redirect", "_paths"],
+        pages: ["id", "slug", "title", "body", "seo", "status", "shareImage", "accent", "layout", "_locales", "_translations", "_locale", "_links", "redirect", "_paths", "route.type"],
         media: ["id", "path", "filename", "contentType", "size", "width", "height", "alt", "title", "description", "provenance", "focus", "variants[].size", "variants[].width", "variants[].height", "variants[].format", "variants[].path", "variants[].crop", "framing.width", "framing.height"],
         mediaFile: ["headers.cache-control", "headers.x-content-provenance", "headers.x-kestrel-variant"],
         redirectRules: ["from", "pattern", "target", "status"],
@@ -459,7 +459,7 @@ const modules = [
     },
   },
   { use: "@michaelthielemann/kestrel-content-default", config: contentModel },
-  { use: "@michaelthielemann/kestrel-site-default", config: {} },
+  { use: "@michaelthielemann/kestrel-site-default", config: { routes: { pages: { home: "home", liveWhen: { status: "published" }, parentField: "parent" }, blog: { mount: true, liveWhen: { status: "published" } } }, mounts: { type: "settings", field: "mounts" }, prefixPrimary: false, reservedPaths: ["/api", "/admin", "/media"] } },
   { use: "@michaelthielemann/kestrel-references-default", config: { targets: { pages: { content: "pages" }, media: { media: true } } } },
   { use: "@michaelthielemann/kestrel-links-default", config: { timeoutMs: 10000, concurrency: 4, recheckAfterSeconds: 21600 } },
   { use: "@michaelthielemann/kestrel-validate-jsonschema", config: { schemas: presetSchemas({ features, collections: contentTypes }), watch: process.env.NODE_ENV !== "production" } },
@@ -2651,6 +2651,10 @@ What changes:
     start. `preset/field-grants` prints the grants `presetModuleConfig()` would derive for your model,
     features and anonymous permissions, limited to the resources a pipeline cuts; kestrel's `pipelines/field-step` asks once and, answered `yes`, writes the grants it proposes
     into that entry.
+  - A hand-written module list gives its `site-default` entry the `routes`, `prefixPrimary` and `reservedPaths`
+    that `presetModuleConfig()` derives ("What the builder expands to"): with `config: {}` the path steps of the page
+    pipelines cannot be built and the server does not start. `liveWhen` decides which pages have a public path;
+    a route without it gives every page one, whatever its status.
   - An override of a read anonymous callers reach keeps `authz.fields:<resource>?shape=<shape>` as its last
     step; `pipelines/public-override-field-step` names the step for each override that lacks it, says when
     the override is harmless because visitors cannot reach it, and notes a field step that cuts another
