@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { boot, defineConfig, silentLogger } from "@michaelthielemann/kestrel";
+import { boot, defineConfig, effectiveModuleConfig, silentLogger } from "@michaelthielemann/kestrel";
 import type { LoadedProject, RuleContext } from "@michaelthielemann/kestrel-upgrade/plugin";
 import { presetModules } from "#kestrel/modules";
 import { definePreset, presetModuleConfig } from "../pipelines/index";
@@ -35,12 +35,16 @@ afterAll(() => {
   rmSync(appRoot, { recursive: true, force: true });
 });
 
-function modulesFor(pipelines: PresetPipelineChanges<typeof types>) {
+function recordOf(value: unknown): Record<string, unknown> {
+  return typeof value === "object" && value !== null ? Object.fromEntries(Object.entries(value)) : {};
+}
+
+function modulesFor(pipelines: PresetPipelineChanges<typeof types>, withFeatures: readonly Feature[] = features) {
   return presetModuleConfig({
     dataDir: appRoot,
     blobstore: { use: "@michaelthielemann/kestrel-blobstore-filesystem", config: { root: resolve(appRoot, "blobs") } },
     model: { types },
-    features,
+    features: withFeatures,
     roles: { roles: { admin: ["*"] }, anonymous: ["pages.read", "settings.read", "media.read", "news.read"] },
     bootstrap: { username: "admin", passwordHash: PASSWORD_HASH },
     overrides: { "@michaelthielemann/kestrel-persistence-sqlite": { file: ":memory:" } },
@@ -92,5 +96,20 @@ describe("the upgrade tool's stand-in for definePreset() and a real boot agree",
     expect(await boots(modules, standIn)).toContain('anonymousFields grants fields of "news", but no pipeline ends with authz.fields:news');
     const findings = await fieldGrantsRule.check(ruleContext(modules, standIn));
     expect(findings.map((finding) => finding.id)).toEqual(["preset/field-grants:news"]);
+  }, 20000);
+
+  it("on a delivery project whose hand-written grants leave out the index files: both refuse, naming indexFile", async () => {
+    const deliveryFeatures: readonly Feature[] = [...features, "delivery", "sanitizeSvg"];
+    const modules = modulesFor({}, deliveryFeatures).map((entry) => {
+      if (entry.use !== "@michaelthielemann/kestrel-authz-roles") return entry;
+      const config = recordOf(effectiveModuleConfig(entry));
+      const anonymousFields = Object.fromEntries(Object.entries(recordOf(config.anonymousFields)).filter(([resource]) => resource !== "indexFile"));
+      return { use: entry.use, config: { ...config, anonymousFields } };
+    });
+    const standIn = standInDefinePreset({ modules, features: deliveryFeatures, collections: types });
+    expect(await boots(modules, standIn)).toContain('anonymousFields grants nothing for "indexFile"');
+    const findings = await fieldGrantsRule.check(ruleContext(modules, standIn));
+    expect(findings.map((finding) => finding.id).sort()).toEqual(["preset/field-grants:serveLlmsFullTxt", "preset/field-grants:serveLlmsTxt", "preset/field-grants:serveRobotsTxt", "preset/field-grants:serveSitemapXml"]);
+    expect(findings[0]?.suggestion).toContain('indexFile: ["headers.cache-control", "headers.etag"]');
   }, 20000);
 });

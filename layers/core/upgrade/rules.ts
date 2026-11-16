@@ -649,15 +649,18 @@ function grantMismatches(ctx: RuleContext, cast: PresetOptions, granted: readonl
   const findings: Finding[] = [];
   for (const pipeline of ctx.project.input.pipelines) {
     const resource = fieldStepResource(pipelineSteps(pipeline.steps).at(-1));
-    if (resource === undefined || granted.includes(resource) || presetCuts.has(resource) || !reachesAnonymously(ctx, pipeline, anonymous)) continue;
+    if (resource === undefined || granted.includes(resource) || !reachesAnonymously(ctx, pipeline, anonymous)) continue;
     const fields = derivable[resource] ?? ["id"];
+    const cause = presetCuts.has(resource)
+      ? `presetModuleConfig() derives a grant for it, which a hand-written authz-roles entry names itself`
+      : `the preset's own reads of it are excluded or overridden, so presetModuleConfig() derives no grant`;
     findings.push({
       id: `preset/field-grants:${pipeline.name}`,
       rule: "preset/field-grants",
       severity: "error",
       tier: "source",
       where: { ...where, pipeline: pipeline.name },
-      message: `pipeline "${pipeline.name}" ends with authz.fields:${resource} and anonymous callers reach it, but anonymousFields grants nothing for "${resource}": the preset's own reads of it are excluded or overridden, so presetModuleConfig() derives no grant, and the server does not start`,
+      message: `pipeline "${pipeline.name}" ends with authz.fields:${resource} and anonymous callers reach it, but anonymousFields grants nothing for "${resource}": ${cause}, and the server does not start`,
       suggestion: `name it in roles.anonymousFields: { ${resource}: [${fields.map((field) => JSON.stringify(field)).join(", ")}] }, with the fields visitors may see`,
       fix: { kind: "manual" },
       docs,
@@ -685,7 +688,8 @@ function grantMismatches(ctx: RuleContext, cast: PresetOptions, granted: readonl
  * `anonymousFields` gets the grants `presetModuleConfig()` would derive for the loaded content model, features
  * and anonymous permissions, limited to the resources a loaded pipeline cuts, to copy. A project whose grants
  * are set is told, before boot refuses it, about a pipeline anonymous callers reach whose resource no grant
- * names because the preset's own reads of it are excluded, and about a derived grant no pipeline cuts because
+ * names, because the preset's own reads of it are excluded or because a hand-written entry lacks a grant the
+ * preset derives, and about a derived grant no pipeline cuts because
  * `presetModuleConfig()` lacked `definePreset()`'s `exclude` or `overrides`; otherwise, while its layer range
  * is still 2.x, once which fields its visitors keep. `pipelines/field-step` writes grants when answered; this
  * rule never edits.

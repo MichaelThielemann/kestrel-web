@@ -803,6 +803,14 @@ describe("fieldGrantsRule: grants that do not fit the pipelines", () => {
     expect(findings[0]?.suggestion).toContain('roles.anonymousFields: { news: ["id", "title", "status"] }');
   });
 
+  it("flags a preset read anonymous callers reach whose resource a hand-written grant list leaves out", async () => {
+    const findings = await fieldGrantsRule.check(contextFor({ grants: { settings: ["id", "title", "_links"] } }));
+    expect(findings).toHaveLength(1);
+    expect(findings[0]).toMatchObject({ rule: "preset/field-grants", severity: "error", where: { pipeline: "readPage" } });
+    expect(findings[0]?.message).toContain('anonymousFields grants nothing for "pages": presetModuleConfig() derives a grant for it');
+    expect(findings[0]?.suggestion).toContain("roles.anonymousFields: { pages: [");
+  });
+
   it("says nothing once a grant names the resource, or while a preset read still cuts it", async () => {
     expect(await fieldGrantsRule.check(contextFor({ grants: { ...GRANTS, news: ["id", "title"] }, exclude: ["listNews", "readNews"], own: true }))).toEqual([]);
     expect(await fieldGrantsRule.check(contextFor({ grants: { ...GRANTS, news: ["id", "title"] }, own: true }))).toEqual([]);
