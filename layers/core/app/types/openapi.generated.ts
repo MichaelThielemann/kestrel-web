@@ -881,7 +881,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission system.manage → Require that the session's password was checked within the last 300 seconds, at login or through authn.confirmPassword; otherwise 403 REAUTH_REQUIRED → Rebuild the database at a point in time next to the live file; applied on next start */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission system.manage → Require that the session's password was checked within the last 300 seconds, at login or through authn.confirmPassword; otherwise 403 REAUTH_REQUIRED → Rebuild the database at a point in time next to the live file; applied on the next start on the same disk, lost on an ephemeral disk */
         post: operations["replicationRestore"];
         delete?: never;
         options?: never;
@@ -932,7 +932,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission users.manage → Require that the session's password was checked within the last 300 seconds, at login or through authn.confirmPassword; otherwise 403 REAUTH_REQUIRED → Require that params.id is the id of no user, active or not; the guard of the routes that clean up after a deleted user. An id that is not a UUID, the form of every user id, is refused → Strip the user in `params.id` or the event payload's `id` from every audit entry: their identity id and every param holding it go, the event, its time and the other params stay → Queue event "user.auditAnonymizeRetried" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission users.manage → Require that the session's password was checked within the last 300 seconds, at login or through authn.confirmPassword; otherwise 403 REAUTH_REQUIRED → Require that params.id is the id of no user, active or not; the guard of the routes that clean up after a deleted user. An id that is not a UUID, the form of every user id, is refused → Strip the user in `params.id` or the event payload's `id` from every audit entry: their identity id and every param holding it go, and in a run started by an event also the login name in `payload.result.username` from sign-in entries; the event, its time and the other params stay → Queue event "user.auditAnonymizeRetried" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
         post: operations["retryAnonymizeAuditUser"];
         delete?: never;
         options?: never;
@@ -1403,7 +1403,7 @@ export interface paths {
         };
         /** Identify the caller if a valid token is present; a state-changing request authenticated by the session cookie must come from the same origin → Requires permission redirects.read → One redirects document → Keep only the redirects fields the caller may see: anonymousFields.redirects without an identity or a configured role; otherwise everything when one of its roles has no field grant for redirects, else the union of its roles' grants and the anonymous one */
         get: operations["getRedirects"];
-        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission redirects.write → Validate payload field redirects.rules against its JSON Schema → Compile the redirect rules of the payload; VALIDATION names the offending row, also for a rule that redirects into an active automatic redirect → Replace the redirects document → Index the references of a redirects document → Write redirects.json to the blobstore: editor rules first, then automatic ones (adds `redirects: { rules, skipped, skippedRules }` to the result) */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission redirects.write → Validate payload field redirects.rules against its JSON Schema → Compile the redirect rules of the payload; VALIDATION names the offending row, also for a rule that redirects into an active automatic redirect and for rules that redirect in a loop → Replace the redirects document → Index the references of a redirects document → Write redirects.json to the blobstore: editor rules first, then automatic ones (adds `redirects: { rules, skipped, skippedRules }` to the result) */
         put: operations["setRedirects"];
         post?: never;
         delete?: never;
@@ -1579,7 +1579,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission users.manage → Require that the session's password was checked within the last 300 seconds, at login or through authn.confirmPassword; otherwise 403 REAUTH_REQUIRED → End every session of the user in params.id, e.g. after its second factor was reset → Remove another user's second factor and answer the one-time enrollment code its owner needs to set up a new one; run it after a step that ends that user's sessions → Queue event "user.secondFactorReset" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
+        /** Require a valid session; a state-changing request authenticated by the session cookie must come from the same origin → Requires a signed-in caller holding at least one configured role; an account without one may only run the pipelines rolelessPipelines names → Requires permission users.manage → Require that the session's password was checked within the last 300 seconds, at login or through authn.confirmPassword; otherwise 403 REAUTH_REQUIRED → End every session of the user in params.id, e.g. after its second factor was reset; the caller's own id is refused → Remove another user's second factor and answer the one-time enrollment code its owner needs to set up a new one; run it after a step that ends that user's sessions → Queue event "user.secondFactorReset" for the subscribed handler pipelines; the worker delivers it after this run → Deliver the events this run queued, before the response; whatever is left over stays for the worker (adds `_events` to the result) */
         delete: operations["resetSecondFactor"];
         options?: never;
         head?: never;
@@ -6089,7 +6089,7 @@ export interface operations {
                                 field?: "from" | "to" | "status";
                                 path?: string;
                                 /** @enum {string} */
-                                reason: "blank" | "too-long" | "scheme-or-host" | "query-or-fragment" | "control-characters" | "backslash" | "dot-segments" | "adjacent-double-wildcards" | "too-many-wildcards" | "reserved-path" | "protocol-relative" | "unsupported-scheme" | "invalid-url" | "embedded-credentials" | "placeholder-in-host" | "placeholder-out-of-range" | "placeholder-syntax" | "automatic-redirect-loop" | "invalid-status" | "not-a-list" | "too-many-rules";
+                                reason: "blank" | "too-long" | "scheme-or-host" | "query-or-fragment" | "control-characters" | "backslash" | "dot-segments" | "adjacent-double-wildcards" | "too-many-wildcards" | "reserved-path" | "protocol-relative" | "unsupported-scheme" | "invalid-url" | "embedded-credentials" | "placeholder-in-host" | "placeholder-out-of-range" | "placeholder-syntax" | "automatic-redirect-loop" | "redirect-loop" | "invalid-status" | "not-a-list" | "too-many-rules" | "too-complex";
                                 row: number;
                             }[];
                         };
@@ -6553,7 +6553,7 @@ export interface operations {
                                 field?: "from" | "to" | "status";
                                 path?: string;
                                 /** @enum {string} */
-                                reason: "blank" | "too-long" | "scheme-or-host" | "query-or-fragment" | "control-characters" | "backslash" | "dot-segments" | "adjacent-double-wildcards" | "too-many-wildcards" | "reserved-path" | "protocol-relative" | "unsupported-scheme" | "invalid-url" | "embedded-credentials" | "placeholder-in-host" | "placeholder-out-of-range" | "placeholder-syntax" | "automatic-redirect-loop" | "invalid-status" | "not-a-list" | "too-many-rules";
+                                reason: "blank" | "too-long" | "scheme-or-host" | "query-or-fragment" | "control-characters" | "backslash" | "dot-segments" | "adjacent-double-wildcards" | "too-many-wildcards" | "reserved-path" | "protocol-relative" | "unsupported-scheme" | "invalid-url" | "embedded-credentials" | "placeholder-in-host" | "placeholder-out-of-range" | "placeholder-syntax" | "automatic-redirect-loop" | "redirect-loop" | "invalid-status" | "not-a-list" | "too-many-rules" | "too-complex";
                                 row: number;
                             }[];
                         };
@@ -11521,7 +11521,7 @@ export interface operations {
                                 field?: "from" | "to" | "status";
                                 path?: string;
                                 /** @enum {string} */
-                                reason: "blank" | "too-long" | "scheme-or-host" | "query-or-fragment" | "control-characters" | "backslash" | "dot-segments" | "adjacent-double-wildcards" | "too-many-wildcards" | "reserved-path" | "protocol-relative" | "unsupported-scheme" | "invalid-url" | "embedded-credentials" | "placeholder-in-host" | "placeholder-out-of-range" | "placeholder-syntax" | "automatic-redirect-loop" | "invalid-status" | "not-a-list" | "too-many-rules";
+                                reason: "blank" | "too-long" | "scheme-or-host" | "query-or-fragment" | "control-characters" | "backslash" | "dot-segments" | "adjacent-double-wildcards" | "too-many-wildcards" | "reserved-path" | "protocol-relative" | "unsupported-scheme" | "invalid-url" | "embedded-credentials" | "placeholder-in-host" | "placeholder-out-of-range" | "placeholder-syntax" | "automatic-redirect-loop" | "redirect-loop" | "invalid-status" | "not-a-list" | "too-many-rules" | "too-complex";
                                 row: number;
                             }[];
                         };
@@ -12247,6 +12247,7 @@ export interface operations {
                             id: string;
                             name: string;
                         } | null;
+                        username: string;
                     };
                 };
             };

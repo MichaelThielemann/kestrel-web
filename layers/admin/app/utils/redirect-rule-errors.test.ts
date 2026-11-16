@@ -7,13 +7,13 @@ import { boundaryCast } from '#kestrel/cast'
 import { redirectRuleError, redirectRuleDetails } from './redirect-rule-errors'
 
 const FROM = ['blank', 'too-long', 'scheme-or-host', 'query-or-fragment', 'control-characters', 'backslash', 'dot-segments', 'adjacent-double-wildcards', 'too-many-wildcards', 'reserved-path']
-const TO = ['blank', 'control-characters', 'backslash', 'protocol-relative', 'unsupported-scheme', 'invalid-url', 'embedded-credentials', 'placeholder-in-host', 'placeholder-out-of-range', 'placeholder-syntax', 'automatic-redirect-loop']
+const TO = ['blank', 'control-characters', 'backslash', 'protocol-relative', 'unsupported-scheme', 'invalid-url', 'embedded-credentials', 'placeholder-in-host', 'placeholder-out-of-range', 'placeholder-syntax', 'automatic-redirect-loop', 'redirect-loop']
 const RULES = [
   ...FROM.map((reason) => ({ field: 'from', reason })),
   ...TO.map((reason) => ({ field: 'to', reason })),
   { field: 'status', reason: 'invalid-status' },
 ]
-const WHOLE = ['not-a-list', 'too-many-rules']
+const WHOLE = ['not-a-list', 'too-many-rules', 'too-complex']
 
 const interpolate = (template: string, params?: Record<string, unknown>) => template.replace(/\{(\w+)\}/g, (m, k: string) => (params?.[k] != null ? String(params[k]) : m))
 const translator = (catalog: Catalog) => (key: string, params?: Record<string, unknown>) => interpolate(catalog[key] ?? key, params)
@@ -64,8 +64,16 @@ describe('redirectRuleError', () => {
     expect(redirectRuleError(tEn, wire(details))?.text).not.toMatch(/loop/)
   })
 
+  it('fills the target that closes a redirect loop into the text and calls it a loop', () => {
+    const details = { row: 3, field: 'to', reason: 'redirect-loop', path: '/a' }
+    expect(redirectRuleError(tDe, wire(details))?.text).toContain('/a')
+    expect(redirectRuleError(tEn, wire(details))?.text).toContain('/a')
+    expect(redirectRuleError(tDe, wire(details))?.text).toMatch(/schleife/i)
+    expect(redirectRuleError(tEn, wire(details))?.text).toMatch(/loop/)
+  })
+
   it('words a reason that names a path without one, leaving no placeholder', () => {
-    for (const details of [{ row: 1, field: 'from', reason: 'reserved-path' }, { row: 1, field: 'to', reason: 'automatic-redirect-loop' }]) {
+    for (const details of [{ row: 1, field: 'from', reason: 'reserved-path' }, { row: 1, field: 'to', reason: 'automatic-redirect-loop' }, { row: 1, field: 'to', reason: 'redirect-loop' }]) {
       for (const t of [tEn, tDe]) {
         const text = redirectRuleError(t, wire(details))?.text
         expect(text).toBeTruthy()

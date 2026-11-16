@@ -1422,8 +1422,11 @@ export const en = {
   'redirects.reason.to.placeholderSyntax': '"To" must write a placeholder as $1, not as ${1}.',
   'redirects.reason.to.automaticRedirectChain': '"To" points at {path}, which is already redirected automatically. This would chain two redirects; point it at the final address instead.',
   'redirects.reason.to.automaticRedirectChainAny': '"To" points at an address that is already redirected automatically. This would chain two redirects; point it at the final address instead.',
+  'redirects.reason.to.redirectLoop': '"To" {path} leads into a redirect loop or a chain of more than 20 redirects through these rules. Point it at the final address instead.',
+  'redirects.reason.to.redirectLoopAny': '"To" leads into a redirect loop or a chain of more than 20 redirects through these rules. Point it at the final address instead.',
   'redirects.reason.status.invalidStatus': '"Status" must be 301, 302, 307 or 308.',
   'redirects.reason.notAList': 'The redirect rules must be a list.',
   'redirects.reason.tooManyRules': 'A list holds at most 1000 redirect rules.',
+  'redirects.reason.tooComplex': 'These redirect rules are too complex to check for redirect loops. Use fewer wildcard rules that can match the same paths, or shorter targets.',
   'field.mounts.movesOf': 'A change moves {n} addresses (documents × languages); one save may move at most {limit}.',
 } satisfies Record<string, string>

@@ -29,9 +29,11 @@ const WORDING: Record<RedirectRuleReason, Partial<Record<Slot, Wording>>> = {
   'placeholder-out-of-range': { to: { key: 'redirects.reason.to.placeholderOutOfRange' } },
   'placeholder-syntax': { to: { key: 'redirects.reason.to.placeholderSyntax' } },
   'automatic-redirect-loop': { to: { key: 'redirects.reason.to.automaticRedirectChain', withoutPath: 'redirects.reason.to.automaticRedirectChainAny' } },
+  'redirect-loop': { to: { key: 'redirects.reason.to.redirectLoop', withoutPath: 'redirects.reason.to.redirectLoopAny' } },
   'invalid-status': { status: { key: 'redirects.reason.status.invalidStatus' } },
   'not-a-list': { list: { key: 'redirects.reason.notAList' } },
   'too-many-rules': { list: { key: 'redirects.reason.tooManyRules' } },
+  'too-complex': { list: { key: 'redirects.reason.tooComplex' } },
 }
 
 function isReason(value: string): value is RedirectRuleReason {

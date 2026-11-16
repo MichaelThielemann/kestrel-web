@@ -561,8 +561,9 @@
 - Admin: the redirects editor words a rejected rule in the admin language instead of the server's English text.
   The reason of the answer (`details.reason` with `row`, `field` and `path`, which a current `redirects-default` sends)
   selects a text of `redirects.reason.*` in the English and German catalogs. It stands under the field of the
-  row, in the save-failed banner as "Row 2: …" and in the toast, with the reserved prefix or the target of an
-  automatic redirect filled in; a rejected list as a whole is named in the banner. An unknown reason, a reason
+  row, in the save-failed banner as "Row 2: …" and in the toast, with the reserved prefix, the target of an
+  automatic redirect or the target that closes a redirect loop (`redirect-loop`) filled in; a rejected list as a
+  whole, also one too complex to check for loops (`too-complex`), is named in the banner. An unknown reason, a reason
   that does not belong to its field, an answer without a reason and every other error keep the server's text.
   `ApiErrorDetails` has the optional members `row`, `field`, `reason` and `path`, and `api.ts` exports
   `RedirectRuleReason`.

@@ -1424,8 +1424,11 @@ export const de: Record<CatalogKey, string> = {
   'redirects.reason.to.placeholderSyntax': '„Nach“ muss einen Platzhalter als $1 schreiben, nicht als ${1}.',
   'redirects.reason.to.automaticRedirectChain': '„Nach“ zeigt auf {path}, das bereits automatisch weitergeleitet wird. Das ergäbe eine Kette von Weiterleitungen; bitte auf das endgültige Ziel verweisen.',
   'redirects.reason.to.automaticRedirectChainAny': '„Nach“ zeigt auf eine Adresse, die bereits automatisch weitergeleitet wird. Das ergäbe eine Kette von Weiterleitungen; bitte auf das endgültige Ziel verweisen.',
+  'redirects.reason.to.redirectLoop': '„Nach“ {path} führt mit diesen Regeln in eine Weiterleitungsschleife oder eine Kette von mehr als 20 Weiterleitungen. Bitte auf das endgültige Ziel verweisen.',
+  'redirects.reason.to.redirectLoopAny': '„Nach“ führt mit diesen Regeln in eine Weiterleitungsschleife oder eine Kette von mehr als 20 Weiterleitungen. Bitte auf das endgültige Ziel verweisen.',
   'redirects.reason.status.invalidStatus': '„Status“ muss 301, 302, 307 oder 308 sein.',
   'redirects.reason.notAList': 'Die Weiterleitungsregeln müssen eine Liste sein.',
   'redirects.reason.tooManyRules': 'Eine Liste enthält höchstens 1000 Weiterleitungsregeln.',
+  'redirects.reason.tooComplex': 'Diese Weiterleitungsregeln sind zu komplex, um sie auf Weiterleitungsschleifen zu prüfen. Bitte weniger Wildcard-Regeln verwenden, die auf dieselben Pfade passen können, oder kürzere Ziele.',
   'field.mounts.movesOf': 'Eine Änderung verschiebt {n} Adressen (Dokumente × Sprachen); ein Speichern darf höchstens {limit} verschieben.',
 }
