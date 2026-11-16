@@ -111,7 +111,11 @@ overrides:
 - Ids are strings; dates are ms since epoch; one locale is edited at a time (`?locale=`).
 - `NUXT_PUBLIC_SITE_URL` (runtime config `public.siteUrl`) is the public site's URL: the admin's preview
   links and SEO fields, every page's canonical link and `og:url`, and with `delivery` the URLs in
-  `sitemap.xml`, `robots.txt` and the llms files; it stays empty in dev.
+  `sitemap.xml`, `robots.txt` and the llms files. Under `nuxt dev`, left empty, it is the dev server's own
+  origin (such as `http://localhost:3000`); a production build keeps it empty.
+- With `delivery`, the Node server answers `/sitemap.xml`, `/robots.txt`, `/llms.txt` and `/llms-full.txt`
+  with the bytes of the last export, the same files a static host serves from the export, and 404 for one
+  not written; a file of the same name in the app's `public/` directory is served instead.
 - Admin UI is built from `layers/admin/app/components/ui` (see `docs/architecture.md` § UI kit first);
   a missing variant is added to the kit.
 - Every admin style rule is bound to the admin roots `.admin` / `.admin-portal` and carries no

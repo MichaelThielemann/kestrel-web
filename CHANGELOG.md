@@ -6,6 +6,23 @@
 
 ### Added
 
+- With `delivery`, the Node server answers `GET` and `HEAD` on `/sitemap.xml`, `/robots.txt`, `/llms.txt` and
+  `/llms-full.txt` with the bytes the last export wrote under `site/`, so `nuxt dev` and a local
+  `node .output/server/index.mjs` serve what the static host serves: the content type the export writes
+  (`application/xml; charset=utf-8` for `sitemap.xml`, `text/plain; charset=utf-8` for the others), inline,
+  with the file's SHA-256 as `ETag` and `Cache-Control: no-cache`, 404 for a file the export has not written
+  and 503 while the blob store cannot be reached. The site allowlist applies to them, and a file of the same
+  name in the app's `public/` directory is answered first. The preset composes `serveSitemapXml`,
+  `serveRobotsTxt`, `serveLlmsTxt` and `serveLlmsFullTxt` (`delivery.readIndexFile:<file>`, then
+  `authz.fields:indexFile?shape=file`) at `GET /<file>`, and `presetModuleConfig()` grants anonymous callers the
+  headers `etag` and `cache-control` of `indexFile`; a hand-written `authz-roles` entry needs
+  `indexFile: ["headers.cache-control", "headers.etag"]` in `anonymousFields`. A host that serves the export
+  at the root answers these paths first, with the same bytes.
+- Under `nuxt dev`, an empty `NUXT_PUBLIC_SITE_URL` stands for the dev server's own origin: the protocol, host
+  and port it listens on, with `app.baseURL` (`http://localhost:3000`, `https://…` with `--https`, `localhost`
+  for a server bound to every interface, a bracketed IPv6 address). The pages' canonical link and `og:url`, the
+  admin's preview links and delivery-static's site URL take it, and the dev log names it once. A value you set
+  always wins; a production build never derives one.
 - The upgrade plugin answers kestrel's `ops` hook (plugin API 6). `kestrel update prepare` and `kestrel update
   bundle` read from it the readiness route `/api/ready`; the environment of a local start of a copy: on
   `127.0.0.1`, on the filesystem store, with `NODE_ENV=production`, storage migrations checked, content migrations
@@ -148,9 +165,9 @@
   refuses a `delayMs` or `indexesDelayMs` that holds another value, from `overrides` or a hand-written entry
   (`preset/index-export-delays`), and names every index export a `delayMs` leaves out; a `delayMs` that also
   holds back pipelines of the site's own spreads them in: `{ ...delaysFor(features), digest: 60000 }`. A
-  hand-written queue entry without `delayMs` gets a warning from `kestrel upgrade check`. The Node server does
-  not serve the four files; behind a proxy to it, serve them from the export's `site/` prefix at the
-  host's root (`docs/deployment.md` §7, "Index files").
+  hand-written queue entry without `delayMs` gets a warning from `kestrel upgrade check`. The Node server
+  answers the four files from the export (below), and a host in front may serve them from the export's
+  `site/` prefix itself (`docs/deployment.md` §7, "Index files").
 - With `delivery`, `presetModuleConfig()` passes `NUXT_PUBLIC_SITE_URL`, normalised the way
   `@michaelthielemann/kestrel-delivery-static/site-url` does it, to delivery-static as its top-level `siteUrl`;
   the variable is the one source of the site URL for the index files and the pages alike. It takes `sitemap`
@@ -644,12 +661,11 @@
   that `allow` in a production build and `disallow` under `nuxt dev`, and warns once. A production build is one
   whatever `NODE_ENV` the started process has: `nuxt build` fixes it inside the server bundle, so
   `node .output/server/index.mjs` without it allows crawlers. A staging server that runs a production build needs
-  `disallow` (`KESTREL_ROBOTS_POLICY=disallow`) and a host that serves the exported `site/robots.txt` at its
-  root (`docs/deployment.md` §7, "Index files"): the Node server never serves that file, and answers
-  `/robots.txt` from `public/` or else with 404, which crawlers take as allowing everything. Behind a plain
-  proxy to the Node server, a `public/robots.txt` of your own is the one crawlers get, so keep it until the
-  host serves the exported file. Where the host does, a `robots.txt` of your own, served from `public/` or by
-  the web server, competes with the exported one, and the first start overwrites a `robots.txt` or `sitemap.xml` it finds
+  `disallow` (`KESTREL_ROBOTS_POLICY=disallow`). The Node server answers `/robots.txt` with the exported file
+  (`docs/deployment.md` §7, "Index files"), but a `public/robots.txt` of your own comes first and is the one
+  crawlers get from it, so remove that file to let the policy decide. A host that serves the export answers
+  with the exported file, and a `robots.txt` of your own served by the web server competes with it. The first
+  start overwrites a `robots.txt` or `sitemap.xml` it finds
   under the prefix: set `robots: false` (and `sitemap: false` for a sitemap of your own) before that start to
   keep yours. Once overwritten, `robots: false` leaves the exported `<prefix>robots.txt` in place; delete it by
   hand.

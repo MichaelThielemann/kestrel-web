@@ -55,8 +55,8 @@ kestrel-web's own, all read while `kestrel.config.ts` loads:
 | `KESTREL_BLOBSTORE` | in production | `s3` or `filesystem`; `envBlobstore()` throws in production when it is neither |
 | `KESTREL_S3_BUCKET`, `KESTREL_S3_ENDPOINT`, `KESTREL_S3_REGION`, `KESTREL_S3_ACCESS_KEY_ID`, `KESTREL_S3_SECRET_ACCESS_KEY` | with `KESTREL_BLOBSTORE=s3` | the S3 blobstore, `forcePathStyle: true`; each missing one throws naming itself |
 | `KESTREL_S3_ALLOW_INSECURE_ENDPOINT` | no | `true` lets `KESTREL_S3_ENDPOINT` be plain `http://` outside loopback (`localhost`, `127.0.0.0/8`, `[::1]`), with a warning at every boot; otherwise such an endpoint stops the boot, since credentials, objects and replica snapshots would cross the network unencrypted |
-| `NUXT_PUBLIC_SITE_URL` | no, but expected with `delivery` | the public site's absolute URL, with a base path when the site lives below the host's root; the editor's preview links, every exported page's `<link rel="canonical">` and `og:url`, `sitemap.xml`, the `Sitemap:` line of `robots.txt` and the URLs in `llms.txt` are built from it. Empty: no canonical link, no `sitemap.xml`, paths in `llms.txt`, and a warning at boot. A change re-renders every page at the next start. The Node server does not serve `sitemap.xml`; crawlers reach it only where the host serves the export's `site/` prefix (§7, "Index files") |
-| `KESTREL_ROBOTS_POLICY` | no | `allow` or `disallow` for `robots.txt`, read by `presetModuleConfig()` when its `robots` option has no `policy` (a `robots.policy` that differs, or `robots: false`, wins with a warning at boot, and a value other than these two stops the config from loading either way); unset means `allow` in a production build, whatever `NODE_ENV` the process has, and `disallow` under `nuxt dev`, with a warning at boot. Set `disallow` on a staging server. A change is written at the next start. The Node server answers `/robots.txt` with 404, which crawlers take as allowing everything: the policy keeps them out only where the host serves the export's `robots.txt` at its root (§7, "Index files") |
+| `NUXT_PUBLIC_SITE_URL` | no, but expected with `delivery` | the public site's absolute URL, with a base path when the site lives below the host's root; the editor's preview links, every exported page's `<link rel="canonical">` and `og:url`, `sitemap.xml`, the `Sitemap:` line of `robots.txt` and the URLs in `llms.txt` are built from it. Empty in a production build: no canonical link, no `sitemap.xml`, paths in `llms.txt`, and a warning at boot; empty under `nuxt dev`: the dev server's own origin, such as `http://localhost:3000`. A change re-renders every page at the next start. The Node server answers `/sitemap.xml` from the export, and so does a host that serves the export's `site/` prefix (§7, "Index files") |
+| `KESTREL_ROBOTS_POLICY` | no | `allow` or `disallow` for `robots.txt`, read by `presetModuleConfig()` when its `robots` option has no `policy` (a `robots.policy` that differs, or `robots: false`, wins with a warning at boot, and a value other than these two stops the config from loading either way); unset means `allow` in a production build, whatever `NODE_ENV` the process has, and `disallow` under `nuxt dev`, with a warning at boot. Set `disallow` on a staging server. A change is written at the next start. The Node server answers `/robots.txt` with the exported file, unless the app has a `public/robots.txt` of its own (§7, "Index files") |
 | `NUXT_KESTREL_ACCESS_ADMIN` / `_SITE` | no | the two IP allowlists (§7 of the consuming guide); empty means open |
 | `NUXT_KESTREL_ACCESS_TRUST_PROXY`, `_PROXY_HOPS`, `_TRUSTED_HEADER` | no | how the client address is taken behind a proxy |
 | `NUXT_KESTREL_ACCESS_TRUSTED_PROXIES` | no | the proxies whose forwarding headers count, addresses or CIDR ranges; empty means loopback |
@@ -375,30 +375,32 @@ Points that matter:
   compress at all: without a proxy or CDN in front, every page travels several times larger.
 
 - **Index files.** With `delivery`, `robots.txt`, `sitemap.xml`, `llms.txt` and `llms-full.txt` are written to
-  the blobstore under `site/` (`<dataDir>/blobs/site/` with the filesystem blobstore of §5), and the Node server
-  does not serve them: it answers `/robots.txt`, `/sitemap.xml`, `/llms.txt` and `/llms-full.txt` with 404. A
-  crawler takes a missing `robots.txt` as allowing everything, so `KESTREL_ROBOTS_POLICY=disallow` keeps a
-  staging server out of search results only when the host serves the exported file. The regex location above
-  does that next to the proxy; nginx's user needs read access to that directory. `charset utf-8` sends the
-  charset the files are written in (without it nginx sends a bare `text/plain`, and a client that follows the
-  HTTP default reads the UTF-8 titles as Latin-1). `expires -1` sends `Cache-Control: no-cache`; an
-  `add_header` there instead would drop the server's `Strict-Transport-Security` header from these four
-  responses, since nginx inherits `add_header` only into a block that sets none. nginx answers these paths
-  itself, so the server's site allowlist (`NUXT_KESTREL_ACCESS_SITE`) never sees them: with one set, give
-  the location the same addresses as `allow` lines followed by `deny all;`, or serve only `robots.txt`.
-  With an S3 blobstore, proxy each path to its object instead, for example
+  the blobstore under `site/` (`<dataDir>/blobs/site/` with the filesystem blobstore of §5). The Node server
+  answers `/robots.txt`, `/sitemap.xml`, `/llms.txt` and `/llms-full.txt` from there: the bytes of the last
+  export, with the content type the export writes them with, `Cache-Control: no-cache` and an `ETag`, and 404
+  for a file the export has not written (`sitemap.xml` without a site URL, `llms-full.txt` without
+  `llms.full`). The site allowlist (`NUXT_KESTREL_ACCESS_SITE`) covers them like every page. A file of the
+  same name in the app's `public/` directory is served instead, so with `robots: false` or `sitemap: false`
+  in `presetModuleConfig()` a `public/robots.txt` or `public/sitemap.xml` of your own is what crawlers get.
+  The regex location above is optional: nginx answers the four paths first, from the same files, and the
+  request never reaches the Node server. The bytes are the same either way. nginx's user needs read access to
+  that directory. `charset utf-8` sends the charset the files are written in (without it nginx sends a bare
+  `text/plain`, and a client that follows the HTTP default reads the UTF-8 titles as Latin-1). `expires -1`
+  sends `Cache-Control: no-cache`; an `add_header` there instead would drop the server's
+  `Strict-Transport-Security` header from these four responses, since nginx inherits `add_header` only into a
+  block that sets none. Since nginx answers these paths itself, the server's site allowlist never sees them:
+  with one set, give the location the same addresses as `allow` lines followed by `deny all;`, or leave the
+  location out. With an S3 blobstore, proxy each path to its object instead, for example
   `location = /robots.txt { proxy_pass https://example-bucket.s3.eu-central-1.amazonaws.com/site/robots.txt; }`.
   The four objects must allow anonymous `s3:GetObject`, as the bucket policy of §3 does, or the proxy must
   sign its requests: a private bucket answers 403, and a crawler takes a 4xx `robots.txt` as allowing
   everything. Check that `curl -I https://example.com/robots.txt` answers 200. On a CDN, route the four paths
-  to the `site/` prefix of the same origin. A file the site does not write (`sitemap.xml` without a site URL,
-  `llms-full.txt` without `llms.full`) answers 404. With a base path in `NUXT_PUBLIC_SITE_URL`, `robots.txt`
-  stays at the host's root and the other three move below the base path
+  to the `site/` prefix of the same origin, or let them through to the Node server. With a base path in
+  `NUXT_PUBLIC_SITE_URL`, `robots.txt` stays at the host's root and the other three move below the base path
   (`location = /site/sitemap.xml { alias /srv/mysite/data/blobs/site/sitemap.xml; charset utf-8; expires -1; }`).
-  With `robots: false` or `sitemap: false` in `presetModuleConfig()`, the file at that path is your own, so take
-  `robots\.txt` or `sitemap\.xml` out of the regex location: otherwise nginx answers 404 there, or keeps
-  serving the file an earlier start exported, and the request never reaches the Node server, which serves a
-  `public/robots.txt` or `public/sitemap.xml` of your own.
+  With `robots: false` or `sitemap: false` and the location kept, take `robots\.txt` or `sitemap\.xml` out of
+  the regex: otherwise nginx answers 404 there, or keeps serving the file an earlier start exported, and the
+  request never reaches the Node server and your `public/` file.
   A static host that serves the whole export (§8 of the consuming guide) serves them already.
 
 - **HTTPS only.** The login sets the session in the `__Host-kestrel_token` cookie with `HttpOnly`,

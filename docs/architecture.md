@@ -323,8 +323,8 @@ by the peer address instead and answered with `{ ok }` or `{ ready }` alone (`pr
 forwarding header was ignored because the peer is not a trusted proxy is logged through the core's
 `forwardingWarner`, once per peer and hour. The address is the core's: the socket peer, and only when that peer is in
 `trustedProxies` (default loopback; a Unix socket counts as loopback) the trusted header or the
-`X-Forwarded-For` entry `proxyHops` from the right. The same resolver feeds `ctx.ip` through the API and
-`/media/**` handlers. Both answer `HEAD` on every route they answer `GET` on, through the same pipeline and with the
+`X-Forwarded-For` entry `proxyHops` from the right. The same resolver feeds `ctx.ip` through the API, the
+`/media/**` and the index file handlers. Each answers `HEAD` on every route it answers `GET` on, through the same pipeline and with the
 headers of the `GET`, so `curl -I` on a media file or on `/api/media/<id>/file` reports what a download would. Only Nitro's in-process `localFetch` (SSR, publishing, static delivery) passes
 unchecked, recognized by its mock socket; the `nuxt dev` server does not enforce the lists. IPv4-mapped IPv6
 addresses are checked as IPv4. Nitro serves the hashed `/_nuxt/*` build assets before server middleware runs, so those stay
@@ -558,6 +558,7 @@ today, so that granting `<name>.read` later needs nothing else:
 | `downloadMedia`, `serveMediaFile`, `serveImageVariant` | `authz.fields:mediaFile?shape=file` |
 | `renderRedirects` | `authz.fields:redirectRules?shape=array` |
 | `getRedirects` | `authz.fields:redirects?shape=item` |
+| `serveSitemapXml`, `serveRobotsTxt`, `serveLlmsTxt`, `serveLlmsFullTxt` | `authz.fields:indexFile?shape=file` |
 | each collection's `list<Name>`, `read<Name>`, `get<Name>` | `authz.fields:<name>?shape=list` / `item` / `item` |
 
 The step therefore follows `images.attach` and `redirects.lookup`. An override replaces the step list whole
@@ -573,7 +574,8 @@ permission `anonymous` holds (`<type>.read`, `media.read` for `media` and `media
 `_links`; the public media fields (`id`, `path`, `filename`, `contentType`, `size`, `width`, `height`,
 `alt`, `title`, `description`, `provenance`) and, with `images`, `focus`, `variants[].size`, `.width`, `.height`,
 `.format`, `.path` and `.crop`, and `framing.width` and `.height`; the file headers `cache-control`, `x-content-provenance` and, with `images`,
-`x-kestrel-variant`; with `redirects`, the redirect rules' `from`, `pattern`, `target` and `status`. It names only
+`x-kestrel-variant`; with `redirects`, the redirect rules' `from`, `pattern`, `target` and `status`; with `delivery`, the
+index files' headers `etag` and `cache-control`, which no permission gates. It names only
 members a read declares, so every path passes kestrel's check. What it leaves out is cut for anonymous
 callers: a document's `createdAt` and `updatedAt`, a media item's `folder`, timestamps, `available`,
 `variantCounts` and the rest of `framing`, a variant's `bytes` and `state`, any other file header, and — on every collection,
@@ -2169,12 +2171,36 @@ Site URL resolution: the primary locale is never prefixed (`/kontakt`), other lo
 | `_nuxt/**`, the build assets and the app manifest (`builds/`) | `renderer-nuxt` assets | written once per process, never removed |
 | `media/<id>/<name>`, `media/<id>/variants/<size>.<ext>` | `media-default`, `images-default` (`publicCopy`) | per media item, independent of page publishes; removed with the item |
 | `redirects.json` | `redirects-default` | on its own triggers; read by the edge, never by the app |
-| `sitemap.xml`, `robots.txt`, `llms.txt` | `delivery-static` (`delivery.exportIndexes`), from the database | about a second after every change that alters what they list, and at every start; read by crawlers, never by the app |
-| `llms-full.txt` | `delivery-static` (`delivery.exportLlmsFull`), from the stored HTML | after the re-renders queued before it; read by crawlers, never by the app |
+| `sitemap.xml`, `robots.txt`, `llms.txt` | `delivery-static` (`delivery.exportIndexes`), from the database | about a second after every change that alters what they list, and at every start; read by crawlers, from the static host or from the Node server (below) |
+| `llms-full.txt` | `delivery-static` (`delivery.exportLlmsFull`), from the stored HTML | after the re-renders queued before it; read by crawlers, from the static host or from the Node server (below) |
 
 There is no separate data file: the page HTML is both what a visitor loads and what client navigation
 reads. `/api` is not part of the static target. A deployment may forward it to the origin for features
 of its own, but the exported app never depends on that route.
+
+### The index files on the Node server
+
+The Node server answers `/sitemap.xml`, `/robots.txt`, `/llms.txt` and `/llms-full.txt` with what the static
+host would send, so a site started locally (`nuxt dev`, or a build started with `node .output/server/index.mjs`)
+shows the files the export wrote. The `delivery` feature composes one pipeline per file, `serveSitemapXml`,
+`serveRobotsTxt`, `serveLlmsTxt` and `serveLlmsFullTxt` (`INDEX_FILE_PIPELINES`,
+`pipelines/delivery-names.ts`), each `delivery.readIndexFile:<file>` followed by
+`authz.fields:indexFile?shape=file`, and routes it at `GET /<file>`. The step takes no request input: it
+reads the blob `<prefix><file>` and answers its bytes as a binary result with the content type the export
+writes the file with, the bytes' SHA-256 as `ETag` and `Cache-Control: no-cache`, 404 (`NOT_FOUND`) when the
+export has not written the file and 503 (`TRANSIENT`) when the blob store fails. Like the media files, the
+routes are answered on the site root by a handler of their own: `server/utils/index-files.ts`
+(`createIndexFileHandler`) builds a `createKestrelHandler` from the booted instance whose trigger table holds
+only these four routes and their `HEAD` twins, mounted with no prefix and with `application/xml` and
+`text/plain` as inline types, so a browser shows the files rather than downloading them;
+`layers/core/nuxt.config.ts` registers it on the four paths for `GET` and `HEAD`, and `layers/public`'s
+`asset-404` middleware lets the four paths through. Without `delivery` the routes do not exist and the
+handler answers 404. The same routes also answer under `/api`, as the media file route does.
+
+Nitro serves the app's public assets (`public/`, and `.output/public` in a build) before any server handler,
+so a `public/robots.txt` of the consumer's own is what the Node server sends at `/robots.txt`. A static host
+that serves the export at the root answers the four paths before a request reaches the Node server, with the
+same bytes.
 
 ### How the browser tells an exported page from a live one
 
@@ -2363,6 +2389,14 @@ An exported page is refreshed when content it shows changes. The recording and t
 the public site's absolute base URL — the editor status's "open page" link, shown once a page is live
 (`EditorStatus.vue`, computed in `pages/admin/[collection]/[id].vue`) — and the SERP preview
 (`SeoFields.vue`). Empty by default; set it in a consumer's `.env` once the public site has a real host.
+Under `nuxt dev`, `modules/dev-site-url` gives an empty value the dev server's own origin: on Nuxt's `listen`
+hook, before the Nitro dev worker starts and reads its environment, it sets `NUXT_PUBLIC_SITE_URL` to the
+listener's URL, normalised (protocol, host, port and `app.baseURL`; `localhost` for a server bound to every
+interface, brackets around an IPv6 address, `https` with `--https`), and records the value in
+`__KESTREL_DEV_SITE_URL__`, so that a restart on another port replaces it while a value set by hand stays.
+The runtime config, `presetModuleConfig()` and a hand-written `delivery-static` entry that reads the variable
+all see the same URL, so `siteUrlMismatch` stays quiet and the warning about a missing site URL is not
+printed. A production build never derives one.
 With `delivery`, `presetModuleConfig()` reads the same variable, normalises it with `normalizeSiteUrl` from
 `@michaelthielemann/kestrel-delivery-static/site-url` and passes it to `delivery-static`'s top-level
 `siteUrl`, from which sitemap.xml, robots.txt's `Sitemap:` line and llms.txt are built; it has no option of

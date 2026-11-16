@@ -454,6 +454,7 @@ const modules = [
         media: ["id", "path", "filename", "contentType", "size", "width", "height", "alt", "title", "description", "provenance", "focus", "variants[].size", "variants[].width", "variants[].height", "variants[].format", "variants[].path", "variants[].crop", "framing.width", "framing.height"],
         mediaFile: ["headers.cache-control", "headers.x-content-provenance", "headers.x-kestrel-variant"],
         redirectRules: ["from", "pattern", "target", "status"],
+        indexFile: ["headers.cache-control", "headers.etag"],
       },
     },
   },
@@ -772,7 +773,8 @@ Every read of the preset that a caller without a session can reach ends with
 `authz.fields:<resource>?shape=<item|list|array|file>`, the step of `authz-roles` that cuts the answer to
 the fields that caller may see: `resolvePage`, `readPage` and `listPages` (`pages`), `getSettings`
 (`settings`), `getMedia` and `listMedia` (`media`), the media file routes (`mediaFile`, response headers
-only), `renderRedirects` (`redirectRules`), `getRedirects` (`redirects`) and every collection's
+only), `renderRedirects` (`redirectRules`), `getRedirects` (`redirects`), the index file routes
+(`indexFile`, response headers only) and every collection's
 `list<Name>`, `read<Name>` and `get<Name>` (the collection's name). A caller without a session, or with
 one whose roles are none of the configured ones, keeps the fields `anonymousFields` grants for the
 resource; a signed-in editor or admin keeps the whole answer, since the preset gives no role a field
@@ -780,7 +782,7 @@ grant of its own.
 
 `presetModuleConfig()` derives `anonymousFields` from your content model and features, for the resources
 whose read permission `roles.anonymous` holds (`<type>.read` for a content type, `media.read` for media and
-its files) and for the redirect rules, which no permission gates. `roles.anonymous` takes read permissions
+its files) and for the redirect rules and the index files, which no permission gates. `roles.anonymous` takes read permissions
 only: `authz-roles` refuses to start with `*`, `<type>.*` or any permission other than `<type>.read` there.
 
 | Resource | Fields a visitor receives |
@@ -791,6 +793,7 @@ only: `authz-roles` refuses to start with `*`, `<type>.*` or any permission othe
 | `media` | `id`, `path`, `filename`, `contentType`, `size`, `width`, `height`, `alt`, `title`, `description`, `provenance`; with `images` also `focus`, `variants[].size`, `.width`, `.height`, `.format`, `.path`, `.crop`, and `framing.width`, `.height` |
 | `mediaFile` | the headers `cache-control` and `x-content-provenance`; with `images` also `x-kestrel-variant` |
 | `redirectRules` | `from`, `pattern`, `target`, `status` (with `redirects`) |
+| `indexFile` | the headers `etag` and `cache-control` (with `delivery`) |
 
 Everything else is cut for them: a document's `createdAt` and `updatedAt`, a media item's `folder`,
 timestamps, `available`, `variantCounts` and every member of `framing` but `width` and `height`, and a
@@ -944,7 +947,7 @@ or a retry actually runs.
 | `sanitizeSvg` | kestrel-sanitize-svg | SVG sanitize step before the upload step in `uploadMedia`; only with this module configured does `layers/core` serve SVG inline (`inlineTypes`), otherwise SVGs are delivered as attachments. Required with `delivery` unless `image/svg+xml` is denied — see the note below the table |
 | `references` | kestrel-references-default | `brokenReferences`, `pageReferrers(Many)`, `mediaReferrers(Many)`, `<name>Referrers(Many)` per generic multi collection, `rebuildReferences`, `scanReferences` (cron); check/index/guard/unindex steps in the create/update/delete pipelines of `pages` and every generic multi collection, `deleteMedia`, `deleteMediaFolder`, `references.dropReferenced:media` before `media.purge` in the trash's purge pipelines, a re-index step in each `delete…Translation`, and a re-index step after the write of `setSettings`, `setRedirects` and each generic single |
 | `links` | kestrel-links-default | `brokenLinks`, `rebuildLinks`, `checkLinks` (cron); extract/unextract steps in `createPage`, `updatePage`, `deletePage`, and a re-extract step in `deletePageTranslation` when it exists |
-| `delivery` | kestrel-delivery-static + kestrel-renderer-nuxt | `pagePublishStatus`, `publishAllPages`, `pagesStaleStatus`, `retryStalePages`, `resumeStalePages` (cron), `deliveryBuildCheck` (run at start), two event pipelines that publish the saved page: `publishPage` (triggered by `page.created`, `page.updated`, `page.restored`, and `page.translationRemoved` when the model is translatable) and `unpublishPage` (triggered by `page.deleted`), and the dependents pipelines that re-render the pages showing a change: `pageDependents`, one `<name>Dependents` per collection, `settingsDependents`, `mediaDependents`, with `eventsQueue` also `republishOutput`, `refreshIndexes` and `refreshLlms` — see the notes below the table |
+| `delivery` | kestrel-delivery-static + kestrel-renderer-nuxt | `pagePublishStatus`, `publishAllPages`, `pagesStaleStatus`, `retryStalePages`, `resumeStalePages` (cron), `deliveryBuildCheck` (run at start), two event pipelines that publish the saved page: `publishPage` (triggered by `page.created`, `page.updated`, `page.restored`, and `page.translationRemoved` when the model is translatable) and `unpublishPage` (triggered by `page.deleted`), and the dependents pipelines that re-render the pages showing a change: `pageDependents`, one `<name>Dependents` per collection, `settingsDependents`, `mediaDependents`, with `eventsQueue` also `republishOutput`, `refreshIndexes` and `refreshLlms`, and `serveSitemapXml`, `serveRobotsTxt`, `serveLlmsTxt`, `serveLlmsFullTxt` at `GET /sitemap.xml`, `/robots.txt`, `/llms.txt`, `/llms-full.txt` (§8, "Index files") — see the notes below the table |
 | `redirects` | kestrel-redirects-default | `getRedirects`, `setRedirects`, `renderRedirects`; redirect-lookup step in `resolvePage`; export step at the end of `publishAllPages` (only when `delivery` is also on); the editor refuses a source under `/api`, `/admin`, `/media`, the build assets path (`/_nuxt` unless the site moves it, see `buildAssetsPath`), `/__nuxt_island`, `/__nuxt_error`, `/_ipx` or `/_preview` (the list the preset hands to redirects-default as `reservedPaths`) |
 | `images` | kestrel-images-default | Routes, an event and a cron job for image variants, plus boot-time size registration — see the list below the table |
 | `replication` | kestrel-replication-sqlite | `replicate` (cron), `replicationStatus`, `replicationPoints`, `replicationSnapshot`, `replicationRestore` |
@@ -2012,7 +2015,8 @@ of any page referencing it. Rules that follow from that:
 - Files from your `public/` directory (favicon, fonts) are not exported — serve `.output/public` next to
   `site/`, or put such files in the media library. `robots.txt` and `sitemap.xml` are written by the export
   (below) and replace a file of that name under the prefix; a `robots.txt` of your own needs `robots: false`,
-  a `sitemap.xml` of your own `sitemap: false`, both set before the first start.
+  a `sitemap.xml` of your own `sitemap: false`, both set before the first start. The Node server answers a
+  `public/robots.txt` or `public/sitemap.xml` before the exported one (below, "Served by the Node server").
 
 Minimal nginx location for a filesystem blobstore (`root` = `<blobstore root>/site`):
 
@@ -2116,6 +2120,24 @@ export (§4, the `delivery` notes), and the export runs on its own.
 A failed export never fails a save and never stops a render; the queue retries it, and its outcome (time,
 entries, error, skipped) is shown under System → Delivery.
 
+**Served by the Node server.** The Node server answers `GET` and `HEAD` on `/sitemap.xml`, `/robots.txt`,
+`/llms.txt` and `/llms-full.txt` with the file the last export wrote under the prefix, so a site started with
+`nuxt dev` or with `node .output/server/index.mjs` serves what the static host serves: the same bytes, the
+content type the export writes them with (`application/xml; charset=utf-8` for `sitemap.xml`,
+`text/plain; charset=utf-8` for the others), shown inline, with an `ETag` (the file's SHA-256) and
+`Cache-Control: no-cache`. A file the export has not written answers 404: `sitemap.xml` without a site URL
+or with `sitemap: false`, `llms-full.txt` without `llms.full`, any of them before the first export. While the
+blob store cannot be reached, the answer is 503. The site allowlist (`NUXT_KESTREL_ACCESS_SITE`) applies to
+these paths as to every page. A file of the same name in your `public/` directory is served first: Nuxt
+answers its public files before any server route, so a `public/robots.txt` of your own is what the Node
+server sends, while the export still writes its own `robots.txt` under the prefix unless `robots: false`.
+The preset's pipelines behind the four paths are `serveSitemapXml`, `serveRobotsTxt`, `serveLlmsTxt` and
+`serveLlmsFullTxt`, each `delivery.readIndexFile:<file>`; they exist only with `delivery`, and without it the
+four paths answer 404. Under `nuxt dev` no page is rendered, so `sitemap.xml` and `llms.txt` are there only
+when a production start on the same data directory exported them; `robots.txt` is written after the first
+save. Behind a static host that serves the export at the root, the host answers these paths itself and the
+Node server never sees them.
+
 **Leftover page files.** On a database from an earlier version, `resumeStalePages` removes once the page files
 under `site/` that no page owns: every `index.<ext>` at a path that no published page has, such as the files an
 older version left behind after a failed render followed by a slug change. It starts only after
@@ -2148,7 +2170,13 @@ to its own steps; without it, internal links keep the unprefixed form. The Node 
 default-locale path without the prefix, under the prefixed canonical link. With `delivery`, a value that is
 not such a URL (no scheme, credentials, a query or a fragment) stops the config from loading. Without a site
 URL no `sitemap.xml` is written, `llms.txt` lists paths instead of URLs, pages carry no canonical link or
-`og:url`, and the server warns at start. When a hand-written `delivery-static` entry, or an override of its
+`og:url`, and the server warns at start. Under `nuxt dev`, an empty `NUXT_PUBLIC_SITE_URL` stands for the
+dev server's own origin: the protocol, host and port it listens on, with `app.baseURL` as the base path
+(`http://localhost:3000`, `https://localhost:3000` with `--https`, `localhost` when it listens on every
+interface, a bracketed address such as `http://[::1]:3000` for an IPv6 host). The pages' canonical link and
+`og:url`, the admin's preview links and the site URL `delivery-static` builds the index files from all take
+it, and the dev log names it once. A value you set always wins, and a production build never derives one.
+When a hand-written `delivery-static` entry, or an override of its
 `siteUrl`, holds another URL than the variable, the server warns at start, naming both. Every page also
 carries `og:site_name`, the site settings title. The page sets its canonical link, `og:url` and `og:site_name`
 with `tagPriority: "high"`, so they replace tags of the same key set in `app.vue`, a layout, a block or
@@ -2605,6 +2633,11 @@ What changes:
   automatically (add `@michaelthielemann/kestrel-sanitize-svg` to your dependencies too).
 - Listing media or its folders (`GET /api/media` without `ids`, `GET /api/media/folders`) now requires a
   signed-in caller and answers `401` to a public request; reading one item by id stays anonymous.
+- With `delivery`, the Node server answers `/sitemap.xml`, `/robots.txt`, `/llms.txt` and `/llms-full.txt`
+  from the last export (§8, "Index files"), where it answered 404 before; a file of that name in `public/`
+  still wins. A hand-written `authz-roles` entry needs `indexFile: ["headers.cache-control", "headers.etag"]`
+  in its `anonymousFields`, or the server does not start; `preset/field-grants` names the grant. Under
+  `nuxt dev`, an empty `NUXT_PUBLIC_SITE_URL` now stands for the dev server's own origin (§8, "Site URL").
 - A caller without a session receives only the fields `anonymousFields` grants (§4, "What a visitor
   without a session receives"): no `createdAt` or `updatedAt` of a document, no `folder`, timestamps,
   `available` or `variantCounts` of a media item, no `bytes` or `state` of a variant. Signed-in editors and
@@ -2732,12 +2765,11 @@ What changes:
 - Static delivery writes `sitemap.xml` and `robots.txt` next to `llms.txt` and `llms-full.txt` and keeps
   all four current (§8, "Index files"). Set `NUXT_PUBLIC_SITE_URL` before the first start, or pages carry no
   canonical link and no sitemap is written, and decide the robots policy: without `robots.policy` or `KESTREL_ROBOTS_POLICY` a
-  production build allows crawlers, `nuxt dev` keeps them out. The Node server never serves the exported
-  `robots.txt`: it answers `/robots.txt` from `public/` or else with 404, which crawlers take as allowing
-  everything, so the policy, `disallow` on a staging server included, takes effect only where the host
-  serves `site/robots.txt` at its root ([`deployment.md`](deployment.md) §7, "Index files"). Behind a plain
-  proxy to the Node server, a `robots.txt` of your own in `public/` is the one crawlers get; keep it until
-  the host serves the exported file, which a `robots.txt` of your own then competes with. The first start overwrites a
+  production build allows crawlers, `nuxt dev` keeps them out. The Node server answers `/robots.txt` with the
+  exported file ([`deployment.md`](deployment.md) §7, "Index files"), but a `robots.txt` of your own in
+  `public/` comes first and is the one crawlers get from it, so remove that file to let the policy decide,
+  `disallow` on a staging server included. A host that serves the export answers with the exported file, and
+  a `robots.txt` of your own served by the web server competes with it. The first start overwrites a
   `robots.txt` or `sitemap.xml` under the prefix, so set `robots: false` (and `sitemap: false` for a sitemap of
   your own) before it; afterwards `<prefix>robots.txt` must be deleted by hand. Every site page now sets its
   canonical link, `og:url` and `og:site_name`, which replace tags of the same key from `app.vue`, a layout, a

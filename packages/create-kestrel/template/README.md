@@ -26,19 +26,21 @@ With the `delivery` feature, every published page is written as static HTML unde
 - `NUXT_PUBLIC_SITE_URL` is the public site's absolute URL, such as `https://example.org` or, for a site
   below the host's root, `https://example.org/site`. Every page's canonical link and `og:url`, the
   sitemap's URLs, the `Sitemap:` line in `robots.txt` and the links in the llms files are built from it.
-  Without it no `sitemap.xml` is written, pages carry no canonical link and the server warns at start.
-  Changing it re-renders every published page at the next start.
+  Without it a production build writes no `sitemap.xml`, its pages carry no canonical link and the server
+  warns at start; under `__DEV_COMMAND__` an empty value stands for the dev server's own address, such as
+  `http://localhost:3000`. Changing it re-renders every published page at the next start.
 - `KESTREL_ROBOTS_POLICY` decides what `robots.txt` says: `allow` lets crawlers in, `disallow` keeps them
   out. Left unset, a production build (`__BUILD_COMMAND__`, started with `node .output/server/index.mjs`) allows
   crawlers whatever `NODE_ENV` the process has, `__DEV_COMMAND__` keeps them out, and the server warns at start.
   Set `disallow` on a staging server that runs a production build. A changed policy is written at the next
   start.
 
-The Node server does not serve these four files: it answers `/robots.txt`, `/sitemap.xml`, `/llms.txt` and
-`/llms-full.txt` with 404, and a crawler takes a missing `robots.txt` as allowing everything, so a
-`disallow` policy keeps crawlers out only once the host serves the exported file. Serve the four paths from
-the export at the root of the host, next to the proxy to the Node server, for example with nginx and the
-filesystem blobstore, where `<data dir>` is `KESTREL_DATA_DIR` or `data/` under the app root:
+The Node server answers `/robots.txt`, `/sitemap.xml`, `/llms.txt` and `/llms-full.txt` with the files the
+last export wrote, the same bytes a host serving the export sends, and 404 for one it has not written
+(`sitemap.xml` without a site URL, any of them before the first export). A file of the same name in your
+`public/` directory is served instead. A host in front may serve the four paths from the export itself, next
+to the proxy to the Node server, for example with nginx and the filesystem blobstore, where `<data dir>` is
+`KESTREL_DATA_DIR` or `data/` under the app root:
 
 ```nginx
 location ~ ^/(robots\.txt|sitemap\.xml|llms\.txt|llms-full\.txt)$ {
@@ -51,8 +53,8 @@ location ~ ^/(robots\.txt|sitemap\.xml|llms\.txt|llms-full\.txt)$ {
 `charset utf-8` keeps the files readable as UTF-8, and `expires -1` marks them `no-cache` without an
 `add_header`, which would drop the server block's own headers, such as `Strict-Transport-Security`, from
 these responses. nginx answers the four paths itself, so `NUXT_KESTREL_ACCESS_SITE` does not cover them: with
-a site allowlist set, give the location the same addresses as `allow` lines followed by `deny all;`, or serve
-only `robots.txt`. With an S3 blobstore, proxy each path to its object under `site/` instead; those objects
+a site allowlist set, give the location the same addresses as `allow` lines followed by `deny all;`, or leave
+the location out and let the Node server answer. With an S3 blobstore, proxy each path to its object under `site/` instead; those objects
 must allow anonymous reads, or the proxy must sign its requests, since a crawler takes a 403 `robots.txt` as
 allowing everything. Check that `/robots.txt` answers 200. With `robots: false` or `sitemap: false` in
 `kestrel.config.ts`, the file at that path is your own: take `robots\.txt` or `sitemap\.xml` out of the
