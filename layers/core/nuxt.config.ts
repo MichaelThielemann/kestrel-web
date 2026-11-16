@@ -20,6 +20,7 @@ export default defineNuxtConfig({
     fileURLToPath(new URL("./modules/schemas/index.ts", import.meta.url)),
     fileURLToPath(new URL("./modules/consumer-entries/index.ts", import.meta.url)),
     fileURLToPath(new URL("./modules/optional-modules/index.ts", import.meta.url)),
+    fileURLToPath(new URL("./modules/dev-site-url/index.ts", import.meta.url)),
   ],
   alias: { ...EARLY_ALIASES },
   hooks: {
