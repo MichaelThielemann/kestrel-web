@@ -379,8 +379,8 @@ Points that matter:
   answers `/robots.txt`, `/sitemap.xml`, `/llms.txt` and `/llms-full.txt` from there: the bytes of the last
   export, with the content type the export writes them with, `Cache-Control: no-cache` and an `ETag`, and 404
   for a file the export has not written (`sitemap.xml` without a site URL, `llms-full.txt` without
-  `llms.full`). The site allowlist (`NUXT_KESTREL_ACCESS_SITE`) covers them like every page. A file of the
-  same name in the app's `public/` directory is served instead, so with `robots: false` or `sitemap: false`
+  `llms.full`). The site allowlist (`NUXT_KESTREL_ACCESS_SITE`) covers the exported files like every page. A
+  file of the same name in the app's `public/` directory is served instead, before the allowlist runs, so with `robots: false` or `sitemap: false`
   in `presetModuleConfig()` a `public/robots.txt` or `public/sitemap.xml` of your own is what crawlers get.
   The regex location above is optional: nginx answers the four paths first, from the same files, and the
   request never reaches the Node server. The bytes are the same either way. nginx's user needs read access to

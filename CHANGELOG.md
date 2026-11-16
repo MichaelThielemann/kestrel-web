@@ -11,8 +11,9 @@
   `node .output/server/index.mjs` serve what the static host serves: the content type the export writes
   (`application/xml; charset=utf-8` for `sitemap.xml`, `text/plain; charset=utf-8` for the others), inline,
   with the file's SHA-256 as `ETag` and `Cache-Control: no-cache`, 404 for a file the export has not written
-  and 503 while the blob store cannot be reached. The site allowlist applies to them, and a file of the same
-  name in the app's `public/` directory is answered first. The preset composes `serveSitemapXml`,
+  and 503 while the blob store cannot be reached, always with the full body. The site allowlist applies to the
+  exported files; a file of the same name in the app's `public/` directory is answered first, before the
+  allowlist. The files are answered only while `app.baseURL` is `/`. The preset composes `serveSitemapXml`,
   `serveRobotsTxt`, `serveLlmsTxt` and `serveLlmsFullTxt` (`delivery.readIndexFile:<file>`, then
   `authz.fields:indexFile?shape=file`) at `GET /<file>`, and `presetModuleConfig()` grants anonymous callers the
   headers `etag` and `cache-control` of `indexFile`; a hand-written `authz-roles` entry needs

@@ -2127,10 +2127,13 @@ content type the export writes them with (`application/xml; charset=utf-8` for `
 `text/plain; charset=utf-8` for the others), shown inline, with an `ETag` (the file's SHA-256) and
 `Cache-Control: no-cache`. A file the export has not written answers 404: `sitemap.xml` without a site URL
 or with `sitemap: false`, `llms-full.txt` without `llms.full`, any of them before the first export. While the
-blob store cannot be reached, the answer is 503. The site allowlist (`NUXT_KESTREL_ACCESS_SITE`) applies to
-these paths as to every page. A file of the same name in your `public/` directory is served first: Nuxt
-answers its public files before any server route, so a `public/robots.txt` of your own is what the Node
-server sends, while the export still writes its own `robots.txt` under the prefix unless `robots: false`.
+blob store cannot be reached, the answer is 503. Every request is answered in full: a matching
+`If-None-Match` gets the same 200 and body, not a 304. The site allowlist (`NUXT_KESTREL_ACCESS_SITE`) applies
+to the exported files as to every page. A file of the same name in your `public/` directory is served first:
+Nuxt answers its public files before any server route and before the allowlist, so a `public/robots.txt` of
+your own is what the Node server sends, to every address, while the export still writes its own `robots.txt`
+under the prefix unless `robots: false`. The Node server answers the four paths only while `app.baseURL` is
+`/`; below another base URL they answer 404.
 The preset's pipelines behind the four paths are `serveSitemapXml`, `serveRobotsTxt`, `serveLlmsTxt` and
 `serveLlmsFullTxt`, each `delivery.readIndexFile:<file>`; they exist only with `delivery`, and without it the
 four paths answer 404. Under `nuxt dev` no page is rendered, so `sitemap.xml` and `llms.txt` are there only
@@ -2197,9 +2200,10 @@ server that runs a production build.
 `robots: false` leaves `robots.txt` to you, and `sitemap: false` `sitemap.xml`; set them before the first start,
 which overwrites a file of that name under the prefix. `robots: false` leaves a `robots.txt` the export already
 wrote in place: delete `<prefix>robots.txt` by hand. Crawlers read `robots.txt` only at the root of a host: with a
-base path in the site URL, serve one at the host's root yourself. The Node server serves none of the four index
-files, so a deployment that proxies the site to it serves them from the export (`docs/deployment.md` §7, "Index
-files"); a static host for the whole export serves them already.
+base path in the site URL, serve one at the host's root yourself. The Node server answers the four index files
+from the export ("Served by the Node server" above), so a deployment that proxies the site to it needs nothing
+more; a host in front of it may serve them itself (`docs/deployment.md` §7, "Index files"), and a static host for
+the whole export serves them already.
 
 Configure the llms files under `llms`: `full: true` writes `llms-full.txt`, `headings` maps a type to its
 section heading (default: the type name). The editor's "SEO & GEO" section explains the double use to editors.
@@ -2653,8 +2657,9 @@ What changes:
     resource than the preset's. Move your `exclude` and `overrides` into one `PresetPipelineChanges`
     object and pass it to `presetModuleConfig({ pipelines })` as well: a resource whose every read it
     excludes, or overrides behind a session, then gets no derived grant. `preset/field-grants` reports a
-    derived grant no pipeline cuts because the two functions got different changes, and an own pipeline
-    whose resource needs a grant you name.
+    derived grant no pipeline cuts because the two functions got different changes, an own pipeline
+    whose resource needs a grant you name, and a hand-written `anonymousFields` that leaves out a resource
+    a preset read anonymous callers reach still cuts.
   - A pipeline of your own that anonymous callers reach ends with the step as well; `pipelines/field-step`
     appends it when it can tell the resource from the step that reads the answer.
   - A page keeps that shape for every viewer: its data (`useSitePage()`, the `site:<path>` key) carries no

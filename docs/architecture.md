@@ -327,8 +327,9 @@ forwarding header was ignored because the peer is not a trusted proxy is logged 
 `/media/**` and the index file handlers. Each answers `HEAD` on every route it answers `GET` on, through the same pipeline and with the
 headers of the `GET`, so `curl -I` on a media file or on `/api/media/<id>/file` reports what a download would. Only Nitro's in-process `localFetch` (SSR, publishing, static delivery) passes
 unchecked, recognized by its mock socket; the `nuxt dev` server does not enforce the lists. IPv4-mapped IPv6
-addresses are checked as IPv4. Nitro serves the hashed `/_nuxt/*` build assets before server middleware runs, so those stay
-reachable even with a closed `site` list — they carry no content.
+addresses are checked as IPv4. Nitro serves the hashed `/_nuxt/*` build assets and the app's own `public/` files before
+server middleware runs, so those stay reachable even with a closed `site` list; a `public/robots.txt` that wins over the
+exported one is among them.
 
 ## Consumer contract
 An app that extends `kestrel-web` provides, at its root:
@@ -591,7 +592,9 @@ when a consumer passes different changes to the two functions, that refusal is t
 plugin adds to it (`server/utils/field-grant-hint.ts`) that both functions need the same `exclude` and
 `overrides`. The template and the playground keep them in one `PresetPipelineChanges` object passed to
 both. A consumer pipeline that cuts a resource whose preset reads are all excluded needs that resource in
-`roles.anonymousFields`; `preset/field-grants` in the upgrade tool reports both cases before boot.
+`roles.anonymousFields`; `preset/field-grants` in the upgrade tool reports both cases before boot, and a
+hand-written `authz-roles` entry whose grants leave out a resource a preset read anonymous callers reach still
+cuts.
 
 ## Content migrations
 A consumer that changes a block's props or a collection's field shape needs existing documents rewritten,
@@ -2195,7 +2198,10 @@ only these four routes and their `HEAD` twins, mounted with no prefix and with `
 `text/plain` as inline types, so a browser shows the files rather than downloading them;
 `layers/core/nuxt.config.ts` registers it on the four paths for `GET` and `HEAD`, and `layers/public`'s
 `asset-404` middleware lets the four paths through. Without `delivery` the routes do not exist and the
-handler answers 404. The same routes also answer under `/api`, as the media file route does.
+handler answers 404. The same routes also answer under `/api`, as the media file route does. The handler
+answers every request with the full body; neither it nor kestrel's h3 adapter answers `If-None-Match` with a
+304, so the `ETag` is informational. `asset-404` and the routes match the four unprefixed paths, so the files
+are answered only while `app.baseURL` is `/`; below another base URL they answer 404.
 
 Nitro serves the app's public assets (`public/`, and `.output/public` in a build) before any server handler,
 so a `public/robots.txt` of the consumer's own is what the Node server sends at `/robots.txt`. A static host
