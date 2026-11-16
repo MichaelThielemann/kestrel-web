@@ -60,7 +60,7 @@ of this repository, point `extends` at its path instead (as `playground/nuxt.con
 `extends: [".."]`).
 
 A kestrel-web release pins one Kestrel minor line — its `@michaelthielemann/kestrel*` dependencies are
-`^5.8.0` — so the `@michaelthielemann/kestrel` you install directly has to come from that same line.
+`^6.0.0` — so the `@michaelthielemann/kestrel` you install directly has to come from that same line.
 See §11 before moving to a newer kestrel-web.
 
 ## 2. Define your content model
@@ -2470,7 +2470,7 @@ writes nothing) and an apply button (confirm, then run, then refresh) — see
 ## 11. Upgrading
 
 kestrel-web and the Kestrel backend move together: a kestrel-web release depends on one Kestrel minor
-line (currently `^5.8.0`), so bump `@michaelthielemann/kestrel` — and any `@michaelthielemann/kestrel-*`
+line (currently `^6.0.0`), so bump `@michaelthielemann/kestrel` — and any `@michaelthielemann/kestrel-*`
 package you list yourself, such as `kestrel-insights` — in the same step as
 `@michaelthielemann/kestrel-web`. A mismatched pair fails at boot with the missing step or contract
 named, not silently.

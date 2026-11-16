@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 3.0.0 – 2026-11-16
+
 ### Added
 
 - The upgrade plugin answers kestrel's `ops` hook (plugin API 6). `kestrel update prepare` and `kestrel update
@@ -1241,6 +1243,8 @@
 
 ### Changed
 
+- The layer's `@michaelthielemann/kestrel*` dependencies are `^6.0.0`. `create-kestrel` 6.0.0 asks for this
+  release of the layer and for Kestrel 6.
 - The `ratelimit` feature's default `login` bucket allows 20 requests per client address and minute instead of
   five. It counts every request to `POST /api/login` and `POST /api/login/second-factor`, successful ones
   included, and a sign-in with a second factor takes two of them, setting one up three; several people signing in
