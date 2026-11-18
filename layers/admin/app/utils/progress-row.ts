@@ -12,11 +12,14 @@ export interface ProgressRowStatus {
   busy?: boolean
 }
 
+/** Fill colour of a `KestrelUiProgress` bar. */
+export type ProgressTone = 'default' | 'success' | 'warning' | 'danger' | 'muted'
+
 /** The thin bar of a `KestrelUiProgressRow`. */
 export interface ProgressRowProgress {
   /** Percent, 0–100; leave it out for an indeterminate bar. */
   value?: number
   label: string
   valueText?: string
-  tone?: 'default' | 'success' | 'danger'
+  tone?: ProgressTone
 }

@@ -1,13 +1,13 @@
 import type { Translate } from '#kestrel-admin/actions/types'
 import type { MediaVariantCounts } from '#kestrel-admin/types/api'
-import type { ProgressRowProgress, ProgressRowStatus, ProgressRowTone } from './progress-row'
+import type { ProgressRowProgress, ProgressRowStatus, ProgressRowTone, ProgressTone } from './progress-row'
 import type { QueueEntry, UploadSummary } from './upload-queue'
 import { variantTotal } from './variant-state'
 
-/** Where the image variants of one upload stand; `pending` carries counts once the server reported them. */
+/** Where the image variants of one upload stand; `pending` carries counts once the server reported them, and `generating` once the server is at work on them. */
 export type UploadVariantPhase =
   | { kind: 'none' }
-  | { kind: 'pending'; done?: number; total?: number }
+  | { kind: 'pending'; done?: number; total?: number; generating?: boolean }
   | { kind: 'stalled' }
   | { kind: 'failed'; failed: number; total: number }
   | { kind: 'ready' }
@@ -28,22 +28,32 @@ export interface UploadVariantContext {
 
 type PhaseEntry = Pick<QueueEntry, 'status'> & { file: { type: string }; result?: { contentType: string } }
 
-/** The variant phase of one upload: before the response an image is `pending` without counts, after it the counts decide; a file without variants is `none`. */
+/**
+ * The variant phase of one upload: before the response an image is `pending` and `generating` without counts, after it
+ * the counts decide, and it is `generating` once a size is done or failed; a file without variants is `none`.
+ */
 export function uploadVariantPhase(item: PhaseEntry, context: UploadVariantContext): UploadVariantPhase {
   if (!context.images) return { kind: 'none' }
-  if (item.status === 'processing') return item.file.type.startsWith('image/') ? { kind: 'pending' } : { kind: 'none' }
+  if (item.status === 'processing') return item.file.type.startsWith('image/') ? { kind: 'pending', generating: true } : { kind: 'none' }
   if (item.status !== 'done' || !item.result?.contentType.startsWith('image/')) return { kind: 'none' }
   if (context.stalled) return { kind: 'stalled' }
   const counts = context.source?.variantCounts
   if (!counts) return { kind: 'pending' }
   const total = variantTotal(counts)
-  if (context.source?.available === false || counts.pending > 0) return total > 0 ? { kind: 'pending', done: counts.done, total } : { kind: 'pending' }
-  if (total === 0) return { kind: 'none' }
   const failed = counts.error + counts.failed
+  if (context.source?.available === false || counts.pending > 0) {
+    if (total === 0) return { kind: 'pending' }
+    return counts.done + failed > 0 ? { kind: 'pending', done: counts.done, total, generating: true } : { kind: 'pending', done: counts.done, total }
+  }
+  if (total === 0) return { kind: 'none' }
   return failed > 0 ? { kind: 'failed', failed, total } : { kind: 'ready' }
 }
 
-/** How one upload shows its state: status icon and text, a bar only while it uploads or its variants are generated, a message line and the row tone. */
+/**
+ * How one upload shows its state: status icon and text, the bar, a message line and the row tone. The bar fills while
+ * the file uploads, stands full until its variants start, runs striped while they are generated and ends full in the
+ * tone of the outcome; a waiting or skipped file has none.
+ */
 export interface UploadStateView {
   status: ProgressRowStatus
   progress?: ProgressRowProgress
@@ -59,28 +69,33 @@ export interface UploadStateVariants {
 
 type Entry = Pick<QueueEntry, 'status' | 'progress' | 'message'> & { filename: string; totalKnown?: boolean }
 
+function full(label: string, valueText: string, tone: ProgressTone = 'default'): ProgressRowProgress {
+  return { value: 100, label, valueText, tone }
+}
+
 function variantsView(phase: UploadVariantPhase, label: string, canRetry: boolean, t: Translate): UploadStateView | null {
   switch (phase.kind) {
     case 'pending': {
-      if (phase.total === undefined || phase.done === undefined) {
-        const text = t('media.upload.processing')
-        return { tone: 'default', status: { text, busy: true }, progress: { label, valueText: text } }
-      }
-      const counts = { done: phase.done, total: phase.total }
-      return {
-        tone: 'default',
-        status: { text: t('media.upload.variantsProgress', counts), busy: true },
-        progress: { value: (phase.done / phase.total) * 100, label, valueText: t('media.upload.variantsValue', counts) },
-      }
+      const counted = phase.total !== undefined && phase.done !== undefined
+      const counts = counted ? { done: phase.done, total: phase.total } : undefined
+      const text = counts ? t('media.upload.variantsProgress', counts) : t('media.upload.processing')
+      const valueText = counts ? t('media.upload.variantsValue', counts) : t('media.upload.processing')
+      const progress = phase.generating ? { label, valueText } : full(label, valueText)
+      return { tone: 'default', status: { text, busy: true }, progress }
     }
-    case 'stalled':
-      return { tone: 'default', status: { text: t('media.tile.variantsStalledShort'), icon: 'clock', tone: 'muted' }, message: t('media.tile.variantsStalled') }
-    case 'failed':
+    case 'stalled': {
+      const text = t('media.tile.variantsStalledShort')
+      return { tone: 'default', status: { text, icon: 'clock', tone: 'muted' }, progress: full(label, text, 'muted'), message: t('media.tile.variantsStalled') }
+    }
+    case 'failed': {
+      const text = t('media.upload.variantsFailedCount', { n: phase.failed, total: phase.total })
       return {
         tone: 'default',
-        status: { text: t('media.upload.variantsFailedCount', { n: phase.failed, total: phase.total }), icon: 'triangle-alert', tone: 'warning' },
+        status: { text, icon: 'triangle-alert', tone: 'warning' },
+        progress: full(label, text, 'warning'),
         message: t(canRetry ? 'media.tile.variantsFailedRetry' : 'media.tile.variantsFailedAsk'),
       }
+    }
     default:
       return null
   }
@@ -103,19 +118,25 @@ export function uploadStateView(item: Entry, t: Translate, variants?: UploadStat
       return { tone: 'default', status: { text, busy: true }, progress }
     }
     case 'processing':
-      return { tone: 'default', status: { text: t('media.tile.processing'), busy: true }, progress: { value: 100, label, valueText: t('media.tile.processing') } }
-    case 'done':
-      return { tone: 'default', status: { text: t('media.upload.done'), icon: 'circle-check', tone: 'success' } }
-    case 'failed':
-      return { tone: 'danger', status: { text: t('media.upload.failed'), icon: 'circle-x', tone: 'danger' }, message: item.message }
-    case 'cancelled':
-      return { tone: 'muted', status: { text: t('media.upload.cancelled'), icon: 'x', tone: 'muted' } }
+      return { tone: 'default', status: { text: t('media.tile.processing'), busy: true }, progress: full(label, t('media.tile.processing')) }
+    case 'done': {
+      const text = t('media.upload.done')
+      return { tone: 'default', status: { text, icon: 'circle-check', tone: 'success' }, progress: full(label, text, 'success') }
+    }
+    case 'failed': {
+      const text = t('media.upload.failed')
+      return { tone: 'danger', status: { text, icon: 'circle-x', tone: 'danger' }, progress: full(label, text, 'danger'), message: item.message }
+    }
+    case 'cancelled': {
+      const text = t('media.upload.cancelled')
+      return { tone: 'muted', status: { text, icon: 'x', tone: 'muted' }, progress: { value: item.progress, label, valueText: text, tone: 'muted' } }
+    }
     case 'skipped':
       return { tone: 'muted', status: { text: t('media.upload.wasSkipped'), icon: 'minus', tone: 'muted' }, message: item.message }
   }
 }
 
-/** How a whole run shows in the panel header: its status, the upload count, a detail line on variant trouble, the text for the live region, the overall bar's percent and tone. */
+/** How a whole run shows in the panel header: its status, the upload count, a detail line on variant trouble, the text for the live region and the overall bar. */
 export interface UploadRunView {
   /** While files upload, a spinner with the count; then the variant phase, then the outcome. */
   status: ProgressRowStatus
@@ -127,19 +148,24 @@ export interface UploadRunView {
   detail?: string
   /** What screen readers hear: the count and the phase, never the per-file variant progress. */
   liveText: string
-  /** Settled files plus the sent share of the running ones, in percent of the files to be sent. */
-  overall: number
-  barTone: NonNullable<ProgressRowProgress['tone']>
+  /**
+   * The overall bar: while files upload, the settled files plus the sent share of the running ones in percent of the
+   * files to be sent; then full, without a value while any file's variants are generated, and in the tone of the outcome.
+   */
+  bar: { value?: number; tone: ProgressTone }
 }
 
-interface VariantTally { files: number; pending: number; failed: number; stalled: number }
+interface VariantTally { files: number; pending: number; generating: number; failed: number; stalled: number }
 
 function tally(phases: readonly UploadVariantPhase[]): VariantTally {
-  const counts: VariantTally = { files: 0, pending: 0, failed: 0, stalled: 0 }
+  const counts: VariantTally = { files: 0, pending: 0, generating: 0, failed: 0, stalled: 0 }
   for (const phase of phases) {
     if (phase.kind === 'none') continue
     counts.files++
-    if (phase.kind === 'pending') counts.pending++
+    if (phase.kind === 'pending') {
+      counts.pending++
+      if (phase.generating) counts.generating++
+    }
     else if (phase.kind === 'failed') counts.failed++
     else if (phase.kind === 'stalled') counts.stalled++
   }
@@ -180,7 +206,7 @@ export function uploadRunView(summary: UploadSummary, t: Translate, items: reado
   const overall = total ? ((summary.settled + running) / total) * 100 : 0
   const variants = tally(phases)
 
-  if (!summary.finished) return { status: { text: countText, busy: true }, countText, liveText: countText, overall, barTone: 'default' }
+  if (!summary.finished) return { status: { text: countText, busy: true }, countText, liveText: countText, bar: { value: overall, tone: 'default' } }
 
   const status = finishedStatus(summary, variants, t)
   const trail = variants.pending || failed || cancelled ? countText : skipped ? t('media.upload.countSkipped', { n: skipped }) : undefined
@@ -188,8 +214,13 @@ export function uploadRunView(summary: UploadSummary, t: Translate, items: reado
   const liveText = variants.pending
     ? `${countText}. ${t('media.upload.processing')}`
     : [status.text, trail, detail].filter(Boolean).join('. ')
-  let barTone: UploadRunView['barTone'] = 'default'
-  if (failed) barTone = 'danger'
-  else if (done === total && !variants.pending && !variants.failed && !variants.stalled) barTone = 'success'
-  return { status, countText, trail, detail, liveText, overall, barTone }
+  return { status, countText, trail, detail, liveText, bar: finishedBar(summary, variants, overall) }
+}
+
+function finishedBar(summary: UploadSummary, variants: VariantTally, overall: number): UploadRunView['bar'] {
+  if (variants.pending) return variants.generating ? { tone: 'default' } : { value: overall, tone: 'default' }
+  if (summary.failed) return { value: overall, tone: 'danger' }
+  if (variants.failed) return { value: overall, tone: 'warning' }
+  if (variants.stalled || summary.cancelled) return { value: overall, tone: 'muted' }
+  return { value: overall, tone: summary.done === summary.total ? 'success' : 'default' }
 }

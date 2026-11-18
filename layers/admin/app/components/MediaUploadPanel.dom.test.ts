@@ -285,7 +285,8 @@ describe('MediaUploadPanel variant phase', () => {
     expect(pending?.text()).toBe('Generating variants (3 of 8)')
     expect(pending?.find('.ui-spinner[aria-hidden="true"]').exists()).toBe(true)
     const bar = wrapper.findAll('.ui-progress-row')[1]?.get('[role="progressbar"]')
-    expect(bar?.attributes('aria-valuenow')).toBe('38')
+    expect(bar?.attributes('aria-valuenow')).toBeUndefined()
+    expect(bar?.classes()).toContain('ui-progress--indeterminate')
     expect(bar?.attributes('aria-label')).toBe('Progress: b.jpg')
     expect(bar?.attributes('aria-valuetext')).toBe('3 of 8 variants generated')
     expect(rowStatus(wrapper, 0)?.text()).toBe(en['media.upload.done'])
@@ -296,7 +297,23 @@ describe('MediaUploadPanel variant phase', () => {
     expect(parts[0]?.find('.ui-spinner').exists()).toBe(true)
     expect(head.find('.ui-spinner').exists()).toBe(true)
     expect(head.find('svg[data-icon="circle-check"]').exists()).toBe(false)
+    const overall = wrapper.get(`[role="progressbar"][aria-label="${en['media.upload.overall']}"]`)
+    expect(overall.attributes('aria-valuenow')).toBeUndefined()
+    expect(overall.attributes('aria-valuetext')).toBe('2 of 2 uploaded')
+    expect(overall.classes()).toContain('ui-progress--indeterminate')
     expect(button(wrapper, en['common.close'])?.attributes('disabled')).toBeUndefined()
+  })
+
+  it('keeps row and header bars full while every upload is done and no variant has started', async () => {
+    schema.features = ['images']
+    const wrapper = await mountRun([upload(media('a', counts(0, 8))), upload(media('b', counts(0, 8)))])
+
+    const bars = wrapper.findAll('[role="progressbar"]')
+    expect(bars).toHaveLength(3)
+    for (const bar of bars) {
+      expect(bar.attributes('aria-valuenow')).toBe('100')
+      expect(bar.classes()).toContain('ui-progress--default')
+    }
   })
 
   it('keeps the per-file counts out of the live region', async () => {
@@ -315,11 +332,18 @@ describe('MediaUploadPanel variant phase', () => {
     const wrapper = await mountRun(items)
     expect(rowStatus(wrapper, 0)?.text()).toBe('Generating variants (0 of 4)')
 
+    await wrapper.setProps({ variantResults: new Map([['a', entry(counts(1, 3))]]) })
+    expect(rowStatus(wrapper, 0)?.text()).toBe('Generating variants (1 of 4)')
+    expect(wrapper.findAll('.ui-progress-row')[0]?.get('[role="progressbar"]').classes()).toContain('ui-progress--indeterminate')
+
     await wrapper.setProps({ variantResults: new Map([['a', entry(counts(4, 0))]]) })
 
     expect(rowStatus(wrapper, 0)?.text()).toBe(en['media.upload.done'])
     expect(rowStatus(wrapper, 0)?.find('svg[data-icon="circle-check"]').exists()).toBe(true)
-    expect(wrapper.findAll('.ui-progress-row')[0]?.find('[role="progressbar"]').exists()).toBe(false)
+    const rowBar = wrapper.findAll('.ui-progress-row')[0]?.get('[role="progressbar"]')
+    expect(rowBar?.attributes('aria-valuenow')).toBe('100')
+    expect(rowBar?.classes()).toContain('ui-progress--success')
+    expect(wrapper.get(`[role="progressbar"][aria-label="${en['media.upload.overall']}"]`).classes()).toContain('ui-progress--success')
     const head = wrapper.get('.media-upload-panel__summary')
     expect(head.find('svg[data-icon="circle-check"]').exists()).toBe(true)
     expect(head.text()).toBe('Done: 1 of 1')
@@ -337,6 +361,8 @@ describe('MediaUploadPanel variant phase', () => {
     expect(head.find('.media-upload-panel__status--warning svg[data-icon="triangle-alert"]').exists()).toBe(true)
     expect(head.get('.media-upload-panel__detail').text()).toBe('Variants failed for 1 of 2 files')
     expect(wrapper.get('[aria-live="polite"]').text()).toContain('Variants failed for 1 of 2 files')
+    expect(wrapper.findAll('.ui-progress-row')[1]?.get('[role="progressbar"]').classes()).toContain('ui-progress--warning')
+    expect(wrapper.get(`[role="progressbar"][aria-label="${en['media.upload.overall']}"]`).classes()).toContain('ui-progress--warning')
   })
 
   it('shows delayed variants with the stall text', async () => {
@@ -355,6 +381,7 @@ describe('MediaUploadPanel variant phase', () => {
     expect(rowStatus(wrapper, 0)?.text()).toBe(en['media.upload.done'])
     expect(wrapper.text()).not.toContain('0 of 0')
     expect(wrapper.get('.media-upload-panel__summary').find('svg[data-icon="circle-check"]').exists()).toBe(true)
+    for (const bar of wrapper.findAll('[role="progressbar"]')) expect(bar.classes()).toContain('ui-progress--success')
   })
 
   it('shows "Generating variants…" without counts while the server answers an image upload', async () => {
@@ -364,6 +391,7 @@ describe('MediaUploadPanel variant phase', () => {
 
     expect(rowStatus(wrapper, 0)?.text()).toBe(en['media.upload.processing'])
     expect(rowStatus(wrapper, 0)?.find('.ui-spinner').exists()).toBe(true)
+    expect(wrapper.findAll('.ui-progress-row')[0]?.get('[role="progressbar"]').classes()).toContain('ui-progress--indeterminate')
     expect(wrapper.get('.media-upload-panel__summary').text()).toContain('0 of 1 uploaded')
   })
 })

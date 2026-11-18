@@ -37,14 +37,26 @@ describe('MediaUploadRow', () => {
     expect(wrapper.get('.ui-progress-row__status').text()).toBe(en['media.tile.processing'])
   })
 
-  it('shows the variants generated so far on a labelled bar with a spinner', async () => {
-    const wrapper = await mountSuspended(MediaUploadRow, { props: { item: item({ status: 'done', progress: 100 }), variants: { kind: 'pending', done: 2, total: 4 } } })
+  it('shows a full bar after the upload while no variant has started yet', async () => {
+    const wrapper = await mountSuspended(MediaUploadRow, { props: { item: item({ status: 'done', progress: 100 }), variants: { kind: 'pending', done: 0, total: 4 } } })
+
+    expect(wrapper.get('.ui-progress-row__status').text()).toBe('Generating variants (0 of 4)')
+    const bar = wrapper.get('[role="progressbar"]')
+    expect(bar.attributes('aria-valuenow')).toBe('100')
+    expect(bar.classes()).toContain('ui-progress--default')
+    expect(bar.classes()).not.toContain('ui-progress--indeterminate')
+  })
+
+  it('shows the variants generated so far with a spinner on a labelled indeterminate bar while they are generated', async () => {
+    const wrapper = await mountSuspended(MediaUploadRow, { props: { item: item({ status: 'done', progress: 100 }), variants: { kind: 'pending', done: 2, total: 4, generating: true } } })
 
     const status = wrapper.get('.ui-progress-row__status')
     expect(status.text()).toBe('Generating variants (2 of 4)')
     expect(status.find('.ui-spinner').exists()).toBe(true)
     const bar = wrapper.get('[role="progressbar"]')
-    expect(bar.attributes('aria-valuenow')).toBe('50')
+    expect(bar.attributes('aria-valuenow')).toBeUndefined()
+    expect(bar.classes()).toContain('ui-progress--indeterminate')
+    expect(bar.attributes('aria-label')).toBe('Progress: holiday.jpg')
     expect(bar.attributes('aria-valuetext')).toBe('2 of 4 variants generated')
   })
 
@@ -55,6 +67,9 @@ describe('MediaUploadRow', () => {
     expect(status.text()).toBe('1 of 4 variants failed')
     expect(status.classes()).toContain('ui-progress-row__status--warning')
     expect(status.find('svg[data-icon="triangle-alert"]').exists()).toBe(true)
+    const bar = wrapper.get('[role="progressbar"]')
+    expect(bar.attributes('aria-valuenow')).toBe('100')
+    expect(bar.classes()).toContain('ui-progress--warning')
   })
 
   it('shows a done row with a check icon and text, not by colour alone', async () => {
@@ -63,7 +78,10 @@ describe('MediaUploadRow', () => {
     const status = wrapper.get('.ui-progress-row__status')
     expect(status.text()).toBe(en['media.upload.done'])
     expect(status.find('svg[data-icon="circle-check"]').exists()).toBe(true)
-    expect(wrapper.find('[role="progressbar"]').exists()).toBe(false)
+    const bar = wrapper.get('[role="progressbar"]')
+    expect(bar.attributes('aria-valuenow')).toBe('100')
+    expect(bar.attributes('aria-valuetext')).toBe(en['media.upload.done'])
+    expect(bar.classes()).toContain('ui-progress--success')
   })
 
   it('shows the failure message and a retry button that emits the item id', async () => {

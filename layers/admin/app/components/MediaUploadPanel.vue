@@ -85,7 +85,7 @@ const sessionExpired = computed(() => props.items.some((item) => item.status ===
         <KestrelUiButton v-if="retryableFailed" size="sm" variant="secondary" icon="rotate-ccw" @click="act('retryFailed')">{{ t('media.upload.retryFailed') }}</KestrelUiButton>
         <KestrelUiButton size="sm" variant="secondary" :aria-label="endAction.label" @click="endAction.run">{{ endAction.text }}</KestrelUiButton>
       </div>
-      <KestrelUiProgress class="media-upload-panel__overall" :value="run.overall" :label="t('media.upload.overall')" :value-text="countText" :tone="run.barTone" />
+      <KestrelUiProgress class="media-upload-panel__overall" :value="run.bar.value" :label="t('media.upload.overall')" :value-text="countText" :tone="run.bar.tone" />
       <p v-if="sessionExpired" class="media-upload-panel__alert" role="alert">
         <KestrelUiIcon name="triangle-alert" :size="16" />
         <span>{{ t('media.upload.sessionExpiredHelp') }} <a href="/admin/login" target="_blank" rel="noopener">{{ t('media.upload.signInNewTab') }}</a></span>

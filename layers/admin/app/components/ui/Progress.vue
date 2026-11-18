@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import type { ProgressTone } from '../../utils/progress-row'
 
 const props = withDefaults(
-  defineProps<{ value?: number; label: string; valueText?: string; size?: 'sm' | 'md'; tone?: 'default' | 'success' | 'danger' }>(),
+  defineProps<{ value?: number; label: string; valueText?: string; size?: 'sm' | 'md'; tone?: ProgressTone }>(),
   { size: 'md', tone: 'default' },
 )
 
@@ -41,8 +42,16 @@ const clamped = computed(() => (props.value === undefined ? undefined : Math.min
   --ui-progress-fill: var(--color-success);
 }
 
+.ui-progress--warning {
+  --ui-progress-fill: var(--color-warning-text);
+}
+
 .ui-progress--danger {
   --ui-progress-fill: var(--color-danger);
+}
+
+.ui-progress--muted {
+  --ui-progress-fill: var(--color-text-muted);
 }
 
 .ui-progress__bar {
@@ -54,12 +63,35 @@ const clamped = computed(() => (props.value === undefined ? undefined : Math.min
 
 .ui-progress--indeterminate .ui-progress__bar {
   width: 100%;
-  background-image: repeating-linear-gradient(135deg, var(--ui-progress-fill) 0 6px, var(--color-surface-2) 6px 12px);
+  background-color: var(--color-surface-2);
+  background-image: linear-gradient(
+    135deg,
+    var(--ui-progress-fill) 25%,
+    transparent 25% 50%,
+    var(--ui-progress-fill) 50% 75%,
+    transparent 75%
+  );
+  background-size: 1rem 1rem;
+  animation: ui-progress-stripes 1s linear infinite;
+}
+
+@keyframes ui-progress-stripes {
+  from {
+    background-position: 0 0;
+  }
+
+  to {
+    background-position: 1rem 0;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .ui-progress__bar {
     transition: none;
+  }
+
+  .ui-progress--indeterminate .ui-progress__bar {
+    animation: none;
   }
 }
 </style>

@@ -36,6 +36,23 @@ describe('KestrelUiProgress', () => {
     expect(bar.classes()).toContain('ui-progress--default')
   })
 
+  it('renders a warning and a muted tone', async () => {
+    const warning = await mountSuspended(Progress, { props: { value: 100, label: 'Variants', tone: 'warning' } })
+    const muted = await mountSuspended(Progress, { props: { value: 40, label: 'Cancelled', tone: 'muted' } })
+
+    expect(warning.get('[role="progressbar"]').classes()).toContain('ui-progress--warning')
+    expect(muted.get('[role="progressbar"]').classes()).toContain('ui-progress--muted')
+  })
+
+  it('keeps an indeterminate bar labelled in a tone', async () => {
+    const wrapper = await mountSuspended(Progress, { props: { label: 'Variants', valueText: '3 of 8 variants generated', tone: 'default', size: 'sm' } })
+
+    const bar = wrapper.get('[role="progressbar"]')
+    expect(bar.attributes('aria-valuenow')).toBeUndefined()
+    expect(bar.attributes('aria-label')).toBe('Variants')
+    expect(bar.attributes('aria-valuetext')).toBe('3 of 8 variants generated')
+  })
+
   it('renders the small size and a success or danger tone', async () => {
     const success = await mountSuspended(Progress, { props: { value: 100, label: 'Done', size: 'sm', tone: 'success' } })
     const danger = await mountSuspended(Progress, { props: { value: 30, label: 'Failed', size: 'sm', tone: 'danger' } })
