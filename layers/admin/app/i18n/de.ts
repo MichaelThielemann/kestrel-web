@@ -1056,7 +1056,7 @@ export const de: Record<CatalogKey, string> = {
   'editor.blocksHaveProblems': '{n} Block/Blöcke haben Probleme.',
   'editor.blocksJumpToFirst': 'Zum ersten fehlerhaften Block springen',
   'delivery.exportTitle': 'Media-Export',
-  'delivery.exportDesc': 'Kopiert alle Dateien samt ihrer generierten Bildvarianten nach data/export/<Ordner>/<Dateiname> für externe Werkzeuge. Unveränderte Dateien werden übersprungen, Namenskonflikte bekommen ein Zahlensuffix.',
+  'delivery.exportDesc': 'Kopiert alle Dateien samt ihrer erzeugten Bildvarianten nach data/export/<Ordner>/<Dateiname> für externe Werkzeuge. Unveränderte Dateien werden übersprungen, Namenskonflikte bekommen ein Zahlensuffix.',
   'delivery.export': 'Media exportieren',
   'delivery.exportDone': '{written} geschrieben, {skipped} übersprungen, {missing} fehlend, {conflicts} umbenannt — {variantsWritten} Variantendatei(en) geschrieben, {variantsSkipped} übersprungen.',
   'delivery.exportFailed': 'Export fehlgeschlagen.',
