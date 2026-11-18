@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Added
+
+- `referenceSchemas({ features, collections, collectionsUi, fieldTypes, schemas? })` from `#kestrel/pipelines`
+  answers the `schemas` of a `references-default` entry: the schemas of the `json` fields among what
+  `presetSchemas()` returns for the same options (or among `schemas`), the block schema of `pages.body`
+  included, under the same keys and paths. `presetModuleConfig()` derives the entry's schemas through it.
+
 ### Fixed
 
 - Page builder: on a collection whose fields have no `blockAliases`, saving a block edit leaves the editor
@@ -22,6 +29,28 @@
   changes. If a pipeline of your own emits `page.restored`, declare the trigger
   `{ event: "page.restored", pipeline: "publishPage" }` yourself. The `created`, `updated`, `deleted` and
   `translationRemoved` triggers of the publish pipelines are composed as before.
+- With a hand-written module list, a media file or page used only inside a content block could still be
+  deleted: the 3.0.0 fix handed the block schema to `references-default` only through `presetModuleConfig()`,
+  so a `references-default` entry written by hand with `targets` alone indexed no block field, the delete
+  guard let the delete through and the media library named no page before deleting. With the `references`
+  feature, `definePreset()` now throws `preset/references-needs-schemas` when the `references-default`
+  entry lacks one of the `json` field schemas `validate-jsonschema` carries, naming the missing keys.
+
+### Upgrading
+
+- A hand-written module list with the `references` feature gives its `references-default` entry the schemas,
+  with the options its `validate-jsonschema` entry passes to `presetSchemas()`:
+
+  ```ts
+  { use: "@michaelthielemann/kestrel-references-default", config: {
+    targets: { pages: { content: "pages" }, media: { media: true } },
+    schemas: referenceSchemas({ features, collections: contentTypes, collectionsUi }),
+    watch: process.env.NODE_ENV !== "production",
+  } },
+  ```
+
+  Without it the server no longer starts. The index rebuilds at the next boot, so files and pages that blocks
+  already use are guarded from then on. A list built by `presetModuleConfig()` needs no change.
 
 ## 3.0.0 – 2026-11-16
 

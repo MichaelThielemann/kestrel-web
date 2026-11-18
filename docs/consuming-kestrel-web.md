@@ -360,6 +360,10 @@ rather than booting with something plausible.
   answers 409 like a top-level `ref` field. Internal links in rich text and `link` fields are indexed
   as before. `references.watch` follows `NODE_ENV` like the validator, so a block edit in development
   applies to the next save; the index itself rebuilds at boot whenever targets, fields or schemas change.
+  The schemas come from `referenceSchemas()` (`#kestrel/pipelines`), which a hand-written list uses too
+  (see below). With the `references` feature, `definePreset()` throws when the `references-default` entry
+  lacks one of the `json` field schemas `validate-jsonschema` carries, since a file used only in a block
+  could then be deleted.
 - **`redirects-default.reservedPaths`** — `/api`, `/admin`, `/media`, the build assets path (`buildAssetsPath`),
   `/__nuxt_island`, `/__nuxt_error`, `/_ipx` and `/_preview`: the paths the server answers itself or Nuxt's
   tooling reserves, none of which a redirect source may equal, lie below or match through a wildcard (§9).
@@ -460,9 +464,9 @@ const modules = [
   },
   { use: "@michaelthielemann/kestrel-content-default", config: contentModel },
   { use: "@michaelthielemann/kestrel-site-default", config: { routes: { pages: { home: "home", liveWhen: { status: "published" }, parentField: "parent" }, blog: { mount: true, liveWhen: { status: "published" } } }, mounts: { type: "settings", field: "mounts" }, prefixPrimary: false, reservedPaths: ["/api", "/admin", "/media"] } },
-  { use: "@michaelthielemann/kestrel-references-default", config: { targets: { pages: { content: "pages" }, media: { media: true } } } },
+  { use: "@michaelthielemann/kestrel-references-default", config: { targets: { pages: { content: "pages" }, blog: { content: "blog" }, media: { media: true } }, schemas: referenceSchemas({ features, collections: contentTypes, collectionsUi, fieldTypes }), watch: process.env.NODE_ENV !== "production" } },
   { use: "@michaelthielemann/kestrel-links-default", config: { timeoutMs: 10000, concurrency: 4, recheckAfterSeconds: 21600 } },
-  { use: "@michaelthielemann/kestrel-validate-jsonschema", config: { schemas: presetSchemas({ features, collections: contentTypes }), watch: process.env.NODE_ENV !== "production" } },
+  { use: "@michaelthielemann/kestrel-validate-jsonschema", config: { schemas: presetSchemas({ features, collections: contentTypes, collectionsUi, fieldTypes }), watch: process.env.NODE_ENV !== "production" } },
   { use: "@michaelthielemann/kestrel-renderer-nuxt", config: {} },
   { use: "@michaelthielemann/kestrel-delivery-static", config: { types: { pages: {} }, prefix: "site/", reservedPaths: ["/api", "/admin", "/media"], siteUrl: process.env.NUXT_PUBLIC_SITE_URL || undefined, robots: { policy: envRobots().policy ?? (process.env.NODE_ENV === "production" ? "allow" : "disallow") }, llms: { full: true, headings: { pages: "Pages" } }, dependencies: { render: "background", rendererReadsDocument: true, indexesDelayMs: 1000 } } },
   { use: "@michaelthielemann/kestrel-redirects-default", config: { prefix: "site/", reservedPaths: ["/api", "/admin", "/media", "/_nuxt", "/__nuxt_island", "/__nuxt_error", "/_ipx", "/_preview"] } },
@@ -473,6 +477,13 @@ const modules = [
   { use: "@michaelthielemann/kestrel-insights", config: {} },
 ];
 ```
+
+Give a hand-written `references-default` entry its `schemas` from `referenceSchemas()`, with the options you
+give `presetSchemas()`, as above: it picks the schemas of the `json` fields from what `presetSchemas()` returns,
+under the same keys and paths, so the built server swaps in the bundled schemas for both modules. Without
+`pages.body` among them the index sees no file or page that only a block uses, and deleting one succeeds
+instead of answering 409; `definePreset()` refuses such an entry with `preset/references-needs-schemas`. A
+validator config of your own goes in as `referenceSchemas({ …, schemas })`.
 
 Give a hand-written `delivery-static` entry its `siteUrl` from `NUXT_PUBLIC_SITE_URL`, as above: the pages
 build their canonical link, `og:url` and `og:image` from that variable, and the server warns at start when the

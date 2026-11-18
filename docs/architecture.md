@@ -354,8 +354,9 @@ the canonical order, and derives from the model what is derivable: `media.locale
 `references.targets` (media, every multi collection and every `ref` field's `to`; the references feature
 wires check/index/guard/unindex into every generic multi collection and a re-index after every single
 collection's write group, right before its emit), `references.schemas`
-(the `json` field schemas from `presetSchemas()`; the block schema marks media and relation fields with
-`x-kestrel-ref`), `delivery.types` (every
+(`referenceSchemas()`: the `json` field schemas from `presetSchemas()`, which a hand-written list passes the
+same way and `definePreset` requires with the `references` feature; the block schema marks media and relation
+fields with `x-kestrel-ref`), `delivery.types` (every
 routed collection), `site-default`'s `routes`, `validate-jsonschema.schemas` via `presetSchemas()`, `publicPath` on
 both media modules from `MEDIA_PUBLIC_PATH`, and, with `delivery`, `publicCopy: { prefix }` on both from
 `SITE_PREFIX`. Both constants live in `layers/core/mount-path.ts` (`MEDIA_PUBLIC_PATH`) and
@@ -385,7 +386,7 @@ with no `extra`, so it only ever resolves standard packages; a consumer with a n
 
 ## Pipeline presets
 `layers/core/pipelines/` (`index.ts` — the `#kestrel/pipelines` public API: `definePreset`,
-`presetSchemas`, `presetModuleConfig`, `Feature`; `config.ts` — the module-config builder, see
+`presetSchemas`, `referenceSchemas`, `presetModuleConfig`, `Feature`; `config.ts` — the module-config builder, see
 **Consumer module config**; `base.ts` — the always-on pipelines (auth including `adminSchemaModel`
 (`authn.requireUser`, `content.describeModel`), which has no trigger and is run by the
 `GET /api/admin/schema` Nitro route, `getSettings`/`setSettings`, media
