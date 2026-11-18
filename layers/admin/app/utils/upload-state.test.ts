@@ -122,6 +122,13 @@ describe('uploadRunView', () => {
     expect(view.bar.tone).toBe('success')
   })
 
+  it('fills the overall bar when every file was skipped', () => {
+    const view = run('skipped', 'skipped')
+
+    expect(view.bar.value).toBe(100)
+    expect(view.bar.tone).toBe('success')
+  })
+
   it('puts the files settled and the share sent of the running ones into the overall percent, leaving skipped files out', () => {
     const items: QueueEntry[] = [
       { id: 'a', status: 'done', progress: 100, file: { size: 1 } },
@@ -363,6 +370,22 @@ describe('uploadRunView with variant phases', () => {
     expect(view.status).toEqual({ text: 'media.upload.finished', icon: 'circle-x', tone: 'danger' })
     expect(view.detail).toBe('media.upload.variantsFailedFilesOne {"n":1,"total":1}')
     expect(view.bar).toEqual({ value: 100, tone: 'danger' })
+  })
+
+  it('runs the overall bar striped once every file is sent and the server generates the variants within the upload', () => {
+    const items: QueueEntry[] = [{ id: 'a', status: 'processing', progress: 100, file: { size: 1 } }, { id: 'b', status: 'processing', progress: 100, file: { size: 1 } }]
+    const generating: UploadVariantPhase = { kind: 'pending', generating: true }
+    const view = uploadRunView(summarizeUploads(items), t, items, [generating, generating])
+
+    expect(view.status).toEqual({ text: 'media.upload.summary {"done":0,"total":2}', busy: true })
+    expect(view.bar).toEqual({ tone: 'default' })
+  })
+
+  it('keeps the overall bar determinate while a file still waits next to one the server processes', () => {
+    const items: QueueEntry[] = [{ id: 'a', status: 'processing', progress: 100, file: { size: 1 } }, { id: 'b', status: 'queued', progress: 0, file: { size: 1 } }]
+    const view = uploadRunView(summarizeUploads(items), t, items, [{ kind: 'pending', generating: true }, { kind: 'none' }])
+
+    expect(view.bar).toEqual({ value: 50, tone: 'default' })
   })
 
   it('shows the upload count, not the variant phase, while files still upload', () => {

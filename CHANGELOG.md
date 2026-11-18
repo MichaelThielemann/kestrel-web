@@ -36,8 +36,7 @@
   keeps them in separate nodes, so a new result or its removal does not repeat the header.
 - A failed upload's row reads "Upload failed" instead of "Failed".
 - `KestrelUiProgressRow` takes a `warning` tone for its status.
-- `KestrelUiProgress` takes `warning` and `muted` tones, and its indeterminate stripes move, standing still
-  under `prefers-reduced-motion`.
+- `KestrelUiProgress` takes `warning` and `muted` tones.
 - The German admin texts say „erzeugt“ for image variants throughout.
 
 ### Fixed

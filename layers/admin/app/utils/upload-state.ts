@@ -149,8 +149,9 @@ export interface UploadRunView {
   /** What screen readers hear: the count and the phase, never the per-file variant progress. */
   liveText: string
   /**
-   * The overall bar: while files upload, the settled files plus the sent share of the running ones in percent of the
-   * files to be sent; then full, without a value while any file's variants are generated, and in the tone of the outcome.
+   * The overall bar: while any file uploads or waits, the settled files plus the sent share of the running ones in
+   * percent of the files to be sent; then full, without a value while any file's variants are generated, and in the
+   * tone of the outcome; full as well when every file was skipped.
    */
   bar: { value?: number; tone: ProgressTone }
 }
@@ -206,7 +207,11 @@ export function uploadRunView(summary: UploadSummary, t: Translate, items: reado
   const overall = total ? ((summary.settled + running) / total) * 100 : 0
   const variants = tally(phases)
 
-  if (!summary.finished) return { status: { text: countText, busy: true }, countText, liveText: countText, bar: { value: overall, tone: 'default' } }
+  if (!summary.finished) {
+    const sent = items.every((item) => item.status !== 'queued' && item.status !== 'uploading')
+    const bar: UploadRunView['bar'] = sent && variants.generating ? { tone: 'default' } : { value: overall, tone: 'default' }
+    return { status: { text: countText, busy: true }, countText, liveText: countText, bar }
+  }
 
   const status = finishedStatus(summary, variants, t)
   const trail = variants.pending || failed || cancelled ? countText : skipped ? t('media.upload.countSkipped', { n: skipped }) : undefined
@@ -217,7 +222,8 @@ export function uploadRunView(summary: UploadSummary, t: Translate, items: reado
   return { status, countText, trail, detail, liveText, bar: finishedBar(summary, variants, overall) }
 }
 
-function finishedBar(summary: UploadSummary, variants: VariantTally, overall: number): UploadRunView['bar'] {
+function finishedBar(summary: UploadSummary, variants: VariantTally, sentShare: number): UploadRunView['bar'] {
+  const overall = summary.total ? sentShare : 100
   if (variants.pending) return variants.generating ? { tone: 'default' } : { value: overall, tone: 'default' }
   if (summary.failed) return { value: overall, tone: 'danger' }
   if (variants.failed) return { value: overall, tone: 'warning' }
