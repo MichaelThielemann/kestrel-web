@@ -121,7 +121,7 @@ export interface UploadRunView {
   status: ProgressRowStatus
   /** The upload count with its failed, cancelled and skipped parts. */
   countText: string
-  /** What the header shows after a finished run's status: the full count when uploads failed or were cancelled, else only the skipped part. */
+  /** What the header shows after a finished run's status: the full count while variants are pending or when uploads failed or were cancelled, else only the skipped part. */
   trail?: string
   /** Files whose variants failed or were delayed, once no file's variants are pending. */
   detail?: string
@@ -183,7 +183,7 @@ export function uploadRunView(summary: UploadSummary, t: Translate, items: reado
   if (!summary.finished) return { status: { text: countText, busy: true }, countText, liveText: countText, overall, barTone: 'default' }
 
   const status = finishedStatus(summary, variants, t)
-  const trail = failed || cancelled ? countText : skipped ? t('media.upload.countSkipped', { n: skipped }) : undefined
+  const trail = variants.pending || failed || cancelled ? countText : skipped ? t('media.upload.countSkipped', { n: skipped }) : undefined
   const detail = variantDetail(variants, t)
   const liveText = variants.pending
     ? `${countText}. ${t('media.upload.processing')}`

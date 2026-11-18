@@ -291,7 +291,9 @@ describe('MediaUploadPanel variant phase', () => {
     expect(rowStatus(wrapper, 0)?.text()).toBe(en['media.upload.done'])
 
     const head = wrapper.get('.media-upload-panel__summary')
-    expect(head.text()).toBe('Generating variants (1 of 2 files)')
+    const parts = head.findAll('.media-upload-panel__count > span')
+    expect(parts.map((part) => part.text())).toEqual(['Generating variants (1 of 2 files)', '2 of 2 uploaded'])
+    expect(parts[0]?.find('.ui-spinner').exists()).toBe(true)
     expect(head.find('.ui-spinner').exists()).toBe(true)
     expect(head.find('svg[data-icon="circle-check"]').exists()).toBe(false)
     expect(button(wrapper, en['common.close'])?.attributes('disabled')).toBeUndefined()

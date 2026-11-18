@@ -295,10 +295,18 @@ describe('uploadRunView with variant phases', () => {
     expect(view.status.text).toBe('media.upload.variantsFiles {"done":1,"total":3}')
   })
 
-  it('shows only the variant phase while variants are pending, and the count beside it only when uploads failed', () => {
-    expect(finished([{ kind: 'pending' }, { kind: 'ready' }]).trail).toBeUndefined()
+  it('keeps the upload count beside the variant phase while variants are pending', () => {
+    const pending = finished([{ kind: 'pending' }, { kind: 'ready' }])
+    expect(pending.trail).toBe('media.upload.summary {"done":2,"total":2}')
     const withFailure = finished([{ kind: 'pending' }], 'failed')
     expect(withFailure.trail).toBe(withFailure.countText)
+    const withSkipped = finished([{ kind: 'pending' }], 'skipped')
+    expect(withSkipped.trail).toBe(withSkipped.countText)
+  })
+
+  it('drops the upload count once the variants are through and every file was uploaded', () => {
+    expect(finished([{ kind: 'ready' }, { kind: 'ready' }]).trail).toBeUndefined()
+    expect(finished([{ kind: 'failed', failed: 1, total: 4 }]).trail).toBeUndefined()
   })
 
   it('keeps the upload failure as status and the variant failure as detail', () => {

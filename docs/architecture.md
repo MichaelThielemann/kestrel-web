@@ -801,7 +801,8 @@ collection, the expected filter and the fix in the message.
     overall bar and "Retry failed uploads" while a failed file can be retried. One button reads "Cancel"
     during the run and "Close" afterwards, so keyboard focus stays on it when the run ends. While files
     upload, the summary sits next to a spinner. Once they are sent and an image's variants are still being
-    generated, the header reads "Generating variants (1 of 3 files)" with a spinner. A finished run then
+    generated, the header reads "Generating variants (1 of 3 files)" with a spinner and keeps the upload
+    count beside it ("3 of 3 uploaded"). A finished run then
     reads "Done: 3 of 3" with a check when every file sent was uploaded and every image has its variants,
     the same with a warning icon when some variants failed, or with a clock when the poller stopped
     waiting for them, and a detail line says for how many files ("Variants failed for 1 of 3 files"). It

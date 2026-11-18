@@ -460,6 +460,7 @@ describe('MediaLibrary upload status', () => {
 
     await vi.waitFor(() => expect(wrapper.get('.media-upload-panel .ui-progress-row__status').text()).toBe('Generating variants (2 of 5)'))
     expect(wrapper.get('.media-upload-panel__summary').text()).toContain('Generating variants (0 of 1 file)')
+    expect(wrapper.get('.media-upload-panel__summary').text()).toContain('1 of 1 uploaded')
     await vi.waitFor(() => expect(wrapper.find('[data-test="file-f1"] .media-variant-chip').exists()).toBe(true))
 
     const close = wrapper.get('.media-upload-panel').findAll('button').find((b) => b.text() === en['common.close'])
