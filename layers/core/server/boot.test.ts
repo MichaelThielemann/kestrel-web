@@ -57,7 +57,7 @@ function asFeatures(names: readonly string[]): Feature[] {
   return result;
 }
 
-async function bootPlaygroundModel(features: Feature[], prefix: string): Promise<readonly unknown[]> {
+async function bootPlaygroundModel(features: Feature[], prefix: string, migrations?: { migrations: []; mode: "check" }): Promise<readonly unknown[]> {
   const { contentModel, contentTypes } = await import("../../../playground/shared/model");
   const { default: collectionsUi } = await import("../../../playground/shared/collections-ui");
   const { default: fieldTypes } = await import("../../../playground/shared/field-types");
@@ -72,10 +72,12 @@ async function bootPlaygroundModel(features: Feature[], prefix: string): Promise
       fieldTypes,
       roles: { roles: { admin: ["*"] }, anonymous: ["pages.read", "blog.read", "settings.read", "media.read"] },
       bootstrap: { username: "admin", passwordHash: "scrypt$522f4ac87bfe4bcd100ba47a7d2aaec2$dbfc3f2d6cc38a76b21973d7c6f6d310a09506581c665f1f6601fd8fb3fa9bc3959689aea3e389f4d53eb8c7e70791ad4065e308763dd44609904134f0f5ee98" },
+      ...(migrations === undefined ? {} : { migrations }),
     });
     const preset = definePreset({ modules, features, collections: contentTypes, collectionsUi, fieldTypes });
     const config = defineConfig({ modules, triggers: preset.triggers, http: null });
-    const kestrel = await boot({ config: { ...config, http: null }, modules: presetModules(config.modules), pipelines: preset.pipelines, logger: collectingLogger() });
+    const bootedModules = presetModules(config.modules, { "@michaelthielemann/kestrel-insights": insights });
+    const kestrel = await boot({ config: { ...config, http: null }, modules: bootedModules, pipelines: preset.pipelines, logger: collectingLogger() });
     try {
       await kestrel.start();
       return kestrel.warnings;
@@ -415,11 +417,11 @@ describe("boot", () => {
       expect(warnings, `unexpected boot warnings: ${JSON.stringify(warnings)}`).toEqual([]);
     }, 15000);
 
-    it("boots delivery without revisions and with a mounted collection without a boot warning", async () => {
+    it("boots delivery with replication, insights and migrations but without revisions, with a mounted collection, without a boot warning", async () => {
       const { contentTypes } = await import("../../../playground/shared/model");
       expect(contentTypes.blog?.mount).toBe(true);
-      const features: Feature[] = ["references", "links", "delivery", "redirects", "ratelimit", "audit", "sanitizeSvg", "images"];
-      const warnings = await bootPlaygroundModel(features, "kestrel-web-boot-no-revisions-");
+      const features: Feature[] = ["references", "links", "delivery", "redirects", "replication", "ratelimit", "audit", "sanitizeSvg", "images", "insights", "migrations"];
+      const warnings = await bootPlaygroundModel(features, "kestrel-web-boot-no-revisions-", { migrations: [], mode: "check" });
       expect(warnings, `unexpected boot warnings: ${JSON.stringify(warnings)}`).toEqual([]);
     }, 15000);
 
