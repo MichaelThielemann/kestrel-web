@@ -14,6 +14,14 @@
   `roles.anonymousFields`.
 - Admin editor: writing a form value for a name the collection does not serve (other than the reserved
   `layout` field) throws instead of keeping a value that is never saved.
+- With `delivery` and without `revisions`, the instance no longer starts with the boot warning
+  `unemitted-event` for `publishPage` on `page.restored` (and for `publish<Name>` on `<event>.restored` of each
+  mounted collection), which `/admin/insights` listed. The preset composes a publish pipeline's
+  `<event>.restored` trigger only when a composed pipeline emits that event, which `restore<Singular>Revision`
+  of the `revisions` feature does, after `exclude` and `overrides` are applied. With `revisions` nothing
+  changes. If a pipeline of your own emits `page.restored`, declare the trigger
+  `{ event: "page.restored", pipeline: "publishPage" }` yourself. The `created`, `updated`, `deleted` and
+  `translationRemoved` triggers of the publish pipelines are composed as before.
 
 ## 3.0.0 – 2026-11-16
 

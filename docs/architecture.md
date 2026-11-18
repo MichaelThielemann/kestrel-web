@@ -523,8 +523,15 @@ independent members to the result.
 event pipelines with no relay of their own — they run as the payload of another pipeline's relay — and
 five event triggers tagged with the `delivery` feature: `page.created`/`page.updated`/`page.restored`/
 `page.translationRemoved` (the last one only when `context.pagesTranslatable`) → `publishPage`,
-`page.deleted` → `unpublishPage`. Its dependents pipelines and their triggers are described under "Dependent
-re-rendering" below.
+`page.deleted` → `unpublishPage`. A mounted collection gets the same set on `publish<Name>` and
+`unpublish<Name>`. The `<event>.restored` trigger of a publish pipeline (`restoredPublishTrigger`) is kept only
+when a composed pipeline emits that event, which `restore<Singular>Revision` of the `revisions` feature does;
+`checkPreset` drops it after `exclude` and `overrides` are applied, the same way it drops a dependents trigger.
+Without `revisions`, or with `restorePageRevision` excluded, `page.restored → publishPage` is not composed. A
+consumer whose own pipeline emits `page.restored` declares the trigger itself. The `created`, `updated`,
+`deleted` and `translationRemoved` triggers are composed unconditionally, so a consumer who excludes a write
+pipeline and defines it from scratch still gets the boot warning when the replacement does not emit the event.
+Its dependents pipelines and their triggers are described under "Dependent re-rendering" below.
 
 An `overrides` entry for a pipeline that had a group is rejected at compose time if it drops the group
 around the `content.*` write — a flat replacement loses atomicity silently otherwise. The override may
