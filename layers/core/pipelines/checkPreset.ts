@@ -34,6 +34,7 @@ import audit, { AUDIT_MODULE, AUDIT_PRUNE_PIPELINE, AUDIT_RETENTION_KEY } from "
 import eventsQueue from "./features/eventsQueue";
 import revisions, { revisionPipelineNames } from "./features/revisions";
 import mfa from "./features/mfa";
+import { jsonFieldSchemas, REFERENCES_MODULE } from "./reference-schemas";
 import { MEDIA_TRASH_MODULE, MEDIA_TRASH_PIPELINES, MEDIA_TRASH_RETENTION_KEY, mediaTrashEnabled } from "./media-trash";
 
 export type { CollectionModel } from "./collections";
@@ -349,6 +350,31 @@ function hasRedirectsRulesSchema(config: unknown): boolean {
   return typeof schemas === "object" && schemas !== null && "redirects.rules" in schemas;
 }
 
+function schemaKeysOf(config: unknown): string[] {
+  const schemas: unknown = typeof config === "object" && config !== null ? Reflect.get(config, "schemas") : undefined;
+  return typeof schemas === "object" && schemas !== null ? Object.keys(schemas) : [];
+}
+
+function missingReferenceSchemas(
+  modules: readonly { use: string; config?: unknown }[],
+  collections: Record<string, CollectionModel>,
+  fieldTypes: FieldTypes | undefined,
+  collectionsUi: Record<string, unknown> | undefined,
+): string[] {
+  const referencesModule = modules.find((entry) => entry.use === REFERENCES_MODULE);
+  const validateModule = modules.find((entry) => entry.use === VALIDATE_JSONSCHEMA_MODULE);
+  if (referencesModule === undefined || validateModule === undefined) return [];
+  const validated = Object.fromEntries(schemaKeysOf(effectiveModuleConfig(validateModule)).map((key) => [key, key]));
+  let indexed: string[];
+  try {
+    indexed = Object.keys(jsonFieldSchemas(collections, validated, { ...(fieldTypes === undefined ? {} : { fieldTypes }), ...(collectionsUi === undefined ? {} : { collectionsUi }), where: "preset" }));
+  } catch {
+    return [];
+  }
+  const present = new Set(schemaKeysOf(effectiveModuleConfig(referencesModule)));
+  return indexed.filter((key) => !present.has(key));
+}
+
 const PAGE_REQUIRING_FEATURES: readonly Feature[] = ["references", "links", "delivery"];
 
 const COLLECTION_NAME_PATTERN = /^[a-z][a-z0-9_]*$/;
@@ -620,6 +646,17 @@ export function buildPreset<C extends Record<string, CollectionModel> = Record<s
       sink.report({ code: "preset/redirects-needs-module", message: `preset: feature "redirects" needs module "${VALIDATE_JSONSCHEMA_MODULE}" with schema "redirects.rules" – use presetSchemas()` });
     } else if (!hasRedirectsRulesSchema(effectiveModuleConfig(validateModule))) {
       sink.report({ code: "preset/redirects-needs-schema", message: 'preset: feature "redirects" needs schema "redirects.rules" in validate-jsonschema config – use presetSchemas()' });
+    }
+  }
+
+  if (enabledFeatures.has("references")) {
+    const missing = missingReferenceSchemas(options.modules, collections, options.fieldTypes, options.collectionsUi);
+    if (missing.length > 0) {
+      sink.report({
+        code: "preset/references-needs-schemas",
+        message: `preset: feature "references" needs ${missing.length === 1 ? "schema" : "schemas"} ${missing.map((key) => `"${key}"`).join(", ")} in references-default config, as validate-jsonschema has them`
+          + " – without them a file or page used only inside a content block is not indexed and can be deleted; set schemas: referenceSchemas({ features, collections, collectionsUi }) on the entry, or use presetModuleConfig()",
+      });
     }
   }
 

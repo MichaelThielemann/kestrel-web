@@ -1,6 +1,6 @@
 import { boundaryCast } from "@michaelthielemann/kestrel/cast";
 import { describe, expect, it } from "vitest";
-import { checkPreset, definePreset, delaysFor } from "./index";
+import { checkPreset, definePreset, delaysFor, referenceSchemas } from "./index";
 import type { PresetOptions } from "./index";
 
 function options(raw: unknown): PresetOptions {
@@ -318,5 +318,52 @@ describe("private blob prefixes", () => {
   it("refuses a database backup key under the public tree", () => {
     expect(problemCodes([{ use: "@michaelthielemann/kestrel-backup-blobstore", config: { file: "data/kestrel.db", key: "site/backup/kestrel.db" } }])).toContain("preset/private-prefix-public");
     expect(problemCodes([{ use: "@michaelthielemann/kestrel-backup-blobstore", config: { file: "data/kestrel.db", key: "backup/kestrel.db" } }])).not.toContain("preset/private-prefix-public");
+  });
+});
+
+describe("references-default schemas on a hand-written module list", () => {
+  const collections = {
+    settings: { kind: "single" as const, fields: { title: { type: "text" }, navigation: { type: "json" } } },
+    pages: { kind: "multi" as const, fields: { slug: { type: "slug" }, title: { type: "text" }, status: { type: "enum", options: ["draft", "finished", "published"] }, body: { type: "json" }, cover: { type: "ref", to: "media" } } },
+  };
+  const validated = { "settings.navigation": "/srv/app/schemas/settings.navigation.json", "pages.body": "/srv/app/.nuxt/kestrel/pages.body.json" };
+  const targets = { pages: { content: "pages" }, media: { media: true } };
+
+  function withReferences(config: unknown): PresetOptions {
+    return {
+      modules: [
+        ...baseModules.filter((entry) => entry.use !== "@michaelthielemann/kestrel-validate-jsonschema"),
+        { use: "@michaelthielemann/kestrel-validate-jsonschema", config: { schemas: validated } },
+        { use: "@michaelthielemann/kestrel-references-default", config },
+      ],
+      features: ["references"],
+      collections,
+    };
+  }
+
+  it("refuses an entry with targets only, naming the missing schemas and the fix", () => {
+    expect(() => definePreset(withReferences({ targets }))).toThrow(
+      'preset: feature "references" needs schemas "settings.navigation", "pages.body" in references-default config, as validate-jsonschema has them',
+    );
+    expect(() => definePreset(withReferences({ targets }))).toThrow(/referenceSchemas\(/);
+    expect(checkPreset(withReferences({ targets })).problems.map((problem) => problem.code)).toContain("preset/references-needs-schemas");
+  });
+
+  it("names only the schemas the entry lacks", () => {
+    expect(() => definePreset(withReferences({ targets, schemas: { "settings.navigation": validated["settings.navigation"] } }))).toThrow('needs schema "pages.body" in references-default config');
+  });
+
+  it("accepts the entry once it carries the json field schemas from referenceSchemas()", () => {
+    const schemas = referenceSchemas({ features: ["references"], collections, schemas: validated });
+    expect(schemas).toEqual(validated);
+    expect(checkPreset(withReferences({ targets, schemas })).problems.map((problem) => problem.code)).not.toContain("preset/references-needs-schemas");
+  });
+
+  it("asks for no schema of a field that is not stored as json, nor without the references feature", () => {
+    const options = withReferences({ targets, schemas: validated });
+    const extra = { ...options, modules: options.modules.map((entry) => (entry.use === "@michaelthielemann/kestrel-validate-jsonschema" ? { use: entry.use, config: { schemas: { ...validated, "pages.slug": { type: "string" } } } } : entry)) };
+    expect(checkPreset(extra).problems.map((problem) => problem.code)).not.toContain("preset/references-needs-schemas");
+    const off = { ...withReferences({ targets }), features: [] };
+    expect(checkPreset(off).problems.map((problem) => problem.code)).not.toContain("preset/references-needs-schemas");
   });
 });

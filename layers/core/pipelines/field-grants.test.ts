@@ -20,7 +20,7 @@ const allModules: { use: string; config?: unknown }[] = [
   { use: "@michaelthielemann/kestrel-authn-multi" },
   { use: "@michaelthielemann/kestrel-authz-roles" },
   { use: "@michaelthielemann/kestrel-content-default" },
-  { use: "@michaelthielemann/kestrel-references-default" },
+  { use: "@michaelthielemann/kestrel-references-default", config: { schemas: { "pages.body": "x", "redirects.rules": "y" } } },
   { use: "@michaelthielemann/kestrel-links-default" },
   { use: "@michaelthielemann/kestrel-validate-jsonschema", config: { schemas: { "pages.body": "x", "redirects.rules": "y" } } },
   { use: "@michaelthielemann/kestrel-renderer-nuxt" },

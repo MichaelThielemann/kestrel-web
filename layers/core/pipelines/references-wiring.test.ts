@@ -17,7 +17,7 @@ const modules = [
   { use: "@michaelthielemann/kestrel-content-default" },
   { use: "@michaelthielemann/kestrel-validate-jsonschema", config: { schemas: { "pages.body": "x", "redirects.rules": "y" } } },
   { use: "@michaelthielemann/kestrel-media-default" },
-  { use: "@michaelthielemann/kestrel-references-default" },
+  { use: "@michaelthielemann/kestrel-references-default", config: { schemas: { "pages.body": "x", "redirects.rules": "y" } } },
   { use: "@michaelthielemann/kestrel-redirects-default" },
   { use: "@michaelthielemann/kestrel-events-inmemory" },
   { use: "@michaelthielemann/kestrel-events-direct" },
