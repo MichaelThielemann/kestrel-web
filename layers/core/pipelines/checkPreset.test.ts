@@ -341,16 +341,40 @@ describe("references-default schemas on a hand-written module list", () => {
     };
   }
 
-  it("refuses an entry with targets only, naming the missing schemas and the fix", () => {
+  it("refuses an entry with targets only, naming the missing schema and the fix", () => {
     expect(() => definePreset(withReferences({ targets }))).toThrow(
-      'preset: feature "references" needs schemas "settings.navigation", "pages.body" in references-default config, as validate-jsonschema has them',
+      'preset: feature "references" needs schema "pages.body" in references-default config, as validate-jsonschema has them',
     );
     expect(() => definePreset(withReferences({ targets }))).toThrow(/referenceSchemas\(/);
     expect(checkPreset(withReferences({ targets })).problems.map((problem) => problem.code)).toContain("preset/references-needs-schemas");
   });
 
-  it("names only the schemas the entry lacks", () => {
-    expect(() => definePreset(withReferences({ targets, schemas: { "settings.navigation": validated["settings.navigation"] } }))).toThrow('needs schema "pages.body" in references-default config');
+  it("accepts an entry with the body schema alone while the validator carries more json field schemas without x-kestrel-ref", () => {
+    const more = {
+      ...validated,
+      "settings.footerLink": { anyOf: [{ type: "object", properties: { type: { type: "string" }, id: { type: "string" } } }, { type: "null" }] },
+      "redirects.rules": "/srv/app/schemas/redirects.rules.json",
+    };
+    const options = withReferences({ targets, schemas: { "pages.body": validated["pages.body"] } });
+    const extra = {
+      ...options,
+      collections: { ...collections, settings: { kind: "single" as const, fields: { ...collections.settings.fields, footerLink: { type: "json" } } } },
+      modules: options.modules.map((entry) => (entry.use === "@michaelthielemann/kestrel-validate-jsonschema" ? { use: entry.use, config: { schemas: more } } : entry)),
+    };
+    expect(checkPreset(extra).problems.map((problem) => problem.code)).not.toContain("preset/references-needs-schemas");
+  });
+
+  it("asks for an inline json field schema that carries x-kestrel-ref", () => {
+    const options = withReferences({ targets, schemas: { "pages.body": validated["pages.body"] } });
+    const marked = { ...validated, "settings.navigation": { type: "array", items: { type: "object", properties: { icon: { type: "string", "x-kestrel-ref": "media" } } } } };
+    const extra = { ...options, modules: options.modules.map((entry) => (entry.use === "@michaelthielemann/kestrel-validate-jsonschema" ? { use: entry.use, config: { schemas: marked } } : entry)) };
+    expect(() => definePreset(extra)).toThrow('needs schema "settings.navigation" in references-default config');
+  });
+
+  it("still asks for the body schema when the model uses a field type definePreset() is not given", () => {
+    const options = withReferences({ targets });
+    const custom = { ...options, collections: { ...collections, pages: { ...collections.pages, fields: { ...collections.pages.fields, rating: { type: "stars" } } } } };
+    expect(() => definePreset(custom)).toThrow('needs schema "pages.body" in references-default config');
   });
 
   it("accepts the entry once it carries the json field schemas from referenceSchemas()", () => {

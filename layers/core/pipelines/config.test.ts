@@ -6,7 +6,7 @@ import { normalizeSiteUrl, pageUrl } from "@michaelthielemann/kestrel-delivery-s
 import { presetModuleConfig } from "./config";
 import type { ModuleEntry, PresetModuleConfigOptions } from "./config";
 import eventsQueueModule from "@michaelthielemann/kestrel-events-queue";
-import { delaysFor, lanesFor, presetSchemas, referenceSchemas } from "./index";
+import { checkPreset, delaysFor, lanesFor, presetSchemas, referenceSchemas } from "./index";
 import type { Feature } from "./index";
 import type { CollectionModel } from "./collections";
 import { deviceKeys } from "../config";
@@ -329,6 +329,21 @@ describe("derived references targets", () => {
 
     expect(handWritten).toEqual(fieldOf(configFor(modules, "references-default"), "schemas"));
     expect(fieldOf(handWritten, "pages.body")).toBe("/srv/app/.nuxt/kestrel/pages.body.json");
+  });
+
+  it("hands references-default the json field schemas of an override on the validator, which definePreset() accepts", () => {
+    vi.stubEnv("KESTREL_BLOCK_SCHEMA", "/srv/app/.nuxt/kestrel/pages.body.json");
+    const seo = { type: "object", properties: { cover: { type: "string", "x-kestrel-ref": "media" } } };
+    const validated = { ...presetSchemas({ features, collections: contentTypes, fieldTypes, collectionsUi: playgroundCollectionsUi }), "pages.seo": seo };
+    const modules = presetModuleConfig({
+      ...playgroundOptions(),
+      collectionsUi: playgroundCollectionsUi,
+      overrides: { "@michaelthielemann/kestrel-validate-jsonschema": { schemas: validated } },
+    });
+
+    expect(fieldOf(fieldOf(configFor(modules, "references-default"), "schemas"), "pages.seo")).toEqual(seo);
+    const problems = checkPreset({ modules, features, collections: contentTypes, collectionsUi: playgroundCollectionsUi, fieldTypes }).problems;
+    expect(problems.map((problem) => problem.code)).not.toContain("preset/references-needs-schemas");
   });
 });
 

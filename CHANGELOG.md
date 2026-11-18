@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Breaking
+
+- With the `references` feature, `definePreset()` throws `preset/references-needs-schemas` when the
+  `references-default` entry lacks a schema it needs from `validate-jsonschema`: every `<collection>.body`
+  schema of a `json` body field (the block schema) and every other `json` field schema given inline that
+  carries `x-kestrel-ref`. The message names the missing keys. A hand-written module list whose
+  `references-default` entry has `targets` alone, as the 3.0.0 example in the consuming guide shows, no longer
+  starts until the entry gets its schemas (see Upgrading). A list built by `presetModuleConfig()` passes.
+
 ### Added
 
 - `referenceSchemas({ features, collections, collectionsUi, fieldTypes, schemas? })` from `#kestrel/pipelines`
@@ -32,9 +41,10 @@
 - With a hand-written module list, a media file or page used only inside a content block could still be
   deleted: the 3.0.0 fix handed the block schema to `references-default` only through `presetModuleConfig()`,
   so a `references-default` entry written by hand with `targets` alone indexed no block field, the delete
-  guard let the delete through and the media library named no page before deleting. With the `references`
-  feature, `definePreset()` now throws `preset/references-needs-schemas` when the `references-default`
-  entry lacks one of the `json` field schemas `validate-jsonschema` carries, naming the missing keys.
+  guard let the delete through and the media library named no page before deleting. The same held for a
+  single delete, a bulk delete and a folder delete.
+- `presetModuleConfig()` takes the `references-default` schemas from the `schemas` of an override on
+  `validate-jsonschema` when one is given, so a `json` field schema added there is indexed as well.
 
 ### Upgrading
 
@@ -49,8 +59,10 @@
   } },
   ```
 
-  Without it the server no longer starts. The index rebuilds at the next boot, so files and pages that blocks
-  already use are guarded from then on. A list built by `presetModuleConfig()` needs no change.
+  A list kept on 3.0.0 can carry the body schema by hand instead, under the key and path the validator has
+  it: `schemas: { "pages.body": validated["pages.body"] }` with `validated` the result of the
+  `presetSchemas()` call of the `validate-jsonschema` entry. The index rebuilds at the next boot, so files and
+  pages that blocks already use are guarded from then on.
 
 ## 3.0.0 – 2026-11-16
 

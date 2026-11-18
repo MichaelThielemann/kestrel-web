@@ -361,9 +361,10 @@ rather than booting with something plausible.
   as before. `references.watch` follows `NODE_ENV` like the validator, so a block edit in development
   applies to the next save; the index itself rebuilds at boot whenever targets, fields or schemas change.
   The schemas come from `referenceSchemas()` (`#kestrel/pipelines`), which a hand-written list uses too
-  (see below). With the `references` feature, `definePreset()` throws when the `references-default` entry
-  lacks one of the `json` field schemas `validate-jsonschema` carries, since a file used only in a block
-  could then be deleted.
+  (see below); an override on `validate-jsonschema`'s `schemas` feeds them as well. With the `references`
+  feature, `definePreset()` throws when the `references-default` entry lacks a `<collection>.body` schema or
+  an inline `json` field schema with `x-kestrel-ref` that `validate-jsonschema` carries, since a file used
+  only there could then be deleted.
 - **`redirects-default.reservedPaths`** — `/api`, `/admin`, `/media`, the build assets path (`buildAssetsPath`),
   `/__nuxt_island`, `/__nuxt_error`, `/_ipx` and `/_preview`: the paths the server answers itself or Nuxt's
   tooling reserves, none of which a redirect source may equal, lie below or match through a wildcard (§9).
@@ -482,8 +483,10 @@ Give a hand-written `references-default` entry its `schemas` from `referenceSche
 give `presetSchemas()`, as above: it picks the schemas of the `json` fields from what `presetSchemas()` returns,
 under the same keys and paths, so the built server swaps in the bundled schemas for both modules. Without
 `pages.body` among them the index sees no file or page that only a block uses, and deleting one succeeds
-instead of answering 409; `definePreset()` refuses such an entry with `preset/references-needs-schemas`. A
-validator config of your own goes in as `referenceSchemas({ …, schemas })`.
+instead of answering 409, also in a bulk or folder delete; `definePreset()` refuses such an entry with
+`preset/references-needs-schemas`. It asks for each `<collection>.body` schema and each inline `json` field
+schema carrying `x-kestrel-ref`; it reads no other schema file, so a schema file of your own that marks
+references belongs in the entry too. A validator config of your own goes in as `referenceSchemas({ …, schemas })`.
 
 Give a hand-written `delivery-static` entry its `siteUrl` from `NUXT_PUBLIC_SITE_URL`, as above: the pages
 build their canonical link, `og:url` and `og:image` from that variable, and the server warns at start when the

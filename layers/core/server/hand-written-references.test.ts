@@ -45,8 +45,9 @@ describe("a hand-written module list with the references feature", () => {
     return { status: response.status, json: text === "" ? undefined : JSON.parse(text) };
   }
 
-  async function upload(name: string): Promise<string> {
+  async function upload(name: string, folder?: string): Promise<string> {
     const form = new FormData();
+    if (folder !== undefined) form.append("folder", folder);
     form.append("file", new Blob([new Uint8Array([37, 80, 68, 70, 45, 49, 46, 52])], { type: "application/pdf" }), name);
     const response = await fetch(`${base}/api/media`, { method: "POST", headers: { authorization: `Bearer ${token}` }, body: form });
     const json: unknown = await response.json();
@@ -131,6 +132,35 @@ describe("a hand-written module list with the references feature", () => {
   it("deletes a file no page uses", async () => {
     const file = await upload("unused.pdf");
     expect((await call("DELETE", `/media/${file}`)).status).toBe(200);
+  });
+
+  it("deletes only the unused files of a mixed selection and names the page for each one a block uses", async () => {
+    const [used, spare, alsoUsed, alsoSpare] = await Promise.all(["meadow.pdf", "pebble.pdf", "orchard.pdf", "brook.pdf"].map((name) => upload(name)));
+    const id = await page("meadow", [{ type: "hero", props: { image: used, heading: "Meadow" } }, { type: "gallery", props: { images: [alsoUsed] } }]);
+
+    const outcomes = new Map<string, { status: number; json: unknown }>();
+    for (const file of [used, spare, alsoUsed, alsoSpare]) outcomes.set(file, await call("DELETE", `/media/${file}`));
+
+    for (const file of [used, alsoUsed]) {
+      expect(outcomes.get(file)?.status, file).toBe(409);
+      expect(objectField(outcomes.get(file)?.json, "error")).toBe(`media/${file} is referenced by pages/${id} (body)`);
+      expect((await call("GET", `/media/${file}`)).status, file).toBe(200);
+    }
+    for (const file of [spare, alsoSpare]) {
+      expect(outcomes.get(file)?.status, file).toBe(200);
+      expect((await call("GET", `/media/${file}`)).status, file).toBe(404);
+    }
+  });
+
+  it("refuses to delete a folder holding a file only a block uses and keeps every file in it", async () => {
+    const used = await upload("dune.pdf", "coast");
+    const spare = await upload("tide.pdf", "coast");
+    await page("dune", [{ type: "hero", props: { image: used, heading: "Dune" } }]);
+
+    const refused = await call("DELETE", "/media/folders/coast?recursive=true");
+    expect(refused.status).toBe(409);
+    expect(objectField(refused.json, "error")).toBe(`1 media item(s) are still referenced: media/${used}`);
+    for (const file of [used, spare]) expect((await call("GET", `/media/${file}`)).status, file).toBe(200);
   });
 
   it("is refused by definePreset() when the references-default entry has targets but no schemas", () => {

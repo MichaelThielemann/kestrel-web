@@ -18,7 +18,7 @@ import type { PipelineChanges } from "./field-grants";
 import type { CollectionModel } from "./collections";
 import { INDEX_EXPORT_DELAYS } from "./index-delays";
 import { delaysFor, lanesFor, presetSchemas, referenceSchemas, relayPipelinesFor } from "./index";
-import { REFERENCES_MODULE } from "./reference-schemas";
+import { REFERENCES_MODULE, schemasOf } from "./reference-schemas";
 import type { Feature } from "./index";
 
 export interface ModuleEntry {
@@ -307,6 +307,8 @@ function withDerivedBlockAliases(types: Record<string, CollectionModel>, collect
   return result;
 }
 
+const VALIDATE_JSONSCHEMA_MODULE = "@michaelthielemann/kestrel-validate-jsonschema";
+
 function referencesConfig(types: Record<string, CollectionModel>, indexed: Record<string, string | Record<string, unknown>>): Record<string, unknown> {
   return { targets: referenceTargets(types), ...(Object.keys(indexed).length === 0 ? {} : { schemas: indexed, watch: process.env.NODE_ENV !== "production" }) };
 }
@@ -565,12 +567,13 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
 
   const schemas = presetSchemas({ features, collections: declaredTypes, fieldTypes, ...(options.collectionsUi === undefined ? {} : { collectionsUi: options.collectionsUi }) });
   if (enabled.has("references")) {
-    const indexed = referenceSchemas({ features, collections: declaredTypes, fieldTypes, schemas, ...(options.collectionsUi === undefined ? {} : { collectionsUi: options.collectionsUi }) });
+    const validated = schemasOf(options.overrides?.[VALIDATE_JSONSCHEMA_MODULE]) ?? schemas;
+    const indexed = referenceSchemas({ features, collections: declaredTypes, fieldTypes, schemas: validated, ...(options.collectionsUi === undefined ? {} : { collectionsUi: options.collectionsUi }) });
     modules.push(preset(REFERENCES_MODULE, referencesConfig(types, indexed)));
   }
   if (enabled.has("links")) modules.push(preset("@michaelthielemann/kestrel-links-default", { ...DEFAULT_LINKS }));
 
-  modules.push(preset("@michaelthielemann/kestrel-validate-jsonschema", {
+  modules.push(preset(VALIDATE_JSONSCHEMA_MODULE, {
     schemas,
     watch: process.env.NODE_ENV !== "production",
   }));
