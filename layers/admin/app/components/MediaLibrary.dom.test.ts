@@ -157,8 +157,7 @@ describe('MediaLibrary upload status', () => {
     expect(progressbar.attributes('aria-valuemax')).toBe('100')
 
     uploadControl.state.deliver?.({ id: 'f1', contentType: 'image/jpeg' })
-    await vi.waitFor(() => expect(wrapper.get('.media-upload-panel [aria-live="polite"]').text()).toContain('1 of 1 uploaded'))
-    expect(wrapper.get('.media-upload-panel [aria-live="polite"]').text()).toContain(en['media.upload.done'])
+    await vi.waitFor(() => expect(wrapper.get('.media-upload-panel [aria-live="polite"]').text()).toContain('Done: 1 of 1'))
     expect(wrapper.find('.media-upload-tile [role="progressbar"]').exists()).toBe(false)
   })
 
@@ -628,7 +627,7 @@ describe('MediaLibrary upload status', () => {
     expect(document.activeElement).not.toBe(document.body)
     expect(document.activeElement).toBe(wrapper.get('.media-upload-panel__list > li').element)
     uploadControl.state.deliver?.({ id: 'f1', contentType: 'application/pdf' })
-    await vi.waitFor(() => expect(wrapper.get('.media-upload-panel [aria-live="polite"]').text()).toContain('1 of 1 uploaded'))
+    await vi.waitFor(() => expect(wrapper.get('.media-upload-panel [aria-live="polite"]').text()).toContain('Done: 1 of 1'))
   })
 
   it('keeps a run stopped by an expired session on the page, without a refresh that would sign the user out', async () => {

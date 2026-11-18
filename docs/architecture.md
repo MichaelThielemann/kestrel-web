@@ -802,18 +802,18 @@ collection, the expected filter and the fix in the message.
     during the run and "Close" afterwards, so keyboard focus stays on it when the run ends. While files
     upload, the summary sits next to a spinner. Once they are sent and an image's variants are still being
     generated, the header reads "Generating variants (1 of 3 files)" with a spinner. A finished run then
-    reads "Done" with a check when every file sent was uploaded and every image has its variants, "Done"
-    with a warning icon when some variants failed, or with a clock when the poller stopped waiting for
-    them, and a detail line says for how many files ("Variants failed for 1 of 3 files"). It reads
-    "Finished" with a failure icon when files failed, or with a plain cross when files were only
+    reads "Done: 3 of 3" with a check when every file sent was uploaded and every image has its variants,
+    the same with a warning icon when some variants failed, or with a clock when the poller stopped
+    waiting for them, and a detail line says for how many files ("Variants failed for 1 of 3 files"). It
+    reads "Finished" with a failure icon when files failed, or with a plain cross when files were only
     cancelled. The panel never closes by itself; "Close" drops the finished items and aborts nothing: the
     variants are generated on the server, `useVariantWatch()` keeps polling and the grid tiles keep their
     chips. The state belongs to the panel, so it is the same in the grid and the table and stays across a
     folder change.
   - Rows. Below the header, a list with its own scroll bar holds one `MediaUploadRow.vue` per file.
     `utils/upload-state.ts` maps the file's state to what the row shows, one status at a time: waiting,
-    uploading with a percentage, processing, the variant phase of an image, done, failed with the reason
-    and a retry button, cancelled, or skipped in a muted tone with the reason. With the `images` feature,
+    "Uploading…" with the percentage on the bar, processing, the variant phase of an image, done, failed
+    with the reason and a retry button, cancelled, or skipped in a muted tone with the reason. With the `images` feature,
     `uploadVariantPhase()` gives an image its variant phase from the polled entry of its file, else from
     the upload's response: "Generating variants…" while the server still answers (inline event delivery
     generates the variants inside that request, so no counts exist yet), then "Generating variants (3 of
@@ -826,10 +826,12 @@ collection, the expected filter and the fix in the message.
     phases.
   - Layout. The library scrolls as a whole when the listing, kept at least `min(10rem, 25svh)` tall, and
     the panel do not fit, so on a short screen or at a high zoom neither is cut off.
-  - Announcements. The panel holds the only live region for uploads, a polite visually hidden status in
-    its header. It carries the upload summary and the phase ("3 of 3 uploaded. Generating variants…",
-    then "Done 3 of 3 uploaded") but none of the per-file or per-file-count variant progress, so changes
-    of "3 of 8" are never announced one by one. It adds the variant results of one second as one sentence
+  - Announcements. The panel holds the only live region for uploads, a polite, visually hidden and
+    non-atomic region in its header with two nodes: the header's text and the batched results. Each node
+    is announced only when it changes, so a new result does not repeat the header, and clearing a result
+    announces nothing. The header node carries the upload summary and the phase ("3 of 3 uploaded.
+    Generating variants…", then "Done: 3 of 3") but none of the per-file or per-file-count variant
+    progress, so changes of "3 of 8" are never announced one by one. It adds the variant results of one second as one sentence
     per outcome ("Variants ready: a.png, b.png, c.png and 2 more", built by
     `utils/variant-announcement.ts`), so each file is announced once. The spinners are decorative and stand
     still under `prefers-reduced-motion`; every state pairs an icon with text. An expired session puts one `role="alert"` line into the header that

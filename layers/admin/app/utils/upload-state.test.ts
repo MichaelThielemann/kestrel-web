@@ -15,15 +15,15 @@ describe('uploadStateView', () => {
     expect(view.progress).toBeUndefined()
   })
 
-  it('shows the percent of a running upload when the total is known, else an indeterminate bar', () => {
+  it('says a running upload is uploading, with the percent on its bar when the total is known, else an indeterminate bar', () => {
     const known = uploadStateView({ ...base, status: 'uploading', progress: 42, totalKnown: true }, t)
     const unknown = uploadStateView({ ...base, status: 'uploading', progress: 0, totalKnown: false }, t)
 
-    expect(known.status).toEqual({ text: 'media.tile.percent {"percent":42}', busy: true })
-    expect(known.progress?.value).toBe(42)
-    expect(known.progress?.label).toBe('media.upload.progressLabel {"name":"a.png"}')
-    expect(unknown.status.text).toBe('media.upload.uploading')
+    expect(known.status).toEqual({ text: 'media.upload.uploading', busy: true })
+    expect(known.progress).toEqual({ value: 42, label: 'media.upload.progressLabel {"name":"a.png"}', valueText: 'media.tile.percent {"percent":42}' })
+    expect(unknown.status).toEqual({ text: 'media.upload.uploading', busy: true })
     expect(unknown.progress?.value).toBeUndefined()
+    expect(unknown.progress?.valueText).toBe('media.upload.uploading')
   })
 
   it('shows a spinner while the server processes the file', () => {
@@ -85,7 +85,8 @@ describe('uploadRunView', () => {
   it('calls a run done with a success check only when every file was uploaded', () => {
     const view = run('done', 'done')
 
-    expect(view.status).toEqual({ text: 'media.upload.done', icon: 'circle-check', tone: 'success' })
+    expect(view.status).toEqual({ text: 'media.upload.doneCount {"done":2,"total":2}', icon: 'circle-check', tone: 'success' })
+    expect(view.trail).toBeUndefined()
     expect(view.barTone).toBe('success')
   })
 
@@ -94,6 +95,8 @@ describe('uploadRunView', () => {
 
     expect(view.countText).toBe('media.upload.summary {"done":0,"total":2}, media.upload.countFailed {"n":2}')
     expect(view.status).toEqual({ text: 'media.upload.finished', icon: 'circle-x', tone: 'danger' })
+    expect(view.trail).toBe(view.countText)
+    expect(view.liveText).toBe(`media.upload.finished. ${view.countText}`)
     expect(view.barTone).toBe('danger')
   })
 
@@ -107,7 +110,8 @@ describe('uploadRunView', () => {
     const view = run('done', 'done', 'skipped')
 
     expect(view.countText).toBe('media.upload.summary {"done":2,"total":2}, media.upload.countSkipped {"n":1}')
-    expect(view.status).toEqual({ text: 'media.upload.done', icon: 'circle-check', tone: 'success' })
+    expect(view.status).toEqual({ text: 'media.upload.doneCount {"done":2,"total":2}', icon: 'circle-check', tone: 'success' })
+    expect(view.trail).toBe('media.upload.countSkipped {"n":1}')
     expect(view.barTone).toBe('success')
   })
 
@@ -258,15 +262,15 @@ describe('uploadRunView with variant phases', () => {
   it('says Done with a success check and bar once every file has its variants', () => {
     const view = finished([{ kind: 'ready' }, { kind: 'ready' }, { kind: 'none' }])
 
-    expect(view.status).toEqual({ text: 'media.upload.done', icon: 'circle-check', tone: 'success' })
-    expect(view.liveText).toBe('media.upload.done media.upload.summary {"done":3,"total":3}')
+    expect(view.status).toEqual({ text: 'media.upload.doneCount {"done":3,"total":3}', icon: 'circle-check', tone: 'success' })
+    expect(view.liveText).toBe('media.upload.doneCount {"done":3,"total":3}')
     expect(view.barTone).toBe('success')
   })
 
   it('warns once nothing is pending when some files have failed variants, naming how many', () => {
     const view = finished([{ kind: 'ready' }, { kind: 'failed', failed: 2, total: 8 }])
 
-    expect(view.status).toEqual({ text: 'media.upload.done', icon: 'triangle-alert', tone: 'warning' })
+    expect(view.status).toEqual({ text: 'media.upload.doneCount {"done":2,"total":2}', icon: 'triangle-alert', tone: 'warning' })
     expect(view.detail).toBe('media.upload.variantsFailedFiles {"n":1,"total":2}')
     expect(view.liveText).toContain(view.detail)
     expect(view.barTone).toBe('default')
@@ -275,7 +279,7 @@ describe('uploadRunView with variant phases', () => {
   it('marks delayed variants with a clock and names how many files they hold up', () => {
     const view = finished([{ kind: 'stalled' }, { kind: 'ready' }])
 
-    expect(view.status).toEqual({ text: 'media.upload.done', icon: 'clock', tone: 'muted' })
+    expect(view.status).toEqual({ text: 'media.upload.doneCount {"done":2,"total":2}', icon: 'clock', tone: 'muted' })
     expect(view.detail).toBe('media.upload.variantsStalledFiles {"n":1,"total":2}')
   })
 
@@ -289,6 +293,12 @@ describe('uploadRunView with variant phases', () => {
     const view = finished([{ kind: 'stalled' }, { kind: 'pending' }, { kind: 'ready' }])
 
     expect(view.status.text).toBe('media.upload.variantsFiles {"done":1,"total":3}')
+  })
+
+  it('shows only the variant phase while variants are pending, and the count beside it only when uploads failed', () => {
+    expect(finished([{ kind: 'pending' }, { kind: 'ready' }]).trail).toBeUndefined()
+    const withFailure = finished([{ kind: 'pending' }], 'failed')
+    expect(withFailure.trail).toBe(withFailure.countText)
   })
 
   it('keeps the upload failure as status and the variant failure as detail', () => {

@@ -124,8 +124,9 @@ describe('MediaUploadPanel', () => {
     const wrapper = await mount([item({ status: 'done', progress: 100 }), item({ status: 'skipped', code: 'TOO_LARGE', message: 'Too large (60.0 MB, limit 20.0 MB)' })])
 
     const live = wrapper.get('[aria-live="polite"]')
-    expect(live.text()).toContain('1 of 1 uploaded, 1 skipped')
-    expect(live.text()).toContain(en['media.upload.done'])
+    expect(live.text()).toContain('Done: 1 of 1')
+    expect(live.text()).toContain('1 skipped')
+    expect(wrapper.findAll('.media-upload-panel__count > span').map((part) => part.text())).toEqual(['Done: 1 of 1', '1 skipped'])
     expect(wrapper.get('.media-upload-panel__summary').find('svg[data-icon="circle-check"]').exists()).toBe(true)
     const skipped = wrapper.findAll('.ui-progress-row')[1]
     expect(skipped?.classes()).toContain('ui-progress-row--muted')
@@ -186,6 +187,24 @@ describe('MediaUploadPanel', () => {
 
     expect(wrapper.get('[aria-live="polite"]').text()).toContain(message)
     expect(wrapper.get('.media-upload-panel__summary').text()).not.toContain(message)
+  })
+
+  it('keeps the header and the batched announcement in separate nodes of one non-atomic live region', async () => {
+    const message = en['media.upload.variantsReady'].replace('{names}', 'file.jpg')
+    const wrapper = await mount([item({ status: 'done', progress: 100 })], message)
+
+    const live = wrapper.get('[aria-live="polite"]')
+    expect(live.attributes('aria-atomic')).toBe('false')
+    expect(live.attributes('role')).toBeUndefined()
+    const [header, announcement] = live.findAll('span')
+    expect(header?.text()).toBe('Done: 1 of 1')
+    expect(announcement?.text()).toBe(message)
+
+    const headerNode = header?.element
+    await wrapper.setProps({ announcement: '' })
+    const [after] = wrapper.get('[aria-live="polite"]').findAll('span')
+    expect(after?.element).toBe(headerNode)
+    expect(after?.text()).toBe('Done: 1 of 1')
   })
 
   it('keeps the list reachable by keyboard so a long list can be scrolled', async () => {
@@ -272,8 +291,7 @@ describe('MediaUploadPanel variant phase', () => {
     expect(rowStatus(wrapper, 0)?.text()).toBe(en['media.upload.done'])
 
     const head = wrapper.get('.media-upload-panel__summary')
-    expect(head.text()).toContain('Generating variants (1 of 2 files)')
-    expect(head.text()).toContain('2 of 2 uploaded')
+    expect(head.text()).toBe('Generating variants (1 of 2 files)')
     expect(head.find('.ui-spinner').exists()).toBe(true)
     expect(head.find('svg[data-icon="circle-check"]').exists()).toBe(false)
     expect(button(wrapper, en['common.close'])?.attributes('disabled')).toBeUndefined()
@@ -302,9 +320,8 @@ describe('MediaUploadPanel variant phase', () => {
     expect(wrapper.findAll('.ui-progress-row')[0]?.find('[role="progressbar"]').exists()).toBe(false)
     const head = wrapper.get('.media-upload-panel__summary')
     expect(head.find('svg[data-icon="circle-check"]').exists()).toBe(true)
-    expect(head.text()).toContain(en['media.upload.done'])
-    expect(head.text()).toContain('1 of 1 uploaded')
-    expect(wrapper.get('[aria-live="polite"]').text()).toContain(`${en['media.upload.done']} 1 of 1 uploaded`)
+    expect(head.text()).toBe('Done: 1 of 1')
+    expect(wrapper.get('[aria-live="polite"]').text()).toBe('Done: 1 of 1')
   })
 
   it('warns in the row and in the header when variants failed', async () => {

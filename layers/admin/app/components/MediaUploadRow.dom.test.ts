@@ -19,13 +19,14 @@ describe('MediaUploadRow', () => {
     expect(wrapper.find('[role="progressbar"]').exists()).toBe(false)
   })
 
-  it('shows the percent on a named progress bar while uploading', async () => {
+  it('says Uploading next to a named bar that carries the percent while uploading', async () => {
     const wrapper = await mountSuspended(MediaUploadRow, { props: { item: item({ status: 'uploading', progress: 42, totalKnown: true }) } })
 
     const bar = wrapper.get('[role="progressbar"]')
     expect(bar.attributes('aria-valuenow')).toBe('42')
+    expect(bar.attributes('aria-valuetext')).toBe('42 %')
     expect(bar.attributes('aria-label')).toBe('Progress: holiday.jpg')
-    expect(wrapper.get('.ui-progress-row__status').text()).toBe('42 %')
+    expect(wrapper.get('.ui-progress-row__status').text()).toBe(en['media.upload.uploading'])
     expect(wrapper.find('.ui-progress-row__status .ui-spinner').exists()).toBe(true)
   })
 

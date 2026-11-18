@@ -96,8 +96,11 @@ export function uploadStateView(item: Entry, t: Translate, variants?: UploadStat
     case 'queued':
       return { tone: 'muted', status: { text: t('media.tile.queued'), icon: 'clock', tone: 'muted' } }
     case 'uploading': {
-      const text = item.totalKnown ? t('media.tile.percent', { percent: item.progress }) : t('media.upload.uploading')
-      return { tone: 'default', status: { text, busy: true }, progress: { value: item.totalKnown ? item.progress : undefined, label, valueText: text } }
+      const text = t('media.upload.uploading')
+      const progress = item.totalKnown
+        ? { value: item.progress, label, valueText: t('media.tile.percent', { percent: item.progress }) }
+        : { label, valueText: text }
+      return { tone: 'default', status: { text, busy: true }, progress }
     }
     case 'processing':
       return { tone: 'default', status: { text: t('media.tile.processing'), busy: true }, progress: { value: 100, label, valueText: t('media.tile.processing') } }
@@ -116,7 +119,10 @@ export function uploadStateView(item: Entry, t: Translate, variants?: UploadStat
 export interface UploadRunView {
   /** While files upload, a spinner with the count; then the variant phase, then the outcome. */
   status: ProgressRowStatus
+  /** The upload count with its failed, cancelled and skipped parts. */
   countText: string
+  /** What the header shows after a finished run's status: the full count when uploads failed or were cancelled, else only the skipped part. */
+  trail?: string
   /** Files whose variants failed or were delayed, once no file's variants are pending. */
   detail?: string
   /** What screen readers hear: the count and the phase, never the per-file variant progress. */
@@ -148,9 +154,10 @@ function finishedStatus(summary: UploadSummary, variants: VariantTally, t: Trans
   if (variants.pending) return { text: filesText(t, 'media.upload.variantsFiles', { done: variants.files - variants.pending - variants.stalled, total: variants.files }), busy: true }
   if (summary.failed) return { text: t('media.upload.finished'), icon: 'circle-x', tone: 'danger' }
   if (summary.cancelled) return { text: t('media.upload.finished'), icon: 'x', tone: 'muted' }
-  if (variants.failed) return { text: t('media.upload.done'), icon: 'triangle-alert', tone: 'warning' }
-  if (variants.stalled) return { text: t('media.upload.done'), icon: 'clock', tone: 'muted' }
-  return { text: t('media.upload.done'), icon: 'circle-check', tone: 'success' }
+  const text = t('media.upload.doneCount', { done: summary.done, total: summary.total })
+  if (variants.failed) return { text, icon: 'triangle-alert', tone: 'warning' }
+  if (variants.stalled) return { text, icon: 'clock', tone: 'muted' }
+  return { text, icon: 'circle-check', tone: 'success' }
 }
 
 function variantDetail(variants: VariantTally, t: Translate): string | undefined {
@@ -176,12 +183,13 @@ export function uploadRunView(summary: UploadSummary, t: Translate, items: reado
   if (!summary.finished) return { status: { text: countText, busy: true }, countText, liveText: countText, overall, barTone: 'default' }
 
   const status = finishedStatus(summary, variants, t)
+  const trail = failed || cancelled ? countText : skipped ? t('media.upload.countSkipped', { n: skipped }) : undefined
   const detail = variantDetail(variants, t)
   const liveText = variants.pending
     ? `${countText}. ${t('media.upload.processing')}`
-    : [`${status.text} ${countText}`, detail].filter(Boolean).join('. ')
+    : [status.text, trail, detail].filter(Boolean).join('. ')
   let barTone: UploadRunView['barTone'] = 'default'
   if (failed) barTone = 'danger'
   else if (done === total && !variants.pending && !variants.failed && !variants.stalled) barTone = 'success'
-  return { status, countText, detail, liveText, overall, barTone }
+  return { status, countText, trail, detail, liveText, overall, barTone }
 }

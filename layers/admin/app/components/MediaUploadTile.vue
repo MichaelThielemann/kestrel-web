@@ -27,6 +27,7 @@ const progressValue = computed(() => {
 const { has } = useFeatures()
 const state = computed(() => uploadStateView(props.item, t, { phase: uploadVariantPhase(props.item, { images: has('images') }) }))
 const progressText = computed(() => state.value.status.text)
+const progressValueText = computed(() => state.value.progress?.valueText ?? progressText.value)
 const errorId = computed(() => (props.item.status === 'failed' ? props.item.requestId : undefined))
 const root = ref<HTMLElement | null>(null)
 
@@ -84,7 +85,7 @@ function retry() {
         v-if="!ready"
         :value="progressValue"
         :label="t('media.upload.progressLabel', { name: item.filename })"
-        :value-text="progressText"
+        :value-text="progressValueText"
       />
       <span class="media-upload-tile__name">{{ item.filename }}</span>
       <span v-if="!ready" class="media-upload-tile__status" aria-hidden="true"><KestrelUiSpinner v-if="state.status.busy" /> {{ progressText }}</span>

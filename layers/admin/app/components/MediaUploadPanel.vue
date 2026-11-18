@@ -25,7 +25,6 @@ const phases = computed(() => new Map(props.items.map((item) => {
 })))
 const run = computed(() => uploadRunView(props.summary, t, props.items, [...phases.value.values()]))
 const countText = computed(() => run.value.countText)
-const liveText = computed(() => [run.value.liveText, props.announcement].filter(Boolean).join('. '))
 
 const retryableFailed = computed(() => props.items.some((item) => item.status === 'failed' && props.canRetry(item)))
 const actions = ref<HTMLElement | null>(null)
@@ -74,11 +73,14 @@ const sessionExpired = computed(() => props.items.some((item) => item.status ===
             <KestrelUiIcon v-else-if="run.status.icon" :name="run.status.icon" :size="16" />
             {{ run.status.text }}
           </span>
-          <span v-if="summary.finished">{{ countText }}</span>
+          <span v-if="run.trail">{{ run.trail }}</span>
         </p>
         <p v-if="run.detail" class="media-upload-panel__detail">{{ run.detail }}</p>
       </div>
-      <KestrelUiLiveStatus :message="liveText" />
+      <div class="media-upload-panel__live" aria-live="polite" aria-atomic="false">
+        <span>{{ run.liveText }}</span>
+        <span>{{ announcement }}</span>
+      </div>
       <div ref="actions" class="media-upload-panel__actions">
         <KestrelUiButton v-if="retryableFailed" size="sm" variant="secondary" icon="rotate-ccw" @click="act('retryFailed')">{{ t('media.upload.retryFailed') }}</KestrelUiButton>
         <KestrelUiButton size="sm" variant="secondary" :aria-label="endAction.label" @click="endAction.run">{{ endAction.text }}</KestrelUiButton>
@@ -153,6 +155,10 @@ const sessionExpired = computed(() => props.items.some((item) => item.status ===
 
 .media-upload-panel__status--muted .ui-icon {
   color: var(--color-text-muted);
+}
+
+.media-upload-panel__live {
+  @include mixins.sr-only;
 }
 
 .media-upload-panel__detail {

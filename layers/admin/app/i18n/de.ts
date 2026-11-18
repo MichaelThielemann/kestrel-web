@@ -807,6 +807,7 @@ export const de: Record<CatalogKey, string> = {
   'media.upload.overall': 'Gesamtfortschritt der Uploads',
   'media.upload.uploading': 'Wird hochgeladen…',
   'media.upload.done': 'Fertig',
+  'media.upload.doneCount': 'Fertig: {done} von {total}',
   'media.upload.failed': 'Upload fehlgeschlagen',
   'media.upload.retryName': 'Erneut versuchen: {name}',
   'media.upload.retryFailed': 'Fehlgeschlagene erneut versuchen',

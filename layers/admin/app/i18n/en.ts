@@ -805,6 +805,7 @@ export const en = {
   'media.upload.overall': 'Overall upload progress',
   'media.upload.uploading': 'Uploading…',
   'media.upload.done': 'Done',
+  'media.upload.doneCount': 'Done: {done} of {total}',
   'media.upload.failed': 'Upload failed',
   'media.upload.retryName': 'Retry {name}',
   'media.upload.retryFailed': 'Retry failed uploads',

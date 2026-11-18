@@ -21,15 +21,16 @@
 ### Changed
 
 - The media upload panel keeps showing the image variants after the upload, per file and in its header.
-  Each image row shows one status at a time: "Uploading…", then "Generating variants…" while the server
+  Each image row shows one status at a time: "Uploading…" with the percentage on its bar, then "Generating variants…" while the server
   answers, then "Generating variants (3 of 8)" with a determinate bar while sizes are still pending, then
   "Done" with a check that stays until "Close". Failed sizes show "2 of 8 variants failed" with a warning
   icon and where to retry them, a stall shows "Variants delayed". Files that are not images have no
   variant phase. The header reads "Generating variants (1 of 3 files)" with a spinner until every image is
-  through, then "Done", with a warning and a detail line ("Variants failed for 1 of 3 files") when some
+  through, then "Done: 3 of 3", with a warning and a detail line ("Variants failed for 1 of 3 files") when some
   failed. The counts are read from the existing variant poll; with inline event delivery the variants are
   generated within the upload request, so no counts appear. "Close" stays available and aborts nothing.
-  The panel's live region announces the phase and the batched results, never the per-file counts.
+  The panel's live region announces the phase and the batched results, never the per-file counts, and
+  keeps them in separate nodes, so a new result or its removal does not repeat the header.
 - A failed upload's row reads "Upload failed" instead of "Failed".
 - `KestrelUiProgressRow` takes a `warning` tone for its status.
 - The German admin texts say „erzeugt“ for image variants throughout.
