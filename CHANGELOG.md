@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 3.0.1 – 2026-11-18
+
 ### Added
 
 - With the `references` feature, `definePreset()` warns with `preset/references-needs-schemas` when the
