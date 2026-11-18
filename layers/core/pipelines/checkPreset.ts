@@ -23,7 +23,7 @@ import ratelimit from "./features/ratelimit";
 import sanitizeSvg from "./features/sanitizeSvg";
 import references from "./features/references";
 import links from "./features/links";
-import delivery, { dependentsPipelineName, dependentsPipelineNames, REFRESH_INDEXES_PIPELINE, REFRESH_LLMS_PIPELINE, REPUBLISH_OUTPUT_PIPELINE } from "./features/delivery";
+import delivery, { dependentsPipelineName, dependentsPipelineNames, restoredPublishTriggers, REFRESH_INDEXES_PIPELINE, REFRESH_LLMS_PIPELINE, REPUBLISH_OUTPUT_PIPELINE } from "./features/delivery";
 import { INDEX_EXPORT_DELAYS } from "./index-delays";
 import redirects from "./features/redirects";
 import images from "./features/images";
@@ -842,7 +842,9 @@ export function buildPreset<C extends Record<string, CollectionModel> = Record<s
   if (enabledFeatures.has("delivery")) {
     const emitted = emittedEvents(pipelines, options.modules);
     const dependents = new Set(dependentsPipelineNames(collections));
-    triggers = triggers.filter((trigger) => !("event" in trigger) || !dependents.has(trigger.pipeline) || emitted.has(trigger.event));
+    const restored = new Set(restoredPublishTriggers(collections).map((trigger) => `${trigger.event} ${trigger.pipeline}`));
+    const needsEmitter = (trigger: { event: string; pipeline: string }): boolean => dependents.has(trigger.pipeline) || restored.has(`${trigger.event} ${trigger.pipeline}`);
+    triggers = triggers.filter((trigger) => !("event" in trigger) || !needsEmitter(trigger) || emitted.has(trigger.event));
   }
 
   const lanes = configuredLanes(options.modules) ?? (configuredModules.has(EVENTS_QUEUE_MODULE) ? new Map<string, string[]>() : undefined);

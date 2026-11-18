@@ -81,6 +81,16 @@ function dependents(collections: Record<string, CollectionModel>): { pipelines: 
   return { pipelines, triggers };
 }
 
+/** The trigger that publishes a routed collection's document again once a revision of it is restored; it is left out when no composed pipeline emits its event. */
+export function restoredPublishTrigger(collection: string): { event: string; pipeline: string } {
+  return { event: `${collectionNames(collection).event}.restored`, pipeline: routedPipelineNames(collection).publish };
+}
+
+/** The `restoredPublishTrigger` of `pages` and of every mounted collection. */
+export function restoredPublishTriggers(collections: Record<string, CollectionModel>): { event: string; pipeline: string }[] {
+  return ["pages", ...mountedCollections(collections)].map(restoredPublishTrigger);
+}
+
 function mountedDelivery(collections: Record<string, CollectionModel>): { pipelines: Record<string, PresetEntry<PresetStep>[]>; triggers: TriggerConfig[] } {
   const pipelines: Record<string, PresetEntry<PresetStep>[]> = {};
   const triggers: TriggerConfig[] = [];
@@ -93,7 +103,8 @@ function mountedDelivery(collections: Record<string, CollectionModel>): { pipeli
     pipelines[names.publishAll] = ["authn.requireUser", `authz.require:${name}.manage`, `delivery.markAll:${name}`, REQUEST_INDEXES_STEP];
     triggers.push({ http: `POST /admin/publish-all/${name}`, pipeline: names.publishAll });
     triggers.push({ http: `GET /admin/publish-status/${name}/:id`, pipeline: names.publishStatus });
-    for (const change of ["created", "updated", "restored"]) triggers.push({ event: `${event}.${change}`, pipeline: names.publish });
+    for (const change of ["created", "updated"]) triggers.push({ event: `${event}.${change}`, pipeline: names.publish });
+    triggers.push(restoredPublishTrigger(name));
     triggers.push({ event: `${event}.deleted`, pipeline: names.unpublish });
     const model = collections[name];
     if (model !== undefined && hasLocalizedField(model)) triggers.push({ event: `${event}.translationRemoved`, pipeline: names.publish });
@@ -116,7 +127,7 @@ export default function delivery(context: PresetContext): FeatureModule {
   const triggers: TriggerConfig[] = [
     { event: "page.created", pipeline: PAGE_DELIVERY_PIPELINES.publish },
     { event: "page.updated", pipeline: PAGE_DELIVERY_PIPELINES.publish },
-    { event: "page.restored", pipeline: PAGE_DELIVERY_PIPELINES.publish },
+    restoredPublishTrigger("pages"),
     { event: "page.deleted", pipeline: PAGE_DELIVERY_PIPELINES.unpublish },
     { event: PATHS_MOVED_EVENT, pipeline: PATH_PIPELINES.movedDelivery },
   ];

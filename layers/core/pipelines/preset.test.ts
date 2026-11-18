@@ -777,9 +777,72 @@ describe("definePreset step ordering", () => {
     const eventTriggers = preset.triggers.filter((trigger): trigger is { event: string; pipeline: string } => "event" in trigger);
     expect(eventTriggers).toContainEqual({ event: "page.created", pipeline: "publishPage" });
     expect(eventTriggers).toContainEqual({ event: "page.updated", pipeline: "publishPage" });
-    expect(eventTriggers).toContainEqual({ event: "page.restored", pipeline: "publishPage" });
     expect(eventTriggers).toContainEqual({ event: "page.deleted", pipeline: "unpublishPage" });
+    expect(eventTriggers.some((trigger) => trigger.event === "page.restored")).toBe(false);
     expect(eventTriggers.some((trigger) => trigger.event === "page.translationRemoved")).toBe(false);
+  });
+});
+
+describe("definePreset restored-revision publish triggers", () => {
+  const pages: CollectionModel = { kind: "multi", fields: { slug: { type: "slug", localized: true }, title: { localized: true }, body: { localized: true }, status: { localized: true } } };
+  const blog: CollectionModel = { kind: "multi", mount: true, fields: { slug: { type: "slug", localized: true }, title: { localized: true }, body: { localized: true }, status: { localized: true } } };
+  const collections = { settings: { kind: "single" as const, fields: { title: { type: "text" } } }, pages, blog };
+  const deliveryModules = [
+    ...baseModules.map((entry) => (entry.use.endsWith("authz-roles") ? { ...entry, config: { anonymous: ["pages.read", "blog.read"] } } : entry)),
+    { use: "@michaelthielemann/kestrel-references-default" },
+    { use: "@michaelthielemann/kestrel-links-default" },
+    { use: "@michaelthielemann/kestrel-delivery-static" },
+    { use: "@michaelthielemann/kestrel-renderer-nuxt" },
+  ];
+  const revisionModules = [...deliveryModules, { use: "@michaelthielemann/kestrel-revisions-default" }];
+  const withoutRevisions: Feature[] = ["references", "links", "delivery"];
+  const withRevisions: Feature[] = [...withoutRevisions, "revisions"];
+
+  function publishTriggers(options: Parameters<typeof definePreset>[0]): string[] {
+    return definePreset(options)
+      .triggers.flatMap((trigger) => ("event" in trigger && ["publishPage", "unpublishPage", "publishBlog", "unpublishBlog"].includes(trigger.pipeline) ? [`${trigger.event} -> ${trigger.pipeline}`] : []))
+      .sort();
+  }
+
+  const unconditional = [
+    "blog.created -> publishBlog",
+    "blog.deleted -> unpublishBlog",
+    "blog.translationRemoved -> publishBlog",
+    "blog.updated -> publishBlog",
+    "page.created -> publishPage",
+    "page.deleted -> unpublishPage",
+    "page.translationRemoved -> publishPage",
+    "page.updated -> publishPage",
+  ];
+
+  it("composes no restored trigger on a publish pipeline without revisions", () => {
+    expect(publishTriggers({ modules: deliveryModules, features: withoutRevisions, collections })).toEqual(unconditional);
+  });
+
+  it("publishes a page and a mounted document again once revisions restore them", () => {
+    expect(publishTriggers({ modules: revisionModules, features: withRevisions, collections })).toEqual(
+      [...unconditional, "blog.restored -> publishBlog", "page.restored -> publishPage"].sort(),
+    );
+  });
+
+  it("leaves out the restored trigger whose restore pipeline is excluded", () => {
+    expect(publishTriggers({ modules: revisionModules, features: withRevisions, collections, exclude: ["restorePageRevision"] })).toEqual(
+      [...unconditional, "blog.restored -> publishBlog"].sort(),
+    );
+  });
+
+  it("keeps the created, updated, deleted and translationRemoved triggers when the write pipeline that emits one is excluded", () => {
+    expect(publishTriggers({ modules: deliveryModules, features: withoutRevisions, collections, exclude: ["updatePage"] })).toEqual(unconditional);
+  });
+
+  it("still reports an override of the restore pipeline that drops its emit", () => {
+    const { problems } = checkPreset({
+      modules: revisionModules,
+      features: withRevisions,
+      collections,
+      overrides: { restorePageRevision: ["authn.requireUser", "authz.require:pages.write", "revisions.restore:pages", "revisions.reportRestore"] },
+    });
+    expect(problems).toContainEqual(expect.objectContaining({ code: "preset/override-drops-watched-emit", pipeline: "restorePageRevision" }));
   });
 });
 
