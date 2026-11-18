@@ -157,6 +157,10 @@ const truncated = useOverflowing(titleEl)
   color: var(--color-success);
 }
 
+.ui-progress-row__status--warning .ui-progress-row__status-icon {
+  color: var(--color-warning-text);
+}
+
 .ui-progress-row__status--danger {
   color: var(--color-danger);
 }

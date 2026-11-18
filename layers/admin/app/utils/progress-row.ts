@@ -1,7 +1,7 @@
 import type { IconName } from './icons'
 
 /** Tone of a `KestrelUiProgressRow` and of its status. */
-export type ProgressRowTone = 'default' | 'muted' | 'success' | 'danger'
+export type ProgressRowTone = 'default' | 'muted' | 'success' | 'warning' | 'danger'
 
 /** The status a `KestrelUiProgressRow` shows as icon and text. */
 export interface ProgressRowStatus {
