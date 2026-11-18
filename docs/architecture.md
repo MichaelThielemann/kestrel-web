@@ -1656,9 +1656,16 @@ renders the tree in-app for the live preview (no public site round-trip, no ifra
 
 A block instance may carry an editor-only alias (findable in the block picker's search, shown only in
 its fields panel), but the alias never travels inside `body`: it lives in a sibling `blockAliases`
-field (`{ type: "json" }`) the preset derives automatically for every collection whose editor is
-`"blocks"` and which has a `body` field — a consumer never declares it — so the existing field grants
-(`authz.fields`) keep it from anonymous callers on every pipeline that answers the collection —
+field (`{ type: "json" }`). `presetModuleConfig()` derives that field for every collection whose editor
+is `"blocks"` and which has a `body` field; a hand-written module list declares
+`blockAliases: { type: "json" }` in the content type itself and leaves it out of
+`roles.anonymousFields`. The admin offers aliases only where the served schema has the field:
+`composables/useBlockAliases.ts` returns no binding when the collection's `fields` lack `blockAliases`,
+and `BlocksBody.vue` then hands `useBlockTree` no alias map, `BlockFields.vue` shows no alias input and
+the picker lists no alias matches. `useEditForm`'s `setField` throws for any name outside the served
+`fields` other than the reserved `layout` field, because such a value is never sent, never comes back
+and would keep the form dirty after every save. The existing field grants
+(`authz.fields`) keep the field from anonymous callers on every pipeline that answers the collection —
 `resolvePage`, `readPage`, `listPages` and their generic-collection equivalents alike — the same way
 they already keep out any other field a consumer excludes. The field is deliberately not localized
 (a localized field's name still shows up in `_locales`' per-field origin map, which is granted

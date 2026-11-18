@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+### Fixed
+
+- Page builder: on a collection whose fields have no `blockAliases`, saving a block edit leaves the editor
+  clean again. The editor wrote an alias map into the form on every block change although the field did not
+  exist, so the value was never sent and the status stayed on unsaved until a reload. Block aliases now
+  follow the served schema: without the field the fields panel shows no alias input, the block picker
+  lists no alias matches and no request carries `blockAliases`. `presetModuleConfig()` still derives the
+  field for every `editor: "blocks"` collection with a `body`; with a hand-written module list, declare
+  `blockAliases: { type: "json" }` in the content type to turn aliases on, and leave it out of
+  `roles.anonymousFields`.
+- Admin editor: writing a form value for a name the collection does not serve (other than the reserved
+  `layout` field) throws instead of keeping a value that is never saved.
+
 ## 3.0.0 – 2026-11-16
 
 ### Added
@@ -297,7 +310,7 @@
   and `apiErrorText(t, e, lead)` gives the text an inline error display shows.
 - Page builder: a block instance can carry an optional alias, set in its fields panel. The preset derives a
   `blockAliases` field, and its editor-owned grant, automatically for every collection whose editor is
-  `"blocks"` and which has a `body` field; a consumer never declares it. The field itself is not localized
+  `"blocks"` and which has a `body` field; with `presetModuleConfig()` a consumer never declares it. The field itself is not localized
   (a localized field's name would otherwise still show up in `_locales`' per-field origin map for anonymous
   callers); instead it holds one alias map per locale (`{ [locale]: { [blockId]: alias } }`), since block ids
   differ per locale body, and the editor merges only the current locale's map into it on save, leaving every

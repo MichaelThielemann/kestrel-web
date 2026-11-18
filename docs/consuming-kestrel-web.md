@@ -1446,6 +1446,12 @@ it takes; the dev server picks the change up on save. See `playground/app/blocks
 system clipboard and paste it back on the same or another page — see **Page builder** in
 `docs/architecture.md` for the clipboard format.
 
+An editor can also give a block instance an alias, a name only the admin shows, to find it again through
+the block picker's search. Aliases are stored in the collection's `blockAliases` field (`{ type: "json" }`,
+not localized), which `presetModuleConfig()` adds for every `editor: "blocks"` collection with a `body`. With
+a hand-written module list, declare `blockAliases: { type: "json" }` in the content type to turn aliases on,
+and leave it out of `roles.anonymousFields`. Without the field the editor offers no aliases.
+
 **Block name** = the kebab-cased file name: `Hero.vue` → `hero`, `BoxedContainer.vue` → `boxed-container`.
 
 **Rendering helpers** (auto-imported as well): `resolveRichtextLinks(html, (collection, id) => href)` turns the
