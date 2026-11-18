@@ -57,6 +57,36 @@ function asFeatures(names: readonly string[]): Feature[] {
   return result;
 }
 
+async function bootPlaygroundModel(features: Feature[], prefix: string): Promise<readonly unknown[]> {
+  const { contentModel, contentTypes } = await import("../../../playground/shared/model");
+  const { default: collectionsUi } = await import("../../../playground/shared/collections-ui");
+  const { default: fieldTypes } = await import("../../../playground/shared/field-types");
+  const root = mkdtempSync(join(tmpdir(), prefix));
+  try {
+    const modules = presetModuleConfig({
+      dataDir: root,
+      blobstore: { use: "@michaelthielemann/kestrel-blobstore-filesystem", config: { root: resolve(root, "blobs") } },
+      model: contentModel,
+      features,
+      collectionsUi,
+      fieldTypes,
+      roles: { roles: { admin: ["*"] }, anonymous: ["pages.read", "blog.read", "settings.read", "media.read"] },
+      bootstrap: { username: "admin", passwordHash: "scrypt$522f4ac87bfe4bcd100ba47a7d2aaec2$dbfc3f2d6cc38a76b21973d7c6f6d310a09506581c665f1f6601fd8fb3fa9bc3959689aea3e389f4d53eb8c7e70791ad4065e308763dd44609904134f0f5ee98" },
+    });
+    const preset = definePreset({ modules, features, collections: contentTypes, collectionsUi, fieldTypes });
+    const config = defineConfig({ modules, triggers: preset.triggers, http: null });
+    const kestrel = await boot({ config: { ...config, http: null }, modules: presetModules(config.modules), pipelines: preset.pipelines, logger: collectingLogger() });
+    try {
+      await kestrel.start();
+      return kestrel.warnings;
+    } finally {
+      await kestrel.stop();
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
 describe("boot", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
@@ -377,37 +407,20 @@ describe("boot", () => {
 
     it("boots and starts a project scaffolded with --features delivery alone, which brings sanitizeSvg along", async () => {
       const { resolveOptions } = await import("../../../packages/create-kestrel/src/args.mjs");
-      const { contentModel, contentTypes } = await import("../../../playground/shared/model");
-      const { default: collectionsUi } = await import("../../../playground/shared/collections-ui");
-      const { default: fieldTypes } = await import("../../../playground/shared/field-types");
       const resolved = resolveOptions(["--features", "delivery"], {});
       expect(resolved.errors).toEqual([]);
       const features = asFeatures(resolved.options.features ?? []);
       expect(features).toEqual(["sanitizeSvg", "delivery"]);
-      const deliveryRoot = mkdtempSync(join(tmpdir(), "kestrel-web-boot-delivery-only-"));
+      const warnings = await bootPlaygroundModel(features, "kestrel-web-boot-delivery-only-");
+      expect(warnings, `unexpected boot warnings: ${JSON.stringify(warnings)}`).toEqual([]);
+    }, 15000);
 
-      try {
-        const modules = presetModuleConfig({
-          dataDir: deliveryRoot,
-          blobstore: { use: "@michaelthielemann/kestrel-blobstore-filesystem", config: { root: resolve(deliveryRoot, "blobs") } },
-          model: contentModel,
-          features,
-          collectionsUi,
-          fieldTypes,
-          roles: { roles: { admin: ["*"] }, anonymous: ["pages.read", "blog.read", "settings.read", "media.read"] },
-          bootstrap: { username: "admin", passwordHash: "scrypt$522f4ac87bfe4bcd100ba47a7d2aaec2$dbfc3f2d6cc38a76b21973d7c6f6d310a09506581c665f1f6601fd8fb3fa9bc3959689aea3e389f4d53eb8c7e70791ad4065e308763dd44609904134f0f5ee98" },
-        });
-        const preset = definePreset({ modules, features, collections: contentTypes, collectionsUi, fieldTypes });
-        const config = defineConfig({ modules, triggers: preset.triggers, http: null });
-        const kestrel = await boot({ config: { ...config, http: null }, modules: presetModules(config.modules), pipelines: preset.pipelines, logger: collectingLogger() });
-        try {
-          await kestrel.start();
-        } finally {
-          await kestrel.stop();
-        }
-      } finally {
-        rmSync(deliveryRoot, { recursive: true, force: true });
-      }
+    it("boots delivery without revisions and with a mounted collection without a boot warning", async () => {
+      const { contentTypes } = await import("../../../playground/shared/model");
+      expect(contentTypes.blog?.mount).toBe(true);
+      const features: Feature[] = ["references", "links", "delivery", "redirects", "ratelimit", "audit", "sanitizeSvg", "images"];
+      const warnings = await bootPlaygroundModel(features, "kestrel-web-boot-no-revisions-");
+      expect(warnings, `unexpected boot warnings: ${JSON.stringify(warnings)}`).toEqual([]);
     }, 15000);
 
     it("refuses to boot the default feature set with an empty anonymous role, naming the missing media.read permission", async () => {
