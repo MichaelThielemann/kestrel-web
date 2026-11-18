@@ -10,6 +10,7 @@ const props = defineProps<{
   block: BlockRow
   def?: SerializedBlock
   locale: string
+  aliasable?: boolean
   disabled?: boolean
 
   errors?: { field?: string; message: string; path?: string[] }[]
@@ -39,7 +40,7 @@ provide(blockImageSizesKey, computed(() => props.def?.imageSizes?.map((size) => 
   <div class="block-fields">
     <p class="block-fields__title">{{ resolveLocalized(def?.label, lang) ?? block.type }}</p>
     <p v-for="(msg, i) in blockAlerts" :key="i" class="block-fields__alert" role="alert">{{ msg }}</p>
-    <KestrelUiField :label="t('blocks.aliasLabel')" :hint="t('blocks.aliasHint')">
+    <KestrelUiField v-if="aliasable" :label="t('blocks.aliasLabel')" :hint="t('blocks.aliasHint')">
       <template #default="f">
         <KestrelUiTextInput
           :model-value="block.alias ?? ''"

@@ -8,6 +8,9 @@ import { DEFAULT_HOME_SLUG } from './edit-form'
 export const BLOCKS_FIELD = 'body'
 export const BLOCK_ALIASES_FIELD = 'blockAliases'
 
+/** Whether a collection's served fields hold block aliases. Without the field the blocks editor offers none. */
+export const hasBlockAliases = (fields: Record<string, unknown>): boolean => BLOCK_ALIASES_FIELD in fields
+
 export interface ContentLocales {
   locales: string[]
   primary: string

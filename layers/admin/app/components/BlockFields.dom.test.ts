@@ -2,6 +2,7 @@ import { mountSuspended } from '@nuxt/test-utils/runtime'
 import { describe, expect, it } from 'vitest'
 import { defineComponent, h, inject } from 'vue'
 import type { SerializedBlock } from '#kestrel-admin/types/kestrel'
+import { en } from '#kestrel-admin/i18n/en'
 import type { BlockRow } from '../utils/block-tree'
 import { blockImageSizesKey } from '../utils/media-crop'
 import BlockFields from './BlockFields.vue'
@@ -31,6 +32,24 @@ describe('BlockFields', () => {
     expect(rows).toHaveLength(2)
     expect(rows[0]!.findAll('.ui-field-cell')).toHaveLength(2)
     expect(rows[1]!.findAll('.ui-field-cell')).toHaveLength(1)
+  })
+
+  it('offers no alias input unless the collection holds block aliases', async () => {
+    const def: SerializedBlock = { name: 'hero', label: 'Hero', fields }
+    const wrapper = await mountSuspended(BlockFields, { props: { block, def, locale: 'en' } })
+
+    expect(wrapper.findAll('label').map((node) => node.text())).not.toContain(en['blocks.aliasLabel'])
+  })
+
+  it('offers the alias input and reports an edit when the collection holds block aliases', async () => {
+    const def: SerializedBlock = { name: 'hero', label: 'Hero', fields }
+    const wrapper = await mountSuspended(BlockFields, { props: { block: { ...block, alias: 'Teaser' }, def, locale: 'en', aliasable: true } })
+
+    const label = wrapper.findAll('label').find((node) => node.text() === en['blocks.aliasLabel'])
+    const input = wrapper.get<HTMLInputElement>(`#${label!.attributes('for')}`)
+    expect(input.element.value).toBe('Teaser')
+    await input.setValue('Intro')
+    expect(wrapper.emitted('update-alias')).toEqual([['Intro']])
   })
 
   it('falls back to one field per row without a fieldLayout', async () => {

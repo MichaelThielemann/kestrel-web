@@ -56,7 +56,7 @@ const pathPreview = usePathPreview(useActionDeps(), {
 provide(pathPreviewKey, pathPreview)
 
 provide(editorFormContextKey, {
-  values: f.values, errors: f.errors, blockErrors: f.blockErrors, following: f.following, formError: f.formError, setField: f.setField, locale: f.locale,
+  values: f.values, errors: f.errors, blockErrors: f.blockErrors, following: f.following, formError: f.formError, setField: f.setField, fields: f.fields, locale: f.locale,
   saving: f.saving, mode: f.mode, translatable: f.translatable, blocksField: f.blocksField,
   blocksAllowed: f.blocksAllowed, renderable, undo: f.undo, redo: f.redo,
   pageFieldsBindings, pageFieldsHandlers,

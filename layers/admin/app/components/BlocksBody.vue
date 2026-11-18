@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import type { SerializedBlock } from '#kestrel-admin/types/kestrel'
 import type { BlockNode } from '#kestrel-admin/types/api'
-import type { BlockTreeCtx, LocaleAliasMaps } from '../utils/block-tree'
-import { collectAliasedBlocks, errorBearingIds, firstMatchingId, withLocaleAliasMap } from '../utils/block-tree'
-import { BLOCK_ALIASES_FIELD } from '../utils/collections'
+import type { BlockTreeCtx } from '../utils/block-tree'
+import { collectAliasedBlocks, errorBearingIds, firstMatchingId } from '../utils/block-tree'
+import { useBlockAliases } from '../composables/useBlockAliases'
 import { boundaryCast } from '#kestrel/cast'
 
 const { t } = useT()
@@ -18,15 +18,14 @@ const content = computed<unknown[]>({
   get: () => boundaryCast<unknown[] | undefined>(values[key], 'json') ?? [],
   set: (v) => setField(key, v),
 })
-const localeAliasMaps = computed(() => boundaryCast<LocaleAliasMaps | undefined>(values[BLOCK_ALIASES_FIELD], 'json'))
-const aliases = computed(() => localeAliasMaps.value?.[locale.value])
+const aliasBinding = useBlockAliases({ fields: ctx.fields.value, values, locale, setField })
 const tree = useBlockTree(
   content,
   byName,
   undefined,
   (v, coalesceAs) => setField(key, v, coalesceAs),
-  aliases,
-  (map) => setField(BLOCK_ALIASES_FIELD, withLocaleAliasMap(localeAliasMaps.value, locale.value, map), 'content:aliases'),
+  aliasBinding?.aliases,
+  aliasBinding?.setAliases,
 )
 const { selectedId, selectedBlock } = tree
 
@@ -64,7 +63,7 @@ function jumpTo(id: string): void {
 const treeCtx: BlockTreeCtx = {
   byName: byName.value,
   allowedTypes: allowedTypes.value,
-  get aliasedBlocks() { return collectAliasedBlocks(tree.blocks.value) },
+  get aliasedBlocks() { return aliasBinding ? collectAliasedBlocks(tree.blocks.value) : [] },
   ops: {
     select: tree.select,
     add: addAndFocus,
@@ -155,6 +154,7 @@ function onTreeKeydown(e: KeyboardEvent): void {
         :block="selectedBlock"
         :def="byName[selectedBlock.type]"
         :locale="locale"
+        :aliasable="aliasBinding !== null"
         :disabled="saving"
         :errors="ctx.blockErrors.value.get(selectedBlock.id)"
         @update="(k, v) => selectedId && tree.setProp(selectedId, k, v)"

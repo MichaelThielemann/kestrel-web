@@ -1,5 +1,5 @@
 import type { ComputedRef, InjectionKey, Ref } from 'vue'
-import type { FieldDef, LayoutNode } from '#kestrel-admin/types/kestrel'
+import type { FieldDef, LayoutNode, SerializedField } from '#kestrel-admin/types/kestrel'
 import type { BlockErrors } from '../composables/useEditFormValidation'
 import type { RowErrorMap } from './row-errors'
 
@@ -30,6 +30,8 @@ export interface EditorFormContext {
   formError: Ref<string>
 
   setField: (name: string, value: unknown, coalesceAs?: string) => void
+
+  fields: Ref<Record<string, SerializedField>>
   locale: Ref<string>
   saving: Ref<boolean>
   mode: Ref<'multi' | 'single'>
