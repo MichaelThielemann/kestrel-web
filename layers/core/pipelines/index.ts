@@ -12,6 +12,7 @@ import { linkOverrideFields } from "./link-fields";
 import { linkValueSchema } from "../block-schema";
 import type { CollectionModel, Feature, Preset, PresetOptions } from "./checkPreset";
 import { DEFAULT_COLLECTIONS, hasSlugValueSchema } from "./collections";
+import { jsonFieldSchemas } from "./reference-schemas";
 
 export type { CollectionModel } from "./collections";
 export type { PresetEntry } from "./compose";
@@ -126,4 +127,29 @@ export function presetSchemas({
   }
   for (const [target, schema] of Object.entries(fieldTypeSchemas(resolved, fieldTypes ?? {}))) schemas[target] = schema;
   return schemas;
+}
+
+/**
+ * The `schemas` of a `references-default` entry: the entries of `schemas` whose key names a field stored as
+ * `json`, the block schema of `pages.body` included, under the same keys and paths the validator gets them.
+ * `schemas` defaults to `presetSchemas()` for the same options, so a hand-written list passes the options it
+ * gives `presetSchemas()`. Without these schemas a file or page used only inside a content block is not
+ * indexed and can be deleted; `presetModuleConfig()` derives them the same way.
+ */
+export function referenceSchemas({
+  features,
+  collections,
+  fieldTypes,
+  collectionsUi,
+  schemas,
+}: {
+  features: readonly Feature[];
+  collections?: Record<string, CollectionModel>;
+  fieldTypes?: FieldTypes;
+  collectionsUi?: Record<string, unknown>;
+  schemas?: Record<string, string | Record<string, unknown>>;
+}): Record<string, string | Record<string, unknown>> {
+  const resolved = collections ?? DEFAULT_COLLECTIONS;
+  const options = { ...(fieldTypes === undefined ? {} : { fieldTypes }), ...(collectionsUi === undefined ? {} : { collectionsUi }) };
+  return jsonFieldSchemas(resolved, schemas ?? presetSchemas({ features, collections: resolved, ...options }), { ...options, where: "referenceSchemas" });
 }

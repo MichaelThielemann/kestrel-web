@@ -6,7 +6,7 @@ import { normalizeSiteUrl, pageUrl } from "@michaelthielemann/kestrel-delivery-s
 import { presetModuleConfig } from "./config";
 import type { ModuleEntry, PresetModuleConfigOptions } from "./config";
 import eventsQueueModule from "@michaelthielemann/kestrel-events-queue";
-import { delaysFor, lanesFor, presetSchemas } from "./index";
+import { delaysFor, lanesFor, presetSchemas, referenceSchemas } from "./index";
 import type { Feature } from "./index";
 import type { CollectionModel } from "./collections";
 import { deviceKeys } from "../config";
@@ -14,6 +14,7 @@ import { canonicalUrl } from "../app/utils/canonical";
 import { resolveStorageTypes } from "../field-types";
 import { contentModel, contentTypes, features } from "../../../playground/shared/model";
 import fieldTypes from "../../../playground/shared/field-types";
+import playgroundCollectionsUi from "../../../playground/shared/collections-ui";
 
 const DATA_DIR = "/srv/kestrel/data";
 const DATABASE_FILE = resolve(DATA_DIR, "kestrel.db");
@@ -319,6 +320,15 @@ describe("derived references targets", () => {
     expect(fieldOf(schemas, "news.body")).toBe("/srv/app/.nuxt/kestrel/pages.body.json");
     expect(fieldOf(schemas, "settings.navigation")).toEqual(fieldOf(validated, "settings.navigation"));
     expect(fieldOf(configFor(modules, "references-default"), "watch")).toBe(fieldOf(configFor(modules, "validate-jsonschema"), "watch"));
+  });
+
+  it("gives a hand-written list, through referenceSchemas(), the schemas it hands references-default", () => {
+    vi.stubEnv("KESTREL_BLOCK_SCHEMA", "/srv/app/.nuxt/kestrel/pages.body.json");
+    const modules = presetModuleConfig({ ...playgroundOptions(), collectionsUi: playgroundCollectionsUi });
+    const handWritten = referenceSchemas({ features, collections: contentTypes, fieldTypes, collectionsUi: playgroundCollectionsUi });
+
+    expect(handWritten).toEqual(fieldOf(configFor(modules, "references-default"), "schemas"));
+    expect(fieldOf(handWritten, "pages.body")).toBe("/srv/app/.nuxt/kestrel/pages.body.json");
   });
 });
 

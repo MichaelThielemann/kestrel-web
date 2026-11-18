@@ -17,7 +17,8 @@ import { mountedCollections, parentFieldOf, routedCollections } from "./paths";
 import type { PipelineChanges } from "./field-grants";
 import type { CollectionModel } from "./collections";
 import { INDEX_EXPORT_DELAYS } from "./index-delays";
-import { delaysFor, lanesFor, presetSchemas, relayPipelinesFor } from "./index";
+import { delaysFor, lanesFor, presetSchemas, referenceSchemas, relayPipelinesFor } from "./index";
+import { REFERENCES_MODULE } from "./reference-schemas";
 import type { Feature } from "./index";
 
 export interface ModuleEntry {
@@ -297,10 +298,6 @@ function referenceTargets(types: Record<string, CollectionModel>): Record<string
   return targets;
 }
 
-function isJsonField(field: unknown): boolean {
-  return typeof field === "object" && field !== null && "type" in field && field.type === "json";
-}
-
 function withDerivedBlockAliases(types: Record<string, CollectionModel>, collectionsUi: Record<string, { editor?: "fields" | "blocks" }> | undefined): Record<string, CollectionModel> {
   const result: Record<string, CollectionModel> = {};
   for (const [name, model] of Object.entries(types)) {
@@ -310,15 +307,7 @@ function withDerivedBlockAliases(types: Record<string, CollectionModel>, collect
   return result;
 }
 
-function referenceSchemas(stored: Record<string, CollectionModel>, schemas: Record<string, string | Record<string, unknown>>): Record<string, string | Record<string, unknown>> {
-  return Object.fromEntries(Object.entries(schemas).filter(([key]) => {
-    const [type = "", field = ""] = key.split(".");
-    return isJsonField(stored[type]?.fields[field]);
-  }));
-}
-
-function referencesConfig(types: Record<string, CollectionModel>, schemas: Record<string, string | Record<string, unknown>>): Record<string, unknown> {
-  const indexed = referenceSchemas(contentTypesOf(types), schemas);
+function referencesConfig(types: Record<string, CollectionModel>, indexed: Record<string, string | Record<string, unknown>>): Record<string, unknown> {
   return { targets: referenceTargets(types), ...(Object.keys(indexed).length === 0 ? {} : { schemas: indexed, watch: process.env.NODE_ENV !== "production" }) };
 }
 
@@ -575,7 +564,10 @@ export function presetModuleConfig(options: PresetModuleConfigOptions): ModuleEn
   }));
 
   const schemas = presetSchemas({ features, collections: declaredTypes, fieldTypes, ...(options.collectionsUi === undefined ? {} : { collectionsUi: options.collectionsUi }) });
-  if (enabled.has("references")) modules.push(preset("@michaelthielemann/kestrel-references-default", referencesConfig(types, schemas)));
+  if (enabled.has("references")) {
+    const indexed = referenceSchemas({ features, collections: declaredTypes, fieldTypes, schemas, ...(options.collectionsUi === undefined ? {} : { collectionsUi: options.collectionsUi }) });
+    modules.push(preset(REFERENCES_MODULE, referencesConfig(types, indexed)));
+  }
   if (enabled.has("links")) modules.push(preset("@michaelthielemann/kestrel-links-default", { ...DEFAULT_LINKS }));
 
   modules.push(preset("@michaelthielemann/kestrel-validate-jsonschema", {
