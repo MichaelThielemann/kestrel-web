@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { boundaryCast } from '#kestrel/cast'
 import {
+  assertFormField,
   blockErrorFromPointer,
   blockRowErrors,
   buildBody,
@@ -80,6 +81,22 @@ describe('initialValues', () => {
       layout: { type: 'text', required: false, unique: false, localized: false, default: 'marketing' },
     }
     expect(initialValues(fields)).toEqual({ layout: 'marketing' })
+  })
+})
+
+describe('assertFormField', () => {
+  const fields: Record<string, SerializedField> = { title: { type: 'text', required: false, unique: false, localized: true } }
+
+  it('accepts a field the collection serves', () => {
+    expect(() => assertFormField('title', fields, 'pages')).not.toThrow()
+  })
+
+  it('accepts the reserved layout field', () => {
+    expect(() => assertFormField('layout', fields, 'pages')).not.toThrow()
+  })
+
+  it('throws for a name the collection does not serve, naming the field and the collection', () => {
+    expect(() => assertFormField('blockAliases', fields, 'pages')).toThrow(/"blockAliases".*"pages"/)
   })
 })
 

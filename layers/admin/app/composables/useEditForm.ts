@@ -3,7 +3,7 @@ import type { Document } from '#kestrel-admin/types/api'
 import { boundaryCast } from '#kestrel/cast'
 import { isFieldVisible, slugify } from '#kestrel-admin/utils/kestrel'
 import { BLOCKS_FIELD, findCollection, homeSlugOf } from '#kestrel-admin/utils/collections'
-import { buildBody, derivedSlugFields, pruneBlockProps, valuesEqual, writeKeys } from '../utils/edit-form'
+import { assertFormField, buildBody, derivedSlugFields, pruneBlockProps, valuesEqual, writeKeys } from '../utils/edit-form'
 import { useEditFormHistory } from './useEditFormHistory'
 import { useEditFormDelivery } from './useEditFormDelivery'
 import { useEditFormLocale } from './useEditFormLocale'
@@ -97,6 +97,7 @@ export function useEditForm(opts: UseEditFormOptions) {
   const canSave = computed(() => canWrite.value && (!stored.value || missingTranslation.value || dirty.value))
 
   function setField(name: string, value: unknown, coalesceAs: string = name) {
+    assertFormField(name, fields.value, collection)
     recordHistory(coalesceAs)
     values[name] = value
 

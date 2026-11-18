@@ -71,6 +71,15 @@ export function stripLinkResolution(value: unknown): unknown {
   return out
 }
 
+/**
+ * Throws unless `name` is one of the collection's served `fields` or the reserved layout field: a form
+ * value outside the schema is never sent and never comes back, so it would leave the form dirty forever.
+ */
+export function assertFormField(name: string, fields: Record<string, SerializedField>, collection: string): void {
+  if (name in fields || name === LAYOUT_FIELD) return
+  throw new Error(`[kestrel] setField("${name}"): collection "${collection}" serves no field "${name}"`)
+}
+
 export function initialValues(fields: Record<string, SerializedField>): Record<string, unknown> {
   const out: Record<string, unknown> = {}
   for (const [name, field] of Object.entries(fields)) {
