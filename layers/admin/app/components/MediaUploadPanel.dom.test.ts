@@ -1,10 +1,25 @@
-import { mountSuspended } from '@nuxt/test-utils/runtime'
-import { describe, expect, it } from 'vitest'
-import { nextTick } from 'vue'
+import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
+import { afterEach, describe, expect, it } from 'vitest'
+import { computed, nextTick } from 'vue'
 import { en } from '#kestrel-admin/i18n/en'
+import type { AdminSchema, MediaItem, MediaVariantCounts } from '#kestrel-admin/types/api'
 import type { UploadItem } from '../composables/useMediaUpload'
+import type { VariantWatchEntry } from '../composables/useVariantWatch'
 import { isRetryable, summarizeUploads } from '../utils/upload-queue'
 import MediaUploadPanel from './MediaUploadPanel.vue'
+
+const schema: AdminSchema = {
+  locales: { all: ['en'], primary: 'en', prefixPrimary: false },
+  collections: [],
+  features: [],
+  capabilities: {},
+}
+mockNuxtImport('useSchema', () => () => ({
+  schema: computed(() => schema),
+  error: computed(() => null),
+  load: () => Promise.resolve('ok' as const),
+  clear: () => {},
+}))
 
 let seq = 0
 function item(over: Partial<UploadItem> = {}): UploadItem {
@@ -12,8 +27,8 @@ function item(over: Partial<UploadItem> = {}): UploadItem {
   return { id: `u${seq}`, file: new File(['x'], `file-${seq}.pdf`), filename: `file-${seq}.pdf`, folder: '', status: 'queued', progress: 0, ...over }
 }
 
-function mount(items: UploadItem[], followUp?: string) {
-  return mountSuspended(MediaUploadPanel, { props: { items, summary: summarizeUploads(items), canRetry: isRetryable, followUp } })
+function mount(items: UploadItem[], announcement?: string) {
+  return mountSuspended(MediaUploadPanel, { props: { items, summary: summarizeUploads(items), canRetry: isRetryable, announcement } })
 }
 
 function button(wrapper: Awaited<ReturnType<typeof mount>>, label: string) {
@@ -81,8 +96,9 @@ describe('MediaUploadPanel', () => {
     expect(live.text()).toContain(en['media.upload.finished'])
     expect(live.text()).not.toContain(en['media.upload.done'])
     expect(live.text()).toContain('0 of 2 uploaded, 2 failed')
-    expect(live.find('svg[data-icon="circle-check"]').exists()).toBe(false)
-    expect(live.find('.media-upload-panel__finished--danger svg[data-icon="circle-x"]').exists()).toBe(true)
+    const head = wrapper.get('.media-upload-panel__summary')
+    expect(head.find('svg[data-icon="circle-check"]').exists()).toBe(false)
+    expect(head.find('.media-upload-panel__status--danger svg[data-icon="circle-x"]').exists()).toBe(true)
   })
 
   it('counts cancelled files in the summary and does not call a cancelled run done', async () => {
@@ -95,13 +111,13 @@ describe('MediaUploadPanel', () => {
     const live = wrapper.get('[aria-live="polite"]')
     expect(live.text()).toContain('1 of 3 uploaded, 1 failed, 1 cancelled')
     expect(live.text()).toContain(en['media.upload.finished'])
-    expect(live.find('svg[data-icon="circle-check"]').exists()).toBe(false)
+    expect(wrapper.get('.media-upload-panel__summary').find('svg[data-icon="circle-check"]').exists()).toBe(false)
 
     const onlyCancelled = await mount([item({ status: 'done', progress: 100 }), item({ status: 'cancelled' })])
     const quiet = onlyCancelled.get('[aria-live="polite"]')
     expect(quiet.text()).toContain('1 of 2 uploaded, 1 cancelled')
     expect(quiet.text()).toContain(en['media.upload.finished'])
-    expect(quiet.find('svg[data-icon="circle-check"]').exists()).toBe(false)
+    expect(onlyCancelled.get('.media-upload-panel__summary').find('svg[data-icon="circle-check"]').exists()).toBe(false)
   })
 
   it('shows a file skipped for its size as a muted row and calls the run done when every sent file was uploaded', async () => {
@@ -110,7 +126,7 @@ describe('MediaUploadPanel', () => {
     const live = wrapper.get('[aria-live="polite"]')
     expect(live.text()).toContain('1 of 1 uploaded, 1 skipped')
     expect(live.text()).toContain(en['media.upload.done'])
-    expect(live.find('svg[data-icon="circle-check"]').exists()).toBe(true)
+    expect(wrapper.get('.media-upload-panel__summary').find('svg[data-icon="circle-check"]').exists()).toBe(true)
     const skipped = wrapper.findAll('.ui-progress-row')[1]
     expect(skipped?.classes()).toContain('ui-progress-row--muted')
     expect(skipped?.text()).toContain(en['media.upload.wasSkipped'])
@@ -164,10 +180,12 @@ describe('MediaUploadPanel', () => {
     expect(link.attributes('rel')).toBe('noopener')
   })
 
-  it('shows the image-variant follow-up inside its live region', async () => {
-    const wrapper = await mount([item({ status: 'done', progress: 100 })], en['media.upload.processing'])
+  it('adds the batched variant announcement to its live region only', async () => {
+    const message = en['media.upload.variantsReady'].replace('{names}', 'file.jpg')
+    const wrapper = await mount([item({ status: 'done', progress: 100 })], message)
 
-    expect(wrapper.get('[aria-live="polite"]').text()).toContain(en['media.upload.processing'])
+    expect(wrapper.get('[aria-live="polite"]').text()).toContain(message)
+    expect(wrapper.get('.media-upload-panel__summary').text()).not.toContain(message)
   })
 
   it('keeps the list reachable by keyboard so a long list can be scrolled', async () => {
@@ -208,5 +226,125 @@ describe('MediaUploadPanel', () => {
     expect(close).toBeDefined()
     expect(document.activeElement).toBe(close!.element)
     wrapper.unmount()
+  })
+})
+
+describe('MediaUploadPanel variant phase', () => {
+  afterEach(() => {
+    schema.features = []
+  })
+
+  const counts = (done: number, pending: number, failed = 0): MediaVariantCounts => ({ done, pending, error: 0, failed })
+
+  function media(id: string, variantCounts: MediaVariantCounts, contentType = 'image/jpeg'): MediaItem {
+    return {
+      id, filename: `${id}.jpg`, folder: '', contentType, size: 1, path: `/media/${id}/${id}.jpg`, available: true,
+      createdAt: 1, updatedAt: 1, provenance: { origin: 'human' }, width: null, height: null, alt: null, title: null,
+      description: null, variants: [], variantCounts, focus: null, framing: { focus: null, crops: {}, width: null, height: null, ratios: [] },
+    }
+  }
+
+  function upload(result: MediaItem): UploadItem {
+    seq++
+    return { id: `u${seq}`, file: new File(['x'], result.filename, { type: result.contentType }), filename: result.filename, folder: '', status: 'done', progress: 100, result }
+  }
+
+  function mountRun(items: UploadItem[], variantResults: Map<string, VariantWatchEntry> = new Map(), stalledIds: Set<string> = new Set()) {
+    return mountSuspended(MediaUploadPanel, { props: { items, summary: summarizeUploads(items), canRetry: isRetryable, variantResults, stalledIds } })
+  }
+
+  const entry = (variantCounts: MediaVariantCounts): VariantWatchEntry => ({ variants: [], variantCounts, available: true })
+  const rowStatus = (wrapper: Awaited<ReturnType<typeof mountRun>>, index: number) => wrapper.findAll('.ui-progress-row__status')[index]
+
+  it('shows each image row generating its variants with a spinner, the count and a labelled bar, and the header counting files', async () => {
+    schema.features = ['images']
+    const first = upload(media('a', counts(0, 8)))
+    const second = upload(media('b', counts(0, 8)))
+    const wrapper = await mountRun([first, second], new Map([['a', entry(counts(8, 0))], ['b', entry(counts(3, 5))]]))
+
+    const pending = rowStatus(wrapper, 1)
+    expect(pending?.text()).toBe('Generating variants (3 of 8)')
+    expect(pending?.find('.ui-spinner[aria-hidden="true"]').exists()).toBe(true)
+    const bar = wrapper.findAll('.ui-progress-row')[1]?.get('[role="progressbar"]')
+    expect(bar?.attributes('aria-valuenow')).toBe('38')
+    expect(bar?.attributes('aria-label')).toBe('Progress: b.jpg')
+    expect(bar?.attributes('aria-valuetext')).toBe('3 of 8 variants generated')
+    expect(rowStatus(wrapper, 0)?.text()).toBe(en['media.upload.done'])
+
+    const head = wrapper.get('.media-upload-panel__summary')
+    expect(head.text()).toContain('Generating variants (1 of 2 files)')
+    expect(head.text()).toContain('2 of 2 uploaded')
+    expect(head.find('.ui-spinner').exists()).toBe(true)
+    expect(head.find('svg[data-icon="circle-check"]').exists()).toBe(false)
+    expect(button(wrapper, en['common.close'])?.attributes('disabled')).toBeUndefined()
+  })
+
+  it('keeps the per-file counts out of the live region', async () => {
+    schema.features = ['images']
+    const wrapper = await mountRun([upload(media('a', counts(3, 5)))])
+
+    const live = wrapper.get('[aria-live="polite"]')
+    expect(live.text()).toContain(en['media.upload.processing'])
+    expect(live.text()).not.toContain('3 of 8')
+    expect(wrapper.findAll('[aria-live]')).toHaveLength(1)
+  })
+
+  it('follows the polled counts and settles on a check and Done that stays', async () => {
+    schema.features = ['images']
+    const items = [upload(media('a', counts(0, 4)))]
+    const wrapper = await mountRun(items)
+    expect(rowStatus(wrapper, 0)?.text()).toBe('Generating variants (0 of 4)')
+
+    await wrapper.setProps({ variantResults: new Map([['a', entry(counts(4, 0))]]) })
+
+    expect(rowStatus(wrapper, 0)?.text()).toBe(en['media.upload.done'])
+    expect(rowStatus(wrapper, 0)?.find('svg[data-icon="circle-check"]').exists()).toBe(true)
+    expect(wrapper.findAll('.ui-progress-row')[0]?.find('[role="progressbar"]').exists()).toBe(false)
+    const head = wrapper.get('.media-upload-panel__summary')
+    expect(head.find('svg[data-icon="circle-check"]').exists()).toBe(true)
+    expect(head.text()).toContain(en['media.upload.done'])
+    expect(head.text()).toContain('1 of 1 uploaded')
+    expect(wrapper.get('[aria-live="polite"]').text()).toContain(`${en['media.upload.done']} 1 of 1 uploaded`)
+  })
+
+  it('warns in the row and in the header when variants failed', async () => {
+    schema.features = ['images']
+    const wrapper = await mountRun([upload(media('a', counts(8, 0))), upload(media('b', counts(6, 0, 2)))])
+
+    expect(rowStatus(wrapper, 1)?.text()).toBe('2 of 8 variants failed')
+    expect(rowStatus(wrapper, 1)?.find('svg[data-icon="triangle-alert"]').exists()).toBe(true)
+    expect(wrapper.findAll('.ui-progress-row')[1]?.get('.ui-progress-row__message').text()).toBe(en['media.tile.variantsFailedAsk'])
+    const head = wrapper.get('.media-upload-panel__summary')
+    expect(head.find('.media-upload-panel__status--warning svg[data-icon="triangle-alert"]').exists()).toBe(true)
+    expect(head.get('.media-upload-panel__detail').text()).toBe('Variants failed for 1 of 2 files')
+    expect(wrapper.get('[aria-live="polite"]').text()).toContain('Variants failed for 1 of 2 files')
+  })
+
+  it('shows delayed variants with the stall text', async () => {
+    schema.features = ['images']
+    const wrapper = await mountRun([upload(media('a', counts(2, 6)))], new Map(), new Set(['a']))
+
+    expect(rowStatus(wrapper, 0)?.text()).toBe(en['media.tile.variantsStalledShort'])
+    expect(wrapper.get('.ui-progress-row__message').text()).toBe(en['media.tile.variantsStalled'])
+    expect(wrapper.get('.media-upload-panel__detail').text()).toBe('Variants delayed for 1 of 1 file')
+  })
+
+  it('never shows a variant phase for a file that is not an image', async () => {
+    schema.features = ['images']
+    const wrapper = await mountRun([upload(media('doc', counts(0, 0), 'application/pdf'))])
+
+    expect(rowStatus(wrapper, 0)?.text()).toBe(en['media.upload.done'])
+    expect(wrapper.text()).not.toContain('0 of 0')
+    expect(wrapper.get('.media-upload-panel__summary').find('svg[data-icon="circle-check"]').exists()).toBe(true)
+  })
+
+  it('shows "Generating variants…" without counts while the server answers an image upload', async () => {
+    schema.features = ['images']
+    const sending: UploadItem = { id: 'p1', file: new File(['x'], 'p.jpg', { type: 'image/jpeg' }), filename: 'p.jpg', folder: '', status: 'processing', progress: 100 }
+    const wrapper = await mountRun([sending])
+
+    expect(rowStatus(wrapper, 0)?.text()).toBe(en['media.upload.processing'])
+    expect(rowStatus(wrapper, 0)?.find('.ui-spinner').exists()).toBe(true)
+    expect(wrapper.get('.media-upload-panel__summary').text()).toContain('0 of 1 uploaded')
   })
 })

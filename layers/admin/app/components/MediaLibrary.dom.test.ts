@@ -425,6 +425,56 @@ describe('MediaLibrary upload status', () => {
     await vi.waitFor(() => expect(announced()).toHaveLength(1), { timeout: 8000 })
   }, 10000)
 
+  it('shows the variant progress per file and keeps polling after Close until the grid tile shows the finished file', async () => {
+    schema.features = ['images']
+    let uploaded = false
+    let closed = false
+    let idsCallsAfterClose = 0
+    const withVariantCounts = (pending: number) => ({
+      id: 'f1', filename: 'photo.jpg', folder: '', contentType: 'image/jpeg', size: 10, key: 'f1', checksum: null,
+      status: 'ready', createdAt: 1, updatedAt: 1, provenance: { origin: 'human' }, width: null, height: null,
+      alt: null, title: null, description: null, variants: [], available: true,
+      variantCounts: { done: 5 - pending, pending, error: 0, failed: 0 },
+    })
+    const pendingNow = () => (closed && idsCallsAfterClose > 1 ? 0 : 3)
+    unregisterAll.push(registerEndpoint('/api/media/folders', { method: 'GET', handler: () => [] }))
+    unregisterAll.push(registerEndpoint('/api/media', {
+      method: 'GET',
+      handler: (event) => {
+        if (typeof getQuery(event).ids === 'string') {
+          if (closed) idsCallsAfterClose++
+          return { items: [withVariantCounts(pendingNow())], total: 1 }
+        }
+        return uploaded ? { items: [withVariantCounts(pendingNow())], total: 1 } : { items: [], total: 0 }
+      },
+    }))
+    unregisterAll.push(registerEndpoint('/api/limits', { method: 'GET', handler: () => ({ maxUploadBytes: null }) }))
+    uploadControl.reset()
+
+    const wrapper = await mountSuspended(MediaLibrary, { attachTo: document.body })
+    onTestFinished(() => wrapper.unmount())
+
+    await confirmUpload(wrapper, new File(['x'], 'photo.jpg', { type: 'image/jpeg' }))
+    await vi.waitFor(() => expect(uploadControl.state.deliver).not.toBeNull())
+    uploaded = true
+    uploadControl.state.deliver?.({ id: 'f1', contentType: 'image/jpeg' })
+
+    await vi.waitFor(() => expect(wrapper.get('.media-upload-panel .ui-progress-row__status').text()).toBe('Generating variants (2 of 5)'))
+    expect(wrapper.get('.media-upload-panel__summary').text()).toContain('Generating variants (0 of 1 file)')
+    await vi.waitFor(() => expect(wrapper.find('[data-test="file-f1"] .media-variant-chip').exists()).toBe(true))
+
+    const close = wrapper.get('.media-upload-panel').findAll('button').find((b) => b.text() === en['common.close'])
+    expect(close?.attributes('disabled')).toBeUndefined()
+    closed = true
+    await close?.trigger('click')
+    expect(wrapper.find('.media-upload-panel').exists()).toBe(false)
+    expect(wrapper.find('[data-test="file-f1"] .media-variant-chip').exists()).toBe(true)
+
+    await vi.waitFor(() => expect(idsCallsAfterClose).toBeGreaterThan(1), { timeout: 8000 })
+    await vi.waitFor(() => expect(wrapper.find('[data-test="file-f1"] .media-variant-chip').exists()).toBe(false), { timeout: 8000 })
+    expect(wrapper.find('[data-test="file-f1"]').exists()).toBe(true)
+  }, 15000)
+
   it('does not bring a finished upload back as a stuck processing tile after navigating to another folder', async () => {
     let uploaded = false
     unregisterAll.push(registerEndpoint('/api/media/folders', { method: 'GET', handler: () => [{ folder: 'sub', count: 0 }] }))

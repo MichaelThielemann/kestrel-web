@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, ref } from 'vue'
 import type { UploadItem } from '../composables/useMediaUpload'
-import { uploadStateView } from '../utils/upload-state'
+import { uploadStateView, uploadVariantPhase } from '../utils/upload-state'
 
 const props = defineProps<{
   item: UploadItem
@@ -24,7 +24,8 @@ const progressValue = computed(() => {
   if (props.item.status === 'uploading') return props.item.totalKnown ? props.item.progress : undefined
   return undefined
 })
-const state = computed(() => uploadStateView(props.item, t))
+const { has } = useFeatures()
+const state = computed(() => uploadStateView(props.item, t, { phase: uploadVariantPhase(props.item, { images: has('images') }) }))
 const progressText = computed(() => state.value.status.text)
 const errorId = computed(() => (props.item.status === 'failed' ? props.item.requestId : undefined))
 const root = ref<HTMLElement | null>(null)
@@ -86,7 +87,7 @@ function retry() {
         :value-text="progressText"
       />
       <span class="media-upload-tile__name">{{ item.filename }}</span>
-      <span v-if="!ready" class="media-upload-tile__status" aria-hidden="true">{{ progressText }}</span>
+      <span v-if="!ready" class="media-upload-tile__status" aria-hidden="true"><KestrelUiSpinner v-if="state.status.busy" /> {{ progressText }}</span>
     </template>
   </div>
 </template>
@@ -183,6 +184,9 @@ function retry() {
 }
 
 .media-upload-tile__status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
   margin-top: calc(var(--space-1) * -1);
   font-size: var(--text-xs);
   color: var(--color-text-muted);

@@ -210,6 +210,16 @@ describe('MediaGrid upload tile', () => {
     }
   })
 
+  it('says variants are being generated, with a spinner, while the server answers an image upload', async () => {
+    schema.features = ['images']
+    const sending: UploadItem = { id: 'u2', file: new File(['x'], 'b.jpg', { type: 'image/jpeg' }), filename: 'b.jpg', folder: '', status: 'processing', progress: 100 }
+    const wrapper = await mountSuspended(MediaGrid, { props: { items: [], isSelected: () => false, uploads: [sending] } })
+
+    expect(wrapper.get('.media-upload-tile__status').text()).toBe('Generating variants…')
+    expect(wrapper.find('.media-upload-tile__status .ui-spinner').exists()).toBe(true)
+    expect(wrapper.get('.media-upload-tile [role="progressbar"]').attributes('aria-valuetext')).toBe('Generating variants…')
+  })
+
   it('swaps "Processing…" for the variants chip once the poll reports the upload available', async () => {
     schema.features = ['images']
     const available = new Map<string, VariantWatchEntry>([

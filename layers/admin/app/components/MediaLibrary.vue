@@ -185,7 +185,8 @@ defineExpose({ clearSelection: selection.clearListed })
     >{{ mediaUploads.followUp.value }}</p>
     <KestrelMediaUploadPanel
       v-else
-      :items="mediaUploads.queue.value" :summary="mediaUploads.summary.value" :can-retry="mediaUploads.canRetry" :preview-for="previewFor" :follow-up="mediaUploads.followUp.value"
+      :items="mediaUploads.queue.value" :summary="mediaUploads.summary.value" :can-retry="mediaUploads.canRetry" :preview-for="previewFor"
+      :variant-results="variantResults" :stalled-ids="stalledIds" :announcement="mediaUploads.announcement.value"
       @retry="mediaUploads.retry" @retry-failed="mediaUploads.retryFailed" @cancel="mediaUploads.cancel" @close="onCloseUploads"
     />
     <KestrelUiAlert v-if="limitError" variant="error">{{ limitError }}</KestrelUiAlert>

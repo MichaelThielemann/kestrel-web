@@ -84,6 +84,7 @@ export function useMediaLibraryUploads(options: UseMediaLibraryUploadsOptions) {
     variantResults: variantWatch.results,
     stalledIds: variantWatch.stalled,
     track: variantWatch.track,
+    announcement,
     followUp,
   }
 }

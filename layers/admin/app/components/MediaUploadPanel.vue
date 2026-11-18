@@ -1,21 +1,31 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
 import type { UploadItem } from '../composables/useMediaUpload'
+import type { VariantWatchEntry } from '../composables/useVariantWatch'
 import type { UploadSummary } from '../utils/upload-queue'
-import { uploadRunView } from '../utils/upload-state'
+import { uploadRunView, uploadVariantPhase } from '../utils/upload-state'
 
 const props = defineProps<{
   items: readonly UploadItem[]
   summary: UploadSummary
   canRetry: (item: UploadItem) => boolean
   previewFor?: (id: string) => string | undefined
-  followUp?: string
+  variantResults?: ReadonlyMap<string, VariantWatchEntry>
+  stalledIds?: ReadonlySet<string>
+  announcement?: string
 }>()
 const emit = defineEmits<{ retry: [id: string]; retryFailed: []; cancel: []; close: [] }>()
 const { t } = useT()
+const { has } = useFeatures()
 
-const run = computed(() => uploadRunView(props.summary, t, props.items))
+const phases = computed(() => new Map(props.items.map((item) => {
+  const id = item.result?.id
+  const source = id ? (props.variantResults?.get(id) ?? item.result) : undefined
+  return [item.id, uploadVariantPhase(item, { images: has('images'), source, stalled: id ? props.stalledIds?.has(id) === true : false })]
+})))
+const run = computed(() => uploadRunView(props.summary, t, props.items, [...phases.value.values()]))
 const countText = computed(() => run.value.countText)
+const liveText = computed(() => [run.value.liveText, props.announcement].filter(Boolean).join('. '))
 
 const retryableFailed = computed(() => props.items.some((item) => item.status === 'failed' && props.canRetry(item)))
 const actions = ref<HTMLElement | null>(null)
@@ -57,15 +67,18 @@ const sessionExpired = computed(() => props.items.some((item) => item.status ===
 <template>
   <section class="media-upload-panel" :aria-label="t('media.upload.panelLabel')">
     <header class="media-upload-panel__head">
-      <div class="media-upload-panel__summary" aria-live="polite">
+      <div class="media-upload-panel__summary">
         <p class="media-upload-panel__count">
-          <span v-if="summary.finished" class="media-upload-panel__finished" :class="`media-upload-panel__finished--${run.finished.tone}`">
-            <KestrelUiIcon :name="run.finished.icon" :size="16" /> {{ run.finished.text }}
+          <span class="media-upload-panel__status" :class="run.status.tone ? `media-upload-panel__status--${run.status.tone}` : undefined">
+            <KestrelUiSpinner v-if="run.status.busy" :size="16" />
+            <KestrelUiIcon v-else-if="run.status.icon" :name="run.status.icon" :size="16" />
+            {{ run.status.text }}
           </span>
-          <span>{{ countText }}</span>
+          <span v-if="summary.finished">{{ countText }}</span>
         </p>
-        <p v-if="followUp" class="media-upload-panel__follow-up">{{ followUp }}</p>
+        <p v-if="run.detail" class="media-upload-panel__detail">{{ run.detail }}</p>
       </div>
+      <KestrelUiLiveStatus :message="liveText" />
       <div ref="actions" class="media-upload-panel__actions">
         <KestrelUiButton v-if="retryableFailed" size="sm" variant="secondary" icon="rotate-ccw" @click="act('retryFailed')">{{ t('media.upload.retryFailed') }}</KestrelUiButton>
         <KestrelUiButton size="sm" variant="secondary" :aria-label="endAction.label" @click="endAction.run">{{ endAction.text }}</KestrelUiButton>
@@ -78,7 +91,7 @@ const sessionExpired = computed(() => props.items.some((item) => item.status ===
     </header>
     <ul ref="list" class="media-upload-panel__list" tabindex="0" :aria-label="t('media.upload.panelLabel')">
       <li v-for="item in items" :key="item.id" :data-upload-id="item.id" tabindex="-1">
-        <KestrelMediaUploadRow :item="item" :preview="previewFor?.(item.id)" :retryable="canRetry(item)" @retry="retryRow" />
+        <KestrelMediaUploadRow :item="item" :preview="previewFor?.(item.id)" :retryable="canRetry(item)" :variants="phases.get(item.id)" @retry="retryRow" />
       </li>
     </ul>
   </section>
@@ -120,25 +133,29 @@ const sessionExpired = computed(() => props.items.some((item) => item.status ===
   font-weight: var(--weight-medium);
 }
 
-.media-upload-panel__finished {
+.media-upload-panel__status {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
 }
 
-.media-upload-panel__finished--success .ui-icon {
+.media-upload-panel__status--success .ui-icon {
   color: var(--color-success);
 }
 
-.media-upload-panel__finished--danger .ui-icon {
+.media-upload-panel__status--warning .ui-icon {
+  color: var(--color-warning-text);
+}
+
+.media-upload-panel__status--danger .ui-icon {
   color: var(--color-danger);
 }
 
-.media-upload-panel__finished--muted .ui-icon {
+.media-upload-panel__status--muted .ui-icon {
   color: var(--color-text-muted);
 }
 
-.media-upload-panel__follow-up {
+.media-upload-panel__detail {
   margin: var(--space-1) 0 0;
   font-size: var(--text-xs);
   color: var(--color-text-muted);

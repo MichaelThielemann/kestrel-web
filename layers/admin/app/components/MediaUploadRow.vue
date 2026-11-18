@@ -2,13 +2,15 @@
 import { computed } from 'vue'
 import type { UploadItem } from '../composables/useMediaUpload'
 import { humanizeSize } from '../utils/library'
-import { uploadStateView } from '../utils/upload-state'
+import { uploadStateView, type UploadVariantPhase } from '../utils/upload-state'
 
-const props = defineProps<{ item: UploadItem; preview?: string; retryable?: boolean }>()
+const props = defineProps<{ item: UploadItem; preview?: string; retryable?: boolean; variants?: UploadVariantPhase }>()
 const emit = defineEmits<{ retry: [id: string] }>()
 const { t } = useT()
+const capabilities = useCapabilities()
 
-const view = computed(() => uploadStateView(props.item, t))
+const canRetryVariants = computed(() => capabilities.has('imagesStatus') && capabilities.has('retryFailedImages'))
+const view = computed(() => uploadStateView(props.item, t, props.variants ? { phase: props.variants, canRetry: canRetryVariants.value } : undefined))
 const fallbackIcon = computed(() => (props.item.file.type.startsWith('image/') ? 'image' : 'file-text'))
 const errorId = computed(() => (props.item.status === 'failed' ? props.item.requestId : undefined))
 </script>

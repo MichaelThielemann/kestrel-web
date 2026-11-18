@@ -26,6 +26,7 @@ describe('MediaUploadRow', () => {
     expect(bar.attributes('aria-valuenow')).toBe('42')
     expect(bar.attributes('aria-label')).toBe('Progress: holiday.jpg')
     expect(wrapper.get('.ui-progress-row__status').text()).toBe('42 %')
+    expect(wrapper.find('.ui-progress-row__status .ui-spinner').exists()).toBe(true)
   })
 
   it('shows a spinner and "Processing…" while the server works on the file', async () => {
@@ -33,6 +34,26 @@ describe('MediaUploadRow', () => {
 
     expect(wrapper.find('.ui-progress-row__status .ui-spinner').exists()).toBe(true)
     expect(wrapper.get('.ui-progress-row__status').text()).toBe(en['media.tile.processing'])
+  })
+
+  it('shows the variants generated so far on a labelled bar with a spinner', async () => {
+    const wrapper = await mountSuspended(MediaUploadRow, { props: { item: item({ status: 'done', progress: 100 }), variants: { kind: 'pending', done: 2, total: 4 } } })
+
+    const status = wrapper.get('.ui-progress-row__status')
+    expect(status.text()).toBe('Generating variants (2 of 4)')
+    expect(status.find('.ui-spinner').exists()).toBe(true)
+    const bar = wrapper.get('[role="progressbar"]')
+    expect(bar.attributes('aria-valuenow')).toBe('50')
+    expect(bar.attributes('aria-valuetext')).toBe('2 of 4 variants generated')
+  })
+
+  it('shows failed variants with a warning icon and text, not by colour alone', async () => {
+    const wrapper = await mountSuspended(MediaUploadRow, { props: { item: item({ status: 'done', progress: 100 }), variants: { kind: 'failed', failed: 1, total: 4 } } })
+
+    const status = wrapper.get('.ui-progress-row__status')
+    expect(status.text()).toBe('1 of 4 variants failed')
+    expect(status.classes()).toContain('ui-progress-row__status--warning')
+    expect(status.find('svg[data-icon="triangle-alert"]').exists()).toBe(true)
   })
 
   it('shows a done row with a check icon and text, not by colour alone', async () => {

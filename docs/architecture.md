@@ -799,21 +799,40 @@ collection, the expected filter and the fix in the message.
   - Panel. While the queue holds anything, `MediaUploadPanel.vue` sits below the listing. Its header shows
     the summary ("3 of 4 uploaded, 1 failed, 1 skipped"; skipped files are not part of the total), an
     overall bar and "Retry failed uploads" while a failed file can be retried. One button reads "Cancel"
-    during the run and "Close" afterwards, so keyboard focus stays on it when the run ends. A finished run
-    reads "Done" with a check when every file sent was uploaded, otherwise "Finished" with a failure icon,
-    or with a plain cross when files were only cancelled. The panel never closes by itself; "Close" drops
-    the finished items.
+    during the run and "Close" afterwards, so keyboard focus stays on it when the run ends. While files
+    upload, the summary sits next to a spinner. Once they are sent and an image's variants are still being
+    generated, the header reads "Generating variants (1 of 3 files)" with a spinner. A finished run then
+    reads "Done" with a check when every file sent was uploaded and every image has its variants, "Done"
+    with a warning icon when some variants failed, or with a clock when the poller stopped waiting for
+    them, and a detail line says for how many files ("Variants failed for 1 of 3 files"). It reads
+    "Finished" with a failure icon when files failed, or with a plain cross when files were only
+    cancelled. The panel never closes by itself; "Close" drops the finished items and aborts nothing: the
+    variants are generated on the server, `useVariantWatch()` keeps polling and the grid tiles keep their
+    chips. The state belongs to the panel, so it is the same in the grid and the table and stays across a
+    folder change.
   - Rows. Below the header, a list with its own scroll bar holds one `MediaUploadRow.vue` per file.
-    `utils/upload-state.ts` maps the file's state to what the row shows: waiting, uploading with a
-    percentage, processing, done, failed with the reason and a retry button, cancelled, or skipped in a
-    muted tone with the reason. A row has a bar, named "Progress: <file>", only while its file uploads or
-    is processed. `uploadRunView` in the same file builds the header from the run's summary.
+    `utils/upload-state.ts` maps the file's state to what the row shows, one status at a time: waiting,
+    uploading with a percentage, processing, the variant phase of an image, done, failed with the reason
+    and a retry button, cancelled, or skipped in a muted tone with the reason. With the `images` feature,
+    `uploadVariantPhase()` gives an image its variant phase from the polled entry of its file, else from
+    the upload's response: "Generating variants…" while the server still answers (inline event delivery
+    generates the variants inside that request, so no counts exist yet), then "Generating variants (3 of
+    8)" with a determinate bar while sizes are pending (queued event delivery), then "Done" with a check.
+    Failed sizes show "2 of 8 variants failed" with a warning icon and where to retry them; a stall shows
+    "Variants delayed". A file that is not an image, or an image without sizes, has no variant phase and
+    never shows "0 of 0". The counts follow the poller's cadence and can lag by up to ten seconds. A row
+    has a bar, named "Progress: <file>", only while its file uploads, is processed or has variants
+    pending. `uploadRunView` in the same file builds the header from the run's summary and the variant
+    phases.
   - Layout. The library scrolls as a whole when the listing, kept at least `min(10rem, 25svh)` tall, and
     the panel do not fit, so on a short screen or at a high zoom neither is cut off.
-  - Announcements. The panel header is the only live region for uploads. Its summary and the image-variant
-    follow-up are polite. The follow-up gathers the variant results of one second into one sentence per
-    outcome ("Variants ready: a.png, b.png, c.png and 2 more", built by `utils/variant-announcement.ts`),
-    so each file is announced once. An expired session puts one `role="alert"` line into the header that
+  - Announcements. The panel holds the only live region for uploads, a polite visually hidden status in
+    its header. It carries the upload summary and the phase ("3 of 3 uploaded. Generating variants…",
+    then "Done 3 of 3 uploaded") but none of the per-file or per-file-count variant progress, so changes
+    of "3 of 8" are never announced one by one. It adds the variant results of one second as one sentence
+    per outcome ("Variants ready: a.png, b.png, c.png and 2 more", built by
+    `utils/variant-announcement.ts`), so each file is announced once. The spinners are decorative and stand
+    still under `prefers-reduced-motion`; every state pairs an icon with text. An expired session puts one `role="alert"` line into the header that
     asks the user to sign in again in another tab and links to the sign-in page with `target="_blank"`;
     the rows and tiles only say "Session expired" and carry no live region. The toolbar's file count adds
     the uploaded files the library does not list yet and turns its own live region off while the run goes
@@ -823,7 +842,8 @@ collection, the expected filter and the fix in the message.
     stops the image-variant polls until the next file is tracked after a successful upload. A 401 on
     either request would make the reauth interceptor leave the page and drop the files that wait to be
     retried.
-  - Grid tiles. The tiles of the open folder (`MediaUploadTile.vue`) show the same states and offer retry
+  - Grid tiles. The tiles of the open folder (`MediaUploadTile.vue`) show the same states, with a spinner
+    while an image's response is outstanding ("Generating variants…"), and offer retry
     and dismiss on a failed, cancelled or skipped file. A retry from a row or a tile moves keyboard focus
     to that row or tile, since the retry button disappears once the file is queued again. When the library
     then lists the uploaded file and the tile leaves the grid, focus moves to the listed file, or to the
@@ -1054,7 +1074,8 @@ Kit inventory:
 - `Popover.vue` — anchored popover with a trigger slot.
 - `Progress.vue` — progress bar, determinate or indeterminate, `size` `sm|md` and `tone` `default|success|danger`.
 - `ProgressRow.vue` — one row of a progress list: `leading` slot, truncated title with a tooltip, meta text,
-  a thin bar, the status as icon and text (or the `status` slot), a message line and an `actions` slot. A
+  a thin bar, the status as icon and text with `tone` `default|muted|success|warning|danger` (or the
+  `status` slot), a message line and an `actions` slot. A
   row narrower than 28rem puts the status below the title and wraps the title instead of cutting it off;
   in a wider row a title cut off with an ellipsis joins the tab order (measured by `useOverflowing()`), so
   its tooltip with the full name opens on keyboard focus too. It knows nothing about what it tracks.
