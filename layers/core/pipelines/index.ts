@@ -68,8 +68,8 @@ export type {
 export const definePipeline = pipelineDefiner<PresetStep>();
 
 /**
- * Composes a preset, throwing at the first problem — the same engine, messages and order as
- * `checkPreset()`, which instead collects every problem it finds.
+ * Composes a preset, throwing at the first problem and logging each warning with `console.warn` — the same
+ * engine, messages and order as `checkPreset()`, which instead collects every problem and warning it finds.
  */
 export function definePreset<C extends Record<string, CollectionModel> = Record<string, CollectionModel>, S extends string = PresetStep>(
   options: PresetOptions<C, S>,

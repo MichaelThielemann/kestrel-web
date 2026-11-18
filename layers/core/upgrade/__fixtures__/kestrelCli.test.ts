@@ -93,6 +93,23 @@ describe("the kestrel CLI's view of the playground's project, through the plugin
     const result = await checkLikeTheCli(root);
     expect(result.host).toContainEqual(expect.objectContaining({ code: "preset/home-slug", severity: "error", owner: "kestrel-web" }));
   }, 180_000);
+
+  it("boots a references-default entry with targets alone and reports the missing schemas as a host warning naming the fix", async () => {
+    const targetsOnly = [
+      "const listed = modules.map((entry) => (entry.use === \"@michaelthielemann/kestrel-references-default\"",
+      "  ? { use: entry.use, config: { targets: { pages: { content: \"pages\" }, blog: { content: \"blog\" }, media: { media: true } } } }",
+      "  : entry));",
+      "export const preset = definePreset({ modules: listed,",
+    ].join("\n");
+    const root = playgroundProject((config) => config.replace("export const preset = definePreset({ modules,", targetsOnly).replace("defineConfig({ modules,", "defineConfig({ modules: listed,"));
+    const result = await checkLikeTheCli(root);
+    expect(result.issues).toEqual([]);
+    expect(result.bootCheck?.errors).toEqual([]);
+    const warning = result.host.find((problem) => problem.code === "preset/references-needs-schemas");
+    expect(warning).toMatchObject({ severity: "warning", owner: "kestrel-web" });
+    expect(warning?.reason).toMatch(/needs schemas? .*"pages\.body".* in references-default config.* set schemas: referenceSchemas\(/);
+    expect(result.host.filter((problem) => problem.severity === "error")).toEqual([]);
+  }, 180_000);
 });
 
 describe("kestrel upgrade through the plugin the layer registers", () => {

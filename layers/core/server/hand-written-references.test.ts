@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createApp, toNodeListener } from "h3";
 import { boot, effectiveModuleConfig, silentLogger, type Kestrel } from "@michaelthielemann/kestrel";
 import { defineConfig } from "@michaelthielemann/kestrel/defineConfig";
@@ -163,9 +163,17 @@ describe("a hand-written module list with the references feature", () => {
     for (const file of [used, spare]) expect((await call("GET", `/media/${file}`)).status, file).toBe(200);
   });
 
-  it("is refused by definePreset() when the references-default entry has targets but no schemas", () => {
-    const modules = handWritten({ use: REFERENCES, config: { targets: { pages: { content: "pages" }, blog: { content: "blog" }, media: { media: true } } } });
-    if (presetOptions === undefined) throw new Error("the hand-written list was not set up");
-    expect(() => definePreset({ ...presetOptions, modules })).toThrow(/feature "references" needs schemas .*"pages\.body".* in references-default config/);
+  it("still composes through definePreset() and warns, naming the fix, when the references-default entry has targets but no schemas", () => {
+    const targetsOnly = handWritten({ use: REFERENCES, config: { targets: { pages: { content: "pages" }, blog: { content: "blog" }, media: { media: true } } } });
+    if (presetOptions === undefined || kestrel === undefined) throw new Error("the hand-written list was not set up");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const preset = definePreset({ ...presetOptions, modules: targetsOnly });
+      expect([...preset.pipelines.map((pipeline) => pipeline.name)].sort()).toEqual([...kestrel.pipelines.keys()].sort());
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(String(warn.mock.calls[0]?.[0])).toMatch(/feature "references" needs schemas .*"pages\.body".* in references-default config.* set schemas: referenceSchemas\(/);
+    } finally {
+      warn.mockRestore();
+    }
   });
 });

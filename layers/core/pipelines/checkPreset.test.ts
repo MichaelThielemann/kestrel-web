@@ -1,5 +1,5 @@
 import { boundaryCast } from "@michaelthielemann/kestrel/cast";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { checkPreset, definePreset, delaysFor, referenceSchemas } from "./index";
 import type { PresetOptions } from "./index";
 
@@ -341,12 +341,32 @@ describe("references-default schemas on a hand-written module list", () => {
     };
   }
 
-  it("refuses an entry with targets only, naming the missing schema and the fix", () => {
-    expect(() => definePreset(withReferences({ targets }))).toThrow(
-      'preset: feature "references" needs schema "pages.body" in references-default config, as validate-jsonschema has them',
-    );
-    expect(() => definePreset(withReferences({ targets }))).toThrow(/referenceSchemas\(/);
-    expect(checkPreset(withReferences({ targets })).problems.map((problem) => problem.code)).toContain("preset/references-needs-schemas");
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  function warningCodes(testOptions: PresetOptions): string[] {
+    return checkPreset(testOptions).warnings.map((warning) => warning.code);
+  }
+
+  function warnedBy(testOptions: PresetOptions): string[] {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    definePreset(testOptions);
+    return warn.mock.calls.map((call) => String(call[0]));
+  }
+
+  it("warns about an entry with targets only, naming the missing schema and the fix, and still composes", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const preset = definePreset(withReferences({ targets }));
+    const full = definePreset(withReferences({ targets, schemas: validated }));
+    expect(preset.pipelines.map((pipeline) => pipeline.name)).toEqual(full.pipelines.map((pipeline) => pipeline.name));
+    expect(warn).toHaveBeenCalledTimes(1);
+    const message = String(warn.mock.calls[0]?.[0]);
+    expect(message).toContain('preset: feature "references" needs schema "pages.body" in references-default config, as validate-jsonschema has them');
+    expect(message).toMatch(/set schemas: referenceSchemas\(\{ features, collections, collectionsUi, fieldTypes \}\) on the entry/);
+    const { problems, warnings } = checkPreset(withReferences({ targets }));
+    expect(problems.map((problem) => problem.code)).not.toContain("preset/references-needs-schemas");
+    expect(warnings).toEqual([{ code: "preset/references-needs-schemas", message }]);
   });
 
   it("accepts an entry with the body schema alone while the validator carries more json field schemas without x-kestrel-ref", () => {
@@ -361,33 +381,33 @@ describe("references-default schemas on a hand-written module list", () => {
       collections: { ...collections, settings: { kind: "single" as const, fields: { ...collections.settings.fields, footerLink: { type: "json" } } } },
       modules: options.modules.map((entry) => (entry.use === "@michaelthielemann/kestrel-validate-jsonschema" ? { use: entry.use, config: { schemas: more } } : entry)),
     };
-    expect(checkPreset(extra).problems.map((problem) => problem.code)).not.toContain("preset/references-needs-schemas");
+    expect(warningCodes(extra)).not.toContain("preset/references-needs-schemas");
   });
 
   it("asks for an inline json field schema that carries x-kestrel-ref", () => {
     const options = withReferences({ targets, schemas: { "pages.body": validated["pages.body"] } });
     const marked = { ...validated, "settings.navigation": { type: "array", items: { type: "object", properties: { icon: { type: "string", "x-kestrel-ref": "media" } } } } };
     const extra = { ...options, modules: options.modules.map((entry) => (entry.use === "@michaelthielemann/kestrel-validate-jsonschema" ? { use: entry.use, config: { schemas: marked } } : entry)) };
-    expect(() => definePreset(extra)).toThrow('needs schema "settings.navigation" in references-default config');
+    expect(warnedBy(extra)).toEqual([expect.stringContaining('needs schema "settings.navigation" in references-default config')]);
   });
 
   it("still asks for the body schema when the model uses a field type definePreset() is not given", () => {
     const options = withReferences({ targets });
     const custom = { ...options, collections: { ...collections, pages: { ...collections.pages, fields: { ...collections.pages.fields, rating: { type: "stars" } } } } };
-    expect(() => definePreset(custom)).toThrow('needs schema "pages.body" in references-default config');
+    expect(warnedBy(custom)).toEqual([expect.stringContaining('needs schema "pages.body" in references-default config')]);
   });
 
   it("accepts the entry once it carries the json field schemas from referenceSchemas()", () => {
     const schemas = referenceSchemas({ features: ["references"], collections, schemas: validated });
     expect(schemas).toEqual(validated);
-    expect(checkPreset(withReferences({ targets, schemas })).problems.map((problem) => problem.code)).not.toContain("preset/references-needs-schemas");
+    expect(warningCodes(withReferences({ targets, schemas }))).not.toContain("preset/references-needs-schemas");
   });
 
   it("asks for no schema of a field that is not stored as json, nor without the references feature", () => {
     const options = withReferences({ targets, schemas: validated });
     const extra = { ...options, modules: options.modules.map((entry) => (entry.use === "@michaelthielemann/kestrel-validate-jsonschema" ? { use: entry.use, config: { schemas: { ...validated, "pages.slug": { type: "string" } } } } : entry)) };
-    expect(checkPreset(extra).problems.map((problem) => problem.code)).not.toContain("preset/references-needs-schemas");
+    expect(warningCodes(extra)).not.toContain("preset/references-needs-schemas");
     const off = { ...withReferences({ targets }), features: [] };
-    expect(checkPreset(off).problems.map((problem) => problem.code)).not.toContain("preset/references-needs-schemas");
+    expect(warningCodes(off)).not.toContain("preset/references-needs-schemas");
   });
 });

@@ -18,6 +18,7 @@ export function layerHostChecks(project: LoadedProject, bootCheck: BootCheck): H
     pipelines: project.input.pipelines,
     collectionsUi: data?.collectionsUi ?? {},
     presetProblems: data?.presetProblems ?? [],
+    presetWarnings: data?.presetWarnings ?? [],
     bootErrors: bootCheck.errors,
     complete: bootCheck.errors.length === 0 && bootCheck.notChecked.length === 0,
     ...(data?.siteModel === undefined ? {} : { siteModel: data.siteModel }),

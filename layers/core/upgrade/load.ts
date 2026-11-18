@@ -42,6 +42,7 @@ function configLoadIssue(err: unknown, configFile: string): LoadIssue {
 export interface LayerProjectData {
   presetOptions?: unknown;
   presetProblems: Array<{ code: string; pipeline?: string; message: string }>;
+  presetWarnings?: Array<{ code: string; pipeline?: string; message: string }>;
   siteModel?: SiteModel;
   collectionsUi?: Record<string, WorkflowUi>;
 }
@@ -238,6 +239,7 @@ export async function loadLayerProject(scratch: string): Promise<LoadResult> {
 
     const capture = await jiti.import<{ captured: { last?: CapturedPreset } }>(pathToFileURL(aliases["#kestrel/pipelines"]!).href);
     const presetProblems = capture.captured.last?.problems ?? [];
+    const presetWarnings = capture.captured.last?.warnings ?? [];
 
     const moduleFiles = new Map<string, string>();
     config.modules.forEach((entry, i) => {
@@ -277,6 +279,7 @@ export async function loadLayerProject(scratch: string): Promise<LoadResult> {
 
     const data: LayerProjectData = {
       presetProblems,
+      presetWarnings,
       collectionsUi: server.collectionsUi,
       ...(server.siteModel === undefined ? {} : { siteModel: server.siteModel }),
       ...(capture.captured.last === undefined ? {} : { presetOptions: capture.captured.last.options }),

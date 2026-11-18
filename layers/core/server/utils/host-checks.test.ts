@@ -38,6 +38,12 @@ describe("layerHostProblems", () => {
     expect(problems).toEqual([{ code: "preset/unknown-override", severity: "error", owner: "kestrel-web", pipeline: "updateThing", reason: "overrides names updateThing, which the preset does not define" }]);
   });
 
+  it("reports every preset warning as a warning with its code", () => {
+    const message = 'preset: feature "references" needs schema "pages.body" in references-default config – set schemas: referenceSchemas(…) on the entry';
+    const problems = layerHostProblems(input({ presetWarnings: [{ code: "preset/references-needs-schemas", message }] }));
+    expect(problems).toEqual([{ code: "preset/references-needs-schemas", severity: "warning", owner: "kestrel-web", reason: message }]);
+  });
+
   it("reports a site-default config that disagrees with shared/model", () => {
     const configModules = [{ use: "@michaelthielemann/kestrel-site-default", config: { prefixPrimary: false, routes: { pages: { home: "start" } } } }];
     const problems = layerHostProblems(input({ configModules, siteModel: { prefixPrimary: true, homeSlug: "start" } }));

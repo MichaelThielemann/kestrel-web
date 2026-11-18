@@ -112,9 +112,9 @@ export interface Preset {
 }
 
 /**
- * One violation `checkPreset()` found while composing a preset: a stable `code`, the pipeline it concerns
- * when there is one, and a human-readable `message` — the same text `definePreset()` would throw for the
- * first problem it meets.
+ * One violation or warning `checkPreset()` found while composing a preset: a stable `code`, the pipeline it
+ * concerns when there is one, and a human-readable `message` — the same text `definePreset()` throws for the
+ * first problem it meets, or logs for a warning.
  */
 export interface PresetProblem {
   code: string;
@@ -124,22 +124,33 @@ export interface PresetProblem {
 
 export interface PresetSink {
   report(problem: PresetProblem): void;
+  /** A condition the preset still composes with, which the operator should fix. */
+  warn(problem: PresetProblem): void;
 }
 
-/** A sink that throws `Error(message)` at the first reported problem — `definePreset()`'s own behaviour. */
+/**
+ * A sink that throws `Error(message)` at the first reported problem and logs each warning with
+ * `console.warn` — `definePreset()`'s own behaviour.
+ */
 export function throwSink(): PresetSink {
   return {
     report(problem) {
       throw new Error(problem.message);
     },
+    warn(problem) {
+      console.warn(problem.message);
+    },
   };
 }
 
-/** A sink that records every problem and never throws — what `checkPreset()` composes with. */
-export function collectSink(into: PresetProblem[]): PresetSink {
+/** A sink that records every problem and every warning and never throws — what `checkPreset()` composes with. */
+export function collectSink(into: PresetProblem[], warnings: PresetProblem[] = []): PresetSink {
   return {
     report(problem) {
       into.push(problem);
+    },
+    warn(problem) {
+      warnings.push(problem);
     },
   };
 }
@@ -147,19 +158,22 @@ export function collectSink(into: PresetProblem[]): PresetSink {
 export interface CheckPresetResult {
   preset: Preset;
   problems: PresetProblem[];
+  /** The conditions `definePreset()` logs instead of throwing, such as `preset/references-needs-schemas`. */
+  warnings: PresetProblem[];
 }
 
 /**
- * Composes a preset like `definePreset()`, but never throws: every violation it finds is collected into
- * `problems` instead, and composition keeps going as far as it safely can (an override naming an existing
+ * Composes a preset like `definePreset()`, but never throws or logs: every violation it finds is collected
+ * into `problems` instead, every warning into `warnings`, and composition keeps going as far as it safely can (an override naming an existing
  * pipeline is still applied exactly as given, so a boot check downstream sees what the consumer wrote).
  */
 export function checkPreset<C extends Record<string, CollectionModel> = Record<string, CollectionModel>, S extends string = PresetStep>(
   options: PresetOptions<C, S>,
 ): CheckPresetResult {
   const problems: PresetProblem[] = [];
-  const preset = buildPreset(options, collectSink(problems));
-  return { preset, problems };
+  const warnings: PresetProblem[] = [];
+  const preset = buildPreset(options, collectSink(problems, warnings));
+  return { preset, problems, warnings };
 }
 
 const featureFactories: Record<Feature, (context: PresetContext) => FeatureModule> = {
@@ -644,7 +658,7 @@ export function buildPreset<C extends Record<string, CollectionModel> = Record<s
   if (enabledFeatures.has("references")) {
     const missing = missingReferenceSchemas(options.modules, collections, options.fieldTypes, options.collectionsUi);
     if (missing.length > 0) {
-      sink.report({
+      sink.warn({
         code: "preset/references-needs-schemas",
         message: `preset: feature "references" needs ${missing.length === 1 ? "schema" : "schemas"} ${missing.map((key) => `"${key}"`).join(", ")} in references-default config, as validate-jsonschema has them`
           + " – without them a file or page used only inside a content block or a field marked with x-kestrel-ref is not indexed and can be deleted;"

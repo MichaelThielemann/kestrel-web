@@ -2,17 +2,17 @@
 
 ## Unreleased
 
-### Breaking
-
-- With the `references` feature, `definePreset()` throws `preset/references-needs-schemas` when the
-  `references-default` entry lacks a schema it needs from `validate-jsonschema`: every `<collection>.body`
-  schema of a `json` body field (the block schema) and every other `json` field schema given inline that
-  carries `x-kestrel-ref`. The message names the missing keys. A hand-written module list whose
-  `references-default` entry has `targets` alone, as the 3.0.0 example in the consuming guide shows, no longer
-  starts until the entry gets its schemas (see Upgrading). A list built by `presetModuleConfig()` passes.
-
 ### Added
 
+- With the `references` feature, `definePreset()` warns with `preset/references-needs-schemas` when the
+  `references-default` entry lacks a schema it needs from `validate-jsonschema`: every `<collection>.body`
+  schema of a `json` body field (the block schema) and every other `json` field schema given inline that
+  carries `x-kestrel-ref`. The warning names the missing keys and the fix, `schemas: referenceSchemas(…)` on
+  the entry. The server logs it at start and still starts; `kestrel check` reports it as a warning, and
+  `checkPreset()` returns it in `warnings`. A hand-written module list whose `references-default` entry has
+  `targets` alone, as the 3.0.0 example in the consuming guide shows, gets the warning until the entry gets
+  its schemas (see Upgrading). A list built by `presetModuleConfig()` passes. The next major version turns the
+  warning into an error that stops `definePreset()`.
 - `referenceSchemas({ features, collections, collectionsUi, fieldTypes, schemas? })` from `#kestrel/pipelines`
   answers the `schemas` of a `references-default` entry: the schemas of the `json` fields among what
   `presetSchemas()` returns for the same options (or among `schemas`), the block schema of `pages.body`

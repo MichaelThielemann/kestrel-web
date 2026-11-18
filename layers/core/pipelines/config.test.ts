@@ -342,8 +342,8 @@ describe("derived references targets", () => {
     });
 
     expect(fieldOf(fieldOf(configFor(modules, "references-default"), "schemas"), "pages.seo")).toEqual(seo);
-    const problems = checkPreset({ modules, features, collections: contentTypes, collectionsUi: playgroundCollectionsUi, fieldTypes }).problems;
-    expect(problems.map((problem) => problem.code)).not.toContain("preset/references-needs-schemas");
+    const { warnings } = checkPreset({ modules, features, collections: contentTypes, collectionsUi: playgroundCollectionsUi, fieldTypes });
+    expect(warnings.map((warning) => warning.code)).not.toContain("preset/references-needs-schemas");
   });
 });
 

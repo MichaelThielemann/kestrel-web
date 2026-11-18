@@ -18,6 +18,8 @@ export interface LayerHostCheckInput {
   siteModel?: SiteModel;
   collectionsUi: Record<string, WorkflowUi>;
   presetProblems: readonly { code: string; pipeline?: string; message: string }[];
+  /** The preset's warnings, which `definePreset()` logs at boot without stopping it. */
+  presetWarnings?: readonly { code: string; pipeline?: string; message: string }[];
   bootErrors: readonly BootProblem[];
   /** The checked engine's manifest; absent when the boot check stopped before it resolved the modules. */
   manifest?: Manifest;
@@ -39,11 +41,14 @@ function guarded(code: string, check: () => HostProblem[]): HostProblem[] {
 
 /**
  * What the layer's server checks at boot beyond kestrel's own `boot()`, computed from a boot check instead
- * of a running server: the preset's composition problems, `shared/model` against `site-default`, the admin
+ * of a running server: the preset's composition problems and warnings, `shared/model` against `site-default`, the admin
  * bootstrap routes, the public status filters, the media paths, and the fix for an uncut field grant.
  */
 export function layerHostProblems(input: LayerHostCheckInput): HostProblem[] {
   const problems: HostProblem[] = input.presetProblems.map((problem) => error(problem.code, problem.message, problem.pipeline === undefined ? {} : { pipeline: problem.pipeline }));
+  for (const warning of input.presetWarnings ?? []) {
+    problems.push({ code: warning.code, severity: "warning", owner: OWNER, reason: warning.message, ...(warning.pipeline === undefined ? {} : { pipeline: warning.pipeline }) });
+  }
 
   if (input.siteModel !== undefined) {
     const site = siteModelProblem(input.configModules, input.siteModel);

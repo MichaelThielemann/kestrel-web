@@ -356,7 +356,7 @@ wires check/index/guard/unindex into every generic multi collection and a re-ind
 collection's write group, right before its emit), `references.schemas`
 (`referenceSchemas()`: the `json` field schemas from `presetSchemas()`, or from the `schemas` of an override
 on `validate-jsonschema`, which a hand-written list passes the same way; with the `references` feature
-`definePreset` requires every `<collection>.body` schema and every inline one carrying `x-kestrel-ref`; the
+`definePreset` warns about a missing `<collection>.body` schema or inline one carrying `x-kestrel-ref`; the
 block schema marks media and relation fields with `x-kestrel-ref`), `delivery.types` (every
 routed collection), `site-default`'s `routes`, `validate-jsonschema.schemas` via `presetSchemas()`, `publicPath` on
 both media modules from `MEDIA_PUBLIC_PATH`, and, with `delivery`, `publicCopy: { prefix }` on both from

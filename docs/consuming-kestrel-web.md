@@ -483,10 +483,11 @@ Give a hand-written `references-default` entry its `schemas` from `referenceSche
 give `presetSchemas()`, as above: it picks the schemas of the `json` fields from what `presetSchemas()` returns,
 under the same keys and paths, so the built server swaps in the bundled schemas for both modules. Without
 `pages.body` among them the index sees no file or page that only a block uses, and deleting one succeeds
-instead of answering 409, also in a bulk or folder delete; `definePreset()` refuses such an entry with
-`preset/references-needs-schemas`. It asks for each `<collection>.body` schema and each inline `json` field
-schema carrying `x-kestrel-ref`; it reads no other schema file, so a schema file of your own that marks
-references belongs in the entry too. A validator config of your own goes in as `referenceSchemas({ …, schemas })`.
+instead of answering 409, also in a bulk or folder delete; `definePreset()` warns about such an entry with
+`preset/references-needs-schemas`, naming the missing keys and the fix. The server logs the warning at start
+and still starts, and `kestrel check` reports it (§7); the next major version refuses such an entry. The
+check asks for each `<collection>.body` schema and each inline `json` field schema carrying `x-kestrel-ref`;
+it reads no other schema file, so a schema file of your own that marks references belongs in the entry too. A validator config of your own goes in as `referenceSchemas({ …, schemas })`.
 
 Give a hand-written `delivery-static` entry its `siteUrl` from `NUXT_PUBLIC_SITE_URL`, as above: the pages
 build their canonical link, `og:url` and `og:image` from that variable, and the server warns at start when the
@@ -2005,7 +2006,8 @@ the copy; the project itself is never written. Every command prints `plugins: @m
   `site-model` (`site-default` disagrees with `shared/model`), `admin-bootstrap` (login, logout or me not
   at its fixed route), `status-filter` (a public read that does not filter on the declared workflow) and
   `media-paths` (media routes this server cannot answer). A `field-grant-hint` warning names the fix for a
-  field grant no pipeline cuts. It exits 1 on an error, which makes it a CI gate before `nuxt build`.
+  field grant no pipeline cuts, and a `preset/*` warning (the `warnings` of `checkPreset()`, which the server
+  logs at start) names the fix for a configuration the server still starts with. It exits 1 on an error, which makes it a CI gate before `nuxt build`.
 - `kestrel explain <pipeline>` shows a pipeline's steps with their atomic group, its triggers, the events
   it emits and the pipelines listening to them, with the queue lane each delivery runs on; `--json` and
   `--mermaid` are for tools and docs, and `--event <name>` starts from an event instead.
